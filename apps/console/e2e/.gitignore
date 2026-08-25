@@ -1,0 +1,6 @@
+# The shop the `shop` fixture opens and keeps signed in across files — a real refresh token and a
+# real phone number, generated fresh by every local/CI run. Never something to commit: whoever
+# checks it out next replays a dead token, and the phone number is a real Saudi mobile format
+# sitting in git history for no reason a real run needs.
+.session.json
+.phone

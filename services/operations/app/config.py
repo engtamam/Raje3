@@ -257,6 +257,13 @@ class Settings(BaseSettings):
     # the service that writes them. A copy of either here would be evidence about our copy.
     REMINDERS_EVIDENCE_PATH: str = "/internal/reminders/evidence"
     COMPLIANCE_SERVICE_URL: str = ""         # e.g. http://compliance-service:8000
+    # THE ONE QUESTION ASKED OF `bookings`: the shop's own working hours, so a staff member's
+    # custom hours can be refused at write time if they reach outside them. Empty means this
+    # write-time check is simply skipped (bookings intersects defensively at read time regardless
+    # — this is belt, not the only suspender) rather than every staff-hours edit failing closed on
+    # a peer that may not be configured in every environment.
+    BOOKINGS_SERVICE_URL: str = ""           # e.g. http://bookings:8000
+    BOOKINGS_WORKING_HOURS_PATH: str = "/internal/working-hours"
     # WHERE A SHOP'S DATA LIVES, as "service:category" pairs, registered at signup so a DSAR has
     # somewhere to go. Config and not code: a service deployed next month must not need a release
     # of the signup saga, and a deployment that omits one can be seen in one place.

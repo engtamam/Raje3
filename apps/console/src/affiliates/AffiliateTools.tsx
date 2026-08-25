@@ -34,12 +34,18 @@ import {
   replyShopTicket,
   type AffiliateSession, type OutreachStage, type MessageTemplate, type TemplateStat,
   type StatCitation, type PlacesApiKeyInfo, type LeadSearchJob, type ReferredShop,
-  type ShopTicket, type SectorStat,
+  type ShopTicket, type SectorStat, type HomeTicket,
 } from './api';
 
 type View = 'menu' | 'templates' | 'citations' | 'search' | 'sector-stats' | 'tickets';
 
-export function AffiliateTools({ session }: { session: AffiliateSession }) {
+export function AffiliateTools({ session, deepLinkTicket, onConsumeDeepLinkTicket }: {
+  session: AffiliateSession;
+  /** Set by Home's own TicketCarousel (2026-08-23) — a ticket a marketer tapped directly, skipping
+   *  the shop picker and the ticket list entirely, straight into its own thread. */
+  deepLinkTicket?: HomeTicket | null;
+  onConsumeDeepLinkTicket?: () => void;
+}) {
   const [view, setView] = useState<View>('menu');
   const [isManager, setIsManager] = useState<boolean | 'loading'>('loading');
 
@@ -50,6 +56,12 @@ export function AffiliateTools({ session }: { session: AffiliateSession }) {
     return () => { cancelled = true; };
   }, [session]);
 
+  if (deepLinkTicket) {
+    return (
+      <TicketThread session={session} tenant={deepLinkTicket.tenant} ticket={deepLinkTicket}
+                   onBack={() => onConsumeDeepLinkTicket?.()} />
+    );
+  }
   if (view === 'templates') return <TemplateLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'citations') return <CitationLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'search') return <LeadSearchTool session={session} onBack={() => setView('menu')} />;
@@ -325,6 +337,22 @@ function TemplateForm({ session, stages, defaultStage, existing, onDone }: {
   );
 }
 
+/* ── نسخ بضغطة — نفس نمط زر نسخ نص القالب أعلاه، هنا لإعادة الاستخدام مرتين: نص الدليل ورابط
+   المصدر، كل واحد بحالة "تم النسخ" خاصة فيه لا مشتركة بينهما. */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button type="button" variant="ghost" size="icon" aria-label={label}
+           onClick={() => {
+             navigator.clipboard?.writeText(text).then(() => {
+               setCopied(true); setTimeout(() => setCopied(false), 2000);
+             }).catch(() => {});
+           }}>
+      {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+    </Button>
+  );
+}
+
 /* ── مكتبة الأدلة ─────────────────────────────────────────────────────────────────────────────── */
 function CitationLibrary({ session, isManager, onBack }: {
   session: AffiliateSession; isManager: boolean; onBack: () => void;
@@ -372,21 +400,37 @@ function CitationLibrary({ session, isManager, onBack }: {
               <span className="font-medium">{c.title}</span>
               <p className="text-sm text-text-secondary">{c.body}</p>
               {c.source_label ? (
-                <a href={c.source_url || undefined} target="_blank" rel="noreferrer"
-                   className="text-xs text-accent">المصدر: {c.source_label}</a>
-              ) : null}
-              {isManager ? (
-                <div className="flex items-center gap-1.5">
-                  <Button type="button" variant="ghost" size="icon" aria-label="تعديل"
-                         onClick={() => setEditing(c)}>
-                    <Pencil size={16} />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" aria-label="تعطيل"
-                         onClick={async () => { await deactivateStatCitation(session, c.id); load(); }}>
-                    <Ban size={16} className="text-danger" />
-                  </Button>
+                <div className="flex items-center gap-1">
+                  {/* A LINK ONLY WHEN THERE IS SOMEWHERE TO GO — an `<a>` with no `href` still
+                      renders in link-blue and is not clickable, which is indistinguishable from
+                      a broken link to a manager reading it. An internal calculation (no external
+                      report to point at) shows as plain text instead of a fake link. */}
+                  {c.source_url ? (
+                    <a href={c.source_url} target="_blank" rel="noreferrer"
+                       className="text-xs text-accent underline">المصدر: {c.source_label}</a>
+                  ) : (
+                    <span className="text-xs text-text-secondary">المصدر: {c.source_label}</span>
+                  )}
+                  {c.source_url ? (
+                    <CopyButton text={c.source_url} label="نسخ رابط المصدر" />
+                  ) : null}
                 </div>
               ) : null}
+              <div className="flex items-center gap-1.5">
+                <CopyButton text={c.body} label="نسخ نص الدليل" />
+                {isManager ? (
+                  <>
+                    <Button type="button" variant="ghost" size="icon" aria-label="تعديل"
+                           onClick={() => setEditing(c)}>
+                      <Pencil size={16} />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" aria-label="تعطيل"
+                           onClick={async () => { await deactivateStatCitation(session, c.id); load(); }}>
+                      <Ban size={16} className="text-danger" />
+                    </Button>
+                  </>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>

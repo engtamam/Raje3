@@ -1,7 +1,7 @@
 # =============================================================================
 # affiliate-service — §٦ Lead Sourcing: Google Places API key management (BYOK per manager)
 # -----------------------------------------------------------------------------
-# Tamam, 2026-08-20 (recommended, approved): a manager brings HIS OWN Google Places API key, not
+# A manager brings HIS OWN Google Places API key, not
 # necessarily the company's. Reuses SecretStore (app/core/secret_store.py) — the exact write-
 # only, KEK-sealed mechanism already built for operator-managed credentials — keyed by the
 # manager's OWN affiliate id as the "tenant". That is not a hack: SecretStore.get()'s own

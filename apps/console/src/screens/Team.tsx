@@ -21,8 +21,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
-import { Field, Input } from '../rj-ui/Field';
+import { Field, Input, Select } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
+import { Toggle } from '../rj-ui/Toggle';
+import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { Check, Lock, Megaphone, ShieldCheck, UserCog, UserRound } from 'lucide-react';
@@ -33,6 +35,8 @@ import { branchGate } from '../branches';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 
+interface DayHours { closed?: boolean; start_minute?: number; end_minute?: number }
+
 interface Operator {
   id: string; name: string; role?: string; active?: boolean;
   /** Where he WORKS — one place, and it decides where his visits are counted. */
@@ -40,6 +44,23 @@ interface Operator {
   /** What he may SEE, which is a different question and often a wider answer. */
   visible_branch_ids?: string[];
   visible_all?: boolean;
+  /** `null`/absent = inherits the shop's own hours in full (the zero-config default — most
+   *  shops never touch this). A real object = an explicit manual override for this one person. */
+  working_hours?: Record<string, DayHours> | null;
+}
+
+// نفس ترتيب العرض وتسمية الأيام في WorkingHoursDialog.tsx — الأحد أولاً، ونفس ترقيم weekday()
+// المخزَّن فعلياً بلا أي ترجمة.
+const HOURS_DISPLAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
+const HOURS_DAY_LABEL: Record<number, string> = {
+  6: 'الأحد', 0: 'الاثنين', 1: 'الثلاثاء', 2: 'الأربعاء', 3: 'الخميس', 4: 'الجمعة', 5: 'السبت',
+};
+function hoursMinutesToTime(m: number): string {
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+function hoursTimeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
 }
 
 /**
@@ -63,6 +84,10 @@ const ROLES: { value: string; label: string; can: string; icon: typeof UserRound
   { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب', icon: UserCog },
 ];
 interface Branch { id: string; name: string; active?: boolean }
+
+/** Just enough of a service to list it as a candidate — mirrors Services.tsx's own reading of
+ *  `eligible_staff_ids` (empty/absent = every active operator, the zero-config default). */
+interface ServiceLite { id: string; name: string; active?: boolean; eligible_staff_ids?: string[] }
 
 /** What the branch comparison already computes for the whole shop (insights, spec 10.6.3). */
 interface BranchStat { branch_id?: string; visits?: number; customers?: number }
@@ -102,6 +127,11 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
    * explain.
    */
   const [pinKind, setPinKind] = useState(false);
+  // FOR THE SAME EDIT «تخصيص دوام» ALREADY OFFERS, ON THE OTHER SIDE OF THE SAME FACT — an owner
+  // asking "what does HE do" is the mirror of Services.tsx's own "who does THIS", and the answer
+  // lives in the exact same field (`Service.eligible_staff_ids`), just read from the operator's
+  // row instead of the service's.
+  const [services, setServices] = useState<ServiceLite[] | null | undefined>(undefined);
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
@@ -109,8 +139,22 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   const addBranch = action(catalog, 'operations.create_branch');
   const editBranch = action(catalog, 'operations.update_branch');
   const listBranches = action(catalog, 'operations.list_branches');
+  const setHours = action(catalog, 'operations.set_staff_hours');
+  const clearHours = action(catalog, 'operations.clear_staff_hours');
+  // SAME ACTION SERVICES.TSX PATCHES SERVICES WITH — no new route, no new capability; this pane
+  // just calls the same PATCH from the operator's side of the same field.
+  const updateService = action(catalog, 'operations.update_service');
 
   const load = () => {
+    const svc = action(catalog, 'operations.manage_services') ?? action(catalog, 'operations.list_services');
+    if (svc) {
+      call<{ services: ServiceLite[] }>(session, svc)
+        .then((x) => setServices(x.services ?? []))
+        .catch(() => setServices(null));
+    } else {
+      setServices(null);
+    }
+
     const o = action(catalog, 'operations.list_operators');
     if (o) {
       call<{ operators: Operator[]; pin_operators_enabled?: boolean }>(session, o)
@@ -174,6 +218,10 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
             add={addOperator}
             edit={action(catalog, 'operations.update_operator')}
             hire={action(catalog, 'operations.hire_member')}
+            setHours={setHours}
+            clearHours={clearHours}
+            services={services}
+            updateService={updateService}
             pinKind={pinKind}
             onChanged={load}
           />
@@ -195,13 +243,18 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
 
 // EXPORTED FOR THE SAME REASON `Branches` IS BELOW: its own test needs it directly rather than
 // driving the whole `TeamScreen` (catalogue, both reads, both tabs) to reach one form.
-export function People({ session, operators, branches, add, edit, hire, pinKind, onChanged }: {
+export function People({ session, operators, branches, add, edit, hire, setHours, clearHours,
+                        services, updateService, pinKind, onChanged }: {
   session: Session;
   operators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
   hire: ReturnType<typeof action>;
+  setHours?: ReturnType<typeof action>;
+  clearHours?: ReturnType<typeof action>;
+  services?: ServiceLite[] | null;
+  updateService?: ReturnType<typeof action>;
   /** Whether this deployment offers «رمز على الجهاز» at all — the server's answer, not a guess. */
   pinKind: boolean;
   onChanged: () => void;
@@ -290,8 +343,9 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
       ) : (
         <ul className="flex flex-col gap-2">
           {operators.map((o) => (
-            <OperatorRow key={o.id} session={session} o={o} branches={branches} edit={edit}
-                        onChanged={onChanged} />
+            <OperatorRow key={o.id} session={session} o={o} allOperators={operators} branches={branches}
+                        edit={edit} setHours={setHours} clearHours={clearHours}
+                        services={services} updateService={updateService} onChanged={onChanged} />
           ))}
         </ul>
       )}
@@ -356,14 +410,13 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
               different shape. */}
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-text-secondary">فرعه</span>
-            <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
-                    value={branchId} aria-label="فرع الموظف" required
-                    onChange={(e) => setBranchId(e.target.value)}>
+            <Select value={branchId} aria-label="فرع الموظف" required
+                   onChange={(e) => setBranchId(e.target.value)}>
               <option value="" disabled>اختر الفرع…</option>
               {(branches ?? []).filter((b) => b.active !== false).map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
-            </select>
+            </Select>
             <span className="text-xs text-text-secondary">
               {kind === 'pin'
                 ? 'الزيارات التي يسجّلها تُنسب لهذا الفرع.'
@@ -449,11 +502,17 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
  * an owner just never had a control that called it for any of the three, on any shop, branch
  * count irrelevant. An employee who left could not be stopped from this screen at all.
  */
-function OperatorRow({ session, o, branches, edit, onChanged }: {
+function OperatorRow({ session, o, allOperators, branches, edit, setHours, clearHours,
+                       services, updateService, onChanged }: {
   session: Session;
   o: Operator;
+  allOperators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
   edit: ReturnType<typeof action>;
+  setHours?: ReturnType<typeof action>;
+  clearHours?: ReturnType<typeof action>;
+  services?: ServiceLite[] | null;
+  updateService?: ReturnType<typeof action>;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -461,6 +520,104 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
   const [role, setRole] = useState(o.role ?? 'operator');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // مطوي افتراضياً دائماً — «تخصيص دوام» لا يُرى إطلاقاً من محل ما لمسه أبداً (§3 من الخطة).
+  const [hoursOpen, setHoursOpen] = useState(false);
+  const [hoursDraft, setHoursDraft] = useState<Record<string, DayHours>>(o.working_hours ?? {});
+  const [hoursBusy, setHoursBusy] = useState(false);
+  const [hoursError, setHoursError] = useState('');
+  const customised = Boolean(o.working_hours);
+
+  function setDay(day: number, patch: Partial<DayHours>) {
+    setHoursDraft((cur) => ({
+      ...cur,
+      [day]: { ...(cur[day] ?? { closed: false, start_minute: 480, end_minute: 1320 }), ...patch },
+    }));
+  }
+
+  async function saveHours() {
+    if (!setHours) return;
+    setHoursBusy(true);
+    setHoursError('');
+    try {
+      const weekly: Record<string, DayHours> = {};
+      for (let d = 0; d < 7; d++) {
+        weekly[String(d)] = hoursDraft[String(d)]
+          ?? { closed: false, start_minute: 480, end_minute: 1320 };
+      }
+      await call(session, setHours, { id: o.id, weekly });
+      setHoursOpen(false);
+      onChanged();
+    } catch (err) {
+      setHoursError(err instanceof Error ? err.message : 'تعذّر حفظ الدوام.');
+    } finally {
+      setHoursBusy(false);
+    }
+  }
+
+  async function resetHours() {
+    if (!clearHours) return;
+    setHoursBusy(true);
+    setHoursError('');
+    try {
+      await call(session, clearHours, { id: o.id });
+      setHoursOpen(false);
+      onChanged();
+    } catch (err) {
+      setHoursError(err instanceof Error ? err.message : 'تعذّر إعادة الدوام.');
+    } finally {
+      setHoursBusy(false);
+    }
+  }
+
+  // «أي خدمات يسوّيها» — الوجه الآخر لنفس الحقل اللي «خدماتي» تُخصّصه من جهة الخدمة (§3 من خطة
+  // الحجوزات الذكية). نفس منيو الفلترة المستخدمة في كل مكان آخر بالكونسول (`rj-ui/FilterMenu`) —
+  // زر بعدّاد + منيو بمربعات اختيار، لا صف خام من checkbox مبعثرة.
+  const [servicesBusy, setServicesBusy] = useState(false);
+  const [servicesError, setServicesError] = useState('');
+
+  async function toggleService(svc: ServiceLite) {
+    if (!updateService) return;
+    const activeIds = (allOperators ?? []).filter((op) => op.active !== false).map((op) => op.id);
+    const current = svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
+      ? new Set(svc.eligible_staff_ids)
+      : new Set(activeIds);   // «كل الموظفين» — لا قيد بعد
+    if (current.has(o.id)) current.delete(o.id); else current.add(o.id);
+    // لا نخزّن «الجميع بالاسم» أبداً — نفس قاعدة Services.tsx بالضبط: الموظف السادس المضاف
+    // مستقبلاً لازم يبقى مؤهلاً تلقائياً لخدمة لم يقيّدها أحد، لا مستبعداً بصمت من قائمة جامدة.
+    const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
+    setServicesBusy(true);
+    setServicesError('');
+    try {
+      await call(session, updateService, { id: svc.id, eligible_staff_ids });
+      onChanged();
+    } catch (err) {
+      setServicesError(err instanceof Error ? err.message : 'تعذّر حفظ التعديل.');
+    } finally {
+      setServicesBusy(false);
+    }
+  }
+
+  // FilterMenu ONLY KNOWS "the new full selection", NOT which box(es) changed — eligibility is
+  // stored per SERVICE, not per operator, so the actual write is a diff against what was selected
+  // a moment ago, applied to EVERY service that changed (one call each — "مسح الكل" alone can
+  // change every box at once, not just the first one a naive single-diff would catch).
+  function isEligible(svc: ServiceLite): boolean {
+    return svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
+      ? svc.eligible_staff_ids.includes(o.id)
+      : true;   // «كل الموظفين» — لا قيد بعد
+  }
+  const activeServices = (services ?? []).filter((s) => s.active !== false);
+  const eligibleServiceIds = activeServices.filter(isEligible).map((s) => s.id);
+  async function onServicesChange(next: string[]) {
+    const changedIds = [
+      ...next.filter((id) => !eligibleServiceIds.includes(id)),
+      ...eligibleServiceIds.filter((id) => !next.includes(id)),
+    ];
+    for (const id of changedIds) {
+      const svc = activeServices.find((s) => s.id === id);
+      if (svc) await toggleService(svc);
+    }
+  }
 
   async function save() {
     if (!edit) return;
@@ -533,10 +690,9 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
           </Field>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-text-secondary">الدور</span>
-            <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
-                    value={role} onChange={(e) => setRole(e.target.value)}>
+            <Select value={role} onChange={(e) => setRole(e.target.value)}>
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
+            </Select>
           </label>
           <Button type="button" disabled={busy} onClick={save}>حفظ</Button>
           <Button type="button" variant="ghost" onClick={() => setEditing(false)}>إلغاء</Button>
@@ -556,9 +712,9 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
            a real branch to clear it, same as adding somebody new. */
         edit ? (
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-text-secondary">فرعه</span>
-            <select
-              className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+            <span className="shrink-0 text-text-secondary">فرعه</span>
+            <Select
+              className="w-auto"
               value={o.branch_id ?? ''}
               aria-label={`فرع ${o.name}`}
               onChange={async (e) => {
@@ -572,7 +728,7 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
               {(branches ?? []).filter((b) => b.active !== false).map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
-            </select>
+            </Select>
           </label>
         ) : null
       )}
@@ -626,6 +782,86 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
               );
             })}
         </fieldset>
+      ) : null}
+
+      {/* دوام مخصص — مطويّ افتراضياً بالكامل، ولا يظهر إطلاقاً لمن لا صلاحية له. محل لا يفتحه
+          أبداً لا يرى منه غير هذا الزر، ودوام الموظف يبقى دوام المحل بلا أي تغيير محسوس. */}
+      {o.active !== false && setHours && clearHours ? (
+        <div className="text-sm">
+          <button type="button" className="text-text-secondary underline underline-offset-2"
+                  onClick={() => { setHoursDraft(o.working_hours ?? {}); setHoursOpen((v) => !v); }}>
+            {customised ? 'دوام مخصص لهذا الموظف' : 'تخصيص دوام'}
+          </button>
+
+          {hoursOpen ? (
+            <div className="mt-2 flex flex-col gap-2 rounded-xl bg-surface-2 p-2">
+              {HOURS_DISPLAY_ORDER.map((day) => {
+                const d = hoursDraft[String(day)]
+                  ?? { closed: false, start_minute: 480, end_minute: 1320 };
+                return (
+                  <div key={day} className="flex items-center gap-3">
+                    <span className="w-16 shrink-0 text-xs font-semibold">
+                      {HOURS_DAY_LABEL[day]}
+                    </span>
+                    <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-secondary">
+                      <input type="checkbox" checked={!d.closed}
+                            onChange={(e) => setDay(day, { closed: !e.target.checked })} />
+                      مفتوح
+                    </label>
+                    {!d.closed ? (
+                      <div className="flex flex-1 items-center gap-2">
+                        <input type="time" value={hoursMinutesToTime(d.start_minute ?? 480)}
+                              onChange={(e) => setDay(day, { start_minute: hoursTimeToMinutes(e.target.value) })}
+                              className="h-9 rounded-lg bg-surface-1 px-2 text-xs" dir="ltr" />
+                        <span className="text-text-secondary">إلى</span>
+                        <input type="time" value={hoursMinutesToTime(d.end_minute ?? 1320)}
+                              onChange={(e) => setDay(day, { end_minute: hoursTimeToMinutes(e.target.value) })}
+                              className="h-9 rounded-lg bg-surface-1 px-2 text-xs" dir="ltr" />
+                      </div>
+                    ) : (
+                      <span className="flex-1 text-xs text-text-muted">مغلق</span>
+                    )}
+                  </div>
+                );
+              })}
+
+              {hoursError ? <p role="alert" className="text-danger text-xs">{hoursError}</p> : null}
+
+              <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-2">
+                {customised ? (
+                  <Button type="button" variant="ghost" className="text-xs" disabled={hoursBusy}
+                          onClick={resetHours}>
+                    الرجوع لدوام المحل
+                  </Button>
+                ) : null}
+                <Button type="button" variant="ghost" className="text-xs"
+                        onClick={() => setHoursOpen(false)}>
+                  إلغاء
+                </Button>
+                <Button type="button" className="text-xs" disabled={hoursBusy} onClick={saveHours}>
+                  حفظ
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* «أي خدمات يسوّيها» — نفس شرط ظهور «من يقدر يسوّيها» في «خدماتي»: لا معنى له إن كان
+          عندك موظف نشط واحد فقط، فلا يظهر إطلاقاً في تلك الحالة. */}
+      {o.active !== false && updateService
+          && (allOperators ?? []).filter((op) => op.active !== false).length > 1
+          && activeServices.length > 0 ? (
+        <div>
+          <FilterMenu
+            label="أي خدمات يسوّيها"
+            options={activeServices.map((s) => ({ value: s.id, label: s.name }))}
+            selected={eligibleServiceIds}
+            onChange={onServicesChange}
+          />
+          {servicesBusy ? <p className="mt-1 text-xs text-text-secondary">جارٍ الحفظ…</p> : null}
+          {servicesError ? <p role="alert" className="mt-1 text-xs text-danger">{servicesError}</p> : null}
+        </div>
       ) : null}
     </li>
   );
@@ -866,21 +1102,17 @@ export function VehiclesCard({ session, catalog }: { session: Session; catalog: 
 
   return (
     <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-      <h3 className="font-medium">العمل على السيارات</h3>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="size-5"
-          checked={tracks === true}
-          disabled={busy || !write}
-          onChange={(e) => flip(e.target.checked)}
-        />
-        <span>عملي يتم على السيارات</span>
-      </label>
-      <p className="text-sm text-text-secondary">
-        إن فعّلته ظهرت صفحة رقم اللوحة والعدّاد في «تسجيل زيارة»، وارتبطت الدورة بالسيارة لا
-        بصاحبها وحده. غيّره متى تغيّر عملك.
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span className="text-sm font-medium">العمل على السيارات</span>
+          <span className="text-xs text-text-secondary">
+            إن فعّلته ظهرت صفحة رقم اللوحة والعدّاد في «تسجيل زيارة»، وارتبطت الدورة بالسيارة لا
+            بصاحبها وحده. غيّره متى تغيّر عملك.
+          </span>
+        </span>
+        <Toggle checked={tracks === true} disabled={busy || !write} onChange={flip}
+               ariaLabel="عملي يتم على السيارات" testId="vehicles-toggle" />
+      </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
     </section>
   );

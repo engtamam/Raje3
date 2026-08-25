@@ -36,7 +36,7 @@
 #   and no CronJob for it, so a fleet nobody ships to for a month accumulates exactly what this
 #   script exists to remove: sixteen dead pods held 2410m on the pilot before the first sweep, and
 #   they got there over five days of not deploying. A standing schedule is the honest answer, and
-#   it is Tamam's to authorise because it means something deleting objects on a live cluster on a
+#   it needs explicit authorisation because it means something deleting objects on a live cluster on a
 #   timer rather than under a human's hand.
 #
 #   The claim was written before the schedule existed. It is corrected here rather than

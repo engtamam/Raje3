@@ -86,6 +86,7 @@ def build_manifest(
             # while every probe stays green (trap §4.1).
             {"path": "/internal/insights/tick", "tier": "internal", "method": "POST"},
             {"path": "/internal/insights/digest", "tier": "internal", "method": "POST"},
+            {"path": "/internal/insights/platform-rollup", "tier": "internal", "method": "POST"},
             # For campaigns: the share of today's ceiling the engine needs kept back, so a campaign
             # is promised against what is actually free rather than the whole allowance.
             {"path": "/internal/insights/engine-reserve", "tier": "internal", "method": "GET"},
@@ -98,6 +99,8 @@ def build_manifest(
              "erasure_category": "subject"},
             # ── the owner's dashboard ─────────────────────────────────────────────────────
             {"path": "/api/v1/insights/dashboard", "tier": "user", "method": "GET"},
+            # «ليس الآن» — cools one next-step rule so a different one leads for a while.
+            {"path": "/api/v1/insights/next-step/dismiss", "tier": "user", "method": "POST"},
             # THE OWNER'S OWN RECOMPUTE. Recomputing existed for support only, so a shop that
             # recorded visits this morning had to wait for the sweep to see them.
             {"path": "/api/v1/insights/refresh", "tier": "user", "method": "POST"},
@@ -110,6 +113,7 @@ def build_manifest(
             {"path": "/api/v1/insights/digest", "tier": "user", "method": "GET"},
             # OURS: support recomputing a snapshot for a shop that is not theirs.
             {"path": "/api/v1/insights/platform/recompute", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/insights/platform/summary", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the

@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
 
 _READ = require_capability("bookings.read")
 _WRITE = require_capability("bookings.write")
-# A THIRD CAPABILITY, NOT bookings.write (Tamam, 2026-08-19: "مو اي موظف يقدر يعدل لازم صلاحيات
+# A THIRD CAPABILITY, NOT bookings.write ("مو اي موظف يقدر يعدل لازم صلاحيات
 # معينة") — working hours are a POLICY every branch and every operator's own schedule reads from,
 # the same distance `operations.manage` keeps from `operations.record`: an operator who may take
 # a booking must not thereby be able to redefine when the shop is open. Owner and manager hold it
@@ -128,7 +128,7 @@ async def bookings_for_customer(request: Request, customer_id: str,
 @router.get("/working-hours", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def read_working_hours(request: Request,
                              principal: Principal = Depends(require_user)) -> dict:
-    """The shop's own weekly policy — every branch shares it (Tamam, 2026-08-19). Anyone who can
+    """The shop's own weekly policy — every branch shares it. Anyone who can
     read the grid may read this; only `bookings.manage` may change it (see `_MANAGE` above)."""
     tenant = _tenant(principal)
     c = request.app.state.container
@@ -163,10 +163,17 @@ async def write_working_hours(request: Request, body: WorkingHoursIn,
 
 @router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def nearest_slot(request: Request, branch_id: str, operator_id: str,
-                       service_ids: str, after: int,
+                       service_ids: str, after: int, exclude_booking_id: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """The "أقرب فتحة" button (§6.2) — `service_ids` is a comma-separated list, since query
-    params carry no arrays cleanly. `null` when nothing is free in the search window."""
+    params carry no arrays cleanly. `null` when nothing is free in the search window.
+
+    `exclude_booking_id` IS FOR RESCHEDULING ONE THAT ALREADY EXISTS. Without it, an edit of a
+    booking asks "when is this operator free?" while that operator's own diary still contains the
+    very appointment being moved — so its current hour reads as taken and, for a long service on a
+    busy day, the answer comes back "لا فتحة فاضية هذا اليوم" for a booking that is sitting in a
+    perfectly good slot right now. The one booking being edited is not a conflict with itself.
+    """
     tenant = _tenant(principal)
     await _require_branch(request, principal, branch_id)
     c = request.app.state.container
@@ -174,7 +181,7 @@ async def nearest_slot(request: Request, branch_id: str, operator_id: str,
     try:
         found = await c.booking_ops.nearest_slot(
             tenant=tenant, branch_id=branch_id, operator_id=operator_id,
-            service_ids=ids, after=after)
+            service_ids=ids, after=after, exclude_booking_id=exclude_booking_id)
     except OperationError as exc:
         return _handle(exc)
     return {"starts_at": found}
@@ -190,7 +197,7 @@ class CreateIn(BaseModel):
     idempotency_key: str = Field(default="", max_length=128)
     series_id: str | None = None
     series_seq: int | None = None
-    # "بدون عربون بعربون او مدفوع" (Tamam, 2026-08-19) — one of PAYMENT_STATES.
+    # "بدون عربون بعربون او مدفوع" — one of PAYMENT_STATES.
     payment_status: str = Field(default="none", pattern=r"^(none|deposit|paid)$")
     # Required by operations.py when payment_status is "deposit"; ignored otherwise.
     deposit_amount_minor: int | None = Field(default=None, ge=0)

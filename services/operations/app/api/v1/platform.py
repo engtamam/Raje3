@@ -28,7 +28,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import evidence as EV
-from app.core.stores import PrivacyRequestStore
+from app.core.stores import BranchStore, PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry
 from app.core.templates import TemplateError, TemplateLibrary
 from app.api.subscribed import no_subscription_needed, subscribed_write
@@ -414,3 +414,54 @@ async def evidence_file(request: Request, body: EvidenceRequest,
         consent_reader=getattr(c, "evidence_peer", None),
         legal_reader=getattr(c, "legal_acceptances", None))
     return await file.build(body.tenant, since=body.since, until=body.until, actor=actor)
+
+
+@router.get("/branches/locations", dependencies=[Depends(rate_limit)])
+async def branch_locations(request: Request, limit: int = 200, after: str = "",
+                           principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Every ACTIVE branch across every tenant that has actually located itself — for the admin
+    panel's own map. Crosses the tenancy wall this service's own
+    `core/stores.py` header note exists to enforce everywhere else, so it is fenced the same way
+    `BranchStore.browse_platform` documents: capability-gated (`platform.operations`), a bounded
+    page, and audited here — never a raw unfiltered scan reachable from a route.
+
+    ROWS WITH NO LOCATION SET ARE DROPPED, not shown at (0, 0) — an owner who never opened
+    «فريقي» and set a location said nothing, and (0, 0) is a real point in the Gulf of Guinea, not
+    a null island convention this response invents on his behalf.
+    """
+    await request.app.state.auditor.record(
+        "platform.branch_locations_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant="", resource="branches:all-tenants",
+        ip=request.client.host if request.client else "")
+    store = BranchStore(request.app.state.container.datastore)
+    rows, nxt = await store.browse_platform(limit=limit, after=after or None)
+    located = [b.public() for b in rows if b.lat != 0.0 or b.lng != 0.0]
+    return {"branches": located, "next_cursor": nxt}
+
+
+@router.get("/whatsapp/diagnostics", dependencies=[Depends(rate_limit)])
+async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_id: str = "",
+                               principal: Principal = Depends(_PLATFORM)) -> dict:
+    """«ليش واتساب هذا المحل معطّل؟» — one shop's own delivery history, read by tenant id or by
+    Meta's phone_number_id (an operator usually has the number first, not our internal id).
+
+    THE PANEL'S DOOR, THE INTERNAL ROUTE STAYS SEPARATE — same rule as `evidence_file` above:
+    `notification-service`'s own `/internal/whatsapp/deliveries` is guarded by a shared service
+    token, never a declared admin action there. This route is the operator surface: gated by
+    `platform.operations`, audited here by the actual person asking, and the peer call happens
+    through `container.whatsapp_diagnostics` so the browser's token never has to carry the
+    internal one.
+    """
+    if not tenant and not phone_number_id:
+        return _refuse("مرّر tenant أو phone_number_id — لا بحث بلا أحدهما.")
+    await request.app.state.auditor.record(
+        "platform.whatsapp_diagnostics_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant, resource=f"whatsapp:{tenant or phone_number_id}",
+        ip=request.client.host if request.client else "")
+    desk = request.app.state.container.whatsapp_diagnostics
+    out = (await desk.by_tenant(tenant)) if tenant else (await desk.by_phone_number_id(phone_number_id))
+    if out is None:
+        return JSONResponse(
+            {"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
+            status_code=502)
+    return out

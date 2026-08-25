@@ -123,7 +123,7 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         await request.app.state.auditor.record(
             "whatsapp.connect_stopped", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource="whatsapp_connection", ip=ip)
-        return attempt.public(can_send=await _can_send(tenant, attempt))
+        return attempt.public(can_send=await _can_send(identity, attempt))
 
     if not body.code:
         # A FINISH WITHOUT A CODE. Not a cancellation and not a failure of ours; it is the one shape
@@ -208,11 +208,18 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the
     # second is open the screen says so rather than sending him off to wait for messages that
     # cannot leave.
-    return attempt.public(can_send=await _can_send(tenant, attempt))
+    return attempt.public(can_send=await _can_send(identity, attempt))
 
 
-async def _can_send(tenant: str, attempt) -> bool:
+async def _can_send(identity: str, attempt) -> bool:
     """Can a message actually leave — the ONE answer both doors give (د-16).
+
+    `identity` IS THE SENDING IDENTITY (`tenant` or `tenant:branch`), NEVER THE BARE TENANT — the
+    credential Meta's registration status is read against is sealed under that composite key
+    (`connect.py`'s own note on `/connect/register`: "THE SEAL IS KEYED BY THE SENDING IDENTITY").
+    Both call sites used to pass the bare tenant here even for a branch's own connection, which
+    would have asked Meta about the ESTABLISHMENT's number while reporting on a BRANCH's — the
+    exact "connected, green, and mute" defect this function exists to prevent, just one door over.
 
     THE DEFECT WAS TWO ANSWERS. The GET computed this properly; the POST returned
     `SIGNUP_OTP_DELIVERABLE` alone. And the screen reads the POST first — `Connect.tsx`
@@ -237,17 +244,27 @@ async def _can_send(tenant: str, attempt) -> bool:
     channel_open = bool(s.SIGNUP_OTP_DELIVERABLE)
     if not channel_open or attempt.state != connect.STATE_CONNECTED:
         return channel_open
-    live = await connect.build_registration(s).status(tenant, attempt.phone_number_id)
+    live = await connect.build_registration(s).status(identity, attempt.phone_number_id)
     verified = str(live.get("code_verification_status") or "").upper()
     return verified in ("VERIFIED", "EXPIRED_VERIFIED") if verified else channel_open
 
 
 @router.get("/connect", dependencies=[Depends(rate_limit)])
-async def whatsapp_connect_status(request: Request, principal=Depends(_OWNER)) -> Any:
-    """Where this establishment stands. The screen reads it after the popup closes, and support
-    reads it when an owner says nothing happened."""
+async def whatsapp_connect_status(request: Request, branch_id: str = "",
+                                  principal=Depends(_OWNER)) -> Any:
+    """Where this establishment — or, in per_branch mode, this ONE BRANCH — stands. The screen
+    reads it after the popup closes, and support reads it when an owner says nothing happened.
+
+    `branch_id` WAS ACCEPTED EVERYWHERE ELSE AND NOWHERE HERE. `ConnectionStore.get` already takes
+    it, the POST routes already resolve it — this was the one door that could not answer "is THIS
+    branch's number connected", so a chain's second branch always read its OWN status as the
+    establishment's (or as unconnected, once a central attempt existed under the bare tenant key).
+    """
     tenant = getattr(principal, "tenant", "") or ""
-    attempt = await connect.ConnectionStore(request.app.state.container.datastore).get(tenant)
+    c = request.app.state.container
+    identity = await SI.resolve(c.datastore, tenant, branch_id)
+    resolved_branch = SI.split(identity)[1]
+    attempt = await connect.ConnectionStore(c.datastore).get(tenant, resolved_branch)
     if attempt is None:
         return {"state": "", "step": "", "message": "لم تبدأ الربط بعد.", "at": 0,
                 "can_send": False}
@@ -262,7 +279,7 @@ async def whatsapp_connect_status(request: Request, principal=Depends(_OWNER)) -
     # AND «WE COULD NOT ASK» IS NOT «NOT READY». An unreadable status leaves the answer to the
     # deployment flag alone rather than telling him his number is unverified — a screen that
     # invents a fault sends him chasing one.
-    return attempt.public(can_send=await _can_send(tenant, attempt))
+    return attempt.public(can_send=await _can_send(identity, attempt))
 
 
 class RegisterIn(BaseModel):

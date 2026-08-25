@@ -78,28 +78,45 @@ values:
 
 # ── الملحق (أ) — تفاصيل المعالجة ─────────────────────────────────────────────────────────────
 annex_a:
+  # THE PASS THAT CAUGHT THIS: this Annex predates services/bookings entirely — the platform's own
+  # scheduling system (creating, rescheduling, attending, and no-showing an appointment) was
+  # running for the whole of this build with NO purpose or category naming it here. Under Art.
+  # 17-4 that is not a paperwork gap: unwritten processing is the PROCESSOR's own purpose, with
+  # direct liability. Same for the AI feature — Annex C named the sub-processor, but the PURPOSE
+  # (composing a conversational reply, proposing or confirming a booking through it) was never
+  # stated here either. Both are added now, matched to what the code actually does, not a
+  # marketing description of it.
   purpose:
     ar: >-
-      تشغيل منصة راجِع للمنشأة: تسجيل زيارات عملائها، وجدولة رسائل المتابعة والتذكير وإرسالها عبر
-      واتساب باسم المنشأة، وإدارة برنامج الولاء ونقاطه، واحتساب مؤشرات أداء المنشأة وتقاريرها،
-      وتنفيذ الحملات التسويقية التي تُطلقها المنشأة بنفسها، وصفحة العميل التي يدير منها موافقته
-      ويطلب حذف بياناته.
+      تشغيل منصة راجِع للمنشأة: تسجيل زيارات عملائها، وإدارة حجوزات مواعيدها (إنشاءً وتعديلاً
+      وإلغاءً وتسجيل حضور أو عدم حضور)، وجدولة رسائل المتابعة والتذكير وإرسالها عبر واتساب باسم
+      المنشأة — بما فيها الردود الآلية التي تُنتجها ميزة الذكاء الاصطناعي عند تفعيل المنشأة لها،
+      وما تقترحه أو تُنفّذه من حجوزات بناءً على تأكيد صريح من العميل — وإدارة برنامج الولاء
+      ونقاطه، واحتساب مؤشرات أداء المنشأة وتقاريرها، وتنفيذ الحملات التسويقية التي تُطلقها
+      المنشأة بنفسها، وصفحة العميل التي يدير منها موافقته ويطلب حذف بياناته.
     en: >-
       Operating the Raje3 platform for the Establishment: recording its customers' visits;
-      scheduling and sending follow-up and reminder messages over WhatsApp in the Establishment's
-      name; running its loyalty programme and points; computing its performance indicators and
-      reports; executing marketing campaigns the Establishment itself launches; and the customer
-      page on which a customer manages consent and requests erasure.
+      managing its appointment bookings (creating, rescheduling, cancelling, and recording
+      attendance or no-shows); scheduling and sending follow-up and reminder messages over
+      WhatsApp in the Establishment's name — including the automated replies the AI feature
+      produces where the Establishment activates it, and any booking it proposes or executes on
+      the customer's explicit confirmation; running its loyalty programme and points; computing
+      its performance indicators and reports; executing marketing campaigns the Establishment
+      itself launches; and the customer page on which a customer manages consent and requests
+      erasure.
   categories:
     ar: >-
-      رقم جوال العميل واسمه إن سجّله الموظف، وسجلّ زياراته والخدمات المؤداة وتواريخها، ورصيد نقاطه
-      واستبدالاته، وحالة موافقته على الرسائل التسويقية. وفي قطاعات السيارات وحدها: رقم اللوحة
-      وبيانات المركبة وقراءة العدّاد. ولا تُعالَج أي بيانات شخصية حسّاسة.
+      رقم جوال العميل واسمه إن سجّله الموظف، وسجلّ زياراته والخدمات المؤداة وتواريخها، وحجوزاته
+      (وقتها وحالتها والموظف المخصَّص لها)، ورصيد نقاطه واستبدالاته، وحالة موافقته على الرسائل
+      التسويقية، ومحتوى محادثته مع ميزة الذكاء الاصطناعي إن تفاعل معها. وفي قطاعات السيارات
+      وحدها: رقم اللوحة وبيانات المركبة وقراءة العدّاد. ولا تُعالَج أي بيانات شخصية حسّاسة.
     en: >-
-      The customer's mobile number and his name where the operator recorded one; his visit history,
-      the services performed and their dates; his loyalty balance and redemptions; and his marketing
-      consent state. In vehicle sectors only: the plate, vehicle details and odometer reading. No
-      sensitive personal data is processed.
+      The customer's mobile number and his name where the operator recorded one; his visit
+      history, the services performed and their dates; his bookings (their time, status, and
+      assigned staff member); his loyalty balance and redemptions; his marketing consent state;
+      and the content of his conversation with the AI feature where he interacts with it. In
+      vehicle sectors only: the plate, vehicle details and odometer reading. No sensitive personal
+      data is processed.
   data_subjects:
     ar: عملاء المنشأة، وموظفوها الذين يُنشئون حسابات تشغيل على المنصة.
     en: The Establishment's customers, and its employees who hold operating accounts on the platform.
@@ -166,6 +183,40 @@ annex_c:
     location:
       ar: "داخل المملكة العربية السعودية"
       en: "Inside the Kingdom of Saudi Arabia"
+  # ADDED WITH THE AI FEATURE, NOT BEFORE IT — this entry did not exist while the platform had no AI
+  # feature to name it for, and its addition here is itself the "prior acceptance" Art. 17-5-c
+  # requires before that feature may process any Establishment's customer's data. NAMED BY ROLE, NOT
+  # BY PRODUCT — the same "referenced, never restated" rule the Terms apply to operational
+  # parameters (§ the rule at the top of terms.yaml): today's provider is a commercial/technical
+  # choice we may change, and freezing its brand name into a signed agreement would make switching
+  # providers a fresh acceptance event for every Establishment over a fact this Annex already covers
+  # by role. The CURRENT provider's name is published on the platform's technical documentation page,
+  # kept in step with what the code actually calls. What reaches it is never a raw phone number or
+  # name: `core/pii.py`'s subject_ref (an HMAC pseudonym) and a context block built from the
+  # establishment's own catalogue/offers — never the identity fields this Annex's other rows are read
+  # alongside.
+  - name:
+      ar: "مزوّد خدمة الذكاء الاصطناعي المُشغِّل لميزات الذكاء الاصطناعي بالمنصة (الاسم الحالي منشور في وثائق المنصة الفنية، ويُحدَّث بتحديثها)"
+      en: "The AI service provider powering the platform's AI features (the current name is published on the platform's technical documentation and kept current with it)"
+    purpose:
+      ar: >-
+        توليد الردود الآلية لميزة الذكاء الاصطناعي عند تفعيل المنشأة لها (كمساعد واتساب)، على
+        معرّف مستعار لعميل المنشأة لا رقمه أو اسمه الحقيقي، مع سياق كتالوج الخدمات وعروض ذلك
+        العميل وحده.
+      en: >-
+        Generating automated replies for the AI feature when the Establishment activates it (such
+        as a WhatsApp assistant), against a pseudonymous identifier for the Establishment's customer
+        rather than his real number or name, together with the service catalogue and that
+        customer's own offers as context.
+    location:
+      ar: >-
+        خارج المملكة غالباً، وقد يتغيّر بتغيّر المزوّد — وتُعامَل البيانات الشخصية في كل الأحوال
+        وفق ما تقضي به الأنظمة السعودية لنقل البيانات خارج المملكة (المادة 29)، أياً كان المزوّد
+        أو موقعه.
+      en: >-
+        Usually outside the Kingdom, and may change with the provider — Personal Data is in every
+        case handled as Saudi regulations governing the transfer of data outside the Kingdom
+        require (Article 29), whichever provider it is or wherever it is located.
 
 # ── THE CLAUSES THAT ARE OURS TO WRITE ────────────────────────────────────────────────────────
 #

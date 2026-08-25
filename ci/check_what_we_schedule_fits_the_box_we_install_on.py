@@ -29,7 +29,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-#: THE SMALLEST NODE WE INSTALL ON, in millicores. This is a fact about the machine Tamam buys, so
+#: THE SMALLEST NODE WE INSTALL ON, in millicores. This is a fact about the machine bought for the fleet, so
 #: it is written here once rather than inferred — and raising it is a decision about hardware, not
 #: a way to make this check pass. The pilot box is 4 vCPU.
 NODE_MILLICORES = 4000

@@ -154,6 +154,67 @@ async def test_below_the_minimum_is_refused():
 
 
 @pytest.mark.anyio
+async def test_min_halalas_override_replaces_the_boot_time_default_for_one_call():
+    """`request_withdrawal`'s own `min_halalas` — the live RuntimeConfig read a route resolves
+    before calling in (an admin-changeable threshold). This unit only proves
+    the SERVICE honours the override; effective_min_withdrawal_halalas's own RuntimeConfig
+    plumbing is proven separately below."""
+    svc, store = build(min_withdrawal=10000)   # booted with 100 ريال
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await _seed_commission(store, id="c1", amount=4000)   # 40 ريال
+    # The boot default alone would refuse this; a live override raising it to 3000 halalas (30
+    # ريال) must let it through.
+    out = await svc.request_withdrawal(AFF, min_halalas=3000)
+    assert out["amount_halalas"] == 4000
+
+
+@pytest.mark.anyio
+async def test_min_halalas_override_can_also_refuse_below_a_raised_live_threshold():
+    svc, store = build(min_withdrawal=1000)   # booted with 10 ريال — would normally pass
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await _seed_commission(store, id="c1", amount=4000)
+    with pytest.raises(PayoutError) as exc:
+        await svc.request_withdrawal(AFF, min_halalas=40000)   # live override: 400 ريال
+    assert exc.value.reason == "below_minimum"
+    assert "400.00" in str(exc.value)
+
+
+class _FakeRuntimeConfig:
+    def __init__(self, value: object) -> None:
+        self._value = value
+
+    async def get(self, *, tenant: str, key: str, default: object) -> object:
+        assert tenant == "", "the withdrawal threshold is platform-wide, never per-tenant"
+        assert key == "AFFILIATE_WITHDRAWAL_MIN_HALALAS"
+        return self._value if self._value is not None else default
+
+
+@pytest.mark.anyio
+async def test_effective_min_withdrawal_reads_the_live_override_through_runtime_config():
+    svc, _ = build(min_withdrawal=10000)
+    rc = _FakeRuntimeConfig(40000)
+    assert await svc.effective_min_withdrawal_halalas(rc) == 40000
+
+
+@pytest.mark.anyio
+async def test_effective_min_withdrawal_falls_back_to_the_boot_default_with_no_runtime_config():
+    svc, _ = build(min_withdrawal=10000)
+    assert await svc.effective_min_withdrawal_halalas(None) == 10000
+
+
+@pytest.mark.anyio
+async def test_effective_min_withdrawal_ignores_a_nonsense_override_rather_than_applying_it():
+    """Same discipline as operations/app/core/retention.py's own policy_for: a zero or negative
+    value from one bad panel edit must not silently let every marketer drain their balance in
+    one-halala withdrawals — it falls back to the configured default instead."""
+    svc, _ = build(min_withdrawal=10000)
+    assert await svc.effective_min_withdrawal_halalas(_FakeRuntimeConfig(0)) == 10000
+    assert await svc.effective_min_withdrawal_halalas(_FakeRuntimeConfig(-500)) == 10000
+
+
+@pytest.mark.anyio
 async def test_the_request_locks_the_current_payout_method_not_a_future_one():
     svc, store = build()
     await _seed_affiliate(store)

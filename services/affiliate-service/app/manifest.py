@@ -88,12 +88,13 @@ def build_manifest(
             {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
             # «بوابة القبول» (spec §2) — no token yet, same tier as operations' own /signup.
             {"path": "/api/v1/affiliates/apply", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/affiliates/apply/request-otp", "tier": "public", "method": "POST"},
             {"path": "/api/v1/affiliates/signin", "tier": "public", "method": "POST"},
-            {"path": "/api/v1/affiliates/accept-invite", "tier": "public", "method": "POST"},
             # Who I am — his own id doubles as his referral code (spec §1).
             {"path": "/api/v1/affiliates/me", "tier": "user", "method": "GET"},
-            # A manager naming somebody for his own team — still gated by the admin queue below.
-            {"path": "/api/v1/affiliates/me/invite", "tier": "user", "method": "POST"},
+            # A manager correcting what a person under him submitted, before an admin decides.
+            {"path": "/api/v1/affiliates/me/applications/{application_id}", "tier": "user",
+             "method": "PATCH"},
             {"path": "/api/v1/affiliates/me/change-password", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/commissions", "tier": "user", "method": "GET"},
             # spec §10: a manager's own team, WITH what each of them actually earned.
@@ -179,6 +180,9 @@ def build_manifest(
              "method": "POST"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/affiliates/stats", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/affiliates/leaderboard", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/leads/geo", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/affiliates/{}/reject", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/affiliates/{}/suspend", "tier": "user", "method": "POST"},

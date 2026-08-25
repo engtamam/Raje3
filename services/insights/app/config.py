@@ -249,6 +249,8 @@ class Settings(BaseSettings):
     OPERATIONS_CATALOGUE_PATH: str = "/internal/operations/catalogue"
     # Branch NAMES for the comparison table — ids alone made every row read «بلا اسم».
     OPERATIONS_BRANCHES_PATH: str = "/internal/operations/branches"
+    # Operator NAMES for the staff comparison table — same reason as branches above.
+    OPERATIONS_OPERATORS_PATH: str = "/internal/operations/operators"
     # Who may see which branch (§12.4) — the staffing join only operations can make.
     OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
     REMINDERS_SERVICE_URL: str = ""
@@ -313,6 +315,10 @@ class Settings(BaseSettings):
     SNAPSHOT_BATCH: int = 50
     # Visits read per tenant per pass. A ceiling, not a target.
     SNAPSHOT_VISIT_LIMIT: int = 5000
+    # Tenants per platform-rollup pass (core/rollup.py). Independently tunable from
+    # SNAPSHOT_BATCH: the rollup only does local `store.get` reads per tenant (no peer call), so
+    # it is far cheaper per-tenant than the tick sweep and can safely process many more per pass.
+    PLATFORM_ROLLUP_BATCH: int = 500
     # How long a snapshot may be before the panel calls it stale ON THE SCREEN. It is still
     # served — a number from this morning beats a spinner — but the owner is told its age, because
     # an owner comparing our figure to his till at 2pm must be able to see why they differ.

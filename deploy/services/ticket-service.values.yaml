@@ -19,7 +19,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/ticket-service
-  digest: "sha256:1acec5b82392592bc12d083aabeb3c2737f6c39490495af56617c0d1a29c93a6"   # v0.16.34
+  digest: "sha256:cd0e202575f03c60ce675182dbb085e0820798ae0d1f579e41567ba5f39a2de0"   # v0.16.37
 
 replicas: 1
 
@@ -70,7 +70,8 @@ metrics:
 
 env:
 
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

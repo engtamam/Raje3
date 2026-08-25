@@ -303,3 +303,16 @@ class BranchStore(_Base):
     async def save(self, b: Branch) -> Branch:
         await self._put(b.tenant, b.id, b.__dict__.copy())
         return b
+
+    async def browse_platform(self, *, limit: int = 200,
+                              after: str | None = None) -> tuple[list[Branch], str | None]:
+        """A page of branches ACROSS ALL TENANTS — same fence as billing-service's own
+        `browse_platform`: this deliberately crosses the tenancy wall this module's own header
+        note exists to enforce everywhere else, so it takes a MANDATORY, whitelisted filter
+        (`active`) rather than calling `self._s.find` with an empty one — an unfiltered
+        cross-tenant dump is an exfiltration primitive, not a feature. Gated at the route on
+        `platform.operations` alone, and audited there.
+        """
+        rows, nxt = await self._s.find(self.collection, {"active": True},
+                                       limit=limit, after=after, sort=("created", "desc"))
+        return [Branch(**r) for r in rows], nxt

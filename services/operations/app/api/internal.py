@@ -24,8 +24,8 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import (AssetStore, BranchStore, CustomerStore, PrivacyRequestStore,
-                             ServiceStore, VisitStore, new_id)
+from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore,
+                             PrivacyRequestStore, ServiceStore, VisitStore, new_id)
 from app.core.operations import OperationError, RecordedVisit
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
@@ -739,6 +739,62 @@ async def internal_service_durations(request: Request, body: ServiceDurationsIn)
     return {"duration_minutes": total}
 
 
+class ServiceEligibilityIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+@router.post("/operations/service-eligibility", dependencies=[Depends(require_internal_token)])
+async def internal_service_eligibility(request: Request, body: ServiceEligibilityIn) -> dict:
+    """Which operators may perform each of these services — bookings-service's other question
+    about a chosen basket, asked alongside `service-durations` but never merged into it: durations
+    SUM across a basket, eligibility is a set PER service, and folding a set into a summed-total
+    response would make one field mean two different shapes depending which key you read.
+
+    AN EMPTY LIST MEANS EVERY ACTIVE OPERATOR — the safe, zero-configuration default (models.py's
+    own `Service.eligible_staff_ids` docstring): a shop that never restricted a service must not
+    see its booking flow refuse for a reason it never asked for. A service id that does not exist
+    is silently absent from the result rather than raising; the caller decides what an unknown
+    service means for its own flow.
+    """
+    c = request.app.state.container
+    services = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
+    by_id = {s.id: s for s in services}
+    out: dict[str, list[str] | None] = {}
+    for sid in body.service_ids:
+        svc = by_id.get(sid)
+        if svc is None:
+            continue
+        # `None`, NOT `[]`, WHEN UNRESTRICTED — bookings must be able to tell "any active operator
+        # qualifies" apart from "the owner restricted this to zero people" (a real, if unusual,
+        # state — a retired service nobody currently does). An empty stored list means the former.
+        out[sid] = list(svc.eligible_staff_ids) if svc.eligible_staff_ids else None
+    return {"eligible_staff_ids": out}
+
+
+class StaffHoursIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    operator_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+@router.post("/operations/staff-hours", dependencies=[Depends(require_internal_token)])
+async def internal_staff_hours(request: Request, body: StaffHoursIn) -> dict:
+    """Each operator's own working-hours OVERRIDE, or `null` when he simply inherits the shop's —
+    bookings-service's `StaffHoursLookup` port, batched (one call per basket search rather than
+    one per candidate operator). An operator id that does not exist is silently absent, same
+    reasoning as `service-eligibility` above: the caller decides what "unknown" means for its flow.
+    """
+    c = request.app.state.container
+    store = OperatorStore(c.datastore)
+    out: dict[str, dict | None] = {}
+    for oid in body.operator_ids:
+        op = await store.get(body.tenant, oid)
+        if op is None:
+            continue
+        out[oid] = op.working_hours
+    return {"working_hours": out}
+
+
 class VisitFromCustomerIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     customer_id: str = Field(min_length=1, max_length=64)
@@ -1284,6 +1340,24 @@ async def read_branches(request: Request, body: CatalogueIn) -> dict:
     c = request.app.state.container
     rows = await BranchStore(c.datastore).list(body.tenant)
     return {"branches": [{"id": b.id, "name": b.name, "active": b.active} for b in rows],
+            "count": len(rows)}
+
+
+@router.post("/operations/operators", dependencies=[Depends(require_internal_token)])
+async def read_operators(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's people — id and name, nothing else.
+
+    SAME REASON `/operations/branches` EXISTS, one row over: `insights`'s per-operator table
+    (Shop.tsx's own staff comparison card) is grouped by the `operator_id` carried on each
+    visit, and this service holds the only name that id has.
+
+    STOPPED ONES INCLUDED, same reasoning as a closed branch — a man let go in March still has
+    February's visits under his name, and a table that cannot print it is wrong about last
+    month's history, not just today's.
+    """
+    c = request.app.state.container
+    rows = await OperatorStore(c.datastore).list(body.tenant)
+    return {"operators": [{"id": o.id, "name": o.name, "active": o.active} for o in rows],
             "count": len(rows)}
 
 

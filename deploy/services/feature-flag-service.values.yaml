@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/feature-flag-service
-  digest: "sha256:75e0b5ed7b354c6720b40a83bf9cd9ee3e47d823708478d86c11631cbe5133bc"   # v0.16.34
+  digest: "sha256:7c9d740fd74de877b7f72fa67a8eb3266b526655b523536c005c31e843df0d0b"   # v0.16.37
 
 replicas: 1
 
@@ -71,7 +71,8 @@ metrics:
 
 env:
 
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

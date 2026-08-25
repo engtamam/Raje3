@@ -276,7 +276,7 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn, background: 
     the visit: an operator who may register a customer while recording one may register a customer
     on his own.
 
-    INDEXED HERE TOO, NOT ONLY AFTER A VISIT (Tamam, 2026-08-19: a customer booked but not yet
+    INDEXED HERE TOO, NOT ONLY AFTER A VISIT (a customer booked but not yet
     attended could not be FOUND by his own phone number — `seams.index_customer_row` used to run
     only from `after_visit`, so a fresh customer stayed invisible to the keypad's own search until
     his first visit was confirmed, weeks after the booking that created him). `Seams` already

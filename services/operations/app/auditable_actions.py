@@ -176,6 +176,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "operator",
     },
     {
+        # A custom schedule narrower than the shop's own hours — worth its own row rather than
+        # folding into `operator.updated`: this changes which bookings can even reach him, not
+        # merely his name or branch.
+        "action": "staff_hours.changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "operator",
+    },
+    {
         "action": "branch.created",
         "source": "admin",
         "critical": False,
@@ -382,6 +391,25 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "where an owner gave up tells us which step of Meta's flow is losing people, and "
                "one of those steps is not a cancellation at all — closing on the final screen "
                "means the signup completed",
+    },
+    {
+        "action": "platform.branch_locations_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "branches:all-tenants",
+        "why": "a read that crosses the tenancy wall — every other branch and location a shop "
+               "holds is theirs alone. Not critical (a missed record does not undo the read), but "
+               "who looked at every shop's own address, and when, is a real question worth an "
+               "answer",
+    },
+    {
+        "action": "platform.whatsapp_diagnostics_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp:{tenant|phone_number_id}",
+        "why": "a support read of one shop's own delivery history and its refusal reasons — no "
+               "message text is ever exposed, only whether it sent and why not. Not critical (a "
+               "missed record does not undo the read), but still worth naming who looked and when.",
     },
     {
         "action": "compliance.evidence_exported",

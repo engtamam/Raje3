@@ -42,7 +42,7 @@ TREES = [
 #: describing shops that work on cars — it names no field of ours and decides nothing. Rewriting a
 #: published document to satisfy a grep would change what somebody agreed to, silently, which is a
 #: far worse defect than the word surviving in a sentence. Any real change there is a new version,
-#: republished, and it is Tamam's to make.
+#: republished, and it is a deliberate decision to make.
 LEGAL = ROOT / "deploy" / "seed" / "legal"
 
 #: A COMMENT DECIDES NOTHING, AND THIS IS THE SCOPE, NOT AN EXCEPTION. What this gate is for is a

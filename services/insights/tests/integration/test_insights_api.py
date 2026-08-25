@@ -507,3 +507,76 @@ def test_the_dashboard_says_whether_the_history_behind_it_was_complete(client, o
         "the dashboard does not say whether its history was complete — a shop past the visit cap "
         "is shown a windowed number with nothing to distinguish it from a whole one")
     assert got["partial"] is False
+
+
+# ── الخطوة التالية — one card through the real route, and «مو الآن» through its own ─────────────
+def test_the_dashboard_always_carries_a_next_step(client, owner):
+    """The catch-all guarantees this even for a shop with nothing wrong — see core/next_step.py's
+    own «never silent» note."""
+    _seed(client, visits(20))
+    got = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert got["next_step"]["primary"]["id"]
+    assert got["next_step"]["primary"]["message"]
+
+
+def test_dismissing_a_rule_changes_the_next_card_shown(client, owner):
+    """No visits at all this week -> «visits_zero» leads. Dismissing it («مو الآن») must not just
+    record a click — the very next read has to show a different rule."""
+    _seed(client, visits(0))
+    first = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    rule_id = first["next_step"]["primary"]["id"]
+
+    r = client.post("/api/v1/insights/next-step/dismiss", json={"id": rule_id}, headers=owner)
+    assert r.status_code == 200, r.text
+
+    second = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert second["next_step"]["primary"]["id"] != rule_id
+
+
+def test_dismiss_needs_a_real_id(client, owner):
+    r = client.post("/api/v1/insights/next-step/dismiss", json={"id": ""}, headers=owner)
+    assert r.status_code == 422
+
+
+def test_dismiss_is_refused_with_no_capability(client):
+    tok = _auth("reports.read")
+    r = client.post("/api/v1/insights/next-step/dismiss", json={"id": "visits_zero"}, headers=tok)
+    assert r.status_code == 403
+
+
+# ── the platform-wide rollup (admin plan phase 11.1-11.4) ───────────────────────────────────────
+
+def test_platform_summary_before_any_rollup_pass_says_so_honestly(client):
+    ops = _auth("insights.read", "platform.insights", tenant="_platform")
+    r = client.get("/api/v1/insights/platform/summary", headers=ops)
+    assert r.status_code == 200, r.text
+    # A fresh app (no rollup run yet in THIS test's own state) or a prior test's row — either
+    # way the shape is honest: computing:true with nothing, or a real row with computing:false.
+    body = r.json()
+    assert "computing" in body and "values" in body
+
+
+def test_platform_summary_needs_the_platform_capability(client, owner):
+    r = client.get("/api/v1/insights/platform/summary", headers=owner)
+    assert r.status_code == 403
+
+
+def test_the_platform_rollup_needs_the_internal_token(client):
+    r = client.post("/internal/insights/platform-rollup", json={})
+    assert r.status_code == 401
+
+
+def test_a_tick_then_a_rollup_pass_makes_the_summary_readable(client):
+    ops = _auth("insights.read", "platform.insights", tenant="_platform")
+    _seed(client, visits(15))   # ticks TENANT, computing its own return_rate
+
+    r = client.post("/internal/insights/platform-rollup", json={}, headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert r.json()["tenants_with_snapshot"] >= 1
+
+    summary = client.get("/api/v1/insights/platform/summary", headers=ops)
+    assert summary.status_code == 200, summary.text
+    body = summary.json()
+    assert body["computing"] is False
+    assert body["values"]["return_rate"] is not None
+    assert "peak_map" in body["values"] and "retention_series" in body["values"]

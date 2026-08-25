@@ -118,6 +118,7 @@ def build_manifest(
             # thing happened, never reconstructed — and the extraction is itself audited.
             {"path": "/internal/operations/evidence", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/branches", "tier": "internal", "method": "POST"},
+            {"path": "/internal/operations/operators", "tier": "internal", "method": "POST"},
             # Who may see which branch — the staffing join no other service can make.
             {"path": "/internal/operations/branch-scope", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},
@@ -178,6 +179,8 @@ def build_manifest(
             {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
             # How this shop runs its branches — one number for the brand, or one per branch.
             {"path": "/api/v1/staff/shop-name", "tier": "user", "method": "PUT"},
@@ -195,6 +198,8 @@ def build_manifest(
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.
             {"path": "/api/v1/platform/evidence", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/platform/branches/locations", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/whatsapp/diagnostics", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},

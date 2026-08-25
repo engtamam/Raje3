@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — «برنامج دعم الوفاء» (Tamam, 2026-08-20): a monthly stipend for marketers who
+# affiliate-service — «برنامج دعم الوفاء»: a monthly stipend for marketers who
 # keep SERVICING the shops they brought, replacing the retired RENEWAL commission (see
 # core/commission.py's own note on why a flat cut on elapsed time was removed).
 # -----------------------------------------------------------------------------
@@ -17,7 +17,7 @@
 #             refuse DESPITE a manager's approval. The manager's decision rides along on the row
 #             as a documented input, never silently overridden without a trace.
 #
-# THE COOLDOWN ANCHORS TO THE REQUEST, NEVER THE DECISION (Tamam, 2026-08-20). If it anchored to
+# THE COOLDOWN ANCHORS TO THE REQUEST, NEVER THE DECISION. If it anchored to
 # `granted_at`, an admin one week slow to decide would push every future cycle a week later,
 # compounding — a "monthly" stipend that drifts later every month is not a salary, it is a queue.
 # Anchoring to `requested_at` of the LAST GRANTED request means the admin's review speed has ZERO
@@ -33,6 +33,7 @@ from app.core.models import (
     AFFILIATES,
     COMMISSIONS,
     CONFIRMED,
+    CONVERSION,
     LAPSED,
     PENDING,
     REFERRED,
@@ -63,7 +64,8 @@ class WafaError(Exception):
 class WafaService:
     def __init__(self, *, store, referrals, tier_shops: int = 50,
                  tier_amount_halalas: int = 50000, cooldown_days: int = 30,
-                 retention_min: float = 0.70, refund_max: float = 0.15, tickets=None) -> None:
+                 retention_min: float = 0.70, refund_max: float = 0.15,
+                 min_recent_conversions: int = 1, tickets=None) -> None:
         self._s = store
         self._referrals = referrals
         self._tier_shops = tier_shops
@@ -71,7 +73,17 @@ class WafaService:
         self._cooldown_days = cooldown_days
         self._retention_min = retention_min
         self._refund_max = refund_max
-        #: core/tickets.py's TicketReader, or None (spec §13, Tamam 2026-08-20). Optional and
+        # NO SEPARATE WINDOW FOR THE ACTIVITY GATE — it reads `_cooldown_days` itself, on
+        # purpose: "خلال مدة الطلب نفسها". A shop count alone rewards a marketer sitting on an
+        # old book he stopped growing; this asks a second, different question — has he actually
+        # brought in enough NEW paying customers within the SAME cycle the cooldown already
+        # defines — so shop count measures the STOCK and this measures the FLOW, both over one
+        # period, not two independently-tunable ones that could drift apart and confuse what "the
+        # cycle" even means. Changing `cooldown_days` moves both at once, which is the whole
+        # point. `min_recent_conversions` IS its own separate knob, deliberately — "1" today,
+        # tunable to "3" later without touching the window it is measured over.
+        self._min_recent_conversions = min_recent_conversions
+        #: core/tickets.py's TicketReader, or None (spec §13). Optional and
         #: additive on purpose — see performance_for's own note on why it never changes
         #: `_recommend`'s formula yet.
         self._tickets = tickets
@@ -99,9 +111,28 @@ class WafaService:
         earned = sum(1 for c in commissions if c.status in (CONFIRMED, PENDING, VOIDED))
         refund_rate = (voided / earned) if earned else 0.0
 
+        # THE FLOW, NOT JUST THE STOCK — from the SAME `commissions` list above, no second query.
+        # A CONVERSION commission is created (commission.py::_sync_conversion) at the exact
+        # moment a referred shop pays its first-ever invoice — trial to paying customer, the
+        # real-world event this counts. `created_at` (when WE recorded it, an epoch int) is used
+        # rather than parsing `earned_at`'s ISO string a second time — same "recorded, not
+        # re-derived" reasoning `stamped_at`/`expires_at` already follow on Referral itself.
+        conversion_cutoff = int(time.time()) - self._cooldown_days * _DAY
+        recent_conversions = sum(
+            1 for c in commissions if c.kind == CONVERSION and c.created_at >= conversion_cutoff)
+
         support = await self._aggregate_support_kpis(affiliate_id, referrals)
         return {"active_shops": active, "retention_rate": round(retention_rate, 4),
-               "refund_rate": round(refund_rate, 4), "support_kpis": support}
+               "refund_rate": round(refund_rate, 4), "support_kpis": support,
+               "recent_conversions": recent_conversions,
+               # THE SAMPLE SIZE BEHIND EACH RATE — "كيف كذا وهو صفر
+               # اساس! في غلط في المعادلة" (a marketer with ZERO referred shops showing "100%
+               # retention"). The math above is correct FOR `_recommend`'s OWN purpose (no
+               # referral has failed yet, so nothing argues against him) — the bug was a screen
+               # presenting that as a real, earned 100% with no shops behind it at all. These
+               # counts let a caller tell "no evidence yet" from "a real 100%" apart; the rates
+               # above are UNCHANGED so eligibility decisions never move.
+               "total_referrals": total, "total_commissions": earned}
 
     async def _aggregate_support_kpis(self, affiliate_id: str, referrals: list) -> dict[str, Any]:
         if self._tickets is None:
@@ -148,9 +179,23 @@ class WafaService:
         return {
             "active_shops": active, "tier_shops": self._tier_shops,
             "shops_until_next_tier": shops_until_next,
-            "eligible": active >= self._tier_shops,
+            "eligible": (active >= self._tier_shops
+                        and perf["recent_conversions"] >= self._min_recent_conversions),
             "current_tier_amount_halalas": self.tier_amount(active),
             "retention_rate": perf["retention_rate"], "refund_rate": perf["refund_rate"],
+            # SAME NAME, SAME MEANING request() ENFORCES — a home screen showing "eligible" on a
+            # shop count alone, then refusing the actual request over this, is worse than never
+            # showing progress at all (م·النمط١: the two must never disagree about what unlocks it).
+            "recent_conversions": perf["recent_conversions"],
+            "min_recent_conversions": self._min_recent_conversions,
+            "conversion_lookback_days": self._cooldown_days,
+            # SAME NUMBERS `performance_for` COMPUTES FOR HIM ALREADY, dropped from this response
+            # until now — a manager could see his OWN team's support KPIs (GET /me/team) but never
+            # his own, even though he is a marketer himself ("مدير التسويق
+            # يعتبر مسوّي، عنده نفس المؤشرات لنفسه"). Same best-effort shape (`available: False`
+            # when no shop has shared its tickets yet, never a missing key).
+            "support_kpis": perf["support_kpis"],
+            "total_referrals": perf["total_referrals"], "total_commissions": perf["total_commissions"],
         }
 
     def _recommend(self, perf: dict[str, Any]) -> str:
@@ -181,6 +226,19 @@ class WafaService:
         if perf["active_shops"] < self._tier_shops:
             raise WafaError(f"تحتاج {self._tier_shops} منشأة نشطة على الأقل.",
                             reason="below_threshold")
+        # THE ACTIVITY GATE — a marketer sitting on an old book of shops he stopped growing
+        # must not out-earn one still actively bringing business in (this file's own module
+        # docstring: "a marketer who dumps 50 shops and vanishes must not out-earn one who
+        # actually keeps them" — the same principle, applied to NEW business rather than upkeep).
+        if perf["recent_conversions"] < self._min_recent_conversions:
+            # SINGULAR/PLURAL, SAID RIGHT — "عميل جديد" reads wrong once the threshold is
+            # tunable past 1 ("تحتاج 3 عميل جديد" is bad Arabic), so the count only appears
+            # when it is actually more than one.
+            need = ("عميل جديد" if self._min_recent_conversions == 1
+                   else f"{self._min_recent_conversions} عملاء جدد")
+            raise WafaError(
+                f"تحتاج {need} تحوّل من تجربة مجانية إلى اشتراك خلال آخر "
+                f"{self._cooldown_days} يوماً.", reason="no_recent_conversion")
 
         wafa = WafaRequest(
             id=new_id(), affiliate_id=affiliate_id, active_shops=perf["active_shops"],

@@ -58,9 +58,11 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يتطلّب كلمة المرور الحالية — لا كلمة مرور تُخزَّن عندنا أبدًا.",
     },
     {
-        "id": "affiliates.invite", "label": "دعوة مسوّق لفريقي", "method": "POST",
-        "path": "/api/v1/affiliates/me/invite", "capability": "affiliates.self", "group": "فريقي",
-        "help": "يمرّ عبر بوابة القبول الإدارية (§٢) — لا حساب فوري، لا كلمة مرور يختارها المدير.",
+        "id": "affiliates.update_application", "label": "تعديل طلب أحد أفراد فريقي", "method": "PATCH",
+        "path": "/api/v1/affiliates/me/applications/{application_id}",
+        "capability": "affiliates.self", "group": "فريقي",
+        "params": [{"name": "application_id", "in": "path", "type": "string", "required": True}],
+        "help": "متاح فقط قبل قرار الإدارة — بعد القبول أو الرفض يُقفل التعديل.",
     },
     # ── الأرباح والسحب ────────────────────────────────────────────────────────────────────────
     {

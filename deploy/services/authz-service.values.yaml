@@ -11,7 +11,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/authz-service
-  digest: "sha256:a46d3f6e618d6a6a71b63aef118d01629ad3bc7eb477c8dcd7ca61eca1086831"   # v0.16.34
+  digest: "sha256:408de8ddafc449bdb185a6628e2ba3446b8b587bdab9c63abdaa3d761b2f6d32"   # v0.16.37
 
 replicas: 1
 
@@ -72,7 +72,8 @@ env:
   # every token — correct as a default (deny-by-default), and silently fatal if you ship it:
   # the service starts, /readyz is green, and every authenticated call 401s.
   # Issuer and audience must match what identity-service SIGNS (the frozen jwtIssuer).
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
@@ -136,7 +137,7 @@ env:
     billing.read,billing.manage,billing.self,
     tenant.read,identity.read,identity.manage,compliance.self,compliance.manage,
     service_accounts:read,service_accounts:write,
-    ticket.read,ticket.write,
+    ticket.read,ticket.write,tickets.self,
     analytics.read,wallet.read,notification.read
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────

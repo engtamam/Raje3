@@ -12,25 +12,26 @@
  *   — an affiliate's agreement is about referrals and commission, not about a shop's PDPL
  *   obligations to ITS customers, and a person agreeing to the wrong document agreed to nothing.
  *
- *   THREE DOORS, NOT TWO. «تسجيل الدخول» and «تقديم طلب» are Door.tsx's own «in»/«new» split; the
- *   third, «قبول دعوة», exists only here — a manager-sent invite (spec: a manager can invite a
- *   promoter directly) has no shop-door equivalent at all. It opens automatically on a link
- *   carrying `?invite=`, so nobody has to find a segmented control to use a link they were sent.
+ *   TWO DOORS, NOT THREE ANY LONGER (2026-08-23): «قبول دعوة» is gone — a manager no longer
+ *   invites through us at all ("رابط للمدير مافي اي ارسال المدير راح يرسل له الرابط").
+ *   He shares his own referral link himself, and whoever uses it lands right here, on «تقديم
+ *   طلب», with `?ref=` pre-filling the same field a self-applicant fills by hand.
  *
- * NO OTP HERE, unlike Door.tsx's own SignInPane/NewShopPane. The shop's number-proof step exists
- * because operations binds WhatsApp sending to that exact number (core/signup.py's own «أكّد
- * رقمك»); affiliate-service has no such binding yet, so there is nothing here to prove. Revisit
- * this the day the portal sends anything on a marketer's behalf.
+ * THE OTP STEP IS OPTIONAL TODAY AND WILL BECOME MANDATORY THE MOMENT IT CAN BE. `apply()`'s own
+ * `code` is empty unless the applicant pressed «أرسل رمز التحقق» — the server accepts that as
+ * long as AFFILIATE_REQUIRE_OTP is off (every deployment today, since no WhatsApp/SMS channel is
+ * wired yet — see onboarding.py's own note), and will start refusing an empty one the day it is
+ * turned on, with no change needed here.
  */
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { DoorLayout } from '../screens/DoorLayout';
 import { western } from '../digits';
-import { acceptInvite, AffiliateRefused, apply, signIn, type AffiliateSession } from './api';
+import { AffiliateRefused, apply, requestApplyOtp, signIn, type AffiliateSession } from './api';
 
-type Mode = 'in' | 'new' | 'invite';
+type Mode = 'in' | 'new';
 
 function normalizePhone(raw: string): string | null {
   const digits = (raw || '').replace(/[\s\-()]/g, '').replace(/^00/, '+');
@@ -50,12 +51,10 @@ export function AffiliateDoor(
   { onSignedIn }: { onSignedIn: (session: AffiliateSession) => void },
 ) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const inviteToken = params.get('invite') ?? '';
-  // A `?ref=` LINK IS A REFERRAL, NOT A LOGIN — a manager sharing AffiliateHome's own "لدعوة
-  // مسوّق تحتك" link means "apply", and landing whoever clicks it on the sign-in pane (which
-  // has nowhere to even show the referral code) would bury the one thing the link was for.
-  const [mode, setMode] = useState<Mode>(
-    inviteToken ? 'invite' : params.get('ref') ? 'new' : 'in');
+  // A `?ref=` LINK IS A REFERRAL, NOT A LOGIN — a manager sharing AffiliateHome's own referral
+  // link means "apply", and landing whoever clicks it on the sign-in pane (which has nowhere to
+  // even show the referral code) would bury the one thing the link was for.
+  const [mode, setMode] = useState<Mode>(params.get('ref') ? 'new' : 'in');
 
   return (
     <DoorLayout
@@ -63,20 +62,17 @@ export function AffiliateDoor(
       subtitle="راجِع يدفع لك عن كل منشأة تحضرها للمنصة — عمولة مستمرة، من أول يوم توقّعه، بلا سقف."
     >
       <div className="flex flex-col gap-6">
-        {inviteToken ? null : (
-          <Segmented
-            className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-            options={[
-              { value: 'in', label: 'تسجيل الدخول' },
-              { value: 'new', label: 'تقديم طلب' },
-            ]}
-            value={mode === 'invite' ? 'in' : mode}
-            onChange={(v) => setMode(v as Mode)}
-          />
-        )}
+        <Segmented
+          className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+          options={[
+            { value: 'in', label: 'تسجيل الدخول' },
+            { value: 'new', label: 'تقديم طلب' },
+          ]}
+          value={mode}
+          onChange={(v) => setMode(v as Mode)}
+        />
         {mode === 'in' && <SignInPane onSignedIn={onSignedIn} />}
         {mode === 'new' && <ApplyPane />}
-        {mode === 'invite' && <AcceptInvitePane token={inviteToken} onActivated={() => setMode('in')} />}
       </div>
     </DoorLayout>
   );
@@ -160,10 +156,32 @@ function ApplyPane() {
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [referralCode, setReferralCode] = useState(
     () => new URLSearchParams(window.location.search).get('ref') ?? '');
+  const [cvUrl, setCvUrl] = useState('');
+  const [code, setCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpError, setOtpError] = useState('');
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  async function sendOtp() {
+    if (errorFor('phone', v.phone)) { setTouched((p) => ({ ...p, phone: true })); return; }
+    setOtpBusy(true);
+    setOtpError('');
+    try {
+      await requestApplyOtp(v.phone);
+      setOtpSent(true);
+    } catch (err) {
+      // «غير مُفعّل بعد» IS THE HONEST ANSWER ON EVERY DEPLOYMENT TODAY (AFFILIATE_OTP_DELIVERABLE
+      // is off — no WhatsApp/SMS channel wired yet) — shown, not swallowed, so nobody stares at a
+      // code screen waiting for a message nothing ever tried to send.
+      setOtpError(err instanceof AffiliateRefused ? err.message : 'تعذّر إرسال الرمز.');
+    } finally {
+      setOtpBusy(false);
+    }
+  }
 
   const errs = useMemo(() => ({
     phone: errorFor('phone', v.phone), password: errorFor('password', v.password),
@@ -188,7 +206,10 @@ function ApplyPane() {
     setBusy(true);
     setError('');
     try {
-      await apply({ phone: v.phone, name: v.name, password: v.password, referralCode, agreed: agree });
+      await apply({
+        phone: v.phone, name: v.name, password: v.password, referralCode, agreed: agree,
+        cvUrl, code,
+      });
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof AffiliateRefused ? err.message : 'تعذّر إرسال الطلب.');
@@ -235,11 +256,36 @@ function ApplyPane() {
 
       {/* Present but never required — a self-apply with no referrer becomes a manager
           (services/affiliate-service/app/core/onboarding.py::apply). Pre-filled from `?ref=`
-          when a promoter's own link carried one. */}
+          when a manager's own link carried one. */}
       <Field label="كود الإحالة (اختياري)" htmlFor="aff-ref">
         <Input id="aff-ref" name="referral" value={referralCode}
                onChange={(e) => setReferralCode(e.target.value.trim())} dir="ltr" />
       </Field>
+
+      {/* Optional, never required — a pasted résumé/portfolio link. */}
+      <Field label="رابط سيرتك الذاتية (اختياري)" htmlFor="aff-cv">
+        <Input id="aff-cv" name="cv_url" value={cvUrl}
+               onChange={(e) => setCvUrl(e.target.value.trim())} dir="ltr"
+               placeholder="https://..." />
+      </Field>
+
+      {/* Sends nothing on most deployments today (AFFILIATE_OTP_DELIVERABLE off, no WhatsApp/SMS
+          channel wired) — `requestApplyOtp` says so honestly rather than pretending a code went
+          out. Once it can deliver, this becomes the applicant's real proof he owns the number. */}
+      <div className="flex flex-col gap-2 rounded-md bg-surface-0 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-text-secondary">تأكيد رقم جوالك (إن طُلب)</span>
+          <Button type="button" variant="ghost" onClick={sendOtp} disabled={otpBusy || otpSent}>
+            {otpBusy ? 'جارٍ الإرسال…' : otpSent ? 'أُرسل الرمز' : 'أرسل رمز التحقق'}
+          </Button>
+        </div>
+        {otpSent ? (
+          <Input id="aff-otp" name="code" value={code}
+                 onChange={(e) => setCode(western(e.target.value))} dir="ltr"
+                 inputMode="numeric" placeholder="رمز التحقق" />
+        ) : null}
+        {otpError ? <p role="alert" className="text-danger text-sm">{otpError}</p> : null}
+      </div>
 
       <AffiliateTerms agree={agree} onChange={setAgree} />
 
@@ -252,85 +298,8 @@ function ApplyPane() {
   );
 }
 
-function AcceptInvitePane({ token, onActivated }: { token: string; onActivated: () => void }) {
-  const [password, setPassword] = useState('');
-  const [touched, setTouched] = useState(false);
-  const [agree, setAgree] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [activated, setActivated] = useState(false);
-
-  const err = errorFor('password', password);
-
-  useEffect(() => {
-    if (!token) setError('رابط الدعوة غير صالح.');
-  }, [token]);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setTouched(true);
-    if (err) return;
-    if (!agree) { setError('وافق على الشروط وسياسة الخصوصية للمتابعة.'); return; }
-    setBusy(true);
-    setError('');
-    try {
-      await acceptInvite(token, password, agree);
-      // NO TOKEN COMES BACK FROM ACCEPTING — identity's own claim step returns the PERSON, not a
-      // session (see identity-service's own /person/claim). Same shape as openShop in Door.tsx:
-      // the account exists now, and the ordinary sign-in pane this hands him to is one call away
-      // — with the phone he already knows, which this screen never even asked for.
-      setActivated(true);
-    } catch (e2) {
-      setError(e2 instanceof AffiliateRefused ? e2.message : 'تعذّر قبول الدعوة.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (activated) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-2xl leading-tight tracking-tight">تم تفعيل حسابك</h2>
-          <p className="mt-1 text-sm text-text-secondary">سجّل الدخول برقم جوالك وكلمة المرور اللي اخترتها.</p>
-        </div>
-        <Button type="button" onClick={onActivated}>تسجيل الدخول</Button>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      <div>
-        <h2 className="text-2xl leading-tight tracking-tight">دُعيت للانضمام</h2>
-        <p className="mt-1 text-sm text-text-secondary">اختر كلمة مرورك لتفعيل حسابك.</p>
-      </div>
-
-      <Field label="كلمة المرور" required htmlFor="aff-invite-password"
-            error={touched ? err : ''}>
-        <Input id="aff-invite-password" name="password" value={password}
-               onChange={(e) => { setPassword(e.target.value); setError(''); }}
-               onBlur={() => setTouched(true)} type="password" autoComplete="new-password" />
-      </Field>
-
-      {/* spec §2 — HIS agreement, not the manager who invited him. A manager's own consent when
-          HE applied cannot stand in for the person he invited; see onboarding.py::accept_invite
-          for the server-side half of this same rule. */}
-      <AffiliateTerms agree={agree} onChange={setAgree} />
-
-      {error ? <p role="alert" className="text-danger">{error}</p> : null}
-
-      <Button type="submit" disabled={busy || !token}>
-        {busy ? 'جارٍ التفعيل…' : 'تفعيل الحساب'}
-      </Button>
-    </form>
-  );
-}
-
-/** The consent line — shared by ApplyPane and AcceptInvitePane, since both are moments a NEW
- *  person is agreeing for the first time (Door.tsx's own Terms component is the shop's
- *  equivalent, and points at a different set of documents entirely — see this module's own
- *  header note on why this is not that component reused). */
+/** The consent line — Door.tsx's own Terms component is the shop's equivalent, and points at a
+ *  different set of documents entirely, which is why this is its own small component. */
 function AffiliateTerms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => void }) {
   const base = (import.meta.env.VITE_AFFILIATE_LEGAL_BASE ?? 'https://raje3.sa/legal/affiliates')
     .replace(/\/$/, '');

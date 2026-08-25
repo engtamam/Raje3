@@ -115,6 +115,10 @@ export interface CatalogueService {
   /** Halalas. 0 or absent means no catalogue price is set — the booking dialog's own total then
    *  has nothing to suggest, which is an honest state and not an error. */
   price_minor?: number;
+  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active operator — the booking dialog reads this
+   *  to decide whether one merged operator step still covers every chosen service, or whether it
+   *  has to expand into one row per service (docs/خطة-تنفيذ-الحجوزات.md's smart-scheduling plan). */
+  eligible_staff_ids?: string[];
 }
 
 /** An extra input the visit sheet renders — the full descriptor, so this app never carries its
@@ -768,11 +772,15 @@ export function noShowRisk(session: Session, customerId: string): Promise<NoShow
 /** The "أقرب موعد" button (§6.2) — `null` when nothing is free in the search window. */
 export function nearestSlot(
   session: Session, branchId: string, operatorId: string, serviceIds: string[], after: number,
+  /** The booking being RESCHEDULED, when there is one — its own current hour must not read as
+   *  taken while searching for a new one for it. Omitted for a brand-new booking. */
+  excludeBookingId?: string,
 ): Promise<{ starts_at: number | null }> {
   const q = new URLSearchParams({
     branch_id: branchId, operator_id: operatorId, service_ids: serviceIds.join(','),
     after: String(after),
   });
+  if (excludeBookingId) q.set('exclude_booking_id', excludeBookingId);
   return call(session, `/api/v1/bookings/nearest?${q.toString()}`);
 }
 

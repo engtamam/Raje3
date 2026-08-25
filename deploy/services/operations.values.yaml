@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:ccd45ba5ca60e3d875c96bbd371a4730cfa1d40452afb95c1a2cf2d20e8f9f65"   # 4b9b226, published by publish-images.sh
+  digest: "sha256:6110ebff871fb9f16d5a18d389459c786ac88abae9ca02585debb8921b2da5b8"   # 629ccdf, published by publish-images.sh
 
 replicas: 1
 
@@ -101,7 +101,8 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

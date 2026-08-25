@@ -11,4 +11,10 @@ the read, never before: unavailable is honest, inert is not.
 """
 from __future__ import annotations
 
-RUNTIME_POLICY: frozenset[str] = frozenset()
+RUNTIME_POLICY: frozenset[str] = frozenset({
+    # The withdrawal threshold — OUR decision (platform-wide, never per-shop: there is no
+    # establishment to scope it to). "400 ريال، وممكن يتغير" — read here on
+    # every /me/home, /me/balance and withdrawal request (core/payouts.py's own
+    # effective_min_withdrawal_halalas), so a panel change takes effect with no redeploy.
+    "AFFILIATE_WITHDRAWAL_MIN_HALALAS",
+})

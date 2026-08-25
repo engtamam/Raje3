@@ -19,36 +19,64 @@
  * `AffiliateNav.tsx`'s own header on why a phone gets a bottom bar rather than that shell's
  * off-canvas drawer.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { me, type HomeTicket } from './api';
 import { AffiliateAccount } from './AffiliateAccount';
 import { AffiliateDoor } from './AffiliateDoor';
 import { AffiliateEarnings } from './AffiliateEarnings';
 import { AffiliateHome } from './AffiliateHome';
 import { AffiliateLeads } from './AffiliateLeads';
 import { AffiliateSidebar, AffiliateBottomNav, ComingSoon, type Tab } from './AffiliateNav';
+import { AffiliateTeam } from './AffiliateTeam';
 import { AffiliateTools } from './AffiliateTools';
 import { useAffiliateSession } from './session';
 
 export function AffiliatePortal() {
   const { session, signedIn, signIn, signOut } = useAffiliateSession();
   const [tab, setTab] = useState<Tab>('home');
+  // Home's own TicketCarousel jumps straight into a ticket's own thread inside «أدواتي» — this is
+  // the one piece of state that crosses tabs, so it lives here rather than in either screen.
+  const [deepLinkTicket, setDeepLinkTicket] = useState<HomeTicket | null>(null);
+  // WHETHER «فريقي» EXISTS AT ALL — read once, here, so both nav renderings (sidebar + bottom bar)
+  // and the route guard below agree on the same answer instead of each re-deriving it.
+  const [isManager, setIsManager] = useState(false);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    me(session).then((m) => { if (!cancelled) setIsManager(m.role === 'affiliate_manager'); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [session, signedIn]);
 
   if (!signedIn) {
     return <AffiliateDoor onSignedIn={signIn} />;
   }
 
+  // A PROMOTER CANNOT LAND ON «فريقي» — the tab does not exist for him in the nav, but `tab` state
+  // can still hold a stale 'team' from before a role somehow changed; render home rather than a
+  // blank column.
+  const effectiveTab: Tab = tab === 'team' && !isManager ? 'home' : tab;
+
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <AffiliateSidebar active={tab} onChange={setTab} />
+      <AffiliateSidebar active={effectiveTab} onChange={setTab} isManager={isManager} />
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col md:max-w-2xl">
         <div className="flex-1">
-          {tab === 'home' ? <AffiliateHome session={session} /> : null}
-          {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
-          {tab === 'tools' ? <AffiliateTools session={session} /> : null}
-          {tab === 'earnings' ? <AffiliateEarnings session={session} /> : null}
-          {tab === 'account' ? <AffiliateAccount session={session} onSignOut={signOut} /> : null}
+          {effectiveTab === 'home' ? (
+            <AffiliateHome session={session}
+                          onOpenTicket={(t) => { setDeepLinkTicket(t); setTab('tools'); }} />
+          ) : null}
+          {effectiveTab === 'leads' ? <AffiliateLeads session={session} /> : null}
+          {effectiveTab === 'tools' ? (
+            <AffiliateTools session={session} deepLinkTicket={deepLinkTicket}
+                           onConsumeDeepLinkTicket={() => setDeepLinkTicket(null)} />
+          ) : null}
+          {effectiveTab === 'earnings' ? <AffiliateEarnings session={session} /> : null}
+          {effectiveTab === 'team' ? <AffiliateTeam session={session} /> : null}
+          {effectiveTab === 'account' ? <AffiliateAccount session={session} onSignOut={signOut} /> : null}
         </div>
-        <AffiliateBottomNav active={tab} onChange={setTab} />
+        <AffiliateBottomNav active={effectiveTab} onChange={setTab} isManager={isManager} />
       </div>
     </div>
   );

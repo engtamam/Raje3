@@ -2,3 +2,9 @@ out/
 *.mp4
 *.webm
 *.mp3
+tts/.venv/
+# GENERATED AUDIO, EXCLUDED — but not media/tts/reference/'s own small, licensed, checked-in
+# clip (same class of committed asset as media/lib/sfx/click.ogg): that one file is the whole
+# input to every future TTS pass, not a rebuildable output.
+*.wav
+!tts/reference/*.wav

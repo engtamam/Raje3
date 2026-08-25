@@ -63,9 +63,20 @@ probe() {
   echo "$out"
 }
 
+# CALICO'S OWN READINESS, NOT A GUESSED SLEEP. Found on a genuinely fresh node: this check run
+# right after k3s+calico first come up (bring-up.sh's own sequence), before calico-node's
+# dataplane has actually finished programming routes — the baseline probe then failed EVERY
+# time within its old ~45s retry budget, and by hand, minutes later on the same node with no
+# other change, the identical probe answered REACHABLE. The dataplane was still warming up, not
+# broken. Waiting on the pod's own Ready condition (the thing that's actually the prerequisite)
+# replaces a fixed guess with the real signal — cheap here because this happens once, at install.
+info "waiting for calico-node's dataplane to be ready"
+kubectl -n kube-system wait --for=condition=Ready pod -l k8s-app=calico-node --timeout=120s >/dev/null 2>&1 \
+  || die "calico-node never became ready — the CNI itself did not come up, not just this probe"
+
 info "baseline: can a pod reach a service with no policy in the way?"
 answer=""
-for _ in $(seq 1 8); do
+for _ in $(seq 1 16); do
   answer="$(probe)"
   [ "$answer" = "REACHABLE" ] && break
   sleep 5

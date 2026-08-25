@@ -192,3 +192,79 @@ def test_reply_to_a_ticket_not_found_is_a_clean_404():
                     json={"body": "سنتابع فورًا"},
                     headers={"Authorization": f"Bearer {_token(sub='p-tk7')}"})
     assert r.status_code == 404
+
+
+# ── /me/home's own open_tickets carousel feed (2026-08-23) ─────────────────────────────────────
+
+def test_home_open_tickets_carries_open_ones_only_with_the_shops_name_attached():
+    http = FakeTicketHttp({
+        "http://tickets:8000/internal/tickets?tenant=t-hm1": (200, {"tickets": [
+            {"id": "tk-open", "subject": "الجهاز متوقف", "status": "open", "created_at": 200},
+            {"id": "tk-closed", "subject": "قديمة", "status": "closed", "created_at": 100},
+        ]}),
+    })
+    client = _make_app(tickets_http=http)
+    _seed_referral(client, affiliate_id="aff-hm1", person_id="p-hm1", tenant="t-hm1")
+
+    r = client.get("/api/v1/affiliates/me/home",
+                   headers={"Authorization": f"Bearer {_token(sub='p-hm1')}"})
+    assert r.status_code == 200, r.text
+    tickets = r.json()["open_tickets"]
+    assert [t["id"] for t in tickets] == ["tk-open"]   # the closed one is filtered out
+    assert tickets[0]["tenant"] == "t-hm1"
+    assert tickets[0]["shop_name"]   # falls back to the tenant id when unnamed — never blank
+
+
+def test_home_open_tickets_skips_a_shop_with_no_active_grant_without_blanking_the_rest():
+    http = FakeTicketHttp({
+        "http://tickets:8000/internal/tickets?tenant=t-hm2a": (409, {}),
+        "http://tickets:8000/internal/tickets?tenant=t-hm2b": (200, {"tickets": [
+            {"id": "tk-ok", "status": "open", "created_at": 50},
+        ]}),
+    })
+    client = _make_app(tickets_http=http)
+    _seed_referral(client, affiliate_id="aff-hm2", person_id="p-hm2", tenant="t-hm2a")
+
+    async def refer_second():
+        await client.app.state.container.referrals.stamp(tenant="t-hm2b", affiliate_id="aff-hm2")
+    asyncio.run(refer_second())
+
+    r = client.get("/api/v1/affiliates/me/home",
+                   headers={"Authorization": f"Bearer {_token(sub='p-hm2')}"})
+    assert r.status_code == 200, r.text
+    assert [t["id"] for t in r.json()["open_tickets"]] == ["tk-ok"]
+
+
+def test_home_open_tickets_is_empty_with_no_ticket_service_configured():
+    client = _make_app(tickets_http=None)
+    _seed_referral(client, affiliate_id="aff-hm3", person_id="p-hm3", tenant="t-hm3")
+    r = client.get("/api/v1/affiliates/me/home",
+                   headers={"Authorization": f"Bearer {_token(sub='p-hm3')}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["open_tickets"] == []
+
+
+def test_an_operators_config_override_changes_the_withdrawal_threshold_live_on_home():
+    """The end-to-end proof for the question: "400 ريال، وممكن يتغير — أتوقع
+    فيه مكان لتعديلها" — an operator's PUT /api/v1/operator/config takes effect on the NEXT
+    /me/home read, no redeploy, exactly the surface `platform.config` already exists for."""
+    client = _make_app(tickets_http=None)
+    marketer_headers = {"Authorization": f"Bearer {_token(sub='p-cfg1')}"}
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+    async def seed():
+        aff = Affiliate(id="aff-cfg1", person_id="p-cfg1", phone="+966501230099",
+                        name="مسوّق", role="affiliate_manager", status=ACTIVE)
+        await client.app.state.container.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+    asyncio.run(seed())
+
+    before = client.get("/api/v1/affiliates/me/home", headers=marketer_headers).json()
+    assert before["min_withdrawal_halalas"] == 0   # this test env's own boot default
+
+    operator_headers = {"Authorization": f"Bearer {_token(sub='op1', caps=['platform.config'])}"}
+    put = client.put("/api/v1/operator/config",
+                     json={"key": "AFFILIATE_WITHDRAWAL_MIN_HALALAS", "value": 40000},
+                     headers=operator_headers)
+    assert put.status_code == 200, put.text
+
+    after = client.get("/api/v1/affiliates/me/home", headers=marketer_headers).json()
+    assert after["min_withdrawal_halalas"] == 40000

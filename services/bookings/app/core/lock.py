@@ -7,8 +7,8 @@ moment both read "free", both confirm, and both win — unless the confirm is se
 ────────────────────────────────────────────────────────────────────────────────────────────────
 THE LANE, docs/خطة-تنفيذ-الحجوزات.md §2
 
-`{tenant}:{branch_id}:{operator_id}:{starts_at_bucket}` — bucketed to a 15-minute grain (Tamam's
-decision, 2026-08-19), not the exact second. Two attempts at 10:00:00 and 10:00:03 for the same
+`{tenant}:{branch_id}:{operator_id}:{starts_at_bucket}` — bucketed to a 15-minute grain, deliberately,
+not the exact second. Two attempts at 10:00:00 and 10:00:03 for the same
 operator must contend for the SAME lane, or the lock is decoration for the race it exists to
 guard. Per-OPERATOR, not per-branch, deliberately: two different staff at the same branch in the
 same minute do not contend.

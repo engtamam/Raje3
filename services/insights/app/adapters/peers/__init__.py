@@ -55,10 +55,12 @@ class NullPeers:
     def __init__(self, visits: list[dict] | None = None,
                  catalogue: list[dict] | None = None,
                  entitlements: set[str] | None = None,
-                 branches: list[dict] | None = None) -> None:
+                 branches: list[dict] | None = None,
+                 operators: list[dict] | None = None) -> None:
         self._visits = visits or []
         self._catalogue = catalogue or []
         self._branches = branches or []
+        self._operators = operators or []
         # What a test says this caller may see. Empty is the ordinary case: an owner sees it all.
         self.scope = ""
         # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
@@ -83,6 +85,9 @@ class NullPeers:
 
     async def branches(self, tenant: str) -> list[dict]:
         return list(self._branches)
+
+    async def operators(self, tenant: str) -> list[dict]:
+        return list(self._operators)
 
     async def branch_scope(self, tenant: str, subject: str) -> str:
         return self.scope
@@ -112,6 +117,7 @@ class HttpPeers:
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
                  branches_path: str = "/internal/operations/branches",
+                 operators_path: str = "/internal/operations/operators",
                  scope_path: str = "/internal/operations/branch-scope",
                  tenants_path: str = "/internal/operations/tenants-with-visits",
                  reminders_url: str, send_path: str, consent_count_path: str,
@@ -124,6 +130,7 @@ class HttpPeers:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
         self._branches_url = operations_url.rstrip("/") + branches_path
+        self._operators_url = operations_url.rstrip("/") + operators_path
         self._scope_url = operations_url.rstrip("/") + scope_path
         self._tenants_url = operations_url.rstrip("/") + tenants_path
         self._send_url = reminders_url.rstrip("/") + send_path
@@ -228,6 +235,19 @@ class HttpPeers:
         try:
             return (_post(self._branches_url, {"tenant": tenant},
                           self._token, self._timeout)).get("branches") or []
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return []
+
+    async def operators(self, tenant: str) -> list[dict]:
+        """This shop's people — ONLY so the staff table can print a name instead of `opr_9f2a`.
+
+        SAME FAILURE POSTURE AS `branches` ABOVE: an unreachable operations costs the staff
+        table its names, not the snapshot — every number in it is computed from the visits we
+        already hold.
+        """
+        try:
+            return (_post(self._operators_url, {"tenant": tenant},
+                          self._token, self._timeout)).get("operators") or []
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return []
 
@@ -414,6 +434,7 @@ def build_peers(settings) -> Any:
                      visits_path=settings.OPERATIONS_VISITS_SINCE_PATH,
                      catalogue_path=settings.OPERATIONS_CATALOGUE_PATH,
                      branches_path=settings.OPERATIONS_BRANCHES_PATH,
+                     operators_path=settings.OPERATIONS_OPERATORS_PATH,
                      scope_path=settings.OPERATIONS_SCOPE_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,

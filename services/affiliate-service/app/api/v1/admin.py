@@ -25,6 +25,7 @@ from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
+from app.core.models import ACTIVE, AFFILIATES, Affiliate
 from app.core.onboarding import OnboardingRefused
 from app.core.pii import subject_ref
 
@@ -140,3 +141,49 @@ async def set_platform_revenue(request: Request, affiliate_id: str, body: Platfo
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
+
+
+# ── the admin panel's own dashboard reads — cross-affiliate, never per-manager ─────────────────
+#
+# NOT AUDITED, matching `admin_sectors.py::platform_sector_stats`'s own precedent exactly: these
+# are read-only aggregate views (a count, a leaderboard, a revenue total already exposed
+# opt-in per-manager via `sees_platform_revenue`) — no money moves and no PII crosses a boundary
+# it wasn't already crossing. If that convention ever changes here, it changes for `sectors.stats`
+# too, not just here.
+@router.get("/stats", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def platform_affiliate_stats(request: Request,
+                                   principal: Principal = Depends(require_user)) -> dict:
+    """How many affiliates are actually active right now, and what the whole channel has ever
+    brought the platform (`CommissionEngine.platform_revenue()` — every referral ever stamped,
+    regardless of tree or status, same figure a manager sees opt-in via `sees_platform_revenue`)."""
+    c = request.app.state.container
+    rows = await c.datastore.scan_all(AFFILIATES, 5000)
+    active_count = sum(1 for r in rows if r.get("status") == ACTIVE)
+    revenue = await c.commissions.platform_revenue()
+    return {"active_affiliates": active_count, "total_affiliates": len(rows),
+           "total_net_revenue_minor": revenue["total_net_revenue_minor"],
+           "revenue_partial": revenue["revenue_partial"]}
+
+
+@router.get("/leaderboard", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def platform_affiliate_leaderboard(request: Request, limit: int = 20,
+                                         principal: Principal = Depends(require_user)) -> dict:
+    """Every ACTIVE affiliate's own measurable performance (`WafaService.performance_for` — the
+    exact metrics a manager's own eyes and the Wafa recommendation are already built from, one
+    computation, never a second driftable copy), ranked by referrals then retention.
+
+    A LOOP, NOT A NEW BULK METHOD — same shape `sector_stats`'s cross-manager scan already uses.
+    At the affiliate counts this product runs at today this is cheap; if the roster ever grows
+    large enough for this to matter, the fix is a real `performance_for_all()` in `wafa.py`, not
+    a workaround here."""
+    c = request.app.state.container
+    rows = await c.datastore.scan_all(AFFILIATES, 5000)
+    board = []
+    for r in rows:
+        aff = Affiliate.from_dict(r)
+        if aff.status != ACTIVE:
+            continue
+        perf = await c.wafa.performance_for(aff.id)
+        board.append({"affiliate_id": aff.id, "name": aff.name, **perf})
+    board.sort(key=lambda x: (x["total_referrals"], x["retention_rate"]), reverse=True)
+    return {"leaderboard": board[: max(1, min(limit, 100))]}

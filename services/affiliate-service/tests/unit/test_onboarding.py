@@ -38,31 +38,13 @@ class FakeHttp:
         return 500, {}
 
 
-class ByIdentifierHttp:
-    """Same idiom, but the /members answer depends on WHICH phone is being minted — needed once a
-    test mints more than one real person (a manager, then someone he invites) and each must get
-    identity's OWN distinct person_id/invite_token rather than replaying the first response."""
-
-    def __init__(self, by_identifier: dict[str, tuple[int, dict]],
-                claim_answer: tuple[int, dict] = (200, {})) -> None:
-        self._by_identifier = by_identifier
-        self._claim_answer = claim_answer
-        self.calls: list[tuple[str, str]] = []
-
-    def call(self, url, *, method, body=None, internal=False, bearer=""):
-        self.calls.append((method, url))
-        if url.endswith("/members"):
-            return self._by_identifier[(body or {})["identifier"]]
-        if url.endswith("/person/claim"):
-            return self._claim_answer
-        return 500, {}
-
-
-def build(http=None, salt="s" * 16, tenants_url="", authz_url="") -> OnboardingService:
+def build(http=None, salt="s" * 16, tenants_url="", authz_url="",
+         otp_deliverable=False, require_otp=False, terms_version="v1") -> OnboardingService:
     return OnboardingService(
         store=MemoryDataStore(), http=http or FakeHttp([]),
         identity_url="http://identity:8000", tenant=TENANT, pii_salt=salt,
-        tenants_url=tenants_url, authz_url=authz_url)
+        tenants_url=tenants_url, authz_url=authz_url,
+        otp_deliverable=otp_deliverable, require_otp=require_otp, terms_version=terms_version)
 
 
 @pytest.mark.parametrize("written", ["0501234567", "+966501234567", "966501234567",
@@ -218,91 +200,6 @@ async def test_an_already_affiliate_phone_cannot_apply_again():
     assert exc.value.reason == "already_affiliate"
 
 
-# ── a manager inviting somebody directly ─────────────────────────────────────────────────────
-def _invite_http() -> ByIdentifierHttp:
-    """A manager minted first (self-apply, password mode), a promoter minted second (invite
-    mode) — two DIFFERENT identity people, so each phone must get its own person_id/invite_token
-    rather than replaying whichever answer a plain FakeHttp saw first."""
-    return ByIdentifierHttp({
-        "+966501110000": (201, {"person_id": "p-manager"}),
-        "+966502223333": (201, {"person_id": "p-promoter", "invite_token": "tok-1"}),
-    })
-
-
-async def _make_active_manager(svc) -> str:
-    """Returns the manager's person_id (also his identity `sub`, so it doubles as the token
-    subject a real invite() call would authenticate with)."""
-    out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2", agreed=True)
-    approved = await svc.approve(out["application_id"], decided_by="admin1")
-    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
-    return saved["person_id"]
-
-
-@pytest.mark.anyio
-async def test_a_manager_invites_and_no_password_is_asked_of_him():
-    svc = build(_invite_http())
-    manager_person_id = await _make_active_manager(svc)
-
-    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
-                           name="مسوّق مدعو")
-    approved = await svc.approve(out["application_id"], decided_by="admin1")
-    assert approved["status"] == "invited"
-
-    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
-    assert saved["invite_token"] == "tok-1"
-    assert saved["role"] == PROMOTER
-
-
-@pytest.mark.anyio
-async def test_a_promoter_cannot_invite():
-    svc = build(_invite_http())
-    manager_person_id = await _make_active_manager(svc)
-
-    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
-                           name="مسوّق مدعو")
-    approved = await svc.approve(out["application_id"], decided_by="admin1")
-    accepted = await svc.accept_invite(token="tok-1", password="hunter2hunter2", agreed=True)
-    promoter_person_id = (await svc._store.get(AFFILIATES, accepted["affiliate_id"]))["person_id"]
-
-    with pytest.raises(OnboardingRefused) as exc:
-        await svc.invite(inviter_person_id=promoter_person_id, phone="0509998888",
-                         name="محاولة")
-    assert exc.value.reason == "managers_only"
-    assert approved["affiliate_id"] != ""   # sanity: the setup above actually worked
-
-
-@pytest.mark.anyio
-async def test_accepting_an_invite_activates_the_account_with_the_persons_own_password():
-    svc = build(_invite_http())
-    manager_person_id = await _make_active_manager(svc)
-
-    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
-                           name="مسوّق مدعو")
-    approved = await svc.approve(out["application_id"], decided_by="admin1")
-
-    accepted = await svc.accept_invite(token="tok-1", password="somePassword123!", agreed=True)
-    saved = await svc._store.get(AFFILIATES, accepted["affiliate_id"])
-    assert saved["status"] == "active"
-    assert saved["invite_token"] == ""   # spent
-    assert accepted["affiliate_id"] == approved["affiliate_id"]
-
-
-@pytest.mark.anyio
-async def test_a_spent_or_unknown_invite_token_is_refused_the_same_way():
-    svc = build()
-    with pytest.raises(OnboardingRefused) as exc:
-        await svc.accept_invite(token="never-issued", password="hunter2hunter2", agreed=True)
-    assert exc.value.reason == "invalid_invite"
-
-
-@pytest.mark.anyio
-async def test_an_inactive_affiliate_cannot_invite():
-    svc = build()
-    with pytest.raises(OnboardingRefused) as exc:
-        await svc.invite(inviter_person_id="nobody", phone="0501234567", name="أحد")
-    assert exc.value.reason == "not_an_active_affiliate"
-
-
 # ── who am I ──────────────────────────────────────────────────────────────────────────────────
 @pytest.mark.anyio
 async def test_me_returns_his_own_id_as_the_referral_code_never_the_invite_token():
@@ -377,39 +274,34 @@ async def test_a_self_applicant_carries_his_agreement_onto_the_affiliate_row():
 
 
 @pytest.mark.anyio
-async def test_an_invited_affiliate_has_no_agreement_until_he_accepts_it_himself():
-    """The manager's OWN agreement (made when he applied) must never stand in for the person he
-    invites — nobody but that person can consent on his behalf."""
-    svc = build(_invite_http())
-    manager_person_id = await _make_active_manager(svc)
-    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333", name="مسوّق مدعو")
+async def test_a_terms_version_bump_while_pending_blocks_approval():
+    """Same property as compliance-service's LegalGate: acceptance is pinned to the version in
+    force at the moment it happened, so a later bump leaves it stale. Here the applicant agreed
+    to v1 and nobody decided his application before the wording moved to v2 — approving him
+    anyway would mint an account whose one recorded consent answers a question nobody is asking
+    any more."""
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, terms_version="v1")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+
+    svc._terms_version = "v2"   # the terms were republished while this application sat PENDING
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.approve(out["application_id"], decided_by="admin1")
+    assert exc.value.reason == "terms_changed"
+    # No membership was minted — the version check runs before the identity call.
+    assert not any(url.endswith("/members") for _, url in http.calls)
+
+
+@pytest.mark.anyio
+async def test_reapplying_after_a_terms_bump_carries_the_new_version():
+    """The honest fix for the case above: re-apply, and the fresh row is stamped with whatever
+    is current NOW, so approval clears it exactly as any first-time application would."""
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, terms_version="v2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     approved = await svc.approve(out["application_id"], decided_by="admin1")
     saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
-    assert saved["agreed_terms_version"] == ""
-    assert saved["agreed_at"] == 0
-
-
-@pytest.mark.anyio
-async def test_accepting_an_invite_without_agreeing_is_refused():
-    svc = build(_invite_http())
-    manager_person_id = await _make_active_manager(svc)
-    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333", name="مسوّق مدعو")
-    await svc.approve(out["application_id"], decided_by="admin1")
-    with pytest.raises(OnboardingRefused) as exc:
-        await svc.accept_invite(token="tok-1", password="hunter2hunter2", agreed=False)
-    assert exc.value.reason == "must_agree"
-
-
-@pytest.mark.anyio
-async def test_accepting_an_invite_records_his_own_agreement():
-    svc = build(_invite_http())
-    manager_person_id = await _make_active_manager(svc)
-    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333", name="مسوّق مدعو")
-    await svc.approve(out["application_id"], decided_by="admin1")
-    accepted = await svc.accept_invite(token="tok-1", password="hunter2hunter2", agreed=True)
-    saved = await svc._store.get(AFFILIATES, accepted["affiliate_id"])
-    assert saved["agreed_terms_version"] == "v1"
-    assert saved["agreed_at"] > 0
+    assert saved["agreed_terms_version"] == "v2"
 
 
 # ── suspend / reactivate (spec §10: «تعليق لا حذف») ──────────────────────────────────────────
@@ -669,3 +561,107 @@ async def test_change_password_refuses_a_weak_new_password_distinctly():
     with pytest.raises(OnboardingRefused) as exc:
         await svc.change_password(bearer="Bearer tok-123", old_password="old", new_password="1")
     assert exc.value.reason == "weak_password"
+
+
+# ── phone-ownership OTP — dormant until both flags are on ──────────────────────────────────────
+@pytest.mark.anyio
+async def test_apply_needs_no_code_while_the_gate_is_off():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, require_otp=False)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    assert out["status"] == "pending"
+
+
+@pytest.mark.anyio
+async def test_apply_refuses_a_wrong_code_once_the_gate_is_on():
+    http = FakeHttp([("/otp/verify", (400, {}))])
+    svc = build(http, require_otp=True)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2",
+                        agreed=True, code="000000")
+    assert exc.value.reason == "bad_code"
+
+
+@pytest.mark.anyio
+async def test_apply_succeeds_with_a_verified_code_once_the_gate_is_on():
+    http = FakeHttp([("/otp/verify", (200, {})), ("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, require_otp=True)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2",
+                          agreed=True, code="123456")
+    assert out["status"] == "pending"
+
+
+@pytest.mark.anyio
+async def test_request_otp_is_refused_while_no_channel_can_actually_deliver():
+    svc = build(otp_deliverable=False)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.request_otp("0501234567")
+    assert exc.value.reason == "undeliverable"
+
+
+@pytest.mark.anyio
+async def test_request_otp_reports_a_provider_failure_distinctly():
+    http = FakeHttp([("/otp/request", (200, {"delivered": False}))])
+    svc = build(http, otp_deliverable=True)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.request_otp("0501234567")
+    assert exc.value.reason == "undelivered"
+
+
+@pytest.mark.anyio
+async def test_request_otp_succeeds_once_a_channel_actually_delivers():
+    http = FakeHttp([("/otp/request", (200, {"delivered": True, "expires_in": 300}))])
+    svc = build(http, otp_deliverable=True)
+    out = await svc.request_otp("0501234567")
+    assert out == {"sent": True, "expires_in": 300}
+
+
+# ── a manager editing a referral's application, only before an admin decides ───────────────────
+@pytest.mark.anyio
+async def test_the_referring_manager_may_edit_a_still_pending_application():
+    http = FakeHttp([("/members", (201, {"person_id": "p-mgr"}))])
+    svc = build(http)
+    mgr_out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2", agreed=True)
+    mgr = await svc.approve(mgr_out["application_id"], decided_by="admin1")
+    mgr_person_id = (await svc._store.get(AFFILIATES, mgr["affiliate_id"]))["person_id"]
+
+    app_out = await svc.apply(phone="0502223333", name="مسوّق", password="hunter2hunter2",
+                              referral_code=mgr["affiliate_id"], agreed=True)
+    updated = await svc.update_application(
+        app_out["application_id"], editor_person_id=mgr_person_id,
+        name="مسوّق مُعدَّل", cv_url="https://example.com/cv.pdf")
+    assert updated["name"] == "مسوّق مُعدَّل"
+    assert updated["cv_url"] == "https://example.com/cv.pdf"
+
+
+@pytest.mark.anyio
+async def test_editing_is_refused_once_an_admin_has_already_decided():
+    http = FakeHttp([("/members", (201, {"person_id": "p-mgr"}))])
+    svc = build(http)
+    mgr_out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2", agreed=True)
+    mgr = await svc.approve(mgr_out["application_id"], decided_by="admin1")
+    mgr_person_id = (await svc._store.get(AFFILIATES, mgr["affiliate_id"]))["person_id"]
+
+    app_out = await svc.apply(phone="0502223333", name="مسوّق", password="hunter2hunter2",
+                              referral_code=mgr["affiliate_id"], agreed=True)
+    await svc.approve(app_out["application_id"], decided_by="admin1")
+
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.update_application(app_out["application_id"], editor_person_id=mgr_person_id,
+                                     name="بعد القرار")
+    assert exc.value.reason == "decision_closed"
+
+
+@pytest.mark.anyio
+async def test_a_stranger_cannot_edit_someone_elses_referral():
+    http = FakeHttp([("/members", (201, {"person_id": "p-mgr"}))])
+    svc = build(http)
+    mgr_out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2", agreed=True)
+    mgr = await svc.approve(mgr_out["application_id"], decided_by="admin1")
+
+    app_out = await svc.apply(phone="0502223333", name="مسوّق", password="hunter2hunter2",
+                              referral_code=mgr["affiliate_id"], agreed=True)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.update_application(app_out["application_id"], editor_person_id="someone-else",
+                                     name="محاولة")
+    assert exc.value.reason == "not_your_referral"

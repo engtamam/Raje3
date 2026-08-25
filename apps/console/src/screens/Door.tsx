@@ -31,23 +31,67 @@
  *   him on; an unproven identifier is not an identity. The code arrives on WhatsApp, which is the
  *   channel he is about to connect anyway — no SMS contract, no second vendor.
  */
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { OtpVerify } from '@base-ui/auth/OtpVerify';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { Check } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
 import {
-  openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, Refused,
+  openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, WELCOME_TRIAL_KEY, Refused,
 } from '../auth';
 import { sentenceFor } from '../api';
 import type { Session } from '../session';
 import { western } from '../digits';
 
-export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
+/**
+ * A password field with a real show/hide toggle — reported directly: neither pane offered any
+ * way to check what he had actually typed, on a form whose whole point (§ the twelve-character
+ * rule above) is that a wrong keystroke is easy to make and easy to miss while the field masks
+ * it. One eye icon inside the box, never a second control competing for the label's own space.
+ */
+function PasswordInput({ id, name, value, onChange, onBlur, autoComplete }: {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
+  autoComplete: string;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id} name={name} value={value} onChange={onChange} onBlur={onBlur}
+        type={shown ? 'text' : 'password'} autoComplete={autoComplete}
+        className="pe-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-label={shown ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+        className="absolute inset-y-0 end-0 grid w-10 place-items-center text-text-secondary"
+      >
+        {shown ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+      </button>
+    </div>
+  );
+}
+
+export function Door({ onSignedIn, onWelcome }: {
+  onSignedIn: (s: Session) => void;
+  // FIRES THE MOMENT A FRESH SIGNUP'S TRIAL OPENS — a direct call into App's own state, not just
+  // the sessionStorage flag NewShopPane also writes. App itself only mounts once, at the very
+  // first page load, well before a person still on this screen has typed anything: its
+  // `useState` initializer (the thing that reads that flag) already ran with nothing in
+  // sessionStorage yet, and React does not re-run an initializer on a later render. Without this
+  // callback the welcome only ever appeared after a manual refresh remounted App: no welcome
+  // right after signup, a full page of it after F5.
+  onWelcome?: (end: number) => void;
+}) {
   const [mode, setMode] = useState<'in' | 'new'>('in');
 
   return (
@@ -61,14 +105,14 @@ export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
             { value: 'in', label: 'تسجيل الدخول' },
-            { value: 'new', label: 'محل جديد' },
+            { value: 'new', label: 'تسجيل جديد' },
           ]}
           value={mode}
           onChange={setMode}
         />
         {mode === 'in'
           ? <SignInPane onSignedIn={onSignedIn} />
-          : <NewShopPane onSignedIn={onSignedIn} />}
+          : <NewShopPane onSignedIn={onSignedIn} onWelcome={onWelcome} />}
       </div>
     </DoorLayout>
   );
@@ -210,10 +254,10 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       </Field>
 
       <Field label="كلمة المرور" required htmlFor="in-password">
-        <Input
+        <PasswordInput
           id="in-password" name="password" value={password}
           onChange={(e) => { setPassword(e.target.value); setError(''); }}
-          type="password" autoComplete="current-password"
+          autoComplete="current-password"
         />
       </Field>
 
@@ -294,13 +338,29 @@ function errorFor(f: FieldName, v: string): string {
   }
 }
 
-function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
+function NewShopPane({ onSignedIn, onWelcome }: {
+  onSignedIn: (s: Session) => void;
+  onWelcome?: (end: number) => void;
+}) {
   const [proving, setProving] = useState<Proving | null>(null);
   const [v, setV] = useState<Record<FieldName, string>>({ phone: '', password: '', shopName: '' });
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // CARRIED FROM THE FIRST CALL THROUGH A POSSIBLE «أكّد رقمك» DETOUR — see auth.ts's own note
+  // on `openShop`: the shop and its trial already exist the moment sign-in itself refuses.
+  const [trialEnd, setTrialEnd] = useState(0);
+
+  function markWelcome(end: number) {
+    if (!end) return;
+    // BOTH, NOT EITHER — `onWelcome` is what actually shows the screen right now, in the same
+    // render pass `onSignedIn` moves App past the door; sessionStorage is only the fallback for
+    // the rare mid-onboarding reload (e.g. the OTP detour surviving a refresh), read by App's own
+    // mount-time initializer. Losing either one reintroduces a version of the same bug.
+    try { sessionStorage.setItem(WELCOME_TRIAL_KEY, String(end)); } catch { /* private mode */ }
+    onWelcome?.(end);
+  }
 
   const errs = useMemo(() => ({
     phone: errorFor('phone', v.phone),
@@ -364,7 +424,9 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // its first day for any shop that did two things. A shop now starts empty and its owner
       // writes what he actually sells; whether he works on cars is a checkbox in «منشأتي» that he
       // can change the day his work changes.
-      await openShop({
+      // ONE SIGN-IN, NOT TWO — `openShop` already walks him through the door itself (auth.ts's
+      // own doc comment says so); this pane used to discard that session and ask again.
+      const opened = await openShop({
         phone: filled.phone, password: filled.password, shopName: filled.shopName,
         // WHICH MARKETER'S LINK HE ARRIVED ON, IF ANY — read once, silently, from `?aff=`; see
         // auth.ts's own note on why this is never a field he fills in himself.
@@ -378,23 +440,17 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         localStorage.setItem(AGREED_KEY, normalizePhone(filled.phone) ?? '');
       } catch { /* private mode — the gate simply asks, which is the safe direction */ }
 
-      // STRAIGHT IN, AND THE SERVER DECIDES WHETHER THAT IS ALLOWED.
-      //
-      // The rule "an unproven number may not sign in" lives in operations, behind a setting — and
-      // while sending is not wired to Meta it is off, because demanding a proof we cannot send is
-      // a locked door with no key. So the console does not gate on its own: it signs in, and if
-      // the server still wants the number proven it says so with `unverified`, which the sign-in
-      // pane already knows how to turn into the code screen.
-      //
-      // ONE PLACE DECIDES, and it is the one that knows. A second rule here would be the copy that
-      // goes stale the day the setting flips.
-      onSignedIn(await signIn(filled.phone, filled.password));
+      markWelcome(opened.trialEnd);
+      onSignedIn(opened.session);
     } catch (err) {
       // THE SAME REFUSAL, THE SAME STEP — and this pane used to answer it with a sentence on a
       // form that has no code field anywhere on it (م · قاطع). The account exists by then, his
       // number is spoken for, and «أكّد رقمك» with nowhere to type it is a locked door he built
       // himself. The pane beside this one has handled it correctly since it was written.
       if (needsProof(err)) {
+        // THE TRIAL ALREADY OPENED — carried on the thrown error itself (auth.ts's own note),
+        // since the shop and its trial exist by the time sign-in alone is what refused.
+        setTrialEnd(Number((err as { trialEnd?: number }).trialEnd) || 0);
         setProving(await proveStep(filled.phone, filled.password));
         return;
       }
@@ -405,7 +461,8 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   }
 
   if (proving) {
-    return <ProveNumber proving={proving} setProving={setProving} onSignedIn={onSignedIn} />;
+    return <ProveNumber proving={proving} setProving={setProving}
+                        onSignedIn={(s) => { markWelcome(trialEnd); onSignedIn(s); }} />;
   }
 
   return (
@@ -420,10 +477,10 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       </Field>
 
       <Field label="كلمة المرور" required htmlFor="password" error={shown('password')}>
-        <Input
+        <PasswordInput
           id="password" name="password" value={v.password} onChange={set('password')}
           onBlur={blur('password')}
-          type="password" autoComplete="new-password"
+          autoComplete="new-password"
         />
       </Field>
 

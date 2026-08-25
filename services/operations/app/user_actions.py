@@ -279,7 +279,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
     },
     {
-        # SAME ROUTE, A SECOND DOOR (Tamam, 2026-08-20) — same shape as list_branches_for_bookings
+        # SAME ROUTE, A SECOND DOOR — same shape as list_branches_for_bookings
         # right above: the Bookings screen calls `/staff/operators` unconditionally on mount to
         # attribute a booking and draw the staff picker, and a field operator holds `bookings.read`
         # but not `operations.read`. See staff.py::_READ_OPERATORS_FOR_BOOKINGS's own note.
@@ -302,6 +302,20 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "الفريق", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "فرعه هنا هو المرجع: الزيارة التي تسمّيه تُنسب إليه، لا إلى ما يرسله الجهاز.",
+    },
+    {
+        "id": "operations.set_staff_hours", "label": "تخصيص دوام موظف", "method": "PUT",
+        "path": "/api/v1/staff/operators/{id}/working-hours", "capability": "operations.manage",
+        "group": "الفريق",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True},
+                   {"name": "weekly", "in": "body", "type": "object", "required": True}],
+        "help": "يرث دوام المحل تلقائياً ما لم يُخصَّص له دوام هنا — ولا يمكن أن يتجاوز دوام المحل.",
+    },
+    {
+        "id": "operations.clear_staff_hours", "label": "إعادة الدوام لدوام المحل", "method": "DELETE",
+        "path": "/api/v1/staff/operators/{id}/working-hours", "capability": "operations.manage",
+        "group": "الفريق",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
     },
     {
         "id": "operations.shop_mode", "label": "نظام الفروع", "method": "GET",
@@ -329,7 +343,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
     },
     {
-        # SAME ROUTE, A SECOND DOOR (Tamam, 2026-08-20) — a field operator holds `bookings.read`
+        # SAME ROUTE, A SECOND DOOR — a field operator holds `bookings.read`
         # but not `operations.read`, and the Bookings screen genuinely needs his own branch to
         # even ask the server for a day's schedule (see staff.py::_READ_BRANCHES's own note on
         # why this is a real bug, not a missing feature). The gateway's own catalogue filter is a

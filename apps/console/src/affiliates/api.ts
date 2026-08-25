@@ -8,6 +8,8 @@
  * kit's `LoginForm`/`SignupForm` — reused just enough to be wrong. So this is a second, small file
  * rather than a fork of the first.
  */
+import { announceExpiry, fresh, renew } from './renew';
+
 const BASE = (import.meta.env.VITE_AFFILIATE_API_BASE ?? '').replace(/\/$/, '');
 
 /** Same shape as auth.ts's own Refused — the console-wide idiom for "a sentence AND a code the
@@ -27,12 +29,30 @@ interface ApiResult {
 
 async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
                       body?: unknown, token?: string): Promise<T> {
+  // RENEW BEFORE SENDING, RENEW AGAIN ON 401 — the exact fix `../api.ts`'s own `call()` already
+  // has for the shop console; see ./renew.ts for why the portal never had it until now. `fresh()`
+  // only touches a token that is actually about to expire, so a signed-out or never-signed-in
+  // caller (token === '') pays nothing extra.
+  let bearer = token ? await fresh(token) : token;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, {
+  if (bearer) headers.Authorization = `Bearer ${bearer}`;
+  let res = await fetch(`${BASE}${path}`, {
     method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401 && token) {
+    bearer = await renew();
+    if (bearer) {
+      headers.Authorization = `Bearer ${bearer}`;
+      res = await fetch(`${BASE}${path}`, {
+        method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    }
+  }
+  // STILL A 401 AFTER RENEWAL WAS TRIED — the session is genuinely over (refresh token dead too),
+  // not a screen that fired before a fresh bearer was ready. Announce it ONCE so useAffiliateSession
+  // signs him out cleanly, instead of every remaining screen quietly 401ing with no explanation.
+  if (res.status === 401 && token) announceExpiry();
   const text = await res.text();
   let parsed: ApiResult | null = null;
   try { parsed = text ? (JSON.parse(text) as ApiResult) : null; } catch { parsed = null; }
@@ -50,31 +70,37 @@ export interface AffiliateSession {
 }
 
 /** «سجّل كمسوّق» — writes a ROW an admin has to look at first. No account, no token comes back;
- *  see services/affiliate-service/app/core/onboarding.py::apply for the whole reasoning. */
+ *  see services/affiliate-service/app/core/onboarding.py::apply for the whole reasoning. A
+ *  referral link's own applicant proves he owns the number via `code` — empty on a deployment
+ *  where AFFILIATE_REQUIRE_OTP is still off, which apply() itself accepts either way. */
 export async function apply(input: {
   phone: string; name: string; password: string; referralCode?: string; agreed: boolean;
+  cvUrl?: string; code?: string;
 }): Promise<{ application_id: string; status: string }> {
   return req('/api/v1/affiliates/apply', 'POST', {
     phone: input.phone, name: input.name, password: input.password,
     referral_code: input.referralCode || '', agreed: input.agreed,
+    cv_url: input.cvUrl || '', code: input.code || '',
   });
+}
+
+/** The phone-ownership code — a no-op refusal (`reason: 'undeliverable'`) on a deployment where
+ *  AFFILIATE_OTP_DELIVERABLE is still off, i.e. every deployment today. */
+export async function requestApplyOtp(phone: string): Promise<{ sent: boolean; expires_in: number }> {
+  return req('/api/v1/affiliates/apply/request-otp', 'POST', { phone });
 }
 
 export async function signIn(phone: string, password: string): Promise<AffiliateSession> {
   return req('/api/v1/affiliates/signin', 'POST', { phone, password });
 }
 
-/** The other half of a manager's invite — no token yet, same reason `apply` has none. */
-export async function acceptInvite(token: string, password: string, agreed: boolean):
-    Promise<{ affiliate_id: string }> {
-  return req('/api/v1/affiliates/accept-invite', 'POST', { token, password, agreed });
-}
-
-/** A manager naming somebody for his own team. Needs a signed-in manager's own token; the server
- *  is the one place that actually decides whether the caller may (see api/v1/affiliate_self.py). */
-export async function invite(session: AffiliateSession, phone: string, name: string):
-    Promise<{ application_id: string; status: string }> {
-  return req('/api/v1/affiliates/me/invite', 'POST', { phone, name }, session.access_token);
+/** The referring manager correcting what a person under him submitted — only while there is
+ *  still a decision to correct BEFORE (server-enforced; see onboarding.py::update_application). */
+export async function updateApplication(session: AffiliateSession, applicationId: string,
+    patch: { name?: string; cvUrl?: string }): Promise<{ application_id: string; status: string }> {
+  return req(`/api/v1/affiliates/me/applications/${applicationId}`, 'PATCH', {
+    name: patch.name, cv_url: patch.cvUrl,
+  }, session.access_token);
 }
 
 export interface Me {
@@ -92,13 +118,36 @@ export async function me(session: AffiliateSession): Promise<Me> {
  *  dict rather than reshaped here, so the two can never drift apart silently. */
 export interface Balance {
   pending_halalas: number; confirmed_available_halalas: number; withdrawn_halalas: number;
+  min_withdrawal_halalas: number;
 }
 export async function balance(session: AffiliateSession): Promise<Balance> {
   return req('/api/v1/affiliates/me/balance', 'GET', undefined, session.access_token);
 }
+/** `WafaService._aggregate_support_kpis`'s own return shape — real support performance read
+ *  through ticket-service's own consent-scoped share, best-effort per shop (`available: false`
+ *  is the honest common case before a shop has shared its tickets, never an error). */
+export interface SupportKpis {
+  available: boolean;
+  reason?: string;
+  shops_with_shared_tickets?: number;
+  ticket_count?: number;
+  avg_first_response_seconds?: number | null;
+  avg_resolution_seconds?: number | null;
+  escalation_rate?: number;
+}
+
 export interface WafaEligibility {
   active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
   current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
+  support_kpis: SupportKpis;
+  // THE SAMPLE SIZE BEHIND retention_rate/refund_rate — 0 referrals/commissions means the rate is
+  // a formula default (100%/0%), not an earned number; PerformanceStats reads these to say "no
+  // data yet" instead of a real-looking percentage ("كيف كذا وهو صفر اساس").
+  total_referrals: number; total_commissions: number;
+  // THE ACTIVITY GATE — how many shops converted trial→paid in the last `conversion_lookback_days`.
+  // `eligible` is already false when this is 0 even with enough shops; the screen reads this pair
+  // to say WHY, rather than the misleading "N شركة يفتح لك الاستحقاق" a shop-count-only read would.
+  recent_conversions: number; min_recent_conversions: number; conversion_lookback_days: number;
 }
 export interface EmploymentEligibility {
   converted_customers: number; threshold: number; eligible: boolean;
@@ -122,6 +171,7 @@ export interface Home {
   pending_withdrawal?: boolean;
   stale_leads_count: number;
   stale_leads: StaleLead[];
+  open_tickets: HomeTicket[];
   wafa_eligibility: WafaEligibility;
   employment_eligibility: EmploymentEligibility;
   top_template_this_period: TopTemplate | null;
@@ -435,6 +485,10 @@ export async function withdrawalReceiptUrl(session: AffiliateSession, withdrawal
 export interface TeamMember {
   id: string; name: string; status: string; confirmed_halalas: number; pending_halalas: number;
   commission_count: number; shops: number; total_net_revenue_minor: number; revenue_partial: boolean;
+  // `GET /me/team` merges the SAME `performance_for()` dict `/me/wafa-eligibility` returns for
+  // the manager himself — sent all along, just never typed or rendered until now (2026-08-23).
+  active_shops?: number; retention_rate?: number; refund_rate?: number; support_kpis?: SupportKpis;
+  total_referrals?: number; total_commissions?: number;
 }
 export interface Team {
   my_shops: number; my_net_revenue_minor: number; my_revenue_partial: boolean;
@@ -456,11 +510,8 @@ export interface WafaRequest {
   manager_decided_by: string; manager_decided_at: number; manager_reason: string;
   decided_by: string; decided_at: number; reason: string; granted_at: number;
 }
-export async function wafaEligibility(session: AffiliateSession) {
-  return req<{
-    active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
-    current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
-  }>('/api/v1/affiliates/me/wafa-eligibility', 'GET', undefined, session.access_token);
+export async function wafaEligibility(session: AffiliateSession): Promise<WafaEligibility> {
+  return req('/api/v1/affiliates/me/wafa-eligibility', 'GET', undefined, session.access_token);
 }
 export async function requestWafa(session: AffiliateSession): Promise<WafaRequest> {
   return req('/api/v1/affiliates/me/wafa-requests', 'POST', undefined, session.access_token);
@@ -522,6 +573,12 @@ export async function referredShops(session: AffiliateSession): Promise<{ shops:
 export interface ShopTicket extends Record<string, unknown> {
   id?: string; subject?: string; body?: string; status?: string; type?: string;
   priority?: string; created_at?: number;
+}
+/** A `ShopTicket` as `/me/home`'s own carousel feed returns it — the same row, with the shop it
+ *  belongs to attached (a marketer's ticket list is per-shop everywhere else; the carousel is the
+ *  one place several shops' tickets sit side by side, so it has to say whose is whose). */
+export interface HomeTicket extends ShopTicket {
+  tenant: string; shop_name: string;
 }
 export async function shopTickets(session: AffiliateSession, tenant: string):
     Promise<{ tickets: ShopTicket[] }> {

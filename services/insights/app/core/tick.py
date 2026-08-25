@@ -122,8 +122,14 @@ class Tick:
         ask = getattr(self.peers, "branches", None)
         branch_names = {str(b.get("id") or ""): str(b.get("name") or "")
                         for b in (await ask(tenant) if ask else [])}
+        # SAME REASONING, ONE ROW OVER — the staff comparison card is grouped by the
+        # `operator_id` each visit already carries, and this service holds no roster of its own.
+        ask_ops = getattr(self.peers, "operators", None)
+        operator_names = {str(o.get("id") or ""): str(o.get("name") or "")
+                          for o in (await ask_ops(tenant) if ask_ops else [])}
         snap = await self._compute_scope(tenant, visits, catalogue, now=now, branch_id="",
-                                         effect=effect, branch_names=branch_names)
+                                         effect=effect, branch_names=branch_names,
+                                         operator_names=operator_names)
 
         branches = sorted({str(v.get("branch_id") or "") for v in visits if v.get("branch_id")})
         # ONLY FOR A SHOP WITH MORE THAN ONE. A single-branch establishment gets no branch
@@ -139,13 +145,15 @@ class Tick:
                                    if str(v.get("branch_id") or "") == b)
                 scoped.truncated = bool(getattr(visits, "truncated", False))
                 await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
-                                          effect=effect, branch_names=branch_names)
+                                          effect=effect, branch_names=branch_names,
+                                          operator_names=operator_names)
         return snap
 
     async def _compute_scope(self, tenant: str, visits: list[dict], catalogue: list[dict],
                              *, now: int, branch_id: str,
                              effect: dict[str, Any] | None = None,
-                             branch_names: dict[str, str] | None = None) -> Snapshot:
+                             branch_names: dict[str, str] | None = None,
+                             operator_names: dict[str, str] | None = None) -> Snapshot:
         cycles = {s.get("id", ""): int(s.get("cycle_days") or 0) for s in catalogue}
         names = {s.get("id", ""): s.get("name", "") for s in catalogue}
 
@@ -293,6 +301,34 @@ class Tick:
             # For the switcher (§10.6.4): every branch with a snapshot, in the order of the table.
             values["branch_names"] = {r["key"]: names.get(r["key"], "")
                                       for r in table["rows"]}
+
+            # THE STAFF TABLE — same shape, same reasoning, one grouping over («مقارنة
+            # الموظفين على نفس أساس الفروع — عدد الزيارات، عدد العملاء المميزين، ونسبة عودة
+            # العميل للموظف نفسه»). `return_rate` computed on the OPERATOR'S OWN SLICE of visits
+            # means exactly that last one: a customer's second visit only counts here if it ALSO
+            # carries this operator's id, so it measures whether people come back to THIS
+            # employee specifically, never whether they came back to the shop through someone
+            # else — the same distinction `by_branch` already draws for places.
+            op_table = group_by(visits, "operator_id")
+            op_people: dict[str, set[str]] = {}
+            for v in visits:
+                op = str(v.get("operator_id") or "")
+                ref = str(v.get("subject_ref") or "")
+                if op and ref:
+                    op_people.setdefault(op, set()).add(ref)
+            op_names = operator_names or {}
+            by_operator: dict[str, list[dict]] = {}
+            for v in visits:
+                op = str(v.get("operator_id") or "")
+                if op:
+                    by_operator.setdefault(op, []).append(v)
+            values["operator_rows"] = [
+                {"operator_id": r["key"], "name": op_names.get(r["key"], ""),
+                 "visits": r["count"], "customers": len(op_people.get(r["key"], ())),
+                 "return_rate": indicators.return_rate(by_operator.get(r["key"], []))}
+                for r in op_table["rows"]]
+            values["operator_unknown"] = op_table["unknown"]
+            values["operator_can_rank"] = op_table["can_rank"]
 
         # `getattr`, BECAUSE AN OLDER PEERS DRIVER RETURNS A PLAIN LIST. Absent means «the cap did
         # not bite», which is what a driver that cannot truncate is in fact saying.

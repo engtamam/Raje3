@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — §٦'s managed sector taxonomy (Tamam, 2026-08-20)
+# affiliate-service — §٦'s managed sector taxonomy
 # -----------------------------------------------------------------------------
 # Deliberately separate from LeadSearchJob.keywords — see Sector's own docstring
 # (core/models.py). A sector is defined ONCE by an admin; a search job picks one from this list

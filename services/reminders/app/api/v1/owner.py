@@ -385,7 +385,7 @@ async def preview_reason(request: Request, reason_id: str,
             body = body.replace("{{" + str(i) + "}}", value)
         options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
                         "text": body, "mine": False,
-                        # AND THE SHAPE THE EXAMPLE CAME FROM. Tamam, reading the sheet: «العميل
+                        # AND THE SHAPE THE EXAMPLE CAME FROM. Reading the sheet: «العميل
                         # يقرأ الرسالة ما يعرف وين الفراغات». A filled example is what his
                         # customer receives; it is not what the message IS. Without the blanks he
                         # cannot tell which words are his shop's forever and which change per
@@ -407,7 +407,7 @@ async def preview_reason(request: Request, reason_id: str,
 
     mine = await CustomTemplateStore(c.datastore).list(_tenant(principal), reason_id=reason_id)
     for row in mine:
-        # EVERY TEXT HE WROTE, WHATEVER ITS STATE — and this is Tamam's own reading of the screen:
+        # EVERY TEXT HE WROTE, WHATEVER ITS STATE — reading the screen as the owner would:
         # «مو المفروض الصيغ والرسائل تكون ظاهرة له؟». They were filtered to APPROVED only, so a
         # text he wrote and Meta REFUSED simply vanished: no wording, no reason, nothing to fix. He
         # writes it again, it is refused again, and the product never says why.

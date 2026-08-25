@@ -1,0 +1,822 @@
+/**
+ * Turns a tour SCRIPT (data — what to find, what to say, in what order) into an mp4, by driving
+ * the real console app in a real browser and recording it in real time.
+ *
+ * WHY REAL TIME, NOT THE AD'S FROZEN CLOCK. record.mjs freezes Date.now()/performance.now() and
+ * steps it forward one rendered frame at a time — perfect for the ad, because the ad's every
+ * animation is OUR OWN JS reading that clock. The console app is not ours to rewrite: its
+ * transitions are the browser's own CSS engine running on the real compositor clock, which does
+ * not read window.performance at all. Freezing JS time around it would not freeze those
+ * transitions — it would just make our OWN capture loop's timing unpredictable relative to them,
+ * which is worse than plain real-time capture, not better. So this recorder does what a screen
+ * recorder does: grab a frame on a fixed real-time cadence while real actions happen, the same
+ * way a person would show someone else their own screen.
+ *
+ * WHY A SCRIPT IS DATA. Every screen-specific decision — which button, what to say about it,
+ * whether it has a reverse — lives in one small file per tour under tours/scripts/. This engine
+ * reads that file and does not know or care which screen it describes; a tour that names the
+ * wrong selector fails loudly and names the step, and a tour that needs a new KIND of step (an
+ * upload, a drag) is a new step handler added once here, immediately available to every tour.
+ *
+ * WHY LOGIN IS BORROWED, NOT REWRITTEN. apps/console/e2e/fixtures.ts already owns "how to open a
+ * shop and keep a session alive across runs" — token rotation, expiry, all of it. A second copy
+ * of that logic here would drift from the first the moment either one changed. This recorder
+ * imports openShop/SESSION_FILE from that exact file instead: one login, wherever it's needed.
+ *
+ * Usage:
+ *   node media/tours/record-tour.mjs media/tours/scripts/stop-service.mjs
+ *   CONSOLE=http://localhost:5174 node media/tours/record-tour.mjs <script> [--seconds-cap 90]
+ */
+import { mkdir, rm, rename, copyFile } from 'node:fs/promises';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve, dirname, basename, extname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { chromiumModule } from '../lib/browser.mjs';
+import { findFfmpeg, assembleMp4, mixSfx, run } from '../lib/ffmpeg.mjs';
+import { readConfig } from '../lib/read-config.mjs';
+import { locate } from './lib/locate.mjs';
+import { installOverlay } from './lib/overlay.mjs';
+import { captionHoldMs } from './lib/caption.mjs';
+import { ensureFreshDemoSession } from './lib/demo-session.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..');
+const CONSOLE_DIR = resolve(ROOT, '../apps/console');
+
+const args = process.argv.slice(2);
+const scriptPath = args.find((a) => !a.startsWith('--'));
+if (!scriptPath) {
+  console.error('usage: node media/tours/record-tour.mjs <tour-script.mjs> [--seconds-cap N]');
+  process.exit(1);
+}
+const flag = (name, fallback) => {
+  const i = args.indexOf(`--${name}`);
+  return i === -1 ? fallback : Number(args[i + 1]);
+};
+// A CIRCUIT BREAKER, NOT A TARGET LENGTH. Same philosophy as config.ts's LENGTH.maxSeconds: a
+// tour whose steps run away (a selector that never resolves, a wait loop with no exit) should
+// stop and say so rather than record for an hour and produce a file nobody uploads.
+// A TOUR MAY RAISE ITS OWN CEILING (`secondsCap`), because "runaway" is not one number for every
+// clip: a five-step toggle demo that reaches three minutes IS broken, while a screen whose whole
+// subject is a full working day — الحجوزات on a desktop, eight stations deep — is simply long.
+// The command-line flag still wins when it is passed, so a run can always tighten it by hand.
+const SECONDS_CAP_DEFAULT = 180;
+
+const CONFIG = readConfig(join(ROOT, 'config.ts'));
+const FPS = CONFIG.VIDEO.fps;
+
+async function main() {
+  const tourModule = await import(pathToFileURL(resolve(scriptPath)).href);
+  const tour = tourModule.default;
+  if (!tour?.id || !Array.isArray(tour.steps)) {
+    throw new Error(`${scriptPath} must default-export { id, steps: [...] }`);
+  }
+
+  const { openShop, SESSION_FILE } = await import(pathToFileURL(join(CONSOLE_DIR, 'e2e/fixtures.ts')).href)
+    .catch(() => { throw new Error('could not import apps/console/e2e/fixtures.ts — is the console app checked out?'); });
+
+  const SECONDS_CAP = flag('seconds-cap', tour.secondsCap ?? SECONDS_CAP_DEFAULT);
+
+  // Trailing slash enforced here, once — new URL(relativePath, base) needs it to APPEND rather
+  // than replace the last path segment of base, and a tour script shouldn't have to know that.
+  //
+  // AND THE APP'S OWN BASE PATH ADDED WHEN THE GIVEN URL IS MISSING IT. vite.config.ts serves this
+  // console under `/app/`, and the dev server answers a bare `/bookings` with a 404 page telling
+  // you so — but the URL a caller hands us (an ops-mcp connection's `console_url`, an env var
+  // typed by hand) is just as often the bare origin. Every tour script then names its route the
+  // one way that is true of the app itself ('/bookings'), and whether it resolved depended
+  // entirely on which of the two spellings the runner happened to be configured with. Only an
+  // origin with NO path of its own is corrected — a base that already carries `/app/`, or a
+  // deliberately different mount point, is left exactly as given.
+  const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
+  const withSlash = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  const baseURL = new URL(withSlash).pathname === '/' ? `${withSlash}app/` : withSlash;
+  // out/ HOLDS ONLY VIDEOS, NAMED IN ARABIC — the file that actually gets uploaded to YouTube
+  // should already carry the title it uploads under, not an internal kebab-case id someone has
+  // to rename by hand every time. `tour.title` (every script already carries one, for exactly
+  // this) becomes the filename directly, sanitized only for the handful of characters Windows
+  // actually forbids in a filename — Arabic text, spaces and «» are all fine as they are.
+  // GROUPED BY THE SIDEBAR TAB THE TOUR IS ABOUT, NOT DUMPED FLAT — `tour.section` names the
+  // real sidebar label (apps/console/src/nav.ts's own SECTIONS, e.g. 'محلّي', 'تسجيل زيارة',
+  // 'الحجوزات') so every clip that teaches the same tab lands in the same folder, in the order
+  // that folder's own clips were recorded in. A tour that isn't about any one sidebar tab (the
+  // signup/onboarding tour, which happens before a tab exists to open) names its own folder
+  // instead — 'فتح حساب' — rather than being forced into a tab it isn't about. Falling back to
+  // 'عام' rather than throwing keeps an old or in-progress script recordable while it's being
+  // written, but every FINISHED script names its real section explicitly.
+  const outDir = join(HERE, 'out', tour.section || 'عام');
+  const metaDir = join(HERE, 'out', 'meta'); // chapters.txt / captions.json — production data,
+  // not the deliverable, and not tab-specific viewing material — stays flat, unlike the videos.
+  await mkdir(outDir, { recursive: true });
+  await mkdir(metaDir, { recursive: true });
+  const filenameBase = sanitizeFilename(tour.title || tour.id);
+  const out = join(outDir, `${filenameBase}.mp4`);
+  const framesDir = join(outDir, `.${tour.id}-frames`); // internal working dir — the id is fine here, nobody uploads this
+  await rm(framesDir, { recursive: true, force: true });
+  await mkdir(framesDir, { recursive: true });
+
+  const chromium = chromiumModule();
+  const browser = await chromium.launch();
+  // baseURL IS REQUIRED, NOT OPTIONAL — openShop() (borrowed verbatim from e2e/fixtures.ts) does
+  // `page.goto('/')` itself, a relative navigation Playwright can only resolve against a
+  // context-level baseURL. Without one it throws "Cannot navigate to invalid URL" — a context
+  // built for standalone use (this script), unlike Playwright's own test runner, does not set
+  // this automatically from anywhere.
+  // A TOUR ABOUT SIGNING UP CAN'T HAVE SIGNUP HAPPEN OFFSCREEN FIRST. Every other tour wants
+  // ensureSignedIn() to make signup someone else's problem — silent, before capture even starts,
+  // exactly the convenience it exists for. A tour whose own subject IS that flow needs the
+  // opposite: `skipAutoSignIn: true` skips this call entirely and leaves the door on screen as
+  // the tour's own first frame, so its own steps (goto, type, click «ابدأ») are what the
+  // recording actually shows happening, not a fait accompli.
+  // hasTouch MUST match the real device this narration describes: Bookings.tsx's own layout
+  // default reads `matchMedia('(pointer: coarse)')` once at mount to decide list-vs-grid — a
+  // bare viewport resize alone leaves Playwright's default mouse pointer, so every mobile-sized
+  // recording silently opened on the DESKTOP grid layout while the caption said "on mobile it
+  // opens as a list" (caught by frame-by-frame review of bookings-1-grid-basics.mjs). A landscape
+  // tour is deliberately a real browser window, not a phone — it keeps the mouse pointer.
+  const contextOpts = { baseURL, viewport: deviceViewport(tour), hasTouch: tour.orientation !== 'landscape' };
+  const context = tour.skipAutoSignIn
+    ? await browser.newContext(contextOpts)
+    : existsSync(SESSION_FILE)
+      ? await browser.newContext({ ...contextOpts, storageState: SESSION_FILE })
+      : await browser.newContext(contextOpts);
+  const page = await context.newPage();
+
+  if (tour.useDemoSession) {
+    // A RICH ACCOUNT, NOT A FRESH EMPTY ONE — some tours (اليوم's real numbers, نقاطي's real
+    // balances, الحجوزات' real grid) need a shop that already has months of history; a fresh
+    // signup can never show that regardless of how long the recording waits. seed-demo-
+    // account.mjs builds that account once, over the real API; this just signs into it, the same
+    // way a real returning owner's browser would — localStorage holding the session, not a
+    // Playwright storageState file, because that's the raw shape the seed script saved
+    // (`localStorage.getItem('raje3.session')`, parsed), not a full browser storage snapshot.
+    const demoSessionFile = join(HERE, '.demo-session.json');
+    if (!existsSync(demoSessionFile)) {
+      throw new Error(`tour "${tour.id}" needs useDemoSession, but ${demoSessionFile} doesn't exist — run: node media/tours/seed-demo-account.mjs`);
+    }
+    // MINTED FRESH BEFORE A SINGLE FRAME IS CAPTURED, NOT LEFT TO THE APP'S OWN RENEWAL. The saved
+    // access token lives fifteen minutes; a recording started on a spent one used to depend
+    // entirely on renew.ts rescuing it from inside the browser, and the day that call itself
+    // stopped answering, every tour recorded a signed-out door instead — after paying the full
+    // recording time to find out. This asks first, signs in again if needed, and fails loudly
+    // here rather than silently filming the wrong screen. See lib/demo-session.mjs.
+    const apiBase = baseURL.replace(/\/app\/?$/, '').replace(/\/$/, '');
+    const demoSession = await ensureFreshDemoSession(apiBase);
+    if (!demoSession) throw new Error(`could not read ${demoSessionFile}`);
+    await page.goto(baseURL);
+    await page.evaluate((s) => localStorage.setItem('raje3.session', JSON.stringify(s)), demoSession);
+    await page.reload();
+  } else if (!tour.skipAutoSignIn) {
+    await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
+    await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
+  }
+
+  await page.addInitScript(installOverlay, CONFIG);
+  await page.evaluate(installOverlay, CONFIG).catch(() => undefined); // in case the page was already loaded by ensureSignedIn.
+
+  // ── the pre-roll ───────────────────────────────────────────────────────────────────────────
+  // THE FIRST SCREEN IS ALREADY THERE WHEN FRAME ZERO IS TAKEN. A tour whose first step is a
+  // `goto` used to spend its opening seconds filming a skeleton and a «يُحمَّل الجدول…» — five and
+  // a half of them on a real recording of الحجوزات, because that screen fires four reads before it
+  // can draw anything. tours/PLAN.md's own first rule is that a clip opens on the thing itself,
+  // with no preamble; a loading spinner is a worse preamble than a logo, because it also looks
+  // broken.
+  //
+  // OPT-IN (`preload: true`), NOT AUTOMATIC — a tour whose SUBJECT is the arrival itself (the
+  // signup tour opening on the door) must still film the navigation happening. When it is on, the
+  // first step's navigation is performed HERE, before a single frame exists, and the step itself
+  // then runs as an ordinary caption step over the screen it already landed on.
+  const preloading = Boolean(tour.preload) && Boolean(tour.steps[0]?.goto);
+  if (preloading) {
+    await page.goto(new URL(tour.steps[0].goto.replace(/^\//, ''), baseURL).href);
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
+    await waitForDomQuiet(page, { quietMs: 400, timeoutMs: 15_000 });
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+  }
+
+  let frameIndex = 0;
+  const frameFile = () => join(framesDir, String(frameIndex++).padStart(6, '0') + '.png');
+
+  // ── the real-time capture loop ─────────────────────────────────────────────────────────────
+  // FRAME COUNT IS LOCKED TO REAL ELAPSED TIME, NOT TO HOW MANY SCREENSHOTS ACTUALLY FINISHED —
+  // the bug this replaces. `page.screenshot()` (a CDP round trip plus PNG encode) can take well
+  // over one frame's 33ms budget under load — this project routinely runs several CPU-heavy
+  // things at once (reseeding, other tours, background agents) — and the OLD loop just re-shot
+  // as fast as it could whenever behind, silently capturing FEWER frames than 30fps × real
+  // seconds elapsed. `assembleMp4` always muxes at a FIXED 30fps regardless of frame count, so
+  // fewer frames for the same real duration produced a shorter, visibly sped-up video: a caption
+  // held for its full configured seconds in real wall-clock time, but far fewer of those seconds
+  // ever became frames (caught live: a real recording's own captions.json showed steps ending in
+  // roughly half their configured hold time). Backfilling with a copy of the just-shot frame
+  // whenever real time has outrun the target frame count keeps the two locked together — a
+  // duplicated static frame is harmless (nothing meaningfully changes within one 33ms tick), a
+  // dropped one is not.
+  let capturing = true;
+  const stepMs = 1000 / FPS;
+  const recordStart = Date.now();
+  const captureLoop = (async () => {
+    while (capturing) {
+      const file = frameFile();
+      await page.screenshot({ path: file, animations: 'disabled' }).catch(() => undefined);
+      // ASYNC COPIES, NOT SYNC — a first version used copyFileSync here and, under a genuinely
+      // large catch-up (many frames behind at once), froze Node's single event loop for the
+      // whole backfill: no await yields, so every pending Playwright command (the click this
+      // step was about to dispatch, the overlay's own clear()) queued up behind it, occasionally
+      // long enough that a CSS transition hadn't settled by the time the click finally reached
+      // the page (a real reproduced failure: "resolved to nothing visible" on the very selector
+      // that always worked). Awaiting each copy lets the event loop breathe between them.
+      const targetFrames = Math.round((Date.now() - recordStart) / stepMs);
+      while (capturing && frameIndex < targetFrames) {
+        await copyFile(file, frameFile());
+      }
+      const nextDue = recordStart + frameIndex * stepMs;
+      const delay = nextDue - Date.now();
+      if (delay > 0) await sleep(delay);
+    }
+  })();
+
+  // ── chapter marks ──────────────────────────────────────────────────────────────────────────
+  // YOUTUBE'S OWN RESEARCH-BACKED ADVICE ("a chapter per real sub-topic, not per technical step")
+  // maps onto this project's own vocabulary exactly: a STATION on tours/PLAN.md's table, not
+  // every click. So a step only becomes a chapter mark when its data explicitly says `chapter:
+  // 'title'` — most steps (a click, a caption between two chapter-marked ones) contribute
+  // nothing here, which is the point: the tour author decides what counts as a station, this
+  // engine only ever timestamps what it's told to.
+  const chapters = [];
+  // EVERY CAPTION'S EXACT PLACEMENT, WRITTEN OUT — the piece VOICE.enabled's own comment in
+  // config.ts calls "activated the day the key arrives": when that day comes, a TTS pass needs
+  // to know exactly WHEN each line started and how long the engine actually held it (not the
+  // config-estimated read time — the real, lived duration this specific run gave it, which is
+  // what audio must be timed against so a synthesized line neither races ahead of nor lags
+  // behind its caption). Nothing here calls a TTS API — this only writes down the placement data
+  // so that whichever script eventually does needs no change to this recorder to use it.
+  const captionTimeline = [];
+  // EVERY CLICK'S EXACT MOMENT — for the sound-effect pass, opt-in per tour (`tour.sfx`). Kept
+  // generic and always collected (cheap — a handful of numbers) rather than gated behind the
+  // flag, so turning sfx on for a tour that already exists never needs a second recording pass.
+  const clickTimeline = [];
+  // REAL WALL-CLOCK TIME, NOT frameIndex / FPS — the capture loop above now keeps frameIndex
+  // locked to this same clock, but the step timeline should read directly off it rather than
+  // through a proxy that only converges to it once the loop's had a chance to backfill.
+  const elapsedSeconds = () => (Date.now() - recordStart) / 1000;
+
+  const deadline = Date.now() + SECONDS_CAP * 1000;
+  console.log(`${tour.id} · recording ${tour.steps.length} step(s) live from ${baseURL}`);
+  try {
+    for (const [i, step] of tour.steps.entries()) {
+      if (Date.now() > deadline) {
+        throw new Error(`exceeded --seconds-cap ${SECONDS_CAP}s at step ${i + 1}/${tour.steps.length} — a selector likely never resolved`);
+      }
+      if (step.chapter) chapters.push({ seconds: elapsedSeconds(), title: step.chapter });
+      const startSeconds = elapsedSeconds();
+      // THE PRE-ROLL ALREADY NAVIGATED — running the same `goto` again would reload the app and
+      // re-fetch everything, putting back the exact loading seconds the pre-roll exists to remove.
+      // The step still runs, and still says its own line over the screen already on display.
+      const toRun = preloading && i === 0 ? { ...step, goto: undefined } : step;
+      await runStep(page, toRun, i, tour, baseURL, () => clickTimeline.push(elapsedSeconds()));
+      if (step.say) {
+        captionTimeline.push({
+          text: step.say, // the RAW sentence, never the display-wrapped version — this is what TTS should read
+          startSeconds, endSeconds: elapsedSeconds(),
+        });
+      }
+    }
+  } finally {
+    capturing = false;
+    await captureLoop;
+
+    if (tour.useDemoSession) {
+      // WRITE THE ROTATED SESSION BACK OUT, EVERY RUN — INSIDE THIS `finally`, NOT AFTER THE
+      // `try` BLOCK. A step throwing (a selector never resolving, the exact failure this was
+      // hit chasing) skips everything textually after the try/finally entirely — the exception
+      // propagates straight past it. But the app's own renew.ts fires from INSIDE THE BROWSER
+      // the moment any step's fetch hits a 401, rotating the refresh token, REGARDLESS of
+      // whether the step that triggered it then goes on to fail for an unrelated reason (a
+      // selector genuinely missing). A failed recording still silently spent the refresh token
+      // it was holding — putting the write-back outside `finally` meant that rotation was lost
+      // on every failed run too, not just successful ones, which is exactly the run where the
+      // file most needed to end up correct for whatever gets tried next.
+      //
+      // ALSO TRIED RIGHT AFTER THE INITIAL page.reload() — before this. A bare reload with no
+      // data mounted yet doesn't necessarily fire any authenticated request, so renew.ts's own
+      // rotation hadn't happened yet by the time that read-back ran; it kept saving back the
+      // SAME soon-to-be-stale token, solving nothing. By now, real or thrown, every step that
+      // got to run already made its own API calls — if a renewal was going to fire, it did.
+      const demoSessionFile = join(HERE, '.demo-session.json');
+      const before = existsSync(demoSessionFile) ? readFileSync(demoSessionFile, 'utf8') : null;
+      const liveSession = await page.evaluate(() => {
+        const raw = localStorage.getItem('raje3.session');
+        return raw ? JSON.parse(raw) : null;
+      }).catch(() => null);
+      if (liveSession && JSON.stringify(liveSession, null, 2) !== before) {
+        writeFileSync(demoSessionFile, JSON.stringify(liveSession, null, 2));
+      }
+    }
+  }
+
+  await browser.close();
+
+  const ffmpeg = findFfmpeg();
+  await assembleMp4({ ffmpeg, framesDir, fps: FPS, out, run });
+  await rm(framesDir, { recursive: true, force: true });
+  const seconds = frameIndex / FPS;
+  console.log(`✔ ${out} · ${seconds.toFixed(1)}s · ${frameIndex} frames`);
+
+  // SOUND EFFECTS ONLY — NEVER MUSIC. A click cue at each real click, opt-in per tour
+  // (`tour.sfx`) rather than on by default, since every tour recorded before this existed should
+  // stay exactly as it already is until someone deliberately turns it on. CC0 (Kenney's UI Audio
+  // set, no attribution required) — see media/lib/sfx/README.md for the license file itself.
+  if (tour.sfx && clickTimeline.length) {
+    const sfxFile = join(HERE, '../lib/sfx/click.ogg');
+    const withSfx = join(outDir, `.${filenameBase}-sfx.mp4`);
+    await mixSfx({ ffmpeg, videoIn: out, sfxFile, atSeconds: clickTimeline, videoOut: withSfx, run });
+    await rm(out);
+    await rename(withSfx, out);
+    console.log(`✔ ${out} · ${clickTimeline.length} click cue(s) mixed in`);
+  }
+
+  if (chapters.length) await writeChapters(join(metaDir, `${tour.id}.chapters.txt`), chapters);
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile(join(metaDir, `${tour.id}.captions.json`), JSON.stringify(captionTimeline, null, 2), 'utf8');
+  console.log(`✔ ${join(metaDir, `${tour.id}.captions.json`)} · ${captionTimeline.length} line(s) timed — ready for a future TTS pass`);
+}
+
+/** Windows forbids `< > : " / \ | ? *` in a filename, plus trailing dots/spaces — everything
+ *  else (Arabic text, spaces, «» included) is left exactly as the tour's own title reads. */
+function sanitizeFilename(name) {
+  return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/[\s.]+$/, '');
+}
+
+/**
+ * YouTube's own required format, pasted straight into a video's description: the FIRST line
+ * MUST read exactly `0:00`, each following line `M:SS` or `H:MM:SS` ascending, each at least
+ * ten seconds after the last. YouTube silently ignores the whole chapter list if any of that is
+ * violated — so this checks the same rules here, where a wrong tour script fails loudly instead
+ * of uploading a video that looks chaptered locally and shows no chapters at all once live.
+ */
+async function writeChapters(path, chapters) {
+  if (chapters[0].seconds > 0.05) {
+    throw new Error(`first chapter "${chapters[0].title}" starts at ${chapters[0].seconds.toFixed(1)}s — YouTube requires the first chapter at 0:00, or it drops the whole list. Add \`chapter\` to the tour's very first step.`);
+  }
+  for (let i = 1; i < chapters.length; i++) {
+    const gap = chapters[i].seconds - chapters[i - 1].seconds;
+    if (gap < 10) {
+      throw new Error(`chapters "${chapters[i - 1].title}" and "${chapters[i].title}" are only ${gap.toFixed(1)}s apart — YouTube requires at least 10s between chapters, or it drops the whole list.`);
+    }
+  }
+  const lines = chapters.map((c) => `${formatChapterTime(c.seconds)} ${c.title}`);
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile(path, lines.join('\n') + '\n', 'utf8');
+  console.log(`✔ ${path} · ${chapters.length} chapter(s) — paste into the YouTube description as-is`);
+}
+
+function formatChapterTime(totalSeconds) {
+  const s = Math.floor(totalSeconds);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+  const ss = String(sec).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function deviceViewport(tour) {
+  if (tour.orientation === 'landscape') return { width: CONFIG.VIDEO.width, height: CONFIG.VIDEO.height };
+  return { width: CONFIG.VIDEO.deviceWidth, height: CONFIG.VIDEO.deviceHeight };
+}
+
+/** Borrowed wholesale from e2e/fixtures.ts's own `shop` fixture logic: race the door against the
+ *  shell, repair with a fresh openShop() only if genuinely signed out. Kept here instead of
+ *  imported directly because that logic lives inside a Playwright `test.extend` fixture, not a
+ *  standalone function — but the STEPS are copied verbatim from it, not reinvented. */
+async function ensureSignedIn(page, baseURL, openShop, sessionFile) {
+  await page.goto(baseURL);
+  // «محل جديد» ONLY EXISTS AFTER SWITCHING TABS — Door.tsx defaults to «تسجيل الدخول» (sign in),
+  // and the sign-up pane (where «محل جديد» lives) only mounts once «تسجيل جديد» is clicked. The
+  // OUTER mode radio is what's actually on the door immediately either way, so THAT is the door
+  // signal — checking for the inner one here was the exact bug openShop() itself had, fixed in
+  // e2e/fixtures.ts, and it lived here too as a second, separate copy of the same wrong check.
+  await Promise.race([
+    page.getByRole('radio', { name: 'تسجيل جديد' }).waitFor({ timeout: 45_000 }),
+    page.getByRole('navigation').first().waitFor({ timeout: 45_000 }),
+  ]).catch(() => undefined);
+  const onTheDoor = await page.getByRole('radio', { name: 'تسجيل جديد' }).isVisible().catch(() => false);
+  if (onTheDoor) {
+    console.log('  no live session — opening a fresh shop (this becomes the tour\'s demo data)');
+    await openShop(page);
+  }
+}
+
+async function runStep(page, step, index, tour, baseURL, onAction) {
+  const label = `  ${index + 1}/${tour.steps.length}`;
+
+  if (step.goto) {
+    console.log(`${label} goto ${step.goto}`);
+    // AGAINST baseURL, NEVER page.url(). The app is served under a base path (vite.config.ts's
+    // `base: '/app/'`), and an absolute-path reference like "/services" resolved against the
+    // CURRENT page's URL discards that prefix outright — WHATWG URL resolution replaces the
+    // whole path for a leading slash, it does not append. Resolving relative to baseURL (which
+    // already carries the base path, trailing slash and all) and stripping the tour script's own
+    // leading slash keeps every step's path inside the app no matter where the page currently is.
+    await page.goto(new URL(step.goto.replace(/^\//, ''), baseURL).href);
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
+    // NO EARLY RETURN — a `goto` step falls through to the shared caption block below like every
+    // other step. It used to return here directly, which meant a goto's own `say` was silently
+    // never shown at all: found by watching a recorded tour with no captions anywhere and
+    // checking a real frame, not by reading the code and spotting it.
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+  }
+
+  if (step.waitFor) {
+    // FOR ASYNC CONTENT A GOTO ALONE CANNOT GUARANTEE — a freshly opened shop's starter
+    // catalogue seeds in the BACKGROUND and fails soft by design (see door.spec.ts's own
+    // assertion on this exact point), so a tour landing on «خدماتي» right after signup can find
+    // it genuinely empty for a few seconds. This is a generic wait, not a workaround local to
+    // one tour: any script whose target appears asynchronously reaches for it the same way.
+    console.log(`${label} waitFor ${step.waitFor}`);
+    await locate(page, step.waitFor).first().waitFor({ state: 'visible', timeout: step.timeoutMs ?? 30_000 });
+    return;
+  }
+
+  const target = step.click ?? step.type ?? step.check ?? step.longPress
+    ?? step.select ?? step.hover ?? step.dragFrom ?? step.dragOver ?? step.dragDrop;
+  if (target) {
+    // BOTH THE RING AND THE CAPTION, HIDDEN THROUGH THE WHOLE WAIT — not left showing while it
+    // settles. Clearing only the ring still let the PREVIOUS step's CAPTION sit on screen over an
+    // already-changed screen underneath it (the new screen fully rendered, the old sentence still
+    // talking about the click that opened it) — the same class of stale-state bug, just the other
+    // half of the overlay. clear() hides both, so a viewer only ever sees one of two things during
+    // any transition: nothing, or the ring AND its caption already in their final, correct place.
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    const locator = locate(page, target).first();
+    // THE WHOLE SCREEN, NOT JUST THE ONE ELEMENT. stableBoundingBox() alone still wasn't enough —
+    // a field that mounts at its FINAL position immediately (its own box never moves) reads as
+    // "stable" on the very first poll even while its SIBLINGS — the rest of the form, still being
+    // added around it by the same re-render — are still appearing. The target was right; the
+    // screen around it wasn't finished. This waits for the DOM ITSELF to go quiet — no mutations
+    // anywhere on the page for a short window — before trusting anything on it enough to measure.
+    await waitForDomQuiet(page);
+    await animatedScrollIntoView(page, locator);
+    // THE HOVER HAPPENS BEFORE ITS OWN CAPTION, UNLIKE EVERY OTHER ACTION HERE. A click is
+    // narrated ANTICIPATORY — the ring marks what is about to be pressed, the caption says why —
+    // because the press is the event. A hover is not an event; it is a STATE the caption is
+    // describing. Left in the action slot with everything else, a step captioned «مرّر على أي
+    // فراغ: يضيء ويقول وقته» spent its whole read over a cell that was not lit and said nothing,
+    // and only lit up in the second after the sentence had gone (caught frame-by-frame). Doing it
+    // here means the ring, the caption and the thing they are both about are on screen together.
+    // NO DRAWN FINGERTIP ON A HOVER — only the real pointer. overlay.mjs already learned this for
+    // clicks ("الضغطة تغطي الكلام… يكفي التحديد"): the dot is 30px across and sits ON the target,
+    // which swallows a 48px icon button whole (a real frame showed «حضر» as a gold dot). What a
+    // hover step needs on screen is the element's OWN hover state — a cell lighting up and
+    // printing its time, a row tinting — and the ring already says which element that is. The
+    // fingertip stays for gestures that TRAVEL: a scroll swipe, a card being dragged.
+    if (step.hover) await movePointerTo(page, locator, { draw: false });
+    const box = await stableBoundingBox(locator);
+    if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
+    // NO FINGERTIP DOT ON A CLICK TARGET — tried, then dropped on a real screenshot: the dot's
+    // own glow sat exactly over a short button's label and covered the very text the frame was
+    // drawn to highlight ("الضغطة تغطي الكلام… يكفي التحديد" — the press covers the words, the
+    // frame alone is enough). The frame still marks the target unambiguously by itself; the
+    // fingertip stays reserved for animatedScrollIntoView's swipe below, where it moves ACROSS
+    // the screen rather than sitting still on top of something meant to be read.
+    // SOME REAL TARGETS ARE NOT THINGS A VIEWER CAN SEE. A dismiss-on-tap-outside scrim (this
+    // product renders one as a real `<button class="fixed inset-0">`) is the honest element to
+    // click for "tap outside to close" — but framing it draws the ring around the ENTIRE viewport,
+    // which reads as pointing at everything and therefore at nothing (seen in a real recording of
+    // الحجوزات's filter panel). `noFrame` performs the same real click and lets the caption alone
+    // carry it. Everything else about the step is unchanged.
+    if (step.noFrame) await page.evaluate(() => window.__tour?.spotlight(null)).catch(() => undefined);
+    else await page.evaluate((r) => window.__tour?.spotlight(r), box);
+  } else {
+    // A STEP WITH NO TARGET CLEARS THE RING, IT DOESN'T INHERIT THE LAST ONE. Leaving the
+    // previous step's ring up was tried deliberately (comment used to live here) on the theory
+    // that "what was just pressed" stays worth marking through its own settle — but a real
+    // recording showed the actual failure mode: a caption-only step narrating something on a
+    // DIFFERENT part of the screen (or a different topic entirely) with a stale ring still
+    // circling an unrelated field from two steps back, which reads as a sync bug because it is
+    // one. A step that wants the ring to stay names the same selector again explicitly.
+    await page.evaluate(() => window.__tour?.spotlight(null)).catch(() => undefined);
+  }
+
+  if (step.say) {
+    // THE RAW SENTENCE, NOT A NODE-SIDE PRE-WRAPPED ONE. overlay.mjs's own say() measures against
+    // the caption bar's REAL rendered width in the actual browser and wraps to that — a
+    // character-count guess here produced five lines instead of two the first time this ran at
+    // the tour frame's real (narrower, portrait) width; see overlay.mjs's own note. The boolean
+    // it returns is the ONLY trustworthy answer to "does this fit two lines" — surfaced as a
+    // thrown error naming the exact step, not a silently overflowing caption bar.
+    const fit = await page.evaluate((t) => window.__tour?.say(t), step.say);
+    if (fit === false) {
+      throw new Error(`step ${index + 1}: caption "${step.say}" doesn't fit CAPTION.maxLines (${CONFIG.CAPTION.maxLines}) at this frame's real width — shorten it or split it into two steps`);
+    }
+    await sleep(step.holdMs ?? captionHoldMs(step.say, CONFIG.CAPTION));
+  } else {
+    await sleep(CONFIG.PACE.betweenStepsMs);
+  }
+
+  // THE RING IS A FROZEN PIXEL SNAPSHOT, NOT A LIVE TRACK — spotlight(box) draws at the
+  // coordinates it was given ONCE; it never re-queries the element it was drawn for. This is the
+  // actual root of the bug that survived every earlier fix in this function: click a button that
+  // then DISAPPEARS (replaced by a form, a table row, whatever the click reveals), and the ring
+  // stays exactly where that button used to be — circling WHATEVER new content the re-render
+  // happens to place at that same screen position. A field that lands there reads, correctly,
+  // as "the ring is on an empty box" — because by then it genuinely is, just not the box anyone
+  // meant. Clearing both ring and caption the MOMENT the action fires (not after settling, not
+  // after the pace pause — immediately) means nothing is ever left pointing at stale coordinates
+  // while the screen underneath changes shape. The next step spotlights fresh, at a live-read
+  // position, once it actually has one to show.
+  if (step.click) {
+    console.log(`${label} click ${step.click}`);
+    await locate(page, step.click).first().click();
+    onAction?.(); // the exact moment this fired — a click sound (if this tour opts in) is timed against this, not a guess
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.type) {
+    console.log(`${label} type ${step.type}`);
+    // A FUNCTION, NOT ONLY A STRING — most tour text is fixed and belongs in the script verbatim,
+    // but a signup tour needs a phone number that's different every run (the real backend refuses
+    // a second signup on one already registered) or it can never be re-recorded. `text` as a
+    // function generates that once, at the moment this step actually runs, instead of a tour
+    // script trying to be its own random-data generator in static data.
+    const text = typeof step.text === 'function' ? step.text() : step.text;
+    // `replace: true` — TYPE OVER WHAT IS THERE, NOT ONTO THE END OF IT. `pressSequentially`
+    // appends at the caret, which is right for an empty field and wrong for one that already
+    // holds a value: a step editing a booking's note re-recorded three times produced
+    // «أكدت بالواتساباأكدت بالواتساب…» on a real card, because each take typed its line onto the
+    // last one. Off by default — most fields a tour types into are genuinely empty, and clearing
+    // one that is would be an invisible extra act.
+    const field = locate(page, step.type).first();
+    if (step.replace) await field.fill('');
+    await field.pressSequentially(text, { delay: CONFIG.PACE.typeDelayMs });
+    onAction?.();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.check) {
+    console.log(`${label} check ${step.check}`);
+    await locate(page, step.check).first().check();
+    onAction?.();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.longPress) {
+    // A REAL HOLD, NOT A FAST TAP — Bookings.tsx's own touch reschedule (`onCardPointerDown`)
+    // arms only when `e.pointerType === 'touch'` AND the hold survives its own 450ms timeout
+    // before pointerup cancels it (`cancelLongPress`). Playwright's `.tap()` fires touchstart
+    // then touchend almost instantly — far too fast to ever arm it — and `.click()` dispatches
+    // pointerType "mouse" even in a touch-enabled context, which the app explicitly ignores
+    // (`if (!coarse …) return`). Only a manually-paced pointerdown → wait → pointerup, with
+    // pointerType set explicitly, exercises the code path a real finger actually takes.
+    console.log(`${label} longPress ${step.longPress}`);
+    const locator = locate(page, step.longPress).first();
+    await locator.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true, isPrimary: true });
+    await sleep(step.holdMs ?? 600);   // safely above the app's own 450ms arm threshold
+    await locator.dispatchEvent('pointerup', { pointerType: 'touch', bubbles: true, isPrimary: true });
+    onAction?.();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.select) {
+    // A NATIVE <select>, WHICH A CLICK CANNOT ANSWER — the browser's own option list is an OS
+    // widget that is not part of the page, so a tour that "clicks the dropdown then clicks the
+    // option" films a control opening onto nothing and then fails to find the option. Playwright's
+    // selectOption sets the value and fires the same `change` React is listening for, which is the
+    // whole of what choosing an option actually does. Matched by the option's VISIBLE label, since
+    // that is the only half of it a tour author can see on screen (the value is an internal id).
+    console.log(`${label} select ${step.select} = ${step.option}`);
+    await locate(page, step.select).first().selectOption({ label: step.option });
+    onAction?.();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.hover) {
+    // A REAL POINTER RESTING ON SOMETHING — the only way to film a hover-only affordance. The
+    // bookings grid draws one: every quarter-hour cell is invisible until the pointer is on it,
+    // and only then does it light up and print its own time. A click would open the booking
+    // dialog instead of showing the cell; nothing but a genuine mouse position shows this at all.
+    // The move itself already happened, above, before the caption — see that note.
+    console.log(`${label} hover ${step.hover}`);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.dragFrom || step.dragOver || step.dragDrop) {
+    await runDragStep(page, step, label);
+    onAction?.();
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.wait) {
+    await sleep(step.wait);
+  }
+}
+
+/**
+ * DESKTOP DRAG-AND-DROP, IN THREE STEPS RATHER THAN ONE — because the interesting part of a
+ * reschedule is not the drop, it is the HOVER before it: this grid answers every quarter-hour the
+ * card passes over with a live preview that is green where the move fits and red where it
+ * collides with an appointment already there. A single `dragTo(target)` call performs the whole
+ * gesture between two frames and films none of that. `dragFrom` picks the card up, `dragOver`
+ * carries it somewhere and HOLDS it there for its own caption's whole read, as many times as the
+ * tour wants, and `dragDrop` lets go.
+ *
+ * WHY THE EVENTS ARE DISPATCHED RATHER THAN DRIVEN FROM THE MOUSE. Tried first, at length, and
+ * measured: `page.mouse.down()` + `move()` DOES start a real drag here (Chromium's own
+ * `dragstart` fires, the app's own `onDragOver` runs, the preview appears) — but the release never
+ * becomes a `drop`. Playwright's drag interception ends the gesture with `dragend` and
+ * `dropEffect: "none"` no matter what the page does in `dragover`, and `locator.dragTo()` (the
+ * documented path) produced no drag events on this page at all, headed or headless. Two dead ends
+ * with nothing left to debug on this side of the browser. So the DRAG EVENTS themselves are
+ * dispatched onto the real elements, carrying one real `DataTransfer` from grab to drop — which
+ * is exactly what React's own `onDragStart`/`onDragOver`/`onDrop` listen for, so every line of the
+ * screen's real reschedule path runs: the live conflict check, the optimistic move, the real
+ * `PATCH /api/v1/bookings/{id}/reschedule`, the undo bar. The pointer is moved for real alongside
+ * it, so hover states light up and the fingertip travels the same path a hand would.
+ *
+ * `clientX/clientY` ARE READ INSIDE THE PAGE, at the instant of dispatch — never passed in from
+ * Node. This grid decides the dropped minute from `e.clientY` against the column's own rect, so a
+ * coordinate measured before a scroll (or before the preview reflowed anything) lands the card on
+ * a different quarter-hour than the one the ring was drawn around.
+ */
+async function runDragStep(page, step, label) {
+  const selector = step.dragFrom ?? step.dragOver ?? step.dragDrop;
+  const kind = step.dragFrom ? 'dragFrom' : step.dragOver ? 'dragOver' : 'dragDrop';
+  console.log(`${label} ${kind} ${selector}`);
+  const locator = locate(page, selector).first();
+  await movePointerTo(page, locator);
+
+  if (step.dragFrom) {
+    await locator.evaluate((el) => {
+      const dt = new DataTransfer();
+      // A REAL PAYLOAD, NOT AN EMPTY ONE. The HTML drag-and-drop model refuses to start a drag
+      // whose data store is empty, and browsers differ on how forgiving they are about it — so
+      // this carries something, the same way any page that means to be dragged does.
+      dt.effectAllowed = 'move';
+      dt.setData('text/plain', 'raje3-booking');
+      window.__tourDrag = { dt, source: el };
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new DragEvent('dragstart', {
+        bubbles: true, cancelable: true, dataTransfer: dt,
+        clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+      }));
+    });
+    return;
+  }
+
+  const dropping = Boolean(step.dragDrop);
+  await locator.evaluate((el, drop) => {
+    const held = window.__tourDrag;
+    if (!held) throw new Error('no drag in progress — a dragOver/dragDrop step needs a dragFrom before it');
+    const r = el.getBoundingClientRect();
+    const init = {
+      bubbles: true, cancelable: true, dataTransfer: held.dt,
+      clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    };
+    el.dispatchEvent(new DragEvent('dragenter', init));
+    el.dispatchEvent(new DragEvent('dragover', init));
+    if (!drop) return;
+    el.dispatchEvent(new DragEvent('drop', init));
+    // dragend GOES TO THE CARD, NOT THE CELL — it is the drag SOURCE's own event, and this grid
+    // clears its drag state from it (`onDragEnd`). Sent to the target instead, the card would
+    // stay half-transparent and "being dragged" for the rest of the recording.
+    held.source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: held.dt }));
+    window.__tourDrag = null;
+  }, dropping);
+  if (dropping) await page.evaluate(() => window.__tour?.hidePointer()).catch(() => undefined);
+}
+
+/** The pointer, moved for real AND drawn — the OS-level move so the page's own `:hover` rules
+ *  fire, the overlay's fingertip so a viewer can see where it went. */
+async function movePointerTo(page, locator, { draw = true } = {}) {
+  const box = await stableBoundingBox(locator);
+  if (!box) return;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y, { steps: 12 });
+  if (draw) await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x, y }).catch(() => undefined);
+}
+
+/**
+ * Waits until nothing on the page has changed for a short quiet window — a MutationObserver
+ * watching the whole document, not one element. stableBoundingBox() alone still let a real bug
+ * through: a field that mounts at its FINAL position immediately reads as "stable" on its very
+ * first poll even while its own SIBLINGS (the rest of a form the same click just opened) are
+ * still being added around it — the element was right, the screen it lives on wasn't finished.
+ * This is the general fix underneath that specific one: don't trust ANY measurement until the
+ * DOM as a whole has stopped mutating, the same category of signal `waitForLoadState('networkidle')`
+ * gives for a full navigation, applied here to a client-side re-render that has no network
+ * request of its own to wait on.
+ */
+async function waitForDomQuiet(page, { quietMs = 150, timeoutMs = 5_000 } = {}) {
+  await page.evaluate(({ quietMs, timeoutMs }) => new Promise((resolve) => {
+    let timer;
+    const done = () => { observer.disconnect(); clearTimeout(timer); clearTimeout(deadline); resolve(); };
+    const observer = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(done, quietMs);
+    });
+    // STRUCTURE ONLY — childList/subtree (elements actually appearing or leaving), not attributes
+    // or characterData. Those two are noisy in a way unrelated to "is new content still arriving":
+    // a focus ring's own class toggling, a blinking caret, a hover state — none of it means the
+    // screen has more to render, and watching them made real recordings take nearly twice as long
+    // waiting out quiet windows that a genuinely finished screen kept re-triggering on its own.
+    //
+    // TWO ANIMATION FRAMES BEFORE THE OBSERVER EVEN STARTS ITS FIRST TIMER — the actual race this
+    // fixes. React batches a click's state update asynchronously; the click handler itself
+    // returns before React has scheduled, let alone started, the re-render it triggers. Arming
+    // the "already quiet" timer immediately on observe() could win that race outright — the timer
+    // firing before the mutation it's supposed to be watching for has even happened yet, reporting
+    // "settled" on a screen that hasn't started changing. Two rAFs guarantee at least one real
+    // paint has occurred first, so the observer starts watching AFTER whatever the click set in
+    // motion has had a real chance to begin.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      observer.observe(document.body, { childList: true, subtree: true });
+      timer = setTimeout(done, quietMs); // already quiet by the time we actually start watching
+    }));
+    const deadline = setTimeout(done, timeoutMs); // a page that never truly settles (a live poll, a
+                                                    // ticking clock) still gets released, not stuck forever
+  }), { quietMs, timeoutMs });
+}
+
+/**
+ * Waits for a locator's own boundingBox() to stop moving before returning it — the actual fix
+ * for a ring caught mid-transition: a target element that just appeared (a form opening after a
+ * click, a row that just mounted) can report a real, valid boundingBox() the very first instant
+ * it exists, then shift as React finishes laying out ITS OWN SIBLINGS around it a frame or two
+ * later. A fixed sleep before reading it is a guess about how long that settling takes on THIS
+ * element, THIS action, THIS network — sometimes too short (the exact bug this fixes: a real
+ * screenshot showed the ring on an empty box, mid-layout, before the field's own label had even
+ * painted), sometimes wastefully long. Polling until two consecutive reads agree needs no
+ * guessed number at all — it asks the actual page whether it has settled, the same category of
+ * fix Playwright's own actionability checks already are for clicks.
+ */
+async function stableBoundingBox(locator, { intervalMs = 60, timeoutMs = 5_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const box = await locator.boundingBox().catch(() => null);
+    if (box && last && box.x === last.x && box.y === last.y && box.width === last.width && box.height === last.height) {
+      return box;
+    }
+    last = box;
+    await sleep(intervalMs);
+  }
+  return last; // best effort — a target that never truly stabilizes still gets its last known position, not nothing.
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+/**
+ * Scrolls a target into view the way a person actually would — a visible finger sliding up the
+ * screen, THEN the page settling under it — instead of Playwright's own scrollIntoViewIfNeeded(),
+ * which jumps instantly with nothing on screen to explain why the content just moved. Real
+ * feedback: "حركة الاصبع لو في اسكرول او شي معين" — a scroll is exactly the gesture a silent
+ * tutorial most needs to narrate, because there is no click sound and no button to point at, only
+ * the screen sliding.
+ *
+ * Only draws the swipe when a scroll is actually needed — an already-visible target gets no
+ * gesture at all, matching what a real hand would do.
+ */
+async function animatedScrollIntoView(page, locator) {
+  const before = await locator.boundingBox().catch(() => null);
+  const viewport = page.viewportSize();
+  // NO KNOWN POSITION YET (not mounted, still loading) IS NOT THE SAME AS "off screen, needs a
+  // swipe" — there are no real coordinates to swipe between. Fall through to a plain scroll
+  // attempt with no gesture; the caller's own stableBoundingBox() right after this is what
+  // actually decides whether the target ever showed up at all, and throws its own clear error.
+  if (!before || !viewport) { await locator.scrollIntoViewIfNeeded().catch(() => undefined); return; }
+  const offVertically = before.y < 0 || before.y + before.height > viewport.height;
+  // SIDEWAYS COUNTS TOO — this used to test the Y axis alone, and a target parked outside a
+  // horizontally scrolling container (this product has several: the bookings list's own six-column
+  // table, the day grid's staff columns, every wide table it draws on a phone) read as "already
+  // visible" because its Y was fine. Nothing scrolled, and the ring was then drawn at a live X
+  // that sat off the side of the frame — a highlight on nothing at all, in a recording that
+  // otherwise looked correct.
+  const offHorizontally = before.x < 0 || before.x + before.width > viewport.width;
+  if (!offVertically && !offHorizontally) return;
+
+  const cx = viewport.width / 2;
+  const cy = viewport.height / 2;
+  if (offVertically) {
+    // A SWIPE FROM LOW ON SCREEN TO HIGH (content below moving up), or the reverse when the target
+    // sits ABOVE the current view — whichever direction actually matches the scroll about to happen.
+    const goingDown = before.y >= viewport.height; // target is below the fold → content slides up
+    const startY = goingDown ? viewport.height * 0.78 : viewport.height * 0.22;
+    const endY = goingDown ? viewport.height * 0.22 : viewport.height * 0.78;
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: startY });
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: endY });
+  }
+  if (offHorizontally) {
+    // THE FINGER DRAGS THE CONTENT, so it travels the way the CONTENT must travel: a target off
+    // the left edge is pulled rightwards into view, one off the right edge leftwards. Written in
+    // plain screen coordinates rather than "start/end" so it stays correct in an RTL page, where
+    // "forward" is the opposite direction from the one the same table would scroll in LTR.
+    const towardRight = before.x < 0;
+    const startX = towardRight ? viewport.width * 0.22 : viewport.width * 0.78;
+    const endX = towardRight ? viewport.width * 0.78 : viewport.width * 0.22;
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: startX, y: cy });
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: endX, y: cy });
+  }
+
+  await locator.scrollIntoViewIfNeeded().catch(() => undefined);
+  await waitForDomQuiet(page, { quietMs: 120, timeoutMs: 2_000 });
+  await page.evaluate(() => window.__tour?.hidePointer());
+}
+
+main().catch((e) => { console.error(e.message); process.exit(1); });

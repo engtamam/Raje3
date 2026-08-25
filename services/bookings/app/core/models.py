@@ -14,12 +14,12 @@ from typing import Any
 
 BOOKINGS = "bookings"
 BOOKING_SLOTS = "booking_slots"
-# ONE DOCUMENT PER TENANT, NOT PER BRANCH (Tamam, 2026-08-19: "كل الفروع تاخذ نفس النظام") — a
+# ONE DOCUMENT PER TENANT, NOT PER BRANCH ("كل الفروع تاخذ نفس النظام") — a
 # shop's working hours are one policy, not a per-branch setting; see WorkingHoursStore.
 WORKING_HOURS = "working_hours"
 
 # Three states, one field — "how much of this booking's price is actually in hand", never two
-# booleans that can silently disagree (Tamam, 2026-08-19: "بدون عربون بعربون او مدفوع"). Chosen at
+# booleans that can silently disagree ("بدون عربون بعربون او مدفوع"). Chosen at
 # booking time, editable any time after — never inferred from status (a booking can be attended
 # with nothing paid, or paid in full days before the appointment).
 PAYMENT_NONE = "none"
@@ -63,13 +63,13 @@ class Booking:
     # of its own: the booking's own price (price_override_minor, or the catalogue sum) already
     # says what was owed, and "مدفوع" means all of it came in.
     deposit_amount_minor: int | None = None
-    # THE ONE PRICE THAT NEVER TOUCHES THE CATALOGUE (Tamam, 2026-08-19). Some bookings are
+    # THE ONE PRICE THAT NEVER TOUCHES THE CATALOGUE. Some bookings are
     # negotiated at the counter — a returning customer, a bundle, a courtesy — and that number
     # belongs to THIS booking alone. `None` means "whatever the catalogue says"; a real value here
     # overrides it for this one appointment only. Writing it back to Service.price_minor is a
     # SEPARATE, explicit act (operations' own update_service), never implied by setting this.
     price_override_minor: int | None = None
-    # A NIGHT SPENT AT THE TAP, NOT ON THE ROAD (Tamam, 2026-08-19: "نية استبدال, لا استبدال
+    # A NIGHT SPENT AT THE TAP, NOT ON THE ROAD ("نية استبدال, لا استبدال
     # فوري"). Redeeming the moment a reward is CHOSEN — days before the appointment — would spend
     # a customer's points for a visit that has not happened yet; a cancelled or no-show booking
     # would then owe him points back, silently, forever. So this is only INTENT: the actual spend

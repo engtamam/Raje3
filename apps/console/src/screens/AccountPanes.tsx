@@ -13,6 +13,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '../rj-ui/Badge';
 import { riyalsLabel } from '../money';
 import { Button } from '../rj-ui/Button';
+import { Toggle } from '../rj-ui/Toggle';
 import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
@@ -145,28 +146,26 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           setting, and the pane's own comment on it already says so («لك وحدك»). Standardised to
           the same p-4/rounded-card/size-5 every peer card on this pane now uses. */}
       {digestAction ? (
-        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
           <span className="flex flex-col">
             <span className="text-sm">تقريري الأسبوعي على واتساب</span>
             <span className="text-xs text-text-secondary">
               صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
             </span>
           </span>
-          <input
-            type="checkbox"
+          <Toggle
             checked={digest}
-            aria-label="تقريري الأسبوعي على واتساب"
-            onChange={async (e) => {
-              const on = e.target.checked;
+            ariaLabel="تقريري الأسبوعي على واتساب"
+            testId="digest-toggle"
+            onChange={async (on) => {
               setDigest(on);
               // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
               // the box ticked teaches him he is subscribed when he is not — and he finds out by
               // a report that never comes.
               await call(session, digestAction, { on }).catch(() => setDigest(!on));
             }}
-            className="size-5 shrink-0 accent-[var(--accent)]"
           />
-        </label>
+        </div>
       ) : null}
     </div>
   );

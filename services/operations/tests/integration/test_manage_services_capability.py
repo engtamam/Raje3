@@ -1,4 +1,4 @@
-"""operations.manage_services — a narrower door onto the catalogue alone (Tamam, 2026-08-19: "سوي
+"""operations.manage_services — a narrower door onto the catalogue alone ("سوي
 للخدمات وحدة تهتم بالخدمات من تعديل وانشاء وغيرها"). `operations.manage` also creates staff and
 branches and renames the shop; this capability touches only /api/v1/staff/services.
 """

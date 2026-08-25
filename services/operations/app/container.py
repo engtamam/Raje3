@@ -237,6 +237,16 @@ def build_container(settings: Settings) -> Container:
     # its behalf so its own credential never has to carry a capability over the ledger.
     from app.adapters.loyalty_desk import build_loyalty_desk
     container.loyalty_desk = build_loyalty_desk(settings)
+    # THE ONE QUESTION ASKED OF `bookings`: the shop's own working hours, so a staff member's
+    # custom schedule can be refused at write time if it reaches outside them (a fail-OPEN check
+    # — `bookings` intersects defensively at read time regardless of whether this peer answers).
+    from app.adapters.bookings_desk import build_bookings_desk
+    container.bookings_desk = build_bookings_desk(settings)
+    # THE ADMIN PANEL'S "ليش واتساب هذا المحل معطّل" READ — an internal-token peer call made ON
+    # BEHALF of an operator who holds `platform.operations`, never a capability the browser's own
+    # token carries. See `api/v1/platform.py::whatsapp_diagnostics`.
+    from app.adapters.whatsapp_diagnostics import build_whatsapp_diagnostics
+    container.whatsapp_diagnostics = build_whatsapp_diagnostics(settings)
     # WHAT EACH SHOP ACTUALLY PAID US — the one input a commission statement takes. Unconfigured
     # in a local run, and then the monthly sweep issues nothing and says why, rather than issuing
     # a statement of zero that a partner would read and believe.
@@ -324,7 +334,12 @@ def build_container(settings: Settings) -> Container:
         # erasure then closes as COMPLETED while a whole service's copy is untouched. The failure
         # used to be a string in a response body nobody reads.
         telemetry=container.telemetry,
-        require_otp=settings.SIGNUP_REQUIRE_OTP)
+        require_otp=settings.SIGNUP_REQUIRE_OTP,
+        # HIS FREE MONTH, OPENED THE MOMENT HE SIGNS UP — see signup.py's own note on
+        # `_start_base_trial`. `None` on a deployment with billing_plans left at its null driver
+        # (tests, a local run) — the same optional trade the peers just above it already make.
+        plans=container.billing_plans if getattr(container.billing_plans, "driver", "") == "http"
+        else None)
     # WHO CAN ANSWER FOR CONSENT AND FOR WHAT WENT OUT. None when reminders is not configured,
     # and the evidence file says so rather than showing an empty section (core/evidence.py).
     from app.adapters.evidence_peer import build_evidence_peer

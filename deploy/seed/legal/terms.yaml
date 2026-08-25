@@ -14,22 +14,21 @@ publication: accept
 # ما يحمي فعلاً، وما يبدو حماية وليس بها
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
 #
-# THE CAP WAS ASKED FOR AS "one month's subscription". Written naively that is a clause a court can
-# set aside in an afternoon, and a clause that is set aside protects nothing at all — it is worse
-# than a modest cap that holds, because it was relied on. Three things decide whether it survives:
+# THE CAP, AS TAMAM ACTUALLY WANTS IT: small, absolute, and simple to reason about — last month's
+# fee, never exceeding a fixed riyal ceiling regardless of how large that month's fee was. An
+# earlier draft used "the GREATER of one month's fee or a floor" (protects against an illusory cap
+# on a tiny subscription); this version deliberately drops that in favour of a hard ceiling instead,
+# because the commercial goal here is a guaranteed small number, not a floor that grows with plan
+# size. Two things still decide whether ANY cap like this survives a court, ceiling or no ceiling:
 #
-# 1 · IT MUST NOT BE ILLUSORY. الأساسية is a small monthly fee. A cap equal to one month of it, set
-#     against the loss of a shop's entire customer history, is close enough to zero that a judge may
-#     read the clause as excluding liability rather than limiting it — and exclusion is the thing
-#     most likely to be struck. So the cap is the GREATER of one month's fee and a stated floor.
-#     A floor costs us almost nothing in the cases that matter and is what makes the ceiling real.
-#
-# 2 · SOME LIABILITY CANNOT BE CAPPED, AND PRETENDING OTHERWISE POISONS THE REST. Fraud, wilful
+# 1 · SOME LIABILITY CANNOT BE CAPPED, AND PRETENDING OTHERWISE POISONS THE REST. Fraud, wilful
 #     misconduct and gross negligence are not limitable; a clause that tries makes a reader doubt
 #     every other clause. Carving them out is not a concession — it is what lets the cap stand for
-#     everything else.
+#     everything else. This is not a negotiable line item; every real reference (Anthropic's own
+#     Services Agreement carves the same three out around its own "greater of six months' fees or
+#     $100" cap) does the same for the same reason.
 #
-# 3 · THE CAP BINDS THE SHOP AND NOBODY ELSE. It does not bind the shop's CUSTOMER, who is not a
+# 2 · THE CAP BINDS THE SHOP AND NOBODY ELSE. It does not bind the shop's CUSTOMER, who is not a
 #     party and never agreed to anything with us, and it does not bind the regulator: a PDPL
 #     penalty is not a claim this contract can limit. A cap that reads as though it covers those is
 #     misleading rather than protective. Our exposure to a data subject is reduced by the DPIA and
@@ -51,10 +50,14 @@ values:
   SUPPORT_EMAIL: "support@example.invalid"
   VERSION: "1.0"
   EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
-  # الحدّ الأدنى للسقف، بالريال. يجعل السقف حقيقياً بدل أن يكون صفراً مقنّعاً.
-  # A FLOOR, IN RIYALS. Left blank deliberately: it is a commercial number, and a plausible default
-  # written here would become the number nobody ever revisited.
-  LIABILITY_FLOOR: "قيمة اشتراك شهر واحد (قيمة مؤقتة)"
+  # الحدّ الأقصى المطلق للسقف العام، بالريال — قرار تجاري صريح، لا حدّ أدنى يجعل السقف "الأعلى من"
+  # كما كان سابقاً: تمام اختار سقفاً صغيراً مضموناً (آخر شهر اشتراك، بحدّ أقصى مطلق) بدل حدّ يكبر مع
+  # الاشتراك. غير الغش/الخطأ الجسيم/الفعل العمدي — تلك لا يحدّها أي رقم هنا مهما كان (انظر تعليق
+  # البند نفسه).
+  # THE ABSOLUTE CEILING, IN RIYALS — a deliberate commercial choice: a small guaranteed cap (last
+  # month's fee, hard-capped) rather than a floor that grows with the subscription. Does not touch
+  # fraud/gross negligence/wilful misconduct — nothing here can cap those (see the clause's own note).
+  LIABILITY_CEILING: "1000"
   # سقف أعلى لالتزامات حماية البيانات وحدها.
   LIABILITY_DATA_MONTHS: "12"
 
@@ -210,25 +213,73 @@ clauses:
       لا يُسأل المزوّد عن الأضرار غير المباشرة أو التبعية، ولا عن فوات الكسب أو الفرصة أو السمعة،
       ولا عن خسارة بيانات كان بوسع العميل تفاديها بتصدير بياناته المتاح له.
       وتقتصر مسؤولية المزوّد الإجمالية عن كل المطالبات الناشئة عن هذه الشروط، أياً كان أساسها، على
-      الأعلى من: مقابل شهر اشتراك واحد سبق واقعة المطالبة، أو {{LIABILITY_FLOOR}} ريال.
-      ويُستثنى من هذا الحدّ ما يلي ولا يسري عليه: الغش، والخطأ الجسيم، والفعل العمدي، وما لا يجوز
-      نظاماً حدّه أو استبعاده. وتقتصر مسؤولية المزوّد عن الإخلال بالتزاماته في اتفاقية معالجة
-      البيانات على مقابل {{LIABILITY_DATA_MONTHS}} شهراً من الاشتراك.
+      مقابل آخر شهر اشتراك سبق واقعة المطالبة، وبحدّ أقصى مطلق لا يتجاوز بأي حال {{LIABILITY_CEILING}}
+      ريال مهما بلغ مقابل الاشتراك.
+      ويُستثنى من هذا الحدّ ولا يسري عليه: الغش، والخطأ الجسيم، والفعل العمدي، وما لا يجوز نظاماً حدّه
+      أو استبعاده — فهذه لا يضمنها سقفٌ في أي عقد كان، واستثناؤها هو ما يُبقي هذا الحدّ نافذاً فيما
+      عداها. وتقتصر مسؤولية المزوّد عن الإخلال بالتزاماته في اتفاقية معالجة البيانات على مقابل
+      {{LIABILITY_DATA_MONTHS}} شهراً من الاشتراك.
       ولا يحدّ هذا البند من حقوق أي شخص ليس طرفاً في هذه الشروط، ولا يسري على ما تفرضه الجهات
-      المختصة من جزاءات نظامية.
+      المختصة من جزاءات نظامية على العميل — فليست طرفاً في هذا العقد ولا يملك أي اتفاق خاص تقييدها.
     en: >-
       The Provider is not liable for indirect or consequential loss, for loss of profit,
       opportunity or reputation, or for loss of data the Customer could have avoided by using the
       export available to it.
       The Provider's aggregate liability for all claims arising under these Terms, on any basis, is
-      limited to the greater of: one month's subscription fee preceding the event giving rise to the
-      claim, or SAR {{LIABILITY_FLOOR}}.
+      limited to the fee for the last subscription month preceding the event giving rise to the
+      claim, subject to an absolute ceiling of SAR {{LIABILITY_CEILING}} in every case, however much
+      that month's fee was.
       The following are excluded from that limit and are not subject to it: fraud, gross negligence,
-      wilful misconduct, and anything the law does not permit to be limited or excluded. The
+      wilful misconduct, and anything the law does not permit to be limited or excluded — no contract
+      can cap these, and carving them out is what keeps this cap standing for everything else. The
       Provider's liability for breach of its obligations under the data processing agreement is
       limited to {{LIABILITY_DATA_MONTHS}} months' subscription fees.
       This clause does not limit the rights of any person who is not a party to these Terms, and does
-      not apply to penalties imposed by the competent authorities.
+      not apply to penalties a competent authority imposes on the Customer — it is not a party to
+      this contract, and no private agreement can bind it.
+
+  # ── 7.1 · ميزات الذكاء الاصطناعي ───────────────────────────────────────────────────────────
+  #
+  # CHANNEL-AGNOSTIC ON PURPOSE. Today's only AI feature happens to run over WhatsApp, but naming
+  # the channel would make this clause read as no longer covering an AI feature the day it also
+  # answers a call, a web chat, or anything else — a rewrite we would then owe every existing
+  # customer. So this speaks of "any AI feature the platform offers, over whatever channel", once,
+  # and covers every future one without another acceptance screen.
+  #
+  # WRITTEN AGAINST THE REAL FOUR-PART TEST FOR AN AI DISCLAIMER THAT ACTUALLY HOLDS (not a bare
+  # "as-is" restated): it must be conspicuous, name the SPECIFIC ways AI actually fails rather than
+  # a vague "may be wrong", stay consistent with anything marketing claims elsewhere (no promise of
+  # a particular accuracy rate lives anywhere else in our materials — keep it that way), and offer a
+  # narrow real warranty rather than disclaiming everything (disclaiming everything is itself the
+  # thing courts strike as unconscionable). Anthropic's own consumer terms use almost this exact
+  # framing — "output that appears accurate because of its detail or specificity may still contain
+  # material inaccuracies" — because it is the one sentence that defeats "but it sounded so sure".
+  #
+  # DELIBERATELY NOT A SEPARATE LIABILITY CARVE-OUT. An AI reply that causes loss is still a claim
+  # "arising under these Terms" and stays inside the one cap in clause 7 — a second, AI-specific cap
+  # would only create an argument about which cap applies to a mixed claim.
+  ai_features:
+    title: { ar: "ميزات الذكاء الاصطناعي", en: "AI features" }
+    ar: >-
+      قد تعرض المنصة على العميل ميزات ذكاء اصطناعي، أياً كانت القناة التي تعمل بها اليوم أو
+      مستقبلاً (كواتساب أو غيره). وطبيعة هذه الميزات احتمالية لا يقينية: قد يصدر عنها ردٌّ غير دقيق
+      أو غير مكتمل، وقد يبدو الردّ دقيقاً بسبب تفصيله أو تحديده رغم احتماله خطأً جوهرياً بالرغم من
+      ذلك. ولا يُعدّ ورود ردٍّ كهذا عيباً بالخدمة ولا إخلالاً من المزوّد، ويقتصر ما يضمنه المزوّد
+      على أن الميزة تعمل جوهرياً كما هو موصوف، لا على دقة كل ردٍّ بعينه. وعلى العميل مراجعة أي فعل
+      جوهري تصدره الميزة أو تقترحه (كتأكيد حجز أو رسالة تُرسَل باسمه) قبل الاعتماد عليه، ولا تُعدّ
+      أي ميزة ذكاء اصطناعي بديلاً عن استشارة مختصة. ويسري على كل مطالبة تنشأ عن استخدام هذه الميزات
+      حدّ المسؤولية العام (البند 7)، لا حدٌّ منفصل.
+    en: >-
+      The platform may offer the Customer AI features, whatever channel they run over today or in
+      the future (WhatsApp or otherwise). These features are probabilistic in nature: a reply may be
+      inaccurate or incomplete, and a reply may appear accurate because of its detail or specificity
+      while still containing a material error regardless. Such a reply is not a defect in the service
+      nor a breach by the Provider; what the Provider warrants is that the feature functions
+      substantially as described, not the accuracy of any given reply. The Customer must review any
+      material action the feature takes or proposes (such as confirming a booking or a message sent
+      in its name) before relying on it, and no AI feature is a substitute for professional advice.
+      Any claim arising from use of these features falls under the general limitation of liability
+      (clause 7), not a separate cap.
 
   # ── 8 · تعويض العميل للمزوّد ───────────────────────────────────────────────────────────────
   #
@@ -286,14 +337,14 @@ clauses:
   governing_law:
     title: { ar: "النظام الواجب التطبيق", en: "Governing law" }
     ar: >-
-      تخضع هذه الشروط لأنظمة المملكة العربية السعودية، وتختصّ الجهات القضائية المختصة فيها بالفصل
-      في أي نزاع ينشأ عنها. وإذا وُجد بندٌ باطلاً أو غير قابل للنفاذ بقيت بقية البنود نافذة، وحلّ
-      محلّ الباطل أقرب ما يمكن إنفاذه إلى قصد الطرفين.
+      تخضع هذه الشروط لأنظمة المملكة العربية السعودية، وتختصّ المحاكم المختصة في مدينة مكة
+      المكرمة دون غيرها بالفصل في أي نزاع ينشأ عنها. وإذا وُجد بندٌ باطلاً أو غير قابل للنفاذ بقيت
+      بقية البنود نافذة، وحلّ محلّ الباطل أقرب ما يمكن إنفاذه إلى قصد الطرفين.
     en: >-
-      These Terms are governed by the laws of the Kingdom of Saudi Arabia, and its competent
-      judicial authorities have jurisdiction over any dispute arising from them. If any provision is
-      void or unenforceable the remainder continues in force, and the void provision is replaced by
-      the closest enforceable expression of the parties' intent.
+      These Terms are governed by the laws of the Kingdom of Saudi Arabia, and the competent courts
+      of Makkah al-Mukarramah alone have jurisdiction over any dispute arising from them. If any
+      provision is void or unenforceable the remainder continues in force, and the void provision is
+      replaced by the closest enforceable expression of the parties' intent.
 
   # ── 12 · الخدمة كما هي ─────────────────────────────────────────────────────────────────────
   #
@@ -505,13 +556,15 @@ clauses:
     title: { ar: "القوة القاهرة", en: "Force majeure" }
     ar: >-
       لا يُسأل أي طرف عن تأخّر أو إخلال سببه أمر خارج عن سيطرته المعقولة، ومنه انقطاع خدمات الغير
-      التي تعتمد عليها المنصة كواتساب ومزوّد الاستضافة وشبكات الاتصال، والأوامر الحكومية، والكوارث.
-      ويظلّ التزام العميل بالسداد عن مدّة استُخدمت فيها الخدمة قائماً.
+      التي تعتمد عليها المنصة كواتساب ومزوّدي خدمات الذكاء الاصطناعي ومزوّد الاستضافة وشبكات
+      الاتصال، والأوامر الحكومية، والكوارث. ويظلّ التزام العميل بالسداد عن مدّة استُخدمت فيها
+      الخدمة قائماً.
     en: >-
       Neither party is liable for delay or failure caused by anything beyond its reasonable control,
-      including outages of the third-party services the platform depends on such as WhatsApp, the
-      hosting provider and the telecommunications networks, government orders and disasters. The
-      Customer's obligation to pay for a period in which the service was used remains.
+      including outages of the third-party services the platform depends on such as WhatsApp, AI
+      service providers, the hosting provider and the telecommunications networks, government orders
+      and disasters. The Customer's obligation to pay for a period in which the service was used
+      remains.
 
   # ── 24 · الإشعارات ─────────────────────────────────────────────────────────────────────────
   #
@@ -533,13 +586,49 @@ clauses:
   general:
     title: { ar: "أحكام عامة", en: "General" }
     ar: >-
-      لا يجوز للعميل التنازل عن هذه الشروط دون موافقة المزوّد الكتابية، وللمزوّد التنازل عنها في حال
-      اندماج أو بيع نشاطه مع بقاء التزاماته. وتمثّل هذه الشروط وملحقاتها كامل الاتفاق بين الطرفين
-      وتحلّ محلّ كل تفاهم سابق. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه. وتُنشَر هذه الشروط
-      بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
+      لا يجوز للعميل التنازل عن هذه الشروط دون موافقة المزوّد الكتابية. وتنتقل حقوق المزوّد
+      والتزاماته بموجب هذه الشروط تلقائياً — دون حاجة لموافقة العميل ودون أثرٍ على استمرار الخدمة —
+      إلى من يخلفه بالاندماج، أو نقل نشاطه أو جزء جوهري منه، أو بيعه، أو تحوّل شكله النظامي (كتحوّل
+      مؤسسة فردية إلى شركة أو أي تحوّل مماثل)، ويشمل ذلك كل التزام أو مطالبة قائمة وقت الانتقال —
+      وقبول العميل هذه الشروط قبولٌ مسبق بهذا الانتقال أياً كان وقته، فلا يتوقف نفاذه على إخطاره به.
+      وتمثّل هذه الشروط وملحقاتها كامل الاتفاق
+      بين الطرفين وتحلّ محلّ كل تفاهم سابق. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه. وتُنشَر
+      هذه الشروط بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
     en: >-
-      The Customer may not assign these Terms without the Provider's written consent; the Provider
-      may assign them on a merger or sale of its business, its obligations continuing. These Terms
-      and their annexes constitute the entire agreement between the parties and supersede any prior
-      understanding. A party's failure to exercise a right is not a waiver of it. These Terms are
-      published in Arabic and English; the Arabic text prevails in the event of a discrepancy.
+      The Customer may not assign these Terms without the Provider's written consent. The Provider's
+      rights and obligations under these Terms transfer automatically — with no consent from the
+      Customer required and with no effect on continuity of service — to whoever succeeds it by
+      merger, by transfer of its business or a material part of it, by sale, or by a change in its
+      legal form (such as a sole proprietorship converting to a company or any similar conversion),
+      including every obligation or claim standing at the time of transfer — the Customer's
+      acceptance of these Terms is itself advance consent to that transfer whenever it occurs, so its
+      effect does not depend on notice being given. These Terms and their annexes constitute the entire
+      agreement between the parties and supersede any prior understanding. A party's failure to
+      exercise a right is not a waiver of it. These Terms are published in Arabic and English; the
+      Arabic text prevails in the event of a discrepancy.
+
+  # ── 26 · بقاء الالتزامات بعد الإنهاء ────────────────────────────────────────────────────────
+  #
+  # THE CLAUSE MISSING BEFORE THIS PASS. Without it, a departed customer's counsel has a real
+  # argument that the contract ending ended the cap and the indemnity along with it — precisely
+  # backwards from the intent, and precisely the moment (a dispute after the relationship is over)
+  # these protections exist for. Placed last on purpose — it reaches backward over the whole
+  # document, so it reads correctly only once every clause it names has already been read. Listed
+  # by clause number rather than restated, so a renumbering cannot silently drop one.
+  survival:
+    title: { ar: "بقاء الالتزامات بعد الإنهاء", en: "Survival" }
+    ar: >-
+      لا ينتهي بانتهاء هذه الشروط أو الاشتراك، أياً كان سببه، ما يلي: حدّ المسؤولية (البند 7)،
+      وميزات الذكاء الاصطناعي (البند 7.1) فيما يخص مطالبات نشأت أثناء سريان الاشتراك، وتعويض
+      العميل للمزوّد (البند 8)، وتقديم الخدمة كما هي (البند 12) فيما يخص الفترة التي استُخدمت
+      فيها، والملكية الفكرية (البند 9) فيما يخص الاستخدام أثناء سريان الاشتراك، والنظام الواجب
+      التطبيق والاختصاص (البند 11)، وأحكام حفظ بيانات العميل بعد الإنهاء (البند 5). ويبقى كلٌّ
+      منها نافذاً بالقدر اللازم لتحقيق الغرض منه.
+    en: >-
+      The following do not end on the expiry or termination of these Terms or the subscription,
+      whatever the cause: the limitation of liability (clause 7); AI features (clause 7.1) as to
+      claims arising while the subscription was in force; the Customer's indemnity of the Provider
+      (clause 8); the service being provided as-is (clause 12) as to the period it was used;
+      intellectual property (clause 9) as to use during the subscription; governing law and
+      jurisdiction (clause 11); and the provisions on retaining the Customer's data after
+      termination (clause 5). Each continues in force to the extent necessary to achieve its purpose.

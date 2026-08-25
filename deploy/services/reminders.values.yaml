@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:e010accd45a6a5b5746a658862766a2a42c9592c9572f74765e2c538c8d0f9d8"   # 102ac99, published by publish-images.sh
+  digest: "sha256:cc2bd366c2c36d07036c4f14e1a858ecf8e39e73375ad8bc2caa6fa59734dbdb"   # 629ccdf, published by publish-images.sh
 
 replicas: 1
 
@@ -106,7 +106,8 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

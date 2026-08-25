@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression test for deploy/gen-secrets.py's own worst bug (Tamam, 2026-08-20): a re-run used to
+"""Regression test for deploy/gen-secrets.py's own worst bug: a re-run used to
 rebuild every existing secret's DATASTORE_DSN from one global PG_DB default, which silently
 replaced operations'/campaigns'/bookings'/insights'/loyalty's/reminders' own real databases with
 the (separate, near-empty) shared one — on a live cluster, with data already in every one of them.

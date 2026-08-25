@@ -1,7 +1,7 @@
 """Every pinned image must record the commit it was built from, and that commit must be current.
 
-WHAT THIS WAS WRITTEN AFTER, AND IT IS THE QUIETEST FAILURE THIS REPOSITORY HAS PRODUCED. Tamam
-opened the console and found none of the work: no branch switcher, none of the rewritten sentences,
+WHAT THIS WAS WRITTEN AFTER, AND IT IS THE QUIETEST FAILURE THIS REPOSITORY HAS PRODUCED. The
+console was opened and found none of the work: no branch switcher, none of the rewritten sentences,
 nothing. And every tool we own said green. `verify-fleet.sh` compares the repository against the
 cluster and reported them IDENTICAL — which was true. Both were weeks behind `apps/console`.
 

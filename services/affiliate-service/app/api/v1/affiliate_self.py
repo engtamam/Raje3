@@ -1,18 +1,18 @@
 # =============================================================================
 # affiliate-service — what an affiliate does about HIS OWN team, not the platform's
 # -----------------------------------------------------------------------------
-# EVERY ROUTE HERE NOW CARRIES `_SELF` (`affiliates.self`, 2026-08-22) — the one capability every
+# EVERY ROUTE HERE NOW CARRIES `_SELF` (`affiliates.self`) — the one capability every
 # approved affiliate token holds, proving "is this a real, approved affiliate at all", the same
 # shape as billing-service's `billing.self`/compliance-service's `compliance.self`. It answers
 # NOTHING about which rows he may touch — that is still, and only, the ownership/role DATA check
 # baked into each route (the same shape as operations.hire(): a shop owner needs no platform
 # capability to hire his own staff; the question is "is this HIS shop", never "may owners in
-# general do this"). `invite()` below is the clearest example: `_SELF` only proves he is signed
-# in as an affiliate; onboarding.invite() still checks his own person_id resolves to an ACTIVE
-# manager before anything happens — a capability would answer "may marketers in general invite",
-# which is the wrong question.
+# general do this"). `update_application()` below is the clearest example: `_SELF` only proves he
+# is signed in as an affiliate; onboarding.update_application() still checks the application's own
+# `parent_id` matches his — a capability would answer "may marketers in general edit
+# applications", which is the wrong question.
 #
-# WHY THIS EXISTS AT ALL: before 2026-08-22 no route here checked a capability, because no role
+# WHY THIS EXISTS AT ALL: no route here used to check a capability, because no role
 # in this tenant had ever been bootstrapped with one (`onboarding.py::_ensure_tenant_ready` minted
 # both roles with `"capabilities": []`, unnoticed because zero real affiliates had ever completed
 # approval on the live server). `_SELF` closes that — see core/models.py's own note on
@@ -44,9 +44,9 @@ router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-self"])
 _SELF = require_capability(AFFILIATE_SELF)
 
 
-class InviteIn(BaseModel):
-    phone: str = Field(min_length=6, max_length=32)
-    name: str = Field(min_length=1, max_length=200)
+class UpdateApplicationIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    cv_url: str | None = Field(default=None, max_length=500)
 
 
 class PayoutMethodIn(BaseModel):
@@ -123,7 +123,7 @@ async def change_password(request: Request, body: ChangePasswordIn,
     check beyond `_SELF` because there is no ownership question here: a token can only ever change
     the password of the person it already is.
 
-    AUDITED, NOT MESSAGED (Tamam, 2026-08-22): he just typed his own current password to get here
+    AUDITED, NOT MESSAGED: he just typed his own current password to get here
     — a confirmation notification would tell him nothing he does not already know. What has to
     exist is a RECORD, same "write it before the mutation" discipline `places-api-key` already
     follows: identity is the one place the password itself lives, but the request entered through
@@ -142,16 +142,18 @@ async def change_password(request: Request, body: ChangePasswordIn,
     return {"ok": True}
 
 
-@router.post("/invite", dependencies=[Depends(_SELF), Depends(rate_limit)])
-async def invite(request: Request, body: InviteIn,
-                 principal: Principal = Depends(require_user)) -> Any:
-    """A manager names somebody he wants on his team — still goes through the admin gate (spec
-    §2); see onboarding.invite() for the whole reasoning. `principal.subject` is the token's
-    `sub`, which — for this service's tenant — IS the identity person_id the affiliate row was
-    minted under; there is no separate lookup table to keep in step."""
+@router.patch("/applications/{application_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def update_application(request: Request, application_id: str, body: UpdateApplicationIn,
+                             principal: Principal = Depends(require_user)) -> Any:
+    """A manager correcting what a person who used his referral link submitted — only while
+    there is still a decision to correct BEFORE ("التعديل يكون قبل القبول من الادارة
+    وليس بعده"); see onboarding.update_application() for the whole reasoning. `principal.subject`
+    is the token's `sub`, which — for this service's tenant — IS the identity person_id the
+    affiliate row was minted under; there is no separate lookup table to keep in step."""
     try:
-        out = await _svc(request).invite(
-            inviter_person_id=principal.subject, phone=body.phone, name=body.name)
+        out = await _svc(request).update_application(
+            application_id, editor_person_id=principal.subject,
+            name=body.name, cv_url=body.cv_url)
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
@@ -178,9 +180,9 @@ async def commissions(request: Request, principal: Principal = Depends(require_u
 @router.get("/team", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def team(request: Request, principal: Principal = Depends(require_user)) -> Any:
     """spec §10: a manager's real revenue transparency — who is on his team AND what each of them
-    actually earned, not just the roster invite() already let him build. A promoter calling this
-    is not a manager: he simply has no children (parent_id never points AT him), so this answers
-    an honest empty team rather than needing a role check to refuse anything."""
+    actually earned, not just the roster his own referral link already let him build. A promoter
+    calling this is not a manager: he simply has no children (parent_id never points AT him), so
+    this answers an honest empty team rather than needing a role check to refuse anything."""
     onboarding = _svc(request)
     affiliate = await onboarding.me(principal.subject)
     if affiliate is None:
@@ -194,7 +196,7 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
     by_id = {m["affiliate_id"]: m for m in summary["members"]}
     empty = {"confirmed_halalas": 0, "pending_halalas": 0, "commission_count": 0,
             "shops": [], "total_net_revenue_minor": 0, "revenue_partial": False}
-    # spec §8's own ask (Tamam, 2026-08-20): a manager backs a «دعم الوفاء» decision with the SAME
+    # spec §8's own ask: a manager backs a «دعم الوفاء» decision with the SAME
     # measurable numbers the system's own recommendation uses (WafaService.performance_for) —
     # never a second, driftable copy of that math.
     perf = {m["id"]: await wafa.performance_for(m["id"]) for m in members}
@@ -206,7 +208,7 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
           "team_net_revenue_minor": summary["team_net_revenue_minor"],
           "team_revenue_partial": summary["team_revenue_partial"],
           "platform_revenue_enabled": affiliate["sees_platform_revenue"]}
-    # spec §10's OPTIONAL whole-platform view (Tamam, 2026-08-20) — an admin-only per-manager
+    # spec §10's OPTIONAL whole-platform view — an admin-only per-manager
     # grant (Affiliate.sees_platform_revenue), OFF by default. The read itself is not free (it
     # walks every referral ever stamped, platform-wide), so it only happens for the handful of
     # managers this is actually turned on for — never computed and then hidden client-side.
@@ -220,12 +222,12 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
 @router.put("/payout-method", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_payout_method(request: Request, body: PayoutMethodIn,
                             principal: Principal = Depends(require_user)) -> Any:
-    """spec §5, extended (Tamam, 2026-08-20): a bank IBAN or an intermediary payment platform
+    """spec §5, extended: a bank IBAN or an intermediary payment platform
     (بحر or any other — `channel_name` is free text so a new one never needs a code change).
     Setting this does NOT touch any withdrawal already requested — see WithdrawalRequest's own
     note on why the method is copied, not re-read, at request time.
 
-    AUDITED, WRITE-AHEAD (2026-08-22, same discipline `places-api-key` already follows): this
+    AUDITED, WRITE-AHEAD (same discipline `places-api-key` already follows): this
     changes WHERE his commission money is sent, so an unrecorded change is indistinguishable from
     an attacker redirecting a marketer's own earnings."""
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -252,16 +254,30 @@ async def read_payout_method(request: Request,
 
 @router.get("/balance", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def balance(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    from app.api.v1.operator import _runtime_config
+
     affiliate_id = await _my_affiliate_id(request, principal)
-    return await request.app.state.container.payouts.balance(affiliate_id)
+    payouts = request.app.state.container.payouts
+    out = await payouts.balance(affiliate_id)
+    # THE SCREEN THAT SHOWS THIS IS THE SCREEN WITH THE «اسحب» BUTTON — a marketer below the
+    # threshold used to have no way to learn it short of tapping withdraw and reading the refusal
+    # (payouts.py's own `below_minimum`). Same field `home()` exposes, same reasoning. LIVE, not
+    # the boot-time default — an operator's own /operator/config override applies immediately.
+    out["min_withdrawal_halalas"] = await payouts.effective_min_withdrawal_halalas(
+        _runtime_config(request))
+    return out
 
 
 @router.post("/withdrawals", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def request_withdrawal(request: Request,
                              principal: Principal = Depends(require_user)) -> Any:
+    from app.api.v1.operator import _runtime_config
+
     affiliate_id = await _my_affiliate_id(request, principal)
+    payouts = request.app.state.container.payouts
+    min_halalas = await payouts.effective_min_withdrawal_halalas(_runtime_config(request))
     try:
-        out = await request.app.state.container.payouts.request_withdrawal(affiliate_id)
+        out = await payouts.request_withdrawal(affiliate_id, min_halalas=min_halalas)
     except PayoutError as exc:
         return _payout_refused(exc)
     return {"ok": True, **out}
@@ -396,7 +412,7 @@ async def my_employment_eligibility(request: Request,
     return await request.app.state.container.employment.eligibility_preview(affiliate_id)
 
 
-# ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK, Tamam 2026-08-20) ──────────
+# ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK) ──────────
 
 class PlacesApiKeyIn(BaseModel):
     api_key: str = Field(min_length=1, max_length=512)
@@ -415,9 +431,8 @@ def _leads_keys(request: Request) -> LeadSourcingKeys:
 
 async def _my_manager_affiliate(request: Request, principal: Principal) -> dict[str, Any]:
     """§٦: "للمدير فقط" — lead sourcing (and the API key that powers it) is not a promoter's
-    concern. A data check on the caller's own role, same shape as invite()'s own
-    `managers_only` — never a capability, since the question is "is the caller himself a
-    manager", not "may managers in general do this"."""
+    concern. A data check on the caller's own role — never a capability, since the question is
+    "is the caller himself a manager", not "may managers in general do this"."""
     affiliate = await _svc(request).me(principal.subject)
     if affiliate is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
@@ -480,12 +495,12 @@ class CityIn(BaseModel):
 
 class SearchIn(BaseModel):
     place_type: str = Field(default="", max_length=100)
-    #: Sector.code, from the managed taxonomy (GET /me/sectors) — Tamam, 2026-08-20: "قطاعات...
+    #: Sector.code, from the managed taxonomy (GET /me/sectors) — "قطاعات...
     #: ما لها دخل بالمرادفات". The analytics column; never typed free, always picked.
     sector_code: str = Field(min_length=1, max_length=64)
     #: Synonyms searched TOGETHER in one job (places_scraper_v2.py's own multi-keyword loop —
     #: "صالون نسائي"/"مركز تجميل نسائي"/... found the same businesses under different listings).
-    #: The API's own ceiling stays generous (20); Tamam, 2026-08-20: the CONSOLE limits its own
+    #: The API's own ceiling stays generous (20); the CONSOLE limits its own
     #: form to 6 fields (each extra keyword multiplies the grid's own request count by one more
     #: full pass) — a UI/UX guard, not a hard API limit a future caller might need past.
     keywords: list[str] = Field(min_length=1, max_length=20)
@@ -621,7 +636,7 @@ class SetLeadStatusIn(BaseModel):
 @router.post("/leads/{lead_id}/status", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_lead_status(request: Request, lead_id: str, body: SetLeadStatusIn,
                           principal: Principal = Depends(require_user)) -> Any:
-    """Tamam, 2026-08-20: a real follow-up pipeline, so the marketing team actually tracks who
+    """A real follow-up pipeline, so the marketing team actually tracks who
     they contacted and how it went — see core/lead_sourcing.py::set_status for the exact
     ownership rule (the assigned promoter, or his own manager, never anyone else)."""
     affiliate = await _svc(request).me(principal.subject)
@@ -642,11 +657,11 @@ class LinkRegistrationIn(BaseModel):
 @router.post("/leads/{lead_id}/link-registration", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def link_lead_registration(request: Request, lead_id: str, body: LinkRegistrationIn,
                                  principal: Principal = Depends(require_user)) -> Any:
-    """Tamam, 2026-08-20: a shop sometimes signs up with a phone Google never had — the marketer
+    """A shop sometimes signs up with a phone Google never had — the marketer
     himself says "this lead became THIS real shop", by hand, from HIS OWN referrals only. See
     core/lead_sourcing.py::link_registration for why nothing here is inferred automatically.
 
-    AUDITED, WRITE-AHEAD (2026-08-22): this is the marketer SELF-DECLARING the event that opens
+    AUDITED, WRITE-AHEAD: this is the marketer SELF-DECLARING the event that opens
     his own commission entitlement — an unrecorded claim cannot be checked later if the shop
     disputes ever being referred by him."""
     affiliate = await _svc(request).me(principal.subject)
@@ -706,7 +721,7 @@ async def list_active_sectors(request: Request,
 @router.get("/referred-shops", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_referred_shops(request: Request,
                             principal: Principal = Depends(require_user)) -> dict:
-    """The gap the tickets UI actually needed first (2026-08-22): `/shops/{tenant}/tickets` needs
+    """The gap the tickets UI actually needed first: `/shops/{tenant}/tickets` needs
     a tenant id to call, and until now nothing gave a marketer his OWN list of them — he could
     only reach one if he already knew its tenant id from elsewhere. Any affiliate, not
     manager-only: `_my_shop_grant`'s own ownership check (a real referral he personally brought
@@ -815,6 +830,45 @@ async def reply_shop_ticket(request: Request, tenant: str, ticket_id: str, body:
 
 
 # ── the home screen — ONE call instead of six-to-eight ──────────────────────────────────────────
+_HOME_TICKET_SHOP_CAP = 20     # bounds N calls (one per referred shop) on a home load
+_HOME_TICKET_ROW_CAP = 8       # what the carousel actually shows
+_CLOSED_LIKE_STATUSES = {"closed", "resolved", "done"}
+
+
+async def _open_tickets_for_home(request: Request, *, affiliate_id: str) -> list[dict[str, Any]]:
+    """The carousel's own feed (2026-08-23) — every OPEN ticket across every shop this marketer
+    referred, one call per shop via the SAME `TicketReader.list_tickets` the tickets screen
+    already uses (§13), never a new ticket-service endpoint.
+
+    BEST-EFFORT, PER SHOP, SAME AS `support_kpis` ABOVE IT. `no_active_grant` (a shop that never
+    wired consent, or revoked it) is the honest common case, not a failure — one shop's refusal
+    must never blank the whole banner for every other shop this marketer DOES have a grant for.
+    `TICKETS_UNAVAILABLE` (no ticket-service configured at all) degrades to an empty list the
+    same way, so a Home screen with the feature off simply shows nothing rather than crashing.
+    """
+    reader = request.app.state.container.tickets
+    if reader is None:
+        return []
+    referrals = await request.app.state.container.referrals.of_affiliate(affiliate_id)
+    out: list[dict[str, Any]] = []
+    for r in referrals[:_HOME_TICKET_SHOP_CAP]:
+        try:
+            tickets = await reader.list_tickets(tenant=r.tenant, grantee=affiliate_id)
+        except TicketError:
+            continue
+        for t in tickets:
+            status_val = str(t.get("status") or "").strip().lower()
+            if status_val in _CLOSED_LIKE_STATUSES:
+                continue
+            out.append({**t, "tenant": r.tenant, "shop_name": r.shop_name or r.tenant})
+    # NEWEST FIRST — no per-ticket urgency signal exists yet (ticket-service's own read
+    # projection carries no "needs reply"/unread flag), so recency is the honest proxy: what a
+    # marketer most likely has NOT already seen and handled.
+    out.sort(key=lambda t: t.get("created_at") or 0, reverse=True)
+    return out[:_HOME_TICKET_ROW_CAP]
+
+
+# ── the home screen — ONE call instead of six-to-eight ──────────────────────────────────────────
 @router.get("/home", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def home(request: Request, principal: Principal = Depends(require_user)) -> dict:
     """Composite, server-side fan-out — the gap the design research kept surfacing: every number
@@ -825,6 +879,8 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     Every figure below is read fresh from its owning service — nothing here is a stored
     duplicate of another route's answer, and nothing here is a NEW fact this service didn't
     already know how to compute."""
+    from app.api.v1.operator import _runtime_config
+
     onboarding = _svc(request)
     affiliate = await onboarding.me(principal.subject)
     if affiliate is None:
@@ -833,9 +889,9 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     is_manager = affiliate["role"] == get_settings().AFFILIATE_MANAGER_ROLE
     c = request.app.state.container
 
-    # `onboarding.me()` deliberately answers with NAMED FIELDS ONLY (its own docstring: never
-    # `.to_dict()`, which carries `invite_token`) — `payout_channel` is not one of them, so it is
-    # read here straight off the row, the same way `set_payout_method`'s own route would.
+    # `onboarding.me()` deliberately answers with NAMED FIELDS ONLY (its own docstring) —
+    # `payout_channel` is not one of them, so it is read here straight off the row, the same way
+    # `set_payout_method`'s own route would.
     raw = await c.datastore.get(AFFILIATES, aff_id)
     payout_channel = Affiliate.from_dict(raw).payout_channel if raw else ""
 
@@ -848,13 +904,17 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     # "which of MY OWN templates actually moves a lead forward the most", no re-sorting needed.
     my_template_stats = await c.template_uses.stats(used_by=aff_id)
     top_template = my_template_stats[0] if my_template_stats else None
+    open_tickets = await _open_tickets_for_home(request, affiliate_id=aff_id)
 
     out: dict[str, Any] = {
         "affiliate": {"id": aff_id, "name": affiliate["name"], "role": affiliate["role"]},
         "balance": balance,
+        "min_withdrawal_halalas": await c.payouts.effective_min_withdrawal_halalas(
+            _runtime_config(request)),
         "payout_method_set": bool(payout_channel),
         "stale_leads_count": len(stale),
         "stale_leads": [l.to_dict() for l in stale[:10]],
+        "open_tickets": open_tickets,
         "wafa_eligibility": wafa_elig,
         "employment_eligibility": employment_elig,
         "top_template_this_period": top_template,

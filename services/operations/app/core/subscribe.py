@@ -289,6 +289,12 @@ class NullPlans:
                         payment_token: str = "") -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
 
+    async def base_plan_id(self) -> str:
+        return ""
+
+    async def list_trial_plans(self) -> list[str]:
+        return []
+
 
 class HttpPlans:
     """billing-service, for the two things this path needs and nothing else.
@@ -395,6 +401,44 @@ class HttpPlans:
             body["payment_token"] = payment_token
         status, out = self._request(self._subscribe, body)
         return status, out if isinstance(out, dict) else {"detail": out}
+
+    async def base_plan_id(self) -> str:
+        """The one listed, active plan that carries the message meter — signup's own way of
+        asking "which row is THE base" without a second, driftable copy of the price list.
+
+        NEVER HIDDEN OR RETIRED. `include_hidden` stays off here on purpose (unlike `trial_days`/
+        `limits` above, which look a SPECIFIC id up regardless of its listing state): a brand-new
+        tenant must land on whatever a person actually sees and could buy today, never a plan
+        pulled from the storefront or one still being drafted.
+
+        Empty on anything but a clean, single answer — the first plan is a guess a newly-opened
+        shop cannot fix, so an ambiguous or unreachable catalogue is a skipped step here, never
+        a wrong one.
+        """
+        status, out = self._request(self._plans)
+        if status >= 400:
+            return ""
+        bases = [p for p in (out.get("plans") or []) if is_base(p.get("limits"))]
+        return str(bases[0].get("id") or "") if len(bases) == 1 else ""
+
+    async def list_trial_plans(self) -> list[str]:
+        """Every LISTED plan carrying a trial — base and app alike, whatever the price list says
+        today («كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل»).
+
+        NOT A SEPARATE "IS THIS AN APP" RULE. `trial_days` is the one fact each row already
+        states about itself; a plan not meant to be tried simply carries 0, and this reads that
+        the same way `trial_days()` above does for a single id — no second table of "which plans
+        get a free month," which would drift from the price list the day a plan is added or its
+        trial changed.
+
+        `include_hidden` STAYS OFF, same reasoning as `base_plan_id`: a signup must only ever
+        start a trial on something a person could actually buy today.
+        """
+        status, out = self._request(self._plans)
+        if status >= 400:
+            return []
+        return [str(p.get("id") or "") for p in (out.get("plans") or [])
+               if int(p.get("trial_days") or 0) > 0 and p.get("id")]
 
 
 def build_connections(settings) -> Any:

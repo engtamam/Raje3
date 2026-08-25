@@ -176,7 +176,7 @@ _TAIL_MISPLACED = {
 def with_mandatory_tail(body: str, fills: list[str], cls: str) -> tuple[str, list[str]]:
     """Append the address this class owes its reader, if he did not put it there himself.
 
-    THE DECISION THIS IMPLEMENTS, in Tamam's words: the owner writes his own text, Meta approves it
+    THE DECISION THIS IMPLEMENTS: the owner writes his own text, Meta approves it
     under HIS shop's name, and the fine lands on HIM — so the stop link may not be an option he can
     forget. The server adds it rather than the screen, because a rule that holds only while every
     caller remembers is not a rule: the next caller is a seeder, a migration or a support script.

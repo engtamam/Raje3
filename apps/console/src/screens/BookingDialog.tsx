@@ -10,32 +10,35 @@
  * THE SERVICE GRID IS THE SAME COMPONENT, SHARED DATA, NEVER SHARED UI (§6.1 of the decisions
  * doc): `ServiceGrid` renders the same tiles the visit screen does because it is the same
  * catalogue — this dialog's own frame, order and controls are entirely its own.
+ *
+ * THE ORDER IS SERVICE → STAFF → ONE MERGED TIME PICKER → CONFIRM, not a stack of independent
+ * fields with a search button bolted on afterward. Every professional booking product converges
+ * on this shape (Fresha, Vagaro, Calendly, Acuity — the research behind the smart-scheduling
+ * rebuild) for the same reason: eligibility narrows BEFORE a time is shown, never as a validation
+ * error after one is picked, and there is exactly one merged "when" step rather than a date box, a
+ * time box and a separate "أقرب موعد" button that only ever fills those same two boxes.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@base-ui/design-system/Button';
-import { Field, Input } from '@base-ui/design-system/Field';
-import { Modal } from '@base-ui/design-system/Modal';
+import { Button } from '../rj-ui/Button';
+import { Field, Input, Select } from '../rj-ui/Field';
+import { Modal } from '../rj-ui/Modal';
+import { Segmented } from '../rj-ui/Segmented';
+import { Badge } from '../rj-ui/Badge';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
   type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
   editBookingPayment, editBookingReward, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
   nearestSlot, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
-  sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix,
+  sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix, type WeeklyHours,
 } from '../api';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
 import { PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
-
-// THIS DIALOG USES THE DESIGN SYSTEM'S OWN PALETTE, NOT `--rj-*` — those custom properties are
-// scoped to `.rj-grid` (Bookings.tsx's own bespoke identity), and this Modal portals outside it.
-const PAYMENT_CLASS: Record<PaymentStatus, { active: string; idle: string }> = {
-  none: { active: 'bg-text-secondary text-white', idle: 'bg-surface-2 text-text-secondary' },
-  deposit: { active: 'bg-warning text-white', idle: 'bg-warning-soft text-warning-on-soft' },
-  paid: { active: 'bg-success text-white', idle: 'bg-success-soft text-success-on-soft' },
-};
 import { digitsOnly } from '../digits';
 import { newIdempotencyKey } from '../queue';
 import { ServiceGrid } from '../ServiceGrid';
+import { pyWeekday } from './Bookings';
 import type { Session } from '../session';
 
 export interface BookingDialogProps {
@@ -53,6 +56,10 @@ export interface BookingDialogProps {
   initialServiceIds?: string[];
   services: CatalogueService[];
   staff: FieldOperator[];
+  /** The shop's own weekly working hours, handed down by the grid that already read them — used
+   *  for exactly one sentence: whether «أقرب وقت فاضي» is late because the shop is CLOSED right
+   *  now, or merely because it is busy. */
+  weekly?: WeeklyHours;
   onClose: () => void;
   onCreated: (booking: Booking) => void;
   /** Set when opened from an existing card's action sheet ("تعديل") rather than an empty cell —
@@ -74,9 +81,34 @@ function dayOfEpoch(epoch: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Real "today," by the browser's own clock — never the grid's `date` prop, which is whatever
+ *  day the grid happened to be showing when this dialog was opened. */
+function todayStr(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+}
+
+function addDays(dateStr: string, delta: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+const WEEKDAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+function humanDay(dateStr: string): string {
+  if (dateStr === todayStr()) return 'اليوم';
+  if (dateStr === addDays(todayStr(), 1)) return 'غداً';
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return `${WEEKDAYS_AR[d.getUTCDay()]} ${d.getUTCDate()}`;
+}
+
+interface Slot { operatorId: string; startsAt: number }
+
+const SLOTS_PER_DAY = 6;
+
 export function BookingDialog(
   { session, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
-   initialServiceIds, services, staff, onClose, onCreated,
+   initialServiceIds, services, staff, weekly, onClose, onCreated,
    editingBooking, editingCustomerLabel }: BookingDialogProps,
 ) {
   const editing = editingBooking ?? null;
@@ -90,6 +122,7 @@ export function BookingDialog(
   const [time, setTime] = useState(
     editing ? timeOfEpoch(editing.starts_at) : (initialStartsAt ? timeOfEpoch(initialStartsAt) : ''),
   );
+  const [manualEntry, setManualEntry] = useState(false);
   const [note, setNote] = useState(editing?.note ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -99,7 +132,6 @@ export function BookingDialog(
   // first press, so an empty fresh dialog never opens already covered in red ink.
   const [attempted, setAttempted] = useState(false);
   const [risk, setRisk] = useState<NoShowRisk | null>(null);
-  const [finding, setFinding] = useState(false);
   // MINTED ONCE, PER OPEN OF THIS DIALOG — a double-press of «احجز» carries the same key and
   // returns the same booking rather than creating a second one, exactly as the visit screen's
   // own save does.
@@ -211,6 +243,13 @@ export function BookingDialog(
     if (!priceTouched) setPriceText(catalogPriceMinor ? riyals(catalogPriceMinor) : '');
   }, [catalogPriceMinor, priceTouched]);
 
+  // THE DETAILS SECTION (price/payment/deposit/reward) OPENS ON ITS OWN whenever it actually has
+  // something that needs his attention — a real payment status already chosen (e.g. the risk
+  // note's one-tap «فعّل العربون الآن»), or a required field left empty after a press. Otherwise
+  // it stays folded: a shop that never touches payment on a booking never sees it at all.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsForcedOpen = paymentStatus !== 'none' || (attempted && depositAmountMissing);
+
   const starts_at = (() => {
     if (!day || !time) return 0;
     const at = Date.parse(`${day}T${time}:00+03:00`);
@@ -221,47 +260,154 @@ export function BookingDialog(
   const servicesMissing = chosen.length === 0;
   const operatorMissing = !operatorId;
   const timeMissing = starts_at <= 0;
-  const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
-    && !operatorMissing && !timeMissing && !depositAmountMissing);
 
-  // "أقرب موعد" (§6.2) — the same availability derivation the grid's own conflict lock rests
-  // on, from the moment a service and (optionally) an operator are chosen.
-  const findNearest = async () => {
-    if (chosen.length === 0 || missingDuration || finding) return;
-    setFinding(true);
-    setError('');
-    // ALWAYS FROM THIS EXACT MOMENT — reported directly: opening the dialog from a grid cell
-    // pre-fills day/time to THAT cell (this morning's 8:00, say), and "أقرب موعد" used to respect
-    // whatever was already sitting in the fields as the search floor if it was later than now —
-    // so a shop owner opening the dialog from an early cell got that early hour back as "nearest"
-    // even at 3pm, which reads as "gives the first opening of the day" no matter the actual time.
-    // "أقرب موعد" means nearest to RIGHT NOW, full stop — never to a pre-filled default he never
-    // asked to search from. A LATER time he deliberately TYPED himself is a different act (he is
-    // choosing a slot, not asking to find one) and is not this button's concern at all.
-    const after = Math.floor(Date.now() / 1000);
+  // WHO CAN ACTUALLY DO EVERY CHOSEN SERVICE, TOGETHER — one booking is one operator covering the
+  // whole basket (the server's own `_refuse_if_ineligible` refuses anybody else), so this is the
+  // real set the dropdown may offer, not a hint layered on top of it.
+  //
+  // A SERVICE WITH NO RESTRICTION (`eligible_staff_ids` empty/absent) EXCLUDES NOBODY from the
+  // intersection — that is what "every active operator" means. A shop that never restricted
+  // anything ends up with the exact same set it always had: every operator, unchanged.
+  const eligibleStaff = useMemo(() => {
+    const restricting = chosen
+      .map((id) => services.find((s) => s.id === id)?.eligible_staff_ids)
+      .filter((ids): ids is string[] => Boolean(ids && ids.length > 0));
+    if (restricting.length === 0) return staff;
+    const common = restricting.reduce((a, b) => a.filter((id) => b.includes(id)));
+    return staff.filter((o) => common.includes(o.id));
+  }, [chosen, services, staff]);
+  // A CHOSEN OPERATOR WHO NO LONGER QUALIFIES (a service was added after he was picked) IS DROPPED
+  // rather than silently kept — sending him would just be refused server-side a moment later, with
+  // a less specific sentence than this one.
+  const operatorIneligible = Boolean(operatorId) && !eligibleStaff.some((o) => o.id === operatorId);
+  // NO SINGLE OPERATOR COVERS THIS COMBINATION — a real state, not an error in the data. Splitting
+  // such a basket across several people ("موظف لكل خدمة معاً في نفس الحجز") is not something the
+  // server can do today (`create()` books the whole basket under one operator id) — so the honest
+  // move here is to say so plainly and let him book the services one at a time, rather than
+  // offering a control that promises a split booking nothing behind it can perform.
+  const noCommonOperator = chosen.length > 1 && eligibleStaff.length === 0;
+  const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
+    && !operatorMissing && !operatorIneligible && !noCommonOperator && !timeMissing
+    && !depositAmountMissing);
+
+  // ── THE MERGED TIME PICKER ────────────────────────────────────────────────────────────────
+  //
+  // ONE STEP, NOT A DATE BOX + A TIME BOX + A SEPARATE "أقرب موعد" BUTTON. Every real slot for
+  // the day on screen is fetched and shown as a tap-once chip; picking one sets both the time AND
+  // (when the operator step is «أي متاح») the operator who actually owns it — the exact "who
+  // for, and with whom" question that a bare time input never answered.
+  //
+  // BUILT FROM THE SAME `nearestSlot` ENDPOINT THE OLD «أقرب موعد» BUTTON USED, called
+  // repeatedly (no new backend route): each call answers "what's the very next opening from this
+  // moment", so walking `cursor` forward past each found slot turns one-answer-at-a-time into a
+  // short list. Same sequential-per-operator search `findNearest` always did when no operator was
+  // picked — just repeated per round instead of once.
+  const [slots, setSlots] = useState<Slot[] | null>(null);   // null = loading
+  const [slotsError, setSlotsError] = useState('');
+  const [jumping, setJumping] = useState(false);
+
+  useEffect(() => {
+    let stale = false;
+    async function run() {
+      if (chosen.length === 0 || missingDuration || !day || noCommonOperator) {
+        if (!stale) setSlots([]);
+        return;
+      }
+      setSlots(null);
+      setSlotsError('');
+      const dayStartEpoch = Math.floor(Date.parse(`${day}T00:00:00+03:00`) / 1000);
+      const dayEndEpoch = dayStartEpoch + 24 * 3600;
+      // ALWAYS FROM RIGHT NOW WHEN THE DAY ON SCREEN IS TODAY — never from a pre-filled or
+      // previously-picked time, the exact bug this dialog once had (§ findNearest's own history).
+      let cursor = day === todayStr() ? Math.floor(Date.now() / 1000) : dayStartEpoch;
+      const candidates = operatorId ? [operatorId] : eligibleStaff.map((o) => o.id);
+      if (candidates.length === 0) { if (!stale) setSlots([]); return; }
+      const found: Slot[] = [];
+      try {
+        for (let i = 0; i < SLOTS_PER_DAY; i++) {
+          let best: Slot | null = null;
+          for (const opId of candidates) {
+            // eslint-disable-next-line no-await-in-loop
+            const r = await nearestSlot(session, branchId, opId, chosen, cursor, editing?.id);
+            if (r.starts_at !== null && r.starts_at < dayEndEpoch
+                && (best === null || r.starts_at < best.startsAt)) {
+              best = { operatorId: opId, startsAt: r.starts_at };
+            }
+          }
+          if (!best || stale) break;
+          // NO FORWARD PROGRESS — an answer that ignores the search floor (only ever seen from a
+          // mock in tests, never the real endpoint) would otherwise repeat the same slot forever
+          // up to SLOTS_PER_DAY, showing a row of identical chips for one real opening.
+          if (found.length > 0 && best.startsAt === found[found.length - 1].startsAt) break;
+          found.push(best);
+          cursor = best.startsAt + durationTotal * 60;
+        }
+        if (!stale) setSlots(found);
+      } catch (e) {
+        if (!stale) { setSlots([]); setSlotsError(sentenceFor(e, 'تعذّر البحث عن فتحات.')); }
+      }
+    }
+    run();
+    return () => { stale = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen, operatorId, day, missingDuration, durationTotal, noCommonOperator]);
+
+  function pickSlot(s: Slot) {
+    setOperatorId(s.operatorId);
+    setTime(timeOfEpoch(s.startsAt));
+    setManualEntry(false);
+  }
+
+  // «المحل مغلق الآن» EXPLAINED, NOT LEFT AS A CONFUSING TIME — reported directly: the earliest
+  // real slot on a currently-closed day IS the top of the next working window (the algorithm is
+  // correct), but a bare "09:00" with no context reads as a bug rather than a fact.
+  //
+  // AND ONLY WHEN THE SHOP IS ACTUALLY CLOSED. This used to be "today, and the first slot is more
+  // than five minutes away" — which is equally true of a shop that is wide open and simply booked
+  // solid until the evening, so a busy Tuesday afternoon was told, in the product's own voice,
+  // that the shop was closed (seen on a real recording at three in the afternoon, hours inside the
+  // working day). The shop's own hours are the only thing that can answer this, so they are what
+  // answers it: closed today, or now sitting before opening or after closing.
+  const shopClosedNow = (() => {
+    if (day !== todayStr() || !weekly) return false;
+    const today = weekly[String(pyWeekday(day))];
+    if (!today) return false;
+    if (today.closed) return true;
+    const n = new Date();
+    const minuteOfDay = n.getHours() * 60 + n.getMinutes();
+    return minuteOfDay < today.start_minute || minuteOfDay >= today.end_minute;
+  })();
+  const firstSlotIsShopOpening = shopClosedNow && (slots ?? []).length > 0
+    && (slots as Slot[])[0].startsAt - Math.floor(Date.now() / 1000) > 5 * 60;
+
+  // "أقرب يوم فيه فتحة" — for when the day on screen has nothing at all (closed, or fully
+  // booked): the same whole-horizon search the old «أقرب موعد» button always did, just jumping
+  // the day switcher to the day it actually found instead of only filling two fields.
+  async function jumpToNearestDay() {
+    if (chosen.length === 0 || missingDuration || jumping) return;
+    setJumping(true);
+    setSlotsError('');
     try {
-      const staffToTry = operatorId ? [operatorId] : staff.map((o) => o.id);
-      // THE EARLIEST SLOT, AND WHO OWNS IT — a search across several staff must know which one
-      // produced the winning answer, not merely the winning TIME.
-      let best: { operatorId: string; startsAt: number } | null = null;
-      for (const opId of staffToTry) {
+      const after = Math.floor(Date.now() / 1000);
+      const candidates = operatorId ? [operatorId] : eligibleStaff.map((o) => o.id);
+      let best: Slot | null = null;
+      for (const opId of candidates) {
         // eslint-disable-next-line no-await-in-loop
-        const r = await nearestSlot(session, branchId, opId, chosen, after);
+        const r = await nearestSlot(session, branchId, opId, chosen, after, editing?.id);
         if (r.starts_at !== null && (best === null || r.starts_at < best.startsAt)) {
           best = { operatorId: opId, startsAt: r.starts_at };
         }
       }
-      if (best === null) { setError('لا فتحة قريبة خلال أسبوعين.'); return; }
-      const d = new Date(best.startsAt * 1000);
-      setDay(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
-      setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+      if (best === null) { setSlotsError('لا فتحة قريبة خلال أسبوعين.'); return; }
+      setDay(dayOfEpoch(best.startsAt));
+      setTime(timeOfEpoch(best.startsAt));
       if (!operatorId) setOperatorId(best.operatorId);
     } catch (e) {
-      setError(sentenceFor(e, 'تعذّر البحث عن فتحة.'));
+      setSlotsError(sentenceFor(e, 'تعذّر البحث عن فتحة.'));
     } finally {
-      setFinding(false);
+      setJumping(false);
     }
-  };
+  }
 
   // AN EDIT IS THREE INDEPENDENT PATCHES, NOT A NEW BOOKING — services, the slot (operator+time
   // together, since reschedule is the one act that moves both), and the note, each sent only
@@ -345,8 +491,8 @@ export function BookingDialog(
   };
 
   return (
-    <Modal open onClose={onClose} size="lg" title={editing ? 'تعديل الحجز' : 'حجز جديد'}
-          subtitle={`فرعك، ${date === day ? 'اليوم' : day}`}>
+    <Modal open onClose={onClose} title={editing ? 'تعديل الحجز' : 'حجز جديد'}
+          subtitle={`فرعك، ${humanDay(day)}`} size="lg">
       <div className="flex flex-col gap-4">
         {/* ── العميل — ثابتٌ في التعديل، لا PATCH يغيّره ─────────────────────────────────── */}
         {editing ? (
@@ -386,7 +532,10 @@ export function BookingDialog(
         ) : null}
         {customer ? (
           <div className="flex flex-col gap-1">
-            <p className="text-sm text-success">✓ عميل معروف{customer.name ? ` — ${customer.name}` : ''}</p>
+            <p className="flex items-center gap-1.5 text-sm">
+              <Badge tone="success">عميل معروف</Badge>
+              {customer.name ? <span>{customer.name}</span> : null}
+            </p>
             {/* A NUMBER, NEVER A VERDICT (§2.6) — the staff member reads it and decides: confirm
                 twice, ask for a recorded deposit, or book as usual. Nothing here refuses anything.
                 MADE TO BE UNDERSTOOD, NOT JUST NOTICED — the screen must be clear, not just a
@@ -451,106 +600,189 @@ export function BookingDialog(
           ) : null}
         </div>
 
-        {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً ───────────── */}
-        {/* لا PATCH يكتب السعر بعد الحجز — يبقى كما كان، يُضبط من جديد فقط. */}
-        {!editing && chosen.length > 0 ? (
-          <Field label="السعر (اختياري، ريال)" htmlFor="bkg-price">
-            <Input
-              id="bkg-price"
-              value={priceText}
-              dir="ltr"
-              inputMode="decimal"
-              placeholder="—"
-              onChange={(e) => { setPriceText(e.target.value); setPriceTouched(true); }}
-            />
-            {singleServiceId ? (
-              <label className="mt-1.5 flex items-center gap-2 text-sm text-text-secondary">
-                <input type="checkbox" checked={saveToCatalog}
-                       onChange={(e) => setSaveToCatalog(e.target.checked)} />
-                احفظه كسعر ثابت لهذه الخدمة (لكل الحجوزات القادمة)
-              </label>
-            ) : null}
-          </Field>
-        ) : null}
-
-        {/* ── حالة الدفع — ثلاث حالات بلون كل واحدة، تُغيَّر في أي وقت من عمر الحجز ─────────── */}
-        <Field label="حالة الدفع" htmlFor="bkg-payment">
-          <div id="bkg-payment" className="flex gap-1.5">
-            {PAYMENT_ORDER.map((s) => (
-              <button key={s} type="button" onClick={() => setPaymentStatus(s)}
-                     className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${
-                       s === paymentStatus ? PAYMENT_CLASS[s].active : PAYMENT_CLASS[s].idle}`}>
-                {PAYMENT_LABEL[s]}
-              </button>
-            ))}
-          </div>
-        </Field>
-        {/* «مدفوع» يتّكئ على حقل السعر أعلاه؛ «عربون» وحده يحتاج رقماً — إجباري، لا يُخمَّن. */}
-        {paymentStatus === 'deposit' ? (
-          <Field label="مبلغ العربون (ريال)" required htmlFor="bkg-deposit"
-                error={attempted && depositAmountMissing ? 'مبلغ العربون مطلوب' : undefined}>
-            <Input
-              id="bkg-deposit"
-              value={depositAmountText}
-              dir="ltr"
-              inputMode="decimal"
-              placeholder="0"
-              onChange={(e) => setDepositAmountText(e.target.value)}
-            />
-          </Field>
-        ) : null}
-
-        {/* ── نيّة استبدال — تُختار الآن، تُصرف عند «حضر» فقط ──────────── */}
-        {(balance?.rewards ?? []).length > 0 ? (
-          <Field label="جائزة يريد استبدالها (اختياري)" htmlFor="bkg-reward"
-                hint="لا تُخصم نقاطه الآن — تُصرف تلقائياً عند تسجيل حضوره.">
-            <select
-              id="bkg-reward"
-              value={intendedRewardId}
-              onChange={(e) => setIntendedRewardId(e.target.value)}
-              className="h-11 w-full rounded-xl bg-surface-1 px-3 shadow-sm"
-            >
-              <option value="">بدون</option>
-              {(balance?.rewards ?? []).map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.cost}){r.needs_approval ? ' — تحتاج موافقة مشرف' : ''}
-                </option>
-              ))}
-            </select>
-          </Field>
-        ) : null}
-
-        {/* ── الموظف ───────────────────────────────────────────────────────────────────── */}
+        {/* ── الموظف — قبل الوقت، لا بعده: «أي متاح» هو الخيار الأول والافتراضي ───────────
+            القائمة نفسها بلا تغيير لمحل لم يخصّص شيئاً قط — تضيق فقط حين خدمة مختارة فعلاً
+            مقيّدة بموظفين بعينهم (§3 من خطة الحجوزات الذكية: بساطة افتراضية، عمق عند الحاجة). */}
         <Field label="الموظف" required htmlFor="bkg-op"
-              error={attempted && operatorMissing ? 'اختر موظفاً' : undefined}>
-          <select
+              error={attempted && (operatorMissing || operatorIneligible) ? 'اختر موظفاً' : undefined}>
+          <Select
             id="bkg-op"
-            value={operatorId}
+            value={operatorIneligible ? '' : operatorId}
             onChange={(e) => setOperatorId(e.target.value)}
-            className="h-11 w-full rounded-xl bg-surface-1 px-3 shadow-sm"
           >
-            <option value="">اختر…</option>
-            {staff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
+            <option value="">أي متاح</option>
+            {eligibleStaff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </Select>
         </Field>
 
-        {/* ── الوقت ───────────────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="اليوم" required htmlFor="bkg-day">
-            <Input id="bkg-day" type="date" value={day} dir="ltr"
-                  onChange={(e) => setDay(e.target.value)} />
-          </Field>
-          <Field label="الوقت" required htmlFor="bkg-time"
-                error={attempted && timeMissing ? 'الوقت مطلوب' : undefined}>
-            <Input id="bkg-time" type="time" value={time} dir="ltr"
-                  onChange={(e) => setTime(e.target.value)} />
-          </Field>
+        {/* لا موظف واحد يغطي كل الخدمات المختارة معاً — حالة حقيقية، لا خطأ في البيانات. */}
+        {noCommonOperator ? (
+          <p className="text-sm text-danger">
+            لا يوجد موظف واحد يقدر يسوّي كل هذه الخدمات معاً. احجزها في مواعيد منفصلة، أو أزل إحداها.
+          </p>
+        ) : null}
+
+        {/* ── الوقت — منتقي فتحات واحد، لا حقلين خام وزر منفصل ─────────────────────────────
+            كل رقاقة فتحة حقيقية فاضية؛ الضغط عليها يعبّئ الوقت (والموظف، لو كان «أي متاح») مباشرة. */}
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm text-text-secondary">الوقت</h3>
+            {!editing ? (
+              <div className="flex items-center gap-1">
+                <button type="button" aria-label="اليوم السابق" disabled={day <= todayStr()}
+                       onClick={() => { setDay(addDays(day, -1)); setTime(''); }}
+                       className="grid size-8 place-items-center rounded-full text-text-secondary disabled:opacity-30">
+                  <ChevronRight size={16} aria-hidden />
+                </button>
+                <span className="min-w-16 text-center text-sm font-medium">{humanDay(day)}</span>
+                <button type="button" aria-label="اليوم التالي"
+                       onClick={() => { setDay(addDays(day, 1)); setTime(''); }}
+                       className="grid size-8 place-items-center rounded-full text-text-secondary">
+                  <ChevronLeft size={16} aria-hidden />
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {firstSlotIsShopOpening ? (
+            <p className="mb-2 text-xs text-text-secondary">
+              المحل مغلق الآن — هذا أقرب وقت فاضي فعلاً.
+            </p>
+          ) : null}
+
+          {chosen.length === 0 || missingDuration || noCommonOperator ? null
+            : slots === null ? (
+              <p className="text-sm text-text-secondary">نبحث عن فتحات فاضية…</p>
+            ) : slots.length === 0 ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-text-secondary">لا فتحة فاضية هذا اليوم.</p>
+                <Button type="button" variant="ghost" disabled={jumping} onClick={jumpToNearestDay}
+                       className="self-start">
+                  {jumping ? 'يبحث…' : 'أقرب يوم فيه فتحة'}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {slots.map((s, i) => {
+                  const picked = time === timeOfEpoch(s.startsAt) && operatorId === s.operatorId;
+                  const opName = !operatorId
+                    ? staff.find((o) => o.id === s.operatorId)?.name : undefined;
+                  return (
+                    <button
+                      // INDEXED, NOT JUST operatorId+startsAt — a stalled search floor (a mocked
+                      // or otherwise unmoving `nearestSlot` answer) can legitimately repeat the
+                      // same slot several times in a row; the index keeps React's list identity
+                      // correct even then, never a silently-dropped duplicate.
+                      key={`${s.operatorId}-${s.startsAt}-${i}`}
+                      type="button"
+                      onClick={() => pickSlot(s)}
+                      className={`rounded-full px-3 py-2 text-sm font-medium transition-colors ${
+                        picked ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-primary hover:bg-surface-3'
+                      }`}
+                    >
+                      {timeOfEpoch(s.startsAt)}{opName ? ` — مع ${opName}` : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          {slotsError ? <p className="mt-1 text-sm text-danger">{slotsError}</p> : null}
+          {attempted && timeMissing ? <p className="mt-1 text-sm text-danger">الوقت مطلوب</p> : null}
+
+          {/* المسار اليدوي الاحتياطي — مطويّ افتراضياً: تعديل حجز بتاريخ ماضٍ، أو أي استثناء
+              لا يغطيه شريط الرقائق. */}
+          <button type="button" className="mt-2 text-xs text-text-secondary underline underline-offset-2"
+                 onClick={() => setManualEntry((v) => !v)}>
+            {manualEntry ? 'إخفاء الإدخال اليدوي' : 'إدخال يدوي'}
+          </button>
+          {manualEntry ? (
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <Field label="اليوم" htmlFor="bkg-day">
+                <Input id="bkg-day" type="date" value={day} dir="ltr"
+                      onChange={(e) => setDay(e.target.value)} />
+              </Field>
+              <Field label="الوقت" htmlFor="bkg-time">
+                <Input id="bkg-time" type="time" value={time} dir="ltr"
+                      onChange={(e) => setTime(e.target.value)} />
+              </Field>
+            </div>
+          ) : null}
         </div>
-        {/* "أقرب موعد" (§6.2) — the same availability derivation the grid's own lock rests on. */}
-        <Button variant="ghost" disabled={chosen.length === 0 || missingDuration || finding}
-               onClick={findNearest}>
-          {finding ? 'يبحث…' : 'أقرب موعد'}
-        </Button>
+
+        {/* ── تفاصيل إضافية — مطويّة، تُفتح تلقائياً فقط حين تحتاج انتباهه فعلاً ──────────── */}
+        <details open={detailsOpen || detailsForcedOpen}
+                 onToggle={(e) => setDetailsOpen(e.currentTarget.open)}
+                 className="rounded-card border border-border-subtle">
+          <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-text-secondary">
+            تفاصيل الدفع
+          </summary>
+          <div className="flex flex-col gap-3 border-t border-border-subtle p-3">
+            {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً ───────────── */}
+            {!editing && chosen.length > 0 ? (
+              <Field label="السعر (اختياري، ريال)" htmlFor="bkg-price">
+                <Input
+                  id="bkg-price"
+                  value={priceText}
+                  dir="ltr"
+                  inputMode="decimal"
+                  placeholder="—"
+                  onChange={(e) => { setPriceText(e.target.value); setPriceTouched(true); }}
+                />
+                {singleServiceId ? (
+                  <label className="mt-1.5 flex items-center gap-2 text-sm text-text-secondary">
+                    <input type="checkbox" checked={saveToCatalog}
+                          onChange={(e) => setSaveToCatalog(e.target.checked)} />
+                    احفظه كسعر ثابت لهذه الخدمة (لكل الحجوزات القادمة)
+                  </label>
+                ) : null}
+              </Field>
+            ) : null}
+
+            {/* ── حالة الدفع — ثلاث حالات حصرية، مقياس Segmented الجاهز ────────────────────── */}
+            <Field label="حالة الدفع">
+              <Segmented
+                ariaLabel="حالة الدفع"
+                value={paymentStatus}
+                onChange={setPaymentStatus}
+                options={PAYMENT_ORDER.map((s) => ({ value: s, label: PAYMENT_LABEL[s] }))}
+                className="w-full [&>button]:flex-1"
+              />
+            </Field>
+            {/* «مدفوع» يتّكئ على حقل السعر أعلاه؛ «عربون» وحده يحتاج رقماً — إجباري، لا يُخمَّن. */}
+            {paymentStatus === 'deposit' ? (
+              <Field label="مبلغ العربون (ريال)" required htmlFor="bkg-deposit"
+                    error={attempted && depositAmountMissing ? 'مبلغ العربون مطلوب' : undefined}>
+                <Input
+                  id="bkg-deposit"
+                  value={depositAmountText}
+                  dir="ltr"
+                  inputMode="decimal"
+                  placeholder="0"
+                  onChange={(e) => setDepositAmountText(e.target.value)}
+                />
+              </Field>
+            ) : null}
+
+            {/* ── نيّة استبدال — تُختار الآن، تُصرف عند «حضر» فقط ──────────── */}
+            {(balance?.rewards ?? []).length > 0 ? (
+              <Field label="جائزة يريد استبدالها (اختياري)" htmlFor="bkg-reward"
+                    hint="لا تُخصم نقاطه الآن — تُصرف تلقائياً عند تسجيل حضوره.">
+                <Select
+                  id="bkg-reward"
+                  value={intendedRewardId}
+                  onChange={(e) => setIntendedRewardId(e.target.value)}
+                >
+                  <option value="">بدون</option>
+                  {(balance?.rewards ?? []).map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.cost}){r.needs_approval ? ' — تحتاج موافقة مشرف' : ''}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+          </div>
+        </details>
 
         <Field label="ملاحظة (اختياري)" htmlFor="bkg-note">
           <Input id="bkg-note" value={note} onChange={(e) => setNote(e.target.value)} />

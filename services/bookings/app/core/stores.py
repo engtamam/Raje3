@@ -52,7 +52,7 @@ class ConcurrentEditError(Exception):
 
 
 class WorkingHoursStore:
-    """One row per tenant — the establishment's own weekly policy (Tamam, 2026-08-19), not the
+    """One row per tenant — the establishment's own weekly policy, not the
     branch's. Raw dict in, raw dict out: `core/operations.py` owns the shape and its defaults,
     this only persists whatever it is handed."""
     collection = WORKING_HOURS

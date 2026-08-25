@@ -182,3 +182,28 @@ describe('AffiliateTools — shop tickets (§13)', () => {
     await waitFor(() => expect(screen.getByText('مشكلة بالحجز')).toBeTruthy());
   });
 });
+
+describe('AffiliateTools — deep-linked ticket (Home\'s own carousel, 2026-08-23)', () => {
+  it('jumps straight into the ticket thread, skipping the shop picker and the ticket list', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    render(<AffiliateTools session={SESSION}
+                          deepLinkTicket={{ id: 'tk-dl', tenant: 't-dl', shop_name: 'مغسلة الأمل',
+                                            subject: 'الجهاز متوقف', status: 'open' }} />);
+    await waitFor(() => expect(screen.getByText('الجهاز متوقف')).toBeTruthy());
+    expect(screen.getByPlaceholderText('اكتب ردّك')).toBeTruthy();
+    // never rendered the menu or the shop picker on the way there
+    expect(screen.queryByText('تذاكر المحلات')).toBeFalsy();
+  });
+
+  it('going back calls onConsumeDeepLinkTicket, not a local view change', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    const onConsume = vi.fn();
+    render(<AffiliateTools session={SESSION}
+                          deepLinkTicket={{ id: 'tk-dl2', tenant: 't-dl2', shop_name: 'محل',
+                                            subject: 'س', status: 'open' }}
+                          onConsumeDeepLinkTicket={onConsume} />);
+    await waitFor(() => expect(screen.getByText('س')).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('رجوع'));
+    expect(onConsume).toHaveBeenCalledTimes(1);
+  });
+});

@@ -140,14 +140,25 @@ class Settings(BaseSettings):
     AFFILIATE_PROMOTER_ROLE: str = "affiliate_promoter"
     AFFILIATE_PHONE_DEFAULT_CC: str = "966"
     ONBOARDING_TIMEOUT_SECONDS: int = 10
-    # THE VERSION OF THE TERMS AN APPLICANT IS AGREEING TO — spec §2's own "قبول الشروط إجباري
-    # قبل التفعيل". NOT a full compliance-service integration (the version-pinned, re-prompt-on-
-    # publish machinery Door.tsx's own LegalGate drives for shops) — that is a real future
-    # upgrade, tracked as such rather than pretended away. This is the honest minimum until then:
-    # apply() refuses without agreement, and WHICH version he agreed to is recorded, so a later
-    # dispute has an answer ("he agreed to v1 on this date") rather than nothing at all. A config
-    # value, never hardcoded, so a real wording change is a value bump an admin makes on purpose.
+    # THE VERSION OF deploy/seed/legal/affiliate-agreement.yaml's OWN `values.VERSION` an
+    # applicant is agreeing to — spec §2's own "قبول الشروط إجباري قبل التفعيل". Same
+    # re-acceptance property as compliance-service's LegalGate (legal_gate.py::outstanding): the
+    # value here is not read from that document at runtime (this image ships `app/` alone, not
+    # the deploy tree — see the Dockerfile), so ci/check_legal.py::rule 6 is what keeps this in
+    # step with the document instead — it fails the build the moment they drift. apply() stamps
+    # every new application with whatever this is set to; onboarding.py::approve() then refuses
+    # any application whose stamped version no longer matches it, exactly as a LegalGate check
+    # would refuse a stale consent. "v1" is a local-dev default only — deploy/services/
+    # affiliate-service.values.yaml pins the real one.
     AFFILIATE_TERMS_VERSION: str = "v1"
+    # ── phone-ownership OTP — same two-knob shape as operations' own
+    # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP, deliberately: DELIVERABLE is "can a code actually
+    # reach a phone" (false everywhere today — notification-service's own WHATSAPP_CHAIN/
+    # SMS_CHAIN are still the no-op `console` driver), REQUIRE is "does apply() refuse without
+    # one". Independent knobs so the moment real WhatsApp/SMS credentials exist, flipping both to
+    # true turns this into a hard gate with no further code change — see onboarding.py's own note.
+    AFFILIATE_OTP_DELIVERABLE: bool = False
+    AFFILIATE_REQUIRE_OTP: bool = False
 
     # ── referral commission (spec §4 — a FLAT amount, not a percentage) ────────────────────────
     # Halalas, never riyals-as-float: money as a float is how "40.10" becomes "40.099999999999994"
@@ -156,7 +167,7 @@ class Settings(BaseSettings):
     # the change, never ones already promised a rate.
     AFFILIATE_COMMISSION_AMOUNT_HALALAS: int = 0
 
-    # THE CONVERSION WINDOW — Tamam, 2026-08-19: bounds our liability to a written, known
+    # THE CONVERSION WINDOW — bounds our liability to a written, known
     # duration rather than an open-ended one. A shop can register through an affiliate's link
     # today and subscribe two years from now; without a limit that is still a live, disputable
     # claim two years later. From `stamped_at`, NOT from any click — this product has no click
@@ -171,12 +182,12 @@ class Settings(BaseSettings):
     # "مُستحقة" ليست "مؤكدة" — a commission holds this many days from the invoice's own paid_at
     # before it is withdrawable, in case that payment is refunded within the window.
     AFFILIATE_COMMISSION_HOLD_DAYS: int = 7
-    # RENEWAL COMMISSIONS RETIRED (Tamam, 2026-08-20): a flat cut on every Nth renewal paid
+    # RENEWAL COMMISSIONS RETIRED: a flat cut on every Nth renewal paid
     # indefinitely for revenue nobody was servicing — see core/models.py's own note on
     # COMMISSION_KINDS. Real ongoing team involvement belongs to a separate program (a shop-count
     # threshold + actual support work, its own KPI), not a recurring commission here.
 
-    # ── «برنامج دعم الوفاء» (spec §8, Tamam, 2026-08-20) — see core/wafa.py's own module docstring
+    # ── «برنامج دعم الوفاء» (spec §8) — see core/wafa.py's own module docstring
     # for the full reasoning behind every one of these.
     # floor(active_shops / WAFA_TIER_SHOPS) * WAFA_TIER_AMOUNT_HALALAS — 50 shops = 500 SAR.
     WAFA_TIER_SHOPS: int = 50
@@ -188,6 +199,13 @@ class Settings(BaseSettings):
     # admin may still grant against it (see WafaService.admin_decide).
     WAFA_RETENTION_MIN: float = 0.70
     WAFA_REFUND_MAX: float = 0.15
+    # THE ACTIVITY GATE (core/wafa.py) reads WAFA_COOLDOWN_DAYS above for its own WINDOW —
+    # "خلال مدة الطلب نفسها" — deliberately not a second, independently-tunable window. The
+    # COUNT required inside that window is its own separate knob, on purpose: "1" today, raise
+    # to "3" later without touching the cooldown it is measured over.
+    WAFA_MIN_RECENT_CONVERSIONS: int = 1
+    # THE ACTIVITY GATE (core/wafa.py) reads WAFA_COOLDOWN_DAYS above for its own window too —
+    # "خلال مدة الطلب نفسها" — deliberately not a second, independently-tunable setting.
 
     # ── «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
     AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS: int = 500
@@ -208,7 +226,7 @@ class Settings(BaseSettings):
     # Blank means "not wired yet" — WafaService.performance_for degrades support_kpis to
     # available:False rather than failing.
     TICKET_SERVICE_URL: str = ""
-    # §١٣'s auto-escalation (Tamam, 2026-08-20) — see core/escalation.py's own module docstring.
+    # §١٣'s auto-escalation — see core/escalation.py's own module docstring.
     # No response within this many hours -> escalated to the promoter's own manager. Config, not
     # a hardcoded 24 — a deployment may want a different SLA.
     AFFILIATE_TICKET_ESCALATION_HOURS: int = 24
@@ -230,7 +248,7 @@ class Settings(BaseSettings):
     # 0 disables the floor (any confirmed balance may be withdrawn) — an explicit choice, not a
     # missing config: a deployment that wants no minimum should not have to fake one.
     AFFILIATE_WITHDRAWAL_MIN_HALALAS: int = 0
-    # THE RECEIPT ITSELF (Tamam, 2026-08-20: "كل الطرق ممكنة" — an admin may either upload the
+    # THE RECEIPT ITSELF ("كل الطرق ممكنة" — an admin may either upload the
     # actual file or just paste a link; both write to the SAME `receipt_reference` field, so
     # completing a withdrawal never has to know which one happened). Bounded well under
     # BODY_LIMIT_BYTES's own default (1 MiB) is wrong for a real photo of a transfer

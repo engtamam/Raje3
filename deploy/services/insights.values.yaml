@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/insights
-  digest: "sha256:f31726946013a2b240e6dc8d06e44156a94c37535a5ce7cbaabdb338b8f57cc5"   # f001199, published by publish-images.sh
+  digest: "sha256:66ec8ab619b6ff00d64817c1708bb67f1d4cef6a78b1932661a4b82966da27ec"   # 629ccdf, published by publish-images.sh
 
 replicas: 1
 
@@ -74,7 +74,8 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
@@ -188,6 +189,12 @@ cronJobs:
   - name: digest
     schedule: "0 9 * * 0"
     path: /internal/insights/digest
+  - name: platform-rollup
+    # 20 MINUTES AFTER EVERY TICK PASS, not on its own schedule — the rollup only reads snapshots
+    # tick already wrote (core/rollup.py), so running it right after a pass means it reads
+    # freshly-updated numbers instead of racing the sweep.
+    schedule: "20 1,4,7,10,13,16,19,22 * * *"
+    path: /internal/insights/platform-rollup
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:

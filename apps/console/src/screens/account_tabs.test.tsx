@@ -60,7 +60,7 @@ describe('«حسابي» — the tab that went, and where its parts landed', () 
   it('keeps the weekly-report switch reachable, and reads its state', async () => {
     render(<AccountScreen session={session} catalog={catalog} openOn="login" />);
     const box = await screen.findByLabelText('تقريري الأسبوعي على واتساب');
-    expect((box as HTMLInputElement).checked).toBe(true);
+    expect(box.getAttribute('aria-checked')).toBe('true');
     await waitFor(() => expect(calls.some((c) => c.id === 'insights.digest_state')).toBe(true));
   });
 

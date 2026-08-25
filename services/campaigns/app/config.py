@@ -198,7 +198,7 @@ class Settings(BaseSettings):
     TENANT_SERVICE_URL: str = ""
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
-    # Tamam, 2026-08-20: an owner enabled a template type in reminders' own screen and the goal
+    # An owner enabled a template type in reminders' own screen and the goal
     # card still read «غير مفعّل» — HttpTemplates' own per-tenant cache (adapters/peers) held the
     # PREVIOUS answer, and `build_peers` never passed this through, so every deployment ran the
     # class default (300s) with no way to shorten it short of a code change. This service owns no

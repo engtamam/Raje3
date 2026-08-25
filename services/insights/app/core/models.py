@@ -35,6 +35,13 @@ SNAPSHOTS = "insight_snapshots"
 SEQUENCES = "insight_sequences"
 PAIRS = "insight_pairs"
 SUBSCRIPTIONS = "insight_digest_subs"
+# «الخطوة التالية» per-tenant cooldown state — one row, `{rule_id: first_seen_at}` (core/next_step.py).
+NEXT_STEP_STATE = "insight_next_step_state"
+# ONE ROW, fixed id "platform" — the admin panel's cross-tenant rollup (core/rollup.py). Never
+# written on a request path, only by the platform-rollup cron pass, same "reads a snapshot"
+# discipline the per-tenant dashboard route already enforces (see api/v1/insights.py's own
+# module note: "no route computes an indicator on the request path").
+PLATFORM_SUMMARY = "insight_platform_summary"
 
 def _now() -> int:
     return int(time.time())
@@ -116,6 +123,32 @@ class Snapshot:
                 "coverage": self.coverage, "computed_at": self.computed_at,
                 "visits": self.visits, "partial": self.partial,
                 "created_at": self.computed_at}
+
+
+@dataclass
+class PlatformSummary:
+    """The cross-tenant rollup, as of one pass — see `core/rollup.py`.
+
+    AGGREGATES ALREADY-COMPUTED `Snapshot.values`, NEVER RAW VISITS. A platform-wide indicator
+    over N tenants' raw histories would cost N peer calls on every pass, the exact thing `Tick`'s
+    own bounded/resumable design exists to avoid paying twice — the rollup only ever reads what
+    tick already stored (`SNAPSHOTS`), the same honesty rule the dashboard route states for
+    itself: "no route computes an indicator on the request path".
+    """
+
+    # indicator name -> its aggregated value, same untyped-by-design convention as Snapshot.values.
+    values: dict[str, Any] = field(default_factory=dict)
+    computed_at: int = field(default_factory=_now)
+    #: How many tenants the rollup walked vs. how many actually had a stored snapshot to read —
+    #: the honest denominator, same reasoning as `Snapshot.partial`. A tenant with no snapshot yet
+    #: (never ticked) is silently excluded from every average, and this is where that shows.
+    tenants_seen: int = 0
+    tenants_with_snapshot: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": "platform", "values": self.values, "computed_at": self.computed_at,
+                "tenants_seen": self.tenants_seen,
+                "tenants_with_snapshot": self.tenants_with_snapshot}
 
 
 @dataclass

@@ -20,6 +20,7 @@
  * platform-wide palette, which stays a separate decision for a separate day.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
@@ -88,11 +89,19 @@ interface Series {
   points?: { at: number; customers: number; value: number | null }[];
   learning?: boolean; first?: number; last?: number; delta?: number; months?: number;
 }
+/** One rule's answer, from `services/insights/app/core/next_step.py::pick()` — never invented
+ *  client-side; the console only ever renders what the registry already decided and ranked. */
+interface NextStepCard {
+  id: string; category: string; category_label: string; message: string;
+  cta_label?: string; cta_link?: string; tone?: 'info' | 'warning' | 'success';
+}
+interface NextStep { primary: NextStepCard; secondary?: NextStepCard | null }
 interface Dashboard {
   computing: boolean; empty_branch?: boolean; message?: string; values: Record<string, unknown>;
   audience?: { consented: number; message: string } | null; as_of_hours_ago?: number;
   entitlements?: string[]; stale?: boolean; visits?: number; not_enabled?: Blocked[];
   teaser?: { message?: string } | null;
+  next_step?: NextStep;
 }
 interface Pairs { learning?: boolean; have?: number; need?: number;
                  pairs?: { a: string; b: string; verdict: string; customers: number }[] }
@@ -100,6 +109,7 @@ interface Bundle { a_name?: string; b_name?: string; why?: string; customers?: n
                   action?: string; action_label?: string }
 interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }[];
                     unknown?: number; can_rank?: boolean }
+interface OperatorRow { operator_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }
 interface WeekWindow { visits: number; previous: number | null; window_days: number }
 interface AtRiskRow { subject_ref: string; days_overdue: number; own_cycle_days: number; visits: number }
 interface MissedOpp { subject_ref: string; has: string; missing: string; verdict: 'real' | 'temporal' | string }
@@ -153,12 +163,14 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
       .then(setConnected).catch(() => {});
   }, [session, catalog]);
 
-  const warning = (() => {
-    if (connected && connected.state !== 'connected' && connected.state !== '') return connected.message;
-    if (connected && connected.state === '') return 'واتساب غير مربوط — اربطه لتبدأ الرسائل. دقائق.';
-    if (connected && connected.can_send === false) return 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.';
-    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.';
-    return '';
+  // «دقائق» WAS A CLAIM ABOUT HOW LONG SOMETHING TAKES WITH NO LINK TO GO DO IT — the owner read
+  // "minutes" and still had to go find «حسابي» himself. Dropped the estimate, added the real link.
+  const warning: { text: string; href?: string } | null = (() => {
+    if (connected && connected.state !== 'connected' && connected.state !== '') return { text: connected.message };
+    if (connected && connected.state === '') return { text: 'واتساب غير مربوط — رسائلك لا تُرسل بعد.', href: '/account?tab=whatsapp' };
+    if (connected && connected.can_send === false) return { text: 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.', href: '/account?tab=whatsapp' };
+    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return { text: 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.' };
+    return null;
   })();
 
   if (today === null) {
@@ -196,8 +208,11 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
       ) : null}
 
       {warning ? (
-        <div className="rounded-2xl px-4 py-3 text-[13px]" style={{ background: '#fdf0dc', color: '#8a5a12' }}>
-          {warning}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px]" style={{ background: '#fdf0dc', color: '#8a5a12' }}>
+          <span>{warning.text}</span>
+          {warning.href ? (
+            <Link to={warning.href} className="shrink-0 font-semibold underline underline-offset-2">اربطه الآن ←</Link>
+          ) : null}
         </div>
       ) : null}
 
@@ -216,26 +231,46 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
 
 /** No icon slot on purpose — a dot that repeats on every single tile regardless of what the tile
  *  means is decoration pretending to be information, and worse than no icon: it teaches the eye
- *  to skip it. The tone-colored number itself IS the signal; a top rule in the tone carries the
- *  same distinction an icon would have, honestly. */
-function Tile({ label, value, tone, delta }: {
+ *  to skip it. The tone-colored number itself IS the signal.
+ *
+ *  A SOFT-TINTED SURFACE, NOT A WHITE CARD WITH A COLOURED HAIRLINE — the earlier version put the
+ *  same near-white background on every tile regardless of tone, so a screen of six or eight tiles
+ *  read as identical boxes distinguished only by a 2px line most eyes never register (a
+ *  screenshot of a fresh shop: "كلها مربعات… مافي أشكال احترافية"). Each tone now owns its own
+ *  panel colour, so the eye sorts the row by shape/colour before it ever reads a number — the same
+ *  move `MessageFlow`/`HoldoutCard` already make with their own tinted panels, applied here too. A
+ *  tile with no real signal yet (`empty`) drops the tint entirely and dashes its own border, so
+ *  "no data yet" reads as a different KIND of tile, not just a lower number. */
+function Tile({ label, value, tone, delta, empty, href, hint }: {
   label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
   /** THE COMPARISON THAT MAKES A LEVEL MEAN SOMETHING — «good» means "up from before" for most
    *  numbers, so a rising churn rate must still read as bad even though it went up. Pass
    *  `goodIsUp: false` for a tile where more is worse. Omit `delta` entirely when there is no
    *  earlier period to compare against — never render a fabricated "+0". */
   delta?: { current: number; previous: number; goodIsUp?: boolean; percent?: boolean };
+  /** TRUE ONLY WHEN THE ZERO MEANS "NOTHING RECORDED YET", never for a real, meaningful zero (a
+   *  0% churn rate on an active shop is still a real number and stays in its own tone). */
+  empty?: boolean;
+  /** WHERE TO GO TO CHANGE THIS NUMBER — a shop reading "0" on day one has to know which screen
+   *  fixes that; a tile with nowhere to send him is silent about the one thing he'd ask next. */
+  href?: string;
+  hint?: string;
 }) {
+  const soft = tone === 'violet' ? 'var(--sh-violet-soft)' : tone === 'teal' ? 'var(--sh-teal-soft)'
+    : tone === 'coral' ? 'var(--sh-coral-soft)' : 'var(--sh-surface-2)';
   const fg = tone === 'violet' ? 'var(--sh-violet-deep)' : tone === 'teal' ? 'var(--sh-teal-deep)'
     : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink)';
-  const rule = tone === 'violet' ? 'var(--sh-violet)' : tone === 'teal' ? 'var(--sh-teal)'
-    : tone === 'coral' ? 'var(--sh-coral)' : 'var(--sh-line)';
   const diff = delta ? delta.current - delta.previous : null;
   const good = delta && diff !== null ? (delta.goodIsUp === false ? diff <= 0 : diff >= 0) : null;
-  return (
-    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center" style={{ background: 'var(--sh-surface)', boxShadow: '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)', borderTop: `2.5px solid ${rule}` }}>
-      <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-      <span className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+  const body = (
+    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center transition-colors" style={
+      empty
+        ? { background: 'var(--sh-surface)', border: '1.5px dashed var(--sh-line)' }
+        : { background: soft, boxShadow: '0 1px 2px rgba(19,18,38,.04)' }
+    }>
+      <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: empty ? 'var(--sh-ink-faint)' : fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span className="text-[10.5px]" style={{ color: empty ? 'var(--sh-ink-faint)' : 'var(--sh-ink-soft)' }}>{label}</span>
+      {empty && hint ? <span className="text-[9.5px] leading-tight" style={{ color: 'var(--sh-violet-deep)' }}>{hint}{href ? ' ←' : ''}</span> : null}
       {diff !== null ? (
         <span dir="ltr" className="text-[10px] font-semibold" style={{
           color: diff === 0 ? 'var(--sh-ink-faint)' : good ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
@@ -246,6 +281,7 @@ function Tile({ label, value, tone, delta }: {
       ) : null}
     </div>
   );
+  return href ? <Link to={href} className="block">{body}</Link> : body;
 }
 
 /* ── ② the number this product is about, and everything that surrounds it ───────────────────────── */
@@ -261,6 +297,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const [bundles, setBundles] = useState<Bundle[] | null | undefined>(undefined);
   const [locked, setLocked] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<Branches | null | undefined>(undefined);
+  const [dismissingStep, setDismissingStep] = useState(false);
 
   useEffect(() => {
     const br = action(catalog, 'insights.branches');
@@ -333,6 +370,20 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     finally { setRefreshing(false); }
   };
 
+  // «ليس الآن» — cools this one rule (services/insights/app/core/next_step.py's own cooldown),
+  // then re-reads the dashboard so a DIFFERENT rule leads immediately rather than on next visit.
+  const dismissNextStep = async (id: string) => {
+    const dismiss = action(catalog, 'insights.dismiss_next_step');
+    const d = action(catalog, 'insights.dashboard');
+    if (!dismiss || !d || dismissingStep) return;
+    setDismissingStep(true);
+    try {
+      await call(session, dismiss, { id });
+      setData(await call<Dashboard>(session, d, branch ? { branch_id: branch } : {}));
+    } catch { /* the card stays as it was — a failed dismiss is not worth a sentence here */ }
+    finally { setDismissingStep(false); }
+  };
+
   if (data.empty_branch) return <div className="p-4"><EmptyState title="فرعك لم يبدأ بعد" description={data.message || ''} /></div>;
 
   if (data.computing) {
@@ -347,7 +398,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     );
   }
 
-  const somethingToDo = Boolean(data.audience) || Boolean(locked.bundles) || Boolean(bundles?.length);
   const returnRate = data.values['return_rate'];
   const series = data.values['retention_series'] as Series | undefined;
   const eff = data.values['returned_after_reminder'] as Effect | undefined;
@@ -367,8 +417,24 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const serviceDayGrid = data.values['service_day_heatmap'] as Record<string, number> | undefined;
   const branchDayGrid = data.values['branch_day_heatmap'] as Record<string, number> | undefined;
   const branchNames = (data.values['branch_names'] as Record<string, string> | undefined) ?? {};
+  const operatorRows = data.values['operator_rows'] as OperatorRow[] | undefined;
+  const operatorUnknown = data.values['operator_unknown'] as number | undefined;
+  const operatorCanRank = data.values['operator_can_rank'] as boolean | undefined;
   const serviceDayRows = topEntitiesByDay(serviceDayGrid, serviceNames, 6);
   const branchDayRows = topEntitiesByDay(branchDayGrid, branchNames, 6);
+  // EACH ONE RENDERED IN ITS OWN INDICATOR'S SLOT NOW, NOT COLLECTED INTO A SEPARATE LIST — direct
+  // feedback on the old block: «اغبى تصميم بالكامل … كل مؤشر بمكانه المناسب». `not_enabled` still
+  // names exactly the same three indicators (`coverage.py`'s own `BLOCKED_REASONS`); only where
+  // each one is READ changed, right beside the real card it stands in for.
+  const notEnabled = data.not_enabled ?? [];
+  const branchBlocked = notEnabled.find((b) => b.indicator === 'branch_comparison');
+  const staffBlocked = notEnabled.find((b) => b.indicator === 'staff_performance');
+  const associationsBlocked = notEnabled.find((b) => b.indicator === 'associations');
+
+  // ONE SLOT, ALWAYS SOMETHING IN IT — direct and repeated: «always render لكل المكونات في
+  // محلي ضروري لازم ما تجلس تخفي شي ابدا». Every card below either draws itself (real data,
+  // even a single real row) or draws THIS — muted, stamped, honestly explained — never nothing.
+  const muted = (title: string, note: string) => <MutedIndicator title={title} note={note} />;
 
   return (
     <div className="flex flex-col gap-3">
@@ -378,9 +444,18 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           series={series && !series.learning ? series : undefined}
           sampleSize={typeof data.values['active_customers'] === 'number' ? data.values['active_customers'] as number : undefined}
         />
-      ) : null}
+      ) : muted('نسبة عودة عملائك', 'ما نقدر نحسبها بعد — تحتاج زيارات حقيقية أولاً.')}
 
-      {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} /> : null}
+      {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} />
+        // A REAL EMPTY LIST HERE IS GOOD NEWS, NOT "NOT ACTIVE YET" — the muted/stamped language
+        // means "pending", and applying it to «ولا عميل متأخر» would tell an owner in great shape
+        // that something on his own screen is still forming. A plain, undecorated reassurance line
+        // instead — still always shown, never a silently missing card.
+        : atRisk ? (
+          <div className="rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)', color: 'var(--sh-teal-deep)' }}>
+            <p className="text-[12.5px] font-medium">ولا عميل متأخر عن دورته المعتادة الآن — وضعك جيد.</p>
+          </div>
+        ) : null}
 
       {/* EVERYTHING BELOW THE TWO LEAD CARDS FLOWS INTO TWO COLUMNS PAST `lg` — a `flex-col` stack
           here was still one long vertical scroll no matter how wide محلّي's own outer column got;
@@ -391,9 +466,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
       <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
         <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} /></div>
 
-        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div> : null}
+        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('زياراتك آخر أيام', 'ما نقدر نقرأ نافذة الأسبوع الآن.')}</div>}
         {split && (split.new + split.returning) > 0
-          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} /></div> : null}
+          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('عملاء جدد وعائدون', 'ما فيه زيارات كافية هذا الشهر لنقسمها بعد.')}</div>}
 
         {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
           <div className="mb-3 grid gap-2 break-inside-avoid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -405,23 +482,51 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
             {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('خدماتك لكل زيارة، والالتزام بالدورة', 'تحتاج زياراتٍ حقيقية أولاً لتُحسب.')}</div>
+        )}
 
-        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div> : null}
-        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div> : null}
+        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('أثر رسائلك', 'ما وصلنا سجل الرسائل بعد.')}</div>}
+        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('أثر الرسائل، مقيساً', 'يحتاج مجموعتين حقيقيتين للمقارنة — لسا ما تكوّنتا.')}</div>}
 
-        {(popularity && popularity.length > 0) || (weak && weak.length > 0) ? (
-          <div className="mb-3 break-inside-avoid">
-            <Section title="خدماتك">
-              {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
-              {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
-            </Section>
-          </div>
-        ) : null}
+        {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison
+            asked for by name, and it must ALWAYS draw itself, muted when thin (never absent —
+            «always render لكل المكونات … لازم ما تجلس تخفي شي ابدا»).
+            `BranchCompare`/`StaffCompare` now handle the thin case internally; `branchBlocked`/
+            `staffBlocked` (coverage.py's own signal) is the richer explanation when we HAVE it,
+            and the plain muted fallback covers the rest. */}
+        <div className="mb-3 break-inside-avoid">
+          {branches ? <BranchCompare branches={branches} />
+            : branchBlocked ? <BlockedStamp b={branchBlocked} />
+            : muted('مقارنة الفروع', 'ما نقدر نقرأ فروعك الآن.')}
+        </div>
+        <div className="mb-3 break-inside-avoid">
+          {operatorRows ? (
+            <StaffCompare rows={operatorRows} unknown={operatorUnknown} canRank={operatorCanRank} />
+          ) : staffBlocked ? (
+            // THE ONE STAMP WITH A REAL LINK — a team he can invite into the product is the actual
+            // fix for "visits arrive with nobody's name on them", unlike the other two (both
+            // `owner: 'time'`, which genuinely have nowhere to send him).
+            <BlockedStamp b={staffBlocked} cta={action(catalog, 'operations.list_operators') ? { label: 'فريقي', href: '/team' } : undefined} />
+          ) : muted('مقارنة الموظفين', 'ما نقدر نقارن الموظفين بهذا العرض الآن.')}
+        </div>
+
+        <div className="mb-3 break-inside-avoid">
+          <Section title="خدماتك">
+            {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
+            {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
+            {!(popularity && popularity.length > 0) && !(weak && weak.length > 0)
+              ? muted('خدماتك', 'ما فيه بيانات خدمات كافية بعد — سجّل بضع زيارات وتبدأ تظهر.') : null}
+          </Section>
+        </div>
 
         {peak?.grid && Object.keys(peak.grid).length > 0 ? (
           <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} /></div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('أكثر أوقاتك ازدحامًا', 'تحتاج زياراتٍ موزّعة على أيام وساعات كافية لنرسمها.')}</div>
+        )}
 
         {serviceDayRows.length > 0 ? (
           <div className="mb-3 break-inside-avoid">
@@ -432,80 +537,60 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               hint="أي خدمة تُطلب بيوم معيّن أكثر — يساعدك تجهّز الطاقم المناسب ذاك اليوم."
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('خدماتك حسب يوم الأسبوع', 'تحتاج زياراتٍ موزّعة على أيام كافية لنرسمها.')}</div>
+        )}
 
-        {/* THE SCREEN NEVER GOES QUIET. It used to say nothing at all here the moment there was no
-            cross-sell opportunity and no locked upsell to show — and «nothing» reads as «we have
-            no idea what you should do next», which is worse than a plain, honest suggestion. This
-            always renders something, in priority order, ending in a real positive nudge (never a
-            fabricated one) rather than silence.
-
-            WEAK SERVICES ARE NO LONGER A BRANCH HERE — that used to duplicate `WeakServices`
-            below almost word for word (a count with no names here, the names with no sentence
-            there). The sentence now lives on that card directly, which already renders on its own
-            whenever there is anything to say — this section falls through to the positive nudge
-            instead of repeating it. */}
+        {/* واحدة تتصدّر دائماً، من محرك حقيقي (services/insights/app/core/next_step.py) — لا
+            سلسلة if/else يدوية. أي قاعدة تختارها المنصة تُعرض كما هي، بلا اختراع نص هنا. */}
         <div className="mb-3 break-inside-avoid">
           <Section title="الخطوة التالية">
-            {locked.bundles ? (
-              <LockedLine title="باقات مقترحة" text={locked.bundles} />
-            ) : bundles && bundles.length ? (
-              <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-                <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
-                {bundles.slice(0, 4).map((b, i) => (
-                  <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
-                    <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
-                    {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
-                    <div className="flex items-center justify-between gap-2">
-                      {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
-                      <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : data.audience ? (
-              <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
-            ) : (
-              // THE HONEST GOOD-NEWS CASE — no invented "growth" or fake urgency, and never
-              // silence: `reward_loyal` is the same real campaign goal `win_back` is, just for the
-              // shop with nothing currently wrong.
-              <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)' }}>
-                <p className="text-[13px]" style={{ color: 'var(--sh-teal-deep)' }}>وضعك ثابت ولا شي يستحق تنبيهًا الآن — جرّب تكافئ عملاءك الدائمين.</p>
-                {action(catalog, 'campaigns.create') ? (
-                  <Link
-                    to="/messages?tab=campaigns&launch=reward_loyal"
-                    className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
-                    style={{ background: 'var(--sh-teal)', color: '#ffffff' }}
-                  >
-                    كافئهم
-                  </Link>
-                ) : null}
-              </div>
-            )}
+            {data.next_step ? (
+              <NextStepView step={data.next_step} onDismiss={dismissNextStep} busy={dismissingStep} />
+            ) : null}
           </Section>
         </div>
 
-        {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
-          <p className="mb-3 flex items-center gap-2 break-inside-avoid px-1 text-xs" style={{ color: 'var(--sh-ink-faint)' }}>
-            🔒 باقات مقترحة — في باقة أعلى.
-          </p>
-        ) : null}
-      </div>
-
-      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
-        {data.not_enabled && data.not_enabled.length > 0 ? (
-          <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-            <h3 className="mb-1 text-[13px] font-semibold">أرقامٌ لسه ما نقدر نعرضها</h3>
-            <p className="mb-3 text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>كلٌّ منها ينقصه شيء واحد — وهذا ما هو، ومن يستطيع إتمامه.</p>
-            <ul className="flex flex-col gap-3">
-              {data.not_enabled.map((b) => <MissingRow key={b.indicator} b={b} />)}
-            </ul>
+        {branchDayRows.length > 0 ? (
+          <div className="mb-3 break-inside-avoid">
+            <EntityDayHeatmap
+              title="فروعك حسب يوم الأسبوع"
+              hue="violet"
+              rows={branchDayRows}
+              hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
+            />
           </div>
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('فروعك حسب يوم الأسبوع', 'تحتاج فرعاً ثانياً وزياراتٍ موزّعة على أيام كافية لنرسمها.')}</div>
+        )}
+
+        {/* ما يُطلب معًا وباقاته — كل حالة بمكانها، لا قائمة منفصلة مجمّعة آخر الصفحة. باقات مقترحة
+            نفسها مبنية من نفس الاقترانات (`_bundles.build(pairs, …)` في insights.py)، فسكوتها هو
+            نفس سكوت الاقترانات — لا حاجة لختم ثانٍ يكرّر نفس السبب. */}
+        {locked.bundles ? (
+          <div className="mb-3 break-inside-avoid"><LockedLine title="باقات مقترحة" text={locked.bundles} /></div>
+        ) : bundles && bundles.length ? (
+          <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+            <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
+            {bundles.slice(0, 4).map((b, i) => (
+              <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
+                <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
+                {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+                <div className="flex items-center justify-between gap-2">
+                  {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
+                  <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : bundles ? (
+          <div className="mb-3 break-inside-avoid">{muted('باقات مقترحة', 'ما فيه اقترانات كافية بعد لنقترح باقة منها.')}</div>
         ) : null}
 
-        {locked.associations ? <LockedLine title="ما يُطلب معًا" text={locked.associations} /> : null}
-        {pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
-          <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+        {locked.associations ? (
+          <div className="mb-3 break-inside-avoid"><LockedLine title="ما يُطلب معًا" text={locked.associations} /></div>
+        ) : pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
+          <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>ما يُطلب معًا</h3>
             {/* `p.a`/`p.b` ARE SERVICE IDS, NOT NAMES — `associations.build` derives every pair
                 from raw `service_ids` on the visit and never resolves them, so this rendered a
@@ -518,11 +603,19 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               </div>
             ))}
           </div>
-        ) : null}
-        {pairs?.learning ? (
-          <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>
-            ما زلنا نتعلّم ما يُطلب معًا في محلّك — {pairs.have ?? 0} زيارة من {pairs.need ?? 0}.
-          </p>
+        ) : pairs?.learning ? (
+          <div className="mb-3 break-inside-avoid">
+            <BlockedStamp b={{
+              indicator: 'associations_learning',
+              lost: 'ما نعرف بعد ما الذي يُطلب مع ماذا',
+              why: 'التعرّف على الاقترانات يحتاج زياراتٍ أكثر ليصير الاستنتاج صحيحاً لا صدفة.',
+              do: 'لا شيء عليك — يكتمل وحده مع زيارات محلّك.',
+              owner: 'time',
+              progress: { have: pairs.have ?? 0, need: pairs.need ?? 0 },
+            }} />
+          </div>
+        ) : associationsBlocked ? (
+          <div className="mb-3 break-inside-avoid"><BlockedStamp b={associationsBlocked} /></div>
         ) : null}
 
         {/* THE INVERSE OF THE PAIR ABOVE — «ما يُطلب معًا» says a relationship exists in the
@@ -530,22 +623,20 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             same move `at_risk` already made for churn (a list to act on, not a percentage). Only
             appears once a real or temporal pair exists to be missing FROM — «he never bought X»
             means nothing without a rule saying X usually comes with what he did buy. */}
-        {missed && missed.length > 0 ? <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} /> : null}
-
-        {branches && (branches.rows ?? []).length > 1 ? <BranchCompare branches={branches} /> : null}
-        {branches && (branches.rows ?? []).length > 1 && branchDayRows.length > 0 ? (
-          <EntityDayHeatmap
-            title="فروعك حسب يوم الأسبوع"
-            hue="violet"
-            rows={branchDayRows}
-            hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
-          />
+        {missed && missed.length > 0 ? (
+          <div className="mb-3 break-inside-avoid">
+            <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} />
+          </div>
+        ) : missed ? (
+          <div className="mb-3 break-inside-avoid">{muted('فرص فائتة', 'لا عملاء واضحين بعد ناقصين خدمة تُشترى عادة مع خدماتهم.')}</div>
         ) : null}
-      </Section>
+      </div>
 
-      {data.teaser?.message ? (
-        <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.teaser.message}</p>
-      ) : null}
+      {/* THE STANDALONE «teaser» PARAGRAPH THAT USED TO SIT HERE IS GONE — the same fact is one
+          of `next_step`'s own PLAN-category rules (`associations_teaser`) now, arbitrated against
+          everything else rather than always shown unconditionally at the bottom of the page. A
+          shop for whom it is genuinely the most relevant thing sees it at the top, in the one
+          card that leads; nothing here repeats it a second time lower down. */}
 
       {/* REASSURANCE, LAST ON PURPOSE — «آخر الزيارات» tells him nothing he needs to ACT on, only
           that the system is really recording what happens in his shop. Everything above this line
@@ -591,8 +682,11 @@ export function retentionStreak(
 }
 
 /** THE HERO — a narrated sentence, the number set large inline, never a bare ring. «من كل ١٠
- *  عملاء زاروك، ٦٫٧ يرجعون لك» is the sentence an owner actually repeats to himself; the number
+ *  عملاء زاروك، ٧ يرجعون لك» is the sentence an owner actually repeats to himself; the number
  *  alone inside a circle was a fact he had to translate before it meant anything.
+ *
+ *  A WHOLE NUMBER, NEVER A DECIMAL — this sentence counts people, and «7.8 يرجعون» reads as a
+ *  fraction of a person on the one screen built to be simple for a non-technical owner.
  *
  *  BUT PROJECTING TO A ROUND TEN LIES ON A SMALL SAMPLE. A shop with one active customer who
  *  happened to return reads «من كل ١٠، ١٠ يرجعون» — a sentence built for a hundred customers,
@@ -615,7 +709,15 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
         );
       })()
     : (() => {
-        const of10 = (pct * 10).toLocaleString('en-US', { maximumFractionDigits: 1 });
+        // A WHOLE NUMBER, NOT A DECIMAL — the previous version kept one decimal place
+        // («7.8 يرجعون») for extra precision, but this sentence counts PEOPLE: «7.8 عميل يرجعون»
+        // reads as a fraction of a person, which is exactly the kind of thing this screen exists
+        // to make simple for a non-technical owner (feedback while watching the recorded tour built
+        // around it: «صاحب المحل بسيط، الرقم 7.8 غلط لازم يكون رقم صحيح»). The small-sample
+        // honesty concern this hero already handles separately (SAMPLE_FLOOR, above) — rounding
+        // the projected-to-ten sentence to a whole person loses a sliver of precision nobody was
+        // reading as precision in the first place.
+        const of10 = Math.round(pct * 10).toLocaleString('en-US');
         return (
           <>
             من كل ١٠ عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
@@ -632,50 +734,54 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
       <div className="text-[11.5px] font-semibold opacity-75">نسبة عودة عملائك</div>
       <p className="mt-2 text-[20px] font-medium leading-relaxed">{sentence}</p>
       {tooSmall ? (
-        <p className="mt-1 text-[12px] opacity-75">العدد لسه صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
+        <p className="mt-1 text-[12px] opacity-75">العدد يعتبر صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
       ) : null}
       {deltaPts !== null && series?.months ? (
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex items-center gap-2">
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
             {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts)}+ عن {series.months} أشهر
           </span>
-          {/* THE LINE, NOT JUST ITS SIGN — an aggregate ratio can hold steady, or even climb, while
-              real customers churn underneath it and new ones backfill the count. The badge above
-              says only «up» or «down» over the whole span; the line says WHEN, which is the
-              question an owner asking «متى» actually has. Drawn from `retention_series.points`,
-              already computed on every tick and, until now, thrown away after the two numbers the
-              badge needed. */}
-          {series?.points && series.points.length > 1 ? <RetentionSparkline points={series.points} /> : null}
+          {/* THE STREAK, BESIDE THE BADGE — a real, computed thing (three or more consecutive
+              points moving the same way in `retention_series.points`), not invented to feel like a
+              game. It answers the exact question a renewing owner asks himself: "is this actually
+              working, lately, or did it work once a while back?" */}
+          {streak ? (
+            <span className="text-[11.5px] font-medium" style={{ color: streak.rising ? '#baf5da' : '#ffd3c9' }}>
+              {streak.rising ? '📈' : '📉'} {streak.rising ? 'تتحسّن' : 'تتراجع'} منذ {streak.length} فترات
+            </span>
+          ) : null}
         </div>
       ) : null}
-      {/* THE STREAK — a real, computed thing (three or more consecutive points moving the same
-          way in `retention_series.points`), not a badge invented to feel like a game. It answers
-          the exact question a renewing owner asks himself: "is this actually working, lately, or
-          did it work once a while back?" */}
-      {streak ? (
-        <p className="mt-2 text-[12px] font-medium" style={{ color: streak.rising ? '#baf5da' : '#ffd3c9' }}>
-          {streak.rising ? '📈' : '📉'} {streak.rising ? 'تتحسّن' : 'تتراجع'} منذ {streak.length} فترات متتالية
-        </p>
+      {/* THE LINE, NOT JUST ITS SIGN — an aggregate ratio can hold steady, or even climb, while
+          real customers churn underneath it and new ones backfill the count. The badge above says
+          only «up» or «down» over the whole span; the shape says WHEN, which is the question an
+          owner asking «متى» actually has. Given its own full-width row and real presence now — a
+          128×34 sliver squeezed beside the badge was there but invisible; the ask was for it to be
+          worth opening the page for: «سويها بشكل احترافي عالي الجمال ويخليه ينبسط منها». */}
+      {series?.points && series.points.length > 1 ? (
+        <div className="mt-4 -mx-1"><RetentionTrend points={series.points} /></div>
       ) : null}
     </div>
   );
 }
 
-/** The trend the aggregate hides. Each point is the SAME measurement — return rate over a trailing
- *  window — ending one step earlier than the point after it (see `retention_series`'s own
- *  docstring), so the shape is the shop changing, not the method changing. A point with `value:
- *  null` is a gap in the line — too few customers in that window to trust — never bridged into a
- *  false continuity, and never drawn as zero. */
-function RetentionSparkline({ points }: { points: { at: number; customers: number; value: number | null }[] }) {
-  const W = 128, H = 34, PAD = 3;
+/** THE TREND THE AGGREGATE HIDES, drawn as a real area chart rather than a hairline — a soft
+ *  gradient fill under a smoothed curve, the newest point lit with a glow, and the two dates that
+ *  bound the window spelled out underneath so «إلى أين» reads as an actual answer, not a shape with
+ *  no axis. Each point is the SAME measurement — return rate over a trailing window — ending one
+ *  step earlier than the point after it (see `retention_series`'s own docstring), so the shape is
+ *  the shop changing, not the method changing. A point with `value: null` is a gap in the curve —
+ *  too few customers in that window to trust — never bridged into a false continuity. */
+function RetentionTrend({ points }: { points: { at: number; customers: number; value: number | null }[] }) {
+  const W = 300, H = 84, PAD_X = 4, PAD_TOP = 10, PAD_BOTTOM = 4;
   const drawn = points.map((p) => p.value).filter((v): v is number => v !== null);
   if (drawn.length < 2) return null;
   const min = Math.min(...drawn), max = Math.max(...drawn);
-  const span = max - min || 1;
-  const x = (i: number) => PAD + (i / (points.length - 1)) * (W - PAD * 2);
-  const y = (v: number) => H - PAD - ((v - min) / span) * (H - PAD * 2);
+  const span = max - min || 0.1;
+  const x = (i: number) => PAD_X + (i / (points.length - 1)) * (W - PAD_X * 2);
+  const y = (v: number) => H - PAD_BOTTOM - ((v - min) / span) * (H - PAD_TOP - PAD_BOTTOM);
 
-  // ONE <polyline> PER UNBROKEN RUN of non-null points — a single path across a gap would draw a
+  // ONE RUN PER UNBROKEN STRETCH of non-null points — a single path across a gap would draw a
   // false connection where the docstring explicitly says there must be none.
   const runs: { x: number; y: number }[][] = [];
   let current: { x: number; y: number }[] = [];
@@ -685,39 +791,73 @@ function RetentionSparkline({ points }: { points: { at: number; customers: numbe
   });
   if (current.length) runs.push(current);
 
-  const last = runs.at(-1)?.at(-1);
+  // A SMOOTHED PATH, NOT A JOIN-THE-DOTS LINE — six monthly points read as a staircase drawn
+  // straight; a quadratic curve through each pair's midpoint is the smallest change that reads as
+  // a trend a human drew rather than a chart library's default.
+  const smoothPath = (run: { x: number; y: number }[]) => {
+    if (run.length < 2) return '';
+    let d = `M ${run[0].x} ${run[0].y}`;
+    for (let i = 1; i < run.length; i++) {
+      const mid = { x: (run[i - 1].x + run[i].x) / 2, y: (run[i - 1].y + run[i].y) / 2 };
+      d += ` Q ${run[i - 1].x} ${run[i - 1].y} ${mid.x} ${mid.y}`;
+    }
+    const p = run.at(-1)!;
+    d += ` T ${p.x} ${p.y}`;
+    return d;
+  };
+
+  const longest = runs.reduce((a, b) => (b.length > a.length ? b : a), runs[0]);
+  const first = longest[0], last = longest.at(-1)!;
+  const areaPath = `${smoothPath(longest)} L ${last.x} ${H} L ${first.x} ${H} Z`;
+  const oldestAt = points[0].at;
+  const fmt = (s: number) => new Date(s * 1000).toLocaleDateString('ar-SA-u-nu-latn', { month: 'short', day: 'numeric' });
+
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0" aria-hidden="true">
-      {runs.map((run, i) => (
-        <polyline
-          key={i}
-          points={run.map((p) => `${p.x},${p.y}`).join(' ')}
-          fill="none"
-          stroke="rgba(255,255,255,.75)"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
-      {last ? <circle cx={last.x} cy={last.y} r={2.6} fill="#ffffff" /> : null}
-    </svg>
+    <div className="flex flex-col gap-1">
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="retentionFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#retentionFill)" />
+        {runs.map((run, i) => (
+          <path key={i} d={smoothPath(run)} fill="none" stroke="rgba(255,255,255,.85)" strokeWidth={2.25} strokeLinecap="round" />
+        ))}
+        {/* THE NEWEST POINT, LIT — a soft halo behind a solid dot, the one point on the whole curve
+            that is also the number spelled out above it in the hero's own sentence. */}
+        <circle cx={last.x} cy={last.y} r={6} fill="#ffffff" opacity="0.18" />
+        <circle cx={last.x} cy={last.y} r={3} fill="#ffffff" />
+      </svg>
+      {/* THE WINDOW, NAMED — a curve with no axis invites "trend of what, exactly since when?".
+          Real dates from the same points the curve is drawn from, never invented. */}
+      <div dir="ltr" className="flex items-center justify-between px-1 text-[10px] font-medium" style={{ color: 'rgba(255,255,255,.55)' }}>
+        <span>{fmt(oldestAt)}</span>
+        <span>الآن</span>
+      </div>
+    </div>
   );
 }
 
 /** The three that surround the hero — absent is not zero: a key the plan withheld or the snapshot
  *  could not compute is skipped entirely rather than drawn as 0. */
 function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
+  // A SHOP WITH ZERO ACTIVE CUSTOMERS HAS NOT REALLY STARTED — churn and return-cycle are both
+  // undefined on nobody, so all three tiles fall back to the dashed "empty" treatment together
+  // rather than reading as three unrelated zeros.
+  const justStarted = values['active_customers'] === 0;
   const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
-                trendKey?: string; goodIsUp?: boolean; weight?: number }[] = [
+                trendKey?: string; goodIsUp?: boolean; weight?: number; href?: string; hint?: string }[] = [
     // WEIGHT IS A DESIGN CHOICE, NOT A DATA ONE — «عملاء نشطون» is the headline count of the
     // three (the other two are context on it), so it keeps more room whether it happens to be
     // high or low today. A size that swung with the number itself would be a second, competing
     // way of saying "this matters," on top of colour — one signal per idea, not two fighting
     // each other.
-    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3 },
-    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat' },
+    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3, href: '/visit', hint: 'سجّل أول زيارة' },
+    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat', hint: 'تُحسب تلقائياً بعد أول زيارات' },
     // MORE TSARRUB IS WORSE — `goodIsUp: false`, so a rising number still shades coral, never teal.
-    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false },
+    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false, hint: 'لا عملاء بعد ليُحسب منهم' },
   ];
   const shown = items.filter((h) => typeof values[h.key] === 'number');
   if (!shown.length) return null;
@@ -730,7 +870,11 @@ function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
         const delta = trend && typeof trend.current === 'number' && typeof trend.previous === 'number'
           ? { current: trend.current, previous: trend.previous, goodIsUp: h.goodIsUp, percent: h.percent }
           : undefined;
-        return <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone} delta={delta} />;
+        return (
+          <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone}
+               delta={justStarted ? undefined : delta} empty={justStarted}
+               href={justStarted ? h.href : undefined} hint={justStarted ? h.hint : undefined} />
+        );
       })}
     </div>
   );
@@ -802,6 +946,22 @@ function HoldoutCard({ h }: { h: Holdout }) {
  *  back — a triumph invented out of the signup date is worse than no comparison at all. */
 function WeekPulse({ week }: { week: WeekWindow }) {
   const delta = week.previous === null ? null : week.visits - week.previous;
+  // A SHOP WITH ZERO VISITS AND NOTHING TO COMPARE AGAINST IS NOT "MISSING A COMPARISON" — it has
+  // not started. Same dashed/linked treatment `Tile` now gives that exact case, so this card stops
+  // reading as one more plain white box beside it.
+  const justStarted = week.visits === 0 && week.previous === null;
+  if (justStarted) {
+    return (
+      <Link to="/visit" className="flex items-center justify-between gap-3 rounded-2xl p-4"
+           style={{ background: 'var(--sh-surface)', border: '1.5px dashed var(--sh-line)' }}>
+        <div className="flex flex-col">
+          <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>زياراتك آخر {week.window_days} أيام</span>
+          <span dir="ltr" className="text-[22px] font-extrabold" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>0</span>
+        </div>
+        <span className="text-[11px] font-semibold" style={{ color: 'var(--sh-violet-deep)' }}>سجّل أول زيارة ←</span>
+      </Link>
+    );
+  }
   return (
     <div className="flex items-center justify-between rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <div className="flex flex-col">
@@ -1125,6 +1285,60 @@ export function topEntitiesByDay(
     .map(({ label, days }) => ({ label, days }));
 }
 
+/** THE ONE CARD "الخطوة التالية" EVER RENDERS, plus a second quiet line when the engine found a
+ *  genuinely different thing worth mentioning. Neither line invents its own wording — both are
+ *  exactly what `next_step.pick()` returned; this component only chooses colours from `tone`. */
+function NextStepView({ step, onDismiss, busy }: {
+  step: NextStep;
+  onDismiss: (id: string) => void;
+  busy: boolean;
+}) {
+  // «info» USED TO STAY PLAIN WHITE — the one card the screen guarantees always has something to
+  // say read as the flattest one on it ("الشاشة كلها بياض"). It now takes the
+  // same tint language every other card on the screen already uses.
+  const TONE_BG: Record<string, string> = {
+    warning: 'var(--sh-coral-soft)', success: 'var(--sh-teal-soft)', info: 'var(--sh-violet-soft)',
+  };
+  const TONE_FG: Record<string, string> = {
+    warning: 'var(--sh-coral-deep)', success: 'var(--sh-teal-deep)', info: 'var(--sh-violet-deep)',
+  };
+  const p = step.primary;
+  const bg = TONE_BG[p.tone ?? 'info'] ?? TONE_BG.info;
+  const fg = TONE_FG[p.tone ?? 'info'] ?? TONE_FG.info;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: bg, boxShadow: cardShadow }}>
+        <p className="text-[13px]" style={{ color: fg }}>{p.message}</p>
+        {p.cta_label && p.cta_link ? (
+          <Link
+            to={p.cta_link}
+            className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
+            style={{ background: fg, color: '#ffffff' }}
+          >
+            {p.cta_label}
+          </Link>
+        ) : null}
+      </div>
+      {/* «ليس الآن» — لا زر بارز، سطر خفيف: هذا ليس تجاهل معلومة، هو طلب يظهر شي آخر بدلها الآن،
+          وترجع هي بنفسها لو ظلّت صحيحة بعد فترة (تبريد، لا حذف — core/next_step.py). */}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onDismiss(p.id)}
+        className="self-start text-[11px] underline underline-offset-2"
+        style={{ color: 'var(--sh-ink-faint)' }}
+      >
+        ليس الآن
+      </button>
+      {step.secondary ? (
+        <p className="px-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          وأيضاً: {step.secondary.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function LockedLine({ title, text }: { title: string; text: string }) {
   return (
     <div className="flex items-start gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
@@ -1137,7 +1351,48 @@ function LockedLine({ title, text }: { title: string; text: string }) {
   );
 }
 
-function MissingRow({ b }: { b: Blocked }) {
+/** THE ROTATED CORNER BADGE every "not active yet" surface on this screen now shares — the real
+ *  chart/list card AND the standalone placeholder alike («كلها تظهر بشكلها الفعلي بالكامل
+ *  بس بلون باهت شوية … زي الختم»). One visual vocabulary for "this is real, just not full yet". */
+function StampBadge() {
+  return (
+    <span dir="ltr" className="absolute -top-1 left-3 z-10 rotate-[-6deg] rounded-b-md px-2.5 py-1 text-[9.5px] font-bold tracking-wide" style={{ background: 'var(--sh-ink-faint)', color: 'var(--sh-surface)' }}>
+      قيد التكوّن
+    </span>
+  );
+}
+
+/** THE FALLBACK FOR A CARD WITH LITERALLY NOTHING TO PLOT YET — no series, no rows, not even one.
+ *  Same muted/stamped language as `BranchCompare`/`StaffCompare` above, so an owner reads "not
+ *  active yet" the same way everywhere on the screen rather than the card just being missing with
+ *  no trace it was ever meant to be there. NEVER a fabricated number — a plain, honest sentence
+ *  naming the section, standing exactly where the real card would draw itself once it can. */
+function MutedIndicator({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="relative flex flex-col gap-1.5 overflow-hidden rounded-2xl p-4" style={{
+      background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)',
+      opacity: 0.6, filter: 'grayscale(0.35)',
+    }}>
+      <StampBadge />
+      <h3 className="pt-2 text-[13px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>{title}</h3>
+      <p className="text-[12px]" style={{ color: 'var(--sh-ink-faint)' }}>{note}</p>
+    </div>
+  );
+}
+
+/** A "قيد التكوّن" STAMP, standing IN THE INDICATOR'S OWN PLACE — not collected into a separate
+ *  list elsewhere on the page (feedback on that list: «اغبى تصميم بالكامل»). The dashed
+ *  border and rotated corner badge read as "not active yet" at a glance, the same way the empty
+ *  `Tile` treatment already does — real explanation, real progress when there is one, a real link
+ *  when there is somewhere on the platform that actually finishes it, never an invented one.
+ *
+ *  ONLY USED WHEN THE REAL CARD HAS NOTHING AT ALL TO SHOW (`associations`, no pairs learned yet).
+ *  `BranchCompare`/`StaffCompare` below take the other path — the real chart, muted — for exactly
+ *  the case caught in review: a shop WITH visits but one operator still went completely silent on
+ *  staff, because the real component's own render guard (`rows.length > 1`) hid it outright while
+ *  this stamp's own trigger (a coverage RATIO) never fired for a single, fully-attributed
+ *  operator. Two different thresholds guarding the same missing card is how it went dark twice. */
+function BlockedStamp({ b, cta }: { b: Blocked; cta?: { label: string; href: string } }) {
   const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
   const headline = (b.lost ?? '').trim() || blockedSentence(b);
   if (!headline) return null;
@@ -1145,62 +1400,119 @@ function MissingRow({ b }: { b: Blocked }) {
   const have = b.progress?.have, need = b.progress?.need;
   const showBar = typeof have === 'number' && typeof need === 'number' && need > 0;
   return (
-    <li className="flex flex-col gap-1 pt-3 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] font-semibold">{headline}</span>
-        {owner ? <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>{owner}</span> : null}
+    <div className="relative flex flex-col gap-2 overflow-hidden rounded-2xl p-4" style={{ background: 'var(--sh-surface-2)', border: '1.5px dashed var(--sh-ink-faint)' }}>
+      <span dir="ltr" className="absolute -top-1 left-3 rotate-[-6deg] rounded-b-md px-2.5 py-1 text-[9.5px] font-bold tracking-wide" style={{ background: 'var(--sh-ink-faint)', color: 'var(--sh-surface)' }}>
+        قيد التكوّن
+      </span>
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        <span className="text-[13px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>{headline}</span>
+        {owner ? <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>{owner}</span> : null}
       </div>
-      {b.why ? <span className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+      {b.why ? <span className="text-[12px]" style={{ color: 'var(--sh-ink-faint)' }}>{b.why}</span> : null}
       {showBar ? (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
-            <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%`, background: 'var(--sh-violet)' }} />
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface)' }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%`, background: 'var(--sh-ink-faint)' }} />
           </div>
           <span dir="ltr" className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{have} من {need}</span>
         </div>
       ) : null}
-      {b.do ? <span className="text-[12.5px]">{b.do}</span> : null}
+      {b.do ? <span className="text-[12.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.do}</span> : null}
+      {cta ? (
+        <Link to={cta.href} className="self-start text-[11px] font-semibold underline underline-offset-2" style={{ color: 'var(--sh-violet-deep)' }}>
+          {cta.label} ←
+        </Link>
+      ) : null}
       {b.request ? (
         <button type="button" onClick={() => {
           const write = navigator.clipboard?.writeText(b.request ?? '');
           if (!write) { setCopied('failed'); return; }
           write.then(() => setCopied('ok')).catch(() => setCopied('failed'));
-        }} className="self-start rounded-full px-3 py-1.5 text-[11px] font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
+        }} className="self-start rounded-full px-3 py-1.5 text-[11px] font-semibold" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>
           {copied === 'ok' ? 'نُسخت — أرسلها له' : copied === 'failed' ? 'تعذّر النسخ — ظلّلها بإصبعك وانسخها' : 'انسخ الرسالة لمزوّد الكاشير'}
         </button>
       ) : null}
-      {b.request && copied === 'failed' ? <p className="select-all rounded-lg p-2 text-[11px]" style={{ background: 'var(--sh-surface-2)' }}>{b.request}</p> : null}
-    </li>
+      {b.request && copied === 'failed' ? <p className="select-all rounded-lg p-2 text-[11px]" style={{ background: 'var(--sh-surface)' }}>{b.request}</p> : null}
+    </div>
   );
 }
 
 /** Branch comparison as points on one axis — closer to the strong end means a higher return rate,
  *  never two bars of equal visual weight pretending a two-branch shop needs a chart. */
+/** THE RANK BADGE both comparison cards share — a filled numeral disc, gold/silver/bronze for the
+ *  top three and a plain neutral disc after that, the same "podium" language a shop owner already
+ *  reads instinctively. This is the whole of the "فخامة" ask: not new data, a treatment worthy of
+ *  a ranking rather than a plain list. */
+function RankBadge({ n }: { n: number }) {
+  const tone = n === 1 ? { bg: 'linear-gradient(135deg,#f5cf6b,#c9932e)', fg: '#3a2a06' }
+    : n === 2 ? { bg: 'linear-gradient(135deg,#dfe4ea,#a9b1bb)', fg: '#2b3138' }
+    : n === 3 ? { bg: 'linear-gradient(135deg,#d79a6a,#a2603a)', fg: '#3a1f0c' }
+    : { bg: 'var(--sh-surface-2)', fg: 'var(--sh-ink-soft)' };
+  return (
+    <span dir="ltr" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+          style={{ background: tone.bg, color: tone.fg, fontVariantNumeric: 'tabular-nums' }}>
+      {n}
+    </span>
+  );
+}
+
+function RatePill({ rate, label }: { rate: number; label: string }) {
+  return (
+    <span dir="ltr" className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{
+      background: `color-mix(in srgb, ${rate >= 0.4 ? 'var(--sh-teal)' : 'var(--sh-coral)'} ${Math.round(15 + rate * 60)}%, white)`,
+      color: rate >= 0.4 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
+    }}>
+      {Math.round(rate * 100)}% {label}
+    </span>
+  );
+}
+
+/** THE EMPTY ROW BOTH COMPARISON CARDS FALL BACK TO — same skeleton bar shape as a real row, at
+ *  0%, so the card's OWN SHAPE is what says "nothing recorded here yet", never a sentence standing
+ *  in for a chart that simply isn't drawn. */
+function GhostRow({ label }: { label: string }) {
+  return (
+    <li className="flex flex-col gap-1">
+      <div className="flex items-center justify-between text-[12.5px]">
+        <span className="font-medium" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+        <span dir="ltr" style={{ color: 'var(--sh-ink-faint)' }}>—</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }} />
+    </li>
+  );
+}
+
+/** ALWAYS RENDERED, NEVER SWAPPED FOR A DIFFERENT CARD — the earlier version hid this ENTIRELY
+ *  below `rows.length > 1`, and `BlockedStamp` elsewhere on the page only fires off a SEPARATE
+ *  coverage signal that does not cover every reason a chart is thin. The two thresholds disagreeing
+ *  is exactly how a shop WITH real visits saw neither the real chart nor any placeholder for staff
+ *  («متأكد في مؤشرات اساسا؟»). Now: real rows always show at full colour; below two rows the
+ *  WHOLE CARD mutes (opacity + a touch of grayscale) and carries the stamp + a plain explanation,
+ *  its real shape still fully visible underneath — «تظهر بشكلها الفعلي بالكامل بس بلون باهت شوية». */
 function BranchCompare({ branches }: { branches: Branches }) {
   const rows = (branches.rows ?? []).slice(0, 6);
   const max = Math.max(1, ...rows.map((r) => r.visits ?? 0));
+  const thin = rows.length < 2;
   return (
-    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[13px] font-semibold">فروعك</h3>
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl p-4 transition-opacity" style={{
+      background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)',
+      opacity: thin ? 0.6 : 1, filter: thin ? 'grayscale(0.35)' : undefined,
+    }}>
+      {thin ? <StampBadge /> : null}
+      <h3 className="text-[13px] font-semibold pt-2">مقارنة الفروع</h3>
       <ul className="flex flex-col gap-2.5">
-        {rows.map((r) => {
+        {rows.length ? rows.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
           return (
             <li key={r.branch_id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-[12.5px]">
                 <span className="flex items-center gap-1.5 font-medium">
+                  <RankBadge n={i + 1} />
                   {r.name || r.branch_id || 'بلا اسم'}
                   {/* THE AGGREGATE HERO NUMBER, PER BRANCH — a chain reading 46% overall can be
                       one branch at 70% carrying one at 20%, invisible until it is broken out. Same
                       colour language «التسرّب» already uses: coral means low, teal means high. */}
-                  {typeof r.return_rate === 'number' ? (
-                    <span dir="ltr" className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{
-                      background: `color-mix(in srgb, ${r.return_rate >= 0.4 ? 'var(--sh-teal)' : 'var(--sh-coral)'} ${Math.round(15 + r.return_rate * 60)}%, white)`,
-                      color: r.return_rate >= 0.4 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
-                    }}>
-                      {Math.round(r.return_rate * 100)}% عودة
-                    </span>
-                  ) : null}
+                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label="عودة" /> : null}
                 </span>
                 <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
               </div>
@@ -1209,10 +1521,72 @@ function BranchCompare({ branches }: { branches: Branches }) {
               </div>
             </li>
           );
-        })}
+        }) : <GhostRow label="لا فروع مسجَّلة بعد" />}
       </ul>
       {branches.unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{branches.unknown} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.</p> : null}
-      {branches.can_rank === false ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p> : null}
+      {thin ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          {rows.length === 0 ? 'لا نقارن الفروع بعد — يحتاج فرعان فأكثر بزيارات حقيقية.'
+            : 'فرع واحد فعّال حتى الآن — المقارنة تحتاج فرعاً ثانياً بزيارات حقيقية.'}
+        </p>
+      ) : branches.can_rank === false ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** THE STAFF EQUIVALENT OF `BranchCompare` ABOVE, same shape, same always-visible/muted treatment —
+ *  the metric chosen is visits + distinct customers PLUS a return rate computed on the
+ *  EMPLOYEE'S OWN slice of visits (`operator_rows` in tick.py), so "72% عودة" here means the
+ *  customer came back to THIS person specifically, not to the shop in general. Fairness was the
+ *  point of asking. */
+function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown?: number; canRank?: boolean }) {
+  const top = [...rows].sort((a, b) => (b.visits ?? 0) - (a.visits ?? 0)).slice(0, 6);
+  const max = Math.max(1, ...top.map((r) => r.visits ?? 0));
+  const thin = top.length < 2;
+  return (
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl p-4 transition-opacity" style={{
+      background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)',
+      opacity: thin ? 0.6 : 1, filter: thin ? 'grayscale(0.35)' : undefined,
+    }}>
+      {thin ? <StampBadge /> : null}
+      <h3 className="text-[13px] font-semibold pt-2">مقارنة الموظفين</h3>
+      <ul className="flex flex-col gap-2.5">
+        {top.length ? top.map((r, i) => {
+          const pct = Math.round(((r.visits ?? 0) / max) * 100);
+          const label = (r.name || r.operator_id || 'بلا اسم').trim();
+          const initial = label ? label[0] : '؟';
+          return (
+            <li key={r.operator_id} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[12.5px]">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <RankBadge n={i + 1} />
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{ background: 'var(--sh-violet-soft, var(--sh-surface-2))', color: 'var(--sh-violet-deep)' }}>
+                    {initial}
+                  </span>
+                  {label}
+                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label="عودة له" /> : null}
+                </span>
+                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--sh-violet),var(--sh-teal))' }} />
+              </div>
+            </li>
+          );
+        }) : <GhostRow label="لا موظفون منسوبون بعد" />}
+      </ul>
+      {unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{unknown} زيارة بلا موظف محدَّد — لا تُحتسب لأحد.</p> : null}
+      {thin ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          {top.length === 0 ? 'لا نقارن الموظفين بعد — يحتاج موظفان فأكثر بزيارات منسوبة لهم.'
+            : 'موظف واحد منسوب حتى الآن — المقارنة تحتاج موظفاً ثانياً بزيارات حقيقية.'}
+        </p>
+      ) : canRank === false ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p>
+      ) : null}
     </div>
   );
 }
@@ -1225,9 +1599,13 @@ function Section({ title, hint, children, folded = false }: { title: string; hin
   if (empty) return null;
   if (folded) {
     return (
-      <details className="rounded-2xl" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <details className="group rounded-2xl" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
         <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-[13px] font-semibold">
           <span>{title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}</span>
+          {/* THE ONLY VISUAL CUE THIS WAS EXPANDABLE AT ALL used to be the cursor on hover — a
+              chevron is the one universal signal for "there is more below", and it turns with the
+              element's own open state via `group`, no extra state to keep in sync. */}
+          <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" style={{ color: 'var(--sh-ink-faint)' }} />
         </summary>
         <div className="flex flex-col gap-3 p-4 pt-0">{children}</div>
       </details>
@@ -1257,7 +1635,10 @@ function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog
       <h2 className="mb-3 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>آخر الزيارات</h2>
       {isLoading(recent) ? <Skeleton height={64} />
       : hasFailed(recent) ? <EmptyState title="تعذّرت قراءة آخر الزيارات" description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل." />
-      : recent.length === 0 ? <EmptyState title="لم تُسجَّل زيارة بعد" description="سجّل أول زيارة من «تسجيل زيارة»." />
+      : recent.length === 0 ? (
+        <EmptyState title="لم تُسجَّل زيارة بعد" description="من هنا تبدأ كل مؤشرات الصفحة تتكوّن."
+                    action={<Link to="/visit" className="rounded-full px-4 py-2 text-[12.5px] font-semibold text-white" style={{ background: 'var(--sh-violet)' }}>سجّل أول زيارة</Link>} />
+      )
       : (
         <ul className="flex flex-col gap-2">
           {recent.map((c) => (

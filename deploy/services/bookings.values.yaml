@@ -18,7 +18,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:62a5f4b2bca7af2d8bf11dc0a8603353abc1c1ae435eb2dc9a32e07a1ec84ca1"   # c048101, published by publish-images.sh
+  digest: "sha256:4b9e9bf7b66cf0aff3b3a8a027d20167c3c8a5c775612f790c14a0a24fb28a2e"   # 99525add, published by publish-images.sh
 
 replicas: 1
 
@@ -61,7 +61,8 @@ env:
   # ── The request budget per person (§1.1, see loyalty.values.yaml for the full derivation) ──
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

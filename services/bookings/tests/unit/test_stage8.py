@@ -8,7 +8,9 @@ import asyncio
 import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.licence import NullLicence
-from app.core.operations import BookingEvents, BookingOperations, DurationLookup, SubjectRefLookup, VisitGateway
+from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
+                                 StaffEligibilityLookup, StaffHoursLookup, SubjectRefLookup,
+                                 VisitGateway)
 from app.core.stores import BookingStore
 
 TENANT = "t1"
@@ -26,8 +28,18 @@ async def _no_visits(**kw):
     return {"visit_id": "vis_1"}
 
 
-def _ops(*, risk_window=5, risk_threshold_percent=60, working_hours=None) -> BookingOperations:
+def _ops(*, risk_window=5, risk_threshold_percent=60, working_hours=None,
+         eligible_staff_ids=None, staff_hours_by_operator=None) -> BookingOperations:
     store = MemoryDataStore()
+    async def _eligibility(tenant, service_ids):
+        if eligible_staff_ids is None:
+            return {}
+        return {sid: eligible_staff_ids.get(sid) for sid in service_ids if sid in eligible_staff_ids}
+    async def _staff_hours(tenant, operator_ids):
+        if staff_hours_by_operator is None:
+            return {}
+        return {oid: staff_hours_by_operator.get(oid) for oid in operator_ids
+               if oid in staff_hours_by_operator}
     return BookingOperations(
         datastore=store, bookings=BookingStore(store),
         durations=DurationLookup(lookup=_duration), licence=NullLicence(),
@@ -35,7 +47,9 @@ def _ops(*, risk_window=5, risk_threshold_percent=60, working_hours=None) -> Boo
         subject_refs=SubjectRefLookup(lookup=_subject_ref),
         events=BookingEvents(publish=None),
         risk_window=risk_window, risk_threshold_percent=risk_threshold_percent,
-        working_hours=working_hours)
+        working_hours=working_hours,
+        staff_eligibility=StaffEligibilityLookup(lookup=_eligibility),
+        staff_hours=StaffHoursLookup(lookup=_staff_hours))
 
 
 def _run(c):
@@ -255,3 +269,112 @@ def test_nearest_slot_refuses_on_unconfigured_duration():
     from app.core.operations import OperationError
     with pytest.raises(OperationError):
         _run(run())
+
+
+# ── staff↔service eligibility and per-operator working hours (this feature) ──────────────────
+
+def test_a_shop_that_never_restricted_anything_sees_no_change_at_all():
+    """The graceful-degradation requirement, proven directly: an eligibility port that answers
+    "no restriction found" (the default for every service nobody has ever touched) must not
+    refuse create() or nearest_slot() for any operator."""
+    ops = _ops(eligible_staff_ids={})
+
+    async def run():
+        b = await _mk(ops, starts_at=1786860000)
+        found = await ops.nearest_slot(
+            tenant=TENANT, branch_id="b1", operator_id="op1", service_ids=["svc1"],
+            after=1786860000 + 3600)
+        return b, found
+
+    booking, found = _run(run())
+    assert booking.operator_id == "op1"
+    assert found is not None
+
+
+def test_create_refuses_an_operator_not_eligible_for_the_service():
+    ops = _ops(eligible_staff_ids={"svc1": ["op2"]})   # only op2 may do svc1
+
+    async def run():
+        return await _mk(ops, starts_at=1786860000)   # _mk always books op1
+
+    from app.core.operations import OperationError
+    with pytest.raises(OperationError):
+        _run(run())
+
+
+def test_create_succeeds_for_the_actually_eligible_operator():
+    ops = _ops(eligible_staff_ids={"svc1": ["op1", "op2"]})
+
+    async def run():
+        return await _mk(ops, starts_at=1786860000)
+
+    booking = _run(run())
+    assert booking.operator_id == "op1"
+
+
+def test_nearest_slot_refuses_a_probe_against_an_ineligible_operator():
+    """A client cannot bypass eligibility by skipping create() and only ever calling "أقرب
+    موعد" — the same restriction refuses the SEARCH too, so no open slot leaks for an operator
+    who could never actually be booked into it."""
+    ops = _ops(eligible_staff_ids={"svc1": ["op2"]})
+
+    async def run():
+        await ops.nearest_slot(
+            tenant=TENANT, branch_id="b1", operator_id="op1", service_ids=["svc1"],
+            after=1786860000)
+
+    from app.core.operations import OperationError
+    with pytest.raises(OperationError):
+        _run(run())
+
+
+def test_nearest_slot_narrows_to_an_operators_own_shorter_hours():
+    """The shop is open 08:00-22:00 (the honest default with no working-hours store wired); an
+    operator whose OWN hours only run 14:00-18:00 must never be offered a slot at 09:00, even
+    though the shop itself would allow it."""
+    ops = _ops(staff_hours_by_operator={
+        "op1": {str(d): {"closed": False, "start_minute": 840, "end_minute": 1080} for d in range(7)},
+    })
+
+    async def run():
+        return await ops.nearest_slot(
+            tenant=TENANT, branch_id="b1", operator_id="op1", service_ids=["svc1"],
+            after=1786860000)   # 09:00 — before this operator's own 14:00 start
+
+    starts_at = _run(run())
+    import datetime as _dt
+    from app.core.riyadh import RIYADH
+    when = _dt.datetime.fromtimestamp(starts_at, tz=RIYADH)
+    assert (when.hour, when.minute) == (14, 0)
+
+
+def test_an_operators_override_can_never_reach_wider_than_the_shops_own_hours():
+    """Defence in depth: even if an override somehow claims hours OUTSIDE the shop's own (a
+    write-time check bypassed, or the row edited directly), the shop's own hours still win —
+    the intersection, never the operator's raw claim."""
+    from app.adapters.datastore.memory import MemoryDataStore
+    from app.core.stores import WorkingHoursStore
+
+    ds = MemoryDataStore()
+    whs = WorkingHoursStore(ds)
+
+    async def seed():
+        weekly = {str(d): {"closed": False, "start_minute": 600, "end_minute": 1080} for d in range(7)}   # 10:00-18:00
+        await whs.save(TENANT, {"weekly": weekly})
+
+    _run(seed())
+    ops = _ops(working_hours=whs, staff_hours_by_operator={
+        # Claims 06:00-23:00 — wider than the shop's 10:00-18:00 on every side.
+        "op1": {str(d): {"closed": False, "start_minute": 0, "end_minute": 1380} for d in range(7)},
+    })
+
+    async def run():
+        return await ops.nearest_slot(
+            tenant=TENANT, branch_id="b1", operator_id="op1", service_ids=["svc1"],
+            after=1786860000 - 3600)   # 08:00 — before the shop's own 10:00 start
+
+    starts_at = _run(run())
+    import datetime as _dt
+    from app.core.riyadh import RIYADH
+    when = _dt.datetime.fromtimestamp(starts_at, tz=RIYADH)
+    assert (when.hour, when.minute) == (10, 0)   # the shop's own start, not the operator's wider claim

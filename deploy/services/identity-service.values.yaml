@@ -11,9 +11,23 @@ service:
   name: identity-service
   port: 8000
 
+# TEMPORARY MITIGATION, NOT A ROOT-CAUSE FIX — identity-service is repeatedly failing its own
+# /healthz within the chart's shared 30s budget (periodSeconds=5 × livenessFailureThreshold=6),
+# getting SIGKILL'd/restarted every 1-2 minutes, confirmed live via `kubectl describe pod` and
+# `--previous` logs the day the fleet-wide jwks rotation fix shipped (2026-08-25). The log line
+# right after every restart — "signing_key_rotation_active … jwks refresh every 45s" — lines up
+# suspiciously with the crash cadence, but this is OUR values layer, not platform/, and the
+# actual rotation code lives in the submodule: this buys headroom rather than touching it.
+# ESCALATE TO base-services-dc: identity-service's periodic signing-key-rotation refresh appears
+# to block long enough, often enough, to fail /healthz under ordinary node load — worth their own
+# look at whether that refresh runs on the same event loop as request handling.
+probes:
+  timeoutSeconds: 10
+  livenessFailureThreshold: 10
+
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:6fe669f851069684bdbbec8135b88b0bca3af5e7ca5ddb311ddafaf240713b91"   # v0.16.34
+  digest: "sha256:4323df120343e3732f2cc9bcdecc3f5c4f539d4ccda4d504b0d59f39b4618359"   # v0.16.37
 
 replicas: 1
 
@@ -78,6 +92,13 @@ env:
   # symmetric secret any service holding it could mint a token for any subject, so one
   # compromised service is a platform-wide forgery. Asymmetric keeps the private key here.
   TOKEN_ISSUER_DRIVER: "rs256"
+  # DAILY SIGNING-KEY ROTATION (opt-in upstream, v0.16.35's JWKS overlap design):
+  # TOKEN_PRIVATE_KEY is adopted as the first key on the ring; SECRETS_KEK (already in
+  # identity-service-secrets, shared by every service) seals the ring at rest. The cron below
+  # fires the rotation daily; the endpoint is idempotent below the min-age, so a retry/repeat is a
+  # safe no-op. A retired public key stays in the JWKS for an overlap window sized off the 7-day
+  # refresh TTL, so no live token is ever rejected mid-rotation.
+  TOKEN_KEY_ROTATION_ENABLED: "true"
   # FROZEN — config/product.json identifiers.jwtIssuer. Renaming the product must never touch
   # this: change it and every live session and refresh token is rejected at once.
   TOKEN_ISSUER: "raje3"
@@ -93,8 +114,23 @@ env:
   # owner thrown back to the login screen every 15 minutes: the access TTL, with the 31-day refresh
   # token beside it that could never be spent.
   #
-  # The public half of TOKEN_PRIVATE_KEY, the same value every verifying service already holds.
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  # THE SECOND BUG THIS SAME SETTING'S NEIGHBOUR CAUSED — 2026-08-25, found live. This used to
+  # read `TOKEN_VERIFIER_DRIVER: "rs256"` everywhere in the fleet, the STATIC single-key verifier
+  # (one PEM, read once at pod start, never refreshed). TOKEN_KEY_ROTATION_ENABLED above was
+  # turned on two days before this without switching the fleet to a driver that actually knows
+  # about rotation — so every 03:30 rotation immediately made every service's cached static key
+  # stale, and every request everywhere started failing UNAUTHORIZED, including identity-service's
+  # own /auth/refresh verifying a token it had just signed itself. Nothing crashed and nothing
+  # alerted: /readyz stayed green, sign-up/sign-in kept working (password auth, not token auth),
+  # and the only symptom was every authenticated call in the product returning 401 at once, fleet-
+  # wide, silently, every single night — reproduced by installing fresh and watching signup itself
+  # fail. `jwks` is the driver the platform actually built for this (see
+  # platform/services/*/app/adapters/token_verifier/jwks.py's own header: "REFRESH-ON-MISS is what
+  # makes SIGNING-KEY ROTATION work here… That is a self-inflicted outage on every rotation" — it
+  # names this exact failure). Every one of the 26 services in deploy/services/ carries the same
+  # two lines now, all pointed at this service's own published JWKS.
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   # ── how long a session lives, and why it is this long ─────────────────────────────────────
   # ACCESS 15 MINUTES, unchanged. It is also what "instant suspension" (spec §11.1) actually
   # means: a suspended person keeps their access token until it expires, and is then refused at
@@ -273,3 +309,10 @@ env:
 
 ingress:
   enabled: false
+
+cronJobs:
+  # Min-age guard makes a repeat/retry a safe no-op — see TOKEN_KEY_ROTATION_ENABLED's own note.
+  - name: rotate-signing-key
+    schedule: "30 3 * * *"          # daily 03:30
+    timeZone: "Asia/Riyadh"
+    path: /internal/signing-key/rotate

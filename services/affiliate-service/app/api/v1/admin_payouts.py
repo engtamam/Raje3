@@ -2,7 +2,7 @@
 # affiliate-service — settling a withdrawal (spec §5)
 # -----------------------------------------------------------------------------
 # `platform.affiliates_payouts` IS ITS OWN CAPABILITY, separate from `platform.affiliates`
-# (admin.py) — Tamam, 2026-08-20: "who becomes a marketer" is a different decision from "settling
+# (admin.py) — "who becomes a marketer" is a different decision from "settling
 # a commission", the exact reasoning deploy/seed/operator-roles.json's own platform-finance role
 # already states for every other money-moving action on the platform. A holder of one must not
 # automatically hold the other.
@@ -72,7 +72,7 @@ async def list_pending(request: Request,
 async def upload_receipt(request: Request, withdrawal_id: str,
                          file: UploadFile = File(...),
                          principal: Principal = Depends(require_user)) -> Any:
-    """The FILE half of "كل الطرق ممكنة" (Tamam, 2026-08-20) — an admin may either upload the
+    """The FILE half of "كل الطرق ممكنة" — an admin may either upload the
     real transfer confirmation here, or just paste a link straight into POST .../complete's own
     `receipt_reference`; both end up in that exact same field (core/payouts.py's own note)."""
     s = get_settings()

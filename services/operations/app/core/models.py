@@ -173,13 +173,23 @@ class Service:
     # sold is a GUESS of ours, and retiring a guess is not the same as touching a shop's data.
     seeded: bool = False
     created: int = 0
+    # WHO CAN ACTUALLY DO THIS — empty means EVERY active operator can, which is the safe default
+    # a shop with one operator (or a shop where nobody has ever specialised) never has to touch.
+    # A shop that DOES have staff who only do some of its services fills this in per service; the
+    # reverse view ("what does this operator do") is derived by filtering services at read time,
+    # never stored a second time on Operator — one direction of truth, so the two can never drift
+    # apart from each other. Read by bookings-service over
+    # `/internal/operations/service-durations` (extended to carry this alongside duration), never
+    # duplicated into bookings' own store.
+    eligible_staff_ids: list[str] = field(default_factory=list)
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "cycle_days": self.cycle_days, "price_minor": self.price_minor,
                 "duration_minutes": self.duration_minutes,
                 "active": self.active, "sort": self.sort, "catchall": self.catchall,
-                "external_id": self.external_id, "seeded": self.seeded, "created": self.created}
+                "external_id": self.external_id, "seeded": self.seeded, "created": self.created,
+                "eligible_staff_ids": list(self.eligible_staff_ids)}
 
 
 @dataclass
@@ -305,6 +315,14 @@ class Operator:
     visible_all: bool = False
     active: bool = True
     created: int = 0
+    # `None` = INHERITS THE SHOP'S OWN WORKING HOURS, IN FULL — the default every operator has
+    # until an owner explicitly narrows one. Same shape bookings-service's own tenant-wide
+    # WORKING_HOURS row already uses (`{"weekly": {"0".."6": {"closed","start_minute",
+    # "end_minute"}}}`), so nearest_slot/free_slots derivation code never has to learn a second
+    # schedule shape — only a second SOURCE for the same one. Read by bookings-service over
+    # `/internal/operations/staff-hours` (batch by operator id); validated at write time here to
+    # never exceed the shop's own hours (bookings intersects defensively too, at read time).
+    working_hours: dict[str, Any] | None = None
 
     def public(self) -> dict[str, Any]:
         """No pin_hash. Not because it is readable, but because a hash that is never returned
@@ -316,6 +334,11 @@ class Operator:
                 # either — a grant that is stored and never shown is a permission nobody can audit.
                 "visible_branch_ids": list(self.visible_branch_ids),
                 "visible_all": bool(self.visible_all),
+                # `None` means "inherits the shop's hours" — said explicitly rather than an absent
+                # key, so the console can tell "never customised" from "customised to look
+                # identical to the shop's hours" (the owner might do that on purpose, then narrow
+                # it later without losing the fact that it IS a customisation).
+                "working_hours": self.working_hours,
                 # A BOOLEAN, NEVER THE ID. The screen needs to know he can sign in; the identifier
                 # itself is identity's and belongs in no response of ours.
                 "has_login": bool(self.person_id),
@@ -333,7 +356,14 @@ class Branch:
     name: str
     active: bool = True
     created: int = 0
+    #: Optional, set by the shop's own owner (never inferred) — the admin panel's own map of
+    #: where shops actually are reads these, but this service never invents a location for a
+    #: branch nobody located. 0.0/0.0 (the Gulf of Guinea) means "not set", not "at the equator".
+    lat: float = 0.0
+    lng: float = 0.0
+    city: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
-                "active": self.active, "created": self.created}
+                "active": self.active, "created": self.created,
+                "lat": self.lat, "lng": self.lng, "city": self.city}

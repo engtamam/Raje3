@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — the Grid algorithm, ported from places_scraper_v2.py verbatim (Tamam's own
+# affiliate-service — the Grid algorithm, ported from places_scraper_v2.py verbatim (a
 # "مجرَّب على أرض الواقع" script) — pure math, zero I/O, so it is testable without a single HTTP
 # call and without touching the rest of the search-job machinery in core/lead_sourcing.py.
 # =============================================================================

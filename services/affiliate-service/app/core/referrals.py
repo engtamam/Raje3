@@ -121,7 +121,7 @@ class ReferralRegistry:
 
     async def all_ever(self, *, limit: int = 2000) -> list[Referral]:
         """EVERY referral ever stamped, any status — spec §10's optional whole-platform revenue
-        view (Tamam, 2026-08-20: a manager's own flag, default off — see
+        view (a manager's own flag, default off — see
         Affiliate.sees_platform_revenue). Deliberately not `all_referred()`'s eligible-only
         worklist: a shop that lapsed or was revoked still generated real subscription revenue for
         the platform through the affiliate channel, and that is exactly the number this view

@@ -105,6 +105,18 @@ export async function signIn(phone: string, password: string, code = ''): Promis
   };
 }
 
+/** Extra facts an `openShop` caller needs about the trial, carried alongside a thrown `Refused`
+ *  too (the «أكّد رقمك» step) — the shop already exists and its trial already opened by the time
+ *  sign-in is what refuses, and that fact must not be lost on the one path that retries it. */
+export interface OpenedShop {
+  session: Session;
+  trialStarted: boolean;
+  /** Unix seconds, or 0 when no trial was opened — never a hardcoded day count (§ signup.py's
+   *  own note: how long a trial runs is billing's decision, not a promise baked into either
+   *  service). */
+  trialEnd: number;
+}
+
 /**
  * Open a shop, then walk straight through the door.
  *
@@ -112,14 +124,16 @@ export async function signIn(phone: string, password: string, code = ''): Promis
  * is one call away, so there is no second mint path to keep correct for ever. The owner does not
  * see the second call — he sees his shop.
  */
-export async function openShop(shop: NewShop): Promise<Session> {
-  await post<{ tenant: string }>('/api/v1/signup', {
-    phone: shop.phone,
-    password: shop.password,
-    shop_name: shop.shopName,
-    affiliate_ref: shop.affiliateRef || '',
-  });
-  const session = await signIn(shop.phone, shop.password);
+export async function openShop(shop: NewShop): Promise<OpenedShop> {
+  const out = await post<{ tenant: string; trial_started?: boolean; trial_end?: number }>(
+    '/api/v1/signup', {
+      phone: shop.phone,
+      password: shop.password,
+      shop_name: shop.shopName,
+      affiliate_ref: shop.affiliateRef || '',
+    });
+  const trialStarted = out.trial_started === true;
+  const trialEnd = Number(out.trial_end) || 0;
 
   // ── THE NAME, WRITTEN WHERE THE ENGINE READS IT ─────────────────────────────────────────────
   //
@@ -128,7 +142,18 @@ export async function openShop(shop: NewShop): Promise<Session> {
   // and changed afterwards from «حسابي» through `operations.set_shop_name` — one field, one
   // write, one name, and no copy of it anywhere in this file.
 
-  return session;
+  try {
+    const session = await signIn(shop.phone, shop.password);
+    return { session, trialStarted, trialEnd };
+  } catch (err) {
+    // THE SHOP AND ITS TRIAL ALREADY EXIST BY HERE — only the immediate sign-in refused, most
+    // often «أكّد رقمك». Stamped onto the error rather than swallowed, so the caller's own retry
+    // (after the OTP screen) can still show the same welcome once he is actually in.
+    if (err instanceof Error) {
+      Object.assign(err, { trialStarted, trialEnd });
+    }
+    throw err;
+  }
 }
 
 // ── proving the number ─────────────────────────────────────────────────────────────────────────
@@ -162,3 +187,11 @@ export async function verifyCode(phone: string, code: string): Promise<void> {
  * on the form. It holds a phone number and nothing else.
  */
 export const AGREED_KEY = 'raje3.agreedAt.signup';
+
+/**
+ * ONE-TIME CUE FOR THE WELCOME SCREEN, session-scoped on purpose — it must survive the brief
+ * moment between opening a shop and `App` first rendering signed-in, and must NOT survive past
+ * this browser tab closing or a later sign-in from a different device: the welcome is for the
+ * one person who just typed the form, once, never replayed on a routine sign-in.
+ */
+export const WELCOME_TRIAL_KEY = 'raje3.justOpened.trialEnd';

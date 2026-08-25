@@ -12,7 +12,7 @@ had one. Measured, not assumed:
   * and the cluster holds no `subscriptions` collection whatsoever. Every shop on it has been
     scheduling reminders and editing its messages while owing us nothing.
 
-Tamam, on reading that: «الاساسية تستعمل بلا اشتراك — خطأ كبير».
+On reading that: «الاساسية تستعمل بلا اشتراك — خطأ كبير».
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 THE TRIAL IS NOT NEW MACHINERY, WHICH IS WHY THIS FILE IS SMALL
@@ -28,7 +28,7 @@ So one question, asked in one place: may this establishment WRITE right now?
 ────────────────────────────────────────────────────────────────────────────────────────────────
 READS STAY, WRITES STOP — THE DECISION, AND WHERE THE LINE FALLS
 
-Tamam: «لما يشترك وينتهي اشتراكه يقفل النظام. القراءة تبقى والكتابة تقف.» A shop whose month
+The decision: «لما يشترك وينتهي اشتراكه يقفل النظام. القراءة تبقى والكتابة تقف.» A shop whose month
 lapsed on Thursday still has customers walking in on Friday, and its history is ITS history —
 locking him out of his own customer list to collect a payment is hostage-taking, not billing.
 

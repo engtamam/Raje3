@@ -102,14 +102,14 @@ export function FilterMenu({
   }
 
   return (
-    <div ref={rootRef} className={`relative inline-flex flex-col gap-2 ${className ?? ''}`}>
+    <div ref={rootRef} className={`relative flex w-full flex-col gap-2 ${className ?? ''}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={listId}
-        className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors focus-ring ${
+        className={`flex min-h-11 w-fit items-center gap-2 self-start rounded-lg border px-3 text-sm font-medium transition-colors focus-ring ${
           selected.length > 0
             ? 'border-accent bg-accent-soft text-accent-on-soft'
             : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'

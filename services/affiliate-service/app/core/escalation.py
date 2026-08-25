@@ -1,7 +1,7 @@
 # =============================================================================
 # affiliate-service — §١٣'s auto-escalation: a shop's ticket moves to the manager on its own
 # -----------------------------------------------------------------------------
-# Tamam, 2026-08-20: "خليها 24 ساعه بعدها تتصعد على طول لمديره... ولو موظف موقوف تتصعد للمدير
+# "خليها 24 ساعه بعدها تتصعد على طول لمديره... ولو موظف موقوف تتصعد للمدير
 # مباشرة". ticket-service (v0.16.29+) supplies exactly ONE primitive — escalate a covered ticket
 # and optionally reassign it — and deliberately knows nothing about WHY. Every bit of policy
 # (the 24h default, the suspended-marketer rule) lives here, config-driven, never hardcoded.

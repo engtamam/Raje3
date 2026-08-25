@@ -1,14 +1,14 @@
 # =============================================================================
 # affiliate-service — the withdrawal itself (spec §5)
 # -----------------------------------------------------------------------------
-# TWO PAYOUT CHANNELS, ONE MECHANISM (Tamam, 2026-08-20). A marketer who does not want to hand
+# TWO PAYOUT CHANNELS, ONE MECHANISM. A marketer who does not want to hand
 # over an IBAN can be paid through an intermediary payment platform instead (بحر, or whatever
 # exists tomorrow — `payout_channel_name` is free text precisely so a new one never needs a code
 # change). What matters to this file is identical either way: WHO gets paid, HOW MUCH, and a
 # RECEIPT an admin attaches once the transfer actually happened. The channel is metadata riding
 # along on the same request, never a second withdrawal flow.
 #
-# THE RECEIPT ITSELF, EITHER WAY (Tamam, 2026-08-20: "كل الطرق ممكنة"). An admin may paste a
+# THE RECEIPT ITSELF, EITHER WAY ("كل الطرق ممكنة"). An admin may paste a
 # link OR upload the actual file — both write the SAME `receipt_reference` field
 # (`WithdrawalRequest`'s own note explains why), so `complete()` never has to know which
 # happened. An uploaded file is stored under `receipt_key()` and referenced as
@@ -78,6 +78,35 @@ class PayoutService:
         self._s = store
         self._min = min_withdrawal_halalas
 
+    @property
+    def min_withdrawal_halalas(self) -> int:
+        """The value this service BOOTED with — the static default. Prefer
+        `effective_min_withdrawal_halalas` at any real read site; this stays for a caller with no
+        RuntimeConfig context (a test, a script)."""
+        return self._min
+
+    async def effective_min_withdrawal_halalas(self, runtime_config: Any) -> int:
+        """The LIVE threshold — "400 ريال، وممكن يتغير، أتوقع فيه مكان لتعديلها"
+        — read through RuntimeConfig, which already exists and is already audited, same pattern as
+        `operations/app/core/retention.py`'s own `policy_for`: an operator's admin-panel override
+        (`PUT /api/v1/operator/config`) if one was ever set, `self._min` (this deploy's own
+        AFFILIATE_WITHDRAWAL_MIN_HALALAS) otherwise. Platform-wide, not per-shop — the tenant
+        passed to RuntimeConfig is always "" (there is no establishment here to scope it to; a
+        marketer's own tenant is the shared `raje3-affiliates`, not a business making this policy
+        decision), so the read is a plain `key -> value` lookup, not a per-tenant one.
+
+        A NONSENSE OVERRIDE FALLS BACK, same discipline as `policy_for`: a negative or zero
+        threshold from one bad panel edit would let every marketer withdraw one halala at a time,
+        never applied."""
+        if runtime_config is None:
+            return self._min
+        try:
+            value = int(await runtime_config.get(tenant="", key="AFFILIATE_WITHDRAWAL_MIN_HALALAS",
+                                                 default=self._min))
+        except (TypeError, ValueError):
+            return self._min
+        return value if value > 0 else self._min
+
     # ── how he wants to be paid ──────────────────────────────────────────────────────────────
     async def set_payout_method(self, affiliate_id: str, *, channel: str,
                                 channel_name: str = "", account_ref: str) -> dict[str, Any]:
@@ -135,7 +164,14 @@ class PayoutService:
                "withdrawn_halalas": withdrawn}
 
     # ── requesting a withdrawal ──────────────────────────────────────────────────────────────
-    async def request_withdrawal(self, affiliate_id: str) -> dict[str, Any]:
+    async def request_withdrawal(self, affiliate_id: str, *, min_halalas: int | None = None) -> dict[str, Any]:
+        """`min_halalas`, WHEN GIVEN, IS THE LIVE THRESHOLD — the caller's own read through
+        RuntimeConfig (an operator's admin-panel override, or `self._min` as its default), same
+        pattern as `operations/app/core/retention.py`'s own `policy_for`. Omitting it falls back to
+        `self._min`, the value this service booted with — never stale, since a route that has a
+        request-scoped RuntimeConfig always passes the resolved value; this default only covers a
+        caller with no such context (a test, a script)."""
+        threshold = self._min if min_halalas is None else min_halalas
         row = await self._s.get(AFFILIATES, affiliate_id)
         affiliate = Affiliate.from_dict(row) if row else None
         if affiliate is None:
@@ -151,9 +187,9 @@ class PayoutService:
             COMMISSIONS, {"affiliate_id": affiliate_id, "status": CONFIRMED}, limit=2000)
         claimable = [Commission.from_dict(r) for r in available_rows if not r.get("withdrawal_id")]
         total = sum(c.amount_halalas for c in claimable)
-        if total < self._min:
+        if total < threshold:
             raise PayoutError(
-                f"الحد الأدنى للسحب {self._min / 100:.2f} ريال — رصيدك المؤكد أقل من ذلك.",
+                f"الحد الأدنى للسحب {threshold / 100:.2f} ريال — رصيدك المؤكد أقل من ذلك.",
                 reason="below_minimum")
 
         now = int(time.time())

@@ -27,7 +27,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/wallet-service
-  digest: "sha256:76bb6f968fed6803224d35bb9c409d606e822b6fc4d03d42d343d1801f464957"   # v0.16.34
+  digest: "sha256:9859b49cec34ceda947baf609d217a18303d8e70a587db6f8ec89f9d2f7f6161"   # v0.16.37
 
 replicas: 1
 
@@ -78,7 +78,8 @@ metrics:
 
 env:
 
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

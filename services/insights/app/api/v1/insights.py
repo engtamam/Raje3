@@ -26,9 +26,10 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import bundles as _bundles
+from app.core import next_step
 from app.core import plans
 from app.core.coverage import blocked, group_by
-from app.core.models import Coverage, PAIRS, SNAPSHOTS, Pair
+from app.core.models import Coverage, NEXT_STEP_STATE, PAIRS, SNAPSHOTS, Pair
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -198,6 +199,22 @@ async def dashboard(request: Request, branch_id: str = "",
             audience = {"consented": count,
                         "message": f"{count} عميلاً وافقوا على استقبال عروضك."}
 
+    # ── الخطوة التالية (core/next_step.py) — واحدة تتصدّر، تتغيّر بالأولوية والتبريد ───────────
+    ctx = next_step.NextStepCtx(
+        values=values, entitlements=keys, audience=audience, teaser=teaser,
+        multi_branch=len(values.get("branch_rows") or []) > 1,
+        staff_coverage=cov.get("staff_performance") or {},
+        total_visits=int(snap.get("visits") or 0))
+    state_row = await c.datastore.get(NEXT_STEP_STATE, tenant) or {}
+    first_seen = dict(state_row.get("seen") or {})
+    picked = next_step.pick(ctx, first_seen, now=now)
+    seen_ids = {picked["primary"]["id"]}
+    if picked["secondary"]:
+        seen_ids.add(picked["secondary"]["id"])
+    updated_seen = next_step.next_first_seen(first_seen, seen_ids, now=now)
+    if updated_seen != first_seen:
+        await c.datastore.put(NEXT_STEP_STATE, tenant, {"seen": updated_seen})
+
     return {
         "computing": False,
         "values": values,
@@ -230,6 +247,7 @@ async def dashboard(request: Request, branch_id: str = "",
         # WHAT HE HOLDS, not what plan he is on. The console renders a lock from the absence of a
         # key rather than from a plan name it would otherwise have to know the ladder of.
         "entitlements": sorted(keys),
+        "next_step": picked,
     }
 
 
@@ -324,6 +342,28 @@ async def branches(request: Request, principal: Principal = Depends(_READ)):
     return {"coverage": cov, "rows": rows,
             "unknown": cov.get("unknown", 0),
             "can_rank": bool(((snap or {}).get("values") or {}).get("branch_can_rank"))}
+
+
+class NextStepDismissIn(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/next-step/dismiss", dependencies=[Depends(rate_limit)])
+async def dismiss_next_step(request: Request, body: NextStepDismissIn,
+                            principal: Principal = Depends(_READ)) -> dict:
+    """«ليس الآن» — this one rule stops leading the card for a while, starting now.
+
+    SAME CAPABILITY AS `set_digest` ABOVE, for the same reason: this changes nothing the shop
+    OWNS, only which of several true sentences he is shown first — closer to a per-person
+    preference than to data.
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    state_row = await c.datastore.get(NEXT_STEP_STATE, tenant) or {}
+    first_seen = dict(state_row.get("seen") or {})
+    updated = next_step.dismiss(first_seen, body.id, now=int(time.time()))
+    await c.datastore.put(NEXT_STEP_STATE, tenant, {"seen": updated})
+    return {"ok": True}
 
 
 class DigestIn(BaseModel):
@@ -434,3 +474,19 @@ async def platform_recompute(request: Request, principal: Principal = Depends(_P
         resource="snapshot", ip=request.client.host if request.client else "")
     snap = await c.tick.compute(tenant, now=int(time.time()))
     return {"tenant": tenant, "computed_at": snap.computed_at, "visits": snap.visits}
+
+
+@router.get("/platform/summary", dependencies=[Depends(rate_limit)])
+async def platform_summary(request: Request, principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The admin panel's cross-tenant rollup — READS the stored row, never computes (see
+    `core/rollup.py`'s own module note, and this module's own rule for the per-tenant dashboard:
+    "no route computes an indicator on the request path"). `computing: true` when the very first
+    pass hasn't landed yet — an honest "not ready", never a 404 or an empty-looking zero."""
+    from app.core.models import PLATFORM_SUMMARY
+
+    c = request.app.state.container
+    row = await c.datastore.get(PLATFORM_SUMMARY, "platform")
+    if not row:
+        return {"computing": True, "values": {}, "computed_at": 0,
+               "tenants_seen": 0, "tenants_with_snapshot": 0}
+    return {"computing": False, **row}

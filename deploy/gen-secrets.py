@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Raje3's own first-party services — self-contained secret generation for a server install.
 
-THE GAP THIS CLOSES (Tamam, 2026-08-20). `platform/deploy/server/gen-secrets.py` mints secrets for
+THE GAP THIS CLOSES. `platform/deploy/server/gen-secrets.py` mints secrets for
 every BASE service (`platform/services/*`) on a fresh install. It has never known about `services/*`
 at the top of THIS repo — operations, campaigns, and now affiliate-service — because its own
 `SERVICES` constant is anchored two levels above ITSELF, inside the submodule
@@ -179,7 +179,7 @@ def generate_and_apply() -> None:
         return f"postgresql://{role}:{pw}@{PG_HOST}/{PG_DB}"
 
     for name, spec in schema.items():
-        # PRESERVE, DON'T RECONSTRUCT (Tamam, 2026-08-20 — the bug that took operations',
+        # PRESERVE, DON'T RECONSTRUCT (the bug that took operations',
         # campaigns', bookings', insights', loyalty's and reminders' own databases OFFLINE the
         # first time this ran against a cluster with real data in them). A re-run used to rebuild
         # EVERY key from the shared pool + a single global `PG_DB`, which silently replaced each

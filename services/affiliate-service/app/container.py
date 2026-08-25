@@ -261,6 +261,8 @@ def build_container(settings: Settings) -> Container:
         terms_version=settings.AFFILIATE_TERMS_VERSION,
         tenants_url=settings.TENANT_SERVICE_URL,
         authz_url=settings.AUTHZ_SERVICE_URL,
+        otp_deliverable=settings.AFFILIATE_OTP_DELIVERABLE,
+        require_otp=settings.AFFILIATE_REQUIRE_OTP,
     )
     # Which establishment this affiliate brought (spec §4) — see core/referrals.py for why this
     # is not operations' own partners.py reused.
@@ -313,6 +315,7 @@ def build_container(settings: Settings) -> Container:
         cooldown_days=settings.WAFA_COOLDOWN_DAYS,
         retention_min=settings.WAFA_RETENTION_MIN,
         refund_max=settings.WAFA_REFUND_MAX,
+        min_recent_conversions=settings.WAFA_MIN_RECENT_CONVERSIONS,
         tickets=tickets_reader,
     )
     container.tickets = tickets_reader

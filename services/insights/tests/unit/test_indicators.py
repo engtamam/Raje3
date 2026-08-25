@@ -275,8 +275,8 @@ def test_the_blocked_reason_names_who_owns_the_fix():
     assert b["owner"] == "time"
     # AND HE IS NOT TOLD TO WAIT WITHOUT BEING TOLD HOW LONG — but the answer is now a NUMBER
     # rather than a sentence. Two prose lines stood here, explaining our own history to a man on
-    # his first day and promising resolution with no sense of when; Tamam read them on a fresh
-    # account and asked for both to go: «احذفها… ولازم يعرف الارقام». `progress` is what replaces
+    # his first day and promising resolution with no sense of when, which read on a fresh
+    # account as needing to go: «احذفها… ولازم يعرف الارقام». `progress` is what replaces
     # them, and the screen draws it as a bar: he has 100 visits carrying a branch and needs 400,
     # which is the same 40% the block itself is decided by.
     assert b["progress"] == {"have": 100, "need": 400}, b["progress"]

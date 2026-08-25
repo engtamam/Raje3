@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/campaigns
-  digest: "sha256:8e8e55c52790c130cbecd0eed3436fbcd9536144b799ec74074407a99f00e2b6"   # f6fe323, published by publish-images.sh
+  digest: "sha256:ab6a050c9464fef88c342b5a2c5730e54cf5e0a14f9a93fc399205b7b0092e31"   # 629ccdf, published by publish-images.sh
 
 replicas: 1
 
@@ -90,7 +90,8 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

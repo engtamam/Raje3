@@ -14,7 +14,9 @@ import { Team } from './screens/TeamRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
 import { Store } from './screens/StoreRoute';
+import { Support } from './screens/SupportRoute';
 import { AffiliatePortal } from './affiliates/AffiliatePortal';
+import { AdminPortal } from './admin/AdminPortal';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
 import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
 import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
@@ -22,13 +24,14 @@ import { arabicAuth, arabicBlockDoc, arabicShared } from './i18n';
 import { applyRaje3 } from './brand/theme';
 import './index.css';
 
-// AFFILIATES.<DOMAIN> IS A DIFFERENT HOST, NOT A DIFFERENT DEPLOY. The edge (deploy/edge/edge.json)
-// puts that hostname on the same certificate and the same site block as the shop's own domain —
-// this image is still what answers for it (see bring-up.sh). What changes is which tree we mount:
-// on the affiliate hostname there is no shop, no branch, no operator PIN, none of what <App/>
-// fetches on boot for its own audience, so it gets its own router root at '/' rather than living
-// under '/app/affiliates'. admin.<DOMAIN> gets the same treatment the day that panel exists.
+// AFFILIATES.<DOMAIN> AND ADMIN.<DOMAIN> ARE DIFFERENT HOSTS, NOT DIFFERENT DEPLOYS. The edge
+// (deploy/edge/edge.json) puts both hostnames on the same certificate and the same site block as
+// the shop's own domain — this image is still what answers for either (see bring-up.sh). What
+// changes is which tree we mount: neither the affiliate nor the admin hostname has a shop, a
+// branch, an operator PIN, or any of what <App/> fetches on boot for its own audience, so each
+// gets its own router root at '/' rather than living under '/app/…'.
 const isAffiliateHost = typeof window !== 'undefined' && window.location.hostname.startsWith('affiliates.');
+const isAdminHost = typeof window !== 'undefined' && window.location.hostname.startsWith('admin.');
 
 // ROUTES MATCH nav.ts BY PATH. The nav decides what is OFFERED; the router decides what EXISTS.
 // Keeping them separate is deliberate: a person who types a URL for a section his capabilities do
@@ -60,6 +63,7 @@ const shopRouter = createBrowserRouter([
       // the selling pane of «حسابي» rather than a second copy of it; `/account?tab=billing` still
       // answers, for every link already sent.
       { path: 'store', element: <Store /> },
+      { path: 'support', element: <Support /> },
     ],
   },
   // OUTSIDE <App/> ON PURPOSE. A marketer has no shop, no branch, no operator PIN and no action
@@ -73,6 +77,12 @@ const shopRouter = createBrowserRouter([
   {
     path: 'affiliates/*',
     element: <AffiliatePortal />,
+  },
+  // SAME REASONING, ONE ROUTE LOWER: a link sent before admin.<domain> existed, or an operator
+  // who never repointed DNS, must still reach the panel from the shop's own domain.
+  {
+    path: 'admin/*',
+    element: <AdminPortal />,
   },
 ], {
   // AND THE ROUTER TOO — from the same value, never a second literal. The app is mounted under a
@@ -89,7 +99,12 @@ const affiliateRouter = createBrowserRouter([
   { path: '/*', element: <AffiliatePortal /> },
 ], { basename: '/' });
 
-const router = isAffiliateHost ? affiliateRouter : shopRouter;
+// SAME REASONING AS affiliateRouter, one line down — admin.<domain>/… never admin.<domain>/app/….
+const adminRouter = createBrowserRouter([
+  { path: '/*', element: <AdminPortal /> },
+], { basename: '/' });
+
+const router = isAffiliateHost ? affiliateRouter : isAdminHost ? adminRouter : shopRouter;
 
 applyRaje3();
 createRoot(document.getElementById('root')!).render(

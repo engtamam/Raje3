@@ -419,7 +419,7 @@ def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
 
 
 def test_the_template_cache_ttl_is_configured_not_a_fixed_five_minutes():
-    """Tamam, 2026-08-20: an owner enabled a template in reminders' own screen and the goal card
+    """An owner enabled a template in reminders' own screen and the goal card
     still read «غير مفعّل» — `build_peers` never passed `ttl_seconds` through at all, so every
     deployment silently ran `HttpTemplates`' own 300-second class default with no way to shorten
     it short of a code change. `TEMPLATES_CACHE_TTL_SECONDS` closes that: settings decide it now,

@@ -7,7 +7,7 @@ afterwards can take them apart again: nothing in the record says where any of it
 
 WHY OPTIONAL WAS THE ORIGINAL ANSWER, AND WHY IT IS NOT ANY MORE. The field was optional so that an
 already-installed register would not start failing the day we tightened the rule — a real concern
-once shops depend on it, and not a concern at all today. Tamam, 18 August 2026: «احنا لساع في
+once shops depend on it, and not a concern at all today: «احنا لساع في
 التطوير، مافي شي شابك — نطوّر ونختبر». There is no installed base to protect, so the field becomes
 mandatory now, while making it mandatory costs one line in a document instead of an outage.
 

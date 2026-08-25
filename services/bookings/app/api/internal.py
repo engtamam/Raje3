@@ -49,6 +49,18 @@ async def internal_health(settings: Settings = Depends(get_settings)) -> dict[st
     return {"status": "ok", "service": settings.SERVICE_NAME}
 
 
+@router.get("/working-hours", dependencies=[Depends(require_internal_token)])
+async def internal_working_hours(request: Request, tenant: str) -> dict:
+    """The shop's own weekly policy — operations-service's read, so it can refuse a staff member's
+    custom hours from ever exceeding the shop's own (`Operator.working_hours`'s write-time
+    validation). The SAME derivation `GET /api/v1/bookings/working-hours` serves to the console
+    (`c.booking_ops.working_hours`) — one source of truth, reached over two doors: a user token for
+    the owner's own screen, this internal token for a peer service's validation.
+    """
+    c = request.app.state.container
+    return {"weekly": await c.booking_ops.working_hours(tenant)}
+
+
 @router.get("/manifest", dependencies=[Depends(require_internal_token)])
 async def internal_manifest(
     request: Request, settings: Settings = Depends(get_settings)

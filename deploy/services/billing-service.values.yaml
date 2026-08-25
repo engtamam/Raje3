@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/billing-service
-  digest: "sha256:95e1df1a8f026d696f4c81fa57822864fd020afb3319bbbb18cfba7d40a6fdae"   # v0.16.34
+  digest: "sha256:aba0032db37df992662612ce60ac7088e69db64a9ba0ba04cff4a57b7ec6b560"   # v0.16.37
 
 replicas: 1
 
@@ -69,7 +69,8 @@ metrics:
 
 env:
 
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 

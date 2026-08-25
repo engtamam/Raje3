@@ -54,7 +54,7 @@ router = APIRouter(prefix="/staff", tags=["staff"])
 
 _MANAGE = require_capability("operations.manage")
 _READ = require_capability("operations.read")
-# A NARROWER DOOR, ONLY FOR THE CATALOGUE (Tamam, 2026-08-19: "سوي للخدمات وحدة تهتم بالخدمات من
+# A NARROWER DOOR, ONLY FOR THE CATALOGUE ("سوي للخدمات وحدة تهتم بالخدمات من
 # تعديل وانشاء وغيرها") — `operations.manage` also creates staff and branches and renames the
 # shop, which is why it stayed owner/manager-only. A role that should touch the SERVICE catalogue
 # and nothing else now can, without inheriting the rest of what `operations.manage` grants. A
@@ -62,7 +62,7 @@ _READ = require_capability("operations.read")
 # route, so owner/manager hold `operations.manage_services` explicitly too (roles.json), same
 # shape as `bookings.manage` sitting beside `bookings.write`.
 _MANAGE_SERVICES = require_capability("operations.manage_services")
-# Tamam, 2026-08-20: a plain field operator ("الموظف الميداني") holds `bookings.read`/
+# A plain field operator ("الموظف الميداني") holds `bookings.read`/
 # `bookings.write` but not `operations.read` — so /staff/branches (this route's OWN body already
 # narrows by branch_scope, exactly like every other scoped read) answered him 403, and the
 # console's Bookings screen — which genuinely needs a branch_id, the server refuses `list_bookings`
@@ -77,7 +77,7 @@ _MANAGE_SERVICES = require_capability("operations.manage_services")
 # ci/check_capability_truth.py's single-capability check (see that gate's own docstring — it only
 # tracks bare `require_capability`).
 _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "bookings.write")
-# THE SAME BUG, ONE ROUTE OVER (Tamam, 2026-08-20): the Bookings screen's day view needs the
+# THE SAME BUG, ONE ROUTE OVER: the Bookings screen's day view needs the
 # BRANCH'S TEAM to attribute a booking and to draw the week-view staff picker — it calls
 # `/staff/operators` unconditionally on mount, same as it does `/staff/branches`. This comment
 # above claimed "none of which a field operator needs" the day it was written; it was wrong about
@@ -85,7 +85,7 @@ _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "boo
 # branch list used to fail for. `list_operators` already narrows by `branch_scope`/`SCOPE.visible`
 # on its own — the gate was the only thing standing between a field operator and his own team.
 _READ_OPERATORS_FOR_BOOKINGS = require_any_capability("operations.read", "bookings.read", "bookings.write")
-# STALE AS OF THE SAME DAY (Tamam, 2026-08-20, same conversation, later): the seeded "operator"
+# STALE AS OF THE SAME DAY, same conversation, later: the seeded "operator"
 # role above no longer HOLDS `bookings.read`/`bookings.write` at all — two operators sharing one
 # schedule could edit or cancel each other's booking, and the fix was to take booking away from
 # the role entirely (roles.seed.json / deploy/seed/roles.json), not to keep narrowing who can read
@@ -121,7 +121,7 @@ class OperatorIn(BaseModel):
     # whether the product gets used.
     pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
     role: str = Field(default="operator", max_length=32)
-    # REQUIRED, NOT DESCRIPTIVE (Tamam, 2026-08-22) — every operator now names a real branch at
+    # REQUIRED, NOT DESCRIPTIVE — every operator now names a real branch at
     # the moment he is added, the same way `till.py`'s own door already requires one on a sale.
     # No silent «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي»
     # explicitly, so the choice is a fact he made rather than one we guessed for him.
@@ -211,7 +211,7 @@ class MemberIn(BaseModel):
     # short one anyway, and refusing here means he is told before the round trip.
     password: str = Field(min_length=8, max_length=256)
     role: str = Field(min_length=1, max_length=32)
-    # REQUIRED — see OperatorIn's own note (Tamam, 2026-08-22).
+    # REQUIRED — see OperatorIn's own note.
     branch_id: str = Field(min_length=1, max_length=64)
 
 
@@ -440,6 +440,99 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     # value, and an owner who deactivated two people must not be refused his next hire.
     await request.app.state.container.gauges.report(
         tenant, S.SEATS, len([o for o in await store.list(tenant) if o.active]))
+    return op.public()
+
+
+_WEEKDAY_NAMES_AR = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+
+
+class OperatorHoursIn(BaseModel):
+    # "0"-"6" as strings, Monday=0..Sunday=6 — `date.weekday()`'s own numbering, the SAME one
+    # bookings-service's tenant-wide working-hours store already uses (models.py:17-18's own
+    # comment on WORKING_HOURS), so the two never need translating into each other.
+    weekly: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+@router.put("/operators/{operator_id}/working-hours",
+           dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_operator_working_hours(request: Request, operator_id: str, body: OperatorHoursIn,
+                                     principal: Principal = Depends(_MANAGE)) -> dict:
+    """An EXPLICIT override for one operator — a DEDICATED route rather than a nullable field on
+    `OperatorPatch`, because `working_hours`'s own valid domain genuinely needs `None` to mean
+    "inherits the shop's hours" (models.py's own docstring), which collides with `None` already
+    meaning "leave this field alone" on every other patchable field. Two unambiguous routes (this
+    one to SET, `DELETE` below to CLEAR) instead of one route with an ambiguous meaning for `null`.
+
+    THE WHOLE WEEK, ALWAYS — same reasoning as bookings' own `set_working_hours`: a partial save
+    is ambiguous (day 3 sent, day 5 not — keep it, or default it?), so the whole document is
+    validated and written as one, never merged with what was there.
+
+    NEVER WIDER THAN THE SHOP'S OWN HOURS — refused at write time when `bookings` can be asked
+    (fail-OPEN when it cannot: an unreachable peer must not block every staff-hours edit on a
+    check that simply cannot run right now — `bookings` still intersects defensively at read
+    time regardless, so this is one of two independent guards, never the only one).
+    """
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get(tenant, operator_id)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    out: dict[str, dict[str, Any]] = {}
+    for d in range(7):
+        entry = body.weekly.get(str(d)) or {}
+        closed = bool(entry.get("closed", False))
+        start = int(entry.get("start_minute", 0) or 0)
+        end = int(entry.get("end_minute", 0) or 0)
+        # RETURNED, NOT RAISED — the platform's own error handler strips an HTTPException's
+        # `detail` before it reaches the caller (see `create_operator`'s `SEAT_LIMIT` note above),
+        # so a message meant to tell an owner exactly which day is wrong must not be raised.
+        if not closed and not (0 <= start < end <= 24 * 60):
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                "error": "BAD_HOURS",
+                "message": f"وقت دوام يوم {_WEEKDAY_NAMES_AR[d]} غير صحيح"})
+        out[str(d)] = {"closed": closed, "start_minute": start, "end_minute": end}
+
+    shop_hours = await request.app.state.container.bookings_desk.working_hours(tenant)
+    if shop_hours is not None:
+        for d in range(7):
+            shop_entry = shop_hours.get(str(d)) or {}
+            mine = out[str(d)]
+            if mine["closed"] or shop_entry.get("closed"):
+                continue
+            if (mine["start_minute"] < int(shop_entry.get("start_minute", 0))
+                    or mine["end_minute"] > int(shop_entry.get("end_minute", 24 * 60))):
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                    "error": "EXCEEDS_SHOP_HOURS",
+                    "message": f"دوام {_WEEKDAY_NAMES_AR[d]} يتجاوز دوام المحل نفسه — عدّله ليقع ضمنه"})
+
+    op.working_hours = out
+    await store.save(op)
+    await request.app.state.auditor.record(
+        "staff_hours.changed", actor=principal.subject, tenant=tenant,
+        resource=f"operator:{operator_id}", ip=request.client.host if request.client else "")
+    return op.public()
+
+
+@router.delete("/operators/{operator_id}/working-hours",
+              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def clear_operator_working_hours(request: Request, operator_id: str,
+                                       principal: Principal = Depends(_MANAGE)) -> dict:
+    """Back to inheriting the shop's own hours, in full — idempotent (clearing an
+    already-inherited operator is a harmless no-op success, matching this codebase's usual
+    idempotent-delete shape), never an error over a double click or a stale button."""
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get(tenant, operator_id)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    had = op.working_hours is not None
+    op.working_hours = None
+    await store.save(op)
+    if had:
+        await request.app.state.auditor.record(
+            "staff_hours.changed", actor=principal.subject, tenant=tenant,
+            resource=f"operator:{operator_id}", ip=request.client.host if request.client else "")
     return op.public()
 
 
@@ -676,13 +769,21 @@ async def set_shop_name(request: Request, body: ShopNameIn,
 # ── branches ──────────────────────────────────────────────────────────────────────────────────
 class BranchIn(BaseModel):
     name: str = Field(min_length=1, max_length=128)
+    #: Optional, set by the owner if he wants his branch on the admin panel's own map — never
+    #: required to open a branch, same trade as every other optional field on this product.
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    city: str = Field(default="", max_length=80)
 
 
 class BranchPatch(BaseModel):
-    """Rename, close, reopen. NO DELETE — see `update_branch`."""
+    """Rename, close, reopen, or set/correct its location. NO DELETE — see `update_branch`."""
 
     name: str | None = Field(default=None, min_length=1, max_length=128)
     active: bool | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    city: str | None = Field(default=None, max_length=80)
 
 
 def _live(rows: list[Branch]) -> int:
@@ -713,7 +814,8 @@ async def create_branch(request: Request, body: BranchIn,
                 "branch.created", actor=principal.subject, tenant=tenant, resource="branch",
                 ip=request.client.host if request.client else "")
             b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(),
-                       created=int(time.time()))
+                       created=int(time.time()),
+                       lat=body.lat or 0.0, lng=body.lng or 0.0, city=body.city.strip())
             await store.save(b)
             await gauges.report(tenant, S.BRANCHES, current + 1)
     except S.SeatClaimBusy as exc:
@@ -728,7 +830,7 @@ async def create_branch(request: Request, body: BranchIn,
 @router.patch("/branches/{branch_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                         principal: Principal = Depends(_MANAGE)) -> dict:
-    """Rename a branch, or close one — and NEVER delete one.
+    """Rename a branch, close one, or set/correct its location — and NEVER delete one.
 
     DEACTIVATE RATHER THAN DELETE, the same rule the service catalogue follows above and for a
     harder reason: visits, points movements and schedules all carry a `branch_id` as a plain
@@ -780,6 +882,12 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 b.name = body.name.strip()
             if body.active is not None:
                 b.active = body.active
+            if body.lat is not None:
+                b.lat = body.lat
+            if body.lng is not None:
+                b.lng = body.lng
+            if body.city is not None:
+                b.city = body.city.strip()
             await store.save(b)
             # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented
             # (core/seats.py). The saved row is the one in `rows` by identity only if the store
@@ -887,7 +995,7 @@ async def list_services(request: Request, include_retired: bool = False,
     nothing left to act on. The same shape of bug as the rewards table, found the same way: by
     stopping something and looking for it.
 
-    Gated on `operations.manage` OR `operations.manage_services` (Tamam, 2026-08-19) — not read:
+    Gated on `operations.manage` OR `operations.manage_services` — not read:
     this is the list you edit, and an operator has no business seeing what the shop has retired.
     """
     rows = await ServiceStore(request.app.state.container.datastore).list(
@@ -918,6 +1026,11 @@ class ServicePatch(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=0, le=720)
     active: bool | None = None
     sort: int | None = Field(default=None, ge=0, le=9999)
+    # WHO CAN ACTUALLY DO THIS — `None` MEANS «LEAVE IT», same convention every other field on
+    # this model already uses. An EXPLICIT empty list is a real value (models.py's own
+    # `Service.eligible_staff_ids` docstring: "[] means every active operator"), not "leave it" —
+    # so an owner can deliberately clear a restriction back to unrestricted from this same route.
+    eligible_staff_ids: list[str] | None = Field(default=None, max_length=64)
 
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
@@ -943,5 +1056,14 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         val = getattr(body, fld)
         if val is not None:
             setattr(s, fld, val.strip() if isinstance(val, str) else val)
+
+    # EVERY OPERATOR GRANTED IS CHECKED against this tenant's own roster, same discipline
+    # `update_operator`'s `visible_branch_ids` already uses — an id we do not recognise is
+    # DROPPED, not stored, so a stale/foreign id cannot silently narrow a service to nobody.
+    if body.eligible_staff_ids is not None:
+        operators = OperatorStore(request.app.state.container.datastore)
+        real = {o.id for o in await operators.list(tenant)}
+        s.eligible_staff_ids = [oid for oid in body.eligible_staff_ids if oid in real]
+
     await store.save(s)
     return s.public()
