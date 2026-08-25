@@ -50,11 +50,19 @@ export default {
       say: 'هذي أهم صفحة بكل الزيارة — عروضه ونقاطه',
     },
     {
-      click: 'text=عرضٌ خاص بهذا العميل',
-      say: 'عنده عرض خاص — النظام يعرضه لك، ما تحتاج تسأل العميل',
+      // THE OFFER/BALANCE FETCH IS DEBOUNCED (220ms) THEN NETWORKED — Visit.tsx's own effect.
+      // Against the real cluster (this recorder's tunnel, not a local dev server) that round
+      // trip can outlast a plain click's short actionability wait, so this waits for the
+      // offer text itself to actually be there before touching it.
+      waitFor: 'text=عرضٌ خاص بهذا العميل',
+      timeoutMs: 30_000,
     },
     {
-      say: 'اقرأ الخصم والتاريخ له بصوت عالي — يطمّن العميل إنه موثّق',
+      click: 'text=عرضٌ خاص بهذا العميل',
+      say: 'عنده عرض خاص — يعرضه النظام نفسه',
+    },
+    {
+      say: 'اقرأه بصوت عالي — يطمّن العميل إنه موثّق',
     },
     {
       click: 'label=طبّقتُ العرض على هذه الزيارة',
@@ -62,6 +70,12 @@ export default {
     },
     {
       say: 'ليه؟ عشان ما ناخذ منه عرض يبيه يحفظه لزيارة ثانية',
+    },
+    {
+      // SAME OFFER/BALANCE FETCH, SAME REAL-CLUSTER LATENCY as the offer step above — the
+      // balance renders on its own Promise.allSettled branch and can still be mid-flight here.
+      waitFor: 'text=رصيده',
+      timeoutMs: 30_000,
     },
     {
       click: 'text=رصيده',
