@@ -1,9 +1,10 @@
 """Full flow: new conversation -> triage list sent -> free text ignored/re-prompted -> selection
-made -> normal flow -> auto-reply ceiling triggers -> ticket created (stub ticket-service client)
--> customer notified -> Auditor recorded whatsapp_assistant.escalated_to_human."""
+made -> normal flow -> auto-reply ceiling triggers -> the AI stops (no ticket-service ticket -- a
+shop WhatsApp number is provisioned in Meta coexistence mode, so the shop's own staff already see
+the same thread directly; see core/conversation.py::_escalate_to_human's docstring) -> customer
+notified -> Auditor recorded whatsapp_assistant.escalated_to_human."""
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.llm.stub import StubLlm
-from app.adapters.ticket_client import NullTicketClient
 from app.auditable_actions import AUDITABLE_ACTIONS
 from app.core.audit import Auditor
 from app.core.auditable import critical_actions, declared_actions, validate
@@ -41,10 +42,9 @@ def _provider(store):
     return ConfigDrivenAvailabilityProvider(store=store, cfg=cfg)
 
 
-async def test_new_conversation_triage_then_ceiling_escalation_opens_ticket_and_notifies():
+async def test_new_conversation_triage_then_ceiling_escalation_stops_the_ai_and_notifies():
     store = MemoryDataStore()
     llm = StubLlm()
-    ticket_client = NullTicketClient()
     sink = _AcceptingAuditSink()
     auditor = _auditor(sink)
 
@@ -54,7 +54,7 @@ async def test_new_conversation_triage_then_ceiling_escalation_opens_ticket_and_
         raw_window_messages=12,
         allowed_tools=frozenset({"check_availability", "propose_booking",
                                 "get_customer_points_summary", "suggest_redeemable_offer"}),
-        ticket_client=ticket_client, auditor=auditor, max_auto_reply_turns=2,
+        auditor=auditor, max_auto_reply_turns=2,
         frustration_unconfirmed_proposals_threshold=99, frustration_duplicate_messages_threshold=99)
 
     now = 1_000_000
@@ -71,7 +71,7 @@ async def test_new_conversation_triage_then_ceiling_escalation_opens_ticket_and_
     assert plan.kind == "list"
     assert llm.calls == []
 
-    # ── step 3: the customer picks "booking" — normal flow opens ───────────────────────────────
+    # ── step 3: the customer picks "inquiry" — normal flow opens ───────────────────────────────
     plan = await engine.handle_triage_selection(
         tenant=TENANT, subject_ref=SUBJECT, reply_id="triage:inquiry", now=now + 10)
     assert plan.kind == "text"
@@ -96,13 +96,6 @@ async def test_new_conversation_triage_then_ceiling_escalation_opens_ticket_and_
     assert "تحويل" in escalation_plan.text or "موظف" in escalation_plan.text
     assert len(llm.calls) == 2   # the model was NOT called a third time
 
-    # ── ticket opened, carrying the tenant and a real contact number (never raw transcript) ────
-    assert len(ticket_client.opened) == 1
-    opened = ticket_client.opened[0]
-    assert opened["tenant"] == TENANT
-    assert opened["contact"] == "+966500000000"
-    assert "سؤال" not in opened["body"] or True  # body is the SUMMARY, not asserted verbatim here
-
     # ── customer notified (the ReplyPlan text IS what main.py sends via the sender adapter) ─────
     assert escalation_plan.text
 
@@ -115,16 +108,16 @@ async def test_new_conversation_triage_then_ceiling_escalation_opens_ticket_and_
     assert conv.escalated is True
     assert conv.state == "closed"
 
-    # ── a further tick does not open a SECOND ticket for the same session ──────────────────────
+    # ── a further tick is a no-op for the same closed session ──────────────────────────────────
     again = await engine.compose_reply(TENANT, SUBJECT, now=now + 900)
     assert again.kind == "none"          # not "batching" anymore — closed
-    assert len(ticket_client.opened) == 1
+    escalated_events = [e for e in sink.events if e.action == "whatsapp_assistant.escalated_to_human"]
+    assert len(escalated_events) == 1    # not recorded a second time for the same session
 
 
-async def test_complaint_triage_pick_opens_a_ticket_without_ever_calling_the_llm():
+async def test_complaint_triage_pick_stops_the_ai_without_ever_calling_the_llm():
     store = MemoryDataStore()
     llm = StubLlm()
-    ticket_client = NullTicketClient()
     sink = _AcceptingAuditSink()
     auditor = _auditor(sink)
 
@@ -134,7 +127,7 @@ async def test_complaint_triage_pick_opens_a_ticket_without_ever_calling_the_llm
         raw_window_messages=12,
         allowed_tools=frozenset({"check_availability", "propose_booking",
                                 "get_customer_points_summary", "suggest_redeemable_offer"}),
-        ticket_client=ticket_client, auditor=auditor)
+        auditor=auditor)
 
     now = 2_000_000
     await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT,
@@ -144,5 +137,7 @@ async def test_complaint_triage_pick_opens_a_ticket_without_ever_calling_the_llm
 
     assert plan.kind == "text"
     assert llm.calls == []
-    assert len(ticket_client.opened) == 1
     assert any(e.action == "whatsapp_assistant.escalated_to_human" for e in sink.events)
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.escalated is True
+    assert conv.state == "closed"

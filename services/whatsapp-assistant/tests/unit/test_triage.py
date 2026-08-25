@@ -2,7 +2,6 @@
 reaches the LLM (a stub that records every call it gets, asserted empty)."""
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.llm.stub import StubLlm
-from app.adapters.ticket_client import NullTicketClient
 from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
 from app.core.conversation import ConversationEngine
 from app.core.points import NullPointsSummary
@@ -11,7 +10,7 @@ TENANT = "t1"
 SUBJECT = "sub1"
 
 
-def _engine(store, llm=None, ticket_client=None, **overrides):
+def _engine(store, llm=None, **overrides):
     provider = ConfigDrivenAvailabilityProvider(
         store=store, cfg=BookingConfig(business_hours={}, default_duration_minutes=30,
                                        concurrency=1, max_lead_days=7,
@@ -21,8 +20,7 @@ def _engine(store, llm=None, ticket_client=None, **overrides):
                  session_timeout_seconds=2400, raw_window_messages=12,
                  allowed_tools=frozenset({"check_availability", "propose_booking",
                                          "get_customer_points_summary",
-                                         "suggest_redeemable_offer"}),
-                 ticket_client=ticket_client or NullTicketClient())
+                                         "suggest_redeemable_offer"}))
     kwargs.update(overrides)
     return ConversationEngine(**kwargs)
 
@@ -75,11 +73,15 @@ async def test_inquiry_selection_transitions_to_idle_ready_for_normal_flow():
     assert conv.state == "batching"
 
 
-async def test_complaint_opens_a_ticket_and_never_touches_the_llm_or_tool_allowlist():
+async def test_complaint_stops_the_ai_and_never_touches_the_llm_or_tool_allowlist():
+    """Escalation is NOT a ticket-service ticket (a real design error, corrected — see
+    core/conversation.py::_escalate_to_human's docstring): it is the AI stopping, on a shop
+    number provisioned in WhatsApp coexistence mode so the shop's own staff already see the same
+    thread directly. This test asserts the two things that are actually true of escalation: the
+    LLM/tool path is never touched, and the session closes."""
     store = MemoryDataStore()
     llm = StubLlm()
-    ticket_client = NullTicketClient()
-    engine = _engine(store, llm, ticket_client=ticket_client)
+    engine = _engine(store, llm)
     await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
                                      text="hi", now=1000)
     plan = await engine.handle_triage_selection(
@@ -90,9 +92,6 @@ async def test_complaint_opens_a_ticket_and_never_touches_the_llm_or_tool_allowl
     conv = await engine._get(TENANT, SUBJECT)
     assert conv.state == "closed"
     assert conv.escalated is True
-    assert len(ticket_client.opened) == 1
-    assert ticket_client.opened[0]["tenant"] == TENANT
-    assert ticket_client.opened[0]["contact"] == "+9665"
 
 
 async def test_a_stale_triage_reply_id_for_a_conversation_not_awaiting_triage_is_refused():
@@ -126,8 +125,7 @@ async def test_a_mid_conversation_request_for_a_human_escalates_without_calling_
     the first message."""
     store = MemoryDataStore()
     llm = StubLlm()
-    ticket_client = NullTicketClient()
-    engine = _engine(store, llm, ticket_client=ticket_client)
+    engine = _engine(store, llm)
     await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
                                      text="hi", now=1000)
     await engine.handle_triage_selection(
@@ -140,4 +138,3 @@ async def test_a_mid_conversation_request_for_a_human_escalates_without_calling_
     assert llm.calls == []                       # the request itself never reached the model
     conv = await engine._get(TENANT, SUBJECT)
     assert conv.escalated is True
-    assert len(ticket_client.opened) == 1

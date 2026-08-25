@@ -162,26 +162,16 @@ class Settings(BaseSettings):
     INSIGHTS_SERVICE_URL: str = ""
     INSIGHTS_ASSOCIATED_SERVICES_PATH: str = "/internal/insights/associated-services"
 
-    # ticket-service — human escalation (triage complaint/other, auto-reply ceiling, frustration
-    # heuristic, a mid-conversation request for a human). POST /internal/tickets, same
-    # X-Internal-Token peer shape as every other internal call this service makes — see
-    # app/adapters/ticket_client.py's module docstring for why this is the "grantee write" path
-    # rather than a bare internal call, and for the correction of an earlier verification error
-    # that believed no such route existed.
-    TICKET_SERVICE_URL: str = ""
-    TICKET_SERVICE_TICKETS_PATH: str = "/internal/tickets"
-    TICKET_SERVICE_SHARES_PATH: str = "/internal/tickets/shares"
-    # A stable, opaque handle for THIS service as a consented third-party writer of a tenant's
-    # tickets — ticket-service's own model (spec §13); every ticket this service opens is
-    # attributed to this grantee's own pseudonym, never the shop's raiser_ref.
-    TICKET_SERVICE_GRANTEE: str = "whatsapp-assistant"
-    # Must be a type declared in ticket-service's TICKET_TYPES_JSON with no required fields beyond
-    # what we can supply — "support" ships with `required_fields: []`.
-    TICKET_SERVICE_TICKET_TYPE: str = "support"
-    # 0 = ticket-service's own configured default TTL for a write grant. A grant that outlives the
-    # shop relationship is a stale credential; 0 defers that call entirely to the peer that owns
-    # the policy rather than this service guessing a number.
-    TICKET_SERVICE_SHARE_TTL_SECONDS: int = 0
+    # NO ticket-service INTEGRATION, DELIBERATELY. An earlier version opened a ticket-service
+    # ticket on human escalation — a real design error, corrected after checking ticket-service's
+    # actual consumer: no screen anywhere in apps/console/src wires to it, and its own phase doc
+    # (platform/docs/phases/phase-53-ticket-service.md) frames its first use as a SHOP raising a
+    # ticket TO RAJE3'S OWN SUPPORT TEAM. A ticket opened here would reach Raje3's support queue,
+    # never the salon's own receptionist. See app/core/conversation.py::_escalate_to_human's
+    # docstring for what escalation actually does instead (rely on the shop's WhatsApp number
+    # being provisioned in Meta's "coexistence" mode, confirmed in
+    # platform/services/notification-service/app/api/webhooks.py's own docstring — the shop's
+    # staff already see the same inbound messages directly in the WhatsApp Business App).
 
     PEER_TIMEOUT_SECONDS: int = 8
 

@@ -141,7 +141,6 @@ class Container:
     related_services: Any = None
     sender: Any = None
     secret_store: Any = None
-    ticket_client: Any = None
     inbound_feed: Any = None
     engine: Any = None
 
@@ -198,7 +197,6 @@ def build_container(settings: Settings) -> Container:
     # ── this service's own domain, assembled from settings ────────────────────────────────────
     from app.adapters.inbound_store.datastore_backed import build as build_inbound_store
     from app.adapters.llm import build as build_llm
-    from app.adapters.ticket_client import build as build_ticket_client
     from app.adapters.whatsapp_sender import build as build_sender
     from app.core import booking as B
     from app.core import customer_lookup as CL
@@ -223,7 +221,6 @@ def build_container(settings: Settings) -> Container:
     container.service_catalog = SC.build(settings)
     container.related_services = RS.build(settings)
     container.sender = build_sender(settings)
-    container.ticket_client = build_ticket_client(settings)
 
     from app.adapters.inbound_feed import build as build_inbound_feed
 
@@ -239,7 +236,6 @@ def build_container(settings: Settings) -> Container:
         session_timeout_seconds=settings.CONVERSATION_SESSION_TIMEOUT_SECONDS,
         raw_window_messages=settings.CONVERSATION_RAW_WINDOW_MESSAGES,
         allowed_tools=settings.llm_tool_allowlist,
-        ticket_client=container.ticket_client,
         max_auto_reply_turns=settings.CONVERSATION_MAX_AUTO_REPLY_TURNS,
         frustration_unconfirmed_proposals_threshold=settings.FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD,
         frustration_duplicate_messages_threshold=settings.FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD)

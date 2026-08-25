@@ -2,7 +2,6 @@
 personal offers), the never-fabricate-a-discount backstop, and the brand-new-customer case."""
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.llm.stub import StubLlm
-from app.adapters.ticket_client import NullTicketClient
 from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
 from app.core.context_builder import build_context_block
 from app.core.conversation import ConversationEngine, _sanitize_reply
@@ -81,7 +80,7 @@ async def test_cross_sell_tool_suggests_a_real_associated_service_without_touchi
     engine = ConversationEngine(
         store=store, llm=llm, booking_provider=_provider(store),
         points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
-        raw_window_messages=12, allowed_tools=_ALLOWED, ticket_client=NullTicketClient(),
+        raw_window_messages=12, allowed_tools=_ALLOWED,
         related_services=related, service_catalog=catalog)
     await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
                                      text="hi", now=1000)
@@ -106,7 +105,7 @@ async def test_cross_sell_tool_with_no_associated_service_says_so_plainly():
     engine = ConversationEngine(
         store=store, llm=llm, booking_provider=_provider(store),
         points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
-        raw_window_messages=12, allowed_tools=_ALLOWED, ticket_client=NullTicketClient(),
+        raw_window_messages=12, allowed_tools=_ALLOWED,
         related_services=related, service_catalog=_FakeCatalog({}))
     await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
                                      text="hi", now=1000)
@@ -163,7 +162,7 @@ async def test_a_brand_new_unregistered_customer_gets_a_normal_first_visit_conve
         store=store, llm=llm, booking_provider=_provider(store),
         points_summary=_FakePointsWithOffers(), debounce_seconds=180,
         session_timeout_seconds=2400, raw_window_messages=12, allowed_tools=_ALLOWED,
-        ticket_client=NullTicketClient(), service_catalog=catalog, customer_lookup=lookup)
+        service_catalog=catalog, customer_lookup=lookup)
 
     new_number_subject = "sub_unseen"
     plan = await engine.handle_inbound_text(
@@ -199,7 +198,7 @@ async def test_a_known_customer_in_one_tenant_is_not_treated_as_known_in_another
         store=store, llm=StubLlm(), booking_provider=_provider(store),
         points_summary=_FakePointsWithOffers(), debounce_seconds=180,
         session_timeout_seconds=2400, raw_window_messages=12, allowed_tools=_ALLOWED,
-        ticket_client=NullTicketClient(), customer_lookup=_PerTenantLookup())
+        customer_lookup=_PerTenantLookup())
 
     block_home = await engine._context_block(TENANT, SUBJECT, "+9665")
     block_other = await engine._context_block(OTHER_TENANT, SUBJECT, "+9665")

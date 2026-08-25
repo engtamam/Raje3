@@ -86,28 +86,46 @@ async def test_purge_for_subject_never_deletes_another_tenants_messages_for_the_
     assert await inbound.get("tenant-B", "wamidB1") is not None
 
 
-async def test_escalation_ticket_carries_only_its_own_tenants_summary_never_another_tenants():
-    """A human-escalation ticket must never leak another tenant's conversation content — the
-    minted service token (app/adapters/ticket_client.py) carries exactly ONE tenant claim per
-    call, and the ticket body is THIS conversation's own rolling summary, sourced from THIS
-    tenant's own datastore row, never a cross-tenant read."""
+async def test_escalation_never_leaks_one_tenants_conversation_state_into_another():
+    """Escalation is NOT a ticket-service ticket (a real design error, corrected — see
+    core/conversation.py::_escalate_to_human's docstring: a shop's own staff already see the same
+    WhatsApp thread directly via Meta coexistence, so no cross-service payload is built at all).
+    The remaining tenant-isolation surface on this path is the escalation audit record and each
+    tenant's own conversation row — this asserts neither ever mixes across tenants."""
     from app.adapters.datastore.memory import MemoryDataStore
     from app.adapters.llm.stub import StubLlm
-    from app.adapters.ticket_client import NullTicketClient
+    from app.auditable_actions import AUDITABLE_ACTIONS
+    from app.core.audit import Auditor
+    from app.core.auditable import critical_actions, declared_actions, validate
     from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
     from app.core.conversation import ConversationEngine
     from app.core.points import NullPointsSummary
+    from app.ports.audit_sink import ACCEPTED, AuditReceipt
+
+    class _Sink:
+        driver = "http"
+
+        def __init__(self):
+            self.events = []
+
+        async def emit(self, event):
+            self.events.append(event)
+            return AuditReceipt(status=ACCEPTED, seq=len(self.events), hash="deadbeef")
 
     store = MemoryDataStore()
     provider = ConfigDrivenAvailabilityProvider(
         store=store, cfg=BookingConfig(business_hours={}, default_duration_minutes=30,
                                        concurrency=1, max_lead_days=7,
                                        slot_granularity_minutes=15, service_durations={}))
-    ticket_client = NullTicketClient()
+    sink = _Sink()
+    actions = validate(AUDITABLE_ACTIONS, "whatsapp-assistant")
+    auditor = Auditor(sink=sink, service="whatsapp-assistant",
+                      critical_actions=critical_actions(actions),
+                      declared_actions=declared_actions(actions), fail_closed=True)
     engine = ConversationEngine(
         store=store, llm=StubLlm(), booking_provider=provider, points_summary=NullPointsSummary(),
         debounce_seconds=180, session_timeout_seconds=2400, raw_window_messages=12,
-        allowed_tools=frozenset({"check_availability"}), ticket_client=ticket_client)
+        allowed_tools=frozenset({"check_availability"}), auditor=auditor)
 
     # Two DIFFERENT tenants, same subject_ref (the collision this whole suite tests for elsewhere).
     for tenant, secret in (("tenant-A", "شكوى تخص المستأجر A فقط"),
@@ -120,9 +138,14 @@ async def test_escalation_ticket_carries_only_its_own_tenants_summary_never_anot
         await engine.handle_triage_selection(
             tenant=tenant, subject_ref="subX", reply_id="triage:complaint", now=1010)
 
-    assert len(ticket_client.opened) == 2
-    for ticket in ticket_client.opened:
-        # Each ticket's body carries ONLY its own tenant's secret — never the other tenant's.
-        other = "B" if ticket["tenant"] == "tenant-A" else "A"
-        assert f"المستأجر {other}" not in ticket["body"]
-        assert ticket["ref_id"].startswith(ticket["tenant"] + "|")
+    escalations = [e for e in sink.events if e.action == "whatsapp_assistant.escalated_to_human"]
+    assert len(escalations) == 2
+    for tenant in ("tenant-A", "tenant-B"):
+        recorded = next(e for e in escalations if e.tenant == tenant)
+        assert recorded.resource == f"conversation:{tenant}|subX"
+
+    # Each tenant's own conversation row kept its own secret — never overwritten by the other's.
+    conv_a = await engine._get("tenant-A", "subX")
+    conv_b = await engine._get("tenant-B", "subX")
+    assert conv_a.summary == "شكوى تخص المستأجر A فقط"
+    assert conv_b.summary == "شكوى تخص المستأجر B فقط"

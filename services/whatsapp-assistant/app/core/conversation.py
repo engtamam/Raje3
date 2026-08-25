@@ -35,8 +35,10 @@ conversation is `awaiting_triage` is NEVER forwarded to `on_inbound_text` — en
 `triage:*` list-reply id, resolved through `handle_triage_selection`, can leave that state. The
 list carries exactly TWO rows — inquiry/booking (normal engine) and complaint/suggestion (straight
 to a human) — neither label names what runs behind it. "triage:complaint" skips the
-LLM/tool-allowlist path entirely and goes straight to `_escalate_to_human` — see that method and
-app/adapters/ticket_client.py.
+LLM/tool-allowlist path entirely and goes straight to `_escalate_to_human` — see that method for
+what "escalate" actually means here (stop replying; the shop's own staff already see the same
+WhatsApp thread via Meta coexistence — not a ticket-service ticket, which would reach Raje3's own
+support queue instead of the shop).
 
 AUTO-REPLY CEILING, FRUSTRATION & DIRECT REQUEST ESCALATION: `compose_reply` checks, before every
 LLM call, whether the customer's own latest message asks for a human (`_requests_human` — pattern
@@ -236,22 +238,11 @@ class ReplyPlan:
     list_rows: list[dict[str, str]] | None = None
 
 
-class _NoTicketClient:
-    """The default when no ticket_client is wired (existing test constructors that predate this
-    feature). Fails LOUD rather than silently pretending an escalation succeeded."""
-    driver = "none"
-
-    async def open_ticket(self, **kwargs: Any) -> dict[str, Any]:
-        raise RuntimeError(
-            "ConversationEngine was asked to escalate to a human but no ticket_client was "
-            "configured — wire app.adapters.ticket_client.build(settings) in app/container.py")
-
-
 class ConversationEngine:
     def __init__(self, *, store: Any, llm: Any, booking_provider: Any, points_summary: Any,
                 debounce_seconds: int, session_timeout_seconds: int,
                 raw_window_messages: int, allowed_tools: frozenset[str],
-                proposal_ttl_seconds: int = 1800, ticket_client: Any = None, auditor: Any = None,
+                proposal_ttl_seconds: int = 1800, auditor: Any = None,
                 max_auto_reply_turns: int = 12,
                 frustration_unconfirmed_proposals_threshold: int = 2,
                 frustration_duplicate_messages_threshold: int = 3,
@@ -268,8 +259,8 @@ class ConversationEngine:
         self._customer_lookup = customer_lookup
         self._related_services = related_services
         # NOT constructor-required either, same "keep pre-existing test constructors working
-        # unmodified" reasoning as `ticket_client`/`auditor` below — a conversation whose engine
-        # was built without one simply gets the generic label from `_shop_name`.
+        # unmodified" reasoning as `auditor` below — a conversation whose engine was built
+        # without one simply gets the generic label from `_shop_name`.
         self._shop_identity = shop_identity
         # Resolved once per tenant per process, not once per turn: a shop's name changes rarely
         # (an owner renaming their shop, see operations' /shop-name route), and re-fetching it on
@@ -282,7 +273,6 @@ class ConversationEngine:
         self._raw_window = max(2, raw_window_messages)
         self._allowed_tools = allowed_tools
         self._proposal_ttl = proposal_ttl_seconds
-        self._ticket_client = ticket_client if ticket_client is not None else _NoTicketClient()
         # NOT constructor-required: app/main.py builds the Auditor AFTER build_container() (it
         # needs the container to build), so this is wired via `set_auditor` right after — see
         # app/main.py::create_app. Optional here only so pre-existing test constructors that never
@@ -434,28 +424,46 @@ class ConversationEngine:
     async def _escalate_to_human(self, conv: ConversationState, *, tenant: str, subject_ref: str,
                                  reason: str, now: int) -> ReplyPlan:
         """THE single path every escalation trigger (triage complaint/other, the auto-reply
-        ceiling, the frustration heuristic) funnels through. Opens a ticket, records the CRITICAL
-        `whatsapp_assistant.escalated_to_human` audit action (fail-closed — see app/core/audit.py;
-        an AuditUnavailable here is allowed to propagate, exactly like booking_confirmed/
-        points_redeemed in core/tools.py, rather than being swallowed into a false "you were
-        escalated"), then returns the handover text for the caller to send.
+        ceiling, the frustration heuristic, a direct mid-conversation request) funnels through.
+
+        NO TICKET IS OPENED HERE, AND NONE EVER SHOULD BE. An earlier version of this module
+        opened a ticket-service ticket on escalation — a genuine design error, corrected after
+        checking ticket-service's own actual consumer: nothing in `apps/console/src` wires any
+        screen to it (`grep -rln "ticket" apps/console/src` finds only an unrelated "operator
+        ticket" auth-proof concept in api.ts/operator.ts/Visit.tsx/WhoIsSaving.tsx — zero
+        ticket-service integration), and its own phase doc (platform/docs/phases/
+        phase-53-ticket-service.md) frames its first real use as a SHOP raising a ticket TO
+        RAJE'S OWN SUPPORT TEAM ("collecting feedback on templates"). A ticket opened here would
+        reach Raje3's support queue, never the salon's own receptionist — the opposite of what an
+        escalation needs.
+
+        THE REAL MECHANISM: this shop's WhatsApp number is provisioned in Meta's "coexistence"
+        mode — confirmed in platform/services/notification-service/app/api/webhooks.py's own
+        docstring, which explicitly fans out Meta's "coexistence history sync" webhook field
+        alongside inbound messages and receipts. Coexistence means the shop's own staff already
+        see every inbound customer message directly in the official WhatsApp Business App on the
+        SAME connected number, independent of this service. So "escalate to a human" reduces to
+        exactly what this method already does structurally: STOP replying (the session closes,
+        `on_inbound_text`'s triage gate re-arms for whatever comes next) and tell the CUSTOMER a
+        person will take over — the member of staff holding that same phone sees the message the
+        normal way WhatsApp already notifies them, with nothing further required on our side.
+
+        No proactive "a customer needs you" alert to staff exists yet anywhere in this codebase
+        (checked services/reminders and services/operations for a precedent — there is none), so
+        none is invented here; this is recorded honestly as a documented limitation, not solved by
+        fabricating an unverified mechanism. See deploy/services/whatsapp-assistant.values.yaml.
+
+        Records the CRITICAL `whatsapp_assistant.escalated_to_human` audit action (fail-closed —
+        see app/core/audit.py; an AuditUnavailable here is allowed to propagate, exactly like
+        booking_confirmed/points_redeemed in core/tools.py, rather than being swallowed into a
+        false "you were escalated"), then returns the handover text for the caller to send.
         """
         if conv.escalated:
-            # Already handed off this session — do not open a second ticket for a re-entrant tick
-            # or a stray message that slipped in before the session actually closed.
+            # Already handed off this session — nothing further to do for a re-entrant tick or a
+            # stray message that slipped in before the session actually closed.
             return ReplyPlan(kind="text", text=_HUMAN_HANDOVER_TEXT)
 
         conversation_ref = self._key(tenant, subject_ref)
-        subject_line = f"واتساب - طلب تحويل لموظف ({reason})"
-        # THE ROLLING SUMMARY, NEVER THE RAW TRANSCRIPT — same "never a second transcript" rule
-        # this module already applies to what the LLM sees (module docstring, clock 3c). A human
-        # agent reads a synopsis, not every message verbatim.
-        body = conv.summary or "لا يوجد ملخص محادثة متاح بعد — تم التحويل مبكرًا."
-        priority = "high" if reason in ("ceiling", "frustration", "human_requested") else "normal"
-
-        await self._ticket_client.open_ticket(
-            tenant=tenant, subject=subject_line, body=body, ref_id=conversation_ref,
-            contact=conv.from_number, priority=priority)
 
         if self._auditor is not None:
             await self._auditor.record(

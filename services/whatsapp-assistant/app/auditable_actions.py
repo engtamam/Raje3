@@ -56,11 +56,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "source": "internal",
         "critical": True,
         "resource": "conversation",
-        "why": "a customer was handed off to a human agent (mandatory triage complaint/other "
-               "pick, the auto-reply turn ceiling, or the frustration heuristic) and a ticket was "
-               "opened on their behalf in ticket-service. If this cannot be recorded there is no "
-               "way to prove the handoff happened or why — which matters most exactly when a "
-               "customer later says nobody ever got back to them",
+        "why": "the AI stopped replying and handed a customer off to a human (mandatory triage "
+               "complaint pick, the auto-reply turn ceiling, the frustration heuristic, or a "
+               "direct mid-conversation request) — the shop's own staff already see the same "
+               "WhatsApp thread via Meta coexistence, so nothing further is sent anywhere else. "
+               "If this cannot be recorded there is no way to prove the handoff happened or why "
+               "— which matters most exactly when a customer later says nobody ever got back to "
+               "them",
     },
     {
         "action": "whatsapp_assistant.proposal_rejected",
