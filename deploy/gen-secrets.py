@@ -52,7 +52,7 @@ SERVICES = ROOT / "services"                     # OUR OWN first-party services,
 SCHEMA = HERE / "secrets.schema.json"
 
 NS = os.environ.get("NS", os.environ.get("NAMESPACE", "base-services"))
-PG_HOST = os.environ.get("PG_HOST", "postgres:5432")
+PG_HOST = os.environ.get("PG_HOST", "pgbouncer:6432")
 PG_DB = os.environ.get("PG_DB", "base_services")
 POSTGRES_USER = os.environ.get("POSTGRES_USER", "base_services")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
