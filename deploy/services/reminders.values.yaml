@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:b908122cdef4bf43c1a091fcff794b51c4bd44152673524fb1484730228a3e4c"   # 8eac12b7, published by publish-images.sh
+  digest: "sha256:15c6d48a5257fe595247a8f95924bbbe21b5b84262342c61896a7299d07a2ca6"   # ffd3de36, published by publish-images.sh
 
 replicas: 1
 
@@ -124,6 +124,10 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
+  # Same fix as insights.values.yaml — default pool_max=5 was the real load-test ceiling (pure
+  # queueing on pool.acquire(), zero CPU), and reminders is hit directly by محلّي's dashboard and
+  # fanned into by insights' own aggregation. Within the fleet's interim shared-Postgres budget.
+  DATASTORE_POOL_MAX: "10"
   TOKEN_VERIFIER_DRIVER: "jwks"
   TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"

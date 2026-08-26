@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:064d837940de50f1bcdfdeae4f901020660c9a5c00825cb60a01de6aa03dabb1"   # 8eac12b7, published by publish-images.sh
+  digest: "sha256:69bc2e03af7c5c370e3359ca771371ee9755e1c87d2416e7e47939e29b3d858f"   # ffd3de36, published by publish-images.sh
 
 replicas: 1
 
@@ -119,6 +119,10 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
+  # Same fix as insights.values.yaml — default pool_max=5 was the real load-test ceiling (pure
+  # queueing on pool.acquire(), zero CPU), and operations is fanned into by insights' aggregation
+  # on محلّي's dashboard. Within the fleet's interim shared-Postgres budget.
+  DATASTORE_POOL_MAX: "10"
   TOKEN_VERIFIER_DRIVER: "jwks"
   TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"

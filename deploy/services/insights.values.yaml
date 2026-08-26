@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/insights
-  digest: "sha256:7f0a65edfffb7e260c8ce65176b1cac75c450480e5ef8f030f74e4b7caf59f04"   # 8eac12b7, published by publish-images.sh
+  digest: "sha256:5bfb04fe2f0e7ef205dfdf679218647f8b02660abad92167008c7c3e9b4d78b3"   # ffd3de36, published by publish-images.sh
 
 replicas: 1
 
@@ -92,6 +92,13 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
+  # DEFAULT pool_max=5 (postgres.py) made the real load-test ceiling: at concurrency=44, requests
+  # sat in `await pool.acquire()` — zero CPU, pure queueing — while insights' own dashboard fans
+  # out to operations/reminders/billing/loyalty/tenant-service, compounding the wait per hop.
+  # Bumped within the fleet's interim shared-Postgres budget (base-services-dc, confirmed sum of
+  # raised pools across all services must stay under ~90 against the shared 100-connection/1Gi
+  # ceiling) — this is one of the few services محلّي's dashboard actually calls, so it gets a slice.
+  DATASTORE_POOL_MAX: "10"
   TOKEN_VERIFIER_DRIVER: "jwks"
   TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
