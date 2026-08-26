@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/affiliate-service
-  digest: "sha256:6be82edc8e5ec6014bbc7f2b734c42d263d305a1634da6ad16ac12751c9132cb"   # 3392638, published by publish-images.sh
+  digest: "sha256:882beb58c38e0252f6e7b8ff76d7cd9d039b27cdf95284d1c1b816b5380edf16"   # dcad9504, published by publish-images.sh
 
 replicas: 1
 
@@ -120,6 +120,11 @@ cronJobs:
   - name: leads-tick
     schedule: "* * * * *"
     path: /internal/leads/tick
+    # THE ANCHOR OF THE STAGGER — this one keeps jitterSeconds: 0 (unchanged behaviour); the
+    # other every-minute/every-few-minutes jobs across the fleet (reminders' scheduler-tick,
+    # notification-service's notify-drain, wallet-service's sweep-holds) are offset from it —
+    # see cronjob.yaml's own comment for the timestamped incident that motivated this.
+    jitterSeconds: 0
   # §١٣'s auto-escalation — no response within
   # AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's
   # own open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h

@@ -146,6 +146,9 @@ cronJobs:
   - name: sweep-holds
     schedule: "*/2 * * * *"
     path: /internal/wallet/sweep-holds
+    # Every-2-minutes still lands on the same :00 tick as the every-minute jobs above half the
+    # time — staggered for the same reason, see cronjob.yaml's own comment on the real incident.
+    jitterSeconds: 45
   - name: sweep-grants
     schedule: "41 3 * * *"
     path: /internal/wallet/sweep-grants

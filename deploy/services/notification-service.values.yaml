@@ -231,6 +231,10 @@ cronJobs:
   - name: notify-drain
     schedule: "* * * * *"
     path: /internal/notifications/drain
+    # Staggered off affiliate-service's leads-tick (jitterSeconds: 0) — both fire every minute by
+    # design, and a live incident timestamped their simultaneous pod creation as the trigger for
+    # a real api-gateway crash-loop. See cronjob.yaml's own comment.
+    jitterSeconds: 30
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door
