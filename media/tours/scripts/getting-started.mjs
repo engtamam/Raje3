@@ -21,6 +21,11 @@ export default {
   section: 'فتح حساب',
   skipAutoSignIn: true,
   sfx: true,
+  // WITHOUT THIS the very first `goto` runs inside the capture loop itself — confirmed live,
+  // reproducibly, twice in a row: frame 0 never got written before the backfill loop tried to
+  // copy it forward, crashing with a real ENOENT rather than just a blank frame. Same fix every
+  // other script in this project already needed for this exact class of bug.
+  preload: true,
   steps: [
     {
       goto: '/',
@@ -113,7 +118,10 @@ export default {
     // rest of the console gets its own tours, one screen at a time, once each is studied deeply.
     {
       click: 'role=button:فتح القائمة',
-      say: 'وباقي محلك — زيارتك وعملاؤك ورسائلك، كل شي جاهز ينتظرك',
+      say: 'وباقي محلك — زيارتك وعملاؤك ورسائلك',
+    },
+    {
+      say: 'كله جاهز ينتظرك',
     },
   ],
 };
