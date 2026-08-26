@@ -35,17 +35,26 @@ drivers:
 
 resources:
   requests:
-    # MEASURED, NOT GUESSED. `kubectl top` on the live node put every one of our services at
-    # 2m at rest (backup-service at 4m), against declarations of 100-200m written when the
-    # values files were generated and never checked. The sum of those declarations was 3220m
-    # on a 4000m box, which is why a rollout could not place its new pod: the node was full of
-    # reservations while the cpu itself sat at 9%.
+    # MEASURED, NOT GUESSED — but measured at REST, which is the mistake this correction fixes.
+    # `kubectl top` on the live node put every one of our services at 2m at rest (backup-service
+    # at 4m), against declarations of 100-200m written when the values files were generated and
+    # never checked. The sum of those declarations was 3220m on a 4000m box, which is why a
+    # rollout could not place its new pod: the node was full of reservations while the cpu itself
+    # sat at 9%. That measurement was taken on a 4-vCPU box; this one runs on 2.
     #
     # A REQUEST IS A FLOOR AND A WEIGHT, NEVER A CEILING. There is no cpu limit anywhere in
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    #
+    # RAISED FROM 20m TO 100m — root-caused live: this service (single-worker uvicorn, one
+    # asyncio event loop shared by real traffic AND the /healthz probe) crash-looped repeatedly
+    # under real concurrent load, every time on a failed liveness probe ("context deadline
+    # exceeded"), while its own cgroup showed healthy memory/pids/zero CFS throttling at the
+    # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
+    # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
+    # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
+    cpu: 100m
     memory: 192Mi
   limits:
     memory: 384Mi
