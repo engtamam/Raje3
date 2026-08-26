@@ -161,7 +161,7 @@ export default {
     },
     {
       click: 'text=رصيده',
-      say: 'وتحت العرض مباشرة — رصيد نقاطها، تشوف قربها من مكافأتها',
+      say: 'وتحت العرض — رصيد نقاطها، تشوف قربها من مكافأتها',
     },
     {
       // UNRESOLVED, REAL, FLAGGED SEPARATELY: BOTH rewards below «رصيده» (the plain «قهوة

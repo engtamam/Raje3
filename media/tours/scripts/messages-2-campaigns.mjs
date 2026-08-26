@@ -1,0 +1,201 @@
+/**
+ * «رسائلي» — MERGED 2 OF 2: «حملاتي» in full. Was three separate clips
+ * (messages-3-campaigns, messages-4-campaign-anatomy, messages-5-campaign-strategy — each its
+ * own recording/verification pass); merged into one continuous journey per the same decision
+ * already made for تسجيل الزيارة and خدماتي ومنتجاتي: what «حملاتي» is → all eight real goals and
+ * each one's actual audience → the four questions worth asking before you ever press launch —
+ * one story, not three disconnected beats. The three original files are deleted; every real fact
+ * and selector below is carried over from them unchanged, only the voice and the connective
+ * tissue between beats are new.
+ *
+ * Read Messages.tsx, Launch.tsx and campaigns-service's core/audience.py directly before writing
+ * a single selector — this project's own standing rule.
+ *
+ * A REAL, LIVE CONSTRAINT THIS SCRIPT IS BUILT AROUND, CONFIRMED NOT ASSUMED: a direct read of
+ * `campaigns.goals` on this demo tenant, right before writing this file, showed all EIGHT goals
+ * with `available: false` — "قوالب … ما زالت قيد مراجعة واتساب — سترسل تلقائياً عند اعتمادها."
+ * Every goal card is genuinely disabled right now (Launch.tsx: `disabled={g.available === false}`),
+ * so no real launch can be performed or verified today. That is not a demo-account defect to work
+ * around — it is the EXACT state a real shop sees in its first days on the platform, before Meta
+ * has approved its message templates, and it is worth teaching honestly rather than faked. NOTHING
+ * HERE EVER CLICKS A LOCKED CARD OR PRESSES A REAL LAUNCH — every goal walkthrough below uses
+ * `hover`, never `click`, on the goal cards themselves.
+ *
+ * THE EIGHT GOALS (not six — `seasonal_care` and `safety` are real, current goals; a real gap this
+ * project's own earlier pass fixed in Messages.tsx's GOAL_TITLE map, in its own commit).
+ *
+ * WHY THE AUDIENCE RULES ARE SAID IN WORDS, NOT DEMONSTRATED WITH A LIVE PREVIEW: `ask()` (the
+ * "اعرض ما سيصل" button) only ever renders once a goal is `picked`, and every card is disabled —
+ * Playwright cannot click through that any more than a real finger could. Saying what audience.py
+ * actually computes, sourced from that file rather than guessed from the card's summary line, is
+ * the honest way to teach it without pretending a locked card is not locked.
+ */
+export default {
+  id: 'messages-2-campaigns',
+  title: 'حملاتي — ثمانية أهداف تسويقية جاهزة، تختار متى تُطلقها',
+  section: 'رسائلي',
+  useDemoSession: true,
+  sfx: true, // real clicks (tabs, launch button) — earns a click sound
+  preload: true,
+  steps: [
+    {
+      goto: '/messages',
+      chapter: 'حملاتي — أنت من يقرر',
+      say: 'وأخيرًا — «حملاتي»، القسم الوحيد اللي أنت من يطلقه بنفسك',
+    },
+    {
+      click: 'role=radio:حملاتي',
+      say: 'اضغط تبويب «حملاتي»',
+    },
+    {
+      say: 'هذي وحدها ما ترسل إلا لما تضغط أنت شخصياً',
+    },
+    {
+      click: 'role=button:أطلق حملة',
+      say: 'اضغط «أطلق حملة» — ثمانية أهداف تسويقية جاهزة بانتظارك',
+    },
+    {
+      chapter: 'الأهداف الستة الأساسية',
+      hover: 'role=button:رجّع اللي غابوا',
+      say: '«رجّع اللي غابوا»: يشتغل وحده، مو بعد عدد ثابت من الأيام',
+    },
+    {
+      hover: 'role=button:رجّع اللي غابوا',
+      say: 'بل بعد ضعف ونص دورة العميل نفسه — منطق مخصص لكل عميل',
+    },
+    {
+      hover: 'role=button:رجّع اللي غابوا',
+      say: 'كل عميل بدورته هو — لا دورة واحدة تُفرض على الكل',
+    },
+    {
+      hover: 'role=button:رجّع اللي غابوا',
+      say: 'اللي يجيك كل أسبوع يُعتبر غايباً أسرع من غيره تلقائياً',
+    },
+    {
+      hover: 'role=button:كافئ المخلصين',
+      say: '«كافئ المخلصين»: يستهدف أكثرهم زيارة خلال فترة معيّنة',
+    },
+    {
+      hover: 'role=button:كافئ المخلصين',
+      say: 'مو الأقدم عندك من حيث التاريخ — الأنشط زيارة فعلياً',
+    },
+    {
+      hover: 'role=button:أعلن جديدك',
+      say: '«أعلن جديدك»: يوصل كل من وافق على التواصل التسويقي',
+    },
+    {
+      hover: 'role=button:أعلن جديدك',
+      say: 'على مستوى محلك كله — لا فرع واحد فقط',
+    },
+    {
+      hover: 'role=button:أعلن جديدك',
+      say: 'إلا لو اخترت فرعاً معيناً بنفسك عند الإطلاق',
+    },
+    {
+      hover: 'role=button:هنّئ في مناسبة',
+      say: '«هنّئ في مناسبة»: أنت تحدد اليوم بنفسك — تخرج صباحه',
+    },
+    {
+      hover: 'role=button:وعِّ عملاءك',
+      say: '«وعِّ عملاءك»: نصيحة ذكية تخص فقط من أخذوا هذي الخدمة',
+    },
+    {
+      hover: 'role=button:وعِّ عملاءك',
+      say: 'تصله مرة وحدة، ثم تُقفَل تلقائياً شهراً كاملاً',
+    },
+    {
+      chapter: 'وهدفان إضافيان لكل احتياج',
+      hover: 'role=button:نصيحة موسمية',
+      say: 'و«نصيحة موسمية» و«نبّه عن خطر» — نفس الذكاء بتوقيت مختلف',
+    },
+    {
+      say: 'لمناسبة الموسم، أو لاستدعاء عيب حقيقي بخدمة',
+    },
+    {
+      hover: 'role=button:عرض على خدمة',
+      say: '«عرض على خدمة»: يوصل فقط لمن قارب موعد هذي الخدمة',
+    },
+    {
+      hover: 'role=button:عرض على خدمة',
+      say: 'ومن أخذها قريباً يُستثنى تلقائياً من العرض — دقة كاملة',
+    },
+    {
+      say: 'كل بطاقة اليوم مقفلة مؤقتاً لأن قوالبها عند واتساب للمراجعة',
+    },
+    {
+      say: 'تفتح وحدها تلقائياً بلا أي إجراء منك — أول ما تُعتمد',
+    },
+    {
+      chapter: 'قبل ما تطلق — أربع أسئلة تجاوبها',
+      hover: 'role=button:رجّع اللي غابوا',
+      say: 'وقبل أي إطلاق، المنصّة تعلّمك تفكّر بذكاء بأربع أسئلة',
+    },
+    {
+      say: 'أول سؤال: ليش تطلقها الحين؟ اختر الهدف المناسب لا المناسبة',
+    },
+    {
+      hover: 'role=button:أعلن جديدك',
+      say: '«أعلن جديدك» وحده يوصل الكل بلا أي شرط',
+    },
+    {
+      say: 'خصصه لخبر حقيقي يهم الجميع — عرض أسبوعي عادي فيه يحرقه',
+    },
+    {
+      say: 'تصير كل رسالة عادية «إعلان»، وتفقد قيمته الحقيقية',
+    },
+    {
+      hover: 'role=button:عرض على خدمة',
+      say: 'عرضك على خدمة وحدة؟ استخدم «عرض على خدمة» تحديداً',
+    },
+    {
+      hover: 'role=button:هنّئ في مناسبة',
+      say: 'مناسبة بتاريخ معروف؟ «هنّئ في مناسبة» يحدد يومها ويخرج صباحه',
+    },
+    {
+      chapter: 'الجمهور — قرار المنصّة، لا قرارك',
+      say: 'ثاني سؤال: مين يوصله؟ وهذا يقرره الهدف نفسه، لا أنت',
+    },
+    {
+      say: 'كل هدف عنده شرطه الذكي — بعضهم يستثني من أخذها قريباً تلقائياً',
+    },
+    {
+      say: 'وكل حملة تبدأ على مستوى محلك كله، بكل فروعه',
+    },
+    {
+      say: 'فرع واحد فقط، لو اخترته أنت بنفسك عند الإطلاق',
+    },
+    {
+      // NOT A CLICK. Every goal on this tenant is still template-locked (`available: false`),
+      // so a click here just times out on a disabled button — hover marks the card safely.
+      chapter: 'رسالة جيدة مقابل رسالة ضعيفة',
+      hover: 'role=button:أعلن جديدك',
+      say: 'ثالث سؤال: شو تكتب؟ سطرك الحر محدود بستين حرفاً بدقة',
+    },
+    {
+      say: 'ضعيفة: «عروض حلوة عندنا، زورونا» — بلا فعل ولا سبب واضح',
+    },
+    {
+      say: 'جيدة: «افتتحنا فرعاً بحي الياسمين» — خبر محدد، فعل واحد',
+    },
+    {
+      say: 'والخصم والتاريخ رقم وتاريخ منفصلان، تتحقق منهما المنصّة قبل الإرسال',
+    },
+    {
+      chapter: 'التوقيت والسقف — حماية تلقائية لسمعتك',
+      click: 'role=radio:متى نرسل',
+      say: 'رابع سؤال: أي وقت؟ نرجع لـ«متى نرسل» نتأكد',
+    },
+    {
+      say: 'رسائلك التسويقية تحترم نافذة هدوء الليل تلقائياً',
+    },
+    {
+      say: 'من عشرة مساءً لسبعة صباحاً — ما ترسل رسالة تسويقية مهما ضغطت',
+    },
+    {
+      say: 'وسقف واتساب اليومي يشاركه كل شي يرسله محلك — الحملة وغيرها، سقف واحد للكل',
+    },
+    {
+      say: 'اسأل نفسك هذي الأربعة، وحملتك التسويقية توصل بدقة وذكاء',
+    },
+  ],
+};
