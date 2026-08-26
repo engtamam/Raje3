@@ -1,95 +1,134 @@
 /**
- * «خدماتي ومنتجاتي» — PART 1 OF 2: a full, teaching-depth walk of the screen itself. Read
+ * «خدماتي ومنتجاتي» — ONE complete journey, door to save. Read
  * apps/console/src/screens/Services.tsx (1500+ lines) and apps/console/src/ServiceGrid.tsx before
- * writing a single selector here — this project's own standing rule.
+ * writing a single selector here — this project's own standing rule. Used to be split into two
+ * clips (part 1: understand the screen; part 2: real add/edit/edge-cases) — merged into one on
+ * Tamam's own call, matching the same decision already made for «تسجيل زيارة»: one continuous
+ * story reads better than two clips that re-open the same form from scratch. Captions written to
+ * flow as one narrative, each line picking up from the one before it, in a capability-marketing
+ * voice — the value the platform gives an owner, not a dry click-by-click walkthrough.
+ *
+ * THE ESSENTIAL PREREQUISITE, NAMED UP FRONT. This screen is real setup, not an optional extra:
+ * no service exists here yet, «تسجيل زيارة» has nothing to offer and «الحجوزات» has nothing to
+ * schedule — a duration-less item cannot even be booked (ServiceGrid.tsx's own logic, demonstrated
+ * live at the end of this clip). Every other tour in this project assumes this screen was already
+ * set up; this is the one that actually does it.
  *
  * THERE IS NO SEPARATE "PRODUCT" TYPE. Checked in Services.tsx: `Service` carries `name`,
  * `cycle_days`, `price_minor`, `duration_minutes`, `catchall`, `active`, `eligible_staff_ids` — one
  * shape for everything sold, whether it is a haircut (a service you perform) or a jar of cream (a
  * product you hand over). The add button itself says «إضافة خدمة أو منتج», not two buttons, and the
- * add form asks nothing that only makes sense for one kind and not the other. This clip narrates
- * that honestly rather than inventing a distinction the code does not have.
+ * add form asks nothing that only makes sense for one kind and not the other.
  *
  * TWO STORES BEHIND ONE ROW — the screen's own top comment, and worth repeating on camera: name,
  * price and duration live in operations (the Service row itself); cycle, follow-up and points live
  * in three OTHER services (reminders' settings tree, reminders again, and loyalty) reached through
  * the same row. `settingFor()`/`earnFor()` each resolve THREE levels — service, then its group,
  * then the shop's general default — which is exactly what the pale-vs-dark number in every cell
- * means, and what chapter 4 below stops to explain rather than gloss over.
+ * means.
  *
- * LANDSCAPE ON PURPOSE. At 1920×1080 every `md:table-cell` column renders directly — duration,
- * price, cycle, follow-up, points and group all visible in one row at once — which is the one shape
- * that lets a viewer actually see "six columns, one service" instead of a phone's collapsed three
- * plus a hidden edit drawer. `goto: '/services'` as the very first step is a full reload, which is
- * fine here: this clip's opening beat IS the screen arriving, not a mid-app navigation to hide.
+ * LANDSCAPE ON PURPOSE, AS TAMAM ASKED — same as every recording of this screen. At 1920×1080
+ * every `md:table-cell` column renders directly — duration, price, cycle, follow-up, points and
+ * group all visible in one row at once — the one shape that lets a viewer actually see "six
+ * columns, one service" instead of a phone's collapsed three plus a hidden edit drawer.
+ *
+ * THE TWO ERROR MESSAGES SHOWN LATER ARE BOTH REAL, VERIFIED LIVE, NOT ASSUMED.
+ *   · An out-of-range duration (>720, the input's own `max`) is caught by the browser's NATIVE
+ *     number-input validation before the form's `onSubmit` ever runs — Chromium's own bubble, not
+ *     an app sentence.
+ *   · An invalid price ("12.345", three decimals — `money.ts`'s own `halalas()` refuses a third
+ *     decimal place by regex) DID fail silently until this very tour's own earlier investigation
+ *     caught it: `halalas()` returning null fell into the exact same branch as an empty box, so a
+ *     garbage price was dropped with no write and no word said. Fixed in Services.tsx (a real
+ *     commit landed for this) to `setError('السعر غير صحيح — رقم بخانتين عشريتين على الأكثر.')` —
+ *     the sentence this clip shows is the fix, exercised for real.
+ *
+ * ZERO PRICE IS NOT AN ERROR — it is a real, valid instruction (`halalas('0') === 0`) and the form
+ * accepts it silently; `svc.price_minor ? riyals(...) : '—'` then shows it identically to "no price
+ * entered" in the table, by design (falsy check) — worth knowing rather than assuming a zero price
+ * announces itself.
  *
  * THE DEMO SHOP'S REAL CATALOGUE — seed-demo-account.mjs's `ensureServices`, grouped under
  * «الشعر»/«الأظافر»/«العناية بالبشرة»/«المكياج» with real riyal prices and real durations, plus
- * whatever stop-service.mjs's own recordings left behind (a «قص شعر» service, retired and
- * reactivated at least once). Nothing here is invented data — every number named in a caption is
- * read straight off what is actually on screen when this runs.
+ * whatever earlier recordings of this screen left behind. Nothing here is invented data.
  */
+const NEW_SERVICE = 'تصفيف مناسبات';
+const DURATIONLESS_ITEM = 'شامبو علاجي 250مل';
+const ZERO_PRICE_ITEM = 'غسيل أيدٍ سريع';
+
 export default {
   id: 'services-1-overview',
-  title: 'خدماتي ومنتجاتي ١ — فهم الشاشة كاملة',
+  title: 'خدماتي ومنتجاتي — الإعداد الأساسي قبل أي زيارة أو حجز',
   section: 'خدماتي ومنتجاتي',
   useDemoSession: true,
   orientation: 'landscape',
   preload: true,
-  secondsCap: 300,
+  secondsCap: 600,
   steps: [
-    // ── الوصول والجدول ──────────────────────────────────────────────────────────────────────
+    // ── الوصول والمفهوم ───────────────────────────────────────────────────────────────────────
     {
       goto: '/services',
       chapter: 'خدماتي ومنتجاتي',
-      say: 'هذي شاشة كل ما تبيعه — خدمة تسويها بنفسك أو منتج تسلّمه، بلا فرق بينهما هنا',
+      say: 'قبل أي زيارة، وقبل أي حجز — لازم تحضّر هذي الشاشة أول',
     },
     { waitFor: 'role=button:إضافة خدمة أو منتج', timeoutMs: 30_000 },
     {
-      say: 'صفٌّ لكل خدمة، وستة أعمدة تقارن بينها كلها دفعة وحدة',
+      say: 'هنا كل ما تبيعه — خدمة تسويها بنفسك، أو منتج تسلّمه',
+    },
+    {
+      say: 'بلا فرق بينهما بالمنصّة — نفس الشاشة، نفس السهولة',
+    },
+    {
+      say: 'صفٌّ لكل خدمة، وستة أعمدة تقارنها كلها دفعة وحدة',
     },
     {
       // NO SEPARATE CHAPTER MARKER HERE — this lands ~9s after the opening chapter, under
       // YouTube's own 10s minimum spacing between chapters (verified live: a first take produced
       // exactly this warning and YouTube drops the WHOLE list rather than just the close pair).
       click: 'role=button:شرح الأعمدة',
-      say: 'زر «شرح الأعمدة» يفتح جملة لكل عمود — تُقرأ مرة وتكفي',
+      say: 'ما تعرف عمود؟ زر «شرح الأعمدة» يشرحها لك كلها',
     },
     {
-      say: 'الدورة والاطمئنان والنقاط، كل واحد بجملته الخاصة تحت الجدول',
+      say: 'الدورة والاطمئنان والنقاط — كل واحد بجملته الخاصة',
     },
     { click: 'role=button:إخفاء الشرح' },
     // ── المدة والسعر ─────────────────────────────────────────────────────────────────────────
     {
-      say: 'المدة بالدقائق — الحجوزات تحتاجها فعلياً لحساب فتحات الوقت؛ بلا مدة لا يمكن حجز الخدمة',
+      say: 'المدة بالدقائق — كم يقعد الموظف يقدّم الخدمة فعلياً',
     },
     {
-      say: 'والسعر بالريال، واختياري تماماً — خانة فاضية لا تعني صفراً، تعني أنك لا تسعّر من هنا',
+      say: 'بلا مدة، ما تقدر تحجز هذي الخدمة أبداً',
+    },
+    {
+      say: 'والسعر بالريال، اختياري تماماً — خانة فاضية ما تعني صفراً',
     },
     // ── الإعداد العام والوراثة ───────────────────────────────────────────────────────────────
     {
       click: 'css=details > summary:has-text("الإعداد العام")',
       chapter: 'الإعداد العام والوراثة',
-      say: 'الإعداد العام رقمان يسريان على كل خدمة لم تُخصَّص بنفسها',
+      say: 'وهذي ميزة توفّر وقتك — الإعداد العام',
     },
     {
-      say: 'دورة التذكير العامة، والاطمئنان العام — غيّرهما هنا يغيّر كل خدمة تابعة، وما خصّصته يبقى كما هو',
+      say: 'رقمان يسريان على كل خدمة لم تخصّصها بنفسك',
+    },
+    {
+      say: 'غيّرهما هنا، يتغيّر كل شي تابع — دفعة وحدة',
     },
     { click: 'css=details > summary:has-text("الإعداد العام")' },
     {
-      say: 'وفي الجدول، الرقم الباهت يعني أن الخدمة تتبع الإعداد العام — والغامق يعني أنها مخصَّصة بنفسها',
+      say: 'وبالجدول: الرقم الباهت يتبع العام، والغامق مخصَّص بنفسه',
     },
     // ── تعديل صف واحد، ورؤية الوراثة تتجمّد ─────────────────────────────────────────────────
     {
       click: 'css=tr:has-text("قص شعر") button[title="تعديل"] >> nth=0',
       chapter: 'تعديل صف واحد',
-      say: 'اضغط قلم التعديل على أي خدمة — تفتح كل أعمدتها للتحرير المباشر داخل الصف',
+      say: 'وتقدر تخصّص خدمة وحدها بضغطة القلم —',
     },
     {
       type: 'label=دورة قص شعر',
       text: '45',
       replace: true,
-      say: 'اكتب رقماً جديداً لدورة هذه الخدمة وحدها — الآن صارت مخصَّصة، لا تتبع العام',
+      say: 'رقم جديد لهذي الخدمة بس، وصارت مستقلة عن العام',
     },
     {
       // GLOBAL, NOT TR-SCOPED — `open` (Services.tsx's own state) holds at most one service id at
@@ -97,17 +136,17 @@ export default {
       // the row's own text was needless here and, worse, the `tr:has-text(...)` chain resolved to
       // a stale/invisible match once the row's own layout shifted after typing — verified live.
       click: 'css=button[title="إنهاء التعديل"]',
-      say: 'واضغط ✓ لإنهاء التعديل — كل تغيير يُحفظ فور الخروج من الخانة، بلا زر حفظ منفصل',
+      say: 'زر ✓ يحفظ فوراً — بلا زر حفظ منفصل، بلا انتظار',
     },
     {
       click: 'css=button[title="العودة إلى الإعداد العام"]',
-      say: 'وزر العودة ↺ يظهر فقط على الخانات المخصَّصة — اضغطه فترجع الخدمة لتتبع الإعداد العام من جديد',
+      say: 'وتقدر ترجعها للإعداد العام أي وقت بضغطة الرجوع ↺',
     },
     // ── الإضافة: النموذج الكامل ──────────────────────────────────────────────────────────────
     {
       click: 'role=button:إضافة خدمة أو منتج',
       chapter: 'إضافة خدمة أو منتج جديدة',
-      say: 'زر واحد للاثنين — الاسم وحده كافٍ، وكل حقل تحته اختياري وله معنى واضح',
+      say: 'زر واحد للاثنين — والاسم وحده كافٍ عشان تبدأ',
     },
     {
       click: 'label=الاسم',
@@ -115,48 +154,207 @@ export default {
     },
     {
       click: 'css=input[name="cycle_days"]',
-      say: 'دورة التذكير: كل كم يوماً يحتاج العميل هذه الخدمة؟ اتركها صفراً إن كانت لمرة واحدة فقط',
+      say: 'دورة التذكير: كل كم يوم يحتاجها العميل؟ اتركها صفراً لمرة وحدة',
     },
     {
       click: 'css=input[name="duration_minutes"]',
-      say: 'المدة بالدقائق — مقترحة ١٥ دقيقة افتراضياً، وحدّها الأقصى ٧٢٠ دقيقة أي ١٢ ساعة',
+      say: 'المدة بالدقائق — افتراضياً ١٥، وحدّها الأقصى ١٢ ساعة',
     },
     {
       click: 'css=input[name="price"]',
-      say: 'السعر بالريال، نص وليس رقماً — يقبل الفاصلة العشرية بخانتين فقط',
+      say: 'والسعر بالريال — يقبل خانتين عشريتين بس',
     },
     {
       click: 'css=input[name="follow_up_days"]',
-      say: 'الاطمئنان: رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام، وتُلغى تلقائياً إن عاد قبل موعدها',
+      say: 'الاطمئنان: رسالة تسأله بعد الزيارة إن كل شي تمام',
+    },
+    {
+      say: 'وتُلغى تلقائياً إن رجع قبل موعدها — بلا إزعاج',
     },
     {
       click: 'css=input[name="points"]',
-      say: 'نقاطها من ولائك — فاضية تعني أنها تتبع نقاط الإعداد العام تلقائياً',
+      say: 'ونقاطها من ولائك — فاضية تعني تتبع الإعداد العام',
     },
     {
-      say: 'والمجموعة اختيارية — تجمع خدمات متشابهة تحت إعداد دورة واحد، تغيّره مرة يكفي عن الكل',
+      say: 'والمجموعة تجمع خدمات متشابهة، تغيّر دورتها كلها مرة وحدة',
     },
     { click: 'role=button:إلغاء' },
     // ── من يقدر يسوّيها ──────────────────────────────────────────────────────────────────────
     {
-      say: 'ولو عندك أكثر من موظف نشط، كل خدمة تفتح صفَّ «من يقدر يسوّيها» عند التعديل',
+      say: 'وعندك أكثر من موظف؟ كل خدمة تحدد «من يقدر يسوّيها»',
     },
     {
-      say: 'قائمة الموظفين المؤهَّلين لأداء هذه الخدمة بالذات',
+      say: 'قائمة الموظفين المؤهَّلين لهذي الخدمة بالذات',
     },
     // ── الإيقاف بدل الحذف ────────────────────────────────────────────────────────────────────
     {
-      say: 'لاحظ: لا يوجد زر حذف على أي خدمة — كل زيارة سُجِّلت تشير إلى خدمتها، وحذفها يكسر ذلك السجل',
+      say: 'ولاحظ: ما فيه زر حذف على أي خدمة إطلاقاً',
     },
     {
-      say: 'البديل هو زر الإيقاف — يوقف الخدمة عن الظهور في تسجيل الزيارة ويسكت تذكيراتها',
+      say: 'كل زيارة سُجِّلت مرتبطة بخدمتها — حذفها يكسر تاريخك',
     },
     {
-      say: 'وتاريخها يبقى كاملاً، بلا أي فقدان',
+      say: 'البديل: زر الإيقاف — يختفي من تسجيل الزيارة، وتسكت تذكيراته',
     },
     {
-      chapter: 'خلاصة الشاشة',
-      say: 'بهذا خلصنا فهم شاشة «خدماتي ومنتجاتي» كاملة — الأعمدة، الوراثة، الإضافة، والإيقاف بدل الحذف',
+      say: 'وتاريخه يبقى كامل، بلا أي فقدان',
+    },
+    // ── إضافة خدمة حقيقية بسعر ومدة حقيقيين ─────────────────────────────────────────────────
+    {
+      click: 'role=button:إضافة خدمة أو منتج',
+      chapter: 'إضافة خدمة بسعر ومدة حقيقيين',
+      say: 'خلّنا نطبّق كل هذا بمثال حقيقي — خدمة جديدة فعلاً',
+    },
+    { type: 'label=الاسم', text: NEW_SERVICE, say: `اسمها «${NEW_SERVICE}»` },
+    {
+      type: 'css=input[name="duration_minutes"]', text: '50', replace: true,
+      say: 'مدتها ٥٠ دقيقة — رقم حقيقي تستخدمه الحجوزات فعلياً',
+    },
+    {
+      type: 'css=input[name="price"]', text: '120', replace: true,
+      say: 'وسعرها ١٢٠ ريالاً',
+    },
+    {
+      // NO CHAPTER MARKER HERE — this and the next marker landed 6.4s apart on a real take,
+      // under YouTube's own 10s minimum spacing.
+      click: 'role=button:إضافة',
+      say: 'ضغطة «إضافة»، وتظهر فوراً بالجدول بمدتها وسعرها الحقيقيين',
+    },
+    { waitFor: `css=tr:has-text("${NEW_SERVICE}")` },
+    // ── التعديل ──────────────────────────────────────────────────────────────────────────────
+    {
+      click: `css=tr:has-text("${NEW_SERVICE}") button[title="تعديل"] >> nth=0`,
+      chapter: 'تعديل السعر والمدة',
+      say: 'الأسعار تتغيّر؟ عادي — نفتح تعديل نفس الخدمة',
+    },
+    {
+      type: `label=سعر ${NEW_SERVICE}`, text: '150', replace: true,
+      say: 'أعدّل السعر مباشرة بالجدول — بلا فتح نموذج منفصل',
+    },
+    {
+      click: 'css=button[title="إنهاء التعديل"]',
+      say: 'ويُحفظ فور الخروج من الخانة',
+    },
+    // ── الإيقاف والتفعيل ─────────────────────────────────────────────────────────────────────
+    {
+      click: `css=tr:has-text("${NEW_SERVICE}") button[title^="إيقاف"] >> nth=0`,
+      chapter: 'إيقاف الخدمة، لا حذفها',
+      say: 'وهذي الميزة اللي وعدناك فيها — أوقفها، لا تحذفها',
+    },
+    {
+      click: 'role=radio:الموقوفة',
+      say: 'تنتقل لتبويب «الموقوفة» — بلا زر حذف بكل هذي الشاشة',
+    },
+    {
+      click: `css=tr:has-text("${NEW_SERVICE}") button[title="تفعيل"] >> nth=0`,
+      say: 'وزر «تفعيل» يرجعها فوراً، بنفس سعرها ومدتها بالضبط',
+    },
+    {
+      // NO CLICK BACK TO «المفعّلة» HERE — verified live: this service was the only stopped one
+      // on the demo account at the time, so reactivating it emptied «الموقوفة» entirely and
+      // Services.tsx's own view auto-corrects to 'active' the instant that count hits zero — the
+      // tab switcher itself disappears (it only renders while `stoppedCount > 0`), so there is no
+      // «المفعّلة» control left to click. The screen already shows the active list on its own.
+      say: 'ولمّا صارت آخر خدمة موقوفة، اختفى تبويب «الموقوفة» تلقائياً',
+    },
+    {
+      say: 'ورجعت الشاشة للقائمة المفعّلة وحدها — ذكاء بلا أي ضغطة إضافية',
+    },
+    // ── حالة حافة ١: مدة غير صالحة ───────────────────────────────────────────────────────────
+    {
+      click: 'role=button:إضافة خدمة أو منتج',
+      chapter: 'حالة حافة — مدة غير صالحة',
+      say: 'وايش لو أخطأت؟ المنصّة تحميك — جرّب مدة أكبر من المسموح',
+    },
+    { type: 'label=الاسم', text: 'محاولة مدة خاطئة' },
+    {
+      type: 'css=input[name="duration_minutes"]', text: '900', replace: true,
+      say: '٩٠٠ دقيقة — أكبر من حدّها ٧٢٠',
+    },
+    {
+      click: 'role=button:إضافة',
+      say: 'المتصفح نفسه يرفض الإرسال، ويعرض تنبيهه مباشرة',
+    },
+    {
+      say: 'حماية من أول خطوة، قبل ما توصل للسيرفر',
+    },
+    { click: 'role=button:إلغاء' },
+    // ── حالة حافة ٢: سعر غير صالح ─────────────────────────────────────────────────────────────
+    {
+      click: 'role=button:إضافة خدمة أو منتج',
+      chapter: 'حالة حافة — سعر غير صالح',
+      say: 'وسعر بثلاث خانات عشرية؟ قاعدة صارمة: خانتان بس',
+    },
+    { type: 'label=الاسم', text: 'محاولة سعر خاطئ' },
+    {
+      type: 'css=input[name="price"]', text: '12.345', replace: true,
+      say: 'أكتب ١٢.٣٤٥ — ثلاث خانات',
+    },
+    {
+      click: 'role=button:إضافة',
+      say: 'رسالة خطأ فعلية أعلى الشاشة، واضحة',
+    },
+    {
+      say: '«السعر غير صحيح — رقم بخانتين عشريتين على الأكثر»',
+    },
+    { click: 'role=button:إلغاء' },
+    // ── حالة حافة ٣: سعر صفري ────────────────────────────────────────────────────────────────
+    {
+      click: 'role=button:إضافة خدمة أو منتج',
+      chapter: 'حالة حافة — سعر صفري',
+      say: 'وسعر صفري؟ هذا مختلف تماماً — صفر رقم صحيح، مو خطأ',
+    },
+    { type: 'label=الاسم', text: ZERO_PRICE_ITEM },
+    {
+      type: 'css=input[name="price"]', text: '0', replace: true,
+      say: 'أكتب صفراً بالضبط، لا أتركه فارغاً',
+    },
+    { click: 'role=button:إضافة' },
+    { waitFor: `css=tr:has-text("${ZERO_PRICE_ITEM}")` },
+    {
+      say: 'يُحفظ فعلاً بسعر صفر — بس يظهر بالجدول زي «بلا سعر» بالضبط',
+    },
+    // ── حالة حافة ٤: منتج بلا مدة ─────────────────────────────────────────────────────────────
+    {
+      click: 'role=button:إضافة خدمة أو منتج',
+      chapter: 'منتج بلا مدة',
+      say: 'وهذا مثال منتج — كيس شامبو، بلا وقت خدمة إطلاقاً',
+    },
+    { type: 'label=الاسم', text: DURATIONLESS_ITEM },
+    {
+      type: 'css=input[name="duration_minutes"]', text: '0', replace: true,
+      say: 'أصفّر خانة المدة',
+    },
+    {
+      type: 'css=input[name="price"]', text: '55', replace: true,
+      say: 'وسعره الحقيقي ٥٥ ريالاً',
+    },
+    { click: 'role=button:إضافة' },
+    { waitFor: `css=tr:has-text("${DURATIONLESS_ITEM}")` },
+    {
+      say: 'وبعمود المدة، تشوف «غير مضبوطة» بلون تحذيري',
+    },
+    {
+      say: 'هذا المنتج، بلا مدة، ما يمكن حجزه من شاشة الحجوزات إطلاقاً',
+    },
+    // ── الربط بتسجيل الزيارة ─────────────────────────────────────────────────────────────────
+    {
+      click: 'role=link:تسجيل زيارة',
+      chapter: 'نفس الخدمة، جاهزة فوراً بتسجيل الزيارة',
+      say: 'وأخيراً — الخدمة اللي أضفناها الآن',
+    },
+    { waitFor: 'role=button:الخدمات', timeoutMs: 30_000 },
+    { click: 'role=button:الخدمات' },
+    { waitFor: `text=${NEW_SERVICE}` },
+    {
+      say: `موجودة فوراً هنا، بسعرها ١٥٠ ريالاً — نفس القيمة اللي عدّلناها قبل شوي`,
+    },
+    {
+      say: 'بلا أي خطوة نشر إضافية، بلا أي انتظار',
+    },
+    {
+      chapter: 'خلاصة',
+      say: 'هذا كل شي — إعداد المنصّة كامل، وجاهز لأول زيارة أو حجز حقيقي',
     },
   ],
 };

@@ -879,12 +879,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
-                {/* 15 دقيقة، القيمة المقترحة — أصغر وحدة يتحرّك عليها الجدول
+                {/* 15 دقيقة، القيمة المقترحة والخطوة معاً — أصغر وحدة يتحرّك عليها الجدول
                     أصلاً، وأقرب افتراض واقعي لخدمة سريعة. رقم مقترح يُعدَّل قبل الحفظ، لا قيمة
-                    يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً. */}
+                    يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً.
+                    `step` يحرّك أسهم الحقل بوحدات ١٥ فقط — لا يمنع كتابة رقم آخر يدوياً. */}
                 <Row label="المدة (بالدقائق)"
-                     hint="كم تستغرق هذه الخدمة عادةً؟ الحجوزات تحتاجها لحساب الفتحات — بلا مدة، لا يمكن حجزها.">
-                  <input name="duration_minutes" type="number" min={0} max={720} defaultValue={15} dir="ltr"
+                     hint="كم يقعد الموظف يقدّم هذي الخدمة فعلياً؟ رقم حقيقي تحتاجه الحجوزات — بلا مدة، ما تقدر تحجزها.">
+                  <input name="duration_minutes" type="number" min={0} max={720} step={15} defaultValue={15} dir="ltr"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
@@ -936,6 +937,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       {asked ? (
         <dl className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-2/60 px-4 py-3 text-sm leading-relaxed">
           {[
+            ['المدة', 'كم يقعد الموظف يقدّم هذي الخدمة فعلياً، بالدقائق. الحجوزات تحتاجها لتحديد وقتها — بلا مدة، ما تُحجَز.'],
+            ['السعر', 'بالريال، واختياري تماماً. خانة فاضية تعني أنك لا تسعّر من هنا، لا أنها مجانية.'],
             ['الدورة', 'الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.'],
             ['الاطمئنان', 'رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.'],
             ['النقاط', 'كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.'],

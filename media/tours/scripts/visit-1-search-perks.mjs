@@ -110,6 +110,18 @@ export default {
       say: 'تكتب رقم جواله، والمنصّة تدوّر عليه بذكاء',
     },
     {
+      // THE MATCH CARD ITSELF — confirmed live (a real screenshot, not assumed) that a full
+      // number DOES surface a real match row (`.max-h-24 button`, Visit.tsx's own fixed-height
+      // slot for suggestByPrefix's results) — this tour used to type the number and move on
+      // WITHOUT ever selecting it, leaving a real, clickable match sitting unused on screen.
+      waitFor: 'css=.max-h-24 button',
+      timeoutMs: 15_000,
+    },
+    {
+      click: 'css=.max-h-24 button',
+      say: 'شفتها؟ سارة — اضغط على بطاقتها لتختارها',
+    },
+    {
       // Steps.tsx's own «التالي» arrow — a real, solidly-filled 44×44 button (Tamam's own catch:
       // the progress DOTS also work but their visible pill is 6×1.5px inside a 44×24 invisible
       // touch target, so ringing the dot drew a frame around mostly empty space on a real
@@ -132,14 +144,14 @@ export default {
       say: 'شايف؟ عرض خاص — والمنصّة نبّهتك فيه من نفسها',
     },
     {
-      say: 'اقرأه له بصوت عالي — يحس إن محلك يهتم فيه شخصياً',
+      say: 'اقرأه لها بصوت عالي — تحس إن محلك يهتم فيها شخصياً',
     },
     {
       click: 'label=طبّقتُ العرض على هذه الزيارة',
       say: 'وبما إنك طبّقته، علّم هنا — توثيق يحمي محلك',
     },
     {
-      say: 'كذا عرضه ما يتكرر على زيارة ثانية بالغلط',
+      say: 'كذا عرضها ما يتكرر على زيارة ثانية بالغلط',
     },
     {
       // SAME OFFER/BALANCE FETCH, SAME REAL-CLUSTER LATENCY as the offer step above — the
@@ -149,7 +161,7 @@ export default {
     },
     {
       click: 'text=رصيده',
-      say: 'وتحت العرض مباشرة — رصيد نقاطه، يشوف قربه من مكافأته',
+      say: 'وتحت العرض مباشرة — رصيد نقاطها، تشوف قربها من مكافأتها',
     },
     {
       // UNRESOLVED, REAL, FLAGGED SEPARATELY: BOTH rewards below «رصيده» (the plain «قهوة
@@ -166,13 +178,13 @@ export default {
       say: 'إلى مكافأة أكبر تحدد إنت أنها تحتاج اعتماد المدير',
     },
     {
-      say: 'ضغطة وحدة تستبدلها، ورصيده يتحدّث تلقائياً',
+      say: 'ضغطة وحدة تستبدلها، ورصيدها يتحدّث تلقائياً',
     },
     {
       say: 'خلصنا عروضه ونقاطه —',
     },
     {
-      say: 'الحين نختار الشغل اللي بنسويه له',
+      say: 'الحين نختار الشغل اللي بنسويه لها',
     },
     {
       // «التالي» ADVANCES ONE STEP AT A TIME (Steps.tsx) — from «عروضه ونقاطه» (where we
@@ -180,7 +192,7 @@ export default {
       // workaround required here, unlike the old part-2's own fresh start from «رقم الجوال».
       click: 'role=button:التالي',
       chapter: 'اختر الخدمة واحفظ',
-      say: 'هذي صفحة الخدمات — اختر أي شغلة تسوّيها له اليوم',
+      say: 'هذي صفحة الخدمات — اختر أي شغلة تسوّيها لها اليوم',
     },
     {
       // THE GRID'S OWN LIST (and each card's offer/points badges) is fetched, same real-cluster
@@ -206,12 +218,12 @@ export default {
       say: 'وتقدر تضيف أكثر من خدمة بنفس الزيارة، بلا أي قيد',
     },
     {
+      // ALREADY FILLED — Visit.tsx's own onClick on the match card (`setName(c.name ?? '')`,
+      // line 491) auto-fills this the moment سارة's card was selected earlier. No typing needed
+      // here; typing over it would replace her real name with a fake one. Just showing it exists.
       // NO aria-label AND NO <label> ON THIS INPUT — checked in Visit.tsx: only a `placeholder`.
-      // `label=` (Playwright's getByLabel) never matches a placeholder, so this uses the css
-      // escape hatch on purpose, not by default.
-      type: 'css=input[placeholder="الاسم (اختياري)"]',
-      text: 'ريم',
-      say: 'اسمه اختياري — تكتبه، فيحس محلك يعرفه شخصياً',
+      click: 'css=input[placeholder="الاسم (اختياري)"]',
+      say: 'واسمها؟ تعبّى وحدها — لأننا اخترناها من النتائج قبل شوي',
     },
     {
       say: 'وأخيراً — زر حفظ وإرسال تحت',
@@ -219,10 +231,10 @@ export default {
     {
       click: 'role=button:حفظ وإرسال',
       chapter: 'تم الحفظ',
-      say: 'ضغطة وحدة — وزيارته تسجّلت فعلاً',
+      say: 'ضغطة وحدة — وزيارتها تسجّلت فعلاً',
     },
     {
-      say: 'رسالة تلقائية توصله على طول — بلا أي متابعة منك',
+      say: 'رسالة تلقائية توصلها على طول — بلا أي متابعة منك',
     },
     {
       say: 'من الباب لين الحفظ — أقل من دقيقة، هذي قوة منصّة راجِع',
