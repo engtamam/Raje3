@@ -35,9 +35,20 @@ export default {
   preload: true,
   steps: [
     {
-      goto: '/visit',
+      // STARTS AT محلّي, NOT DIRECTLY AT /visit — a viewer landing straight on a screen never
+      // sees WHERE it lives in the app. Opening the drawer and tapping its real nav entry
+      // (nav.ts's own label «تسجيل زيارة») shows exactly how an operator gets here himself.
+      goto: '/',
       chapter: 'دوّر عن عميلك',
       say: 'منصّة راجِع تخلّي تسجيل الزيارة أقل من دقيقة — شوف!',
+    },
+    {
+      click: 'role=button:فتح القائمة',
+      say: 'نفتح القائمة —',
+    },
+    {
+      click: 'role=link:تسجيل زيارة',
+      say: 'ونختار «تسجيل زيارة» من هنا',
     },
     {
       // THE CONCEPT, BEFORE ANY STEP — this screen and «الحجوزات» both end in a recorded visit,
