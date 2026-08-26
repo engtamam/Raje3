@@ -30,7 +30,10 @@ export default {
     {
       goto: '/visit',
       chapter: 'من عروضه ونقاطه إلى الخدمات',
-      say: 'كملنا من اللي فات — عميلتنا جاهزة، والمنصّة تتذكرها',
+      say: 'كملنا من اللي فات —',
+    },
+    {
+      say: 'عميلتنا موجودة، والمنصّة تتذكرها بنفسها',
     },
     { waitFor: 'label=رقم الجوال', timeoutMs: 30_000 },
     { type: 'label=رقم الجوال', text: HERO_PHONE },
@@ -44,13 +47,10 @@ export default {
       // (same fix, same reason, as visit-1-search-perks.mjs's own note).
       click: 'role=button:الخدمات',
       ringSelector: 'css=button[aria-label="الخدمات"] span',
-      say: 'صفحة الخدمات — اختر أي شغلة تسوّيها له اليوم',
+      say: 'هذي صفحة الخدمات —',
     },
     {
-      // EXTRA CAPTION-ONLY MARGIN — the 10s chapter-gap check still failed at 9.8s on a real run
-      // even after moving the chapter mark past the network wait below; this buys the missing
-      // margin honestly (real narration, not a bare pause).
-      say: 'المنصّة تعرض سعر ومدة كل خدمة — صفر تخمين',
+      say: 'اختر أي شغلة تسوّيها له اليوم',
     },
     {
       // THE GRID'S OWN LIST (and each card's offer/points badges) is fetched, same real-cluster
@@ -66,32 +66,44 @@ export default {
       // network wait just above buys back the needed real time before this chapter fires.
       click: `text=${REDEEMABLE_SERVICE}`,
       chapter: 'اختر الخدمة',
-      say: 'شايف العلامتين؟ عرض ونقاط على نفس الخدمة',
+      say: 'شايف العلامتين على هذي الخدمة؟',
     },
     {
-      say: 'التاج 🏷 عرض، والنجمة ⭐ استبدال فوري بنقاطه',
+      // ServiceGrid.tsx's own badges, ON THE SERVICE ITSELF (checked live — no separate
+      // "apply the offer" bar exists on THIS screen; that checkbox belongs to part 1's own
+      // «عروضه ونقاطه» pane and is done before this clip even starts). Describing what is
+      // actually visible here, not re-narrating a control from a different screen.
+      say: '🏷 معناها عليها عرض، و⭐ تقدر تستبدلها بنقاطه',
+    },
+    {
+      say: 'المنصّة نفسها تربط العرض والنقاط بالخدمة الصح',
     },
     {
       click: `text=${PLAIN_SERVICE}`,
-      say: 'واختر أكثر من خدمة بنفس الزيارة — بلا أي قيد',
+      say: 'وتقدر تضيف أكثر من خدمة بنفس الزيارة —',
     },
     {
-      say: 'وفوق شريط: طبّق العرض واستبدل، بنفس البساطة',
+      say: 'بلا أي قيد، كلها بضغطات بسيطة',
     },
     {
       // NO aria-label AND NO <label> ON THIS INPUT — checked in Visit.tsx: only a `placeholder`.
       // `label=` (Playwright's getByLabel) never matches a placeholder, so this uses the css
-      // escape hatch on purpose, not by default.
-      click: 'css=input[placeholder="الاسم (اختياري)"]',
-      say: 'اسمه اختياري — تكتبه فيحس محلك يعرفه شخصياً',
+      // escape hatch on purpose, not by default. A REAL name is typed now (was a bare click
+      // before, with a caption claiming typing that never happened on screen).
+      type: 'css=input[placeholder="الاسم (اختياري)"]',
+      text: 'ريم',
+      say: 'اسمه اختياري — تكتبه، فيحس محلك يعرفه شخصياً',
     },
     {
-      say: 'وأخيراً — زر حفظ وإرسال، وخلصت الزيارة',
+      say: 'وأخيراً — زر حفظ وإرسال تحت',
     },
     {
       click: 'role=button:حفظ وإرسال',
       chapter: 'تم الحفظ',
-      say: 'ضغطة وحدة — تسجيل، ورسالة تلقائية توصله فوراً',
+      say: 'ضغطة وحدة — وزيارته تسجّلت فعلاً',
+    },
+    {
+      say: 'رسالة تلقائية توصله على طول — بلا أي متابعة منك',
     },
     {
       say: 'زيارة كاملة، أقل من دقيقة — هذي قوة منصّة راجِع',
