@@ -467,6 +467,10 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
         <input id="c-ticket" type="number" inputmode="numeric" min="0" value="150">
       </label>
       <label class="calc-row">
+        <span>زيارات العميل بالسنة (افتراضياً 3)</span>
+        <input id="c-visits" type="number" inputmode="numeric" min="1" value="3">
+      </label>
+      <label class="calc-row">
         <span>كم بالمئة تقدر تسترجع منهم مع راجِع؟</span>
         <input id="c-recover" type="number" inputmode="numeric" min="0" max="65" value="20">
       </label>
@@ -723,7 +727,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
      business — the note under it says so, and the FAQ answer says it again. */
   (function () {
     var CHURN_RATE = 0.65; // Meevo 2025 — see ref-2, the same figure the hero/proof cards cite
-    var ids = ['c-customers', 'c-ticket', 'c-recover'];
+    var ids = ['c-customers', 'c-ticket', 'c-visits', 'c-recover'];
     var loss = document.getElementById('c-loss');
     var gain = document.getElementById('c-gain');
     if (!loss || !gain) return;
@@ -733,23 +737,31 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       return cap ? Math.min(v, cap) : v;
     }
     function money(v) { return Math.round(v).toLocaleString('en-US'); }
+    // ANNUAL, NOT MONTHLY — the earlier version multiplied by 3 visits/year and then divided by
+    // 12, which silently shrank the number to a quarter of what a reader would sense from
+    // "goneCount × ticket" (flagged directly: 100 new/65 gone/150 ticket produced 2,438 instead of
+    // the intuitive ~9,750 a churned customer's FIRST missed visit alone represents). Both the
+    // double time-conversion (yearly assumption ÷ 12 to fake a monthly one) and the hardcoded "3"
+    // are gone: visits/year is now his own input (still defaulting to 3, the same Meevo figure),
+    // and the number shown is a real, undivided yearly total — no invented monthly framing.
     function render() {
-      var customers = n('c-customers'), ticket = n('c-ticket'), recoverPct = n('c-recover', 65);
+      var customers = n('c-customers'), ticket = n('c-ticket'), visitsPerYear = n('c-visits') || 3,
+          recoverPct = n('c-recover', 65);
       if (customers === 0 || ticket === 0) {
         loss.innerHTML = 'حطّ عدد عملائك الجدد ومتوسط فاتورتك.';
         gain.innerHTML = '';
         return;
       }
       var goneCount = Math.round(customers * CHURN_RATE);
-      var yearlyLossPerCustomer = ticket * 3; // three expected visits/year — same assumption ref-2's own citation body uses
-      var monthlyLoss = Math.round((goneCount * yearlyLossPerCustomer) / 12);
-      loss.innerHTML = 'من كل <b>' + customers + '</b> عميل جديد، <b>' + goneCount +
-        '</b> يختفون بصمت — يعني تخسر تقريباً <b>' + money(monthlyLoss) + '</b> ريال كل شهر، يتكرر تلقائياً.';
+      var yearlyLossPerCustomer = ticket * visitsPerYear;
+      var yearlyLoss = goneCount * yearlyLossPerCustomer;
+      loss.innerHTML = 'من كل <b>' + customers + '</b> عميل جديد بالشهر، <b>' + goneCount +
+        '</b> يختفون بصمت — يعني تخسر تقريباً <b>' + money(yearlyLoss) + '</b> ريال بالسنة، يتكرر كل شهر.';
       var recoveredCount = Math.round(goneCount * (recoverPct / 100));
-      var monthlyGain = Math.round((recoveredCount * yearlyLossPerCustomer) / 12);
+      var yearlyGain = recoveredCount * yearlyLossPerCustomer;
       gain.innerHTML = recoverPct > 0
         ? 'لو استرجعت <b>' + recoverPct + '%</b> منهم بس (' + recoveredCount + ' عميل): ترجع لك <b>' +
-          money(monthlyGain) + '</b> ريال شهرياً.'
+          money(yearlyGain) + '</b> ريال بالسنة.'
         : 'اكتب نسبة استرجاع عشان تشوف الفرق.';
     }
     ids.forEach(function (id) {
