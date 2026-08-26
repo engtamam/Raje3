@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/insights
-  digest: "sha256:e426ee7c93d61942d400df3b4a3425bb1d04d98c8eaddd4bd054d46362ddb112"   # 9a4bd4ef, published by publish-images.sh
+  digest: "sha256:7f0a65edfffb7e260c8ce65176b1cac75c450480e5ef8f030f74e4b7caf59f04"   # 8eac12b7, published by publish-images.sh
 
 replicas: 1
 
@@ -46,6 +46,15 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# ALWAYS-ON, NEVER THE FIRST THING PREEMPTED. Opts this pod into the cluster-scoped
+# base-services-critical PriorityClass (deploy/k3s/priorityclasses.yaml, applied once at
+# bootstrap — never per-service) — the scheduler now protects it over any seconds-lived CronJob
+# pod under real node contention. Companion fix to the cpu request above: that fix wins the CFS
+# scheduling race; this one makes sure the scheduler never even lets a batch pod contest it.
+priorityClasses:
+  enabled: true
+priorityClassName: base-services-critical
 
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real

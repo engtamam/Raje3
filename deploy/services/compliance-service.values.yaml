@@ -59,6 +59,15 @@ resources:
   limits:
     memory: 384Mi
 
+# ALWAYS-ON, NEVER THE FIRST THING PREEMPTED. Opts this pod into the cluster-scoped
+# base-services-critical PriorityClass (deploy/k3s/priorityclasses.yaml, applied once at
+# bootstrap — never per-service) — the scheduler now protects it over any seconds-lived CronJob
+# pod under real node contention. Companion fix to the cpu request above: that fix wins the CFS
+# scheduling race; this one makes sure the scheduler never even lets a batch pod contest it.
+priorityClasses:
+  enabled: true
+priorityClassName: base-services-critical
+
 autoscaling:
   enabled: false
 

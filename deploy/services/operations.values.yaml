@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:d18b6af6cfd1d1d683f0c2ad6211d5ef0136f785d3c1ad4eb7e060a740adef05"   # 9a4bd4ef, published by publish-images.sh
+  digest: "sha256:064d837940de50f1bcdfdeae4f901020660c9a5c00825cb60a01de6aa03dabb1"   # 8eac12b7, published by publish-images.sh
 
 replicas: 1
 
@@ -62,6 +62,15 @@ resources:
     memory: 256Mi
   limits:
     memory: 512Mi
+
+# ALWAYS-ON, NEVER THE FIRST THING PREEMPTED. Opts this pod into the cluster-scoped
+# base-services-critical PriorityClass (deploy/k3s/priorityclasses.yaml, applied once at
+# bootstrap — never per-service) — the scheduler now protects it over any seconds-lived CronJob
+# pod under real node contention. Companion fix to the cpu request above: that fix wins the CFS
+# scheduling race; this one makes sure the scheduler never even lets a batch pod contest it.
+priorityClasses:
+  enabled: true
+priorityClassName: base-services-critical
 
 autoscaling:
   enabled: false   # single replica until there is real load to size against
