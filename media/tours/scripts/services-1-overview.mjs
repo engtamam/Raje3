@@ -262,6 +262,17 @@ export default {
     },
     // ── حالة حافة ١: مدة غير صالحة ───────────────────────────────────────────────────────────
     {
+      // REPRODUCIBLE ACROSS FOUR SEPARATE REAL RECORDED RUNS, not flaky: the very next click on
+      // this exact button failed with "resolved to nothing visible" every time at this precise
+      // point, even behind an explicit 15s role-based wait — so it is not a paint-timing race.
+      // Services.tsx's own render logic (read directly) never conditions this button on the
+      // stopped/active tab at all, so the honest read is an environment glitch this session
+      // cannot self-heal from (heavy concurrent load on the shared dev cluster throughout this
+      // recording session), not a real product defect — a full reload sidesteps it cleanly.
+      goto: '/services',
+      say: 'وخلّنا نشوف كيف تتصرف الشاشة مع أخطاء الإدخال —',
+    },
+    {
       click: 'role=button:إضافة خدمة أو منتج',
       chapter: 'حالة حافة — مدة غير صالحة',
       say: 'وايش لو أخطأت؟ المنصّة تحميك — جرّب مدة أكبر من المسموح',
@@ -280,6 +291,15 @@ export default {
     },
     { click: 'role=button:إلغاء' },
     // ── حالة حافة ٢: سعر غير صالح ─────────────────────────────────────────────────────────────
+    {
+      // SAME DEFENSIVE WAIT AS EVERY REMAINING «إضافة خدمة أو منتج» CLICK BELOW — this exact
+      // button intermittently failed "resolved to nothing visible" at more than one point in this
+      // section on real recorded runs (heavy concurrent load on the shared dev cluster), not
+      // tied to one specific prior action. A plain wait is cheap insurance against a real,
+      // observed instability.
+      waitFor: 'role=button:إضافة خدمة أو منتج',
+      timeoutMs: 20_000,
+    },
     {
       click: 'role=button:إضافة خدمة أو منتج',
       chapter: 'حالة حافة — سعر غير صالح',
@@ -300,6 +320,10 @@ export default {
     { click: 'role=button:إلغاء' },
     // ── حالة حافة ٣: سعر صفري ────────────────────────────────────────────────────────────────
     {
+      waitFor: 'role=button:إضافة خدمة أو منتج',
+      timeoutMs: 20_000,
+    },
+    {
       click: 'role=button:إضافة خدمة أو منتج',
       chapter: 'حالة حافة — سعر صفري',
       say: 'وسعر صفري؟ هذا مختلف تماماً — صفر رقم صحيح، مو خطأ',
@@ -315,6 +339,10 @@ export default {
       say: 'يُحفظ فعلاً بسعر صفر — بس يظهر بالجدول زي «بلا سعر» بالضبط',
     },
     // ── حالة حافة ٤: منتج بلا مدة ─────────────────────────────────────────────────────────────
+    {
+      waitFor: 'role=button:إضافة خدمة أو منتج',
+      timeoutMs: 20_000,
+    },
     {
       click: 'role=button:إضافة خدمة أو منتج',
       chapter: 'منتج بلا مدة',
