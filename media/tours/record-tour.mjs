@@ -218,7 +218,18 @@ async function main() {
   const captureLoop = (async () => {
     while (capturing) {
       const file = frameFile();
-      await page.screenshot({ path: file, animations: 'disabled' }).catch(() => undefined);
+      // A NATIVE BROWSER SURFACE (the HTML5 form-validation bubble, a JS alert/confirm) can make
+      // `page.screenshot()` itself fail — reproduced live, twice in a row, at the exact same step
+      // of services-1-overview.mjs's own out-of-range-duration edge case: the submit triggers
+      // Chromium's native validation popup, CDP's screenshot call throws, and the old code here
+      // swallowed that error yet still walked into the backfill loop below trying to `copyFile`
+      // a frame that was never written — a guaranteed ENOENT, not flakiness. Track whether the
+      // shot actually landed; skip backfill entirely for a tick where it didn't rather than crash.
+      const shotOk = await page.screenshot({ path: file, animations: 'disabled' }).then(() => true, () => false);
+      // A FAILED SHOT LEAVES THIS FRAME NUMBER UNWRITTEN — roll frameIndex back so the very next
+      // tick retries the same numbered file instead of leaving a hole in the sequence that
+      // `assembleMp4`'s own `%06d.png` pattern would otherwise choke on.
+      if (!shotOk) frameIndex--;
       // ASYNC COPIES, NOT SYNC — a first version used copyFileSync here and, under a genuinely
       // large catch-up (many frames behind at once), froze Node's single event loop for the
       // whole backfill: no await yields, so every pending Playwright command (the click this
@@ -227,7 +238,7 @@ async function main() {
       // the page (a real reproduced failure: "resolved to nothing visible" on the very selector
       // that always worked). Awaiting each copy lets the event loop breathe between them.
       const targetFrames = Math.round((Date.now() - recordStart) / stepMs);
-      while (capturing && frameIndex < targetFrames) {
+      while (shotOk && capturing && frameIndex < targetFrames) {
         await copyFile(file, frameFile());
       }
       const nextDue = recordStart + frameIndex * stepMs;
