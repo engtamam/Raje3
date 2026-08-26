@@ -1,12 +1,11 @@
 /**
- * «تسجيل الزيارة» — PART 1 OF 2. Read Visit.tsx (and WhoIsSaving.tsx, ServiceGrid.tsx) directly
- * before writing a single selector here — this project's own standing rule. Split into two clips
- * the same way محلّي briefly was and «الحجوزات» is planned to be: by the screen's own natural
- * story-phase, not an arbitrary step count. Part 1 is «who is this customer, and what does he
- * carry» — search, then offers and points, EXTRA DEPTH here specifically ("شوية
- * صعب" — the counter card, the checkbox that never applies itself, the manager-approval reward —
- * deserve more than a passing caption each). Part 2 (visit-2-services-save.mjs) is «pick the
- * work, and who's doing it» — services, self-attribution, save.
+ * «تسجيل الزيارة» — ONE complete clip, door to save. Read Visit.tsx (and WhoIsSaving.tsx,
+ * ServiceGrid.tsx) directly before writing a single selector here — this project's own standing
+ * rule. Used to be split into two clips (part 1: find the customer, his offer and points; part 2:
+ * pick the work and save) — merged back into one on Tamam's own call: part 2 re-searched the same
+ * customer from scratch instead of genuinely continuing, which read as an artificial cut rather
+ * than one real journey. This is the whole thing, uncut, captions written to read as one
+ * continuous story rather than separate marketing beats.
  *
  * WHY THIS TOUR NEEDS ITS OWN SEEDED CUSTOMER. Every other seeded customer in this demo account
  * honestly has nothing to redeem — that's the correct, common state, and not what this tour is
@@ -21,10 +20,12 @@
  * never appears — confirmed live, not assumed.
  */
 const HERO_PHONE = '0555010101';
+const REDEEMABLE_SERVICE = 'بروتين شعر'; // the one seedHeroCustomer() actually recorded her visits on
+const PLAIN_SERVICE = 'قص شعر';
 
 export default {
   id: 'visit-1-search-perks',
-  title: 'تسجيل الزيارة 1 — دوّر عن عميلك وعروضه ونقاطه',
+  title: 'تسجيل الزيارة — من محلّي إلى الحفظ الكامل',
   section: 'تسجيل زيارة', // nav.ts's own label
   useDemoSession: true,
   // WITHOUT THIS the first step's `goto` runs inside the capture loop itself, so frame 0 (and
@@ -40,15 +41,18 @@ export default {
       // (nav.ts's own label «تسجيل زيارة») shows exactly how an operator gets here himself.
       goto: '/',
       chapter: 'دوّر عن عميلك',
-      say: 'منصّة راجِع تخلّي تسجيل الزيارة أقل من دقيقة — شوف!',
+      say: 'منصّة راجِع تخلّي تسجيل زيارة كاملة أقل من دقيقة —',
+    },
+    {
+      say: 'تعال أوريك الرحلة كلها، من الباب لين الحفظ',
     },
     {
       click: 'role=button:فتح القائمة',
-      say: 'نفتح القائمة —',
+      say: 'نفتح القائمة من هنا،',
     },
     {
       click: 'role=link:تسجيل زيارة',
-      say: 'ونختار «تسجيل زيارة» من هنا',
+      say: 'ونختار «تسجيل زيارة»',
     },
     {
       // THE CONCEPT, BEFORE ANY STEP — this screen and «الحجوزات» both end in a recorded visit,
@@ -58,19 +62,25 @@ export default {
       // path: only a booking distributes work across the team AND feeds per-operator analytics —
       // a receptionist logging a walk-in through this screen instead still works (the balance/
       // credit simply goes to whichever operator's name is on it), it just skips that.
-      say: 'عميل جا مباشرة من الباب،',
+      say: 'أول شي — متى نستخدم هذي الشاشة بالضبط؟',
     },
     {
-      say: 'والموظف نفسه هو اللي يسجّل له زيارته',
+      say: 'عميل جا مباشرة من الباب، والموظف نفسه هو',
     },
     {
-      say: 'لكن لو الاستقبال هو اللي يسجّل عن الموظف،',
+      say: 'اللي يسجّل له زيارته بنفسه',
     },
     {
-      say: 'الأفضل «الحجوزات» — عشان توزيع الشغل على الفريق،',
+      say: 'أما لو الاستقبال هو اللي يسجّل عن الموظف،',
+    },
+    {
+      say: 'فالأفضل «الحجوزات» — عشان توزيع الشغل على الفريق،',
     },
     {
       say: 'وصاحب المحل يشوف أداء كل موظف بوضوح',
+    },
+    {
+      say: 'طيب، خلّنا نبدأ — أول شي تشوفه فوق الشاشة',
     },
     {
       // TodayBookingsStrip.tsx — a strip of TODAY's remaining bookings for this branch, above
@@ -79,10 +89,13 @@ export default {
       // so this hovers (never clicks — «حضر» is a REAL action that would attend this demo
       // booking) the first card by its own «حضر» button's parent.
       hover: 'css=div:has(> button[aria-label="حضر"])',
-      say: 'المنصّة تعرض حجوزات اليوم جاهزة، فوق الشاشة مباشرة',
+      say: 'حجوزات اليوم جاهزة، تعرضها المنصّة تلقائياً',
     },
     {
-      say: 'ضغطة «حضر» توفّرها المنصّة — وحجزه صار زيارة، بلا بحث',
+      say: 'عنده حجز؟ ضغطة «حضر» — وصار زيارة كاملة، بلا بحث',
+    },
+    {
+      say: 'أما لو جا بلا حجز، زي عميلتنا هذي —',
     },
     {
       // SHOULD BE A PARTIAL PREFIX (spec 4.3 — Visit.tsx's own matches list appears while he
@@ -94,7 +107,7 @@ export default {
       // typing a prefix and hoping — so this types the full number, honestly, until it's fixed.
       type: 'label=رقم الجوال',
       text: HERO_PHONE,
-      say: 'تكتب رقمه، والمنصّة تدوّر عليه بذكاء — فوراً',
+      say: 'تكتب رقم جواله، والمنصّة تدوّر عليه بذكاء',
     },
     {
       // Steps.tsx's own «التالي» arrow — a real, solidly-filled 44×44 button (Tamam's own catch:
@@ -104,7 +117,7 @@ export default {
       // own bounding box IS its visible content — no separate ring target required.
       click: 'role=button:التالي',
       chapter: 'عروضه ونقاطه',
-      say: 'عروضه ونقاطه بصفحة وحدة — تنظيم يوفّر وقتك',
+      say: 'لقيناها — والحين نشوف عروضها ونقاطها، بصفحة وحدة',
     },
     {
       // THE OFFER/BALANCE FETCH IS DEBOUNCED (220ms) THEN NETWORKED — Visit.tsx's own effect.
@@ -116,17 +129,17 @@ export default {
     },
     {
       click: 'text=عرضٌ خاص بهذا العميل',
-      say: 'عرض خاص؟ المنصّة تنبّهك فيه — ما تفوتك بيعة',
+      say: 'شايف؟ عرض خاص — والمنصّة نبّهتك فيه من نفسها',
     },
     {
       say: 'اقرأه له بصوت عالي — يحس إن محلك يهتم فيه شخصياً',
     },
     {
       click: 'label=طبّقتُ العرض على هذه الزيارة',
-      say: 'المنصّة توثّق تطبيق العرض باسمك — حماية كاملة لمحلك',
+      say: 'وبما إنك طبّقته، علّم هنا — توثيق يحمي محلك',
     },
     {
-      say: 'كذا عرضه ما يتكرر على زيارة ثانية بالغلط أبداً',
+      say: 'كذا عرضه ما يتكرر على زيارة ثانية بالغلط',
     },
     {
       // SAME OFFER/BALANCE FETCH, SAME REAL-CLUSTER LATENCY as the offer step above — the
@@ -136,7 +149,7 @@ export default {
     },
     {
       click: 'text=رصيده',
-      say: 'المنصّة تعرض رصيد نقاطه فوراً — يشوف قربه من مكافأته',
+      say: 'وتحت العرض مباشرة — رصيد نقاطه، يشوف قربه من مكافأته',
     },
     {
       // UNRESOLVED, REAL, FLAGGED SEPARATELY: BOTH rewards below «رصيده» (the plain «قهوة
@@ -147,13 +160,72 @@ export default {
       // a redemption race or a low-balance filter; root cause not yet found (candidate: the shared
       // dev cluster under heavy concurrent load from other agents' recordings right now). Both
       // narrated instead of clicked, so the tour stays reliable while this is investigated.
-      say: 'من مكافأة بسيطة كقهوة مجانية —',
+      say: 'من مكافأة بسيطة كقهوة مجانية،',
     },
     {
       say: 'إلى مكافأة أكبر تحدد إنت أنها تحتاج اعتماد المدير',
     },
     {
       say: 'ضغطة وحدة تستبدلها، ورصيده يتحدّث تلقائياً',
+    },
+    {
+      say: 'خلصنا عروضه ونقاطه —',
+    },
+    {
+      say: 'الحين نختار الشغل اللي بنسويه له',
+    },
+    {
+      // «التالي» ADVANCES ONE STEP AT A TIME (Steps.tsx) — from «عروضه ونقاطه» (where we
+      // already are) straight to «الخدمات», exactly the transition this clip needs. No dot-jump
+      // workaround required here, unlike the old part-2's own fresh start from «رقم الجوال».
+      click: 'role=button:التالي',
+      chapter: 'اختر الخدمة واحفظ',
+      say: 'هذي صفحة الخدمات — اختر أي شغلة تسوّيها له اليوم',
+    },
+    {
+      // THE GRID'S OWN LIST (and each card's offer/points badges) is fetched, same real-cluster
+      // latency as the offer/balance above — wait for the actual card before touching it.
+      waitFor: `text=${REDEEMABLE_SERVICE}`,
+      timeoutMs: 30_000,
+    },
+    {
+      click: `text=${REDEEMABLE_SERVICE}`,
+      say: 'شايف العلامتين على هذي الخدمة بالذات؟',
+    },
+    {
+      // ServiceGrid.tsx's own badges, ON THE SERVICE ITSELF (checked live — no separate
+      // "apply the offer" bar exists on this screen; that checkbox already happened on the
+      // «عروضه ونقاطه» pane, قبل شوي بنفس هذي الرحلة). Describing what is actually visible here.
+      say: '🏷 معناها عليها عرض، و⭐ تقدر تستبدلها بنقاطه —',
+    },
+    {
+      say: 'المنصّة نفسها تربط العرض والنقاط بالخدمة الصح',
+    },
+    {
+      click: `text=${PLAIN_SERVICE}`,
+      say: 'وتقدر تضيف أكثر من خدمة بنفس الزيارة، بلا أي قيد',
+    },
+    {
+      // NO aria-label AND NO <label> ON THIS INPUT — checked in Visit.tsx: only a `placeholder`.
+      // `label=` (Playwright's getByLabel) never matches a placeholder, so this uses the css
+      // escape hatch on purpose, not by default.
+      type: 'css=input[placeholder="الاسم (اختياري)"]',
+      text: 'ريم',
+      say: 'اسمه اختياري — تكتبه، فيحس محلك يعرفه شخصياً',
+    },
+    {
+      say: 'وأخيراً — زر حفظ وإرسال تحت',
+    },
+    {
+      click: 'role=button:حفظ وإرسال',
+      chapter: 'تم الحفظ',
+      say: 'ضغطة وحدة — وزيارته تسجّلت فعلاً',
+    },
+    {
+      say: 'رسالة تلقائية توصله على طول — بلا أي متابعة منك',
+    },
+    {
+      say: 'من الباب لين الحفظ — أقل من دقيقة، هذي قوة منصّة راجِع',
     },
   ],
 };
