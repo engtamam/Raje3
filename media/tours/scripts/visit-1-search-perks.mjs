@@ -128,17 +128,21 @@ export default {
       say: 'المنصّة تعرض رصيد نقاطه فوراً — يشوف قربه من مكافأته',
     },
     {
-      click: 'text=قهوة مجانية',
-      say: 'مكافآت تخصّصها إنت — ضغطة وحدة تسعد زبونك',
+      // UNRESOLVED, REAL, FLAGGED SEPARATELY: BOTH rewards below «رصيده» (the plain «قهوة
+      // مجانية» AND the manager-approval «جلسة مجانية VIP») are confirmed present via direct API
+      // calls — active, correctly priced, balance repeatedly topped up (5000, then 10000) well
+      // above either cost — yet neither is ever found visible on the page after clicking «رصيده»,
+      // timed out at 30s on multiple real recorded runs regardless of order or balance level. Not
+      // a redemption race or a low-balance filter; root cause not yet found (candidate: the shared
+      // dev cluster under heavy concurrent load from other agents' recordings right now). Both
+      // narrated instead of clicked, so the tour stays reliable while this is investigated.
+      say: 'من مكافأة بسيطة كقهوة مجانية —',
     },
     {
-      // UNRESOLVED, REAL, FLAGGED SEPARATELY: «جلسة مجانية VIP» (the one reward with
-      // needs_approval: true) is confirmed present via a direct API call — active, 600 cost,
-      // balance well above it — yet a click never finds it visible on the page after redeeming
-      // «قهوة مجانية», timed out at 30s repeatedly on a real recorded run, for reasons not yet
-      // root-caused (reproduced even attempted FIRST, with nothing redeemed before it). Narrated
-      // instead of clicked, so the tour stays reliable while this is investigated separately.
-      say: 'ومكافآت أكبر؟ تحدد إنت أيها يحتاج اعتماد المدير',
+      say: 'إلى مكافأة أكبر تحدد إنت أنها تحتاج اعتماد المدير',
+    },
+    {
+      say: 'ضغطة وحدة تستبدلها، ورصيده يتحدّث تلقائياً',
     },
   ],
 };
