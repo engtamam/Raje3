@@ -1,0 +1,263 @@
+# ── النشر: سياسة خصوصية المسوّقين — صفحة عامة، تُقرأ ولا تُوقَّع، منفصلة عن سياسة الخصوصية العامة.
+# PUBLICATION: The Affiliate Privacy Policy — a public page, read rather than signed, separate
+# from the general privacy-policy.yaml.
+#
+# PUBLIC AND UNGATED, SAME REASONING AS privacy-policy.yaml. A disclosure is not a bargain.
+#
+# WHOSE POLICY IS THIS — settled first, same discipline as privacy-policy.yaml's own opening note.
+# privacy-policy.yaml covers shop OWNERS as data subjects, with the Provider as controller of
+# their account/subscription data. This file covers a DIFFERENT data subject entirely: the
+# MARKETER himself — his own identity, his own payout details, his own performance figures — who
+# is neither a shop owner nor (per the Affiliate Agreement's warranties clause) an employee.
+# Writing his data into privacy-policy.yaml would bury a materially different processing purpose
+# (paying an independent contractor a commission) inside a policy that reader would reasonably
+# read as being about his own subscription. Two relationships, two policies — same principle the
+# separate Affiliate Agreement already applies to the CONTRACT side of this same relationship.
+#
+# THIS FILE'S CONTENT WAS AUTHORED AGAINST services/affiliate-service/app/core/*.py, READ
+# DIRECTLY, NOT ASSUMED — a companion draft (affiliate-agreement.yaml) is being built in
+# parallel elsewhere and is expected to merge alongside this one; this file does not depend on it
+# existing and stands complete on its own. The fields below trace to: models.py's Affiliate row
+# (person_id/phone/name/role/parent_id/payout_channel/payout_channel_name/payout_account_ref/
+# sees_platform_revenue), Application, WafaRequest and EmploymentRequest rows; payouts.py's two
+# payout channels and its masking of account_ref to its last four characters on any read;
+# core/erasure.py's actual AffiliateErasure.erase() mechanism, which blanks phone/name
+# immediately and idempotently on APPLICATIONS and AFFILIATES while retaining role/parent_id/
+# status and everything hanging off the id (commission earned, payouts made) as a financial and
+# commercial record with no coded expiry — a real gap this file states plainly rather than
+# papering over with an invented number, the same discipline check_legal.py's AWAITED set already
+# applies to a fact we do not yet hold.
+#
+# ⚠ هذه مسودة تحتاج مراجعة محامٍ مرخّص قبل أي نشر فعلي — لم تُراجَع من محامٍ سعودي مرخّص، وبُنيت
+# بمطابقة الكود الفعلي لا استشارة قانونية.
+# DRAFT ONLY. Not reviewed by a licensed Saudi lawyer — built by matching the actual code, not
+# by legal advice. Do not publish before that review.
+
+publication: public
+
+# ⚠ القيم أدناه مؤقتة للاختبار فقط — نفس قيم privacy-policy.yaml بالضبط، لأنها حقائق عن الشركة
+# نفسها لا عن أي وثيقة بعينها.
+# Placeholder values for testing only — identical to privacy-policy.yaml's, since these are facts
+# about the company itself, not about any one document.
+values:
+  COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"
+  COMPANY_ADDRESS: "الرياض، المملكة العربية السعودية (عنوان مؤقت)"
+  COMPANY_WEBSITE: "raje3.sa"
+  PRIVACY_EMAIL: "privacy@example.invalid"
+  DPO_EMAIL: "dpo@example.invalid"
+  DPO_NAME: "مسؤول حماية البيانات (اسم مؤقت)"
+  DPO_PHONE: "+966500000000"
+  COMPLAINT_CONTACT: "privacy@example.invalid"
+  COMPLAINT_DEPARTMENT:
+    ar: "مسؤول حماية البيانات"
+    en: "The Data Protection Officer"
+  COMPLAINT_PERIOD:
+    ar: "ثلاثين يوماً من تاريخ تقديم الشكوى"
+    en: "thirty days from the date the complaint is submitted"
+  VERSION: "1.0"
+  EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
+
+  PURPOSES:
+    ar: >-
+      اعتماد طلب انضمامك للبرنامج وإنشاء حسابك؛ احتساب عمولتك عن كل إحالة تحوّلت فعلياً إلى
+      اشتراك مدفوع؛ صرف عمولتك المؤكدة إلى الوسيلة التي اخترتها؛ مراجعة طلبات دعم الوفاء
+      وترشّحك لوظيفة رسمية إن قدّمتهما؛ إتاحة بيانات فريقك لمديرك المباشر إن كنت مروِّجاً تحت
+      مدير؛ حفظ سجلّ تدقيقي يُثبت من قرّر ماذا ومتى في طلباتك؛ والردّ على ما تقدّمه من طلبات حذف
+      لبياناتك.
+    en: >-
+      Approving your application to join the programme and creating your account; calculating
+      your commission on every referral that actually converted to a paid subscription;
+      disbursing your confirmed commission to the channel you chose; reviewing any Wafa support
+      or formal-employment applications you submit; making your data available to your direct
+      manager if you are a promoter under one; keeping an audit log evidencing who decided what
+      and when on your requests; and responding to any deletion request you submit for your data.
+
+  DIRECT_METHODS:
+    ar: >-
+      مما تُدخله بنفسك عند التقدّم للانضمام وعند إعداد وسيلة استلام عمولتك، ومما يُنتجه استخدامك
+      لوحة المسوّق تلقائياً كتوقيت الدخول وسجلّ الإحالات التي أنشأتها.
+    en: >-
+      From what you enter yourself when applying and when setting up your payout method, and from
+      what your use of the affiliate console generates automatically, such as sign-in times and
+      the log of referrals you created.
+  INDIRECT_METHODS:
+    ar: >-
+      لا نشتري بيانات عنك ولا نجمعها من وسطاء بيانات. والمصدر غير المباشر الوحيد هو اسم منشأة
+      أحلتها ورقم جوال صاحبها — تُجمع منك أنت، لا عنك، وتخضع هي لسياسة الخصوصية العامة لا لهذه
+      السياسة.
+    en: >-
+      We buy no data about you and collect none from data brokers. The only indirect source is
+      the name of an establishment you referred and its owner's mobile number — collected from
+      you, not about you, and governed by the general privacy policy rather than this one.
+  DISCLOSURE_FREQUENCY:
+    ar: "عند وقوع الحدث الذي يستدعيه فقط — لا إفصاح دوري ولا مجدول."
+    en: "Only when the event requiring it occurs — there is no periodic or scheduled disclosure."
+
+  RECIPIENTS:
+    ar: >-
+      مزوّد الدفع أو المنصة الوسيطة التي اخترتها لاستلام عمولتك (تحويل بنكي مباشر، أو منصة وسيطة
+      كـ"بحر" أو ما يماثلها)؛ ومزوّد البنية السحابية داخل المملكة الذي تُستضاف عليه الأنظمة؛
+      ومحاسبنا القانوني للسجلات المالية؛ ومديرك المباشر إن كنت مروِّجاً تحت مدير، وبقدر ما يلزمه
+      الإشراف على فريقه فقط؛ والجهات المختصة عند طلب نظامي. ولا نبيع بياناتك ولا نؤجّرها.
+    en: >-
+      The payment provider or intermediary platform you chose to receive your commission through
+      (direct bank transfer, or an intermediary platform such as "Bahar" or similar); the
+      in-Kingdom cloud infrastructure provider hosting the systems; our external accountant for
+      financial records; your direct manager if you are a promoter under one, and only to the
+      extent his oversight of his team requires; and the competent authorities on lawful request.
+      We do not sell your data and do not rent it.
+  STORAGE_LOCATION:
+    ar: >-
+      داخل المملكة العربية السعودية. ويُستثنى من ذلك ما يستلزمه صرف عمولتك عبر منصة وسيطة تعمل
+      من خارج المملكة، إن اخترت هذه الوسيلة بنفسك بدل التحويل البنكي المباشر.
+    en: >-
+      Inside the Kingdom of Saudi Arabia. The exception is what disbursing your commission through
+      an intermediary platform operating from outside the Kingdom requires, if you chose that
+      channel yourself instead of a direct bank transfer.
+
+  RETENTION_PERIOD:
+    ar: >-
+      بيانات هويتك (اسمك ورقم جوالك): طوال مشاركتك في البرنامج، وتُحذف فور تقديمك طلب حذف مقبول —
+      بلا مدة سماح إضافية. سجلّ طلب انضمامك: قرار الموافقة أو الرفض ذاته يبقى، أما اسمك ورقم جوالك
+      عليه فيُحذفان مع طلب الحذف. تاريخ إحالاتك وعمولاتك ومدفوعاتك: يبقى بعد حذف هويتك بصفته
+      سجلاً مالياً وتجارياً غير معرَّف بشخصك — بلا مدة زمنية محدَّدة اليوم بالكود، وهذه نقطة نُقرّ
+      صراحةً بأنها تنتظر قراراً بمدة احتفاظ نهائية بدل تركها مفتوحة إلى الأبد. رموز التحقق: دقائق.
+    en: >-
+      Your identity data (name, mobile number): for as long as you participate in the programme,
+      deleted the moment an accepted deletion request is submitted — with no further grace period.
+      Your application record: the approval or rejection decision itself is kept; your name and
+      number on it are deleted along with the deletion request. Your referral, commission and
+      payout history: retained after your identity is deleted, as a financial and commercial
+      record no longer identifying you — with no fixed duration coded today, and this is a point
+      we state plainly is still awaiting a final retention-ceiling decision rather than left open
+      forever.
+
+  DELETION_AND_BACKUPS:
+    ar: >-
+      عند طلبك الحذف تُستبدل بياناتك التعريفية (اسمك ورقم جوالك) بقيمة محذوفة فوراً في سجلّ طلب
+      انضمامك وسجلّ حسابك كمسوّق، بصورة تلقائية ولا تحتاج تدخلاً بشرياً لكل حالة. ويبقى ما تحته من
+      دور ونسبة عمولة وتاريخ إحالات ومدفوعات سجلاً مالياً وتجارياً بلا معرِّف يخصّك — بنفس أساس
+      احتفاظنا بفاتورة مجرَّدة من اسم صاحبها. أما النسخ الاحتياطية المأخوذة قبل طلبك فتبقى تحمل
+      بياناتك حتى تنتهي مدّة الاحتفاظ بها المنشورة في سياسة الخصوصية العامة، ثم تُمسح تلقائياً،
+      ولا تُقرأ ولا تُستعمل في تشغيل الخدمة، وإن استُعيدت نسخة سابقة لتاريخ طلبك أُعيد تنفيذ الحذف
+      عليها فور الاستعادة.
+    en: >-
+      On your deletion request, your identifying data (name, mobile number) is replaced with a
+      redacted value immediately in your application record and your affiliate account record,
+      automatically and without needing case-by-case human action. What hangs beneath it — your
+      role, commission rate, referral and payment history — remains as a financial and commercial
+      record with no identifier naming you, the same basis on which we retain an invoice stripped
+      of its payer's name. Backups taken before your request keep your data until their own
+      retention period — published in the general privacy policy — ends, after which they are
+      erased automatically, are never read to operate the service, and if a backup predating your
+      request is restored, the deletion is re-applied to it immediately on restore.
+  RESPONSE_TIME:
+    ar: "ثلاثين يوماً، قابلة للتمديد ثلاثين يوماً أخرى عند الجهد غير المتناسب مع إشعارك بالسبب مسبقاً"
+    en: "thirty days, extendable by a further thirty for disproportionate effort, with prior notice of the reason"
+
+  SECURITY_MEASURES:
+    ar: >-
+      تشفير البيانات أثناء النقل وفي التخزين؛ إخفاء بيانات استلام عمولتك (الآيبان أو حساب المنصة
+      الوسيطة) بحيث لا تُعرَض كاملة بعد إدخالها، وإنما آخر أربع خانات منها فقط؛ ضبط وصول بالأدوار
+      وبأقل صلاحية، بحيث لا يرى مديرك إلا بيانات فريقه المباشر لا كل مسوّقي المنصة؛ حفظ كلمات
+      المرور — إن وُجدت — ببصمة أحادية الاتجاه لا يمكن عكسها؛ سجلّ تدقيق لا يقبل التعديل بأثر
+      رجعي؛ وفحوص أمنية آلية تمنع نشر تغيير يخالف هذه الضوابط.
+    en: >-
+      Encryption in transit and at rest; masking your commission payout details (the IBAN or
+      intermediary-platform account) so they are never shown in full after entry — only their last
+      four characters are; role-based, least-privilege access control, so your manager sees only
+      his own direct team's data, never every marketer on the platform; passwords, where they
+      exist, stored as an irreversible one-way hash; an audit log that cannot be altered
+      retroactively; and automated security checks that block the release of a change violating
+      these controls.
+  RELATED_LINKS:
+    ar: "اتفاقية المسوّقين والمقاولين المستقلين · سياسة الخصوصية العامة · إشعار حقوق أصحاب البيانات"
+    en: "The Affiliate Agreement · The general privacy policy · The data-subject rights notice"
+
+categories:
+  - name: { ar: "بيانات هويتك كمسوّق", en: "Your identity as an affiliate" }
+    examples:
+      ar: "اسمك ورقم جوالك (وهو معرِّف دخولك)، ودورك (مروِّج أو مدير)، وتاريخ اعتماد طلب انضمامك"
+      en: "Your name and mobile number (your login identifier), your role (promoter or manager), and the date your application was approved"
+    required: { ar: "إلزامي", en: "Mandatory" }
+  - name: { ar: "بيانات استلام عمولتك", en: "Your commission payout data" }
+    examples:
+      ar: >-
+        قناة الاستلام التي اخترتها (تحويل بنكي مباشر أو منصة وسيطة)، ورقم حسابك عليها (آيبان أو
+        معرِّف حساب)، مخفياً بعد إدخاله بحيث لا يُعرَض إلا آخر أربع خانات منه
+      en: >-
+        The channel you chose (direct bank transfer or an intermediary platform), and your
+        account number on it (an IBAN or account identifier), masked after entry so only its last
+        four characters are ever shown
+    required: { ar: "إلزامي لصرف أي عمولة", en: "Mandatory to disburse any commission" }
+  - name: { ar: "بيانات أدائك", en: "Your performance data" }
+    examples:
+      ar: "عدد إحالاتك وحالتها، ومعدّل تحوّلها إلى اشتراك مدفوع، وعمولاتك المعلَّقة والمؤكدة والملغاة"
+      en: "The count and status of your referrals, their conversion rate to a paid subscription, and your pending, confirmed, and voided commissions"
+    required: { ar: "إلزامي — يُنتَج تلقائياً من مشاركتك بالبرنامج", en: "Mandatory — generated automatically by your participation in the programme" }
+  - name: { ar: "طلبات دعم الوفاء وترشّح الوظيفة", en: "Wafa support and employment-candidacy requests" }
+    examples:
+      ar: >-
+        عدد منشآتك النشطة ومعدّل احتفاظك بها وقت كل طلب، وتوصية مديرك الاستشارية إن وُجدت، وقرار
+        المنصة النهائي وسببه
+      en: >-
+        Your active-shop count and retention rate at the time of each request, your manager's
+        advisory recommendation if any, and the Provider's final decision and its reason
+    required: { ar: "اختياري — فقط إذا تقدّمت بطلب", en: "Optional — only if you submit a request" }
+  - name: { ar: "بيانات فريقك (للمدير فقط)", en: "Your team's data (managers only)" }
+    examples:
+      ar: >-
+        أسماء المروِّجين تحتك وأرقام جوالاتهم وأداؤهم، بقدر ما يلزم إشرافك عليهم — لا يرى مديرٌ
+        بيانات فريق مدير آخر ولا بيانات منشآت لم يُحلها فريقه
+      en: >-
+        The names, mobile numbers, and performance of the promoters under you, only to the extent
+        your oversight of them requires — a manager never sees another manager's team's data, nor
+        establishments his own team did not refer
+    required: { ar: "بحسب دورك بالبرنامج", en: "According to your role in the programme" }
+  - name: { ar: "بيانات تقنية", en: "Technical data" }
+    examples:
+      ar: "أوقات دخولك للوحتك وعناوين IP وملفات ارتباط الجلسة اللازمة لتشغيلها"
+      en: "Your console sign-in times, IP addresses, and the session cookies necessary to operate it"
+    required: { ar: "إلزامي", en: "Mandatory" }
+  - name: { ar: "بيانات المنشأة التي أحلتها", en: "The establishment you referred" }
+    examples:
+      ar: >-
+        اسم المنشأة ورقم جوال صاحبها، تُجمع منك عند إنشاء الإحالة. لا نغطي بهذه السياسة بيانات
+        عملاء تلك المنشأة — فهي جهة التحكم فيها وتحكمها سياسة الخصوصية الخاصة بها.
+      en: >-
+        The establishment's name and its owner's mobile number, collected from you when you
+        create the referral. This policy does not cover that establishment's own customers'
+        data — it is their controller, and its own privacy policy governs them.
+    required: { ar: "إلزامي لإنشاء أي إحالة", en: "Mandatory to create any referral" }
+
+additions:
+  scope:
+    ar: >-
+      تنطبق هذه السياسة على البيانات الشخصية التي نعالجها عن المسوّقين والمقاولين المستقلين
+      المشاركين في برنامج المسوّقين، بصفتنا جهة تحكم فيها. ولا تنطبق على بيانات أصحاب المنشآت
+      وعملائها، وتلك تحكمها سياسة الخصوصية العامة واتفاقية معالجة البيانات كلٌّ بحسب موضوعه.
+    en: >-
+      This policy applies to the Personal Data we process about affiliates and independent
+      contractors participating in the affiliate programme, in our capacity as its controller. It
+      does not apply to the data of establishment owners or their customers, which is governed by
+      the general privacy policy and the data processing agreement, each according to its subject.
+
+  automated_decisions:
+    ar: >-
+      لا نتخذ قرارات آلية تُنتج أثراً نظامياً أو أثراً مماثلاً في شأنك. توصية النظام بشأن طلب دعم
+      الوفاء (المبنية على معدّل احتفاظك ومعدّل الاسترجاع عن منشآتك) استشارية فقط، تُعرَض على مديرك
+      وعلى المنصة، ولا تُقرِّر شيئاً بنفسها — القرار الملزم دائماً قرار بشري.
+    en: >-
+      We take no automated decisions producing a legal or similarly significant effect concerning
+      you. The system's recommendation on a Wafa support request (based on your retention and
+      refund rate) is advisory only, shown to your manager and to the Provider, and decides
+      nothing by itself — the binding decision is always a human one.
+
+  escalation:
+    ar: >-
+      إن لم تقتنع بردّنا على شكواك، فلك التقدّم بشكوى إلى الجهة المختصة بحماية البيانات الشخصية في
+      المملكة. ولا يشترط الرجوع إلينا أولاً، وإن كنّا نفضّل أن نصحّح ما يمكن تصحيحه.
+    en: >-
+      If our answer to your complaint does not satisfy you, you may complain to the competent
+      personal-data protection authority in the Kingdom. You are not required to come to us first,
+      though we would rather fix what can be fixed.

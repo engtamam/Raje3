@@ -29,6 +29,7 @@ import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { DoorLayout } from '../screens/DoorLayout';
 import { western } from '../digits';
+import { legalUrl } from '../legal/url';
 import { AffiliateRefused, apply, requestApplyOtp, signIn, type AffiliateSession } from './api';
 
 type Mode = 'in' | 'new';
@@ -299,21 +300,25 @@ function ApplyPane() {
 }
 
 /** The consent line — Door.tsx's own Terms component is the shop's equivalent, and points at a
- *  different set of documents entirely, which is why this is its own small component. */
+ *  different set of documents entirely, which is why this is its own small component.
+ *
+ *  SAME FIX AS Door.tsx's OWN `Terms` — this used to point at `raje3.sa/legal/affiliates`, a
+ *  domain that does not exist, so nobody could actually read what they were agreeing to. Now
+ *  `legalUrl` builds a same-origin link into the console's own public `/legal/:slug` route
+ *  (Legal.tsx), which reads `deploy/seed/legal/affiliate-agreement.yaml` and
+ *  `affiliate-privacy-policy.yaml` directly — the real published documents, not a summary. */
 function AffiliateTerms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => void }) {
-  const base = (import.meta.env.VITE_AFFILIATE_LEGAL_BASE ?? 'https://raje3.sa/legal/affiliates')
-    .replace(/\/$/, '');
   return (
     <label className="flex items-start gap-2 text-sm text-text-secondary">
       <input type="checkbox" className="mt-1" checked={agree}
              onChange={(e) => onChange(e.target.checked)} />
       <span>
         أوافق على{' '}
-        <a href={`${base}/terms`} target="_blank" rel="noreferrer" className="text-accent underline">
+        <a href={legalUrl('affiliate-agreement')} target="_blank" rel="noreferrer" className="text-accent underline">
           شروط برنامج المسوّقين
         </a>{' '}
         و{' '}
-        <a href={`${base}/privacy`} target="_blank" rel="noreferrer" className="text-accent underline">
+        <a href={legalUrl('affiliate-privacy-policy')} target="_blank" rel="noreferrer" className="text-accent underline">
           سياسة الخصوصية
         </a>
         .

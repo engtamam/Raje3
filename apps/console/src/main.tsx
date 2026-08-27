@@ -17,6 +17,7 @@ import { Store } from './screens/StoreRoute';
 import { Support } from './screens/SupportRoute';
 import { AffiliatePortal } from './affiliates/AffiliatePortal';
 import { AdminPortal } from './admin/AdminPortal';
+import { Legal } from './screens/Legal';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
 import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
 import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
@@ -38,6 +39,10 @@ const isAdminHost = typeof window !== 'undefined' && window.location.hostname.st
 // not reach gets the screen, and the screen gets nothing from the catalogue — which is the same
 // answer the server would give, arrived at without the client pretending to be the guard.
 const shopRouter = createBrowserRouter([
+  // A SIBLING OF '/', NOT A CHILD — deliberately outside <App>. <App> shows the door to anyone
+  // signed out, and a legal document has to render for exactly that person: someone deciding
+  // whether to sign up at all, or a shop's customer who has never had an account.
+  { path: 'legal/:slug', element: <Legal /> },
   {
     path: '/',
     element: <App />,

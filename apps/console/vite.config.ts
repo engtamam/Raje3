@@ -8,6 +8,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { legalDocsPlugin } from './scripts/legalDocsPlugin';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -28,7 +29,7 @@ export default defineConfig({
   define: {
     __PRODUCT_ACCENT__: JSON.stringify(product.brand.accent),
   },
-  plugins: [react()],
+  plugins: [react(), legalDocsPlugin()],
   resolve: {
     alias: {
       '@base-ui': here('../../ui/packages/ui/src'),

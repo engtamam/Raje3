@@ -18,3 +18,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** The published legal documents, generated from deploy/seed/legal/*.yaml at build/dev time —
+ *  see scripts/legalDocsPlugin.ts. */
+declare module 'virtual:legal-docs' {
+  import type { LegalDoc } from '../scripts/legalDocsPlugin';
+  const docs: LegalDoc[];
+  export default docs;
+}

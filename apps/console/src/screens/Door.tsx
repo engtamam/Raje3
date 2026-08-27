@@ -44,6 +44,7 @@ import {
   openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, WELCOME_TRIAL_KEY, Refused,
 } from '../auth';
 import { sentenceFor } from '../api';
+import { legalUrl } from '../legal/url';
 import type { Session } from '../session';
 import { western } from '../digits';
 
@@ -631,13 +632,13 @@ function NewShopPane({ onSignedIn, onWelcome }: {
  * THE LINKS OPEN IN A NEW TAB so a half-filled form is never lost, and they point at the PUBLISHED
  * documents rather than at a summary — a person who agreed to a paraphrase agreed to nothing.
  *
- * THE TARGET IS CONFIGURATION because a pre-session reader cannot fetch them from us:
- * compliance-service serves every legal read behind a capability, which is right for the in-app
- * viewer and leaves nothing for the one reader who most needs it — the one deciding whether to
- * sign up at all. Raised upstream; until then this points at the published pages.
+ * THE TARGET USED TO BE AN EXTERNAL SITE THAT DOES NOT EXIST (`raje3.sa/legal`) — compliance-
+ * service serves every legal read behind a capability, which is right for the in-app viewer and
+ * left nothing for the one reader who most needs it: someone deciding whether to sign up at all.
+ * These now point at the console's own public `/legal/:slug` route (`legalUrl`), which renders the
+ * real published YAML with no session required — the same fix as the pre-session reader needed.
  */
 function Terms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => void }) {
-  const base = (import.meta.env.VITE_LEGAL_BASE ?? 'https://raje3.sa/legal').replace(/\/$/, '');
   return (
     <label className="flex items-start gap-2 text-sm text-text-secondary">
       <input
@@ -646,11 +647,11 @@ function Terms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => 
       />
       <span>
         أوافق على{' '}
-        <a href={`${base}/terms`} target="_blank" rel="noreferrer" className="text-accent underline">
+        <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="text-accent underline">
           شروط الاستخدام
         </a>{' '}
         و{' '}
-        <a href={`${base}/privacy`} target="_blank" rel="noreferrer" className="text-accent underline">
+        <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="text-accent underline">
           سياسة الخصوصية
         </a>
         .
