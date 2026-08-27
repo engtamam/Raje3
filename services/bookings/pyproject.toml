@@ -32,7 +32,7 @@ dependencies = [
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.3,<3.0",
     "prometheus-client>=0.20,<1.0",
-    "prometheus-fastapi-instrumentator>=7.0,<8.0",
+    "prometheus-fastapi-instrumentator>=8.0,<9.0",
     "pyjwt[crypto]>=2.8,<3.0",
     # Direct floor over the transitive pull from pyjwt[crypto]: 49.0.0 is
     # PYSEC-2026-3552, fixed in 50.0.0. Pinned so the CVE cannot re-enter via resolution.
