@@ -22,7 +22,10 @@
  * opening this page gets a short page, never a broken one.
  */
 import { useEffect, useState } from 'react';
+import { KeyRound } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
+import { Button } from '../rj-ui/Button';
+import { Field, Input } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, type Catalog } from '../catalog';
@@ -201,6 +204,17 @@ export function AccountScreen(
         ) : null}
       </div>
 
+      {/* ── change my own password — EVERY role's own account, not the owner's alone. Shown here,
+          outside every tab, for the same reason the "who am I" card above is: it depends on no
+          capability the establishment grants him, only on identity.self — held by every human role
+          (owner, manager, marketer, supervisor, operator; see deploy/seed/roles.json's own note on
+          why this capability existed fully built end to end yet reached nobody until it was
+          granted). Rendered only when the action actually resolves, so a role that somehow lacks it
+          gets a shorter page, never a broken one — same rule the whole screen already follows. */}
+      {action(catalog, 'identity.change_password') ? (
+        <ChangePasswordCard session={session} catalog={catalog} />
+      ) : null}
+
       {/* ── the two lines that answer the page's question without a tap ── */}
       <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
         {sub === undefined ? (
@@ -292,6 +306,76 @@ export function AccountScreen(
       ) : null}
 
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
+    </div>
+  );
+}
+
+/** Collapsed by default — a control this sensitive earns the extra tap rather than sitting open on
+ *  a page loaded a dozen times a day (same balance apps/console/src/affiliates/AffiliateAccount.tsx's
+ *  own ChangePasswordCard already struck for the affiliate side of this product). The three-field
+ *  pattern (current + new + confirm) rather than a reset flow: this is an AUTHENTICATED change made
+ *  while he already holds a session, never the unauthenticated "forgot password" screen. */
+function ChangePasswordCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [open, setOpen] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+             className="flex items-center gap-2 rounded-card bg-surface-1 p-4 text-sm shadow-sm">
+        <KeyRound size={16} className="text-text-secondary" /> تغيير كلمة المرور
+      </button>
+    );
+  }
+
+  async function submit() {
+    if (!newPassword) return;
+    if (newPassword !== confirm) { setError('كلمتا المرور الجديدتان غير متطابقتين.'); return; }
+    const a = action(catalog, 'identity.change_password');
+    if (!a) return;
+    setBusy(true); setError(''); setDone(false);
+    try {
+      await call(session, a, { old_password: oldPassword, new_password: newPassword });
+      setDone(true);
+      setOldPassword(''); setNewPassword(''); setConfirm('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر تغيير كلمة المرور.');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
+        <KeyRound size={16} /> تغيير كلمة المرور
+      </div>
+      <Field label="كلمة المرور الحالية" htmlFor="acct-cp-old">
+        <Input id="acct-cp-old" type="password" autoComplete="current-password" dir="ltr"
+              value={oldPassword}
+              onChange={(e) => { setOldPassword(e.target.value); setDone(false); }} />
+      </Field>
+      <Field label="كلمة المرور الجديدة" htmlFor="acct-cp-new">
+        <Input id="acct-cp-new" type="password" autoComplete="new-password" dir="ltr"
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setDone(false); }} />
+      </Field>
+      <Field label="تأكيد كلمة المرور الجديدة" htmlFor="acct-cp-confirm">
+        <Input id="acct-cp-confirm" type="password" autoComplete="new-password" dir="ltr"
+              value={confirm}
+              onChange={(e) => { setConfirm(e.target.value); setDone(false); }} />
+      </Field>
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+      {done ? <p className="text-sm text-success">تم تغيير كلمة المرور.</p> : null}
+      <div className="flex items-center gap-2">
+        <Button type="button" disabled={busy || !oldPassword || !newPassword} onClick={submit}>
+          حفظ
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>إلغاء</Button>
+      </div>
     </div>
   );
 }
