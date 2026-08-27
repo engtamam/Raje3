@@ -29,7 +29,16 @@
     "entire premise disappears quietly at that moment, and the spec names this exact failure.",
     "",
     "NOT GIVEN TO marketer OR partner: neither records a visit, and a capability granted because it",
-    "is harmless is a capability nobody can later argue against."
+    "is harmless is a capability nobody can later argue against.",
+    "",
+    "identity.self ON EVERY HUMAN ROLE (owner, manager, marketer, supervisor, operator) — added",
+    "after a real gap: identity-service's own /auth/change-password route, its service logic, and a",
+    "shared ready-made form (platform/ui's ChangePassword.tsx) were all fully built, gated on",
+    "identity.self, and this file never granted that capability to anyone — not even the owner. The",
+    "backend and the UI component both existed; nobody could ever reach either, on any account.",
+    "Withheld from partner, matching this file's own established boundary for that role: the till",
+    "company authenticates to its own statements under a contract, not as a person with a console",
+    "account that needs to change its own password from inside a shop's console."
   ],
   "roles": [
     {
@@ -71,7 +80,8 @@
         "notification.read",
         "insights.read",
         "compliance.self",
-        "compliance.manage"
+        "compliance.manage",
+        "identity.self"
       ]
     },
     {
@@ -110,7 +120,8 @@
         "bookings.manage",
         "insights.read",
         "compliance.self",
-        "compliance.manage"
+        "compliance.manage",
+        "identity.self"
       ],
       "_why_no_service_accounts": "إصدار اعتماد للكاشير بيد المالك وحده. الاعتماد يكتب زيارات باسم منشأته ولا تنتهي صلاحيته باستقالة موظف — فهو أقرب إلى مفتاح المحل منه إلى مهمة يومية. والمدير يستطيع كل شيء آخر، وهذا أحد فرقين اثنين فقط بينهما.",
       "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
@@ -129,7 +140,8 @@
         "analytics.read",
         "loyalty.read",
         "insights.read",
-        "compliance.self"
+        "compliance.self",
+        "identity.self"
       ]
     },
     {
@@ -149,7 +161,8 @@
         "bookings.read",
         "bookings.write",
         "insights.read",
-        "compliance.self"
+        "compliance.self",
+        "identity.self"
       ]
     },
     {
@@ -163,7 +176,8 @@
         "search.read",
         "loyalty.read",
         "loyalty.redeem",
-        "compliance.self"
+        "compliance.self",
+        "identity.self"
       ]
     },
     {
