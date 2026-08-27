@@ -132,11 +132,22 @@ def create_app() -> FastAPI:
     # library's own default, and the reason: `/bookings/{id}` is one label value regardless of
     # which id, so cardinality stays bounded no matter how many bookings exist). Unhandled paths
     # (404s from probing/scanning) are excluded by the same default, so they cannot inflate the
-    # metric set either. This only calls .instrument() — never .expose() — because metrics.router
-    # above already serves /metrics off the same default prometheus_client registry Instrumentator
-    # writes into; a second .expose() would just be a second route fighting the first for the path.
-    from prometheus_fastapi_instrumentator import Instrumentator
-    Instrumentator().instrument(app)
+    # metric set either.
+    #
+    # .add(metrics.default()) IS NOT OPTIONAL — Instrumentator() alone starts with ZERO
+    # instrumentations registered (confirmed live: instrument()-only ran with no error, no crash,
+    # and produced not one http_* metric — a silent no-op, the worst kind of bug to ship, because
+    # it looks wired and isn't). .default() is what actually registers the request-count and
+    # duration-histogram collectors this whole effort is for.
+    #
+    # This only calls .instrument() — never .expose() — because metrics.router above already
+    # serves /metrics off the same default prometheus_client registry Instrumentator writes into;
+    # a second .expose() would just be a second route fighting the first for the path. Verified
+    # live end to end: a real request through an included router (the exact shape that crashes on
+    # 7.x — see the pyproject.toml pin note) produces http_requests_total and
+    # http_request_duration_seconds on /metrics, grouped by handler, with no error.
+    from prometheus_fastapi_instrumentator import Instrumentator, metrics
+    Instrumentator().add(metrics.default()).instrument(app)
     app.include_router(internal.router)
     app.include_router(v1_router)
     # Operator controls: credentials and policy an operator changes after launch.
