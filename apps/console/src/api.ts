@@ -61,6 +61,11 @@ export function sentenceFor(e: unknown, fallback: string): string {
   // A network failure is the NORMAL case in a workshop, not an exception — and it is the one
   // message that must not alarm.
   if (e instanceof TypeError) return 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.';
+  // A REQUEST THAT NEVER ANSWERED, not one that was refused — `fetchWithTimeout`'s own abort()
+  // throws this, never an ApiError, because no response ever arrived to build one from. To the
+  // person reading it, "nothing came back within 10 seconds" and "no connection" are the same
+  // fact, so they get the same sentence rather than a raw "AbortError".
+  if (e instanceof DOMException && e.name === 'AbortError') return 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.';
 
   // AN ARABIC MESSAGE WAS WRITTEN FOR A PERSON; KEEP IT.
   //
@@ -76,11 +81,50 @@ export function sentenceFor(e: unknown, fallback: string): string {
   return fallback;
 }
 
+// A REQUEST MUST NOT HANG FOREVER. Confirmed live under real concurrent load (2026-08-27 load
+// test): a request that never gets a reply — not rejected, not slow, just gone — leaves whichever
+// screen made it sitting on its own "يُحمَّل…" skeleton indefinitely; the screen's own retry UI
+// («تعذّر القراءة», a real button) never even appears, because nothing ever tells the screen the
+// read failed. 10s is generous for anything this console actually calls, and short enough that a
+// person waiting on a real counter is not staring at a spinner for a full minute first.
+const REQUEST_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// A BURST-DENIED READ USUALLY CLEARS WITHIN A SECOND. Confirmed live: 429/503 under real
+// concurrent load are transient — the same request seconds later succeeds once the burst passes.
+// Retrying quietly, ONLY for a GET (never a write — a POST/PATCH must not be replayed just because
+// this file decided to, idempotency keys or not; that decision belongs to the caller, not here),
+// turns most of those into "a little slower" instead of the screen's own error state firing at
+// all. Two extra tries, short and increasing backoff — enough to ride out a burst, not enough to
+// turn a REAL outage into a long silent wait before the honest failure the screen already handles.
+const TRANSIENT_RETRY_STATUSES = new Set([429, 503]);
+const RETRY_DELAYS_MS = [400, 900];
+
+async function fetchIdempotent(url: string, init: RequestInit): Promise<Response> {
+  let res = await fetchWithTimeout(url, init);
+  if ((init.method ?? 'GET') !== 'GET') return res;
+  for (const delay of RETRY_DELAYS_MS) {
+    if (!TRANSIENT_RETRY_STATUSES.has(res.status)) break;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    res = await fetchWithTimeout(url, init);
+  }
+  return res;
+}
+
 async function call<T>(session: Session, path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${session.token}`);
   if (init.body) headers.set('Content-Type', 'application/json');
-  let res = await fetch(`${BASE}${path}`, { ...init, headers });
+  let res = await fetchIdempotent(`${BASE}${path}`, { ...init, headers });
   if (res.status === 401) {
     // RENEW BEFORE DECLARING ANYTHING. The bearer is good for 15 minutes and the refresh token for
     // 31 days; on this screen especially — the one an operator keeps open all day at the counter —
@@ -88,7 +132,7 @@ async function call<T>(session: Session, path: string, init: RequestInit = {}): 
     const token = await renew();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
-      res = await fetch(`${BASE}${path}`, { ...init, headers });
+      res = await fetchIdempotent(`${BASE}${path}`, { ...init, headers });
     }
   }
   const text = await res.text();
