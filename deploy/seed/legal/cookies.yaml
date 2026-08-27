@@ -32,8 +32,8 @@ publication: public
 values:
   COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"
   COMPANY_WEBSITE: "raje3.sa"
-  PRIVACY_EMAIL: "privacy@example.invalid"
-  DPO_EMAIL: "dpo@example.invalid"
+  PRIVACY_EMAIL: "mang.raje3@gmail.com"
+  DPO_EMAIL: "mang.raje3@gmail.com"
   # WHERE THE READER CHANGES HIS MIND. A policy that describes a preferences screen without linking
   # to it is describing something the reader cannot reach — and "manage your preferences" with no
   # destination is the most common empty promise in this whole family of documents.

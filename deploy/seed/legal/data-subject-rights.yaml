@@ -29,7 +29,7 @@ publication: public
 values:
   COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"            # الاسم النظامي كما في السجل التجاري
   COMPANY_WEBSITE: "raje3.sa"
-  PRIVACY_EMAIL: "privacy@example.invalid"           # بريد مخصّص لطلبات أصحاب البيانات، منفصل عن الدعم
+  PRIVACY_EMAIL: "mang.raje3@gmail.com"           # بريد مخصّص لطلبات أصحاب البيانات، منفصل عن الدعم
   VERSION: "1.0"
   EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
 additions:

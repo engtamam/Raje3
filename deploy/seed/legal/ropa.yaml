@@ -36,7 +36,7 @@ publication: internal
 # document published by accident reads as unfinished rather than as somebody else's.
 values:
   COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"            # الاسم النظامي كما في السجل التجاري
-  DPO_EMAIL: "dpo@example.invalid"               # بريد مسؤول حماية البيانات
+  DPO_EMAIL: "mang.raje3@gmail.com"               # بريد مسؤول حماية البيانات
   # DPO_NAME: THE TEMPLATE REQUIRES IT AND WE SUPPLIED NO VALUE AT ALL — so three documents
   # could not be instantiated, and the CI guard did not see it because a token absent from our
   # file is invisible to a check that reads our file.

@@ -36,14 +36,14 @@ values:
   COMPANY_ADDRESS: "الرياض، المملكة العربية السعودية (عنوان مؤقت)"         # العنوان الوطني للشركة
   COMPANY_PHONE: "+966500000000"
   COMPANY_WEBSITE: "raje3.sa"
-  PRIVACY_EMAIL: "privacy@example.invalid"           # بريد طلبات الخصوصية — منفصل عن الدعم عمداً
-  DPO_EMAIL: "dpo@example.invalid"
+  PRIVACY_EMAIL: "mang.raje3@gmail.com"           # بريد طلبات الخصوصية — منفصل عن الدعم عمداً
+  DPO_EMAIL: "mang.raje3@gmail.com"
   # DPO_NAME: THE TEMPLATE REQUIRES IT AND WE SUPPLIED NO VALUE AT ALL — so three documents
   # could not be instantiated, and the CI guard did not see it because a token absent from our
   # file is invisible to a check that reads our file.
   DPO_NAME: "مسؤول حماية البيانات (اسم مؤقت)"
   DPO_PHONE: "+966500000000"
-  COMPLAINT_CONTACT: "privacy@example.invalid"       # نفس بريد الخصوصية ما لم تُنشأ جهة مستقلة
+  COMPLAINT_CONTACT: "mang.raje3@gmail.com"       # نفس بريد الخصوصية ما لم تُنشأ جهة مستقلة
   COMPLAINT_DEPARTMENT:
     ar: "مسؤول حماية البيانات"
     en: "The Data Protection Officer"
