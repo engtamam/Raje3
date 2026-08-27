@@ -142,6 +142,19 @@ function needsProof(err: unknown): boolean {
   return err instanceof Refused && err.reason === 'unverified';
 }
 
+/**
+ * THE NEW-SHOP DOOR'S OWN REFUSAL — distinct from `needsProof` above on purpose.
+ *
+ * `needsProof` means an ACCOUNT ALREADY EXISTS and only its sign-in refused; the fix is a code
+ * screen that ends in `verifyCode`+`signIn`. This one fires BEFORE any account exists at all —
+ * `open_shop_verified` refuses `POST /signup` itself with `otp_required` the moment a deployment
+ * has `SIGNUP_REQUIRE_OTP` on and no code rode along yet. There is nothing to sign into here; the
+ * fix is fetching a code and retrying the SAME open-shop call, this time carrying it.
+ */
+function needsSignupCode(err: unknown): boolean {
+  return err instanceof Refused && err.reason === 'otp_required';
+}
+
 function ProveNumber(
   { proving, setProving, onSignedIn }:
   { proving: Proving; setProving: (p: Proving) => void; onSignedIn: (s: Session) => void },
@@ -174,6 +187,51 @@ function ProveNumber(
   );
 }
 
+
+/** The full form, held across the code detour — everything `openShop` needs on the retry. */
+type OpeningShop = {
+  phone: string; password: string; shopName: string; affiliateRef: string; problem: string;
+};
+
+/**
+ * «أدخل الرمز» for a shop that DOES NOT EXIST YET — the pre-account sibling of `ProveNumber`.
+ *
+ * Cannot reuse `ProveNumber` as-is: its `onVerify` spends the code through `/signup/verify`
+ * (`prove()`), which reads a phone-index ROW that is only written once `open_shop` has already
+ * run — exactly the step this screen exists to gate. So verifying and creating are ONE call here,
+ * not two: `openShop` itself carries the code and `open_shop_verified` spends it before the shop
+ * exists (services/operations `core/signup.py`).
+ */
+function ProveNewShop(
+  { opening, setOpening, onOpened }:
+  { opening: OpeningShop; setOpening: (o: OpeningShop) => void;
+    onOpened: (opened: Awaited<ReturnType<typeof openShop>>) => void },
+) {
+  return (
+    <>
+      {opening.problem ? (
+        <p role="alert" className="mb-4 rounded-card bg-surface-1 p-4 text-danger shadow-sm">
+          {opening.problem}
+        </p>
+      ) : null}
+      <OtpVerify
+        title="أكّد رقمك"
+        sentTo={opening.phone}
+        onVerify={async (code) => {
+          onOpened(await openShop({
+            phone: opening.phone, password: opening.password, shopName: opening.shopName,
+            affiliateRef: opening.affiliateRef, code,
+          }));
+        }}
+        onResend={async () => {
+          setOpening({ ...opening, problem: '' });
+          await requestCode(opening.phone);
+        }}
+        mapError={otpError}
+      />
+    </>
+  );
+}
 
 function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [phone, setPhone] = useState('');
@@ -343,6 +401,9 @@ function NewShopPane({ onSignedIn, onWelcome }: {
   onWelcome?: (end: number) => void;
 }) {
   const [proving, setProving] = useState<Proving | null>(null);
+  // A CODE REQUESTED BEFORE THE SHOP EXISTS — see `needsSignupCode`/`ProveNewShop`. Distinct from
+  // `proving` above: that one is for an account that already exists and only sign-in refused.
+  const [opening, setOpening] = useState<OpeningShop | null>(null);
   const [v, setV] = useState<Record<FieldName, string>>({ phone: '', password: '', shopName: '' });
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [agree, setAgree] = useState(false);
@@ -360,6 +421,17 @@ function NewShopPane({ onSignedIn, onWelcome }: {
     // mount-time initializer. Losing either one reintroduces a version of the same bug.
     try { sessionStorage.setItem(WELCOME_TRIAL_KEY, String(end)); } catch { /* private mode */ }
     onWelcome?.(end);
+  }
+
+  /** THE ONE PLACE EITHER PATH (straight-through, or through the code screen) FINISHES —
+   *  so the consent marker and the welcome cue are written once, the same way, regardless of
+   *  which door he actually walked through. */
+  function finishOpen(opened: Awaited<ReturnType<typeof openShop>>, phone: string) {
+    try {
+      localStorage.setItem(AGREED_KEY, normalizePhone(phone) ?? '');
+    } catch { /* private mode — the gate simply asks, which is the safe direction */ }
+    markWelcome(opened.trialEnd);
+    onSignedIn(opened.session);
   }
 
   const errs = useMemo(() => ({
@@ -432,24 +504,30 @@ function NewShopPane({ onSignedIn, onWelcome }: {
         // auth.ts's own note on why this is never a field he fills in himself.
         affiliateRef: affiliateRefFromUrl(),
       });
-      // HE AGREED HERE, against links to the documents. The legal gate records the version-pinned
-      // acceptance the moment he is inside; this marker is what stops it asking the same question
-      // twice in thirty seconds. Keyed by the number so a shared phone cannot carry one person's
-      // consent into another person's account.
-      try {
-        localStorage.setItem(AGREED_KEY, normalizePhone(filled.phone) ?? '');
-      } catch { /* private mode — the gate simply asks, which is the safe direction */ }
-
-      markWelcome(opened.trialEnd);
-      onSignedIn(opened.session);
+      finishOpen(opened, filled.phone);
     } catch (err) {
-      // THE SAME REFUSAL, THE SAME STEP — and this pane used to answer it with a sentence on a
-      // form that has no code field anywhere on it (م · قاطع). The account exists by then, his
-      // number is spoken for, and «أكّد رقمك» with nowhere to type it is a locked door he built
-      // himself. The pane beside this one has handled it correctly since it was written.
+      // NO ACCOUNT EXISTS YET — `open_shop_verified` refused the CREATE itself because a
+      // deployment with `SIGNUP_REQUIRE_OTP` on saw no code ride along. Fetch one and switch to
+      // the code screen; the retry there carries it on the SAME `openShop` call, never a second
+      // account.
+      if (needsSignupCode(err)) {
+        let problem = '';
+        try {
+          await requestCode(filled.phone);
+        } catch (sendErr) {
+          problem = sentenceFor(sendErr, 'تعذّر إرسال الرمز.');
+        }
+        setOpening({
+          phone: filled.phone, password: filled.password, shopName: filled.shopName,
+          affiliateRef: affiliateRefFromUrl(), problem,
+        });
+        return;
+      }
+      // THE SAME REFUSAL, THE SAME STEP — kept for the deployment shape where a code WAS spent
+      // (SIGNUP_REQUIRE_OTP off, or a partner claim) but the immediate sign-in still refused for
+      // some other reason. The account exists by then; «أكّد رقمك» here means the same thing it
+      // always meant on the sign-in pane.
       if (needsProof(err)) {
-        // THE TRIAL ALREADY OPENED — carried on the thrown error itself (auth.ts's own note),
-        // since the shop and its trial exist by the time sign-in alone is what refused.
         setTrialEnd(Number((err as { trialEnd?: number }).trialEnd) || 0);
         setProving(await proveStep(filled.phone, filled.password));
         return;
@@ -458,6 +536,11 @@ function NewShopPane({ onSignedIn, onWelcome }: {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (opening) {
+    return <ProveNewShop opening={opening} setOpening={setOpening}
+                         onOpened={(opened) => finishOpen(opened, opening.phone)} />;
   }
 
   if (proving) {

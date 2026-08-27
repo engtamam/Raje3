@@ -473,6 +473,42 @@ class SignupService:
                 # trial was opened or billing did not answer one; the console shows nothing then.
                 "trial_end": int(trial_end)}
 
+    async def open_shop_verified(self, shop: NewShop, code: str) -> dict[str, Any]:
+        """The ordinary self-serve door, OTP-gated the SAME WAY the partner claim already is
+        (see `claim()` just below) — the number is proven BEFORE the shop exists, never after.
+
+        WHY A SEPARATE METHOD RATHER THAN A CHANGE INSIDE `open_shop` ITSELF. `claim()` already
+        proves the number through its own `_spend_code` call and hands a NewShop straight to
+        `open_shop` — folding a code check into `open_shop` would either re-spend an
+        already-consumed code on that path (breaking it) or need a "already proven" flag threaded
+        through every caller. A thin wrapper that runs before/after `open_shop`, unchanged, is the
+        same shape `claim()` already uses and touches nothing that works today.
+
+        GATED ON `self._require_otp`, THE SAME FLAG SIGN-IN ALREADY USES — a deployment that has
+        not turned this on yet (no WhatsApp sender wired, `SIGNUP_OTP_DELIVERABLE` still false)
+        keeps opening shops exactly as it does today; the code, if any is sent, is simply ignored.
+        """
+        canonical = canonical_phone(shop.phone, default_cc=self._cc)
+        if self._require_otp:
+            # A DISTINCT REASON FOR "NO CODE YET" VS "WRONG CODE" — the console needs to tell
+            # apart "he hasn't reached the code screen at all" (fetch one, show it) from "he typed
+            # one and it was wrong" (show the error ON that screen, don't re-fetch). `_spend_code`
+            # itself makes both look like the same bad-code refusal to identity, which is right
+            # for identity but would leave the console guessing here.
+            if not code:
+                raise SignupRefused(
+                    "أدخل رمز التحقق الذي وصلك.", reason="otp_required")
+            self._spend_code(canonical, code)
+        out = await self.open_shop(shop)
+        if self._require_otp:
+            # THE ROW EXISTS NOW — `open_shop`'s own `_remember` just wrote it `verified: False`.
+            # Same two-index update `claim()` does right after its own `open_shop` call.
+            row = await self._row(canonical)
+            if row is not None:
+                await self._store.put(PHONE_INDEX, canonical, {**row, "verified": True})
+                await self._mark_proven(str(row.get("tenant") or ""), canonical)
+        return out
+
     async def reassert_data_map(self, tenant: str) -> str:
         """Re-register this tenant's data map, and say what could not be registered.
 

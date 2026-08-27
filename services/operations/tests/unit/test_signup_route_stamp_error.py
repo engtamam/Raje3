@@ -19,6 +19,9 @@ class _FakeSvc:
     async def open_shop(self, shop):
         return dict(self._out)
 
+    async def open_shop_verified(self, shop, code):
+        return dict(self._out)
+
     async def claim(self, phone, code, password):
         return dict(self._out)
 

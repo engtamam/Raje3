@@ -34,6 +34,11 @@ class OpenShopIn(BaseModel):
     # Optional, read from the console's own `?aff=` link parameter — see core/signup.py's own
     # NewShop.affiliate_ref note for why this is never partner_key/partner_id.
     affiliate_ref: str = Field(default="", max_length=64)
+    # EMPTY ON A DEPLOYMENT THAT HAS NOT TURNED OTP-AT-SIGNUP ON YET — `open_shop_verified` only
+    # spends this when `SIGNUP_REQUIRE_OTP` is set, so an unconfigured field costs nothing until
+    # that flag flips. See core/signup.py's `open_shop_verified` for why this isn't just `prove`
+    # called first: the number must be proven BEFORE the shop exists, not after.
+    code: str = Field(default="", max_length=16)
 
 
 class CodeIn(BaseModel):
@@ -85,9 +90,9 @@ def _refused(exc: SignupRefused) -> JSONResponse:
 @router.post("", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def open_shop(request: Request, body: OpenShopIn) -> Any:
     try:
-        out = await _svc(request).open_shop(NewShop(
+        out = await _svc(request).open_shop_verified(NewShop(
             phone=body.phone, password=body.password,
-            shop_name=body.shop_name, affiliate_ref=body.affiliate_ref))
+            shop_name=body.shop_name, affiliate_ref=body.affiliate_ref), body.code)
     except SignupRefused as exc:
         return _refused(exc)
     # NO TOKEN IN THIS RESPONSE. The account exists; the console signs in with it immediately,

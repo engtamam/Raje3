@@ -26,6 +26,10 @@ export interface NewShop {
   password: string;
   shopName: string;
   affiliateRef?: string;
+  // EMPTY ON A DEPLOYMENT THAT HAS NOT TURNED OTP-AT-SIGNUP ON — the backend only spends it when
+  // `SIGNUP_REQUIRE_OTP` is set (services/operations `open_shop_verified`); an unset field costs
+  // nothing until that flag flips.
+  code?: string;
 }
 
 /**
@@ -131,6 +135,7 @@ export async function openShop(shop: NewShop): Promise<OpenedShop> {
       password: shop.password,
       shop_name: shop.shopName,
       affiliate_ref: shop.affiliateRef || '',
+      code: shop.code || '',
     });
   const trialStarted = out.trial_started === true;
   const trialEnd = Number(out.trial_end) || 0;

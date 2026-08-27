@@ -44,12 +44,13 @@ ROLES = [{"name": "owner", "capabilities": ["operations.record"], "description":
 
 
 def build(http, store=None, roles=ROLES, affiliate_url="", ticket_url="",
-         affiliate_ticket_scope_types=""):
+         affiliate_ticket_scope_types="", require_otp=True):
     return SignupService(
         store=store or FakeStore(), http=http,
         identity_url="http://identity:8000", tenants_url="http://tenants:8000",
         authz_url="http://authz:8000", roles=roles, affiliate_url=affiliate_url,
-        ticket_url=ticket_url, affiliate_ticket_scope_types=affiliate_ticket_scope_types)
+        ticket_url=ticket_url, affiliate_ticket_scope_types=affiliate_ticket_scope_types,
+        require_otp=require_otp)
 
 
 _HAPPY_PATH = [("/internal/tenants", (201, {"id": "t-1"})),
@@ -686,3 +687,59 @@ def test_a_dispatched_erasure_still_reports_success():
     finally:
         E._post = original
     assert out["dispatched"] is True
+
+
+# ── open_shop_verified: the number proven BEFORE the shop exists ──────────────────────────────
+
+@pytest.mark.anyio
+async def test_open_shop_verified_refuses_with_no_code_and_creates_nothing():
+    http = FakeHttp(_HAPPY_PATH)
+    svc = build(http, require_otp=True)
+
+    with pytest.raises(SignupRefused) as caught:
+        await svc.open_shop_verified(NewShop("0501234567", "hunter2hunter2", "بنشر النور"), "")
+    assert caught.value.reason == "otp_required"
+    # NOTHING WAS CREATED — the console needs to fetch a code and retry, on the SAME open call,
+    # never a tenant sitting half-open on a number nobody proved yet.
+    assert ("POST", "http://tenants:8000/internal/tenants") not in http.calls
+
+
+@pytest.mark.anyio
+async def test_open_shop_verified_refuses_a_wrong_code_and_creates_nothing():
+    http = FakeHttp([*_HAPPY_PATH, ("/otp/verify", (400, {}))])
+    svc = build(http, require_otp=True)
+
+    with pytest.raises(SignupRefused):
+        await svc.open_shop_verified(
+            NewShop("0501234567", "hunter2hunter2", "بنشر النور"), "000000")
+    assert ("POST", "http://tenants:8000/internal/tenants") not in http.calls
+
+
+@pytest.mark.anyio
+async def test_open_shop_verified_opens_and_marks_the_number_proven_on_a_right_code():
+    store = FakeStore()
+    http = FakeHttp([*_HAPPY_PATH, ("/otp/verify", (200, {"verified": True}))])
+    svc = build(http, store=store, require_otp=True)
+
+    out = await svc.open_shop_verified(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"), "123456")
+
+    assert out["tenant"] == "t-1"
+    # THE ROW `open_shop` ITSELF WROTE `verified: False` NOW READS TRUE — proven before the shop
+    # existed, not left for a future sign-in to catch.
+    row = await svc._row("0501234567")
+    assert row is not None and row["verified"] is True
+    assert await svc.phone_proven("t-1") is True
+
+
+@pytest.mark.anyio
+async def test_open_shop_verified_is_a_no_op_gate_when_otp_is_off():
+    """The default shape today — no WhatsApp sender wired yet (SIGNUP_OTP_DELIVERABLE=false),
+    so SIGNUP_REQUIRE_OTP stays off in the real deployment too. An empty code must open the shop
+    exactly as `open_shop` alone always has."""
+    http = FakeHttp(_HAPPY_PATH)
+    svc = build(http, require_otp=False)
+
+    out = await svc.open_shop_verified(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"), "")
+    assert out["tenant"] == "t-1"
