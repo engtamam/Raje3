@@ -122,8 +122,13 @@ def content_key(*, tenant: str, visit: "TillVisitIn") -> str:
     costs one visit; splitting a retried sale costs a customer's trust in every message we send
     him afterwards.
     """
-    parts = [tenant, (visit.phone or "").strip(), str(visit.occurred_at),
-             (visit.plate or "").strip(), str(visit.meter or 0)]
+    # BRANCH IS PART OF THE FINGERPRINT TOO — a customer at branch A and the SAME customer at
+    # branch B, same second, same items (a chain's loyalty member shopping the same list at two
+    # locations, or simply an unlucky coincidence at scale), must not collapse into one visit
+    # just because neither till sent a stable key. See `_key_for`'s own note on the identical
+    # reasoning for the invoice-number branch.
+    parts = [tenant, (visit.branch_id or "").strip(), (visit.phone or "").strip(),
+             str(visit.occurred_at), (visit.plate or "").strip(), str(visit.meter or 0)]
     # SORTED, because a till is free to reorder the lines of the same invoice between retries —
     # and an unsorted fingerprint would make the reorder look like a different sale.
     parts += sorted(f"{line.product_id}|{line.name}|{line.qty}|{line.amount_minor}"
@@ -137,14 +142,19 @@ def _key_for(tenant: str, visit: "TillVisitIn") -> str:
     if visit.idempotency_key:
         return visit.idempotency_key
     if visit.invoice_id:
-        # NAMESPACED, so a till whose invoice numbers restart at 1 each day cannot collide with a
-        # key some other integration chose. `inv:`, NOT `till:` (ك-8) — `record_visits_batch`
-        # derives the SAME key from the SAME invoice number with `inv:{tenant}:{invoice_id}`
-        # (api/internal.py), and this route forwards into that exact handler. A vendor moving from
-        # the internal door to this one, or a till whose driver posts through both during a
-        # migration, produced two idempotency keys for one invoice — `till:…` here, `inv:…` there —
-        # so the same sale was recorded twice: doubled history, doubled reminders, doubled points.
-        return f"inv:{tenant}:{visit.invoice_id}"
+        # NAMESPACED BY BRANCH TOO, not only tenant — a shop with several branches (a supermarket,
+        # several tills each with its own register) very often has EACH branch's own invoice
+        # numbering restart at 1 independently. Branch A's invoice #1 and branch B's invoice #1
+        # must not hash to the same key — the second branch's real, distinct sale would be
+        # silently treated as an already-recorded duplicate of the first. `inv:`, NOT `till:`
+        # (ك-8) — `record_visits_batch` derives the SAME key from the SAME (tenant, branch,
+        # invoice) with `inv:{tenant}:{branch_id}:{invoice_id}` (api/internal.py), and this route
+        # forwards into that exact handler. A vendor moving from the internal door to this one, or
+        # a till whose driver posts through both during a migration, must get the identical key
+        # from both or the same sale is recorded twice: doubled history, doubled reminders,
+        # doubled points. `visit.branch_id` may be "" — that is still a real, distinct namespace
+        # ("no branch stated"), not a reason to drop it from the key.
+        return f"inv:{tenant}:{visit.branch_id}:{visit.invoice_id}"
     return content_key(tenant=tenant, visit=visit)
 
 

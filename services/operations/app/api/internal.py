@@ -236,9 +236,16 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
         if extra_custom and not item.custom_service:
             item.custom_service = extra_custom
         if item.invoice_id and not item.idempotency_key:
-            # Namespaced, so a till whose invoice numbers restart at 1 each day cannot collide with
-            # a key some other integration chose.
-            item.idempotency_key = f"inv:{item.tenant}:{item.invoice_id}"
+            # NAMESPACED BY BRANCH TOO, not only tenant — a shop with several branches (a
+            # supermarket, several tills each with its own register) very often has EACH branch's
+            # own invoice numbering restart at 1, independently of every other branch's. Without
+            # `branch_id` here, branch A's invoice #1 and branch B's invoice #1 hashed to the
+            # SAME key, and the second branch's real, distinct sale was silently treated as a
+            # duplicate of the first and dropped — one branch's whole day of visits vanishing into
+            # "already recorded" the moment a sibling branch's numbering caught up to the same
+            # digits. `item.branch_id` may be "" (branch is optional on a visit) — that is still a
+            # real, distinct namespace of its own ("no branch stated"), not a reason to omit it.
+            item.idempotency_key = f"inv:{item.tenant}:{item.branch_id}:{item.invoice_id}"
 
         # The tenant is per item and must be present. Checked here rather than by the model, so a
         # single item missing it is REJECTED while the rest of the batch still lands.

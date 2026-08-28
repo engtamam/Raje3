@@ -294,6 +294,24 @@ def test_the_invoice_number_is_namespaced_by_tenant():
     assert key.startswith("inv:t_1:") and key.endswith("1")
 
 
+def test_the_content_fingerprint_is_namespaced_by_branch_too():
+    """The last-resort fingerprint (no key, no invoice number at all) must not merge the same
+    customer's identical-looking purchase at two different branches into one visit."""
+    a = _visit(branch_id="brn-a")
+    b = _visit(branch_id="brn-b")
+    assert till_routes.content_key(tenant="t_1", visit=a) != till_routes.content_key(
+        tenant="t_1", visit=b)
+
+
+def test_the_invoice_number_is_namespaced_by_branch_too():
+    """A supermarket with several branches, each with its own register restarting invoice
+    numbers at 1, must not have branch B's invoice #1 silently swallowed as a duplicate of
+    branch A's invoice #1 — the two are genuinely different sales."""
+    key_a = till_routes._key_for("t_1", _visit(invoice_id="1", branch_id="brn-a"))
+    key_b = till_routes._key_for("t_1", _visit(invoice_id="1", branch_id="brn-b"))
+    assert key_a != key_b
+
+
 def test_the_invoice_key_matches_the_internal_doors_own_derivation():
     """ك-8: the SAME invoice number through EITHER door must produce the SAME idempotency key, or
     a shop moving from the internal door to this one — or a till posting through both during a
@@ -301,9 +319,9 @@ def test_the_invoice_key_matches_the_internal_doors_own_derivation():
     from app.api.internal import BatchVisitIn
 
     till_key = till_routes._key_for("t_1", _visit(invoice_id="INV-42"))
-    item = BatchVisitIn(tenant="t_1", invoice_id="INV-42")
+    item = BatchVisitIn(tenant="t_1", branch_id="brn-main", invoice_id="INV-42")
     if item.invoice_id and not item.idempotency_key:
-        item.idempotency_key = f"inv:{item.tenant}:{item.invoice_id}"
+        item.idempotency_key = f"inv:{item.tenant}:{item.branch_id}:{item.invoice_id}"
     assert till_key == item.idempotency_key
 
 
