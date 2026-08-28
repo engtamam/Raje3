@@ -876,6 +876,11 @@ class ConversationEngine:
         conv.unconfirmed_proposal_attempts = 0
         await self._save(conv)
         if result["kind"] == "booking":
+            # `result["audit_gap"]` (set only when the audit witness failed AFTER the booking
+            # itself already succeeded — see core/tools.py::execute_confirmed_proposal's own
+            # note) is deliberately not surfaced here: the customer is told the plain truth
+            # either way, because either way their booking IS confirmed. The gap is logged there
+            # for reconciliation, not hidden from the customer by lying about their own booking.
             return ReplyPlan(kind="text", text="تم تأكيد موعدك.")
         return ReplyPlan(kind="text", text="تم استبدال النقاط.")
 

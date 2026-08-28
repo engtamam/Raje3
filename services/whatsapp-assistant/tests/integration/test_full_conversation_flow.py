@@ -112,3 +112,50 @@ async def test_full_flow_from_inbound_message_to_confirmed_booking_and_audit_rec
         tenant=TENANT, subject_ref=SUBJECT, reply_id=confirm_id, auditor=auditor, now=now + 210)
     rows_after, _ = await store.find(BOOKINGS, {"tenant": TENANT, "subject_ref": SUBJECT}, limit=10)
     assert len(rows_after) == 1   # still exactly one booking
+
+
+async def test_the_customer_still_hears_confirmed_when_the_audit_sink_is_down_at_that_instant():
+    """The booking write succeeds; the audit witness fails right after. The customer must still
+    get told the truth (their booking IS confirmed) rather than the whole reply vanishing behind
+    an unhandled AuditUnavailable — see core/tools.py::execute_confirmed_proposal's own note."""
+    from app.ports.audit_sink import FAILED, AuditReceipt
+
+    store = MemoryDataStore()
+    provider = _booking_provider(store)
+    llm = StubLlm()
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=provider, points_summary=NullPointsSummary(),
+        debounce_seconds=180, session_timeout_seconds=2400, raw_window_messages=12,
+        allowed_tools=frozenset({"check_availability", "propose_booking",
+                                "get_customer_points_summary", "suggest_redeemable_offer"}))
+
+    class _DownAuditSink:
+        driver = "http"
+
+        async def emit(self, event):
+            return AuditReceipt(status=FAILED, detail="audit-service unreachable (simulated)")
+
+    actions = validate(AUDITABLE_ACTIONS, "whatsapp-assistant")
+    down_auditor = Auditor(sink=_DownAuditSink(), service="whatsapp-assistant",
+                           critical_actions=critical_actions(actions),
+                           declared_actions=declared_actions(actions), fail_closed=True)
+
+    now = int(time.time())
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+966500000001",
+                                 text="أبي أحجز غسيل بكرا", now=now)
+    slots = await provider.availability(tenant=TENANT, service_id="wash", earliest=now, horizon_days=7)
+    import datetime as dt
+    iso = dt.datetime.fromtimestamp(slots[0].starts_at, dt.timezone.utc).isoformat()
+    llm.queue_tool_call("propose_booking", service_id="wash", starts_at_iso=iso)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=now + 180)
+    confirm_id = f"{plan.proposal.proposal_id}:confirm"
+
+    reply_plan = await engine.handle_button_reply(
+        tenant=TENANT, subject_ref=SUBJECT, reply_id=confirm_id, auditor=down_auditor, now=now + 200)
+
+    # NO EXCEPTION — a real reply, and it tells the truth: the booking succeeded.
+    assert reply_plan.kind == "text"
+    assert "تم تأكيد" in reply_plan.text
+    from app.core.models import BOOKINGS
+    rows, _ = await store.find(BOOKINGS, {"tenant": TENANT, "subject_ref": SUBJECT}, limit=10)
+    assert len(rows) == 1   # the booking IS real, audit gap or not

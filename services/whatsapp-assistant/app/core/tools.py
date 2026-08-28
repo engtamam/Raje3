@@ -24,7 +24,11 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.audit import AuditUnavailable
 from app.core.models import PENDING_PROPOSALS, PendingProposal, as_row
+from app.observability.logging import get_logger
+
+_logger = get_logger("app.tools")
 
 
 @dataclass(frozen=True)
@@ -210,14 +214,35 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
                 intended_reward_id=str(args.get("reward_id") or ""))
         except Exception as exc:
             raise ToolValidationError(f"booking confirm failed: {exc}") from exc
-        # CRITICAL: a booking confirmed by this assistant on a customer's behalf must be
-        # witnessed. Fail-closed per app/core/audit.py — see auditable_actions.py.
-        await auditor.record("whatsapp_assistant.booking_confirmed", actor="whatsapp-assistant",
-                             resource=f"booking:{booking.get('id', '')}", tenant=tenant,
-                             metadata={"subject_ref": subject_ref, "service_id": args["service_id"],
-                                      "intended_reward_id": args.get("reward_id") or ""})
+
+        # CONSUMED THE MOMENT THE REAL WRITE SUCCEEDS — BEFORE the audit call below, not after.
+        # The booking now exists in bookings-service regardless of what happens next; a proposal
+        # left "not consumed" because the AUDIT step failed is exactly what let a re-entrant
+        # button tap or a redelivered webhook reach `hold_and_confirm` a second time for a booking
+        # that was already made — `idempotency_key` would catch that specific case, but nothing
+        # should have to rely on it here. See the audit step's own note just below for why an
+        # audit-sink failure at this exact moment must never look like the booking itself failed.
         row["consumed"] = True
         await store.put(PENDING_PROPOSALS, proposal_id, row)
+
+        # CRITICAL: a booking confirmed by this assistant on a customer's behalf must be
+        # witnessed. Fail-closed per app/core/audit.py — see auditable_actions.py. BUT the write
+        # above ALREADY SUCCEEDED — this is a REAL booking, right now, in bookings-service. An
+        # audit-sink outage at this exact instant must not surface to the customer as "did my
+        # booking even work?" silence (an unhandled AuditUnavailable propagating out of this
+        # function with no reply sent — the exact defect a 5-agent research pass on this codebase
+        # found live here). So this one call is caught, logged for manual reconciliation (the
+        # audit line is genuinely missing and somebody needs to know that), and the booking is
+        # still reported to the customer as what it truthfully is: confirmed.
+        try:
+            await auditor.record("whatsapp_assistant.booking_confirmed", actor="whatsapp-assistant",
+                                 resource=f"booking:{booking.get('id', '')}", tenant=tenant,
+                                 metadata={"subject_ref": subject_ref, "service_id": args["service_id"],
+                                          "intended_reward_id": args.get("reward_id") or ""})
+        except AuditUnavailable:
+            _logger.error("booking_confirmed_audit_gap", extra={
+                "tenant": tenant, "booking_id": booking.get("id", ""), "proposal_id": proposal_id})
+            return {"kind": "booking", "booking": booking, "audit_gap": True}
         return {"kind": "booking", "booking": booking}
 
     raise ToolValidationError(f"proposal tool {tool!r} has no confirm handler")
