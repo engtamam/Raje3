@@ -22,14 +22,14 @@ from __future__ import annotations
 
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import evidence as EV
 from app.core.stores import BranchStore, PrivacyRequestStore
-from app.core.partners import PartnerError, PartnerRegistry
+from app.core.partners import PartnerError, PartnerRegistry, validate_commission_rate
 from app.core.templates import TemplateError, TemplateLibrary
 from app.api.subscribed import no_subscription_needed, subscribed_write
 
@@ -149,13 +149,22 @@ async def deactivate_template(request: Request, name: str,
 # ── partners: who resells us, and what we owe them ────────────────────────────────────────────
 class PartnerIn(BaseModel):
     name: str = Field(min_length=2, max_length=200)
-    # A FRACTION, and the upper bound is why. 30 instead of 0.3 would pay a partner thirty times
-    # the subscription — and the mistake is invisible until the first statement, by which time it
-    # has been agreed in writing with somebody. Zero IS allowed: a POS company integrated purely
-    # so it can sell more of its own product, with no referral payment agreed at all — see
-    # core/partners.py's own note on why that is a real, deliberate rate and not a typo.
-    commission_rate: float = Field(ge=0, lt=1)
+    # NO BOUND WRITTEN HERE — see the field_validator below. `0` and `1` used to be re-typed as a
+    # Field(ge=..., lt=...) at this exact spot, and PartnerRegistry.create() re-typed them a
+    # second time as its own domain guard; the two drifted the day one was widened to allow a 0%
+    # rate and nobody remembered the other copy existed. core/partners.py::validate_commission_rate
+    # is now the one place the bound lives — this model calls it rather than restating it.
+    commission_rate: float
     contact: str = Field(default="", max_length=200)
+
+    @field_validator("commission_rate")
+    @classmethod
+    def _valid_commission_rate(cls, v: float) -> float:
+        try:
+            validate_commission_rate(v)
+        except PartnerError as exc:
+            raise ValueError(str(exc)) from exc
+        return v
 
 
 @router.get("/partners", dependencies=[Depends(rate_limit)])
