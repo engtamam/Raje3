@@ -35,8 +35,8 @@ class _RecordingEngine:
     def __init__(self):
         self.calls: list[tuple] = []
 
-    async def handle_inbound_text(self, *, tenant, subject_ref, from_number, text):
-        self.calls.append(("text", tenant, subject_ref, text))
+    async def handle_inbound_text(self, *, tenant, subject_ref, from_number, text, branch_id=""):
+        self.calls.append(("text", tenant, subject_ref, text, branch_id))
         return _ReplyPlan(kind="none")
 
     async def handle_button_reply(self, *, tenant, subject_ref, reply_id, redeemer, auditor):
@@ -171,6 +171,40 @@ def test_allowed_reaches_the_engine_normally():
     result = run(_ingest(c, _settings(), auditor=None))
     assert result == {"processed": True, "reason": ""}
     assert len(c.engine.calls) == 1
+
+
+def test_a_per_branch_composite_tenant_is_split_before_anything_asks_consent():
+    """Phase 1 of the branch work: `ingest_inbound_message` must split the composite
+    `tenant:branch_id` sending-identity string BEFORE the real tenant is used anywhere — the
+    consent check included. A gate asked with the raw composite string would be asking
+    compliance-service about a tenant that does not exist."""
+    gate = _ScriptedConsentGate(ALLOWED)
+    c = _container(gate)
+    result = run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=_settings(), auditor=None,
+        tenant="shop1:brn-jeddah", wamid="wamid_branch", from_number="+966500000000",
+        kind="text", text="hi", reply_id="", raw_payload={"wamid": "wamid_branch"}))
+    assert result == {"processed": True, "reason": ""}
+    # ASKED WITH THE REAL TENANT, NOT THE COMPOSITE — the whole point of splitting before the
+    # consent check, not after.
+    assert gate.asked == [("shop1", "+966500000000", "whatsapp_ai_assistant")]
+    # AND THE ENGINE RECEIVES BOTH HALVES SEPARATELY: the real tenant as `tenant`, the branch as
+    # its own field — never the composite string leaking through as if it were a tenant id.
+    assert len(c.engine.calls) == 1
+    kind, tenant, subject_ref, text, branch_id = c.engine.calls[0]
+    assert (kind, tenant, text, branch_id) == ("text", "shop1", "hi", "brn-jeddah")
+
+
+def test_a_central_shops_plain_tenant_reaches_the_engine_with_an_empty_branch():
+    gate = _ScriptedConsentGate(ALLOWED)
+    c = _container(gate)
+    run(ingest_inbound_message(
+        container=c, logger=_NullLogger(), settings=_settings(), auditor=None,
+        tenant="shop1", wamid="wamid_central", from_number="+966500000000",
+        kind="text", text="hi", reply_id="", raw_payload={"wamid": "wamid_central"}))
+    assert gate.asked == [("shop1", "+966500000000", "whatsapp_ai_assistant")]
+    kind, tenant, subject_ref, text, branch_id = c.engine.calls[0]
+    assert (tenant, branch_id) == ("shop1", "")
 
 
 def test_a_refusal_records_a_non_critical_audit_entry():

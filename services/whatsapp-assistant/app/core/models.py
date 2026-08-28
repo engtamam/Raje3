@@ -48,6 +48,14 @@ class ConversationState:
     """
     tenant: str
     subject_ref: str
+    # WHICH BRANCH THIS CUSTOMER MESSAGED, if the shop's WhatsApp number said so on its own —
+    # non-empty ONLY when the shop is per_branch (the number IS the branch, decoded once at
+    # session creation from the composite sending-identity string, see core/sending_identity.py).
+    # A central shop's customer has this empty and will need to be ASKED (phase 3: a branch-
+    # selection step, same shape as the existing mandatory triage gate) before a real booking can
+    # know which branch's schedule to check. Stamped once, at fresh-session creation, never
+    # overwritten later in the same session — see ConversationEngine._get's own note.
+    branch_id: str = ""
     from_number: str = ""            # held ONLY long enough to send a reply; never in the summary
     # idle | awaiting_triage | batching | awaiting_confirmation | closed. `awaiting_triage` is
     # entered on every FRESH session (see `handle_inbound_text`) and free text there never reaches

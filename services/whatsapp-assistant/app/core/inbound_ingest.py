@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.sending_identity import split as split_sending_identity
 from app.ports.consent_gate import DENIED, UNKNOWN
 
 
@@ -21,6 +22,20 @@ async def ingest_inbound_message(
     raw_payload: dict[str, Any],
 ) -> dict[str, Any]:
     if not tenant or not wamid or not from_number:
+        return {"processed": False, "reason": "missing_fields"}
+
+    # SPLIT ONCE, HERE, BEFORE ANYTHING ELSE READS `tenant`. Both callers (app/main.py's bus
+    # subscription, app/api/internal.py's catch-up poll) hand this function whatever
+    # notification-service's WhatsAppNumberIndex bound the inbound phone_number_id to — for a
+    # per_branch shop that is the COMPOSITE `tenant:branch_id` string operations-service's own
+    # core/sending_identity.py mints, not a real tenant id. Reassigning `tenant` in place (rather
+    # than threading a second `real_tenant` variable through every line below) means every
+    # existing call — consent_gate, customer_lookup, the inbound_store dedup/retention keys, the
+    # engine, the sender — is correct by construction with no other line touched: they were always
+    # supposed to receive the real tenant, and for a central shop (branch_id == "") this is a
+    # complete no-op, byte for byte.
+    tenant, branch_id = split_sending_identity(tenant)
+    if not tenant:
         return {"processed": False, "reason": "missing_fields"}
 
     is_new = await container.inbound_store.record_if_new(tenant, wamid, raw_payload)
@@ -90,7 +105,8 @@ async def ingest_inbound_message(
             # text before a triage pick is answered with the same list and never reaches the
             # batching/LLM machinery at all (see core/conversation.py's module docstring).
             plan = await container.engine.handle_inbound_text(
-                tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text)
+                tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text,
+                branch_id=branch_id)
 
         if plan is not None and plan.kind == "text" and plan.text:
             await container.sender.send_template(

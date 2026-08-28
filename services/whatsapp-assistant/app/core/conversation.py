@@ -309,12 +309,17 @@ class ConversationEngine:
     def _key(self, tenant: str, subject_ref: str) -> str:
         return f"{tenant}|{subject_ref}"
 
-    async def _get(self, tenant: str, subject_ref: str) -> ConversationState:
+    async def _get(self, tenant: str, subject_ref: str, branch_id: str = "") -> ConversationState:
         row = await self._store.get(CONVERSATIONS, self._key(tenant, subject_ref))
         if row is None:
-            return ConversationState(tenant=tenant, subject_ref=subject_ref)
+            return ConversationState(tenant=tenant, subject_ref=subject_ref, branch_id=branch_id)
         row.pop("tenant", None)
         row.pop("subject_ref", None)
+        # `branch_id` IS NOT OVERWRITTEN FROM THE CALLER on an EXISTING session — a fresh session
+        # already stamped it (a per_branch shop's number does not change mid-conversation) and
+        # `row` already carries it via `**row` below. `setdefault` only backfills the caller's
+        # value for a row saved before this field existed (never `None`, never missing otherwise).
+        row.setdefault("branch_id", branch_id)
         return ConversationState(tenant=tenant, subject_ref=subject_ref, **row)
 
     async def _save(self, conv: ConversationState) -> None:
@@ -415,7 +420,8 @@ class ConversationEngine:
         return ReplyPlan(kind="text", text=_WALLET_DEPLETED_TEXT)
 
     async def handle_inbound_text(self, *, tenant: str, subject_ref: str, from_number: str,
-                                  text: str, now: int | None = None) -> ReplyPlan:
+                                  text: str, branch_id: str = "",
+                                  now: int | None = None) -> ReplyPlan:
         """THE entry point for free text (app/main.py's bus subscription uses this, never
         `on_inbound_text` directly) — the one place the mandatory triage gate is enforced. A fresh
         session (state idle/closed/never-seen) is put into `awaiting_triage` and answered with the
@@ -425,7 +431,7 @@ class ConversationEngine:
         model.
         """
         now = now if now is not None else int(time.time())
-        conv = await self._get(tenant, subject_ref)
+        conv = await self._get(tenant, subject_ref, branch_id=branch_id)
 
         # NO WALLET CHECK HERE, DELIBERATELY. The triage list is fixed product copy, not an LLM
         # call — it costs nothing, so there is nothing to reserve against. The hold only happens

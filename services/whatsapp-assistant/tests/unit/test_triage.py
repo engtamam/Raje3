@@ -138,3 +138,32 @@ async def test_a_mid_conversation_request_for_a_human_escalates_without_calling_
     assert llm.calls == []                       # the request itself never reached the model
     conv = await engine._get(TENANT, SUBJECT)
     assert conv.escalated is True
+
+
+async def test_branch_id_is_stamped_at_session_creation_and_survives_the_whole_session():
+    """Phase 1 of the multi-branch work: a per_branch shop's number splits into (tenant,
+    branch_id) before this engine ever sees it (core/inbound_ingest.py); this proves the engine's
+    OWN half — once handed a branch_id, a fresh session stamps it and every later call for the
+    SAME session keeps it, even though only the very first call actually passed one."""
+    store = MemoryDataStore()
+    engine = _engine(store)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="مرحبا", branch_id="brn-jeddah", now=1000)
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.branch_id == "brn-jeddah"
+
+    # A LATER CALL IN THE SAME SESSION NEVER OVERWRITES IT — handle_triage_selection doesn't even
+    # accept a branch_id parameter; the stored one must simply survive being loaded and re-saved.
+    await engine.handle_triage_selection(
+        tenant=TENANT, subject_ref=SUBJECT, reply_id="triage:inquiry", now=1010)
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.branch_id == "brn-jeddah"
+
+
+async def test_a_central_shops_session_has_no_branch_id_at_all():
+    store = MemoryDataStore()
+    engine = _engine(store)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="مرحبا", now=1000)
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.branch_id == ""
