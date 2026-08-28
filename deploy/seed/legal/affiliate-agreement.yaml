@@ -472,7 +472,9 @@ clauses:
       استمرار البرنامج — إلى من يخلفه بالاندماج، أو نقل نشاطه أو جزء جوهري منه، أو بيعه، أو تحوّل
       شكله النظامي (كتحوّل مؤسسة فردية إلى شركة أو أي تحوّل مماثل)، ويشمل ذلك كل التزام أو مطالبة
       قائمة وقت الانتقال — وقبول المسوّق هذه الاتفاقية قبولٌ مسبق بهذا الانتقال أياً كان وقته، فلا
-      يتوقف نفاذه على إخطاره به. وتمثّل هذه الاتفاقية كامل الاتفاق بين الطرفين بخصوص برنامج
+      يتوقف نفاذه على موافقة المسوّق عليه ولا على سبق إخطاره به، على أن يُخطَر المسوّق بالنقل عبر
+      لوحته أو رقم جواله المسجَّل في حسابه، ويُعدّ الإخطار واصلاً من تاريخ إرساله دون أن يكون ذلك
+      شرطاً لنفاذ النقل أو أثراً على استمرار البرنامج. وتمثّل هذه الاتفاقية كامل الاتفاق بين الطرفين بخصوص برنامج
       المسوّقين، وتحلّ محلّ كل تفاهم سابق بشأنه. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه.
       وتُنشَر هذه الاتفاقية بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
     en: >-
@@ -489,13 +491,16 @@ clauses:
 
       Assignment: the Affiliate may not assign this Agreement without the Provider's written
       consent. The Provider's rights and obligations under this Agreement transfer automatically —
-      with no consent from the Affiliate required and with no effect on the continuity of the
-      programme — to whoever succeeds it by merger, by transfer of its business or a material part
+      with no consent from the Affiliate required and with no prior notice required — to whoever
+      succeeds it by merger, by transfer of its business or a material part
       of it, by sale, or by a change in its legal form (such as conversion of a sole proprietorship
       to a company or any similar conversion), and this includes every obligation or claim
       outstanding at the time of transfer — and the Affiliate's acceptance of this Agreement is
-      itself advance consent to this transfer whenever it occurs, its effect not conditioned on
-      notifying him of it. This Agreement constitutes the entire agreement between the parties
+      itself advance consent to this transfer whenever it occurs. The Affiliate will be notified of
+      the transfer through his console or the mobile number registered on his account, and such
+      notice is deemed received on the date sent; it is neither a condition for the transfer's
+      effect nor does it affect continuity of the programme. This Agreement constitutes the entire
+      agreement between the parties
       regarding the affiliate programme and supersedes any prior understanding of it. A party's
       failure to exercise a right is not a waiver of it. This Agreement is published in Arabic and
       English; the Arabic text prevails in the event of a discrepancy.
