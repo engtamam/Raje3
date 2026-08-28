@@ -76,10 +76,16 @@ class PartnerRegistry:
         name = (name or "").strip()
         if not name:
             raise PartnerError("a partner needs a name — it appears on every statement")
-        if not 0 < commission_rate < 1:
+        if not 0 <= commission_rate < 1:
             raise PartnerError(
                 f"commission_rate must be a fraction between 0 and 1, got {commission_rate}. "
                 f"A rate of 30 rather than 0.3 would pay a partner thirty times the subscription.")
+        # ZERO IS A REAL, DELIBERATE RATE — not a partner mis-typing a fraction. A POS company
+        # that integrates for the sake of selling more of ITS OWN product, with no referral
+        # payment expected, is stamped exactly like any other partner (first-attribution rule
+        # below still applies) so every shop it brings is still counted and reportable — the
+        # statement for a 0% partner simply always reads zero, honestly, rather than that partner
+        # needing to be left out of this registry entirely to get the same result.
 
         partner_id = f"prt_{secrets.token_hex(8)}"
         # 32 bytes of urandom. Long enough that guessing is not a threat model, and the reason the

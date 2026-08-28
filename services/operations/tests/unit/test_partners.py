@@ -102,6 +102,14 @@ def test_a_rate_given_as_a_percentage_is_refused(reg):
         run(reg.create(name="x", commission_rate=30))
 
 
+def test_a_zero_rate_is_accepted_a_partner_who_gets_no_referral_payment(reg):
+    """A POS company that integrates purely to sell more of its own product, with no referral
+    payment agreed — a real, deliberate rate, not a mistyped fraction."""
+    p, key = run(reg.create(name="POS Co", commission_rate=0))
+    assert p["commission_rate"] == 0.0
+    assert key   # still a real credential — zero commission is not "not a partner"
+
+
 def test_the_partners_shops_are_read_from_the_stamps(reg):
     """A denormalised list is a second place the truth lives, and the day it disagrees is the day
     somebody is paid for a shop they did not bring."""

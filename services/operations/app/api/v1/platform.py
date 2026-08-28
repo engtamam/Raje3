@@ -149,10 +149,12 @@ async def deactivate_template(request: Request, name: str,
 # ── partners: who resells us, and what we owe them ────────────────────────────────────────────
 class PartnerIn(BaseModel):
     name: str = Field(min_length=2, max_length=200)
-    # A FRACTION, and the bound is why. 30 instead of 0.3 would pay a partner thirty times the
-    # subscription — and the mistake is invisible until the first statement, by which time it has
-    # been agreed in writing with somebody.
-    commission_rate: float = Field(gt=0, lt=1)
+    # A FRACTION, and the upper bound is why. 30 instead of 0.3 would pay a partner thirty times
+    # the subscription — and the mistake is invisible until the first statement, by which time it
+    # has been agreed in writing with somebody. Zero IS allowed: a POS company integrated purely
+    # so it can sell more of its own product, with no referral payment agreed at all — see
+    # core/partners.py's own note on why that is a real, deliberate rate and not a typo.
+    commission_rate: float = Field(ge=0, lt=1)
     contact: str = Field(default="", max_length=200)
 
 
