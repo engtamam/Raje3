@@ -230,7 +230,7 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.offer_choice import http_chooser
 
     container.operations = Operations(
-        store=container.datastore, pii_salt=settings.PII_SALT,
+        store=container.datastore, pii_salt=settings.PII_SALT, cache=container.cache,
         max_backdate=settings.MAX_BACKDATE_SECONDS,
     ).with_offer_chooser(http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
                                       token=settings.INTERNAL_SERVICE_TOKEN))

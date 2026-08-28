@@ -380,3 +380,61 @@ def test_the_branch_a_register_names_survives_all_the_way_to_what_insights_reads
     # about this one.
     assert not [v for v in visits if v.get("amount_halalas") == 8800], (
         "a sale refused for naming a branch this shop does not have was recorded anyway")
+
+
+# ── the race two concurrent taps used to lose (core/offer_lock.py) ──────────────────────────────
+class _SlowChooser:
+    """Same shape as `Chooser` above, but pauses BEFORE answering — widening the exact window two
+    concurrent calls used to both slip through before either had saved anything."""
+
+    def __init__(self, offer: dict) -> None:
+        self._offer = offer
+        self.asked = 0
+
+    async def __call__(self, *, tenant, subject_ref, service_ids):
+        import asyncio
+        self.asked += 1
+        await asyncio.sleep(0.05)
+        return self._offer
+
+
+def test_two_concurrent_taps_for_the_same_visit_never_both_choose(till_headers, client):
+    """THE RACE ITSELF: two `POST /till/offer/apply` calls for the SAME visit, close enough
+    together that both would read `offer_ref == ""` before either had written — before
+    core/offer_lock.py's lock, both called the chooser and both saved, the second write winning
+    in silence and both callers believing they alone had spent it. With the lock, the LOSER is
+    REFUSED outright — same posture as loyalty's own SpendBusy (a refusal a caller can act on
+    and retry, never a silent wait) — and the chooser is asked exactly once."""
+    import asyncio
+
+    from app.core.offer_lock import OfferApplyBusy
+
+    tenant = till_headers["tenant"]
+    visit_id, _ = _seed_visit(client, tenant, "0501110099")
+    chooser = _SlowChooser({"ref": "off_race", "text": "خصم السباق"})
+    client.app.state.container.operations.with_offer_chooser(chooser)
+
+    async def go():
+        ops = client.app.state.container.operations
+        return await asyncio.gather(
+            ops.apply_offer(tenant=tenant, visit_id=visit_id, subject_ref="whoever-a"),
+            ops.apply_offer(tenant=tenant, visit_id=visit_id, subject_ref="whoever-b"),
+            return_exceptions=True,
+        )
+
+    results = asyncio.run(go())
+
+    assert chooser.asked == 1, (
+        f"the chooser was asked {chooser.asked} times for one visit — the lock did not serialise "
+        "the two concurrent calls")
+    winners = [r for r in results if isinstance(r, dict)]
+    losers = [r for r in results if isinstance(r, OfferApplyBusy)]
+    assert len(winners) == 1 and winners[0]["ref"] == "off_race"
+    assert len(losers) == 1, f"expected exactly one OfferApplyBusy refusal, got {results}"
+
+    # THE LOSER'S RETRY finds the offer already there — never a second choose, never a second
+    # discount on the same visit.
+    retried = asyncio.run(client.app.state.container.operations.apply_offer(
+        tenant=tenant, visit_id=visit_id, subject_ref="whoever-b"))
+    assert retried["ref"] == "off_race"
+    assert chooser.asked == 1

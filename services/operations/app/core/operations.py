@@ -72,7 +72,7 @@ _DEFAULT_MAX_BACKDATE_SECONDS = 90 * 24 * 3600
 
 
 class Operations:
-    def __init__(self, *, store, pii_salt: str,
+    def __init__(self, *, store, pii_salt: str, cache: Any = None,
                  max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS) -> None:
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
@@ -89,6 +89,11 @@ class Operations:
         # see core/privacy_requests.py.
         self._privacy = PrivacyRequestStore(store)
         self._salt = pii_salt
+        # THE OFFER-APPLY LOCK'S OWN CLAIM STORE — see core/offer_lock.py's module docstring.
+        # `None` (no cache wired) is a real, supported state: a local run or a test with no
+        # second caller to race against; `apply_offer` below runs unlocked in that case, same
+        # posture as loyalty's own SpendLock.
+        self._cache = cache
         # HOW WE ASK WHICH OFFER APPLIES. A callable rather than a URL so a test can answer it
         # without a socket, and so this file never learns reminders' route shape.
         self._choose_offer = None
@@ -186,32 +191,50 @@ class Operations:
         # and it must not have to wait for a round trip to apply an offer with a customer standing
         # there. The key is also the one value identical across every retry — which is precisely
         # what «عرضٌ واحد لكل زيارة» needs to hold.
+        #
+        # RESOLVED TO THE REAL VISIT ROW BEFORE THE LOCK IS TAKEN — both a caller naming the id
+        # directly and one naming its own idempotency key must serialise on the SAME key, or the
+        # lock protects only one of the two doors into this method.
         v = await self._visits.get(tenant, visit_id)
         if v is None:
             v = await self._visits.by_idempotency_key(tenant, visit_id)
         if v is None:
             raise OperationError("لا توجد زيارة بهذا المعرّف")
-        if v.offer_ref:
+
+        # SERIALISED FROM HERE ON — see core/offer_lock.py's own module docstring for the exact
+        # race this closes: two calls for the SAME visit, both reading `offer_ref == ""` before
+        # either has saved, both choosing and stamping — the second write winning in silence.
+        from app.core.offer_lock import OfferApplyLock
+
+        async with OfferApplyLock(self._cache, tenant, v.id):
+            # RE-READ INSIDE THE LOCK — the row this function read above may already be stale by
+            # the time the claim is won (the racer that lost the claim is exactly the one whose
+            # copy is now behind); trusting it here would silently skip the very check the lock
+            # exists to make safe.
+            v = await self._visits.get(tenant, v.id) or v
+            if v.offer_ref:
+                return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
+            if self._choose_offer is None:
+                raise OperationError("تعذّر التحقق من العروض الآن")
+
+            try:
+                chosen = await self._choose_offer(tenant=tenant, subject_ref=subject_ref,
+                                                  service_ids=list(v.service_ids))
+            except Exception as exc:                                        # noqa: BLE001
+                # AN UNREADABLE PEER REFUSES, IT DOES NOT ANSWER «none». Applying nothing costs
+                # the customer an offer he still holds; telling the worker we could not check
+                # lets him try again in a moment. The two are not the same answer and must not
+                # share a return value.
+                raise OperationError(
+                    "تعذّر التحقق من العروض الآن. أعد المحاولة بعد قليل.") from exc
+            if not chosen:
+                return None
+
+            v.offer_ref = str(chosen.get("ref") or "")
+            v.offer_text = str(chosen.get("text") or "")
+            v.offer_used_at = int(time.time())
+            await self._visits.save(v)
             return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
-        if self._choose_offer is None:
-            raise OperationError("تعذّر التحقق من العروض الآن")
-
-        try:
-            chosen = await self._choose_offer(tenant=tenant, subject_ref=subject_ref,
-                                              service_ids=list(v.service_ids))
-        except Exception as exc:                                            # noqa: BLE001
-            # AN UNREADABLE PEER REFUSES, IT DOES NOT ANSWER «none». Applying nothing costs the
-            # customer an offer he still holds; telling the worker we could not check lets him try
-            # again in a moment. The two are not the same answer and must not share a return value.
-            raise OperationError("تعذّر التحقق من العروض الآن. أعد المحاولة بعد قليل.") from exc
-        if not chosen:
-            return None
-
-        v.offer_ref = str(chosen.get("ref") or "")
-        v.offer_text = str(chosen.get("text") or "")
-        v.offer_used_at = int(time.time())
-        await self._visits.save(v)
-        return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
 
     # ── the write path ────────────────────────────────────────────────────────────────────────
     async def record_visit(self, *, tenant: str, phone: str, service_ids: list[str],

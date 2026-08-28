@@ -22,6 +22,15 @@ class RedisCache:
     async def set(self, key: str, value: str, ttl_seconds: int | None = None) -> None:
         await self._client.set(key, value, ex=ttl_seconds)
 
+    async def set_if_absent(self, key: str, value: str, ttl_seconds: int | None = None) -> bool:
+        """Claim a key only if nobody holds it — Redis SET NX, atomic across pods.
+
+        See the memory driver for why the port needed this: the datastore's only write is an
+        unconditional upsert, so nothing below `apply_offer` can serialise two calls for the same
+        visit arriving in the same second.
+        """
+        return bool(await self._client.set(key, value, ex=ttl_seconds, nx=True))
+
     async def delete(self, key: str) -> bool:
         return bool(await self._client.delete(key))
 
