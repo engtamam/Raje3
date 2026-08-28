@@ -35,6 +35,10 @@ def client():
         "TOKEN_ISSUER": ISS,
         "TOKEN_AUDIENCE": AUD,
         "RATELIMIT_MAX": "1000",
+        # Needed from the customer-id-by-phone tests on: ensure_customer computes a real
+        # subject_ref, and subject_ref() itself refuses an empty salt outright (core/pii.py) — a
+        # real value here, not a workaround for it.
+        "PII_SALT": "s" * 32,
     })
     get_settings.cache_clear()
     from app.main import create_app
@@ -846,4 +850,53 @@ def test_active_branches_is_isolated_per_tenant(client):
 
 def test_active_branches_refuses_without_the_internal_token(client):
     r = client.post("/internal/operations/active-branches", json={"tenant": "tnt_active_br"})
+    assert r.status_code in (401, 403)
+
+
+# ── /internal/operations/branch-operators — bookings-assignment's candidate pool ─────────────────
+def test_branch_operators_returns_only_active_people_at_that_branch(client):
+    client.get(BRANCHES, headers=_headers("tnt_br_ops"))   # provisions brn-main
+    hire = _hire(client, "tnt_br_ops", name="خالد", phone="0501111111", branch_id="brn-main")
+    if hire.status_code != 201:
+        pytest.skip("identity peer not wired in this test container — see test_hiring_creates_a_seat")
+    op_id = hire.json()["id"]
+
+    r = client.post("/internal/operations/branch-operators",
+                    json={"tenant": "tnt_br_ops", "branch_id": "brn-main"}, headers=_internal_headers())
+    assert r.status_code == 200
+    ids = {o["id"] for o in r.json()["operators"]}
+    assert op_id in ids
+
+    # A DIFFERENT branch never sees him.
+    r2 = client.post("/internal/operations/branch-operators",
+                     json={"tenant": "tnt_br_ops", "branch_id": "brn-elsewhere"},
+                     headers=_internal_headers())
+    assert op_id not in {o["id"] for o in r2.json()["operators"]}
+
+
+# ── /internal/operations/customer-id-by-phone — bookings-assignment's real customer_id ───────────
+def test_customer_id_by_phone_creates_then_reuses_the_same_customer(client):
+    tenant = "tnt_cust_id"
+    r1 = client.post("/internal/operations/customer-id-by-phone",
+                     json={"tenant": tenant, "phone": "0509998888"}, headers=_internal_headers())
+    assert r1.status_code == 200
+    body1 = r1.json()
+    assert body1["customer_id"]
+    assert body1["subject_ref"]
+
+    r2 = client.post("/internal/operations/customer-id-by-phone",
+                     json={"tenant": tenant, "phone": "0509998888"}, headers=_internal_headers())
+    assert r2.json()["customer_id"] == body1["customer_id"]
+
+
+def test_customer_id_by_phone_never_leaks_the_phone_or_name_back(client):
+    r = client.post("/internal/operations/customer-id-by-phone",
+                    json={"tenant": "tnt_cust_id2", "phone": "0507776666"},
+                    headers=_internal_headers())
+    assert "phone" not in r.json() and "name" not in r.json()
+
+
+def test_customer_id_by_phone_refuses_without_the_internal_token(client):
+    r = client.post("/internal/operations/customer-id-by-phone",
+                    json={"tenant": "tnt_cust_id", "phone": "0509998888"})
     assert r.status_code in (401, 403)

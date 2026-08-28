@@ -17,6 +17,9 @@ from app.core.erasure import TemplateErasure
 from app.core import backup as _backup
 from app.core.availability import (Busy, DayException, DurationNotConfigured, Schedule, Window,
                                    free_slots, nearest_slot)
+from app.core.lock import SlotClaimBusy
+from app.core.licence import LicenceError
+from app.core.operations import OperationError
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
 
@@ -262,3 +265,75 @@ async def availability_nearest(body: NearestSlotIn) -> dict:
                          duration_minutes=body.duration_minutes, after=body.after,
                          search_days=body.search_days)
     return {"slot": {"starts_at": found.starts_at, "ends_at": found.ends_at} if found else None}
+
+
+# ── the REAL-store-backed counterpart to the pure query above, and REAL booking creation —
+# whatsapp-assistant's own two questions (docs/خطة-تنفيذ-الحجوزات.md is silent on a chat peer
+# because none existed until this feature; the shape below is the SAME `booking_ops` the console's
+# own `/api/v1/bookings` route already calls — see that file's own `create_booking` — over the
+# internal token instead of a user one, because whatsapp-assistant never holds a user token and
+# must never be handed one). NEITHER ROUTE INVENTS AN OPERATOR OR A CUSTOMER: both ids arrive
+# already resolved by the caller (whatsapp-assistant asks operations-service for both — see
+# services/whatsapp-assistant/app/core/booking_assignment.py) and this service refuses exactly the
+# way the console's own write path refuses one that turns out ineligible or unlicensed.
+class InternalNearestRealSlotIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    branch_id: str = Field(min_length=1, max_length=64)
+    operator_id: str = Field(min_length=1, max_length=64)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    after: int = Field(gt=0)
+    search_days: int = Field(default=14, ge=1, le=90)
+
+
+@router.post("/bookings/nearest-real-slot", dependencies=[Depends(require_internal_token)])
+async def internal_nearest_real_slot(request: Request, body: InternalNearestRealSlotIn) -> dict:
+    """Same question as `/availability/nearest` above, but fed from THIS service's own store — the
+    operator's real existing bookings, the shop's real working hours, his own override if he has
+    one (`BookingOperations.nearest_slot`/`_effective_schedule`) — rather than a schedule/busy list
+    the caller has to assemble itself. Refuses (400) up front if `operator_id` cannot perform one
+    of `service_ids`, the same "the write refuses, not only the suggestion" rule the create route
+    below enforces — a probe against an ineligible operator must not return a false "free" slot.
+    """
+    c = request.app.state.container
+    try:
+        found = await c.booking_ops.nearest_slot(
+            tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
+            service_ids=body.service_ids, after=body.after, search_days=body.search_days)
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return {"starts_at": found}
+
+
+class InternalCreateBookingIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    branch_id: str = Field(min_length=1, max_length=64)
+    operator_id: str = Field(min_length=1, max_length=64)
+    customer_id: str = Field(min_length=1, max_length=64)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    starts_at: int = Field(gt=0)
+    note: str = Field(default="", max_length=500)
+    idempotency_key: str = Field(default="", max_length=128)
+
+
+@router.post("/bookings", dependencies=[Depends(require_internal_token)])
+async def internal_create_booking(request: Request, body: InternalCreateBookingIn) -> dict:
+    """THE one route that turns a customer's confirmed WhatsApp proposal into a real, persisted
+    booking — `BookingOperations.create`, unchanged, over the internal token. Idempotent the same
+    way the console's own create is (`idempotency_key`, checked first, before the licence check
+    and before the lock): a redelivered `whatsapp.message` or a retried peer call must return the
+    SAME booking, never a second one. `created_by` is left at its default ("") — this booking was
+    not made by any staff member's own action, and inventing one would misattribute it.
+    """
+    c = request.app.state.container
+    try:
+        booking = await c.booking_ops.create(
+            tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
+            customer_id=body.customer_id, service_ids=body.service_ids,
+            starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key)
+    except SlotClaimBusy as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except LicenceError as exc:
+        raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, str(exc)) from exc
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return booking.public()

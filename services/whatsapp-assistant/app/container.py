@@ -200,6 +200,7 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.llm import build as build_llm
     from app.adapters.whatsapp_sender import build as build_sender
     from app.core import booking as B
+    from app.core import booking_assignment as BA
     from app.core import customer_lookup as CL
     from app.core import branch_directory as BD
     from app.core import shop_identity as SI
@@ -217,7 +218,16 @@ def build_container(settings: Settings) -> Container:
         if settings.SECRETS_KEK else None
     container.inbound_store = build_inbound_store(container.datastore)
     container.llm = build_llm(settings)
-    container.booking_provider = B.build(settings, store=container.datastore)
+    # "config" (default) keeps the zero-infra placeholder; "real" (Phase 4) swaps in
+    # RealBookingProvider — same port, see app/ports/booking_provider.py's own note. An unknown
+    # driver value fails fast rather than silently falling back to the placeholder — a typo'd
+    # deployment config must never SEEM to have real bookings wired when it does not.
+    if settings.BOOKING_PROVIDER_DRIVER == "real":
+        container.booking_provider = BA.build(settings)
+    elif settings.BOOKING_PROVIDER_DRIVER == "config":
+        container.booking_provider = B.build(settings, store=container.datastore)
+    else:
+        raise ValueError(f"unknown BOOKING_PROVIDER_DRIVER {settings.BOOKING_PROVIDER_DRIVER!r}")
     container.points_summary = P.build(settings)
     container.customer_lookup = CL.build(settings)
     container.branch_directory = BD.build(settings)

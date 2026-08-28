@@ -190,6 +190,30 @@ class Settings(BaseSettings):
     # app/core/service_catalog.py's module docstring) so it can answer "how much" and cross-sell
     # honestly instead of guessing.
     OPERATIONS_CATALOGUE_WITH_PRICES_PATH: str = "/internal/operations/catalogue-with-prices"
+    # Real booking assignment (core/booking_assignment.py, Phase 4) — the branch's own active
+    # people, and which services a customer's picked one may perform. Neither invents an
+    # assignment on its own; see booking_assignment.py's own module docstring for the full policy.
+    OPERATIONS_BRANCH_OPERATORS_PATH: str = "/internal/operations/branch-operators"
+    OPERATIONS_SERVICE_ELIGIBILITY_PATH: str = "/internal/operations/service-eligibility"
+    # Real booking assignment's OTHER question: a real, durable `customer_id` for this phone —
+    # never the pseudonym `customer-by-phone` deliberately withholds it from. See that route's own
+    # docstring in services/operations/app/api/internal.py for why this is a SEPARATE door.
+    OPERATIONS_CUSTOMER_ID_BY_PHONE_PATH: str = "/internal/operations/customer-id-by-phone"
+
+    # bookings — real slot search and real booking creation (Phase 4). Empty by default: an
+    # unconfigured deployment keeps BOOKING_PROVIDER_DRIVER="config" (see core/booking.py) and
+    # never reaches this peer at all — see BOOKING_PROVIDER_DRIVER's own note below.
+    BOOKINGS_SERVICE_URL: str = ""
+    BOOKINGS_NEAREST_REAL_SLOT_PATH: str = "/internal/bookings/nearest-real-slot"
+    BOOKINGS_CREATE_PATH: str = "/internal/bookings"
+    # "config" (default): the zero-infra placeholder, ConfigDrivenAvailabilityProvider — writes
+    # into THIS service's own store, never a real bookings/operations peer (see core/booking.py's
+    # own docstring). "real": core/booking_assignment.py's RealBookingProvider — real branch
+    # operators, real eligibility, a real customer_id, and a real bookings-service booking. Never
+    # defaults to "real" on its own: an operator must choose it once bookings-service is actually
+    # deployed and reachable, the same "opt in, never silently upgrade" posture WALLET_SERVICE_URL
+    # and every other optional peer on this service already takes.
+    BOOKING_PROVIDER_DRIVER: str = "config"
 
     # loyalty — points summaries and redemption confirmation (button-only, never LLM-triggered).
     LOYALTY_SERVICE_URL: str = ""

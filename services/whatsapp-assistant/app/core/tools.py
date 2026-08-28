@@ -45,8 +45,8 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               tool: str, args: dict[str, Any], allowed_tools: frozenset[str],
                               store: Any, booking_provider: Any, points_summary: Any,
                               proposal_ttl_seconds: int, now: int | None = None,
-                              related_services: Any = None, service_catalog: Any = None
-                              ) -> RenderedProposal | str:
+                              related_services: Any = None, service_catalog: Any = None,
+                              branch_id: str = "") -> RenderedProposal | str:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
     state-changing tool, or a plain str for a read-only one. Raises ToolValidationError if the
     model's proposal does not hold up against real state.
@@ -66,7 +66,8 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
             raise ToolValidationError("check_availability requires service_id")
         earliest = _parse_date(args.get("earliest_date")) or now
         slots = await booking_provider.availability(
-            tenant=tenant, service_id=service_id, earliest=earliest, horizon_days=0)
+            tenant=tenant, service_id=service_id, earliest=earliest, horizon_days=0,
+            branch_id=branch_id)
         if not slots:
             return "لا توجد مواعيد متاحة قريبًا لهذه الخدمة."
         listed = ", ".join(_fmt_slot(s.starts_at) for s in slots[:5])
@@ -80,7 +81,8 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         # RE-VALIDATED, not trusted: is this slot STILL real, right now, independent of whatever
         # the model believed when it proposed it.
         slots = await booking_provider.availability(
-            tenant=tenant, service_id=service_id, earliest=starts_at, horizon_days=0)
+            tenant=tenant, service_id=service_id, earliest=starts_at, horizon_days=0,
+            branch_id=branch_id)
         if not any(s.starts_at == starts_at for s in slots):
             raise ToolValidationError(
                 f"proposed slot {starts_at} for {service_id!r} is not actually available")
@@ -151,7 +153,9 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
 
 async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: Any,
                                      booking_provider: Any, redeemer: Any, auditor: Any,
-                                     idempotency_key: str, now: int | None = None) -> dict[str, Any]:
+                                     idempotency_key: str, now: int | None = None,
+                                     branch_id: str = "", from_number: str = ""
+                                     ) -> dict[str, Any]:
     """The ONLY path that turns a proposal into a real write — reached exclusively from a matching
     button_reply id (core/conversation.py::handle_button_reply). Re-validates AGAIN: a proposal
     confirmed minutes after it was rendered must still hold against current state, not the state
@@ -174,7 +178,8 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
         try:
             booking = await booking_provider.hold_and_confirm(
                 tenant=tenant, subject_ref=subject_ref, service_id=args["service_id"],
-                starts_at=int(args["starts_at"]), idempotency_key=idempotency_key)
+                starts_at=int(args["starts_at"]), idempotency_key=idempotency_key,
+                branch_id=branch_id, from_number=from_number)
         except Exception as exc:
             raise ToolValidationError(f"booking confirm failed: {exc}") from exc
         # CRITICAL: a booking confirmed by this assistant on a customer's behalf must be

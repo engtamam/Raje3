@@ -85,7 +85,10 @@ class ConfigDrivenAvailabilityProvider:
         self._tz = timezone(timedelta(hours=tz_offset_hours))
 
     async def availability(self, *, tenant: str, service_id: str, earliest: int,
-                           horizon_days: int = 0) -> list[Slot]:
+                           horizon_days: int = 0, branch_id: str = "") -> list[Slot]:
+        # `branch_id` IS ACCEPTED AND IGNORED — this placeholder never had a branch concept (a
+        # `subject_ref` pseudonym was always enough for its own local store); see
+        # app/ports/booking_provider.py's own note on why the port keeps this optional.
         horizon = min(horizon_days or self._cfg.max_lead_days, self._cfg.max_lead_days)
         duration = self._cfg.duration_for(service_id)
         step = self._cfg.slot_granularity_minutes
@@ -119,7 +122,9 @@ class ConfigDrivenAvailabilityProvider:
         return out
 
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
-                               starts_at: int, idempotency_key: str) -> dict:
+                               starts_at: int, idempotency_key: str, branch_id: str = "",
+                               from_number: str = "") -> dict:
+        # `branch_id`/`from_number` IGNORED, same reason as `availability` above.
         # IDEMPOTENT ON THE KEY, not on the slot — a retried confirm (a timeout, a doubled button
         # tap) must return the SAME booking, never create a second one.
         existing, _ = await self._store.find(

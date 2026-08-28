@@ -12,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.branches import MAIN as MAIN_BRANCH_ID
@@ -1358,6 +1358,66 @@ async def read_active_branches(request: Request, body: CatalogueIn) -> dict:
     return {"branches": [{"id": b.id, "name": b.name, "city": b.city}
                          for b in rows if b.active],
             "count": sum(1 for b in rows if b.active)}
+
+
+class BranchOperatorsIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    branch_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/operations/branch-operators", dependencies=[Depends(require_internal_token)])
+async def read_branch_operators(request: Request, body: BranchOperatorsIn) -> dict:
+    """This branch's ACTIVE people, id and name — the candidate pool whatsapp-assistant's booking
+    assignment (app/core/booking_assignment.py) picks from before ever asking bookings-service for
+    an eligible/free one. `Operator.branch_id` is HIS home station (docs' own distinction from
+    `visible_branch_ids`, a separate read-scope grant this route ignores on purpose) — the same
+    field a booking must be assigned an operator FROM, matching the branch the customer already
+    picked (Phase 3) or was given by the sending number (Phase 1).
+
+    A SEPARATE route from `/operations/operators` above, not a `branch_id` filter added to it:
+    that route's one caller (insights) reads every operator, active or not, to label historical
+    visits by name — mixing in a branch filter neither it nor `read_operators`'s own docstring
+    ever asked for would be a second concern quietly riding along on the first.
+    """
+    c = request.app.state.container
+    rows = await OperatorStore(c.datastore).list(body.tenant)
+    matches = [o for o in rows if o.active and o.branch_id == body.branch_id]
+    return {"operators": [{"id": o.id, "name": o.name} for o in matches], "count": len(matches)}
+
+
+class CustomerIdByPhoneIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=1, max_length=32)
+
+
+@router.post("/operations/customer-id-by-phone", dependencies=[Depends(require_internal_token)])
+async def customer_id_by_phone(request: Request, body: CustomerIdByPhoneIn,
+                               background: BackgroundTasks) -> dict:
+    """Resolve-or-create a REAL `customer_id` for this phone — bookings-service's `create()`
+    requires one (it is what a booking is filed under; `subject_ref` is resolved FROM it, not the
+    other way — see services/bookings/app/core/operations.py's own `SubjectRefLookup`), and
+    `/internal/operations/customer-by-phone` deliberately never hands one out (its own docstring:
+    "Never the phone or the name back to the caller" — a pseudonym is enough for every OTHER
+    caller of that route, but not for this one).
+
+    THE SAME ACT `Operations.ensure_customer` ALREADY IS — reused verbatim, not reimplemented: the
+    booking console's own `/api/v1/field/customers/ensure` (a USER-token route the owner's own
+    dialog calls) and this route both resolve-or-create by phone; this is only a second DOOR onto
+    the identical act, for a caller (whatsapp-assistant) that holds no user token and must never
+    be handed one. The phone number itself is read here and discarded the same turn — never
+    logged, never returned — same posture as `customer-by-phone`'s own docstring.
+    """
+    c = request.app.state.container
+    try:
+        cust = await c.operations.ensure_customer(body.tenant, body.phone)
+    except OperationError as exc:
+        return {"customer_id": "", "reason": str(exc)}
+    # SAME BACKGROUND SEAM `/api/v1/field/customers/ensure` fires — a customer resolved here for
+    # a brand-new booking must be findable by the field screen's own keypad search the same turn,
+    # not only after his first attended visit (see that route's own note on this exact gap).
+    background.add_task(c.seams.index_customer_row, tenant=body.tenant, customer_id=cust.id,
+                        phone=cust.phone, name=cust.name, plates=[])
+    return {"customer_id": cust.id, "subject_ref": cust.subject_ref}
 
 
 @router.post("/operations/operators", dependencies=[Depends(require_internal_token)])

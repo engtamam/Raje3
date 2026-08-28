@@ -138,6 +138,17 @@ env:
   # answer "how much" honestly and never invent a price. Separate route from the one insights
   # calls, which deliberately carries no prices — see operations' own route docstring.
   OPERATIONS_CATALOGUE_WITH_PRICES_PATH: "/internal/operations/catalogue-with-prices"
+  # Phase 4 (real booking creation) — BOOKING_PROVIDER_DRIVER stays "config" here DELIBERATELY.
+  # bookings-service exists on the platform but this deployment has not yet been switched over;
+  # see app/core/booking_assignment.py's module docstring and app/config.py's own note on this
+  # flag before flipping it to "real" — it also requires BOOKINGS_SERVICE_URL below to be set.
+  BOOKING_PROVIDER_DRIVER: "config"
+  # BOOKINGS_SERVICE_URL: "http://bookings:8000"
+  OPERATIONS_BRANCH_OPERATORS_PATH: "/internal/operations/branch-operators"
+  OPERATIONS_SERVICE_ELIGIBILITY_PATH: "/internal/operations/service-eligibility"
+  OPERATIONS_CUSTOMER_ID_BY_PHONE_PATH: "/internal/operations/customer-id-by-phone"
+  BOOKINGS_NEAREST_REAL_SLOT_PATH: "/internal/bookings/nearest-real-slot"
+  BOOKINGS_CREATE_PATH: "/internal/bookings"
   # insights' association engine (services/insights/app/core/associations.py) — the SAME
   # "frequently requested together" logic staff already see, reused for the AI's cross-sell
   # suggestion tool rather than a new recommendation algorithm. Respects insights' own plan gate:

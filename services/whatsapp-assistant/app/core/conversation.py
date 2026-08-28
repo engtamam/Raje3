@@ -788,7 +788,8 @@ class ConversationEngine:
                     tool=reply.tool_call.name, args=reply.tool_call.args,
                     allowed_tools=allowed, store=self._store, booking_provider=self._booking,
                     points_summary=self._points, proposal_ttl_seconds=self._proposal_ttl, now=now,
-                    related_services=self._related_services, service_catalog=self._catalog)
+                    related_services=self._related_services, service_catalog=self._catalog,
+                    branch_id=conv.branch_id)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",
                                         "text": "تعذّر تنفيذ ذلك الآن.", "at": now})
@@ -859,7 +860,8 @@ class ConversationEngine:
             result = await T.execute_confirmed_proposal(
                 tenant=tenant, proposal_id=proposal_id, store=self._store,
                 booking_provider=self._booking, redeemer=redeemer, auditor=auditor,
-                idempotency_key=idem_key, now=now)
+                idempotency_key=idem_key, now=now,
+                branch_id=conv.branch_id, from_number=conv.from_number)
         except T.ToolValidationError as exc:
             conv.pending_proposal_id = ""
             conv.state = "idle"
