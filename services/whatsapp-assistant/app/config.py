@@ -182,6 +182,10 @@ class Settings(BaseSettings):
     # see app/core/shop_identity.py and operations' own /internal/operations/shop-name docstring for
     # why this reads the main branch's name rather than the tenant registry's.
     OPERATIONS_SHOP_NAME_PATH: str = "/internal/operations/shop-name"
+    # Central-number branch-selection gate (core/branch_directory.py) — a shop's OPEN branches,
+    # id/name/city only. Separate route from the pre-existing insights one on purpose; see
+    # services/operations/app/api/internal.py::read_active_branches's own docstring.
+    OPERATIONS_ACTIVE_BRANCHES_PATH: str = "/internal/operations/active-branches"
     # The shop's REAL, priced service list — sent to the model IN FULL (never PII, see
     # app/core/service_catalog.py's module docstring) so it can answer "how much" and cross-sell
     # honestly instead of guessing.

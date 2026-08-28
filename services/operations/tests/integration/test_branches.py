@@ -809,3 +809,41 @@ def test_platform_branch_locations_refuses_without_the_capability(client):
     h = _headers("tnt_geo_c", caps=("operations.manage",))
     r = client.get("/api/v1/platform/branches/locations", headers=h)
     assert r.status_code == 403
+
+
+# ── /internal/operations/active-branches — whatsapp-assistant's branch-selection gate ────────────
+def _internal_headers() -> dict:
+    return {"X-Internal-Token": "t" * 40}
+
+
+def test_active_branches_returns_only_open_branches_with_city(client):
+    h = _headers("tnt_active_br")
+    client.post(BRANCHES, json={"name": "فرع مغلق", "lat": 24.0, "lng": 46.0, "city": "الرياض"}, headers=h)
+    rows = client.get(BRANCHES, headers=h).json()["branches"]
+    closed_id = next(b["id"] for b in rows if b["name"] == "فرع مغلق")
+    client.patch(f"{BRANCHES}/{closed_id}", json={"active": False}, headers=h)
+    client.post(BRANCHES, json={"name": "فرع مفتوح", "lat": 21.5, "lng": 39.1, "city": "جدة"}, headers=h)
+
+    r = client.post("/internal/operations/active-branches", json={"tenant": "tnt_active_br"},
+                    headers=_internal_headers())
+    assert r.status_code == 200
+    rows = r.json()["branches"]
+    names = {b["name"] for b in rows}
+    assert "فرع مفتوح" in names
+    assert "فرع مغلق" not in names
+    opened = next(b for b in rows if b["name"] == "فرع مفتوح")
+    assert opened["city"] == "جدة"
+    assert "lat" not in opened and "active" not in opened
+
+
+def test_active_branches_is_isolated_per_tenant(client):
+    client.get(BRANCHES, headers=_headers("tnt_active_iso_a"))  # provisions its own main branch
+    r = client.post("/internal/operations/active-branches", json={"tenant": "tnt_active_iso_b"},
+                    headers=_internal_headers())
+    names = {b["name"] for b in r.json()["branches"]}
+    assert not any("iso_a" in n for n in names)
+
+
+def test_active_branches_refuses_without_the_internal_token(client):
+    r = client.post("/internal/operations/active-branches", json={"tenant": "tnt_active_br"})
+    assert r.status_code in (401, 403)

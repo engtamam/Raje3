@@ -135,6 +135,7 @@ class Container:
     booking_provider: Any = None
     points_summary: Any = None
     customer_lookup: Any = None
+    branch_directory: Any = None
     shop_identity: Any = None
     service_catalog: Any = None
     related_services: Any = None
@@ -200,6 +201,7 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.whatsapp_sender import build as build_sender
     from app.core import booking as B
     from app.core import customer_lookup as CL
+    from app.core import branch_directory as BD
     from app.core import shop_identity as SI
     from app.core import points as P
     from app.core import service_catalog as SC
@@ -218,6 +220,7 @@ def build_container(settings: Settings) -> Container:
     container.booking_provider = B.build(settings, store=container.datastore)
     container.points_summary = P.build(settings)
     container.customer_lookup = CL.build(settings)
+    container.branch_directory = BD.build(settings)
     container.shop_identity = SI.build(settings)
     container.service_catalog = SC.build(settings)
     container.related_services = RS.build(settings)
@@ -239,6 +242,7 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
         points_summary=container.points_summary, shop_identity=container.shop_identity,
         service_catalog=container.service_catalog, customer_lookup=container.customer_lookup,
+        branch_directory=container.branch_directory,
         related_services=container.related_services, wallet_balance=container.wallet_balance,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,

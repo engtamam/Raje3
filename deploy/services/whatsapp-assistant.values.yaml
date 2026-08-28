@@ -124,6 +124,13 @@ env:
   # /internal/operations/customer-by-phone (services/operations/app/api/internal.py), reusing the
   # existing CustomerStore.by_phone rather than building anything new. It returns a pseudonym and a
   # visit-count PATTERN — never the phone or name back to this service.
+  OPERATIONS_ACTIVE_BRANCHES_PATH: "/internal/operations/active-branches"
+  # Phase 3 of the multi-branch work: a CENTRAL shop's inbound WhatsApp message carries no branch
+  # information at all (unlike per_branch, see sending_identity.py), so the conversation gate
+  # (app/core/conversation.py's `awaiting_branch` state) asks the customer directly — but only when
+  # there is a real choice (2+ open branches). This route is a SEPARATE one from the pre-existing
+  # `operations/branches` (that one is CLOSED-ones-included, for insights' historical reporting);
+  # this one is OPEN-only and carries `city`, for a picker a customer actually reads.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
   LOYALTY_BALANCE_PATH: "/internal/loyalty/portal/balance"
   LOYALTY_REDEEM_PATH: "/internal/loyalty/redeem"

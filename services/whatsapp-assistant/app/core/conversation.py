@@ -92,6 +92,22 @@ _TRIAGE_ESCALATE_CHOICES = ("complaint",)
 _TRIAGE_PROMPT_BY_CHOICE = {
     "inquiry": "تفضل، كيف أقدر أساعدك؟ يمكنك سؤالي عن الخدمات، حجز موعد، أو رصيدك من النقاط.",
 }
+
+# ── central-number branch-selection gate ────────────────────────────────────────────────────────
+# ONLY REACHED FOR A CENTRAL SHOP WITH 2+ OPEN BRANCHES. A per_branch shop's number already says
+# which branch (Phase 1's split_sending_identity stamps `conv.branch_id` before this gate ever
+# runs — see handle_inbound_text), and a central shop with 0 or 1 open branches has nothing to
+# ask about. This is the SAME structural gate shape as the triage list above (fixed rows, a
+# dedicated state, `reply_id` the only way out, free text re-sent the list) for the same reason:
+# the branch determines the schedule this customer is quoted (design point restated in Tamam's own
+# framing — "المهم عشان تحديد الفرع بيحدد الجدول"), so it must never be guessed from free text.
+_BRANCH_PROMPT = "أي فرع يناسبك؟"
+_BRANCH_LIST_BUTTON_TEXT = "اختر الفرع"
+_BRANCH_REPLY_PREFIX = "branch:"
+# WhatsApp's own List Message caps a section at 10 rows — silently truncating past that would
+# hide a real branch from the picker, so this is enforced explicitly with a visible fallback
+# rather than truncated in silence (see `_branch_list_plan`).
+_BRANCH_LIST_MAX_ROWS = 10
 _HUMAN_HANDOVER_TEXT = "تم تحويلك إلى أحد موظفينا وسيتواصل معك قريبًا لمتابعة طلبك."
 # A REAL operational stop, not an escalation — the customer is told plainly rather than met with
 # sudden silence, and pointed at a human being (the same shop staff who already see this thread
@@ -260,6 +276,7 @@ class ConversationEngine:
                 frustration_duplicate_messages_threshold: int = 3,
                 shop_identity: Any = None, service_catalog: Any = None,
                 customer_lookup: Any = None, related_services: Any = None,
+                branch_directory: Any = None,
                 wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
                 wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100) -> None:
         self._store = store
@@ -272,6 +289,11 @@ class ConversationEngine:
         self._catalog = service_catalog
         self._customer_lookup = customer_lookup
         self._related_services = related_services
+        # None-safe, same reasoning as every other optional peer here: a conversation built
+        # without one runs the branch gate for NO shop, ever — see `_branches_for` below, which
+        # returns [] rather than raising when this is None. A central shop's customer then simply
+        # never gets asked (indistinguishable from a 0/1-branch shop), never mis-guessed.
+        self._branch_directory = branch_directory
         # None-safe: a conversation built without one runs no reserve/confirm at all (pre-existing
         # test constructors and a deployment with no WALLET_SERVICE_URL) — the same
         # "optional peer, safe default" shape as every other one, though this is the one peer
@@ -375,6 +397,28 @@ class ConversationEngine:
         return ReplyPlan(kind="list", text=TRIAGE_PROMPT, list_button_text=TRIAGE_LIST_BUTTON_TEXT,
                          list_rows=[dict(row) for row in TRIAGE_ROWS])
 
+    async def _branches_for(self, tenant: str) -> list[dict[str, Any]]:
+        """This tenant's OPEN branches, or [] on no peer / peer failure / genuinely zero branches
+        — all three collapse to the same "nothing to ask about" outcome for the caller, by
+        design (see `self._branch_directory`'s own None-safety note above and
+        HttpBranchDirectory.list_open's fail-open note)."""
+        if self._branch_directory is None:
+            return []
+        try:
+            return await self._branch_directory.list_open(tenant)
+        except Exception:
+            return []
+
+    def _branch_list_plan(self, branches: list[dict[str, Any]]) -> ReplyPlan:
+        rows = []
+        for b in branches[:_BRANCH_LIST_MAX_ROWS]:
+            name = str(b.get("name") or "").strip()
+            city = str(b.get("city") or "").strip()
+            title = f"{name} — {city}" if city else name
+            rows.append({"id": f"{_BRANCH_REPLY_PREFIX}{b.get('id')}", "title": title[:24] or "فرع"})
+        return ReplyPlan(kind="list", text=_BRANCH_PROMPT, list_button_text=_BRANCH_LIST_BUTTON_TEXT,
+                         list_rows=rows)
+
     async def _reserve_llm_hold(self, tenant: str, conversation_ref: str) -> str | None:
         """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
         docstring for the full reasoning). Returns a hold id on success, or None — insufficient
@@ -464,6 +508,14 @@ class ConversationEngine:
             await self._save(conv)
             return self._triage_list_plan()
 
+        if conv.state == "awaiting_branch":
+            # Same discipline as `awaiting_triage` above: free text never resolves a mandatory
+            # gate, it only gets the same list re-sent. The only way out is
+            # `handle_branch_selection`'s `branch:*` reply id.
+            conv.last_activity_at = now
+            await self._save(conv)
+            return self._branch_list_plan(await self._branches_for(tenant))
+
         # Triage already resolved for this session — normal debounce/batching path.
         await self.on_inbound_text(tenant=tenant, subject_ref=subject_ref,
                                    from_number=from_number, text=text, now=now)
@@ -488,8 +540,25 @@ class ConversationEngine:
         choice = reply_id.split(":", 1)[1]
 
         if choice in _TRIAGE_NORMAL_CHOICES:
-            conv.state = "idle"
             conv.triage_resolved = True
+            if not conv.branch_id:
+                # Empty `branch_id` here means one of two things: a per_branch shop's number
+                # (Phase 1 would have stamped it already — never reached this state with it
+                # empty) is not this case, so it means a CENTRAL shop, where the inbound webhook
+                # itself carries no branch information at all. Ask, rather than guess — see the
+                # gate's own module-level note above `_BRANCH_PROMPT`.
+                branches = await self._branches_for(tenant)
+                if len(branches) >= 2:
+                    conv.state = "awaiting_branch"
+                    await self._save(conv)
+                    return self._branch_list_plan(branches)
+                if len(branches) == 1:
+                    # Exactly one open branch: nothing to choose, so nothing is asked — the same
+                    # "zero friction when there is only one real answer" the location-required
+                    # rule (services/operations/app/api/v1/staff.py) applies to a shop's FIRST
+                    # branch.
+                    conv.branch_id = str(branches[0].get("id") or "")
+            conv.state = "idle"
             await self._save(conv)
             return ReplyPlan(kind="text", text=_TRIAGE_PROMPT_BY_CHOICE[choice])
 
@@ -498,6 +567,31 @@ class ConversationEngine:
                 conv, tenant=tenant, subject_ref=subject_ref, reason=f"triage_{choice}", now=now)
 
         return self._triage_list_plan()
+
+    async def handle_branch_selection(self, *, tenant: str, subject_ref: str, reply_id: str,
+                                      now: int | None = None) -> ReplyPlan:
+        """The ONLY way out of `awaiting_branch` — reached exclusively from a `branch:*` list-
+        reply id, never free text (same button-only discipline as `handle_triage_selection`).
+        Re-validates the picked id against a FRESH branch fetch rather than trusting the id alone
+        — a branch closed between the list being sent and the customer's tap must not be
+        accepted silently."""
+        now = now if now is not None else int(time.time())
+        conv = await self._get(tenant, subject_ref)
+
+        if conv.state != "awaiting_branch" or not reply_id.startswith(_BRANCH_REPLY_PREFIX):
+            return self._branch_list_plan(await self._branches_for(tenant))
+
+        picked_id = reply_id[len(_BRANCH_REPLY_PREFIX):]
+        branches = await self._branches_for(tenant)
+        if not any(str(b.get("id") or "") == picked_id for b in branches):
+            # Stale/forged/closed-since id — re-sent the list rather than accepted on faith, same
+            # posture as handle_triage_selection's own stale-id branch.
+            return self._branch_list_plan(branches)
+
+        conv.branch_id = picked_id
+        conv.state = "idle"
+        await self._save(conv)
+        return ReplyPlan(kind="text", text=_TRIAGE_PROMPT_BY_CHOICE["inquiry"])
 
     async def _escalate_to_human(self, conv: ConversationState, *, tenant: str, subject_ref: str,
                                  reason: str, now: int) -> ReplyPlan:

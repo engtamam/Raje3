@@ -1343,6 +1343,23 @@ async def read_branches(request: Request, body: CatalogueIn) -> dict:
             "count": len(rows)}
 
 
+@router.post("/operations/active-branches", dependencies=[Depends(require_internal_token)])
+async def read_active_branches(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's OPEN places, with `city` — for whatsapp-assistant's branch picker.
+
+    A SEPARATE route from `read_branches` above rather than a field added to it: that route is
+    documented CLOSED-ONES-INCLUDED on purpose for insights' historical reporting, and its one
+    caller never asked for `city`. A customer picking where to book from must never be offered a
+    branch that no longer exists, and needs the city to tell two same-named branches apart — two
+    requirements neither shared with, nor safe to bolt onto, the reporting route above.
+    """
+    c = request.app.state.container
+    rows = await BranchStore(c.datastore).list(body.tenant)
+    return {"branches": [{"id": b.id, "name": b.name, "city": b.city}
+                         for b in rows if b.active],
+            "count": sum(1 for b in rows if b.active)}
+
+
 @router.post("/operations/operators", dependencies=[Depends(require_internal_token)])
 async def read_operators(request: Request, body: CatalogueIn) -> dict:
     """One establishment's people — id and name, nothing else.

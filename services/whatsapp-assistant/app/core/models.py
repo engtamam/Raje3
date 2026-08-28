@@ -57,10 +57,13 @@ class ConversationState:
     # overwritten later in the same session — see ConversationEngine._get's own note.
     branch_id: str = ""
     from_number: str = ""            # held ONLY long enough to send a reply; never in the summary
-    # idle | awaiting_triage | batching | awaiting_confirmation | closed. `awaiting_triage` is
-    # entered on every FRESH session (see `handle_inbound_text`) and free text there never reaches
-    # `on_inbound_text`/the LLM — only a `triage:*` list-reply id can leave it (core/conversation.py
-    # module docstring, "mandatory first-message triage gate").
+    # idle | awaiting_triage | awaiting_branch | batching | awaiting_confirmation | closed.
+    # `awaiting_triage` is entered on every FRESH session (see `handle_inbound_text`) and free
+    # text there never reaches `on_inbound_text`/the LLM — only a `triage:*` list-reply id can
+    # leave it (core/conversation.py module docstring, "mandatory first-message triage gate").
+    # `awaiting_branch` (phase 3) is entered ONLY for a central shop's customer whose `branch_id`
+    # is still empty after triage AND who has 2+ real open branches to choose from — same
+    # button-only discipline, only a `branch:*` list-reply id (handle_branch_selection) leaves it.
     state: str = "idle"
     # How many times this SESSION has actually called the LLM (compose_reply). Reset to 0 whenever
     # a fresh session opens (handle_inbound_text). Telemetry only — there is no ceiling on this

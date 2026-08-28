@@ -96,6 +96,11 @@ async def ingest_inbound_message(
                 # core/conversation.py::handle_triage_selection).
                 plan = await container.engine.handle_triage_selection(
                     tenant=tenant, subject_ref=subject_ref, reply_id=reply_id)
+            elif reply_id.startswith("branch:"):
+                # The central-number branch-selection gate's own list-reply ids — see
+                # core/conversation.py::handle_branch_selection.
+                plan = await container.engine.handle_branch_selection(
+                    tenant=tenant, subject_ref=subject_ref, reply_id=reply_id)
             else:
                 plan = await container.engine.handle_button_reply(
                     tenant=tenant, subject_ref=subject_ref, reply_id=reply_id,
