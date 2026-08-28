@@ -156,6 +156,20 @@ env:
   WALLET_SAFETY_MARGIN_HALALAS: "100"
   PEER_TIMEOUT_SECONDS: "8"
 
+  # ── consent (compliance-service) ───────────────────────────────────────────────────────────
+  # THE FIRST REAL CALLER of ports/consent_gate.py anywhere on this platform — every other
+  # service wired the port and never asked (see the port's own docstring). "http" here, not
+  # "null": unlike GEMINI_MODEL/pricing, this one has nothing left to decide before it can be
+  # turned on — compliance-service is already deployed and every peer reaches it at the same URL.
+  CONSENT_GATE_DRIVER: "http"
+  COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
+  CONSENT_PURPOSE: "whatsapp_ai_assistant"
+  # fail_open — see config.py's own note: zero consent RECORDS exist for this purpose anywhere
+  # yet, so fail_closed today would silently refuse every conversation on the platform. Revisit
+  # once a real consent-collection flow exists (the signup/booking form, or a one-time WhatsApp
+  # prompt) and records start accumulating.
+  CONSENT_POLICY_ON_UNKNOWN: "fail_open"
+
   # ── LLM ─────────────────────────────────────────────────────────────────────────────────────
   LLM_DRIVER: "gemini"
   # gemini-3.5-flash-lite, not the stronger/pricier 3.7-flash: this service's model calls are

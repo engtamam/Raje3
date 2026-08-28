@@ -101,8 +101,7 @@ _AUDIT_SINK: dict[str, Builder] = {
 }
 _CONSENT_GATE: dict[str, Builder] = {
     "null": lambda s: NullConsentGate(),
-    "http": lambda s: HttpConsentGate(s.COMPLIANCE_SERVICE_URL if hasattr(s, "COMPLIANCE_SERVICE_URL")
-                                      else "", s.INTERNAL_SERVICE_TOKEN),
+    "http": lambda s: HttpConsentGate(s.COMPLIANCE_SERVICE_URL, s.INTERNAL_SERVICE_TOKEN),
 }
 _TELEMETRY: dict[str, Builder] = {
     "stdout": lambda s: StdoutTelemetry(),
@@ -224,6 +223,12 @@ def build_container(settings: Settings) -> Container:
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
     container.sender = build_sender(settings)
+    # WAS NEVER ASSIGNED HERE AT ALL — `_CONSENT_GATE`'s registry existed, the field on `Container`
+    # existed, and nothing between the two ever ran; `container.consent_gate` stayed the dataclass
+    # default (`None`) forever, one line short of doing anything. See app/core/inbound_ingest.py
+    # for the actual call this makes reachable.
+    container.consent_gate = _pick(_CONSENT_GATE, settings.CONSENT_GATE_DRIVER, "consent_gate",
+                                   settings)
 
     from app.adapters.inbound_feed import build as build_inbound_feed
 

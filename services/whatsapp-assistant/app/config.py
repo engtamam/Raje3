@@ -112,6 +112,46 @@ class Settings(BaseSettings):
                 "the LLM (see core/conversation.py) is derived from it — without a salt the "
                 "reference would be reversible or absent.")
 
+    # ── consent (compliance-service) ─────────────────────────────────────────
+    # ports/consent_gate.py was wired into this container from day one and never actually asked —
+    # the same defect its own docstring names across all nineteen other services on this platform.
+    # This is the first real caller: app/core/inbound_ingest.py checks BEFORE the raw phone number
+    # is folded into subject_ref and discarded (the port needs the raw subject; a service holding
+    # only a pseudonym structurally cannot use it — see the port's own docstring on that point).
+    CONSENT_GATE_DRIVER: str = "null"        # null | http
+    COMPLIANCE_SERVICE_URL: str = ""
+    # WHAT WE ARE ASKING PERMISSION FOR — not "may we message you" (WhatsApp's own opt-in already
+    # covers that; this platform did not invent WhatsApp messaging) but "may we run this specific
+    # AI processing on what you send": retained raw text for up to CHAT_RETENTION_DAYS, sent to a
+    # third-party model (Gemini/Google), used to read your loyalty balance and propose actions on
+    # your behalf. A materially different processing purpose from ordinary transactional messages.
+    CONSENT_PURPOSE: str = "whatsapp_ai_assistant"
+    # FAIL_OPEN, NOT FAIL_CLOSED — and this is a real product decision, not a default nobody
+    # thought about: the customer TEXTED THE SHOP FIRST. Refusing to answer him because
+    # compliance-service could not be reached (UNKNOWN) reads as "the shop's WhatsApp appears
+    # broken from unrelated infra", not as caution — the same "refusing to serve a user's own
+    # profile under unknown is an outage" case the port's own docstring names. Reconsider this
+    # once real consent RECORDS exist for this purpose (today: zero, anywhere — flipping to
+    # fail_closed before then would silently refuse every conversation on this platform).
+    CONSENT_POLICY_ON_UNKNOWN: str = "fail_open"   # fail_open | fail_closed
+    # A DENIED verdict (real: consent withdrawn/expired on record) is never fail_open — an explicit
+    # withdrawal has to hold regardless of policy, or the policy toggle would be able to override a
+    # subject's own choice. Not configurable, on purpose.
+
+    def assert_consent_config_ok(self) -> None:
+        if not self.is_production:
+            return
+        if self.CONSENT_GATE_DRIVER == "null":
+            raise ValueError(
+                "CONSENT_GATE_DRIVER=null in production: every customer conversation would be "
+                "processed with nobody ever asked whether they consented to it.")
+        if self.CONSENT_GATE_DRIVER == "http" and not self.COMPLIANCE_SERVICE_URL:
+            raise ValueError("CONSENT_GATE_DRIVER=http but COMPLIANCE_SERVICE_URL is empty.")
+        if self.CONSENT_POLICY_ON_UNKNOWN not in ("fail_open", "fail_closed"):
+            raise ValueError(
+                f"CONSENT_POLICY_ON_UNKNOWN={self.CONSENT_POLICY_ON_UNKNOWN!r} — must be "
+                f"'fail_open' or 'fail_closed'.")
+
     # ── peers this service depends on ────────────────────────────────────────
     # THEIRS. notification-service is where inbound WhatsApp messages are received, verified and
     # published (`whatsapp.message`, `whatsapp.status`) and where TEMPLATE-ONLY outbound sends go.

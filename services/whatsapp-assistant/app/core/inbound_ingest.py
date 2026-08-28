@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.ports.consent_gate import DENIED, UNKNOWN
+
 
 async def ingest_inbound_message(
     *, container: Any, logger: Any, settings: Any, auditor: Any,
@@ -26,6 +28,33 @@ async def ingest_inbound_message(
         # ALREADY SEEN — a redelivery of the same wamid (bus firing twice, the catch-up sweep
         # revisiting a wamid the bus already delivered, or vice versa). This IS the dedup.
         return {"processed": False, "reason": "duplicate"}
+
+    # THE CONSENT CHECK, WITH THE RAW NUMBER, BEFORE IT IS EVER FOLDED INTO A PSEUDONYM. The port
+    # (app/ports/consent_gate.py) is explicit that a service holding only a subject_ref cannot use
+    # it without defeating the pseudonymisation — so this is the one honest place left to ask: the
+    # raw `from_number` is already in hand for this one call (same transient use customer_lookup
+    # makes a few lines down), never persisted, and gone the moment this function returns.
+    #
+    # DENIED IS NEVER OVERRIDABLE BY POLICY — an on-record withdrawal holds regardless of
+    # CONSENT_POLICY_ON_UNKNOWN, which only ever governs what happens when compliance-service could
+    # not be reached at all. See config.py's own note on why UNKNOWN defaults to fail_open here.
+    verdict = await container.consent_gate.check(
+        tenant=tenant, subject=from_number, purpose=settings.CONSENT_PURPOSE)
+    if verdict.status == DENIED or (
+            verdict.status == UNKNOWN and settings.CONSENT_POLICY_ON_UNKNOWN == "fail_closed"):
+        await container.inbound_store.mark_processed(tenant, wamid)
+        logger.info("whatsapp_consent_refused", extra={
+            "tenant": tenant, "wamid": wamid, "status": verdict.status, "reason": verdict.reason})
+        # NOT CRITICAL (see auditable_actions.py's own note on this action) — best-effort, never
+        # blocks the refusal itself: the safe outcome (nothing processed) already happened.
+        try:
+            await auditor.record("whatsapp_assistant.consent_refused", actor="whatsapp-assistant",
+                                 resource=f"wamid:{wamid}", tenant=tenant,
+                                 metadata={"status": verdict.status, "reason": verdict.reason,
+                                          "purpose": settings.CONSENT_PURPOSE})
+        except Exception:                                            # noqa: BLE001
+            pass
+        return {"processed": False, "reason": f"consent_{verdict.status}"}
 
     try:
         lookup = await container.customer_lookup.resolve(tenant, from_number)

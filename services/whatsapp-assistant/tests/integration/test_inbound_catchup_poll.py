@@ -14,6 +14,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.inbound_store.datastore_backed import build as build_inbound_store
 from app.core.inbound_ingest import ingest_inbound_message
 from app.core.inbound_poll import InboundPoller
+from app.ports.consent_gate import ALLOWED, ConsentVerdict
 
 TENANT = "shop1"
 
@@ -62,6 +63,13 @@ class _NullSender:
         return ""
 
 
+class _AllowConsentGate:
+    """This suite is about dedup/replay, not consent — always ALLOWED so ingest proceeds exactly
+    as it did before consent_gate existed. See test_consent_gate (if added) for denial behavior."""
+    async def check(self, *, tenant, subject, purpose):
+        return ConsentVerdict(status=ALLOWED, reason="test", purpose=purpose)
+
+
 @dataclass
 class _FakeContainer:
     datastore: MemoryDataStore
@@ -69,6 +77,7 @@ class _FakeContainer:
     customer_lookup: object = field(default_factory=_NullCustomerLookup)
     engine: object = field(default_factory=_RecordingEngine)
     sender: object = field(default_factory=_NullSender)
+    consent_gate: object = field(default_factory=_AllowConsentGate)
     points_summary: object = None
     inbound_feed: object = None
 
@@ -77,9 +86,14 @@ class _NullLogger:
     def warning(self, *a, **k):
         pass
 
+    def info(self, *a, **k):
+        pass
+
 
 class _FakeSettings:
     PII_SALT = "salt"
+    CONSENT_PURPOSE = "whatsapp_ai_assistant"
+    CONSENT_POLICY_ON_UNKNOWN = "fail_open"
 
 
 def _container():

@@ -84,4 +84,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "record a REFUSAL because the log is down protects nothing, and the refusal itself "
                "already means nothing was spent or booked",
     },
+    {
+        "action": "whatsapp_assistant.consent_refused",
+        "source": "internal",
+        "critical": False,
+        "resource": "conversation",
+        "why": "an inbound message was NOT processed because consent_gate.check() (app/core/"
+               "inbound_ingest.py) answered denied, or unknown under CONSENT_POLICY_ON_UNKNOWN="
+               "fail_closed — the message is dropped, nothing is sent back. Not critical: this is "
+               "already the safe outcome (nothing was done with the customer's data), so losing "
+               "the record on an audit-sink outage costs no protection the refusal itself did not "
+               "already provide — same reasoning as proposal_rejected, above",
+    },
 ]
