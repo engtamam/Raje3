@@ -133,7 +133,6 @@ env:
   # this one is OPEN-only and carries `city`, for a picker a customer actually reads.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
   LOYALTY_BALANCE_PATH: "/internal/loyalty/portal/balance"
-  LOYALTY_REDEEM_PATH: "/internal/loyalty/redeem"
   # operations' priced catalogue — sent to the model IN FULL every turn (never trimmed) so it can
   # answer "how much" honestly and never invent a price. Separate route from the one insights
   # calls, which deliberately carries no prices — see operations' own route docstring.

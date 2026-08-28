@@ -1,15 +1,17 @@
-"""PointsSummary / Redeemer — talks to loyalty, returns PATTERNS never raw balances-as-PII.
+"""PointsSummary — talks to loyalty, returns PATTERNS never raw balances-as-PII.
 
 `summary()` composes the shop-side sentence the LLM is allowed to see: "150 pts available" —
 never the customer's name or number, which loyalty does not hold either (see its own
 /internal/loyalty/portal/balance docstring: "NO NAME, NO NUMBER, EVER").
 
-`Redeemer.redeem()` is the ONLY thing core/tools.py's execute_confirmed_proposal ever calls to
-spend points, and it reaches loyalty's existing till-redeem route
-(/internal/loyalty/redeem, channel="till" in loyalty's own model) with actor="whatsapp-assistant" —
-identical ledger shape to a counter redemption, so the field screen and this bot report the same
-numbers by construction (see services/loyalty/app/api/internal.py::till_redeem's own docstring on
-why every channel must share one code path).
+NO `redeem()` HERE, DELIBERATELY — there used to be one, calling loyalty's till-redeem route
+directly and unconditionally the moment a customer tapped "confirm", with no booking, no
+attendance, nothing to show for it if they never actually came in. Removed along with the tool
+that triggered it (`suggest_redeemable_offer`'s old confirm-button path, see core/tools.py's own
+docstring on the change) — a reward a WhatsApp customer wants now rides on a REAL booking as
+`intended_reward_id` (bookings-service's own field) and is only ever spent by `operations` at
+attend() time, the exact same "intent, not immediate redemption" design bookings/console already
+uses. This module only ever READS a customer's real offers now; it never spends anything.
 """
 from __future__ import annotations
 
@@ -32,19 +34,13 @@ class NullPointsSummary:
     async def offers(self, *, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
         return []
 
-    async def redeem(self, *, tenant: str, subject_ref: str, reward_id: str,
-                     idempotency_key: str) -> dict[str, Any]:
-        raise RuntimeError("loyalty not configured — cannot redeem")
-
 
 class HttpPointsSummary:
     driver = "http"
 
-    def __init__(self, *, url: str, balance_path: str, redeem_path: str, token: str,
-                timeout: int = 8) -> None:
+    def __init__(self, *, url: str, balance_path: str, token: str, timeout: int = 8) -> None:
         self._base = url.rstrip("/")
         self._balance_path = balance_path
-        self._redeem_path = redeem_path
         self._token = token
         self._timeout = timeout
 
@@ -96,29 +92,10 @@ class HttpPointsSummary:
                 "expires_at": expires_at}
                for r in rewards if not r.get("needs_approval")]
 
-    async def redeem(self, *, tenant: str, subject_ref: str, reward_id: str,
-                     idempotency_key: str) -> dict[str, Any]:
-        body = json.dumps({
-            "tenant": tenant, "subject_ref": subject_ref, "reward_id": reward_id,
-            "idempotency_key": idempotency_key, "actor": "whatsapp-assistant",
-        }).encode()
-        req = urllib.request.Request(
-            f"{self._base}{self._redeem_path}", data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-            if not 200 <= resp.status < 300:
-                raise RedeemFailed(f"loyalty returned {resp.status}")
-            return json.loads(resp.read() or b"{}")
-
-
-class RedeemFailed(Exception):
-    pass
-
 
 def build(settings: Any) -> Any:
     if not settings.LOYALTY_SERVICE_URL:
         return NullPointsSummary()
     return HttpPointsSummary(
         url=settings.LOYALTY_SERVICE_URL, balance_path=settings.LOYALTY_BALANCE_PATH,
-        redeem_path=settings.LOYALTY_REDEEM_PATH, token=settings.INTERNAL_SERVICE_TOKEN,
-        timeout=settings.PEER_TIMEOUT_SECONDS)
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)

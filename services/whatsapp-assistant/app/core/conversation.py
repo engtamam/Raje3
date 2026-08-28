@@ -627,8 +627,8 @@ class ConversationEngine:
 
         Records the CRITICAL `whatsapp_assistant.escalated_to_human` audit action (fail-closed —
         see app/core/audit.py; an AuditUnavailable here is allowed to propagate, exactly like
-        booking_confirmed/points_redeemed in core/tools.py, rather than being swallowed into a
-        false "you were escalated"), then returns the handover text for the caller to send.
+        booking_confirmed in core/tools.py, rather than being swallowed into a false "you were
+        escalated"), then returns the handover text for the caller to send.
         """
         if conv.escalated:
             # Already handed off this session — nothing further to do for a re-entrant tick or a
@@ -824,7 +824,7 @@ class ConversationEngine:
         return ReplyPlan(kind="text", text=text)
 
     async def handle_button_reply(self, *, tenant: str, subject_ref: str, reply_id: str,
-                                  redeemer: Any, auditor: Any, now: int | None = None
+                                  auditor: Any, now: int | None = None
                                   ) -> ReplyPlan:
         """THE ONLY PATH a state-changing action can fire from. `reply_id` must be
         "{proposal_id}:confirm" or "{proposal_id}:cancel" — never free text, never a model
@@ -859,7 +859,7 @@ class ConversationEngine:
         try:
             result = await T.execute_confirmed_proposal(
                 tenant=tenant, proposal_id=proposal_id, store=self._store,
-                booking_provider=self._booking, redeemer=redeemer, auditor=auditor,
+                booking_provider=self._booking, auditor=auditor,
                 idempotency_key=idem_key, now=now,
                 branch_id=conv.branch_id, from_number=conv.from_number)
         except T.ToolValidationError as exc:

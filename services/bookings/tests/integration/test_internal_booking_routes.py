@@ -103,6 +103,20 @@ def test_create_a_real_booking_over_the_internal_token(env_guard):
     assert body["operator_id"] == "op1" and body["customer_id"] == "c1"
 
 
+def test_create_stamps_an_intended_reward_id_as_intent_only(env_guard):
+    """The WhatsApp-side of «use my reward with this booking» — never an immediate spend, see
+    InternalCreateBookingIn.intended_reward_id's own docstring."""
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings", json={
+        "tenant": "t1", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000, "idempotency_key": "wa-reward-k",
+        "intended_reward_id": "rwd_free_coffee"}, headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["intended_reward_id"] == "rwd_free_coffee"
+    assert r.json()["status"] == "booked", "stamping intent must never itself spend anything"
+
+
 def test_create_is_idempotent_a_retried_call_returns_the_same_booking(env_guard):
     client = _make_app()
     _stub_ops(client)

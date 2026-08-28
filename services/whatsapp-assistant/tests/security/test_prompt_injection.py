@@ -164,5 +164,5 @@ async def test_handle_button_reply_with_a_forged_or_stale_proposal_id_is_refused
 
     plan = await engine.handle_button_reply(
         tenant=TENANT, subject_ref=SUBJECT, reply_id="prp_forged_by_attacker:confirm",
-        redeemer=None, auditor=_FakeAuditor(), now=int(time.time()))
+        auditor=_FakeAuditor(), now=int(time.time()))
     assert "لم يعد صالحًا" in plan.text

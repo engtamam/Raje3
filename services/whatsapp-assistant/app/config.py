@@ -91,8 +91,8 @@ class Settings(BaseSettings):
     AUDIT_TOPIC: str = "audit.events"
     AUDIT_TIMEOUT_SECONDS: int = 5
     AUDIT_RETRY_AFTER_SECONDS: int = 30
-    # Fail closed: booking confirm / points redeem must not proceed unwitnessed. See
-    # app/auditable_actions.py — those two actions are the ones marked critical.
+    # Fail closed: a booking confirm must not proceed unwitnessed. See
+    # app/auditable_actions.py — the actions marked critical there.
     AUDIT_FAIL_CLOSED: bool = True
 
     def assert_audit_config_ok(self) -> None:
@@ -100,8 +100,8 @@ class Settings(BaseSettings):
             return
         if self.AUDIT_SINK_DRIVER == "null":
             raise ValueError(
-                "AUDIT_SINK_DRIVER=null in production: a booking confirmed or points redeemed by "
-                "this assistant would happen with no record of who (or what) triggered it.")
+                "AUDIT_SINK_DRIVER=null in production: a booking confirmed by this assistant "
+                "would happen with no record of who (or what) triggered it.")
         if self.AUDIT_SINK_DRIVER == "http" and not self.AUDIT_SERVICE_URL:
             raise ValueError("AUDIT_SINK_DRIVER=http but AUDIT_SERVICE_URL is empty.")
 
@@ -215,10 +215,10 @@ class Settings(BaseSettings):
     # and every other optional peer on this service already takes.
     BOOKING_PROVIDER_DRIVER: str = "config"
 
-    # loyalty — points summaries and redemption confirmation (button-only, never LLM-triggered).
+    # loyalty — points summaries only (read-only; see core/points.py's own docstring on why this
+    # service no longer redeems anything directly — a reward rides on a real booking instead).
     LOYALTY_SERVICE_URL: str = ""
     LOYALTY_BALANCE_PATH: str = "/internal/loyalty/portal/balance"
-    LOYALTY_REDEEM_PATH: str = "/internal/loyalty/redeem"
 
     # insights — cross-sell suggestions during an AI-led booking conversation, reusing the SAME
     # association engine (services/insights/app/core/associations.py) staff already see via

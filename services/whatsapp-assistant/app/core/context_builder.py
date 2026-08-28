@@ -48,7 +48,10 @@ def build_context_block(*, catalog: list[dict[str, Any]], offers: list[dict[str,
             cost = int(o.get("points_cost") or 0)
             balance = int(o.get("points_balance") or 0)
             expires = str(o.get("expires_at") or "")
-            line = f"- {reward}: تكلفتها {cost} نقطة (رصيده {balance} نقطة)"
+            # `id` EXPOSED, same as the catalogue lines above — `propose_booking`'s optional
+            # `reward_id` argument needs the model to have seen this exact value somewhere, the
+            # same reason a service line shows `(id: ...)` rather than only its price.
+            line = f"- {reward} (id: {o.get('reward_id')}): تكلفتها {cost} نقطة (رصيده {balance} نقطة)"
             if expires:
                 line += f"، تنتهي صلاحية نقاطه بتاريخ {expires}"
             lines.append(line)

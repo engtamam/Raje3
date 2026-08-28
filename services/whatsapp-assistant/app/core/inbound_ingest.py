@@ -103,8 +103,7 @@ async def ingest_inbound_message(
                     tenant=tenant, subject_ref=subject_ref, reply_id=reply_id)
             else:
                 plan = await container.engine.handle_button_reply(
-                    tenant=tenant, subject_ref=subject_ref, reply_id=reply_id,
-                    redeemer=container.points_summary, auditor=auditor)
+                    tenant=tenant, subject_ref=subject_ref, reply_id=reply_id, auditor=auditor)
         else:
             # THE mandatory triage gate's entry point — never `on_inbound_text` directly. Free
             # text before a triage pick is answered with the same list and never reaches the

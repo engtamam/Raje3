@@ -91,8 +91,7 @@ async def test_full_flow_from_inbound_message_to_confirmed_booking_and_audit_rec
 
     # ── step 4: the button reply comes back — THE ONLY thing that can fire the real write ─────
     reply_plan = await engine.handle_button_reply(
-        tenant=TENANT, subject_ref=SUBJECT, reply_id=confirm_id, redeemer=None,
-        auditor=auditor, now=now + 200)
+        tenant=TENANT, subject_ref=SUBJECT, reply_id=confirm_id, auditor=auditor, now=now + 200)
 
     assert reply_plan.kind == "text"
     assert "تم تأكيد" in reply_plan.text
@@ -110,7 +109,6 @@ async def test_full_flow_from_inbound_message_to_confirmed_booking_and_audit_rec
 
     # ── the pending proposal is consumed — a replayed confirm must not double-book ────────────
     second_attempt = await engine.handle_button_reply(
-        tenant=TENANT, subject_ref=SUBJECT, reply_id=confirm_id, redeemer=None,
-        auditor=auditor, now=now + 210)
+        tenant=TENANT, subject_ref=SUBJECT, reply_id=confirm_id, auditor=auditor, now=now + 210)
     rows_after, _ = await store.find(BOOKINGS, {"tenant": TENANT, "subject_ref": SUBJECT}, limit=10)
     assert len(rows_after) == 1   # still exactly one booking

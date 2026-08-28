@@ -123,8 +123,9 @@ class ConfigDrivenAvailabilityProvider:
 
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
                                starts_at: int, idempotency_key: str, branch_id: str = "",
-                               from_number: str = "") -> dict:
-        # `branch_id`/`from_number` IGNORED, same reason as `availability` above.
+                               from_number: str = "", intended_reward_id: str = "") -> dict:
+        # `branch_id`/`from_number`/`intended_reward_id` IGNORED, same reason as `availability`
+        # above — this placeholder has no attend()/reward concept at all to stamp intent onto.
         # IDEMPOTENT ON THE KEY, not on the slot — a retried confirm (a timeout, a doubled button
         # tap) must return the SAME booking, never create a second one.
         existing, _ = await self._store.find(

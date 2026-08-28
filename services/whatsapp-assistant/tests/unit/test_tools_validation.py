@@ -101,7 +101,7 @@ async def test_execute_confirmed_proposal_rejects_a_slot_that_filled_after_propo
     try:
         await T.execute_confirmed_proposal(
             tenant=TENANT, proposal_id=proposal.proposal_id, store=store,
-            booking_provider=provider, redeemer=None, auditor=_FakeAuditor(),
+            booking_provider=provider, auditor=_FakeAuditor(),
             idempotency_key="btn_1")
         assert False, "expected ToolValidationError"
     except T.ToolValidationError:
@@ -119,7 +119,7 @@ async def test_execute_confirmed_proposal_rejects_unknown_or_cross_tenant_propos
     try:
         await T.execute_confirmed_proposal(
             tenant="tenant-B", proposal_id="prp_does_not_exist", store=store,
-            booking_provider=provider, redeemer=None, auditor=_FakeAuditor(),
+            booking_provider=provider, auditor=_FakeAuditor(),
             idempotency_key="btn_x")
         assert False, "expected ToolValidationError"
     except T.ToolValidationError:

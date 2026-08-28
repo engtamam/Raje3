@@ -1,6 +1,8 @@
-"""Auditor fail-closed on critical actions — booking confirm and points redeem must not proceed
-unwitnessed. See app/core/audit.py (copied unmodified from services/reminders — same contract) and
-app/auditable_actions.py for which two actions are marked critical."""
+"""Auditor fail-closed on critical actions — a booking confirm must not proceed unwitnessed. See
+app/core/audit.py (copied unmodified from services/reminders — same contract) and
+app/auditable_actions.py for which actions are marked critical. `points_redeemed` no longer exists
+here — a reward now rides on the booking itself as `intended_reward_id` intent, never a standalone
+spend of its own; see app/core/tools.py's own docstring on the change."""
 import pytest
 
 from app.adapters.audit_sink.null import NullAuditSink
@@ -29,7 +31,6 @@ def _auditor(*, fail_closed: bool, sink=None) -> Auditor:
 async def test_booking_confirmed_is_declared_critical():
     actions = validate(AUDITABLE_ACTIONS, "whatsapp-assistant")
     assert "whatsapp_assistant.booking_confirmed" in critical_actions(actions)
-    assert "whatsapp_assistant.points_redeemed" in critical_actions(actions)
 
 
 async def test_critical_action_raises_when_sink_cannot_record_and_fail_closed():

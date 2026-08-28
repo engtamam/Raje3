@@ -313,6 +313,14 @@ class InternalCreateBookingIn(BaseModel):
     starts_at: int = Field(gt=0)
     note: str = Field(default="", max_length=500)
     idempotency_key: str = Field(default="", max_length=128)
+    # WHATSAPP'S OWN VERSION OF THE CONSOLE'S "و+use my reward" CHECKBOX (CreateIn.intended_reward_id
+    # in app/api/v1/bookings.py) — INTENT ONLY, never an immediate spend. `BookingOperations.create`
+    # only ever STAMPS this on the row; the actual points spend happens exclusively inside
+    # `attend()`, and `cancel()`/`no_show()` never touch it at all. This is the WHOLE reason a
+    # WhatsApp-initiated redemption costs the shop nothing when a customer books, redeems, and then
+    # never shows: nothing was ever spent to begin with. See
+    # services/whatsapp-assistant/app/core/tools.py's `propose_booking` branch for the caller side.
+    intended_reward_id: str | None = Field(default=None, max_length=128)
 
 
 @router.post("/bookings", dependencies=[Depends(require_internal_token)])
@@ -329,7 +337,8 @@ async def internal_create_booking(request: Request, body: InternalCreateBookingI
         booking = await c.booking_ops.create(
             tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             customer_id=body.customer_id, service_ids=body.service_ids,
-            starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key)
+            starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
+            intended_reward_id=body.intended_reward_id)
     except SlotClaimBusy as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except LicenceError as exc:

@@ -87,17 +87,40 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
             raise ToolValidationError(
                 f"proposed slot {starts_at} for {service_id!r} is not actually available")
 
+        # OPTIONAL — «و+use my reward with this booking». RE-VALIDATED against the customer's REAL
+        # affordable-without-approval offers (never trusted from the model's own args, same
+        # discipline as the slot check above) — a reward the model half-remembers from three turns
+        # ago, or one that expired/was spent since, is DROPPED rather than failing the whole
+        # booking: the customer still gets the appointment they asked for, just told plainly that
+        # the reward specifically could not be attached. This is intent, not a spend — see
+        # app/core/booking_assignment.py's own note on `intended_reward_id` for why nothing here
+        # risks the shop anything if the customer never shows.
+        reward_id = str(args.get("reward_id") or "")
+        reward_dropped = False
+        if reward_id:
+            real_offers = await points_summary.offers(tenant=tenant, subject_ref=subject_ref)
+            if not any(str(o.get("reward_id")) == reward_id for o in real_offers):
+                reward_id = ""
+                reward_dropped = True
+
         proposal_id = f"prp_{uuid.uuid4().hex[:24]}"
+        proposal_args: dict[str, Any] = {"service_id": service_id, "starts_at": starts_at}
+        if reward_id:
+            proposal_args["reward_id"] = reward_id
         proposal = PendingProposal(
             id=proposal_id, tenant=tenant, subject_ref=subject_ref,
             conversation_id=conversation_id, tool="propose_booking",
-            args={"service_id": service_id, "starts_at": starts_at},
+            args=proposal_args,
             validated_snapshot={"validated_at": now},
             created_at=now, expires_at=now + proposal_ttl_seconds)
         await store.put(PENDING_PROPOSALS, proposal_id, as_row(proposal))
+        body = f"هل تؤكد الموعد الساعة {_fmt_slot(starts_at)}؟"
+        if reward_id:
+            body += " سيتم استخدام مكافأتك عند حضورك للموعد."
+        elif reward_dropped:
+            body += " (تعذّر إرفاق المكافأة المطلوبة — يمكنك سؤالي عنها مرة أخرى.)"
         return RenderedProposal(
-            proposal_id=proposal_id,
-            body=f"هل تؤكد الموعد الساعة {_fmt_slot(starts_at)}؟",
+            proposal_id=proposal_id, body=body,
             buttons=[{"id": f"{proposal_id}:confirm", "title": "تأكيد"},
                     {"id": f"{proposal_id}:cancel", "title": "إلغاء"}])
 
@@ -106,22 +129,18 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         return summary.get("text", "")
 
     if tool == "suggest_redeemable_offer":
+        # READ-ONLY, same posture as suggest_related_service below — no proposal, no button, no
+        # PendingProposal row. A reward is no longer spent standalone, unconditionally, the moment
+        # a customer taps confirm: it rides on a real booking (`propose_booking`'s own `reward_id`
+        # argument) so nothing is ever spent until the shop actually delivers the service. See
+        # app/core/booking_assignment.py's `intended_reward_id` note for the full reasoning — this
+        # is the structural fix, not a policy note, for a no-show costing the shop a reward with
+        # nothing to show for it.
         offer = await points_summary.redeemable_offer(tenant=tenant, subject_ref=subject_ref)
         if not offer:
             return "لا توجد مكافأة متاحة برصيدك الحالي بعد."
-        proposal_id = f"prp_{uuid.uuid4().hex[:24]}"
-        proposal = PendingProposal(
-            id=proposal_id, tenant=tenant, subject_ref=subject_ref,
-            conversation_id=conversation_id, tool="suggest_redeemable_offer",
-            args={"reward_id": offer["reward_id"]},
-            validated_snapshot={"validated_at": now, "points": offer.get("points")},
-            created_at=now, expires_at=now + proposal_ttl_seconds)
-        await store.put(PENDING_PROPOSALS, proposal_id, as_row(proposal))
-        return RenderedProposal(
-            proposal_id=proposal_id,
-            body=f"يمكنك استبدال «{offer['reward_name']}» بنقاطك الحالية. هل ترغب بذلك؟",
-            buttons=[{"id": f"{proposal_id}:confirm", "title": "استبدال"},
-                    {"id": f"{proposal_id}:cancel", "title": "لا شكرًا"}])
+        return (f"يمكنك استخدام «{offer['reward_name']}» بنقاطك الحالية — فقط اذكرها عند حجز "
+               f"موعدك وسأرفقها به.")
 
     if tool == "suggest_related_service":
         service_id = str(args.get("service_id") or "")
@@ -152,7 +171,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
 
 
 async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: Any,
-                                     booking_provider: Any, redeemer: Any, auditor: Any,
+                                     booking_provider: Any, auditor: Any,
                                      idempotency_key: str, now: int | None = None,
                                      branch_id: str = "", from_number: str = ""
                                      ) -> dict[str, Any]:
@@ -175,38 +194,31 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
     subject_ref = row.get("subject_ref", "")
 
     if tool == "propose_booking":
+        # `reward_id`, WHEN PRESENT, IS INTENT ONLY — never a spend here. It rides on the booking
+        # (bookings-service's own `intended_reward_id`, stamped by `hold_and_confirm` below) and
+        # is only ever actually spent when the shop marks the customer attended. A customer who
+        # never shows costs the shop nothing: nothing was ever spent to begin with. See
+        # app/core/booking_assignment.py's own note, and this function's module docstring — the
+        # standalone, unconditional-on-confirm redemption this branch used to also handle
+        # (tool == "suggest_redeemable_offer") no longer exists; see that tool's own docstring in
+        # `validate_and_render` above for why.
         try:
             booking = await booking_provider.hold_and_confirm(
                 tenant=tenant, subject_ref=subject_ref, service_id=args["service_id"],
                 starts_at=int(args["starts_at"]), idempotency_key=idempotency_key,
-                branch_id=branch_id, from_number=from_number)
+                branch_id=branch_id, from_number=from_number,
+                intended_reward_id=str(args.get("reward_id") or ""))
         except Exception as exc:
             raise ToolValidationError(f"booking confirm failed: {exc}") from exc
         # CRITICAL: a booking confirmed by this assistant on a customer's behalf must be
         # witnessed. Fail-closed per app/core/audit.py — see auditable_actions.py.
         await auditor.record("whatsapp_assistant.booking_confirmed", actor="whatsapp-assistant",
                              resource=f"booking:{booking.get('id', '')}", tenant=tenant,
-                             metadata={"subject_ref": subject_ref, "service_id": args["service_id"]})
+                             metadata={"subject_ref": subject_ref, "service_id": args["service_id"],
+                                      "intended_reward_id": args.get("reward_id") or ""})
         row["consumed"] = True
         await store.put(PENDING_PROPOSALS, proposal_id, row)
         return {"kind": "booking", "booking": booking}
-
-    if tool == "suggest_redeemable_offer":
-        try:
-            result = await redeemer.redeem(tenant=tenant, subject_ref=subject_ref,
-                                           reward_id=args["reward_id"],
-                                           idempotency_key=idempotency_key)
-        except Exception as exc:
-            raise ToolValidationError(f"redemption failed: {exc}") from exc
-        # CRITICAL: spends something the customer owns, on their behalf, with nobody standing at
-        # a till watching it happen — the exact case app/core/audit.py's docstring names as
-        # needing a fail-closed record.
-        await auditor.record("whatsapp_assistant.points_redeemed", actor="whatsapp-assistant",
-                             resource=f"reward:{args['reward_id']}", tenant=tenant,
-                             metadata={"subject_ref": subject_ref})
-        row["consumed"] = True
-        await store.put(PENDING_PROPOSALS, proposal_id, row)
-        return {"kind": "redemption", "result": result}
 
     raise ToolValidationError(f"proposal tool {tool!r} has no confirm handler")
 

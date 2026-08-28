@@ -125,7 +125,7 @@ class RealBookingProvider:
 
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
                                starts_at: int, idempotency_key: str, branch_id: str = "",
-                               from_number: str = "") -> dict:
+                               from_number: str = "", intended_reward_id: str = "") -> dict:
         if not branch_id:
             raise BookingAssignmentError("no branch on this conversation — cannot create a real booking")
         if not from_number:
@@ -137,10 +137,17 @@ class RealBookingProvider:
 
         operator_id = await self._pick_operator(tenant, branch_id, service_id)
 
-        result = self._create_booking.call(
-            {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
-             "customer_id": customer_id, "service_ids": [service_id], "starts_at": starts_at,
-             "idempotency_key": idempotency_key})
+        # INTENT ONLY, NEVER A SPEND — bookings-service's own `create()` only stamps this on the
+        # row (see InternalCreateBookingIn.intended_reward_id's own docstring); the actual points
+        # spend happens exclusively at attend(), and cancel()/no_show() never touch it. This is
+        # the whole reason a WhatsApp-initiated reward costs the shop nothing on a no-show — see
+        # core/tools.py's `propose_booking` branch for how `reward_id` gets here.
+        body = {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
+                "customer_id": customer_id, "service_ids": [service_id], "starts_at": starts_at,
+                "idempotency_key": idempotency_key}
+        if intended_reward_id:
+            body["intended_reward_id"] = intended_reward_id
+        result = self._create_booking.call(body)
         if result is None or not result.get("id"):
             raise BookingAssignmentError("bookings-service refused or was unreachable")
         return result

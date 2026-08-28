@@ -44,12 +44,19 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "propose_booking": {
         "name": "propose_booking",
-        "description": "Propose (never confirm) one specific appointment slot to the customer.",
+        "description": (
+            "Propose (never confirm) one specific appointment slot to the customer. If the "
+            "customer wants to use one of their own real rewards (shown in the context block, "
+            "never invented) WITH this booking, pass its id as reward_id — it is only ever "
+            "spent when the shop marks them attended, never on confirm alone, so nothing is "
+            "risked if they do not show up."),
         "parameters": {
             "type": "object",
             "properties": {
                 "service_id": {"type": "string"},
                 "starts_at_iso": {"type": "string"},
+                "reward_id": {"type": "string", "description": (
+                    "Optional. Only an id the context block actually showed for this customer.")},
             },
             "required": ["service_id", "starts_at_iso"],
         },
@@ -61,7 +68,10 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "suggest_redeemable_offer": {
         "name": "suggest_redeemable_offer",
-        "description": "Suggest a reward the customer's current points balance can already afford.",
+        "description": (
+            "Read-only: name a reward the customer's current points balance can already afford. "
+            "Never redeems anything by itself — mention it, then use propose_booking's reward_id "
+            "if the customer wants it attached to an appointment."),
         "parameters": {"type": "object", "properties": {}},
     },
     "suggest_related_service": {
