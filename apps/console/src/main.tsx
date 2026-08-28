@@ -101,11 +101,15 @@ const shopRouter = createBrowserRouter([
 // `affiliates.<domain>/…`, never `affiliates.<domain>/app/…`, so basename must match what the
 // edge actually put them on rather than reusing BASE_URL.
 const affiliateRouter = createBrowserRouter([
+  // SAME REASONING AS shopRouter's own legal route — a marketer deciding whether to accept the
+  // affiliate agreement needs to read it before he has a session, on his own hostname.
+  { path: 'legal/:slug', element: <Legal /> },
   { path: '/*', element: <AffiliatePortal /> },
 ], { basename: '/' });
 
 // SAME REASONING AS affiliateRouter, one line down — admin.<domain>/… never admin.<domain>/app/….
 const adminRouter = createBrowserRouter([
+  { path: 'legal/:slug', element: <Legal /> },
   { path: '/*', element: <AdminPortal /> },
 ], { basename: '/' });
 

@@ -42,7 +42,7 @@ brand/      رموز الألوان والشعارات
 ## نسخة جديدة من المستودع
 
 ```bash
-bash scripts/setup.sh      # يهيّئ submodule المنصة (sparse: chart + CI فقط، ~0.4M)
+bash scripts/setup.sh      # يهيّئ submodule المنصة (نسخة كاملة، ~38M — الشاشات القانونية وci/check_deploy_wiring.py تقرأ مصدرها فعلياً)
 ```
 
 ## إعادة تسمية المنتج

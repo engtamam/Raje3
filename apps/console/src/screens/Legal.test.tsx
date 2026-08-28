@@ -22,8 +22,13 @@ function renderAt(path: string) {
 describe('Legal', () => {
   it('exposes exactly the readable documents, and none of the internal ones', () => {
     const slugs = docs.map((d) => d.slug).sort();
+    // AFFILIATE DOCS SURFACED WITH ZERO CODE CHANGE — exactly the generic design's point: any
+    // yaml under deploy/seed/legal/ with publication: public/accept appears here automatically
+    // the moment it exists, which is how affiliate-agreement/affiliate-privacy-policy joined this
+    // list without anyone touching legalDocsPlugin.ts.
     expect(slugs).toEqual(
-      ['cookies', 'data-subject-rights', 'privacy-policy', 'terms'].sort(),
+      ['affiliate-agreement', 'affiliate-privacy-policy', 'cookies', 'data-subject-rights',
+       'privacy-policy', 'terms'].sort(),
     );
     // dpia / ropa / processing-agreement are not `public` or `accept` and must never surface here.
     expect(slugs).not.toContain('dpia');

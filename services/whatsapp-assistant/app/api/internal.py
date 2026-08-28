@@ -1,0 +1,287 @@
+# =============================================================================
+# whatsapp-assistant — Internal tier (service-to-service, X-Internal-Token)
+# -----------------------------------------------------------------------------
+# NOT user-facing. Guarded by a shared token compared in CONSTANT TIME
+# (CWE-208), exactly as every sibling service's internal.py does it.
+# =============================================================================
+from __future__ import annotations
+
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from pydantic import BaseModel
+
+from app.backup_manifest import BACKUP
+from app.config import Settings, get_settings
+from app.core import backup as _backup
+from app.manifest import build_manifest
+
+
+def _now_iso() -> str:
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+router = APIRouter(prefix="/internal", tags=["internal"])
+
+_HEADER = "X-Internal-Token"
+
+
+async def require_internal_token(
+    x_internal_token: str | None = Header(default=None, alias=_HEADER),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    expected = settings.INTERNAL_SERVICE_TOKEN
+    provided = x_internal_token or ""
+    if not hmac.compare_digest(provided, expected):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
+@router.get("/health", dependencies=[Depends(require_internal_token)])
+async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
+
+@router.get("/manifest", dependencies=[Depends(require_internal_token)])
+async def manifest(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    container = request.app.state.container
+    return build_manifest(settings, ports=container.describe())
+
+
+@router.post("/whatsapp_assistant/tick", dependencies=[Depends(require_internal_token)])
+async def tick(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    """The scheduled sweep: compose debounced replies whose window elapsed, close sessions past
+    their silence timeout. Imitates services/reminders' /internal split between the event
+    fast-path (subscribed in main.py's lifespan) and this cron-driven tick — the fast path can
+    silently miss an event; this cannot silently miss a due conversation, because it scans this
+    service's OWN datastore rather than depending on the bus a second time.
+
+    Per-tenant, bounded (CONVERSATION_TICK_BATCH_SIZE) — the same reasoning as reminders'
+    TICK_BATCH_SIZE: an unbounded sweep is how one busy tenant starves every other one.
+    """
+    import time as _time
+
+    c = request.app.state.container
+    tenant = ""
+    body: dict = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    tenant = str(body.get("tenant") or "")
+    if not tenant:
+        return {"error": "tenant is required"}
+
+    now = int(_time.time())
+    batch = settings.CONVERSATION_TICK_BATCH_SIZE
+    replied = 0
+    closed = 0
+
+    due = await c.engine.sweep_due(tenant, now=now, batch=batch)
+    for subject_ref in due:
+        plan = await c.engine.compose_reply(tenant, subject_ref, now=now)
+        if plan.kind == "none":
+            continue
+        conv = await c.datastore.get("wa_conversations", f"{tenant}|{subject_ref}")
+        to = (conv or {}).get("from_number", "")
+        if not to:
+            continue
+        if plan.kind == "text" and plan.text:
+            await c.sender.send_template(
+                tenant=tenant, to=to, template_name="wa_assistant_reply",
+                variables=[plan.text], idempotency_key=f"tick_{tenant}_{subject_ref}_{now}")
+            replied += 1
+        elif plan.kind == "interactive" and plan.proposal is not None:
+            await c.sender.send_interactive(
+                tenant=tenant, to=to, body=plan.proposal.body, buttons=plan.proposal.buttons,
+                idempotency_key=f"tick_{plan.proposal.proposal_id}")
+            replied += 1
+
+    timed_out = await c.engine.sweep_timed_out(tenant, now=now, batch=batch)
+    closed = len(timed_out)
+
+    # ── chat data retention — same tick, no separate unmonitored cron ────────────────────────
+    # Runs AFTER the reply/timeout sweep above: a conversation must actually be closed (which the
+    # sweep just did for anything newly timed out) before retention has anything to consider. See
+    # app/core/retention.py for the full pattern and why it belongs here rather than its own cron.
+    from app.core.retention import run_retention_tick
+
+    retention = await run_retention_tick(
+        tenant, now=now, store=c.datastore, inbound_store=c.inbound_store,
+        auditor=request.app.state.auditor, retention_days=settings.CHAT_RETENTION_DAYS,
+        batch=settings.CHAT_RETENTION_TICK_BATCH_SIZE,
+        max_scan_per_subject=settings.ERASURE_MAX_SCAN)
+
+    # ── inbound catch-up sweep — closes the "bus dropped a whatsapp.message event" gap ────────
+    # Not tenant-scoped (unlike the reply/timeout sweep above): notification-service's inbound
+    # feed is one global cursor across every tenant, so it runs once per tick call regardless of
+    # which tenant's cron invocation triggered it. Bounded and idempotent (see
+    # app/core/inbound_poll.py), so a tick firing per-tenant every CONVERSATION_TICK_SECONDS just
+    # means this sweep is revisited that often — never a correctness issue, only extra no-op work
+    # once the cursor is caught up.
+    from app.core.inbound_poll import InboundPoller
+    from app.observability.logging import get_logger
+
+    poller = InboundPoller(container=c, settings=settings, logger=get_logger("app.inbound_poll"),
+                           max_pages=settings.INBOUND_POLL_MAX_PAGES)
+    inbound_poll = await poller.run(auditor=request.app.state.auditor)
+
+    return {"tenant": tenant, "replied": replied, "closed": closed, "scanned": len(due),
+            "retention_purged_conversations": retention.purged_conversations,
+            "retention_purged_messages": retention.purged_messages,
+            "retention_truncated": retention.truncated,
+            "inbound_poll": inbound_poll}
+
+
+class EraseIn(BaseModel):
+    tenant: str
+    subject: str
+
+
+@router.post("/privacy/erase", dependencies=[Depends(require_internal_token)])
+async def erase_subject(request: Request, body: EraseIn) -> dict:
+    """Erase a data subject's WhatsApp conversation data. Called by compliance-service during a
+    DSAR fan-out — see app/core/erasure.py. Runs regardless of CHAT_RETENTION_DAYS: a customer
+    asking to be forgotten does not wait for the scheduled purge to agree with them.
+
+    Idempotent — a DSAR retries, so erasing an already-erased subject must not fail.
+    """
+    c = request.app.state.container
+    s = get_settings()
+    # WRITE-AHEAD, and critical — see app/core/audit.py. Erasure is irreversible; recording
+    # afterwards would leave exactly the case that matters (an erasure that half-succeeded) with
+    # no record that it was ever attempted.
+    await request.app.state.auditor.record(
+        "subject.erased", actor="", tenant=body.tenant, resource="subject",
+        ip=request.client.host if request.client else "")
+
+    from app.core.erasure import WhatsAppAssistantErasure
+
+    eraser = WhatsAppAssistantErasure(
+        store=c.datastore, inbound_store=c.inbound_store, max_scan=s.ERASURE_MAX_SCAN)
+    return await eraser.erase(body.tenant, body.subject)
+
+
+# ── backup — declared by app/manifest.py's endpoints from day one, so it must actually exist ────
+# Mirrors services/loyalty/app/api/internal.py's three routes exactly; app/core/backup.py is a
+# verbatim copy of loyalty's generic seal/export/import/verify logic, and app/backup_manifest.py
+# is this service's own declaration of what wa_* collections it holds.
+class BackupExportIn(BaseModel):
+    # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
+    tenant: str = ""
+
+
+class BackupImportIn(BaseModel):
+    archive: dict
+    # Off by default: a restore must not bulldoze rows written after the backup unless the operator
+    # driving the restore says so.
+    overwrite: bool = False
+    # Empty = restore in place. A value REMAPS the restore into that tenant (restore-as-clone):
+    # only rows that carry a tenant are reassigned; a global dataset is left alone.
+    into_tenant: str = ""
+
+
+def _sealer(settings: Settings):
+    """The backup (seal, unseal) pair, or a 503 when no backup key is configured.
+
+    Refused rather than defaulted: sealing with an empty key would write a plaintext-equivalent
+    archive while every check reported it encrypted — the one outcome a backup must never have.
+    """
+    if not settings.BACKUP_KEK:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "BACKUP_KEK not configured — set this SHARED key (the SAME value backup-service holds) on this service, or its archives cannot be opened")
+    return _backup.make_sealer(settings.BACKUP_KEK)
+
+
+@router.post("/backup/export", dependencies=[Depends(require_internal_token)])
+async def backup_export(request: Request, body: BackupExportIn,
+                        settings: Settings = Depends(get_settings)) -> dict:
+    """Produce a sealed, checksummed archive of this service's declared data.
+
+    Called by backup-service, on a schedule, over the internal token. What this service holds is
+    declared in app/backup_manifest.py; how it is read lives in core/backup.py. The orchestrator
+    stores the archive and never sees the plaintext.
+    """
+    seal, _ = _sealer(settings)
+    return await _backup.export(
+        request.app.state.container.datastore, BACKUP,
+        service=settings.SERVICE_NAME, version=settings.SERVICE_VERSION,
+        taken_at=_now_iso(), seal=seal, tenant=body.tenant,
+        scan_cap=settings.BACKUP_MAX_ROWS_PER_COLLECTION)
+
+
+class BackupVerifyIn(BaseModel):
+    archive: dict
+
+
+@router.post("/backup/verify", dependencies=[Depends(require_internal_token)])
+async def backup_verify(request: Request, body: BackupVerifyIn,
+                        settings: Settings = Depends(get_settings)) -> dict:
+    """Prove an archive restores, by test-restoring it into a throwaway namespace and comparing.
+
+    backup-service calls this after it stores an archive. This service is the only party that can
+    unseal its own archive and knows its own schema, so verification lives here; the orchestrator
+    only records the verdict. The throwaway namespace is torn down before this returns.
+    """
+    import secrets
+    _, unseal = _sealer(settings)
+    try:
+        return await _backup.verify_restore(
+            request.app.state.container.datastore, body.archive,
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
+    except _backup.BackupError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+@router.post("/backup/import", dependencies=[Depends(require_internal_token)])
+async def backup_import(request: Request, body: BackupImportIn,
+                        settings: Settings = Depends(get_settings)) -> dict:
+    """Restore an archive this service produced. Idempotent; leaves newer rows alone by default."""
+    _, unseal = _sealer(settings)
+    try:
+        return await _backup.import_archive(
+            request.app.state.container.datastore, body.archive,
+            unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant,
+            declaration=BACKUP)
+    except _backup.BackupError as exc:
+        # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
+        # match, or a row had no identity. Say which, so an operator can act.
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+# ── pricing — the smallest honest caller for a genuinely staged module ──────────────────────────
+# app/core/pricing.py computed a price nothing ever asked for (ci/check_dead_core.py flagged it):
+# no billing peer exists yet to charge a shop for this service. Following docs/adding-a-new-app.md
+# §3c's own precedent (bookings' /internal/availability/check, pulled forward for the same reason)
+# this is the smallest real, callable, tested interface — token counts and period context in the
+# request body rather than read from a store that does not exist yet — and it becomes the exact
+# route a future billing/insights peer calls once one exists. Nothing about price_conversation's
+# own signature changes later; only where its inputs come from does.
+class PriceIn(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+    # THIS PERIOD'S conversation count / first-of-period flag — the caller's to track (it is the
+    # one that knows the billing period), not this service's; see core/pricing.py's own docstring
+    # for why: a business number frozen into this service would be a rewrite waiting to happen.
+    conversations_this_period: int = 0
+    is_first_conversation_this_period: bool = False
+
+
+@router.post("/whatsapp_assistant/price", dependencies=[Depends(require_internal_token)])
+async def price(body: PriceIn, settings: Settings = Depends(get_settings)) -> dict:
+    """What ONE conversation would cost under the configured PRICING_STRATEGY.
+
+    Every constant behind this is zero in config today (see core/pricing.py's module docstring) —
+    this computes the SHAPE, not a real charge, until the business sets real numbers.
+    """
+    from app.core.pricing import ConversationCost, PricingConfig, price_conversation
+
+    cfg = PricingConfig.from_settings(settings)
+    cost = ConversationCost(input_tokens=body.input_tokens, output_tokens=body.output_tokens)
+    try:
+        halalas = price_conversation(
+            cfg, cost, conversations_this_period=body.conversations_this_period,
+            is_first_conversation_this_period=body.is_first_conversation_this_period)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return {"strategy": cfg.strategy, "halalas": halalas}

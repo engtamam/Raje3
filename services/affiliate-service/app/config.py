@@ -140,13 +140,16 @@ class Settings(BaseSettings):
     AFFILIATE_PROMOTER_ROLE: str = "affiliate_promoter"
     AFFILIATE_PHONE_DEFAULT_CC: str = "966"
     ONBOARDING_TIMEOUT_SECONDS: int = 10
-    # THE VERSION OF THE TERMS AN APPLICANT IS AGREEING TO — spec §2's own "قبول الشروط إجباري
-    # قبل التفعيل". NOT a full compliance-service integration (the version-pinned, re-prompt-on-
-    # publish machinery Door.tsx's own LegalGate drives for shops) — that is a real future
-    # upgrade, tracked as such rather than pretended away. This is the honest minimum until then:
-    # apply() refuses without agreement, and WHICH version he agreed to is recorded, so a later
-    # dispute has an answer ("he agreed to v1 on this date") rather than nothing at all. A config
-    # value, never hardcoded, so a real wording change is a value bump an admin makes on purpose.
+    # THE VERSION OF deploy/seed/legal/affiliate-agreement.yaml's OWN `values.VERSION` an
+    # applicant is agreeing to — spec §2's own "قبول الشروط إجباري قبل التفعيل". Same
+    # re-acceptance property as compliance-service's LegalGate (legal_gate.py::outstanding): the
+    # value here is not read from that document at runtime (this image ships `app/` alone, not
+    # the deploy tree — see the Dockerfile), so ci/check_legal.py::rule 6 is what keeps this in
+    # step with the document instead — it fails the build the moment they drift. apply() stamps
+    # every new application with whatever this is set to; onboarding.py::approve() then refuses
+    # any application whose stamped version no longer matches it, exactly as a LegalGate check
+    # would refuse a stale consent. "v1" is a local-dev default only — deploy/services/
+    # affiliate-service.values.yaml pins the real one.
     AFFILIATE_TERMS_VERSION: str = "v1"
     # ── phone-ownership OTP — same two-knob shape as operations' own
     # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP, deliberately: DELIVERABLE is "can a code actually

@@ -39,12 +39,12 @@ class FakeHttp:
 
 
 def build(http=None, salt="s" * 16, tenants_url="", authz_url="",
-         otp_deliverable=False, require_otp=False) -> OnboardingService:
+         otp_deliverable=False, require_otp=False, terms_version="v1") -> OnboardingService:
     return OnboardingService(
         store=MemoryDataStore(), http=http or FakeHttp([]),
         identity_url="http://identity:8000", tenant=TENANT, pii_salt=salt,
         tenants_url=tenants_url, authz_url=authz_url,
-        otp_deliverable=otp_deliverable, require_otp=require_otp)
+        otp_deliverable=otp_deliverable, require_otp=require_otp, terms_version=terms_version)
 
 
 @pytest.mark.parametrize("written", ["0501234567", "+966501234567", "966501234567",
@@ -271,6 +271,37 @@ async def test_a_self_applicant_carries_his_agreement_onto_the_affiliate_row():
     saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
     assert saved["agreed_terms_version"] == "v1"
     assert saved["agreed_at"] > 0
+
+
+@pytest.mark.anyio
+async def test_a_terms_version_bump_while_pending_blocks_approval():
+    """Same property as compliance-service's LegalGate: acceptance is pinned to the version in
+    force at the moment it happened, so a later bump leaves it stale. Here the applicant agreed
+    to v1 and nobody decided his application before the wording moved to v2 — approving him
+    anyway would mint an account whose one recorded consent answers a question nobody is asking
+    any more."""
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, terms_version="v1")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+
+    svc._terms_version = "v2"   # the terms were republished while this application sat PENDING
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.approve(out["application_id"], decided_by="admin1")
+    assert exc.value.reason == "terms_changed"
+    # No membership was minted — the version check runs before the identity call.
+    assert not any(url.endswith("/members") for _, url in http.calls)
+
+
+@pytest.mark.anyio
+async def test_reapplying_after_a_terms_bump_carries_the_new_version():
+    """The honest fix for the case above: re-apply, and the fresh row is stamped with whatever
+    is current NOW, so approval clears it exactly as any first-time application would."""
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, terms_version="v2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["agreed_terms_version"] == "v2"
 
 
 # ── suspend / reactivate (spec §10: «تعليق لا حذف») ──────────────────────────────────────────

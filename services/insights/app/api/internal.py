@@ -283,6 +283,44 @@ async def digest(request: Request, body: TickIn | None = None) -> dict:
     return {"sent": sent, "skipped": skipped, "tenants": len(tenants)}
 
 
+@router.get("/insights/associated-services", dependencies=[Depends(require_internal_token)])
+async def associated_services(request: Request, tenant: str, service_id: str) -> dict:
+    """A peer-safe read of core/associations.py's verdicts for ONE anchor service — for
+    whatsapp-assistant's cross-sell suggestion tool, so the assistant proposes only what the
+    engine already calls `real` (a genuine relationship, not the `group` false-positive the
+    engine exists to filter out), never inventing a recommendation of its own.
+
+    THE SAME PLAN GATE AS THE USER-FACING ROUTE, not a bypass of it (api/v1/insights.py's
+    `associations` route: `plans.can_see("associations", keys)`). A peer service calling
+    `/internal/*` is not a loophole around a paid surface — the tenant that has not paid for
+    associations sees none here either, same as on the dashboard.
+
+    NEVER THE LIFT VALUE OR THE FORMULA (see core/associations.py's own docstring on why) — only
+    the other anchor's id, exactly what the v1 route already exposes to the shop's own owner.
+    """
+    from app.core import plans
+    from app.core.models import PAIRS, SNAPSHOTS
+
+    c = request.app.state.container
+    keys = await plans.allowed_keys(c.peers, tenant)
+    if not plans.can_see("associations", keys):
+        return {"related": []}
+    snap = await c.datastore.get(SNAPSHOTS, f"{tenant}|_all")
+    assoc = ((snap or {}).get("values") or {}).get("associations") or {}
+    if assoc.get("learning"):
+        return {"related": []}
+    related = []
+    for p in assoc.get("pairs", []) or []:
+        if p.get("verdict") != "real":
+            continue
+        a, b = p.get("a"), p.get("b")
+        if a == service_id:
+            related.append(b)
+        elif b == service_id:
+            related.append(a)
+    return {"related": related[:5]}
+
+
 @router.get("/insights/engine-reserve", dependencies=[Depends(require_internal_token)])
 async def engine_reserve(request: Request, tenant: str) -> dict:
     """How many of today's messages the automatic engine needs kept back for itself (§8.4.3).

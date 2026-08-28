@@ -35,14 +35,12 @@ COPY ui /build/ui
 # fails the build with an ENOENT rather than a wrong colour, which is the right kind of loud.
 COPY config/product.json /build/config/product.json
 
-# THE LEGAL DOCUMENTS THEMSELVES — scripts/legalDocsPlugin.ts (virtual:legal-docs) reads both of
-# these directly off disk AT BUILD TIME, not at runtime: `deploy/seed/legal/*.yaml` (the published
-# documents) and compliance-service's own PDPL template pack (the clause text privacy-policy.yaml
-# etc. fill in). Neither was ever part of this image's build context before the public /legal/:slug
-# page existed, and `readdirSync` on a missing directory throws — a fresh install building this
-# Dockerfile from scratch would fail the build outright, not just ship without legal pages.
-# compliance-service's app/ is read-only (platform/), but reading its data files at build time is
-# not touching its code.
+# THE PUBLIC LEGAL PAGES' TWO SOURCES — legalDocsPlugin.ts reads both at BUILD time, not at
+# runtime, so a fresh server's console image has to carry them into the builder stage same as
+# ui/ above, or the /legal/:slug route ships empty on a brand-new install with no error anyone
+# would see (the plugin's own read failure, not a screen anyone opens by hand). Our own values
+# (deploy/seed/legal) and the PDPL pack's clause templates (platform/, requires
+# `git submodule update --init platform` — scripts/setup.sh does the full, non-sparse checkout).
 COPY deploy/seed/legal /build/deploy/seed/legal
 COPY platform/services/compliance-service/app/data/pdpl-templates /build/platform/services/compliance-service/app/data/pdpl-templates
 COPY apps/console/ ./

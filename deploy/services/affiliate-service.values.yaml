@@ -57,6 +57,14 @@ env:
   # Change THIS value alone when the policy changes — the API (/me/home, /me/balance)
   # and both screens read it live, nothing else to touch.
   AFFILIATE_WITHDRAWAL_MIN_HALALAS: "40000"
+  # PINNED TO deploy/seed/legal/affiliate-agreement.yaml's OWN `values.VERSION` — this is the
+  # ONE place that pin is made (config.py's own default is a local-dev fallback only, since the
+  # image never ships that file — see its comment). Bump this THE SAME COMMIT the document's
+  # VERSION bumps; ci/check_legal.py refuses the build if they drift apart. Every application
+  # already approved under the old version is unaffected (its own row keeps recording what it
+  # agreed to); every application still PENDING when this changes is refused at approval until
+  # the applicant re-applies under the new one (onboarding.py::approve).
+  AFFILIATE_TERMS_VERSION: "1.0"
   # PHONE-OWNERSHIP OTP — DORMANT ON PURPOSE, same shape as operations'
   # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP just below. Both stay "false" until a real
   # WhatsApp/SMS channel is wired (notification-service's WHATSAPP_CHAIN/SMS_CHAIN are still the

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
+from app.core.branches import MAIN as MAIN_BRANCH_ID
 from app.core import evidence as EV
 from app.core import privacy_requests as PR
 from app.core.erasure import OperationsErasure
@@ -560,6 +561,77 @@ async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
         if len(out) >= body.limit:
             break
     return {"visits": out, "count": len(out)}
+
+
+class CustomerByPhoneIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=6, max_length=32)
+
+
+@router.post("/operations/customer-by-phone", dependencies=[Depends(require_internal_token)])
+async def customer_by_phone(request: Request, body: CustomerByPhoneIn) -> dict:
+    """Resolve an inbound number to a pseudonym and a visit-count PATTERN. Never the phone or the
+    name back to the caller.
+
+    ADDED FOR services/whatsapp-assistant, which recognises a WhatsApp sender by their number and
+    needs to know "have we met this person" without holding a phone book of its own. NO EQUIVALENT
+    LOOKUP EXISTED ANYWHERE ON THE PLATFORM before this route — every other internal caller already
+    holds a subject_ref (reminders, loyalty) or a raw phone it wrote itself (the field screen). A
+    caller that only has a NUMBER, from the outside, handed to it by a customer messaging in, had
+    nothing to ask.
+
+    THE NARROWEST POSSIBLE ADDITION: reuses CustomerStore.by_phone, which already existed to serve
+    the field screen's save-time duplicate check — no new index, no new query shape, one route.
+
+    SAME SHAPE AS `/operations/recipient`'s restraint, mirrored in the other direction: that route
+    turns a pseudonym into a phone number for a peer about to SEND; this turns a phone number into
+    a pseudonym for a peer that just RECEIVED one. Both single-record, no-listing, nothing logged.
+    `visit_count` is the one number worth handing back beyond `found` — it is what lets the
+    assistant say "welcome back" without ever learning a name.
+    """
+    c = request.app.state.container
+    customer = await CustomerStore(c.datastore).by_phone(body.tenant, body.phone)
+    if customer is None:
+        return {"found": False, "subject_ref": "", "visit_count_90d": 0}
+    return {
+        "found": True,
+        "subject_ref": customer.subject_ref,
+        # NOT A 90-DAY WINDOW TODAY — `visit_count` is the lifetime counter already denormalised
+        # onto Customer (see core/models.py::Customer.visit_count). Named `_90d` in the response
+        # for the CALLER's contract even though this reads the lifetime figure, because a windowed
+        # count needs a scan over VisitStore this route deliberately avoids (see the docstring on
+        # `customer_visits` above for why a per-request visit scan is the thing to not add here);
+        # the assistant's own pattern sentence ("زار عدة مرات") does not need day-level precision.
+        "visit_count_90d": customer.visit_count,
+    }
+
+
+class ShopNameQueryIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/shop-name", dependencies=[Depends(require_internal_token)])
+async def shop_name(request: Request, body: ShopNameQueryIn) -> dict:
+    """A shop's display name for a peer that only holds a tenant id.
+
+    ADDED FOR services/whatsapp-assistant, which needs to greet a customer as a NAMED shop's
+    assistant rather than a generic one — same "narrowest possible addition, reuse what already
+    exists" restraint as `customer_by_phone` above.
+
+    THE MAIN BRANCH'S NAME, NOT A SEPARATE FIELD. `core/branches.py::ensure_main` seeds it from
+    `shop_name` at signup, so it is the best per-tenant display name this service can already
+    answer from its own store without a new column. The one authoritative name a shop can rename
+    itself into lives in the external tenant registry (see `/v1/staff.py::set_shop_name`'s proxy to
+    TENANT_SERVICE_URL) — out of reach from this internal tier without a second peer hop this
+    route deliberately does not add. A shop that renames itself keeps its OLD name here until it
+    next touches its main branch; acceptable for a WhatsApp greeting, not for anything billed or
+    legal.
+    """
+    c = request.app.state.container
+    branch = await BranchStore(c.datastore).get(body.tenant, MAIN_BRANCH_ID)
+    if branch is None or not (branch.name or "").strip():
+        return {"found": False, "name": ""}
+    return {"found": True, "name": branch.name.strip()}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -1228,6 +1300,26 @@ async def read_catalogue(request: Request, body: CatalogueIn) -> dict:
     rows = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
     return {"services": [{"id": s.id, "name": s.name, "cycle_days": s.cycle_days,
                           "active": s.active} for s in rows],
+            "count": len(rows)}
+
+
+@router.post("/operations/catalogue-with-prices", dependencies=[Depends(require_internal_token)])
+async def read_catalogue_with_prices(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's ACTIVE services — id, name, and price. A separate route from
+    `read_catalogue` above rather than a flag on it: that route's own docstring documents a
+    deliberate choice ("No prices... a field sent for no reason is a field that ends up used for
+    one") for its one real caller (insights, which never prices anything). whatsapp-assistant's
+    reason for existing is the opposite: a customer asking "how much is X" or an AI cross-sell
+    suggestion is worthless without a real price, never invented by the model — see
+    services/whatsapp-assistant/app/core/service_catalog.py and its use in core/tools.py.
+
+    ACTIVE ONLY, unlike the insights route — a retired service should not be offered to a customer
+    starting a new conversation today, whatever its role in past reporting.
+    """
+    c = request.app.state.container
+    rows = await ServiceStore(c.datastore).list(body.tenant, active_only=True)
+    return {"services": [{"id": s.id, "name": s.name, "price_minor": s.price_minor}
+                         for s in rows],
             "count": len(rows)}
 
 
