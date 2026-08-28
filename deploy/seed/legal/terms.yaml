@@ -79,7 +79,7 @@ values:
 #
 # AND THE LIMIT OF THAT RULE, WHICH MATTERS MORE THAN THE RULE. What we OWE THEM stays a fixed
 # number in this text: the notice before a price rise, the liability floor, the survival of their
-# data after termination, the fact that a material amendment needs fresh acceptance. Referencing
+# data after termination. Referencing
 # those away would leave an agreement in which every obligation is whatever we say it is today —
 # which reads as one-sided, and a one-sided term is the one a court removes. Flexibility that
 # erases every commitment does not protect us; it deletes the clause that was protecting us.
@@ -317,21 +317,16 @@ clauses:
       sharing it with any advertiser.
 
   # ── 10 · التعديل ───────────────────────────────────────────────────────────────────────────
-  #
-  # A "we may change these at any time, continued use is acceptance" clause is the one most likely
-  # to be struck down, and it is unnecessary: the platform already re-asks on a version bump, so
-  # describing what it does is both accurate and stronger.
   amendment:
     title: { ar: "تعديل الشروط", en: "Amendment" }
     ar: >-
-      للمزوّد تعديل هذه الشروط، ويصدر التعديل الجوهري برقم نسخة جديد ويُطلب قبوله من العميل عند
-      دخوله التالي؛ ولا يسري القبول السابق على النسخة الجديدة. ولا يُعدّ استمرار الاستخدام وحده
-      قبولاً لتعديل جوهري. وللعميل إن لم يقبل أن يُنهي اشتراكه بأثر من نهاية المدّة المدفوعة.
+      للمزوّد الحق في تعديل هذه الشروط من وقتٍ لآخر، وتصبح النسخة المعدَّلة نافذة بمجرد نشرها على
+      المنصة. ويُعدّ استمرار العميل في استخدام المنصة بعد نشر أي تعديل موافقةً منه على الشروط
+      بصيغتها المعدَّلة.
     en: >-
-      The Provider may amend these Terms. A material amendment is issued under a new version number
-      and the Customer is asked to accept it at its next sign-in; a prior acceptance does not carry
-      over. Continued use alone is not acceptance of a material amendment. A Customer that does not
-      accept may terminate with effect from the end of the paid period.
+      The Provider may amend these Terms from time to time, and the amended version takes effect
+      once published on the platform. The Customer's continued use of the platform after any
+      amendment is published constitutes its acceptance of the Terms as amended.
 
   # ── 11 · النظام الواجب والاختصاص ───────────────────────────────────────────────────────────
   governing_law:
@@ -593,8 +588,7 @@ clauses:
       ويقرّ العميل، وهو كامل الأهلية للتعاقد، بعلمه المسبق منذ قبوله هذه الشروط باحتمال هذا الانتقال
       بصوره المذكورة أعلاه، وبموافقته التامة والنهائية عليه مقدَّماً أياً كان وقت حدوثه أو صورته، فلا
       يتوقف نفاذه على موافقة العميل عليه من جديد ولا على سبق إخطاره به — وهو إقرارٌ قائمٌ بذاته لا
-      يحتاج تجديداً. ولمزيد من التأكيد، فإن أي تحديث لاحق لهذه الشروط يعكس هذا الانتقال يخضع لبند
-      التعديل أعلاه (رقم ١٠) كأي تعديل جوهري آخر. وتمثّل هذه الشروط وملحقاتها كامل الاتفاق
+      يحتاج تجديداً. وتمثّل هذه الشروط وملحقاتها كامل الاتفاق
       بين الطرفين وتحلّ محلّ كل تفاهم سابق. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه. وتُنشَر
       هذه الشروط بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
     en: >-
@@ -608,9 +602,7 @@ clauses:
       the moment of acceptance, of the possibility of such a transfer in the forms described above,
       and gives its full and final advance consent to it whenever and however it occurs; this effect
       does not depend on the Customer's consenting again or on prior notice being given — it is a
-      standing representation that needs no renewal. For further assurance, any later update to
-      these Terms reflecting such a transfer is subject to the Amendment clause above (clause 10)
-      like any other material amendment. These
+      standing representation that needs no renewal. These
       Terms and their annexes constitute the entire agreement between the parties and supersede any
       prior understanding. A party's failure to exercise a right is not a waiver of it. These Terms
       are published in Arabic and English; the Arabic text prevails in the event of a discrepancy.

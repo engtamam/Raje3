@@ -412,28 +412,19 @@ clauses:
 
   # ── 14 · التعديل ───────────────────────────────────────────────────────────────────────────
   #
-  # SAME PHILOSOPHY AS terms.yaml's amendment clause, applied here: a simple change publishes and
-  # applies at once; a material one — the running example given being a cut to an EXISTING
-  # commission rate — needs the fixed notice from clause 6, and fresh acceptance.
+  # THE FIXED NOTICE IN CLAUSE 6 STANDS ON ITS OWN, unaffected by how simple this clause is —
+  # commission_payments_taxes's own COMMISSION_CUT_NOTICE_DAYS commitment is not sourced from this
+  # clause's mechanism and needs no cross-reference here to remain in force.
   amendment:
     title: { ar: "تعديل الاتفاقية", en: "Amendment" }
     ar: >-
-      للمزوّد تعديل هذه الاتفاقية. يُنشَر التعديل غير الجوهري ويسري فوراً. أما التعديل الجوهري —
-      كخفض نسبة عمولة قائمة فعلاً، أو تقصير مدة السرية أو حدّ عدم المنافسة، أو تقليص الحماية
-      المقررة للمسوّق في هذه الاتفاقية — فيصدر برقم نسخة جديد، ويُشعَر به المسوّق قبل سريانه
-      بالمهلة المقررة في البند المعني (كمهلة البند ٦ لخفض العمولة)، ويُطلب قبوله عند دخوله التالي
-      للوحته؛ ولا يُعدّ استمرار الاستخدام وحده قبولاً لتعديل جوهري. وللمسوّق إن لم يقبل إنهاء
-      مشاركته وفق البند ٧.
+      للمزوّد الحق في تعديل هذه الاتفاقية من وقتٍ لآخر، وتصبح النسخة المعدَّلة نافذة بمجرد نشرها.
+      ويُعدّ استمرار المسوّق في المشاركة بالبرنامج بعد نشر أي تعديل موافقةً منه على الاتفاقية
+      بصيغتها المعدَّلة.
     en: >-
-      The Provider may amend this Agreement. A non-material amendment is published and takes
-      effect immediately. A material amendment — such as a cut to a commission rate already in
-      effect, a shortening of the confidentiality period or the non-compete ceiling, or a
-      reduction of a protection this Agreement confers on the Affiliate — is issued under a new
-      version number, the Affiliate is given the notice period set out in the relevant clause
-      (such as clause 6's notice for a commission cut) before it takes effect, and he is asked to
-      accept it at his next sign-in to his console; continued use alone is not acceptance of a
-      material amendment. An Affiliate who does not accept may end his participation under clause
-      7.
+      The Provider may amend this Agreement from time to time, and the amended version takes
+      effect once published. The Affiliate's continued participation in the programme after any
+      amendment is published constitutes its acceptance of the Agreement as amended.
 
   # ── 15 · النظام الواجب والاختصاص ───────────────────────────────────────────────────────────
   governing_law:
@@ -474,8 +465,7 @@ clauses:
       قائمة وقت الانتقال. ويقرّ المسوّق، وهو كامل الأهلية للتعاقد، بعلمه المسبق منذ قبوله هذه
       الاتفاقية باحتمال هذا الانتقال بصوره المذكورة أعلاه، وبموافقته التامة والنهائية عليه مقدَّماً
       أياً كان وقت حدوثه أو صورته، فلا يتوقف نفاذه على موافقة المسوّق عليه من جديد ولا على سبق
-      إخطاره به — وهو إقرارٌ قائمٌ بذاته لا يحتاج تجديداً. ولمزيد من التأكيد، فإن أي تحديث لاحق لهذه
-      الاتفاقية يعكس هذا الانتقال يخضع لبند التعديل أعلاه (رقم ١٤) كأي تعديل جوهري آخر. وتمثّل هذه
+      إخطاره به — وهو إقرارٌ قائمٌ بذاته لا يحتاج تجديداً. وتمثّل هذه
       الاتفاقية كامل الاتفاق بين الطرفين بخصوص برنامج
       المسوّقين، وتحلّ محلّ كل تفاهم سابق بشأنه. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه.
       وتُنشَر هذه الاتفاقية بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
@@ -502,9 +492,7 @@ clauses:
       possibility of such a transfer in the forms described above, and gives its full and final
       advance consent to it whenever and however it occurs; this effect does not depend on the
       Affiliate's consenting again or on prior notice being given — it is a standing representation
-      that needs no renewal. For further assurance, any later update to this Agreement reflecting
-      such a transfer is subject to the Amendment clause above (clause 14) like any other material
-      amendment. This Agreement constitutes the entire
+      that needs no renewal. This Agreement constitutes the entire
       agreement between the parties
       regarding the affiliate programme and supersedes any prior understanding of it. A party's
       failure to exercise a right is not a waiver of it. This Agreement is published in Arabic and
