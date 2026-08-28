@@ -34,6 +34,17 @@ COPY ui /build/ui
 # (../../config/product.json from apps/console/) to inject __PRODUCT_ACCENT__. Missing this COPY
 # fails the build with an ENOENT rather than a wrong colour, which is the right kind of loud.
 COPY config/product.json /build/config/product.json
+
+# THE LEGAL DOCUMENTS THEMSELVES — scripts/legalDocsPlugin.ts (virtual:legal-docs) reads both of
+# these directly off disk AT BUILD TIME, not at runtime: `deploy/seed/legal/*.yaml` (the published
+# documents) and compliance-service's own PDPL template pack (the clause text privacy-policy.yaml
+# etc. fill in). Neither was ever part of this image's build context before the public /legal/:slug
+# page existed, and `readdirSync` on a missing directory throws — a fresh install building this
+# Dockerfile from scratch would fail the build outright, not just ship without legal pages.
+# compliance-service's app/ is read-only (platform/), but reading its data files at build time is
+# not touching its code.
+COPY deploy/seed/legal /build/deploy/seed/legal
+COPY platform/services/compliance-service/app/data/pdpl-templates /build/platform/services/compliance-service/app/data/pdpl-templates
 COPY apps/console/ ./
 
 # META'S IDENTIFIERS ARE BAKED AT BUILD TIME, because vite resolves import.meta.env when it
