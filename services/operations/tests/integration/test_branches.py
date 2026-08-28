@@ -874,6 +874,30 @@ def test_branch_operators_returns_only_active_people_at_that_branch(client):
     assert op_id not in {o["id"] for o in r2.json()["operators"]}
 
 
+def test_branch_operators_is_isolated_per_tenant(client):
+    """The SAME branch_id string ("brn-main" — every tenant's auto-created main branch shares it)
+    in two different tenants must never mix their people — seeded directly into the store so this
+    does not depend on the identity peer being wired (see the skip above)."""
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    store = client.app.state.container.datastore
+
+    async def seed():
+        await OperatorStore(store).save(Operator(
+            id="op_iso_a", tenant="tnt_ops_iso_a", name="أحمد", branch_id="brn-main", active=True))
+
+    asyncio.run(seed())
+
+    r = client.post("/internal/operations/branch-operators",
+                    json={"tenant": "tnt_ops_iso_b", "branch_id": "brn-main"},
+                    headers=_internal_headers())
+    assert r.status_code == 200
+    assert "op_iso_a" not in {o["id"] for o in r.json()["operators"]}
+
+
 # ── /internal/operations/customer-id-by-phone — bookings-assignment's real customer_id ───────────
 def test_customer_id_by_phone_creates_then_reuses_the_same_customer(client):
     tenant = "tnt_cust_id"

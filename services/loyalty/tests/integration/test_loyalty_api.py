@@ -362,6 +362,25 @@ def test_another_establishment_sees_none_of_this(client, owner):
     assert client.get("/api/v1/loyalty/rewards", headers=other).json()["rewards"] == []
 
 
+def test_earn_is_isolated_per_tenant_the_same_subject_ref_never_shares_a_balance(client):
+    """`/internal/loyalty/earn` trusts `tenant` as a plain body field (see any internal.py's own
+    header note — this tier has no verified token to check it against), and the SAME `subject_ref`
+    can legitimately arrive for two different shops the same customer visits. His balance at one
+    must never be nudged by an earn posted for the other."""
+    client.put("/api/v1/loyalty/settings/general", json={"points": 20},
+              headers=_auth("loyalty.manage", tenant="tnt_earn_iso_a"))
+    client.put("/api/v1/loyalty/settings/general", json={"points": 20},
+              headers=_auth("loyalty.manage", tenant="tnt_earn_iso_b"))
+    same_ref = "ref_iso_shared01"
+    client.post("/internal/loyalty/earn",
+               json={"tenant": "tnt_earn_iso_a", "visit_id": "v-iso-a",
+                     "subject_ref": same_ref, "service_ids": ["wash"]}, headers=INTERNAL)
+    r = client.get(f"/api/v1/loyalty/balance/{same_ref}",
+                   headers=_auth("loyalty.read", tenant="tnt_earn_iso_b"))
+    assert r.status_code == 200
+    assert r.json()["points"] == 0, "tenant A's earn must not appear on tenant B's balance"
+
+
 def test_a_token_with_no_establishment_is_refused(client):
     now = dt.datetime.now(dt.timezone.utc)
     tok = jwt.encode({"sub": "x", "iss": ISS, "aud": AUD, "caps": ["loyalty.read"],

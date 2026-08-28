@@ -940,6 +940,20 @@ def test_the_internal_scope_route_says_stopped_in_a_field_of_its_own(client, mon
     assert body["branch_id"] == "", "an empty branch must never be the carrier of «stopped»"
 
 
+def test_the_internal_scope_route_is_isolated_per_tenant(client):
+    """The SAME subject id, narrowed to «brn-jeddah» in one tenant, must answer «whole
+    establishment» (empty) in a tenant that never hired him at all — the join is `(tenant,
+    subject)`, and a route that forgot the tenant half would leak tenant A's narrowing onto
+    every other tenant's token carrying the same subject."""
+    _hired(client, "t_scope_iso_a", "u_scope_shared", oid="opr_scope_iso_a")
+
+    r = client.post("/internal/operations/branch-scope",
+                    json={"tenant": "t_scope_iso_b", "subject": "u_scope_shared"},
+                    headers={"X-Internal-Token": "t" * 40})
+    assert r.status_code == 200, r.text
+    assert r.json()["branch_id"] == "", "tenant A's narrowing must not leak onto tenant B"
+
+
 # ── an erasure must not fan out over a narrowed map (و-3) ──────────────────────────────────────
 #
 # The owner needs `compliance.manage` — the erase button travels on HIS token so the act is his —

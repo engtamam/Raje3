@@ -154,3 +154,43 @@ def test_nearest_real_slot_reflects_a_real_existing_booking(env_guard):
         "after": 1786860000}, headers=_h())
     assert r.status_code == 200
     assert r.json()["starts_at"] != first["starts_at"]
+
+
+def test_create_is_isolated_per_tenant_the_same_idempotency_key_never_collides_across_tenants(
+        env_guard):
+    """The double-tap guard (`by_idempotency_key`) is looked up WITHOUT a tenant filter unless
+    the store itself scopes it — two shops that both happen to send `idempotency_key="k1"` (a
+    UUID a shop's own POS system minted, with no coordination with any other shop) must each get
+    their OWN booking, never tenant B's write silently returned to tenant A as "already done"."""
+    client = _make_app()
+    _stub_ops(client)
+    same_key = {"branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+               "service_ids": ["svc1"], "starts_at": 1786860000, "idempotency_key": "shared-k1"}
+    a = client.post("/internal/bookings", json={"tenant": "tnt_iso_a", **same_key},
+                    headers=_h()).json()
+    b = client.post("/internal/bookings", json={"tenant": "tnt_iso_b", **same_key},
+                    headers=_h()).json()
+    assert a["id"] != b["id"]
+    # A RETRY under tenant A, same key, must still return A's OWN booking — never B's, which the
+    # idempotency lookup could have returned instead if it were not scoped by tenant.
+    retried_a = client.post("/internal/bookings", json={"tenant": "tnt_iso_a", **same_key},
+                            headers=_h()).json()
+    assert retried_a["id"] == a["id"]
+
+
+def test_nearest_real_slot_is_isolated_per_tenant_one_tenants_booking_never_busies_another(
+        env_guard):
+    """The SAME operator_id string, in two different tenants, is two different operators — a
+    booking filed for tnt_a's "op1" must never make tnt_b's own "op1" look busy."""
+    client = _make_app()
+    _stub_ops(client)
+    client.post("/internal/bookings", json={
+        "tenant": "tnt_busy_a", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000}, headers=_h())
+
+    r = client.post("/internal/bookings/nearest-real-slot", json={
+        "tenant": "tnt_busy_b", "branch_id": "b1", "operator_id": "op1", "service_ids": ["svc1"],
+        "after": 1786860000}, headers=_h())
+    assert r.status_code == 200
+    # tnt_b's operator has NO bookings — the earliest candidate is the very slot tnt_a just took.
+    assert r.json()["starts_at"] == 1786860000

@@ -71,6 +71,21 @@ jobs:
       - name: every per-branch read asks who is asking, and refuses when it cannot tell
         run: python3 ci/check_branch_scope.py
 
+      # `/internal/*` trusts one shared token and nothing else — no capability, no branch scope,
+      # no user identity at all. Phase 4 of the multi-branch work added four such routes in one
+      # sitting; this is the same posture check_a_route_with_no_token_is_open_at_the_door.py takes
+      # for the opposite mistake, applied to the tier with no user-facing failure to notice it by.
+      - name: every internal route requires the internal token
+        run: python3 ci/check_an_internal_route_forgets_the_token.py
+
+      # `tenant` on an internal route is a plain body field, never a verified claim. A route this
+      # gate CAN read (an inline `json={...}` literal) and reads as posted with exactly one tenant,
+      # ever, has never had its isolation demonstrated by its own suite — found six real, provable
+      # gaps the first time this ran, three of them pre-existing (loyalty/earn,
+      # operations/branch-scope, reminders/send), all fixed the same day this gate was written.
+      - name: every tenant-scoped internal route this check can read was proven against two tenants
+        run: python3 ci/check_an_internal_route_is_tried_against_two_tenants.py
+
       # THE QUIETEST SHAPE IN THE FAMILY. The follow-up ladder's margin lock read a count of
       # early returns that NOTHING in production ever incremented — only the tests that proved the
       # lock works. A dead engine is noticeable; a field nobody writes produces a DEFAULT, and a

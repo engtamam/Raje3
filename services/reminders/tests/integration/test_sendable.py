@@ -117,6 +117,33 @@ def test_a_campaign_send_carries_its_branch_to_the_number_and_the_ledger(client)
         "the schedule reached the tick without a branch — central number, empty ledger row")
 
 
+def test_a_campaign_send_is_isolated_per_tenant(client):
+    """`tenant` is a plain body field on this internal-token route, never a verified claim (see
+    any internal.py's own header note) — a call for one shop must carry ITS OWN tenant through to
+    the send, never a value left over from a call made moments before for a different one."""
+    seen_calls: list[dict] = []
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen_calls.append(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "tnt_send_iso_a", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "خصم", "idempotency_key": "cmp:a:sub_abcdefgh"})
+    client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "tnt_send_iso_b", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "خصم", "idempotency_key": "cmp:b:sub_abcdefgh"})
+
+    assert [s["tenant"] for s in seen_calls] == ["tnt_send_iso_a", "tnt_send_iso_b"]
+
+
 def test_the_preview_withholds_whoever_the_send_would_withhold(client, monkeypatch):
     """«so the preview's number is the number that goes out» — the route's own promise, broken.
 
