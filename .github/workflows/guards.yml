@@ -1041,11 +1041,12 @@ jobs:
       - name: every rate-limit class covers a path that exists
         run: python3 ci/check_ratelimit_prefixes.py
 
-      # The POS vendor's document is GENERATED from the models the routes validate against. A
-      # hand-written integration doc is correct the week it is written and wrong from the first
-      # field anybody adds — and then the vendor builds against our page instead of our API and
-      # arrives months later holding it as evidence.
-      - name: the POS integration document matches the routes it describes
+      # BOTH the shop-facing Arabic guide and the engineer-facing English API reference are
+      # GENERATED from the models the routes validate against. A hand-written integration doc is
+      # correct the week it is written and wrong from the first field anybody adds — and then the
+      # vendor builds against our page instead of our API and arrives months later holding it as
+      # evidence. Checked together: either one going stale is the same defect.
+      - name: the POS integration documents match the routes they describe
         run: python3 ci/gen_till_contract.py --check
 
       # The price list lives in deploy/seed/plans.json and nowhere else. A price copied into code
