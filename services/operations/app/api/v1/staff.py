@@ -808,6 +808,20 @@ async def create_branch(request: Request, body: BranchIn,
         async with S.claiming(request.app.state.container.datastore,
                               tenant=tenant, key=S.BRANCHES, now=time.time()):
             current = _live(await store.list(tenant))
+            # LOCATION IS OPTIONAL ON THE FIRST BRANCH, REQUIRED FROM THE SECOND ONE ON. A shop
+            # with a single location has one obvious place — asking him to paste a map link to
+            # open the account at all is friction with nothing to show for it (§ the docstring on
+            # BranchIn.lat/lng above still holds for that case). The MOMENT a second branch
+            # exists, "which one" stops being obvious to anyone reading this data later —
+            # whatsapp-assistant's own branch-selection step (asking a customer for his city) has
+            # nothing to match against for a branch nobody located, and the admin map silently
+            # drops it (services/operations/app/api/v1/platform.py's own 0.0/0.0 filter). Refusing
+            # here, once, is cheaper than a shop discovering the gap the day a customer's WhatsApp
+            # conversation cannot find their second branch at all.
+            if current >= 1 and (body.lat is None or body.lng is None):
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                    "error": "LOCATION_REQUIRED",
+                    "message": "حدّد موقع الفرع على الخريطة — لازم من الفرع الثاني فأكثر."})
             await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=current)
 
             await request.app.state.auditor.record(

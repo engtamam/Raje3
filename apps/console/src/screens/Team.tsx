@@ -34,6 +34,7 @@ import { action, call, type Catalog } from '../catalog';
 import { branchGate } from '../branches';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
+import { isShortGoogleMapsLink, parseGoogleMapsLink } from '../googleMapsLink';
 
 interface DayHours { closed?: boolean; start_minute?: number; end_minute?: number }
 
@@ -83,7 +84,7 @@ const ROLES: { value: string; label: string; can: string; icon: typeof UserRound
   { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات', icon: Megaphone },
   { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب', icon: UserCog },
 ];
-interface Branch { id: string; name: string; active?: boolean }
+interface Branch { id: string; name: string; active?: boolean; lat?: number; lng?: number; city?: string }
 
 /** Just enough of a service to list it as a candidate — mirrors Services.tsx's own reading of
  *  `eligible_staff_ids` (empty/absent = every active operator, the zero-config default). */
@@ -893,8 +894,21 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   // عليه يطلع له الرسالة مع رابط لبطاقة الترقية.
   const [capped, setCapped] = useState(false);
   const [name, setName] = useState('');
+  // THE LINK, NOT A LAT/LNG THE OWNER TYPES BY HAND — see src/googleMapsLink.ts's own docstring
+  // on why: no mapping library exists in this product, and a shop's owner already has his branch
+  // open in Google Maps on his phone. Parsed on every keystroke so the "الموقع محدَّد ✓" line
+  // below reacts immediately rather than waiting for blur/submit.
+  const [mapsLink, setMapsLink] = useState('');
+  const [city, setCity] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const parsedLocation = parseGoogleMapsLink(mapsLink);
+  // REQUIRED FROM THE SECOND LIVE BRANCH ON, NEVER THE FIRST — mirrors the backend's own rule
+  // exactly (services/operations/app/api/v1/staff.py::create_branch): `branches` here already
+  // includes the auto-created main branch, so one or more existing LIVE rows means the branch
+  // this form is about to add will be the establishment's second (or later) one.
+  const locationRequired = isReady(branches)
+    && branches.filter((b) => b.active !== false).length >= 1;
   // THE FIGURES ARE BORROWED, NOT COMPUTED. The branch comparison already counts visits and
   // customers per branch for «محلّي», and a second count here would be a second opinion that
   // disagrees. `null` means we could not ask - and the card then shows no figure at all rather
@@ -947,11 +961,28 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!add) return;
+    // CHECKED HERE TOO, NOT ONLY ON THE SERVER. The server's own refusal (LOCATION_REQUIRED) is
+    // what actually protects the data — this is only so a shop that skipped straight to "حفظ"
+    // reads a specific sentence about a link instead of the generic catch-all below.
+    if (locationRequired && !parsedLocation) {
+      setError(mapsLink.trim()
+        ? (isShortGoogleMapsLink(mapsLink)
+          ? 'هذا رابط مختصر — الصق الرابط الكامل من خرائط جوجل (بعد فتحه بالمتصفح).'
+          : 'ما قدرنا نحدد الموقع من هذا الرابط — تأكد إنه رابط خرائط جوجل صحيح.')
+        : 'حدّد موقع الفرع على خرائط جوجل — لازم من الفرع الثاني فأكثر.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      await call(session, add, { name: name.trim() });
+      await call(session, add, {
+        name: name.trim(),
+        ...(parsedLocation ? { lat: parsedLocation.lat, lng: parsedLocation.lng } : {}),
+        ...(city.trim() ? { city: city.trim() } : {}),
+      });
       setName('');
+      setMapsLink('');
+      setCity('');
       setOpen(false);
       onChanged();
     } catch (err) {
@@ -1039,12 +1070,37 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
           <Field label="اسم الفرع" required htmlFor="br-name">
             <Input id="br-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
+          {/* OPTIONAL ON THE FIRST BRANCH (a one-branch shop has no ambiguity), REQUIRED FROM THE
+              SECOND — the `required` prop is only cosmetic (a red asterisk); the real gate is
+              `locationRequired` in `submit()` above and, regardless of what this form does, the
+              server's own refusal. */}
+          <Field label="رابط الموقع من خرائط جوجل" required={locationRequired} htmlFor="br-maps">
+            <Input id="br-maps" dir="ltr" placeholder="https://maps.google.com/…"
+                  value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} />
+          </Field>
+          {mapsLink.trim() ? (
+            parsedLocation ? (
+              <p className="text-sm text-success">
+                ✓ الموقع محدَّد ({parsedLocation.lat.toFixed(4)}, {parsedLocation.lng.toFixed(4)})
+              </p>
+            ) : (
+              <p className="text-sm text-text-secondary">
+                {isShortGoogleMapsLink(mapsLink)
+                  ? 'رابط مختصر — افتحه بالمتصفح والصق الرابط الكامل من شريط العنوان.'
+                  : 'لسه ما قدرنا نحدد الموقع من هذا الرابط.'}
+              </p>
+            )
+          ) : null}
+          <Field label="المدينة (اختياري)" htmlFor="br-city">
+            <Input id="br-city" value={city} onChange={(e) => setCity(e.target.value)} />
+          </Field>
           {error ? <p role="alert" className="text-danger">{error}</p> : null}
           <div className="flex gap-2">
             <Button type="submit" disabled={busy || name.trim().length === 0}>
               {busy ? 'جارٍ الحفظ…' : 'حفظ'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => { setOpen(false); setError(''); }}>
+            <Button type="button" variant="ghost"
+                   onClick={() => { setOpen(false); setError(''); setMapsLink(''); setCity(''); }}>
               إلغاء
             </Button>
           </div>
@@ -1229,10 +1285,14 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
 }) {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(branch.name);
+  const [mapsLink, setMapsLink] = useState('');
+  const [city, setCity] = useState(branch.city ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const main = branch.id === MAIN_BRANCH;
   const live = branch.active !== false;
+  const hasLocation = !!(branch.lat || branch.lng);
+  const parsedLocation = parseGoogleMapsLink(mapsLink);
 
   async function save(patch: Record<string, unknown>) {
     if (!edit) return;
@@ -1241,6 +1301,7 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
     try {
       await call(session, edit, { id: branch.id, ...patch });
       setRenaming(false);
+      setMapsLink('');
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر حفظ التعديل.');
@@ -1254,18 +1315,47 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
       {renaming ? (
         <form
           className="flex flex-col gap-2"
-          onSubmit={(e: FormEvent) => { e.preventDefault(); save({ name: name.trim() }); }}
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            save({
+              name: name.trim(),
+              ...(parsedLocation ? { lat: parsedLocation.lat, lng: parsedLocation.lng } : {}),
+              ...(city.trim() !== (branch.city ?? '') ? { city: city.trim() } : {}),
+            });
+          }}
         >
           <Field label="اسم الفرع" required htmlFor={`br-${branch.id}`}>
             <Input id={`br-${branch.id}`} value={name} autoFocus
                    onChange={(e) => setName(e.target.value)} />
+          </Field>
+          {/* SET OR CORRECT — never required here (only opening a SECOND branch is gated; an
+              already-open branch's location is a fix an owner makes when he gets to it, never a
+              form he is blocked from saving without). Leaving the link blank keeps whatever
+              location the branch already has (or still has none) — this never clears one. */}
+          <Field label={hasLocation ? 'تحديث رابط الموقع (اختياري)' : 'رابط الموقع من خرائط جوجل (اختياري)'}
+                htmlFor={`br-maps-${branch.id}`}>
+            <Input id={`br-maps-${branch.id}`} dir="ltr" placeholder="https://maps.google.com/…"
+                  value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} />
+          </Field>
+          {mapsLink.trim() && !parsedLocation ? (
+            <p className="text-sm text-text-secondary">
+              {isShortGoogleMapsLink(mapsLink)
+                ? 'رابط مختصر — افتحه بالمتصفح والصق الرابط الكامل من شريط العنوان.'
+                : 'لسه ما قدرنا نحدد الموقع من هذا الرابط.'}
+            </p>
+          ) : null}
+          <Field label="المدينة (اختياري)" htmlFor={`br-city-${branch.id}`}>
+            <Input id={`br-city-${branch.id}`} value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
           <div className="flex gap-2">
             <Button type="submit" disabled={busy || name.trim().length === 0}>
               {busy ? 'جارٍ الحفظ…' : 'حفظ'}
             </Button>
             <Button type="button" variant="ghost"
-                    onClick={() => { setRenaming(false); setName(branch.name); setError(''); }}>
+                    onClick={() => {
+                      setRenaming(false); setName(branch.name); setError('');
+                      setMapsLink(''); setCity(branch.city ?? '');
+                    }}>
               إلغاء
             </Button>
           </div>

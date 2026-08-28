@@ -87,7 +87,11 @@ def test_the_main_branch_cannot_be_closed(client):
 def test_a_second_branch_can_be_closed_and_stays_in_the_list(client):
     """DEACTIVATED, NEVER DELETED — last year's visits point at it by a plain string id."""
     h = _headers("tnt_second")
-    created = client.post(BRANCHES, json={"name": "فرع الملز"}, headers=h)
+    # A SECOND BRANCH NEEDS A LOCATION — see test_a_second_branch_without_a_location_is_refused
+    # below for the refusal itself; every other test here about a SECOND branch just needs one to
+    # get past that gate.
+    created = client.post(BRANCHES, json={"name": "فرع الملز", "lat": 24.71, "lng": 46.68},
+                          headers=h)
     assert created.status_code == 201
     bid = created.json()["id"]
 
@@ -106,7 +110,8 @@ def test_a_closed_branch_stops_counting_against_the_plan(client):
     """He is not paying to keep a place he shut down — and the gauge is REPORTED, so the count
     sent to billing is the live one rather than a total that only ever rises."""
     h = _headers("tnt_gauge")
-    created = client.post(BRANCHES, json={"name": "فرع مؤقت"}, headers=h)
+    created = client.post(BRANCHES, json={"name": "فرع مؤقت", "lat": 24.71, "lng": 46.68},
+                          headers=h)
     bid = created.json()["id"]
     client.patch(f"{BRANCHES}/{bid}", json={"active": False}, headers=h)
 
@@ -448,7 +453,8 @@ def test_a_customers_page_says_which_branch_each_visit_was_at(client):
     store = client.app.state.container.datastore
     tenant = "tnt_where"
     h = _headers(tenant)
-    made = client.post(BRANCHES, json={"name": "فرع العليا"}, headers=h)
+    made = client.post(BRANCHES, json={"name": "فرع العليا", "lat": 24.71, "lng": 46.68},
+                       headers=h)
     assert made.status_code in (200, 201), made.text
     bid = made.json()["id"]
 
@@ -599,7 +605,8 @@ def test_a_supervisor_is_offered_only_the_branches_he_may_read(client):
     tenant = "tnt_switch"
     owner = _headers(tenant)
     for name in ("جدة", "الرياض", "الدمام"):
-        assert client.post(BRANCHES, json={"name": name}, headers=owner).status_code in (200, 201)
+        assert client.post(BRANCHES, json={"name": name, "lat": 24.0, "lng": 46.0},
+                           headers=owner).status_code in (200, 201)
 
     everything = client.get(BRANCHES, headers=owner).json()["branches"]
     ids = {b["id"] for b in everything}
@@ -637,7 +644,8 @@ def test_a_field_operator_with_only_bookings_caps_can_now_read_his_own_branch(cl
 
     tenant = "tnt_field_op"
     owner = _headers(tenant)
-    assert client.post(BRANCHES, json={"name": "جدة"}, headers=owner).status_code in (200, 201)
+    assert client.post(BRANCHES, json={"name": "جدة", "lat": 21.54, "lng": 39.17},
+                       headers=owner).status_code in (200, 201)
 
     store = client.app.state.container.datastore
     asyncio.run(OperatorStore(store).save(Operator(
@@ -677,7 +685,7 @@ def test_the_plan_limit_is_the_shops_own_even_for_a_narrowed_person(client):
     tenant = "tnt_limit_scope"
     owner = _headers(tenant)
     for name in ("أ", "ب"):
-        client.post(BRANCHES, json={"name": name}, headers=owner)
+        client.post(BRANCHES, json={"name": name, "lat": 24.0, "lng": 46.0}, headers=owner)
     whole = client.get(BRANCHES, headers=owner).json()
 
     store = client.app.state.container.datastore
@@ -724,7 +732,11 @@ def test_the_switcher_can_only_ever_narrow(client):
     assert narrow(frozenset({"a", "b"}), "z") == frozenset({"a", "b"})
 
 
-# ── location: optional, owner-set, and the admin panel's own map reads it ───────────────────────
+# ── location: unset on the main branch, owner-set on any other, required from the second on ────
+# THE RULE: the auto-created main branch is never asked to locate itself (a one-branch shop has
+# no ambiguity to resolve — see create_branch's own note on why). The moment a SECOND branch is
+# added, a location becomes required — a shop with two places and only one located is a shop
+# whose admin map, and whose whatsapp-assistant branch-selection step, cannot tell them apart.
 
 def test_a_branch_can_be_created_with_a_location(client):
     h = _headers("tnt_geo_create")
@@ -734,10 +746,27 @@ def test_a_branch_can_be_created_with_a_location(client):
     assert r.json()["lat"] == 24.71 and r.json()["lng"] == 46.68 and r.json()["city"] == "الرياض"
 
 
-def test_a_branch_created_with_no_location_reports_it_as_unset(client):
+def test_the_auto_created_main_branch_alone_reports_its_location_as_unset(client):
+    """No POST /branches call ever happens for the main branch — it exists the moment the shop is
+    read at all (B.ensure_main). This is the one branch this rule never touches."""
     h = _headers("tnt_geo_unset")
+    r = client.get(BRANCHES, headers=h).json()["branches"]
+    assert r[0]["id"] == "brn-main"
+    assert r[0]["lat"] == 0.0 and r[0]["lng"] == 0.0 and r[0]["city"] == ""
+
+
+def test_a_second_branch_without_a_location_is_refused(client):
+    h = _headers("tnt_geo_required")
     r = client.post(BRANCHES, json={"name": "فرع بلا موقع"}, headers=h)
-    assert r.json()["lat"] == 0.0 and r.json()["lng"] == 0.0 and r.json()["city"] == ""
+    assert r.status_code == 400
+    assert r.json()["error"] == "LOCATION_REQUIRED"
+
+
+def test_a_second_branch_with_only_lat_and_not_lng_is_still_refused(client):
+    h = _headers("tnt_geo_half")
+    r = client.post(BRANCHES, json={"name": "فرع", "lat": 24.71}, headers=h)
+    assert r.status_code == 400
+    assert r.json()["error"] == "LOCATION_REQUIRED"
 
 
 def test_a_branchs_location_can_be_set_later_by_patch(client):
@@ -758,14 +787,22 @@ def test_platform_branch_locations_lists_only_located_active_branches_across_ten
     h1 = _headers("tnt_geo_a")
     h2 = _headers("tnt_geo_b")
     client.post(BRANCHES, json={"name": "محل أ", "lat": 24.0, "lng": 46.0, "city": "الرياض"}, headers=h1)
-    client.post(BRANCHES, json={"name": "محل ب بلا موقع"}, headers=h2)  # no lat/lng — excluded
+    # A SECOND, EXPLICITLY-ADDED branch can no longer be unlocated (see the section above) — the
+    # unlocated row proving exclusion here is tnt_geo_b's own auto-created main branch instead,
+    # provisioned by this one read, never posted.
+    client.get(BRANCHES, headers=h2)
 
     admin = _headers("_platform", caps=("platform.operations",))
     r = client.get("/api/v1/platform/branches/locations", headers=admin)
     assert r.status_code == 200
-    names = {b["name"] for b in r.json()["branches"]}
+    rows = r.json()["branches"]
+    names = {b["name"] for b in rows}
     assert "محل أ" in names
-    assert "محل ب بلا موقع" not in names
+    # tnt_geo_b's OWN unlocated main branch is excluded — proven by tenant, not by a name that
+    # was never created: two tenants both auto-provision a main branch named the same thing
+    # ("الفرع الرئيسي"), so asserting the NAME's absence would be trivially true even if this
+    # tenant's own located branch leaked through under a different name.
+    assert not any(b["tenant"] == "tnt_geo_b" for b in rows)
 
 
 def test_platform_branch_locations_refuses_without_the_capability(client):

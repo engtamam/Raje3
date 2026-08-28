@@ -23,7 +23,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { People } = await import('./Team');
+const { People, Branches } = await import('./Team');
 
 const SESSION = { tenant: 't1', operator: '', operatorName: '', token: 'tok' };
 const CATALOG = {} as never;
@@ -115,5 +115,63 @@ describe('adding a worker — branch is explicit, even for one branch', () => {
     await waitFor(() => expect(calls.some((c) => c.id === 'operations.hire')).toBe(true));
     const body = calls.find((c) => c.id === 'operations.hire')?.body as { branch_id?: string };
     expect(body.branch_id).toBe('brn-main');
+  });
+});
+
+describe('adding a branch — location required only from the second one on', () => {
+  const branchesProps = {
+    session: SESSION, catalog: CATALOG,
+    add: actionOf('operations.create_branch'), edit: actionOf('operations.update_branch'),
+    mayRead: true, mayAdd: true, onChanged: () => {},
+  };
+
+  it('a shops FIRST branch saves with no location at all', async () => {
+    render(<Branches {...branchesProps} branches={[]} operators={[]} limit={-1} />);
+    fireEvent.click(screen.getByText('إضافة فرع'));
+    fireEvent.change(document.getElementById('br-name') as HTMLInputElement,
+                     { target: { value: 'الفرع الأول' } });
+    fireEvent.click(screen.getByText('حفظ'));
+    await waitFor(() => expect(calls.some((c) => c.id === 'operations.create_branch')).toBe(true));
+    const body = calls.find((c) => c.id === 'operations.create_branch')?.body as
+      { name?: string; lat?: number };
+    expect(body.name).toBe('الفرع الأول');
+    expect(body.lat).toBeUndefined();
+  });
+
+  it('a SECOND branch with no maps link is blocked client-side, never calls create', () => {
+    render(<Branches {...branchesProps} branches={ONE_BRANCH} operators={[]} limit={-1} />);
+    fireEvent.click(screen.getByText('إضافة فرع'));
+    fireEvent.change(document.getElementById('br-name') as HTMLInputElement,
+                     { target: { value: 'فرع جدة' } });
+    fireEvent.click(screen.getByText('حفظ'));
+    expect(calls.some((c) => c.id === 'operations.create_branch')).toBe(false);
+    expect(screen.getByRole('alert').textContent).toContain('لازم من الفرع الثاني');
+  });
+
+  it('a SECOND branch with a real maps link sends the parsed lat/lng', async () => {
+    render(<Branches {...branchesProps} branches={ONE_BRANCH} operators={[]} limit={-1} />);
+    fireEvent.click(screen.getByText('إضافة فرع'));
+    fireEvent.change(document.getElementById('br-name') as HTMLInputElement,
+                     { target: { value: 'فرع جدة' } });
+    fireEvent.change(document.getElementById('br-maps') as HTMLInputElement,
+                     { target: { value: 'https://www.google.com/maps/@21.5433,39.1728,15z' } });
+    fireEvent.click(screen.getByText('حفظ'));
+    await waitFor(() => expect(calls.some((c) => c.id === 'operations.create_branch')).toBe(true));
+    const body = calls.find((c) => c.id === 'operations.create_branch')?.body as
+      { lat?: number; lng?: number };
+    expect(body.lat).toBe(21.5433);
+    expect(body.lng).toBe(39.1728);
+  });
+
+  it('a SECOND branch with a short (unparseable) link is blocked with the specific sentence', () => {
+    render(<Branches {...branchesProps} branches={ONE_BRANCH} operators={[]} limit={-1} />);
+    fireEvent.click(screen.getByText('إضافة فرع'));
+    fireEvent.change(document.getElementById('br-name') as HTMLInputElement,
+                     { target: { value: 'فرع جدة' } });
+    fireEvent.change(document.getElementById('br-maps') as HTMLInputElement,
+                     { target: { value: 'https://maps.app.goo.gl/AbCd1234' } });
+    fireEvent.click(screen.getByText('حفظ'));
+    expect(calls.some((c) => c.id === 'operations.create_branch')).toBe(false);
+    expect(screen.getByRole('alert').textContent).toContain('رابط مختصر');
   });
 });

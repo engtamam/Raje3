@@ -166,8 +166,16 @@ def create_app() -> FastAPI:
     # live end to end: a real request through an included router (the exact shape that crashes on
     # 7.x — see the pyproject.toml pin note) produces http_requests_total and
     # http_request_duration_seconds on /metrics, grouped by handler, with no error.
-    from prometheus_fastapi_instrumentator import Instrumentator, metrics
-    Instrumentator().add(metrics.default()).instrument(app)
+    # `as instrumentator_metrics` — NOT `metrics`. That name is already our own `app.api.metrics`
+    # module, imported at file scope and used two lines above (`metrics.router`). A local import
+    # of the SAME name anywhere in this function makes Python treat every `metrics` reference in
+    # the whole function as local — including the one on line 150, which then runs before this
+    # line ever assigns it: `UnboundLocalError: cannot access local variable 'metrics'`, on every
+    # single app boot, this router included or not. Found by a test suite failing to build the
+    # app at all, not by anything about metrics themselves being wrong.
+    from prometheus_fastapi_instrumentator import Instrumentator
+    from prometheus_fastapi_instrumentator import metrics as instrumentator_metrics
+    Instrumentator().add(instrumentator_metrics.default()).instrument(app)
     app.include_router(internal.router)
     app.include_router(v1_router)
     # Operator controls: credentials and policy an operator changes after launch.
