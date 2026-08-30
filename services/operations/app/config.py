@@ -542,6 +542,12 @@ class Settings(BaseSettings):
     WHATSAPP_CHANNEL_PRICING_USAGE_MARGIN_PERCENT: int = 0
     WHATSAPP_CHANNEL_PRICING_USAGE_FLAT_HALALAS_PER_MESSAGE: int = 0
 
+    # ── Meta's own rate card (app/core/whatsapp_meta_rate_card.py) — a FACT we source and date,
+    # not a decision. Empty means every (category, country) rate is the default below — honest
+    # zero until someone actually sources Meta's current published rates.
+    WHATSAPP_META_RATE_CARD_JSON: str = ""
+    WHATSAPP_META_RATE_CARD_DEFAULT_HALALAS: int = 0
+
     @property
     def egress_allowed_hosts(self) -> frozenset[str]:
         return frozenset(
