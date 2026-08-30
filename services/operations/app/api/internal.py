@@ -1975,3 +1975,35 @@ async def evidence_file(request: Request, body: EvidenceIn) -> dict:
         legal_reader=getattr(c, "legal_acceptances", None))
     return await file.build(body.tenant, since=body.since, until=body.until,
                             actor=body.actor)
+
+
+class WhatsAppChannelPricingIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/whatsapp-channel-pricing", dependencies=[Depends(require_internal_token)])
+async def whatsapp_channel_pricing_policy(request: Request, body: WhatsAppChannelPricingIn) -> dict:
+    """The included-message cap and per-message overage rate, for whoever decides whether the
+    NEXT WhatsApp send needs a wallet reserve first — notification-service (platform/), the one
+    real choke point every WhatsApp send (reminders, campaigns, whatsapp-assistant) already
+    passes through, same "one code path" reasoning this platform already applies everywhere else
+    a second caller could otherwise drift from the first.
+
+    THIS ROUTE ANSWERS POLICY, NEVER MONEY MOVEMENT. It never touches wallet-service and never
+    decides whether a specific send is allowed — it only says what the RULE currently is, so the
+    caller can apply it against ITS OWN live view of this tenant's message count this period.
+    Keeping the decision itself out of this service is deliberate: the send is notification-
+    service's own act, and a refusal decided here, a beat behind notification-service's own count,
+    is a race the caller would have to re-check anyway.
+
+    `tenant` is currently unused beyond validation — every tenant shares one global policy today
+    (WHATSAPP_CHANNEL_PRICING_* in config, the same "shape for a decision nobody has made yet" as
+    core/whatsapp_channel_pricing.py's own module docstring). It is still a required, real
+    per-tenant call rather than one shared config read, so a future per-plan or per-tenant override
+    is a change to this handler alone, never to every caller that already calls it.
+    """
+    s = get_settings()
+    return {
+        "included_messages_per_period": s.WHATSAPP_CHANNEL_PRICING_TIER_INCLUDED_MESSAGES,
+        "overage_halalas_per_message": s.WHATSAPP_CHANNEL_PRICING_TIER_OVERAGE_HALALAS_PER_MESSAGE,
+    }
