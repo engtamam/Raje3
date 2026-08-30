@@ -3,7 +3,7 @@
 #  publish-images.sh — build our images HERE, push them to ghcr, and pin the values to what shipped.
 # --------------------------------------------------------------------------------------------------
 #  THE BUILD IS LOCAL BY DECISION, NOT BY DEFAULT. GitHub charges for Actions minutes on a private
-#  repository, and this build is seven images with a compile step in each — a bill for work a laptop
+#  repository, and this build is ten images with a compile step in each — a bill for work a laptop
 #  already does. So the laptop builds and pushes, and the registry stays the single place every
 #  server pulls from. What we are NOT going back to is the old arrangement, where the images existed
 #  only in a registry inside one cluster: a product installable on exactly one machine on earth.
@@ -14,16 +14,16 @@
 #  a tag we could have used instead is a name, which can be moved after review so a pod runs code
 #  nobody approved.
 #
-#  ALL SEVEN AT ONCE, EACH WITH ITS OWN LOG. Building one at a time left the machine half idle: a
+#  ALL TEN AT ONCE, EACH WITH ITS OWN LOG. Building one at a time left the machine half idle: a
 #  push is network and a build is CPU, so while campaigns sent ninety megabytes nothing compiled.
-#  The reason it was serial first is exactly the reason the logs are now separated — seven builds
+#  The reason it was serial first is exactly the reason the logs are now separated — ten builds
 #  writing into one terminal interleave, and the failure you most need to read is the one you cannot
 #  find. So each image writes to its own file, and a failure prints ITS log and nothing else. The
-#  gain is smaller than sevenfold and always will be: six of these share python:3.12-slim, and
-#  seven builds on one daemon share the same cores.
+#  gain is smaller than tenfold and always will be: nine of these share python:3.12-slim, and
+#  ten builds on one daemon share the same cores.
 #
 #  Usage:
-#    GHCR_TOKEN=… bash deploy/publish-images.sh              # all seven, in parallel
+#    GHCR_TOKEN=… bash deploy/publish-images.sh              # all ten, in parallel
 #    GHCR_TOKEN=… bash deploy/publish-images.sh operations   # one, after a fix
 #    JOBS=2 GHCR_TOKEN=… bash deploy/publish-images.sh       # fewer at a time, on a small machine
 #
@@ -65,7 +65,7 @@ die(){ echo -e "${C_R}  ✖ $*${C_N}" >&2; exit 1; }
 ctx(){ case "$1" in console) echo "$ROOT";; *) echo "$ROOT/services/$1";; esac; }
 dfl(){ case "$1" in console) echo "$ROOT/apps/console/Dockerfile";; *) echo "$ROOT/services/$1/Dockerfile";; esac; }
 
-ALL=(campaigns insights loyalty operations portal reminders console)
+ALL=(affiliate-service bookings campaigns insights loyalty operations portal reminders whatsapp-assistant console)
 TARGETS=("$@"); [ ${#TARGETS[@]} -eq 0 ] && TARGETS=("${ALL[@]}")
 JOBS="${JOBS:-${#TARGETS[@]}}"
 
@@ -82,7 +82,7 @@ git -C "$ROOT" diff --quiet || echo -e "${C_Y}  note: building from a tree with 
 LOGS="$(mktemp -d)"; trap 'rm -rf "$LOGS"' EXIT
 
 # ONE IMAGE, BUILD TO DIGEST, IN ITS OWN PROCESS. It writes the digest to a file rather than printing
-# it: seven of these run at once, and stdout is not a place two processes can share a sentence.
+# it: ten of these run at once, and stdout is not a place two processes can share a sentence.
 one(){
   local name="$1" d=""
   {
@@ -105,7 +105,7 @@ echo -e "${C_C}  ${#TARGETS[@]} image(s), $JOBS at a time — commit $COMMIT${C_
 declare -A PID
 RUNNING=0
 for name in "${TARGETS[@]}"; do
-  # A CAP, because a laptop running seven docker builds with a browser open is a laptop that stops
+  # A CAP, because a laptop running ten docker builds with a browser open is a laptop that stops
   # answering its owner. The default is all of them; JOBS=2 exists for the machine that cannot.
   while [ "$RUNNING" -ge "$JOBS" ]; do wait -n 2>/dev/null || true; RUNNING=$((RUNNING-1)); done
   one "$name" & PID[$name]=$!
@@ -150,7 +150,7 @@ PYCON
       echo -e "${C_Y}  ! $name: no values file — the image is published and nothing deploys it${C_N}"
       continue
     fi
-    # PINNED HERE IN THE PARENT, ONE AT A TIME. Seven children rewriting seven files is safe right
+    # PINNED HERE IN THE PARENT, ONE AT A TIME. Ten children rewriting ten files is safe right
     # up until two of them share one, and the day that happens the loss is silent.
     python3 - "$values" "$d" "$REG/$name" "$COMMIT" <<'PYEOF'
 import re, sys

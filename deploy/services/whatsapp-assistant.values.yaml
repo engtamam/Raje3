@@ -95,6 +95,14 @@ env:
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
+  # MISSING ENTIRELY UNTIL NOW — app/config.py::assert_audit_config_ok refuses to boot in
+  # production with AUDIT_SINK_DRIVER left at its "null" default (see that method's own
+  # ValueError text). Every sibling service (reminders.values.yaml's own copy of these two
+  # lines) already sets this; this file never did, which meant the very first production boot
+  # of this service would have crash-looped on this exact guard.
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+
   # ── the CWE self-guard's SSRF allowlist — THE actual egress control ───────────────────────────
   EGRESS_ALLOWED_HOSTS: "generativelanguage.googleapis.com,notification-service,operations,loyalty"
 

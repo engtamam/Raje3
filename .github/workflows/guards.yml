@@ -1108,6 +1108,19 @@ jobs:
           done
           exit $fail
 
+      # `services/whatsapp-assistant/` shipped a complete values file, a passing test suite, and no
+      # Dockerfile at all — and was never in publish-images.sh's build list either. A values file
+      # rendering correctly and a service being buildable/published are two different facts; this
+      # is the one nothing else here checked.
+      - name: every deployed service has a Dockerfile and is in the publish list
+        run: python3 ci/check_a_deployed_service_has_a_buildable_image.py
+
+      # The same service's values file also never set AUDIT_SINK_DRIVER at all — every sibling
+      # service's values file had the same two lines, this one never did — so its first production
+      # boot would have crash-looped on its own fail-closed audit guard.
+      - name: every deployed service boots with a real audit sink configured
+        run: python3 ci/check_a_service_boots_with_an_audit_sink.py
+
   # ── WHAT BLOCKS THE LAUNCH, NOT THE PULL REQUEST ────────────────────────────────────────────
   #
   # A separate job, and deliberately not part of `guards`. What it holds is real and unfixed, but
