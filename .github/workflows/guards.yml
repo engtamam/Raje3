@@ -35,6 +35,16 @@ jobs:
       - name: deploy wiring is consistent
         run: python3 ci/check_deploy_wiring.py
 
+      # WhatsApp send providers (notification-service, platform/ submodule) are a port + adapter
+      # registry — FailoverWhatsApp trusts every driver in WHATSAPP_CHAIN to answer the FULL
+      # WhatsAppProvider port (send + send_interactive), not only the half ordinary sends
+      # exercise. A provider added with only `send` passes every routine test and fails silently
+      # the first time a real WhatsApp-assistant conversation needs an interactive button. This
+      # repo does not own that service's code — the gate is read-only, a finding for the platform
+      # team, never a diff this repo would send them.
+      - name: every registered WhatsApp send provider implements its full port
+        run: python3 ci/check_every_whatsapp_provider_implements_its_port.py
+
       # ── the three gates written after the fifteen-lane QA sweep ─────────────────────────────
       # Each one exists because a defect of its shape was ALREADY LIVE, and because the sweep
       # proved a human pass cannot find every instance: the audit-action gate found nine where
