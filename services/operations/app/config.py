@@ -530,6 +530,18 @@ class Settings(BaseSettings):
     # Path to a step->CWE map override (TOML). Empty => built-in default map.
     CWE_STEP_MAP_FILE: str = ""
 
+    # ── WhatsApp channel pricing (app/core/whatsapp_channel_pricing.py) — SHAPE only, not a
+    # final decision. Only matters for a send provider whose commercial model bills US rather
+    # than the establishment directly (see that module's own docstring on why direct-Meta is
+    # zero here by construction). tier_plus_cap | addon_on_existing_plan | usage_based.
+    WHATSAPP_CHANNEL_PRICING_STRATEGY: str = "tier_plus_cap"
+    WHATSAPP_CHANNEL_PRICING_TIER_BASE_HALALAS: int = 0
+    WHATSAPP_CHANNEL_PRICING_TIER_INCLUDED_MESSAGES: int = 0
+    WHATSAPP_CHANNEL_PRICING_TIER_OVERAGE_HALALAS_PER_MESSAGE: int = 0
+    WHATSAPP_CHANNEL_PRICING_ADDON_FLAT_HALALAS: int = 0
+    WHATSAPP_CHANNEL_PRICING_USAGE_MARGIN_PERCENT: int = 0
+    WHATSAPP_CHANNEL_PRICING_USAGE_FLAT_HALALAS_PER_MESSAGE: int = 0
+
     @property
     def egress_allowed_hosts(self) -> frozenset[str]:
         return frozenset(
