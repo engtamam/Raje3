@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:7f55d714adcbbc5c10fcbdcf58936cceabd674fbf0ac6543614bfb838f28edbf"   # ffd3de36, published by publish-images.sh
+  digest: "sha256:b8db6903b69a06b81742038163f4d012fd45210aa75ca9b3d40aa4524f408ae9"   # f07de251, published by publish-images.sh
 
 replicas: 1
 
@@ -58,7 +58,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 40m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 100m
+    cpu: 106m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi
@@ -314,6 +314,29 @@ env:
   NOTIFICATION_TEMPLATE_REGISTER_PATH: "/internal/whatsapp/templates"
   NOTIFICATION_TEMPLATE_DRAIN_PATH: "/internal/whatsapp/templates/submit-pending"
   TEMPLATE_SYNC_MAX_TENANTS: "200"
+
+  # ── WhatsApp channel pricing (app/core/whatsapp_channel_pricing.py + whatsapp_meta_rate_card.py,
+  # joined by whatsapp_channel_billing.py, read at GET /platform/whatsapp/channel-bill) ─────────
+  # A REAL DECISION, SET AHEAD OF THE SWITCH IT DEPENDS ON. We do not use Meta's own Cloud API
+  # directly — every send goes through 360dialog (a BSP), billed to US, so every message this
+  # tenant sends is now a real cost with a real margin decision, not a someday-maybe. This block
+  # is wired and correct today; it only waits on WHATSAPP_CHAIN (notification-service.values.yaml)
+  # actually naming `threesixtydialog` and a real WHATSAPP_360DIALOG_API_KEY existing — flip those
+  # two and this pricing is already live, nothing here needs touching again.
+  #
+  # usage_based: charge cost + a flat margin per billable message. 100% margin_percent means "pass
+  # the real cost through at par, no markup on the cost itself" — the flat component below is the
+  # entire margin, not a markup stacked on top of one.
+  WHATSAPP_CHANNEL_PRICING_STRATEGY: "usage_based"
+  WHATSAPP_CHANNEL_PRICING_USAGE_MARGIN_PERCENT: "100"
+  WHATSAPP_CHANNEL_PRICING_USAGE_FLAT_HALALAS_PER_MESSAGE: "5"
+  # Meta's own per-(category, calling code) rate card — WHAT THEY CHARGE 360dialog, not what we
+  # charge the shop (that is the block above). Left EMPTY on purpose: nobody has sourced and dated
+  # Meta's current published rates yet. Empty means every real cost reads 0 — the flat 5-halala
+  # margin above still charges on every billable message, cost-plus becomes real once someone
+  # sources Meta's rates and seeds them here, e.g. {"marketing:966": 25, "utility:966": 12}.
+  WHATSAPP_META_RATE_CARD_JSON: ""
+  WHATSAPP_META_RATE_CARD_DEFAULT_HALALAS: "0"
 
   # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
   # THE ENTITLEMENT KEY IS WHAT MAKES THE SECOND CLOCK RUN. Billing publishes no subscription-end

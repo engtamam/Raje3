@@ -412,6 +412,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "missed record does not undo the read), but still worth naming who looked and when.",
     },
     {
+        "action": "platform.whatsapp_channel_bill_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp-bill:{tenant}:{period}",
+        "why": "a read of what a shop would be charged for its WhatsApp channel usage — a "
+               "billing-adjacent figure, not a billing action itself (nothing is charged by "
+               "viewing it). Not critical (a missed record does not undo the read), but still "
+               "worth naming who looked at a shop's own cost figures, and when.",
+    },
+    {
         "action": "compliance.evidence_exported",
         "source": "internal",
         "critical": True,
