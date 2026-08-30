@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==================================================================================================
-#  mint-our-secrets.sh — the six secrets gen-secrets.py cannot know about.
+#  mint-our-secrets.sh — the seven secrets gen-secrets.py cannot know about.
 # --------------------------------------------------------------------------------------------------
 #  Upstream mints one secret per service from a schema built by reading each service's config.py —
 #  under THEIR services/ directory. Ours live in this repository, so their generator has never heard
@@ -32,7 +32,7 @@
 #  included — both were deliberately put on the platform's shared `base_services` database rather
 #  than a same-named one of their own, and gen-secrets.py's dsn_for() already sets that correctly
 #  the first time either secret is minted. This script used to put them through the same
-#  create-secret-then-patch loop as the six that DO get their own database, and that `kubectl
+#  create-secret-then-patch loop as the seven that DO get their own database, and that `kubectl
 #  create ... | kubectl apply` REPLACES the whole secret — silently overwriting the correct
 #  base_services DSN gen-secrets.py had just set with a wrong same-named one
 #  (`InvalidCatalogNameError: database "affiliate-service" does not exist`, reproduced on every
@@ -49,7 +49,7 @@ info(){ echo -e "${C_C}  ▸ $*${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
 
-OURS="bookings campaigns insights loyalty operations reminders"
+OURS="bookings campaigns insights loyalty operations reminders whatsapp-assistant"
 SHARED_ONLY="affiliate-service portal"
 SHARED="PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK SECRETS_KEK CACHE_URL EVENTBUS_URL QUEUE_URL RATELIMIT_URL TOKEN_PUBLIC_KEY"
 
@@ -97,7 +97,7 @@ for svc in $OURS; do
   patch+='}}'
   [ $first -eq 0 ] && kubectl -n "$NS" patch secret "$svc-secrets" --type=merge -p "$patch" >/dev/null
 done
-ok "six secrets present — shared values identical to the platform's"
+ok "seven secrets present — shared values identical to the platform's"
 
 # affiliate-service and portal: PATCH ONLY, never recreate — see the header. gen-secrets.py must
 # have already minted the secret (DSN included) for there to be anything to patch onto.
