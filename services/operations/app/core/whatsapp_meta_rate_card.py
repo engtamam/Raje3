@@ -2,11 +2,20 @@
 
 WHY THIS MODULE EXISTS, AND WHY IT IS NOT PART OF whatsapp_channel_pricing.py. notification-service
 (platform/ submodule) does not — and by design should not — know Meta's rates: those rates vary by
-recipient COUNTRY and template CATEGORY (auth/utility/marketing), Meta revises them, and baking a
+recipient market and template CATEGORY (auth/utility/marketing), Meta revises them, and baking a
 rate table into the sender would mean the sender silently drifts out of date every time Meta changes
 a price, with nothing here to notice. So notification-service reports what actually happened — real
-billable message COUNTS per (category, country), read from Meta's own delivery-status webhook
-`pricing` object — and this module is the one place those counts become halalas.
+billable message COUNTS per (category, calling code), read from Meta's own delivery-status webhook
+`pricing` object (which carries no country of its own — notification-service derives the E.164
+calling code from the recipient's own phone number, confirmed against their real implementation)
+— and this module is the one place those counts become halalas.
+
+REAL SHAPE, CONFIRMED AGAINST notification-service's OWN CODE (not assumed): `GET /internal/
+whatsapp/channel-usage?tenant=&period=YYYY-MM` returns `{tenant, period, total_messages,
+billable_messages, breakdown: [{category, country, pricing_model, billable, messages}], truncated}`
+— `country` there is the calling code described above, and `messages` is the count this module
+calls `count`. `pricing_model` is passed through byte-for-byte from Meta's own field, exactly so a
+future change away from CBP is a live fact both sides can react to, not a silently stale read.
 
 THIS IS META'S PUBLISHED COST TO US, NOT WHAT WE CHARGE THE SHOP. Converting units to halalas here
 answers "what did this tenant's messages cost us" — the `real_cost_halalas` input
@@ -47,7 +56,15 @@ class BillableUnits:
     provider: str
     pricing_model: str          # "CBP" today — see module docstring
     category: str                # "authentication" | "utility" | "marketing" | "service" (free)
-    country: str                  # ISO 3166-1 alpha-2, as Meta reports it
+    # AN E.164 CALLING CODE ("966"), NOT AN ISO 3166-1 COUNTRY — confirmed against
+    # notification-service's real implementation: Meta's own pricing object carries no country at
+    # all, so the calling code is derived from the recipient's phone number prefix on their side.
+    # "" means an unrecognised prefix — never a wrong guess. A calling code is not always a single
+    # resolved market (+1, +7 and a few others are shared by more than one country) — RESOLVING
+    # that ambiguity, if it ever matters for a real rate difference, is this module's job, not
+    # notification-service's; the rate card below is keyed on the calling code directly rather
+    # than pretending to already know the market.
+    country: str
     count: int
 
 
@@ -63,7 +80,9 @@ class MetaRateCard:
     @classmethod
     def from_settings(cls, settings: Any) -> "MetaRateCard":
         """Reads WHATSAPP_META_RATE_CARD_JSON — a JSON object of "category:country": halalas,
-        e.g. {"marketing:SA": 25, "utility:SA": 12}. Empty/unset means every rate is the default
+        e.g. {"marketing:966": 25, "utility:966": 12} — the second half is the E.164 calling
+        code notification-service reports (see module docstring), not an ISO country code.
+        Empty/unset means every rate is the default
         (0) — the safe, honest state until someone actually sources Meta's current published
         rates and seeds them here, dated, the same way every other pricing constant on this
         platform starts at zero."""
