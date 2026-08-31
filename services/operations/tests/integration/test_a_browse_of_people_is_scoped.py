@@ -147,6 +147,48 @@ def test_saying_we_answered_him_is_witnessed_by_the_log(client, monkeypatch):
     assert ("privacy.answered", "u_owner") in seen
 
 
+def test_a_phone_search_is_witnessed_whether_it_hits_or_misses(client, monkeypatch):
+    """THE ONE READ AN INSIDER CAN ABUSE. This service holds the phone number in the clear
+    (core/models.py explains why), so `by-phone` is checking a specific number out of curiosity or
+    probing whether someone is a customer at all — and that must leave a trail, hit or miss, not
+    just the write side of this screen."""
+    refs = _shop(client)
+    seen: list[tuple[str, str, str]] = []
+
+    async def record(action, **kw):
+        seen.append((action, kw.get("actor", ""), kw.get("resource", "")))
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+
+    hit = client.get("/api/v1/field/customers/by-phone", params={"phone": "966500000001"},
+                     headers=_headers("u_jeddah"))
+    miss = client.get("/api/v1/field/customers/by-phone", params={"phone": "966599999999"},
+                      headers=_headers("u_jeddah"))
+
+    assert hit.status_code == 200 and hit.json()["customer"] is not None
+    assert miss.status_code == 200 and miss.json()["customer"] is None
+    assert ("customer.searched_by_phone", "u_jeddah", "phone-suffix:0001") in seen
+    assert ("customer.searched_by_phone", "u_jeddah", "phone-suffix:9999") in seen
+
+
+def test_a_phone_search_audit_never_carries_the_full_number(client, monkeypatch):
+    """THE AUDIT TRAIL MUST NOT BECOME A SECOND COPY OF THE PII IT EXISTS TO CATCH ABUSE OF —
+    only the last 4 digits, never the number a customer could be re-identified from."""
+    _shop(client)
+    seen: list[str] = []
+
+    async def record(action, **kw):
+        seen.append(kw.get("resource", ""))
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+
+    client.get("/api/v1/field/customers/by-phone", params={"phone": "966500000001"},
+              headers=_headers("u_jeddah"))
+
+    assert seen == ["phone-suffix:0001"]
+    assert "966500000001" not in seen[0]
+
+
 def test_the_team_screen_shows_his_branchs_team_not_the_chains(client):
     """FOUND BY THE GATE, NAMED BY NO FINDING. `Operator.public()` carries the name, the role and
     the branch, and «فريقي» handed the whole roster to whoever could read."""

@@ -489,6 +489,20 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the one shape a repair cannot be planned without",
     },
     {
+        "action": "customer.searched_by_phone",
+        "source": "user",
+        "critical": False,
+        "resource": "phone-suffix:{last4}",
+        "why": "this service holds the phone number in the clear (core/models.py explains why — "
+               "prefix search needs it, a salted hash cannot be prefix-searched), so this is the "
+               "one read an insider can abuse: checking a specific number out of curiosity, or "
+               "probing whether someone is a customer here at all. Not critical (a missed record "
+               "does not undo the read), but every call — hit or miss — is worth a witness. Only "
+               "the searched number's last 4 digits are recorded, on purpose: an audit trail that "
+               "stored the full number would recreate the exact exposure it exists to catch abuse "
+               "of, in a second table.",
+    },
+    {
         "action": "partner.statements_issued",
         "source": "system",
         "critical": True,

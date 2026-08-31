@@ -243,7 +243,18 @@ async def customer_by_phone(request: Request, phone: str,
     /search/suggest, because a prefix scan over the datastore is a table scan and this sits inside
     a five-second budget. Measured, not assumed: POST /search matches whole tokens, so `96650`
     finds nothing against a stored `966501234567` — the keypad must call suggest.
+
+    AUDITED ON EVERY CALL, HIT OR MISS — the one read in this service that turns an arbitrary
+    string an operator typed into "does this customer exist and who is he", which is exactly the
+    read an insider abuses (checking a specific number out of curiosity, or probing whether
+    someone is a customer here at all). A miss is still worth a row: it is what a numbers-guessing
+    probe looks like before it ever finds a hit. The resource carries only the searched number's
+    LAST 4 DIGITS, never the number itself — an audit trail that stored the full phone would just
+    recreate the exact problem (PII sitting in the clear somewhere new) it exists to catch abuse of.
     """
+    await request.app.state.auditor.record(
+        "customer.searched_by_phone", actor=principal.subject, tenant=_tenant(principal),
+        resource=f"phone-suffix:{phone[-4:]}", ip=request.client.host if request.client else "")
     c = await _svc(request).customer_by_phone(_tenant(principal), phone)
     if c is None:
         return {"customer": None}
