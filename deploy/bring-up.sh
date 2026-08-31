@@ -403,7 +403,12 @@ ok "identity-service: private + public"
 
 verifiers=0
 for f in "$HERE"/services/*.values.yaml; do
-  grep -q 'TOKEN_VERIFIER_DRIVER: *"rs256"' "$f" || continue
+  # WAS "rs256" — this fleet's services all declare their driver as "jwks" now (checked directly
+  # against every deploy/services/*.values.yaml: zero files say rs256/rsa256, twenty-six say
+  # jwks). Whatever service historically used "rs256" was renamed at some point and this pattern
+  # never followed, so this loop has matched NOTHING on any install since — see the second loop's
+  # own note, below, for how that surfaced.
+  grep -q 'TOKEN_VERIFIER_DRIVER: *"jwks"' "$f" || continue
   svc="$(basename "$f" .values.yaml)"
   [[ "$svc" == "identity-service" ]] && continue
   kubectl -n "$NS" get secret "${svc}-secrets" >/dev/null 2>&1 || continue
@@ -585,6 +590,57 @@ bash "$HERE/mint-our-secrets.sh"
 step "services"
 PRODUCT_NAME=raje3 CHART="$ROOT/platform/deploy/chart" VALUES_DIR="$ROOT/deploy/services" \
   bash "$ROOT/platform/deploy/server/update.sh"
+
+# THE PUBLIC KEY, DISTRIBUTED A SECOND TIME, NOW THAT THE SECRETS IT TARGETS ACTUALLY EXIST.
+#
+# THE BUG THIS CLOSES, FOUND BY HAND ON A FROM-NOTHING INSTALL. Step 4's own distribution loop
+# (`kubectl -n "$NS" get secret "${svc}-secrets" >/dev/null 2>&1 || continue`) runs BEFORE this
+# step — before `update.sh` has created a single service's secret, on a cluster with none of them
+# yet. Every verifier's secret lookup silently `continue`s, the loop reports "public key
+# distributed to 0 verifying service(s)" — read as a fact, not a warning — and every service that
+# needs TOKEN_VERIFIER_DRIVER: "jwks" (authz-service first among them, since seed-roles.sh mints
+# its own self-signed token against it) comes up with no public key to verify against. The
+# symptom was a real, reproducible 401 on the very first seed step of every from-nothing install,
+# with three retries and a "seed attempt N failed" burned on each one before the whole seed phase
+# gave up — nothing about the message named a missing key.
+#
+# $PUB_B64 IS STILL THE SAME VALUE — same variable, same scope, this is one script top to bottom —
+# so this is not a re-derivation, only a second application now that the targets exist. An
+# already-correct secret gets the identical bytes patched onto it again: idempotent, and cheaper
+# than working out which services are new since the first pass.
+verifiers=0
+for f in "$HERE"/services/*.values.yaml; do
+  grep -q 'TOKEN_VERIFIER_DRIVER: *"jwks"' "$f" || continue
+  svc="$(basename "$f" .values.yaml)"
+  [[ "$svc" == "identity-service" ]] && continue
+  kubectl -n "$NS" get secret "${svc}-secrets" >/dev/null 2>&1 || continue
+  kubectl -n "$NS" patch secret "${svc}-secrets" --type=merge \
+    -p "{\"data\":{\"TOKEN_PUBLIC_KEY\":\"$PUB_B64\"}}" >/dev/null
+  # A PATCHED SECRET DOES NOT REACH AN ALREADY-RUNNING POD — env vars are set once, at container
+  # start, from whatever the secret held THEN; a Kubernetes Secret update never re-injects into a
+  # live process. Every one of these pods just started this same step (the rollout right above),
+  # holding whatever TOKEN_PUBLIC_KEY existed (usually none, on a from-nothing install) — so
+  # without this restart the patch above is correct and inert, verifying nothing until whatever
+  # NEXT restarts the pod for an unrelated reason.
+  kubectl -n "$NS" rollout restart "deployment/$svc" >/dev/null 2>&1 || true
+  kubectl -n "$NS" rollout status "deployment/$svc" --timeout=90s >/dev/null 2>&1 || true
+  verifiers=$((verifiers + 1))
+done
+ok "public key re-distributed to $verifiers verifying service(s), now that their secrets exist"
+
+# ── 7b ────────────────────────────────────────────────────────────────────────────────────────
+# THE WEAKER DATABASE ROLES FOR THE TWO HUMAN-SEARCHABLE-BY-PHONE ROUTES (operations' `GET
+# /customers/by-phone`, affiliate-service's `POST /apply`) — see each hook's own header for the
+# full reasoning. NOT REQUIRED FOR THE PRODUCT TO WORK: both routes fall back to their normal,
+# single-role lookup when DATASTORE_DSN_PHONE_SEARCH is unset, so a from-scratch install that
+# somehow skipped this step would still boot and serve correctly — just without the extra
+# isolation. Run here, not earlier: needs operations' and affiliate-service's own databases (step
+# 5&6), their own secrets holding a real DATASTORE_DSN (step 6b / gen-secrets.py), AND their
+# Deployments to already exist (this step, just above) so the restart at the end of each hook has
+# something real to restart.
+step "database read-only roles"
+soft "operations' phone-search role" bash "$HERE/hooks/provision-phone-search-role.sh"
+soft "affiliate-service's phone-search role" bash "$HERE/hooks/provision-affiliate-phone-search-role.sh"
 
 # ── 8 ─────────────────────────────────────────────────────────────────────────────────────────
 # THE INSTALL ENDED HERE, AND THE CLUSTER WAS EMPTY. Every service ran, every probe was green, and
