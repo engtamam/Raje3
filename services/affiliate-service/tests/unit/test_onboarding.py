@@ -39,12 +39,14 @@ class FakeHttp:
 
 
 def build(http=None, salt="s" * 16, tenants_url="", authz_url="",
-         otp_deliverable=False, require_otp=False, terms_version="v1") -> OnboardingService:
+         otp_deliverable=False, require_otp=False, terms_version="v1",
+         store=None, phone_search_ro=None) -> OnboardingService:
     return OnboardingService(
-        store=MemoryDataStore(), http=http or FakeHttp([]),
+        store=store if store is not None else MemoryDataStore(), http=http or FakeHttp([]),
         identity_url="http://identity:8000", tenant=TENANT, pii_salt=salt,
         tenants_url=tenants_url, authz_url=authz_url,
-        otp_deliverable=otp_deliverable, require_otp=require_otp, terms_version=terms_version)
+        otp_deliverable=otp_deliverable, require_otp=require_otp, terms_version=terms_version,
+        phone_search_ro=phone_search_ro)
 
 
 @pytest.mark.parametrize("written", ["0501234567", "+966501234567", "966501234567",
@@ -198,6 +200,75 @@ async def test_an_already_affiliate_phone_cannot_apply_again():
     with pytest.raises(OnboardingRefused) as exc:
         await svc.apply(phone="0501234567", name="سالم", password="anotherOne123!", agreed=True)
     assert exc.value.reason == "already_affiliate"
+
+
+# ── the weaker Postgres role for the two phone lookups POST /apply makes ────────────────────────
+# See app/config.py's DATASTORE_DSN_PHONE_SEARCH and app/adapters/datastore/phone_search_ro.py —
+# `POST /apply` is reachable with NO capability gate at all, which is why this pair of lookups gets
+# the same weaker-role split as operations' own `GET /customers/by-phone`.
+class _FakePhoneSearchRO:
+    def __init__(self, applications: dict[str, str] | None = None,
+                affiliates: dict[str, str] | None = None):
+        self._apps = applications or {}
+        self._affs = affiliates or {}
+        self.calls: list[tuple[str, str]] = []
+
+    async def find_application_key_by_phone(self, phone):
+        self.calls.append(("application", phone))
+        return self._apps.get(phone)
+
+    async def find_affiliate_key_by_phone(self, phone):
+        self.calls.append(("affiliate", phone))
+        return self._affs.get(phone)
+
+
+@pytest.mark.anyio
+async def test_a_second_apply_is_still_refused_when_the_weaker_role_is_wired():
+    """SAME OUTCOME as test_a_second_apply_while_the_first_is_still_pending_is_refused, with the
+    weaker role doing the finding — proves the two-step split (find key, fetch full row) does not
+    silently change what the route decides."""
+    store = MemoryDataStore()
+    svc = build(store=store)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+
+    fake = _FakePhoneSearchRO(applications={"+966501234567": out["application_id"]})
+    svc_with_ro = build(store=store, phone_search_ro=fake)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc_with_ro.apply(phone="0501234567", name="سالم مرة أخرى",
+                                password="hunter2hunter2x", agreed=True)
+
+    assert exc.value.reason == "already_pending"
+    assert ("application", "+966501234567") in fake.calls
+
+
+@pytest.mark.anyio
+async def test_an_already_affiliate_phone_is_still_refused_when_the_weaker_role_is_wired():
+    store = MemoryDataStore()
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http, store=store)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    fake = _FakePhoneSearchRO(affiliates={"+966501234567": approved["affiliate_id"]})
+    svc_with_ro = build(FakeHttp([]), store=store, phone_search_ro=fake)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc_with_ro.apply(phone="0501234567", name="سالم", password="anotherOne123!",
+                                agreed=True)
+
+    assert exc.value.reason == "already_affiliate"
+    assert ("affiliate", "+966501234567") in fake.calls
+
+
+@pytest.mark.anyio
+async def test_a_phone_with_no_match_under_the_weaker_role_can_apply_normally():
+    store = MemoryDataStore()
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    fake = _FakePhoneSearchRO()
+    svc = build(http, store=store, phone_search_ro=fake)
+
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+
+    assert out["status"] == "pending"
 
 
 # ── who am I ──────────────────────────────────────────────────────────────────────────────────

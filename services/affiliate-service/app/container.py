@@ -16,6 +16,7 @@ from app.adapters.cache.memory import MemoryCache
 from app.adapters.cache.redis import RedisCache
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.datastore.postgres import PostgresDataStore
+from app.adapters.datastore.phone_search_ro import PhoneSearchReadOnly
 from app.adapters.event_bus.memory import MemoryEventBus
 from app.adapters.event_bus.redis import RedisEventBus
 from app.adapters.object_store.local import LocalObjectStore
@@ -249,8 +250,13 @@ def build_container(settings: Settings) -> Container:
     # port above is resolved first; onboarding is never handed a half-built container.
     from app.core.onboarding import Http, OnboardingService
 
+    # THE WEAKER ROLE FOR `POST /apply`'s phone lookups — see config.py's
+    # DATASTORE_DSN_PHONE_SEARCH. `None` when unset is a real, supported state.
+    phone_search_ro = (PhoneSearchReadOnly(settings.DATASTORE_DSN_PHONE_SEARCH)
+                       if settings.DATASTORE_DSN_PHONE_SEARCH else None)
     container.onboarding = OnboardingService(
         store=container.datastore,
+        phone_search_ro=phone_search_ro,
         http=Http(timeout=settings.ONBOARDING_TIMEOUT_SECONDS,
                   internal_token=settings.INTERNAL_SERVICE_TOKEN),
         identity_url=settings.IDENTITY_SERVICE_URL,

@@ -336,6 +336,22 @@ class Settings(BaseSettings):
     DATASTORE_POOL_MAX_INACTIVE_LIFETIME_SECONDS: float = 300.0  # return idle connections to postgres
     DATASTORE_STATEMENT_CACHE_SIZE: int = 0   # 0 => PgBouncer transaction-mode safe (no asyncpg prepared-statement cache)
 
+    # ── the phone-search DB role (app/adapters/datastore/phone_search_ro.py) ────────────────────
+    # SAME PATTERN, SAME REASON, AS services/operations' own DATASTORE_DSN_PHONE_SEARCH — read
+    # that module's docstring for the full rationale. Here it guards `POST /apply`
+    # (api/v1/public.py), which is WORSE than operations' equivalent in one way: it needs no
+    # capability at all — any caller on the open internet can drive an exact-match phone lookup
+    # against `affiliates`/`affiliate_applications`, and the refusal reasons
+    # ("already_pending"/"already_affiliate") already tell an anonymous caller whether a given
+    # number exists in either collection. The weaker role does not fix THAT (a policy question —
+    # whether the response should keep distinguishing those reasons at all — is separate and not
+    # this constant's job); it shrinks what a compromised app process can read while making the
+    # query, exactly like operations' version.
+    #
+    # EMPTY IS THE SAFE DEFAULT: unset, onboarding.py's phone lookups fall back to the exact same
+    # single-role path they have always used.
+    DATASTORE_DSN_PHONE_SEARCH: str = ""
+
     CACHE_DRIVER: str = "memory"
     CACHE_URL: str = ""  # e.g. redis://host:6379/0  (redis driver)
 

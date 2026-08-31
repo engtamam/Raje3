@@ -99,7 +99,8 @@ class OnboardingService:
                  default_cc: str = "966", pii_salt: str = "",
                  terms_version: str = "v1",
                  tenants_url: str = "", authz_url: str = "",
-                 otp_deliverable: bool = False, require_otp: bool = False) -> None:
+                 otp_deliverable: bool = False, require_otp: bool = False,
+                 phone_search_ro: Any = None) -> None:
         self._store = store
         self._http = http
         self._identity = identity_url.rstrip("/")
@@ -124,6 +125,10 @@ class OnboardingService:
         self._tenants = tenants_url.rstrip("/")
         self._authz = authz_url.rstrip("/")
         self._tenant_ready = False   # per-process cache — see _ensure_tenant_ready's own note
+        # THE WEAKER ROLE, ONLY FOR `POST /apply`'s two phone lookups — see app/config.py's
+        # DATASTORE_DSN_PHONE_SEARCH. `None` (the default) means the fallback below, the exact
+        # single-role path this service has always used.
+        self._phone_search_ro = phone_search_ro
 
     # ── the shared affiliate tenant's own provisioning, lazily and idempotently ──────────────
     async def _ensure_tenant_ready(self, *, first_subject: str, first_role: str) -> None:
@@ -346,11 +351,31 @@ class OnboardingService:
         return Affiliate.from_dict(rows[0]) if rows else None
 
     async def _find_application_by_phone(self, phone: str) -> Application | None:
+        """`POST /apply`'s dedupe check — reachable with NO capability gate at all (see
+        app/config.py's DATASTORE_DSN_PHONE_SEARCH), so this is the one lookup in this service
+        that most deserves the weaker role. Two steps when it is wired: find the matching row's
+        KEY under a role that can see nothing but (collection, phone, key, created_at) — never a
+        name, an address, a payout account, or any other collection — then fetch the full record
+        through the normal, already-trusted store."""
+        if self._phone_search_ro is not None:
+            key = await self._phone_search_ro.find_application_key_by_phone(phone)
+            if key is None:
+                return None
+            row = await self._store.get(APPLICATIONS, key)
+            return Application.from_dict(row) if row else None
         rows, _ = await self._store.find(APPLICATIONS, {"phone": phone}, limit=1,
                                          sort=("created_at", "desc"))
         return Application.from_dict(rows[0]) if rows else None
 
     async def _affiliate_by_phone(self, phone: str) -> Affiliate | None:
+        """Same weaker-role split as `_find_application_by_phone` above, for the `affiliates`
+        collection — `POST /apply` also checks this one, same unauthenticated route."""
+        if self._phone_search_ro is not None:
+            key = await self._phone_search_ro.find_affiliate_key_by_phone(phone)
+            if key is None:
+                return None
+            row = await self._store.get(AFFILIATES, key)
+            return Affiliate.from_dict(row) if row else None
         rows, _ = await self._store.find(AFFILIATES, {"phone": phone}, limit=1)
         return Affiliate.from_dict(rows[0]) if rows else None
 
