@@ -69,17 +69,22 @@ done
 BASE_DSN="$(kubectl -n "$NS" get secret tenant-service-secrets -o jsonpath='{.data.DATASTORE_DSN}' 2>/dev/null | base64 -d || true)"
 [ -n "$BASE_DSN" ] || { echo "  no DATASTORE_DSN to model ours on — run gen-secrets first" >&2; exit 1; }
 
-# The object store credential, which our services reach the same way theirs do.
-OS_JSON="$(kubectl -n "$NS" get secret objectstore-secrets -o jsonpath='{.data.s3\.json}' 2>/dev/null | base64 -d || true)"
-OS_AK="$(printf '%s' "$OS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["identities"][0]["credentials"][0]["accessKey"])' 2>/dev/null || true)"
-OS_SK="$(printf '%s' "$OS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["identities"][0]["credentials"][0]["secretKey"])' 2>/dev/null || true)"
+# NOT MINTED: the object-store credential used to be read here and handed to all seven of these
+# services identically — a shared key none of them ever read. OBJECTSTORE_DRIVER defaults to
+# "local" and not one of $OURS' values.yaml files ever set it to "s3" (confirmed by grep across
+# deploy/services/*.values.yaml — only backup-service does, and it is not in $OURS). A credential
+# injected into seven pods and read by zero of them is not a convenience held in reserve; it is
+# blast radius nobody is spending. The one service that genuinely needs object storage gets its
+# own credential, scoped to its own bucket, when that need is real — not this shared one.
+#
+# If a future OURS service needs blobs: give it OBJECTSTORE_ACCESS_KEY/SECRET_KEY explicitly, in
+# its own block below, the same way DATASTORE_DSN already is — never by re-adding this fleet-wide
+# read.
 
 info "minting ${OURS// /, }"
 for svc in $OURS; do
   DSN="${BASE_DSN%/*}/$svc"
   args=(--from-literal="DATASTORE_DSN=$DSN")
-  [ -n "$OS_AK" ] && args+=(--from-literal="OBJECTSTORE_ACCESS_KEY=$OS_AK")
-  [ -n "$OS_SK" ] && args+=(--from-literal="OBJECTSTORE_SECRET_KEY=$OS_SK")
 
   # Created empty-then-patched with the base64 we already hold: decoding a value only to re-encode
   # it would put every shared secret through this shell's argument list for no reason.
