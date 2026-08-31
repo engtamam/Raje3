@@ -119,6 +119,14 @@ env:
   # brake against a runaway loop, not against a busy morning.
   RATELIMIT_MAX: "600"
   RATELIMIT_WINDOW_SECONDS: "60"
+  # A NARROWER BUDGET FOR THE ONE ROUTE THAT DESERVES ONE — GET /customers/by-phone, the human
+  # phone-search screen this session already gave a weaker DB role and its own audit action
+  # (customer.searched_by_phone). The general 600/min budget is sized for a screen fanning into
+  # several reads at once; a single exact-match lookup that lets an operator TRY a number has no
+  # legitimate reason to run anywhere near that fast — 20/min per subject is generous for real use
+  # (nobody looks up twenty different numbers a minute) and blunt against "try every combination".
+  RATELIMIT_ROUTES: >-
+    [{"prefix":"/api/v1/field/customers/by-phone","class":"phone-search","limit":20,"window_s":60,"cost":1}]
   # Same fix as insights.values.yaml — default pool_max=5 was the real load-test ceiling (pure
   # queueing on pool.acquire(), zero CPU), and operations is fanned into by insights' aggregation
   # on محلّي's dashboard. Within the fleet's interim shared-Postgres budget.
