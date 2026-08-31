@@ -21,7 +21,16 @@
     "including 'members:read' at all, so even a seeded owner could add a member but never list the",
     "roster. Both are declared explicitly here now, the same way every other capability on this file",
     "is, so a NEW platform-owner minted through the panel itself (not the bootstrap script) gets full",
-    "member-directory access too, not just the one seeded from outside."
+    "member-directory access too, not just the one seeded from outside.",
+    "",
+    "ANOTHER PAIR THAT LOOKS REDUNDANT BUT ISN'T: 'platform.secrets' AND 'platform.secrets_manage'.",
+    "'platform.secrets' is the per-service operator/secrets route every OURS service inherits from",
+    "_template — an operator setting THAT SERVICE's own runtime config/credentials (a payment key,",
+    "a delivery driver's token) through its own runtime_config/secret_store. 'platform.secrets_manage'",
+    "is secrets-admin's own, unrelated capability — rewriting the EXTERNAL PROVIDER secrets (Meta's",
+    "app secret, Gemini's API key, ...) sealed into other services' own K8s Secret objects, write-",
+    "only, never read back. Holding one implies nothing about the other; platform-owner holds both",
+    "because it holds everything, not because they are the same door."
   ],
   "roles": [
     {
@@ -32,6 +41,7 @@
       "capabilities": [
         "platform.admin",
         "platform.secrets",
+        "platform.secrets_manage",
         "platform.config",
         "platform.operations",
         "platform.reminders",

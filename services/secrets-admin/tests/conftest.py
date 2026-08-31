@@ -1,0 +1,82 @@
+"""Shared test setup.
+
+Sets a valid environment BEFORE the app is imported so config validation passes,
+then exposes a TestClient. ENV=test keeps logging silent and disables prod-only
+behavior (HSTS, hidden docs).
+"""
+from __future__ import annotations
+
+import asyncio
+
+import os
+
+# Must be set before any `app.*` import triggers config validation.
+os.environ.setdefault("ENV", "test")
+os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "t" * 40)
+os.environ.setdefault("BODY_LIMIT_BYTES", "2048")
+os.environ.setdefault("REQUEST_TIMEOUT_MS", "30000")
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+
+INTERNAL_TOKEN = os.environ["INTERNAL_SERVICE_TOKEN"]
+
+
+@pytest.fixture(scope="session")
+def client() -> TestClient:
+    from app.main import app
+
+    return TestClient(app)
+
+
+def pytest_pyfunc_call(pyfuncitem):
+    """Run a coroutine test on a real loop, with no plugin to install.
+
+    SIX TESTS IN THIS SUITE HAD NEVER RUN ONCE. They are written `async def` with
+    `@pytest.mark.asyncio`, pytest-asyncio is not in this environment, and pytest's answer to a
+    coroutine it cannot drive is to fail the test with "async def functions are not natively
+    supported" — six red lines that look like six broken behaviours and are in fact six assertions
+    nobody has ever evaluated. A permanently red test is read as noise within a week, which is how
+    the ones beside it stop being read too.
+
+    So the runner lives here rather than in a dependency: the rest of the suite drives coroutines
+    through a local `run()` helper, and this makes the two styles equivalent instead of making one
+    of them a lie.
+    """
+    import asyncio
+    import inspect
+
+    fn = pyfuncitem.obj
+    if not inspect.iscoroutinefunction(fn):
+        return None
+    kwargs = {name: pyfuncitem.funcargs[name] for name in pyfuncitem._fixtureinfo.argnames}
+    asyncio.run(fn(**kwargs))
+    return True
+
+
+# ── ONE EVENT LOOP FOR THE WHOLE SESSION ──────────────────────────────────────────────────────
+# THE SUITE COULD NOT FINISH ON WINDOWS, and it did not fail — it STOPPED. Fifty-six test files
+# define `def run(c): return asyncio.run(c)`, so a full run opens roughly nine hundred event
+# loops in one process. Each one allocates a self-pipe socket pair, and somewhere past the eight
+# hundredth the process blocked: no CPU, no traceback, no failing test — the run simply sat there
+# for ever at 93%. The position moved with the test COUNT and not with the tests, which is what
+# named it: deselecting the file it stopped in only moved the stop to the next file along.
+#
+# A GATE THAT CANNOT FINISH IS NOT A GATE. The block looks exactly like a slow machine, so the
+# honest reading — «the suite is green, it just takes a while» — was available every time, and the
+# real reading is that nothing after the eight hundredth test was ever run.
+#
+# So `asyncio.run` is answered here by a loop that is created once and closed at exit. The
+# semantics tests rely on are unchanged: each call still runs a coroutine to completion on a loop
+# nobody else is using, because these tests are synchronous and never overlap.
+_LOOP = asyncio.new_event_loop()
+
+
+def _run_on_the_one_loop(coro, *, debug=None):
+    if debug is not None:
+        _LOOP.set_debug(debug)
+    return _LOOP.run_until_complete(coro)
+
+
+asyncio.run = _run_on_the_one_loop

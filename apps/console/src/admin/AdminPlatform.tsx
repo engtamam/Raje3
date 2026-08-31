@@ -1,16 +1,21 @@
 /**
  * المنصّة والفريق — القسم ٥ بالشريط. يجمع الشاشات المصقولة يدوياً (٩.١/٩.٢): الإعدادات الحيّة
  * والأسرار. فريق الإدارة وسجل التدقيق يُبنيان بخطوة تالية من نفس المرحلة، لا هنا بعد.
+ *
+ * «مفاتيح المزوّدين» ليست نفس «الأسرار» — انظر AdminProviderSecrets.tsx's own header. صلاحيتان
+ * مختلفتان (platform.secrets مقابل platform.secrets_manage)، فمن يملك واحدة فقط يرى تبويباً واحداً
+ * يعمل والثاني يرفض — هذا مقصود، لا خطأ بالواجهة.
  */
 import { Segmented } from '../rj-ui/Segmented';
 import { useState } from 'react';
 import { AdminAuditLog } from './AdminAuditLog';
 import { AdminConfig } from './AdminConfig';
 import { AdminSecrets } from './AdminSecrets';
+import { AdminProviderSecrets } from './AdminProviderSecrets';
 import { AdminTeam } from './AdminTeam';
 import type { AdminSession } from './api';
 
-type SubTab = 'config' | 'secrets' | 'team' | 'audit';
+type SubTab = 'config' | 'secrets' | 'provider_secrets' | 'team' | 'audit';
 
 export function AdminPlatform({ session }: { session: AdminSession }) {
   const [sub, setSub] = useState<SubTab>('config');
@@ -23,6 +28,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
           options={[
             { value: 'config', label: 'الإعدادات الحيّة' },
             { value: 'secrets', label: 'الأسرار' },
+            { value: 'provider_secrets', label: 'مفاتيح المزوّدين' },
             { value: 'team', label: 'فريق الإدارة' },
             { value: 'audit', label: 'سجل التدقيق' },
           ]}
@@ -30,6 +36,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
       </div>
       {sub === 'config' ? <AdminConfig session={session} /> : null}
       {sub === 'secrets' ? <AdminSecrets session={session} /> : null}
+      {sub === 'provider_secrets' ? <AdminProviderSecrets session={session} /> : null}
       {sub === 'team' ? <AdminTeam session={session} /> : null}
       {sub === 'audit' ? <AdminAuditLog session={session} /> : null}
     </div>

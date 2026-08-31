@@ -104,6 +104,33 @@ for svc in $OURS; do
 done
 ok "seven secrets present — shared values identical to the platform's"
 
+# ── secrets-admin, WHICH GETS TWO VALUES AND NOT SEVEN ─────────────────────────────────────────
+#
+# IT IS MINTED SEPARATELY BECAUSE THE LOOP ABOVE WOULD LIE ABOUT IT. That loop hands every OURS
+# service a DSN, PII_SALT, BACKUP_KEK and SECRETS_KEK — and this service has no database, no
+# pseudonyms and nothing of its own to seal or restore. Its store is the k8s Secret objects it
+# patches; see deploy/services/secrets-admin.values.yaml and deploy/k3s/secrets-admin-rbac.yaml.
+#
+# Handing it those anyway would cost nothing at boot and everything at review: the next person
+# reading the Secret would conclude this service has a database, and the one after that would put
+# something in it. A credential a workload does not need is a credential it should not hold —
+# same rule this file just applied to the object-store key above, the other direction: there it
+# was an unread credential removed; here it is a credential deliberately never granted.
+info "minting secrets-admin (INTERNAL_SERVICE_TOKEN and TOKEN_PUBLIC_KEY only — it has no store)"
+kubectl -n "$NS" create secret generic secrets-admin-secrets \
+  --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+patch='{"data":{'
+first=1
+for k in INTERNAL_SERVICE_TOKEN TOKEN_PUBLIC_KEY; do
+  [ -n "${VAL[$k]:-}" ] || continue
+  [ $first -eq 1 ] || patch+=','
+  patch+="\"$k\":\"${VAL[$k]}\""
+  first=0
+done
+patch+='}}'
+[ $first -eq 0 ] && kubectl -n "$NS" patch secret secrets-admin-secrets --type=merge -p "$patch" >/dev/null
+ok "secrets-admin minted (two values, no store)"
+
 # affiliate-service and portal: PATCH ONLY, never recreate — see the header. gen-secrets.py must
 # have already minted the secret (DSN included) for there to be anything to patch onto.
 info "patching shared values onto ${SHARED_ONLY// /, } (DSN left untouched — gen-secrets.py owns it)"
