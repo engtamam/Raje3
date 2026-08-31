@@ -106,6 +106,13 @@ env:
   WHATSAPP_360DIALOG_BASE_URL: "https://waba-v2.360dialog.io"   # not a secret — the adapter's own
                                 # default too; named here so a future regional/staging override is
                                 # a values edit, not a code change.
+  # ── the send-time wallet gate (v0.17.3) — ALREADY WIRED, dormant until the chain above flips ──
+  # Gates threesixtydialog sends past the free-tier cap (operations.values.yaml's
+  # WHATSAPP_CHANNEL_PRICING_* block); never meta, never console — see provider_billing.py. Both
+  # URLs set now so the ONLY remaining step to activate everything (pricing, wallet gate, cost
+  # tracking) is the same WHATSAPP_CHAIN flip noted above — nothing here needs touching again.
+  WALLET_SERVICE_URL: "http://wallet-service:8000"
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
   EMAIL_FROM: "no-reply@raje3.sa"
   HTTP_TIMEOUT_SECONDS: "15"
 
