@@ -73,7 +73,8 @@ _DEFAULT_MAX_BACKDATE_SECONDS = 90 * 24 * 3600
 
 class Operations:
     def __init__(self, *, store, pii_salt: str, cache: Any = None,
-                 max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS) -> None:
+                 max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS,
+                 phone_search_ro: Any = None) -> None:
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
@@ -100,6 +101,11 @@ class Operations:
         # How far back a claimed visit time may be before it is a broken clock. A shop migrating a
         # year of its own history needs more, and that must not require a release.
         self._max_backdate = int(max_backdate)
+        # THE WEAKER ROLE, ONLY FOR THE ONE ROUTE THAT ASKS FOR IT (see app/config.py's
+        # DATASTORE_DSN_PHONE_SEARCH and this class's own customer_by_phone_searched below). `None`
+        # is the default, supported state — every other caller of `by_phone` (visit recording,
+        # bookings' resolve-or-create) keeps using the normal, single-role path unchanged.
+        self._phone_search_ro = phone_search_ro
 
     async def _branch_for(self, tenant: str, *, operator_id: str, claimed: str) -> str:
         """Where this visit happened — from the PERSON when we know him, from the device otherwise.
@@ -421,6 +427,29 @@ class Operations:
 
     async def customer_by_phone(self, tenant: str, phone: str) -> Customer | None:
         return await self._customers.by_phone(tenant, _normalise_phone(phone))
+
+    async def customer_by_phone_searched(self, tenant: str, phone: str) -> Customer | None:
+        """The SAME lookup as `customer_by_phone`, for the one caller that deserves the weaker
+        role: `GET /customers/by-phone`, the human-driven search screen an insider could abuse
+        (see customer.searched_by_phone in auditable_actions.py — the audit half of this same
+        defence). Visit recording and every other internal caller keeps calling
+        `customer_by_phone` unchanged; this is not a replacement for it.
+
+        TWO STEPS, ON PURPOSE, WHEN THE WEAKER ROLE IS WIRED: first find the matching row's KEY
+        under a role that can see nothing but (tenant, phone, key) for customers — never a name,
+        never a subject_ref, never any other collection — then fetch the full record through the
+        normal, already-trusted store. A single-step query under the weak role could not return
+        this route's actual response (the customer's name and subject_ref) at all; splitting it is
+        what lets the risky half of the query — matching an arbitrary string against every phone
+        number — run under a role with almost nothing to lose if it is ever misused.
+        """
+        phone = _normalise_phone(phone)
+        if self._phone_search_ro is None:
+            return await self._customers.by_phone(tenant, phone)
+        key = await self._phone_search_ro.find_key_by_phone(tenant, phone)
+        if key is None:
+            return None
+        return await self._customers.get(tenant, key)
 
     async def _resolve_customer(self, tenant: str, phone: str, name: str) -> tuple[Customer, bool]:
         """Find this phone's customer, or build a new (UNSAVED) one. Returns (customer, created).

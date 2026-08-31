@@ -471,6 +471,31 @@ class Settings(BaseSettings):
     DATASTORE_POOL_MAX_INACTIVE_LIFETIME_SECONDS: float = 300.0  # return idle connections to postgres
     DATASTORE_STATEMENT_CACHE_SIZE: int = 0   # 0 => PgBouncer transaction-mode safe (no asyncpg prepared-statement cache)
 
+    # ── the phone-search DB role (app/adapters/datastore/phone_search_ro.py) ────────────────────
+    # A SECOND, DELIBERATELY WEAKER, POSTGRES ROLE — the first of its kind on this platform (every
+    # other service, and every other query in THIS service, uses the one role gen-secrets mints;
+    # see ci/check_a_deploy_script_does_not_invent_a_postgres_role.py's own history for why a
+    # second role is not introduced lightly here). This one exists for exactly one query: the
+    # human-driven `GET /customers/by-phone` search screen — the one read an insider can abuse
+    # (checking a number out of curiosity, or probing whether someone is a customer at all,
+    # discussed and audited this session — see customer.searched_by_phone in auditable_actions.py).
+    #
+    # WHY A SEPARATE ROLE AND NOT JUST THE AUDIT ROW ABOVE. The audit trail proves who searched and
+    # when, AFTER the fact — real, but it does not shrink what a compromised app process (a bug, an
+    # injected query, a stolen service credential) can read in the meantime. This role can. It has
+    # SELECT on ONE VIEW (`customers_phone_search_v`, provisioned by
+    # deploy/hooks/provision-phone-search-role.sh) exposing only `tenant, phone, key` for
+    # `collection='customers'` rows — not the base `kv_store` table every other collection
+    # (visits, branches, operators, everything) shares, and not even a customer's own name or
+    # subject_ref. A phone search under this role, worst case, can only ever answer "does a phone
+    # number exist" — nothing else in this database is reachable with it.
+    #
+    # EMPTY IS THE SAFE DEFAULT, same convention as every other optional wire in this service: with
+    # this unset, `customer_by_phone_searched()` below falls back to the exact same single-role
+    # lookup this screen has always used — no regression, no crash, just no extra isolation until
+    # the role is actually provisioned and this DSN is set.
+    DATASTORE_DSN_PHONE_SEARCH: str = ""
+
     CACHE_DRIVER: str = "memory"
     CACHE_URL: str = ""  # e.g. redis://host:6379/0  (redis driver)
 

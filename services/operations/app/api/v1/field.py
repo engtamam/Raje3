@@ -255,7 +255,7 @@ async def customer_by_phone(request: Request, phone: str,
     await request.app.state.auditor.record(
         "customer.searched_by_phone", actor=principal.subject, tenant=_tenant(principal),
         resource=f"phone-suffix:{phone[-4:]}", ip=request.client.host if request.client else "")
-    c = await _svc(request).customer_by_phone(_tenant(principal), phone)
+    c = await _svc(request).customer_by_phone_searched(_tenant(principal), phone)
     if c is None:
         return {"customer": None}
     # THE PSEUDONYM COMES WITH THE EXACT MATCH, and only with it — never with the prefix

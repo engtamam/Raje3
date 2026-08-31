@@ -134,6 +134,63 @@ def test_a_missing_phone_says_what_to_do(ops):
     assert "الجوال" in said and not any("a" <= ch.lower() <= "z" for ch in said), said
 
 
+# ── customer_by_phone_searched: the weaker-role path GET /customers/by-phone uses ────────────────
+class _FakePhoneSearchRO:
+    """Stands in for app.adapters.datastore.phone_search_ro.PhoneSearchReadOnly — a real Postgres
+    role is not needed to prove the CALLER (Operations) uses it correctly: find-key-then-fetch,
+    never a name or subject_ref crossing the weaker role's boundary."""
+
+    def __init__(self, key_by_phone: dict[tuple[str, str], str]):
+        self._map = key_by_phone
+        self.calls: list[tuple[str, str]] = []
+
+    async def find_key_by_phone(self, tenant, phone):
+        self.calls.append((tenant, phone))
+        return self._map.get((tenant, phone))
+
+
+def test_customer_by_phone_searched_falls_back_to_the_normal_path_when_no_weaker_role_is_wired(ops):
+    """The safe default: DATASTORE_DSN_PHONE_SEARCH unset means container.py never builds a
+    PhoneSearchReadOnly, phone_search_ro stays None, and this must not regress the screen."""
+    svc, _ = ops
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+
+    found = run(svc.customer_by_phone_searched(A, "0501234567"))
+
+    assert found is not None and found.tenant == A
+
+
+def test_customer_by_phone_searched_uses_the_weaker_role_when_wired_and_still_returns_the_full_record():
+    store = MemoryDataStore()
+    svc = Operations(store=store, pii_salt=SALT)
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], name="عميل"))
+    customer = run(svc.customer_by_phone(A, "0501234567"))
+    fake = _FakePhoneSearchRO({(A, "966501234567"): customer.id})
+    svc_with_ro = Operations(store=store, pii_salt=SALT, phone_search_ro=fake)
+
+    found = run(svc_with_ro.customer_by_phone_searched(A, "0501234567"))
+
+    assert found is not None and found.name == "عميل"
+    # AND THE WEAKER ROLE WAS ACTUALLY ASKED — not bypassed silently back to the normal path.
+    assert fake.calls == [(A, "966501234567")]
+
+
+def test_customer_by_phone_searched_with_the_weaker_role_wired_still_respects_tenant_isolation():
+    """A key the fake role hands back for the WRONG tenant must not leak a customer — the second
+    step (`_customers.get(tenant, key)`) still filters by tenant, same as every other read."""
+    store = MemoryDataStore()
+    svc = Operations(store=store, pii_salt=SALT)
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+    customer = run(svc.customer_by_phone(A, "0501234567"))
+    # A misbehaving/faked role claims tenant B owns A's key — the store's own tenant check must win.
+    fake = _FakePhoneSearchRO({(B, "966501234567"): customer.id})
+    svc_with_ro = Operations(store=store, pii_salt=SALT, phone_search_ro=fake)
+
+    found = run(svc_with_ro.customer_by_phone_searched(B, "0501234567"))
+
+    assert found is None
+
+
 def test_a_seam_failure_does_not_lose_the_visit(ops):
     """The visit is durable before any seam runs, so a broken search must not surface as a failed
     save. The operator's work is safe; the index catches up."""

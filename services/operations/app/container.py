@@ -16,6 +16,7 @@ from app.adapters.cache.memory import MemoryCache
 from app.adapters.cache.redis import RedisCache
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.datastore.postgres import PostgresDataStore
+from app.adapters.datastore.phone_search_ro import PhoneSearchReadOnly
 from app.adapters.event_bus.memory import MemoryEventBus
 from app.adapters.event_bus.redis import RedisEventBus
 from app.adapters.object_store.local import LocalObjectStore
@@ -229,9 +230,15 @@ def build_container(settings: Settings) -> Container:
     # test can answer without a socket and this service never learns reminders' route shape.
     from app.adapters.offer_choice import http_chooser
 
+    # THE WEAKER ROLE FOR THE ONE SEARCH THAT DESERVES ONE — see config.py's
+    # DATASTORE_DSN_PHONE_SEARCH. `None` when unset is a real, supported state (the safe default
+    # every optional wire in this service shares): customer_by_phone_searched() falls back to the
+    # ordinary single-role lookup rather than failing to boot over a role nobody has provisioned yet.
+    phone_search_ro = (PhoneSearchReadOnly(settings.DATASTORE_DSN_PHONE_SEARCH)
+                       if settings.DATASTORE_DSN_PHONE_SEARCH else None)
     container.operations = Operations(
         store=container.datastore, pii_salt=settings.PII_SALT, cache=container.cache,
-        max_backdate=settings.MAX_BACKDATE_SECONDS,
+        max_backdate=settings.MAX_BACKDATE_SECONDS, phone_search_ro=phone_search_ro,
     ).with_offer_chooser(http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
                                       token=settings.INTERNAL_SERVICE_TOKEN))
     # THE COUNTER'S DESK AT `loyalty` — what a till may ask about a customer's points, asked on
