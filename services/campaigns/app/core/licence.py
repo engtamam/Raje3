@@ -35,11 +35,11 @@ So this is called on create and on the standing tick, and on nothing else.
 """
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
+
+from app.adapters import internal_http
 
 # The key as billing knows it. One string, one file — a second spelling is a feature that is
 # enforced somewhere and free everywhere else.
@@ -91,11 +91,10 @@ class HttpLicence:
         if not tenant:
             return False
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})
-        req = urllib.request.Request(f"{self._url}?{query}",
-                                     headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out: dict[str, Any] = internal_http.get_json(
+                f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return False
         # `allowed` is billing's own word, and a boolean feature answers it directly. `NOT_ENTITLED`

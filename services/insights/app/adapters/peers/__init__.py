@@ -15,12 +15,11 @@ a check.
 """
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 
+from app.adapters import internal_http
 from app.core.models import VisitPage
 
 #: We could not ask operations who this person is. Not a branch, and not «no restriction».
@@ -39,12 +38,12 @@ DENIED = frozenset({UNREADABLE, REVOKED})
 PAGE_BUDGET = 60
 
 
-def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
-    req = urllib.request.Request(
-        url, data=json.dumps(body).encode(), method="POST",
-        headers={"Content-Type": "application/json", "X-Internal-Token": token})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:          # nosec B310
-        return json.loads(resp.read() or b"{}")
+# The request itself is built in adapters/internal_http.py — the one place in this service that
+# attaches the internal token. `_get` is named here for the first time: the five GETs below each
+# hand-rolled the same Request beside a `_post` that already existed, which is precisely how the
+# token came to be spelled out at six separate sites in one file.
+_post = internal_http.post_json
+_get = internal_http.get_json
 
 
 class NullPeers:
@@ -301,10 +300,8 @@ class HttpPeers:
         WHY, so it is not mistaken for "you did not buy this".
         """
         url = self._entitlement_url + "?" + urllib.parse.urlencode({"tenant": tenant, "key": key})
-        req = urllib.request.Request(url, headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                return bool(json.loads(resp.read() or b"{}").get("allowed"))
+            return bool(_get(url, self._token, self._timeout).get("allowed"))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return False
 
@@ -340,12 +337,11 @@ class HttpPeers:
         """
         try:
             q = urllib.parse.urlencode({"tenant": tenant, "since": since})
-            req = urllib.request.Request(self._reminders_url + self._effect_path + "?" + q,
-                                         headers={"X-Internal-Token": self._token})
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
-                # `ok` LAST, so a peer that one day sends its own `ok: false` cannot make a read
-                # that plainly succeeded look like a failure. What arrived is what we read.
-                return {**json.loads(resp.read() or b"{}"), "ok": True}
+            data = _get(self._reminders_url + self._effect_path + "?" + q,
+                        self._token, self._timeout)
+            # `ok` LAST, so a peer that one day sends its own `ok: false` cannot make a read
+            # that plainly succeeded look like a failure. What arrived is what we read.
+            return {**data, "ok": True}
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return {"ok": False, "sends": [], "sent_count": 0, "opt_outs": 0}
 
@@ -364,10 +360,7 @@ class HttpPeers:
         # printing a gap.
         try:
             path = self._tenant_path.replace("{id}", urllib.parse.quote(tenant, safe=""))
-            req = urllib.request.Request(self._tenant_url + path,
-                                         headers={"X-Internal-Token": self._token})
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
-                data = json.loads(resp.read() or b"{}")
+            data = _get(self._tenant_url + path, self._token, self._timeout)
             branding = data.get("branding") or {}
             out["shop"] = str(data.get("name") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
@@ -376,11 +369,8 @@ class HttpPeers:
         # The message quota — the quietest outage this product has: the engine stops mid-month and
         # nothing tells him until a customer mentions they stopped hearing from him.
         try:
-            req = urllib.request.Request(
-                self._usage_url + "?" + urllib.parse.urlencode({"tenant": tenant}),
-                headers={"X-Internal-Token": self._token})
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
-                usage = json.loads(resp.read() or b"{}")
+            usage = _get(self._usage_url + "?" + urllib.parse.urlencode({"tenant": tenant}),
+                         self._token, self._timeout)
             for row in (usage.get("usage") or usage.get("items") or []):
                 if str(row.get("key")) == "messages.monthly":
                     # The COUNT only. The limit is -1 on every plan — we do not sell messages, so
@@ -395,11 +385,8 @@ class HttpPeers:
         # it costs no message and no unit; a notice of its own would come out of the same ceiling
         # it is reporting on, at the moment there is none left.
         try:
-            req = urllib.request.Request(
-                self._pressure_url + "?" + urllib.parse.urlencode({"limit": 1000}),
-                headers={"X-Internal-Token": self._token})
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
-                rows = json.loads(resp.read() or b"{}").get("establishments") or []
+            rows = _get(self._pressure_url + "?" + urllib.parse.urlencode({"limit": 1000}),
+                        self._token, self._timeout).get("establishments") or []
             for row in rows:
                 if str(row.get("tenant")) == tenant:
                     out["ceiling_missed"] = int(row.get("missed") or 0)

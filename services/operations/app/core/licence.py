@@ -30,10 +30,10 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 
 from starlette.concurrency import run_in_threadpool
+from app.adapters import internal_http
 
 KEY = "feature.api"
 
@@ -75,8 +75,6 @@ class HttpApiLicence:
             # refuses this case for its own reasons, and asking would be asking about everybody.
             return False
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})
-        req = urllib.request.Request(f"{self._url}?{query}",
-                                     headers={"X-Internal-Token": self._token})
         try:
             # OFF THE EVENT LOOP (ك-9). `urlopen` blocks the calling thread for up to
             # `self._timeout` seconds, and this coroutine is awaited from the hottest write path in
@@ -84,9 +82,10 @@ class HttpApiLicence:
             # freeze the whole worker's event loop, not just this one tenant's request: other shops'
             # tills and the field screen stopped moving while ONE billing call was slow, which is
             # exactly the outage the module docstring says a "could not ask" answer must never cause.
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
             def _fetch() -> dict[str, Any]:
-                with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                    return json.loads(resp.read() or b"{}")
+                return internal_http.get_json(f"{self._url}?{query}", self._token,
+                                              self._timeout)
             out = await run_in_threadpool(_fetch)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None

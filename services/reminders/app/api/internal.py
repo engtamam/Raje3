@@ -771,9 +771,7 @@ async def send_dsar_code(request: Request, body: DsarCodeIn) -> dict:
     AND IT CARRIES NOTHING OF HIS. The code, the minutes, the shop's name. This message asks for
     proof of identity; putting his data in it would disclose before the proof it is asking for.
     """
-    import json as _json
-    import urllib.request as _req
-
+    from app.adapters import internal_http
     from app.config import get_settings
 
     cfg = get_settings()
@@ -781,12 +779,13 @@ async def send_dsar_code(request: Request, body: DsarCodeIn) -> dict:
         return {"sent": False, "reason": "no compliance url configured"}
 
     try:
-        r = _req.Request(
+        # Built in adapters/internal_http.py, the one place this service attaches the token —
+        # this route is a CALLER as well as a callee, which is exactly how it came to hand-roll
+        # its own request in a file otherwise about verifying other people's.
+        payload = internal_http.get_json(
             f"{cfg.COMPLIANCE_SERVICE_URL.rstrip('/')}"
             f"/internal/compliance/dsar/{body.dsar_id}/verification-code",
-            headers={"X-Internal-Token": cfg.INTERNAL_SERVICE_TOKEN})
-        with _req.urlopen(r, timeout=6) as resp:                            # nosec B310
-            payload = _json.loads(resp.read() or b"{}")
+            cfg.INTERNAL_SERVICE_TOKEN, 6)
     except Exception as exc:                                                # noqa: BLE001
         # REPORTED, NEVER SWALLOWED. A code that failed to reach him is a legal deadline running
         # with nobody watching it, so the caller has to be able to retry knowing it did not go.

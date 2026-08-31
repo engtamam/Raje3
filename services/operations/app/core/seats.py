@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import contextlib as _contextlib
 from typing import Any
+from app.adapters import internal_http
 
 # The keys the plans carry (spec §16.4.1), named once so a typo cannot create a second gauge with
 # no limit — which resolves deny-by-default and looks exactly like a full plan.
@@ -150,9 +151,12 @@ class HttpGauges:
         import urllib.request
 
         body = json.dumps({"tenant": tenant, "key": key, "value": int(value)}).encode()
-        req = urllib.request.Request(
-            self._set, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        # Built in adapters/internal_http.py, the one place this service attaches the token.
+        # The BODY IS NEVER READ here — this is fire-and-forget — so the request is built in the
+        # shared module and opened here, rather than going through a helper that would read a
+        # response this call site has always thrown away.
+        req = internal_http.request(self._set, method="POST", body=body,
+                                    content_type=internal_http.JSON, token=self._token)
         try:
             urllib.request.urlopen(req, timeout=self._timeout).close()      # nosec B310
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
@@ -177,13 +181,11 @@ class HttpGauges:
         """
         import json
         import urllib.error
-        import urllib.request
 
         url = f"{self._check}?tenant={tenant}&key={key}&amount=1"
-        req = urllib.request.Request(url, headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out = internal_http.get_json(url, self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return True, -1
         if out.get("unlimited"):

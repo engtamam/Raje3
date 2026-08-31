@@ -26,8 +26,8 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
+from app.adapters import internal_http
 
 
 class NullApprovals:
@@ -60,12 +60,11 @@ class HttpApprovals:
 
     async def sync(self, tenant: str) -> dict[str, Any]:
         query = urllib.parse.urlencode({"tenant": tenant})
-        req = urllib.request.Request(f"{self._url}?{query}", data=b"", method="POST",
-                                     headers={"X-Internal-Token": self._token,
-                                              "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out: dict[str, Any] = json.loads(internal_http.read(
+                f"{self._url}?{query}", self._timeout, method="POST", body=b"",
+                content_type=internal_http.JSON, token=self._token) or b"{}")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
             # THE REASON IS TRUNCATED AND THE TENANT IS NOT IN IT. This string reaches telemetry,
             # and a peer's error body can carry anything it likes.

@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import json
 import urllib.error
-import urllib.request
 
+from app.adapters import internal_http
 from app.ports.audit_sink import ACCEPTED, FAILED, AuditEvent, AuditReceipt
 
 
@@ -35,13 +35,13 @@ class HttpAuditSink:
 
     async def emit(self, event: AuditEvent) -> AuditReceipt:
         body = json.dumps(event.to_payload()).encode()
-        headers = {"Content-Type": "application/json"}
-        if self._token:
-            headers["X-Internal-Token"] = self._token
-        req = urllib.request.Request(self._url, data=body, method="POST", headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310 - config-only host
-                status, raw = resp.status, resp.read()
+            # The token header is attached in adapters/internal_http.py, the one place this service
+            # builds an internally authenticated request. `omit_blank_token` keeps the behaviour
+            # this sink already had: with no token configured the header is not sent at all.
+            status, raw = internal_http.send(
+                self._url, timeout=self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token, omit_blank_token=True)
         except urllib.error.HTTPError as exc:
             return AuditReceipt(status=FAILED, detail=f"audit ingest returned HTTP {exc.code}")
         except (urllib.error.URLError, OSError) as exc:

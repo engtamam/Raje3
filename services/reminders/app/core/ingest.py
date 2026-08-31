@@ -198,10 +198,9 @@ class HttpVisits:
 
     async def since(self, *, tenant: str, since: int) -> dict[str, Any]:
         import json
-        import urllib.request
+        from app.adapters import internal_http
         body = json.dumps({"tenant": tenant, "since": since, "limit": self._page}).encode()
-        req = urllib.request.Request(
-            self._url, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
-            return json.loads(resp.read() or b"{}")
+        # Built in adapters/internal_http.py, the one place this service attaches the token.
+        return json.loads(internal_http.read(
+            self._url, self._timeout, method="POST", body=body,
+            content_type=internal_http.JSON, token=self._token) or b"{}")

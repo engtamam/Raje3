@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import json
 import urllib.error
-import urllib.request
 from typing import Any
+from app.adapters import internal_http
 
 
 class HttpEvidence:
@@ -33,14 +33,14 @@ class HttpEvidence:
         if not self._url:
             raise RuntimeError("REMINDERS_SERVICE_URL is not configured")
         body = json.dumps({"tenant": tenant, "since": since, "until": until}).encode()
-        req = urllib.request.Request(
-            self._url, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                if not 200 <= resp.status < 300:
-                    raise RuntimeError(f"answered {resp.status}")
-                return json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = internal_http.send(
+                self._url, timeout=self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token)
+            if not 200 <= status < 300:
+                raise RuntimeError(f"answered {status}")
+            return json.loads(raw or b"{}")
         except urllib.error.HTTPError as exc:
             raise RuntimeError(f"answered {exc.code}") from exc
         except (urllib.error.URLError, OSError, ValueError) as exc:

@@ -13,8 +13,8 @@ never agreed to, on an invoice he cannot explain.
 from __future__ import annotations
 
 import json
-import urllib.request
 from typing import Any
+from app.adapters import internal_http
 
 
 class OfferPeerUnavailable(RuntimeError):
@@ -42,15 +42,15 @@ def http_chooser(*, reminders_url: str, token: str, timeout: int = 5):
         # counter — the one moment the customer is paying — could not apply an offer at all.
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref, "visit_id": "",
                            "service_ids": list(service_ids)}).encode()
-        req = urllib.request.Request(
-            reminders_url.rstrip("/") + "/internal/reminders/offer/choose",
-            data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": token})
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310
-                if not 200 <= resp.status < 300:
-                    raise OfferPeerUnavailable(f"reminders answered {resp.status}")
-                payload = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = internal_http.send(
+                reminders_url.rstrip("/") + "/internal/reminders/offer/choose",
+                timeout=timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=token)
+            if not 200 <= status < 300:
+                raise OfferPeerUnavailable(f"reminders answered {status}")
+            payload = json.loads(raw or b"{}")
         except OfferPeerUnavailable:
             raise
         except Exception as exc:                                            # noqa: BLE001

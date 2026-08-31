@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
-import urllib.request
+from app.adapters import internal_http
 
 
 class SpentUnknown(RuntimeError):
@@ -36,15 +36,15 @@ def spent_refs(*, operations_url: str, token: str, tenant: str, subject_ref: str
         raise SpentUnknown("no operations url configured")
 
     body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()
-    req = urllib.request.Request(
-        operations_url.rstrip("/") + "/internal/operations/offers-spent",
-        data=body, method="POST",
-        headers={"Content-Type": "application/json", "X-Internal-Token": token})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:          # nosec B310
-            if not 200 <= resp.status < 300:
-                raise SpentUnknown(f"operations answered {resp.status}")
-            payload = json.loads(resp.read() or b"{}")
+        # Built in adapters/internal_http.py, the one place this service attaches the token.
+        status, raw = internal_http.send(
+            operations_url.rstrip("/") + "/internal/operations/offers-spent",
+            timeout=timeout, method="POST", body=body,
+            content_type=internal_http.JSON, token=token)
+        if not 200 <= status < 300:
+            raise SpentUnknown(f"operations answered {status}")
+        payload = json.loads(raw or b"{}")
     except SpentUnknown:
         raise
     except Exception as exc:                                                # noqa: BLE001

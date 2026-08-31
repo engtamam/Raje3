@@ -12,25 +12,18 @@ determines exactly one tenant and one subject, and no client here accepts anythi
 """
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 
-
-def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
-    req = urllib.request.Request(
-        url, data=json.dumps(body).encode(), method="POST",
-        headers={"Content-Type": "application/json", "X-Internal-Token": token})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:              # nosec B310
-        return json.loads(resp.read() or b"{}")
+from app.adapters import internal_http
 
 
-def _get(url: str, token: str, timeout: int) -> dict[str, Any]:
-    req = urllib.request.Request(url, headers={"X-Internal-Token": token})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:              # nosec B310
-        return json.loads(resp.read() or b"{}")
+# The request itself is built in adapters/internal_http.py — the one place in this service that
+# attaches the internal token. These two names stay because the clients below read well with them
+# and because the failure policy that matters lives at each call site, not in the transport.
+_post = internal_http.post_json
+_get = internal_http.get_json
 
 
 # ── tenant-service: who the shop is ────────────────────────────────────────────────────────────
@@ -231,12 +224,8 @@ class HttpReminders:
                         if isinstance(p, dict) and not p.get("enabled", True)]
             stopped = sorted(set(existing) | set(stopped))
         url = f"{self._url}{self._ref_path(tenant, subject_ref)}"
-        req = urllib.request.Request(
-            url, data=json.dumps({"stopped": stopped}).encode(), method="PUT",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
-                body = json.loads(resp.read() or b"{}")
+            body = _post(url, {"stopped": stopped}, self._token, self._timeout, method="PUT")
             return bool(body.get("saved"))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             # FALSE, NOT AN EXCEPTION. The caller renders the page without a confirmation, which is

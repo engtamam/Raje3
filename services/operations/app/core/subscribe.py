@@ -54,6 +54,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from app.adapters import internal_http
 
 
 class SubscribeRefused(Exception):
@@ -250,14 +251,12 @@ class HttpConnections:
         import json
         import urllib.error
         import urllib.parse
-        import urllib.request
 
         query = urllib.parse.urlencode({"tenant": tenant})
-        req = urllib.request.Request(f"{self._url}?{query}",
-                                     headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out: dict[str, Any] = internal_http.get_json(
+                f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # UNREACHABLE READS AS NOT CONNECTED. See NullConnections: refusing during an outage
             # costs him a retry; allowing costs a refund.
@@ -321,13 +320,13 @@ class HttpPlans:
         import urllib.request
 
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(
-            url, data=data, method="POST" if data else "GET",
-            headers={"X-Internal-Token": self._token,
-                     **({"Content-Type": "application/json"} if data else {})})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                return resp.status, json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token. Content-Type only when
+            # there is a body, which is what this call site already did.
+            status, raw = internal_http.send(
+                url, timeout=self._timeout, body=data, method="POST" if data else "GET",
+                content_type=internal_http.JSON if data else "", token=self._token)
+            return status, json.loads(raw or b"{}")
         except urllib.error.HTTPError as exc:
             return exc.code, {"detail": exc.read().decode()[:200]}
         except (urllib.error.URLError, OSError) as exc:

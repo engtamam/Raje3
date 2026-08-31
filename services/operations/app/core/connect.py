@@ -45,6 +45,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from typing import Any
+from app.adapters import internal_http
 
 from app.core.sending_identity import SEPARATOR as SI_SEPARATOR
 
@@ -412,7 +413,6 @@ class Registration:
         """`(registered, reason)` — the reason is one of Meta's, passed through untranslated."""
         import json
         import urllib.error
-        import urllib.request
 
         if not self._register:
             return False, "NOT_CONFIGURED"
@@ -421,12 +421,9 @@ class Registration:
             body["phone_number_id"] = phone_number_id
         if pin:
             body["pin"] = pin
-        req = urllib.request.Request(
-            self._register, data=json.dumps(body).encode(), method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out = internal_http.post_json(self._register, body, self._token, self._timeout)
             return bool(out.get("registered")), str(out.get("reason") or "")
         except urllib.error.HTTPError as exc:
             try:
@@ -453,11 +450,9 @@ class Registration:
             return {}
         query = urllib.parse.urlencode(
             {"tenant": tenant, **({"phone_number_id": phone_number_id} if phone_number_id else {})})
-        req = urllib.request.Request(f"{self._status}?{query}",
-                                     headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out = internal_http.get_json(f"{self._status}?{query}", self._token, self._timeout)
             return out if isinstance(out, dict) else {}
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return {}
@@ -518,12 +513,10 @@ class HttpExchange:
 
         body = json.dumps({"tenant": tenant, "code": code, "waba_id": waba_id,
                            "phone_number_id": phone_number_id}).encode()
-        req = urllib.request.Request(
-            self._url, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                resp.read()
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            internal_http.read(self._url, self._timeout, method="POST", body=body,
+                               content_type=internal_http.JSON, token=self._token)
             return True, ""
         except urllib.error.HTTPError as exc:
             # THE REASON IS CARRIED, NOT SWALLOWED. "Meta rejected the code" and "our app secret is

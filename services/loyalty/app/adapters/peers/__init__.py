@@ -13,26 +13,18 @@ The shop's name comes from tenant-service, never a second copy, and a stale name
 """
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 
-
-def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
-    req = urllib.request.Request(
-        url, data=json.dumps(body).encode(), method="POST",
-        headers={"Content-Type": "application/json", "X-Internal-Token": token})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310
-        return json.loads(resp.read() or b"{}")
+from app.adapters import internal_http
 
 
-def _get(url: str, token: str, timeout: int) -> dict[str, Any]:
-    req = urllib.request.Request(
-        url, headers={"X-Internal-Token": token})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310
-        return json.loads(resp.read() or b"{}")
+# The request itself is built in adapters/internal_http.py — the one place in this service that
+# attaches the internal token. These two names stay because the clients below read well with them
+# and because the failure policy that matters lives at each call site, not in the transport.
+_post = internal_http.post_json
+_get = internal_http.get_json
 
 
 # ── sending, through the gate ──────────────────────────────────────────────────────────────────

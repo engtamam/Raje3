@@ -12,8 +12,8 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
+from app.adapters import internal_http
 
 
 class HttpReceiptFeed:
@@ -32,14 +32,13 @@ class HttpReceiptFeed:
         if not self._url:
             return {}
         query = urllib.parse.urlencode({"after": after or "", "limit": self._page})
-        req = urllib.request.Request(
-            f"{self._url}?{query}", method="GET",
-            headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                if not 200 <= resp.status < 300:
-                    return {}
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = internal_http.send(
+                f"{self._url}?{query}", timeout=self._timeout, method="GET", token=self._token)
+            if not 200 <= status < 300:
+                return {}
+            out: dict[str, Any] = json.loads(raw or b"{}")
             return out
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return {}

@@ -60,6 +60,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from typing import Any
+from app.adapters import internal_http
 
 from app.core.models import CUSTOMERS
 
@@ -237,14 +238,11 @@ class HttpSubscriptions:
         import json
         import urllib.error
         import urllib.parse
-        import urllib.request
 
         q = urllib.parse.urlencode({"tenant": tenant, "key": self._key, "amount": 1})
-        req = urllib.request.Request(f"{self._url}?{q}",
-                                     headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out = internal_http.get_json(f"{self._url}?{q}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
         if str(out.get("error") or "") == "NOT_ENTITLED":

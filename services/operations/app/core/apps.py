@@ -27,15 +27,14 @@ no ownership claimed either way, and a screen that says «تعذّر التحق�
 from __future__ import annotations
 
 import asyncio
-import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 # `is_base` lives with the subscribe rules because "carries the message meter" is a statement
 # about the price list, not about this catalogue. Imported rather than repeated: two
 # spellings of «this row is a base» is how the two drift apart.
 from app.core.subscribe import is_base
+from app.adapters import internal_http
 
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
 #
@@ -104,11 +103,10 @@ class HttpApps:
         an outage into a sentence telling a paying shop it has not paid.
         """
         query = urllib.parse.urlencode({"tenant": tenant, "key": key})
-        req = urllib.request.Request(f"{self._url}?{query}",
-                                     headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            out: dict[str, Any] = internal_http.get_json(
+                f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
         return bool(out.get("allowed"))

@@ -34,8 +34,9 @@ from __future__ import annotations
 
 import json
 import urllib.error
-import urllib.request
 from typing import Any
+
+from app.adapters import internal_http
 
 # The greeting a template falls back to when nobody knows the customer's name. Imported rather
 # than repeated: two copies of this string is a message that greets one way here and another way
@@ -151,13 +152,13 @@ class HttpSender:
             # whose delivery row we lost still says which of OUR sends it was about.
             "biz_opaque_callback_data": idempotency_key,
         }).encode()
-        req = urllib.request.Request(
-            self._notify, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
-            if not 200 <= resp.status < 300:
-                raise SendFailed(f"notification-service returned {resp.status}")
-            result = json.loads(resp.read() or b"{}")
+        # Built in adapters/internal_http.py, the one place this service attaches the token.
+        status, raw = internal_http.send(
+            self._notify, timeout=self._timeout, method="POST", body=body,
+            content_type=internal_http.JSON, token=self._token)
+        if not 200 <= status < 300:
+            raise SendFailed(f"notification-service returned {status}")
+        result = json.loads(raw or b"{}")
 
         # THE HTTP STATUS IS NOT THE DELIVERY STATUS, and reading only the first was a silent
         # defect for as long as this file existed.
@@ -191,12 +192,10 @@ class HttpSender:
 
     def _recipient(self, tenant: str, subject_ref: str) -> tuple[str, str]:
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()
-        req = urllib.request.Request(
-            self._resolve, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
-                data = json.loads(resp.read() or b"{}")
+            data = json.loads(internal_http.read(
+                self._resolve, self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token) or b"{}")
         except urllib.error.HTTPError as exc:
             raise SendFailed(f"recipient lookup returned {exc.code}") from exc
         except (urllib.error.URLError, OSError) as exc:

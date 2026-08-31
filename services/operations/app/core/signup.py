@@ -70,10 +70,10 @@ import json
 import re
 import time
 import urllib.error
-import urllib.request
 import uuid
 from dataclasses import dataclass
 from typing import Any
+from app.adapters import internal_http
 
 from app.core import claim as CL
 
@@ -160,14 +160,17 @@ class Http:
     def call(self, url: str, *, method: str, body: dict | None = None,
              internal: bool = False) -> tuple[int, dict]:
         data = json.dumps(body).encode() if body is not None else None
-        headers = {"Content-Type": "application/json"}
-        if internal:
-            headers["X-Internal-Token"] = self._token
-        req = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
-                raw = resp.read()
-                return resp.status, (json.loads(raw) if raw else {})
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            # `internal=False` is a call that carries NO token at all — the signup handshake with
+            # identity happens before there is a tenant to authenticate as. Passing an empty token
+            # with `omit_blank_token` leaves the header off entirely, which is what this did when
+            # it built the header dict itself.
+            status, raw = internal_http.send(
+                url, timeout=self._timeout, method=method, body=data,
+                content_type=internal_http.JSON,
+                token=self._token if internal else "", omit_blank_token=not internal)
+            return status, (json.loads(raw) if raw else {})
         except urllib.error.HTTPError as exc:
             try:
                 parsed = json.loads(exc.read() or b"{}")

@@ -132,14 +132,14 @@ class HttpQuota:
     def _post(self, url: str, body: dict) -> tuple[int, dict]:
         import json
         import urllib.error
-        import urllib.request
+        from app.adapters import internal_http
 
-        req = urllib.request.Request(
-            url, data=json.dumps(body).encode(), method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                return resp.status, json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = internal_http.send(
+                url, timeout=self._timeout, method="POST", body=json.dumps(body).encode(),
+                content_type=internal_http.JSON, token=self._token)
+            return status, json.loads(raw or b"{}")
         except urllib.error.HTTPError as exc:
             # THE BODY IS READ, NOT DISCARDED. billing puts its verdict in the body — `allowed`
             # and `error` — and `{}` here threw that verdict away for every status at or above
@@ -248,13 +248,11 @@ class HttpQuota:
         """What the weekly report's sixth line shows. Read-only, so an error is silence."""
         import json
         import urllib.error
-        import urllib.request
+        from app.adapters import internal_http
 
         url = f"{self._check}?tenant={tenant}&key={KEY}&amount=0"
-        req = urllib.request.Request(url, headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            out = internal_http.get_json(url, self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return {}
         return {"limit": out.get("limit"), "current": out.get("current"),

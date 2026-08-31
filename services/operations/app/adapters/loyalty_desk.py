@@ -19,10 +19,10 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
 
 from starlette.concurrency import run_in_threadpool
+from app.adapters import internal_http
 
 
 class LoyaltyDesk:
@@ -40,16 +40,18 @@ class LoyaltyDesk:
         return bool(self._base)
 
     def _call(self, path: str, *, body: dict[str, Any] | None = None) -> dict[str, Any] | None:
-        req = urllib.request.Request(
-            self._base + path,
-            data=json.dumps(body).encode() if body is not None else None,
-            method="POST" if body is not None else "GET",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
-                if not 200 <= resp.status < 300:
-                    return None
-                return json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            # Content-Type travels on the GET too, exactly as it did when this request was built
+            # here: harmless, and dropping it would be a change to what goes on the wire.
+            status, raw = internal_http.send(
+                self._base + path, timeout=self._timeout,
+                body=json.dumps(body).encode() if body is not None else None,
+                method="POST" if body is not None else "GET",
+                content_type=internal_http.JSON, token=self._token)
+            if not 200 <= status < 300:
+                return None
+            return json.loads(raw or b"{}")
         except urllib.error.HTTPError as exc:
             # THE REFUSAL IS THE ANSWER, and it has to survive the trip. A redemption declined for
             # insufficient points (409) is a sentence the cashier must read to the customer; a

@@ -19,8 +19,9 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Any
+
+from app.adapters import internal_http
 
 
 class NullSubmitter:
@@ -73,12 +74,12 @@ class HttpSubmitter:
 
     def _post(self, url: str, body: dict[str, Any] | None) -> tuple[int, Any]:
         data = json.dumps(body).encode() if body is not None else b""
-        req = urllib.request.Request(
-            url, data=data, method="POST",
-            headers={"X-Internal-Token": self._token, "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                return resp.status, json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = internal_http.send(
+                url, timeout=self._timeout, method="POST", body=data,
+                content_type=internal_http.JSON, token=self._token)
+            return status, json.loads(raw or b"{}")
         except urllib.error.HTTPError as exc:
             return exc.code, {"detail": exc.read().decode()[:300]}
         except (urllib.error.URLError, OSError, ValueError) as exc:

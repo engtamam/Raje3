@@ -27,9 +27,9 @@ from __future__ import annotations
 import json
 import time
 import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
+from app.adapters import internal_http
 
 
 @dataclass
@@ -92,10 +92,8 @@ class HttpIdentity:
 
     def _fetch(self, tenant: str, now: int) -> Establishment:
         path = self._path.replace("{id}", tenant).replace("{}", tenant)
-        req = urllib.request.Request(
-            f"{self._url}{path}", headers={"X-Internal-Token": self._token})
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
-            data = json.loads(resp.read() or b"{}")
+        # Built in adapters/internal_http.py, the one place this service attaches the token.
+        data = internal_http.get_json(f"{self._url}{path}", self._token, self._timeout)
         branding = data.get("branding") or {}
         return Establishment(
             tenant=tenant,

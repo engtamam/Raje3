@@ -511,7 +511,7 @@ class PlatformLibrary:
         import json
         import time as _time
         import urllib.error
-        import urllib.request
+        from app.adapters import internal_http
 
         if not self._url:
             # NOT CONFIGURED IS NOT A FAILED READ. A local run with no peer holds whatever it was
@@ -520,10 +520,8 @@ class PlatformLibrary:
         now = _time.time()
         if self._rows and (now - self._at) < self._ttl:
             return {"ok": True, "templates": list(self._rows)}
-        req = urllib.request.Request(self._url, headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            out = internal_http.get_json(self._url, self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # THE LAST GOOD ANSWER, NEVER AN EMPTY LIBRARY — and now it says so.
             return {"ok": False, "templates": list(self._rows)}
@@ -597,7 +595,7 @@ class ShopCatalogue:
         import json
         import time as _time
         import urllib.error
-        import urllib.request
+        from app.adapters import internal_http
 
         if not self._url or not tenant:
             return {}
@@ -606,12 +604,10 @@ class ShopCatalogue:
         if hit and (now - hit[0]) < self._ttl:
             return dict(hit[1])
         body = json.dumps({"tenant": tenant}).encode()
-        req = urllib.request.Request(
-            self._url, data=body, method="POST",
-            headers={"X-Internal-Token": self._token, "Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            out = json.loads(internal_http.read(
+                self._url, self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token) or b"{}")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return dict(hit[1]) if hit else {}
         rows = out.get("services")
@@ -657,16 +653,13 @@ class ApprovedTemplates:
         import json
         import urllib.error
         import urllib.parse
-        import urllib.request
+        from app.adapters import internal_http
 
         # ASKS FOR approved, RATHER THAN EXCLUDING pending. v0.13.5 split the statuses and both
         # `paused` and `disabled` are unsendable; a denylist would let each new one through.
         query = urllib.parse.urlencode({"tenant": tenant, "status": "approved", "limit": 200})
-        req = urllib.request.Request(f"{self._url}?{query}",
-                                     headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out = json.loads(resp.read() or b"{}")
+            out = internal_http.get_json(f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return None
         rows = out.get("templates")

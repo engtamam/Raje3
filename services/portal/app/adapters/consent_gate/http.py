@@ -16,8 +16,8 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.parse
-import urllib.request
 
+from app.adapters import internal_http
 from app.ports.consent_gate import ALLOWED, DENIED, UNKNOWN, ConsentVerdict
 
 
@@ -33,13 +33,13 @@ class HttpConsentGate:
     async def check(self, *, tenant: str, subject: str, purpose: str) -> ConsentVerdict:
         query = urllib.parse.urlencode(
             {"tenant": tenant, "subject": subject, "purpose": purpose})
-        req = urllib.request.Request(f"{self._url}?{query}", method="GET")
-        if self._token:
-            req.add_header("X-Internal-Token", self._token)
-
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310 - config-only host
-                status, raw = resp.status, resp.read()
+            # One static header, attached in adapters/internal_http.py — the only place this service
+            # builds an internally authenticated request. `omit_blank_token` preserves what this
+            # gate already did: no configured token means no header, not an empty one.
+            status, raw = internal_http.send(
+                f"{self._url}?{query}", timeout=self._timeout, method="GET",
+                token=self._token, omit_blank_token=True)
         except urllib.error.HTTPError as exc:
             # A 4xx here is OUR bug (bad token, wrong path), not a statement about the subject.
             # Reporting it as denied would silently stop lawful processing platform-wide the day

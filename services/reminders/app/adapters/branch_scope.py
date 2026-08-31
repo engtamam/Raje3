@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import json
 import urllib.error
-import urllib.request
 from typing import Any
+from app.adapters import internal_http
 
 UNREADABLE = "_unreadable"
 #: His own shop stopped him. Told apart from UNREADABLE because they are different facts — one is
@@ -50,14 +50,14 @@ class BranchScope:
         if not self._url or not tenant or not subject:
             return ""
         body = json.dumps({"tenant": tenant, "subject": subject}).encode()
-        req = urllib.request.Request(
-            self._url, data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                if not 200 <= resp.status < 300:
-                    return UNREADABLE
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = internal_http.send(
+                self._url, timeout=self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token)
+            if not 200 <= status < 300:
+                return UNREADABLE
+            out: dict[str, Any] = json.loads(raw or b"{}")
             if out.get("revoked"):
                 return REVOKED
             # THE LIST FIRST, THE OLD FIELD AS THE FALLBACK. What a person may see is a set —

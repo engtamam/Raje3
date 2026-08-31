@@ -26,6 +26,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
+from app.adapters import internal_http
 
 
 class NullSearch:
@@ -75,12 +76,12 @@ class HttpSearch:
             # indexes nothing.
             "fields": fields,
         }).encode()
-        req = urllib.request.Request(
-            f"{self._url}{self._path}", data=body, method="POST",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
-                return 200 <= resp.status < 300
+            # Built in adapters/internal_http.py, the one place this service attaches the token.
+            status, _ = internal_http.send(
+                f"{self._url}{self._path}", timeout=self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token)
+            return 200 <= status < 300
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # Never raises. This runs after the operator has been answered, and a search hiccup
             # must not surface as a failed visit. The caller records the failure (core/seams.py).
