@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/insights
-  digest: "sha256:1c53dea7e09442e3c7c455a47da869d77bd7f6147527ace4e7ad059a1e211c6c"   # ffd3de36, published by publish-images.sh
+  digest: "sha256:f4bd61c54a92f912a802d025f662abdc820676d03117f469e0a689e0dc68d933"   # cbd31381, published by publish-images.sh
 
 replicas: 1
 
@@ -42,7 +42,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 100m
+    cpu: 106m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi

@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/loyalty
-  digest: "sha256:44293216968b2195d103af3cc8a543fc9934c25544fefd26a849c033c544daa9"   # ffd3de36, published by publish-images.sh
+  digest: "sha256:5de9e91a8dbb63994db845cb069285cd95baab03ab64b41dd94439fcde90f7ba"   # cbd31381, published by publish-images.sh
 
 replicas: 1
 
@@ -33,7 +33,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    cpu: 54m  # smart-cpu-sizing.py: medium tier, node budget-derived
     memory: 128Mi
   limits:
     memory: 256Mi

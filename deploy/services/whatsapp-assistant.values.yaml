@@ -18,7 +18,7 @@ image:
   # Placeholder — set to the real digest by publish-images.sh once this service ships. A moving tag
   # is a rollback that is only a hope; every other service in this chart is pinned by digest and
   # this one should not be the exception the day it goes to production.
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  digest: "sha256:678972e94d08cdab718e447c98bb532dfec57ca68a70377223de4fe7118f6223"   # cbd31381, published by publish-images.sh
 
 replicas: 1
 
@@ -45,7 +45,7 @@ drivers:
 
 resources:
   requests:
-    cpu: 200m       # higher than reminders' — an LLM call per debounced turn is real CPU/latency
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi

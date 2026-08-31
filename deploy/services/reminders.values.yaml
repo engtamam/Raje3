@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:a938d6c3bdc17d15c3b419b2000a245727feddaa4641737c4edd0d98dc8a6b78"   # ffd3de36, published by publish-images.sh
+  digest: "sha256:7d92a9abf40753f91e940df2b78c811a8e727ee3f0c57a9e8145d297d9413143"   # cbd31381, published by publish-images.sh
 
 replicas: 1
 
@@ -59,7 +59,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 100m
+    cpu: 106m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi
