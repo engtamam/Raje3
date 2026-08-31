@@ -51,7 +51,13 @@ HOST_PORT="$(printf '%s' "$BASE_DSN" | cut -d@ -f2 | cut -d/ -f1)"
 NEW_PASS="$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | cut -c1-32)"
 
 info "provisioning the view + the weaker role (as $PGUSER_ADMIN, in $DB)"
-kubectl -n "$NS" exec postgres-0 -- psql -U "$PGUSER_ADMIN" -d "$DB" -v ON_ERROR_STOP=1 <<SQL
+# `-i` IS NOT OPTIONAL HERE. Without it `kubectl exec` never attaches this heredoc to the
+# container's stdin at all — psql runs against a closed stdin, reads nothing, does nothing, and
+# exits 0. Found live: this script printed "view + role in place" on a cluster where the view did
+# not exist, twice, because the missing flag made every run a true no-op that could not fail.
+# pre-deploy.sh's own `exec postgres-0 -- psql -tAc "..."` calls need no `-i` — the SQL is a
+# process ARGUMENT there, not piped stdin — so that file was never a working counter-example.
+kubectl -n "$NS" exec -i postgres-0 -- psql -U "$PGUSER_ADMIN" -d "$DB" -v ON_ERROR_STOP=1 <<SQL
 -- The narrow window this role is allowed to look through: (tenant, phone, key) for customers
 -- ONLY, never the base table every other collection shares.
 CREATE OR REPLACE VIEW $VIEW AS

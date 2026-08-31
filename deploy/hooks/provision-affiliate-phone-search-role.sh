@@ -26,7 +26,6 @@ set -Eeuo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 NS="${NS:-base-services}"
-DB="affiliate-service"
 ROLE="affiliate_search_ro"
 VIEW="affiliate_phone_search_v"
 
@@ -35,20 +34,36 @@ ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }
 die(){  echo -e "\e[31m  ✘ $*\e[0m" >&2; exit 1; }
 
 # THE SUPERUSER IS READ, NOT ASSUMED — same rule as every deploy/hooks/*.sh script; see
-# ci/check_a_deploy_script_does_not_invent_a_postgres_role.py.
+# ci/check_a_deploy_script_does_not_invent_a_postgres_role.py. THE DATABASE NAME IS READ TOO,
+# for the identical reason: affiliate-service was assumed to own a same-named database when this
+# script was first written, and that assumption was WRONG — it is one of the two services
+# deliberately placed on the platform's shared `base_services` database instead (see mint-our-
+# secrets.sh's own SHARED_ONLY note), confirmed live against the real secret before this hook
+# was ever run for real. A spelled-out "affiliate-service" here would connect to a database that
+# does not exist, exactly the class of bug the role rule above already exists to prevent — the
+# same fix applies to the database, not just the role.
 BASE_DSN="$(kubectl -n "$NS" get secret affiliate-service-secrets -o jsonpath='{.data.DATASTORE_DSN}' 2>/dev/null | base64 -d || true)"
 [ -n "$BASE_DSN" ] || die "no DATASTORE_DSN on affiliate-service-secrets — gen-secrets.py must run first (see mint-our-secrets.sh's own note: this service's DSN is theirs to mint, not ours)"
 PGUSER_ADMIN="$(printf '%s' "$BASE_DSN" | cut -d/ -f3 | cut -d: -f1)"
 HOST_PORT="$(printf '%s' "$BASE_DSN" | cut -d@ -f2 | cut -d/ -f1)"
-[ -n "$PGUSER_ADMIN" ] && [ -n "$HOST_PORT" ] || die "could not parse affiliate-service's own DSN"
+DB="$(printf '%s' "$BASE_DSN" | sed 's#.*/##')"
+[ -n "$PGUSER_ADMIN" ] && [ -n "$HOST_PORT" ] && [ -n "$DB" ] || die "could not parse affiliate-service's own DSN"
 
 NEW_PASS="$(head -c 24 /dev/urandom | base64 | tr -d '=+/' | cut -c1-32)"
 
 info "provisioning the view + the weaker role (as $PGUSER_ADMIN, in $DB)"
-kubectl -n "$NS" exec postgres-0 -- psql -U "$PGUSER_ADMIN" -d "$DB" -v ON_ERROR_STOP=1 <<SQL
+# `-i` IS NOT OPTIONAL HERE — see provision-phone-search-role.sh's own note (the operations
+# twin), found live the same way this file's own DB-name bug was: this script printed success on
+# a cluster where nothing was actually created, because `kubectl exec` without `-i` never
+# attaches the heredoc to stdin at all — psql ran against a closed stdin and exited 0 having done
+# nothing.
+kubectl -n "$NS" exec -i postgres-0 -- psql -U "$PGUSER_ADMIN" -d "$DB" -v ON_ERROR_STOP=1 <<SQL
 -- The narrow window this role is allowed to look through: (collection, key, phone, created_at)
--- for `affiliates` and `affiliate_applications` ONLY — never any other collection this service
--- holds, and never a name/address/payout field even within those two.
+-- for 'affiliates' and 'affiliate_applications' ONLY — never any other collection this service
+-- holds, and never a name/address/payout field even within those two. (Plain quotes here, not
+-- backticks: this heredoc is unquoted for variable interpolation below, so a backtick in a SQL
+-- comment is still a real shell command substitution -- found live, the hard way, on this exact
+-- line, trying to run two collection names as commands.)
 CREATE OR REPLACE VIEW $VIEW AS
   SELECT collection, key, value->>'phone' AS phone,
          COALESCE((value->>'created_at')::bigint, 0) AS created_at
