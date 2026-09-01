@@ -24,6 +24,12 @@
     { "_p": "Meta's own callback — the webhook subscription handshake and every inbound WhatsApp/SMS/email event. No route existed for this at all until it was found live: the URL Meta was given answered 200 with the CONSOLE's landing page (the catch-all below), so 'verify token could not be validated' was never a token problem — the request never reached notification-service in the first place.",
       "path": "/webhooks/*", "upstream": "notification-service:8000" },
 
+    { "_p": "A signed, no-auth download link (file-service's own `/files/signed/{token}`) — opened straight from wherever it was shared, never carrying a bearer token. Found the same way as /webhooks/* above, by the gate ci/check_a_public_route_is_actually_reachable_through_the_edge.py wrote to catch exactly this class: declared tier=public, no edge route, every link would have opened the console's landing page instead of the file.",
+      "path": "/files/*", "upstream": "file-service:8000" },
+
+    { "_p": "A generic inbound webhook receiver (webhook-service's own `/inbound/{source}`) — a third party posts here, unauthenticated by design (the source-specific signature check is webhook-service's own job). Same gap, same gate, same fix as the two routes above.",
+      "path": "/inbound/*", "upstream": "webhook-service:8000" },
+
     { "path": "/*", "upstream": "console:8080" }
   ]
 }

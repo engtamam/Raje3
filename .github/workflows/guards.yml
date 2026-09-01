@@ -35,6 +35,17 @@ jobs:
       - name: deploy wiring is consistent
         run: python3 ci/check_deploy_wiring.py
 
+      # A ROUTE DECLARED tier=public MUST BE REACHABLE THROUGH THE EDGE, not just gated on no
+      # bearer token. Found live: notification-service's /webhooks/whatsapp had no entry in
+      # deploy/edge/edge.json at all, so Meta's own callback — including the verification
+      # handshake — matched nothing but the catch-all and got the CONSOLE's landing page back at a
+      # clean 200. "The verify token could not be validated" was never a token problem; the
+      # request never reached the service holding the token. The same gap, same class, was found
+      # for file-service's signed downloads and webhook-service's generic inbound receiver in the
+      # same pass.
+      - name: every public route has a real path through the edge
+        run: python3 ci/check_a_public_route_is_actually_reachable_through_the_edge.py
+
       # WhatsApp send providers (notification-service, platform/ submodule) are a port + adapter
       # registry — FailoverWhatsApp trusts every driver in WHATSAPP_CHAIN to answer the FULL
       # WhatsAppProvider port (send + send_interactive), not only the half ordinary sends
