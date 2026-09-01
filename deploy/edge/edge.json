@@ -21,6 +21,9 @@
     { "_p": "The customer's own page, opened from a WhatsApp link. It is the only path here a person reaches without a token, and it belongs to portal rather than to the console.",
       "path": "/p/*", "upstream": "portal:8000" },
 
+    { "_p": "Meta's own callback — the webhook subscription handshake and every inbound WhatsApp/SMS/email event. No route existed for this at all until it was found live: the URL Meta was given answered 200 with the CONSOLE's landing page (the catch-all below), so 'verify token could not be validated' was never a token problem — the request never reached notification-service in the first place.",
+      "path": "/webhooks/*", "upstream": "notification-service:8000" },
+
     { "path": "/*", "upstream": "console:8080" }
   ]
 }
