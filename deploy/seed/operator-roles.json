@@ -30,7 +30,15 @@
     "is secrets-admin's own, unrelated capability — rewriting the EXTERNAL PROVIDER secrets (Meta's",
     "app secret, Gemini's API key, ...) sealed into other services' own K8s Secret objects, write-",
     "only, never read back. Holding one implies nothing about the other; platform-owner holds both",
-    "because it holds everything, not because they are the same door."
+    "because it holds everything, not because they are the same door.",
+    "",
+    "A THIRD PAIR THAT WAS FOUND MISSING, NOT JUST DOCUMENTED: 'platform.billing' (billing-service's",
+    "own operator/coupons route — billing.list_coupons) and 'billing.manage' (plans/pricing — ",
+    "billing.list_plans/update_plan/plan_availability) are two different capabilities on the same",
+    "service. platform-owner had the first and not the second, which the AdminApps.tsx screen made",
+    "visible: the whole Plans & pricing section rendered nothing at all, not even an empty state,",
+    "because there was no action to key it on — found live, then fixed here. Explicit, not starred,",
+    "same reason as every other capability on this file."
   ],
   "roles": [
     {
@@ -48,6 +56,7 @@
         "platform.campaigns",
         "platform.tenants",
         "platform.billing",
+        "billing.manage",
         "platform.identity",
         "members:read",
         "members:write",
