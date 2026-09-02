@@ -1033,6 +1033,118 @@ async def create_service(request: Request, body: ServiceIn,
     return s.public()
 
 
+class ServiceImportRow(BaseModel):
+    """One line of an uploaded catalogue file — the console parses the spreadsheet client-side and
+    sends structured rows, never a raw file; this service has no business knowing what a .csv or
+    .xlsx looks like. Same field shape and same limits as `ServiceIn` on purpose: importing must
+    not be a second, looser way to create a service than typing one in by hand."""
+    name: str = Field(min_length=1, max_length=128)
+    cycle_days: int = Field(default=0, ge=0, le=3650)
+    price_minor: int = Field(default=0, ge=0)
+    duration_minutes: int = Field(default=0, ge=0, le=720)
+    # THE TILL'S OWN ID, OPTIONAL — Service.external_id's own docstring is the reason this exists:
+    # matching by name alone forks a renamed product into two rows on the next re-upload. A row
+    # carrying one matches an EXISTING service by it first (survives a rename in the file);
+    # falls back to matching by name only when empty, same as a shop that never had a POS.
+    external_id: str = Field(default="", max_length=128)
+
+
+class ServiceImportIn(BaseModel):
+    rows: list[ServiceImportRow] = Field(min_length=1, max_length=200)
+    # DEFAULT FALSE, AND NAMED WHAT IT DOES — an owner uploading a partial file by mistake must
+    # never silently retire the rest of the catalogue. Explicit opt-in, asked again on every
+    # import (the console never remembers a previous choice), because "everything not in this
+    # file" is a different set on every upload.
+    deactivate_missing: bool = False
+
+
+@router.post("/services/bulk_import", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def bulk_import_services(request: Request, body: ServiceImportIn,
+                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """Create/update many services from an uploaded file, in one call.
+
+    VALIDATION HAPPENS BEFORE ANY WRITE, ALWAYS — twice over. Pydantic's own field limits on
+    `ServiceImportRow` (`name` non-empty, a price/duration/cycle in range) already refuse the
+    WHOLE request with a 422 if even one row is malformed, before this function body ever runs —
+    the same all-or-nothing guarantee `ServiceIn` already gives a single manual add, extended to a
+    batch. The second check, below, is duplicate NAMES within the file itself: two rows meaning
+    "the same service" is a file the owner needs to fix, not a coin flip about which row wins.
+
+    MATCHED BY external_id FIRST, THEN NAME — see `ServiceImportRow.external_id`'s own note.
+    A match UPDATES the existing row (and reactivates it if it was stopped); no match CREATES one.
+    A previously-stopped service reappearing in a new upload is read as "bring it back", which is
+    the only sane reading of an owner naming it in a file they are actively importing.
+
+    `deactivate_missing` is the ONE destructive thing this route can do, and it is opt-in, per
+    call, every time — see `ServiceImportIn.deactivate_missing`'s own note.
+    """
+    tenant = _tenant(principal)
+    seen: dict[str, int] = {}
+    dupes: set[str] = set()
+    for row in body.rows:
+        key = row.name.strip().lower()
+        if key in seen:
+            dupes.add(row.name.strip())
+        seen[key] = 1
+    if dupes:
+        return JSONResponse(
+            {"error": "DUPLICATE_NAMES", "names": sorted(dupes),
+             "reason": "الملف فيه أكثر من صف بنفس الاسم — صحّح الملف وأعد الرفع."},
+            status_code=status.HTTP_400_BAD_REQUEST)
+
+    store = ServiceStore(request.app.state.container.datastore)
+    existing = await store.list(tenant, active_only=False)
+    by_external_id = {s.external_id: s for s in existing if s.external_id}
+    by_name = {s.name.strip().lower(): s for s in existing}
+
+    created = updated = reactivated = 0
+    touched_ids: set[str] = set()
+    for row in body.rows:
+        name = row.name.strip()
+        target = by_external_id.get(row.external_id) if row.external_id else None
+        if target is None:
+            target = by_name.get(name.lower())
+
+        if target is not None:
+            was_stopped = target.active is False
+            target.name = name
+            target.cycle_days = row.cycle_days
+            target.price_minor = row.price_minor
+            target.duration_minutes = row.duration_minutes
+            target.active = True
+            if row.external_id:
+                target.external_id = row.external_id
+            await store.save(target)
+            touched_ids.add(target.id)
+            if was_stopped:
+                reactivated += 1
+            else:
+                updated += 1
+        else:
+            s = Service(id=new_id("srv"), tenant=tenant, name=name, cycle_days=row.cycle_days,
+                       price_minor=row.price_minor, duration_minutes=row.duration_minutes,
+                       external_id=row.external_id, created=int(time.time()))
+            await store.save(s)
+            touched_ids.add(s.id)
+            created += 1
+
+    deactivated = 0
+    if body.deactivate_missing:
+        for s in existing:
+            if s.id not in touched_ids and s.active is not False:
+                s.active = False
+                await store.save(s)
+                deactivated += 1
+
+    await request.app.state.auditor.record(
+        "service.bulk_imported", actor=principal.subject, tenant=tenant, resource="service",
+        ip=request.client.host if request.client else "",
+        metadata={"created": created, "updated": updated, "reactivated": reactivated,
+                  "deactivated": deactivated, "rows": len(body.rows)})
+    return {"created": created, "updated": updated, "reactivated": reactivated,
+            "deactivated": deactivated}
+
+
 class ServicePatch(BaseModel):
     name: str | None = Field(default=None, max_length=128)
     cycle_days: int | None = Field(default=None, ge=0, le=3650)

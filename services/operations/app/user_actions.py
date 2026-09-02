@@ -275,6 +275,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "الإيقاف بـ active=false لا بالحذف — الحذف ييتّم كل زيارة تشير إليها.",
     },
     {
+        "id": "operations.bulk_import_services", "label": "استيراد خدمات ومنتجات من ملف", "method": "POST",
+        "path": "/api/v1/staff/services/bulk_import", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي", "confirm": True,
+        "help": "ملف كامل يُرفض لو فيه أي صف خاطئ أو اسم مكرر — لا استيراد جزئي أبداً.",
+    },
+    {
         "id": "operations.list_operators", "label": "العاملون", "method": "GET",
         "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
     },

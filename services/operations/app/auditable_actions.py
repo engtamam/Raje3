@@ -250,6 +250,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "service",
     },
     {
+        "action": "service.bulk_imported",
+        "source": "admin",
+        # Same reason as service.updated — a whole catalogue's prices can change in one call, and
+        # deactivate_missing can retire a whole batch at once. The metadata (created/updated/
+        # reactivated/deactivated counts) is what makes this record actually useful to a dispute,
+        # not just proof that SOMETHING happened.
+        "critical": False,
+        "resource": "service",
+    },
+    {
         "action": "subject.erased",
         "source": "internal",
         "critical": True,

@@ -194,6 +194,7 @@ def build_manifest(
             {"path": "/api/v1/staff/services", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/services", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/services/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/staff/services/bulk_import", "tier": "user", "method": "POST"},
             # ── the platform console: OURS, not an establishment's ────────────────────────
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.

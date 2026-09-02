@@ -30,6 +30,7 @@ import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import { halalas, riyals } from '../money';
 import type { Session } from '../session';
+import { ServicesImportDrawer } from './ServicesImportDrawer';
 
 interface Service {
   id: string; name: string; cycle_days: number; price_minor: number;
@@ -131,6 +132,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const [only, setOnly] = useState<string | null>(null);
   /** The add-a-service form, shown only when he asks for it. */
   const [adding, setAdding] = useState(false);
+  /** The file-import drawer (ServicesImportDrawer.tsx), same "shown only when asked" idiom. */
+  const [importing, setImporting] = useState(false);
   /**
    * WHICH ONES ARE ON SCREEN — and it opens on «المفعّلة», which is the answer he wants nine
    * visits out of ten.
@@ -612,16 +615,30 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // them, so a brand-new account had literally no way to add its first one (a screenshot showed
   // an empty screen with no button anywhere). Falling through once he asks to add keeps this
   // exact branch the true first state of the product while still letting him leave it.
-  if (services.length === 0 && !adding) {
+  if (services.length === 0 && !adding && !importing) {
     return (
       <div className="p-4">
         <EmptyState
           title="ابدأ بإضافة خدماتك"
           description="اكتب ما تبيعه فعلاً — اسم الخدمة، وكل كم يوم يعود العميل لها. تقدر تضيف وتعدّل متى شئت."
-          action={action(catalog, 'operations.create_service') ? (
-            <Button onClick={() => setAdding(true)}>أضف خدمتك الأولى</Button>
-          ) : undefined}
+          action={
+            <div className="flex gap-2">
+              {action(catalog, 'operations.create_service') ? (
+                <Button onClick={() => setAdding(true)}>أضف خدمتك الأولى</Button>
+              ) : null}
+              {/* A SHOP MIGRATING FROM A CASHIER/POS SYSTEM ALREADY HAS ITS FULL LIST SOMEWHERE —
+                  offering only "type your first one" here means the fastest path for exactly that
+                  shop (import the whole thing at once) was invisible until services.length > 0,
+                  which it can never be before the first import. Found while wiring the button in,
+                  fixed here rather than shipped with the same gap. */}
+              {action(catalog, 'operations.bulk_import_services') ? (
+                <Button variant="outline" onClick={() => setImporting(true)}>استيراد من ملف</Button>
+              ) : null}
+            </div>
+          }
         />
+        <ServicesImportDrawer session={session} catalog={catalog} existing={[]}
+                             open={importing} onClose={() => setImporting(false)} onImported={load} />
       </div>
     );
   }
@@ -745,10 +762,21 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           {asked ? 'إخفاء الشرح' : 'شرح الأعمدة'}
         </button>
 
+        {action(catalog, 'operations.bulk_import_services') && !adding ? (
+          <Button className={action(catalog, 'operations.create_service') ? undefined : 'ms-auto'}
+                 variant="outline" onClick={() => setImporting(true)}>
+            استيراد من ملف
+          </Button>
+        ) : null}
+
         {action(catalog, 'operations.create_service') && !adding ? (
           <Button className="ms-auto" onClick={() => setAdding(true)}>إضافة خدمة أو منتج</Button>
         ) : null}
       </div>
+
+      <ServicesImportDrawer session={session} catalog={catalog}
+                           existing={(services ?? []).map((s) => ({ name: s.name, active: s.active }))}
+                           open={importing} onClose={() => setImporting(false)} onImported={load} />
 
       {action(catalog, 'reminders.set_general') ? (
         <details className="group">
