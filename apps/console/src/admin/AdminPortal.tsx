@@ -6,17 +6,17 @@
  */
 import { useState } from 'react';
 import { AdminBottomNav, AdminSidebar, type Tab } from './AdminNav';
+import { AdminAccount } from './AdminAccount';
 import { AdminApps } from './AdminApps';
 import { AdminCustomers } from './AdminCustomers';
 import { AdminDoor } from './AdminDoor';
 import { AdminFinance } from './AdminFinance';
 import { AdminHome } from './AdminHome';
 import { AdminPlatform } from './AdminPlatform';
-import { ComingSoon } from './ComingSoon';
 import { useAdminSession } from './session';
 
 export function AdminPortal() {
-  const { session, signedIn, signIn } = useAdminSession();
+  const { session, signedIn, signIn, signOut } = useAdminSession();
   const [tab, setTab] = useState<Tab>('home');
 
   if (!signedIn) {
@@ -33,7 +33,7 @@ export function AdminPortal() {
           {tab === 'customers' ? <AdminCustomers session={session} /> : null}
           {tab === 'billing' ? <AdminFinance session={session} /> : null}
           {tab === 'platform' ? <AdminPlatform session={session} /> : null}
-          {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
+          {tab === 'account' ? <AdminAccount onSignOut={signOut} /> : null}
         </div>
         <AdminBottomNav active={tab} onChange={setTab} />
       </div>
