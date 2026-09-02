@@ -46,6 +46,16 @@ jobs:
       - name: every public route has a real path through the edge
         run: python3 ci/check_a_public_route_is_actually_reachable_through_the_edge.py
 
+      # api-gateway's ADMIN_SERVICES must name only DEPLOYED services, and a console screen that
+      # shows a permission-denial-shaped message must be able to tell "no permission" apart from
+      # "the service never answered". Found live: secrets-admin sits in deploy/services-pending/
+      # (a real image, a platform/ chart change still pending), but ADMIN_SERVICES still names it —
+      # the panel correctly reported it unreachable, but AdminProviderSecrets.tsx (and, it turned
+      # out, most of the admin panel's screens, sharing ActionRenderer.tsx's own version of the
+      # same pattern) told an operator with the right capability "ليست ضمن صلاحياتك" instead.
+      - name: admin catalog targets are deployed, and screens can tell why an action is missing
+        run: python3 ci/check_admin_catalog_targets_are_actually_deployed.py
+
       # WhatsApp send providers (notification-service, platform/ submodule) are a port + adapter
       # registry — FailoverWhatsApp trusts every driver in WHATSAPP_CHAIN to answer the FULL
       # WhatsAppProvider port (send + send_interactive), not only the half ordinary sends
