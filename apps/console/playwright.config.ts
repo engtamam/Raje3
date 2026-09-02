@@ -41,6 +41,7 @@ export default defineConfig({
     'customers.spec.ts',
     'shop.spec.ts',
     'services.spec.ts',
+    'services_import.spec.ts',
     'messages.spec.ts',
     'points.spec.ts',
     'team.spec.ts',

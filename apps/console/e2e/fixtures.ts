@@ -53,9 +53,21 @@ export const SHOP_NAME = 'بنشر الاختبار';
  * Returns the phone, because a test that wants to sign in again — or to prove that signing in
  * twice does not create two shops — needs the number this run used.
  */
+/**
+ * '' for every real run (the dev server's own webServer serves the app at the SITE root — no
+ * marketing landing page competes for it in dev). Set ONLY for a manual pass against the real
+ * cluster, where the edge's own Caddyfile serves the marketing landing page at bare `/` and the
+ * app lives under `/app/` (deploy/edge/console.yaml — the same split affiliates.<domain> and
+ * admin.<domain> use their own root for, this is the shop's own domain's version of it). Every
+ * `page.goto` in this file is an absolute, leading-slash path on purpose — see this file's own
+ * "IT RUNS FIRST" convention — so a bare `baseURL` with a path segment cannot fix this; the path
+ * itself has to carry the prefix.
+ */
+const APP_BASE = process.env.E2E_APP_BASE ?? '';
+
 export async function openShop(page: Page): Promise<string> {
   const phone = newPhone();
-  await page.goto('/');
+  await page.goto(`${APP_BASE}/`);
 
   // THE DOOR IS THE WHOLE PAGE when signed out. If this finds the nav instead, a previous run left
   // a session behind and everything after it would be testing a shop we did not create.
@@ -133,7 +145,7 @@ export async function openShop(page: Page): Promise<string> {
  * that will be missing from the tenth.
  */
 export async function open(page: Page, path: string): Promise<string> {
-  await page.goto(path);
+  await page.goto(`${APP_BASE}${path}`);
 
   // WAIT FOR THE SIGNED-IN SHELL, THEN FOR THE SCREEN TO STOP LOADING. Nothing about the
   // shell's internals, and — the part that took four wrong answers — no threshold on how much
@@ -188,7 +200,7 @@ export const test = base.extend<{ shop: Page }>({
     //
     // It is also the app behaving correctly: an expired session signs out, because «تعذّر الوصول
     // إلى المنصة» would tell an owner to wait for something that is not broken.
-    await page.goto('/');
+    await page.goto(`${APP_BASE}/`);
 
     // WAIT FOR WHICHEVER ARRIVES — the door or the shell — instead of racing a fixed timeout
     // against one of them.

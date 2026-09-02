@@ -34,6 +34,8 @@ apps/*/dist/
 apps/console/test-results/
 apps/console/playwright-report/
 apps/console/e2e/.session.json
+apps/console/e2e/.session.phone
+apps/console/e2e/.import-session.json
 
 # The deploy bundle pack.sh builds. A build artefact: it is rebuilt from the tree on
 # demand, and committing it would put a stale copy of every values file in the history.
