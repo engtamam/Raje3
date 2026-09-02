@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/billing-service
-  digest: "sha256:502df8527d05b7c285affe6a548777c1b995bdf13c2e6763349030c227ffbb8c"   # v0.17.0
+  digest: "sha256:bde392175050d61c8c258e97a3397303876f5ddd17d574d1009e808b5b311f31"   # v0.18.0 — per-plan coupon (plan_id, COUPON_PLAN_MISMATCH)
 
 replicas: 1
 
@@ -36,7 +36,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    cpu: 54m  # smart-cpu-sizing.py: medium tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi

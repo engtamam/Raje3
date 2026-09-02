@@ -5,15 +5,10 @@
  * قسمين مكدَّسين تحت بعض — الشريط الجانبي محدود عمداً بـ٥-٦ أقسام (طلب سابق)، فتبويب سابع
  * كامل لم يكن خياراً.
  *
- * كوبون مرتبط بباقة محددة (`plan_id`) — WIRED AGAINST A CONTRACT, NOT A SHIPPED BACKEND YET.
- * base-services confirmed the shape (plan_id on create/update coupon; subscribe() refuses with
- * COUPON_PLAN_MISMATCH on a mismatch, checked before redeem) but it lands in v0.18.0, not yet
- * tagged as this comment is written. Shipping this console build against the CURRENT live
- * billing-service would silently ignore `plan_id` — an operator would believe a discount was
- * scoped to one plan while it stayed global, the exact silent-money-lie the REFUSE design exists
- * to prevent, one layer up. DO NOT `deploy_ship console` past this point until
- * `platform/`'s submodule pin is bumped to v0.18.0 — see this repo's own commit history for when
- * that lands; ship immediately after, not before.
+ * كوبون مرتبط بباقة محددة (`plan_id`) — shipped against billing-service v0.18.0 (submodule pin
+ * bumped, digest confirmed carrying plan_id + COUPON_PLAN_MISMATCH). Held for exactly this reason
+ * until the bump landed, to avoid the console silently sending `plan_id` to a backend that ignores
+ * it — an operator believing a discount was plan-scoped while it stayed global.
  *
  * "التطبيقات" (تفعيل/تعطيل تطبيق كامل، لا مجرد سعر باقة) و"إنشاء" باقة جديدة كليّاً — مؤجَّلان،
  * يحتاجان نموذجاً أعقد (أسعار متعددة، حدود من الصفر). تعديل/إنشاء كوبون صار حقيقياً (هذا الملف).

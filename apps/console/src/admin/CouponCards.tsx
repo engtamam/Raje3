@@ -1,11 +1,8 @@
 /**
  * Coupon cards — same idea as PlanCards.tsx. `billing.delete_coupon` was already a real button
  * (it takes no body at all, so the generic engine could already fire it). CouponEditDrawer now
- * handles both create_coupon and update_coupon — value, type, dates, and (once base-services'
- * v0.18.0 lands the plan_id field, see this repo's own note in AdminApps.tsx) which plan it
- * discounts, or "any plan" when left unset. Built against the CONTRACT base-services relayed
- * (plan_id in the body, COUPON_PLAN_MISMATCH as a 4xx), not yet shipped live — see AdminApps.tsx's
- * own header for why.
+ * handles both create_coupon and update_coupon — value, type, dates, and (billing-service v0.18.0's
+ * plan_id field) which plan it discounts, or "any plan" when left unset.
  */
 import { useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
