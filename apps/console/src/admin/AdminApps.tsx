@@ -9,6 +9,17 @@
  * "التطبيقات" (تفعيل/تعطيل تطبيق كامل، لا مجرد سعر باقة) و"إنشاء" كوبون/باقة جديدة — نموذج ملء
  * حقول من الصفر — مؤجَّلان: `ActionRenderer` اليوم يُشغِّل فقط أفعالاً معاملُها الوحيد مسار
  * (path) يُحل من صفّ قائمة، لا نموذج إنشاء حر. تُبنى لاحقاً كشاشة نموذج مخصّصة.
+ *
+ * SAME REASON `billing.update_plan` / `billing.update_coupon` / `billing.plan_availability`
+ * are NOT offered as row actions here, even though `ActionListGroup` would happily render them
+ * (their only PATH param resolves fine against a row — see `ActionRenderer.tsx`'s own header on
+ * that check). All three take only BODY params, every one optional, and the generic
+ * `ConfirmDialog` this fallback tier uses has no fields to fill any of them — confirming always
+ * sent an empty body. The backend then wrote a REAL audit entry (`plan.updated`,
+ * `coupon.updated`, `plan.availability_changed`) with `"fields": []` and changed nothing: a
+ * false trail in the audit log, on every click, for a button that visibly claimed to do
+ * something. Caught recording this screen's own tour. `billing.delete_coupon` stays — it takes
+ * no body at all, so "confirm" really does what its label says.
  */
 import { useEffect, useState } from 'react';
 import { ActionListGroup } from './ActionRenderer';
@@ -48,15 +59,17 @@ export function AdminApps({ session }: { session: AdminSession }) {
 
       {nothingAvailable ? (
         <p className="text-sm text-text-secondary">
-          حسابك لا يحمل صلاحية القراءة هنا — لا باقات ولا كوبونات لعرضها لك.
+          {catalog.unreachable.length > 0
+            ? `تعذّر الوصول لخدمة أو أكثر عند بناء هذي الشاشة (${catalog.unreachable.join('، ')}) — ` +
+              'قد يكون هذا سبب عدم ظهور شي هنا، لا صلاحياتك.'
+            : 'حسابك لا يحمل صلاحية القراءة هنا — لا باقات ولا كوبونات لعرضها لك.'}
         </p>
       ) : null}
 
       {plansList ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">الباقات والأسعار</h2>
-          <ActionListGroup session={session} listAction={plansList}
-                           rowActions={rowActionsFor(['billing.update_plan', 'billing.plan_availability'])} />
+          <ActionListGroup session={session} listAction={plansList} rowActions={[]} />
         </section>
       ) : null}
 
@@ -64,7 +77,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
         <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">الخصومات والعروض (كوبونات)</h2>
           <ActionListGroup session={session} listAction={couponsList}
-                           rowActions={rowActionsFor(['billing.update_coupon', 'billing.delete_coupon'])} />
+                           rowActions={rowActionsFor(['billing.delete_coupon'])} />
         </section>
       ) : null}
     </div>

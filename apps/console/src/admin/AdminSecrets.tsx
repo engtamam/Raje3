@@ -16,6 +16,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
 
 interface SecretRow { name: string; hint: string; set_at: string; rotating: boolean }
 interface ServiceSecrets {
@@ -80,7 +81,7 @@ export function AdminSecrets({ session }: { session: AdminSession }) {
     .filter((s): s is ServiceSecrets => s !== null);
 
   if (services.length === 0) {
-    return <div className="p-6"><EmptyState title="لا أسرار متاحة لصلاحياتك" /></div>;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا أسرار متاحة لصلاحياتك" />;
   }
 
   // Group services into apps, preserving first-seen order.

@@ -21,6 +21,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
 
 interface SecretRow {
   key: string;
@@ -67,8 +68,11 @@ export function AdminProviderSecrets({ session }: { session: AdminSession }) {
   if (!listAction) {
     // NOT FILTERED OUT ON PURPOSE — see this file's own header and secrets-admin's
     // admin_actions.py's own note. Whoever lacks platform.secrets_manage is told so here rather
-    // than finding the tab simply missing, which reads as a bug rather than a boundary.
-    return <div className="p-6"><EmptyState title="هذه الشاشة ليست ضمن صلاحياتك" /></div>;
+    // than finding the tab simply missing, which reads as a bug rather than a boundary — BUT see
+    // NoActionAvailable's own header first: "the action is missing" and "I lack the capability"
+    // are not the same fact, and secrets-admin itself being undeployed (deploy/services-pending/)
+    // is exactly the live incident that taught this the hard way.
+    return <NoActionAvailable catalog={catalog} permissionTitle="هذه الشاشة ليست ضمن صلاحياتك" />;
   }
 
   return (

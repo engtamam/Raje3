@@ -11,6 +11,7 @@ import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
 
 interface DeliveryRow {
   id?: string; status?: string; receipt_status?: string; error?: string;
@@ -34,7 +35,7 @@ export function AdminWhatsAppDiagnostics({ session }: { session: AdminSession })
     .find((a) => a.id === 'operations.whatsapp_diagnostics');
 
   if (!action) {
-    return <div className="p-6"><EmptyState title="لا صلاحية لديك لتشخيص واتساب" /></div>;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لتشخيص واتساب" />;
   }
 
   return <DiagnosticsSearch session={session} action={action} />;

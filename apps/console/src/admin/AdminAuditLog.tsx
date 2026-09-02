@@ -9,6 +9,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Table, type TableColumn } from '../rj-ui/Table';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
 
 interface AuditEvent {
   id: string; seq: number; ts: string; service: string; action: string;
@@ -43,7 +44,7 @@ export function AdminAuditLog({ session }: { session: AdminSession }) {
   const verifyAction = actions.find((a) => a.id === 'audit.verify');
 
   if (!queryAction) {
-    return <p className="p-6 text-sm text-text-secondary">لا صلاحية لديك لتصفّح سجل التدقيق.</p>;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لتصفّح سجل التدقيق." />;
   }
 
   return (

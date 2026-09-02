@@ -5,10 +5,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ActionCatalogPanel } from './ActionRenderer';
-import type { AdminAction } from './catalog';
+import type { AdminAction, AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 
 const SESSION: AdminSession = { access_token: 'tok-1' };
+const CATALOG_ALL_REACHABLE: AdminCatalog = { services: [], unreachable: [] };
 
 const LIST_ACTION: AdminAction = {
   id: 'affiliates.list_pending', label: 'طلبات التسويق المعلّقة', method: 'GET',
@@ -41,7 +42,7 @@ describe('ActionCatalogPanel', () => {
     reqMock = vi.fn().mockResolvedValue({
       applications: [{ id: 'app-1', name: 'سالم', phone: '+966501234567', status: 'pending' }],
     });
-    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION]} />);
+    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
     await waitFor(() => expect(screen.getAllByText('سالم').length).toBeGreaterThan(0));
     expect(screen.getAllByText('+966501234567').length).toBeGreaterThan(0);
   });
@@ -50,14 +51,14 @@ describe('ActionCatalogPanel', () => {
     reqMock = vi.fn().mockResolvedValue({
       applications: [{ id: 'app-1', name: 'سالم', status: 'pending' }],
     });
-    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, APPROVE_ACTION, REJECT_ACTION]} />);
+    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, APPROVE_ACTION, REJECT_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
     await waitFor(() => expect(screen.getAllByText('قبول طلب مسوّق').length).toBeGreaterThan(0));
     expect(screen.getAllByText('رفض طلب مسوّق').length).toBeGreaterThan(0);
   });
 
   it('a danger action (reject) is armed — confirm stays disabled until the row label is typed', async () => {
     reqMock = vi.fn().mockResolvedValue({ applications: [{ id: 'app-1', name: 'سالم' }] });
-    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, REJECT_ACTION]} />);
+    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, REJECT_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
     await waitFor(() => expect(screen.getAllByText('رفض طلب مسوّق').length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getAllByText('رفض طلب مسوّق')[0]);
@@ -73,7 +74,7 @@ describe('ActionCatalogPanel', () => {
       .mockResolvedValueOnce({ applications: [{ id: 'app-1', name: 'سالم' }] })  // initial load
       .mockResolvedValueOnce({ ok: true })                                       // approve call
       .mockResolvedValueOnce({ applications: [] });                              // reload after
-    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, APPROVE_ACTION]} />);
+    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, APPROVE_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
     await waitFor(() => expect(screen.getAllByText('قبول طلب مسوّق').length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getAllByText('قبول طلب مسوّق')[0]);
@@ -85,7 +86,19 @@ describe('ActionCatalogPanel', () => {
 
   it('an empty result says so honestly, not a blank table', async () => {
     reqMock = vi.fn().mockResolvedValue({ applications: [] });
-    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION]} />);
+    render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
     await waitFor(() => expect(screen.getAllByText('طلبات التسويق المعلّقة').length).toBeGreaterThan(0));
+  });
+
+  it('no actions AND every service answered — a real permission gap, said as one', () => {
+    render(<ActionCatalogPanel session={SESSION} actions={[]} catalog={CATALOG_ALL_REACHABLE} />);
+    expect(screen.getByText('لا إجراءات متاحة لصلاحياتك هنا بعد')).toBeTruthy();
+  });
+
+  it('no actions AND a service failed to answer — names it, does not claim no permission', () => {
+    const catalog: AdminCatalog = { services: [], unreachable: ['secrets-admin'] };
+    render(<ActionCatalogPanel session={SESSION} actions={[]} catalog={catalog} />);
+    expect(screen.queryByText('لا إجراءات متاحة لصلاحياتك هنا بعد')).toBeNull();
+    expect(screen.getByText(/secrets-admin/)).toBeTruthy();
   });
 });

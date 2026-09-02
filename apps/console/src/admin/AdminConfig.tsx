@@ -8,9 +8,9 @@
 import { useEffect, useState } from 'react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
-import { EmptyState } from '../rj-ui/EmptyState';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
 
 interface ServiceConfig {
   service: string;
@@ -64,11 +64,7 @@ export function AdminConfig({ session }: { session: AdminSession }) {
   if (catalog === 'loading') return <p className="p-6 text-sm text-text-secondary">جارٍ التحميل…</p>;
   if (catalog === 'failed') return <p role="alert" className="p-6 text-danger">تعذّرت قراءة كتالوج الإدارة.</p>;
   if (services.length === 0) {
-    return (
-      <div className="p-6">
-        <EmptyState title="لا إعدادات حيّة متاحة لصلاحياتك" />
-      </div>
-    );
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا إعدادات حيّة متاحة لصلاحياتك" />;
   }
 
   return (

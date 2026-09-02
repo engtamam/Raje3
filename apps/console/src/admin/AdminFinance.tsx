@@ -17,6 +17,7 @@ import { Table, type TableColumn } from '../rj-ui/Table';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { riyalsLabel, halalas } from '../money';
+import { NoActionAvailable } from './NoActionAvailable';
 
 type SubTab = 'invoices' | 'subscriptions' | 'tools';
 
@@ -44,7 +45,7 @@ export function AdminFinance({ session }: { session: AdminSession }) {
   const reconcileAction = actions.find((a) => a.id === 'billing.reconcile_payment');
 
   if (!invoicesAction && !subscriptionsAction) {
-    return <p className="p-6 text-sm text-text-secondary">لا صلاحية لديك لعرض المالية.</p>;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لعرض المالية." />;
   }
 
   return (
@@ -69,7 +70,7 @@ export function AdminFinance({ session }: { session: AdminSession }) {
         <SubscriptionsPanel session={session} action={subscriptionsAction} />
       ) : null}
       {sub === 'tools' ? (
-        <PaymentTools session={session} refundAction={refundAction} reconcileAction={reconcileAction} />
+        <PaymentTools session={session} refundAction={refundAction} reconcileAction={reconcileAction} catalog={catalog} />
       ) : null}
     </div>
   );
@@ -462,8 +463,9 @@ function SubscriptionsPanel({ session, action }: { session: AdminSession; action
   );
 }
 
-function PaymentTools({ session, refundAction, reconcileAction }: {
+function PaymentTools({ session, refundAction, reconcileAction, catalog }: {
   session: AdminSession; refundAction?: AdminAction; reconcileAction?: AdminAction;
+  catalog: AdminCatalog;
 }) {
   const [paymentId, setPaymentId] = useState('');
   const [armRefund, setArmRefund] = useState(false);
@@ -507,7 +509,7 @@ function PaymentTools({ session, refundAction, reconcileAction }: {
   }
 
   if (!refundAction && !reconcileAction) {
-    return <p className="px-6 pb-6 text-sm text-text-secondary">لا صلاحية لديك لأدوات الدفع.</p>;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لأدوات الدفع." />;
   }
 
   return (

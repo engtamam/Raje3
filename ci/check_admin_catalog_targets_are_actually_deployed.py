@@ -103,10 +103,12 @@ def check_screens_distinguish_unreachable() -> list[str]:
         if _NO_PERMISSION_MARKER not in text:
             continue
         # A screen that mentions permission-denial at all is expected to have READ the catalog's
-        # own signal for "a service didn't answer" — not necessarily branched on it with different
-        # copy (that's a design choice), but at least looked at it, so a future edit has the
-        # information available rather than guessing the way AdminProviderSecrets.tsx once did.
-        if "unreachable" in text:
+        # own signal for "a service didn't answer" — either directly (`unreachable` appears
+        # somewhere in the file) or through the shared `NoActionAvailable` component (see its own
+        # header), which is the actual correct fix and reads `catalog.unreachable` on every
+        # screen's behalf. Either satisfies this check; the point is the information is used
+        # SOMEWHERE on the path to this message, not reinvented per screen.
+        if "unreachable" in text or "NoActionAvailable" in text:
             continue
         rel = path.relative_to(ROOT)
         problems.append(

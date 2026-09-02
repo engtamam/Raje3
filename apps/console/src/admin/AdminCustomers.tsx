@@ -50,7 +50,7 @@ export function AdminCustomers({ session }: { session: AdminSession }) {
           ]}
         />
       </div>
-      {sub === 'affiliates' ? <ActionCatalogPanel session={session} actions={affiliateActions} /> : null}
+      {sub === 'affiliates' ? <ActionCatalogPanel session={session} actions={affiliateActions} catalog={catalog} /> : null}
       {sub === 'whatsapp' ? <AdminWhatsAppDiagnostics session={session} /> : null}
     </div>
   );

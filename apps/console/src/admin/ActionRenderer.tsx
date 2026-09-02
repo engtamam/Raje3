@@ -19,9 +19,10 @@ import { Table, type TableColumn } from '../rj-ui/Table';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
-import type { AdminAction } from './catalog';
+import type { AdminAction, AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { resolvePath, runAction, rowLabel } from './actionApi';
+import { NoActionAvailable } from './NoActionAvailable';
 
 type Row = Record<string, unknown>;
 
@@ -138,7 +139,9 @@ export function ActionListGroup({ session, listAction, rowActions }: {
 /** Groups a catalog slice by `group`, and renders one `ActionListGroup` per group that has a
  *  read (GET, no path params) action — the entry point `ComingSoon` placeholders get swapped for
  *  once a section's real screen isn't built yet. */
-export function ActionCatalogPanel({ session, actions }: { session: AdminSession; actions: AdminAction[] }) {
+export function ActionCatalogPanel({ session, actions, catalog }: {
+  session: AdminSession; actions: AdminAction[]; catalog: AdminCatalog;
+}) {
   const byGroup = new Map<string, AdminAction[]>();
   for (const a of actions) {
     const key = a.group || 'أخرى';
@@ -154,7 +157,7 @@ export function ActionCatalogPanel({ session, actions }: { session: AdminSession
     .filter((s): s is { group: string; listAction: AdminAction; rowActions: AdminAction[] } => s !== null);
 
   if (sections.length === 0) {
-    return <EmptyState title="لا إجراءات متاحة لصلاحياتك هنا بعد" />;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا إجراءات متاحة لصلاحياتك هنا بعد" />;
   }
 
   return (

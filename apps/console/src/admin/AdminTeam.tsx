@@ -22,6 +22,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { Table, type TableColumn } from '../rj-ui/Table';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
 
 const PLATFORM_ROLES: { id: string; label: string }[] = [
   { id: 'platform-owner', label: 'مالك المنصّة' },
@@ -58,7 +59,7 @@ export function AdminTeam({ session }: { session: AdminSession }) {
   const removeAction = actions.find((a) => a.id === 'identity.remove_member');
 
   if (!listAction) {
-    return <div className="p-6"><EmptyState title="لا صلاحية لديك لإدارة فريق الإدارة" /></div>;
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لإدارة فريق الإدارة" />;
   }
 
   return (
