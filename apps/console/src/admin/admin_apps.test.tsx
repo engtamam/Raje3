@@ -1,10 +1,10 @@
 /**
- * التطبيقات والأسعار والعروض — proven against real catalog ids: plans and coupons share the
- * same backend `group` ("Catalogue"), which is exactly why this screen names each list
- * explicitly rather than relying on the generic one-list-per-group picker.
+ * التطبيقات والأسعار والعروض — proven against real catalog ids and real response shapes
+ * (billing-service's own Plan/Coupon fields). Plans and Coupons are Segmented sub-tabs on one
+ * screen now, not two stacked sections — the sidebar stays at its deliberate 5-6 items.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AdminApps } from './AdminApps';
 import type { AdminSession } from './api';
 
@@ -16,18 +16,28 @@ const FULL_CATALOG = {
   services: [{ service: 'billing-service', actions: [
     { id: 'billing.list_plans', label: 'Plans & pricing', method: 'GET' as const,
      path: '/api/v1/billing/plans', capability: 'billing.manage', group: 'Catalogue' },
-    { id: 'billing.update_plan', label: 'Edit a plan', method: 'PATCH' as const,
-     path: '/api/v1/billing/plans/{plan_id}', capability: 'billing.manage',
+    { id: 'billing.plan_availability', label: 'Retire or hide a plan', method: 'POST' as const,
+     path: '/api/v1/billing/plans/{plan_id}/availability', capability: 'billing.manage',
      params: [{ name: 'plan_id', in: 'path' as const, type: 'string', required: true }],
      confirm: true, group: 'Catalogue' },
     { id: 'billing.list_coupons', label: 'Coupons', method: 'GET' as const,
      path: '/api/v1/billing/coupons', capability: 'platform.billing', group: 'Catalogue' },
     { id: 'billing.delete_coupon', label: 'Delete a coupon', method: 'DELETE' as const,
-     path: '/api/v1/billing/coupons/{coupon_id}', capability: 'platform.billing',
-     params: [{ name: 'coupon_id', in: 'path' as const, type: 'string', required: true }],
+     path: '/api/v1/billing/coupons/{code}', capability: 'platform.billing',
+     params: [{ name: 'code', in: 'path' as const, type: 'string', required: true }],
      danger: true, confirm: true, group: 'Catalogue' },
   ] }],
   unreachable: [],
+};
+
+const PLAN = {
+  id: 'plan_419e081916264f6bbe935e97877af116', name: 'الأساس', active: true, listed: true,
+  prices: [{ type: 'flat', currency: 'SAR', interval: 'month', amount_minor: 9900 }],
+  limits: { 'staff.seats': { kind: 'gauge', limit: 5 } }, trial_days: 0,
+};
+const COUPON = {
+  code: 'RAMADAN26', type: 'percent', value: 20, status: 'active',
+  max_redemptions: 0, redeemed: 3, public: true,
 };
 
 let fetchCatalogMock: ReturnType<typeof vi.fn>;
@@ -45,30 +55,68 @@ vi.mock('./api', async (importOriginal) => {
 afterEach(() => vi.clearAllMocks());
 
 describe('AdminApps', () => {
-  it('renders BOTH plans and coupons, even though they share one backend group', async () => {
+  it('shows plans by default, translated into readable cards — not a raw table', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
-    reqMock = vi.fn()
-      .mockResolvedValueOnce({ plans: [{ id: 'plan-1', name: 'الأساسية', price_halalas: 9900 }] })
-      .mockResolvedValueOnce({ coupons: [{ id: 'cpn-1', code: 'RAMADAN26', kind: 'percent' }] });
+    reqMock = vi.fn().mockResolvedValue({ plans: [PLAN] });
 
     render(<AdminApps session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('الباقات والأسعار')).toBeTruthy());
-    expect(screen.getByText('الخصومات والعروض (كوبونات)')).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText('الأساسية').length).toBeGreaterThan(0));
-    expect(screen.getAllByText('RAMADAN26').length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getByText('الأساس')).toBeTruthy());
+    expect(screen.getByText('99 ريال')).toBeTruthy();
+    expect(screen.getByText('مقاعد الموظفين')).toBeTruthy();   // translated, not "staff.seats"
+    expect(screen.getByText('نشطة')).toBeTruthy();
   });
 
-  it('offers the coupon delete action, armed by its own row', async () => {
+  it('switching to the coupons sub-tab loads and renders them', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({ plans: [] })
-      .mockResolvedValueOnce({ coupons: [{ id: 'cpn-1', code: 'RAMADAN26' }] });
+      .mockResolvedValueOnce({ coupons: [COUPON] });
 
     render(<AdminApps session={SESSION} />);
-    await waitFor(() => expect(screen.getAllByText('Delete a coupon').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByText('الخصومات والعروض')).toBeTruthy());
+    fireEvent.click(screen.getByText('الخصومات والعروض'));
+
+    await waitFor(() => expect(screen.getByText('RAMADAN26')).toBeTruthy());
+    expect(screen.getByText('خصم 20%')).toBeTruthy();
+    expect(screen.getByText('فعّال')).toBeTruthy();
   });
 
-  it('an honest sentence, no section headers, when nothing is readable', async () => {
+  it('toggling a plan off calls plan_availability with active:false, then reloads', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ plans: [PLAN] })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ plans: [{ ...PLAN, active: false }] });
+
+    render(<AdminApps session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('إيقاف الباقة')).toBeTruthy());
+    fireEvent.click(screen.getByText('إيقاف الباقة'));
+    fireEvent.click(screen.getByText('تأكيد'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/plans/plan_419e081916264f6bbe935e97877af116/availability',
+      'POST', { active: false }, 'tok-1'));
+  });
+
+  it('deleting a coupon fires the real action', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ plans: [] })
+      .mockResolvedValueOnce({ coupons: [COUPON] })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ coupons: [] });
+
+    render(<AdminApps session={SESSION} />);
+    fireEvent.click(await screen.findByText('الخصومات والعروض'));
+    await waitFor(() => expect(screen.getByText('حذف الكوبون')).toBeTruthy());
+    fireEvent.click(screen.getByText('حذف الكوبون'));
+    fireEvent.click(screen.getByText('تأكيد'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/coupons/RAMADAN26', 'DELETE', undefined, 'tok-1'));
+  });
+
+  it('an honest sentence, no sub-tabs, when nothing is readable', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminApps session={SESSION} />);
     await waitFor(() => expect(screen.getByText(/لا باقات ولا كوبونات لعرضها لك/)).toBeTruthy());

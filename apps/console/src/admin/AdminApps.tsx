@@ -1,33 +1,27 @@
 /**
- * التطبيقات والأسعار والعروض — المرحلة ٦: الباقات والكوبونات كلاهما موجود بالخلفية فعلاً
- * (`billing.list_plans`/`update_plan`/`plan_availability`، `billing.list_coupons`/
- * `update_coupon`/`delete_coupon` — كلها معلَنة بالفعل، لا حاجة لأي تصعيد كان مفترضاً بالخطة
- * للفجوة H). قسمان يشتركان بنفس `group` الخلفي ("Catalogue")، فعُرضا هنا صراحة كل واحد بقائمته
- * الخاصة بدل الاعتماد على المُفسِّر التلقائي بقسم واحد لكل مجموعة — انظر `ActionRenderer.tsx`'s
- * `ActionListGroup` نفسها، تُستدعى هنا مرتين.
+ * التطبيقات والأسعار والعروض — المرحلة ٦، أُعيد بناؤها لاحقاً كبطاقات مقروءة (PlanCards.tsx/
+ * CouponCards.tsx) بدل الجدول العام الخام — عمود إنجليزي، حدود مفكوكة كـJSON بعمود واحد، غير
+ * صالحة لمشغّل حقيقي. Plans و Coupons صارا تبويبين فرعيين (Segmented) أعلى نفس الشاشة، لا
+ * قسمين مكدَّسين تحت بعض — الشريط الجانبي محدود عمداً بـ٥-٦ أقسام (طلب سابق)، فتبويب سابع
+ * كامل لم يكن خياراً.
  *
  * "التطبيقات" (تفعيل/تعطيل تطبيق كامل، لا مجرد سعر باقة) و"إنشاء" كوبون/باقة جديدة — نموذج ملء
- * حقول من الصفر — مؤجَّلان: `ActionRenderer` اليوم يُشغِّل فقط أفعالاً معاملُها الوحيد مسار
- * (path) يُحل من صفّ قائمة، لا نموذج إنشاء حر. تُبنى لاحقاً كشاشة نموذج مخصّصة.
- *
- * SAME REASON `billing.update_plan` / `billing.update_coupon` / `billing.plan_availability`
- * are NOT offered as row actions here, even though `ActionListGroup` would happily render them
- * (their only PATH param resolves fine against a row — see `ActionRenderer.tsx`'s own header on
- * that check). All three take only BODY params, every one optional, and the generic
- * `ConfirmDialog` this fallback tier uses has no fields to fill any of them — confirming always
- * sent an empty body. The backend then wrote a REAL audit entry (`plan.updated`,
- * `coupon.updated`, `plan.availability_changed`) with `"fields": []` and changed nothing: a
- * false trail in the audit log, on every click, for a button that visibly claimed to do
- * something. Caught recording this screen's own tour. `billing.delete_coupon` stays — it takes
- * no body at all, so "confirm" really does what its label says.
+ * حقول من الصفر — مؤجَّلان: يحتاجان نموذجاً حقيقياً بحقول متعددة (أسعار، حدود، مواعيد)، لا يلائم
+ * التوليد التلقائي. تُبنى لاحقاً كشاشة نموذج مخصّصة.
  */
 import { useEffect, useState } from 'react';
-import { ActionListGroup } from './ActionRenderer';
+import { Segmented } from '../rj-ui/Segmented';
+import { PlanCards } from './PlanCards';
+import { CouponCards } from './CouponCards';
 import { allActions, fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
-import type { AdminSession } from './api';
+import { req, type AdminSession } from './api';
+import { NoActionAvailable } from './NoActionAvailable';
+
+type SubTab = 'plans' | 'coupons';
 
 export function AdminApps({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
+  const [sub, setSub] = useState<SubTab>('plans');
 
   useEffect(() => {
     let cancelled = false;
@@ -48,38 +42,76 @@ export function AdminApps({ session }: { session: AdminSession }) {
   const byId = (id: string) => flat.find((a) => a.id === id);
   const plansList = byId('billing.list_plans');
   const couponsList = byId('billing.list_coupons');
-  const rowActionsFor = (ids: string[]): AdminAction[] =>
-    ids.map(byId).filter((a): a is AdminAction => a !== undefined);
+  const availabilityAction = byId('billing.plan_availability');
+  const deleteCouponAction = byId('billing.delete_coupon');
 
-  const nothingAvailable = !plansList && !couponsList;
+  if (!plansList && !couponsList) {
+    return <NoActionAvailable catalog={catalog} permissionTitle="حسابك لا يحمل صلاحية القراءة هنا — لا باقات ولا كوبونات لعرضها لك." />;
+  }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-6">
       <h1 className="text-2xl leading-tight tracking-tight">التطبيقات والأسعار والعروض</h1>
 
-      {nothingAvailable ? (
-        <p className="text-sm text-text-secondary">
-          {catalog.unreachable.length > 0
-            ? `تعذّر الوصول لخدمة أو أكثر عند بناء هذي الشاشة (${catalog.unreachable.join('، ')}) — ` +
-              'قد يكون هذا سبب عدم ظهور شي هنا، لا صلاحياتك.'
-            : 'حسابك لا يحمل صلاحية القراءة هنا — لا باقات ولا كوبونات لعرضها لك.'}
-        </p>
+      <Segmented ariaLabel="القسم" value={sub} onChange={setSub}
+                options={[
+                  { value: 'plans', label: 'الباقات والأسعار' },
+                  { value: 'coupons', label: 'الخصومات والعروض' },
+                ]} />
+
+      {sub === 'plans' ? (
+        plansList
+          ? <PlansPane session={session} listAction={plansList} availabilityAction={availabilityAction} />
+          : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
       ) : null}
 
-      {plansList ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">الباقات والأسعار</h2>
-          <ActionListGroup session={session} listAction={plansList} rowActions={[]} />
-        </section>
-      ) : null}
-
-      {couponsList ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">الخصومات والعروض (كوبونات)</h2>
-          <ActionListGroup session={session} listAction={couponsList}
-                           rowActions={rowActionsFor(['billing.delete_coupon'])} />
-        </section>
+      {sub === 'coupons' ? (
+        couponsList
+          ? <CouponsPane session={session} listAction={couponsList} deleteAction={deleteCouponAction} />
+          : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
       ) : null}
     </div>
   );
+}
+
+function PlansPane({ session, listAction, availabilityAction }: {
+  session: AdminSession; listAction: AdminAction; availabilityAction?: AdminAction;
+}) {
+  const [rows, setRows] = useState<unknown[] | 'loading' | 'failed'>('loading');
+
+  const reload = () => {
+    setRows('loading');
+    req<{ plans: unknown[] }>(`${listAction.path}?include_hidden=true`, 'GET', undefined, session.access_token)
+      .then((body) => setRows(body.plans))
+      .catch(() => setRows('failed'));
+  };
+
+  useEffect(reload, [listAction, session]);
+
+  if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة الباقات.</p>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the catalog's own AdminAction
+  // carries no response schema (only request params) — see catalog.ts's own note on why.
+  return <PlanCards session={session} listAction={listAction} availabilityAction={availabilityAction}
+                    plans={rows as any} onReload={reload} />;
+}
+
+function CouponsPane({ session, listAction, deleteAction }: {
+  session: AdminSession; listAction: AdminAction; deleteAction?: AdminAction;
+}) {
+  const [rows, setRows] = useState<unknown[] | 'loading' | 'failed'>('loading');
+
+  const reload = () => {
+    setRows('loading');
+    req<{ coupons: unknown[] }>(listAction.path, 'GET', undefined, session.access_token)
+      .then((body) => setRows(body.coupons))
+      .catch(() => setRows('failed'));
+  };
+
+  useEffect(reload, [listAction, session]);
+
+  if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة الكوبونات.</p>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same reason as PlansPane above.
+  return <CouponCards session={session} deleteAction={deleteAction} coupons={rows as any} onReload={reload} />;
 }
