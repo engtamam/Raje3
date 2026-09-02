@@ -20,6 +20,10 @@ const FULL_CATALOG = {
      path: '/api/v1/billing/plans/{plan_id}/availability', capability: 'billing.manage',
      params: [{ name: 'plan_id', in: 'path' as const, type: 'string', required: true }],
      confirm: true, group: 'Catalogue' },
+    { id: 'billing.update_plan', label: 'Edit a plan', method: 'PATCH' as const,
+     path: '/api/v1/billing/plans/{plan_id}', capability: 'billing.manage',
+     params: [{ name: 'plan_id', in: 'path' as const, type: 'string', required: true }],
+     confirm: true, group: 'Catalogue' },
     { id: 'billing.list_coupons', label: 'Coupons', method: 'GET' as const,
      path: '/api/v1/billing/coupons', capability: 'platform.billing', group: 'Catalogue' },
     { id: 'billing.delete_coupon', label: 'Delete a coupon', method: 'DELETE' as const,
@@ -89,13 +93,33 @@ describe('AdminApps', () => {
       .mockResolvedValueOnce({ plans: [{ ...PLAN, active: false }] });
 
     render(<AdminApps session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('إيقاف الباقة')).toBeTruthy());
-    fireEvent.click(screen.getByText('إيقاف الباقة'));
+    await waitFor(() => expect(screen.getByText('إيقاف')).toBeTruthy());
+    fireEvent.click(screen.getByText('إيقاف'));
     fireEvent.click(screen.getByText('تأكيد'));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/billing/plans/plan_419e081916264f6bbe935e97877af116/availability',
       'POST', { active: false }, 'tok-1'));
+  });
+
+  it('editing a plan opens a real form and saves through billing.update_plan', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ plans: [PLAN] })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ plans: [{ ...PLAN, name: 'الأساس الجديد' }] });
+
+    render(<AdminApps session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تعديل')).toBeTruthy());
+    fireEvent.click(screen.getByText('تعديل'));
+
+    const nameInput = await screen.findByLabelText('الاسم');
+    fireEvent.change(nameInput, { target: { value: 'الأساس الجديد' } });
+    fireEvent.click(screen.getByText('حفظ'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/plans/plan_419e081916264f6bbe935e97877af116', 'PATCH',
+      expect.objectContaining({ name: 'الأساس الجديد' }), 'tok-1'));
   });
 
   it('deleting a coupon fires the real action', async () => {

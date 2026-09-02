@@ -43,6 +43,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
   const plansList = byId('billing.list_plans');
   const couponsList = byId('billing.list_coupons');
   const availabilityAction = byId('billing.plan_availability');
+  const updatePlanAction = byId('billing.update_plan');
   const deleteCouponAction = byId('billing.delete_coupon');
 
   if (!plansList && !couponsList) {
@@ -61,7 +62,8 @@ export function AdminApps({ session }: { session: AdminSession }) {
 
       {sub === 'plans' ? (
         plansList
-          ? <PlansPane session={session} listAction={plansList} availabilityAction={availabilityAction} />
+          ? <PlansPane session={session} listAction={plansList} availabilityAction={availabilityAction}
+                      updateAction={updatePlanAction} />
           : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
       ) : null}
 
@@ -74,8 +76,9 @@ export function AdminApps({ session }: { session: AdminSession }) {
   );
 }
 
-function PlansPane({ session, listAction, availabilityAction }: {
+function PlansPane({ session, listAction, availabilityAction, updateAction }: {
   session: AdminSession; listAction: AdminAction; availabilityAction?: AdminAction;
+  updateAction?: AdminAction;
 }) {
   const [rows, setRows] = useState<unknown[] | 'loading' | 'failed'>('loading');
 
@@ -93,7 +96,7 @@ function PlansPane({ session, listAction, availabilityAction }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the catalog's own AdminAction
   // carries no response schema (only request params) — see catalog.ts's own note on why.
   return <PlanCards session={session} listAction={listAction} availabilityAction={availabilityAction}
-                    plans={rows as any} onReload={reload} />;
+                    updateAction={updateAction} plans={rows as any} onReload={reload} />;
 }
 
 function CouponsPane({ session, listAction, deleteAction }: {
