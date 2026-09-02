@@ -93,14 +93,37 @@ class GeminiLlm:
     driver = "gemini"
 
     def __init__(self, *, api_key: str, model: str, timeout: int = 20,
-                allowed_tools: frozenset[str] = frozenset()) -> None:
-        self._key = api_key
+                allowed_tools: frozenset[str] = frozenset(), secret_store: Any = None) -> None:
+        # `api_key` is the ENV fallback, not necessarily the key actually used — see
+        # `_resolve_key` below. `secret_store` is optional so every existing caller (tests, a boot
+        # with no SECRETS_KEK configured) keeps working unchanged.
+        self._env_key = api_key
+        self._secret_store = secret_store
+        self._cached_key: str | None = None
         self._model = model
         self._timeout = timeout
         # Intersected with the module's own known schemas — a tool name in config that this file
         # does not know how to describe to Gemini is simply never declared, not an error, because
         # config drives ALLOWLIST membership, not tool CAPABILITY.
         self._allowed = frozenset(allowed_tools) & frozenset(_TOOL_SCHEMAS)
+
+    def invalidate_key_cache(self) -> None:
+        """Called by app/api/v1/operator.py right after a GEMINI_API_KEY rotation, so the next
+        `respond()` re-reads the store instead of serving the key this process booted with."""
+        self._cached_key = None
+
+    async def _resolve_key(self) -> str:
+        """The operator-set credential when one exists, else the env value this process booted
+        with. Cached in-process (invalidated on rotation, not on a timer) so a normal turn costs
+        no extra datastore round trip — only a rotation ever pays for a fresh read."""
+        if self._cached_key is not None:
+            return self._cached_key
+        key = self._env_key
+        if self._secret_store is not None:
+            key = await self._secret_store.get(tenant="", name="GEMINI_API_KEY",
+                                               fallback=self._env_key)
+        self._cached_key = key
+        return key
 
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
@@ -126,8 +149,9 @@ class GeminiLlm:
             payload["tools"] = [{"function_declarations": [
                 _TOOL_SCHEMAS[name] for name in sorted(tools_for_call)]}]
 
+        key = await self._resolve_key()
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{self._model}:generateContent?key={self._key}")
+               f"{self._model}:generateContent?key={key}")
         req = urllib.request.Request(
             url, data=json.dumps(payload).encode(), method="POST",
             headers={"Content-Type": "application/json"})

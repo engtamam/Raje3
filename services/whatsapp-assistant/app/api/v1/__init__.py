@@ -4,13 +4,10 @@
 # This service is internal/operator-facing (a WhatsApp bot has no end-user UI of
 # its own) — kept minimal: just the platform whoami probe every service exposes.
 #
-# NO operator.py HERE, deliberately, unlike reminders/loyalty. Their operator.py exists because
-# each has real runtime-tunable settings (send limits, redemption caps) an operator edits through
-# platform.secrets/platform.config routes. Every knob this service has today is deploy-time env
-# (deploy/services/whatsapp-assistant.values.yaml), not a per-tenant or runtime override — so an
-# operator.py here would expose routes with nothing behind them to actually tune. Add one the day
-# a real operator-tunable setting exists, mirroring services/reminders' operator.py + credential
-# store wiring — do not add empty routes just to fill this file.
+# operator.py NOW EXISTS (app/api/v1/operator.py, mounted separately in main.py, its own
+# /api/v1/operator prefix) — SECRETS ONLY, no /operator/config: GEMINI_API_KEY turned out to be
+# exactly the runtime-tunable credential this file's old note said would justify adding one. Every
+# OTHER knob is still deploy-time env; do not add /operator/config until a real one exists.
 #
 # NOT ROUTED THROUGH api-gateway EITHER, for the same reason: deploy/services/api-gateway.
 # values.yaml's prefix list has no `/api/v1/whatsapp-assistant` entry, so /whoami and /admin/ping

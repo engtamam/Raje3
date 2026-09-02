@@ -20,7 +20,16 @@ export interface AdminAction {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   capability: string;
-  params?: { name: string; in: 'path' | 'query' | 'body'; type: string; required?: boolean }[];
+  params?: {
+    name: string; in: 'path' | 'query' | 'body'; type: string; required?: boolean;
+    // OPTIONAL, and untouched by the aggregator's own sanitizer (platform/services/api-gateway's
+    // admin_catalog.py keeps every param object whole, filtering only on `name` being a string —
+    // see its own note) — a service that knows its exact expected credential names declares them
+    // here instead of leaving an operator to type one by hand and hope it matches. AdminSecrets.tsx
+    // renders a picker when this is present, free text when it is not; no schema change needed on
+    // the aggregator side to add it.
+    choices?: { value: string; label: string; impact: string }[];
+  }[];
   confirm?: boolean;
   danger?: boolean;
   group?: string;

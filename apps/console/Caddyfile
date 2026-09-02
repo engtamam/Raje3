@@ -79,6 +79,20 @@
 		file_server
 	}
 
+	# SAME BUG, SAME FIX, admin.<domain> — main.tsx's `isAdminHost` branch has existed since before
+	# this file's own affiliate_host block was added, and was never given the matching server-side
+	# half: every visit to https://admin.<domain>/ fell through to the marketing landing page below,
+	# confirmed live (curl returned the landing page's own HTML, not the SPA shell) — the exact
+	# defect this file's comment above already named and explained, just not closed for this host.
+	@admin_host {
+		header_regexp admin_host Host ^admin\.
+		not path /app/*
+	}
+	handle @admin_host {
+		try_files {path} /app/index.html
+		file_server
+	}
+
 	# The landing page at the root, same origin as the console, so a link from one into the other is
 	# not a cross-site anything.
 	handle {

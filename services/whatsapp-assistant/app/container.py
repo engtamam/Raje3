@@ -211,13 +211,17 @@ def build_container(settings: Settings) -> Container:
     from app.core.conversation import ConversationEngine
     from app.core.secret_store import SecretStore
 
-    # NO KEK, NO SECRET STORE. Rather than construct one that would raise on first use, this
-    # stays None until a future operator credential actually needs sealing — nothing in this
-    # service's send path holds one any more (see app/adapters/whatsapp_sender/direct.py).
+    # None only when SECRETS_KEK is genuinely absent (a boot with nothing to seal with — rather
+    # than construct a store that would raise on first use). In a real deployment it is present
+    # (one of the seven shared secrets every wipe+reinstall mints), and app/api/v1/operator.py's
+    # GEMINI_API_KEY rotation is what actually reads it now — see app/adapters/llm/__init__.py.
     container.secret_store = SecretStore(container.datastore, settings.SECRETS_KEK) \
         if settings.SECRETS_KEK else None
     container.inbound_store = build_inbound_store(container.datastore)
-    container.llm = build_llm(settings)
+    # secret_store BEFORE llm, and passed in: an operator-rotated GEMINI_API_KEY (app/api/v1/
+    # operator.py) needs the same store instance the LLM adapter resolves its key from, not a
+    # second one that would never see the write.
+    container.llm = build_llm(settings, secret_store=container.secret_store)
     # "config" (default) keeps the zero-infra placeholder; "real" (Phase 4) swaps in
     # RealBookingProvider — same port, see app/ports/booking_provider.py's own note. An unknown
     # driver value fails fast rather than silently falling back to the placeholder — a typo'd

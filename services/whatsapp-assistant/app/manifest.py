@@ -8,21 +8,28 @@ from typing import Any
 from app.config import Settings
 
 
+def _admin_actions() -> list[dict[str, Any]]:
+    """This service's declared admin actions, or [] if it declares none — mirrors every sibling
+    service's own manifest.py (e.g. services/reminders')."""
+    try:
+        from app.admin_actions import ADMIN_ACTIONS
+    except Exception:
+        return []
+    return list(ADMIN_ACTIONS)
+
+
 def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None) -> dict[str, Any]:
     return {
         "name": settings.SERVICE_NAME,
         "version": settings.SERVICE_VERSION,
         "env": settings.ENV,
-        # Empty, deliberately — was `["whatsapp_assistant.converse", "platform.whatsapp_assistant"]`,
-        # the _template default, and NEITHER was ever enforced by a real route: this service's own
-        # `/api/v1/*` surface is just `/whoami` (no capability) and `/admin/ping` (gated on the
-        # platform-wide "admin" cap every sibling's admin/ping route also uses, undeclared here for
-        # the same reason it is undeclared in loyalty/reminders' manifests). ci/check_deploy_wiring.py
-        # step 10 caught it: an advertised-but-unenforced capability is grantable and does nothing —
-        # worse than no capability, because it LOOKS like access. Add a real entry here the day a
-        # route actually requires one (mirroring loyalty's owner/platform capability split), not
-        # before.
-        "capabilities": [],
+        # "platform.secrets" is real now — app/api/v1/operator.py's /operator/secrets routes
+        # enforce it (Depends(require_capability("platform.secrets"))). Still no "admin" here for
+        # the same reason as before (undeclared in loyalty/reminders' manifests too, per
+        # ci/check_deploy_wiring.py step 10's own rule: only a capability a route enforces belongs
+        # here — /admin/ping's "admin" cap is a platform-wide convention every sibling repeats
+        # undeclared, not this service's own).
+        "capabilities": ["platform.secrets"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -42,17 +49,14 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
             {"path": "/internal/whatsapp_assistant/price", "tier": "internal", "method": "POST"},
+            # The operator credential surface (app/api/v1/operator.py) — GEMINI_API_KEY is the one
+            # runtime-tunable knob this service has: see that file's own note on why it exists now.
+            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
         ],
         "ports": ports or [],
         "events": {"emitted": [], "consumed": ["whatsapp.message", "whatsapp.status"]},
-        # Empty on purpose: this service exposes no operator-panel routes (no api/v1/operator.py),
-        # so it has nothing for the admin panel to call. See app/api/v1/__init__.py's own note —
-        # the operator surface (platform.secrets / platform.config credential+config editing) is a
-        # real capability every sibling service carries, but nothing in this service's config is
-        # operator-tunable yet (every knob is deploy-time env, not a per-tenant/runtime override),
-        # so declaring routes and capabilities for it now would be dead surface. Add it the day a
-        # real operator-tunable setting exists here, mirroring services/reminders/app/api/v1/
-        # operator.py and app/admin_actions.py — do not invent one to satisfy this comment.
-        "admin_actions": [],
+        "admin_actions": _admin_actions(),
         "user_actions": [],
     }

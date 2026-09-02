@@ -109,10 +109,22 @@ env:
   # and signing in. Every one of them answers a wrong number exactly as it answers a wrong
   # password, so being reachable without a token reveals nothing.
   #
-  # identity's /api/v1/otp is DELIBERATELY NOT ROUTED. It was, for an hour, and that was the bug:
-  # the browser proved a number directly against identity, identity recorded no verdict, and our
-  # sign-in had nothing to ask — so the verification step was a screen a person could simply walk
-  # around. The exchange now runs inside operations, which writes the answer down.
+  # identity's /api/v1/otp/verify STAYS DELIBERATELY UNROUTED. It was, for an hour, and that was
+  # the bug: the browser proved a number directly against identity, identity recorded no verdict,
+  # and our sign-in had nothing to ask — so the verification step was a screen a person could
+  # simply walk around. The exchange for signup/login now runs inside operations, which writes
+  # the answer down.
+  #
+  # /api/v1/otp/request IS ROUTED (below, auth=none) — confirmed against base-services-de this
+  # does not reopen the same hole: `request` only MINTS a code and sends it, it never CONSUMES
+  # one, so nothing here lets a browser prove anything to itself with nothing recorded. The admin
+  # door's «نسيت كلمة المرور؟» (AdminDoor.tsx) calls it to trigger delivery, then the code is
+  # verified and consumed ATOMICALLY with the password write inside
+  # /api/v1/auth/reset-password (above) — a single recorded, consequential action, never a bare
+  # verify a browser could walk around. Abuse is bounded two ways: this route's own `rate_limit`
+  # dependency (per-source) AND identity's OTP service enforcing a per-IDENTIFIER resend cooldown
+  # (RESEND_TOO_SOON -> 429) — an attacker rotating source IPs still cannot out-pace the
+  # per-identifier cooldown to spam one victim's number.
   #
   # /api/v1/search was missing until a browser asked for it: the keypad's prefix suggest 404'd on
   # every keystroke, so finding a customer by typing part of his number simply did not work — and
@@ -138,6 +150,8 @@ env:
       {"prefix":"/api/v1/auth/login","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/auth/refresh","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/auth/tenant","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/auth/reset-password","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/otp/request","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/auth","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/tenancy","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/tenants","upstream":"http://tenant-service:8000","auth":"required","strip_prefix":false},
@@ -213,7 +227,7 @@ env:
   # ── Admin panel aggregator (spec §15) ─────────────────────────────────────────────────────
   # CONFIG ONLY — never a request value. An aggregator that fans out to a caller-named host is
   # an SSRF console. Each service appears the moment it answers /internal/manifest.
-  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,affiliate-service=http://affiliate-service:8000,secrets-admin=http://secrets-admin:8000"
+  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,affiliate-service=http://affiliate-service:8000,secrets-admin=http://secrets-admin:8000,whatsapp-assistant=http://whatsapp-assistant:8000"
   # OURS ADDED, AND THE OMISSION WAS INVISIBLE. The gateway aggregates every service's declared
   # actions into ONE catalog the console calls — and it only asks the services named here. Our
   # four declared forty actions between them and the gateway never asked for one of them, so the

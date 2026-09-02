@@ -98,4 +98,45 @@ export async function signIn(email: string, password: string, code = ''): Promis
   return { access_token: parsed.access_token, refresh_token: parsed.refresh_token };
 }
 
+/** Ask identity to mint and deliver a reset code over WhatsApp (OTP_DELIVERY_CHANNEL is already
+ *  "whatsapp" for this deployment — see deploy/services/identity-service.values.yaml). Same
+ *  no-oracle shape as sign-in: the response never distinguishes an unknown identifier from a real
+ *  one, so this never throws for that reason — always resolves, whether or not anything was sent.
+ *  `/api/v1/otp/verify` is deliberately never called from here (see api-gateway.values.yaml's own
+ *  note on why /api/v1/otp is not routed at all) — the code is consumed once, atomically with the
+ *  password write, by `resetPassword` below. */
+export async function requestPasswordResetOtp(identifier: string): Promise<void> {
+  await fetch(`${BASE}/api/v1/otp/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, purpose: 'reset' }),
+  });
+}
+
+/** The one call that both verifies the code AND sets the new password — never two calls, so the
+ *  code is never consumed by a check that then leaves the actual reset to a second round trip
+ *  that could fail. Mirrors identity-service's `POST /api/v1/auth/reset-password` response shape
+ *  exactly (confirmed against base-services-de, 2026-09-02 — the service genericises
+ *  HTTPException.detail on purpose, CWE-209, so these named codes ride `error`, never `detail`):
+ *    200 {"status": "ok"}
+ *    400 {"error": "WEAK_PASSWORD"}    — checked BEFORE the code is consumed, so a typo'd
+ *                                        password does not burn the operator's one code
+ *    400 {"error": "INVALID_RESET"}    — wrong code, expired code, or an unknown/inactive
+ *                                        identifier, all one bucket (no oracle)
+ *    429 {"error": "RATE_LIMITED"}     — per-source AND per-identifier cooldowns both live here */
+export async function resetPassword(identifier: string, code: string, newPassword: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/v1/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, code, new_password: newPassword }),
+  });
+  if (res.ok) return;
+  const text = await res.text();
+  let code_ = '';
+  try { code_ = (JSON.parse(text) as { error?: string }).error ?? ''; } catch { /* not json */ }
+  if (code_ === 'WEAK_PASSWORD') throw new AdminRefused('كلمة المرور ضعيفة — 12 حرفاً فأكثر.', code_);
+  if (code_ === 'RATE_LIMITED') throw new AdminRefused('محاولات كثيرة — انتظر قليلاً وحاول مرة أخرى.', code_);
+  throw new AdminRefused('الرمز غير صحيح أو منتهٍ.', code_ || 'INVALID_RESET');
+}
+
 export { req };

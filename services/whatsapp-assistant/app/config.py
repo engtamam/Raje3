@@ -295,8 +295,18 @@ class Settings(BaseSettings):
             raise ValueError(
                 "LLM_DRIVER=null in production: the assistant would receive every message and "
                 "propose nothing — a receptionist that never answers.")
-        if self.LLM_DRIVER == "gemini" and not self.GEMINI_API_KEY:
-            raise ValueError("LLM_DRIVER=gemini but GEMINI_API_KEY is empty.")
+        if self.LLM_DRIVER == "gemini" and not self.GEMINI_API_KEY and not self.SECRETS_KEK:
+            # SECRETS_KEK present means there IS a way to get a real key into this process without
+            # a redeploy — app/api/v1/operator.py's PUT /operator/secrets, once the pod is up. Only
+            # refuse to boot when NEITHER path can ever supply one: env is empty and there is
+            # nothing for an operator to write into either, which used to crash-loop the pod on
+            # every wipe+reinstall (this key is never part of the automated secret-minting set)
+            # with no way to recover it except a redeploy carrying the env value again.
+            raise ValueError(
+                "LLM_DRIVER=gemini but GEMINI_API_KEY is empty and SECRETS_KEK is also empty — "
+                "there is no way for an operator to supply the key at runtime either. Set "
+                "GEMINI_API_KEY, or set SECRETS_KEK and PUT the key to /api/v1/operator/secrets "
+                "once the service is up.")
 
     # ── conversation engine — debounce, session, summary (all config-driven) ─
     # Consecutive inbound messages inside this window are coalesced into ONE reply cycle — a
