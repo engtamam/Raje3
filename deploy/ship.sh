@@ -326,7 +326,14 @@ roll_console() {
 test_one() {
   case "$1" in
     console) (cd "$ROOT/apps/console" && npx vitest run 2>&1 | tail -2) ;;
-    *)       (cd "$ROOT/services/$1" && python3 -m pytest tests/unit -q 2>&1 | tail -2) ;;
+    # `uv run`, NOT a bare `python3` — bare `python3` resolves through WHATEVER PATH the calling
+    # process happens to have, and that is no longer a safe assumption: ops-mcp's own `uv`-managed
+    # venv (created once it switched from an installed exe to `uv run python -m ops_mcp`, after
+    # Windows Smart App Control started blocking the exe) can prepend its own `python.exe` onto the
+    # PATH this script's child processes inherit — an interpreter with none of a SERVICE's own
+    # dependencies installed, so every test import fails. `uv run` here always resolves against
+    # THIS service's own pyproject.toml/lock, regardless of what shaped the caller's PATH.
+    *)       (cd "$ROOT/services/$1" && uv run --extra dev python -m pytest tests/unit -q 2>&1 | tail -2) ;;
   esac
 }
 

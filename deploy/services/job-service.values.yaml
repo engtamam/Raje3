@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/job-service
-  digest: "sha256:0d63779d98972926d7ee51be5a3d6f73c7df39f9e93c39bbdeb57aa0208ddde7"   # v0.17.0
+  digest: "sha256:1ac9adbc5e483b819a3f336be8702c3e76a9d3dc4c7e28a967a35a973a6f3e2c"   # job-service: v0.18.0
 
 replicas: 1
 
@@ -40,7 +40,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 256Mi
   limits:
     memory: 512Mi

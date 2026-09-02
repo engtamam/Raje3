@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/onboarding-service
-  digest: "sha256:abdf6473a31b6c123bafa7b6241ba8585de79bfc60a2fb607e43e6a3da6a6477"   # v0.17.0
+  digest: "sha256:34dfd699e71637542a9624f0f814358e7c19450b29e694890d1973297319cfd6"   # onboarding-service: v0.18.0
 
 replicas: 1
 
@@ -40,7 +40,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi

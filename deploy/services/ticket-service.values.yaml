@@ -19,7 +19,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/ticket-service
-  digest: "sha256:831593897df76e21e3d758325ab9eb5f6265ab1a38afa1574b1ba4d56e34f25c"   # v0.17.0
+  digest: "sha256:4cba18efa113bda5338e37b4e63e1376f4f5cd3eb05968a73b5f4867bf38aa10"   # ticket-service: v0.18.0
 
 replicas: 1
 
@@ -42,7 +42,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi

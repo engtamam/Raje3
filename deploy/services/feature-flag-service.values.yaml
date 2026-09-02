@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/feature-flag-service
-  digest: "sha256:9e053b48344e1358488704e0a2a128c61199fa645d57de0178cf7175d77b3e07"   # v0.17.0
+  digest: "sha256:96bf891712660efd1cafe4f9c481033f82e850e10dbda544bd63a60f73ad2b12"   # feature-flag-service: v0.18.0
 
 replicas: 1
 
@@ -40,7 +40,7 @@ resources:
     # these files, so on a quiet node this service still takes a whole core if it needs one.
     # The number below decides two things only: that it is always guaranteed this much, and
     # what share it gets when the node is genuinely contended.
-    cpu: 20m
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi
