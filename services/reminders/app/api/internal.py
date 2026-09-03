@@ -286,6 +286,27 @@ async def effect(request: Request, tenant: str, since: int = 0, limit: int = 500
     }
 
 
+@router.get("/reminders/sends-for-subject", dependencies=[Depends(require_internal_token)])
+async def sends_for_subject(request: Request, tenant: str, subject_ref: str) -> dict:
+    """The FULL send-log row for one member — every field, unlike `effect` right above
+    (deliberately "(customer, when), and nothing else" — that route feeds insights' aggregate
+    counters, and handing it the template/reason would be giving a peer service a copy of the
+    message log to keep in step with this one). This route is for an internal-only investigation
+    tool (ops-mcp's `case_timeline`), never a peer aggregate, so that same restraint would only
+    hide the exact evidence a complaint needs: WHICH template went out, WHEN, whether it was
+    actually SENT or SUPPRESSED and why (`reason` — e.g. a quiet-hours refusal or a withdrawn
+    consent, see core/gate.py), and whether it was ever read or clicked.
+
+    Same safe, already-existing, already subject-scoped store read `SendLogStore.since` already
+    makes for the cap-checking logic in core/gate.py — `since=0` here simply means "everything".
+    """
+    from app.core.stores import SendLogStore
+
+    store = request.app.state.container.datastore
+    rows = await SendLogStore(store).since(tenant, subject_ref, since=0)
+    return {"sends": rows, "count": len(rows)}
+
+
 class RedemptionIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)
