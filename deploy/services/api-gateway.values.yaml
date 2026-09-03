@@ -29,7 +29,7 @@ resources:
     # MEASURED, NOT GUESSED — but measured at REST, which is the mistake this correction fixes.
     # `kubectl top` on the live node put every one of our services at 2m at rest (backup-service
     # at 4m), against declarations of 100-200m written when the values files were generated and
-    # never checked. The sum of those declarations was 3220m on a 4000m box, which is why a
+    # never checked. The sum of those declarations was 3220m on a 2000m box (this node has always had 2 vCPU, not 4 - confirmed live via /proc/pressure's own nproc read; the original write-up of this incident misnamed the box's real size), which is why a
     # rollout could not place its new pod: the node was full of reservations while the cpu itself
     # sat at 9%. That measurement was taken on a 4-vCPU box; this one runs on 2.
     #
@@ -48,7 +48,7 @@ resources:
     # carries EVERY other service's traffic on top of its own: it is structurally the single
     # busiest process in the fleet, and deserves a proportionally higher weight than a peer that
     # only serves its own domain.
-    cpu: 210m  # smart-cpu-sizing.py: hottest tier, node budget-derived
+    cpu: 208m  # smart-cpu-sizing.py: hottest tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi

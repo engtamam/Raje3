@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:7d92a9abf40753f91e940df2b78c811a8e727ee3f0c57a9e8145d297d9413143"   # cbd31381, published by publish-images.sh
+  digest: "sha256:1c4cb19366b85b3e866c8451b02f8fe6f41ce0b4109d7006d545aefd4c931380"   # 1035e221, published by publish-images.sh
 
 replicas: 1
 
@@ -43,7 +43,7 @@ resources:
     # MEASURED, NOT GUESSED — but measured at REST, which is the mistake this correction fixes.
     # `kubectl top` on the live node put every one of our services at 2m at rest (backup-service
     # at 4m), against declarations of 100-200m written when the values files were generated and
-    # never checked. The sum of those declarations was 3220m on a 4000m box, which is why a
+    # never checked. The sum of those declarations was 3220m on a 2000m box (this node has always had 2 vCPU, not 4 - confirmed live via /proc/pressure's own nproc read; the original write-up of this incident misnamed the box's real size), which is why a
     # rollout could not place its new pod: the node was full of reservations while the cpu itself
     # sat at 9%. That measurement was taken on a 4-vCPU box; this one runs on 2.
     #
@@ -59,7 +59,7 @@ resources:
     # moment of failure — the process wasn't overloaded, it simply wasn't winning the CPU
     # scheduling race against the fleet's own CronJob churn on a contended 2-vCPU node. At rest,
     # 20m is still plenty; under burst, it is not — this sizes for the burst, not the rest state.
-    cpu: 106m  # smart-cpu-sizing.py: hot tier, node budget-derived
+    cpu: 105m  # smart-cpu-sizing.py: hot tier, node budget-derived
     memory: 192Mi
   limits:
     memory: 384Mi

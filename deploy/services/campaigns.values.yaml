@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/campaigns
-  digest: "sha256:5cb09128d1f3225b1d39ce85f183b55e3704d2231fe9ddec17eee8730080a1e0"   # cbd31381, published by publish-images.sh
+  digest: "sha256:b93aab94cb87c30aa1438c387ff2a6a9b35c6011e9231b950096793b6b1c90c9"   # 1035e221, published by publish-images.sh
 
 replicas: 1
 
@@ -33,8 +33,10 @@ resources:
     # MEASURED, NOT GUESSED. `kubectl top` on the live node put every one of our services at
     # 2m at rest (backup-service at 4m), against declarations of 100-200m written when the
     # values files were generated and never checked. The sum of those declarations was 3220m
-    # on a 4000m box, which is why a rollout could not place its new pod: the node was full of
-    # reservations while the cpu itself sat at 9%.
+    # on a 2000m box, which is why a rollout could not place its new pod: the node was full of
+    # reservations while the cpu itself sat at 9%. (This node has always had 2 vCPU, not 4 -
+    # confirmed live via /proc/pressure's own nproc read; the original write-up of this incident
+    # misnamed the box's real size.)
     #
     # A REQUEST IS A FLOOR AND A WEIGHT, NEVER A CEILING. There is no cpu limit anywhere in
     # these files, so on a quiet node this service still takes a whole core if it needs one.
