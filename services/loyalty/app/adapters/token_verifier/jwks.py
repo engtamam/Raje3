@@ -20,8 +20,16 @@ class JWKSVerifier:
             raise ConfigError("TOKEN_JWKS_URL is required for the jwks driver")
         self._issuer = issuer
         self._audience = audience
-        # PyJWKClient (from base pyjwt dep) caches keys and fetches on demand.
-        self._client = jwt.PyJWKClient(jwks_url)
+        # PyJWKClient (from base pyjwt dep) caches keys and fetches on demand. `timeout=5`,
+        # NOT PyJWT's own 30s default — `verify()` below runs SYNCHRONOUSLY inside an `async def`
+        # route (never wrapped in run_in_executor/asyncio.to_thread), so it blocks this pod's
+        # ENTIRE single-worker event loop for as long as the fetch takes — including its own
+        # /healthz and /readyz probes. Found live: a single slow JWKS fetch left a pod's health
+        # checks timing out ("context deadline exceeded") for the duration, with no crash and no
+        # log line naming why. 5s keeps a stuck fetch well under api-gateway's own 15s
+        # UPSTREAM_TIMEOUT_SECONDS, so the caller sees a clean failure instead of a 504 that
+        # outlives the freeze it was caused by.
+        self._client = jwt.PyJWKClient(jwks_url, timeout=5)
 
     def verify(self, token: str) -> dict[str, Any]:
         try:
