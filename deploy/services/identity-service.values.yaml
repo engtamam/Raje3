@@ -27,7 +27,7 @@ probes:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:b8b24c492d62e3f6df47600c0d9a6d7029f6962076f0385bdb6abb09ed914f1c"   # v0.18.7
+  digest: "sha256:9ebe2e428210a4f9733a314ee6ef613d66e6f6b0e60ecc01022bf7e970cbf722"   # v0.18.8
 
 replicas: 1
 
@@ -306,6 +306,15 @@ env:
   CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
+
+  # ── Legal acceptance gate ─────────────────────────────────────────────────────────────────
+  # TEMPORARILY REVERTED TO off (2026-09-03): block requires COMPLIANCE_INTERNAL_TOKEN, which
+  # requires v0.18.8's gen-secrets.py fix (commit 744d843) — server's platform/ checkout doesn't
+  # have it yet, so this crash-looped identity-service in production. Re-enable once v0.18.8 is
+  # live end to end and the token is confirmed minted.
+  IDENTITY_LEGAL_ENFORCEMENT: "off"
+  COMPLIANCE_URL: "http://compliance-service:8000"
+  IDENTITY_LEGAL_GATE_FAIL_MODE: "open"
 
 ingress:
   enabled: false
