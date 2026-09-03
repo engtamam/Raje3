@@ -2,7 +2,7 @@
  * The card form itself — Moyasar's own fields, tokenised straight from this component to their
  * API (see `payment.ts` for why it can never go through our backend).
  *
- * ONE FORM, TWO CALLERS. Subscribing to a paid plan and updating the card on an existing
+ * ONE FORM, TWO CALLERS. Subscribing to a paid app and updating the card on an existing
  * subscription both end at the same place — a `payment_token` handed to a different backend
  * action — so this component only knows how to produce a token; `pending` tells it (and
  * `pendingPayment.ts`, across the possible 3DS redirect) what that token is FOR.

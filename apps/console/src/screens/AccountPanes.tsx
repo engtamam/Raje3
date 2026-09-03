@@ -604,7 +604,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
       ) : rows.length === 0 ? (
         // NOT AN APOLOGY. No invoices before the first subscription is the correct state, and
         // «لا توجد فواتير» dressed as an empty-state illustration would imply something failed.
-        <p className="text-sm text-text-secondary">لا فواتير بعد — تصدر أول فاتورة مع أول باقة.</p>
+        <p className="text-sm text-text-secondary">لا فواتير بعد — تصدر أول فاتورة مع أول اشتراك.</p>
       ) : (
         <>
           {downloadError ? <p className="text-sm text-danger">{downloadError}</p> : null}

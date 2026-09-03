@@ -7,9 +7,9 @@
  * was promising something the services had stopped promising, and an owner would meet the change
  * as a 402 after typing a visit rather than as a sentence before it.
  *
- * THE COUNTDOWN IS READ, NEVER COMPUTED. Thirty days is a number on a plan; a screen that derived
- * «30 - days since signup» would disagree with billing the first time anybody changed the plan or
- * extended a trial by hand.
+ * THE COUNTDOWN IS READ, NEVER COMPUTED. Thirty days is a number on a subscription; a screen that
+ * derived «30 - days since signup» would disagree with billing the first time anybody changed the
+ * subscription or extended a trial by hand.
  */
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';

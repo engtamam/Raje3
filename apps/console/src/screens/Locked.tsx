@@ -2,15 +2,16 @@
  * One locked card, for every app the shop has not bought.
  *
  * THE DEFECT IT REPLACES. Each screen decided for itself whether to lock, and it decided from the
- * CAPABILITY — which is about the person's role. An owner holds `campaigns.manage` on every plan,
- * so the lock never appeared for the one person who would have paid to remove it: he pressed
- * «أطلق الحملة» and it went out, on the cheapest plan, for as long as the product existed.
+ * CAPABILITY — which is about the person's role. An owner holds `campaigns.manage` regardless of
+ * which app is enabled, so the lock never appeared for the one person who would have paid to
+ * remove it: he pressed «أطلق الحملة» and it went out, with no campaigns app enabled at all, for
+ * as long as the product existed.
  *
  * SHOWN, NEVER HIDDEN (§16.4.2). A section that vanishes is a feature the owner cannot discover,
  * cannot want, and cannot buy. He sees what it would do for HIS shop, and one button.
  *
  * IT NAMES WHAT IT DOES, NOT WHAT HE DID NOT PAY. «نقاطٌ على كل زيارة» is a fact about his shop;
- * «هذه في باقة أعلى» is a fact about our price list, and only one of those makes anybody buy.
+ * «هذا تطبيق إضافي» is a fact about our price list, and only one of those makes anybody buy.
  *
  * AND IT NEVER LOCKS WHAT HE ALREADY EARNED. A lapsed subscription stops the app from GROWING —
  * new campaigns, new points — and the balances and history his customers already hold stay

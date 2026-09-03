@@ -2,7 +2,7 @@
  * ONE PAGE, AND THE NUMBER FIRST — the contract «اليوم» and «محلّي» were merged under.
  *
  * WHAT THIS IS WRITTEN AFTER. Opening «محلّي» on the server showed, above its own retention
- * rate: a group heading, a line saying a surface belongs to a higher plan, a second heading, a
+ * rate: a group heading, a line saying a surface belongs to an app not yet bought, a second heading, a
  * freshness caption and a refresh button. «ابغ تشيل كل شي من اللي فوق، ما ابغاه فوق، على طول يبدا
  * من النسبة». And beside it: «افكر ادمج صفحة اليوم مع محلي في صفحة وحده».
  *

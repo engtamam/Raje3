@@ -1,6 +1,6 @@
 /**
  * Our own BarCompare — component #15. Horizontal bars, relative to the largest value in the set
- * (never a fixed scale) — for comparing a handful of named things (branches, plans, marketers)
+ * (never a fixed scale) — for comparing a handful of named things (branches, apps, marketers)
  * at a glance. Same hand-SVG-free, plain-div discipline as the rest of `rj-ui` — no chart
  * library, a bar is just a styled `<div>` at a computed width.
  */

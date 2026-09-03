@@ -21,7 +21,7 @@
  * hunting for "did my campaign go out" scrolls past four automatic occasions every time, and the
  * thing he came for is never the thing on screen.
  *
- * AND «حملاتي» IS SHOWN LOCKED WHEN HIS PLAN HAS NO CAMPAIGNS, never removed. It used to vanish —
+ * AND «حملاتي» IS SHOWN LOCKED WHEN THE CAMPAIGNS APP IS NOT ENABLED, never removed. It used to vanish —
  * `campaigns === null` rendered nothing at all — and a section that disappears reads as a fault,
  * while a capability nobody can see is one nobody can buy.
  */
@@ -345,8 +345,8 @@ export function MessagesScreen(
   const [branches, setBranches] = useState<{ id: string; name: string }[] | null>([]);
   const [schedule, setSchedule] = useState<Schedule | null | undefined>(undefined);
   const [campaigns, setCampaigns] = useState<Campaign[] | null | undefined>(undefined);
-  // A SECOND FACT NEEDS A SECOND FIELD. `null` already means «the plan does not include
-  // campaigns» on this screen, so putting «we could not read» into it would collapse two
+  // A SECOND FACT NEEDS A SECOND FIELD. `null` already means «the campaigns app is not enabled»
+  // on this screen, so putting «we could not read» into it would collapse two
   // different answers into one — the same mistake this pass exists to undo, committed in a new
   // place. He is told to buy something he already owns, or told he owns nothing during an outage.
   const [campaignsFailed, setCampaignsFailed] = useState(false);
@@ -484,7 +484,7 @@ export function MessagesScreen(
 
     loadCampaigns();
     if (!action(catalog, 'campaigns.list')) {
-      // NOT AN ERROR AND NOT AN EMPTY LIST: the plan does not include campaigns. `null` is the
+      // NOT AN ERROR AND NOT AN EMPTY LIST: the campaigns app is not enabled. `null` is the
       // LOCKED state — the tab is still there, and it says why.
       setCampaigns(null);
     }
@@ -968,9 +968,9 @@ export function MessagesScreen(
       ) : owns(owned ?? null, 'feature.campaigns') === false ? (
         // LOCKED ON THE ENTITLEMENT, NOT ON THE CAPABILITY — and that swap is the whole defect.
         // The lock used to be drawn from `campaigns.list` being absent from the catalogue, which
-        // is a question about the person's ROLE: an owner holds `campaigns.manage` on every plan,
-        // so the lock never appeared for the one person who would have paid to remove it. He
-        // pressed «أطلق الحملة» on the cheapest plan and it went out.
+        // is a question about the person's ROLE: an owner holds `campaigns.manage` regardless of
+        // which app is enabled, so the lock never appeared for the one person who would have paid
+        // to remove it. He pressed «أطلق الحملة» with no campaigns app enabled and it went out.
         //
         // And the card now carries a way to buy it. Naming a feature he cannot reach, with no
         // button, is an advertisement rather than a product.

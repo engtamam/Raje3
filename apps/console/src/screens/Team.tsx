@@ -5,7 +5,7 @@
  * owner scrolls past his employees to reach his branches and back again, and neither list is ever
  * the thing he came for. `Segmented` is the kit's, and the same control the door uses.
  *
- * AND A TAB THE PLAN DOES NOT INCLUDE IS LOCKED, NOT HIDDEN — with the reason on it. This screen
+ * AND A TAB THE SHOP'S ENABLED APPS DO NOT INCLUDE IS LOCKED, NOT HIDDEN — with the reason on it. This screen
  * hid «الفروع» from a single-branch shop, and that was wrong twice over: a capability nobody can
  * see cannot be bought, and a section that vanishes reads as a fault. The campaign cards already
  * decided this and said why — «a card that disappears reads as a fault; a card that explains
@@ -105,16 +105,16 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   const [operators, setOperators] = useState<Operator[] | null | undefined>(undefined);
   const [branches, setBranches] = useState<Branch[] | null | undefined>(undefined);
   /**
-   * HOW MANY BRANCHES HIS PLAN ALLOWS — the entitlement, which is not the capability.
+   * HOW MANY BRANCHES HIS APP ENTITLEMENT ALLOWS — the entitlement, which is not the capability.
    *
    * `undefined` while the read is out or was never made, and `-1` for «no known ceiling»: an
-   * unlimited plan and a billing we could not reach are both that, and neither may draw a lock.
-   * Only a stated limit of 1 is the base plan, and only that draws the sentence about a package.
+   * unlimited entitlement and a billing we could not reach are both that, and neither may draw a lock.
+   * Only a stated limit of 1 is the base entitlement, and only that draws the sentence about the app store.
    */
   const [branchLimit, setBranchLimit] = useState<number | undefined>(undefined);
   // WHETHER ONE MORE FITS RIGHT NOW — a different question from the ceiling, and the only one
   // the «إضافة فرع» button can answer honestly. `undefined` is an answer that did not arrive,
-  // and it never hides the button: an outage must not read as a plan he has outgrown.
+  // and it never hides the button: an outage must not read as an app entitlement he has outgrown.
   const [mayAddBranch, setMayAddBranch] = useState<boolean | undefined>(undefined);
   /**
    * WHETHER «رمز على الجهاز» EXISTS ON THIS DEPLOYMENT.
@@ -178,7 +178,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
         .then((x) => {
           setBranches(x.branches ?? []);
           // NOT COERCED TO A NUMBER. An answer that did not carry the limit has told us nothing
-          // about his plan, and `?? 0` there would lock every shop out of a tab it may own.
+          // about his app entitlement, and `?? 0` there would lock every shop out of a tab it may own.
           setBranchLimit(typeof x.branch_limit === 'number' ? x.branch_limit : undefined);
           setMayAddBranch(typeof x.may_add_branch === 'boolean' ? x.may_add_branch : undefined);
         })
@@ -202,7 +202,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
           { value: 'people', label: 'العاملون' },
           // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after. A tab that
           // looks pressable and then refuses is worse than one that says so. It marks BOTH kinds
-          // of closed door — «not yours» and «not in your plan» — and the panel says which.
+          // of closed door — «not yours» and «not in your enabled apps» — and the panel says which.
           { value: 'branches',
             label: branchGate(Boolean(listBranches), branchLimit) === 'open'
               ? 'الفروع' : 'الفروع 🔒' },
@@ -318,7 +318,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
       onChanged();
     } catch (err) {
       // THE SERVER'S SENTENCE, WHICH IS WHERE THE SEAT LIMIT LIVES. It names the number; a message
-      // written here would be a second copy of a plan we do not hold.
+      // written here would be a second copy of an entitlement we do not hold.
       setError(err instanceof Error ? err.message : 'تعذّر إضافة الموظف.');
     } finally {
       setBusy(false);
@@ -868,7 +868,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
   );
 }
 
-// EXPORTED FOR ONE REASON: the cap. Whether a full plan REMOVES the button or turns it into an
+// EXPORTED FOR ONE REASON: the cap. Whether a full app entitlement REMOVES the button or turns it into an
 // offer is a decision, and a decision nothing renders in a test is a decision that quietly
 // reverts. Nothing outside this file and its test imports it.
 export function Branches({ session, catalog, branches, operators, add, edit, mayRead, limit, mayAdd,
@@ -881,7 +881,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   edit: ReturnType<typeof action>;
   /** Whether this PERSON may read the branch list — a role fact, from the catalogue. */
   mayRead: boolean;
-  /** How many branches his SHOP may have — a plan fact, from the read. `-1` is no known
+  /** How many branches his SHOP may have — an app entitlement fact, from the read. `-1` is no known
    *  ceiling (unlimited, or a billing we could not ask) and `undefined` is «not answered». */
   limit: number | undefined;
   mayAdd: boolean | undefined;
@@ -936,12 +936,12 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
     );
   }
   if (gate === 'plan') {
-    // THE PLAN, AND ONLY WHEN BILLING SAID SO. Hidden, an owner cannot discover that branches
-    // exist — and cannot buy them. The sentence names the plan because that is what he acts on.
+    // THE ENTITLEMENT, AND ONLY WHEN BILLING SAID SO. Hidden, an owner cannot discover that branches
+    // exist — and cannot buy them. The sentence names the app store because that is what he acts on.
     return (
       <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
         <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
-        <p className="text-text-primary">الفروع متاحة في باقة أعلى</p>
+        <p className="text-text-primary">الفروع متاحة كتطبيق إضافي من متجر التطبيقات</p>
         <p className="mt-1 text-sm text-text-secondary">
           افتح فرعاً ثانياً وتابع كل فرع على حدة.
         </p>
@@ -1029,12 +1029,12 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
       )}
 
       {/* THE BUTTON ASKS THE SERVER'S QUESTION, NOT THE SCREEN'S (هـ-3, second half). `add` is
-          the role — may this person create branches at all. `mayAdd` is the plan, counted against
+          the role — may this person create branches at all. `mayAdd` is the app entitlement, counted against
           what the shop already holds: a shop allowed three and holding three used to see this
           button, type a name, and read the refusal only after pressing save. `=== false` on
           purpose, so an answer that never came leaves the button where it was. */}
       {add && !open && !capped ? (
-        // THE BUTTON STAYS AT THE CAP. `mayAdd === false` is «your plan is full», not «you may
+        // THE BUTTON STAYS AT THE CAP. `mayAdd === false` is «your app entitlement is full», not «you may
         // not» — and a control that disappears teaches him the product cannot do it. Pressing
         // it at the cap opens the offer instead of the form; `=== false` on purpose, so an
         // answer that never came still opens the form rather than selling him something.
@@ -1269,8 +1269,8 @@ function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) 
  * where a visit with an unrecognised branch lands, so a shop that closed it would be recording
  * visits against nothing. Renaming it is his — «الفرع الرئيسي» is our word, not his shop's.
  *
- * AND REOPENING IS REFUSED BY THE SERVER when the plan is full, with the number in the sentence:
- * putting a place back into service is an addition, and a plan of one branch must not be passed
+ * AND REOPENING IS REFUSED BY THE SERVER when the app entitlement is full, with the number in the sentence:
+ * putting a place back into service is an addition, and an entitlement of one branch must not be passed
  * by closing and reopening.
  */
 function BranchRow({ session, branch, edit, staff, stat, onChanged }: {

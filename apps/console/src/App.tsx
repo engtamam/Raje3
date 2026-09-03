@@ -253,7 +253,7 @@ export function App() {
           onChange={setBranch}
           catalog={catalog}
           // AND THE DOOR IT OPENS IS THE SHOP'S OWN, not a second form built beside the rail.
-          // «منشأتي» already creates a branch, counts it against the plan, names it and can close
+          // «منشأتي» already creates a branch, counts it against the subscription, names it and can close
           // it; a quick field here would be a second way in that drifts from the first the day
           // either changes. What this saves him is the search — not the screen.
           onAdd={() => navigate(`${ACCOUNT_PATH}?tab=shop`)}

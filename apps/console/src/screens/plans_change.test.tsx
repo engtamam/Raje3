@@ -1,5 +1,5 @@
 /**
- * «بدّل الباقة» — audit gap #5, now on the v0.16.33 Stripe-style split («مافي
+ * «تبديل الاشتراك الأساسي» — audit gap #5, now on the v0.16.33 Stripe-style split («مافي
  * رصيد سالب أو استرداد إطلاقاً»). An UPGRADE charges the prorated difference and switches
  * immediately; a DOWNGRADE schedules the same target for the next renewal at full price and
  * touches nothing now — never a credit, never a negative balance. Both directions are offered;
@@ -76,7 +76,7 @@ function open() {
   return render(<PlansPane session={session} catalog={catalog} owned={OWNED} onGoConnect={() => {}} />);
 }
 
-describe('«بدّل الباقة» — upgrade', () => {
+describe('«تبديل الاشتراك الأساسي» — upgrade', () => {
   it('marks only the plan actually owned, and offers «بدّل إلى هذه» on the higher tier', async () => {
     open();
     await screen.findAllByText('الأساس الموسّع');
@@ -109,7 +109,7 @@ describe('«بدّل الباقة» — upgrade', () => {
   });
 });
 
-describe('«بدّل الباقة» — downgrade, scheduled at renewal, never a credit (v0.16.33)', () => {
+describe('«تبديل الاشتراك الأساسي» — downgrade, scheduled at renewal, never a credit (v0.16.33)', () => {
   it('offers «جدولة التبديل عند التجديد» toward a cheaper base tier — no longer hidden', async () => {
     // Owns the EXPENSIVE tier now — the other listed tier is a downgrade. Both the entitlements
     // view AND billing.my_subscriptions have to agree it's base_pro, same as the real app.
@@ -134,7 +134,7 @@ describe('«بدّل الباقة» — downgrade, scheduled at renewal, never a
     fireEvent.click(screen.getByRole('button', { name: 'تأكيد التبديل' }));
     await screen.findByText('تم التبديل ✓');
     expect(changeCalls).toEqual([{ id: 'sub_1', plan_id: 'base_cheap' }]);
-    // «تراجع عن التبديل» now lives on the card he still owns — the plan he keeps until renewal.
+    // «تراجع عن التبديل» now lives on the card he still owns — the subscription he keeps until renewal.
     expect(await screen.findByRole('button', { name: 'تراجع عن التبديل' })).toBeTruthy();
   });
 

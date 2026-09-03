@@ -197,7 +197,7 @@ export function TextEditor({
       const out = await call<{ ok?: boolean; error?: string }>(
         session, a, { reason_id: reasonId, body, fills, replaces: replaces ?? '' });
       // THE SERVER'S OWN SENTENCE, never re-worded here. It knows why it refused — a link, a blank
-      // this message cannot fill, a plan limit — and two vocabularies for one refusal is how an
+      // this message cannot fill, an app entitlement limit — and two vocabularies for one refusal is how an
       // owner comes to believe there are two problems.
       if (out?.error) { setError(out.error); return; }
       onSaved();

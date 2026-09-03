@@ -1,5 +1,5 @@
 /**
- * A full plan is an offer, not a refusal.
+ * A full subscription is an offer, not a refusal.
  *
  * WHAT IT USED TO DO. At the branch cap the button vanished and a grey sentence took its place:
  * «بلغت عدد الفروع المتاحة في باقتك. للمزيد، رقِّ باقتك من «متجر التطبيقات».» Two things wrong at
@@ -58,7 +58,7 @@ describe('the branch cap', () => {
     expect(link.getAttribute('href')).toContain(STORE_PATH);
   });
 
-  it('opens the form, not the offer, when the plan has room', () => {
+  it('opens the form, not the offer, when there is room left', () => {
     open(true);
     fireEvent.click(screen.getByRole('button', { name: 'إضافة فرع' }));
     expect(screen.getByLabelText(/اسم الفرع/)).toBeTruthy();

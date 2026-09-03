@@ -5,12 +5,12 @@
  * قسمين مكدَّسين تحت بعض — الشريط الجانبي محدود عمداً بـ٥-٦ أقسام (طلب سابق)، فتبويب سابع
  * كامل لم يكن خياراً.
  *
- * كوبون مرتبط بباقة محددة (`plan_id`) — shipped against billing-service v0.18.0 (submodule pin
+ * كوبون مرتبط بتطبيق محدد (`plan_id`) — shipped against billing-service v0.18.0 (submodule pin
  * bumped, digest confirmed carrying plan_id + COUPON_PLAN_MISMATCH). Held for exactly this reason
  * until the bump landed, to avoid the console silently sending `plan_id` to a backend that ignores
- * it — an operator believing a discount was plan-scoped while it stayed global.
+ * it — an operator believing a discount was app-scoped while it stayed global.
  *
- * "التطبيقات" (تفعيل/تعطيل تطبيق كامل، لا مجرد سعر باقة) و"إنشاء" باقة جديدة كليّاً — مؤجَّلان،
+ * "التطبيقات" (تفعيل/تعطيل تطبيق كامل، لا مجرد سعر تطبيق) و"إنشاء" تطبيق جديد كليّاً — مؤجَّلان،
  * يحتاجان نموذجاً أعقد (أسعار متعددة، حدود من الصفر). تعديل/إنشاء كوبون صار حقيقياً (هذا الملف).
  */
 import { useEffect, useState } from 'react';
@@ -53,7 +53,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
   const deleteCouponAction = byId('billing.delete_coupon');
 
   if (!plansList && !couponsList) {
-    return <NoActionAvailable catalog={catalog} permissionTitle="حسابك لا يحمل صلاحية القراءة هنا — لا باقات ولا كوبونات لعرضها لك." />;
+    return <NoActionAvailable catalog={catalog} permissionTitle="حسابك لا يحمل صلاحية القراءة هنا — لا تطبيقات ولا كوبونات لعرضها لك." />;
   }
 
   return (
@@ -62,7 +62,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
 
       <Segmented ariaLabel="القسم" value={sub} onChange={setSub}
                 options={[
-                  { value: 'plans', label: 'الباقات والأسعار' },
+                  { value: 'plans', label: 'التطبيقات والأسعار' },
                   { value: 'coupons', label: 'الخصومات والعروض' },
                 ]} />
 
@@ -100,7 +100,7 @@ function PlansPane({ session, listAction, availabilityAction, updateAction }: {
   useEffect(reload, [listAction, session]);
 
   if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
-  if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة الباقات.</p>;
+  if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة التطبيقات.</p>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the catalog's own AdminAction
   // carries no response schema (only request params) — see catalog.ts's own note on why.
   return <PlanCards session={session} listAction={listAction} availabilityAction={availabilityAction}

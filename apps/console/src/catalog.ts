@@ -240,8 +240,8 @@ export async function call<T>(
     const r = body as { reason?: string; message?: string; detail?: string } | null;
     const said = r?.reason ?? r?.message ?? r?.detail;
     const err = new Error(said || `${a.method} ${a.path} → ${res.status}`);
-    // THE STATUS TRAVELS WITH THE MESSAGE. A screen cannot tell «الباقة لا تشمل هذا» from «تعذّر
-    // القراءة» out of a sentence, so a locked surface and a broken one rendered identically —
+    // THE STATUS TRAVELS WITH THE MESSAGE. A screen cannot tell «هذا التطبيق غير مفعَّل لديك» from
+    // «تعذّر القراءة» out of a sentence, so a locked surface and a broken one rendered identically —
     // which is to say, as nothing at all, with a red line in the console. 402 is a decision we
     // made and sold; it deserves a card that says so.
     (err as Error & { status?: number }).status = res.status;

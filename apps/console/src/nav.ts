@@ -90,7 +90,7 @@ export const SECTIONS: Section[] = [
   // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
   { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'] },
   { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'] },
-  // OPEN TO ALL FOUR PLANS, and this comment used to say the opposite — it repeated a sentence
+  // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
   // association engine, the missed opportunities and the suggested bundles — and those are shown
@@ -102,7 +102,7 @@ export const SECTIONS: Section[] = [
   // carries a number from his own shop rather than an advert (spec 10.8).
   //
   // The gate here is the CAPABILITY — a role that may read indicators — which is a different
-  // question from which plan he bought.
+  // question from which apps he bought.
 
   // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
   // MARKETER both hold — and neither may change a price. A section whose every control is inert

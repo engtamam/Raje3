@@ -2,7 +2,7 @@
  * «حسابي» went from eight tabs to four, and four of the old names became sections inside them.
  *
  * THE ONE THING THAT CAN SILENTLY BREAK IS THE DEEP LINK. Every «أضِفه إلى اشتراكي» lock in the
- * product, the expired-plan screen, and any bookmark or message a shop passed around, all name a
+ * product, the expired-subscription screen, and any bookmark or message a shop passed around, all name a
  * tab in a query string. A rename that forgets one of them does not fail loudly — it opens the
  * wrong page, which reads as the button being broken.
  */

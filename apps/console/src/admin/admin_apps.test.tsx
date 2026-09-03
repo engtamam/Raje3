@@ -146,7 +146,7 @@ describe('AdminApps', () => {
 
     fireEvent.change(await screen.findByLabelText('الكود'), { target: { value: 'eid26' } });
     fireEvent.change(screen.getByLabelText('النسبة (%)'), { target: { value: '15' } });
-    fireEvent.change(screen.getByLabelText('الباقة'), { target: { value: PLAN.id } });
+    fireEvent.change(screen.getByLabelText('التطبيق'), { target: { value: PLAN.id } });
     fireEvent.click(screen.getByText('حفظ'));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
@@ -177,7 +177,7 @@ describe('AdminApps', () => {
   it('an honest sentence, no sub-tabs, when nothing is readable', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminApps session={SESSION} />);
-    await waitFor(() => expect(screen.getByText(/لا باقات ولا كوبونات لعرضها لك/)).toBeTruthy());
-    expect(screen.queryByText('الباقات والأسعار')).toBeFalsy();
+    await waitFor(() => expect(screen.getByText(/لا تطبيقات ولا كوبونات لعرضها لك/)).toBeTruthy());
+    expect(screen.queryByText('التطبيقات والأسعار')).toBeFalsy();
   });
 });

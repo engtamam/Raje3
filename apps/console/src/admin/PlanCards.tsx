@@ -11,11 +11,11 @@
  * — found live, both fixed here: boolean features get a check/x icon, gauges/counters a numeric
  * chip, and PERIOD_LABEL now covers both real values billing-service actually returns.
  *
- * The active/listed toggle calls `billing.plan_availability` directly — the ONE of the three plan
+ * The active/listed toggle calls `billing.plan_availability` directly — the ONE of the three app
  * actions (`update_plan`/`plan_availability`) that becomes a real button here, because it is the
  * only one with a simple body param (active/listed, both booleans) a purpose-built card can fill
  * in itself — unlike the generic engine, which always sent an empty body (see AdminApps.tsx's own
- * older note). Full editing (`update_plan`) and creating a new plan (`create_plan`) still need a
+ * older note). Full editing (`update_plan`) and creating a new app (`create_plan`) still need a
  * real form — deferred to a later screen, same call as before, still correct.
  */
 import { useState } from 'react';
@@ -78,7 +78,7 @@ export function PlanCards({ session, listAction, availabilityAction, updateActio
   updateAction?: AdminAction; plans: Plan[]; onReload: () => void;
 }) {
   if (plans.length === 0) {
-    return <EmptyState title="لا باقات مضبوطة بعد" />;
+    return <EmptyState title="لا تطبيقات مضبوطة بعد" />;
   }
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -211,7 +211,7 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
 /** `billing.update_plan` PATCH — name, the first price's amount, trial days, and every EXISTING
  *  limit's value (booleans as a toggle, numbers as a field with an "unlimited" override). Adding
  *  a brand-new limit key or a second price/interval still needs a schema-aware form — out of
- *  scope here, same as create_plan; this edits what a plan already has, thoroughly, not what it
+ *  scope here, same as create_plan; this edits what an app already has, thoroughly, not what it
  *  could have. */
 function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }: {
   session: AdminSession; plan: Plan; updateAction: AdminAction;

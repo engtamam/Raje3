@@ -429,7 +429,7 @@ function SubscriptionsPanel({ session, action }: { session: AdminSession; action
 
   const columns: TableColumn<Subscription>[] = [
     { key: 'tenant', header: 'المحل' },
-    { key: 'plan_id', header: 'الباقة' },
+    { key: 'plan_id', header: 'التطبيق' },
     { key: 'status', header: 'الحالة' },
     { key: 'created', header: 'بدأ', render: (r) => new Date(r.created).toLocaleDateString('ar-SA') },
     { key: 'canceled_at', header: 'انتهى', render: (r) => r.canceled_at ? new Date(r.canceled_at).toLocaleDateString('ar-SA') : '—' },

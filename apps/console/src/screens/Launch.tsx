@@ -541,7 +541,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
       ) : isDenied(goals) ? (
         <p className="text-sm text-text-secondary">لا يشمل دورك إطلاق الحملات.</p>
       ) : hasFailed(goals) ? (
-        // «لا أهداف متاحة» IS A CLAIM ABOUT HIS PLAN. Said after a failed read it sends him to
+        // «لا أهداف متاحة» IS A CLAIM ABOUT HIS ENABLED APPS. Said after a failed read it sends him to
         // the pricing page for something he already owns.
         <p className="text-sm text-text-secondary">
           تعذّرت قراءة الأهداف الآن — والخلل عندنا. أعد المحاولة بعد قليل.

@@ -96,7 +96,7 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   // act in this shop, and under whose name. They were five separate tabs and a person looking for
   // «who works here» had to guess which of them held it.
   { id: 'shop', label: 'منشأتي', hint: 'هويّتك وفروعك وفريقك وربط واتساب' },
-  // THE PLAN AND THE INVOICES ARE ONE ERRAND: money. They were split because choosing a plan and
+  // THE APP AND THE INVOICES ARE ONE ERRAND: money. They were split because choosing an app and
   // fetching a receipt are different acts — which is true, and still leaves both under the one
   // word an owner thinks of when he is here for either.
   // «متجر التطبيقات», WHICH IS WHAT THE REST OF THE PRODUCT ALREADY CALLED IT. The tab said
@@ -148,7 +148,7 @@ export function AccountScreen(
         .catch(() => setSub(null));
     } else {
       // The manager reaches this page without billing. Not an error and not a blank: the tab is
-      // simply not offered to him, and the status line does not claim a plan it cannot read.
+      // simply not offered to him, and the status line does not claim a subscription it cannot read.
       setSub(null);
     }
 
@@ -221,7 +221,7 @@ export function AccountScreen(
           <Skeleton height={20} />
         ) : (
           <div className="flex items-center justify-between">
-            <span>{sub ? `باقتك «${sub.plan_name ?? '—'}»` : 'لا يوجد اشتراك فعّال'}</span>
+            <span>{sub ? `اشتراكك «${sub.plan_name ?? '—'}»` : 'لا يوجد اشتراك فعّال'}</span>
             {sub?.status
               ? <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
                   {sub.status === 'active' ? 'فعّالة' : 'متوقفة'}
@@ -278,7 +278,7 @@ export function AccountScreen(
             session={session}
             catalog={catalog}
             owned={owned}
-            // THE ONE SEAM BETWEEN TWO TABS, and it earns itself: a plan cannot run without a
+            // THE ONE SEAM BETWEEN TWO TABS, and it earns itself: a subscription cannot run without a
             // connected number, so the pane that says so must be able to take him there — which is
             // now a section on another tab rather than a tab of its own.
             onGoConnect={() => setPane('shop')}

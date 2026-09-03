@@ -2,7 +2,7 @@
  * Coupon cards — same idea as PlanCards.tsx. `billing.delete_coupon` was already a real button
  * (it takes no body at all, so the generic engine could already fire it). CouponEditDrawer now
  * handles both create_coupon and update_coupon — value, type, dates, and (billing-service v0.18.0's
- * plan_id field) which plan it discounts, or "any plan" when left unset.
+ * plan_id field) which app it discounts, or "any app" when left unset.
  */
 import { useState } from 'react';
 import { Plus, Pencil } from 'lucide-react';
@@ -122,8 +122,8 @@ function CouponCard({ session, coupon, planName, updateAction, deleteAction, pla
 
       <ul className="flex flex-col gap-1 text-sm">
         <li className="flex items-center justify-between gap-2">
-          <span className="text-text-secondary">الباقة</span>
-          <span className="font-medium">{coupon.plan_id ? (planName ?? coupon.plan_id) : 'أي باقة'}</span>
+          <span className="text-text-secondary">التطبيق</span>
+          <span className="font-medium">{coupon.plan_id ? (planName ?? coupon.plan_id) : 'أي تطبيق'}</span>
         </li>
         <li className="flex items-center justify-between gap-2">
           <span className="text-text-secondary">الاستخدام</span>
@@ -176,7 +176,7 @@ function CouponCard({ session, coupon, planName, updateAction, deleteAction, pla
 }
 
 /** Shared by "كوبون جديد" (create_coupon, POST) and a card's own "تعديل" (update_coupon, PATCH,
- *  {code} in the path). `plan_id` empty means "any plan" — the coupon's existing, backward-
+ *  {code} in the path). `plan_id` empty means "any app" — the coupon's existing, backward-
  *  compatible default; a real selection scopes it, enforced server-side per base-services' own
  *  confirmed contract (COUPON_PLAN_MISMATCH). */
 function CouponEditDrawer({ session, action, mode, coupon, plans, open, onClose, onSaved }: {
@@ -253,9 +253,9 @@ function CouponEditDrawer({ session, action, mode, coupon, plans, open, onClose,
           </Field>
         </div>
 
-        <Field label="الباقة" htmlFor="coupon-plan" hint="اتركها فارغة ليطبَّق الخصم على أي باقة">
+        <Field label="التطبيق" htmlFor="coupon-plan" hint="اتركها فارغة ليطبَّق الخصم على أي تطبيق">
           <Select id="coupon-plan" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-            <option value="">— أي باقة —</option>
+            <option value="">— أي تطبيق —</option>
             {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </Field>

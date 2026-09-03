@@ -20,7 +20,7 @@
  * Kept as its own card rather than the generic `rj-ui/Modal` for that reason — this is a moment,
  * not a form, and the kit's modal chrome (title bar, muted surface, a close-X) is built for those.
  *
- * NO DAY COUNT IS EVER PRINTED HERE. How long a trial runs is billing's own decision (a plan's
+ * NO DAY COUNT IS EVER PRINTED HERE. How long a trial runs is billing's own decision (an app's
  * `trial_days`, editable without a deploy) — the marketing page's own rule
  * (marketing/index.html's "NO TRIAL, NO PRICE, NO DURATION") is that no duration is ever promised
  * in text that outlives the setting behind it. The real end date travels from the signup response

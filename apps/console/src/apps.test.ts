@@ -3,8 +3,9 @@
  *
  * THE DEFECT THESE CLOSE. Every screen decided on its own whether to lock a paid surface, and it
  * decided from the CAPABILITY — a question about the person's role. An owner holds every
- * capability on every plan, so the lock never appeared for the one person who would have paid to
- * remove it: he pressed «أطلق الحملة» on the cheapest plan and it went out.
+ * capability whatever apps the shop has bought, so the lock never appeared for the one person who
+ * would have paid to remove it: he pressed «أطلق الحملة» on an app he had not bought and it went
+ * out.
  */
 import { describe, expect, it } from 'vitest';
 import { APP_ROWS, keyForSection, owns, type Owned } from './apps';
@@ -19,7 +20,7 @@ describe('the registry', () => {
     for (const a of APP_ROWS) {
       expect(a.name.length).toBeGreaterThan(0);
       expect(a.what.length).toBeGreaterThan(0);
-      // "this is in a higher plan" is a fact about us. Nothing here may say it.
+      // "this is a different app you haven't bought" is a fact about us. Nothing here may say it.
       expect(a.what).not.toContain('باقة');
     }
   });

@@ -1,8 +1,9 @@
 /**
  * The app registry — one place that answers "what does this platform sell, and where does it show".
  *
- * WHY THIS EXISTS BEFORE THE APPS DO. The product is moving from four plans to apps a shop buys
- * one by one, and the ones already sold (campaigns, points, the engine, the link) are only the
+ * WHY THIS EXISTS BEFORE THE APPS DO. The product is moving from four subscription tiers to apps
+ * a shop buys one by one, and the ones already sold (campaigns, points, the engine, the link) are
+ * only the
  * first four. Invoicing and CRM are coming, and after them things nobody has named yet.
  *
  * THE FAILURE THIS PREVENTS is not a bug — it is a screen that stops making sense. If each new app
@@ -33,7 +34,7 @@ export interface Owned {
           /** When THIS app's own subscription renews. `null` when he does not hold it, or when
            *  billing could not be read — «لا أعرف» and «لا يتجدّد» are different sentences. */
           renews_at: number | null }[];
-  /** THE BASE SUBSCRIPTION ITSELF — its plan, its status and when it renews, straight from
+  /** THE BASE SUBSCRIPTION ITSELF — its tier, its status and when it renews, straight from
    *  billing's subscription list. `null` when this shop has no base. It replaced a `feature.base`
    *  entitlement flag, which could say only THAT one existed: «يتجدّد في 12 سبتمبر» is the first
    *  thing an owner opening «الاشتراك» wants, and a boolean could never carry it. */
@@ -45,8 +46,8 @@ export interface AppRow {
   /** The entitlement key, or null for the base — which is everything a subscription includes. */
   key: string | null;
   name: string;
-  /** What it does for HIS shop. Never the tier: "this is in a higher plan" is a fact about our
-   *  price list, and «نكتشف الخدمات التي تُطلب معاً» is a fact about him. */
+  /** What it does for HIS shop. Never the tier: "this is a different app you haven't bought" is a
+   *  fact about our price list, and «نكتشف الخدمات التي تُطلب معاً» is a fact about him. */
   what: string;
   /** The nav section id it owns, from nav.ts. Empty when it only adds to existing screens. */
   section: string;
@@ -160,7 +161,7 @@ export function baseState(owned: Loading<Owned>): BaseState {
  * Whole days left before the base period ends, or `null` when there is nothing to count.
  *
  * READ FROM `renews_at`, NEVER FROM A LOCAL CLOCK PLUS AN ASSUMED LENGTH. The trial is thirty days
- * because a PLAN says so, and a screen that recomputed «30 - days since signup» would disagree
+ * because BILLING says so, and a screen that recomputed «30 - days since signup» would disagree
  * with billing the moment anybody changed the number, extended a trial by hand, or crossed a month
  * boundary. `now` is a parameter so a test can state the day instead of waiting for one.
  */

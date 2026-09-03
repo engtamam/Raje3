@@ -428,9 +428,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               a loyalty programme that costs trust instead of earning it. */}
           <h2 className="mb-3 text-sm text-text-secondary">نقاطه</h2>
           {/* ONE SENTENCE FOR TWO CONTRADICTORY STATES, until the states themselves were told
-              apart. «لا يوجد برنامج نقاط في باقتك، أو تعذّرت قراءة رصيده» asks the owner to work
+              apart. «برنامج النقاط غير مفعّل، أو تعذّرت قراءة رصيده» asks the owner to work
               out which of two entirely different things happened — one he fixes by buying, one he
-              fixes by waiting. The lock for «not in your plan» is drawn elsewhere on this screen;
+              fixes by waiting. The lock for «not in your enabled apps» is drawn elsewhere on this screen;
               here `undefined` waits and `null` says the read failed. */}
           {isLoading(balance) ? (
             <Skeleton height={70} />

@@ -1,5 +1,5 @@
 /**
- * «الاشتراك» — the plans, what each one actually buys, and the one door that must open first.
+ * «الاشتراك» — the apps, what each one actually buys, and the one door that must open first.
  *
  * THE PLANS ARE ROWS IN billing, NEVER A LIST IN THIS FILE. Their names, their prices and their
  * limits all arrive from `billing.plans`; a price written here would be a second price, and the
@@ -10,8 +10,8 @@
  * `feature.campaigns` — an owner cannot read those, and printing them raw would be a table of
  * jargon dressed as a comparison. So each key has one Arabic sentence here and ONLY here: the
  * numbers stay the server's, the wording is ours, and a key we have no sentence for is left out
- * rather than printed as itself. That is deliberate — a plan that lists a line nobody understands
- * is worse at selling than a plan that lists one line fewer.
+ * rather than printed as itself. That is deliberate — an app that lists a line nobody understands
+ * is worse at selling than an app that lists one line fewer.
  *
  * AND PRESSING A PLAN BEFORE WHATSAPP IS CONNECTED SUBSCRIBES HIM.
  *
@@ -103,7 +103,7 @@ export interface Subscription {
 }
 
 /**
- * One sentence per limit key, and a plan says only what we can say plainly.
+ * One sentence per limit key, and an app says only what we can say plainly.
  *
  * `gauge` counts things that exist at once (seats, branches); `counter` counts events inside a
  * period; `boolean` is a capability that is on or off. The renderer below reads `kind` rather than
@@ -118,9 +118,9 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
   'feature.insights.engine': { label: 'فرصي: أين الفرصة في محلّك' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
-  // SOLD, NOT BUILT YET (ci/check_entitlements.py's SOLD_UNBUILT). The plan itself carries
+  // SOLD, NOT BUILT YET (ci/check_entitlements.py's SOLD_UNBUILT). The app itself carries
   // `listed: false`, so this sentence never actually renders a card — it exists so the wording
-  // is ready the day the plan flips to listed, not written under launch pressure.
+  // is ready the day the app flips to listed, not written under launch pressure.
   'feature.bookings': { label: 'نظام الحجوزات ومواعيد العملاء' },
   // THE BASE ITSELF, and it has a sentence for the same reason every other key does: it is
   // charged for, so the page where he decides must name it. «سجلّ الزيارات» rather than «الأساس»
@@ -129,8 +129,8 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.base': { label: 'سجلّ الزيارات والتذكيرات' },
 };
 
-// Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so a
-// plan at 9950 was advertised as «100 ريال»: fifty halalas above what we charge, on the screen
+// Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so an
+// app priced at 9950 was advertised as «100 ريال»: fifty halalas above what we charge, on the screen
 // whose only job is to state the price before he agrees to it.
 
 function monthly(p: Plan): Price | undefined {
@@ -143,10 +143,10 @@ function ordered(plans: Plan[]): Plan[] {
 }
 
 /**
- * The readable lines for one plan.
+ * The readable lines for one app.
  *
- * A `boolean` at 0 is omitted rather than rendered as «لا»: a list of what a plan does NOT do,
- * printed under its price, reads as a warning label. The comparison between plans comes from the
+ * A `boolean` at 0 is omitted rather than rendered as «لا»: a list of what an app does NOT do,
+ * printed under its price, reads as a warning label. The comparison between apps comes from the
  * lines that are present, which is how a person actually reads three cards side by side.
  */
 export function planLines(p: Plan): string[] {
@@ -175,7 +175,7 @@ export type Kind = 'base' | 'app' | 'capacity';
  * WHAT KIND OF THING IS THIS ROW — read off its limits, never off its name.
  *
  * A NAME WOULD PUT THE PRICE LIST IN TWO PLACES, and the copy in code is the one that goes stale
- * the day marketing renames a row. A plan IS a base when it carries the message meter; it is an
+ * the day marketing renames a row. A row IS a base when it carries the message meter; it is an
  * app when it turns a feature on; it is capacity when all it carries is seats or branches.
  *
  * `limit: 0` IS A DECLARED DENY, not a grant. The base carries every app at 0 so no screen has to
@@ -209,11 +209,11 @@ export function appKey(plan: Plan): string {
  * conversion he did not make.
  *
  * THE SENTENCE IS ABOUT HIM, NEVER ABOUT OUR PRICE LIST. «نقاطٌ على كل زيارة» is a fact about his
- * shop; «هذه في باقة أعلى» is a fact about us, and only one of them makes anybody buy. It comes
+ * shop; «هذه تحتاج تطبيقاً آخر» is a fact about us, and only one of them makes anybody buy. It comes
  * from the app registry — the same file the locks read — so the shop is never told one thing here
  * and another where the lock is drawn.
  *
- * AND THE LIMITS ARE STILL THE SERVER'S. The lines under the price are the plan's own `limits`,
+ * AND THE LIMITS ARE STILL THE SERVER'S. The lines under the price are the app's own `limits`,
  * worded by LIMIT_WORDS and nothing else; a number typed here would be a second price list.
  */
 /**
@@ -326,7 +326,7 @@ function AppCard({
   statusLabel?: string;
   statusTone?: 'success' | 'warning' | 'danger';
   /** THE BASE CARD ONLY (v0.16.33) — a SCHEDULED DOWNGRADE, taking effect at the next renewal.
-   *  Shown instead of the cancel control on the OWNED card (the plan he still has, in full, until
+   *  Shown instead of the cancel control on the OWNED card (the subscription he still has, in full, until
    *  then), with its own undo — never a proration, never a credit, so there is nothing here to
    *  reverse but the schedule itself. */
   switchPending?: boolean;
@@ -541,7 +541,7 @@ export function PlansPane({
   /** What the server says is still owed after a successful subscription. Never an error. */
   const [notice, setNotice] = useState('');
   /** «إلغاء الاشتراك» — its own dialog, its own busy flag, its own error. Kept apart from `busy`/
-   *  `error` above: those belong to BUYING, and a cancel in flight must not grey out every plan
+   *  `error` above: those belong to BUYING, and a cancel in flight must not grey out every app
    *  card on the screen as if a purchase were happening. */
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
@@ -556,24 +556,24 @@ export function PlansPane({
    *  the pending subscription id AND its app's name, since the dialog needs both and neither
    *  the id alone nor `apps` alone can answer «which app, in his own words» on its own. */
   const [confirmingCancelApp, setConfirmingCancelApp] = useState<{ subId: string; name: string } | null>(null);
-  /** THE CARD FORM, OPEN FOR ONE OF TWO REASONS — buying a plan, or replacing the card on the
+  /** THE CARD FORM, OPEN FOR ONE OF TWO REASONS — buying an app, or replacing the card on the
    *  base subscription. `null` is closed; it is not a screen of its own, same as `reading` on
    *  «رسائلي». Which reason decides what a resolved token is handed to next. */
   const [cardFormPending, setCardFormPending] = useState<PendingPayment | null>(null);
   /** True only while resolving a token AFTER the 3DS redirect brought him back — a distinct wait
    *  from `busy`, because there is no form and no button to grey out at that moment. */
   const [resolvingReturn, setResolvingReturn] = useState(false);
-  /** «بدّل الباقة» (audit #5) — its own dialog, its own busy flag, its own error, same reasoning
-   *  as cancel's: switching in flight must not grey out the whole plan grid. */
+  /** «تبديل الاشتراك الأساسي» (audit #5) — its own dialog, its own busy flag, its own error, same
+   *  reasoning as cancel's: switching in flight must not grey out the whole apps grid. */
   const [confirmingChange, setConfirmingChange] = useState<Plan | null>(null);
   const [changeBusy, setChangeBusy] = useState(false);
   const [changeError, setChangeError] = useState('');
   /** Its own banner, not `notice` — that one is titled «تم الاشتراك ✓» and offers «اربط واتسابي
-   *  الآن», neither of which is true of a plan SWITCH on an already-connected shop. */
+   *  الآن», neither of which is true of a SUBSCRIPTION SWITCH on an already-connected shop. */
   const [changeNotice, setChangeNotice] = useState('');
   /** «تراجع عن التبديل» (v0.16.33) — undoing a SCHEDULED downgrade before its renewal, a distinct
    *  action from `changeBusy`/`changeError` above (those cover the confirm dialog picking a new
-   *  plan; this covers cancelling one already picked). */
+   *  subscription; this covers cancelling one already picked). */
   const [cancelSwitchBusy, setCancelSwitchBusy] = useState(false);
   const [cancelSwitchError, setCancelSwitchError] = useState('');
   /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoing an already-scheduled cancel, on either the base
@@ -585,7 +585,7 @@ export function PlansPane({
   /**
    * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
    *
-   * With no gateway configured this screen was a shop with no till: every press wrote «باقتك» over
+   * With no gateway configured this screen was a shop with no till: every press wrote «اشتراكك» over
    * the last one and no riyal moved, so an owner could walk between «الأساسية» and «الاحترافية»
    * all afternoon. A product that hands out its paid tiers to whoever presses hardest is not
    * generous; it is broken, and the first shop to notice tells the second.
@@ -679,14 +679,14 @@ export function PlansPane({
     }
   };
 
-  /** «بدّل الباقة» (audit #5) — THE ACTION THAT DID NOT EXIST. billing-service's `/change` route is
+  /** «تبديل الاشتراك الأساسي» (audit #5) — THE ACTION THAT DID NOT EXIST. billing-service's `/change` route is
    *  whole, proration and all; nothing in this console ever called it, so switching base tiers
    *  meant a second «شراء» - a second subscription rather than a swap.
    *
    *  THE STRIPE-STYLE SPLIT (no negative balance or refund, ever — fixed
    *  upstream v0.16.33): an UPGRADE is charged the prorated difference FIRST and takes effect only
    *  once that charge clears - `applied: "upgraded"`. A DOWNGRADE touches nothing now; the shop
-   *  keeps its current, already-paid plan at full value until the period ends, and the new one is
+   *  keeps its current, already-paid subscription at full value until the period ends, and the new one is
    *  SCHEDULED for the next renewal at full price - `applied: "scheduled_downgrade"`, never a
    *  credit line, never a negative balance. The two need two different sentences, because they are
    *  two different promises: one says "already happened", the other says "will start". */
@@ -706,12 +706,12 @@ export function PlansPane({
         const d = out?.proration_minor;
         setChangeNotice(
           typeof d === 'number' && d > 0
-            ? `تم تبديل باقتك إلى «${confirmingChange.name}». حُصِّل ${riyals(d)} ريال فرق السعر لبقية هذه الفترة.`
-            : `تم تبديل باقتك إلى «${confirmingChange.name}».`);
+            ? `تم تبديل اشتراكك إلى «${confirmingChange.name}». حُصِّل ${riyals(d)} ريال فرق السعر لبقية هذه الفترة.`
+            : `تم تبديل اشتراكك إلى «${confirmingChange.name}».`);
       }
       load();
     } catch (e) {
-      setChangeError(e instanceof Error ? e.message : 'تعذّر تبديل الباقة.');
+      setChangeError(e instanceof Error ? e.message : 'تعذّر تبديل الاشتراك.');
     } finally {
       setChangeBusy(false);
     }
@@ -758,7 +758,7 @@ export function PlansPane({
     if (!a) { setPay({ enabled: false, message: '' }); return; }
     call<{ enabled: boolean; message?: string }>(session, a)
       .then(setPay)
-      // A FAILED READ IS NOT AN OPEN TILL. Erring the other way sells a plan nobody can charge for.
+      // A FAILED READ IS NOT AN OPEN TILL. Erring the other way sells an app nobody can charge for.
       .catch(() => setPay({ enabled: false, message: '' }));
   }, [session, catalog]);
 
@@ -773,7 +773,7 @@ export function PlansPane({
     // NOT GATED ON THE CONNECTION ANY MORE — see the module note. Only on having the action at
     // all, which is a capability question and not a readiness one.
     // NOT WHILE THE TILL IS SHUT. The press is still remembered — his choice is not lost — but
-    // nothing is written and no plan starts.
+    // nothing is written and no subscription starts.
     // AND NOT WITHOUT A TOKEN WE CAN ACTUALLY MINT (د-15). `pay.enabled` answers «is there a
     // gateway key», which is a different question from «can this browser hand back a card
     // token». The screen used to press on regardless, posting `{ plan_id }` alone, and every
@@ -799,7 +799,7 @@ export function PlansPane({
       setCardFormPending(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر تفعيل الباقة.');
+      setError(e instanceof Error ? e.message : 'تعذّر تفعيل الاشتراك.');
     } finally {
       setBusy(false);
     }
@@ -868,7 +868,7 @@ export function PlansPane({
   // exactly that same position bug into two more places — removed rather than fixed-in-place,
   // so it cannot regrow a third use.
   const baseSub = (subs ?? []).find((s) => bases.some((p) => p.id === s.plan_id));
-  // EVERY APP'S OWN SUBSCRIPTION ROW — matched the same way (by which plan it IS, never by
+  // EVERY APP'S OWN SUBSCRIPTION ROW — matched the same way (by which row it IS, never by
   // position). Each app is independently cancellable — «كل تطبيق له إدارة
   // اشتراكه الخاص» — but none of them exists without the base, so cancelling the base is stated
   // plainly as cancelling all of them together, never a silent side effect.
@@ -926,7 +926,7 @@ export function PlansPane({
         </div>
       ) : null}
 
-      {/* THE CARD FORM — subscribing to a paid plan, or replacing the card on the base. Shown
+      {/* THE CARD FORM — subscribing to a paid app, or replacing the card on the base. Shown
           inline rather than in a modal: it is a full-page redirect away and back on the ordinary
           path (3DS), and a modal that survives that round trip is a modal fighting its own DOM. */}
       {cardFormPending ? (
@@ -1017,12 +1017,12 @@ export function PlansPane({
         ) : null}
       </Modal>
 
-      {/* «بدّل الباقة» CONFIRMATION — same discipline as cancel's: he is changing what he pays, and
+      {/* «تبديل الاشتراك الأساسي» CONFIRMATION — same discipline as cancel's: he is changing what he pays, and
           the one thing he must know before pressing again is what actually happens NOW.
           TWO DIFFERENT PROMISES (v0.16.33: «مافي رصيد سالب أو استرداد إطلاقاً»): an
           UPGRADE charges the prorated difference immediately and switches only once that clears —
           said as something about to be charged, not a fact already true. A DOWNGRADE changes
-          NOTHING today; the current, already-paid plan keeps working in full until the period
+          NOTHING today; the current, already-paid subscription keeps working in full until the period
           ends, and only then does the new one — and its new price — begin. Neither sentence is a
           guess: this is exactly what billing-service now does. */}
       <Modal open={Boolean(confirmingChange)}
@@ -1033,7 +1033,7 @@ export function PlansPane({
             <p className="text-sm text-text-secondary">
               {(monthly(confirmingChange)?.amount_minor ?? 0)
                 >= (baseSub ? monthly(bases.find((b) => b.id === baseSub.plan_id) ?? confirmingChange)?.amount_minor ?? 0 : 0)
-                ? 'حدود باقتك الجديدة تسري فوراً، بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك.'
+                ? 'حدود اشتراكك الجديد تسري فوراً، بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك.'
                 : 'يستمر اشتراكك الحالي كما هو حتى نهاية الفترة الحالية — لا يُخصم شيء الآن. عند التجديد القادم يبدأ سعر وحدود «' + confirmingChange.name + '».'}
             </p>
             {changeError ? <p className="text-sm text-danger">{changeError}</p> : null}
@@ -1167,7 +1167,7 @@ export function PlansPane({
                       : baseSub?.status === 'active' ? 'success' : 'warning')
                     : undefined;
                   // A SCHEDULED DOWNGRADE, NAMED (v0.16.33) - shown only on the card he still owns
-                  // (the plan he keeps, in full, until the switch happens), never on the target -
+                  // (the subscription he keeps, in full, until the switch happens), never on the target -
                   // buying that card outright is still a different action from the one already
                   // scheduled toward it.
                   const pendingPlan = baseSub?.pending_plan_id
