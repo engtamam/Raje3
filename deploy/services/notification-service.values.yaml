@@ -246,11 +246,9 @@ cronJobs:
   - name: notify-drain
     schedule: "* * * * *"
     path: /internal/notifications/drain
-    # `jitterSeconds` REMOVED (found live, 2026-09-03) — platform's chart has no such field
-    # (neither the template nor values.schema.json, which sets additionalProperties: false on
-    # cronJobs items), so this did not stagger anything; it made `helm template` refuse to
-    # render, silently blocking every future ship of this service. The crash-loop incident this
-    # was meant to fix is still real — see affiliate-service.values.yaml's own note.
+    # RESTORED (platform v0.18.2) — real support now: a RANDOM 0..jitterSeconds sleep before the
+    # call. See affiliate-service.values.yaml's own note for the full history.
+    jitterSeconds: 30
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door
