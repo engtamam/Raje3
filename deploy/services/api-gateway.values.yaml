@@ -144,6 +144,17 @@ env:
   # the value, the routing table stopped being valid JSON, and the gateway — the front door of the
   # whole product — crash-looped on boot with `Expecting value: line 27`. A comment took the
   # product down.
+  #
+  # IT HAPPENED AGAIN ON 2026-09-03, THE SAME DAY THIS WARNING SITS RIGHT ABOVE IT — a
+  # /api/v1/secrets route (below) was added with its own explanatory `#` comment lines inside the
+  # block, crash-looping api-gateway a second time on the identical bug. A local check that
+  # stripped `#`-prefixed lines before validating passed cleanly; the real parser (this file's own
+  # `adapters/routes/static.py`) does not strip anything, because block-scalar YAML never promised
+  # it would. NO COMMENTS INSIDE THIS BLOCK, EVER — not even ones that look helpful. Put them here,
+  # above `GATEWAY_ROUTES: |`, or immediately after a route's own line as YAML text OUTSIDE the `|`
+  # block never applies here since the whole block is one scalar — there is no "outside" once you
+  # are past this line. If a route needs explaining, explain it up here, referencing the route by
+  # its prefix string so a reader can still find it below.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -188,15 +199,6 @@ env:
       {"prefix":"/api/v1/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/admin/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
 
-      # secrets-admin was added to ADMIN_SERVICES (so the catalog finds secrets.list/secrets.update
-      # and the panel renders the tab), but that alone never routes an actual call — the console's
-      # request hits this gateway on the path the action itself declares
-      # (services/secrets-admin/app/admin_actions.py: "/api/v1/secrets"[/{key}]), and with no entry
-      # here that 404s. Symptom lived on the OTHER side of the fix ci/check_admin_catalog_targets_
-      # are_actually_deployed.py exists for: the deployment is real and the capability is real, so
-      # nothing that gate checks was wrong — only the route was missing. `platform.secrets_manage`
-      # is enforced by the service itself (see admin_actions.py's own note), not by a
-      # `capabilities` filter here.
       {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
