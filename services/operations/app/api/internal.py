@@ -570,6 +570,34 @@ async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
     return {"visits": out, "count": len(out)}
 
 
+class VisitsForSubjectIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    limit: int = Field(default=200, ge=1, le=200)
+
+
+@router.post("/operations/visits-for-subject", dependencies=[Depends(require_internal_token)])
+async def visits_for_subject(request: Request, body: VisitsForSubjectIn) -> dict:
+    """The FULL visit record — every field, unlike `customer-visits` right above (deliberately
+    "shaped for display, not for export": no operator, no note, no amount, since that route
+    answers a portal page a forwarded link could reach). This one is for an internal-only
+    investigation tool (ops-mcp's `case_timeline`), never a public or customer-facing surface, so
+    the same restraint would only hide the evidence the tool exists to surface. Same safe,
+    read-only identity resolution as `customer-visits`: `subject_ref` → `CustomerStore.by_refs`
+    (never a phone, never a create — see that store method's own docstring) → this customer's
+    OWN visits, and nothing else. An unknown subject returns an empty list, not 404 — same
+    reasoning as `customer-visits`: distinguishing the two here would be an oracle.
+    """
+    c = request.app.state.container
+    customers = await CustomerStore(c.datastore).by_refs(body.tenant, {body.subject_ref})
+    if not customers:
+        return {"visits": [], "count": 0}
+    cust = customers[0]
+    rows = await VisitStore(c.datastore).for_customer(body.tenant, cust.id, limit=body.limit)
+    rows.sort(key=lambda v: v.occurred_at or v.created, reverse=True)
+    return {"visits": [v.__dict__ for v in rows], "count": len(rows)}
+
+
 class CustomerByPhoneIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=6, max_length=32)
