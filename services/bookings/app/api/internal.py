@@ -20,6 +20,7 @@ from app.core.availability import (Busy, DayException, DurationNotConfigured, Sc
 from app.core.lock import SlotClaimBusy
 from app.core.licence import LicenceError
 from app.core.operations import OperationError
+from app.core.stores import ConcurrentEditError
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
 
@@ -283,6 +284,15 @@ class InternalNearestRealSlotIn(BaseModel):
     service_ids: list[str] = Field(min_length=1, max_length=20)
     after: int = Field(gt=0)
     search_days: int = Field(default=14, ge=1, le=90)
+    # Booking-management-via-WhatsApp's own reschedule check (whatsapp-assistant's
+    # propose_reschedule_booking): without this, a customer asking to move a booking to the SAME
+    # time it already occupies — or any time still inside its own current window — reads as
+    # "busy" against ITSELF, and the nearest-slot search jumps past to the next genuinely free
+    # time instead. Same field/reasoning as the console's own `exclude_booking_id` on
+    # GET /api/v1/bookings/nearest (app/api/v1/bookings.py) — the booking being moved is not a
+    # conflict with itself. Empty (default) means "no exclusion", the pre-existing behaviour for
+    # every other caller of this route (a brand-new booking has no id of its own yet to exclude).
+    exclude_booking_id: str = Field(default="", max_length=64)
 
 
 @router.post("/bookings/nearest-real-slot", dependencies=[Depends(require_internal_token)])
@@ -298,7 +308,8 @@ async def internal_nearest_real_slot(request: Request, body: InternalNearestReal
     try:
         found = await c.booking_ops.nearest_slot(
             tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
-            service_ids=body.service_ids, after=body.after, search_days=body.search_days)
+            service_ids=body.service_ids, after=body.after, search_days=body.search_days,
+            exclude_booking_id=body.exclude_booking_id)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return {"starts_at": found}
@@ -339,7 +350,119 @@ async def internal_create_booking(request: Request, body: InternalCreateBookingI
             customer_id=body.customer_id, service_ids=body.service_ids,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             intended_reward_id=body.intended_reward_id)
-    except SlotClaimBusy as exc:
+    except (SlotClaimBusy, ConcurrentEditError) as exc:
+        # ConcurrentEditError is unreachable here in practice (a brand-new id has no stored row
+        # to conflict with — see _claim_and_save's own note) but caught anyway for the same
+        # defensive-consistency reason every write route in this file already does.
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except LicenceError as exc:
+        raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, str(exc)) from exc
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return booking.public()
+
+
+# ── customer self-service, via whatsapp-assistant only (docs: booking-management-via-WhatsApp) ──
+#
+# Three routes let a WHATSAPP CUSTOMER view/cancel/reschedule HER OWN bookings, through the exact
+# same proposal-then-real-button-confirm gate whatsapp-assistant already uses for a new booking —
+# see that service's app/core/tools.py. What's genuinely NEW here (the staff routes in
+# app/api/v1/bookings.py never needed it) is OWNERSHIP: a staff caller is authorized by BRANCH
+# scope (_require_branch), which says nothing about who a given booking belongs to. A customer
+# calling through the bot must be authorized by booking OWNERSHIP instead — `customer_id` arrives
+# already resolved from her own WhatsApp number by whatsapp-assistant
+# (booking_assignment.py::_resolve_customer_id), never typed free-form, but the route still
+# verifies match on the STORED booking before doing anything: never trust the caller to have
+# checked it. A mismatch and a nonexistent booking id return the IDENTICAL refusal, on purpose —
+# distinguishing them would let a probing customer learn which random ids are real (an enumeration
+# oracle), the same reasoning the product already applies elsewhere.
+def _refusal(reason: str) -> HTTPException:
+    return HTTPException(status.HTTP_404_NOT_FOUND, reason)
+
+
+async def _own_booking(request: Request, tenant: str, booking_id: str, customer_id: str):
+    c = request.app.state.container
+    booking = await c.bookings.get(tenant, booking_id)
+    if booking is None or booking.customer_id != customer_id:
+        raise _refusal("الحجز غير موجود أو لا يخصّك")
+    return booking
+
+
+class InternalForCustomerIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    customer_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/bookings/for-customer", dependencies=[Depends(require_internal_token)])
+async def internal_bookings_for_customer(request: Request, body: InternalForCustomerIn) -> dict:
+    """The bot's `list_my_bookings` — the SAME derivation the console's own customer page uses
+    (`bookings_for_customer` in app/core/operations.py), over the internal token instead of a
+    staff one. `customer_id` is caller-supplied but not caller-trusted with anyone else's rows:
+    it is the resolved-from-phone-number id whatsapp-assistant already established, and the
+    result is that customer's own history and nothing else — there is no parameter here that
+    could name a different customer's data."""
+    c = request.app.state.container
+    rows = await c.booking_ops.bookings_for_customer(body.tenant, body.customer_id)
+    return {"bookings": [b.public() for b in rows]}
+
+
+class InternalForSubjectIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/bookings/for-subject", dependencies=[Depends(require_internal_token)])
+async def internal_bookings_for_subject(request: Request, body: InternalForSubjectIn) -> dict:
+    """SAME READ as `/bookings/for-customer` above, keyed by the pseudonym instead of the real
+    `customer_id` — for a caller (an internal case-investigation tool, e.g.) that only ever
+    resolves a phone number to `subject_ref` (operations' own read-only
+    `/internal/operations/customer-by-phone`) and must never be handed — or made to mint, since
+    the only route that hands out a real `customer_id` writes on every call — a real id just to
+    look a history up. Read-only end to end: nothing on this path ever creates or touches a row."""
+    c = request.app.state.container
+    rows = await c.booking_ops.bookings_for_subject(body.tenant, body.subject_ref)
+    return {"bookings": [b.public() for b in rows]}
+
+
+class InternalCancelIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    customer_id: str = Field(min_length=1, max_length=64)
+    reason: str = Field(default="", max_length=300)
+
+
+@router.post("/bookings/{booking_id}/cancel", dependencies=[Depends(require_internal_token)])
+async def internal_cancel_booking(request: Request, booking_id: str, body: InternalCancelIn) -> dict:
+    await _own_booking(request, body.tenant, booking_id, body.customer_id)
+    c = request.app.state.container
+    try:
+        booking = await c.booking_ops.cancel(body.tenant, booking_id, body.reason)
+    except ConcurrentEditError as exc:
+        # SAME shape as every route in app/api/v1/bookings.py's own `_handle` — a genuine, if
+        # narrow, race (two near-simultaneous confirms on the same proposal, or a redelivered
+        # webhook racing the first attempt) must read as a real, retryable conflict, not a raw 500.
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return booking.public()
+
+
+class InternalRescheduleIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    customer_id: str = Field(min_length=1, max_length=64)
+    starts_at: int = Field(gt=0)
+    operator_id: str = Field(default="", max_length=64)
+
+
+@router.post("/bookings/{booking_id}/reschedule", dependencies=[Depends(require_internal_token)])
+async def internal_reschedule_booking(request: Request, booking_id: str,
+                                      body: InternalRescheduleIn) -> dict:
+    await _own_booking(request, body.tenant, booking_id, body.customer_id)
+    c = request.app.state.container
+    try:
+        booking = await c.booking_ops.reschedule(
+            tenant=body.tenant, booking_id=booking_id, starts_at=body.starts_at,
+            operator_id=body.operator_id)
+    except (SlotClaimBusy, ConcurrentEditError) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except LicenceError as exc:
         raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, str(exc)) from exc

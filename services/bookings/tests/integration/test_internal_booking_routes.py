@@ -170,6 +170,23 @@ def test_nearest_real_slot_reflects_a_real_existing_booking(env_guard):
     assert r.json()["starts_at"] != first["starts_at"]
 
 
+def test_nearest_real_slot_with_exclude_booking_id_offers_the_bookings_own_current_time(env_guard):
+    """The booking-management-via-WhatsApp reschedule check's own dependency: EXCLUDING a
+    booking's own id must make its own current time available again — the booking is not a
+    conflict with itself. Without `exclude_booking_id`, this same query (see the test above)
+    correctly treats it as busy; this proves the exclusion actually flips that."""
+    client = _make_app()
+    _stub_ops(client)
+    booking = client.post("/internal/bookings", json={
+        "tenant": "t1", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000}, headers=_h()).json()
+    r = client.post("/internal/bookings/nearest-real-slot", json={
+        "tenant": "t1", "branch_id": "b1", "operator_id": "op1", "service_ids": ["svc1"],
+        "after": 1786860000, "exclude_booking_id": booking["id"]}, headers=_h())
+    assert r.status_code == 200
+    assert r.json()["starts_at"] == booking["starts_at"]
+
+
 def test_create_is_isolated_per_tenant_the_same_idempotency_key_never_collides_across_tenants(
         env_guard):
     """The double-tap guard (`by_idempotency_key`) is looked up WITHOUT a tenant filter unless
@@ -208,3 +225,256 @@ def test_nearest_real_slot_is_isolated_per_tenant_one_tenants_booking_never_busi
     assert r.status_code == 200
     # tnt_b's operator has NO bookings — the earliest candidate is the very slot tnt_a just took.
     assert r.json()["starts_at"] == 1786860000
+
+
+# ── customer self-service (booking-management-via-WhatsApp): for-customer / cancel / reschedule ──
+
+def _book(client, **over) -> dict:
+    payload = {"tenant": "t1", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+              "service_ids": ["svc1"], "starts_at": 1786860000}
+    payload.update(over)
+    return client.post("/internal/bookings", json=payload, headers=_h()).json()
+
+
+def test_for_customer_refuses_without_the_internal_token(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"})
+    assert r.status_code == 401
+
+
+def test_for_customer_returns_only_that_customers_own_bookings(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    mine = _book(client, customer_id="c1", idempotency_key="k-mine")
+    _book(client, customer_id="c2", idempotency_key="k-other")   # a different customer entirely
+    r = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                    headers=_h())
+    assert r.status_code == 200
+    ids = [b["id"] for b in r.json()["bookings"]]
+    assert ids == [mine["id"]]
+
+
+# ── for-subject: the same read, keyed by the pseudonym (the case-timeline tool's own entry) ──────
+
+def test_for_subject_refuses_without_the_internal_token(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/for-subject", json={"tenant": "t1", "subject_ref": "sub_c1"})
+    assert r.status_code == 401
+
+
+def test_for_subject_returns_only_that_subjects_own_bookings(env_guard):
+    """_stub_ops's own subject_ref resolver is `subject_ref(tenant, customer_id) -> "sub_" +
+    customer_id` — so a booking made for customer_id="c1" carries subject_ref="sub_c1"."""
+    client = _make_app()
+    _stub_ops(client)
+    mine = _book(client, customer_id="c1", idempotency_key="k-mine-subj")
+    _book(client, customer_id="c2", idempotency_key="k-other-subj")   # a different customer
+    r = client.post("/internal/bookings/for-subject",
+                    json={"tenant": "t1", "subject_ref": "sub_c1"}, headers=_h())
+    assert r.status_code == 200
+    ids = [b["id"] for b in r.json()["bookings"]]
+    assert ids == [mine["id"]]
+
+
+def test_for_subject_and_for_customer_agree_on_the_same_bookings_own_history(env_guard):
+    """Both routes must describe the SAME real history for the same real customer — proving the
+    subject_ref path is not a second, looser source of truth."""
+    client = _make_app()
+    _stub_ops(client)
+    _book(client, customer_id="c1", idempotency_key="k-agree-1")
+    _book(client, customer_id="c1", starts_at=1786870000, idempotency_key="k-agree-2")
+    by_customer = client.post("/internal/bookings/for-customer",
+                              json={"tenant": "t1", "customer_id": "c1"}, headers=_h()).json()
+    by_subject = client.post("/internal/bookings/for-subject",
+                             json={"tenant": "t1", "subject_ref": "sub_c1"}, headers=_h()).json()
+    assert {b["id"] for b in by_customer["bookings"]} == {b["id"] for b in by_subject["bookings"]}
+
+
+def test_for_subject_refuses_a_malformed_body_rather_than_500ing(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/for-subject", json={"tenant": "t1"}, headers=_h())
+    assert r.status_code == 422   # subject_ref missing — a validation error, never a 500
+
+
+def test_for_subject_is_isolated_per_tenant(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    _book(client, tenant="tnt_subj_a", customer_id="same-id", idempotency_key="k-subj-a")
+    _book(client, tenant="tnt_subj_b", customer_id="same-id", idempotency_key="k-subj-b")
+    r = client.post("/internal/bookings/for-subject",
+                    json={"tenant": "tnt_subj_a", "subject_ref": "sub_same-id"}, headers=_h())
+    assert len(r.json()["bookings"]) == 1
+
+
+def test_for_subject_returns_empty_never_an_error_for_an_unknown_subject(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/for-subject",
+                    json={"tenant": "t1", "subject_ref": "sub_never-existed"}, headers=_h())
+    assert r.status_code == 200
+    assert r.json()["bookings"] == []
+
+
+def test_cancel_by_the_owning_customer_succeeds(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-cancel-own")
+    r = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                    json={"tenant": "t1", "customer_id": "c1", "reason": "غيّرت رأيي"},
+                    headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "cancelled"
+
+
+def test_cancel_by_a_different_customer_is_refused_with_the_generic_not_found_reason(env_guard):
+    """SECURITY: a customer must never be able to cancel another customer's booking — and the
+    refusal for "belongs to someone else" must read IDENTICALLY to "does not exist", never
+    distinguishing the two (an enumeration oracle otherwise)."""
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, customer_id="c1", idempotency_key="k-cancel-cross")
+    r = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                    json={"tenant": "t1", "customer_id": "c2-not-the-owner", "reason": ""},
+                    headers=_h())
+    assert r.status_code == 404
+    ghost = client.post("/internal/bookings/does-not-exist/cancel",
+                        json={"tenant": "t1", "customer_id": "c2-not-the-owner", "reason": ""},
+                        headers=_h())
+    assert ghost.status_code == 404
+    # Same shape and reason text — `request_id` legitimately differs per call, not a distinguisher.
+    assert r.json()["error"] == ghost.json()["error"], \
+        "existing-but-not-mine and never-existed must read identically"
+    # SECURITY, THE PART THAT ACTUALLY MATTERS: the refused attempt must not have touched the
+    # booking — a 404 that came back AFTER the write already went through underneath would be
+    # far worse than no check at all. Proven by re-reading the booking as its REAL owner.
+    mine = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                       headers=_h()).json()["bookings"][0]
+    assert mine["status"] == "booked"
+
+
+def test_cancel_is_idempotent_an_already_cancelled_booking_is_a_no_op_success(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-cancel-twice")
+    first = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                        json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    second = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                         json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    assert first.status_code == 200 and second.status_code == 200
+    assert second.json()["status"] == "cancelled"
+
+
+def test_reschedule_by_the_owning_customer_succeeds(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-resch-own")
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c1", "starts_at": 1786870000},
+                    headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["starts_at"] == 1786870000
+
+
+def test_reschedule_by_a_different_customer_is_refused(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, customer_id="c1", idempotency_key="k-resch-cross")
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c2-not-the-owner",
+                         "starts_at": 1786870000}, headers=_h())
+    assert r.status_code == 404
+    # SECURITY: the booking must be UNCHANGED — a refused reschedule attempt from someone who
+    # does not own it must never move the real appointment even by side effect.
+    mine = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                       headers=_h()).json()["bookings"][0]
+    assert mine["starts_at"] == 1786860000
+
+
+def test_reschedule_refuses_a_double_booked_slot_the_write_itself_refuses(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    _book(client, customer_id="c1", operator_id="op1", starts_at=1786870000,
+         idempotency_key="k-resch-conflict-a")
+    booking = _book(client, customer_id="c1", operator_id="op1", starts_at=1786860000,
+                    idempotency_key="k-resch-conflict-b")
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c1", "starts_at": 1786870000},
+                    headers=_h())
+    assert r.status_code == 409
+
+
+def test_reschedule_refuses_an_already_cancelled_booking(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-resch-on-cancelled")
+    client.post(f"/internal/bookings/{booking['id']}/cancel",
+               json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c1", "starts_at": 1786870000},
+                    headers=_h())
+    assert r.status_code == 400
+
+
+def test_cancel_refuses_an_attended_booking(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-cancel-attended")
+    attended = client.app.state.container
+    import asyncio
+    asyncio.run(attended.booking_ops.attend("t1", booking["id"], 0))
+    r = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                    json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    assert r.status_code == 400
+
+
+def test_reschedule_to_the_exact_same_time_is_a_harmless_no_op_success(env_guard):
+    """A customer confirming a reschedule proposal whose target happens to equal the booking's
+    current time (e.g. a redelivered webhook replaying the same confirm) must not be treated as a
+    conflict against itself."""
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-resch-same-time")
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c1", "starts_at": booking["starts_at"]},
+                    headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["starts_at"] == booking["starts_at"]
+
+
+def test_cancel_with_no_reason_supplied_succeeds(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-cancel-no-reason")
+    r = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                    json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    assert r.status_code == 200
+    assert r.json()["status"] == "cancelled"
+
+
+def test_for_customer_refuses_a_malformed_body_rather_than_500ing(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/for-customer", json={"tenant": "t1"}, headers=_h())
+    assert r.status_code == 422   # customer_id missing — a validation error, never a 500
+
+
+def test_reschedule_refuses_a_nonpositive_starts_at(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-resch-bad-time")
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c1", "starts_at": 0}, headers=_h())
+    assert r.status_code == 422
+
+
+def test_for_customer_is_isolated_per_tenant(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    _book(client, tenant="tnt_fc_a", customer_id="same-id", idempotency_key="k-fc-a")
+    _book(client, tenant="tnt_fc_b", customer_id="same-id", idempotency_key="k-fc-b")
+    r = client.post("/internal/bookings/for-customer",
+                    json={"tenant": "tnt_fc_a", "customer_id": "same-id"}, headers=_h())
+    assert len(r.json()["bookings"]) == 1

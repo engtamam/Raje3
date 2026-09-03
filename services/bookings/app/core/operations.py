@@ -534,6 +534,14 @@ class BookingOperations:
         rows = await self._bookings.for_customer(tenant, customer_id, limit=limit)
         return sorted(rows, key=lambda b: b.starts_at, reverse=True)
 
+    async def bookings_for_subject(self, tenant: str, subject_ref: str, limit: int = 50
+                                   ) -> list[Booking]:
+        """SAME READ as `bookings_for_customer` above, keyed by pseudonym — for a caller (an
+        investigation tool, e.g.) that only ever resolves a phone number to `subject_ref` and must
+        never be handed a real `customer_id` just to look one history up."""
+        rows = await self._bookings.for_subject(tenant, subject_ref, limit=limit)
+        return sorted(rows, key=lambda b: b.starts_at, reverse=True)
+
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
                            search_days: int = 14,
@@ -581,11 +589,27 @@ class BookingOperations:
     async def _claim_and_save(self, booking: Booking, *, now: float) -> Booking:
         """The lock, taken only here — at the one moment a time/operator commitment is actually
         confirmed. §2's two-step sequence: any advisory read the caller did before this (the
-        grid's own colouring while dragging) happened outside the lock and is not re-trusted."""
+        grid's own colouring while dragging) happened outside the lock and is not re-trusted.
+
+        `save_if_unchanged(expected_rev=booking.rev)`, NOT a bare `save()` — found by review: the
+        claim lane above only serialises TWO DIFFERENT bookings colliding on the same
+        (branch, operator, time-bucket); it says nothing about two writers editing the SAME
+        booking (§4's second race scenario, the exact one `edit_note`/`set_payment_status`/`cancel`
+        already guard against via this same call). Without this, a caller holding a stale
+        in-memory `Booking` (its own copy, `rev` unchanged since it was fetched) could silently
+        overwrite a genuinely newer edit — e.g. a booking-management-via-WhatsApp reschedule retry
+        landing after a staff member already moved the SAME booking elsewhere on the console.
+        `booking.rev` here is always the value the caller's fetch produced (never touched by local
+        mutation — `rev` only advances inside `save()` itself), so this is exactly the same
+        "expected == what I actually read" contract every other write in this file already keeps.
+        Harmless for a brand-new `create()`: a fresh `new_id("bkg")` has no stored row yet, so
+        `save_if_unchanged` finds `current is None` and skips the comparison entirely, same as
+        `save()` always did.
+        """
         async with claiming(self._store, tenant=booking.tenant, branch_id=booking.branch_id,
                             operator_id=booking.operator_id, starts_at=booking.starts_at, now=now):
             await self._refuse_if_conflicting(booking)
-            return await self._bookings.save(booking)
+            return await self._bookings.save_if_unchanged(booking, expected_rev=booking.rev)
 
     async def _refuse_if_conflicting(self, booking: Booking) -> None:
         """The AUTHORITATIVE re-check, inside the lock — the advisory grid read before the lock

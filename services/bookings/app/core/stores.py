@@ -93,6 +93,16 @@ class BookingStore:
         rows, _ = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
         return [_from_row(r) for r in rows]
 
+    async def for_subject(self, tenant: str, subject_ref: str, limit: int = 200) -> list[Booking]:
+        """SAME QUERY as `for_customer`, keyed by the pseudonym instead of the real id — for a
+        caller that only ever holds `subject_ref` (a read-only phone→pseudonym resolution, e.g.)
+        and must never be handed — or made to mint — a real `customer_id` just to look up a
+        history. `subject_ref` is stamped on every booking once at creation (see `Booking`'s own
+        field note), so this is exactly as complete a history as `for_customer` gives, through a
+        door that costs the caller nothing to open."""
+        rows, _ = await self._find(tenant, {"subject_ref": subject_ref}, limit=limit)
+        return [_from_row(r) for r in rows]
+
     async def for_series(self, tenant: str, series_id: str, limit: int = 50) -> list[Booking]:
         rows, _ = await self._find(tenant, {"series_id": series_id}, limit=limit)
         return sorted([_from_row(r) for r in rows], key=lambda b: b.series_seq or 0)
