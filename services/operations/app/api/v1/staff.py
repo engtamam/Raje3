@@ -888,13 +888,37 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES,
                                          current=_live(rows))
 
+            # THE REAL DIFF, NOT JUST "SOMETHING CHANGED" — found by review: this event used to
+            # carry no metadata at all, so a close, a reopen, a rename and a relocation were all
+            # indistinguishable in the trail, one line reading "branch.updated" with nothing to
+            # tell them apart. For a dispute over "was this branch open on date X" that is not a
+            # log, it is a rumour. Computed BEFORE the mutation below, against the row this
+            # request actually read, so it reflects what THIS call changes — never a stale diff
+            # against a row a concurrent writer already moved past (the claim lane above already
+            # protects the write itself; this only has to describe it honestly).
+            changes: dict[str, Any] = {}
+            if body.active is not None and body.active != b.active:
+                changes["active"] = {"from": b.active, "to": body.active}
+            if body.name is not None and body.name.strip() != b.name:
+                changes["name"] = {"from": b.name, "to": body.name.strip()}
+            if body.lat is not None and body.lat != b.lat:
+                changes["lat"] = {"from": b.lat, "to": body.lat}
+            if body.lng is not None and body.lng != b.lng:
+                changes["lng"] = {"from": b.lng, "to": body.lng}
+            if body.city is not None and body.city.strip() != b.city:
+                changes["city"] = {"from": b.city, "to": body.city.strip()}
+
             await request.app.state.auditor.record(
                 "branch.updated", actor=principal.subject, tenant=tenant,
-                resource=f"branch:{branch_id}", ip=request.client.host if request.client else "")
+                resource=f"branch:{branch_id}", ip=request.client.host if request.client else "",
+                metadata=changes)
 
             if body.name is not None:
                 b.name = body.name.strip()
             if body.active is not None:
+                # THE CACHE `Branch.closed_at` SPLIT — see that field's own docstring. Set on
+                # close, cleared on reopen; the real open/close TIMELINE is the audit event above.
+                b.closed_at = int(time.time()) if body.active is False else 0
                 b.active = body.active
             if body.lat is not None:
                 b.lat = body.lat

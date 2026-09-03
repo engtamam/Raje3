@@ -356,6 +356,13 @@ class Branch:
     name: str
     active: bool = True
     created: int = 0
+    #: WHEN THIS BRANCH WAS LAST CLOSED — 0 while `active` is True. A convenience CACHE of the
+    #: current state, not a history: the real open/close TIMELINE (every transition, who did it,
+    #: and when) lives in audit-service's own `branch.updated` events, which now carry a real
+    #: before/after diff (see app/api/v1/staff.py::update_branch's own note) — this field only
+    #: answers "is it closed right now, and since when", the same "cache the current fact,
+    #: audit carries the history" split every other status field in this product already follows.
+    closed_at: int = 0
     #: Optional, set by the shop's own owner (never inferred) — the admin panel's own map of
     #: where shops actually are reads these, but this service never invents a location for a
     #: branch nobody located. 0.0/0.0 (the Gulf of Guinea) means "not set", not "at the equator".
@@ -365,5 +372,5 @@ class Branch:
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
-                "active": self.active, "created": self.created,
+                "active": self.active, "created": self.created, "closed_at": self.closed_at,
                 "lat": self.lat, "lng": self.lng, "city": self.city}

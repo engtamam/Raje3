@@ -949,3 +949,109 @@ def test_whatsapp_channel_pricing_reflects_configured_values(client, monkeypatch
 def test_whatsapp_channel_pricing_refuses_without_the_internal_token(client):
     r = client.post("/internal/operations/whatsapp-channel-pricing", json={"tenant": "tnt_x"})
     assert r.status_code in (401, 403)
+
+
+# ── closed_at, branch.updated's real diff, and the ops-mcp report routes ─────────────────────────
+
+def test_closing_a_branch_stamps_closed_at_reopening_clears_it(client):
+    h = _headers("tnt_closed_at")
+    created = client.post(BRANCHES, json={"name": "فرع الاختبار", "lat": 24.71, "lng": 46.68},
+                          headers=h)
+    bid = created.json()["id"]
+
+    closed = client.patch(f"{BRANCHES}/{bid}", json={"active": False}, headers=h)
+    assert closed.json()["closed_at"] > 0
+
+    reopened = client.patch(f"{BRANCHES}/{bid}", json={"active": True}, headers=h)
+    assert reopened.json()["closed_at"] == 0
+
+
+def test_branch_updated_audit_event_carries_a_real_before_after_diff(client, monkeypatch):
+    """THE BUG THIS FIXES: this event used to carry NO metadata at all — a close, a reopen, a
+    rename and a relocation were all one indistinguishable "branch.updated" line."""
+    seen: list[dict] = []
+
+    async def record(action, **kw):
+        seen.append({"action": action, **kw})
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+    h = _headers("tnt_branch_diff")
+    created = client.post(BRANCHES, json={"name": "الاسم القديم", "lat": 24.71, "lng": 46.68},
+                          headers=h)
+    bid = created.json()["id"]
+    seen.clear()   # drop the create's own audit line, if any — only the update below matters
+
+    client.patch(f"{BRANCHES}/{bid}", json={"name": "الاسم الجديد", "active": False}, headers=h)
+    assert len(seen) == 1
+    meta = seen[0]["metadata"]
+    assert meta["name"] == {"from": "الاسم القديم", "to": "الاسم الجديد"}
+    assert meta["active"] == {"from": True, "to": False}
+
+
+def test_branch_updated_with_no_actual_change_carries_empty_metadata_not_a_stale_guess(client, monkeypatch):
+    seen: list[dict] = []
+
+    async def record(action, **kw):
+        seen.append({"action": action, **kw})
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+    h = _headers("tnt_branch_nodiff")
+    created = client.post(BRANCHES, json={"name": "فرع ثابت", "lat": 24.71, "lng": 46.68}, headers=h)
+    bid = created.json()["id"]
+    seen.clear()
+
+    # Same name sent back — nothing actually changes.
+    client.patch(f"{BRANCHES}/{bid}", json={"name": "فرع ثابت"}, headers=h)
+    assert seen[0]["metadata"] == {}
+
+
+def test_branches_full_refuses_without_the_internal_token(client):
+    r = client.post("/internal/operations/branches-full", json={"tenant": "tnt_x"})
+    assert r.status_code == 401
+
+
+def test_branches_full_returns_every_field_including_closed_at_and_location(client):
+    h = _headers("tnt_br_full")
+    created = client.post(BRANCHES, json={"name": "فرع كامل", "lat": 24.71, "lng": 46.68,
+                                          "city": "الرياض"}, headers=h)
+    bid = created.json()["id"]
+    client.patch(f"{BRANCHES}/{bid}", json={"active": False}, headers=h)
+
+    r = client.post("/internal/operations/branches-full", json={"tenant": "tnt_br_full"},
+                    headers=_internal_headers())
+    assert r.status_code == 200, r.text
+    row = next(b for b in r.json()["branches"] if b["id"] == bid)
+    assert row["active"] is False
+    assert row["closed_at"] > 0
+    assert row["lat"] == 24.71 and row["city"] == "الرياض"
+    assert row["created"] > 0
+
+
+def test_operators_full_refuses_without_the_internal_token(client):
+    r = client.post("/internal/operations/operators-full", json={"tenant": "tnt_x"})
+    assert r.status_code == 401
+
+
+def test_operators_full_returns_the_full_record_never_the_pin_hash(client):
+    from app.core.models import OPERATORS, Operator
+    import asyncio
+
+    store = client.app.state.container.datastore
+
+    async def seed():
+        op = Operator(id="op_full_1", tenant="tnt_op_full", name="أحمد", pin_hash="secrethash",
+                     role="manager", branch_id="brn-main", active=True, created=100,
+                     visible_all=True)
+        await store.put(OPERATORS, f"tnt_op_full|op_full_1", op.__dict__.copy())
+
+    asyncio.run(seed())
+    r = client.post("/internal/operations/operators-full", json={"tenant": "tnt_op_full"},
+                    headers=_internal_headers())
+    assert r.status_code == 200, r.text
+    row = r.json()["operators"][0]
+    assert row["role"] == "manager"
+    assert row["branch_id"] == "brn-main"
+    assert row["visible_all"] is True
+    assert row["created"] == 100
+    assert "pin_hash" not in row
+    assert row["has_pin"] is True

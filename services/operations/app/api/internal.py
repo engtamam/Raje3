@@ -1395,6 +1395,21 @@ async def read_active_branches(request: Request, body: CatalogueIn) -> dict:
             "count": sum(1 for b in rows if b.active)}
 
 
+@router.post("/operations/branches-full", dependencies=[Depends(require_internal_token)])
+async def read_branches_full(request: Request, body: CatalogueIn) -> dict:
+    """The FULL branch record — every field, unlike `read_branches`/`read_active_branches`
+    above (both deliberately narrow: id+name+active for insights' table labels, id+name+city
+    for a customer-facing picker). For the ops-mcp case-timeline/shop-report tool specifically:
+    `created`, `closed_at` (see that field's own docstring — the CURRENT open/closed fact; the
+    real transition history lives in audit-service's own `branch.updated` events, now carrying
+    a real before/after diff), and location, since a shop-level dispute report needs the whole
+    row, not a display-shaped slice of it.
+    """
+    c = request.app.state.container
+    rows = await BranchStore(c.datastore).list(body.tenant)
+    return {"branches": [b.public() for b in rows], "count": len(rows)}
+
+
 class BranchOperatorsIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     branch_id: str = Field(min_length=1, max_length=64)
@@ -1471,6 +1486,20 @@ async def read_operators(request: Request, body: CatalogueIn) -> dict:
     rows = await OperatorStore(c.datastore).list(body.tenant)
     return {"operators": [{"id": o.id, "name": o.name, "active": o.active} for o in rows],
             "count": len(rows)}
+
+
+@router.post("/operations/operators-full", dependencies=[Depends(require_internal_token)])
+async def read_operators_full(request: Request, body: CatalogueIn) -> dict:
+    """The FULL staff record — role, home branch, visible-branch grants, active/stopped —
+    unlike `read_operators`/`read_branch_operators` above (both deliberately id+name(+active),
+    shaped for a single caller's own narrow need). For the ops-mcp case-timeline/shop-report
+    tool: "who had what access, and since when" is exactly what `Operator.public()` already
+    answers safely (no `pin_hash`, never — see that method's own docstring), so this route is
+    a thin reuse of it, not a new field selection to keep in sync with a second one.
+    """
+    c = request.app.state.container
+    rows = await OperatorStore(c.datastore).list(body.tenant)
+    return {"operators": [o.public() for o in rows], "count": len(rows)}
 
 
 
