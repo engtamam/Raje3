@@ -91,7 +91,14 @@ metrics:
 env:
   RATELIMIT_MAX: "300"
   RATELIMIT_WINDOW_SECONDS: "60"
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  # jwks, NOT rs256 — see deploy/services/secrets-admin.values.yaml's own note (found live,
+  # 2026-09-03): rs256 caches ONE public key at pod start and never refreshes it, so it silently
+  # rejects every token, indistinguishable from an expired session, from identity-service's very
+  # first nightly key rotation onward. This service's own operator routes (secrets rotation,
+  # diagnostics — see api/v1/operator.py) went through this gap unnoticed until secrets-admin's
+  # identical misconfiguration was traced.
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
