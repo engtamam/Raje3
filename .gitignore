@@ -27,6 +27,12 @@ node_modules/
 services/*/.pytest_cache/
 services/*/.venv/
 services/operations/.venv/
+# `uv run` writes this the first time it's invoked in a service dir it hasn't touched before —
+# found live: an untracked uv.lock made publish-images.sh build from "a tree with uncommitted
+# changes" every time, so the same source produced a DIFFERENT image digest on every ship, and a
+# follow-up ship of the same commit failed verify (RUNNING one digest, pinned another, confirmed
+# different content) purely because the lock file's own presence/absence flipped the build.
+services/*/uv.lock
 venv/
 node_modules/
 apps/*/dist/
