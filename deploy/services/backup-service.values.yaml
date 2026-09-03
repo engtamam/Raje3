@@ -218,13 +218,14 @@ env:
   BACKUP_STALE_AFTER_SECONDS: "93600"
 
   # ── Retention ─────────────────────────────────────────────────────────────────────────────
-  # 20 runs, and the last VERIFIED backup of every target is kept regardless of age — the sweep
-  # can never delete a service's only working archive. 30 days as a second bound so a target that
-  # stopped being backed up does not keep 20 stale runs forever: at one run a night the two limits
+  # 10 runs, and the last VERIFIED backup of every target is kept regardless of age — the sweep
+  # can never delete a service's only working archive. 15 days as a second bound so a target that
+  # stopped being backed up does not keep 10 stale runs forever: at one run a night the two limits
   # agree with each other on a healthy target, so neither one is the surprise —
-  # narrowed from 30 runs / 90 days: the old bound outlived any use a shop's data has that far back.
-  BACKUP_RETENTION_RUNS: "20"
-  BACKUP_RETENTION_MAX_AGE_SECONDS: "2592000"
+  # narrowed from 20 runs / 30 days (2026-09-03), both bounds halved together to keep that same
+  # agreement rather than leaving the age bound to outlive the run-count bound on a healthy target.
+  BACKUP_RETENTION_RUNS: "10"
+  BACKUP_RETENTION_MAX_AGE_SECONDS: "1296000"
 
 
   # Alerts are recorded and readable on the health endpoint regardless. A push destination needs
