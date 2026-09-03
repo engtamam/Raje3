@@ -848,6 +848,85 @@ if _console:
                  "customers: " + " · ".join(_console))
 
 
+# ── 18. every user-facing endpoint has a route that can actually reach it ─────────────────────
+# Guard 17 checks that a declared ACTION points at a route the service itself serves — but a
+# route the service serves is still unreachable from a browser if api-gateway never proxies it.
+# Found live, twice in one session: `/api/v1/secrets` (secrets-admin) and `/api/v1/admin/leads/geo`
+# + `/api/v1/platform/branches/locations` (affiliate-service, operations) were all declared,
+# deployed, and capability-correct — the catalog found them, the console rendered the button — and
+# every one 404'd or 504'd because GATEWAY_ROUTES had no prefix covering them. The service and the
+# console both looked fine; the missing piece lived in a third file neither of them checks.
+_gw_values = ROOT / "deploy" / "services" / "api-gateway.values.yaml"
+if _gw_values.is_file():
+    _gw_text = read(_gw_values)
+    # BOUNDED BY THE ARRAY'S OWN CLOSING `]`, NOT BY GUESSING WHICH KEY COMES NEXT. An earlier
+    # version of this regex matched "any indented line" and kept going straight through
+    # UPSTREAM_TIMEOUT_SECONDS into the NEXT env key's own comment block (every top-level env key
+    # is indented under `env:` too, so "indented" alone never bounds the block) — it "found" -#
+    # comment lines that were never inside GATEWAY_ROUTES at all, a false positive from this
+    # gate's own parsing, not a real bug in the file. The block scalar's own content is JSON, so
+    # its true end is the line whose stripped text is exactly "]".
+    _gw_m = re.search(r"GATEWAY_ROUTES:\s*\|\n", _gw_text)
+    _gw_prefixes: list[str] = []
+    if _gw_m:
+        _gw_body_lines = _gw_text[_gw_m.end():].splitlines()
+        _gw_block: list[str] = []
+        for _ln in _gw_body_lines:
+            _gw_block.append(_ln)
+            if _ln.strip() == "]":
+                break
+        _gw_lines = [ln for ln in _gw_block if ln.strip()]
+        # THE SAME CRASH THIS BLOCK'S OWN COMMENTS ELSEWHERE WARN ABOUT: a `#` line inside this
+        # block scalar is not a YAML comment, it is part of the JSON value, and api-gateway
+        # crash-loops on boot trying to parse it. A gate that silently ignored such a line here
+        # would parse "successfully" against corrupted input and never catch the one mistake that
+        # has taken the product's own front door down twice.
+        _hash_lines = [ln for ln in _gw_lines if ln.lstrip().startswith("#")]
+        if _hash_lines:
+            fail("deploy/services/api-gateway.values.yaml",
+                 f"GATEWAY_ROUTES contains {len(_hash_lines)} line(s) starting with '#' — this is "
+                 f"a YAML block scalar, so '#' does NOT start a comment here; it becomes part of "
+                 f"the JSON value and crash-loops api-gateway on boot (this has happened twice "
+                 f"live). Move any explanation ABOVE the `GATEWAY_ROUTES: |` line instead.")
+        else:
+            try:
+                import json as _json2
+                _gw_routes = _json2.loads("\n".join(_gw_lines))
+                _gw_prefixes = sorted((r.get("prefix", "") for r in _gw_routes), key=len,
+                                      reverse=True)
+            except (ValueError, _json2.JSONDecodeError):
+                fail("deploy/services/api-gateway.values.yaml",
+                     "GATEWAY_ROUTES did not parse as JSON — cannot check route coverage")
+
+    if _gw_prefixes:
+        for _svc_dir2 in sorted((ROOT / "services").glob("*/app/manifest.py")):
+            _svc2 = _svc_dir2.parent.parent.name
+            _tree2 = ast.parse(read(_svc_dir2))
+            for _node2 in ast.walk(_tree2):
+                if not isinstance(_node2, ast.Dict):
+                    continue
+                for _k2, _v2 in zip(_node2.keys, _node2.values):
+                    if not (isinstance(_k2, ast.Constant) and _k2.value == "endpoints"
+                            and isinstance(_v2, ast.List)):
+                        continue
+                    for _e2 in _v2.elts:
+                        if not isinstance(_e2, ast.Dict):
+                            continue
+                        _d2 = {kk.value: vv.value for kk, vv in zip(_e2.keys, _e2.values)
+                              if isinstance(kk, ast.Constant) and isinstance(vv, ast.Constant)}
+                        # ONLY "user" — "public" (healthz/readyz/metrics) is probed in-cluster,
+                        # never through the gateway, and "internal" is pod-to-pod only (cron
+                        # targets, peer calls) by the same convention guard 17 already relies on.
+                        if _d2.get("tier") != "user":
+                            continue
+                        _p2 = str(_d2.get("path", ""))
+                        if not _p2 or not any(_p2.startswith(pfx) for pfx in _gw_prefixes if pfx):
+                            fail(f"{_svc2}/app/manifest.py",
+                                 f"endpoint {_d2.get('method', 'GET')} {_p2!r} is tier=user "
+                                 f"(console-reachable) but no GATEWAY_ROUTES prefix in "
+                                 f"api-gateway.values.yaml covers it — every request 404s (no "
+                                 f"match) or the browser never reaches this service at all")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
@@ -860,4 +939,4 @@ print(f"{C_G}  ✔ deploy wiring is consistent — digests pinned, databases pro
       f"erasure fan-out complete, cron paths real, env keys declared, egress matches use, "
       f"security posture held, shared secrets named, digits western, capabilities "
       f"enforced, cross-boundary values qualified, actions aggregated and complete, "
-      f"roles whole and separate{C_N}")
+      f"roles whole and separate, and every user-facing endpoint has a real gateway route{C_N}")

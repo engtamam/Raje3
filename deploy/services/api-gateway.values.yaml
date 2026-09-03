@@ -155,6 +155,25 @@ env:
   # block never applies here since the whole block is one scalar — there is no "outside" once you
   # are past this line. If a route needs explaining, explain it up here, referencing the route by
   # its prefix string so a reader can still find it below.
+  #
+  # /api/v1/admin/leads, /admin/sectors, /admin/wafa-requests, /admin/withdrawals,
+  # /admin/employment-requests (all -> affiliate-service), and the seven /api/v1/platform/*
+  # entries (-> operations or reminders, split by sub-noun) — added the same day ci/
+  # check_deploy_wiring.py gained its own check for exactly this: a `manifest.py` endpoint
+  # declared `tier: user` with no GATEWAY_ROUTES prefix covering it. Found live: those paths
+  # were declared, deployed, and capability-correct, and 404'd anyway — the console rendered a
+  # working-looking button that could never be reached.
+  #
+  # NOT YET FIXED, AND THE GATE ABOVE CANNOT CATCH IT: /api/v1/operator/secrets and
+  # /api/v1/operator/config are declared IDENTICALLY (same path string) by nine services —
+  # affiliate-service, bookings, campaigns, insights, loyalty, operations, portal, reminders,
+  # whatsapp-assistant — but only ONE route exists (/api/v1/operator -> operations, below).
+  # Prefix routing cannot disambiguate identical paths, so every one of the OTHER eight
+  # services' operator/secrets and operator/config calls is silently misrouted to operations
+  # right now — not a 404, a wrong answer. Needs each service's own path made unique (or the
+  # duplicate declarations retired in favour of secrets-admin's centralized /api/v1/secrets,
+  # for whichever of the nine that actually covers) before it's safe to route — tracked, not
+  # solved by this commit.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -198,6 +217,22 @@ env:
       {"prefix":"/api/v1/affiliates/signin","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/admin/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/admin/leads","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/admin/sectors","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/admin/wafa-requests","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/admin/withdrawals","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/admin/employment-requests","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+
+      {"prefix":"/api/v1/platform/evidence","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/templates","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/branches","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/partners","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/sandbox","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/statements","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/template-help","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/silent","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
 
       {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false}
     ]
