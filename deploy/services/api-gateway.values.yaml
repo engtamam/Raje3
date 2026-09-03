@@ -186,7 +186,18 @@ env:
       {"prefix":"/api/v1/affiliates/apply","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/affiliates/signin","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/api/v1/admin/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false}
+      {"prefix":"/api/v1/admin/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+
+      # secrets-admin was added to ADMIN_SERVICES (so the catalog finds secrets.list/secrets.update
+      # and the panel renders the tab), but that alone never routes an actual call — the console's
+      # request hits this gateway on the path the action itself declares
+      # (services/secrets-admin/app/admin_actions.py: "/api/v1/secrets"[/{key}]), and with no entry
+      # here that 404s. Symptom lived on the OTHER side of the fix ci/check_admin_catalog_targets_
+      # are_actually_deployed.py exists for: the deployment is real and the capability is real, so
+      # nothing that gate checks was wrong — only the route was missing. `platform.secrets_manage`
+      # is enforced by the service itself (see admin_actions.py's own note), not by a
+      # `capabilities` filter here.
+      {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
 
