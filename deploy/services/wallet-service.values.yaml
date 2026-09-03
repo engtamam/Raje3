@@ -146,9 +146,11 @@ cronJobs:
   - name: sweep-holds
     schedule: "*/2 * * * *"
     path: /internal/wallet/sweep-holds
-    # Every-2-minutes still lands on the same :00 tick as the every-minute jobs above half the
-    # time — staggered for the same reason, see cronjob.yaml's own comment on the real incident.
-    jitterSeconds: 45
+    # `jitterSeconds` REMOVED (found live, 2026-09-03) — platform's chart has no such field
+    # (neither the template nor values.schema.json, which sets additionalProperties: false on
+    # cronJobs items), so this did not stagger anything; it made `helm template` refuse to
+    # render, silently blocking every future ship of this service. The crash-loop incident this
+    # was meant to fix is still real — see affiliate-service.values.yaml's own note.
   - name: sweep-grants
     schedule: "41 3 * * *"
     path: /internal/wallet/sweep-grants

@@ -126,10 +126,11 @@ cronJobs:
   - name: scheduler-tick
     schedule: "* * * * *"
     path: /internal/scheduler/tick
-    # Staggered off affiliate-service's leads-tick (jitterSeconds: 0) — both fire every minute by
-    # design, and a live incident timestamped their simultaneous pod creation as the trigger for
-    # a real api-gateway crash-loop. See cronjob.yaml's own comment.
-    jitterSeconds: 15
+    # `jitterSeconds` REMOVED (found live, 2026-09-03) — platform's chart has no such field
+    # (neither the template nor values.schema.json, which sets additionalProperties: false on
+    # cronJobs items), so this did not stagger anything; it made `helm template` refuse to
+    # render, silently blocking every future ship of this service. The crash-loop incident this
+    # was meant to fix is still real — see affiliate-service.values.yaml's own note.
   - name: reclaim
     schedule: "*/5 * * * *"
     path: /internal/jobs/reclaim

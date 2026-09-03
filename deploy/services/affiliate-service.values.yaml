@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/affiliate-service
-  digest: "sha256:8e0fd0bfce35687823a3806b225c42860fb659e05cfdc108603c9143269413ec"   # cbd31381, published by publish-images.sh
+  digest: "sha256:6cb3619be1ed17baa05846ad5454dfdb97bdf696d5c2b98b04c2ffd9e1195f8f"   # c0a9ca9d, published by publish-images.sh
 
 replicas: 1
 
@@ -138,11 +138,13 @@ cronJobs:
   - name: leads-tick
     schedule: "* * * * *"
     path: /internal/leads/tick
-    # THE ANCHOR OF THE STAGGER — this one keeps jitterSeconds: 0 (unchanged behaviour); the
-    # other every-minute/every-few-minutes jobs across the fleet (reminders' scheduler-tick,
-    # notification-service's notify-drain, wallet-service's sweep-holds) are offset from it —
-    # see cronjob.yaml's own comment for the timestamped incident that motivated this.
-    jitterSeconds: 0
+    # `jitterSeconds` REMOVED (found live, 2026-09-03) — it does not exist anywhere in platform's
+    # own chart, neither the template nor values.schema.json (`additionalProperties: false` on
+    # cronJobs items), so setting it does not stagger anything; it makes `helm template` REFUSE
+    # to render at all, silently blocking every future ship of this service (and job-service,
+    # notification-service, wallet-service, which carried the same field). The real crash-loop
+    # incident this was meant to fix is still real and still unaddressed — asked base-services-de
+    # to add genuine chart-level jitter support; re-add this once that lands.
   # §١٣'s auto-escalation — no response within
   # AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's
   # own open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h
