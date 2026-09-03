@@ -48,7 +48,10 @@ values:
   COMPANY_ADDRESS: "الرياض، المملكة العربية السعودية (عنوان مؤقت)"
   COMPANY_WEBSITE: "raje3.sa"
   SUPPORT_EMAIL: "mang.raje3@gmail.com"
-  VERSION: "1.0"
+  VERSION: "1.1"   # bumped 2026-09-03: clause 3 (whatsapp) gained the explicit data-transfer
+                    # consent paragraph — conversation content and numbers passing through Meta's
+                    # global network is now consented to by name, not left implicit in the
+                    # existing operational-dependence wording.
   EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
   # الحدّ الأقصى المطلق للسقف العام، بالريال — قرار تجاري صريح، لا حدّ أدنى يجعل السقف "الأعلى من"
   # كما كان سابقاً: تمام اختار سقفاً صغيراً مضموناً (آخر شهر اشتراك، بحدّ أقصى مطلق) بدل حدّ يكبر مع
@@ -136,6 +139,14 @@ clauses:
       يضمن المزوّد سقفاً معيّناً ولا اعتماد قالبٍ بعينه ولا استمرار توفّر واتساب، ولا يُعدّ بلوغ
       العميل حدود Meta أو رفضها قالباً أو تعليقها حسابه إخلالاً من المزوّد. ويعرض المزوّد للعميل
       سقفه الحالي في لوحته ليكون على بيّنة منه.
+
+      وإذ يعمل واتساب بطبيعته على شبكة Meta العالمية، فإن نصوص المحادثات التي يديرها العميل عبر
+      المنصة، وأرقام جوالات من يراسلهم، تمرّ حتماً عبر تلك الشبكة وتُعالَج لديها لتُسلَّم الرسالة
+      — وهذا يشمل ما قد يصل منها إلى خارج المملكة، على النحو المبيَّن في سياسة الخصوصية (بند
+      موقع التخزين). ولا بديل تقني عن ذلك ما دام العميل يختار واتساب قناةً لمراسلة عملائه. وبقبول
+      هذه الشروط يقرّ العميل بعلمه بذلك ويوافق عليه صراحةً وعلى نحوٍ قائمٍ بذاته — إقراراً منفصلاً
+      عن مجرّد الاعتماد التشغيلي المذكور أعلاه — بوصفه شرطاً مسبقاً لاستخدام قناة واتساب، ويلتزم
+      بإبلاغ عملائه بذلك ضمن سياسة الخصوصية الخاصة بمنشأته إن كانت تفرضها الأنظمة عليه.
     en: >-
       Messages are delivered over WhatsApp by Meta, with which the Customer contracts directly and
       by which it is billed for messages. The Customer acknowledges that Meta imposes limits on how
@@ -145,6 +156,17 @@ clauses:
       template and no continued availability of WhatsApp; the Customer reaching Meta's limits, Meta
       rejecting a template, or Meta suspending its account is not a breach by the Provider. The
       Provider displays the Customer's current ceiling in its console so it is not taken by surprise.
+
+      Because WhatsApp inherently operates over Meta's global network, the conversation content the
+      Customer manages through the platform, and the mobile numbers of those it messages, necessarily
+      pass through and are processed on that network for the message to be delivered — including
+      transfer outside the Kingdom where that occurs, as set out in the Privacy Policy (the storage
+      location clause). There is no technical alternative to this for as long as the Customer chooses
+      WhatsApp as its channel for messaging its customers. By accepting these Terms the Customer
+      acknowledges its awareness of this and gives its express, standalone consent to it — separate
+      from the mere operational dependence stated above — as a precondition to using the WhatsApp
+      channel, and undertakes to disclose this in turn to its own customers in its own privacy policy
+      where the law requires it to do so.
 
   # ── 4 · التزامات العميل ────────────────────────────────────────────────────────────────────
   customer_obligations:

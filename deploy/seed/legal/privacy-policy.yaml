@@ -50,7 +50,9 @@ values:
   COMPLAINT_PERIOD:
     ar: "ثلاثين يوماً من تاريخ تقديم الشكوى"
     en: "thirty days from the date the complaint is submitted"
-  VERSION: "1.0"
+  VERSION: "1.1"   # bumped 2026-09-03: RECIPIENTS now names conversation content explicitly as
+                    # reaching Meta's network, not just "messages" generically — matches the
+                    # explicit consent wording added to terms.yaml's whatsapp clause the same day.
   EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
   # ── الغايات: تُذكر بالاسم لا بالعموم ────────────────────────────────────────────────────────
   # "To improve our services" is the phrase that covers everything and therefore permits nothing —
@@ -97,16 +99,18 @@ values:
   # ── المستقبِلون: من يستلم، ولماذا، وأين ─────────────────────────────────────────────────────
   RECIPIENTS:
     ar: >-
-      Meta Platforms — لتسليم رسائل واتساب التي تُرسلها المنصة، بما فيها رمز التحقق عند دخولك؛
-      ومزوّد البنية السحابية داخل المملكة الذي تُستضاف عليه الأنظمة؛ ومحاسبنا القانوني للسجلات
-      المالية؛ وبوابة الدفع عند إتمامك عملية دفع؛ والجهات المختصة عند طلب نظامي. ولا نبيع بياناتك
-      ولا نؤجّرها ولا نتيحها لأي معلن.
+      Meta Platforms — إذ تعمل خدمة واتساب على شبكتها العالمية بطبيعتها، فتصل إليها نصوص المحادثات
+      التي تُرسلها المنصة وتُعالَج لديها لتُسلَّم، بما فيها رمز التحقق عند دخولك؛ ومزوّد البنية
+      السحابية داخل المملكة الذي تُستضاف عليه الأنظمة؛ ومحاسبنا القانوني للسجلات المالية؛ وبوابة
+      الدفع عند إتمامك عملية دفع؛ والجهات المختصة عند طلب نظامي. ولا نبيع بياناتك ولا نؤجّرها ولا
+      نتيحها لأي معلن.
     en: >-
-      Meta Platforms — to deliver the WhatsApp messages the platform sends, including your sign-in
-      verification code; the in-Kingdom cloud infrastructure provider hosting the systems; our
-      external accountant for the financial records; the payment gateway when you complete a
-      payment; and the competent authorities on lawful request. We do not sell your data, do not
-      rent it, and make it available to no advertiser.
+      Meta Platforms — because the WhatsApp service inherently runs on its global network, the
+      content of the conversations the platform sends reaches it and is processed there for
+      delivery, including your sign-in verification code; the in-Kingdom cloud infrastructure
+      provider hosting the systems; our external accountant for the financial records; the payment
+      gateway when you complete a payment; and the competent authorities on lawful request. We do
+      not sell your data, do not rent it, and make it available to no advertiser.
   STORAGE_LOCATION:
     ar: >-
       داخل المملكة العربية السعودية. ويُستثنى من ذلك ما يستلزمه تسليم رسالة واتساب بطبيعته: يصل رقم
