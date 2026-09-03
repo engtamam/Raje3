@@ -133,9 +133,26 @@ async def sync_commissions(request: Request, body: CommissionSyncIn) -> dict:
     await request.app.state.auditor.record(
         "affiliate.commissions_synced", actor="", tenant=body.tenant, resource="tenant",
         ip=request.client.host if request.client else "",
-        metadata={"created": len(out.get("created") or []), "voided": len(out.get("voided") or [])}
+        metadata={"created": len(out.get("created") or []), "voided": len(out.get("voided") or []),
+                 "reduced": len(out.get("reduced") or [])}
         if out.get("synced") else {"reason": out.get("reason", "")})
     return out
+
+
+class CommissionsForTenantIn(BaseModel):
+    tenant: str
+
+
+@router.post("/commissions/for-tenant", dependencies=[Depends(require_internal_token)])
+async def commissions_for_tenant(request: Request, body: CommissionsForTenantIn) -> dict:
+    """Every commission this ONE REFERRED SHOP ever generated — for the ops-mcp case-timeline
+    tool's financial-dispute report, answering "did this shop's business ever pay an affiliate a
+    commission" without needing to know which affiliate. Read-only; `CommissionEngine.for_tenant`
+    already did the real work (see that method's own docstring for why it's a genuinely different
+    question from `of_affiliate`, the one every other reader of this store already uses)."""
+    c = request.app.state.container
+    rows = await c.commissions.for_tenant(body.tenant)
+    return {"commissions": [r.to_dict() for r in rows], "count": len(rows)}
 
 
 @router.post("/commissions/sweep", dependencies=[Depends(require_internal_token)])

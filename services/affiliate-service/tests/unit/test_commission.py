@@ -163,6 +163,111 @@ async def test_a_refund_that_lands_after_creation_voids_a_still_pending_commissi
 
 
 @pytest.mark.anyio
+async def test_a_partial_refund_reduces_a_still_pending_commission_by_the_same_ratio():
+    """THE BUG THIS FIXES: a 50% refund left the commission at its full original amount forever
+    — we were paying commission on money that had gone back to the customer."""
+    store = MemoryDataStore()
+    referrals = await _seed(store, commission_amount=4000)
+    paid_at = _iso(int(time.time()))
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
+                     "paid_at": paid_at}], referrals=referrals)
+    await engine.sync(TENANT)
+
+    # 50% refunded — the commission must drop by half, not stay at its full 4000.
+    engine2 = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                      "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 4950,
+                      "paid_at": paid_at}], referrals=referrals)
+    out = await engine2.sync(TENANT)
+    assert out["voided"] == [] and out["reduced"] == ["inv-1"]   # reduced, not voided
+
+    rows = await engine2.of_affiliate("aff-1")
+    assert rows[0].status == PENDING
+    assert rows[0].amount_halalas == 2000
+    assert rows[0].original_amount_halalas == 4000   # the anchor stays untouched
+
+
+@pytest.mark.anyio
+async def test_a_second_larger_partial_refund_recomputes_from_the_original_not_the_already_reduced_amount():
+    """THE DOUBLE-DISCOUNT TRAP: reducing on top of an already-reduced amount would punish a
+    second refund on the same invoice twice. Must always recompute from `original_amount_halalas`."""
+    store = MemoryDataStore()
+    referrals = await _seed(store, commission_amount=4000)
+    paid_at = _iso(int(time.time()))
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 10000, "refunded_minor": 0,
+                     "paid_at": paid_at}], referrals=referrals)
+    await engine.sync(TENANT)
+
+    # First partial: 20% refunded -> commission should be 80% = 3200.
+    engine2 = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                      "subscription_paid_sequence": 1, "amount_minor": 10000, "refunded_minor": 2000,
+                      "paid_at": paid_at}], referrals=referrals)
+    await engine2.sync(TENANT)
+    rows = await engine2.of_affiliate("aff-1")
+    assert rows[0].amount_halalas == 3200
+
+    # Second, LARGER partial on the SAME invoice: now 60% total refunded -> commission should be
+    # 40% of the ORIGINAL 4000 = 1600, never 40% of the already-reduced 3200.
+    engine3 = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                      "subscription_paid_sequence": 1, "amount_minor": 10000, "refunded_minor": 6000,
+                      "paid_at": paid_at}], referrals=referrals)
+    await engine3.sync(TENANT)
+    rows = await engine3.of_affiliate("aff-1")
+    assert rows[0].amount_halalas == 1600
+    assert rows[0].status == PENDING
+
+
+@pytest.mark.anyio
+async def test_a_partial_refund_never_touches_an_already_confirmed_commission():
+    store = MemoryDataStore()
+    referrals = await _seed(store, commission_amount=4000)
+    paid_at_epoch = int(time.time()) - 30 * DAY
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
+                     "paid_at": _iso(paid_at_epoch)}], referrals=referrals, hold_days=7)
+    await engine.sync(TENANT)
+    confirmed = await engine.confirm_if_due("inv-1")
+    assert confirmed.status == CONFIRMED
+
+    engine2 = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                      "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 4950,
+                      "paid_at": _iso(paid_at_epoch)}], referrals=referrals)
+    await engine2.sync(TENANT)
+    rows = await engine2.of_affiliate("aff-1")
+    assert rows[0].status == CONFIRMED
+    assert rows[0].amount_halalas == 4000   # untouched, same as a full refund's own guarantee
+
+
+@pytest.mark.anyio
+async def test_syncing_the_exact_same_partial_refund_twice_is_a_true_no_op():
+    """Idempotency for the reduced case, same guarantee `syncing_the_same_invoice_twice` already
+    proves for creation — a re-sync with no NEW refund information must not re-write the row."""
+    store = MemoryDataStore()
+    referrals = await _seed(store, commission_amount=4000)
+    paid_at = _iso(int(time.time()))
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
+                     "paid_at": paid_at}], referrals=referrals)
+    await engine.sync(TENANT)
+
+    same_partial = [{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 4950,
+                     "paid_at": paid_at}]
+    engine2 = build(same_partial, referrals=referrals)
+    first = await engine2.sync(TENANT)
+    assert first["reduced"] == ["inv-1"]   # the real, first reduction
+
+    # A THIRD sync, same refund total again — this is the actual no-op being tested: nothing NEW
+    # to reconcile, so `_reconcile_refund` must read "already reflects this" and report nothing.
+    engine3 = build(same_partial, referrals=referrals)
+    second = await engine3.sync(TENANT)
+    assert second["reduced"] == [] and second["voided"] == []
+    rows = await engine3.of_affiliate("aff-1")
+    assert rows[0].amount_halalas == 2000
+
+
+@pytest.mark.anyio
 async def test_a_refund_never_reverses_an_already_confirmed_commission():
     store = MemoryDataStore()
     referrals = await _seed(store)

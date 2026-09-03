@@ -286,8 +286,17 @@ class Commission:
     affiliate_id: str
     kind: str
     #: Copied from Referral.commission_amount_halalas AT THE MOMENT this row is created — same
-    #: "locked, never re-read from config later" rule as the Referral row itself.
+    #: "locked, never re-read from config later" rule as the Referral row itself. MUTABLE
+    #: afterward — see `original_amount_halalas` right below for why.
     amount_halalas: int
+    #: THE UNTOUCHED ANCHOR — `amount_halalas` at creation, and never written again after that.
+    #: A PARTIAL refund reduces `amount_halalas` proportionally on a still-PENDING commission
+    #: (core/commission.py's own `_reconcile_refund`), and that reduction has to be recomputed
+    #: from a fixed original every time the invoice's refunded total grows — not applied
+    #: incrementally on top of an already-reduced number, which would double-discount a second
+    #: partial refund on the same invoice. 0 here means "same as amount_halalas" (a row written
+    #: before this field existed) — see `from_dict`'s own fallback.
+    original_amount_halalas: int = 0
     status: str = PENDING
     #: billing's own `paid_at` for the invoice this was earned on — ISO 8601, billing's format,
     #: never re-derived. The hold is computed FROM this, not from when our sync happened to run.
@@ -305,17 +314,24 @@ class Commission:
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id, "tenant": self.tenant, "affiliate_id": self.affiliate_id,
-            "kind": self.kind, "amount_halalas": self.amount_halalas, "status": self.status,
+            "kind": self.kind, "amount_halalas": self.amount_halalas,
+            "original_amount_halalas": self.original_amount_halalas, "status": self.status,
             "earned_at": self.earned_at, "confirms_at": self.confirms_at,
             "created_at": self.created_at, "withdrawal_id": self.withdrawal_id,
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Commission":
+        amount = int(d.get("amount_halalas", 0))
         return cls(
             id=str(d.get("id", "")), tenant=str(d.get("tenant", "")),
             affiliate_id=str(d.get("affiliate_id", "")), kind=str(d.get("kind", CONVERSION)),
-            amount_halalas=int(d.get("amount_halalas", 0)), status=str(d.get("status", PENDING)),
+            amount_halalas=amount,
+            # A ROW WRITTEN BEFORE THIS FIELD EXISTED has no original on file — `amount_halalas`
+            # itself is the only honest anchor left for it (it was never reduced, since the
+            # reduction logic this field supports did not exist yet either).
+            original_amount_halalas=int(d.get("original_amount_halalas") or amount),
+            status=str(d.get("status", PENDING)),
             earned_at=str(d.get("earned_at", "")), confirms_at=int(d.get("confirms_at", 0)),
             created_at=int(d.get("created_at", 0)),
             withdrawal_id=str(d.get("withdrawal_id", "")),

@@ -80,6 +80,7 @@ class CommissionEngine:
 
         created: list[str] = []
         voided: list[str] = []
+        reduced: list[str] = []
 
         for inv in invoices:
             if int(inv.get("paid_sequence", 0)) == 1:
@@ -90,8 +91,13 @@ class CommissionEngine:
                 created.append(str(inv.get("id", "")))
             elif out == "voided":
                 voided.append(str(inv.get("id", "")))
+            elif out == "reduced":
+                # A PARTIAL refund — surfaced separately from "voided" so an operator reading a
+                # sync report can tell "this one still owes something" from "this one owes
+                # nothing now", rather than both silently reading as "nothing happened".
+                reduced.append(str(inv.get("id", "")))
 
-        return {"synced": True, "created": created, "voided": voided}
+        return {"synced": True, "created": created, "voided": voided, "reduced": reduced}
 
     async def _sync_conversion(self, tenant: str, referral, inv: dict) -> str:
         existing = await self._store.get(COMMISSIONS, str(inv.get("id", "")))
@@ -121,16 +127,41 @@ class CommissionEngine:
 
     async def _reconcile_refund(self, commission: Commission, inv: dict) -> str:
         """A refund that lands AFTER we already created the row — during the hold, most likely.
-        Only a still-PENDING commission is voided here; a CONFIRMED one is a dispute for an admin
-        to resolve by hand (same "system proposes, human decides" principle already applied to a
-        suspended affiliate's pending commissions elsewhere in this file's own doc section)."""
+        Only a still-PENDING commission is touched here; a CONFIRMED one is a dispute for an
+        admin to resolve by hand (same "system proposes, human decides" principle already
+        applied to a suspended affiliate's pending commissions elsewhere in this file's own doc
+        section) — a commission already released to the affiliate is not something this method
+        claws back on its own.
+
+        A PARTIAL refund reduces the commission BY THE SAME PROPORTION, not just a full refund
+        voiding it outright (ح-3, closed 2026-09-04 — Tamam's own decision: "تنقص بنفس النسبة
+        تلقائياً"). Found live: a shop refunded 50% of an invoice and the affiliate's commission
+        stayed at its full original amount forever — we were paying commission on money that had
+        gone back to the customer. RECOMPUTED FROM `original_amount_halalas` EVERY TIME, never
+        applied incrementally on top of the current `amount_halalas` — a second, later partial
+        refund on the same invoice must still land on the correct total ratio, not double-discount
+        the first reduction's own output.
+        """
         if commission.status != PENDING:
             return "unchanged"
-        if int(inv.get("refunded_minor", 0)) < int(inv.get("amount_minor", 0) or 0):
+        amount_minor = int(inv.get("amount_minor", 0) or 0)
+        refunded_minor = int(inv.get("refunded_minor", 0) or 0)
+        if refunded_minor <= 0 or amount_minor <= 0:
             return "unchanged"
-        commission.status = VOIDED
+        if refunded_minor >= amount_minor:
+            if commission.status == VOIDED:
+                return "unchanged"
+            commission.status = VOIDED
+            commission.amount_halalas = 0
+            await self._store.put(COMMISSIONS, commission.id, commission.to_dict())
+            return "voided"
+        kept_ratio = (amount_minor - refunded_minor) / amount_minor
+        reduced = round(commission.original_amount_halalas * kept_ratio)
+        if reduced == commission.amount_halalas:
+            return "unchanged"   # already reflects this invoice's current refund total
+        commission.amount_halalas = reduced
         await self._store.put(COMMISSIONS, commission.id, commission.to_dict())
-        return "voided"
+        return "reduced"
 
     async def _create(self, *, tenant: str, affiliate_id: str, kind: str, amount_halalas: int,
                       invoice_id: str, paid_at: str) -> None:
@@ -139,7 +170,8 @@ class CommissionEngine:
         base = paid_epoch if paid_epoch is not None else now
         commission = Commission(
             id=invoice_id, tenant=tenant, affiliate_id=affiliate_id, kind=kind,
-            amount_halalas=amount_halalas, status=PENDING, earned_at=paid_at,
+            amount_halalas=amount_halalas, original_amount_halalas=amount_halalas,
+            status=PENDING, earned_at=paid_at,
             confirms_at=base + self._hold_days * 24 * 60 * 60, created_at=now,
         )
         await self._store.put(COMMISSIONS, commission.id, commission.to_dict())
@@ -162,6 +194,17 @@ class CommissionEngine:
 
     async def of_affiliate(self, affiliate_id: str, *, limit: int = 200) -> list[Commission]:
         rows, _ = await self._store.find(COMMISSIONS, {"affiliate_id": affiliate_id}, limit=limit,
+                                         sort=("created_at", "asc"))
+        return [Commission.from_dict(r) for r in rows]
+
+    async def for_tenant(self, tenant: str, *, limit: int = 200) -> list[Commission]:
+        """Every commission this ONE REFERRED SHOP ever generated, regardless of which affiliate
+        earned it or what its current status is — for a case-timeline/dispute-defense report
+        about the shop itself, not about an affiliate's own earnings (that's `of_affiliate`
+        above). `Commission.id` IS the invoice id (see the model's own docstring), so this is
+        never a second, looser identity — the same row `of_affiliate` would show, just filtered
+        by the shop instead of the person who gets paid for it."""
+        rows, _ = await self._store.find(COMMISSIONS, {"tenant": tenant}, limit=limit,
                                          sort=("created_at", "asc"))
         return [Commission.from_dict(r) for r in rows]
 
