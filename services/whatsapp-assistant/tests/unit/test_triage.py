@@ -31,13 +31,54 @@ async def test_a_fresh_conversation_is_gated_into_awaiting_triage_not_batching()
     plan = await engine.handle_inbound_text(
         tenant=TENANT, subject_ref=SUBJECT, from_number="+9665", text="مرحبا", now=1000)
     assert plan.kind == "list"
+    # AI-ethics transparency requirement: the very first message discloses this is an automated
+    # assistant, by name, before anything else. See _triage_prompt's own header comment.
+    assert "المساعد الذكي التلقائي" in plan.text
     # Exactly two rows — inquiry/booking and complaint/suggestion. Neither label names what runs
-    # behind it ("AI"/"موظف") — see app/core/conversation.py's TRIAGE_ROWS docstring.
+    # behind it ("AI"/"موظف") — see app/core/conversation.py's TRIAGE_ROWS docstring. (The
+    # disclosure itself lives once, up front, in the prompt text asserted above.)
     assert len(plan.list_rows) == 2
     titles = [row["title"] for row in plan.list_rows]
     assert all("AI" not in t and "موظف" not in t for t in titles)
     conv = await engine._get(TENANT, SUBJECT)
     assert conv.state == "awaiting_triage"
+
+
+async def test_the_self_identification_names_the_real_shop_when_resolvable():
+    """Same fixture shape as test_shop_identity.py: the disclosure is per-tenant data, not a
+    hardcoded shop name — proven by two tenants getting two different names in the same string."""
+    class _FakeShopIdentity:
+        async def resolve(self, tenant: str) -> str:
+            return {"t1": "صالون الأمل", "t2": "مغسلة النور"}[tenant]
+
+    store = MemoryDataStore()
+    engine = _engine(store, shop_identity=_FakeShopIdentity())
+    plan = await engine.handle_inbound_text(
+        tenant="t1", subject_ref=SUBJECT, from_number="+9665", text="مرحبا", now=1000)
+    assert "صالون الأمل" in plan.text
+    assert "مغسلة النور" not in plan.text
+
+    plan2 = await engine.handle_inbound_text(
+        tenant="t2", subject_ref=SUBJECT, from_number="+9665", text="مرحبا", now=1000)
+    assert "مغسلة النور" in plan2.text
+    assert "صالون الأمل" not in plan2.text
+
+
+async def test_the_self_identification_re_fires_every_new_session_not_once_ever():
+    """Explicit product decision (not a bug): a returning customer starting a NEW session is told
+    again, every time — the disclosure is not a one-time event a customer could stop seeing after
+    their first-ever contact months ago."""
+    store = MemoryDataStore()
+    engine = _engine(store)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(
+        tenant=TENANT, subject_ref=SUBJECT, reply_id="triage:inquiry", now=1010)
+    closed = await engine.sweep_timed_out(TENANT, now=1010 + 2500)
+    assert SUBJECT in closed
+    plan = await engine.handle_inbound_text(
+        tenant=TENANT, subject_ref=SUBJECT, from_number="+9665", text="مرحبا مجددًا", now=1010 + 2600)
+    assert "المساعد الذكي التلقائي" in plan.text
 
 
 async def test_free_text_before_a_triage_pick_never_reaches_the_llm_and_resends_the_list():

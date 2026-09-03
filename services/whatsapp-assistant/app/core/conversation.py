@@ -76,13 +76,27 @@ from app.ports.llm import LlmReply
 # fixed sections below and the sanitizer's Arabic strings: customer-facing copy this service ships
 # lives as a module constant/template, not config (config is for numbers/toggles an operator
 # tunes, not house tone). ───────────────────────────────────────────────────────────────────────
-TRIAGE_PROMPT = "أهلاً بك! لأقدر أساعدك بأسرع وأدق طريقة، اختر أحد الخيارات التالية:"
+#
+# SELF-IDENTIFIES AS AUTOMATED, BY NAME, EVERY SESSION (added 2026-09-04 — AI-ethics transparency
+# requirement: "end users must be aware they are interacting with a non-human party"). A FUNCTION,
+# not a flat constant — the shop's name is per-tenant data exactly like `build_system_prompt`'s own
+# persona text, resolved the same way (`self._shop_name`, same cache, same GENERIC_SHOP_LABEL
+# fallback) — never a literal shop name baked into house copy. Fires on every fresh session
+# (idle/closed -> awaiting_triage in handle_inbound_text), not once ever per customer: a returning
+# customer starting a new session gets told again, deliberately, rather than the disclosure being a
+# one-time event nobody re-sees months later.
+def _triage_prompt(shop_name: str) -> str:
+    # "في {shop_name}", not "لـ{shop_name}" — the ل-attachment reads correctly against a real
+    # shop name but breaks against GENERIC_SHOP_LABEL ("هذا المحل" starting with a hamza), and this
+    # runs against BOTH; "في" is grammatical either way with no special-casing needed.
+    return (f"أهلاً بك، أنا المساعد الذكي التلقائي في {shop_name}. لأقدر أساعدك بأسرع وأدق طريقة، "
+            f"اختر أحد الخيارات التالية:")
 TRIAGE_LIST_BUTTON_TEXT = "اختر"
 # TWO OPTIONS ONLY — collapsed from an earlier five-row draft. "Inquiry/booking" covers every
 # question and every state-changing request through the normal engine; "complaint/suggestion" is
-# the one case this service must never touch, so it goes straight to a human. Neither label names
-# what runs behind it ("AI", "موظف") — customer-facing copy describes what the customer gets, not
-# how it is produced.
+# the one case this service must never touch, so it goes straight to a human. THE ROWS THEMSELVES
+# still name no "AI"/"موظف" — the disclosure lives once, up front, in `_triage_prompt` above; these
+# describe what the customer gets, not how it is produced.
 TRIAGE_ROWS: tuple[dict[str, str], ...] = (
     {"id": "triage:inquiry", "title": "استفسار / حجز موعد"},
     {"id": "triage:complaint", "title": "شكوى / اقتراح"},
@@ -137,8 +151,9 @@ def _requests_human(text: str) -> bool:
 # BUILT, NOT HARDCODED (design point restated for this layer): every tenant's assistant is the
 # SAME software behaving as a DIFFERENT shop's receptionist, so the shop's own name has to enter
 # through a parameter, never a literal string baked into this module — the same reason
-# TRIAGE_PROMPT/_HUMAN_HANDOVER_TEXT above are module constants (fixed house tone) while the shop's
-# identity is not: it is data, resolved per tenant by app/core/shop_identity.py, not house copy.
+# _HUMAN_HANDOVER_TEXT above is a module constant (fixed house tone); `_triage_prompt` is now a
+# function for the same reason THIS function is one — the shop's identity is data, resolved per
+# tenant by app/core/shop_identity.py, not house copy.
 #
 # THE PROMPT/SANITIZER LAYER IS A BACKSTOP, NOT THE PRIMARY DEFENCE (module docstring, "SECURITY
 # LAYER"). The primary defence is structural and lives elsewhere in this file and in core/tools.py:
@@ -393,8 +408,10 @@ class ConversationEngine:
 
         return build_context_block(catalog=catalog, offers=offers, known_customer=known)
 
-    def _triage_list_plan(self) -> ReplyPlan:
-        return ReplyPlan(kind="list", text=TRIAGE_PROMPT, list_button_text=TRIAGE_LIST_BUTTON_TEXT,
+    async def _triage_list_plan(self, tenant: str) -> ReplyPlan:
+        shop_name = await self._shop_name(tenant)
+        return ReplyPlan(kind="list", text=_triage_prompt(shop_name),
+                         list_button_text=TRIAGE_LIST_BUTTON_TEXT,
                          list_rows=[dict(row) for row in TRIAGE_ROWS])
 
     async def _branches_for(self, tenant: str) -> list[dict[str, Any]]:
@@ -500,13 +517,13 @@ class ConversationEngine:
             conv.escalated = False
             conv.wallet_stopped = False
             await self._save(conv)
-            return self._triage_list_plan()
+            return await self._triage_list_plan(tenant)
 
         if conv.state == "awaiting_triage":
             conv.from_number = from_number or conv.from_number
             conv.last_activity_at = now
             await self._save(conv)
-            return self._triage_list_plan()
+            return await self._triage_list_plan(tenant)
 
         if conv.state == "awaiting_branch":
             # Same discipline as `awaiting_triage` above: free text never resolves a mandatory
@@ -535,7 +552,7 @@ class ConversationEngine:
             # A stale/replayed/forged id, or one that arrived for a conversation not actually
             # waiting on a triage pick — refused rather than trusted because it happens to parse,
             # same posture as handle_button_reply's proposal-id check.
-            return self._triage_list_plan()
+            return await self._triage_list_plan(tenant)
 
         choice = reply_id.split(":", 1)[1]
 
@@ -566,7 +583,7 @@ class ConversationEngine:
             return await self._escalate_to_human(
                 conv, tenant=tenant, subject_ref=subject_ref, reason=f"triage_{choice}", now=now)
 
-        return self._triage_list_plan()
+        return await self._triage_list_plan(tenant)
 
     async def handle_branch_selection(self, *, tenant: str, subject_ref: str, reply_id: str,
                                       now: int | None = None) -> ReplyPlan:
