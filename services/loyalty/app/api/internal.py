@@ -448,6 +448,26 @@ async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dic
     }
 
 
+@router.get("/loyalty/history", dependencies=[Depends(require_internal_token)])
+async def loyalty_history(request: Request, tenant: str, subject_ref: str, limit: int = 100
+                          ) -> dict:
+    """EVERY movement and EVERY redemption for one member — for the ops-mcp case-timeline
+    investigation tool, never a customer- or portal-facing surface. `portal_balance` above is
+    deliberately the shop's own numbers with no history attached (a customer's own page shows a
+    current balance, not a ledger); this route is the opposite trade, made for a different reader.
+
+    TWO READS, BOTH ALREADY READ-ONLY AND SUBJECT-SCOPED — `Ledger.history` (every points
+    movement: earn, redeem, expire, correction) and `Redeemer.history` (the redemption RECEIPTS,
+    with the reward's own name/cost snapshotted onto them — see `Redemption`'s own docstring on
+    why that is a separate, richer fact than the ledger entry that moved the points). Returned
+    together since a case investigation reads them as one story, not two.
+    """
+    c = request.app.state.container
+    movements = await c.ledger.history(tenant, subject_ref, limit=limit)
+    redemptions = await c.redeemer.history(tenant, subject_ref, limit=limit)
+    return {"movements": movements, "redemptions": redemptions}
+
+
 # ── the till (spec §9.8) ───────────────────────────────────────────────────────────────────────
 class TillRedeemIn(BaseModel):
     tenant: str
