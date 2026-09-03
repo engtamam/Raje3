@@ -37,6 +37,15 @@ dependencies = [
     # Direct floor over the transitive pull from pyjwt[crypto]: 49.0.0 is
     # PYSEC-2026-3552, fixed in 50.0.0. Pinned so the CVE cannot re-enter via resolution.
     "cryptography>=50.0.0",
+    # hijridate   MIT   — core/gate.py's marketing window needs to know whether "today" (in
+    # Riyadh) falls in Ramadan, since the CITC-mandated quiet hours for marketing/advertising
+    # messages are DIFFERENT during Ramadan (01:00-12:00 banned, vs. 22:00-09:00 the rest of the
+    # year). Umm al-Qura based, the calendar Saudi regulators and banks actually use — not a
+    # hand-maintained yearly date table, which would silently go stale the day nobody updates it.
+    # NOT `hijri-converter` (same author, same API) — that package is deprecated in favour of this
+    # one; picked this one from the start rather than shipping a known-deprecated dependency for a
+    # compliance-critical check.
+    "hijridate>=2.3,<3.0",
 ]
 
 [project.optional-dependencies]

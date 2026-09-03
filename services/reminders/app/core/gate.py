@@ -26,8 +26,10 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
+
+from hijridate import Gregorian
 
 from app.core import engagement as E
 from app.core import holdout as H
@@ -64,6 +66,47 @@ WINDOW_EXEMPT_TYPES = frozenset({
 
 # The priority ladder (spec 8.4.2 section 4). Lower number wins when two messages compete.
 PRIORITY = {"warning": 0, "personal": 1, "service": 2, "awareness": 3, "marketing": 4}
+
+# ── the CITC-mandated marketing window, SEPARATE from Limits.window_start/end_hour above ────────
+#
+# THOSE HOURS (7am-10pm) ARE OUR OWN PRODUCT CHOICE, applied to every non-exempt class. THESE ARE
+# A LEGAL FLOOR that applies to marketing/advertising specifically and cannot be configured away —
+# found live: the general window let marketing out at 07:00-09:00, two hours the regulation bans
+# outright (advertising is banned 22:00-09:00, not 22:00-07:00). Kept as separate constants rather
+# than tightening `Limits.window_start_hour` for everyone, because the general window also gates
+# service/personal/awareness sends this rule does not reach.
+#
+# AND DURING RAMADAN THE WINDOW ITSELF CHANGES — not later, not shorter, a DIFFERENT window: banned
+# 01:00-12:00 rather than 22:00-09:00. A fixed constant here would be correct eleven months a year
+# and silently wrong for the twelfth, so `_is_ramadan` below asks the real Hijri calendar every
+# time rather than a hand-maintained date table nobody remembers to update in Sha'ban.
+_MARKETING_WINDOW_START_HOUR = 9    # banned 22:00-09:00 the rest of the year
+_MARKETING_WINDOW_END_HOUR = 22
+_RAMADAN_MARKETING_WINDOW_START_HOUR = 12   # banned 01:00-12:00 during Ramadan
+_RAMADAN_MARKETING_WINDOW_END_HOUR = 1      # next day — see the wrap handling in _marketing_window
+
+
+def _is_ramadan(local_date: date) -> bool:
+    """Umm al-Qura Hijri month for `local_date` — the calendar Saudi regulators and banks actually
+    use, not the astronomical/tabular calendar some libraries default to (`hijri_converter`'s
+    `Gregorian.to_hijri()` IS Umm al-Qura, confirmed against its own docs — not assumed)."""
+    return Gregorian(local_date.year, local_date.month, local_date.day).to_hijri().month == 9
+
+
+def _marketing_window(now: int) -> bool:
+    """Is `now` inside the window marketing/advertising messages are legally allowed to send?
+    Boolean only — unlike `_window()` below, an out-of-window marketing message is DROPPED, never
+    deferred (see evaluate()'s own note on why), so there is no "next open time" to compute."""
+    local = datetime.fromtimestamp(now, RIYADH)
+    if _is_ramadan(local.date()):
+        start, end = _RAMADAN_MARKETING_WINDOW_START_HOUR, _RAMADAN_MARKETING_WINDOW_END_HOUR
+    else:
+        start, end = _MARKETING_WINDOW_START_HOUR, _MARKETING_WINDOW_END_HOUR
+    if end > start:
+        return start <= local.hour < end
+    # end <= start means the ALLOWED window wraps past midnight (the Ramadan case: allowed from
+    # 12:00 through 00:59 the same night) — inside iff at or after start, OR before end.
+    return local.hour >= start or local.hour < end
 
 
 @dataclass(frozen=True)
@@ -183,16 +226,20 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
 
     # ── 4. the window ─────────────────────────────────────────────────────────────────────────
     if template_type not in WINDOW_EXEMPT_TYPES:
-        inside, next_open = _window(now, limits)
-        if not inside:
-            # DEFERRED, NOT DROPPED — except marketing, which is dropped, because a weekend offer
-            # arriving on Tuesday is worse than no offer (spec 5.8). That asymmetry is deliberate
-            # and is the one place a deferral would do harm.
-            if cls == "marketing":
-                return Decision(False, "خارج وقت الإرسال المسموح، والعرض المؤجَّل يفقد معناه — "
-                                       "فيُسقَط ولا يؤجَّل.", tier=tier)
-            return Decision(False, "خارج وقت الإرسال المسموح (7 صباحاً – 10 مساءً) — يؤجَّل.",
-                            retry_at=next_open, tier=tier)
+        # MARKETING GETS THE LEGAL WINDOW, NOT THE PRODUCT ONE — see _marketing_window's own
+        # header for why these are two different things and why Ramadan changes it.
+        if cls == "marketing":
+            if not _marketing_window(now):
+                # DEFERRED, NOT DROPPED, EXCEPT MARKETING, which is dropped, because a weekend
+                # offer arriving on Tuesday is worse than no offer (spec 5.8). That asymmetry is
+                # deliberate and is the one place a deferral would do harm.
+                return Decision(False, "خارج وقت الإرسال المسموح للرسائل الدعائية، والعرض "
+                                       "المؤجَّل يفقد معناه — فيُسقَط ولا يؤجَّل.", tier=tier)
+        else:
+            inside, next_open = _window(now, limits)
+            if not inside:
+                return Decision(False, "خارج وقت الإرسال المسموح (7 صباحاً – 10 مساءً) — يؤجَّل.",
+                                retry_at=next_open, tier=tier)
 
     # ── 5 & 6. caps and cooldown, from one read of the ledger ─────────────────────────────────
     day_ago, month_ago = now - DAY, now - 30 * DAY

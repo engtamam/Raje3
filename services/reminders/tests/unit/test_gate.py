@@ -126,6 +126,52 @@ def test_the_window_is_computed_in_riyadh_not_utc():
     assert ev(now=at(8)).allowed
 
 
+# ── the CITC-mandated marketing window, distinct from the general one above ─────────────────────
+# `at(day=15)` in June 2026 falls in Hijri month 12 (Dhul-Hijjah) — confirmed non-Ramadan, so these
+# reuse the same fixture helper as everything else in this file for the "rest of the year" cases.
+def test_marketing_at_eight_am_is_refused_the_general_window_would_have_allowed_it():
+    """Found live: the general service window (7am-10pm) let marketing out at 07:00-09:00, two
+    hours the regulation bans outright (advertising is banned 22:00-09:00, not 22:00-07:00)."""
+    d = ev(cls="marketing", template_type="mkt_offer", now=at(8))
+    assert not d.allowed and "يُسقَط" in d.reason
+
+
+def test_marketing_at_nine_am_is_allowed():
+    assert ev(cls="marketing", template_type="mkt_offer", now=at(9)).allowed
+
+
+def test_marketing_at_nine_fifty_nine_pm_is_allowed_at_ten_pm_is_not():
+    assert ev(cls="marketing", template_type="mkt_offer", now=at(21, 59)).allowed
+    assert not ev(cls="marketing", template_type="mkt_offer", now=at(22)).allowed
+
+
+def test_the_general_window_is_unaffected_by_the_marketing_specific_one():
+    """service/personal/awareness keep the existing 7am-10pm window untouched — only marketing
+    gets the stricter, legally-mandated bounds."""
+    assert ev(cls="service", now=at(8)).allowed
+    assert not ev(cls="service", now=at(6)).allowed
+
+
+def _ramadan_at(hour: int, minute: int = 0) -> int:
+    """2026-03-01, confirmed Hijri month 9 (Ramadan) — a real Umm al-Qura date, not a mock."""
+    return int(datetime(2026, 3, 1, hour, minute, tzinfo=G.RIYADH).timestamp())
+
+
+def test_ramadan_uses_the_different_legally_mandated_window():
+    """Banned 01:00-12:00 during Ramadan — not the year-round 22:00-09:00. Same clock, different
+    rule, because the law names Ramadan specifically rather than leaving one window all year."""
+    assert not ev(cls="marketing", template_type="mkt_offer", now=_ramadan_at(11)).allowed
+    assert ev(cls="marketing", template_type="mkt_offer", now=_ramadan_at(12)).allowed
+    assert ev(cls="marketing", template_type="mkt_offer", now=_ramadan_at(0, 30)).allowed
+    assert not ev(cls="marketing", template_type="mkt_offer", now=_ramadan_at(1)).allowed
+
+
+def test_ramadan_does_not_change_the_general_window_for_other_classes():
+    """The CITC rule is about marketing/advertising specifically — a service reminder at 8am
+    during Ramadan follows the same rule it always does, not the marketing-only Ramadan window."""
+    assert ev(cls="service", now=_ramadan_at(8)).allowed
+
+
 # ── 5. the caps ────────────────────────────────────────────────────────────────────────────────
 def test_the_daily_service_cap_holds():
     d = ev(recent_sends=[sent("service", at(9))])
