@@ -96,21 +96,35 @@ env:
                                 # first thing a new owner touches (spec 16.5 signup).
   SMS_CHAIN: "console"          # unifonic and taqnyat are both built in — Saudi providers, ready
                                 # when we have an account.
-  WHATSAPP_CHAIN: "console"     # DECIDED: we do not send through Meta's Cloud API directly — every
-                                # real send goes through `threesixtydialog` (a BSP, billed to us —
-                                # see operations.values.yaml's WhatsApp channel pricing block,
-                                # already wired for this). Left `console` until a real
-                                # WHATSAPP_360DIALOG_API_KEY exists (per-tenant secret store) —
-                                # flipping this to "threesixtydialog,console" is the one remaining
-                                # step once that key is real; nothing else needs touching.
+  # DECISION REVERSED (2026-09-04): the line below used to say we send through `threesixtydialog`
+  # (a BSP) and never Meta's Cloud API directly. That is no longer the plan — we send through
+  # META DIRECTLY. 360dialog is paused, not in progress; nothing about it is being finished.
+  #
+  # STILL `console` because the platform's OWN sending identity does not exist yet: `meta`'s
+  # credentials (WHATSAPP_CREDENTIALS in provider_pool.py) are WHATSAPP_ACCESS_TOKEN +
+  # WHATSAPP_PHONE_NUMBER_ID, resolved per tenant with this file's own (currently unset) values as
+  # the environment fallback — the exact mechanism a shop's own number already uses when it
+  # connects (whatsapp_onboarding.py), except the platform has never run that flow for itself.
+  # A Meta System User (permanent) access token is the credential that flow would have produced —
+  # see AdminProviderSecrets.tsx's own note on where to get one. WHAT REMAINS: provision a real
+  # phone number + System User token for the platform's own WhatsApp identity, store them (as a
+  # sixth secrets-admin entry, matching secret_registry.py's own "adding a sixth" note — never as
+  # plaintext in this file, the same reasoning *.pem/*.env are gitignored for), then flip this to
+  # "meta,console".
+  #
+  # THE WALLET GATE BELOW STILL ASSUMES 360dialog BILLING. provider_billing.py's cost-tracking
+  # gate is wired for threesixtydialog sends specifically ("never meta, never console") — flipping
+  # to meta without revisiting that gate means Meta sends go untracked/unbilled, which may be the
+  # intended free-tier behaviour or may not be; a decision to make when the token exists, not now.
+  WHATSAPP_CHAIN: "console"
   WHATSAPP_360DIALOG_BASE_URL: "https://waba-v2.360dialog.io"   # not a secret — the adapter's own
                                 # default too; named here so a future regional/staging override is
-                                # a values edit, not a code change.
-  # ── the send-time wallet gate (v0.17.3) — ALREADY WIRED, dormant until the chain above flips ──
+                                # a values edit, not a code change. PAUSED, kept for the adapter's
+                                # own default resolution — not wired into WHATSAPP_CHAIN above.
+  # ── the send-time wallet gate (v0.17.3) ──────────────────────────────────────────────────────
   # Gates threesixtydialog sends past the free-tier cap (operations.values.yaml's
-  # WHATSAPP_CHANNEL_PRICING_* block); never meta, never console — see provider_billing.py. Both
-  # URLs set now so the ONLY remaining step to activate everything (pricing, wallet gate, cost
-  # tracking) is the same WHATSAPP_CHAIN flip noted above — nothing here needs touching again.
+  # WHATSAPP_CHANNEL_PRICING_* block); never meta, never console — see provider_billing.py, and
+  # the note above the chain: this gate does NOT cover a Meta-direct send as things stand.
   WALLET_SERVICE_URL: "http://wallet-service:8000"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   EMAIL_FROM: "no-reply@raje3.sa"
