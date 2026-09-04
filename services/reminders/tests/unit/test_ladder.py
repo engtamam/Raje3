@@ -30,12 +30,14 @@ def test_without_consent_it_is_two_rungs_and_never_an_offer():
     assert all(r.marketing is False for r in rungs)
 
 
-def test_the_second_rung_is_worded_anew_without_a_new_template():
-    """Three tones per type in the library, and a rung asks for a different one. No template is
-    written, no Meta approval waited for, and the service/marketing category wall is untouched."""
+def test_every_rung_keeps_the_shops_own_tone():
+    """The library carries two tones now, split by grammatical gender (warm/feminine) rather than
+    by formality — so a rung must never hop to the other one: that would address the same
+    customer as a woman for one message and switch back. Every rung stays on `tone_index=1`, the
+    shop's own chosen tone; the OFFER rung is still what varies the middle message (its `kind`)."""
     rungs = ladder.build(sent_at=NOW, interval_days=CYCLE, marketing_consent=True)
 
-    assert [r.tone_index for r in rungs] == [1, 2]
+    assert [r.tone_index for r in rungs] == [1, 1]
 
 
 def test_the_gap_comes_from_his_own_cycle_not_from_a_constant():

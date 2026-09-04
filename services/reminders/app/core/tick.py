@@ -257,7 +257,7 @@ class Tick:
     async def run(self, tenant: str, *, now: int, library: list[dict[str, Any]],
                   service_names: dict[str, str], establishment: str,
                   customer_names: dict[str, str] | None = None,
-                  tone: str = "brief", choices: Any = None) -> TickResult:
+                  tone: str = "warm", choices: Any = None) -> TickResult:
         """One pass over one tenant's due schedules.
 
         Per tenant rather than across all of them, so a single establishment with a large backlog
@@ -387,7 +387,7 @@ class Tick:
 
     async def send_one(self, tenant: str, row: dict[str, Any], *, now: int,
                        library: list[dict[str, Any]], service_names: dict[str, str],
-                       establishment: str, tone: str = "brief",
+                       establishment: str, tone: str = "warm",
                        approved: set[str] | None = None,
                        choices: Any = None) -> dict[str, Any]:
         """Send ONE message that is not on a schedule — the campaigns path.

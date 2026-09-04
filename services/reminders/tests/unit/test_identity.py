@@ -19,9 +19,9 @@ def test_a_blank_name_is_not_usable():
 
 
 def test_everything_except_the_name_degrades():
-    """A missing tone falls back to brief; a missing colour is only a page's problem."""
+    """A missing tone falls back to warm; a missing colour is only a page's problem."""
     e = Establishment(tenant="t1", name="ورشة النخبة")
-    assert e.usable and e.tone == "brief" and e.branding == {}
+    assert e.usable and e.tone == "warm" and e.branding == {}
 
 
 def test_the_null_driver_is_honest_about_answering_nothing():

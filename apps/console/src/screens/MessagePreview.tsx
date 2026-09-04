@@ -2,8 +2,8 @@
  * One message, as the customer will read it — and the wordings he may choose between.
  *
  * WHY A PREVIEW AND NOT A LIST OF NAMES. «تأكيد الزيارة» is a name; «يا هلا محمد، نوّرتنا اليوم في
- * مغسلة النخيل» is the thing he is deciding about. An owner asked to pick between "brief", "warm"
- * and "formal" is being asked to imagine three messages; an owner shown three bubbles is reading.
+ * مغسلة النخيل» is the thing he is deciding about. An owner asked to pick between "warm" and
+ * "feminine" is being asked to imagine two messages; an owner shown two bubbles is reading.
  *
  * THE TEXT COMES RENDERED FROM THE ENGINE, never assembled here. It goes through the same
  * `render()` a real send goes through, so a wording that cannot render is one he is never offered
@@ -67,11 +67,10 @@ const STATUS: Record<string, string> = {
   retired: 'استبدلتها بنسخة أحدث',
 };
 
-/** The three voices, named for an owner rather than for a library. */
+/** The two voices, named for an owner rather than for a library. */
 const TONE: Record<string, string> = {
-  brief: 'مختصرة',
   warm: 'ودّية',
-  formal: 'رسمية',
+  feminine: 'مؤنثة',
 };
 
 export function MessagePreview({
@@ -99,7 +98,7 @@ export function MessagePreview({
   /** Bumped after a save, so both reads run again — the new draft appears without a reopen. */
   const [reload, setReload] = useState(0);
   /** The shop's tone — what it sends today when it has chosen no text of its own. */
-  const [tone, setTone] = useState('brief');
+  const [tone, setTone] = useState('warm');
   /** His own approved text, when he pointed this reason at one. Empty means ours. */
   const [chosen, setChosen] = useState('');
   const [saving, setSaving] = useState('');
@@ -131,7 +130,7 @@ export function MessagePreview({
         setOptions(x.options ?? []);
         setEmptyBecause(x.empty_because ?? '');
         setChosen(x.chosen ?? '');
-        setTone(x.tone ?? 'brief');
+        setTone(x.tone ?? 'warm');
         setSlots(x.reason?.slots ?? []);
         setMandatory(x.reason?.mandatory);
       })

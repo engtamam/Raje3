@@ -35,7 +35,7 @@ PLATFORM = "_platform"
 # rather than accepted: a template in the wrong class carries the wrong constraints, and an
 # account notice filed as "service" looks stoppable and countable when it is neither.
 CLASSES = ("service", "personal", "awareness", "warning", "marketing")
-TONES = ("brief", "warm", "formal")
+TONES = ("warm", "feminine")
 # Meta's categories. Ours map onto these, and getting it wrong means Meta re-categorises and
 # bills at the marketing rate.
 CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
@@ -109,7 +109,7 @@ class TemplateLibrary:
     async def for_tone(self, tone: str) -> list[dict[str, Any]]:
         """The set an establishment gets when it picks a tone.
 
-        One choice, twenty-three templates. The owner is not asked sixty-nine times — that is a
+        One choice, twenty-one templates. The owner is not asked forty-two times — that is a
         form, not a feature (spec §10.8).
         """
         if tone not in TONES:

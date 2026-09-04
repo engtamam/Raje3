@@ -16,19 +16,19 @@ import { standing } from './MessagePreview';
 
 describe('what a wording says about itself', () => {
   it('says it is ready only when the account actually holds the approval', () => {
-    expect(standing({ name: 'a', tone: 'brief', text: 't', approved: true })?.label)
+    expect(standing({ name: 'a', tone: 'warm', text: 't', approved: true })?.label)
       .toBe('جاهزة للإرسال');
   });
 
   it('says it is waiting when the account does NOT hold it', () => {
-    expect(standing({ name: 'a', tone: 'brief', text: 't', approved: false })?.label)
+    expect(standing({ name: 'a', tone: 'warm', text: 't', approved: false })?.label)
       .toBe('بانتظار اعتماد واتساب');
   });
 
   it('says NOTHING when we could not ask', () => {
     // The whole point. `null` is «not known», and not-known is not a verdict.
-    expect(standing({ name: 'a', tone: 'brief', text: 't', approved: null })).toBeNull();
-    expect(standing({ name: 'a', tone: 'brief', text: 't' })).toBeNull();
+    expect(standing({ name: 'a', tone: 'warm', text: 't', approved: null })).toBeNull();
+    expect(standing({ name: 'a', tone: 'warm', text: 't' })).toBeNull();
   });
 
   it('carries Meta\'s refusal on his own text rather than hiding the row', () => {

@@ -214,9 +214,13 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
     # §5.6.1's rule, and a customer receiving one sentence twice is precisely the thing that gets
     # reported, and a reported number is a banned number.
     #
-    # The variation is a TONE, not a new template: no second text to author, nothing more for Meta
-    # to review, and the service/marketing wall untouched. Index 1 is the shop's chosen tone and
-    # everything that is not a rung, so nothing outside the ladder changes.
+    # THE MECHANISM STILL PICKS BY INDEX INTO THE SHOP'S TONE FIRST, THEN THE REST — it is not
+    # hardcoded to three tones or to any tone name. What changed is who calls it with an index
+    # other than 1: `core/ladder.py` used to hop to a second tone for variety, safe when every
+    # tone addressed the customer the same grammatical way (spec's old brief/warm/formal). Now the
+    # library carries two tones split by grammatical gender (warm/feminine), so `ladder.py` no
+    # longer asks for anything but index 1 — see its own docstring for why. Index 1 is the shop's
+    # chosen tone and everything that is not a rung, so nothing outside the ladder changes.
     ordered = [t for t in active if t.get("tone") == tone] +               [t for t in active if t.get("tone") != tone]
     if not ordered:
         return active[0]

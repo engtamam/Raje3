@@ -13,11 +13,15 @@ VARIATION, NOT ESCALATION — and this is the decision the whole file turns on.
     a second reminder, WORDED ANEW     an OFFER
     stop                               a third reminder
 
-THE WORDING CHANGES WITHOUT A NEW TEMPLATE. The library carries three TONES for every type
-(friendly, brief, formal) and the owner picks one for his messages; a rung simply asks for a
-different tone of the same type. Three tones cover a two-rung ladder with one to spare — so no
-template is written, no Meta approval is waited for, and the category wall between service and
-marketing messages is never crossed.
+THE WORDING NO LONGER CHANGES BY SWITCHING TONE. The library used to carry three formality TONES
+for every type (brief, warm, formal) and a rung could ask for a different one — safe, because all
+three addressed the same customer the same grammatical way. The library now carries two tones
+(warm, feminine), and they are not a formality ladder: they differ in WHO is grammatically
+addressed — masculine vs. feminine — so hopping to the other one mid-ladder would mean a shop that
+picked «warm» suddenly addressing its own customer as a woman on the second message. That is worse
+than repetition. So every rung now stays on the shop's OWN chosen tone (`tone_index=1`); a repeated
+sentence costs nothing this file was built to prevent, but a misgendered one costs the customer's
+trust.
 
 AND WHOEVER DID NOT CONSENT TO MARKETING IS REMINDED TWICE AND LEFT. No offer reaches him under
 any circumstances (§8.5); the ladder loses a rung rather than breaking.
@@ -77,7 +81,7 @@ class Rung:
     """One proposed message: what it is, when, and in which tone."""
     kind: str                  # REMINDER or OFFER
     due_at: int
-    tone_index: int            # which of the library's tones for this type — 0, 1, 2
+    tone_index: int            # which of the library's tones for this type — always 1 now, see above
     # `marketing` decides which cap and which consent apply, and it is set HERE rather than at send
     # time so an owner asking "why was this suppressed" gets a stable answer.
     marketing: bool = False
@@ -135,5 +139,8 @@ def build(*, sent_at: int, interval_days: int, marketing_consent: bool,
 
     return [
         Rung(kind=OFFER, due_at=sent_at + step, tone_index=1, marketing=True),
-        Rung(kind=REMINDER, due_at=sent_at + 2 * step, tone_index=2),
+        # NOT tone_index=2 ANY MORE — see the module docstring. With only two tones in the
+        # library, and the two a gender split rather than a formality ladder, index 2 would
+        # switch this shop's customer to the OTHER grammatical gender for one message and back.
+        Rung(kind=REMINDER, due_at=sent_at + 2 * step, tone_index=1),
     ]

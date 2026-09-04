@@ -446,7 +446,7 @@ async def preview_reason(request: Request, reason_id: str,
         empty_because = "unread" if not read_ok else ("pending" if waiting else "none")
     return {"reason": TR.public(reason), "options": options, "chosen": chosen,
             "empty_because": empty_because,
-            "tone": getattr(shop, "tone", "") or "brief"}
+            "tone": getattr(shop, "tone", "") or "warm"}
 
 
 def _with_named_blanks(row: dict) -> str:
