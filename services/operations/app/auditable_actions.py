@@ -413,6 +413,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "answer",
     },
     {
+        "action": "platform.tenant_capacity_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "tenant:{tenant_id}",
+        "why": "another tenancy-wall crossing read (this shop's own branch/staff count, for the "
+               "console's «العملاء والدعم» screen) — same reasoning as branch_locations_viewed "
+               "above: not critical, but who looked at one establishment's headcount is worth an "
+               "answer",
+    },
+    {
         "action": "platform.whatsapp_diagnostics_viewed",
         "source": "admin",
         "critical": False,

@@ -92,6 +92,13 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "كل فرع فعّال حدّد موقعه بنفسه عبر أي تينانت — الفروع بلا موقع محدَّد لا تظهر.",
     },
     {
+        "id": "operations.tenant_capacity", "label": "عدد الفروع والموظفين لمنشأة", "method": "GET",
+        "path": "/api/v1/platform/tenants/{tenant_id}/capacity", "capability": "platform.operations",
+        "group": "المنصة",
+        "params": [{"name": "tenant_id", "in": "path", "type": "string", "required": True}],
+        "help": "العدد الفعلي فقط — لا الحد المسموح (ذاك من billing-service).",
+    },
+    {
         "id": "operations.whatsapp_diagnostics", "label": "تشخيص واتساب لمحل", "method": "GET",
         "path": "/api/v1/platform/whatsapp/diagnostics", "capability": "platform.operations",
         "group": "المنصة",

@@ -815,6 +815,27 @@ def test_platform_branch_locations_refuses_without_the_capability(client):
     assert r.status_code == 403
 
 
+def test_platform_tenant_capacity_counts_this_tenants_branches_and_operators_only(client):
+    h1 = _headers("tnt_cap_a")
+    h2 = _headers("tnt_cap_b")
+    # tnt_cap_a: the auto-provisioned main branch, plus one more explicitly added.
+    client.get(BRANCHES, headers=h1)
+    client.post(BRANCHES, json={"name": "فرع ثانٍ", "lat": 24.71, "lng": 46.68}, headers=h1)
+    # tnt_cap_b: a different tenant entirely — must never leak into tnt_cap_a's count.
+    client.get(BRANCHES, headers=h2)
+
+    admin = _headers("_platform", caps=("platform.operations",))
+    r = client.get("/api/v1/platform/tenants/tnt_cap_a/capacity", headers=admin)
+    assert r.status_code == 200
+    assert r.json()["branches"] == 2
+
+
+def test_platform_tenant_capacity_refuses_without_the_capability(client):
+    h = _headers("tnt_cap_c", caps=("operations.manage",))
+    r = client.get("/api/v1/platform/tenants/tnt_cap_c/capacity", headers=h)
+    assert r.status_code == 403
+
+
 # ── /internal/operations/active-branches — whatsapp-assistant's branch-selection gate ────────────
 def _internal_headers() -> dict:
     return {"X-Internal-Token": "t" * 40}

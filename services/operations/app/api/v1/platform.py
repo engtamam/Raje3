@@ -28,7 +28,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import evidence as EV
-from app.core.stores import BranchStore, PrivacyRequestStore
+from app.core.stores import BranchStore, OperatorStore, PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry, validate_commission_rate
 from app.core.templates import TemplateError, TemplateLibrary
 from app.core.whatsapp_channel_billing import bill_period
@@ -451,6 +451,29 @@ async def branch_locations(request: Request, limit: int = 200, after: str = "",
     rows, nxt = await store.browse_platform(limit=limit, after=after or None)
     located = [b.public() for b in rows if b.lat != 0.0 or b.lng != 0.0]
     return {"branches": located, "next_cursor": nxt}
+
+
+@router.get("/tenants/{tenant_id}/capacity", dependencies=[Depends(rate_limit)])
+async def tenant_capacity(request: Request, tenant_id: str,
+                          principal: Principal = Depends(_PLATFORM)) -> dict:
+    """How many branches and staff (operators) ONE establishment actually has — for the admin
+    console's «العملاء والدعم» screen (لا نموذج بيانات جديد، مسار قراءة فقط: `BranchStore.list`/
+    `OperatorStore.list` already exist, tenant-scoped, used by the shop's own «فريقي» screen —
+    this route just reads them for a tenant the caller NAMES rather than the caller's own.
+
+    Does NOT return the ENTITLED limit (how many the tenant is PAID for) — that number lives in
+    billing-service's own entitlement resolver (the `branches`/`staff.seats` gauge keys), across
+    the tenancy wall this service does not cross for a number, only for a yes/no licence check
+    (see core/base_licence.py). The console joins this count against that limit itself.
+    """
+    await request.app.state.auditor.record(
+        "platform.tenant_capacity_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant_id, resource=f"tenant:{tenant_id}",
+        ip=request.client.host if request.client else "")
+    ds = request.app.state.container.datastore
+    branches = await BranchStore(ds).list(tenant_id)
+    operators = await OperatorStore(ds).list(tenant_id)
+    return {"branches": len(branches), "operators": len(operators)}
 
 
 @router.get("/whatsapp/diagnostics", dependencies=[Depends(rate_limit)])

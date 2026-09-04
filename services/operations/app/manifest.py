@@ -182,6 +182,8 @@ def build_manifest(
             {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/operators/{}/working-hours", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/operators/me", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/operators/me/locale", "tier": "user", "method": "PATCH"},
             # How this shop runs its branches — one number for the brand, or one per branch.
             {"path": "/api/v1/staff/shop-name", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/mode", "tier": "user", "method": "GET"},
@@ -200,6 +202,7 @@ def build_manifest(
             # surface: a capability a person holds, and an audit row that names them.
             {"path": "/api/v1/platform/evidence", "tier": "user", "method": "POST"},
             {"path": "/api/v1/platform/branches/locations", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/tenants/{}/capacity", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/diagnostics", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/channel-bill", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
