@@ -157,8 +157,7 @@ PY
   esac
 done
 
-[ "$DRY" = "1" ] && exit 0
-if [ -e "$FAILMARK" ]; then
+if [ -e "$FAILMARK" ] && [ "$DRY" != "1" ]; then
   rm -f "$FAILMARK"
   # NAMED, BECAUSE THIS IS THE EXPECTED FAILURE UNTIL THE COMPANY DETAILS EXIST. compliance refuses
   # a document with an unfilled {{TOKEN}} — correctly: a privacy policy that reaches a customer
@@ -166,6 +165,133 @@ if [ -e "$FAILMARK" ]; then
   # under `values:` and ci/check_legal.py lists exactly which are still blank.
   red "some documents were refused — usually a blank value (company name, CR, address, date)."
   red "run: python3 ci/check_legal.py   to see which."
+  exit 1
+fi
+
+# ── THE THREE THAT HAVE NO PDPL TEMPLATE ─────────────────────────────────────────────────────
+# terms.yaml, affiliate-privacy-policy.yaml, affiliate-agreement.yaml are "ours entirely" (see
+# MAP's own comment and ci/check_legal.py's OURS dict) — no upstream template to `instantiate`
+# against, so the MAP loop above never touches them. That is not a smaller gap than the templated
+# ones: terms.yaml is the actual Terms of Service every shop is meant to accept at signup
+# (`publication: accept`), and until THIS loop existed, nothing ever published it — a shop's
+# acceptance record pointed at a version that had never been drafted, let alone published.
+#
+# DIRECT PUBLISH, NOT instantiate: these carry their own prose (`clauses:` / `categories:` +
+# `additions:`), not template placeholders to fill — so this builds the console's own Block shape
+# (`{type:"text", data:{md_ar, md_en}}`, same as AdminLegal.tsx writes by hand) directly, then
+# calls draft + publish, the two routes the console screen itself uses.
+#
+# affiliate-agreement.yaml IS DELIBERATELY EXCLUDED. Its own header says so: "DRAFT ONLY. ...
+# not a Saudi legal consultation... do not publish this file before a licensed Saudi lawyer
+# reviews it". A contract term reaching a real marketer is a commitment made in the company's
+# name — outside what a repeatable seed step should ever decide on its own.
+DIRECT="terms.yaml=terms=الشروط والأحكام=Terms of Service
+affiliate-privacy-policy.yaml=affiliate-privacy-policy=سياسة خصوصية المسوّقين=Affiliate Privacy Policy"
+
+printf '%s\n' "$DIRECT" | while IFS='=' read -r file doc_id title_ar title_en; do
+  [ -n "$file" ] || continue
+  src="$HERE/legal/$file"
+  [ -f "$src" ] || { red "$file is missing"; : > "$FAILMARK"; continue; }
+
+  content=$(python3 - "$src" <<'PY'
+import re, sys
+import yaml
+
+doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+values = doc.get("values") or {}
+
+def flat(v):
+    return (v.get("ar") or v.get("en") or "") if isinstance(v, dict) else str(v)
+
+def sub(text, locale):
+    def repl(m):
+        v = values.get(m.group(1))
+        if v is None:
+            return m.group(0)
+        return v.get(locale, flat(v)) if isinstance(v, dict) else str(v)
+    return re.sub(r"\{\{(\w+)\}\}", repl, text or "")
+
+def humanize(key):
+    return key.replace("_", " ").strip().capitalize()
+
+lines_ar, lines_en = [], []
+
+for clause in (doc.get("clauses") or {}).values():
+    t = clause.get("title", {})
+    lines_ar.append(f"## {t.get('ar', '')}\n\n{sub(clause.get('ar', ''), 'ar')}")
+    lines_en.append(f"## {t.get('en', '')}\n\n{sub(clause.get('en', ''), 'en')}")
+
+for cat in doc.get("categories") or []:
+    name = cat.get("name", {})
+    ex = cat.get("examples", {})
+    req = cat.get("required", {})
+    lines_ar.append(f"### {name.get('ar', '')}\n\n{sub(ex.get('ar', ''), 'ar')}\n\n**{req.get('ar', '')}**")
+    lines_en.append(f"### {name.get('en', '')}\n\n{sub(ex.get('en', ''), 'en')}\n\n**{req.get('en', '')}**")
+
+for key, addition in (doc.get("additions") or {}).items():
+    lines_ar.append(f"### {humanize(key)}\n\n{sub(addition.get('ar', ''), 'ar')}")
+    lines_en.append(f"### {humanize(key)}\n\n{sub(addition.get('en', ''), 'en')}")
+
+md_ar, md_en = "\n\n".join(lines_ar), "\n\n".join(lines_en)
+if "{{" in md_ar or "{{" in md_en:
+    print("TOKEN_UNFILLED", file=sys.stderr)
+    sys.exit(1)
+
+import json
+print(json.dumps({"md_ar": md_ar, "md_en": md_en}, ensure_ascii=False))
+PY
+) || { red "$doc_id: an unfilled {{TOKEN}} in clauses/categories/additions text"; : > "$FAILMARK"; continue; }
+  [ -n "$content" ] || { red "$file: unreadable"; : > "$FAILMARK"; continue; }
+
+  requires_accept=$(python3 -c "import yaml,sys; d=yaml.safe_load(open('$src',encoding='utf-8')) or {}; print('true' if d.get('publication')=='accept' else 'false')")
+
+  if [ "$DRY" = "1" ]; then inf "would publish $doc_id v$VERSION from $file (direct)"; continue; fi
+
+  draft_body=$(python3 -c "
+import json, sys
+md = json.loads('''$content''')
+print(json.dumps({
+    'content': {'title': {'ar': '$title_ar', 'en': '$title_en'},
+               'blocks': [{'type': 'text', 'data': {'md_ar': md['md_ar'], 'md_en': md['md_en']}}]},
+    'requires_acceptance': $requires_accept,
+}, ensure_ascii=False))
+")
+
+  out=$(kubectl -n "$NS" exec -i "$POD" -- python3 - "$doc_id" "$VERSION" "$TOKEN" <<PY 2>/dev/null
+import json, sys, urllib.error, urllib.request
+doc_id, ver, token = sys.argv[1], sys.argv[2], sys.argv[3]
+body = json.loads('''$draft_body''')
+base = "http://127.0.0.1:8000/api/v1/compliance/legal"
+def call(method, path, data):
+    req = urllib.request.Request(f"{base}{path}", data=json.dumps(data).encode() if data is not None else None,
+                                  method=method, headers={"Content-Type": "application/json",
+                                                          "Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return r.status
+try:
+    call("PUT", f"/{doc_id}/versions/{ver}", body)
+    print(call("POST", f"/{doc_id}/versions/{ver}/publish", None))
+except urllib.error.HTTPError as e:
+    print(f"{e.code} {e.read().decode()[:160]}")
+except Exception as e:
+    print(f"0 {e}")
+PY
+)
+  case "$out" in
+    2*)   grn "$doc_id v$VERSION published" ;;
+    409*) grn "$doc_id v$VERSION already published" ;;
+    *)    red "$doc_id v$VERSION — ${out:-no answer}"; : > "$FAILMARK" ;;
+  esac
+done
+
+inf ""
+inf "affiliate-agreement.yaml was NOT published — it needs a licensed Saudi lawyer's review first"
+inf "(its own header says so). Publish it manually once that review clears."
+
+[ "$DRY" = "1" ] && exit 0
+if [ -e "$FAILMARK" ]; then
+  rm -f "$FAILMARK"
+  red "some documents were refused — see above."
   exit 1
 fi
 grn "the legal library is published"
