@@ -54,7 +54,12 @@ function stubReq() {
     if (path === '/api/v1/compliance/legal') return Promise.resolve({ documents: DOCS });
     if (path.endsWith('/history')) return Promise.resolve({ versions: [
       { version: '1.0', status: 'published', published_at: 1700000000, requires_acceptance: true },
+      { version: '2.0', status: 'draft', published_at: 0, requires_acceptance: true },
     ] });
+    if (path === '/api/v1/compliance/legal/privacy-policy?version=2.0') return Promise.resolve({
+      title: 'سياسة الخصوصية',
+      blocks: [{ legal_text: { md_ar: 'نص المسوّدة غير المنشورة', md_en: 'unpublished draft text' } }],
+    });
     if (path === '/api/v1/compliance/legal/privacy-policy') return Promise.resolve({
       title: 'سياسة الخصوصية',
       blocks: [{ legal_text: { md_ar: 'النص العربي المنشور', md_en: 'the published English text' } }],
@@ -105,6 +110,27 @@ describe('AdminLegal', () => {
     fireEvent.click(screen.getByText('English'));
     expect((screen.getByLabelText('Text (English, Markdown)') as HTMLTextAreaElement).value)
       .toBe('the published English text');
+  });
+
+  it('a draft version is invisible by default (the published one loads first) until you open it', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    stubReq();
+    render(<AdminLegal session={SESSION} />);
+
+    await waitFor(() => expect(screen.getByText('privacy-policy')).toBeTruthy());
+    fireEvent.click(screen.getByText('privacy-policy'));
+
+    // opening the type loads the CURRENT PUBLISHED text, not the newer unpublished draft sitting
+    // right next to it in the history list — a draft has no published_at to sort by.
+    await waitFor(() => expect((screen.getByLabelText('النص (عربي، Markdown)') as HTMLTextAreaElement).value)
+      .toBe('النص العربي المنشور'));
+
+    // every history row has its own "فتح" to load exactly that version instead
+    await waitFor(() => expect(screen.getByText('مسوّدة')).toBeTruthy());
+    fireEvent.click(screen.getAllByText('فتح')[1]);   // the draft (2.0) row, listed second (newest first)
+
+    await waitFor(() => expect((screen.getByLabelText('النص (عربي، Markdown)') as HTMLTextAreaElement).value)
+      .toBe('نص المسوّدة غير المنشورة'));
   });
 
   it('"نوع مستند جديد" opens an empty form with a free doc_id, no history call', async () => {

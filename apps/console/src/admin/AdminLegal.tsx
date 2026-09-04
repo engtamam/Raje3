@@ -112,6 +112,27 @@ export function AdminLegal({ session }: { session: AdminSession }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog]);
 
+  // LOADS ONE SPECIFIC VERSION'S TEXT INTO THE EDITOR. `version` empty means "whatever is
+  // currently published" — which is NOT necessarily the newest row in the history list: a fresh
+  // draft (e.g. just seeded from the Markdown files) has no `published_at` and sits UNDER the
+  // still-live older version until somebody publishes it. Opening a type used to always load the
+  // published one, so a brand-new draft's own text stayed invisible — the empty-editor screenshot
+  // was privacy-policy v1 (old, non-legal_text content) still "current" while v2 (the real,
+  // reviewable draft) sat unopened right next to it. Every history row now has its own "فتح" to
+  // load exactly that version, draft or published.
+  function loadVersion(id: string, version?: string) {
+    if (!viewAction) return;
+    const path = viewAction.path.replace('{doc_id}', encodeURIComponent(id))
+      + (version ? `?version=${encodeURIComponent(version)}` : '');
+    req<{ title?: string; blocks?: { legal_text?: { md_ar?: string; md_en?: string } }[] }>(
+      path, 'GET', undefined, session.access_token)
+      .then((r) => {
+        const text = r.blocks?.find((b) => b.legal_text)?.legal_text;
+        setMdAr(text?.md_ar || ''); setMdEn(text?.md_en || '');
+      })
+      .catch(() => { /* nothing published yet, or an old non-markdown version — leave blank */ });
+  }
+
   function openType(id: string) {
     setSelected(id);
     setDocId(id);
@@ -127,20 +148,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
       .then((r) => setHistory(r.versions.sort((a, b) => b.published_at - a.published_at)))
       .catch(() => setHistory('failed'));
 
-    // LOAD THE CURRENT PUBLISHED TEXT INTO THE EDITOR — without this, opening an existing type
-    // showed only its version numbers (the list above) with empty writing fields, which read as
-    // "the screen is blank" even though the document is very much published (reported live: a
-    // screenshot of exactly this). Only understands `legal_text` blocks (what this screen itself
-    // writes, and everything re-published from the Markdown files) — an older document published
-    // some other way still opens, just without its text pre-filled, rather than crashing.
-    if (!viewAction) return;
-    req<{ title?: string; blocks?: { legal_text?: { md_ar?: string; md_en?: string } }[] }>(
-      viewAction.path.replace('{doc_id}', encodeURIComponent(id)), 'GET', undefined, session.access_token)
-      .then((r) => {
-        const text = r.blocks?.find((b) => b.legal_text)?.legal_text;
-        if (text) { setMdAr(text.md_ar || ''); setMdEn(text.md_en || ''); }
-      })
-      .catch(() => { /* no published version yet, or an old non-markdown one — leave blank */ });
+    loadVersion(id);   // whatever is currently published, as a starting point
   }
 
   function openNewType() {
@@ -294,6 +302,10 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                           </span>
                         ) : null}
                         <button type="button" className="ms-auto text-xs text-accent hover:underline"
+                                onClick={() => loadVersion(selected, v.version)}>
+                          فتح
+                        </button>
+                        <button type="button" className="text-xs text-accent hover:underline"
                                 onClick={() => setVersion(`${(Number(v.version) || 0) + 0.1 || '2.0'}`)}>
                           إصدار نسخة تالية
                         </button>
