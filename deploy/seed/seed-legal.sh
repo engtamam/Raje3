@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Publish our legal documents into compliance-service — FROM THE MARKDOWN FILES.
+# Draft our legal documents into compliance-service — FROM THE MARKDOWN FILES. DRAFT-ONLY, ALWAYS,
+# NO EXCEPTION — including a from-scratch install (`deploy/bring-up.sh` calls this with no flags).
+# Publishing is a decision only a human makes, from AdminLegal.tsx, one document at a time.
 #
-#   ./deploy/seed/seed-legal.sh              # publish every deploy/seed/legal/*.md
-#   ./deploy/seed/seed-legal.sh --dry-run    # say what would be published, change nothing
+#   ./deploy/seed/seed-legal.sh              # DRAFT every deploy/seed/legal/*.md — review, then
+#                                             # publish each one yourself from the admin console
+#   ./deploy/seed/seed-legal.sh --dry-run    # say what would be drafted, change nothing
 #   ./deploy/seed/seed-legal.sh --version 2  # a NEW version, when a document's text changed
 #
 # WHY THIS SCRIPT DID NOT EXIST AND HAD TO. The documents were authored, filled in and guarded by
@@ -43,10 +46,11 @@
 # reviews it". A contract term reaching a real marketer is a commitment made in the company's
 # name — outside what a repeatable seed step should ever decide on its own.
 #
-# IDEMPOTENT. Re-running with the same version is a no-op that reports as one: the service answers
-# 409 for a version that already exists, and this treats that as "already published" rather than as
-# a failure. A changed document needs `--version`, deliberately — an accepted version must never
-# change under the person who accepted it.
+# IDEMPOTENT. Re-drafting the same version is a plain overwrite — always fine, since a draft was
+# never live to anyone. Re-running against a version that was since PUBLISHED (by a human, from
+# the admin console) gets a 409, reported as "already published" rather than a failure: the
+# service itself refuses to edit a published version out from under whoever accepted it. Publish
+# a changed document as a NEW `--version` instead.
 set -uo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
@@ -154,7 +158,7 @@ PY
     requires_accept=$(python3 -c "import yaml,sys; d=yaml.safe_load(open('$yaml_src',encoding='utf-8')) or {}; print('true' if d.get('publication')=='accept' else 'false')")
   fi
 
-  if [ "$DRY" = "1" ]; then inf "would publish $doc_id v$VERSION from $doc_id.md"; continue; fi
+  if [ "$DRY" = "1" ]; then inf "would draft $doc_id v$VERSION from $doc_id.md"; continue; fi
 
   draft_body=$(python3 -c "
 import json, sys
@@ -166,20 +170,20 @@ print(json.dumps({
 }, ensure_ascii=False))
 ")
 
+  # PUT ONLY — NEVER A publish CALL HERE. Drafting a version is reversible (it is not yet live to
+  # anyone); publishing is not, and is exactly the one act this script leaves entirely to a human
+  # in AdminLegal.tsx, confirm dialog and all — see this file's own header.
   out=$(kubectl -n "$NS" exec -i "$POD" -- python3 - "$doc_id" "$VERSION" "$TOKEN" <<PY 2>/dev/null
 import json, sys, urllib.error, urllib.request
 doc_id, ver, token = sys.argv[1], sys.argv[2], sys.argv[3]
 body = json.loads('''$draft_body''')
-base = "http://127.0.0.1:8000/api/v1/compliance/legal"
-def call(method, path, data):
-    req = urllib.request.Request(f"{base}{path}", data=json.dumps(data).encode() if data is not None else None,
-                                  method=method, headers={"Content-Type": "application/json",
-                                                          "Authorization": f"Bearer {token}"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return r.status
+req = urllib.request.Request(
+    f"http://127.0.0.1:8000/api/v1/compliance/legal/{doc_id}/versions/{ver}",
+    data=json.dumps(body).encode(), method="PUT",
+    headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
 try:
-    call("PUT", f"/{doc_id}/versions/{ver}", body)
-    print(call("POST", f"/{doc_id}/versions/{ver}/publish", None))
+    with urllib.request.urlopen(req, timeout=20) as r:
+        print(r.status)
 except urllib.error.HTTPError as e:
     print(f"{e.code} {e.read().decode()[:160]}")
 except Exception as e:
@@ -187,15 +191,18 @@ except Exception as e:
 PY
 )
   case "$out" in
-    2*)   grn "$doc_id v$VERSION published" ;;
-    409*) grn "$doc_id v$VERSION already published" ;;
+    2*)   grn "$doc_id v$VERSION drafted" ;;
+    409*) grn "$doc_id v$VERSION already published — draft a new version to change it" ;;
     *)    red "$doc_id v$VERSION — ${out:-no answer}"; : > "$FAILMARK" ;;
   esac
 done
 
 inf ""
-inf "affiliate-agreement.md was NOT published — it needs a licensed Saudi lawyer's review first"
-inf "(its own YAML source says so). Publish it manually once that review clears."
+inf "affiliate-agreement.md was NOT touched — it needs a licensed Saudi lawyer's review first"
+inf "(its own YAML source says so)."
+inf ""
+inf "Every document above is a DRAFT, not yet live. Open المستندات القانونية in the admin"
+inf "console, review each one, and publish the ones you want live — this script never does."
 
 [ "$DRY" = "1" ] && exit 0
 if [ -e "$FAILMARK" ]; then
@@ -203,4 +210,4 @@ if [ -e "$FAILMARK" ]; then
   red "some documents were refused — see above."
   exit 1
 fi
-grn "the legal library is published"
+grn "the legal library is drafted — nothing is live until you publish it from the admin console"
