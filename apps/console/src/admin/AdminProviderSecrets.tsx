@@ -14,7 +14,7 @@
  * wants to add one should read the backend module's own docstring first.
  */
 import { useEffect, useState } from 'react';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, ChevronDown, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
@@ -53,9 +53,26 @@ const SECRET_HELP: Record<string, string> = {
   GEMINI_API_KEY: 'من Google AI Studio (aistudio.google.com/apikey) — الأسهل، بلا مشروع GCP. أو من GCP نفسه (console.cloud.google.com): فعّل "Generative Language API" وأنشئ مفتاحاً من Credentials، لو تبي تربطه بمشروع/فوترة محددة.',
 };
 
+// أي مفتاح يخص أي مزوّد — بطاقة واحدة لكل مزوّد، لا صف طويل لكل مفتاح على حدة. مفتاح غير معروف
+// (مزوّد سادس أُضيف بـsecret_registry.py ولم يُضف هنا) يقع في بطاقة "أخرى" العامة، لا يُفقد أبداً.
+const PROVIDER_OF: Record<string, string> = {
+  META_APP_ID: 'meta', META_APP_SECRET: 'meta', WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
+  WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
+  WHATSAPP_360DIALOG_API_KEY: '360dialog',
+  GEMINI_API_KEY: 'gemini',
+};
+const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
+  meta: { label: 'Meta (واتساب)', icon: MessageCircle },
+  '360dialog': { label: '360dialog', icon: MessageCircle },
+  gemini: { label: 'Gemini', icon: Sparkles },
+  other: { label: 'أخرى', icon: CircleHelp },
+};
+
 export function AdminProviderSecrets({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
   const [rows, setRows] = useState<SecretRow[] | 'loading' | 'failed'>('loading');
+  // بطاقة مفتوحة واحدة كحد أقصى — نفس منطق أي قائمة قابلة للطي، أوضح من فتح الكل دفعة واحدة.
+  const [openProvider, setOpenProvider] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,15 +125,56 @@ export function AdminProviderSecrets({ session }: { session: AdminSession }) {
         <p role="alert" className="text-danger text-sm">تعذّرت قراءة قائمة المفاتيح.</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {rows.map((row) => (
-            <SecretRowCard key={row.key} row={row} session={session}
-                           updateAction={updateAction}
-                           onSaved={() => listAction && reload(listAction)} />
-          ))}
+          {groupByProvider(rows).map(([provider, providerRows]) => {
+            const meta = PROVIDER_META[provider] ?? PROVIDER_META.other;
+            const Icon = meta.icon;
+            const open = openProvider === provider;
+            const configuredCount = providerRows.filter((r) => r.configured).length;
+            return (
+              <section key={provider} className="rounded-card border border-border-subtle bg-surface-1">
+                <button type="button" onClick={() => setOpenProvider(open ? null : provider)}
+                       aria-expanded={open}
+                       className="flex w-full items-center gap-3 p-4 text-start">
+                  <span className="inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+                    <Icon size={18} />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block font-medium">{meta.label}</span>
+                    <span className="text-label text-text-secondary">
+                      {configuredCount} / {providerRows.length} مُعدّ
+                    </span>
+                  </span>
+                  <ChevronDown size={18}
+                              className={`text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
+                </button>
+                {open ? (
+                  <div className="flex flex-col gap-3 border-t border-border-subtle p-4 pt-3">
+                    {providerRows.map((row) => (
+                      <SecretRowCard key={row.key} row={row} session={session}
+                                     updateAction={updateAction}
+                                     onSaved={() => listAction && reload(listAction)} />
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+/** الصفوف بترتيب المزوّدين الأول-ظهوراً بالاستجابة (لا ترتيب أبجدي عشوائي)، كل مزوّد مع صفوفه. */
+function groupByProvider(rows: SecretRow[]): [string, SecretRow[]][] {
+  const order: string[] = [];
+  const byProvider = new Map<string, SecretRow[]>();
+  for (const row of rows) {
+    const provider = PROVIDER_OF[row.key] ?? 'other';
+    if (!byProvider.has(provider)) { byProvider.set(provider, []); order.push(provider); }
+    byProvider.get(provider)!.push(row);
+  }
+  return order.map((p) => [p, byProvider.get(p)!]);
 }
 
 function SecretRowCard({ row, session, updateAction, onSaved }: {

@@ -36,6 +36,12 @@ vi.mock('./api', async (importOriginal) => {
 
 afterEach(() => vi.clearAllMocks());
 
+// شاشة البطاقات: كل مزوّد يفتح بضغطة قبل ما تشوف مفاتيحه. الاختبارات تفتح البطاقة أول شي.
+async function openProvider(label: string) {
+  await waitFor(() => expect(screen.getByText(label)).toBeTruthy());
+  fireEvent.click(screen.getByText(label));
+}
+
 describe('AdminProviderSecrets', () => {
   it('shows only the last four characters, never a value, for a configured key', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
@@ -45,6 +51,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('Meta (واتساب)');
     await waitFor(() => expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy());
     expect(screen.getByText('····ab12')).toBeTruthy();
     // NEVER THE RAW VALUE, NOT EVEN AS A KEY NAME IN A DATA ATTRIBUTE THE DOM WOULD EXPOSE.
@@ -59,6 +66,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('Meta (واتساب)');
     await waitFor(() => expect(screen.getByText(/تعذّر الاتصال بالعنقود/)).toBeTruthy());
   });
 
@@ -76,6 +84,7 @@ describe('AdminProviderSecrets', () => {
       });
 
     render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('Gemini');
     await waitFor(() => expect(screen.getByText('غير مُعدّ')).toBeTruthy());
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
@@ -97,6 +106,34 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect((screen.getByLabelText('القيمة الجديدة') as HTMLInputElement).value).toBe(''));
   });
 
+  it('groups keys into one card per provider, collapsed until opened, one open at a time', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      secrets: [
+        { key: 'META_APP_ID', label: 'معرّف تطبيق ميتا', configured: true, last4: '1234', updated_at: null, updated_by: null },
+        { key: 'META_APP_SECRET', label: 'سر تطبيق ميتا', configured: false, last4: null, updated_at: null, updated_by: null },
+        { key: 'GEMINI_API_KEY', label: 'مفتاح Gemini', configured: false, last4: null, updated_at: null, updated_by: null },
+      ],
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('Meta (واتساب)')).toBeTruthy());
+    expect(screen.getByText('Gemini')).toBeTruthy();
+    // collapsed: individual key labels are not in the DOM yet
+    expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
+    expect(screen.getByText('1 / 2 مُعدّ')).toBeTruthy();   // Meta's own tally, both its keys counted
+
+    fireEvent.click(screen.getByText('Meta (واتساب)'));
+    await waitFor(() => expect(screen.getByText('معرّف تطبيق ميتا')).toBeTruthy());
+    expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy();
+    expect(screen.queryByText('مفتاح Gemini')).toBeNull();   // the OTHER provider stays collapsed
+
+    // opening a second card closes the first — one open at a time
+    fireEvent.click(screen.getByText('Gemini'));
+    await waitFor(() => expect(screen.getByText('مفتاح Gemini')).toBeTruthy());
+    expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
+  });
+
   it('no capability, no tab that quietly does nothing — the screen says so', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminProviderSecrets session={SESSION} />);
@@ -111,6 +148,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('Gemini');
     await waitFor(() => expect(screen.getByText('GEMINI_API_KEY')).toBeTruthy());
 
     expect(screen.queryByText(/aistudio\.google\.com/)).toBeNull();   // collapsed by default
@@ -126,6 +164,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('Meta (واتساب)');
     await waitFor(() => expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy());
     // «تُعرض» legitimately appears in this screen's own reassurance copy ("القيمة لا تُعرض هنا
     // أبداً") — the real assertion is that no CONTROL offers to reveal one.
