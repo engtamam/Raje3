@@ -14,6 +14,7 @@
  * wants to add one should read the backend module's own docstring first.
  */
 import { useEffect, useState } from 'react';
+import { CircleHelp } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
@@ -32,6 +33,19 @@ interface SecretRow {
   updated_by: string | null;
   unreadable?: boolean;
 }
+
+// WHAT EACH KEY IS AND WHERE IT COMES FROM — matches services/secrets-admin/app/core/
+// secret_registry.py's own SECRETS tuple exactly (same 5 keys, same order); that file is the
+// real source of truth for WHICH keys exist, this is only the console's own explanatory text for
+// them, since the backend route never sends more than {key, label, ...}. An unknown key (a sixth
+// added there but not here) still shows fine — just without the "؟" hint, never hidden.
+const SECRET_HELP: Record<string, string> = {
+  META_APP_ID: 'من لوحة مطوّري Meta (developers.facebook.com) — تطبيقك ← إعدادات أساسية ← "معرّف التطبيق".',
+  META_APP_SECRET: 'من نفس صفحة إعدادات التطبيق بلوحة مطوّري Meta — "سر التطبيق" (يحتاج تأكيد كلمة مرور حسابك لإظهاره).',
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'نص تختاره أنت بنفسك (أي نص عشوائي قوي) وتُدخِله هنا وبنفس الوقت بإعدادات الـwebhook بلوحة Meta — يجب أن يتطابق النصّان بالضبط.',
+  WHATSAPP_360DIALOG_API_KEY: 'من لوحة 360dialog (hub.360dialog.com) — قسم API Keys الخاص برقم واتساب التجاري.',
+  GEMINI_API_KEY: 'من Google AI Studio (aistudio.google.com/apikey) — الأسهل، بلا مشروع GCP. أو من GCP نفسه (console.cloud.google.com): فعّل "Generative Language API" وأنشئ مفتاحاً من Credentials، لو تبي تربطه بمشروع/فوترة محددة.',
+};
 
 export function AdminProviderSecrets({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
@@ -107,7 +121,9 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [savedLast4, setSavedLast4] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const inputId = `provider-secret-${row.key}`;
+  const help = SECRET_HELP[row.key];
 
   async function doSave() {
     if (!updateAction || !value) return;
@@ -135,7 +151,21 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
     <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-col">
-          <span className="font-medium">{row.label}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium">{row.label}</span>
+            {help ? (
+              <button type="button" onClick={() => setShowHelp((v) => !v)}
+                     aria-expanded={showHelp} aria-label={`ايش هذا؟ ومن وين آخذه — ${row.label}`}
+                     className="text-text-secondary hover:text-accent">
+                <CircleHelp size={15} />
+              </button>
+            ) : null}
+          </div>
+          {/* اسم المتغيّر البرمجي تحت الاسم — يفيد لو احتجت تراجعه بمكان ثانٍ (لوحة Meta، ملف env محلي...) */}
+          <span dir="ltr" className="text-label font-mono text-text-muted">{row.key}</span>
+          {showHelp && help ? (
+            <p className="mt-1 max-w-md text-label text-text-secondary">{help}</p>
+          ) : null}
           {row.unreadable ? (
             <span className="text-label text-danger">تعذّر الاتصال بالعنقود — الحالة غير معروفة حالياً</span>
           ) : row.configured ? (

@@ -103,6 +103,21 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('هذه الشاشة ليست ضمن صلاحياتك')).toBeTruthy());
   });
 
+  it('shows the env var name under the label, and "؟" reveals where to get the value', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      secrets: [{ key: 'GEMINI_API_KEY', label: 'مفتاح Gemini', configured: false,
+                 last4: null, updated_at: null, updated_by: null }],
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('GEMINI_API_KEY')).toBeTruthy());
+
+    expect(screen.queryByText(/aistudio\.google\.com/)).toBeNull();   // collapsed by default
+    fireEvent.click(screen.getByLabelText(/ايش هذا؟/));
+    expect(screen.getByText(/aistudio\.google\.com/)).toBeTruthy();
+  });
+
   it('never renders any "reveal" or "show" control', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
