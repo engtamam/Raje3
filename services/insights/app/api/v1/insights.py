@@ -526,7 +526,7 @@ async def dispute_report(request: Request, body: DisputeReportIn,
     urls = _Urls(
         operations=settings.OPERATIONS_SERVICE_URL, billing=settings.BILLING_SERVICE_URL,
         backup=settings.BACKUP_SERVICE_URL, audit=settings.AUDIT_SERVICE_URL,
-        reminders=settings.REMINDERS_SERVICE_URL,
+        reminders=settings.REMINDERS_SERVICE_URL, compliance=settings.COMPLIANCE_SERVICE_URL,
         tenant_by_phone_path=settings.OPERATIONS_TENANT_BY_PHONE_PATH,
         branches_full_path=settings.OPERATIONS_BRANCHES_FULL_PATH,
         operators_full_path=settings.OPERATIONS_OPERATORS_FULL_PATH,
@@ -534,6 +534,8 @@ async def dispute_report(request: Request, body: DisputeReportIn,
         invoices_path=settings.BILLING_INVOICES_PATH,
         tenant_coverage_path=settings.BACKUP_TENANT_COVERAGE_PATH,
         audit_query_path=settings.AUDIT_QUERY_PATH, evidence_path=settings.REMINDERS_EVIDENCE_PATH,
+        legal_list_path=settings.COMPLIANCE_LEGAL_LIST_PATH,
+        legal_history_path=settings.COMPLIANCE_LEGAL_HISTORY_PATH,
     )
     caller = HttpPeerCaller(token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
 

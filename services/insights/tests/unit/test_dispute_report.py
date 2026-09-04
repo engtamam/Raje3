@@ -32,7 +32,7 @@ class FakeCaller:
 URLS = _Urls(
     operations="http://operations:8000", billing="http://billing-service:8000",
     backup="http://backup-service:8000", audit="http://audit-service:8000",
-    reminders="http://reminders:8000",
+    reminders="http://reminders:8000", compliance="http://compliance-service:8000",
     tenant_by_phone_path="/internal/operations/tenant-by-phone",
     branches_full_path="/internal/operations/branches-full",
     operators_full_path="/internal/operations/operators-full",
@@ -40,6 +40,8 @@ URLS = _Urls(
     invoices_path="/internal/billing/invoices",
     tenant_coverage_path="/internal/backup/tenant-coverage",
     audit_query_path="/internal/audit", evidence_path="/internal/reminders/evidence",
+    legal_list_path="/internal/compliance/legal",
+    legal_history_path="/internal/compliance/legal/{doc_id}/history",
 )
 
 
@@ -115,10 +117,24 @@ def test_resolve_tenant_directly_raises_on_a_peer_failure():
         resolve_tenant(caller, URLS, "0501234567")
 
 
-def test_unwired_legal_source_says_so_plainly_never_silently_empty():
+def test_contract_breach_scenario_lists_legal_versions_newest_last_by_ts():
     caller = FakeCaller(
         post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}},
+        get_answers={
+            "/internal/compliance/legal": {"documents": [{"doc_id": "terms", "version": "2"}]},
+            "/internal/compliance/legal/terms/history": {"versions": [
+                {"version": "2", "status": "published", "published_at": 3000, "requires_acceptance": True},
+                {"version": "1", "status": "published", "published_at": 1000, "requires_acceptance": True},
+            ]},
+        },
         fail_paths={"/internal/audit"},
     )
     result = run_scenario(caller, URLS, "0501234567", "contract_breach")
-    assert any("غير متاح بعد" in it.label for it in result.items)
+    labels = [it.label for it in result.items]
+    assert any("«terms» — نسخة 2 — منشورة" in x for x in labels)
+    assert any("«terms» — نسخة 1 — منشورة" in x for x in labels)
+    assert labels.index("مستند قانوني «terms» — نسخة 1 — منشورة (تتطلب موافقة العميل)") < \
+        labels.index("مستند قانوني «terms» — نسخة 2 — منشورة (تتطلب موافقة العميل)")
+    # `/internal/compliance/legal/{doc_id}/history` was resolved per-doc, from the list's own doc_id.
+    hist_calls = [c for c in caller.calls if c[2] == "/internal/compliance/legal/terms/history"]
+    assert len(hist_calls) == 1

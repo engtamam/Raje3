@@ -286,6 +286,10 @@ class Settings(BaseSettings):
     OPERATIONS_OPERATORS_FULL_PATH: str = "/internal/operations/operators-full"
     BILLING_SUBSCRIPTIONS_PATH: str = "/internal/billing/subscriptions"
     BILLING_INVOICES_PATH: str = "/internal/billing/invoices"
+    # THEIRS. The dispute-defense report's "legal" source — v0.18.11's internal-token twins of
+    # the user-tier legal list/history routes, built for exactly this.
+    COMPLIANCE_LEGAL_LIST_PATH: str = "/internal/compliance/legal"
+    COMPLIANCE_LEGAL_HISTORY_PATH: str = "/internal/compliance/legal/{doc_id}/history"
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── the association engine's four judgements ──────────────────────────────

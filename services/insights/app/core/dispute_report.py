@@ -13,11 +13,11 @@ SAME SMALL FRAMEWORK AS THE ORIGINAL:
   the caller  resolves the owner's phone to a tenant id, then runs the scenario's sources, each
               failing independently — one peer being down never blanks the whole report.
 
-`legal` IS NOT YET WIRED HERE. Reading legal-document versions needs an internal-tier compliance
-route that does not exist yet (only user-tier `/api/v1/compliance/legal*` does) — asked of
-base-services_de; this service cannot mint a signed JWT itself the way the ops-mcp workaround
-did (only identity-service holds that key). `contract_breach` and `suspended_tos` report as
-"legal: مصدر غير متاح بعد" until that route lands, rather than silently omitting the section.
+ALL 6 SOURCES / ALL 7 SCENARIOS ARE WIRED (2026-09-04). `legal` was the last gap — it needed an
+internal-tier compliance route that did not exist yet (only user-tier `/api/v1/compliance/legal*`
+did, and this service cannot mint a signed JWT itself the way the ops-mcp workaround did — only
+identity-service holds that key). base-services_de added the internal-token twins in v0.18.11;
+`_fetch_legal` below calls them directly, no workaround needed.
 """
 from __future__ import annotations
 
@@ -65,6 +65,7 @@ class _Urls:
     backup: str
     audit: str
     reminders: str
+    compliance: str
     tenant_by_phone_path: str
     branches_full_path: str
     operators_full_path: str
@@ -73,6 +74,8 @@ class _Urls:
     tenant_coverage_path: str
     audit_query_path: str
     evidence_path: str
+    legal_list_path: str
+    legal_history_path: str
 
 
 def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
@@ -217,10 +220,26 @@ def _fetch_marketing_evidence(peers: PeerCaller, urls: _Urls, tenant: str) -> li
     return items
 
 
-def _legal_not_wired_yet(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem]:
-    return [ReportItem(ts=None, source="legal",
-                       label="مصدر الشروط القانونية غير متاح بعد — بانتظار مسار داخلي من فريق المنصة",
-                       raw={})]
+def _fetch_legal(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem]:
+    """compliance-service's v0.18.11 internal-token twins — `/internal/compliance/legal` (list)
+    + `/legal/{doc_id}/history`. The direct answer to "what did the contract actually say, and
+    when": every version ever published, newest first, each with its own publish date."""
+    items: list[ReportItem] = []
+    docs_out = peers.get(urls.compliance, urls.legal_list_path, {"tenant": tenant})
+    for doc in docs_out.get("documents") or []:
+        doc_id = str(doc.get("doc_id") or "")
+        if not doc_id:
+            continue
+        hist_path = urls.legal_history_path.format(doc_id=doc_id)
+        hist_out = peers.get(urls.compliance, hist_path, {"tenant": tenant})
+        for v in hist_out.get("versions") or []:
+            status = str(v.get("status") or "")
+            status_ar = "منشورة" if status == "published" else ("مسوّدة" if status == "draft" else status)
+            req = " (تتطلب موافقة العميل)" if v.get("requires_acceptance") else ""
+            label = f"مستند قانوني «{doc_id}» — نسخة {v.get('version', '؟')} — {status_ar}{req}"
+            items.append(ReportItem(ts=int(v.get("published_at") or 0) or None, source="legal",
+                                    label=label, raw=_redact_dict(v)))
+    return items
 
 
 SOURCES: dict[str, Source] = {
@@ -229,7 +248,7 @@ SOURCES: dict[str, Source] = {
     "staff": _fetch_staff,
     "audit": _fetch_audit,
     "marketing_evidence": _fetch_marketing_evidence,
-    "legal": _legal_not_wired_yet,
+    "legal": _fetch_legal,
 }
 
 
