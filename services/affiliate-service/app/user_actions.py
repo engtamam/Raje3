@@ -80,6 +80,10 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "لا يمسّ أي طلب سحب سابق — الطريقة تُنسخ وقت طلب السحب نفسه، لا تُقرأ حيّة.",
     },
     {
+        "id": "affiliates.get_payout_method", "label": "طريقة استلامي الحالية", "method": "GET",
+        "path": "/api/v1/affiliates/me/payout-method", "capability": "affiliates.self", "group": "أرباحي",
+    },
+    {
         "id": "affiliates.balance", "label": "رصيدي", "method": "GET",
         "path": "/api/v1/affiliates/me/balance", "capability": "affiliates.self", "group": "أرباحي",
     },
@@ -145,7 +149,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "دعم الوفاء والترقية",
         "help": "كم عميل مشترك باقٍ لك — بدون تجربة طلب يُرفض.",
     },
-    # ── محرك البحث عن عملاء محتملين — §٦، للمدير أساسًا لكن الفحص ملكية لا صلاحية ────────────────────────
+    # ── محرك البحث عن عملاء محتملين — §6، للمدير أساسًا لكن الفحص ملكية لا صلاحية ────────────────────────
     {
         "id": "affiliates.set_places_api_key", "label": "مفتاح خرائط جوجل الخاص بي",
         "method": "PUT",
@@ -348,4 +352,26 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "tenant", "in": "path", "type": "string", "required": True},
                   {"name": "ticket_id", "in": "path", "type": "string", "required": True}],
     },
+]
+
+# THE PLATFORM'S OWN MECHANISM (see operations/app/user_actions.py, the first to use it). A
+# route can be real and deliberately not an app control. THE `why` IS REQUIRED — without it this
+# is a skip-list, and a skip-list is how a forgotten route stops being a fault and starts being a
+# habit.
+UNDECLARED_ROUTES: list[dict[str, str]] = [
+    {"method": "POST", "path": "/api/v1/affiliates/apply",
+     "why": "it creates the applicant an approved token would later belong to — the catalogue is "
+            "fetched WITH a token, so a route that exists precisely because there is no token yet "
+            "cannot appear in a list of what its holder may do"},
+    {"method": "POST", "path": "/api/v1/affiliates/apply/request-otp",
+     "why": "same reason as /apply, one step earlier: proving phone ownership before any account, "
+            "let alone any token, exists"},
+    {"method": "POST", "path": "/api/v1/affiliates/signin",
+     "why": "it exchanges a phone and a password FOR a token; a caller who could fetch it as an "
+            "action already has one"},
+    {"method": "POST", "path": "/api/v1/admin/withdrawals/{}/receipt",
+     "why": "a multipart file upload — a shape the action schema's `params` cannot express "
+            "(string/integer/number/boolean/enum/object/array only, no `file`). The GET twin "
+            "(withdrawals.view_receipt, admin_actions.py) IS declared; uploading stays API-only "
+            "until the panel grows a file-input param type"},
 ]

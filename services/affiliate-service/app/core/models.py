@@ -542,7 +542,7 @@ class EmploymentRequest:
         )
 
 
-# ── §٦ Lead Sourcing — ported from places_scraper_v2.py, CLI→CSV turned into a resumable job
+# ── §6 Lead Sourcing — ported from places_scraper_v2.py, CLI→CSV turned into a resumable job
 # that writes straight to this table ─────────────────────────────────────────────────────────
 LEADS = "affiliate_leads"
 LEAD_SEARCH_JOBS = "affiliate_lead_search_jobs"

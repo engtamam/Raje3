@@ -28,7 +28,7 @@ from app.api.v1.staff import router as staff_router
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
 
-@router.get("/whoami", dependencies=[Depends(rate_limit)])
+@router.get("/operations/whoami", dependencies=[Depends(rate_limit)])
 async def whoami(
     principal: Principal = Depends(require_user),
     guard=Depends(get_guard),

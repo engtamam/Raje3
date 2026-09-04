@@ -21,7 +21,7 @@ describe('rj-ui GeoMap', () => {
   it('shows a legend entry for every distinct group, once each', () => {
     render(<GeoMap points={[
       { id: 'p1', lat: 24.7, lng: 46.7, label: 'الرياض', group: 'نشِط' },
-      { id: 'p2', lat: 24.6, lng: 46.6, label: 'الرياض ٢', group: 'نشِط' },
+      { id: 'p2', lat: 24.6, lng: 46.6, label: 'الرياض 2', group: 'نشِط' },
       { id: 'p3', lat: 21.5, lng: 39.2, label: 'جدّة', group: 'محتمل' },
     ]} />);
     expect(screen.getByText('نشِط')).toBeTruthy();

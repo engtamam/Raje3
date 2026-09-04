@@ -1,6 +1,6 @@
 /**
  * The generic engine — proven against a real catalog slice (the affiliate application queue),
- * per §٣.٥ of the admin plan: "تجربة حقيقية: طلبات المسوّقين المعلّقة تظهر باللوحة".
+ * per §3.5 of the admin plan: "تجربة حقيقية: طلبات المسوّقين المعلّقة تظهر باللوحة".
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';

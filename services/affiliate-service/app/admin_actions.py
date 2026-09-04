@@ -281,4 +281,48 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "danger": True,
         "group": "Withdrawals",
     },
+    # ── the platform's own operator surface, inherited from _template ─────────────────────────
+    # OURS, not the marketer's: these are the credentials (the manager's own §6 BYOK Google
+    # Places key, see affiliate-service.values.yaml's existingSecret note) and knobs our
+    # operators manage for this service.
+    {
+        "id": "affiliate_service.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
+        "path": "/api/v1/affiliates/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
+    },
+    {
+        "id": "affiliate_service.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
+        "path": "/api/v1/affiliates/operator/secrets", "capability": "platform.secrets",
+        "confirm": True, "group": "المنصة",
+    },
+    {
+        "id": "affiliate_service.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
+        "path": "/api/v1/affiliates/operator/secrets/{name}", "capability": "platform.secrets",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+    },
+    {
+        "id": "affiliate_service.operator_config", "label": "إعدادات التشغيل", "method": "GET",
+        "path": "/api/v1/affiliates/operator/config", "capability": "platform.config", "group": "المنصة",
+    },
+    {
+        "id": "affiliate_service.operator_config_set", "label": "تعديل إعداد تشغيلي", "method": "PUT",
+        "path": "/api/v1/affiliates/operator/config", "capability": "platform.config",
+        "confirm": True, "group": "المنصة",
+    },
+    {
+        "id": "affiliate_service.operator_config_clear", "label": "إرجاع إعداد لقيمته", "method": "DELETE",
+        "path": "/api/v1/affiliates/operator/config/{key}", "capability": "platform.config",
+        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+    },
+    {
+        "id": "affiliate_service.ping", "label": "فحص الاتصال", "method": "GET",
+        "path": "/api/v1/affiliates/admin/ping", "capability": "platform.secrets", "group": "المنصة",
+        "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
+    },
+    {
+        "id": "affiliate_service.whoami", "label": "من أنا", "method": "GET",
+        "path": "/api/v1/affiliates/whoami", "capability": "platform.secrets", "group": "المنصة",
+        "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
+    },
 ]

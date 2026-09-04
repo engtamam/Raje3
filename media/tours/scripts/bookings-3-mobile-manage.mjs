@@ -47,7 +47,7 @@
  */
 export default {
   id: 'bookings-3-mobile-manage',
-  title: 'الحجوزات ٣ — تدير موعدك من جوالك',
+  title: 'الحجوزات 3 — تدير موعدك من جوالك',
   section: 'الحجوزات',
   useDemoSession: true,
   preload: true,

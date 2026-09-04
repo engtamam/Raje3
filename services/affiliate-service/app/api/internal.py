@@ -197,7 +197,7 @@ def _lead_sourcing(request: Request, settings: Settings) -> LeadSourcingService 
 
 @router.post("/leads/tick", dependencies=[Depends(require_internal_token)])
 async def tick_leads(request: Request, settings: Settings = Depends(get_settings)) -> dict:
-    """The resumable engine behind §٦'s search jobs (core/lead_sourcing.py's own module
+    """The resumable engine behind §6's search jobs (core/lead_sourcing.py's own module
     docstring) — advances up to Settings.LEADS_TICK_UNITS (point, keyword) units across the
     OLDEST non-terminal job, then returns. Meant for a k3s CronJob (see the deploy values'
     cronJobs, same shape as commissions-sweep) rather than a person; a full search is hours, so
@@ -227,7 +227,7 @@ async def tick_leads(request: Request, settings: Settings = Depends(get_settings
 
 @router.post("/tickets/escalation-sweep", dependencies=[Depends(require_internal_token)])
 async def sweep_ticket_escalations(request: Request) -> dict:
-    """§١٣'s auto-escalation (core/escalation.py's own module docstring) — a no-response timeout
+    """§13's auto-escalation (core/escalation.py's own module docstring) — a no-response timeout
     or a suspended marketer moves a shop's ticket to his manager automatically. Meant for a k3s
     CronJob (see the deploy values' cronJobs), same bounded shape as commissions/sweep."""
     out = await request.app.state.container.escalation.sweep()

@@ -220,7 +220,10 @@ env:
   # writes WHATSAPP_ACCESS_TOKEN/PHONE_NUMBER_ID. A mismatch here means the OTP send looks up a
   # tenant nothing was ever registered under, and fails looking like a template/credential problem
   # when the real cause is two different tenants for the same "the platform itself" concept.
-  OTP_NOTIFY_TENANT: "_platform"
+  # THE REAL NAME (found live): config.py declares `PLATFORM_TENANT`, not `OTP_NOTIFY_TENANT` —
+  # pydantic silently drops an unknown key, so the old name here never applied and every OTP send
+  # ran on the empty default the whole time this comment above was already explaining the fix.
+  PLATFORM_TENANT: "_platform"
   # Five minutes is long enough for a message to arrive on a slow network and short enough that a
   # code read over somebody's shoulder is worthless by the time it is used.
   OTP_TTL_SECONDS: "300"

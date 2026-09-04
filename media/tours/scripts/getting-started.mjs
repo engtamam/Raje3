@@ -57,7 +57,7 @@ export default {
     {
       type: 'role=textbox:كلمة المرور',
       text: 'Kobo2026$Demo',
-      say: 'كلمة مرور تحميه — ١٢ حرفاً على الأقل',
+      say: 'كلمة مرور تحميه — 12 حرفاً على الأقل',
     },
     {
       type: 'label=اسم المحل',

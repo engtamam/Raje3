@@ -43,6 +43,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "الاسم الذي يراه عميلك ويوقّع رسائلك. يُغيَّر متى شاء.",
     },
     {
+        "id": "operations.my_operator_row", "label": "بياناتي كموظف", "method": "GET",
+        "path": "/api/v1/staff/operators/me", "capability": "operations.read", "group": "الشاشة",
+        "help": "قد لا تجد شيئاً — صاحب المحل نفسه ليس له صفّ موظف، وهذا رد طبيعي لا خلل.",
+    },
+    {
+        "id": "operations.set_my_locale", "label": "لغتي", "method": "PATCH",
+        "path": "/api/v1/staff/operators/me/locale", "capability": "operations.read", "group": "الشاشة",
+        "help": "يغيّر لغة شاشات الميدان لهذا الموظف وحده — لا يمسّ أحداً غيره.",
+    },
+    {
         "id": "operations.catalogue", "label": "الخدمات", "method": "GET",
         "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "الشاشة",
         "help": "شبكة الخدمات. تبدأ فارغة، ويكتبها صاحب المحل بنفسه.",

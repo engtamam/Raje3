@@ -18,7 +18,7 @@ from app.api.ratelimit import rate_limit
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
 
-@router.get("/whoami", dependencies=[Depends(rate_limit)])
+@router.get("/portal/whoami", dependencies=[Depends(rate_limit)])
 async def whoami(
     principal: Principal = Depends(require_user),
     guard=Depends(get_guard),
@@ -35,9 +35,16 @@ async def whoami(
     return body
 
 
-@router.get("/admin/ping", dependencies=[Depends(require_capability("admin"))])
+# "/api/v1/admin/ping" (bare, unprefixed) is identical across every service's own scaffold copy of
+# this file — one gateway prefix can only point at one upstream, so it was never reachable through
+# api-gateway for ANY of them (ci/check_deploy_wiring.py's own guard, run for real, found this) —
+# and portal carried NO gateway route at all until this fix, so operator.py's own
+# /api/v1/portal/operator/* routes were equally unreachable. "/portal/whoami" and
+# "/portal/admin/ping" land under the one new /api/v1/portal prefix that now covers all of it.
+# Capability changed from the scaffold's "admin" (nobody was ever granted it) to
+# "platform.secrets" — the one admin_actions.py already declared for this exact action.
+@router.get("/portal/admin/ping", dependencies=[Depends(require_capability("platform.secrets"))])
 async def admin_ping() -> dict:
-    # Reached only by a token whose `caps` include "admin" (deny-by-default).
     return {"status": "ok"}
 
 # TODO (per service): add real business routes here.

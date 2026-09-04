@@ -1,4 +1,4 @@
-"""The routes over §٦'s search job + assignment — managers-only gate, ownership boundaries, and
+"""The routes over §6's search job + assignment — managers-only gate, ownership boundaries, and
 POST /internal/leads/tick's own internal-token gate + quiet no-op when nothing is pending.
 """
 from __future__ import annotations

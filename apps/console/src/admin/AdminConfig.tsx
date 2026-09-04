@@ -1,5 +1,5 @@
 /**
- * الإعدادات الحيّة — المرحلة ٩، شاشة مصقولة يدوياً لا مُولَّدة (Config's own `GET /operator/
+ * الإعدادات الحيّة — المرحلة 9، شاشة مصقولة يدوياً لا مُولَّدة (Config's own `GET /operator/
  * config` يرجع كائن `{config: {...}}`، لا مصفوفة — لا يلائم `ActionListGroup`'s جدول الصفوف
  * أصلاً). تُجمِّع `RUNTIME_POLICY` الفعلية من كل خدمة أعلنت `operator.get_config`/`set_config`/
  * `clear_config` بكتالوجها الخاص — بنية الكتالوج الجديدة (services[].actions[]) تُعطي هذا

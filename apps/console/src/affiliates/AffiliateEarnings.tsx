@@ -14,7 +14,7 @@
  * accent, "now and next" framing (current tier, progress, benefit).
  *
  * EMPTY-STATE-FIRST, CHECKED AGAINST THE LIVE SERVER: zero commissions, zero withdrawals exist in
- * production today — the hero must render an honest "٠ ر.س" plus a path forward, never a screen
+ * production today — the hero must render an honest "0 ر.س" plus a path forward, never a screen
  * that looks broken because nothing has happened yet.
  */
 import { useEffect, useState } from 'react';
@@ -216,7 +216,7 @@ function WafaCard({ session }: { session: AffiliateSession }) {
  *  حتى يتعلّم عضو الفريق قراءتها مرة واحدة ويفهمها بالمكانين.
  *
  *  totalReferrals/totalCommissions هي حجم العيّنة وراء كل نسبة — بلا محلات محالة أو عمولات، الرقم
- *  اللي ترجعه المعادلة (١٠٠٪ احتفاظ، ٠٪ استرجاع) قيمة افتراضية للحساب لا رقماً مُكتسَباً، وعرضه
+ *  اللي ترجعه المعادلة (100٪ احتفاظ، 0٪ استرجاع) قيمة افتراضية للحساب لا رقماً مُكتسَباً، وعرضه
  *  كنسبة حقيقية بلا أي بيانات وراءها هو بالضبط ما اعتُرض عليه ("كيف كذا وهو صفر
  *  اساس! في غلط في المعادلة"). المعادلة نفسها صحيحة لغرضها الأصلي (توصية الاستحقاق) — العرض هو
  *  اللي كان يكذب. */

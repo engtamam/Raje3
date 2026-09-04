@@ -101,7 +101,7 @@ def test_a_manager_creates_a_stage_and_a_template(client):
     assert r.status_code == 200, r.text
 
     r = client.post("/api/v1/affiliates/me/templates",
-                    json={"stage_code": "hook", "kind": "رسالة", "title": "خطاف١",
+                    json={"stage_code": "hook", "kind": "رسالة", "title": "خطاف1",
                           "body": "هل تعلم أن..."},
                     headers={"Authorization": f"Bearer {_token(sub='p-out1')}"})
     assert r.status_code == 201, r.text
@@ -117,7 +117,7 @@ def test_a_promoter_reads_the_stage_and_template_lists(client):
     r = client.get("/api/v1/affiliates/me/templates?stage_code=hook",
                    headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"})
     assert r.status_code == 200, r.text
-    assert any(t["title"] == "خطاف١" for t in r.json()["templates"])
+    assert any(t["title"] == "خطاف1" for t in r.json()["templates"])
 
 
 def test_a_promoter_cannot_create_a_template(client):
@@ -130,7 +130,7 @@ def test_a_promoter_cannot_create_a_template(client):
 # ── acting on one lead — ownership, not role ─────────────────────────────────────────────────────
 def test_the_assigned_promoter_logs_a_use_and_sets_its_outcome_with_a_stage_move(client):
     tpl = client.post("/api/v1/affiliates/me/templates",
-                      json={"stage_code": "hook", "kind": "رسالة", "title": "خطاف٢"},
+                      json={"stage_code": "hook", "kind": "رسالة", "title": "خطاف2"},
                       headers={"Authorization": f"Bearer {_token(sub='p-out1')}"}).json()
     client.put("/api/v1/affiliates/me/outreach-stages",
               json={"code": "offer", "name": "عرض التجربة", "order": 2},
@@ -229,14 +229,14 @@ def test_deactivating_a_stage_and_a_template_never_deletes(client):
 # ── the evidence library ─────────────────────────────────────────────────────────────────────────
 def test_creating_a_stat_citation_refuses_a_non_manager(client):
     r = client.post("/api/v1/affiliates/me/stat-citations",
-                    json={"title": "الانقطاع الصامت", "body": "٦٥ من ١٠٠ ما يرجعون"},
+                    json={"title": "الانقطاع الصامت", "body": "65 من 100 ما يرجعون"},
                     headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"})
     assert r.status_code == 403
 
 
 def test_a_manager_creates_a_citation_and_a_promoter_reads_it(client):
     r = client.post("/api/v1/affiliates/me/stat-citations",
-                    json={"title": "الانقطاع الصامت", "body": "٦٥ من ١٠٠ ما يرجعون",
+                    json={"title": "الانقطاع الصامت", "body": "65 من 100 ما يرجعون",
                           "source_label": "Meevo 2025",
                           "source_url": "https://example.com/meevo"},
                     headers={"Authorization": f"Bearer {_token(sub='p-out1')}"})

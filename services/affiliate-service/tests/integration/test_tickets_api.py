@@ -1,4 +1,4 @@
-"""The routes over §١٣'s ticket integration — ownership (only a shop that referred through THIS
+"""The routes over §13's ticket integration — ownership (only a shop that referred through THIS
 marketer), and the shared TicketError -> HTTP status mapping.
 """
 from __future__ import annotations

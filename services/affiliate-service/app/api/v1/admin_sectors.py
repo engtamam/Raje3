@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — §٦'s managed sector taxonomy: the admin's side
+# affiliate-service — §6's managed sector taxonomy: the admin's side
 # -----------------------------------------------------------------------------
 # `platform.affiliates` — same capability as approving an applicant / the platform-revenue
 # toggle: "who runs the affiliate program's own configuration", not a money-moving action.
@@ -75,7 +75,7 @@ async def deactivate_sector(request: Request, code: str,
 async def platform_sector_stats(request: Request,
                                 principal: Principal = Depends(require_user)) -> dict:
     """The platform-wide sector × city dashboard's own data source — every manager's finds, not
-    scoped to one (spec §٦'s own point: "نعرف وين السوق مطلوب... نركز عليه"). `keys=None` is
+    scoped to one (spec §6's own point: "نعرف وين السوق مطلوب... نركز عليه"). `keys=None` is
     safe here too — this read never advances a search job (see affiliate_self.py's own
     `_lead_sourcing` for why that is the only method that needs one)."""
     c = request.app.state.container

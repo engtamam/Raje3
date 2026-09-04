@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — §١٣'s auto-escalation: a shop's ticket moves to the manager on its own
+# affiliate-service — §13's auto-escalation: a shop's ticket moves to the manager on its own
 # -----------------------------------------------------------------------------
 # "خليها 24 ساعه بعدها تتصعد على طول لمديره... ولو موظف موقوف تتصعد للمدير
 # مباشرة". ticket-service (v0.16.29+) supplies exactly ONE primitive — escalate a covered ticket

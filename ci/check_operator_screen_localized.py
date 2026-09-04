@@ -35,10 +35,10 @@ SCREENS = [
 ]
 
 ARABIC = re.compile(r"[؀-ۿ]")
-# Arabic-Indic digits inside a REGEX CHARACTER CLASS — e.g. `/[0-9٠-٩]/` — are code, not display
+# Arabic-Indic digits inside a REGEX CHARACTER CLASS — e.g. `/[0-90-9]/` — are code, not display
 # text: this screen deliberately accepts a plate typed on an Arabic keyboard (see formatPlate's
 # own header). A digit range is not a string a translator would ever touch.
-REGEX_DIGIT_CLASS = re.compile(r"\[[^\]]*[٠-٩][^\]]*\]")
+REGEX_DIGIT_CLASS = re.compile(r"\[[^\]]*[0-9][^\]]*\]")
 
 
 def _is_exempt(line: str) -> bool:

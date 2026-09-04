@@ -1,4 +1,4 @@
-"""§٦'s managed sector taxonomy + the lead follow-up pipeline — capability gating on the admin
+"""§6's managed sector taxonomy + the lead follow-up pipeline — capability gating on the admin
 side, ownership on the marketer side, and the manual link-registration boundary.
 """
 from __future__ import annotations

@@ -3,8 +3,8 @@
  * المعلّقة (عبر المحرّك العام `ActionCatalogPanel`) وتشخيص واتساب لمحل (شاشة يدوية مصقولة).
  *
  * WHY ONLY TWO SUB-TABS, NOT THE SIX THIS SECTION EVENTUALLY OWNS. AdminCustomers.tsx's own
- * header comment says it outright: this is phase ٣ only — the seven-column customer table and
- * the six-tab customer file are later phases (٧/٩), never faked here with a placeholder table.
+ * header comment says it outright: this is phase 3 only — the seven-column customer table and
+ * the six-tab customer file are later phases (7/9), never faked here with a placeholder table.
  * A tour that pretended those existed would teach a viewer to look for controls that aren't
  * there yet. Narrating that gap honestly, the same way admin-home-1-overview narrated an absent
  * KPI tile as "not yet, not broken", is the point of this clip as much as what IS built.

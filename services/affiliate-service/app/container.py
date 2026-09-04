@@ -300,7 +300,7 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore,
         min_withdrawal_halalas=settings.AFFILIATE_WITHDRAWAL_MIN_HALALAS,
     )
-    # §١٣ real support KPIs (spec §13) — optional, see core/tickets.py's own module docstring.
+    # §13 real support KPIs (spec §13) — optional, see core/tickets.py's own module docstring.
     tickets_reader = None
     if settings.TICKET_SERVICE_URL:
         from app.core.tickets import TicketReader
@@ -334,7 +334,7 @@ def build_container(settings: Settings) -> Container:
         commissions=container.commissions,
         threshold_customers=settings.AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS,
     )
-    # §١٣'s auto-escalation — see core/escalation.py's own module docstring.
+    # §13's auto-escalation — see core/escalation.py's own module docstring.
     from app.core.escalation import TicketEscalationService
 
     container.escalation = TicketEscalationService(
@@ -344,7 +344,7 @@ def build_container(settings: Settings) -> Container:
         timeout_hours=settings.AFFILIATE_TICKET_ESCALATION_HOURS,
         sweep_max=settings.AFFILIATE_TICKET_ESCALATION_SWEEP_MAX,
     )
-    # §٦'s managed sector taxonomy — see core/sectors.py's own module docstring.
+    # §6's managed sector taxonomy — see core/sectors.py's own module docstring.
     from app.core.sectors import SectorService
 
     container.sectors = SectorService(store=container.datastore)

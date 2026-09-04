@@ -412,7 +412,7 @@ async def my_employment_eligibility(request: Request,
     return await request.app.state.container.employment.eligibility_preview(affiliate_id)
 
 
-# ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK) ──────────
+# ── §6 Lead Sourcing — a manager's OWN Google Places API key (BYOK) ──────────
 
 class PlacesApiKeyIn(BaseModel):
     api_key: str = Field(min_length=1, max_length=512)
@@ -430,7 +430,7 @@ def _leads_keys(request: Request) -> LeadSourcingKeys:
 
 
 async def _my_manager_affiliate(request: Request, principal: Principal) -> dict[str, Any]:
-    """§٦: "للمدير فقط" — lead sourcing (and the API key that powers it) is not a promoter's
+    """§6: "للمدير فقط" — lead sourcing (and the API key that powers it) is not a promoter's
     concern. A data check on the caller's own role — never a capability, since the question is
     "is the caller himself a manager", not "may managers in general do this"."""
     affiliate = await _svc(request).me(principal.subject)
@@ -482,7 +482,7 @@ async def clear_places_api_key(request: Request,
     return {"ok": True, "cleared": cleared}
 
 
-# ── §٦ Lead Sourcing — the search itself + assignment ───────────────────────────────────────────
+# ── §6 Lead Sourcing — the search itself + assignment ───────────────────────────────────────────
 
 class CityIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
@@ -534,7 +534,7 @@ def _lead_refused(exc: LeadError) -> JSONResponse:
 @router.post("/leads/search", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def start_lead_search(request: Request, body: SearchIn,
                             principal: Principal = Depends(require_user)) -> Any:
-    """§٦: a manager starts a grid search — real runtime is HOURS (places_scraper_v2.py's own
+    """§6: a manager starts a grid search — real runtime is HOURS (places_scraper_v2.py's own
     estimate), so this returns a job id immediately; POST /internal/leads/tick advances it on a
     schedule. See core/lead_sourcing.py's own module docstring."""
     affiliate = await _my_manager_affiliate(request, principal)
@@ -560,7 +560,7 @@ async def my_lead_searches(request: Request,
 @router.get("/leads/search/{job_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def lead_search_status(request: Request, job_id: str,
                              principal: Principal = Depends(require_user)) -> dict:
-    """§٦: "المدير يشوف تقدّم البحث بالخلفية، لا ينتظره" — polled from here."""
+    """§6: "المدير يشوف تقدّم البحث بالخلفية، لا ينتظره" — polled from here."""
     affiliate = await _my_manager_affiliate(request, principal)
     job = await _lead_sourcing(request).get_job(job_id)
     if job is None or job.affiliate_id != affiliate["id"]:
@@ -572,7 +572,7 @@ async def lead_search_status(request: Request, job_id: str,
 async def my_leads(request: Request, status_eq: str = "", stage_code: str = "", city: str = "",
                    needs_attention: bool = False,
                    principal: Principal = Depends(require_user)) -> dict:
-    """spec §٩: "كل مسوّق يشوف فقط العملاء المحتملين المُسنَدين له، لا القائمة الكاملة" — a
+    """spec §9: "كل مسوّق يشوف فقط العملاء المحتملين المُسنَدين له، لا القائمة الكاملة" — a
     promoter sees what was ASSIGNED to him; a manager sees what HIS OWN search found (still
     pending assignment or already handed out), never each other's. One route, branched on the
     caller's own role — the same "is the caller himself an X" data check as everywhere else in
@@ -683,7 +683,7 @@ async def link_lead_registration(request: Request, lead_id: str, body: LinkRegis
 @router.get("/leads/sector-stats", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_lead_sector_stats(request: Request,
                                principal: Principal = Depends(require_user)) -> dict:
-    """§٦'s own point: sector × city counts for a data-driven dashboard — a manager's own finds
+    """§6's own point: sector × city counts for a data-driven dashboard — a manager's own finds
     only (spec §9's own scoping)."""
     affiliate = await _my_manager_affiliate(request, principal)
     stats = await _lead_sourcing(request).sector_stats(affiliate_id=affiliate["id"])
@@ -716,7 +716,7 @@ async def list_active_sectors(request: Request,
     return {"sectors": [s.to_dict() for s in sectors]}
 
 
-# ── §١٣: a shop's tickets, consent-scoped to the marketer who referred it ──────────────────────
+# ── §13: a shop's tickets, consent-scoped to the marketer who referred it ──────────────────────
 
 @router.get("/referred-shops", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_referred_shops(request: Request,

@@ -86,8 +86,8 @@ def build_manifest(
              # and is therefore never MISSED — the request closes green on an erasure
              # that did not happen.
              "erasure_category": "subject"},
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/admin/ping", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/whoami", "tier": "user", "method": "GET"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

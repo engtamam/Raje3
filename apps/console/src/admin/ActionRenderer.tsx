@@ -1,6 +1,6 @@
 /**
- * The generic engine — renders ANY declared admin action automatically, per §١ of the admin
- * plan's own reasoning: ٢٤+ خدمة × عدة إجراءات = مئات الشاشات لو بُنيت يدوياً؛ يكفي مُفسِّر واحد.
+ * The generic engine — renders ANY declared admin action automatically, per §1 of the admin
+ * plan's own reasoning: 24+ خدمة × عدة إجراءات = مئات الشاشات لو بُنيت يدوياً؛ يكفي مُفسِّر واحد.
  *
  * A GET action with no path params becomes a list (`Table`, dynamic columns from the response's
  * own shape — the catalog declares REQUEST params, never response fields, so there is no schema
@@ -9,7 +9,7 @@
  * `actionApi.ts::resolvePath`'s own id-fallback) becomes a row action automatically — confirmed
  * through `ConfirmDialog`, armed (types the row's own label) when `danger` is set.
  *
- * THIS IS THE FALLBACK TIER, NOT THE ONLY TIER — §٩/١٠ of the plan hand-polish the
+ * THIS IS THE FALLBACK TIER, NOT THE ONLY TIER — §9/10 of the plan hand-polish the
  * highest-traffic screens (Config, Secrets, the customer profile) instead of generating them;
  * this component is what makes every OTHER declared action reachable without waiting for a
  * hand-built screen to catch up.

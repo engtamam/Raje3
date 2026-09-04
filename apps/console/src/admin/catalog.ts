@@ -53,7 +53,7 @@ export function allActions(catalog: AdminCatalog): AdminAction[] {
   return catalog.services.flatMap((s) => s.actions);
 }
 
-/** Actions grouped by their own `group` field, in first-seen order — the shape §١'s five-section
+/** Actions grouped by their own `group` field, in first-seen order — the shape §1's five-section
  *  nav (and `ActionRenderer`) both read from directly. An action with no group lands in "أخرى",
  *  never silently dropped. Flattens across services first — `group` is a UI grouping independent
  *  of which service happened to declare the action. */

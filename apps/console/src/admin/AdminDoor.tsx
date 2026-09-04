@@ -3,7 +3,7 @@
  * neighbour, resetPassword/requestPasswordResetOtp in api.ts). Still no signup, no OTP
  * self-onboarding — a platform-operator account is minted exclusively by
  * `deploy/seed/seed-admin.sh` (or later, a `platform-owner` granting one through this same
- * panel's own team screen — §٩.٤ of the plan), never a public form. That absence IS the security
+ * panel's own team screen — §9.4 of the plan), never a public form. That absence IS the security
  * control, not an oversight: this door has no "become an operator" path to lock down in the
  * first place — recovering an EXISTING account's password is a different concern from minting a
  * new one, and does not reopen it.

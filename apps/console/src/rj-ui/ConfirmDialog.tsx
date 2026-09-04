@@ -1,6 +1,6 @@
 /**
  * Our own ConfirmDialog — component #12, and the admin panel's own reason for existing now:
- * §٣ of the admin plan requires a destructive action to be confirmed BY THE TARGET'S OWN NAME
+ * §3 of the admin plan requires a destructive action to be confirmed BY THE TARGET'S OWN NAME
  * ("سيُغلق حساب بنشري الملك ويتوقف إرسال رسائله", never a bare "هل أنت متأكد؟").
  *
  * SAME API SURFACE AS `@base-ui/design-system/ConfirmDialog` on purpose — same "swap the import"

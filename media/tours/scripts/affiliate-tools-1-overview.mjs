@@ -307,7 +307,7 @@ export default {
       say: 'وخط الطول',
     },
     {
-      say: 'ونطاق البحث بالكيلومتر — مقترح ٥ افتراضيًا',
+      say: 'ونطاق البحث بالكيلومتر — مقترح 5 افتراضيًا',
     },
     // A REAL SUBMIT, A REAL REFUSAL — no sector is active on this platform at all
     // (`GET /me/sectors` answers `{"sectors":[]}`, confirmed live), so «صالونات» is refused as

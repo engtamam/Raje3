@@ -154,7 +154,7 @@ class TicketReader:
 
     async def escalate(self, *, tenant: str, grantee: str, ticket_id: str, assignee: str = "",
                        level: str = "", reason: str = "") -> dict[str, Any]:
-        """§١٣'s auto-escalation primitive (v0.16.29+) — records the escalation, and when
+        """§13's auto-escalation primitive (v0.16.29+) — records the escalation, and when
         `assignee` is given, moves the ticket to that handle (the shop's marketing manager).
         ticket-service knows nothing about WHY (a timeout, a suspended account) — that policy is
         entirely core/escalation.py's own, driven by the KPIs this module already reads."""

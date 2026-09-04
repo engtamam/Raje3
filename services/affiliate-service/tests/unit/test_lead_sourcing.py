@@ -1,4 +1,4 @@
-"""§٦ Lead Sourcing's resumable engine — the properties worth a test:
+"""§6 Lead Sourcing's resumable engine — the properties worth a test:
 
   * step() advances the cursor by exactly one (point, keyword) unit and persists it
   * a NEW place_id creates a Lead; the SAME place_id again is a duplicate, not a second row

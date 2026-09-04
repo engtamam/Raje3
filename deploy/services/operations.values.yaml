@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:0f33b3d37b98eae6e5ec0c3e7a6fbbf7426537779db613ef7877acc257d04916"   # 22af0d07, published by publish-images.sh
+  digest: "sha256:fd43b3d68ed845ca8316f96d5cf8cbfaa28bfb50247946946678629b108ddf5c"   # 87548ba9, published by publish-images.sh
 
 replicas: 1
 
@@ -229,7 +229,7 @@ env:
   PAYMENT_PUBLISHABLE_KEY: ""
   PAYMENT_PROVIDER: "moyasar"
 
-  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations"
+  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates"
 
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   TENANT_SERVICE_URL: "http://tenant-service:8000"

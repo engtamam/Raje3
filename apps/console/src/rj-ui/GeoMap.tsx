@@ -1,6 +1,6 @@
 /**
  * Our own GeoMap — component #17, and deliberately NOT a real map. No mapping library exists in
- * this codebase and the admin plan's own rule (§٣ of the components list) is not to add one — a
+ * this codebase and the admin plan's own rule (§3 of the components list) is not to add one — a
  * real basemap needs tiles, an API key, and a network fetch a self-contained SVG component
  * cannot honestly promise. This is a SCATTER PROJECTION: points placed by their own
  * lat/lng, normalised to the bounding box of the data itself (not a real map projection), with

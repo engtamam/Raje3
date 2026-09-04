@@ -1,7 +1,7 @@
 /**
  * Our own Table — component #13, and the admin panel's own reason for existing: no table
  * component exists anywhere in this codebase yet (every list on the shop console is hand-built
- * per screen). Built for the admin panel's own needs (§١-٥ of the plan: customer lists,
+ * per screen). Built for the admin panel's own needs (§1-5 of the plan: customer lists,
  * invoices, audit log, coupons) but generic enough for `ActionRenderer`'s auto-rendered GET
  * actions too.
  *

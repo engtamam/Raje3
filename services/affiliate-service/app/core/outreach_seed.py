@@ -612,7 +612,7 @@ async def seed(*, stages: OutreachStageService, templates: TemplateService,
             if row["title"] not in existing_titles:
                 await stat_citations.create(**row, created_by="system:seed")
 
-    # SELF-HEALING FOR ONE PAST MISTAKE: this file used to seed Arabic-Indic digits (٠-٩) into
+    # SELF-HEALING FOR ONE PAST MISTAKE: this file used to seed Arabic-Indic digits (0-9) into
     # template/citation bodies, in violation of the product's own "every number is 0-9" rule —
     # fixed here in the SOURCE, 2026-08-23. `create()` above only fills what's missing by
     # (stage_code, title)/title match, so a row already seeded before this fix keeps its old,
@@ -621,11 +621,11 @@ async def seed(*, stages: OutreachStageService, templates: TemplateService,
     # WHY THIS DOES NOT VIOLATE THE "NEVER SILENTLY REWRITE A HUMAN'S DECISION" RULE ABOVE: it is
     # scoped to `created_by == "system:seed"` ONLY — a row a manager has ever touched carries his
     # own `created_by`/edit trail and is never in scope — and it TRANSLATES DIGIT CHARACTERS ONLY
-    # (str.translate over ٠-٩ → 0-9), never rewording or reformatting anything else in the text.
-    _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+    # (str.translate over 0-9 → 0-9), never rewording or reformatting anything else in the text.
+    _DIGITS = str.maketrans("0123456789", "0123456789")
 
     def _has_arabic_indic_digits(text: str) -> bool:
-        return any("٠" <= ch <= "٩" for ch in text)
+        return any("0" <= ch <= "9" for ch in text)
 
     for t in await templates.list(active_only=False):
         if t.created_by != "system:seed":

@@ -84,9 +84,9 @@ async def test_stage_list_is_ordered_by_order_then_code():
 async def test_template_deactivate_never_deletes_and_update_only_touches_given_fields():
     store = MemoryDataStore()
     _, templates, _ = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١", body="نص")
-    updated = await templates.update(tpl.id, title="خطاف١ محدَّث")
-    assert updated.title == "خطاف١ محدَّث"
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1", body="نص")
+    updated = await templates.update(tpl.id, title="خطاف1 محدَّث")
+    assert updated.title == "خطاف1 محدَّث"
     assert updated.body == "نص"   # untouched
 
     assert await templates.deactivate(tpl.id) is True
@@ -101,7 +101,7 @@ async def test_log_use_is_refused_for_a_lead_not_owned_by_the_caller():
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
 
     with pytest.raises(OutreachError) as exc:
         await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-2")
@@ -114,7 +114,7 @@ async def test_log_use_is_allowed_for_the_assigned_promoter_and_his_manager():
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
 
     use1 = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
     use2 = await uses.log_use("lead-1", template_id=tpl.id, used_by="mgr-1")
@@ -138,7 +138,7 @@ async def test_log_use_snapshots_stage_and_kind_and_survives_a_later_template_ed
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
 
     use = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
     assert use.stage_code == "hook" and use.kind == "رسالة"
@@ -154,11 +154,11 @@ async def test_log_use_appends_a_note_on_the_lead():
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
 
     lead_row = await store.get(LEADS, "lead-1")
-    assert any("خطاف١" in n["text"] for n in lead_row["notes"])
+    assert any("خطاف1" in n["text"] for n in lead_row["notes"])
 
 
 # ── set_outcome — never inferred, ownership-checked, explicit stage move ────────────────────────
@@ -168,7 +168,7 @@ async def test_set_outcome_refuses_an_unknown_outcome():
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     use = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
 
     with pytest.raises(OutreachError) as exc:
@@ -182,7 +182,7 @@ async def test_set_outcome_is_refused_for_a_use_the_caller_does_not_own():
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     use = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
 
     with pytest.raises(OutreachError) as exc:
@@ -196,7 +196,7 @@ async def test_set_outcome_without_a_new_stage_never_touches_the_leads_stage():
     await _seed_team(store)
     await _seed_lead(store, assigned_to="pro-1")
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     use = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
 
     await uses.set_outcome(use.id, outcome="advanced", by="pro-1")
@@ -211,7 +211,7 @@ async def test_set_outcome_with_a_new_stage_moves_the_lead_explicitly():
     await _seed_lead(store, assigned_to="pro-1")
     stages, templates, uses = _build(store)
     await stages.create(code="offer", name="عرض التجربة")
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     use = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
 
     await uses.set_outcome(use.id, outcome="advanced", by="pro-1", new_stage_code="offer",
@@ -228,7 +228,7 @@ async def test_set_outcome_refuses_an_unknown_or_inactive_stage():
     stages, templates, uses = _build(store)
     await stages.create(code="offer", name="عرض التجربة")
     await stages.deactivate("offer")
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     use = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
 
     with pytest.raises(OutreachError) as exc:
@@ -271,7 +271,7 @@ async def test_stats_aggregates_per_template_with_an_advance_rate():
     await store.put(LEADS, "lead-2", Lead(id="lead-2", place_id="place-2",
                                           assigned_to="pro-1").to_dict())
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
 
     use1 = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
     use2 = await uses.log_use("lead-2", template_id=tpl.id, used_by="pro-1")
@@ -283,7 +283,7 @@ async def test_stats_aggregates_per_template_with_an_advance_rate():
     row = stats[0]
     assert row["uses"] == 2 and row["advanced"] == 1 and row["no_response"] == 1
     assert row["advance_rate"] == pytest.approx(0.5)
-    assert row["title"] == "خطاف١"
+    assert row["title"] == "خطاف1"
 
 
 @pytest.mark.anyio
@@ -294,8 +294,8 @@ async def test_kind_stats_aggregates_across_templates_sharing_a_kind():
     await store.put(LEADS, "lead-2", Lead(id="lead-2", place_id="place-2",
                                           assigned_to="pro-1").to_dict())
     _, templates, uses = _build(store)
-    tpl_a = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
-    tpl_b = await templates.create(stage_code="offer", kind="رسالة", title="عرض١")
+    tpl_a = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
+    tpl_b = await templates.create(stage_code="offer", kind="رسالة", title="عرض1")
 
     use_a = await uses.log_use("lead-1", template_id=tpl_a.id, used_by="pro-1")
     use_b = await uses.log_use("lead-2", template_id=tpl_b.id, used_by="pro-1")
@@ -319,7 +319,7 @@ async def test_stats_used_by_narrows_to_one_promoters_own_uses():
     await store.put(LEADS, "lead-2", Lead(id="lead-2", place_id="place-2",
                                           assigned_to="pro-2").to_dict())
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
 
     use_mine = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
     use_other = await uses.log_use("lead-2", template_id=tpl.id, used_by="pro-2")
@@ -344,7 +344,7 @@ async def test_kind_stats_used_by_narrows_the_same_way():
     await store.put(LEADS, "lead-2", Lead(id="lead-2", place_id="place-2",
                                           assigned_to="pro-2").to_dict())
     _, templates, uses = _build(store)
-    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف1")
     await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
     await uses.log_use("lead-2", template_id=tpl.id, used_by="pro-2")
 

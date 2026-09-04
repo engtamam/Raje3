@@ -258,5 +258,11 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # `operations.ping` USED TO BE HERE, pointing at GET /api/v1/admin/ping — a route this service
     # has never served. The console would have rendered a button that 404s, and the reason it
     # survived review is that it reads like scaffolding nobody would question. /whoami answers the
-    # same question — is my token accepted, and as whom — and it exists.
+    # same question — is my token accepted, and as whom — and it exists. Declared here now too:
+    # the route existed and answered fine, but nothing ever put a button in front of it.
+    {
+        "id": "operations.whoami", "label": "من أنا", "method": "GET",
+        "path": "/api/v1/operations/whoami", "capability": "platform.secrets", "group": "المنصة",
+        "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
+    },
 ]

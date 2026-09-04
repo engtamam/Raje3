@@ -43,7 +43,7 @@
  * SELECTORS READ OFF THE LIVE PAGE, never off the source, and NEVER include a live number. This
  * screen aggregates real, constantly-changing platform data (tenant counts, retention, at-risk
  * counts) that every other tour-recording agent on this dev cluster is also mutating in real
- * time — a selector built from "٨٧ محلاً" today is a selector that fails the next time this runs.
+ * time — a selector built from "87 محلاً" today is a selector that fails the next time this runs.
  * Every `text=` selector below is a STABLE LABEL (a KpiCard's own `label`, a section's own `h3`),
  * confirmed present against a real signed-in session before this script was written; the numbers
  * themselves are left to the caption's own words ("رقمك أنت", never a specific figure spoken as

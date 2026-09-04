@@ -72,7 +72,7 @@ def build_manifest(
             # From the generated scaffold, and kept: what a client calls to confirm its token is
             # accepted at all, which is the first question asked when something else is failing.
             # Undeclared in every service until a guard compared the manifest with the app itself.
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},
@@ -86,7 +86,7 @@ def build_manifest(
             {"path": "/internal/campaigns/tick", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              "erasure_category": "subject"},
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/whoami", "tier": "user", "method": "GET"},
             # ── the owner's three screens ─────────────────────────────────────────────────
             {"path": "/api/v1/campaigns/goals", "tier": "user", "method": "GET"},
             {"path": "/api/v1/campaigns/preview", "tier": "user", "method": "POST"},

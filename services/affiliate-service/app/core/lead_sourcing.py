@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — §٦ Lead Sourcing: the resumable search job + dedup + assignment
+# affiliate-service — §6 Lead Sourcing: the resumable search job + dedup + assignment
 # -----------------------------------------------------------------------------
 # The conversion plan for places_scraper_v2.py, followed exactly:
 #   1. CLI→CSV becomes a background job writing straight to the leads table (no CSV, ever).
@@ -273,7 +273,7 @@ class LeadSourcingService:
 
     # ── the manager's own results + assignment (spec §6's own "الإسناد") ────────────────────────
     async def get_lead(self, lead_id: str, *, affiliate_id: str) -> Lead:
-        """A single lead's own detail — spec §٩'s scoping again, one row at a time: visible to
+        """A single lead's own detail — spec §9's scoping again, one row at a time: visible to
         whoever `GET /me/leads` would already have shown it to, so this is never a second,
         looser rule than the list. A manager sees his own search result (`source_manager_id`)
         whether or not it has been handed out yet; anyone in the assignment chain sees an
@@ -407,7 +407,7 @@ class LeadSourcingService:
         await self._s.put(LEADS, lead.id, lead.to_dict())
         return lead
 
-    # ── §٦'s own point: sector/city analytics for a data-driven dashboard ────────────────────────
+    # ── §6's own point: sector/city analytics for a data-driven dashboard ────────────────────────
     async def sector_stats(self, *, affiliate_id: str = "", limit: int = 5000) -> list[dict[str, Any]]:
         """Counts grouped by (sector_code, city), WITH a full status breakdown per group
         ("تنضاف هذه على الداشبورد الشاملة حقت المدير") — `affiliate_id` scopes to one

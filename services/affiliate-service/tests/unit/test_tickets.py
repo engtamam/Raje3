@@ -1,4 +1,4 @@
-"""§١٣'s consent-scoped ticket reads — the properties worth a test:
+"""§13's consent-scoped ticket reads — the properties worth a test:
 
   * no configured URL is reported, not crashed on
   * a 409 (no active grant) is the honest common case, not an error

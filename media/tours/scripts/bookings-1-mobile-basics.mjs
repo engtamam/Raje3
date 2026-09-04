@@ -36,7 +36,7 @@
  */
 export default {
   id: 'bookings-1-mobile-basics',
-  title: 'الحجوزات ١ — لوحة يومك على جوالك',
+  title: 'الحجوزات 1 — لوحة يومك على جوالك',
   section: 'الحجوزات', // nav.ts's own sidebar label — out/ groups every clip of a tab together
   useDemoSession: true,
   // THE BOARD IS ALREADY DRAWN AT FRAME ZERO. This screen fires four reads before it can render

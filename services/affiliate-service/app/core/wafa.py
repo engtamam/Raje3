@@ -185,7 +185,7 @@ class WafaService:
             "retention_rate": perf["retention_rate"], "refund_rate": perf["refund_rate"],
             # SAME NAME, SAME MEANING request() ENFORCES — a home screen showing "eligible" on a
             # shop count alone, then refusing the actual request over this, is worse than never
-            # showing progress at all (م·النمط١: the two must never disagree about what unlocks it).
+            # showing progress at all (م·النمط1: the two must never disagree about what unlocks it).
             "recent_conversions": perf["recent_conversions"],
             "min_recent_conversions": self._min_recent_conversions,
             "conversion_lookback_days": self._cooldown_days,

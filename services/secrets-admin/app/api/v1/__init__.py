@@ -22,7 +22,7 @@ from app.api.v1.secrets import router as secrets_router
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
 
-@router.get("/whoami", dependencies=[Depends(rate_limit)])
+@router.get("/secrets/whoami", dependencies=[Depends(rate_limit)])
 async def whoami(
     principal: Principal = Depends(require_user),
     guard=Depends(get_guard),

@@ -49,7 +49,7 @@ def test_this_service_declares_its_real_actions_across_admin_internal_system_and
     this test's own earlier version's note on why that matters. affiliate.commissions_swept is
     this service's first system-source action (scheduled work, no human actor);
     affiliate.places_api_key_set is its first user-source one (a manager acting on his OWN
-    account, §٦'s BYOK Google Places key — not a platform-operator action, so it does not belong
+    account, §6's BYOK Google Places key — not a platform-operator action, so it does not belong
     in admin) — the template's own docstring calls internal the most-missed category, but system
     and user are easy to forget too."""
     actions = {a["action"] for a in AUDITABLE_ACTIONS}

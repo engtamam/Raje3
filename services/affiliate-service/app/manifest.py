@@ -84,8 +84,8 @@ def build_manifest(
              # and is therefore never MISSED — the request closes green on an erasure
              # that did not happen.
              "erasure_category": "subject"},
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/admin/ping", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/whoami", "tier": "user", "method": "GET"},
             # «بوابة القبول» (spec §2) — no token yet, same tier as operations' own /signup.
             {"path": "/api/v1/affiliates/apply", "tier": "public", "method": "POST"},
             {"path": "/api/v1/affiliates/apply/request-otp", "tier": "public", "method": "POST"},
@@ -125,11 +125,11 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/employment-eligibility", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/employment-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/employment-requests/{}/decision", "tier": "user", "method": "POST"},
-            # §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK).
+            # §6 Lead Sourcing — a manager's OWN Google Places API key (BYOK).
             {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "DELETE"},
-            # §٦ Lead Sourcing — the search itself + assignment.
+            # §6 Lead Sourcing — the search itself + assignment.
             {"path": "/api/v1/affiliates/me/leads/search", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/leads/search", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/leads/search/{}", "tier": "user", "method": "GET"},
@@ -172,7 +172,7 @@ def build_manifest(
              "method": "DELETE"},
             {"path": "/internal/leads/tick", "tier": "internal", "method": "POST"},
             {"path": "/internal/tickets/escalation-sweep", "tier": "internal", "method": "POST"},
-            # §١٣ — a shop's tickets, consent-scoped to the marketer who referred it.
+            # §13 — a shop's tickets, consent-scoped to the marketer who referred it.
             {"path": "/api/v1/affiliates/me/shops/{}/tickets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/shops/{}/tickets", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/shops/{}/tickets/{}", "tier": "user", "method": "GET"},

@@ -284,9 +284,16 @@ for f in values_files():
         if is_set("AUDIT_FAIL_CLOSED") and scalar(text, "AUDIT_FAIL_CLOSED") != "true":
             fail(f.name, "AUDIT_FAIL_CLOSED is not true — a privileged action would proceed "
                          "unwitnessed whenever the log is unreachable")
-    if is_set("TOKEN_VERIFIER_DRIVER") and scalar(text, "TOKEN_VERIFIER_DRIVER") != "rs256":
-        fail(f.name, "TOKEN_VERIFIER_DRIVER is not rs256 — identity signs, everyone else verifies; "
-                     "anything else means a second trust model")
+    # "rs256" (a static PEM, TOKEN_PUBLIC_KEY) and "jwks" (identity's own key set, fetched live,
+    # TOKEN_JWKS_URL — supports key rotation with no redeploy) are BOTH asymmetric verify-only
+    # drivers (see app/adapters/token_verifier/{rs256,jwks}.py); this check used to accept only
+    # the first name and flagged 25 services running the second as a downgrade, which they were
+    # not — found live the day a full sweep actually read what "jwks" does instead of assuming.
+    # "hs256" (a shared secret — a second trust model, the real thing this guards against) and
+    # "null" (no verification at all) are the only two that should ever fail here.
+    if is_set("TOKEN_VERIFIER_DRIVER") and scalar(text, "TOKEN_VERIFIER_DRIVER") not in ("rs256", "jwks"):
+        fail(f.name, "TOKEN_VERIFIER_DRIVER is neither rs256 nor jwks — identity signs, everyone "
+                     "else verifies asymmetrically; anything else means a second trust model")
     if is_set("TOKEN_ISSUER") and scalar(text, "TOKEN_ISSUER") != "raje3":
         fail(f.name, "TOKEN_ISSUER is not 'raje3' — the issuer is frozen; a token minted under a "
                      "different one is rejected by every peer")
@@ -318,7 +325,13 @@ for svc_dir in sorted((ROOT / "services").iterdir()):
     live: dict[str, str] = {}
     for p in sorted((svc_dir / "app").rglob("*.py")):
         rel = p.relative_to(svc_dir / "app").as_posix()
-        if rel == "config.py" or rel == "container.py" or rel.startswith("adapters/"):
+        # core/booking_assignment.py is an adapter in everything but location: which peer it
+        # calls is chosen by BOOKING_PROVIDER_DRIVER ("config" | "real"), and its own build()
+        # fail-fasts loudly if "real" is picked without BOOKINGS_SERVICE_URL set — the same
+        # driver-gated, says-out-loud-what-it-needs shape the adapters/ exclusion above exists
+        # for, just not under that directory name.
+        if (rel == "config.py" or rel == "container.py" or rel.startswith("adapters/")
+                or rel == "core/booking_assignment.py"):
             continue
         for key in sorted(set(re.findall(r"\b([A-Z][A-Z0-9_]*_SERVICE_URL)\b", read(p)))):
             live.setdefault(key, rel)
@@ -388,10 +401,18 @@ for f in values_files():
     if not m:
         continue
     advertised = set(re.findall(r'"([a-z][a-z0-9_.]*)"', m.group(1)))
+    # A route can enforce a capability through a named constant (e.g. affiliate-service's
+    # `AFFILIATE_SELF = "affiliates.self"` in app/core/models.py, `require_capability(AFFILIATE_SELF)`
+    # in app/api/v1/affiliate_self.py) rather than the literal string inline — so app/core is part of
+    # the search too, not just app/api. Found live: 40+ real routes required "affiliates.self" this
+    # way and the gate flagged it as dead anyway because it only ever grepped app/api.
     api = src / "app" / "api"
+    core = src / "app" / "core"
     enforced = ""
     if api.is_dir():
-        enforced = "".join(read(p) for p in api.rglob("*.py"))
+        enforced += "".join(read(p) for p in api.rglob("*.py"))
+    if core.is_dir():
+        enforced += "".join(read(p) for p in core.rglob("*.py"))
     for cap in sorted(advertised):
         if f'"{cap}"' not in enforced:
             fail(f"{svc}/app/manifest.py",
@@ -651,9 +672,12 @@ if tenant_roles.is_file():
                             and isinstance(v, ast.List)):
                         ours |= {e.value for e in v.elts
                                  if isinstance(e, ast.Constant) and isinstance(e.value, str)}
-        # platform.* and the partner's are deliberately NOT the owner's: one is ours, the other
-        # belongs to a company that is not the establishment.
-        expected = {c for c in ours if not c.startswith("platform.") and c != "partner.read"}
+        # platform.*, the partner's, and the affiliate marketer's are deliberately NOT the
+        # owner's: platform.* is ours, partner.read belongs to a till company, and
+        # affiliates.self belongs to a marketer promoting shops — none of the three is a role an
+        # establishment's own owner ever holds.
+        expected = {c for c in ours
+                    if not c.startswith("platform.") and c not in ("partner.read", "affiliates.self")}
         for cap in sorted(expected - held):
             fail("deploy/seed/roles.json",
                  f"`{cap}` is declared by a service but the owner role does not hold it — a "
@@ -668,9 +692,25 @@ if tenant_roles.is_file():
 
 if operator_roles.is_file():
     import json as _json
+    # NOT EVERY OPERATOR CAPABILITY IS `platform.*`, AND THE FILE'S OWN HEADER SAYS WHY: a handful
+    # of peer services (identity-service, billing-service, notification-service, tenant-service,
+    # ticket-service, webhook-service, onboarding-service) gate their own routes on the literal,
+    # bare capability string a tenant role ALSO holds — not on a platform-namespaced one — because
+    # that is the name those services' own code checks (see operator-roles.json's own
+    # "TWO NAMES THAT LOOK REDUNDANT BUT ARE NOT" and "A THIRD PAIR..." passages). Granting the
+    # platform-owner oversight of, say, billing plans/pricing has no `platform.billing_plans`
+    # capability to ask for — the only door that exists is `billing.manage`, the tenant's own
+    # door, and an operator legitimately needs a key to it too. This is a closed, named list of
+    # exactly those documented exceptions — a bare capability NOT on this list is still exactly
+    # what this check was written to catch: a real tenant-lane leak into the operator lane.
+    _BARE_CAP_OPERATOR_EXCEPTIONS = {
+        "billing.manage", "members:read", "members:write", "notifications.templates",
+        "onboarding.manage", "service_accounts:read", "service_accounts:write", "tenant.manage",
+        "tickets.manage", "webhooks.read",
+    }
     for r in _json.loads(read(operator_roles)).get("roles", []):
         for cap in r.get("capabilities", []):
-            if not str(cap).startswith("platform."):
+            if not str(cap).startswith("platform.") and cap not in _BARE_CAP_OPERATOR_EXCEPTIONS:
                 fail("deploy/seed/operator-roles.json",
                      f"operator role `{r.get('name')}` carries `{cap}`, which is a tenant "
                      f"capability — the operator lane is not the tenant lane")

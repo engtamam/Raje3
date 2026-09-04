@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — turning a REAL payment into a commission (spec §4, slices ٥/٦/٧)
+# affiliate-service — turning a REAL payment into a commission (spec §4, slices 5/6/7)
 # -----------------------------------------------------------------------------
 # THE DURABLE READ, NEVER THE EVENT BUS. billing-service's own app/core/events.py is explicit:
 # "The event bus is at-most-once and best effort... It is NOT how a money consequence is

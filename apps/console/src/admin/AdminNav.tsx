@@ -1,5 +1,5 @@
 /**
- * لوحة الإدارة's own nav — ٥ أقسام فقط ("ابغ من صفحة الادارة يكون 5 الى 6
+ * لوحة الإدارة's own nav — 5 أقسام فقط ("ابغ من صفحة الادارة يكون 5 الى 6
  * حاجات فقط على الشريط الجانبي"), same dual-layout idiom as the affiliate portal's own
  * `AffiliateNav.tsx`: one tab list, two renderings picked by CSS (`md:hidden`/`hidden md:flex`),
  * never `matchMedia`. Sidebar on desktop; bottom bar on the phone, thumb-reachable — the SAME

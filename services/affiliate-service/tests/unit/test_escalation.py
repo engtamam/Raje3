@@ -1,4 +1,4 @@
-"""§١٣'s auto-escalation — the properties worth a test:
+"""§13's auto-escalation — the properties worth a test:
 
   * a manager-owned referral (no parent_id) has nowhere to escalate to — skipped
   * a suspended affiliate's OPEN tickets escalate immediately, regardless of timing

@@ -128,14 +128,14 @@ env:
   # name. The guard caught it as three capabilities the owner does not hold, which is
   # exactly what it looked like.
   AUTHZ_TENANT_ASSIGNABLE_CAPS: >-
-    operations.record,operations.read,operations.manage,search.read,
+    operations.record,operations.read,operations.manage,operations.manage_services,search.read,
     reminders.read,reminders.manage,
     campaigns.read,campaigns.manage,
     loyalty.read,loyalty.redeem,loyalty.manage,
-    bookings.read,bookings.write,
+    bookings.read,bookings.write,bookings.manage,
     insights.read,
     billing.read,billing.manage,billing.self,
-    tenant.read,identity.read,identity.manage,compliance.self,compliance.manage,
+    tenant.read,identity.read,identity.manage,identity.self,compliance.self,compliance.manage,
     service_accounts:read,service_accounts:write,
     ticket.read,ticket.write,tickets.self,
     analytics.read,wallet.read,notification.read

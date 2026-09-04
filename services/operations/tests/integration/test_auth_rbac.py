@@ -65,27 +65,27 @@ def _auth(tok: str) -> dict:
 
 # ── Authentication ──────────────────────────────────────────────────────────
 def test_no_bearer_401(client):
-    assert client.get("/api/v1/whoami").status_code == 401
+    assert client.get("/api/v1/operations/whoami").status_code == 401
 
 
 def test_valid_token_200(client):
-    r = client.get("/api/v1/whoami", headers=_auth(_token(caps=["read"])))
+    r = client.get("/api/v1/operations/whoami", headers=_auth(_token(caps=["read"])))
     assert r.status_code == 200
     assert r.json()["subject"] == "u1"
     assert r.json()["caps"] == ["read"]
 
 
 def test_invalid_token_401(client):
-    assert client.get("/api/v1/whoami", headers=_auth("garbage")).status_code == 401
+    assert client.get("/api/v1/operations/whoami", headers=_auth("garbage")).status_code == 401
 
 
 def test_expired_token_401(client):
     tok = _token(exp=dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1))
-    assert client.get("/api/v1/whoami", headers=_auth(tok)).status_code == 401
+    assert client.get("/api/v1/operations/whoami", headers=_auth(tok)).status_code == 401
 
 
 def test_wrong_secret_401(client):
-    assert client.get("/api/v1/whoami", headers=_auth(_token(secret="x" * 40))).status_code == 401
+    assert client.get("/api/v1/operations/whoami", headers=_auth(_token(secret="x" * 40))).status_code == 401
 
 
 # ── Capability RBAC (deny-by-default) ───────────────────────────────────────

@@ -25,7 +25,7 @@ async def test_create_refuses_empty_title_or_body():
 @pytest.mark.anyio
 async def test_create_then_get():
     svc = StatCitationService(store=MemoryDataStore())
-    row = await svc.create(title="الانقطاع الصامت", body="٦٥ من ١٠٠ ما يرجعون",
+    row = await svc.create(title="الانقطاع الصامت", body="65 من 100 ما يرجعون",
                            source_label="Meevo 2025", source_url="https://example.com/meevo")
     got = await svc.get(row.id)
     assert got is not None

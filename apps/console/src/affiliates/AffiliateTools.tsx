@@ -734,7 +734,7 @@ function SectorStatsView({ session, onBack }: { session: AffiliateSession; onBac
   );
 }
 
-/* ── تذاكر المحلات (§١٣) ──────────────────────────────────────────────────────────────────────── */
+/* ── تذاكر المحلات (§13) ──────────────────────────────────────────────────────────────────────── */
 function ShopTicketsView({ session, onBack }: { session: AffiliateSession; onBack: () => void }) {
   const [shops, setShops] = useState<ReferredShop[] | 'loading' | 'failed'>('loading');
   const [openTenant, setOpenTenant] = useState<string | null>(null);

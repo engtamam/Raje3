@@ -1,4 +1,4 @@
-"""§٦'s managed sector taxonomy — the properties worth a test:
+"""§6's managed sector taxonomy — the properties worth a test:
 
   * create() upserts by code, never a second row for the same code
   * deactivate() never deletes; a deactivated code still lists in the full admin view

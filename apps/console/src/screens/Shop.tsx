@@ -681,15 +681,15 @@ export function retentionStreak(
   return length >= 3 ? { length, rising } : null;
 }
 
-/** THE HERO — a narrated sentence, the number set large inline, never a bare ring. «من كل ١٠
- *  عملاء زاروك، ٧ يرجعون لك» is the sentence an owner actually repeats to himself; the number
+/** THE HERO — a narrated sentence, the number set large inline, never a bare ring. «من كل 10
+ *  عملاء زاروك، 7 يرجعون لك» is the sentence an owner actually repeats to himself; the number
  *  alone inside a circle was a fact he had to translate before it meant anything.
  *
  *  A WHOLE NUMBER, NEVER A DECIMAL — this sentence counts people, and «7.8 يرجعون» reads as a
  *  fraction of a person on the one screen built to be simple for a non-technical owner.
  *
  *  BUT PROJECTING TO A ROUND TEN LIES ON A SMALL SAMPLE. A shop with one active customer who
- *  happened to return reads «من كل ١٠، ١٠ يرجعون» — a sentence built for a hundred customers,
+ *  happened to return reads «من كل 10، 10 يرجعون» — a sentence built for a hundred customers,
  *  stated as if it were a fact about ten. An owner does not do the mental math back to «that's
  *  actually just me and my one customer»; he reads it as ten real people. Below a real floor we
  *  say the true, small count instead of a projection dressed as one. */
@@ -720,7 +720,7 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
         const of10 = Math.round(pct * 10).toLocaleString('en-US');
         return (
           <>
-            من كل ١٠ عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
+            من كل 10 عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
           </>
         );
       })();

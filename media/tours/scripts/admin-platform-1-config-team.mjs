@@ -1,9 +1,9 @@
 /**
  * «المنصّة والفريق» — full coverage of AdminPlatform.tsx's own four sub-screens in ONE clip, the
- * ٩th tab on the operator sidebar (AdminNav.tsx): الإعدادات الحيّة (AdminConfig), الأسرار
+ * 9th tab on the operator sidebar (AdminNav.tsx): الإعدادات الحيّة (AdminConfig), الأسرار
  * (AdminSecrets), فريق الإدارة (AdminTeam), سجل التدقيق (AdminAuditLog). All four are grouped
  * under one `Segmented` (`role=radio`, not `role=button` — AdminPlatform.tsx's own header note:
- * "المرحلة ٩.٥ بُنيت من نفس الكتالوج، لا شاشة منفصلة").
+ * "المرحلة 9.5 بُنيت من نفس الكتالوج، لا شاشة منفصلة").
  *
  * REAL LOGIN, NOT `useDemoSession` — same reasoning as admin-home-1-overview.mjs's own note:
  * AdminPortal has its own session store and no self-service signup, so the only honest way in is

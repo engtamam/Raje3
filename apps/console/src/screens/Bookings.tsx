@@ -193,7 +193,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [services, setServices] = useState<CatalogueService[] | null | undefined>(undefined);
   const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
   // أوقات الدوام — سياسة واحدة للمنشأة كلها. `undefined` = لسه ما وصلت، تُعامل
-  // كنافذة ٨-٢٢ الافتراضية القديمة ريثما تصل، عشان الشبكة ما تومض فاضية أول ما تُفتح الشاشة.
+  // كنافذة 8-22 الافتراضية القديمة ريثما تصل، عشان الشبكة ما تومض فاضية أول ما تُفتح الشاشة.
   const [weekly, setWeekly] = useState<WeeklyHours | undefined>(undefined);
   const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
   useEffect(() => {

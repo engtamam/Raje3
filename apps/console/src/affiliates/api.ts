@@ -560,7 +560,7 @@ export async function sectorStats(session: AffiliateSession): Promise<{ stats: S
   return req('/api/v1/affiliates/me/leads/sector-stats', 'GET', undefined, session.access_token);
 }
 
-/* ── §١٣ تذاكر المحلات — أي مسوّق أحال محلًا فعليًا، لا مدير فقط ─────────────────────────────────── */
+/* ── §13 تذاكر المحلات — أي مسوّق أحال محلًا فعليًا، لا مدير فقط ─────────────────────────────────── */
 export interface ReferredShop {
   tenant: string; shop_name: string; status: string; stamped_at: number;
 }

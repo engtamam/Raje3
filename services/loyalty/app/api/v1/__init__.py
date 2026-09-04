@@ -24,7 +24,7 @@ from app.api.v1 import loyalty as _loyalty   # noqa: E402
 router.include_router(_loyalty.router)
 
 
-@router.get("/whoami", dependencies=[Depends(rate_limit)])
+@router.get("/loyalty/whoami", dependencies=[Depends(rate_limit)])
 async def whoami(
     principal: Principal = Depends(require_user),
     guard=Depends(get_guard),
@@ -41,9 +41,15 @@ async def whoami(
     return body
 
 
-@router.get("/admin/ping", dependencies=[Depends(require_capability("admin"))])
+# "/api/v1/admin/ping" (bare, unprefixed) is identical across every service's own scaffold copy of
+# this file — one gateway prefix can only point at one upstream, so it was never reachable through
+# api-gateway for ANY of them (ci/check_deploy_wiring.py's own guard, run for real, found this).
+# "/loyalty/admin/ping" is this service's own answer. Capability changed from the scaffold's
+# "admin" (nobody was ever granted it, a second ungoverned name) to "platform.secrets" — the one
+# admin_actions.py already declared for this exact action, so enforcement now matches the
+# declaration instead of silently diverging from it.
+@router.get("/loyalty/admin/ping", dependencies=[Depends(require_capability("platform.secrets"))])
 async def admin_ping() -> dict:
-    # Reached only by a token whose `caps` include "admin" (deny-by-default).
     return {"status": "ok"}
 
 # TODO (per service): add real business routes here.

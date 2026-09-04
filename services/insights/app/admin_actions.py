@@ -58,7 +58,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "insights.ping", "label": "فحص الاتصال", "method": "GET",
-        "path": "/api/v1/admin/ping", "capability": "platform.secrets", "group": "المنصة",
+        "path": "/api/v1/insights/admin/ping", "capability": "platform.secrets", "group": "المنصة",
         # From the generated scaffold and kept: what a client calls to confirm its token is accepted
         # at all, which is the first question asked when something else is failing. Undeclared in
         # every service until a guard compared the manifest with the app.
@@ -78,5 +78,10 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
              "enum": ["docx", "pdf"], "help": "افتراضياً docx"},
         ],
         "help": "يولّد ملف دفاع نزاعي حقيقي (Word أو PDF) لمنشأة محدَّدة برقم جوال مالكها.",
+    },
+    {
+        "id": "insights.whoami", "label": "من أنا", "method": "GET",
+        "path": "/api/v1/insights/whoami", "capability": "platform.secrets", "group": "المنصة",
+        "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
     },
 ]

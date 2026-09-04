@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — «رشّح نفسك لوظيفة» (spec §8): ٥٠٠ عميل مشترك → مؤهّل يتقدّم للتوظيف الرسمي
+# affiliate-service — «رشّح نفسك لوظيفة» (spec §8): 500 عميل مشترك → مؤهّل يتقدّم للتوظيف الرسمي
 # -----------------------------------------------------------------------------
 # A ONE-TIME career milestone, not a recurring payment — see WafaRequest's own note on why this
 # is a separate model from «برنامج دعم الوفاء» rather than a second tier on it.

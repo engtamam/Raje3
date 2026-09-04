@@ -63,6 +63,12 @@ def build_manifest(
         # privilege — a shop that hires seasonal help should grant the first without the second.
         # Managing the catalogue, the staff and the branches is the owner's.
         "capabilities": ["operations.record", "operations.read", "operations.manage",
+                         # WHAT staff.py ACTUALLY ENFORCES (require_capability/require_any_capability)
+                         # but this list never named: a field operator's own "خدماتي ومنتجاتي"/
+                         # "الفريق"/"الفروع" screens declared these on their own USER_ACTIONS rows,
+                         # and nobody could ever hold either — found by ci/check_deploy_wiring.py's
+                         # own guard 17 the day it was run for real.
+                         "operations.manage_services", "bookings.read",
                          # OURS. No tenant token carries it: a tyre shop must not be able to
                          # rename "بنشر" for every other tyre shop on the product.
                          "platform.operations",
@@ -149,7 +155,7 @@ def build_manifest(
              # and is therefore never MISSED — the request closes green on an erasure
              # that did not happen.
              "erasure_category": "subject"},
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/operations/whoami", "tier": "user", "method": "GET"},
             # ── the field screen — the product, as far as the shop floor is concerned ──────
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/visits/{}/offer", "tier": "user", "method": "POST"},

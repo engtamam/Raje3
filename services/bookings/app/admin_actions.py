@@ -66,9 +66,14 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "bookings.ping", "label": "فحص الاتصال", "method": "GET",
-        "path": "/api/v1/admin/ping", "capability": "platform.secrets", "group": "المنصة",
+        "path": "/api/v1/bookings/admin/ping", "capability": "platform.secrets", "group": "المنصة",
         # From the generated scaffold and kept: what a client calls to confirm its token is accepted
         # at all, which is the first question asked when something else is failing.
         "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
+    },
+    {
+        "id": "bookings.whoami", "label": "من أنا", "method": "GET",
+        "path": "/api/v1/bookings/whoami", "capability": "platform.secrets", "group": "المنصة",
+        "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
     },
 ]

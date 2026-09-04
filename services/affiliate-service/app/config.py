@@ -175,7 +175,7 @@ class Settings(BaseSettings):
     # anchor event. See core/models.py's own LAPSED status.
     AFFILIATE_CONVERSION_WINDOW_DAYS: int = 90
 
-    # ── the commission engine itself (spec §4, "٥/٦/٧" of the slice table) ────────────────────
+    # ── the commission engine itself (spec §4, "5/6/7" of the slice table) ────────────────────
     # billing-service v0.16.26+ — GET /internal/billing/invoices, the durable read this engine
     # keys money on rather than the at-most-once event bus (billing's own events.py contract).
     BILLING_SERVICE_URL: str = ""
@@ -210,7 +210,7 @@ class Settings(BaseSettings):
     # ── «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
     AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS: int = 500
 
-    # ── §٦ Lead Sourcing — see core/leads.py's own module docstring on BYOK.
+    # ── §6 Lead Sourcing — see core/leads.py's own module docstring on BYOK.
     # A platform-wide LAST-RESORT default, only reached when a manager has set no key of his own
     # AND no admin has set a tenant="" default via SecretStore either. Blank means "refused" —
     # see the routes in api/v1/affiliate_self.py.
@@ -221,12 +221,12 @@ class Settings(BaseSettings):
     # is what turns "hours" into "many small, resumable calls" rather than one long request.
     LEADS_TICK_UNITS: int = 20
 
-    # ── §١٣ Ticket integration — see core/tickets.py's own module docstring.
+    # ── §13 Ticket integration — see core/tickets.py's own module docstring.
     # ticket-service v0.16.27+ — GET /internal/tickets(+/{id}), consent-scoped via ShareGrant.
     # Blank means "not wired yet" — WafaService.performance_for degrades support_kpis to
     # available:False rather than failing.
     TICKET_SERVICE_URL: str = ""
-    # §١٣'s auto-escalation — see core/escalation.py's own module docstring.
+    # §13's auto-escalation — see core/escalation.py's own module docstring.
     # No response within this many hours -> escalated to the promoter's own manager. Config, not
     # a hardcoded 24 — a deployment may want a different SLA.
     AFFILIATE_TICKET_ESCALATION_HOURS: int = 24

@@ -79,7 +79,7 @@ def build_manifest(
             # From the generated scaffold, and kept: what a client calls to confirm its token is
             # accepted at all, which is the first question asked when something else is failing.
             # Undeclared in every service until a guard compared the manifest with the app itself.
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},
@@ -121,7 +121,7 @@ def build_manifest(
              # Declared, because a data map built from manifests is how a DSAR fan-out finds who
              # holds a person. An undeclared holder is never asked and therefore never missed.
              "erasure_category": "subject"},
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/whoami", "tier": "user", "method": "GET"},
             # ── the owner's surface ───────────────────────────────────────────────────────
             {"path": "/api/v1/reminders/schedule", "tier": "user", "method": "GET"},
             # The offer line above the field screen's service grid (§5.6.2).

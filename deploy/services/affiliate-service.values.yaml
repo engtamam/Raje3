@@ -31,7 +31,7 @@ resources:
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real
 
-existingSecret: affiliate-service-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*, PII_SALT (SAME value every other service holds), SECRETS_KEK (seals a manager's own §٦ BYOK Google Places key — app/core/secret_store.py; required for POST /me/places-api-key and the leads-tick CronJob below to do anything, but its absence is a clean 503/no-op, never a crash)
+existingSecret: affiliate-service-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*, PII_SALT (SAME value every other service holds), SECRETS_KEK (seals a manager's own §6 BYOK Google Places key — app/core/secret_store.py; required for POST /me/places-api-key and the leads-tick CronJob below to do anything, but its absence is a clean 503/no-op, never a crash)
 
 networkPolicy:
   enabled: true
@@ -121,6 +121,14 @@ env:
 ingress:
   enabled: false
 
+# ── the SHARED secrets ────────────────────────────────────────────────────────────────────────
+# Identical values across every service, injected by the chart from one source. BACKUP_KEK is the
+# one this service cannot do without: /internal/backup/export answers 503 without it, same shape
+# as bookings.values.yaml's own note. PII_SALT must be the SAME value every other service holds —
+# two different salts fold one person to two pseudonyms. INTERNAL_SERVICE_TOKEN authenticates
+# peer-service calls.
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN
+
 # THE BACKSTOP for the event-driven fast path (app/main.py's own subscriber to billing's
 # payment.succeeded/invoice.paid — a HINT only, per app/ports/event_bus.py's own contract: "at-
 # most-once, best effort... never the only way a fact can be learned"). Hourly, not nightly: the
@@ -130,7 +138,7 @@ cronJobs:
   - name: commissions-sweep
     schedule: "17 * * * *"
     path: /internal/commissions/sweep
-  # §٦'s resumable search engine (app/core/lead_sourcing.py) — a full grid search is HOURS
+  # §6's resumable search engine (app/core/lead_sourcing.py) — a full grid search is HOURS
   # (places_scraper_v2.py's own cost estimate), so this advances LEADS_TICK_UNITS (point,
   # keyword) pairs per call rather than running one search start to finish. Every minute, not
   # hourly: a manager watching his own search progress should see it move, not sit at 0% for the
@@ -147,7 +155,7 @@ cronJobs:
     # caused the real crash-loop incident this exists for is broken up statistically rather than
     # by a hand-picked anchor.
     jitterSeconds: 30
-  # §١٣'s auto-escalation — no response within
+  # §13's auto-escalation — no response within
   # AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's
   # own open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h
   # SLA measured in whole-hour increments is still honest at this granularity, and a suspended

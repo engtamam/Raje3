@@ -348,6 +348,17 @@ ship_many() {
     esac
   done
 
+  # ── 0. deploy wiring, once for the whole repo ───────────────────────────────────────────────
+  # FOUND LIVE, THE DAY THIS WAS ADDED: a new route (GET .../platform/tenants/{id}/capacity) was
+  # declared tier=user in its own manifest.py, but api-gateway.values.yaml carried no matching
+  # GATEWAY_ROUTES prefix — ci/check_deploy_wiring.py's own tier=user/GATEWAY_ROUTES cross-check
+  # would have caught this EXACTLY, and does when run — but nothing ever ran it before a ship. It
+  # shipped, "1/1 Running", every unit test green, and 404'd at the gateway anyway. A green pod is
+  # not a reachable route; this gate is the one thing that actually checks the second half.
+  say "deploy wiring"
+  python3 "$ROOT/ci/check_deploy_wiring.py" || {
+    red "deploy wiring: problems found above — nothing built, nothing shipped"; return 1; }
+
   # ── 1. tests ────────────────────────────────────────────────────────────────────────────────
   for svc in "${ours[@]}"; do
     say "$svc · 1/4 tests"

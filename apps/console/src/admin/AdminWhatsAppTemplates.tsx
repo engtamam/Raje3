@@ -390,7 +390,7 @@ function TestSendPanel({ session, action, templates }: {
         <div className="flex flex-col gap-3 border-t border-border-subtle pt-3">
           <Segmented value={mode} onChange={(v) => { setMode(v as 'text' | 'template'); setResult(null); }}
                     options={[
-                      { value: 'text', label: 'نص حر (يحتاج نافذة ٢٤ ساعة مفتوحة)' },
+                      { value: 'text', label: 'نص حر (يحتاج نافذة 24 ساعة مفتوحة)' },
                       { value: 'template', label: 'بقالب معتمد' },
                     ]} />
 

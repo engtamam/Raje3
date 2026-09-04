@@ -912,7 +912,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 {/* 15 دقيقة، القيمة المقترحة والخطوة معاً — أصغر وحدة يتحرّك عليها الجدول
                     أصلاً، وأقرب افتراض واقعي لخدمة سريعة. رقم مقترح يُعدَّل قبل الحفظ، لا قيمة
                     يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً.
-                    `step` يحرّك أسهم الحقل بوحدات ١٥ فقط — لا يمنع كتابة رقم آخر يدوياً. */}
+                    `step` يحرّك أسهم الحقل بوحدات 15 فقط — لا يمنع كتابة رقم آخر يدوياً. */}
                 <Row label={t('services.duration.label')}
                      hint={t('services.duration.hint')}>
                   <input name="duration_minutes" type="number" min={0} max={720} step={15} defaultValue={15} dir="ltr"

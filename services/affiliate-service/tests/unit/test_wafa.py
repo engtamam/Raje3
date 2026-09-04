@@ -372,7 +372,7 @@ async def test_performance_for_reports_full_retention_and_zero_refund_with_no_hi
     assert out["total_referrals"] == 0 and out["total_commissions"] == 0
 
 
-# ── §١٣: real support KPIs, additive and best-effort ────────────────────────────────────────────
+# ── §13: real support KPIs, additive and best-effort ────────────────────────────────────────────
 
 class FakeTickets:
     """Answers by tenant — same "scripted by key" idiom as the platform's other fakes."""

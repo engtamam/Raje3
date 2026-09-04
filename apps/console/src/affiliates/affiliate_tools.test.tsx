@@ -117,7 +117,7 @@ describe('AffiliateTools — the citation library', () => {
   it('renders a citation with its source label as a link', async () => {
     meMock = () => Promise.resolve(PROMOTER);
     citationsMock = () => Promise.resolve({
-      citations: [{ id: 'c1', title: 'الانقطاع الصامت', body: 'من كل ١٠٠ عميل...',
+      citations: [{ id: 'c1', title: 'الانقطاع الصامت', body: 'من كل 100 عميل...',
                    source_label: 'Bain & Company', source_url: 'https://example.com', stage_code: '', active: true }],
     });
 

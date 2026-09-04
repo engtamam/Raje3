@@ -179,7 +179,7 @@ export default {
     },
     {
       click: 'css=input[name="duration_minutes"]',
-      say: 'ثم المدة بالدقائق اللي شرحناها قبل قليل — افتراضياً ١٥، وحدّها الأقصى ١٢ ساعة',
+      say: 'ثم المدة بالدقائق اللي شرحناها قبل قليل — افتراضياً 15، وحدّها الأقصى 12 ساعة',
     },
     {
       click: 'css=input[name="price"]',
@@ -229,11 +229,11 @@ export default {
     { type: 'label=الاسم', text: NEW_SERVICE, say: `اسمها «${NEW_SERVICE}»` },
     {
       type: 'css=input[name="duration_minutes"]', text: '50', replace: true,
-      say: 'مدتها ٥٠ دقيقة — رقم حقيقي تستخدمه الحجوزات فعلياً بعدها مباشرة',
+      say: 'مدتها 50 دقيقة — رقم حقيقي تستخدمه الحجوزات فعلياً بعدها مباشرة',
     },
     {
       type: 'css=input[name="price"]', text: '120', replace: true,
-      say: 'وسعرها ١٢٠ ريالاً',
+      say: 'وسعرها 120 ريالاً',
     },
     {
       // NO CHAPTER MARKER HERE — this and the next marker landed 6.4s apart on a real take,
@@ -281,7 +281,7 @@ export default {
     {
       say: 'ورجعت الشاشة للقائمة المفعّلة وحدها — ذكاء بلا أي ضغطة إضافية منك',
     },
-    // ── حالة حافة ١: مدة غير صالحة ───────────────────────────────────────────────────────────
+    // ── حالة حافة 1: مدة غير صالحة ───────────────────────────────────────────────────────────
     {
       // REPRODUCIBLE ACROSS FOUR SEPARATE REAL RECORDED RUNS, not flaky: the very next click on
       // this exact button failed with "resolved to nothing visible" every time at this precise
@@ -301,7 +301,7 @@ export default {
     { type: 'label=الاسم', text: 'محاولة مدة خاطئة' },
     {
       type: 'css=input[name="duration_minutes"]', text: '900', replace: true,
-      say: '٩٠٠ دقيقة — أكبر من حدّها ٧٢٠ اللي شرحناه قبل قليل',
+      say: '900 دقيقة — أكبر من حدّها 720 اللي شرحناه قبل قليل',
     },
     {
       click: 'role=button:إضافة',
@@ -311,7 +311,7 @@ export default {
       say: 'حماية من أول خطوة، قبل ما توصل للسيرفر أصلاً',
     },
     { click: 'role=button:إلغاء' },
-    // ── حالة حافة ٢: سعر غير صالح ─────────────────────────────────────────────────────────────
+    // ── حالة حافة 2: سعر غير صالح ─────────────────────────────────────────────────────────────
     {
       // SAME DEFENSIVE WAIT AS EVERY REMAINING «إضافة خدمة أو منتج» CLICK BELOW — this exact
       // button intermittently failed "resolved to nothing visible" at more than one point in this
@@ -329,7 +329,7 @@ export default {
     { type: 'label=الاسم', text: 'محاولة سعر خاطئ' },
     {
       type: 'css=input[name="price"]', text: '12.345', replace: true,
-      say: 'أكتب ١٢.٣٤٥ — ثلاث خانات',
+      say: 'أكتب 12.345 — ثلاث خانات',
     },
     {
       click: 'role=button:إضافة',
@@ -339,7 +339,7 @@ export default {
       say: '«السعر غير صحيح — رقم بخانتين عشريتين على الأكثر»',
     },
     { click: 'role=button:إلغاء' },
-    // ── حالة حافة ٣: سعر صفري ────────────────────────────────────────────────────────────────
+    // ── حالة حافة 3: سعر صفري ────────────────────────────────────────────────────────────────
     {
       waitFor: 'role=button:إضافة خدمة أو منتج',
       timeoutMs: 20_000,
@@ -359,7 +359,7 @@ export default {
     {
       say: 'يُحفظ فعلاً بسعر صفر — لكن يظهر بالجدول مثل «بلا سعر» بالضبط، وهذا الفرق اللي تحتاج تعرفه',
     },
-    // ── حالة حافة ٤: منتج بلا مدة ─────────────────────────────────────────────────────────────
+    // ── حالة حافة 4: منتج بلا مدة ─────────────────────────────────────────────────────────────
     {
       waitFor: 'role=button:إضافة خدمة أو منتج',
       timeoutMs: 20_000,
@@ -376,7 +376,7 @@ export default {
     },
     {
       type: 'css=input[name="price"]', text: '55', replace: true,
-      say: 'وسعره الحقيقي ٥٥ ريالاً',
+      say: 'وسعره الحقيقي 55 ريالاً',
     },
     { click: 'role=button:إضافة' },
     { waitFor: `css=tr:has-text("${DURATIONLESS_ITEM}")` },
@@ -396,7 +396,7 @@ export default {
     { click: 'role=button:الخدمات' },
     { waitFor: `text=${NEW_SERVICE}` },
     {
-      say: `موجودة فوراً هنا، بسعرها ١٥٠ ريالاً — نفس القيمة اللي عدّلناها قبل قليل`,
+      say: `موجودة فوراً هنا، بسعرها 150 ريالاً — نفس القيمة اللي عدّلناها قبل قليل`,
     },
     {
       say: 'بلا أي خطوة نشر إضافية، بلا أي انتظار بين الشاشتين',

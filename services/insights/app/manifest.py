@@ -61,7 +61,7 @@ def build_manifest(
         # Two. Reading indicators is one thing an establishment does; recomputing another shop's
         # snapshot is support work and belongs to us. There is no `insights.manage`, deliberately:
         # nothing here is configurable, because everything that looked like a setting is learned.
-        "capabilities": ["insights.read", "platform.insights",
+        "capabilities": ["insights.read", "platform.insights", "platform.compliance",
                          # WHAT api/v1/operator.py ACTUALLY ENFORCES. Advertised because they are
                          # enforced here — not because we grant them to a tenant: platform.* is
                          # ours, and authz denies the whole prefix to every establishment. The
@@ -73,7 +73,7 @@ def build_manifest(
             # From the generated scaffold, and kept: what a client calls to confirm its token is
             # accepted at all, which is the first question asked when something else is failing.
             # Undeclared in every service until a guard compared the manifest with the app itself.
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/insights/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},
@@ -106,6 +106,7 @@ def build_manifest(
             {"path": "/api/v1/insights/refresh", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/associations", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/bundles", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/insights/dispute-report", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/digest", "tier": "user", "method": "PUT"},
             # AND ITS READ. A switch that cannot report its own position is a button that
@@ -114,7 +115,7 @@ def build_manifest(
             # OURS: support recomputing a snapshot for a shop that is not theirs.
             {"path": "/api/v1/insights/platform/recompute", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/platform/summary", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/insights/whoami", "tier": "user", "method": "GET"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

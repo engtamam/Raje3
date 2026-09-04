@@ -1,4 +1,4 @@
-"""§٦'s BYOK Google Places key — the properties worth a test:
+"""§6's BYOK Google Places key — the properties worth a test:
 
   * a manager's own key resolves before any platform-wide default
   * a platform-wide default (tenant="") is used when he has set none

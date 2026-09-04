@@ -164,16 +164,17 @@ env:
   # were declared, deployed, and capability-correct, and 404'd anyway — the console rendered a
   # working-looking button that could never be reached.
   #
-  # NOT YET FIXED, AND THE GATE ABOVE CANNOT CATCH IT: /api/v1/operator/secrets and
-  # /api/v1/operator/config are declared IDENTICALLY (same path string) by nine services —
-  # affiliate-service, bookings, campaigns, insights, loyalty, operations, portal, reminders,
-  # whatsapp-assistant — but only ONE route exists (/api/v1/operator -> operations, below).
-  # Prefix routing cannot disambiguate identical paths, so every one of the OTHER eight
-  # services' operator/secrets and operator/config calls is silently misrouted to operations
-  # right now — not a 404, a wrong answer. Needs each service's own path made unique (or the
-  # duplicate declarations retired in favour of secrets-admin's centralized /api/v1/secrets,
-  # for whichever of the nine that actually covers) before it's safe to route — tracked, not
-  # solved by this commit.
+  # CORRECTED, THE DAY A FULL SWEEP CHECKED THE CLAIM DIRECTLY: this note used to say
+  # /api/v1/operator/secrets and /api/v1/operator/config were declared IDENTICALLY by nine
+  # services and could not be disambiguated. Read live against the actual code: every one of
+  # them already declares its OWN service-prefixed path (/api/v1/operations/operator/secrets,
+  # /api/v1/portal/operator/secrets, /api/v1/assistant/operator/secrets, and so on for the
+  # rest) — the collision this warned about does not exist in the paths, only in this comment.
+  # What WAS true: three of those services (operations, portal, whatsapp-assistant) had no
+  # covering GATEWAY_ROUTES prefix at all, so their calls 404'd — fixed below (the new
+  # /api/v1/operations, /api/v1/portal, /api/v1/assistant entries). The old bare
+  # /api/v1/operator -> operations entry matches nothing any service actually serves any more
+  # and is kept only because removing it changes nothing either way.
   #
   # FIXED THE SAME WAY, SAME DAY: /api/v1/whatsapp/templates (notification-service's own WhatsApp
   # template list/register/submit routes) was swallowed by the broader /api/v1/whatsapp -> operations
@@ -205,6 +206,7 @@ env:
       {"prefix":"/api/v1/service-accounts","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/till","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/field","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/operations","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/staff","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/partner","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/subscription","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
@@ -212,6 +214,7 @@ env:
       {"prefix":"/api/v1/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/operator","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/reminders","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/portal","upstream":"http://portal:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/prefs","upstream":"http://reminders:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/loyalty","upstream":"http://loyalty:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/insights","upstream":"http://insights:8000","auth":"required","strip_prefix":false},
@@ -243,7 +246,8 @@ env:
       {"prefix":"/api/v1/platform/silent","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
 
-      {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false}
+      {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/assistant","upstream":"http://whatsapp-assistant:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
 

@@ -1,4 +1,4 @@
-"""The routes over §٦'s BYOK Google Places key — managers-only gate, write-only guarantee (never
+"""The routes over §6's BYOK Google Places key — managers-only gate, write-only guarantee (never
 returns the plaintext), and the 503 when SECRETS_KEK is unconfigured.
 """
 from __future__ import annotations

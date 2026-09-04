@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — §٦ Lead Sourcing: Google Places API key management (BYOK per manager)
+# affiliate-service — §6 Lead Sourcing: Google Places API key management (BYOK per manager)
 # -----------------------------------------------------------------------------
 # A manager brings HIS OWN Google Places API key, not
 # necessarily the company's. Reuses SecretStore (app/core/secret_store.py) — the exact write-

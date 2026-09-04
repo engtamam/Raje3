@@ -51,7 +51,7 @@ def build_manifest(
             # absences are decisions: there is no subject here to erase and nothing of ours to
             # export, and declaring either would put this service on a fan-out roster as a holder
             # that acks work it never did.
-            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/secrets/whoami", "tier": "user", "method": "GET"},
             # ── the whole product surface: read what is configured, replace one thing ─────────
             {"path": "/api/v1/secrets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/secrets/{}", "tier": "user", "method": "POST"},
