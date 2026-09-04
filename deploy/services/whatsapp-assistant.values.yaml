@@ -18,7 +18,7 @@ image:
   # Placeholder — set to the real digest by publish-images.sh once this service ships. A moving tag
   # is a rollback that is only a hope; every other service in this chart is pinned by digest and
   # this one should not be the exception the day it goes to production.
-  digest: "sha256:e08c118a36adb400cd849a3bf8fa7266f85e02024569f004c6293533b0624f12"   # 1035e221, published by publish-images.sh
+  digest: "sha256:704422f45d639a67eacf82229f751ba3530cfd0da8ce4eef74446e5adca96455"   # cd61de49, published by publish-images.sh
 
 replicas: 1
 
@@ -163,6 +163,17 @@ env:
   OPERATIONS_CUSTOMER_ID_BY_PHONE_PATH: "/internal/operations/customer-id-by-phone"
   BOOKINGS_NEAREST_REAL_SLOT_PATH: "/internal/bookings/nearest-real-slot"
   BOOKINGS_CREATE_PATH: "/internal/bookings"
+  BOOKINGS_FOR_CUSTOMER_PATH: "/internal/bookings/for-customer"
+  BOOKINGS_CANCEL_PATH: "/internal/bookings/{booking_id}/cancel"
+  BOOKINGS_RESCHEDULE_PATH: "/internal/bookings/{booking_id}/reschedule"
+  # Booking-management-via-WhatsApp (view/cancel/reschedule an EXISTING booking) — see
+  # app/config.py's own note on both flags. Inert regardless, while BOOKING_PROVIDER_DRIVER stays
+  # "config" above (llm_tool_allowlist withholds these tools under any driver but "real" — see
+  # that property's own note); listed explicitly here, defaults kept true, so an operator finds
+  # a ready single-value kill-switch the moment the real driver is turned on, rather than having
+  # to discover it does not exist in this file yet.
+  BOOKING_MANAGEMENT_ENABLED: "true"
+  BOOKING_HISTORY_VISIBLE: "true"
   # insights' association engine (services/insights/app/core/associations.py) — the SAME
   # "frequently requested together" logic staff already see, reused for the AI's cross-sell
   # suggestion tool rather than a new recommendation algorithm. Respects insights' own plan gate:
@@ -220,7 +231,15 @@ env:
   # app/core/tools.py's own docstring). It NEVER adds a service to a booking directly — that still
   # goes through propose_booking/button-confirm — and it never carries a discount field (see
   # app/core/conversation.py's `_DISCOUNT_CLAIM_PATTERNS` backstop).
-  LLM_TOOL_ALLOWLIST: "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,suggest_related_service"
+  # list_my_bookings/propose_cancel_booking/propose_reschedule_booking (booking-management-via-
+  # WhatsApp) are listed here too, on purpose, even while this deployment stays on
+  # BOOKING_PROVIDER_DRIVER="config" below: `llm_tool_allowlist` (app/config.py) ALREADY withholds
+  # them unless BOOKING_MANAGEMENT_ENABLED is true AND the driver is "real" — that gating is what
+  # keeps the feature inert today, not this string. Leaving them off THIS line would be a second,
+  # silent kill-switch nobody remembered to also flip back on the day the real driver ships: the
+  # BOOKING_MANAGEMENT_ENABLED flag below would read "true" while the tools were still never
+  # offered to the model at all. Found by review; see git history for the incident this line fixes.
+  LLM_TOOL_ALLOWLIST: "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,suggest_related_service,list_my_bookings,propose_cancel_booking,propose_reschedule_booking"
 
   # ── conversation engine — batching, session, summary (design point 3) ─────────────────────────
   # A DEFAULT worth revisiting once real usage exists, not a number derived from anything. 180s is
