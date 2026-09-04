@@ -52,13 +52,15 @@ vi.mock('./api', async (importOriginal) => {
 afterEach(() => vi.clearAllMocks());
 
 describe('AdminWhatsAppTemplates', () => {
-  it('shows a pending template with a submit-for-review action, no auto-submit', async () => {
+  it('shows a draft (never submitted) template with a submit-for-review action, no auto-submit', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({ templates: [tpl()] });
 
     render(<AdminWhatsAppTemplates session={SESSION} />);
     await waitFor(() => expect(screen.getByText('auth.otp')).toBeTruthy());
-    expect(screen.getByText('قيد المراجعة')).toBeTruthy();
+    // status="pending" with no provider_template_id is a local DRAFT, never sent to Meta — the
+    // badge must say so plainly, not "قيد المراجعة" (which reads as "already sent, awaiting Meta").
+    expect(screen.getByText('مسوّدة، لم تُرسَل بعد')).toBeTruthy();
     expect(screen.getByText('أرسل للمراجعة')).toBeTruthy();
     // never called on its own — only a real click does
     expect(reqMock).not.toHaveBeenCalledWith(

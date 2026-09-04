@@ -53,6 +53,19 @@ const STATUS_META: Record<TemplateStatus, { label: string; tone: 'warning' | 'su
   disabled: { label: 'مُعطَّل', tone: 'danger', icon: Ban },
 };
 
+// حالة `pending` بالخادم تعني شيئين مختلفين تماماً: قالب أُرسل فعلاً لميتا وينتظر قرارها
+// (provider_template_id موجود)، أو قالب لسه محلي ما أُرسل إطلاقاً (مسوّدة، بلا provider_template_id).
+// الشارة "قيد المراجعة" لهذا الثاني كانت تقرأ "أُرسل!" فعلاً بينما لم يُرسل شيء — وُجد حياً حين
+// حفظ مستخدم قالباً جديداً واستغرب رؤية "قيد المراجعة" فوراً. هذا التمييز محلي بالواجهة فقط، لا
+// حالة خامسة بالخادم — مجرد قراءة أدق لنفس البيانات.
+const DRAFT_META = { label: 'مسوّدة، لم تُرسَل بعد', tone: 'neutral' as const, icon: FileText };
+function isDraft(t: Template): boolean {
+  return t.status === 'pending' && !t.provider_template_id;
+}
+function displayMeta(t: Template) {
+  return isDraft(t) ? DRAFT_META : (STATUS_META[t.status] ?? STATUS_META.pending);
+}
+
 const CATEGORY_LABEL: Record<string, string> = {
   UTILITY: 'خدمية', MARKETING: 'تسويقية', AUTHENTICATION: 'تحقّق هوية',
 };
@@ -182,7 +195,7 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
   const [arm, setArm] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
-  const meta = STATUS_META[template.status] ?? STATUS_META.pending;
+  const meta = displayMeta(template);
   const Icon = meta.icon;
 
   async function doSubmit() {
@@ -221,13 +234,16 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
       </div>
 
       {template.body ? (
-        <p className="whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-sm text-text-secondary">
+        // dir="ltr" + text-right: بدون هذا، أقواس {{...}} تُظهرها خوارزمية bidi معكوسة الشكل
+        // ("}code{" بدل "{{code}}") لأنها أحرف مرآة تنعكس داخل نص عربي (RTL) — لُوحظ حياً بلوحة
+        // الإدارة. فرض LTR يصحح شكل الأقواس، والمحاذاة يمين تبقي القراءة العربية طبيعية بصرياً.
+        <p dir="ltr" className="whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-right text-sm text-text-secondary">
           {template.body}
         </p>
       ) : null}
 
       {template.variables.length > 0 ? (
-        <p className="text-label text-text-secondary">
+        <p dir="ltr" className="text-right text-label text-text-secondary">
           المتغيّرات: {template.variables.map((v) => `{{${v}}}`).join('  ')}
         </p>
       ) : null}
@@ -488,7 +504,10 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
           </Field>
         </div>
         <Field label="نص القالب" required htmlFor="wa-tpl-body">
-          <Textarea id="wa-tpl-body" rows={5} value={body} onChange={(e) => setBody(e.target.value)}
+          {/* dir="ltr" + text-right: بدونه أقواس {{...}} تنعكس شكلاً داخل نص عربي (bidi mirroring)
+             وتظهر "}code{" بدل "{{code}}" — لُوحظ حياً. المحاذاة يمين تبقي القراءة طبيعية بصرياً. */}
+          <Textarea id="wa-tpl-body" dir="ltr" className="text-right" rows={5} value={body}
+                    onChange={(e) => setBody(e.target.value)}
                     placeholder="رمز التحقق الخاص بك هو {{code}}. صالح لمدة 5 دقائق." />
         </Field>
         <Field label="أسماء المتغيّرات (مفصولة بفاصلة، بنفس ترتيب ظهورها بالنص)" htmlFor="wa-tpl-vars">
