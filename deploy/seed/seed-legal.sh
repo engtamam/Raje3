@@ -72,13 +72,23 @@ KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
 printf '%s\n' "$KEY" > /tmp/.legal-key.pem
 chmod 600 /tmp/.legal-key.pem
+# THE kid HEADER — see seed-roles.sh's own note. A token minted with none is rejected by every
+# JWKS verifier on this fleet; this thumbprints the SAME key it signs with (RFC 7638, identical to
+# identity-service's own `public_jwk`), so it works across a rotation with no code change.
 TOKEN=$(python3 -c '
-import jwt, time
+import base64, hashlib, json, jwt, time
+from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
+private_pem = open("/tmp/.legal-key.pem").read()
+key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
+jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
+canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
+                       separators=(",", ":"), sort_keys=True).encode("ascii")
+kid = base64.urlsafe_b64encode(hashlib.sha256(canonical).digest()).rstrip(b"=").decode("ascii")
 print(jwt.encode({"sub": "seed-legal", "tenant": "_platform",
                   "caps": ["platform.compliance"],
                   "iss": "raje3", "aud": "raje3", "iat": now, "exp": now + 900},
-                 open("/tmp/.legal-key.pem").read(), algorithm="RS256"))' 2>/dev/null)
+                 private_pem, algorithm="RS256", headers={"kid": kid}))' 2>/dev/null)
 rm -f /tmp/.legal-key.pem
 [ -n "$TOKEN" ] || { red "could not mint a token (pyjwt installed?)"; exit 1; }
 

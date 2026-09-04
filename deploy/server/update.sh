@@ -57,6 +57,25 @@ if [[ -z "${VALUES_DIR:-}" ]]; then
   if compgen -G "$ROOT/deploy/pinned/*.values.yaml" >/dev/null; then VALUES_DIR="$ROOT/deploy/pinned";
   else VALUES_DIR="$ROOT/deploy/services"; fi
 fi
+# SIZE CPU REQUESTS FROM THIS NODE'S REAL CAPACITY, RIGHT BEFORE ROLLING — not from a number
+# someone hand-picked once and never revisited. This runs HERE, on the server, because that is
+# the one place `kubectl get nodes` answers about the box actually being deployed to; running it
+# from a developer's machine would size against nothing real. Same guarantee either way: it can
+# only ever raise a service PAST its own proven-safe floor, never below one (see
+# deploy/smart-cpu-sizing.py's per-tier MIN_CPU_M), and if the cluster can't be reached it changes
+# nothing and rolls out with whatever was already pinned — a missing capability, never a failed
+# install. SMART_CPU_SIZING=0 skips it outright, for a rollout that must roll exactly what is
+# pinned and nothing else (a rollback, a reproducibility check).
+if [[ "${SMART_CPU_SIZING:-1}" != "0" ]] && [[ -f "$ROOT/deploy/smart-cpu-sizing.py" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/deploy/smart-cpu-sizing.py" --apply --values-dir "$VALUES_DIR" || true
+fi
+# SAME SPOT, POSTGRES'S OWN max_connections — see smart-db-connections.py's own header for why
+# this one applies AND VERIFIES itself (a bad cpu request costs one pod a few seconds; a bad
+# Postgres restart costs the whole fleet its database) rather than just computing a number for a
+# human to double-check. SMART_DB_CONNECTIONS=0 skips it, same escape hatch as its cousin above.
+if [[ "${SMART_DB_CONNECTIONS:-1}" != "0" ]] && [[ -f "$ROOT/deploy/smart-db-connections.py" ]] && command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/deploy/smart-db-connections.py" || true
+fi
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-360}"           # helm --wait: a first install pulls an image first
 # AFTER a helm --wait timeout, an extra budget for a node still PULLING a freshly published image.
 # helm --wait cannot tell "will never be ready" from "still downloading the image", so a slow

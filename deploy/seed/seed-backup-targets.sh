@@ -95,14 +95,24 @@ KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
 #      guarantee; a Ctrl-C is.
 #
 # The environment carries it instead: no file, no path to disagree about, nothing to clean up.
+# THE kid HEADER — see seed-roles.sh's own note. A token minted with none is rejected by every
+# JWKS verifier on this fleet; this thumbprints the SAME key it signs with (RFC 7638, identical to
+# identity-service's own `public_jwk`), so it works across a rotation with no code change.
 ADMIN=$(SEED_KEY="$KEY" python3 -c '
-import os, jwt, time
+import base64, hashlib, json, os, jwt, time
+from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
+private_pem = os.environ["SEED_KEY"]
+key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
+jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
+canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
+                       separators=(",", ":"), sort_keys=True).encode("ascii")
+kid = base64.urlsafe_b64encode(hashlib.sha256(canonical).digest()).rstrip(b"=").decode("ascii")
 print(jwt.encode({"sub": "seed-backup-targets", "tenant": "_platform",
                   "caps": ["platform.backup", "platform.secrets"],
                   "iss": "raje3", "aud": "raje3", "iat": now,
                   "exp": now + 300},
-                 os.environ["SEED_KEY"], algorithm="RS256"), end="")')
+                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")')
 case "$ADMIN" in
   ey*) : ;;
   *) red "minting failed; got a ${#ADMIN}-character value that is not a JWT"; exit 1 ;;

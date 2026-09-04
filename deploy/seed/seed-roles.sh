@@ -60,16 +60,32 @@ KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
 printf '%s\n' "$KEY" > /tmp/.seed-key.pem
 chmod 600 /tmp/.seed-key.pem
+# THE kid HEADER, WITHOUT WHICH EVERY SELF-SIGNED TOKEN IN THIS FILE FAILED, EVERY TIME.
+# jwks.py's own JWKSVerifier comment says a kid-less token "falls back to the client's own
+# resolution" for a single-key issuer — PyJWKClient does not: `get_signing_key_from_jwt` reads
+# `kid` from the header, gets None, and raises `PyJWKClientError: Unable to find a signing key
+# that matches: "None"`. Found by hand, replaying authz-service's own verify() against a token
+# minted exactly this way. The kid is the RFC 7638 JWK thumbprint identity-service itself derives
+# from the SAME public key (signing_keyring.py's `public_jwk`) — computed here, not fetched, so
+# this never needs network access to identity's own JWKS endpoint and stays correct across a key
+# rotation for free (whichever key TOKEN_PRIVATE_KEY holds right now is the one this thumbprints).
 TOKEN=$(SCOPE="$SCOPE" python3 -c '
-import jwt, os, time
+import base64, hashlib, json, jwt, os, time
+from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
+private_pem = open("/tmp/.seed-key.pem").read()
+key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
+jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
+canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
+                       separators=(",", ":"), sort_keys=True).encode("ascii")
+kid = base64.urlsafe_b64encode(hashlib.sha256(canonical).digest()).rstrip(b"=").decode("ascii")
 print(jwt.encode({"sub": "seed-roles", "tenant": os.environ["SCOPE"],
                   "caps": ["platform.authz", "authz.manage"],
                   "iss": "raje3", "aud": "raje3", "iat": now,
                   # SHORT. This token can create a role carrying any capability; it exists for the
                   # length of one seed run and not a minute longer.
                   "exp": now + 300},
-                 open("/tmp/.seed-key.pem").read(), algorithm="RS256"), end="")')
+                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")')
 rm -f /tmp/.seed-key.pem
 case "$TOKEN" in
   ey*) : ;;   # a JWT starts `ey` — anything else is a credential of the wrong kind

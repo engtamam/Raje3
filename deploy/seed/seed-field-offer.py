@@ -33,6 +33,9 @@ SUBJECT = os.environ.get("SUBJECT", "")
 BRANCH = os.environ.get("BRANCH", "")
 TEXT = os.environ.get("OFFER_TEXT", "غسلة مجانية مع أول زيارة هذا الشهر")
 DAYS = int(os.environ.get("OFFER_DAYS", "14"))
+# Catalogue service ids this offer applies to — empty means unscoped (every service). Comma-separated
+# so a demo/tour seed can pin the offer badge to ONE specific service without inventing a new field.
+OFFER_SERVICES = [s for s in os.environ.get("OFFER_SERVICES", "").split(",") if s]
 
 
 async def main() -> int:
@@ -70,7 +73,7 @@ async def main() -> int:
         # makes it urgent, and the scope that decides what it actually applies to.
         "offer_text": TEXT,
         "offer_expires_at": expires,
-        "offer_services": [],
+        "offer_services": OFFER_SERVICES,
         # THE OWNER-FACING ROUTE FILTERS EVERY SEND-LOG ROW BY BRANCH SCOPE — a row with no
         # branch_id is invisible to a caller scoped to one, exactly like a real send would be
         # if it forgot to stamp its branch.

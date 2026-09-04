@@ -58,3 +58,11 @@ deploy/target.env
 *.key
 id_rsa
 id_ed25519
+
+# LOAD-TEST RUN OUTPUT (media/tours/) — .loadtest-tenants.json holds REAL minted access tokens
+# (owner-capability JWTs) for whatever tenants a local load-test run created; found sitting
+# untracked in the working tree with a live-looking token still in it. Local, regenerated every
+# run, never meant to leave this machine — same reasoning as *.pem above, a secret in history
+# cannot be un-shared even after deletion.
+media/tours/.loadtest-result.json
+media/tours/.loadtest-tenants.json

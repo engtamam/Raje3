@@ -112,6 +112,19 @@ try:
         out = json.loads(resp.read() or b"{}")
 except urllib.error.HTTPError as exc:
     detail = exc.read().decode(errors="replace")[:200]
+    # 409 IS THE CORRECT, EXPECTED SHAPE OF "ALREADY OWNED" — `only_if_empty` refuses this exact
+    # way on a re-run, and that is success, not failure. Before this, only a 200-with-seeded:false
+    # response ever reached the ALREADY_OWNED branch below; identity actually answers a genuine
+    # conflict with 409, which this treated as a hard failure — burning all three of the bash
+    # loop's retries on a call that was never going to succeed differently, then cascading into
+    # "admin account: failed" and every downstream seed step refusing with 401 (no token, because
+    # nothing above ever printed one) even though the account existed and worked the whole time.
+    # Found by hand: the FIRST call of a three-call retry burst actually returned 201 Created, and
+    # the next two — retries of an already-done job — got exactly this 409 and were read as proof
+    # the whole thing had failed.
+    if exc.code == 409:
+        print("ALREADY_OWNED")
+        sys.exit(0)
     sys.exit(f"identity refused ({exc.code}): {detail}")
 except (urllib.error.URLError, OSError) as exc:
     sys.exit(f"could not reach identity in its own pod: {exc}")
