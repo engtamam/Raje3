@@ -284,6 +284,18 @@ class OperatorStore(_Base):
         rows, _ = await self._find(tenant, limit=200)
         return [Operator(**r) for r in rows]
 
+    async def get_by_person(self, tenant: str, person_id: str) -> Operator | None:
+        """The row for the operator asking — not by his ROLE (many share `operator`), by WHO he
+        actually is at identity. A linear scan over one tenant's roster (`list`'s own 200-row
+        cap), same scale assumption every other read here already makes; a real index is worth it
+        only past that size."""
+        if not person_id:
+            return None
+        for o in await self.list(tenant):
+            if o.person_id == person_id:
+                return o
+        return None
+
     async def save(self, o: Operator) -> Operator:
         await self._put(o.tenant, o.id, o.__dict__.copy())
         return o

@@ -618,6 +618,30 @@ export async function listOperators(session: Session): Promise<FieldOperator[]> 
   return (out.operators ?? []).filter((o) => o.active && o.has_pin);
 }
 
+// ── لغة شاشات المشغّل (operator-i18n.tsx) ───────────────────────────────────────────────────────
+
+interface MyOperatorRow {
+  locale?: string;
+}
+
+/** The signed-in person's OWN operator row, or `null` for an owner (he has none — a real,
+ *  expected 404, not a fault). Never throws on that specific case; any other failure still does,
+ *  same as every other read here. */
+export async function getMyOperator(session: Session): Promise<MyOperatorRow | null> {
+  try {
+    return await call<MyOperatorRow>(session, '/api/v1/staff/operators/me');
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+export async function setMyOperatorLocale(session: Session, locale: string): Promise<void> {
+  await call(session, '/api/v1/staff/operators/me/locale', {
+    method: 'PATCH', body: JSON.stringify({ locale }),
+  });
+}
+
 // ── الحجوزات (docs/خطة-تنفيذ-الحجوزات.md §6) ───────────────────────────────────────────────────
 
 /** A name the booking dialog can offer — active staff, whichever branch they work in.

@@ -323,6 +323,14 @@ class Operator:
     # `/internal/operations/staff-hours` (batch by operator id); validated at write time here to
     # never exceed the shop's own hours (bookings intersects defensively too, at read time).
     working_hours: dict[str, Any] | None = None
+    # CURRENT SCOPE: the console's operator screens (Visit, Bookings, Services, ...). The owner's
+    # own admin screens are Arabic-only for now too, but that is this phase's scope, not a
+    # permanent split — do not assume it stays that way. Empty means "no preference set yet",
+    # which the console reads as its own default (Arabic) rather than a language code — same
+    # "empty means inherit" shape as `working_hours` above. Lives here, not in the browser,
+    # because a hired operator has his OWN login (`person_id` above) and moves between devices; a
+    # localStorage setting would reset every time he signs in somewhere new.
+    locale: str = ""
 
     def public(self) -> dict[str, Any]:
         """No pin_hash. Not because it is readable, but because a hash that is never returned
@@ -346,7 +354,8 @@ class Operator:
                 # asks «من يحفظ؟» must not offer a name that cannot answer. An operator with no PIN
                 # listed there is a tap that ends in a refusal he has no way to satisfy, with a
                 # customer waiting.
-                "has_pin": bool(self.pin_hash)}
+                "has_pin": bool(self.pin_hash),
+                "locale": self.locale}
 
 
 @dataclass

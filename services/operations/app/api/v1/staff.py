@@ -564,6 +564,44 @@ async def list_operators(request: Request, principal: Principal = Depends(_READ_
     }
 
 
+# THE OPERATOR SCREENS' LANGUAGE (Visit, Bookings, Services, ...) — current phase covers field
+# operators only (see Operator.locale's own note). Self-service, not `_MANAGE`: an operator sets
+# HIS OWN language, never anyone else's, and needs nothing more than the read he already holds to
+# see «فريقي» — the same gate `list_operators` above uses.
+_VALID_OPERATOR_LOCALES = {"ar", "en", "ur", "ha", "fil"}
+
+
+@router.get("/operators/me", dependencies=[Depends(rate_limit)])
+async def get_my_operator_row(request: Request,
+                              principal: Principal = Depends(_READ_OPERATORS_FOR_BOOKINGS)) -> dict:
+    """His own operator row, or 404 — the owner himself has none (he is not an `Operator` row),
+    and that is a real, expected answer, not a fault."""
+    tenant = _tenant(principal)
+    op = await OperatorStore(request.app.state.container.datastore).get_by_person(tenant, principal.subject)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_OPERATOR")
+    return op.public()
+
+
+class LocaleIn(BaseModel):
+    locale: str = Field(min_length=2, max_length=8)
+
+
+@router.patch("/operators/me/locale", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_my_locale(request: Request, body: LocaleIn,
+                        principal: Principal = Depends(_READ_OPERATORS_FOR_BOOKINGS)) -> dict:
+    if body.locale not in _VALID_OPERATOR_LOCALES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "UNKNOWN_LOCALE")
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get_by_person(tenant, principal.subject)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_OPERATOR")
+    op.locale = body.locale
+    await store.save(op)
+    return op.public()
+
+
 class PinVerifyIn(BaseModel):
     operator_id: str = Field(min_length=1, max_length=64)
     pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
