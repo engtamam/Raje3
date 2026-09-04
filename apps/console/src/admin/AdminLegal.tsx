@@ -5,10 +5,15 @@
  * للمستخدم يبدّل بينه وبين شكل آخر — لو احتجنا محرر قطع بصري لمستند قانوني يوماً، يُضاف كوضع ثانٍ
  * هنا لاحقاً، لا كمفتاح تبديل بالواجهة الآن.
  *
- * المحتوى يُخزَّن بنفس شكل `Block` اللي BlockRenderer.tsx يعرفه أصلاً (`{type:"text", data:{md_ar,
- * md_en}}`) — نفس الرندرر اللي المستندات القانونية تستخدمه فعلياً، بدون أي innerHTML، فمعاينة
- * الشاشة هنا مطابقة تماماً لما يشوفه العميل. compliance-service لا يتحقق من شكل `content` إطلاقاً
- * (قاموس مفتوح)، فهذا الشكل آمن نضيفه من طرفنا بدون أي تعديل على الخدمة نفسها.
+ * تصحيح صار بعد الإطلاق الأول (المعاينة هنا كانت تبدو سليمة والعميل الحقيقي ما يقدر يقرأ شي):
+ * الشاشة تكتب Markdown وتعاين بـ`BlockView`/`Block` (`{type:"text", data:{md_ar,md_en}}`) — هذا
+ * صحيح للمعاينة المحلية فقط. لكن العميل الحقيقي، وقت قبول المستند (`AcceptTerms.tsx`)، يقرأ
+ * المحتوى عبر `DocBlocksView` (رندرر compliance المُوحَّد، شكل `{kind:{...}}` مفتاح واحد) — وهذا
+ * رندرر مختلف تماماً بشكل مختلف، ليس نفس `BlockRenderer`. فما يُرسَل للخادم يُغلَّف بشكل
+ * `{legal_text:{md_ar,md_en}}` (الشِّيم اللي `legalToDocBlocks.ts`/`DocBlockRenderer.tsx` يعرفانه
+ * تحت اسم `legal_*`)، لا بشكل `{type,data}` الخام — وإلا DocBlocksView ما يعرف يفكّه ويطلع فاضياً
+ * عند العميل رغم أن معاينة هذي الشاشة كانت تبدو سليمة. compliance-service لا يتحقق من شكل
+ * `content` إطلاقاً (قاموس مفتوح)، فهذا الشكل آمن نضيفه من طرفنا بدون أي تعديل على الخدمة نفسها.
  *
  * شاشة إدارة حقيقية، لا نموذج فاضٍ: عمود يسار بكل أنواع المستندات الموجودة فعلاً (منشور أو مسوّدة
  * لم تُنشر بعد — `compliance.legal_list` يرجّع الاثنين، انظر تعليق الخادم نفسه بـ`legal_pages.py`)،
@@ -115,6 +120,8 @@ export function AdminLegal({ session }: { session: AdminSession }) {
     return <NoActionAvailable catalog={catalog} permissionTitle="هذه الشاشة ليست ضمن صلاحياتك" />;
   }
 
+  // `block` is ONLY for this screen's own preview (BlockView reads {type,data}). What actually
+  // ships to the server is `legal_text` below — DocBlocksView's shape, see the header note.
   const block: Block = { type: 'text', data: { md_ar: mdAr, md_en: mdEn } };
   const canDraft = docId.trim() && version.trim() && (mdAr.trim() || mdEn.trim());
 
@@ -135,7 +142,10 @@ export function AdminLegal({ session }: { session: AdminSession }) {
     setDrafted(false);
     setPublished(false);
     try {
-      const content = { title: { ar: titleAr, en: titleEn }, blocks: [block] };
+      const content = {
+        title: { ar: titleAr, en: titleEn },
+        blocks: [{ legal_text: { md_ar: mdAr, md_en: mdEn } }],
+      };
       await req(
         draftAction!.path.replace('{doc_id}', encodeURIComponent(docId)).replace('{version}', encodeURIComponent(version)),
         'PUT', { content, requires_acceptance: requiresAcceptance }, session.access_token);

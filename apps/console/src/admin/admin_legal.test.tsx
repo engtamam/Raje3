@@ -102,7 +102,7 @@ describe('AdminLegal', () => {
     expect((screen.getByText('حفظ كمسوّدة') as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('drafts with the Block shape BlockRenderer.tsx actually reads, then requires a separate confirm to publish', async () => {
+  it('drafts with the legal_text block shape DocBlocksView (what a customer actually reads) understands, then requires a separate confirm to publish', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     stubReq();
 
@@ -121,7 +121,7 @@ describe('AdminLegal', () => {
       {
         content: {
           title: { ar: '', en: '' },
-          blocks: [{ type: 'text', data: { md_ar: '## عنوان\nفقرة كاملة.', md_en: '' } }],
+          blocks: [{ legal_text: { md_ar: '## عنوان\nفقرة كاملة.', md_en: '' } }],
         },
         requires_acceptance: true,
       },

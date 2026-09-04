@@ -177,9 +177,18 @@ fi
 # acceptance record pointed at a version that had never been drafted, let alone published.
 #
 # DIRECT PUBLISH, NOT instantiate: these carry their own prose (`clauses:` / `categories:` +
-# `additions:`), not template placeholders to fill — so this builds the console's own Block shape
-# (`{type:"text", data:{md_ar, md_en}}`, same as AdminLegal.tsx writes by hand) directly, then
-# calls draft + publish, the two routes the console screen itself uses.
+# `additions:`), not template placeholders to fill — so this builds content directly, then calls
+# draft + publish, the two routes AdminLegal.tsx itself uses.
+#
+# THE BLOCK SHAPE MUST BE `{legal_text: {md_ar, md_en}}`, NOT `{type:"text", data:{...}}`. A real
+# customer reads published legal content through DocBlocksView (compliance's unified renderer,
+# single-key `{kind:{...}}` nodes) — never through the separate markdown-only BlockRenderer that
+# AdminLegal.tsx's OWN preview happens to use locally. `{type,data}` is invisible to DocBlocksView
+# (it reads Object.keys(block)[0] as the kind, so "type" itself becomes a bogus kind); `legal_text`
+# is the namespaced shim DocBlockRenderer.tsx/legalToDocBlocks.ts define for exactly this markdown
+# content, and is what makes it actually render at accept-time (see AdminLegal.tsx's own header
+# note — this was found live: the admin preview looked correct while the real customer view was
+# blank, because the two renderers were never the same one).
 #
 # affiliate-agreement.yaml IS DELIBERATELY EXCLUDED. Its own header says so: "DRAFT ONLY. ...
 # not a Saudi legal consultation... do not publish this file before a licensed Saudi lawyer
@@ -252,7 +261,7 @@ import json, sys
 md = json.loads('''$content''')
 print(json.dumps({
     'content': {'title': {'ar': '$title_ar', 'en': '$title_en'},
-               'blocks': [{'type': 'text', 'data': {'md_ar': md['md_ar'], 'md_en': md['md_en']}}]},
+               'blocks': [{'legal_text': {'md_ar': md['md_ar'], 'md_en': md['md_en']}}]},
     'requires_acceptance': $requires_accept,
 }, ensure_ascii=False))
 ")
