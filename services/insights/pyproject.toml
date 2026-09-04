@@ -37,6 +37,7 @@ dependencies = [
     # Direct floor over the transitive pull from pyjwt[crypto]: 49.0.0 is
     # PYSEC-2026-3552, fixed in 50.0.0. Pinned so the CVE cannot re-enter via resolution.
     "cryptography>=50.0.0",
+    "python-docx>=1.1,<2.0",  # MIT — the dispute-defense report's own .docx builder
 ]
 
 [project.optional-dependencies]

@@ -275,6 +275,17 @@ class Settings(BaseSettings):
     LOYALTY_REPORT_PATH: str = "/internal/loyalty/report"
     TENANT_SERVICE_URL: str = ""
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
+    # THEIRS. The dispute-defense report's own backup-coverage source — "was this establishment's
+    # data actually covered and test-restored" (v0.18.8, built for exactly this).
+    BACKUP_SERVICE_URL: str = ""
+    BACKUP_TENANT_COVERAGE_PATH: str = "/internal/backup/tenant-coverage"
+    AUDIT_QUERY_PATH: str = "/internal/audit"
+    REMINDERS_EVIDENCE_PATH: str = "/internal/reminders/evidence"
+    OPERATIONS_TENANT_BY_PHONE_PATH: str = "/internal/operations/tenant-by-phone"
+    OPERATIONS_BRANCHES_FULL_PATH: str = "/internal/operations/branches-full"
+    OPERATIONS_OPERATORS_FULL_PATH: str = "/internal/operations/operators-full"
+    BILLING_SUBSCRIPTIONS_PATH: str = "/internal/billing/subscriptions"
+    BILLING_INVOICES_PATH: str = "/internal/billing/invoices"
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── the association engine's four judgements ──────────────────────────────

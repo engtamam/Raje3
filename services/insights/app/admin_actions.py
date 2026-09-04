@@ -64,4 +64,19 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         # every service until a guard compared the manifest with the app.
         "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
     },
+    {
+        "id": "insights.dispute_report", "label": "تقرير دفاع نزاعي", "method": "POST",
+        "path": "/api/v1/insights/dispute-report", "capability": "platform.compliance",
+        "group": "المنصة",
+        "params": [
+            {"name": "phone", "in": "body", "type": "string", "required": True,
+             "help": "رقم جوال مالك المنشأة — يُحدَّد المحل منه تلقائياً"},
+            {"name": "scenario", "in": "body", "type": "string", "required": True,
+             "help": "data_loss | billing_error | suspended_no_notice | contract_breach | "
+                     "suspended_tos | ai_hallucination | unauthorized_marketing"},
+            {"name": "file_format", "in": "body", "type": "enum", "required": False,
+             "enum": ["docx", "pdf"], "help": "افتراضياً docx"},
+        ],
+        "help": "يولّد ملف دفاع نزاعي حقيقي (Word أو PDF) لمنشأة محدَّدة برقم جوال مالكها.",
+    },
 ]

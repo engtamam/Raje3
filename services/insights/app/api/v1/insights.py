@@ -35,6 +35,10 @@ router = APIRouter(prefix="/insights", tags=["insights"])
 
 _READ = require_capability("insights.read")
 _PLATFORM = require_capability("platform.insights")
+# THE DISPUTE-DEFENSE REPORT IS ABOUT AN ESTABLISHMENT NAMED BY PHONE, not the caller's own
+# tenant — so it is gated on a PLATFORM capability like every other cross-tenant investigation
+# surface (the legal editor, the admin catalog), never `_READ`/`insights.read`.
+_DISPUTE_REPORT = require_capability("platform.compliance")
 
 
 def _refuse(reason: str, code: int = status.HTTP_400_BAD_REQUEST) -> JSONResponse:
@@ -490,3 +494,82 @@ async def platform_summary(request: Request, principal: Principal = Depends(_PLA
         return {"computing": True, "values": {}, "computed_at": 0,
                "tenants_seen": 0, "tenants_with_snapshot": 0}
     return {"computing": False, **row}
+
+
+class DisputeReportIn(BaseModel):
+    phone: str = Field(min_length=1, max_length=32)
+    scenario: str
+    file_format: str = Field(default="docx", pattern="^(docx|pdf)$")
+
+
+@router.post("/dispute-report", dependencies=[Depends(rate_limit)])
+async def dispute_report(request: Request, body: DisputeReportIn,
+                         principal: Principal = Depends(_DISPUTE_REPORT)):
+    """The dispute-defense report — real backend path (see core/dispute_report.py's own module
+    docstring: this used to be a Claude-only ops-mcp tool; that tool is now the emergency
+    fallback, this route is the real one, reachable from the admin console like any other
+    admin action). Returns the file itself (docx or pdf), not JSON — a download, not a report to
+    read inline."""
+    import datetime as _dt
+    import tempfile
+    from pathlib import Path
+
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    from app.adapters.peers.dispute_report_caller import HttpPeerCaller
+    from app.core.dispute_report import SourceUnavailable, _Urls, run_scenario
+    from app.core.pdf_convert import PdfConversionUnavailable, convert_to_pdf
+    from app.core.report_render import RenderItem, build_docx
+
+    settings = get_settings()
+    urls = _Urls(
+        operations=settings.OPERATIONS_SERVICE_URL, billing=settings.BILLING_SERVICE_URL,
+        backup=settings.BACKUP_SERVICE_URL, audit=settings.AUDIT_SERVICE_URL,
+        reminders=settings.REMINDERS_SERVICE_URL,
+        tenant_by_phone_path=settings.OPERATIONS_TENANT_BY_PHONE_PATH,
+        branches_full_path=settings.OPERATIONS_BRANCHES_FULL_PATH,
+        operators_full_path=settings.OPERATIONS_OPERATORS_FULL_PATH,
+        subscriptions_path=settings.BILLING_SUBSCRIPTIONS_PATH,
+        invoices_path=settings.BILLING_INVOICES_PATH,
+        tenant_coverage_path=settings.BACKUP_TENANT_COVERAGE_PATH,
+        audit_query_path=settings.AUDIT_QUERY_PATH, evidence_path=settings.REMINDERS_EVIDENCE_PATH,
+    )
+    caller = HttpPeerCaller(token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+    try:
+        result = run_scenario(caller, urls, body.phone, body.scenario)
+    except SourceUnavailable as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+    await request.app.state.auditor.record(
+        "dispute_report.generated", actor=getattr(principal, "subject", ""),
+        tenant=result.tenant, resource=f"dispute_report:{body.scenario}",
+        ip=request.client.host if request.client else "",
+        metadata={"format": body.file_format, "item_count": len(result.items)})
+
+    render_items = [RenderItem(ts_label=_fmt_report_ts(it.ts), source=it.source, label=it.label)
+                    for it in result.items]
+    now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=3)))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="dispute_report_"))
+    docx_path = tmp_dir / f"dispute_{body.scenario}_{result.tenant}.docx"
+    build_docx(scenario_title=result.title, tenant=result.tenant, items=render_items,
+              out_path=docx_path, generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
+
+    if body.file_format == "docx":
+        return FileResponse(docx_path, media_type=
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           filename=docx_path.name)
+
+    try:
+        pdf_path = convert_to_pdf(docx_path)
+    except PdfConversionUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name)
+
+
+def _fmt_report_ts(ts: int | None) -> str:
+    import datetime as _dt
+    if not ts:
+        return "؟"
+    return _dt.datetime.fromtimestamp(ts, _dt.timezone(_dt.timedelta(hours=3))).strftime("%Y-%m-%d %H:%M")
