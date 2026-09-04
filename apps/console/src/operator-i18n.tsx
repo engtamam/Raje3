@@ -125,3 +125,12 @@ export function useOperatorI18n(): Ctx {
   if (!ctx) throw new Error('useOperatorI18n() outside <OperatorI18nProvider>');
   return ctx;
 }
+
+/** `tf(t, 'visit.pending', { n: 3 })` — `t()` alone answers a FIXED string; a count or a name
+ *  inside a sentence needs a `{placeholder}` substituted after translation, not a template
+ *  literal built before it (that would hardcode the vars' ORDER, which differs by language —
+ *  "3 left of 10" in English is "10 كن 3 باقي" in Urdu). Missing values are left as-is rather
+ *  than silently dropped, so a wiring mistake is visible on screen instead of erasing a word. */
+export function tf(t: (key: string) => string, key: string, vars: Record<string, string | number>): string {
+  return t(key).replace(/\{(\w+)\}/g, (m, name) => (name in vars ? String(vars[name]) : m));
+}

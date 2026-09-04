@@ -30,6 +30,9 @@ import { digitsOnly, western } from '../digits';
 import { TodayBookingsStrip } from '../TodayBookingsStrip';
 import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import { OperatorLocaleSwitcher } from '../OperatorLocaleSwitcher';
+import './visit-i18n';
 
 /**
  * One box, and the separator appears inside it.
@@ -76,6 +79,7 @@ const MIN_PREFIX = 3;
 
 export function Visit() {
   const { session } = useSession();
+  const { t } = useOperatorI18n();
   // ONE BRANCH ONLY, THE SAME RULE THE GRID ITSELF FOLLOWS — today's bookings strip needs a
   // single branch to ask about; a single-branch shop resolves it silently, a multi-branch one
   // not yet narrowed simply shows no strip rather than guessing which branch's bookings to show.
@@ -295,7 +299,7 @@ export function Visit() {
       // redeem → 400`. So the cashier, with the customer in front of him, read a route and a
       // number instead of «رصيد العميل لا يكفي» — the sentence loyalty was changed to RETURN
       // rather than raise for exactly this moment. `sentenceFor` reads the body the service sent.
-      setNote(sentenceFor(e, 'تعذّر الاستبدال.'));
+      setNote(sentenceFor(e, t('visit.error.redeemFailed')));
       window.setTimeout(() => setNote(null), 4000);
     } finally {
       setRedeeming('');
@@ -379,7 +383,7 @@ export function Visit() {
     setName('');
     setPlate('');
     setMeter('');
-    setNote('تم الحفظ ✓');
+    setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
   }, [applying, chosen, meter, name, phone, plate, session, showMeter, showPlate, subject]);
 
@@ -391,12 +395,12 @@ export function Visit() {
       // SAID BEFORE THE REQUEST, not after it. The server refuses this too — it must, since the
       // till and any other client reach the same endpoint — but a round trip to be told about a
       // box on the screen in front of him is a round trip that reads as a bug.
-      setNote('اكتب رقم اللوحة — حرفٌ واحد ورقمٌ واحد على الأقل');
+      setNote(t('visit.error.plateIncomplete'));
       window.setTimeout(() => setNote(null), 4000);
       return;
     }
     if (chosen.length > 0 && !phoneUsable) {
-      setNote('الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05');
+      setNote(t('visit.error.phoneIncomplete'));
       window.setTimeout(() => setNote(null), 4000);
       return;
     }
@@ -413,7 +417,7 @@ export function Visit() {
     // screen appear to work while writing visits into data nobody owns.
     return (
       <main className="grid min-h-dvh place-items-center bg-surface-0 p-6 text-center">
-        <p className="text-lg text-text-secondary">لم تُفتح الجلسة بعد.</p>
+        <p className="text-lg text-text-secondary">{t('visit.notSignedIn')}</p>
       </main>
     );
   }
@@ -447,8 +451,8 @@ export function Visit() {
                 dir="ltr"
                 inputMode="tel"
                 autoComplete="off"
-                placeholder="05…"
-                aria-label="رقم الجوال"
+                placeholder={t('visit.phone.placeholder')}
+                aria-label={t('visit.phone.ariaLabel')}
                 className="h-[clamp(3rem,7dvh,3.5rem)] w-full rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums shadow-sm placeholder:text-text-secondary"
               />
 
@@ -459,12 +463,12 @@ export function Visit() {
                   wrong number becomes permanent. */}
               <p className={`px-1 text-sm ${phoneOk ? 'text-success' : 'text-text-secondary'}`}>
                 {phone.length === 0
-                  ? 'رقم جواله — عشرة أرقام تبدأ بـ 05.'
+                  ? t('visit.phone.hint.empty')
                   : phoneOk
-                    ? '✓ الرقم صحيح'
+                    ? t('visit.phone.hint.ok')
                     : phone.length < 10
-                      ? `${phone.length} من 10`
-                      : 'ليس رقم جوال سعودي — تُحفظ الزيارة ولا تصله التذكيرات.'}
+                      ? `${phone.length} ${t('visit.phone.hint.counting')}`
+                      : t('visit.phone.hint.notSaudi')}
               </p>
               {/* THE KEYPAD IS FOR A THUMB, NOT FOR A DESK. On a machine with a real keyboard it
                   was a second, larger way to type ten digits — and it pushed everything that
@@ -512,7 +516,7 @@ export function Visit() {
                 onClick={() => { setChanging(false); }}
                 className="min-h-11 shrink-0 rounded-xl bg-surface-2 text-sm font-semibold"
               >
-                إلغاء التعديل والعودة لبيانات السيارة
+                {t('visit.cancelEdit')}
               </button>
             ) : null}
 
@@ -533,17 +537,17 @@ export function Visit() {
                 and a worker who misses it has taken money for something already paid for. */}
             {offer?.text ? (
               <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
-                <div className="mb-1 text-sm font-semibold">عرضٌ خاص بهذا العميل</div>
+                <div className="mb-1 text-sm font-semibold">{t('visit.offer.title')}</div>
                 <div>{offer.text}</div>
                 {/* THE AMOUNT, STATED. The sentence above is whatever was sent — often the
                     owner's own line, which need not name the discount at all. An operator who
                     cannot see it takes the customer's word for what he is owed. */}
                 {offer.value ? (
-                  <div className="mt-1 text-sm font-semibold">الخصم: {offer.value}</div>
+                  <div className="mt-1 text-sm font-semibold">{t('visit.offer.discount')}: {offer.value}</div>
                 ) : null}
                 {offer.expires_at ? (
                   <div className="mt-1 text-sm tabular-nums opacity-80">
-                    ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
+                    {t('visit.offer.expires')} {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
                   </div>
                 ) : null}
                 {/* THE CODE, WHEN THE OFFER CARRIES ONE. The customer says «عندي رمز» and reads
@@ -564,7 +568,7 @@ export function Visit() {
                     onChange={(e) => setApplying(e.target.checked)}
                     className="h-5 w-5"
                   />
-                  <span>طبّقتُ العرض على هذه الزيارة</span>
+                  <span>{t('visit.offer.applyLabel')}</span>
                 </label>
               </div>
             ) : null}
@@ -576,13 +580,13 @@ export function Visit() {
             {balance ? (
               <div className="rounded-xl bg-surface-1 p-3 shadow-sm">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-text-secondary">رصيده</span>
-                  <span className="tabular-nums text-xl font-semibold">{balance.points} نقطة</span>
+                  <span className="text-sm text-text-secondary">{t('visit.points.balance')}</span>
+                  <span className="tabular-nums text-xl font-semibold">{balance.points} {t('visit.points.unit')}</span>
                 </div>
 
                 {redeemed ? (
                   <p className="mt-2 rounded-lg bg-accent-soft p-2 text-accent-on-soft">
-                    تم استبدال «{redeemed}» — أخبره برصيده الجديد.
+                    {tf(t, 'visit.points.redeemed', { name: redeemed })}
                   </p>
                 ) : null}
 
@@ -609,12 +613,12 @@ export function Visit() {
                                 holding out his hand (د-14أ). */}
                             {r.needs_approval ? (
                               <span className="ms-2 rounded bg-surface-3 px-1.5 py-0.5 text-xs text-text-secondary">
-                                باعتماد المدير
+                                {t('visit.points.needsApproval')}
                               </span>
                             ) : null}
                           </span>
                           <span className="shrink-0 tabular-nums text-sm text-text-secondary">
-                            {r.cost} نقطة · ويبقى له {balance.points - r.cost}
+                            {tf(t, 'visit.points.costAndRemaining', { cost: r.cost, remaining: balance.points - r.cost })}
                           </span>
                         </button>
                         {approving === r.id ? (
@@ -623,15 +627,15 @@ export function Visit() {
                               type="text"
                               value={approvedBy}
                               onChange={(e) => setApprovedBy(e.target.value)}
-                              placeholder="اسم المدير المعتمِد"
-                              aria-label="اسم المدير المعتمِد"
+                              placeholder={t('visit.points.approverPlaceholder')}
+                              aria-label={t('visit.points.approverPlaceholder')}
                               className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2"
                             />
                             <Button
                               disabled={!approvedBy.trim() || Boolean(redeeming)}
                               onClick={() => spend(r.id, r.name, approvedBy.trim())}
                             >
-                              اعتمد واستبدل
+                              {t('visit.points.approveAndRedeem')}
                             </Button>
                           </div>
                         ) : null}
@@ -643,7 +647,7 @@ export function Visit() {
                   // Zero means either he can afford everything or the shop has no rewards, and
                   // «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
                   <p className="mt-1 text-sm text-text-secondary">
-                    تبقّى له {balance.to_next_reward} نقطة لأقرب مكافأة.
+                    {tf(t, 'visit.points.toNextReward', { n: balance.to_next_reward })}
                   </p>
                 ) : null}
               </div>
@@ -690,7 +694,7 @@ export function Visit() {
         <div dir="ltr" className="text-center text-3xl font-semibold tabular-nums">{phone}</div>
         {name ? <div className="mt-1 text-center text-lg">{name}</div> : null}
         <div className="mt-1 text-center text-sm text-text-secondary">
-          لوحة <span dir="ltr">{plate}</span>
+          {t('visit.plate.prefix')} <span dir="ltr">{plate}</span>
         </div>
       </div>
 
@@ -705,11 +709,11 @@ export function Visit() {
         }}
         className="min-h-[44px] rounded-xl bg-surface-2 text-base font-semibold"
       >
-        تعديل بيانات العميل
+        {t('visit.editCustomer')}
       </button>
 
       <p className="text-center text-xs text-text-secondary">
-        باعها؟ أو غيّر رقمه؟ عدّل هنا ويُحفَظ مع الزيارة.
+        {t('visit.editHint')}
       </p>
     </div>
   );
@@ -771,7 +775,7 @@ export function Visit() {
         onChange={(e) => setPlateText(formatPlate(e.target.value))}
         autoFocus
         placeholder="1234 ABC"
-        aria-label="رقم اللوحة"
+        aria-label={t('visit.plate.ariaLabel')}
         dir="ltr"
         className="h-[clamp(3.25rem,9dvh,4rem)] rounded-2xl bg-surface-1 px-4 text-center text-xl font-semibold uppercase tabular-nums shadow-sm placeholder:font-normal placeholder:normal-case placeholder:text-text-secondary"
       />
@@ -803,10 +807,10 @@ export function Visit() {
 
       <p className="text-center text-sm text-text-secondary">
         {plateKnown && !changing
-          ? 'سيارة معروفة عندنا — صاحبها في الصفحة التالية.'
+          ? t('visit.plate.hint.known')
           : (plateHits ?? []).length > 0
-            ? 'سيارات تبدأ بما كتبت — اختر واحدة.'
-            : 'الأرقام ثم الحروف — والفاصل يظهر وحده.'}
+            ? t('visit.plate.hint.matches')
+            : t('visit.plate.hint.typing')}
       </p>
     </div>
   );
@@ -843,14 +847,14 @@ export function Visit() {
       {chosen.length > 0 ? (
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="text-sm text-text-secondary tabular-nums">
-            المختار: {chosen.length}
+            {tf(t, 'visit.chosen.count', { n: chosen.length })}
           </span>
           <button
             type="button"
             onClick={() => setChosen([])}
             className="min-h-[44px] rounded-xl bg-surface-2 px-4 text-sm font-semibold"
           >
-            مسح المختارة
+            {t('visit.chosen.clear')}
           </button>
         </div>
       ) : null}
@@ -867,13 +871,13 @@ export function Visit() {
         if (!markedOffer && spendable.length === 0) return null;
         return (
           <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-accent-soft px-3 py-2">
-            <span className="text-sm text-accent-on-soft">على ما اخترته:</span>
+            <span className="text-sm text-accent-on-soft">{t('visit.chosen.appliesTo')}</span>
             {markedOffer ? (
               <Button
                 onClick={() => setApplying(true)}
                 variant={applying ? 'solid' : 'ghost'}
               >
-                {applying ? '✓ سيُطبَّق العرض' : 'طبّق العرض'}
+                {applying ? t('visit.applyOffer.applied') : t('visit.applyOffer.apply')}
               </Button>
             ) : null}
             {/* THE ONE-TAP STRIP CARRIES ONLY WHAT ONE TAP CAN ACTUALLY DO. A reward above the
@@ -887,7 +891,9 @@ export function Visit() {
                 disabled={Boolean(redeeming) || redeemed === r.id}
                 onClick={() => spend(r.id, r.name)}
               >
-                {redeemed === r.id ? `✓ ${r.name}` : `استبدل: ${r.name} (${r.cost})`}
+                {redeemed === r.id
+                  ? tf(t, 'visit.redeem.done', { name: r.name })
+                  : tf(t, 'visit.redeem.action', { name: r.name, cost: r.cost })}
               </Button>
             ))}
           </div>
@@ -919,10 +925,10 @@ export function Visit() {
       {!hasPerks && phone.length >= 9 ? (
         <p className="mb-2 rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
           {perks === 'failed'
-            ? 'تعذّر التحقق من عروضه ونقاطه الآن — سجّل الزيارة، ولا شيء يضيع.'
+            ? t('visit.perks.failed')
             : subject
-              ? 'لا عروض ولا نقاط مستحقّة لهذا العميل.'
-              : 'عميل جديد — أول زيارة له عندك.'}
+              ? t('visit.perks.none')
+              : t('visit.perks.newCustomer')}
         </p>
       ) : null}
             {/* SEPARATED FROM THE TILES. Glued directly under the grid it read as another tile
@@ -932,7 +938,7 @@ export function Visit() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="الاسم (اختياري)"
+                placeholder={t('visit.name.placeholder')}
                 className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
               />
 
@@ -941,7 +947,7 @@ export function Visit() {
                   value={meter}
                   onChange={(e) => setMeter(digitsOnly(e.target.value))}
                   inputMode="numeric"
-                  placeholder="قراءة العدّاد"
+                  placeholder={t('visit.meter.placeholder')}
                   dir="ltr"
                   className="h-14 rounded-xl bg-surface-1 px-4 text-lg tabular-nums shadow-sm placeholder:text-text-secondary"
                 />
@@ -955,6 +961,9 @@ export function Visit() {
     // anything this wrapper adds is height the panes cannot see and the arrows pay for.
     <main className="bg-surface-0 text-text-primary">
       <div className="mx-auto max-w-4xl">
+        <div className="flex justify-end p-2">
+          <OperatorLocaleSwitcher />
+        </div>
         {/* NO "TODAY'S CUSTOMERS" STRIP HERE, AND IT WAS THE FIRST THING ON THE SCREEN.
             The premise was that the same car returns an hour later. It does not: the customer
             drives away and comes back in weeks. So the strip spent its height — the height the
@@ -980,20 +989,20 @@ export function Visit() {
         <Steps
           steps={[
             ...(showPlate
-              ? [{ id: 'plate', title: 'رقم اللوحة', body: platePane }]
+              ? [{ id: 'plate', title: t('visit.step.plate'), body: platePane }]
               : []),
             // TWO FACES, NOT TWO OUTCOMES. When the plate already answered, this page STAYS and
             // shows who it found — the operator has to be able to see that the car in front of him
             // belongs to the number about to be saved. Skipping it outright hid exactly the thing
             // he would want to check, and left a sold car quietly reminding its previous owner.
-            { id: 'who', title: showPlate ? 'صاحب السيارة' : 'رقم جوال العميل',
+            { id: 'who', title: showPlate ? t('visit.step.carOwner') : t('visit.step.customerPhone'),
               body: plateKnown && !changing ? knownPane : identityPane },
-            { id: 'perks', title: 'عروضه ونقاطه',
+            { id: 'perks', title: t('visit.step.perks'),
               // ASKING KEEPS THE STEP. Removing it the instant a request goes out and restoring it
               // when the answer lands moves the ground under a thumb already in motion.
               when: perks === 'asking' || hasPerks,
               body: perksPane },
-            { id: 'what', title: 'الخدمات', body: detailsPane },
+            { id: 'what', title: t('visit.step.services'), body: detailsPane },
           ]}
           // THE SAVE BAR LIVES INSIDE THE JOURNEY, and it used to sit after it. That is what pushed
           // the arrows below the fold: the pane sized itself to the window while a second bar was
@@ -1003,7 +1012,7 @@ export function Visit() {
     <div className="flex items-center gap-3">
           {pending.length > 0 ? (
             <span className="shrink-0 text-sm text-text-secondary tabular-nums">
-              بانتظار الإرسال: {pending.length}
+              {tf(t, 'visit.pending', { n: pending.length })}
             </span>
           ) : null}
           {/* AND THE ONES THAT WILL NEVER GO. The queue has always told these apart — a 400, a 403
@@ -1013,7 +1022,7 @@ export function Visit() {
               silence. That silence was the whole reason for holding it rather than dropping it. */}
           {stuck.length > 0 ? (
             <span className="shrink-0 text-sm text-danger tabular-nums">
-              لم تُرسَل: {stuck.length} — تواصل معنا
+              {tf(t, 'visit.stuck', { n: stuck.length })}
             </span>
           ) : null}
           {note ? <span className="shrink-0 text-sm text-accent">{note}</span> : null}
@@ -1023,7 +1032,7 @@ export function Visit() {
             disabled={!ready}
             className="h-11 flex-1 rounded-xl bg-accent text-base font-bold text-white transition-transform active:scale-[0.98] disabled:opacity-40"
           >
-            حفظ وإرسال
+            {t('visit.save')}
           </button>
     </div>
           )}

@@ -31,6 +31,7 @@ import { currentBranch, loadBranch, saveBranch, type ScopeBranch } from './branc
 import type { Owned } from './apps';
 import { isSignedIn, useSession } from './session';
 import { WELCOME_TRIAL_KEY } from './auth';
+import { OperatorI18nProvider } from './operator-i18n';
 
 export function App() {
   const { session, signedIn, signOut } = useSession();
@@ -276,7 +277,13 @@ export function App() {
             ended. One line here says it before the first press, and says what still works.
             It renders nothing at all while the answer is unknown or the month has time left. */}
         <SubscriptionBar owned={owned} now={Date.now()} />
-        <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
+        {/* THE OPERATOR'S OWN LANGUAGE, ABOVE EVERY SCREEN THAT READS useOperatorI18n(). Placed
+            here rather than per-screen: the preference is read once (his account, not the
+            device — see operator-i18n.tsx's own header) and every field screen shares one
+            provider instead of racing separate fetches for the same row. */}
+        <OperatorI18nProvider session={session}>
+          <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
+        </OperatorI18nProvider>
       </LegalGate>
     </AppShell>
     {welcomeOverlay}
