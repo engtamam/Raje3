@@ -1,10 +1,16 @@
 /**
  * جدول العملاء — المرحلة ١ من "العملاء والدعم" (انظر AdminCustomers.tsx's own header). يجيب كل
  * المستأجرين (tenant.list، لا فلترة خادم بعد — TENANT_LIST_LIMIT=100 حالياً، بحث اسم يصير محلياً
- * بالمتصفح إلى أن يُضاف معامل بحث بالخادم) ويربطهم بأحدث اشتراك لكل واحد عبر خمس استدعاءات
+ * بالمتصفح إلى أن يُضاف معامل بحث بالخادم) ويربطهم بأحدث تطبيق مفعَّل لكل واحد عبر خمس استدعاءات
  * bulk (حالة بحالة: trialing/active/past_due/paused/canceled) بدل N+1 طلب لكل صف — نفس منطق
  * billing.platform_subscriptions المتاح فعلاً بفلتر tenant، هنا نستخدمه بفلتر status فقط ونبني
- * خارطة tenant→اشتراك بالمتصفح.
+ * خارطة tenant→تطبيق بالمتصفح.
+ *
+ * ملاحظة تسمية: "Subscription"/"اشتراك" أدناه اسم نوع البيانات الخام القادم من billing-service —
+ * كل صف بهذا الجدول هو تطبيق واحد اشتراه المستأجر (لا "اشتراك أساسي" واحد إجباري). المصطلح
+ * الظاهر للمستخدم دائماً "تطبيق"؛ لا يوجد "أساس" بالمنتج — كل تطبيق مستقل تماماً عن غيره
+ * (تأكَّد هذا بقراءة billing_service.py's own subscribe() مباشرة: بلا أي قيد "تطبيق أساسي مطلوب
+ * أولاً"، ومحاذاة دورة الفوترة بين عدة تطبيقات بنفس المستأجر مبنية بالفعل بالمحرّك).
  *
  * البحث بالجوال غير متاح بعد — لا معامل بحث ولا فهرس جوال على المستأجر نفسه بالخادم حالياً (الجوال
  * يعيش على عضويات identity-service، لا على سجل tenant). موثّق كفجوة معروفة، لا تظاهر بدعمها.
@@ -171,7 +177,7 @@ export function CustomerList({ session }: { session: AdminSession }) {
               <tr>
                 <th className="p-3 text-start">المنشأة</th>
                 <th className="p-3 text-start">الحالة</th>
-                <th className="p-3 text-start">الاشتراك</th>
+                <th className="p-3 text-start">التطبيق</th>
                 <th className="p-3 text-start">تاريخ الانضمام</th>
               </tr>
             </thead>
@@ -191,7 +197,7 @@ export function CustomerList({ session }: { session: AdminSession }) {
                           <Badge tone={subMeta.tone}>{subMeta.label}</Badge>
                           <span className="text-text-secondary">{planNames.get(sub!.plan_id) ?? sub!.plan_id}</span>
                         </span>
-                      ) : <span className="text-text-muted">بلا اشتراك</span>}
+                      ) : <span className="text-text-muted">بلا تطبيق مفعّل</span>}
                     </td>
                     <td className="p-3 text-text-secondary" dir="ltr">{t.created_at?.slice(0, 10)}</td>
                   </tr>

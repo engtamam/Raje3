@@ -132,7 +132,7 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
 
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     expect(screen.getByText('نظرة عامة')).toBeTruthy();
-    expect(screen.getByText('الاشتراك والفوترة')).toBeTruthy();
+    expect(screen.getByText('التطبيقات والفوترة')).toBeTruthy();
   });
 
   it('shows the plan NAME, not the raw plan_id, in both the table and the detail view', async () => {

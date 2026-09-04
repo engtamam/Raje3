@@ -2,7 +2,7 @@
  * ملف العميل — نافذة مركزية كبيرة (rj-ui/Modal، size="xl") بستة تبويبات، لا شريط جانبي — طُلب
  * صراحة بدل الشكل الجانبي الأول (انظر AdminCustomers.tsx's own header للخطة الكاملة).
  *
- * المرحلة ١: "نظرة عامة" و"الاشتراك والفوترة" ببيانات حقيقية. المرحلة ٢: "السجل والتدقيق" حقيقي
+ * المرحلة ١: "نظرة عامة" و"التطبيقات والفوترة" ببيانات حقيقية. المرحلة ٢: "السجل والتدقيق" حقيقي
  * كذلك — audit.query يدعم فلتر tenant فعلاً بالخادم، اكتشفنا هذا بالفحص المباشر بعد ما ذكرته
  * خطأً كفجوة بالاقتراح الأول. الباقي (الفروع والمستخدمين، التذاكر والدعم، واتساب) يبقى "قريباً"
  * صريح يشرح بالضبط ما ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
@@ -48,7 +48,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
         <Segmented value={tab} onChange={(v) => setTab(v as Tab)}
                   options={[
                     { value: 'overview', label: 'نظرة عامة' },
-                    { value: 'billing', label: 'الاشتراك والفوترة' },
+                    { value: 'billing', label: 'التطبيقات والفوترة' },
                     { value: 'seats', label: 'الفروع والمستخدمين' },
                     { value: 'tickets', label: 'التذاكر والدعم' },
                     { value: 'whatsapp', label: 'واتساب' },
@@ -87,13 +87,13 @@ function OverviewTab({ tenant, subscription, planNames }: {
   return (
     <div className="flex flex-col gap-3">
       <Row label="الحالة"><Badge tone={tenant.status === 'active' ? 'success' : tenant.status === 'suspended' ? 'danger' : 'neutral'}>{tenant.status}</Badge></Row>
-      <Row label="الاشتراك">
+      <Row label="التطبيق">
         {subMeta ? (
           <span className="flex items-center gap-2">
             <Badge tone={subMeta.tone}>{subMeta.label}</Badge>
             <span>{planNames.get(subscription!.plan_id) ?? subscription!.plan_id}</span>
           </span>
-        ) : <span className="text-text-muted">بلا اشتراك</span>}
+        ) : <span className="text-text-muted">بلا تطبيق مفعّل</span>}
       </Row>
       <Row label="تاريخ الانضمام"><span dir="ltr">{tenant.created_at?.slice(0, 10)}</span></Row>
       <Row label="آخر تحديث"><span dir="ltr">{tenant.updated_at?.slice(0, 10)}</span></Row>
@@ -137,11 +137,11 @@ function BillingTab({ session, tenant, catalog, planNames }: {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h3 className="mb-2 font-medium">الاشتراكات</h3>
+        <h3 className="mb-2 font-medium">التطبيقات المفعّلة</h3>
         {!subsAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p>
          : subs === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
          : subs === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
-         : subs.length === 0 ? <p className="text-sm text-text-muted">بلا اشتراكات.</p>
+         : subs.length === 0 ? <p className="text-sm text-text-muted">بلا تطبيقات مفعّلة.</p>
          : (
           <div className="flex flex-col gap-2">
             {subs.map((s) => (
