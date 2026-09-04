@@ -20,6 +20,9 @@ const CATALOG = {
       { id: 'notifications.submit_wa_template', label: 'x', method: 'POST' as const,
        path: '/api/v1/whatsapp/templates/{name}/{language}/submit',
        capability: 'notifications.templates', confirm: true },
+      { id: 'notifications.test_send_wa', label: 'x', method: 'POST' as const,
+       path: '/api/v1/whatsapp/templates/test-send',
+       capability: 'notifications.templates', confirm: true },
     ] },
   ],
   unreachable: [],
@@ -132,6 +135,71 @@ describe('AdminWhatsAppTemplates', () => {
     fireEvent.click(screen.getAllByText(/^معتمد/)[0]);
     await waitFor(() => expect(screen.queryByText('auth.otp')).toBeNull());
     expect(screen.getByText('welcome')).toBeTruthy();
+  });
+
+  it('test-send panel: free text requires confirmation, calls test-send with mode=text', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [tpl()] })
+      .mockResolvedValueOnce({ sent: true, wamid: 'wamid.123' });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
+    fireEvent.click(screen.getByText('إرسال تجريبي'));
+
+    fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/نص الرسالة/), { target: { value: 'وعليكم السلام' } });
+    fireEvent.click(screen.getByText('إرسال'));
+
+    expect(reqMock).not.toHaveBeenCalledWith(
+      '/api/v1/whatsapp/templates/test-send', 'POST', expect.anything(), 'tok-1');
+    await waitFor(() => expect(screen.getByText(/إرسال رسالة تجريبية حقيقية؟/)).toBeTruthy());
+
+    fireEvent.click(screen.getByText('تأكيد'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/whatsapp/templates/test-send', 'POST',
+      { to: '966500000000', mode: 'text', message: 'وعليكم السلام' }, 'tok-1'));
+    await waitFor(() => expect(screen.getByText(/wamid\.123/)).toBeTruthy());
+  });
+
+  it('test-send panel: template mode fills variable fields and sends them in order', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [tpl({ status: 'approved' })] })
+      .mockResolvedValueOnce({ sent: true, wamid: 'wamid.456' });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
+    fireEvent.click(screen.getByText('إرسال تجريبي'));
+    fireEvent.click(screen.getByText(/بقالب معتمد/));
+
+    fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/^القالب/), { target: { value: 'auth.otp::ar' } });
+    fireEvent.change(screen.getByLabelText('{{code}}'), { target: { value: '482913' } });
+    fireEvent.click(screen.getByText('إرسال'));
+    fireEvent.click(screen.getByText('تأكيد'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/whatsapp/templates/test-send', 'POST',
+      { to: '966500000000', mode: 'template', template_name: 'auth.otp', language: 'ar',
+       variables: ['482913'] }, 'tok-1'));
+  });
+
+  it('test-send panel: NOT_CONNECTED reports plainly, never a silent failure', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [tpl()] })
+      .mockResolvedValueOnce({ sent: false, reason: 'NOT_CONNECTED' });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
+    fireEvent.click(screen.getByText('إرسال تجريبي'));
+    fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/نص الرسالة/), { target: { value: 'test' } });
+    fireEvent.click(screen.getByText('إرسال'));
+    fireEvent.click(screen.getByText('تأكيد'));
+
+    await waitFor(() => expect(screen.getByText(/الرقم غير مربوط بعد/)).toBeTruthy());
   });
 
   it('no templates yet, no capability — each says so plainly, never a silent blank screen', async () => {

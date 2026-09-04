@@ -14,7 +14,7 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  FileText, Clock, CheckCircle2, XCircle, PauseCircle, Ban, Plus, Send, RefreshCw,
+  FileText, Clock, CheckCircle2, XCircle, PauseCircle, Ban, Plus, Send, RefreshCw, FlaskConical,
 } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Select, Textarea } from '../rj-ui/Field';
@@ -80,6 +80,8 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
     ? findAction(catalog, 'notifications.register_wa_template') : undefined;
   const submitAction = catalog !== 'loading' && catalog !== 'failed'
     ? findAction(catalog, 'notifications.submit_wa_template') : undefined;
+  const testSendAction = catalog !== 'loading' && catalog !== 'failed'
+    ? findAction(catalog, 'notifications.test_send_wa') : undefined;
 
   function reload() {
     if (!listAction) return;
@@ -128,6 +130,11 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
           ) : null}
         </div>
       </div>
+
+      {testSendAction ? (
+        <TestSendPanel session={session} action={testSendAction}
+                      templates={Array.isArray(templates) ? templates : []} />
+      ) : null}
 
       {Array.isArray(templates) && templates.length > 0 ? (
         <Segmented value={filter} onChange={(v) => setFilter(v as TemplateStatus | 'all')}
@@ -244,6 +251,139 @@ function TemplateCard({ template, session, submitAction, onChanged }: {
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSubmit} busy={busy}
                     title={`إرسال "${template.name}" لمراجعة ميتا؟`}
                     body="لا يمكن التراجع بعد الإرسال — المراجعة تصير عند ميتا نفسها، قد تأخذ ساعات لأيام." />
+    </section>
+  );
+}
+
+/**
+ * إرسال تجريبي — يتجاوز خط الإرسال العادي عمداً (نفس تجاوز /whatsapp/register و/whatsapp/status
+ * لخط الإرسال العادي) عشان يجاوب سؤال "هل الاتصال شغّال فعلاً" بلا انتظار WHATSAPP_CHAIN. رسالة
+ * واحدة، بلا طابور، بلا تكرار — تُسجَّل بالتدقيق تلقائياً من طرف الخادم نفسه.
+ */
+function TestSendPanel({ session, action, templates }: {
+  session: AdminSession; action: AdminAction; templates: Template[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'text' | 'template'>('text');
+  const [to, setTo] = useState('');
+  const [message, setMessage] = useState('');
+  const [templateKey, setTemplateKey] = useState('');
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [arm, setArm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<{ sent: boolean; wamid?: string; reason?: string } | null>(null);
+
+  const selected = templates.find((t) => `${t.name}::${t.language}` === templateKey);
+  const canSend = to.trim().length > 0
+    && (mode === 'text' ? message.trim().length > 0 : !!selected);
+
+  function onSelectTemplate(key: string) {
+    setTemplateKey(key);
+    const t = templates.find((x) => `${x.name}::${x.language}` === key);
+    setValues(Object.fromEntries((t?.variables ?? []).map((v) => [v, ''])));
+  }
+
+  async function doSend() {
+    if (!canSend) return;
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      const body = mode === 'text'
+        ? { to, mode: 'text', message }
+        : { to, mode: 'template', template_name: selected!.name, language: selected!.language,
+           variables: (selected!.variables ?? []).map((v) => values[v] ?? '') };
+      const out = await req<{ sent: boolean; wamid?: string; reason?: string }>(
+        action.path, 'POST', body, session.access_token);
+      setResult(out);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الإرسال.');
+    } finally {
+      setBusy(false);
+      setArm(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+             className="flex w-full items-center gap-2.5 text-start">
+        <span className="inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+          <FlaskConical size={16} />
+        </span>
+        <span className="flex-1">
+          <span className="block font-medium">إرسال تجريبي</span>
+          <span className="text-label text-text-secondary">
+            رسالة واحدة، مباشرة عبر ميتا — يتجاوز إعدادات خط الإرسال العادي، للتأكد إن الاتصال شغّال
+          </span>
+        </span>
+      </button>
+
+      {open ? (
+        <div className="flex flex-col gap-3 border-t border-border-subtle pt-3">
+          <Segmented value={mode} onChange={(v) => { setMode(v as 'text' | 'template'); setResult(null); }}
+                    options={[
+                      { value: 'text', label: 'نص حر (يحتاج نافذة ٢٤ ساعة مفتوحة)' },
+                      { value: 'template', label: 'بقالب معتمد' },
+                    ]} />
+
+          <Field label="رقم المستقبل (بالصيغة الدولية، بدون +)" required htmlFor="wa-test-to">
+            <Input id="wa-test-to" dir="ltr" value={to} onChange={(e) => setTo(e.target.value)}
+                  placeholder="9665xxxxxxxx" />
+          </Field>
+
+          {mode === 'text' ? (
+            <Field label="نص الرسالة" required htmlFor="wa-test-msg">
+              <Textarea id="wa-test-msg" rows={3} value={message}
+                       onChange={(e) => setMessage(e.target.value)} />
+            </Field>
+          ) : (
+            <>
+              <Field label="القالب" required htmlFor="wa-test-tpl">
+                <Select id="wa-test-tpl" value={templateKey} onChange={(e) => onSelectTemplate(e.target.value)}>
+                  <option value="">اختر قالباً…</option>
+                  {templates.map((t) => (
+                    <option key={`${t.name}::${t.language}`} value={`${t.name}::${t.language}`}>
+                      {t.name} ({t.language}) — {STATUS_META[t.status]?.label ?? t.status}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {selected && selected.status !== 'approved' ? (
+                <p role="alert" className="text-label text-warning">
+                  هذا القالب ليس معتمداً بعد — ميتا سترفض الإرسال حتى يُعتمد.
+                </p>
+              ) : null}
+              {selected?.variables.map((v) => (
+                <Field key={v} label={`{{${v}}}`} htmlFor={`wa-test-var-${v}`}>
+                  <Input id={`wa-test-var-${v}`} value={values[v] ?? ''}
+                        onChange={(e) => setValues((prev) => ({ ...prev, [v]: e.target.value }))} />
+                </Field>
+              ))}
+            </>
+          )}
+
+          {result ? (
+            result.sent ? (
+              <p className="text-label text-success">أُرسلت. wamid: <span dir="ltr">{result.wamid}</span></p>
+            ) : (
+              <p role="alert" className="text-label text-danger">
+                لم تُرسل — {result.reason === 'NOT_CONNECTED' ? 'الرقم غير مربوط بعد' : result.reason}
+              </p>
+            )
+          ) : null}
+          {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+
+          <Button size="sm" onClick={() => setArm(true)} disabled={!canSend || busy} className="w-fit gap-2">
+            <Send size={14} /> إرسال
+          </Button>
+        </div>
+      ) : null}
+
+      <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSend} busy={busy}
+                    title="إرسال رسالة تجريبية حقيقية؟"
+                    body={`ستصل رقم ${to} فعلياً الآن، مباشرة عبر ميتا.`} />
     </section>
   );
 }
