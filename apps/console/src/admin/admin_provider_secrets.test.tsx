@@ -156,6 +156,30 @@ describe('AdminProviderSecrets', () => {
     expect(screen.getByText(/aistudio\.google\.com/)).toBeTruthy();
   });
 
+  it('generating WHATSAPP_WEBHOOK_VERIFY_TOKEN fills a strong random value and reveals it to copy', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      secrets: [{ key: 'WHATSAPP_WEBHOOK_VERIFY_TOKEN', label: 'توكن تحقق الـwebhook',
+                 configured: false, last4: null, updated_at: null, updated_by: null }],
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('Meta (واتساب)');
+    await waitFor(() => expect(screen.getByText('توليد')).toBeTruthy());
+
+    const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
+    expect(input.type).toBe('password');
+    fireEvent.click(screen.getByText('توليد'));
+
+    // revealed as plain text so it can actually be read and pasted into Meta's own webhook config
+    expect(input.type).toBe('text');
+    expect(input.value.length).toBeGreaterThan(30);   // 32 random bytes, base64url — long, not a placeholder
+
+    // typing over the generated value un-reveals it again — it is no longer the fresh value shown
+    fireEvent.change(input, { target: { value: 'hand-typed' } });
+    expect(input.type).toBe('password');
+  });
+
   it('never renders any "reveal" or "show" control', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({

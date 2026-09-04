@@ -12,9 +12,15 @@
  * is cleared the instant a save resolves, success or failure, and there is no "show" affordance
  * anywhere below — not behind a second click, not behind a second capability. A future edit that
  * wants to add one should read the backend module's own docstring first.
+ *
+ * ONE DELIBERATE EXCEPTION: GENERATABLE keys (below) are values WE invent, not ones a provider
+ * hands us — nothing is ever "read back" because nothing was ever stored yet. Generating one
+ * reveals it in plain text for exactly as long as it takes to copy it into Meta's own webhook
+ * config, the one other place it has to match — this is showing a brand-new local value, not
+ * the write-only guarantee above, which is about a value already saved.
  */
 import { useEffect, useState } from 'react';
-import { CircleHelp, ChevronDown, MessageCircle, Sparkles } from 'lucide-react';
+import { CircleHelp, ChevronDown, Copy, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
@@ -52,6 +58,19 @@ const SECRET_HELP: Record<string, string> = {
   WHATSAPP_BUSINESS_ACCOUNT_ID: 'من نفس WhatsApp Manager — معرّف حساب واتساب الأعمال (WABA ID) نفسه، يظهر أعلى لوحة الحساب. يلزم فقط لتسجيل القوالب، لا للإرسال نفسه.',
   GEMINI_API_KEY: 'من Google AI Studio (aistudio.google.com/apikey) — الأسهل، بلا مشروع GCP. أو من GCP نفسه (console.cloud.google.com): فعّل "Generative Language API" وأنشئ مفتاحاً من Credentials، لو تبي تربطه بمشروع/فوترة محددة.',
 };
+
+// مفاتيح نخترعها نحن، لا يصدرها مزوّد خارجي — زر "توليد" يبني قيمة عشوائية قوية بدل ما يُكتب
+// يدوياً (عرضة للأخطاء وضعف العشوائية). كل مفتاح هنا يُدخَل بنفس القيمة بمكان ثانٍ خارج هذا
+// النظام (هنا: إعداد الـwebhook بلوحة Meta) — القيمة تُعرض فور توليدها لأنها لم تُحفظ بعد أصلاً.
+const GENERATABLE = new Set(['WHATSAPP_WEBHOOK_VERIFY_TOKEN']);
+
+/** توكن عشوائي قوي بترميز base64url (32 بايت ~ 43 حرفاً) عبر Web Crypto — لا Math.random(). */
+function generateToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 // أي مفتاح يخص أي مزوّد — بطاقة واحدة لكل مزوّد، لا صف طويل لكل مفتاح على حدة. مفتاح غير معروف
 // (مزوّد سادس أُضيف بـsecret_registry.py ولم يُضف هنا) يقع في بطاقة "أخرى" العامة، لا يُفقد أبداً.
@@ -186,8 +205,21 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
   const [error, setError] = useState('');
   const [savedLast4, setSavedLast4] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  // يتفعّل فقط بعد ضغط "توليد" لهذا الصف — يكشف الحقل نصاً صريحاً ريثما تُنسخ القيمة، ويُطفأ
+  // فوراً بأي كتابة يدوية أو بعد الحفظ (نفس تنظيف `value` نفسه، ما فيه قيمة قديمة تبقى مكشوفة).
+  const [revealed, setRevealed] = useState(false);
   const inputId = `provider-secret-${row.key}`;
   const help = SECRET_HELP[row.key];
+  const generatable = GENERATABLE.has(row.key);
+
+  function doGenerate() {
+    setValue(generateToken());
+    setRevealed(true);
+  }
+
+  async function copyValue() {
+    try { await navigator.clipboard.writeText(value); } catch { /* المتصفح رفض — تُنسخ يدوياً */ }
+  }
 
   async function doSave() {
     if (!updateAction || !value) return;
@@ -206,6 +238,7 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
       // request. A failed save is retried by typing again, never by re-submitting what is
       // already gone from this component's own state.
       setValue('');
+      setRevealed(false);
       setBusy(false);
       setArm(false);
     }
@@ -256,11 +289,25 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
               onSubmit={(e) => { e.preventDefault(); setArm(true); }}>
           <div className="flex-1">
             <label className="text-label font-medium text-text-secondary" htmlFor={inputId}>القيمة الجديدة</label>
-            {/* type="password" + autoComplete="off" — masked as it is typed, never stored anywhere
-               but this one field, and cleared the instant the request settles either way. */}
-            <Input id={inputId} dir="ltr" type="password" autoComplete="off" value={value}
-                  onChange={(e) => setValue(e.target.value)} />
+            <div className="flex items-center gap-1.5">
+              {/* type="password" + autoComplete="off" — masked as it is typed, never stored
+                 anywhere but this one field, and cleared the instant the request settles either
+                 way. `revealed` (only true right after "توليد" على قيمة لم تُحفظ بعد) switches
+                 it to plain text so the value can actually be read and copied elsewhere. */}
+              <Input id={inputId} dir="ltr" type={revealed ? 'text' : 'password'} autoComplete="off"
+                    value={value}
+                    onChange={(e) => { setValue(e.target.value); setRevealed(false); }} />
+              {revealed && value ? (
+                <button type="button" onClick={copyValue} aria-label="انسخ القيمة"
+                       className="shrink-0 text-text-secondary hover:text-accent">
+                  <Copy size={15} />
+                </button>
+              ) : null}
+            </div>
           </div>
+          {generatable ? (
+            <Button type="button" size="sm" variant="outline" onClick={doGenerate}>توليد</Button>
+          ) : null}
           <Button type="submit" size="sm" disabled={!value}>تحديث</Button>
         </form>
       ) : null}
