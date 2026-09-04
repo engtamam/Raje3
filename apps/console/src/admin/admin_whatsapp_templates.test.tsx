@@ -202,6 +202,37 @@ describe('AdminWhatsAppTemplates', () => {
     await waitFor(() => expect(screen.getByText(/الرقم غير مربوط بعد/)).toBeTruthy());
   });
 
+  it('editing a rejected template prefills its values, locks name/language, and re-registers it', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({
+        templates: [tpl({ status: 'rejected', provider_template_id: 'meta123',
+                         rejection_reason: 'التصنيف لا يطابق المحتوى' })],
+      })
+      .mockResolvedValueOnce(tpl({ status: 'pending', body: 'رمزك الجديد هو {{code}}' }))
+      .mockResolvedValueOnce({ templates: [tpl({ status: 'pending', body: 'رمزك الجديد هو {{code}}' })] });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تعديل')).toBeTruthy());
+    fireEvent.click(screen.getByText('تعديل'));
+
+    const nameInput = await screen.findByLabelText(/الاسم/) as HTMLInputElement;
+    const langSelect = screen.getByLabelText('اللغة') as HTMLSelectElement;
+    expect(nameInput.value).toBe('auth.otp');
+    expect(nameInput.disabled).toBe(true);
+    expect(langSelect.disabled).toBe(true);
+    const bodyField = screen.getByLabelText(/نص القالب/) as HTMLTextAreaElement;
+    expect(bodyField.value).toBe('رمزك هو {{code}}');   // prefilled from the rejected template
+
+    fireEvent.change(bodyField, { target: { value: 'رمزك الجديد هو {{code}}' } });
+    fireEvent.click(screen.getByText('حفظ التعديل'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/whatsapp/templates', 'POST',
+      { name: 'auth.otp', language: 'ar', category: 'AUTHENTICATION',
+       body: 'رمزك الجديد هو {{code}}', variables: ['code'] }, 'tok-1'));
+  });
+
   it('no templates yet, no capability — each says so plainly, never a silent blank screen', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({ templates: [] });

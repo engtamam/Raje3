@@ -156,7 +156,7 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {shown.map((t) => (
             <TemplateCard key={t.id} template={t} session={session} submitAction={submitAction}
-                         onChanged={reload} />
+                         registerAction={registerAction} onChanged={reload} />
           ))}
         </div>
       )}
@@ -174,11 +174,13 @@ function findAction(catalog: AdminCatalog, id: string): AdminAction | undefined 
   return catalog.services.flatMap((s) => s.actions).find((a) => a.id === id);
 }
 
-function TemplateCard({ template, session, submitAction, onChanged }: {
-  template: Template; session: AdminSession; submitAction?: AdminAction; onChanged: () => void;
+function TemplateCard({ template, session, submitAction, registerAction, onChanged }: {
+  template: Template; session: AdminSession; submitAction?: AdminAction; registerAction?: AdminAction;
+  onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [arm, setArm] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
   const meta = STATUS_META[template.status] ?? STATUS_META.pending;
   const Icon = meta.icon;
@@ -240,17 +242,28 @@ function TemplateCard({ template, session, submitAction, onChanged }: {
 
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
 
-      {template.status === 'pending' && !template.provider_template_id && submitAction ? (
-        <Button size="sm" onClick={() => setArm(true)} disabled={busy} className="w-fit gap-2">
-          <Send size={14} /> أرسل للمراجعة
-        </Button>
-      ) : template.status === 'pending' && template.provider_template_id ? (
-        <p className="text-label text-text-secondary">أُرسل لميتا — بانتظار القرار.</p>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {template.status === 'pending' && !template.provider_template_id && submitAction ? (
+          <Button size="sm" onClick={() => setArm(true)} disabled={busy} className="w-fit gap-2">
+            <Send size={14} /> أرسل للمراجعة
+          </Button>
+        ) : template.status === 'pending' && template.provider_template_id ? (
+          <p className="text-label text-text-secondary">أُرسل لميتا — بانتظار القرار.</p>
+        ) : null}
+        {registerAction ? (
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>تعديل</Button>
+        ) : null}
+      </div>
 
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSubmit} busy={busy}
                     title={`إرسال "${template.name}" لمراجعة ميتا؟`}
                     body="لا يمكن التراجع بعد الإرسال — المراجعة تصير عند ميتا نفسها، قد تأخذ ساعات لأيام." />
+
+      {registerAction ? (
+        <RegisterDrawer session={session} action={registerAction} open={editing}
+                       initial={template} onClose={() => setEditing(false)}
+                       onCreated={() => { setEditing(false); onChanged(); }} />
+      ) : null}
     </section>
   );
 }
@@ -388,19 +401,39 @@ function TestSendPanel({ session, action, templates }: {
   );
 }
 
-function RegisterDrawer({ session, action, open, onClose, onCreated }: {
-  session: AdminSession; action: AdminAction; open: boolean; onClose: () => void; onCreated: () => void;
+/**
+ * التسجيل والتعديل نفس النموذج، نفس المسار — الخادم نفسه يعيد الحالة إلى "قيد المراجعة" تلقائياً
+ * عند تعديل قالب مرفوض (register() بـcore/whatsapp_templates.py)، فتعديل القالب هو نفسه "حاول
+ * ثانية" — بلا مسار منفصل. بوضع التعديل، الاسم واللغة مقفلان: هما مفتاح هوية القالب عند ميتا،
+ * وتغييرهما يسجّل قالباً جديداً منفصلاً بدل تعديل هذا.
+ */
+function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: {
+  session: AdminSession; action: AdminAction; open: boolean; initial?: Template;
+  onClose: () => void; onCreated: () => void;
 }) {
-  const [name, setName] = useState('');
-  const [language, setLanguage] = useState('ar');
-  const [category, setCategory] = useState('AUTHENTICATION');
-  const [body, setBody] = useState('');
-  const [variablesText, setVariablesText] = useState('');
+  const editingExisting = !!initial;
+  const [name, setName] = useState(initial?.name ?? '');
+  const [language, setLanguage] = useState(initial?.language ?? 'ar');
+  const [category, setCategory] = useState(initial?.category ?? 'AUTHENTICATION');
+  const [body, setBody] = useState(initial?.body ?? '');
+  const [variablesText, setVariablesText] = useState((initial?.variables ?? []).join(', '));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // كل فتحة للمحرّر تبدأ من قيم ذلك القالب بالضبط — لا قيم متسربة من فتحة سابقة لقالب آخر.
+  useEffect(() => {
+    if (!open) return;
+    setName(initial?.name ?? ''); setLanguage(initial?.language ?? 'ar');
+    setCategory(initial?.category ?? 'AUTHENTICATION'); setBody(initial?.body ?? '');
+    setVariablesText((initial?.variables ?? []).join(', ')); setError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only when the drawer (re)opens
+  }, [open]);
+
   const variables = variablesText.split(',').map((v) => v.trim()).filter(Boolean);
-  const canSave = /^[a-z0-9_]+$/.test(name) && body.trim().length > 0;
+  // في وضع التعديل الاسم مقفل — أي قيمة موجودة أصلاً صالحة بحكم أنها مسجّلة فعلاً، حتى لو لا
+  // تطابق قاعدة التسجيل الجديدة (اسم قديم بنقطة، مثلاً)؛ إعادة فرض القاعدة هنا كانت تقفل زر
+  // الحفظ نهائياً على أي قالب موجود مسبقاً لا يطابقها — عكس الهدف كاملاً.
+  const canSave = (editingExisting || /^[a-z0-9_]+$/.test(name)) && body.trim().length > 0;
 
   async function save() {
     if (!canSave) return;
@@ -409,34 +442,39 @@ function RegisterDrawer({ session, action, open, onClose, onCreated }: {
     try {
       await req(action.path, 'POST',
         { name, language, category, body, variables }, session.access_token);
-      setName(''); setBody(''); setVariablesText(''); setCategory('AUTHENTICATION'); setLanguage('ar');
+      if (!editingExisting) {
+        setName(''); setBody(''); setVariablesText(''); setCategory('AUTHENTICATION'); setLanguage('ar');
+      }
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر التسجيل.');
+      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="قالب واتساب جديد"
-           subtitle='النص من عندنا — الخدمة تخزّنه بلا فهم معناه، وترسله لميتا فقط عند "إرسال للمراجعة".'
+    <Drawer open={open} onClose={onClose} title={editingExisting ? `تعديل "${initial!.name}"` : 'قالب واتساب جديد'}
+           subtitle={editingExisting
+             ? 'حفظ التعديل يعيد القالب "قيد المراجعة" تلقائياً — نفس أثر إرساله للمراجعة من جديد.'
+             : 'النص من عندنا — الخدمة تخزّنه بلا فهم معناه، وترسله لميتا فقط عند "إرسال للمراجعة".'}
            footer={
              <>
                <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
                <Button type="button" disabled={!canSave || busy} onClick={save}>
-                 {busy ? 'جارٍ الحفظ…' : 'حفظ كمسوّدة'}
+                 {busy ? 'جارٍ الحفظ…' : editingExisting ? 'حفظ التعديل' : 'حفظ كمسوّدة'}
                </Button>
              </>
            }>
       <div className="flex flex-col gap-4">
         <Field label="الاسم (بالإنجليزية، أحرف صغيرة وأرقام و_ فقط)" required htmlFor="wa-tpl-name">
-          <Input id="wa-tpl-name" dir="ltr" value={name}
+          <Input id="wa-tpl-name" dir="ltr" value={name} disabled={editingExisting}
                 onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="auth_otp" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="اللغة" htmlFor="wa-tpl-lang">
-            <Select id="wa-tpl-lang" value={language} onChange={(e) => setLanguage(e.target.value)}>
+            <Select id="wa-tpl-lang" value={language} disabled={editingExisting}
+                   onChange={(e) => setLanguage(e.target.value)}>
               <option value="ar">العربية</option>
               <option value="en">English</option>
             </Select>
