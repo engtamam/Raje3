@@ -39,7 +39,7 @@ export interface Subscription {
   current_period_end: number; trial_end: number;
 }
 
-const TENANT_STATUS_META: Record<Tenant['status'], { label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' }> = {
+export const TENANT_STATUS_META: Record<Tenant['status'], { label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' }> = {
   pending: { label: 'قيد التفعيل', tone: 'warning' },
   active: { label: 'نشطة', tone: 'success' },
   suspended: { label: 'معلَّقة', tone: 'danger' },
