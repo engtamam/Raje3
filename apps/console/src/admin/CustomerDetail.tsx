@@ -4,8 +4,10 @@
  *
  * المرحلة ١: "نظرة عامة" و"التطبيقات والفوترة" ببيانات حقيقية. المرحلة ٢: "السجل والتدقيق" حقيقي
  * كذلك — audit.query يدعم فلتر tenant فعلاً بالخادم، اكتشفنا هذا بالفحص المباشر بعد ما ذكرته
- * خطأً كفجوة بالاقتراح الأول. الباقي (الفروع والمستخدمين، التذاكر والدعم، واتساب) يبقى "قريباً"
- * صريح يشرح بالضبط ما ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
+ * خطأً كفجوة بالاقتراح الأول. "الفروع والمستخدمين" جزئياً حقيقي الآن (المرحلة ٣) — العدد الفعلي
+ * فقط (operations.tenant_capacity، مسار جديد بخدمتنا نحن)؛ الحد المسموح من الفوترة لسه معلَّق،
+ * مطلوب من الجلسة الشريكة. الباقي (التذاكر والدعم، واتساب) يبقى "قريباً" صريح يشرح بالضبط ما
+ * ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
  *
  * تصحيح مهم لتبويب التذاكر تحديداً: مسار /tickets/operator/tickets الحالي مبني لعملية محل واحد
  * يشوف تذاكر تينانته هو نفسه (`_tenant(principal)`، غير قابل لتمرير tenant من الخارج) — يعني
@@ -57,9 +59,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
 
         {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} planNames={planNames} /> : null}
         {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
-        {tab === 'seats' ? (
-          <ComingSoon text='لا يوجد مفهوم "حد فروع/مستخدمين" بالخادم حالياً — يحتاج نموذج بيانات جديد كلياً (ليس فلتراً على شي موجود) قبل ما يُبنى هذا التبويب.' />
-        ) : null}
+        {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
         {tab === 'tickets' ? (
           <ComingSoon text="مسار عرض التذاكر الحالي مبني لمحل يشوف تذاكره هو فقط، لا يقبل تحديد أي عميل من الخارج — يحتاج مساراً إدارياً جديداً كلياً (على نمط billing.platform_subscriptions)، لا مجرد فلتر ناقص." />
         ) : null}
@@ -219,6 +219,42 @@ function AuditTab({ session, tenant, catalog }: { session: AdminSession; tenant:
           <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+interface Capacity { branches: number; operators: number; }
+
+/**
+ * العدد الفعلي فقط حالياً (operations.tenant_capacity، شحنّاه اليوم) — لا الحد المسموح به من
+ * الفوترة (branches/staff.seats بمحرّك entitlement_resolver.py). ذاك يحتاج مساراً جديداً بـ
+ * billing-service (طلبناه من الجلسة الشريكة، لسه ما وصل) — لين وصوله نعرض العدد بلا مقارنة
+ * بحد، صريحاً لا مُخمَّناً.
+ */
+function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
+  const [capacity, setCapacity] = useState<Capacity | 'loading' | 'failed'>('loading');
+  const action = findCustomerAction(catalog, 'operations.tenant_capacity');
+
+  useEffect(() => {
+    if (!action) { setCapacity('failed'); return; }
+    req<Capacity>(
+      action.path.replace('{tenant_id}', encodeURIComponent(tenant.id)),
+      'GET', undefined, session.access_token)
+      .then(setCapacity).catch(() => setCapacity('failed'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
+  }, [tenant.id]);
+
+  if (!action) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
+  if (capacity === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (capacity === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Row label="الفروع"><span className="font-medium">{capacity.branches}</span></Row>
+      <Row label="الموظفون"><span className="font-medium">{capacity.operators}</span></Row>
+      <p className="text-label text-text-muted">
+        العدد الفعلي فقط — الحد المسموح من الفوترة غير متاح هنا بعد.
+      </p>
     </div>
   );
 }

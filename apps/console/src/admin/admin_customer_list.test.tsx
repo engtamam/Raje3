@@ -29,6 +29,10 @@ const CATALOG = {
       { id: 'billing.list_plans', label: 'x', method: 'GET' as const,
        path: '/api/v1/billing/plans', capability: 'billing.manage' },
     ] },
+    { service: 'operations', actions: [
+      { id: 'operations.tenant_capacity', label: 'x', method: 'GET' as const,
+       path: '/api/v1/platform/tenants/{tenant_id}/capacity', capability: 'platform.operations' },
+    ] },
     { service: 'affiliate-service', actions: [] },
   ],
   unreachable: [],
@@ -156,6 +160,31 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
 
     fireEvent.click(screen.getByText('محل الأول'));
     await waitFor(() => expect(screen.getAllByText('الباقة الاحترافية').length).toBeGreaterThan(1));
+  });
+
+  it('the seats tab shows real branch/operator counts, no fabricated limit', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/platform/tenants/t1/capacity')) {
+        return Promise.resolve({ branches: 3, operators: 7 });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('الفروع والمستخدمين'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/platform/tenants/t1/capacity', 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('3')).toBeTruthy());
+    expect(screen.getByText('7')).toBeTruthy();
+    // no invented "of N" limit — the backend for that doesn't exist yet
+    expect(screen.getByText(/الحد المسموح من الفوترة غير متاح/)).toBeTruthy();
   });
 
   it('the audit tab queries audit.query scoped to this tenant', async () => {
