@@ -2,28 +2,16 @@
 #
 # Read from app/manifest.py, app/config.py at v0.12.5. Nothing upstream edited.
 #
-# SCOPE — read this before adding anything here. identity-service authenticates the people who
-# log into a PORTAL: the owner, the manager, custom roles, and our own super-admin team. It does
-# NOT authenticate the field operator. Spec §3.5 puts operators on a shared tablet switching by
-# 4-digit PIN in one second; that is a Raje3 domain concern and belongs in our `operations`
-# service. Bending identity into it would trade a five-second field flow for a login screen.
+# SCOPE — read this before adding anything here. identity-service authenticates the owner, the
+# manager, custom roles, our own super-admin team — AND, since a hired employee gets his own
+# phone+password account (services/operations/app/core/signup.py's own `hire()`,
+# PIN_OPERATORS_ENABLED=false is this deployment's live default), most field operators too. The
+# shared-tablet 4-digit PIN (spec §3.5) is the OTHER, currently-dormant path — attribution only,
+# never authentication, and it stays a `operations` domain concern when it is used. Do not assume
+# "field operator" means "no identity-service account here": check PIN_OPERATORS_ENABLED first.
 service:
   name: identity-service
   port: 8000
-
-# TEMPORARY MITIGATION, NOT A ROOT-CAUSE FIX — identity-service is repeatedly failing its own
-# /healthz within the chart's shared 30s budget (periodSeconds=5 × livenessFailureThreshold=6),
-# getting SIGKILL'd/restarted every 1-2 minutes, confirmed live via `kubectl describe pod` and
-# `--previous` logs the day the fleet-wide jwks rotation fix shipped (2026-08-25). The log line
-# right after every restart — "signing_key_rotation_active … jwks refresh every 45s" — lines up
-# suspiciously with the crash cadence, but this is OUR values layer, not platform/, and the
-# actual rotation code lives in the submodule: this buys headroom rather than touching it.
-# ESCALATE TO base-services-dc: identity-service's periodic signing-key-rotation refresh appears
-# to block long enough, often enough, to fail /healthz under ordinary node load — worth their own
-# look at whether that refresh runs on the same event loop as request handling.
-probes:
-  timeoutSeconds: 10
-  livenessFailureThreshold: 10
 
 image:
   repository: ghcr.io/engtamam/identity-service
