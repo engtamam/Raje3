@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createElement } from 'react';
 import type { Booking } from '../api';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const asked: { fn: string; args: unknown[] }[] = [];
 
@@ -114,6 +115,11 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'setWorkingHours', args });
       return { weekly: args[1] };
     },
+    // THE OPERATOR-LOCALE PROVIDER'S OWN READ — irrelevant to this suite's assertions (every
+    // fixture is written in Arabic, the default), so it stays absent rather than answered, the
+    // same "not this person at all" case `OperatorI18nProvider` already falls back to Arabic for.
+    getMyOperator: async () => { throw new Error('not mocked'); },
+    setMyOperatorLocale: async () => ({}),
   };
 });
 
@@ -132,8 +138,11 @@ const { BookingsScreen } = await import('./Bookings');
 const session = {} as never;
 
 function open(props: Partial<Parameters<typeof BookingsScreen>[0]> = {}) {
-  return render(createElement(BookingsScreen, {
-    session, branch: '', branches: [], onBranch: () => {}, ...props,
+  return render(createElement(OperatorI18nProvider, {
+    session,
+    children: createElement(BookingsScreen, {
+      session, branch: '', branches: [], onBranch: () => {}, ...props,
+    }),
   }));
 }
 

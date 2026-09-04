@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # work nobody has begun.
 SCREENS = [
     "apps/console/src/screens/Visit.tsx",
+    "apps/console/src/screens/Bookings.tsx",
 ]
 
 ARABIC = re.compile(r"[؀-ۿ]")

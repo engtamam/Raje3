@@ -31,6 +31,8 @@ import { FilterMenu } from '../rj-ui/FilterMenu';
 import type { Session } from '../session';
 import { BookingDialog } from './BookingDialog';
 import { WorkingHoursDialog } from './WorkingHoursDialog';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './bookings-i18n';
 
 // ── display window and snap ─────────────────────────────────────────────────────────────────
 // WINDOW_START/WINDOW_END are no longer fixed constants — computed below from the shop's own
@@ -64,9 +66,9 @@ function startOfWeek(date: string): string {
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   return addDays(date, -dow);
 }
-const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-               'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+type T = (key: string) => string;
+const weekdayLabel = (t: T, dow: number) => t(`bookings.weekday.${dow}`);
+const monthLabel = (t: T, m: number) => t(`bookings.month.${m}`);
 // A YEAR SHOWN ONLY WHEN IT ISN'T THIS ONE. Every date on this screen used to render month+day
 // alone — harmless for the day/week grid, which can never leave the current year, but the
 // customer-history list can genuinely span years (a booking from last summer, one for next), and
@@ -76,14 +78,14 @@ const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي�
 function withYear(y: number, rendered: string): string {
   return y === new Date().getFullYear() ? rendered : `${rendered} ${y}`;
 }
-function humanDate(date: string): string {
+function humanDate(t: T, date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
-  return withYear(y, `${WEEKDAYS[dt.getUTCDay()]} ${d} ${MONTHS[m - 1]}`);
+  return withYear(y, `${weekdayLabel(t, dt.getUTCDay())} ${d} ${monthLabel(t, m - 1)}`);
 }
-function shortDate(date: string): string {
+function shortDate(t: T, date: string): string {
   const [y, m, d] = date.split('-').map(Number);
-  return withYear(y, `${d} ${MONTHS[m - 1]}`);
+  return withYear(y, `${d} ${monthLabel(t, m - 1)}`);
 }
 
 /** Minutes since local midnight, for positioning a card on the axis. */
@@ -91,11 +93,11 @@ function minutesOf(epoch: number): number {
   const d = new Date(epoch * 1000);
   return d.getHours() * 60 + d.getMinutes();
 }
-function timeLabel(minutes: number): string {
+function timeLabel(t: T, minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   const h12 = h % 12 || 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'م' : 'ص'}`;
+  return `${h12}:${String(m).padStart(2, '0')} ${h >= 12 ? t('bookings.pm') : t('bookings.am')}`;
 }
 /** `date` at the given minute-of-day, in Riyadh — for building a new time on drop without
  *  disturbing the hour the person actually meant. */
@@ -112,9 +114,10 @@ function dateKeyOf(epoch: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const STATUS_LABEL: Record<Booking['status'], string> = {
-  booked: 'محجوز', attended: 'حضر', no_show: 'لم يحضر', cancelled: 'ملغى',
-};
+const statusLabel = (t: T, status: Booking['status']): string => ({
+  booked: t('bookings.status.booked'), attended: t('bookings.status.attended'),
+  no_show: t('bookings.status.noShow'), cancelled: t('bookings.status.cancelled'),
+}[status]);
 const STATUS_VARS: Record<Booking['status'], { fg: string; bg: string }> = {
   booked: { fg: 'var(--rj-booked)', bg: 'var(--rj-booked-soft)' },
   attended: { fg: 'var(--rj-attended)', bg: 'var(--rj-attended-soft)' },
@@ -150,6 +153,7 @@ interface UndoState {
 }
 
 export function BookingsScreen({ session, branch, branches, onBranch }: BookingsScreenProps) {
+  const { t } = useOperatorI18n();
   const activeBranch = branch || (branches.length === 1 ? branches[0].id : '');
 
   const [view, setView] = useState<'day' | 'week'>('day');
@@ -385,8 +389,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     return (ids: string[]) => ids.map((id) => m.get(id) || id);
   }, [services]);
   const serviceNameOf = useMemo(
-    () => (ids: string[]) => serviceNamesOf(ids).join('، '),
-    [serviceNamesOf],
+    () => (ids: string[]) => serviceNamesOf(ids).join(t('bookings.listJoin')),
+    [serviceNamesOf, t],
   );
   // THE SAME NUMBER THE DIALOG ITSELF SHOWS — the booking's own override when it was negotiated,
   // otherwise the catalogue's sum for whatever services it holds. `null` when neither says
@@ -435,7 +439,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     // range header above already states the month ("16 أغسطس – 22 أغسطس"). Repeating it in seven
     // narrow columns was what forced "الأحد 16 أغسط…" to truncate before the day number even
     // finished rendering — the one number the column actually needs to say.
-    : daysToLoad.map((d) => ({ key: d, label: `${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.split('-')[2])}`, date: d }));
+    : daysToLoad.map((d) => ({ key: d, label: `${weekdayLabel(t, new Date(`${d}T00:00:00Z`).getUTCDay())} ${Number(d.split('-')[2])}`, date: d }));
 
   // النافذة الرأسية — يوم واحد: دوامه هو بالضبط. أسبوع: محور مشترك واحد (أوسع دوام بين كل أيامه)،
   // لأن مقياساً مختلفاً لكل عمود يخلي نفس الموضع الرأسي يعني وقتاً مختلفاً من عمود لعمود، وهذا
@@ -545,7 +549,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       window.setTimeout(() => setUndo((u) => (u?.bookingId === previous.bookingId ? null : u)), 5000);
     } catch (e) {
       setRows((cur) => (cur ?? []).map((b) => (b.id === booking.id ? booking : b)));
-      say(sentenceFor(e, 'تعذّر نقل الموعد.'));
+      say(sentenceFor(e, t('bookings.error.rescheduleFailed')));
     }
   }, [session, view, date, say]);
 
@@ -556,9 +560,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     try {
       const updated = await rescheduleBooking(session, bookingId, previousStartsAt, previousOperatorId);
       setRows((cur) => (cur ?? []).map((b) => (b.id === updated.id ? updated : b)));
-      say('تراجعنا عن النقل ✓');
+      say(t('bookings.undone'));
     } catch (e) {
-      say(sentenceFor(e, 'تعذّر التراجع.'));
+      say(sentenceFor(e, t('bookings.error.undoFailed')));
     }
   }, [session, undo, say]);
 
@@ -575,7 +579,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     return (
       <div className="rj-grid flex min-h-dvh flex-col items-center justify-center gap-4 p-6">
         <p className="text-lg font-medium">
-          {branches.length === 0 ? 'لا فروع بعد' : 'اختر فرعاً لعرض جدوله'}
+          {branches.length === 0 ? t('bookings.noBranchesYet') : t('bookings.chooseBranch')}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           {branches.map((b) => (
@@ -599,25 +603,25 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setDate((d) => addDays(d, view === 'day' ? -1 : -7))}
-                     aria-label="السابق"
+                     aria-label={t('bookings.prev')}
                      className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                      style={{ background: 'var(--rj-surface)' }}>
                 <ChevronRight size={16} aria-hidden />
               </button>
               <div className="flex flex-col items-center leading-tight">
                 <h1 className="text-xl font-semibold tracking-tight">
-                  {view === 'day' ? humanDate(date)
-                    : `${shortDate(startOfWeek(date))} – ${shortDate(addDays(startOfWeek(date), 6))}`}
+                  {view === 'day' ? humanDate(t, date)
+                    : `${shortDate(t, startOfWeek(date))} – ${shortDate(t, addDays(startOfWeek(date), 6))}`}
                 </h1>
                 {date !== todayLocal() ? (
                   <button type="button" onClick={() => setDate(todayLocal())}
                          className="text-xs font-medium" style={{ color: 'var(--rj-accent-deep)' }}>
-                    العودة لليوم
+                    {t('bookings.backToToday')}
                   </button>
                 ) : null}
               </div>
               <button type="button" onClick={() => setDate((d) => addDays(d, view === 'day' ? 1 : 7))}
-                     aria-label="التالي"
+                     aria-label={t('bookings.next')}
                      className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                      style={{ background: 'var(--rj-surface)' }}>
                 <ChevronLeft size={16} aria-hidden />
@@ -635,7 +639,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                        style={v === view
                          ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                          : { color: 'var(--rj-ink-soft)' }}>
-                  {v === 'day' ? 'اليوم' : 'الأسبوع'}
+                  {v === 'day' ? t('bookings.day') : t('bookings.week')}
                 </button>
               ))}
             </div>
@@ -646,8 +650,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 an icon alone does not explain itself. */}
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
               {([
-                { id: 'grid' as const, icon: LayoutGrid, label: 'عرض الشبكة' },
-                { id: 'list' as const, icon: List, label: 'عرض القائمة' },
+                { id: 'grid' as const, icon: LayoutGrid, label: t('bookings.view.grid') },
+                { id: 'list' as const, icon: List, label: t('bookings.view.list') },
               ]).map(({ id, icon: Icon, label }) => (
                 <button key={id} type="button" onClick={() => setLayout(id)}
                        aria-label={label} title={label}
@@ -661,7 +665,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </div>
 
             <button type="button" onClick={() => setHoursDialogOpen(true)}
-                   aria-label="أوقات الدوام" title="أوقات الدوام"
+                   aria-label={t('bookings.workingHours')} title={t('bookings.workingHours')}
                    className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                    style={{ background: 'var(--rj-surface)' }}>
               <Settings size={16} aria-hidden />
@@ -702,7 +706,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
                           phoneMatches={phoneMatches} filterCustomer={filterCustomer}
                           setFilterCustomer={setFilterCustomer} />
-              <FilterMenu label="الخدمة" options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
+              <FilterMenu label={t('bookings.service')} options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
                          selected={filterServices} onChange={setFilterServices} />
               <div className="flex overflow-hidden rounded-full shadow-sm" style={{ border: '1px solid var(--rj-line)' }}>
                 <button type="button" onClick={() => setFilterPayment('any')}
@@ -710,7 +714,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                        style={filterPayment === 'any'
                          ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                          : { background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
-                  الكل
+                  {t('bookings.all')}
                 </button>
                 {PAYMENT_ORDER.map((v) => (
                   <button key={v} type="button" onClick={() => setFilterPayment(v)}
@@ -724,7 +728,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               </div>
               {activeFilterCount ? (
                 <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
-                       aria-label="إزالة كل الفلاتر"
+                       aria-label={t('bookings.clearFilters')}
                        className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
                        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
                   <X size={14} aria-hidden />
@@ -742,7 +746,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                        color: activeFilterCount ? 'var(--rj-accent-deep)' : 'var(--rj-ink)',
                      }}>
                 <Filter size={14} aria-hidden />
-                فلاتر
+                {t('bookings.filters')}
                 {activeFilterCount ? (
                   <span className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold"
                        style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}>
@@ -753,12 +757,12 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
               {filtersOpen ? (
                 <>
-                <button type="button" aria-label="إغلاق الفلاتر" onClick={() => setFiltersOpen(false)}
+                <button type="button" aria-label={t('bookings.closeFilters')} onClick={() => setFiltersOpen(false)}
                        className="fixed inset-0 z-10 cursor-default" />
                 <div className="absolute inset-inline-end-0 top-11 z-20 flex w-64 flex-col gap-3 rounded-2xl p-4 shadow-lg"
                     style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>جوّال العميل</span>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>{t('bookings.customerPhone')}</span>
                     {/* PICKING A CUSTOMER CLOSES THIS PANEL, unlike every other control in it. A
                         service or a payment chip NARROWS the board he can already see behind the
                         popover, so staying open to pick a second one is right. A phone number does
@@ -772,12 +776,12 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                 setFilterCustomer={(c) => { setFilterCustomer(c); if (c) setFiltersOpen(false); }} full />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الخدمة</span>
-                    <FilterMenu label="الخدمة" options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>{t('bookings.service')}</span>
+                    <FilterMenu label={t('bookings.service')} options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
                                selected={filterServices} onChange={setFilterServices} className="w-full" />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الدفع</span>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>{t('bookings.payment')}</span>
                     <div className="flex gap-1.5">
                       <button type="button" onClick={() => setFilterPayment('any')}
                              className="flex-1 rounded-full py-1.5 text-xs font-medium"
@@ -785,7 +789,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                                : { background: 'var(--rj-bg)', color: 'var(--rj-ink-soft)',
                                   border: '1px solid var(--rj-line)' }}>
-                        الكل
+                        {t('bookings.all')}
                       </button>
                       {PAYMENT_ORDER.map((v) => (
                         <button key={v} type="button" onClick={() => setFilterPayment(v)}
@@ -801,7 +805,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   {activeFilterCount ? (
                     <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
                            className="text-xs font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
-                      إزالة كل الفلاتر
+                      {t('bookings.clearFilters')}
                     </button>
                   ) : null}
                 </div>
@@ -830,15 +834,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
             <span className="flex-1">
               {overdueBookings.length === 1
-                ? 'حجزٌ واحد فات وقته ولم يُغلق بعد.'
-                : `${overdueBookings.length} حجوزات فات وقتها ولم تُغلق بعد.`}
+                ? t('bookings.overdue.one')
+                : tf(t, 'bookings.overdue.many', { n: overdueBookings.length })}
             </span>
             <button type="button" onClick={() => setOpenBooking(overdueBookings[0])}
                    className="rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
                    style={{ background: 'var(--rj-noshow)', color: 'var(--rj-bg)' }}>
-              افتح الأقدم
+              {t('bookings.overdue.openOldest')}
             </button>
-            <button type="button" aria-label="إخفاء" onClick={() => setOverdueDismissedAt(overdueBookings.length)}
+            <button type="button" aria-label={t('bookings.hide')} onClick={() => setOverdueDismissedAt(overdueBookings.length)}
                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full">
               <X size={13} aria-hidden />
             </button>
@@ -850,13 +854,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       <div className="mx-auto max-w-[1400px] px-4 pb-28 pt-4 sm:px-6">
         {rows === undefined ? (
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-            يُحمَّل الجدول…
+            {t('bookings.loadingSchedule')}
           </div>
         ) : rows === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
-            <p className="text-base font-medium">تعذّر قراءة الحجوزات</p>
+            <p className="text-base font-medium">{t('bookings.error.loadFailed')}</p>
             <button type="button" onClick={load} className="text-sm font-medium underline"
-                   style={{ color: 'var(--rj-accent-deep)' }}>حاول مجدداً</button>
+                   style={{ color: 'var(--rj-accent-deep)' }}>{t('bookings.retry')}</button>
           </div>
         ) : layout === 'list' && filterCustomer ? (
           // A CUSTOMER PICKED BY PHONE ANSWERS "متى موعده الجاي؟" — every booked appointment
@@ -865,14 +869,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           // not `listBookings`), so it can be in flight or fail independently of it.
           customerAll === undefined ? (
             <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-              يُحمَّل سجل العميل…
+              {t('bookings.loadingCustomerHistory')}
             </div>
           ) : customerAll === null ? (
             <div className="grid place-items-center gap-2 py-24 text-center">
-              <p className="text-base font-medium">تعذّرت قراءة مواعيد العميل</p>
+              <p className="text-base font-medium">{t('bookings.error.customerBookingsFailed')}</p>
               <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
                      className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
-                حاول مجدداً
+                {t('bookings.retry')}
               </button>
             </div>
           ) : (
@@ -882,8 +886,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   "آخر موعد لك كان؟", shown newest-first once he asks for it. */}
               <div className="flex items-center gap-1 self-start rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
                 {([
-                  { id: 'upcoming' as const, label: 'القادمة' },
-                  { id: 'past' as const, label: 'السابقة' },
+                  { id: 'upcoming' as const, label: t('bookings.upcoming') },
+                  { id: 'past' as const, label: t('bookings.past') },
                 ]).map(({ id, label }) => (
                   <button key={id} type="button" onClick={() => setCustomerHistoryMode(id)}
                          className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
@@ -897,23 +901,23 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               {customerHistoryMode === 'upcoming' ? (
                 <BookingsList rows={customerDisplayed ?? []} nameOf={nameOf} serviceNameOf={serviceNameOf}
                              priceMinorOf={priceMinorOf} onOpen={setOpenBooking}
-                             emptyMessage={`ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} أي موعد قادم.`} />
+                             emptyMessage={tf(t, 'bookings.noUpcoming', { name: filterCustomer.name || asLocal(filterCustomer.phone) })} />
               ) : pastEntries === undefined ? (
                 <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-                  يُحمَّل سجل زياراته…
+                  {t('bookings.loadingVisitHistory')}
                 </div>
               ) : pastEntries === null ? (
                 <div className="grid place-items-center gap-2 py-24 text-center">
-                  <p className="text-base font-medium">تعذّرت قراءة سجله بالكامل</p>
+                  <p className="text-base font-medium">{t('bookings.error.fullHistoryFailed')}</p>
                   <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
                          className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
-                    حاول مجدداً
+                    {t('bookings.retry')}
                   </button>
                 </div>
               ) : (
                 <CustomerHistoryList entries={pastEntries} nameOf={nameOf} serviceNameOf={serviceNameOf}
                              priceMinorOf={priceMinorOf} onOpenBooking={setOpenBooking}
-                             emptyMessage={`ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} مواعيد أو زيارات سابقة.`} />
+                             emptyMessage={tf(t, 'bookings.noPastHistory', { name: filterCustomer.name || asLocal(filterCustomer.phone) })} />
               )}
             </div>
           )
@@ -926,20 +930,20 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                        priceMinorOf={priceMinorOf} onOpen={setOpenBooking} />
         ) : view === 'day' && staff === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
-            <p className="text-base font-medium">تعذّرت قراءة فريق العمل</p>
+            <p className="text-base font-medium">{t('bookings.error.staffFailed')}</p>
             <button type="button" onClick={() => listBookingStaff(session).then(setStaff).catch(() => setStaff(null))}
                    className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
-              حاول مجدداً
+              {t('bookings.retry')}
             </button>
           </div>
         ) : columns.length === 0 ? (
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-            لا موظفون نشِطون في هذا الفرع بعد.
+            {t('bookings.noActiveStaff')}
           </div>
         ) : isDayClosed ? (
           <div className="grid place-items-center gap-2 py-24 text-center text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-            <p className="text-base font-semibold" style={{ color: 'var(--rj-ink)' }}>المحل مغلق هذا اليوم</p>
-            <p>يمكنك ضبط أوقات الدوام من الزر أعلى الشاشة.</p>
+            <p className="text-base font-semibold" style={{ color: 'var(--rj-ink)' }}>{t('bookings.closedToday')}</p>
+            <p>{t('bookings.closedHint')}</p>
           </div>
         ) : (
           <div data-testid="rj-grid"
@@ -973,7 +977,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   <div key={m}
                       className="absolute inset-inline-end-2.5 -translate-y-1/2 whitespace-nowrap text-xs font-bold tabular-nums"
                       style={{ top: (m - WINDOW_START) * PX_PER_MIN + (60 * PX_PER_MIN) / 2, color: 'var(--rj-ink)' }}>
-                    {timeLabel(m)}
+                    {timeLabel(t, m)}
                   </div>
                 ))}
               </div>
@@ -1060,7 +1064,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                         <span
                           className="pointer-events-none absolute inset-inline-end-1.5 top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-sm group-hover:block"
                           style={{ background: 'var(--rj-accent-deep)', color: '#ffffff' }}>
-                          {timeLabel(m)}
+                          {timeLabel(t, m)}
                         </span>
                       </button>
                     ))}
@@ -1099,7 +1103,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             background: dragOver.valid ? 'var(--rj-valid)' : 'var(--rj-invalid)',
                             color: 'var(--rj-bg)',
                           }}>
-                          {timeLabel(dragOver.minutes)}
+                          {timeLabel(t, dragOver.minutes)}
                         </span>
                       </div>
                     ) : null}
@@ -1174,9 +1178,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             // legible. عربون shows what was actually taken;
                             // مدفوع shows the booking's own price, when there is one to show.
                             const payLabel = pay === 'deposit' && b.deposit_amount_minor
-                              ? `عربون ${riyals(b.deposit_amount_minor)}`
+                              ? tf(t, 'bookings.deposit', { amount: riyals(b.deposit_amount_minor) })
                               : pay === 'paid' && price !== null
-                                ? `مدفوع ${riyals(price)}`
+                                ? tf(t, 'bookings.paid', { amount: riyals(price) })
                                 : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
                             const payPill = payLabel ? (
                               <span
@@ -1191,7 +1195,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             // attend() could not give (see the field's own note) — the same
                             // glance now reads "still owed".
                             const rewardPill = b.intended_reward_id ? (
-                              <span aria-hidden title="جائزة بانتظار الاستبدال عند الحضور"
+                              <span aria-hidden title={t('bookings.rewardPending')}
                                    className="text-[10px] leading-none">⭐</span>
                             ) : null;
                             // THE NUMBER ALONE, NOT THE LABEL — a week column is narrow at every
@@ -1231,7 +1235,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                               // mid-word.
                               return (
                                 <div className={`flex items-center gap-1 text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
-                                  <span className="shrink-0">{timeLabel(minutesOf(b.starts_at))}</span>
+                                  <span className="shrink-0">{timeLabel(t, minutesOf(b.starts_at))}</span>
                                   <span className="min-w-0 flex-1 truncate">
                                     · {serviceNameOf(b.service_ids) || '—'}
                                   </span>
@@ -1243,7 +1247,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             return (
                               <div className={b.status === 'booked' ? 'ps-3' : ''}>
                                 <div className="truncate text-xs font-semibold leading-tight">
-                                  {timeLabel(minutesOf(b.starts_at))}
+                                  {timeLabel(t, minutesOf(b.starts_at))}
                                 </div>
                                 {/* TAGS, NOT A SENTENCE — a comma-joined line read as a
                                     description of the appointment; each service is its own fact,
@@ -1293,9 +1297,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       {undo ? (
         <div className="fixed inset-x-0 bottom-24 z-30 mx-auto flex w-fit items-center gap-3 rounded-full px-4 py-2.5 shadow-lg sm:bottom-6 sm:inset-inline-end-6 sm:inset-inline-start-auto"
             style={{ background: 'var(--rj-ink)', color: 'var(--rj-bg)' }}>
-          <span className="text-sm">نُقل الموعد</span>
+          <span className="text-sm">{t('bookings.moved')}</span>
           <button type="button" onClick={undoMove} className="text-sm font-semibold"
-                 style={{ color: 'var(--rj-accent)' }}>تراجع</button>
+                 style={{ color: 'var(--rj-accent)' }}>{t('bookings.undo')}</button>
         </div>
       ) : null}
 
@@ -1303,8 +1307,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       {moving ? (
         <div className="fixed inset-x-0 top-20 z-30 mx-auto flex w-fit items-center gap-3 rounded-full px-4 py-2 shadow-lg"
             style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}>
-          <span className="text-sm font-medium">انقري على الخانة الجديدة</span>
-          <button type="button" onClick={() => setMoving(null)} aria-label="إلغاء النقل">
+          <span className="text-sm font-medium">{t('bookings.tapNewSlot')}</span>
+          <button type="button" onClick={() => setMoving(null)} aria-label={t('bookings.cancelMove')}>
             <X size={16} aria-hidden />
           </button>
         </div>
@@ -1317,8 +1321,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       <button
         type="button"
         onClick={() => setDialog({})}
-        aria-label="حجز جديد"
-        title="حجز جديد"
+        aria-label={t('bookings.newBooking')}
+        title={t('bookings.newBooking')}
         className="fixed bottom-6 inset-inline-end-6 z-20 grid h-14 w-14 place-items-center rounded-full shadow-lg transition-transform active:scale-95"
         style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}
       >
@@ -1358,7 +1362,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             setRows((cur) => (wasEditing
               ? (cur ?? []).map((x) => (x.id === b.id ? b : x))
               : [...(cur ?? []), b]));
-            say(wasEditing ? 'حُفظ التعديل ✓' : 'تم الحجز ✓');
+            say(wasEditing ? t('bookings.editSaved') : t('bookings.created'));
           }}
         />
       ) : null}
@@ -1417,6 +1421,7 @@ function PhoneLookup({
   /** The popover's own column layout needs the full width; the inline header row keeps it compact. */
   full?: boolean;
 }) {
+  const { t } = useOperatorI18n();
   if (filterCustomer) {
     return (
       <div className="flex h-9 items-center gap-1.5 rounded-full ps-3 pe-1 text-xs font-medium shadow-sm"
@@ -1424,9 +1429,9 @@ function PhoneLookup({
         <Phone size={12} aria-hidden />
         <span className="truncate">{filterCustomer.name || asLocal(filterCustomer.phone)}</span>
         {typeof filterCustomer.visits === 'number' ? (
-          <span className="opacity-70">· {filterCustomer.visits} زيارة</span>
+          <span className="opacity-70">{tf(t, 'bookings.visitsCount', { n: filterCustomer.visits })}</span>
         ) : null}
-        <button type="button" aria-label="إلغاء" onClick={() => { setFilterCustomer(null); setPhoneQuery(''); }}
+        <button type="button" aria-label={t('bookings.cancel')} onClick={() => { setFilterCustomer(null); setPhoneQuery(''); }}
                className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
                style={{ color: 'var(--rj-accent-deep)' }}>
           <X size={12} aria-hidden />
@@ -1442,8 +1447,8 @@ function PhoneLookup({
       <input
         value={phoneQuery}
         onChange={(e) => setPhoneQuery(digitsOnly(e.target.value).slice(0, 10))}
-        placeholder="جوّال العميل"
-        aria-label="ابحث عن حجز عميل بجواله"
+        placeholder={t('bookings.customerPhone')}
+        aria-label={t('bookings.searchByPhoneAria')}
         className="h-9 w-full rounded-full py-1.5 ps-9 pe-3 text-xs font-medium shadow-sm outline-none"
         style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}
       />
@@ -1486,6 +1491,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
    *  recent past visit at the top, not buried under his oldest one. */
   order?: 'asc' | 'desc';
 }) {
+  const { t } = useOperatorI18n();
   const sorted = useMemo(
     () => [...rows].sort((a, b) => (order === 'desc' ? b.starts_at - a.starts_at : a.starts_at - b.starts_at)),
     [rows, order],
@@ -1494,7 +1500,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
   if (sorted.length === 0) {
     return (
       <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-        {emptyMessage ?? 'لا حجوزات تطابق هذا العرض.'}
+        {emptyMessage ?? t('bookings.noMatches')}
       </div>
     );
   }
@@ -1514,7 +1520,8 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="sticky top-0 z-10" style={{ background: 'var(--rj-surface)' }}>
-              {['التاريخ', 'الوقت', 'الخدمة', 'الموظف', 'الدفع', 'الحالة'].map((h) => (
+              {[t('bookings.table.date'), t('bookings.table.time'), t('bookings.table.service'),
+                t('bookings.table.staff'), t('bookings.table.payment'), t('bookings.table.status')].map((h) => (
                 <th key={h} scope="col"
                     className="whitespace-nowrap border-b px-4 py-2.5 text-start text-xs font-semibold"
                     style={{ borderColor: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
@@ -1533,8 +1540,8 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
               const pay = b.payment_status ?? 'none';
               const price = priceMinorOf(b);
               const payLabel = pay === 'deposit' && b.deposit_amount_minor
-                ? `عربون ${riyals(b.deposit_amount_minor)}`
-                : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
+                ? tf(t, 'bookings.deposit', { amount: riyals(b.deposit_amount_minor) })
+                : pay === 'paid' && price !== null ? tf(t, 'bookings.paid', { amount: riyals(price) })
                   : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
               return (
                 <Fragment key={b.id}>
@@ -1549,7 +1556,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                           style={isToday
                             ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
                             : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
-                        {isToday ? `اليوم — ${humanDate(dateKey)}` : humanDate(dateKey)}
+                        {isToday ? tf(t, 'bookings.todayHeader', { date: humanDate(t, dateKey) }) : humanDate(t, dateKey)}
                       </td>
                     </tr>
                   ) : null}
@@ -1568,10 +1575,10 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                      }}>
                     <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold"
                        style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
-                      {isToday ? 'اليوم' : shortDate(dateKey)}
+                      {isToday ? t('bookings.today') : shortDate(t, dateKey)}
                     </td>
                     <td dir="ltr" className="whitespace-nowrap px-4 py-3 text-sm font-semibold tabular-nums">
-                      {timeLabel(minutesOf(b.starts_at))}
+                      {timeLabel(t, minutesOf(b.starts_at))}
                     </td>
                     <td className="max-w-[240px] truncate px-4 py-3 text-sm">{serviceNameOf(b.service_ids) || '—'}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>
@@ -1588,7 +1595,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
                            style={{ background: tone.bg, color: tone.fg }}>
-                        {STATUS_LABEL[b.status]}
+                        {statusLabel(t, b.status)}
                       </span>
                     </td>
                   </tr>
@@ -1620,10 +1627,11 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
   onOpenBooking: (b: Booking) => void;
   emptyMessage?: string;
 }) {
+  const { t } = useOperatorI18n();
   if (entries.length === 0) {
     return (
       <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-        {emptyMessage ?? 'لا شيء هنا.'}
+        {emptyMessage ?? t('bookings.nothingHere')}
       </div>
     );
   }
@@ -1646,7 +1654,7 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                     style={isToday
                       ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
                       : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
-                  {isToday ? `اليوم — ${humanDate(dateKey)}` : humanDate(dateKey)}
+                  {isToday ? tf(t, 'bookings.todayHeader', { date: humanDate(t, dateKey) }) : humanDate(t, dateKey)}
                 </div>
               ) : null}
               {e.kind === 'visit' ? (
@@ -1654,13 +1662,13 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                 <div className="flex w-full items-center gap-3 border-b px-4 py-3 last:border-b-0"
                     style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined }}>
                   <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
-                    {isToday ? 'اليوم' : shortDate(dateKey)}
+                    {isToday ? t('bookings.today') : shortDate(t, dateKey)}
                   </span>
-                  <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(e.time))}</span>
+                  <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(t, minutesOf(e.time))}</span>
                   <span className="min-w-0 flex-1 truncate text-sm">{e.visit.services || e.visit.custom_service || '—'}</span>
                   <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
                        style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-ink-soft)' }}>
-                    زيارة
+                    {t('bookings.visit')}
                   </span>
                 </div>
               ) : (() => {
@@ -1669,17 +1677,17 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                 const pay = b.payment_status ?? 'none';
                 const price = priceMinorOf(b);
                 const payLabel = pay === 'deposit' && b.deposit_amount_minor
-                  ? `عربون ${riyals(b.deposit_amount_minor)}`
-                  : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
+                  ? tf(t, 'bookings.deposit', { amount: riyals(b.deposit_amount_minor) })
+                  : pay === 'paid' && price !== null ? tf(t, 'bookings.paid', { amount: riyals(price) })
                     : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
                 return (
                   <button type="button" onClick={() => onOpenBooking(b)}
                          className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
                          style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined }}>
                     <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
-                      {isToday ? 'اليوم' : shortDate(dateKey)}
+                      {isToday ? t('bookings.today') : shortDate(t, dateKey)}
                     </span>
-                    <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(b.starts_at))}</span>
+                    <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(t, minutesOf(b.starts_at))}</span>
                     <span className="min-w-0 flex-1 truncate text-sm">{serviceNameOf(b.service_ids) || '—'}</span>
                     <span className="hidden shrink-0 text-xs sm:block" style={{ color: 'var(--rj-ink-soft)' }}>{nameOf(b.operator_id)}</span>
                     {payLabel ? (
@@ -1690,7 +1698,7 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                     ) : null}
                     <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
                          style={{ background: tone.bg, color: tone.fg }}>
-                      {STATUS_LABEL[b.status]}
+                      {statusLabel(t, b.status)}
                     </span>
                   </button>
                 );
@@ -1711,8 +1719,9 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
                          onBookNext, onEdit, session, say }: {
   booking: Booking; operatorLabel: string; services: CatalogueService[];
   onClose: () => void; onChanged: (b: Booking) => void; onBookNext: (b: Booking) => void;
-  onEdit: (b: Booking) => void; session: Session; say: (t: string) => void;
+  onEdit: (b: Booking) => void; session: Session; say: (msg: string) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [busy, setBusy] = useState(false);
   const [attended, setAttended] = useState<Booking | null>(null);
   const act = async (fn: (s: Session, id: string) => Promise<Booking>, doneMsg: string) => {
@@ -1723,7 +1732,7 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
       if (updated.status === 'attended') setAttended(updated);
       say(doneMsg);
     } catch (e) {
-      say(sentenceFor(e, 'تعذّر تنفيذ الإجراء.'));
+      say(sentenceFor(e, t('bookings.error.actionFailed')));
     } finally {
       setBusy(false);
     }
@@ -1748,18 +1757,18 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
         <div onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-sm rounded-t-[28px] p-5 sm:rounded-[28px]"
             style={{ background: 'var(--rj-surface)', boxShadow: 'var(--rj-shadow-lift)' }}>
-          <p className="mb-3 text-base font-semibold">سُجّل الحضور ✓</p>
+          <p className="mb-3 text-base font-semibold">{t('bookings.attendedTitle')}</p>
           {cycleDays > 0 ? (
             <button type="button" onClick={() => onBookNext(attended)}
                    className="w-full rounded-2xl py-3 text-sm font-semibold"
                    style={{ background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }}>
-              احجز الجلسة القادمة — بعد {cycleDays} يوماً
+              {tf(t, 'bookings.bookNext', { days: cycleDays })}
             </button>
           ) : null}
           <button type="button" onClick={onClose}
                  className="mt-2 w-full rounded-2xl py-3 text-sm font-medium"
                  style={{ color: 'var(--rj-ink-soft)' }}>
-            إغلاق
+            {t('bookings.close')}
           </button>
         </div>
       </div>
@@ -1788,11 +1797,11 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
               <span className="flex items-center gap-1">
                 <Calendar size={13} aria-hidden />
-                {humanDate(dateKeyOf(booking.starts_at))}
+                {humanDate(t, dateKeyOf(booking.starts_at))}
               </span>
               <span className="flex items-center gap-1">
                 <Clock size={13} aria-hidden />
-                {timeLabel(minutesOf(booking.starts_at))} · {booking.duration_minutes} د
+                {tf(t, 'bookings.durationLine', { time: timeLabel(t, minutesOf(booking.starts_at)), duration: booking.duration_minutes })}
               </span>
               <span className="flex items-center gap-1">
                 <User size={13} aria-hidden />
@@ -1805,49 +1814,49 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
                   <span className="rounded-full px-2 py-0.5 text-xs font-bold"
                        style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
                     {pay === 'deposit' && booking.deposit_amount_minor
-                      ? `عربون ${riyals(booking.deposit_amount_minor)} ريال`
+                      ? tf(t, 'bookings.depositRiyal', { amount: riyals(booking.deposit_amount_minor) })
                       : PAYMENT_LABEL[pay]}
                   </span>
                 ) : null}
                 {priceMinor !== null ? (
                   <span className="rounded-full px-2 py-0.5 text-xs font-semibold"
                        style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
-                    السعر: {riyals(priceMinor)} ريال
+                    {tf(t, 'bookings.priceLabel', { amount: riyals(priceMinor) })}
                   </span>
                 ) : null}
                 {booking.intended_reward_id ? (
-                  <span className="text-sm" title="جائزة بانتظار الاستبدال عند الحضور">⭐</span>
+                  <span className="text-sm" title={t('bookings.rewardPending')}>⭐</span>
                 ) : null}
               </div>
             ) : null}
             {booking.note ? <p className="text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{booking.note}</p> : null}
           </div>
-          <button type="button" onClick={onClose} aria-label="إغلاق" className="shrink-0"><X size={18} aria-hidden /></button>
+          <button type="button" onClick={onClose} aria-label={t('bookings.close')} className="shrink-0"><X size={18} aria-hidden /></button>
         </div>
         {booking.status === 'booked' ? (
           // أيقونات فقط، صف واحد — التفاصيل أعلاه هي ما يقرأه، هذا فقط ما يضغطه.
           <div className="flex items-center justify-center gap-3">
-            <button type="button" onClick={() => onEdit(booking)} aria-label="تعديل الحجز" title="تعديل الحجز"
+            <button type="button" onClick={() => onEdit(booking)} aria-label={t('bookings.editBooking')} title={t('bookings.editBooking')}
                    className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
               <Pencil size={18} aria-hidden />
             </button>
-            <button type="button" disabled={busy} onClick={() => act(attendBooking, 'سُجّل الحضور ✓')}
-                   aria-label="حضر" title="حضر"
+            <button type="button" disabled={busy} onClick={() => act(attendBooking, t('bookings.attendedTitle'))}
+                   aria-label={t('bookings.attend')} title={t('bookings.attend')}
                    className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-attended-soft)', color: 'var(--rj-attended)' }}>
               <Check size={20} aria-hidden />
             </button>
             <button type="button" disabled={busy}
-                   onClick={() => act((s, id) => noShowBooking(s, id), 'سُجّل عدم الحضور')}
-                   aria-label="لم يحضر" title="لم يحضر"
+                   onClick={() => act((s, id) => noShowBooking(s, id), t('bookings.markedNoShow'))}
+                   aria-label={t('bookings.noShow')} title={t('bookings.noShow')}
                    className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
               <X size={20} aria-hidden />
             </button>
             <button type="button" disabled={busy}
-                   onClick={() => act((s, id) => cancelBooking(s, id), 'أُلغي الحجز')}
-                   aria-label="إلغاء الحجز" title="إلغاء الحجز"
+                   onClick={() => act((s, id) => cancelBooking(s, id), t('bookings.cancelledDone'))}
+                   aria-label={t('bookings.cancelBooking')} title={t('bookings.cancelBooking')}
                    className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-cancelled)' }}>
               <Trash2 size={18} aria-hidden />
@@ -1855,7 +1864,7 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
           </div>
         ) : (
           <p className="rounded-2xl py-3 text-center text-sm" style={{ background: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
-            {STATUS_LABEL[booking.status]} — لا أفعالٌ إضافية
+            {tf(t, 'bookings.noFurtherActions', { status: statusLabel(t, booking.status) })}
           </p>
         )}
       </div>
