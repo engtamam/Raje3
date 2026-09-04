@@ -89,7 +89,7 @@ class PayoutService:
         """The LIVE threshold — "400 ريال، وممكن يتغير، أتوقع فيه مكان لتعديلها"
         — read through RuntimeConfig, which already exists and is already audited, same pattern as
         `operations/app/core/retention.py`'s own `policy_for`: an operator's admin-panel override
-        (`PUT /api/v1/operator/config`) if one was ever set, `self._min` (this deploy's own
+        (`PUT /api/v1/affiliates/operator/config`) if one was ever set, `self._min` (this deploy's own
         AFFILIATE_WITHDRAWAL_MIN_HALALAS) otherwise. Platform-wide, not per-shop — the tenant
         passed to RuntimeConfig is always "" (there is no establishment here to scope it to; a
         marketer's own tenant is the shared `raje3-affiliates`, not a business making this policy

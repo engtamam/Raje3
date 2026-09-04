@@ -246,7 +246,7 @@ def test_home_open_tickets_is_empty_with_no_ticket_service_configured():
 
 def test_an_operators_config_override_changes_the_withdrawal_threshold_live_on_home():
     """The end-to-end proof for the question: "400 ريال، وممكن يتغير — أتوقع
-    فيه مكان لتعديلها" — an operator's PUT /api/v1/operator/config takes effect on the NEXT
+    فيه مكان لتعديلها" — an operator's PUT /api/v1/affiliates/operator/config takes effect on the NEXT
     /me/home read, no redeploy, exactly the surface `platform.config` already exists for."""
     client = _make_app(tickets_http=None)
     marketer_headers = {"Authorization": f"Bearer {_token(sub='p-cfg1')}"}
@@ -261,7 +261,7 @@ def test_an_operators_config_override_changes_the_withdrawal_threshold_live_on_h
     assert before["min_withdrawal_halalas"] == 0   # this test env's own boot default
 
     operator_headers = {"Authorization": f"Bearer {_token(sub='op1', caps=['platform.config'])}"}
-    put = client.put("/api/v1/operator/config",
+    put = client.put("/api/v1/affiliates/operator/config",
                      json={"key": "AFFILIATE_WITHDRAWAL_MIN_HALALAS", "value": 40000},
                      headers=operator_headers)
     assert put.status_code == 200, put.text

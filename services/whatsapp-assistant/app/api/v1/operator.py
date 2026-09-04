@@ -29,7 +29,7 @@ from app.config import get_settings
 from app.core.pii import subject_ref
 from app.core.secret_store import SecretError, SecretStore
 
-router = APIRouter(prefix="/api/v1/operator", tags=["operator"])
+router = APIRouter(prefix="/api/v1/assistant/operator", tags=["operator"])
 
 _SECRETS = require_capability("platform.secrets")
 
@@ -53,7 +53,7 @@ def _secret_store(request: Request) -> SecretStore:
 
 
 def _refuse(reason: str, status_code: int = 400) -> JSONResponse:
-    """A refusal the OPERATOR can read — returned, not raised (see reminders/app/api/v1/operator.py
+    """A refusal the OPERATOR can read — returned, not raised (see reminders/app/api/v1/assistant/operator.py
     for the full rationale: the global handler strips HTTPException.detail on purpose, which is
     wrong for a sentence WE wrote naming a rule the operator broke)."""
     return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=status_code)

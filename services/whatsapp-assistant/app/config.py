@@ -305,7 +305,7 @@ class Settings(BaseSettings):
             raise ValueError(
                 "LLM_DRIVER=gemini but GEMINI_API_KEY is empty and SECRETS_KEK is also empty — "
                 "there is no way for an operator to supply the key at runtime either. Set "
-                "GEMINI_API_KEY, or set SECRETS_KEK and PUT the key to /api/v1/operator/secrets "
+                "GEMINI_API_KEY, or set SECRETS_KEK and PUT the key to /api/v1/assistant/operator/secrets "
                 "once the service is up.")
 
     # ── conversation engine — debounce, session, summary (all config-driven) ─

@@ -5,7 +5,7 @@
 # its own) — kept minimal: just the platform whoami probe every service exposes.
 #
 # operator.py NOW EXISTS (app/api/v1/operator.py, mounted separately in main.py, its own
-# /api/v1/operator prefix) — SECRETS ONLY, no /operator/config: GEMINI_API_KEY turned out to be
+# /api/v1/assistant/operator prefix) — SECRETS ONLY, no /operator/config: GEMINI_API_KEY turned out to be
 # exactly the runtime-tunable credential this file's old note said would justify adding one. Every
 # OTHER knob is still deploy-time env; do not add /operator/config until a real one exists.
 #

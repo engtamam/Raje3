@@ -266,7 +266,9 @@ def build_container(settings: Settings) -> Container:
         raw_window_messages=settings.CONVERSATION_RAW_WINDOW_MESSAGES,
         allowed_tools=settings.llm_tool_allowlist,
         frustration_unconfirmed_proposals_threshold=settings.FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD,
-        frustration_duplicate_messages_threshold=settings.FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD)
+        frustration_duplicate_messages_threshold=settings.FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD,
+        booking_history_visible=settings.BOOKING_HISTORY_VISIBLE,
+        booking_management_enabled=settings.BOOKING_MANAGEMENT_ENABLED)
     # `auditor` is NOT passed here — app/main.py builds it AFTER build_container() (it needs the
     # container) and wires it in with `container.engine.set_auditor(...)` right after. See
     # app/core/conversation.py::ConversationEngine.__init__ for why.

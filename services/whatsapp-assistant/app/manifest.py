@@ -51,9 +51,9 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             {"path": "/internal/whatsapp_assistant/price", "tier": "internal", "method": "POST"},
             # The operator credential surface (app/api/v1/operator.py) — GEMINI_API_KEY is the one
             # runtime-tunable knob this service has: see that file's own note on why it exists now.
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/assistant/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/assistant/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/assistant/operator/secrets/{}", "tier": "user", "method": "DELETE"},
         ],
         "ports": ports or [],
         "events": {"emitted": [], "consumed": ["whatsapp.message", "whatsapp.status"]},
