@@ -7,8 +7,12 @@
  * خطأً كفجوة بالاقتراح الأول. "الفروع والمستخدمين" جزئياً حقيقي الآن (المرحلة 3) — العدد الفعلي
  * فقط أول ما شُحِن (operations.tenant_capacity) — ثم x/y كامل: الحد يُقرأ من نفس فحص الباقة
  * (`billing entitlements/check`) اللي يمنع المحل أصلاً من تجاوزه عند الإضافة، لا مسار جديد ولا
- * رقم مخترَع. الباقي (التذاكر والدعم، واتساب) يبقى "قريباً" صريح يشرح بالضبط ما
- * ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
+ * رقم مخترَع.
+ *
+ * تبويب واتساب (المرحلة 5): ليس "قوالب خاصة بمنشأة" — تلك فجوة معمارية حقيقية ما زالت قائمة
+ * (القوالب عامة للمنصة كلها، لا مفهوم قالب لكل منشأة). هذا سجلّ إرسال الشحنة الفعلي لهذا المحل
+ * تحديداً — نفس operations.whatsapp_diagnostics اللي تستخدمه AdminWhatsAppDiagnostics.tsx، هنا
+ * بلا إدخال يدوي لمعرّف التينانت (نعرفه أصلاً، العميل مفتوح). لا مسار جديد.
  *
  * تبويب التذاكر (المرحلة 4): مسار إداري جديد كلياً من ticket-service (v0.18.20)، بناءً على طلب
  * صريح — GET /api/v1/tickets/admin/tickets(?tenant=) للقائمة، و.../{ticket_id} للتفاصيل الكاملة
@@ -25,6 +29,7 @@ import { Input, Select } from './../rj-ui/Field';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
 import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
+import { StatusBadge, type DeliveryRow } from './AdminWhatsAppDiagnostics';
 
 interface Invoice {
   id: string; tenant: string; number: string; status: 'draft' | 'open' | 'partially_paid' | 'paid' | 'uncollectible' | 'void';
@@ -65,20 +70,10 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
         {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
         {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
         {tab === 'tickets' ? <TicketsTab session={session} tenant={tenant} catalog={catalog} /> : null}
-        {tab === 'whatsapp' ? (
-          <ComingSoon text="قوالب واتساب حالياً عامة للمنصة كلها، لا يوجد مفهوم قالب خاص بمنشأة — فجوة معمارية حقيقية، ليست مجرد فلتر ناقص." />
-        ) : null}
+        {tab === 'whatsapp' ? <WhatsAppTab session={session} tenant={tenant} catalog={catalog} /> : null}
         {tab === 'audit' ? <AuditTab session={session} tenant={tenant} catalog={catalog} /> : null}
       </div>
     </Modal>
-  );
-}
-
-function ComingSoon({ text }: { text: string }) {
-  return (
-    <div className="rounded-card border border-dashed border-border-subtle bg-surface-2 p-6 text-center">
-      <p className="text-sm text-text-secondary">قريباً — {text}</p>
-    </div>
   );
 }
 
@@ -459,5 +454,42 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
         </div>
       )}
     </div>
+  );
+}
+
+/** نفس مسار operations.whatsapp_diagnostics اللي تستخدمه AdminWhatsAppDiagnostics.tsx — هنا
+ * بلا نموذج بحث، تينانت العميل المفتوح مُمرَّر مباشرة. لا مسار جديد ولا تكرار منطق العرض
+ * (StatusBadge/DeliveryRow مُصدَّرتان من نفس الملف). */
+function WhatsAppTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
+  const [rows, setRows] = useState<DeliveryRow[] | 'loading' | 'failed'>('loading');
+  const action = findCustomerAction(catalog, 'operations.whatsapp_diagnostics');
+
+  useEffect(() => {
+    if (!action) { setRows('failed'); return; }
+    req<{ deliveries: DeliveryRow[] }>(
+      `${action.path}?tenant=${encodeURIComponent(tenant.id)}`, 'GET', undefined, session.access_token)
+      .then((r) => setRows(r.deliveries ?? [])).catch(() => setRows('failed'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
+  }, [tenant.id]);
+
+  if (!action) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
+  if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>;
+  if (rows.length === 0) return <p className="text-sm text-text-muted">لا رسائل واتساب مسجَّلة لهذا المحل.</p>;
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {rows.map((r, i) => (
+        <li key={r.id ?? i} className="flex flex-col gap-1 rounded-card border border-border-subtle bg-surface-2 p-3 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span dir="ltr" className="font-mono text-text-muted">{r.recipient_masked ?? '—'}</span>
+            <StatusBadge status={r.status} />
+          </div>
+          {r.receipt_status ? <span className="text-text-secondary">حالة ميتا: {r.receipt_status}</span> : null}
+          {r.error ? <span className="text-danger">{r.error}</span> : null}
+          {r.created ? <span className="text-caption text-text-muted" dir="ltr">{new Date(r.created).toLocaleString('ar-SA')}</span> : null}
+        </li>
+      ))}
+    </ul>
   );
 }

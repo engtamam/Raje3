@@ -32,6 +32,8 @@ const CATALOG = {
     { service: 'operations', actions: [
       { id: 'operations.tenant_capacity', label: 'x', method: 'GET' as const,
        path: '/api/v1/platform/tenants/{tenant_id}/capacity', capability: 'platform.operations' },
+      { id: 'operations.whatsapp_diagnostics', label: 'x', method: 'GET' as const,
+       path: '/api/v1/platform/whatsapp/diagnostics', capability: 'platform.operations' },
     ] },
     { service: 'affiliate-service', actions: [] },
     { service: 'ticket-service', actions: [
@@ -210,6 +212,33 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByText('الفروع والمستخدمين'));
     await waitFor(() => expect(screen.getByText('3')).toBeTruthy());
     expect(screen.getByText('7')).toBeTruthy();
+  });
+
+  it('the whatsapp tab queries this tenant\'s own delivery log, no manual tenant entry', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/whatsapp/diagnostics')) {
+        return Promise.resolve({
+          tenant: 't1',
+          deliveries: [{ id: 'd1', status: 'delivered', recipient_masked: '•••1234',
+                        receipt_status: 'read', created: '2026-09-01T00:00:00Z' }],
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('واتساب'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/platform/whatsapp/diagnostics?tenant=t1'), 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('•••1234')).toBeTruthy());
   });
 
   it('the audit tab queries audit.query scoped to this tenant', async () => {

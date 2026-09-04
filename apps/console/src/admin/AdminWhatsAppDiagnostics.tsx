@@ -13,7 +13,7 @@ import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
 
-interface DeliveryRow {
+export interface DeliveryRow {
   id?: string; status?: string; receipt_status?: string; error?: string;
   channel?: string; created?: string; recipient_masked?: string; [key: string]: unknown;
 }
@@ -109,7 +109,7 @@ function DiagnosticsSearch({ session, action }: { session: AdminSession; action:
   );
 }
 
-function StatusBadge({ status }: { status?: string }) {
+export function StatusBadge({ status }: { status?: string }) {
   if (!status) return null;
   const tone = status === 'sent' || status === 'delivered' ? 'success'
     : status === 'failed' || status === 'suppressed' ? 'danger' : 'neutral';
