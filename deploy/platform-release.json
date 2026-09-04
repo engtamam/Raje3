@@ -1,23 +1,23 @@
 {
-  "release": "v0.18.8",
+  "release": "v0.18.9",
   "images": {
     "analytics-service": "sha256:a4f4eafa811232132c02e04900fc48f7b94bb6e3a8df499359c69b37afca4908",
     "api-gateway": "sha256:6c111a9f0e10e3cb08f610958037cc80ffe91a0fa8802449a50a3c2246e948fc",
-    "audit-service": "sha256:ceedd3b5b3812cdd41e5df7272559ddca4f078eac236ebaf2c141d39010a328c",
+    "audit-service": "sha256:0a62eb385880f264e2b3f8f01062dbc273ac4bf0a982f01d45374bbd9ff2767c",
     "authz-service": "sha256:75c330e03001742b2afa88f3a76db60c22fcae96b82936ffbd86bf51117d4f3e",
-    "backup-service": "sha256:e0e3291bfeeafd258dcdc2779ef38769224352922ad2ef37c63411c23a391a2d",
-    "billing-service": "sha256:1e9d7ac4f76480bdd4fcaed6c1c1ae64919256c03d18e9a734424832cb4f8e8a",
-    "compliance-service": "sha256:f44c26af177f797cc8669b90726b80c9b2dda98348f04656e2339b4b79de110d",
-    "connector-service": "sha256:56bcb73872af572f1607715a88b40ee43e68601ccfec5818e32a4a285ca9666b",
+    "backup-service": "sha256:72a191c0dcf3800778b123c0123a9defb16014d97cd724ed83e9c44b43c3badb",
+    "billing-service": "sha256:77a2de9148bf027c82658e365e2b6e6832000efece1f1d542aff68bc1259ff44",
+    "compliance-service": "sha256:76d50b0fb04de76e8af9ce6a00b0b255480e0ab8f3ad05fff136e13fec632ff4",
+    "connector-service": "sha256:e54c3b6cd21d63564ae85a79b2616207b91b0639241d7a9e9241ccf0304975c3",
     "feature-flag-service": "sha256:59e3551ccb4fcde5baabcd49498998cea95777845de4663b5acc6e841d43dcf6",
-    "identity-service": "sha256:9ebe2e428210a4f9733a314ee6ef613d66e6f6b0e60ecc01022bf7e970cbf722",
+    "identity-service": "sha256:2e0f6c6fbc3a4a99b599dc494e795938fea990f338c9a4f6a3016607d534cf63",
     "job-service": "sha256:47884c99ade63c1e30bcbc4a920e27f72a5419a4100dde76a1af87cb0da11f6c",
-    "notification-service": "sha256:31f0e9886d638f3de5f061d1b852c4aadcb26682097cf80bbab450e8f09ebf47",
+    "notification-service": "sha256:05a9db17cac1a7956f5659c8ff2b7404f024c0be64e7d574e81bac74a435d694",
     "onboarding-service": "sha256:3874118dc74702d25b743a5e14a578abf7926b8b6eae036a909450bba84dac3e",
     "search-service": "sha256:701ba5b338cf673c9083a0dbc229c02d24cd0256b63e66403606d5a95313b16e",
     "tenant-service": "sha256:b74459db8b78b882d3c89f6e7f9cac214d48ca138f4b36fe6f9ffb63703c4e01",
-    "ticket-service": "sha256:2ccdd7d51c368460adff05589676bce6933b45c28d76b8a260433da47464cae8",
+    "ticket-service": "sha256:756db61042cadf5a3a854518846d781a77b1770deff468015056aecab1a4173b",
     "wallet-service": "sha256:c585ca949705e6a4cbefea16669945c810ba358f39d99b0ebda4865909261037",
-    "webhook-service": "sha256:37fb64320d3172c77a561ce4cd2c19c5114e519fb60b17c3a5f09dfdd16e4e1e"
+    "webhook-service": "sha256:8b6a2de12de7801d740329ff15ff41646a4391b7c8c7e235730fc0fd77d581d0"
   }
 }
