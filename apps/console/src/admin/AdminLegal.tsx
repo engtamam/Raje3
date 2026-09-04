@@ -38,6 +38,26 @@ function findAction(catalog: AdminCatalog, id: string): AdminAction | undefined 
   return catalog.services.flatMap((s) => s.actions).find((a) => a.id === id);
 }
 
+// SAME TITLES AS seed-legal.sh's OWN `TITLES` — `GET /legal` returns only a doc_id, never a
+// title, so a slug like "processing-agreement" was the ONLY thing the list could show (reported
+// live: "why does it only show the English slug"). Kept here rather than fetched per-row (the
+// history/view routes have a title, but that is one extra network call per card just to render a
+// list). A brand-new type not in this map still shows fine — its own doc_id, just without an
+// Arabic label above it, exactly the pre-existing behaviour for anything unrecognised.
+const DOC_TITLES: Record<string, { ar: string; en: string }> = {
+  'privacy-policy': { ar: 'سياسة الخصوصية', en: 'Privacy Policy' },
+  'data-subject-rights': { ar: 'إجراء حقوق أصحاب البيانات', en: 'Data Subject Rights Procedure' },
+  ropa: { ar: 'سجل أنشطة معالجة البيانات الشخصية', en: 'Records of Processing Activities (ROPA)' },
+  dpia: { ar: 'تقييم الأثر لحماية البيانات الشخصية', en: 'Data Protection Impact Assessment (DPIA)' },
+  cookies: { ar: 'سياسة ملفات الارتباط والتقنيات المتتبِّعة', en: 'Cookies & Tracking Technologies Policy' },
+  'processing-agreement': { ar: 'اتفاقية معالجة البيانات', en: 'Data Processing Agreement' },
+  'processor-dpa': { ar: 'اتفاقية معالجة البيانات (التزامات المعالِج)',
+    en: "Data Processing Agreement (Processor's Commitments)" },
+  terms: { ar: 'الشروط والأحكام', en: 'Terms of Service' },
+  'affiliate-privacy-policy': { ar: 'سياسة خصوصية المسوّقين', en: 'Affiliate Privacy Policy' },
+  'affiliate-agreement': { ar: 'اتفاقية المسوّقين والمقاولين المستقلين', en: 'Affiliate Agreement' },
+};
+
 interface DocRow {
   doc_id: string;
   version: string | null;
@@ -81,6 +101,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
 
   const listAction = catalog !== 'loading' && catalog !== 'failed' ? findAction(catalog, 'compliance.legal_list') : undefined;
   const historyAction = catalog !== 'loading' && catalog !== 'failed' ? findAction(catalog, 'compliance.legal_history') : undefined;
+  const viewAction = catalog !== 'loading' && catalog !== 'failed' ? findAction(catalog, 'compliance.legal_view') : undefined;
 
   useEffect(() => {
     if (!listAction) return;
@@ -105,6 +126,21 @@ export function AdminLegal({ session }: { session: AdminSession }) {
       'GET', undefined, session.access_token)
       .then((r) => setHistory(r.versions.sort((a, b) => b.published_at - a.published_at)))
       .catch(() => setHistory('failed'));
+
+    // LOAD THE CURRENT PUBLISHED TEXT INTO THE EDITOR — without this, opening an existing type
+    // showed only its version numbers (the list above) with empty writing fields, which read as
+    // "the screen is blank" even though the document is very much published (reported live: a
+    // screenshot of exactly this). Only understands `legal_text` blocks (what this screen itself
+    // writes, and everything re-published from the Markdown files) — an older document published
+    // some other way still opens, just without its text pre-filled, rather than crashing.
+    if (!viewAction) return;
+    req<{ title?: string; blocks?: { legal_text?: { md_ar?: string; md_en?: string } }[] }>(
+      viewAction.path.replace('{doc_id}', encodeURIComponent(id)), 'GET', undefined, session.access_token)
+      .then((r) => {
+        const text = r.blocks?.find((b) => b.legal_text)?.legal_text;
+        if (text) { setMdAr(text.md_ar || ''); setMdEn(text.md_en || ''); }
+      })
+      .catch(() => { /* no published version yet, or an old non-markdown one — leave blank */ });
   }
 
   function openNewType() {
@@ -212,7 +248,14 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                   : 'border-border-subtle bg-surface-1 hover:border-border-strong'
               }`}
             >
-              <span dir="ltr" className="font-mono text-sm font-medium">{d.doc_id}</span>
+              {DOC_TITLES[d.doc_id] ? (
+                <>
+                  <span className="text-sm font-medium">{DOC_TITLES[d.doc_id].ar}</span>
+                  <span dir="ltr" className="font-mono text-xs text-text-secondary">{d.doc_id}</span>
+                </>
+              ) : (
+                <span dir="ltr" className="font-mono text-sm font-medium">{d.doc_id}</span>
+              )}
               <span className="flex items-center gap-1.5 text-xs text-text-secondary">
                 {/* compliance-service doesn't stamp `status` on published rows yet (patch sent,
                     not shipped as of this writing) — `version` being non-null is the same fact

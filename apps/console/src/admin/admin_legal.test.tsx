@@ -18,6 +18,8 @@ const CATALOG = {
        path: '/api/v1/compliance/legal', capability: 'platform.compliance' },
       { id: 'compliance.legal_history', label: 'x', method: 'GET' as const,
        path: '/api/v1/compliance/legal/{doc_id}/history', capability: 'platform.compliance' },
+      { id: 'compliance.legal_view', label: 'x', method: 'GET' as const,
+       path: '/api/v1/compliance/legal/{doc_id}', capability: 'platform.compliance' },
       { id: 'compliance.legal_draft', label: 'x', method: 'PUT' as const,
        path: '/api/v1/compliance/legal/{doc_id}/versions/{version}', capability: 'platform.compliance' },
       { id: 'compliance.legal_publish', label: 'x', method: 'POST' as const,
@@ -53,6 +55,10 @@ function stubReq() {
     if (path.endsWith('/history')) return Promise.resolve({ versions: [
       { version: '1.0', status: 'published', published_at: 1700000000, requires_acceptance: true },
     ] });
+    if (path === '/api/v1/compliance/legal/privacy-policy') return Promise.resolve({
+      title: 'سياسة الخصوصية',
+      blocks: [{ legal_text: { md_ar: 'النص العربي المنشور', md_en: 'the published English text' } }],
+    });
     return Promise.resolve({ doc_id: 'privacy-policy', version: '1.1', status: 'draft' });
   });
 }
@@ -85,6 +91,22 @@ describe('AdminLegal', () => {
     expect((screen.getByLabelText(/معرّف المستند/) as HTMLInputElement).disabled).toBe(true);
   });
 
+  it('opening an existing type also loads its published text into the editor, not just version numbers', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    stubReq();
+    render(<AdminLegal session={SESSION} />);
+
+    await waitFor(() => expect(screen.getByText('privacy-policy')).toBeTruthy());
+    fireEvent.click(screen.getByText('privacy-policy'));
+
+    await waitFor(() => expect((screen.getByLabelText('النص (عربي، Markdown)') as HTMLTextAreaElement).value)
+      .toBe('النص العربي المنشور'));
+
+    fireEvent.click(screen.getByText('English'));
+    expect((screen.getByLabelText('Text (English, Markdown)') as HTMLTextAreaElement).value)
+      .toBe('the published English text');
+  });
+
   it('"نوع مستند جديد" opens an empty form with a free doc_id, no history call', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     stubReq();
@@ -109,7 +131,10 @@ describe('AdminLegal', () => {
     render(<AdminLegal session={SESSION} />);
     await waitFor(() => expect(screen.getByText('privacy-policy')).toBeTruthy());
     fireEvent.click(screen.getByText('privacy-policy'));
-    await waitFor(() => expect(screen.getByLabelText(/رقم النسخة/)).toBeTruthy());
+    // wait for the loaded content to land FIRST — otherwise its own async resolution races the
+    // change below and can overwrite what was just typed with the fetched text.
+    await waitFor(() => expect((screen.getByLabelText('النص (عربي، Markdown)') as HTMLTextAreaElement).value)
+      .toBe('النص العربي المنشور'));
 
     fireEvent.change(screen.getByLabelText(/رقم النسخة/), { target: { value: '1.1' } });
     fireEvent.change(screen.getByLabelText('النص (عربي، Markdown)'), { target: { value: '## عنوان\nفقرة كاملة.' } });
@@ -121,7 +146,7 @@ describe('AdminLegal', () => {
       {
         content: {
           title: { ar: '', en: '' },
-          blocks: [{ legal_text: { md_ar: '## عنوان\nفقرة كاملة.', md_en: '' } }],
+          blocks: [{ legal_text: { md_ar: '## عنوان\nفقرة كاملة.', md_en: 'the published English text' } }],
         },
         requires_acceptance: true,
       },
