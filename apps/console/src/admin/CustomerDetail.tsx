@@ -267,16 +267,19 @@ function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant:
   );
 }
 
-interface TicketSummary {
+export interface TicketSummary {
   id: string; type: string; status: string; priority: string;
   created: string; updated: string; assignee: string; tags: string[]; raiser_ref: string;
+  // Present when the row came from the all-tenants sweep (ticket-service v0.18.21) — absent when
+  // it came from a single-tenant list, where the caller already knows which tenant it asked for.
+  tenant?: string;
 }
 
-interface TicketEvent {
+export interface TicketEvent {
   id: string; kind: string; ts: string; actor: string; body?: string;
 }
 
-interface TicketDetail extends TicketSummary {
+export interface TicketDetail extends TicketSummary {
   subject: string;
   body: string;
 }
@@ -284,12 +287,44 @@ interface TicketDetail extends TicketSummary {
 /** لا خريطة حالات ثابتة عمداً — الحالة نص حرّ يحدّده تدفّق عمل (workflow) كل تينانت
  * (GET /api/v1/workflows بـticket-service)، لا قيمة مغلقة من مجموعة معروفة سلفاً. عرض الخام
  * كما هو أصدق من تلوين حالة قد لا تطابق تعريفها الحقيقي. */
-function statusTone(status: string): 'neutral' | 'success' | 'danger' | 'warning' {
+export function statusTone(status: string): 'neutral' | 'success' | 'danger' | 'warning' {
   const s = status.toLowerCase();
   if (s.includes('resolv') || s.includes('closed') || s.includes('حُل') || s.includes('مغلق')) return 'success';
   if (s.includes('escalat') || s.includes('تصعيد')) return 'danger';
   if (s.includes('pending') || s.includes('انتظار')) return 'warning';
   return 'neutral';
+}
+
+/** مُصدَّرة — نفس عرض التفاصيل يُستخدم من التبويب داخل ملف عميل واحد (TicketsTab) وشاشة صندوق
+ * الوارد الموحّد عبر كل المستأجرين (AdminTickets.tsx)، بلا تكرار JSX. قراءة فقط هنا أيضاً. */
+export function TicketDetailView({ ticket, events }: { ticket: TicketDetail; events: TicketEvent[] }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h3 className="font-medium">{ticket.subject || ticket.id}</h3>
+          <Badge tone={statusTone(ticket.status)}>{ticket.status}</Badge>
+        </div>
+        <p className="whitespace-pre-wrap text-sm text-text-secondary">{ticket.body}</p>
+      </div>
+      <div>
+        <h4 className="mb-2 text-label text-text-muted">سجل الردود</h4>
+        {events.length === 0 ? <p className="text-sm text-text-muted">لا ردود بعد.</p> : (
+          <div className="flex flex-col gap-2">
+            {events.map((e) => (
+              <div key={e.id} className="rounded-lg bg-surface-2 p-3 text-sm">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
+                  <span dir="ltr" className="text-label text-text-muted">{new Date(e.ts).toLocaleString('ar-SA')}</span>
+                </div>
+                {e.body ? <p className="whitespace-pre-wrap">{e.body}</p> : <span className="text-text-muted">{e.kind}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -373,33 +408,7 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
         </button>
         {detail === 'loading' || detail === null ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
          : detail === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
-         : (
-          <div className="flex flex-col gap-4">
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <h3 className="font-medium">{detail.ticket.subject || detail.ticket.id}</h3>
-                <Badge tone={statusTone(detail.ticket.status)}>{detail.ticket.status}</Badge>
-              </div>
-              <p className="whitespace-pre-wrap text-sm text-text-secondary">{detail.ticket.body}</p>
-            </div>
-            <div>
-              <h4 className="mb-2 text-label text-text-muted">سجل الردود</h4>
-              {detail.events.length === 0 ? <p className="text-sm text-text-muted">لا ردود بعد.</p> : (
-                <div className="flex flex-col gap-2">
-                  {detail.events.map((e) => (
-                    <div key={e.id} className="rounded-lg bg-surface-2 p-3 text-sm">
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
-                        <span dir="ltr" className="text-label text-text-muted">{new Date(e.ts).toLocaleString('ar-SA')}</span>
-                      </div>
-                      {e.body ? <p className="whitespace-pre-wrap">{e.body}</p> : <span className="text-text-muted">{e.kind}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+         : <TicketDetailView ticket={detail.ticket} events={detail.events} />}
       </div>
     );
   }

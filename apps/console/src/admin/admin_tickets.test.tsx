@@ -1,7 +1,6 @@
 /**
- * صفحة "تذاكر" المستقلة بالشريط الجانبي — تختار مستأجراً من tenant.list أولاً (لا مسار
- * "كل التذاكر" — tenant مطلوب على مسارات ticket-service الإدارية، انظر AdminTickets.tsx's own
- * header)، ثم تعرض نفس TicketsTab المستخدمة داخل ملف عميل واحد.
+ * صفحة "تذاكر" — صندوق وارد موحّد عبر كل المستأجرين مباشرة (v0.18.21)، فلتر status=open
+ * افتراضي (لا قراءة بلا فلتر أصلاً)، بلا اختيار عميل أولاً.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -40,61 +39,67 @@ vi.mock('./api', async (importOriginal) => {
 
 afterEach(() => vi.clearAllMocks());
 
-describe('AdminTickets (standalone sidebar page)', () => {
-  it('picks a tenant first, then shows that tenant\'s tickets — no all-tenants call ever made', async () => {
+describe('AdminTickets (unified cross-tenant inbox)', () => {
+  it('loads status=open across all tenants by default — no tenant picked first', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/v1/tenants') {
         return Promise.resolve({
           tenants: [{ id: 't1', slug: 'shop-one', name: 'محل الأول', status: 'active',
-                     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' }],
+                     created_at: '', updated_at: '' }],
         });
       }
-      if (path.includes('/tickets/admin/tickets?tenant=t1')) {
+      if (path.includes('/tickets/admin/tickets?')) {
         return Promise.resolve({
-          tenant: 't1',
-          tickets: [{ id: 'tk1', type: 'support', status: 'open', priority: 'normal',
+          tickets: [{ id: 'tk1', tenant: 't1', type: 'support', status: 'open', priority: 'normal',
                      created: '2026-09-01T00:00:00Z', updated: '2026-09-01T01:00:00Z',
-                     assignee: '', tags: [], raiser_ref: 'ref-1' }],
+                     assignee: '', tags: [], raiser_ref: '' }],
         });
       }
       return Promise.resolve({});
     });
 
     render(<AdminTickets session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
-
-    // never called the list route without a tenant filter — the route requires one (422 without)
-    expect(reqMock).not.toHaveBeenCalledWith('/api/v1/tickets/admin/tickets', 'GET', undefined, 'tok-1');
-
-    fireEvent.click(screen.getByText('محل الأول'));
+    // no tenant picker, no click needed — the inbox itself is the default view
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/tickets/admin/tickets?tenant=t1'), 'GET', undefined, 'tok-1'));
+      expect.stringContaining('/api/v1/tickets/admin/tickets?status=open'), 'GET', undefined, 'tok-1'));
+    // never called the list route with NO filter at all
+    expect(reqMock).not.toHaveBeenCalledWith('/api/v1/tickets/admin/tickets?limit=50', 'GET', undefined, 'tok-1');
     await waitFor(() => expect(screen.getByText('tk1')).toBeTruthy());
+    expect(screen.getByText('محل الأول')).toBeTruthy();
   });
 
-  it('search filters the tenant list locally by name or slug', async () => {
+  it('opening a row fetches that ticket\'s full detail using ITS OWN tenant field', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/v1/tenants') {
         return Promise.resolve({
-          tenants: [
-            { id: 't1', slug: 'shop-one', name: 'محل الأول', status: 'active',
-             created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
-            { id: 't2', slug: 'shop-two', name: 'محل الثاني', status: 'active',
-             created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
-          ],
+          tenants: [{ id: 't2', slug: 'shop-two', name: 'محل الثاني', status: 'active',
+                     created_at: '', updated_at: '' }],
+        });
+      }
+      if (path.includes('/tickets/admin/tickets/tk9')) {
+        return Promise.resolve({
+          ticket: { id: 'tk9', tenant: 't2', type: 'support', status: 'open', priority: 'normal',
+                   created: '', updated: '', assignee: '', tags: [], raiser_ref: '',
+                   subject: 'مشكلة بالدفع', body: 'الدفع ما اكتمل' },
+          events: [],
+        });
+      }
+      if (path.includes('/tickets/admin/tickets?')) {
+        return Promise.resolve({
+          tickets: [{ id: 'tk9', tenant: 't2', type: 'support', status: 'open', priority: 'normal',
+                     created: '', updated: '', assignee: '', tags: [], raiser_ref: '' }],
         });
       }
       return Promise.resolve({});
     });
 
     render(<AdminTickets session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
-    expect(screen.getByText('محل الثاني')).toBeTruthy();
-
-    fireEvent.change(screen.getByPlaceholderText('ابحث باسم العميل…'), { target: { value: 'الثاني' } });
-    await waitFor(() => expect(screen.queryByText('محل الأول')).toBeNull());
-    expect(screen.getByText('محل الثاني')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('tk9')).toBeTruthy());
+    fireEvent.click(screen.getByText('tk9'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/tickets/admin/tickets/tk9?tenant=t2'), 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('مشكلة بالدفع')).toBeTruthy());
   });
 });
