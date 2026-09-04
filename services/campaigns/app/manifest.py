@@ -98,12 +98,12 @@ def build_manifest(
             # recipient burst is a volume signal Meta reads against every number we hold.
             {"path": "/api/v1/campaigns/platform/audience-cap", "tier": "user", "method": "GET"},
             {"path": "/api/v1/campaigns/platform/audience-cap", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/campaigns/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/campaigns/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/campaigns/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/campaigns/operator/config/{}", "tier": "user", "method": "DELETE"},
         ],
         "ports": ports or [],  # port -> driver, from the composition root
         # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty

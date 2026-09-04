@@ -36,31 +36,31 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # cannot render — and nothing anywhere fails to say so.
     {
         "id": "bookings.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
+        "path": "/api/v1/bookings/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
     },
     {
         "id": "bookings.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
-        "path": "/api/v1/operator/secrets", "capability": "platform.secrets",
+        "path": "/api/v1/bookings/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "group": "المنصة",
     },
     {
         "id": "bookings.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
-        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.secrets",
+        "path": "/api/v1/bookings/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
     },
     {
         "id": "bookings.operator_config", "label": "إعدادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/config", "capability": "platform.config", "group": "المنصة",
+        "path": "/api/v1/bookings/operator/config", "capability": "platform.config", "group": "المنصة",
     },
     {
         "id": "bookings.operator_config_set", "label": "تعديل إعداد تشغيلي", "method": "PUT",
-        "path": "/api/v1/operator/config", "capability": "platform.config",
+        "path": "/api/v1/bookings/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
     },
     {
         "id": "bookings.operator_config_clear", "label": "إرجاع إعداد لقيمته", "method": "DELETE",
-        "path": "/api/v1/operator/config/{key}", "capability": "platform.config",
+        "path": "/api/v1/bookings/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "المنصة",
     },

@@ -92,12 +92,12 @@ def build_manifest(
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege
             # surface the service has.
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/bookings/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/bookings/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/bookings/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/bookings/operator/config/{}", "tier": "user", "method": "DELETE"},
             # Stage 6 (docs/خطة-تنفيذ-الحجوزات.md §6): the grid's own read, and every write
             # app/core/operations.py::BookingOperations exposes.
             {"path": "/api/v1/bookings", "tier": "user", "method": "GET"},
