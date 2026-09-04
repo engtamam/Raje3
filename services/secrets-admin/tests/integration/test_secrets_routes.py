@@ -284,12 +284,19 @@ def test_a_saved_value_whose_restart_failed_says_saved_but_not_applied(built):
 
 
 def test_there_is_no_route_that_reads_a_value_back(built):
-    """Not «it returns 404 today» — that no such handler is mounted at all."""
+    """Not «it returns 404 today» — that no such handler is mounted at all.
+
+    ASSERTED BY REQUEST, NOT BY INTROSPECTING `client.app.routes` — that attribute's shape
+    depends on exactly which TestClient/Starlette version builds it (found live: identical code,
+    identical FastAPI app, empty under pytest's own TestClient construction path while a plain
+    script import showed all eleven routes fine — a version quirk, not a fact about this app).
+    A live request settles it either way: a genuinely unmounted GET answers 405 (method not
+    allowed on a path that only has POST) or 404 (no path at all), never 200/401/403, which is
+    what an existing-but-guarded route would answer.
+    """
     client, _, _ = built
-    paths = {getattr(r, "path", "") for r in client.app.routes}
-    assert paths & {"/api/v1/secrets", "/api/v1/secrets/{key}"} == {
-        "/api/v1/secrets", "/api/v1/secrets/{key}"}
-    assert not any("reveal" in p or "value" in p for p in paths)
-    methods = {(getattr(r, "path", ""), m)
-               for r in client.app.routes for m in (getattr(r, "methods", None) or ())}
-    assert ("/api/v1/secrets/{key}", "GET") not in methods
+    r = client.get("/api/v1/secrets/META_APP_ID", headers=_auth(CAP))
+    assert r.status_code in (404, 405), r.status_code
+    # AND NOT BECAUSE THE DOOR REFUSED IT FIRST — a real token with the real capability got here;
+    # a 401/403 would mean this proved the auth gate, not the absence of a read route.
+    assert r.status_code != 401 and r.status_code != 403

@@ -1,4 +1,4 @@
-"""The five external-provider credentials an owner may replace without a developer.
+"""The external-provider credentials an owner may replace without a developer.
 
 WHY THIS FILE EXISTS AT ALL, AND WHY IT IS A CLOSED LIST.
 
@@ -16,8 +16,12 @@ a form. The RBAC Role (deploy/k3s/secrets-admin-rbac.yaml) names the same two ob
 `resourceNames`, so the cluster refuses what this list does not contain even if a future bug here
 tried; the two are deliberately the same fact written twice, in the two places that can enforce it.
 
-ADDING A SIXTH IS A ONE-PLACE EDIT HERE plus one line in that Role. Nothing else in this service
-knows the name of a secret: the routes, the console screen and the audit record all read this list.
+ADDING A NEW ONE IS A ONE-PLACE EDIT HERE — plus one line in that Role, UNLESS THE SECRET OBJECT IS
+ALREADY NAMED THERE (WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_BUSINESS_ACCOUNT_ID
+below all write into `notification-service-secrets`, already covered by the Role's existing
+`resourceNames` from WHATSAPP_360DIALOG_API_KEY — no Role change needed for those three). Nothing
+else in this service knows the name of a secret: the routes, the console screen and the audit
+record all read this list.
 
 WHAT IS DELIBERATELY NOT HERE: our own secrets. INTERNAL_SERVICE_TOKEN, TOKEN_PUBLIC_KEY, PII_SALT
 and BACKUP_KEK are shared across the fleet and changing one of them is a coordinated migration, not
@@ -92,6 +96,37 @@ SECRETS: tuple[SecretEntry, ...] = (
         namespace="base-services",
         deployment="notification-service",
         label="مفتاح 360dialog",
+    ),
+    # ── WhatsApp, through Meta directly — the PLATFORM'S OWN identity, not any shop's ────────────
+    # A shop's own WHATSAPP_ACCESS_TOKEN is a per-tenant credential, resolved through the secret
+    # store its own onboarding (Embedded Signup) writes to — that path is unrelated to this one.
+    # These three are the ENVIRONMENT FALLBACK ProviderPool._credential() reads for tenant="" — the
+    # platform's OWN sends (signup OTP today; other platform-initiated messages later), which have
+    # no tenant to resolve a stored credential for. See notification-service.values.yaml's own note
+    # on why WHATSAPP_CHAIN stays "console" until these three are real.
+    SecretEntry(
+        key="WHATSAPP_ACCESS_TOKEN",
+        secret="notification-service-secrets",
+        namespace="base-services",
+        deployment="notification-service",
+        label="توكن واتساب المنصة (System User)",
+    ),
+    SecretEntry(
+        key="WHATSAPP_PHONE_NUMBER_ID",
+        secret="notification-service-secrets",
+        namespace="base-services",
+        deployment="notification-service",
+        label="معرّف رقم واتساب المنصة",
+    ),
+    # Needed for template submit/status/sync calls (MetaTemplateManager), not for sending itself —
+    # kept alongside the other two rather than a later seventh edit, since all three arrive together
+    # from the same Meta System User setup step.
+    SecretEntry(
+        key="WHATSAPP_BUSINESS_ACCOUNT_ID",
+        secret="notification-service-secrets",
+        namespace="base-services",
+        deployment="notification-service",
+        label="معرّف حساب واتساب الأعمال (WABA) للمنصة",
     ),
     # ── The assistant's model ─────────────────────────────────────────────────────────────────
     SecretEntry(

@@ -35,15 +35,21 @@ interface SecretRow {
 }
 
 // WHAT EACH KEY IS AND WHERE IT COMES FROM — matches services/secrets-admin/app/core/
-// secret_registry.py's own SECRETS tuple exactly (same 5 keys, same order); that file is the
-// real source of truth for WHICH keys exist, this is only the console's own explanatory text for
-// them, since the backend route never sends more than {key, label, ...}. An unknown key (a sixth
-// added there but not here) still shows fine — just without the "؟" hint, never hidden.
+// secret_registry.py's own SECRETS tuple exactly; that file is the real source of truth for
+// WHICH keys exist, this is only the console's own explanatory text for them, since the backend
+// route never sends more than {key, label, ...}. An unknown key (a new one added there but not
+// here) still shows fine — just without the "؟" hint, never hidden.
 const SECRET_HELP: Record<string, string> = {
   META_APP_ID: 'من لوحة مطوّري Meta (developers.facebook.com) — تطبيقك ← إعدادات أساسية ← "معرّف التطبيق".',
   META_APP_SECRET: 'من نفس صفحة إعدادات التطبيق بلوحة مطوّري Meta — "سر التطبيق" (يحتاج تأكيد كلمة مرور حسابك لإظهاره).',
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'نص تختاره أنت بنفسك (أي نص عشوائي قوي) وتُدخِله هنا وبنفس الوقت بإعدادات الـwebhook بلوحة Meta — يجب أن يتطابق النصّان بالضبط.',
-  WHATSAPP_360DIALOG_API_KEY: 'من لوحة 360dialog (hub.360dialog.com) — قسم API Keys الخاص برقم واتساب التجاري.',
+  WHATSAPP_360DIALOG_API_KEY: 'من لوحة 360dialog (hub.360dialog.com) — قسم API Keys الخاص برقم واتساب التجاري. (متوقف حالياً — المسار الحالي مزوّد ميتا مباشرة.)',
+  // هوية واتساب المنصة نفسها (لا محل معيّن) — إرسالات النظام زي رمز التحقق (OTP) عند التسجيل.
+  // خطوات ميتا: Business Manager ← Users ← System users ← أنشئ واحداً بصلاحية Admin ← فعّل صلاحية
+  // whatsapp_business_messaging (وwhatsapp_business_management لو بنسجّل قوالب) ← ولّد توكن دائم.
+  WHATSAPP_ACCESS_TOKEN: 'توكن دائم (Permanent) من System User بلوحة Meta Business Manager — Users ← System users ← أنشئ مستخدماً بصلاحية Admin وفعّل له صلاحية whatsapp_business_messaging، ثم ولّد توكناً. يُنسخ مرة واحدة فقط عند إنشائه.',
+  WHATSAPP_PHONE_NUMBER_ID: 'من لوحة WhatsApp Manager بنفس حساب الأعمال — رقم هاتف المنصة نفسه (لا رقم محل) ← "معرّف رقم الهاتف" (Phone Number ID)، رقم وليس رقم الجوال نفسه.',
+  WHATSAPP_BUSINESS_ACCOUNT_ID: 'من نفس WhatsApp Manager — معرّف حساب واتساب الأعمال (WABA ID) نفسه، يظهر أعلى لوحة الحساب. يلزم فقط لتسجيل القوالب، لا للإرسال نفسه.',
   GEMINI_API_KEY: 'من Google AI Studio (aistudio.google.com/apikey) — الأسهل، بلا مشروع GCP. أو من GCP نفسه (console.cloud.google.com): فعّل "Generative Language API" وأنشئ مفتاحاً من Credentials، لو تبي تربطه بمشروع/فوترة محددة.',
 };
 
