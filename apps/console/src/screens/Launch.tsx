@@ -553,9 +553,8 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         <button
           key={g.goal}
           type="button"
-          disabled={g.available === false}
           onClick={() => setPicked(g)}
-          className="flex items-start gap-3 rounded-card bg-surface-1 p-4 text-start shadow-sm disabled:opacity-60"
+          className="flex items-start gap-3 rounded-card bg-surface-1 p-4 text-start shadow-sm"
         >
           {g.icon ? (() => {
             const Icon = GOAL_ICONS[g.icon!] ?? Tag;
@@ -564,16 +563,14 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="font-medium">{g.title}</span>
             <span className="text-sm text-text-secondary">{g.line}</span>
-            {/* LOCKED, AND THE REASON IS ON THE CARD — never in a tooltip and never in a dialog
-                after he presses. A card that looks pressable and then refuses is worse than one
-                that says so before he reaches for it. */}
-            {/* ONE REASON, NOT TWO. This used to print `unavailable_reason` here AND a fixed
-                badge — «يحتاج تفعيل قالبه» — right under it for the same card, and the badge was
-                the one that lied: nothing on this screen is a switch he owns (Messages.tsx's own
-                rule, §10.8), so there was never a tap the badge's wording could point to. The
-                server's own sentence above already says whether this resolves itself (Meta's
-                review) or is ours to fix — a second, generic label under a true sentence only
-                asks «which of these do I believe». */}
+            {/* NOT DISABLED ANY MORE, ON PURPOSE. Found live: an owner asked why he could not
+                even OPEN this and compose his message while a template was under Meta's review —
+                a wait that can run hours, during which the card blocked him from doing anything
+                productive. `ask()`/`create()` already refuse this exact case with the server's
+                own sentence — the same principle the admin panel already uses for an unapproved
+                template: TRY, and let the one place that actually knows say no. A card that looks
+                pressable and then refuses honestly beats one that never lets him find out what
+                he is waiting for. The reason still shows below, informational now, not a lock. */}
             {g.available === false && g.unavailable_reason ? (
               <span className="mt-1 text-xs text-text-secondary">{g.unavailable_reason}</span>
             ) : null}
