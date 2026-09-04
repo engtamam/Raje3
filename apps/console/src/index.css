@@ -173,3 +173,84 @@ button.bg-transparent.text-text-secondary {
 button.bg-transparent.text-text-secondary:hover {
   border-color: var(--border-strong);
 }
+
+/* ── legal document typography — text, callout, table, divider, figure ──────────────────────────
+ *
+ * FOUND LIVE, REPORTED WITH A SCREENSHOT: every legal document (the admin editor's own preview,
+ * AND the real customer-facing page — AcceptTerms.tsx/Legal.tsx read the exact same BlockView,
+ * see BlockRenderer.tsx's own header) has ALWAYS rendered as unstyled text — `legal-prose`,
+ * `legal-table`, `legal-callout-*`, `legal-divider`, `legal-figure` are class names BlockRenderer.tsx
+ * has emitted from the start, and nothing anywhere ever defined them. A raw browser default table
+ * (no borders, no row shading) reading a privacy policy is the worst place for that gap to show —
+ * it is the one document a shop owner is most likely to actually read closely.
+ *
+ * SCOPED TO THESE CLASSES ONLY, never bare `table`/`h2` selectors — this file is global to the
+ * whole console, and a bare element selector here would restyle every unrelated table and heading
+ * in the product, not just legal content. */
+.legal-prose {
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+.legal-prose > * + * { margin-top: 0.9em; }
+.legal-prose h2 { font-size: 1.375rem; font-weight: 700; line-height: 1.4; margin-top: 1.75em; }
+.legal-prose h3 { font-size: 1.125rem; font-weight: 700; line-height: 1.4; margin-top: 1.5em; }
+.legal-prose h4 { font-size: 1rem; font-weight: 600; line-height: 1.4; margin-top: 1.25em; }
+.legal-prose h2:first-child, .legal-prose h3:first-child, .legal-prose h4:first-child { margin-top: 0; }
+.legal-prose p { color: var(--text-secondary); }
+.legal-prose ul, .legal-prose ol { padding-inline-start: 1.5em; display: flex; flex-direction: column; gap: 0.4em; }
+.legal-prose ul { list-style: disc; }
+.legal-prose ol { list-style: decimal; }
+.legal-prose strong { color: var(--text-primary); font-weight: 700; }
+
+.legal-table-wrap {
+  overflow-x: auto;   /* a wide table scrolls inside itself — the page never scrolls sideways */
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+}
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.legal-table th, .legal-table td {
+  padding: 0.625rem 0.875rem;
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.legal-table th {
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.legal-table tbody tr:last-child td { border-bottom: none; }
+.legal-table tbody tr:nth-child(even) { background: var(--surface-1); }
+.legal-table tbody tr:nth-child(odd) { background: var(--surface-0); }
+
+.legal-callout {
+  border-inline-start: 3px solid var(--info);
+  background: var(--info-soft);
+  color: var(--info-on-soft);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+}
+.legal-callout .legal-prose, .legal-callout p { color: inherit; }
+.legal-callout-warning { border-inline-start-color: var(--warning); background: var(--warning-soft); color: var(--warning-on-soft); }
+.legal-callout-danger { border-inline-start-color: var(--danger); background: var(--danger-soft); color: var(--danger-on-soft); }
+.legal-callout-success { border-inline-start-color: var(--success); background: var(--success-soft); color: var(--success-on-soft); }
+
+.legal-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 1.5em 0;
+}
+
+.legal-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.legal-figure img { border-radius: 0.75rem; border: 1px solid var(--border-subtle); }
+.legal-figure figcaption { font-size: 0.8125rem; color: var(--text-secondary); text-align: center; }
