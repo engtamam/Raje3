@@ -78,12 +78,12 @@ def build_manifest(
             # feeds is where a reviewer looks for the highest-privilege surface a service has, and
             # secrets management was missing from it — not hidden, absent, which reads the same to
             # anyone consulting the table.
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/portal/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/portal/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/portal/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/portal/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/portal/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/portal/operator/config/{}", "tier": "user", "method": "DELETE"},
             # What a client calls to learn who it is talking as. Declared rather than deleted: a
             # route table that omits it describes a service that answers a question it does not.
             {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},

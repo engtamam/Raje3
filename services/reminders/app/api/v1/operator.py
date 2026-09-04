@@ -28,7 +28,7 @@ from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
 from app.api.subscribed import no_subscription_needed, subscribed_write
 
-router = APIRouter(prefix="/api/v1/operator", tags=["operator"])
+router = APIRouter(prefix="/api/v1/reminders/operator", tags=["operator"])
 
 _SECRETS = require_capability("platform.secrets")
 _CONFIG = require_capability("platform.config")

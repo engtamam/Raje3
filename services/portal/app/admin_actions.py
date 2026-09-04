@@ -8,7 +8,7 @@ holds no database at all (spec §8.6.1). A panel button pointing at this service
 with nowhere to go.
 
 WHAT WAS HERE BEFORE, AND WHY IT MATTERED. Eight actions copied from another service's template:
-`/api/v1/operator/config`, `/api/v1/operator/secrets` and the rest, carrying `platform.operations`
+`/api/v1/portal/operator/config`, `/api/v1/portal/operator/secrets` and the rest, carrying `platform.operations`
 — a capability this service does not advertise, for routes it does not serve, with one id declared
 twice. The console would have rendered five buttons that 404.
 
@@ -27,13 +27,13 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [    # ── the operator surface: declar
     # the same to anyone consulting the table.
     {
         "id": "portal.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
+        "path": "/api/v1/portal/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
         # The NAMES only — a route that returned a value would put a credential in a screenshot.
         "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
     },
     {
         "id": "portal.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
-        "path": "/api/v1/operator/secrets", "capability": "platform.secrets",
+        "path": "/api/v1/portal/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "danger": True, "group": "المنصة",
         # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
         # reconstructed and an unattributable one is indistinguishable from an attacker's.
@@ -41,25 +41,25 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [    # ── the operator surface: declar
     },
     {
         "id": "portal.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
-        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.secrets",
+        "path": "/api/v1/portal/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
         "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
     },
     {
         "id": "portal.operator_config", "label": "إعدادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/config", "capability": "platform.config", "group": "المنصة",
+        "path": "/api/v1/portal/operator/config", "capability": "platform.config", "group": "المنصة",
         "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
     },
     {
         "id": "portal.set_operator_config", "label": "تعديل إعداد", "method": "PUT",
-        "path": "/api/v1/operator/config", "capability": "platform.config",
+        "path": "/api/v1/portal/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
         "help": "يسري فوراً على هذه الخدمة دون إعادة نشر.",
     },
     {
         "id": "portal.clear_operator_config", "label": "إلغاء إعداد", "method": "DELETE",
-        "path": "/api/v1/operator/config/{key}", "capability": "platform.config",
+        "path": "/api/v1/portal/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "المنصة",
         "help": "يعيد الإعداد إلى قيمته المنشورة.",

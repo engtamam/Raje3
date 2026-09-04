@@ -173,12 +173,12 @@ def build_manifest(
             {"path": "/api/v1/platform/silent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/reminders/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/reminders/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/operator/config/{}", "tier": "user", "method": "DELETE"},
         ],
         "ports": ports or [],  # port -> driver, from the composition root
         # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty
