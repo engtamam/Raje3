@@ -5,8 +5,9 @@
  * المرحلة 1: "نظرة عامة" و"التطبيقات والفوترة" ببيانات حقيقية. المرحلة 2: "السجل والتدقيق" حقيقي
  * كذلك — audit.query يدعم فلتر tenant فعلاً بالخادم، اكتشفنا هذا بالفحص المباشر بعد ما ذكرته
  * خطأً كفجوة بالاقتراح الأول. "الفروع والمستخدمين" جزئياً حقيقي الآن (المرحلة 3) — العدد الفعلي
- * فقط (operations.tenant_capacity، مسار جديد بخدمتنا نحن)؛ الحد المسموح من الفوترة لسه معلَّق،
- * مطلوب من الجلسة الشريكة. الباقي (التذاكر والدعم، واتساب) يبقى "قريباً" صريح يشرح بالضبط ما
+ * فقط أول ما شُحِن (operations.tenant_capacity) — ثم x/y كامل: الحد يُقرأ من نفس فحص الباقة
+ * (`billing entitlements/check`) اللي يمنع المحل أصلاً من تجاوزه عند الإضافة، لا مسار جديد ولا
+ * رقم مخترَع. الباقي (التذاكر والدعم، واتساب) يبقى "قريباً" صريح يشرح بالضبط ما
  * ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
  *
  * تصحيح مهم لتبويب التذاكر تحديداً: مسار /tickets/operator/tickets الحالي مبني لعملية محل واحد
@@ -223,14 +224,17 @@ function AuditTab({ session, tenant, catalog }: { session: AdminSession; tenant:
   );
 }
 
-interface Capacity { branches: number; operators: number; }
+interface Capacity {
+  branches: number; operators: number;
+  branches_limit: number; operators_limit: number;   // -1 = unlimited or unreachable
+}
 
-/**
- * العدد الفعلي فقط حالياً (operations.tenant_capacity، شحنّاه اليوم) — لا الحد المسموح به من
- * الفوترة (branches/staff.seats بمحرّك entitlement_resolver.py). ذاك يحتاج مساراً جديداً بـ
- * billing-service (طلبناه من الجلسة الشريكة، لسه ما وصل) — لين وصوله نعرض العدد بلا مقارنة
- * بحد، صريحاً لا مُخمَّناً.
- */
+/** x/y — العدد الفعلي مقابل حدّ الباقة (operations.tenant_capacity، يقرأ نفس فحص
+ * entitlements/check اللي يمنع المحل من إضافة موظف/فرع فوق حده، لا مسار جديد). ‎-1 = غير محدود
+ * أو تعذّر الوصول لخدمة الفوترة — تُعرض بلا سقف حينها، لا نخترع رقماً. */
+function seatsLabel(current: number, limit: number): string {
+  return limit < 0 ? String(current) : `${current}/${limit}`;
+}
 function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
   const [capacity, setCapacity] = useState<Capacity | 'loading' | 'failed'>('loading');
   const action = findCustomerAction(catalog, 'operations.tenant_capacity');
@@ -250,11 +254,12 @@ function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant:
 
   return (
     <div className="flex flex-col gap-3">
-      <Row label="الفروع"><span className="font-medium">{capacity.branches}</span></Row>
-      <Row label="الموظفون"><span className="font-medium">{capacity.operators}</span></Row>
-      <p className="text-label text-text-muted">
-        العدد الفعلي فقط — الحد المسموح من الفوترة غير متاح هنا بعد.
-      </p>
+      <Row label="الفروع">
+        <span className="font-medium">{seatsLabel(capacity.branches, capacity.branches_limit)}</span>
+      </Row>
+      <Row label="الموظفون">
+        <span className="font-medium">{seatsLabel(capacity.operators, capacity.operators_limit)}</span>
+      </Row>
     </div>
   );
 }

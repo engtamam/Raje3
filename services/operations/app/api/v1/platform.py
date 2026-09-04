@@ -28,6 +28,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import evidence as EV
+from app.core.seats import BRANCHES, SEATS
 from app.core.stores import BranchStore, OperatorStore, PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry, validate_commission_rate
 from app.core.templates import TemplateError, TemplateLibrary
@@ -456,15 +457,21 @@ async def branch_locations(request: Request, limit: int = 200, after: str = "",
 @router.get("/tenants/{tenant_id}/capacity", dependencies=[Depends(rate_limit)])
 async def tenant_capacity(request: Request, tenant_id: str,
                           principal: Principal = Depends(_PLATFORM)) -> dict:
-    """How many branches and staff (operators) ONE establishment actually has — for the admin
-    console's «العملاء والدعم» screen (لا نموذج بيانات جديد، مسار قراءة فقط: `BranchStore.list`/
-    `OperatorStore.list` already exist, tenant-scoped, used by the shop's own «فريقي» screen —
-    this route just reads them for a tenant the caller NAMES rather than the caller's own.
+    """How many branches and staff (operators) ONE establishment actually has, AND the entitled
+    limit (how many it is paid for) next to each — for the admin console's «العملاء والدعم»
+    screen. Counts are a plain read (`BranchStore.list`/`OperatorStore.list`, tenant-scoped,
+    already used by the shop's own «فريقي» screen — this route just reads them for a tenant the
+    caller NAMES rather than the caller's own).
 
-    Does NOT return the ENTITLED limit (how many the tenant is PAID for) — that number lives in
-    billing-service's own entitlement resolver (the `branches`/`staff.seats` gauge keys), across
-    the tenancy wall this service does not cross for a number, only for a yes/no licence check
-    (see core/base_licence.py). The console joins this count against that limit itself.
+    THE LIMIT WAS WRONGLY THOUGHT UNREACHABLE HERE, and it never was: `core/seats.py`'s own
+    `HttpGauges.allows_one_more` — the SAME call `guard_and_report` makes on every hire/branch-add
+    to enforce the cap — already returns `(allowed, limit)`. The limit is not a new number to ask
+    billing-service for; it is the second half of a call this service makes constantly. Calling it
+    here for DISPLAY, with the CURRENT true count, asks nothing billing-service cannot already
+    answer and mutates nothing (`allows_one_more` is a read).
+
+    `-1` means unlimited or unreachable (billing down, or an unlimited plan) — `guard_and_report`
+    treats both as "allow", and the console shows no ceiling rather than inventing one.
     """
     await request.app.state.auditor.record(
         "platform.tenant_capacity_viewed", actor=getattr(principal, "subject", "") or "",
@@ -473,7 +480,12 @@ async def tenant_capacity(request: Request, tenant_id: str,
     ds = request.app.state.container.datastore
     branches = await BranchStore(ds).list(tenant_id)
     operators = await OperatorStore(ds).list(tenant_id)
-    return {"branches": len(branches), "operators": len(operators)}
+    branch_n, operator_n = len(branches), len(operators)
+    gauges = request.app.state.container.gauges
+    _, branches_limit = await gauges.allows_one_more(tenant_id, BRANCHES, branch_n)
+    _, operators_limit = await gauges.allows_one_more(tenant_id, SEATS, operator_n)
+    return {"branches": branch_n, "operators": operator_n,
+            "branches_limit": branches_limit, "operators_limit": operators_limit}
 
 
 @router.get("/whatsapp/diagnostics", dependencies=[Depends(rate_limit)])

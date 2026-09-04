@@ -827,7 +827,13 @@ def test_platform_tenant_capacity_counts_this_tenants_branches_and_operators_onl
     admin = _headers("_platform", caps=("platform.operations",))
     r = client.get("/api/v1/platform/tenants/tnt_cap_a/capacity", headers=admin)
     assert r.status_code == 200
-    assert r.json()["branches"] == 2
+    body = r.json()
+    assert body["branches"] == 2
+    # GAUGE_DRIVER=null in tests (NullGauges) — always reports unlimited/unreachable, -1. A real
+    # deployment runs GAUGE_DRIVER=http and gets the establishment's actual plan limit here, off
+    # the same entitlements/check call guard_and_report already makes on every hire/branch-add.
+    assert body["branches_limit"] == -1
+    assert body["operators_limit"] == -1
 
 
 def test_platform_tenant_capacity_refuses_without_the_capability(client):
