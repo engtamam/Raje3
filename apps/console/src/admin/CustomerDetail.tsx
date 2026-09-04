@@ -13,12 +13,15 @@
  * تبويب التذاكر (المرحلة 4): مسار إداري جديد كلياً من ticket-service (v0.18.20)، بناءً على طلب
  * صريح — GET /api/v1/tickets/admin/tickets(?tenant=) للقائمة، و.../{ticket_id} للتفاصيل الكاملة
  * (نص + ردود)، بصلاحية platform.tickets وحدها (دور tenant/operator يُرفض 403). كل قراءة تُسجَّل
- * fail-closed (ticket.platform_viewed) — شرط طلبناه صراحة، لا اقتراح منهم.
+ * fail-closed (ticket.platform_viewed) — شرط طلبناه صراحة، لا اقتراح منهم. فلاتر status/type/
+ * priority/assignee والصفحات بـcursor كلها server-side حقيقية (المسار يدعمها فعلاً) — لا فلترة
+ * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Modal } from './../rj-ui/Modal';
+import { Input, Select } from './../rj-ui/Field';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
 import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
@@ -294,8 +297,27 @@ function statusTone(status: string): 'neutral' | 'success' | 'danger' | 'warning
  */
 /** مُصدَّرة — نفس المكوّن يُستخدم هنا (تبويب داخل ملف عميل واحد) وبصفحة "تذاكر" المستقلة
  * بالشريط الجانبي (AdminTickets.tsx) بعد اختيار مستأجر من قائمة — لا تكرار منطق. */
+/** فلاتر الخادم الأربعة اللي يدعمها المسار فعلاً (ticket-service v0.18.20) — status/type/priority
+ * كنصوص حرّة تُبنى كقوائم اختيار من القيم الظاهرة فعلياً بالنتيجة الحالية (لا تعداد ثابت، الحالة
+ * تدفّق عمل قابل للتخصيص لكل تينانت)، وassignee كبحث نصي حر. */
+interface TicketFilters { status: string; type: string; priority: string; assignee: string; }
+const EMPTY_FILTERS: TicketFilters = { status: '', type: '', priority: '', assignee: '' };
+
+function ticketsQuery(tenantId: string, f: TicketFilters, cursor?: string): string {
+  const p = new URLSearchParams({ tenant: tenantId, limit: '50' });
+  if (f.status) p.set('status', f.status);
+  if (f.type) p.set('type', f.type);
+  if (f.priority) p.set('priority', f.priority);
+  if (f.assignee) p.set('assignee', f.assignee);
+  if (cursor) p.set('cursor', cursor);
+  return p.toString();
+}
+
 export function TicketsTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
   const [tickets, setTickets] = useState<TicketSummary[] | 'loading' | 'failed'>('loading');
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [filters, setFilters] = useState<TicketFilters>(EMPTY_FILTERS);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<{ ticket: TicketDetail; events: TicketEvent[] } | 'loading' | 'failed' | null>(null);
 
@@ -304,13 +326,30 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
 
   useEffect(() => {
     if (!listAction) { setTickets('failed'); return; }
-    req<{ tenant: string; tickets: TicketSummary[] }>(
-      `${listAction.path}?tenant=${encodeURIComponent(tenant.id)}&limit=50`, 'GET', undefined, session.access_token)
-      .then((r) => setTickets(r.tickets)).catch(() => setTickets('failed'));
+    req<{ tenant: string; tickets: TicketSummary[]; cursor?: string }>(
+      `${listAction.path}?${ticketsQuery(tenant.id, filters)}`, 'GET', undefined, session.access_token)
+      .then((r) => { setTickets(r.tickets); setCursor(r.cursor); }).catch(() => setTickets('failed'));
     setSelected(null);
     setDetail(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
-  }, [tenant.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches on tenant AND on any filter change
+  }, [tenant.id, filters]);
+
+  function loadMore() {
+    if (!listAction || !cursor || tickets === 'loading' || tickets === 'failed') return;
+    setLoadingMore(true);
+    req<{ tenant: string; tickets: TicketSummary[]; cursor?: string }>(
+      `${listAction.path}?${ticketsQuery(tenant.id, filters, cursor)}`, 'GET', undefined, session.access_token)
+      .then((r) => { setTickets((prev) => (prev === 'loading' || prev === 'failed' ? r.tickets : [...prev, ...r.tickets])); setCursor(r.cursor); })
+      .finally(() => setLoadingMore(false));
+  }
+
+  // خيارات كل قائمة اختيار مبنيّة من القيم الظاهرة فعلياً بالصفحة الحالية — لا قيمة مخترَعة، ولا
+  // تُفقَد القيمة المختارة حالياً لو اختفت من الصفحة (تُبقى مضافة للخيارات يدوياً).
+  const distinct = (key: 'status' | 'type' | 'priority'): string[] => {
+    const vals = new Set<string>(tickets !== 'loading' && tickets !== 'failed' ? tickets.map((t) => t[key]).filter(Boolean) : []);
+    if (filters[key]) vals.add(filters[key]);
+    return Array.from(vals).sort();
+  };
 
   useEffect(() => {
     if (!selected) return;
@@ -323,9 +362,6 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
   }, [selected, detailAction, tenant.id, session.access_token]);
 
   if (!listAction) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
-  if (tickets === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
-  if (tickets === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>;
-  if (tickets.length === 0) return <p className="text-sm text-text-muted">لا تذاكر لهذا العميل.</p>;
 
   if (selected) {
     return (
@@ -366,16 +402,62 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
     );
   }
 
+  const hasActiveFilter = filters.status || filters.type || filters.priority || filters.assignee;
+
   return (
-    <div className="flex flex-col gap-2">
-      {tickets.map((t) => (
-        <button key={t.id} type="button" onClick={() => setSelected(t.id)}
-                className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 p-3 text-sm text-start hover:bg-surface-3">
-          <span dir="ltr" className="font-mono text-text-muted">{t.id}</span>
-          <span dir="ltr" className="text-label text-text-muted">{new Date(t.updated).toLocaleString('ar-SA')}</span>
-          <Badge tone={statusTone(t.status)}>{t.status}</Badge>
-        </button>
-      ))}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالحالة">
+          <option value="">كل الحالات</option>
+          {distinct('status').map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
+        <Select value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالنوع">
+          <option value="">كل الأنواع</option>
+          {distinct('type').map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
+        <Select value={filters.priority} onChange={(e) => setFilters((f) => ({ ...f, priority: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالأولوية">
+          <option value="">كل الأولويات</option>
+          {distinct('priority').map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
+        <Input value={filters.assignee} onChange={(e) => setFilters((f) => ({ ...f, assignee: e.target.value }))}
+              placeholder="المسؤول…" className="w-36" aria-label="فلترة بالمسؤول" />
+        {hasActiveFilter ? (
+          <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="text-label text-brand">
+            مسح الفلاتر
+          </button>
+        ) : null}
+      </div>
+
+      {tickets === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+       : tickets === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
+       : tickets.length === 0 ? (
+        <p className="text-sm text-text-muted">
+          {hasActiveFilter ? 'لا تذاكر تطابق هذي الفلاتر.' : 'لا تذاكر لهذا العميل.'}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {tickets.map((t) => (
+            <button key={t.id} type="button" onClick={() => setSelected(t.id)}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 p-3 text-sm text-start hover:bg-surface-3">
+              <span dir="ltr" className="font-mono text-text-muted">{t.id}</span>
+              {t.type ? <span className="text-label text-text-muted">{t.type}</span> : null}
+              {t.priority ? <span className="text-label text-text-muted">{t.priority}</span> : null}
+              {t.assignee ? <span dir="ltr" className="text-label text-text-muted">{t.assignee}</span> : null}
+              <span dir="ltr" className="text-label text-text-muted">{new Date(t.updated).toLocaleString('ar-SA')}</span>
+              <Badge tone={statusTone(t.status)}>{t.status}</Badge>
+            </button>
+          ))}
+          {cursor ? (
+            <button type="button" onClick={loadMore} disabled={loadingMore}
+                    className="self-center text-label text-brand disabled:opacity-50">
+              {loadingMore ? 'جارٍ التحميل…' : 'حمّل المزيد'}
+            </button>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

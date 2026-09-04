@@ -284,6 +284,53 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     expect(screen.getByText('نتحقق الآن')).toBeTruthy();
   });
 
+  it('the tickets tab filters by status/type/priority/assignee server-side, and pages via cursor', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('cursor=page2')) {
+        return Promise.resolve({ tenant: 't1', tickets: [{ id: 'tk2', type: 'support', status: 'open',
+                                                            priority: 'normal', created: '', updated: '',
+                                                            assignee: '', tags: [], raiser_ref: '' }] });
+      }
+      if (path.includes('status=open')) {
+        return Promise.resolve({
+          tenant: 't1', cursor: 'page2',
+          tickets: [{ id: 'tk1', type: 'support', status: 'open', priority: 'normal',
+                     created: '', updated: '', assignee: '', tags: [], raiser_ref: '' }],
+        });
+      }
+      if (path.includes('/tickets/admin/tickets')) {
+        return Promise.resolve({
+          tenant: 't1',
+          tickets: [{ id: 'tk1', type: 'support', status: 'open', priority: 'normal',
+                     created: '', updated: '', assignee: '', tags: [], raiser_ref: '' }],
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+    fireEvent.click(screen.getByText('التذاكر والدعم'));
+    await waitFor(() => expect(screen.getByText('tk1')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('فلترة بالحالة'), { target: { value: 'open' } });
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('status=open'), 'GET', undefined, 'tok-1'));
+
+    fireEvent.click(screen.getByText('حمّل المزيد'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('cursor=page2'), 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('tk2')).toBeTruthy());
+    // both pages stay on screen — load more appends, never replaces
+    expect(screen.getByText('tk1')).toBeTruthy();
+  });
+
   it('no capability, no silent blank table', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminCustomers session={SESSION} />);
