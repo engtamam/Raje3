@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:11ba4188825d8c7d643fd2efc4efe0ba38809c82b64745d9f9b6d1854ce98552"   # v0.18.17 — POST /api/v1/whatsapp/templates/test-send + 360dialog send_text
+  digest: "sha256:1e845e1763fdda2a350a8f90b28d221395d577b46d73d45bb85816859da74fa0"   # v0.18.18 — test-send unpacks the FailoverWhatsApp (ok, driver, mid) tuple correctly; a reject is now a real 502, not a false 200
 
 replicas: 1
 
