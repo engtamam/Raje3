@@ -204,6 +204,31 @@ describe('AdminWhatsAppTemplates', () => {
        language: 'ar', variables: ['482913'] }, 'tok-1'));
   });
 
+  it('test-send panel: an unapproved template disables send, never relies on Meta to refuse it', async () => {
+    // Never trust the remote side alone to reject an unapproved send -- confirmed live that
+    // test-send can answer {ok:true} for a pending template with no real Meta call behind it at
+    // all (see the fix's own commit message). Client-side gating is a second, independent guard.
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValueOnce({ templates: [tpl({ status: 'pending' })] });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
+    fireEvent.click(screen.getByText('إرسال تجريبي'));
+    fireEvent.click(screen.getByText(/بقالب معتمد/));
+
+    fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/معرّف رقم هاتف المنصة/), { target: { value: 'pnid1' } });
+    fireEvent.change(screen.getByLabelText(/^القالب/), { target: { value: 'auth.otp::ar' } });
+
+    await waitFor(() => expect(screen.getByText(/الإرسال معطَّل حتى يُعتمد/)).toBeTruthy());
+    expect((screen.getByText('إرسال').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByText('إرسال'));
+    // never armed, never called -- the click on a disabled button does nothing
+    expect(screen.queryByText(/إرسال رسالة تجريبية حقيقية؟/)).toBeNull();
+    expect(reqMock).not.toHaveBeenCalledWith(
+      '/api/v1/whatsapp/templates/test-send', 'POST', expect.anything(), 'tok-1');
+  });
+
   it('test-send panel: NOT_CONNECTED reports plainly, never a silent failure', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()

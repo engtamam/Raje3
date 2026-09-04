@@ -330,8 +330,12 @@ function TestSendPanel({ session, action, templates }: {
   const [result, setResult] = useState<{ ok: boolean; messageId?: string; reason?: string } | null>(null);
 
   const selected = templates.find((t) => `${t.name}::${t.language}` === templateKey);
+  // قالب غير معتمد يُمنَع من عندنا، لا يُترَك لميتا ترفضه — الاعتماد على رفض ميتا وحده ثبت غير
+  // كافٍ حياً: طلب فعلي بقالب "قيد الإعداد" رجع {ok:true} بلا أي استدعاء حقيقي لميتا أصلاً
+  // (مسار مشكوك فيه قيد التحقيق مع الفريق الآخر) — منع الإرسال هنا طبقة دفاع لا تعتمد على صحة
+  // ذلك المسار إطلاقاً.
   const canSend = to.trim().length > 0 && phoneNumberId.trim().length > 0
-    && (mode === 'text' ? message.trim().length > 0 : !!selected);
+    && (mode === 'text' ? message.trim().length > 0 : !!selected && selected.status === 'approved');
 
   function onSelectTemplate(key: string) {
     setTemplateKey(key);
@@ -419,8 +423,8 @@ function TestSendPanel({ session, action, templates }: {
                 </Select>
               </Field>
               {selected && selected.status !== 'approved' ? (
-                <p role="alert" className="text-label text-warning">
-                  هذا القالب ليس معتمداً بعد — ميتا سترفض الإرسال حتى يُعتمد.
+                <p role="alert" className="text-label text-danger">
+                  هذا القالب ليس معتمداً بعد — الإرسال معطَّل حتى يُعتمد من ميتا.
                 </p>
               ) : null}
               {selected?.variables.map((v) => (
