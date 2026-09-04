@@ -223,7 +223,10 @@ async def create_booking(request: Request, body: CreateIn,
             payment_status=body.payment_status, deposit_amount_minor=body.deposit_amount_minor,
             price_override_minor=body.price_override_minor,
             intended_reward_id=body.intended_reward_id)
-    except (OperationError, SlotClaimBusy, LicenceError) as exc:
+    except (OperationError, SlotClaimBusy, LicenceError, ConcurrentEditError) as exc:
+        # ConcurrentEditError is unreachable here in practice (a brand-new id has no stored row
+        # to conflict with — see _claim_and_save's own note) but caught anyway for the same
+        # defensive-consistency reason every other write route in this file already does.
         return _handle(exc)
     return _public(booking)
 
@@ -255,7 +258,7 @@ async def reschedule_booking(request: Request, booking_id: str, body: Reschedule
         booking = await c.booking_ops.reschedule(
             tenant=tenant, booking_id=booking_id, starts_at=body.starts_at,
             operator_id=body.operator_id)
-    except (OperationError, SlotClaimBusy, LicenceError) as exc:
+    except (OperationError, SlotClaimBusy, LicenceError, ConcurrentEditError) as exc:
         return _handle(exc)
     return _public(booking)
 
@@ -272,7 +275,7 @@ async def edit_booking_services(request: Request, booking_id: str, body: Service
     c = request.app.state.container
     try:
         booking = await c.booking_ops.edit_services(tenant, booking_id, body.service_ids)
-    except (OperationError, SlotClaimBusy, LicenceError) as exc:
+    except (OperationError, SlotClaimBusy, LicenceError, ConcurrentEditError) as exc:
         return _handle(exc)
     return _public(booking)
 

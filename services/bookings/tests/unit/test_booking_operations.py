@@ -217,6 +217,45 @@ def test_concurrent_note_edits_do_not_silently_drop_one():
     assert first.note == "من الموظفة الأولى"
 
 
+def test_concurrent_reschedules_of_the_same_booking_do_not_silently_clobber_one_another():
+    """The SAME §4 race as `test_concurrent_note_edits_do_not_silently_drop_one`, but for
+    `reschedule()` specifically — found by review: `_claim_and_save`'s lock only serialises TWO
+    DIFFERENT bookings colliding on the same (branch, operator, time-bucket) lane; it said nothing
+    about a SECOND writer editing the SAME booking with a stale in-memory copy (e.g. a staff
+    member's console edit racing a booking-management-via-WhatsApp reschedule retry). Fixed by
+    `_claim_and_save` now using `save_if_unchanged(expected_rev=...)` instead of a bare `save()`."""
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        # First writer reschedules successfully — the booking's rev advances in the store.
+        first = await ops.reschedule(tenant=TENANT, booking_id=booking.id,
+                                     starts_at=1786860000 + 3600)
+        # Second writer's in-memory copy is the PRE-first-reschedule snapshot — its own local
+        # mutation (moving starts_at again) still carries the STALE rev, exactly what a retried
+        # confirm after a store-write gap would look like.
+        stale = booking
+        stale.starts_at = 1786860000 + 7200
+        return first, stale
+
+    first, stale = _run(run())
+    assert first.starts_at == 1786860000 + 3600
+
+    async def run_stale():
+        with pytest.raises(ConcurrentEditError):
+            await ops._claim_and_save(stale, now=1786860000)
+
+    _run(run_stale())
+    # THE FIRST WRITER'S RESCHEDULE MUST STILL STAND — never silently overwritten by the second,
+    # refused writer.
+    async def reread():
+        return await ops._bookings.get(TENANT, first.id)
+
+    current = _run(reread())
+    assert current.starts_at == 1786860000 + 3600
+
+
 def test_a_double_booking_across_reschedule_is_refused():
     """Not the pure race — the ordinary sequential case: op1 already has 9:00-9:30, a second
     booking dragged onto 9:15 for the same operator must be refused, not silently overlapped."""
