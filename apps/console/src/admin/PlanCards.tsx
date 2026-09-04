@@ -175,7 +175,12 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
         </ul>
       ) : null}
 
-      <div className="flex gap-2">
+      {/* mt-auto PINS THIS ROW TO THE CARD'S BOTTOM EDGE. A grid row's cards already stretch to
+          the same height (CSS Grid's own default), but each card's own content was top-aligned —
+          so a short card (few limits) put its buttons right under its price, while its neighbour
+          with more limits pushed its buttons much lower, and the row read as inconsistent even
+          though every card was the same height. Reported live from a screenshot. */}
+      <div className="mt-auto flex gap-2">
         {updateAction ? (
           <Button type="button" size="sm" variant="outline"
                   className="flex flex-1 items-center justify-center gap-2"
