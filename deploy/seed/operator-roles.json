@@ -45,7 +45,19 @@
     "next to a sibling that had it, absent everywhere, because the admin screen that reaches it",
     "(AdminWhatsAppTemplates.tsx) was built the same day this was found. platform-owner gets it as",
     "everything-owner; platform-operator too, since its own description already names 'مكتبة",
-    "القوالب' (the template library) as squarely its job."
+    "القوالب' (the template library) as squarely its job.",
+    "",
+    "A FIFTH FIND, THIS ONE FROM A GATE RATHER THAN A SCREEN: ci/check_admin_capability_reachable.py",
+    "(written the same day, once the pattern above repeated) checks every admin_actions.py",
+    "capability, across every service we actually deploy, against this whole file — not just",
+    "platform-owner. It found FOURTEEN more, all on deployed services, granted to nobody:",
+    "onboarding.manage, platform.analytics, platform.connectors, platform.flags, platform.jobs,",
+    "platform.restore, platform.search, platform.wallet, platform.webhooks, webhooks.read,",
+    "service_accounts:read/write, tenant.manage, tickets.manage. All fourteen added to",
+    "platform-owner only, on the same reasoning check_roles.py already states for the shop side:",
+    "'the owner, who must reach everything — a section he cannot open is one nobody can.' None are",
+    "split out to a narrower role yet; that is a product decision about who should actually hold",
+    "each one, not something a gate can answer, and stays open rather than guessed at here."
   ],
   "roles": [
     {
@@ -76,7 +88,21 @@
         "platform.insights",
         "platform.affiliates",
         "platform.affiliates_payouts",
-        "notifications.templates"
+        "notifications.templates",
+        "onboarding.manage",
+        "platform.analytics",
+        "platform.connectors",
+        "platform.flags",
+        "platform.jobs",
+        "platform.restore",
+        "platform.search",
+        "platform.wallet",
+        "platform.webhooks",
+        "webhooks.read",
+        "service_accounts:read",
+        "service_accounts:write",
+        "tenant.manage",
+        "tickets.manage"
       ]
     },
     {

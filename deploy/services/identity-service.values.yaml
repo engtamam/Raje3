@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:2e0f6c6fbc3a4a99b599dc494e795938fea990f338c9a4f6a3016607d534cf63"   # v0.18.14
+  digest: "sha256:1c2daf45656502ba102e864fe7cba824b54ae15608b8913faf07655ac55be7dd"   # v0.18.15
 
 replicas: 1
 
@@ -205,8 +205,22 @@ env:
   #
   # DELIVERED OVER WHATSAPP, because that is the channel this product already owns and the one
   # the owner is about to connect anyway. No SMS contract, no second vendor.
-  OTP_TEMPLATE: "auth.otp"
+  #
+  # "auth_otp", NOT "auth.otp" — Meta's own WhatsApp template-name rule is lowercase + underscore
+  # only, no dots. This VALUE overrides identity-service's own config.py default explicitly, so
+  # fixing the default upstream (requested from base-services_de) does nothing here unless this
+  # line matches it too — found live, same day, alongside the console's own AdminWhatsAppTemplates
+  # screen enforcing the same rule on every template name it registers.
+  OTP_TEMPLATE: "auth_otp"
   OTP_DELIVERY_CHANNEL: "whatsapp"
+  # THE TENANT identity-service RESOLVES THIS SEND'S TEMPLATE/CREDENTIALS UNDER. v0.18.15 made
+  # this configurable (was hardcoded "") specifically so it can match whatever tenant the admin
+  # console actually authenticates as — apps/console/src/admin/api.ts's PLATFORM_TENANT, "_platform"
+  # — since that is where AdminWhatsAppTemplates.tsx registers the template and AdminProviderSecrets
+  # writes WHATSAPP_ACCESS_TOKEN/PHONE_NUMBER_ID. A mismatch here means the OTP send looks up a
+  # tenant nothing was ever registered under, and fails looking like a template/credential problem
+  # when the real cause is two different tenants for the same "the platform itself" concept.
+  OTP_NOTIFY_TENANT: "_platform"
   # Five minutes is long enough for a message to arrive on a slow network and short enough that a
   # code read over somebody's shoulder is worthless by the time it is used.
   OTP_TTL_SECONDS: "300"
