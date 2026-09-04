@@ -1,10 +1,16 @@
 /**
  * ملف العميل — نافذة مركزية كبيرة (rj-ui/Modal، size="xl") بستة تبويبات، لا شريط جانبي — طُلب
- * صراحة بدل الشكل الجانبي الأول (انظر AdminCustomers.tsx's own header للخطة الكاملة). المرحلة
- * ١ هنا: "نظرة عامة" و"الاشتراك والفوترة" بالبيانات الحقيقية الموجودة فعلاً بالخادم. البقية
- * (الفروع والمستخدمين، التذاكر والدعم، واتساب، السجل والتدقيق) تُعرض كتبويبات حقيقية بالقائمة —
- * لا تُخفى — لكن بمحتوى "قريباً" صريح بدل أن تختفي وتقرأ كأنها لم تُصمَّم أصلاً؛ كل واحدة تشرح
- * بالضبط ما ينقصها (نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت").
+ * صراحة بدل الشكل الجانبي الأول (انظر AdminCustomers.tsx's own header للخطة الكاملة).
+ *
+ * المرحلة ١: "نظرة عامة" و"الاشتراك والفوترة" ببيانات حقيقية. المرحلة ٢: "السجل والتدقيق" حقيقي
+ * كذلك — audit.query يدعم فلتر tenant فعلاً بالخادم، اكتشفنا هذا بالفحص المباشر بعد ما ذكرته
+ * خطأً كفجوة بالاقتراح الأول. الباقي (الفروع والمستخدمين، التذاكر والدعم، واتساب) يبقى "قريباً"
+ * صريح يشرح بالضبط ما ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
+ *
+ * تصحيح مهم لتبويب التذاكر تحديداً: مسار /tickets/operator/tickets الحالي مبني لعملية محل واحد
+ * يشوف تذاكر تينانته هو نفسه (`_tenant(principal)`، غير قابل لتمرير tenant من الخارج) — يعني
+ * فجوته أعمق مما ذُكر أول مرة ("فلتر ناقص")؛ هذا مسار مختلف تماماً عن حاجتنا (منصة تشوف تذاكر
+ * أي عميل)، يحتاج مساراً إدارياً جديداً على نمط billing.platform_subscriptions، لا مجرد معامل.
  */
 import { useEffect, useState } from 'react';
 import { Badge } from './../rj-ui/Badge';
@@ -55,14 +61,12 @@ export function CustomerDetail({ session, tenant, subscription, catalog, onClose
           <ComingSoon text='لا يوجد مفهوم "حد فروع/مستخدمين" بالخادم حالياً — يحتاج نموذج بيانات جديد كلياً (ليس فلتراً على شي موجود) قبل ما يُبنى هذا التبويب.' />
         ) : null}
         {tab === 'tickets' ? (
-          <ComingSoon text="نظام التذاكر جاهز بالخادم بالكامل (حالة، أولوية، رد، تصعيد، رد مقترح بالذكاء الاصطناعي) — ناقصه فقط فلترة حسب المستأجر على مسار القائمة، إضافة صغيرة." />
+          <ComingSoon text="مسار عرض التذاكر الحالي مبني لمحل يشوف تذاكره هو فقط، لا يقبل تحديد أي عميل من الخارج — يحتاج مساراً إدارياً جديداً كلياً (على نمط billing.platform_subscriptions)، لا مجرد فلتر ناقص." />
         ) : null}
         {tab === 'whatsapp' ? (
           <ComingSoon text="قوالب واتساب حالياً عامة للمنصة كلها، لا يوجد مفهوم قالب خاص بمنشأة — فجوة معمارية حقيقية، ليست مجرد فلتر ناقص." />
         ) : null}
-        {tab === 'audit' ? (
-          <ComingSoon text="يُبنى من نفس نظام التدقيق (auditor.record) المستخدم بكل مسار إداري فعلاً — يحتاج مسار قراءة مُجمَّع حسب المستأجر، غير موجود بعد." />
-        ) : null}
+        {tab === 'audit' ? <AuditTab session={session} tenant={tenant} catalog={catalog} /> : null}
       </div>
     </Modal>
   );
@@ -163,6 +167,47 @@ function BillingTab({ session, tenant, catalog }: { session: AdminSession; tenan
           "منح تجربة مجانية" — إجراء إداري جديد كلياً، غير موجود بالخادم حالياً. يحتاج تصميماً وبناءً منفصلاً قبل إضافته هنا.
         </p>
       </div>
+    </div>
+  );
+}
+
+interface AuditEvent {
+  id: string; seq: number; ts: string; service: string; action: string;
+  actor: string; resource: string; ip: string;
+}
+
+/**
+ * audit.query يدعم فلتر tenant فعلاً بالخادم (services/audit-service's own admin_actions.py) —
+ * على عكس ما ذكرته أول مرة بالاقتراح (كنت أفترض فجوة هنا، والفحص المباشر للكود نفى ذلك). هذا
+ * التبويب إذن جاهز بالكامل من أول مرحلة ٢، بلا أي عمل خلفي جديد.
+ */
+function AuditTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
+  const [events, setEvents] = useState<AuditEvent[] | 'loading' | 'failed'>('loading');
+  const action = findCustomerAction(catalog, 'audit.query');
+
+  useEffect(() => {
+    if (!action) { setEvents('failed'); return; }
+    req<{ events: AuditEvent[] }>(
+      `${action.path}?tenant=${encodeURIComponent(tenant.id)}&limit=100`, 'GET', undefined, session.access_token)
+      .then((r) => setEvents(r.events)).catch(() => setEvents('failed'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
+  }, [tenant.id]);
+
+  if (!action) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
+  if (events === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (events === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة السجل.</p>;
+  if (events.length === 0) return <p className="text-sm text-text-muted">لا أحداث بعد على هذا العميل.</p>;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {events.map((e) => (
+        <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 p-3 text-sm">
+          <span dir="ltr" className="text-label text-text-muted">{new Date(e.ts).toLocaleString('ar-SA')}</span>
+          <span className="font-medium">{e.action}</span>
+          <span dir="ltr" className="text-label text-text-secondary">{e.service}</span>
+          <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
+        </div>
+      ))}
     </div>
   );
 }

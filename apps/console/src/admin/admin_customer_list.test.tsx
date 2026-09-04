@@ -21,6 +21,10 @@ const CATALOG = {
       { id: 'billing.platform_invoices', label: 'x', method: 'GET' as const,
        path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
     ] },
+    { service: 'audit-service', actions: [
+      { id: 'audit.query', label: 'x', method: 'GET' as const,
+       path: '/api/v1/audit', capability: 'platform.audit' },
+    ] },
     { service: 'affiliate-service', actions: [] },
   ],
   unreachable: [],
@@ -125,6 +129,32 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     expect(screen.getByText('نظرة عامة')).toBeTruthy();
     expect(screen.getByText('الاشتراك والفوترة')).toBeTruthy();
+  });
+
+  it('the audit tab queries audit.query scoped to this tenant', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/api/v1/audit')) {
+        return Promise.resolve({
+          events: [{ id: 'e1', seq: 1, ts: '2026-09-01T00:00:00Z', service: 'billing-service',
+                    action: 'billing.plan_changed', actor: 'op-1', resource: 'sub:s1' }],
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('السجل والتدقيق'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/audit?tenant=t1'), 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('billing.plan_changed')).toBeTruthy());
   });
 
   it('no capability, no silent blank table', async () => {
