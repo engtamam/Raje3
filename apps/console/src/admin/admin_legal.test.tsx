@@ -173,6 +173,30 @@ describe('AdminLegal', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'عنوان المعاينة' })).toBeTruthy());
   });
 
+  it('one language is written and previewed at a time, switching keeps both texts', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    stubReq();
+    render(<AdminLegal session={SESSION} />);
+
+    await waitFor(() => expect(screen.getByText('نوع مستند جديد')).toBeTruthy());
+    fireEvent.click(screen.getByText('نوع مستند جديد'));
+    await waitFor(() => expect(screen.getByLabelText('النص (عربي، Markdown)')).toBeTruthy());
+
+    // Arabic is the default lane — the English one is not even in the DOM yet.
+    expect(screen.queryByLabelText('Text (English, Markdown)')).toBeNull();
+    fireEvent.change(screen.getByLabelText('النص (عربي، Markdown)'), { target: { value: 'نص عربي' } });
+
+    fireEvent.click(screen.getByText('English'));
+    await waitFor(() => expect(screen.getByLabelText('Text (English, Markdown)')).toBeTruthy());
+    expect(screen.queryByLabelText('النص (عربي، Markdown)')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Text (English, Markdown)'), { target: { value: 'English text' } });
+
+    // switching back shows the Arabic text is still exactly what was typed — nothing was lost
+    fireEvent.click(screen.getByText('عربي'));
+    await waitFor(() => expect((screen.getByLabelText('النص (عربي، Markdown)') as HTMLTextAreaElement).value)
+      .toBe('نص عربي'));
+  });
+
   it('no capability, no tab that quietly does nothing — the screen says so', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminLegal session={SESSION} />);

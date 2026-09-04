@@ -27,6 +27,7 @@ import { FilePlus2, FileText, FileClock, CircleDot } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Textarea } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
+import { Segmented } from '../rj-ui/Segmented';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
@@ -63,6 +64,10 @@ export function AdminLegal({ session }: { session: AdminSession }) {
   const [titleEn, setTitleEn] = useState('');
   const [mdAr, setMdAr] = useState('');
   const [mdEn, setMdEn] = useState('');
+  // WHICH LANGUAGE IS BEING WRITTEN RIGHT NOW — one at a time, on request: writing a long legal
+  // text with both editions side by side splits attention and halves the usable width of each.
+  // Switching does not lose the other language's text; it is still there, just off-screen.
+  const [lang, setLang] = useState<'ar' | 'en'>('ar');
   const [requiresAcceptance, setRequiresAcceptance] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -273,12 +278,6 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                   <Input id="legal-version" dir="ltr" value={version} onChange={(e) => setVersion(e.target.value)}
                         placeholder="1.1" />
                 </Field>
-                <Field label="العنوان (عربي)" htmlFor="legal-title-ar">
-                  <Input id="legal-title-ar" value={titleAr} onChange={(e) => setTitleAr(e.target.value)} />
-                </Field>
-                <Field label="العنوان (إنجليزي)" htmlFor="legal-title-en">
-                  <Input id="legal-title-en" dir="ltr" value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
-                </Field>
               </div>
 
               <label className="flex items-center gap-2 text-sm">
@@ -287,19 +286,36 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                 يتطلب موافقة صريحة من العميل (وإلا فهو صفحة معلوماتية بلا بوابة)
               </label>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Field label="النص (عربي، Markdown)" htmlFor="legal-md-ar">
-                  <Textarea id="legal-md-ar" rows={14} value={mdAr} onChange={(e) => setMdAr(e.target.value)} />
-                </Field>
-                <Field label="النص (إنجليزي، Markdown)" htmlFor="legal-md-en">
-                  <Textarea id="legal-md-en" dir="ltr" rows={14} value={mdEn} onChange={(e) => setMdEn(e.target.value)} />
-                </Field>
-              </div>
+              {/* لغة واحدة تُكتب وتُعاين بكل مرة — تبديل، لا عرض الاثنتين جنباً لجنب */}
+              <Segmented value={lang} onChange={(v) => setLang(v as 'ar' | 'en')}
+                        options={[{ value: 'ar', label: 'عربي' }, { value: 'en', label: 'English' }]} />
+
+              {lang === 'ar' ? (
+                <div className="flex flex-col gap-4">
+                  <Field label="العنوان (عربي)" htmlFor="legal-title-ar">
+                    <Input id="legal-title-ar" value={titleAr} onChange={(e) => setTitleAr(e.target.value)} />
+                  </Field>
+                  <Field label="النص (عربي، Markdown)" htmlFor="legal-md-ar">
+                    <Textarea id="legal-md-ar" rows={18} value={mdAr} onChange={(e) => setMdAr(e.target.value)} />
+                  </Field>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4" dir="ltr">
+                  <Field label="Title (English)" htmlFor="legal-title-en">
+                    <Input id="legal-title-en" value={titleEn} onChange={(e) => setTitleEn(e.target.value)} />
+                  </Field>
+                  <Field label="Text (English, Markdown)" htmlFor="legal-md-en">
+                    <Textarea id="legal-md-en" rows={18} value={mdEn} onChange={(e) => setMdEn(e.target.value)} />
+                  </Field>
+                </div>
+              )}
 
               <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-text-secondary">معاينة (عربي)</h3>
+                <h3 className="text-sm font-medium text-text-secondary">
+                  {lang === 'ar' ? 'معاينة (عربي)' : 'Preview (English)'}
+                </h3>
                 <div className="rounded-card border border-border-subtle bg-surface-0 p-4">
-                  <BlockView block={block} locale="ar" />
+                  <BlockView block={block} locale={lang} />
                 </div>
               </section>
 
