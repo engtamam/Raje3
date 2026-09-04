@@ -308,11 +308,12 @@ env:
   EGRESS_ALLOWED_HOSTS: ""
 
   # ── Legal acceptance gate ─────────────────────────────────────────────────────────────────
-  # TEMPORARILY REVERTED TO off (2026-09-03): block requires COMPLIANCE_INTERNAL_TOKEN, which
-  # requires v0.18.8's gen-secrets.py fix (commit 744d843) — server's platform/ checkout doesn't
-  # have it yet, so this crash-looped identity-service in production. Re-enable once v0.18.8 is
-  # live end to end and the token is confirmed minted.
-  IDENTITY_LEGAL_ENFORCEMENT: "off"
+  # block: a subject with outstanding ToS/consent acceptance is refused at login/signup, not
+  # just flagged. fail-mode stays open — if compliance-service is unreachable, identity keeps
+  # working rather than locking everyone out over a dependency outage.
+  # COMPLIANCE_INTERNAL_TOKEN confirmed present in identity-service-secrets (2026-09-04, after
+  # v0.18.8's gen-secrets.py fix — commit 744d843 — was actually synced to the server).
+  IDENTITY_LEGAL_ENFORCEMENT: "block"
   COMPLIANCE_URL: "http://compliance-service:8000"
   IDENTITY_LEGAL_GATE_FAIL_MODE: "open"
 
