@@ -1,18 +1,20 @@
 /**
  * قوالب واتساب — حالة كل قالب واضحة دائماً، لا "عذر صامت". السبب المباشر لهذي الشاشة: نظام
  * الإرسال (notification-service) يرفض أي رسالة أولى بلا قالب معتمد من ميتا — رفض صحيح ومقصود،
- * لكن كان بلا أي واجهة تعرضه، فيقرأ كخطأ غامض بدل حالة مفهومة. هذي الشاشة تجعل "قيد المراجعة /
+ * لكن كان بلا أي واجهة تعرضه، فيقرأ كخطأ غامض بدل حالة مفهومة. هذي الشاشة تجعل "قيد الإعداد /
  * معتمد / مرفوض / متوقف / مُعطَّل" مرئية دائماً، بألوانها، مع سبب الرفض إن وُجد — لا شي مخفي.
  *
  * التسجيل يصير هنا (نص القالب عندنا، الخدمة لا تعرف معناه — انظر whatsapp_templates.py's own
- * docstring)، والإرسال للمراجعة زر منفصل — القالب يبقى "قيد المراجعة" بدون إرسال فعلي لميتا حتى
- * تضغط "أرسل للمراجعة" صراحة، بلا أي مفاجأة.
+ * docstring)، والإرسال للمراجعة زر منفصل — القالب يبقى "قيد الإعداد" بدون إرسال فعلي لميتا حتى
+ * تضغط "أرسل للمراجعة" صراحة، بلا أي مفاجأة. "قيد الإعداد" لا "قيد المراجعة" عمداً: الخادم لا
+ * يفرّق بين "لم يُرسَل قط" و"اتعدّل بعد رفضٍ ولسه ما أُعيد إرساله" — كلاهما نفس status=pending
+ * بلا حقل يميّزهما (انظر تعليق displayMeta أدناه)، فأي تسمية تدّعي "أُرسل" ليست مضمونة الصحة.
  *
  * النطاق (tenant) الفعلي لكل قالب هنا هو منشأة لوحة الإدارة المحجوزة (`_platform`) — نفس المنشأة
  * اللي identity-service المفروض يقرأ منها إعداد OTP_NOTIFY_TENANT وقت إرسال رمز التحقق، بحيث
  * القالب اللي تسجّله وتعتمده هنا هو نفسه اللي الإرسال الحقيقي يجده — لا تعارض منشآت.
  */
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   FileText, Clock, CheckCircle2, XCircle, PauseCircle, Ban, Plus, Send, RefreshCw, FlaskConical,
 } from 'lucide-react';
@@ -24,7 +26,7 @@ import { Drawer } from '../rj-ui/Drawer';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
-import { req, type AdminSession } from './api';
+import { AdminRefused, req, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 type TemplateStatus = 'pending' | 'approved' | 'rejected' | 'paused' | 'disabled';
@@ -46,24 +48,37 @@ interface Template {
 }
 
 const STATUS_META: Record<TemplateStatus, { label: string; tone: 'warning' | 'success' | 'danger' | 'neutral'; icon: typeof Clock }> = {
-  pending: { label: 'قيد المراجعة', tone: 'warning', icon: Clock },
+  pending: { label: 'قيد الإعداد', tone: 'warning', icon: Clock },
   approved: { label: 'معتمد', tone: 'success', icon: CheckCircle2 },
   rejected: { label: 'مرفوض', tone: 'danger', icon: XCircle },
   paused: { label: 'متوقف مؤقتاً', tone: 'warning', icon: PauseCircle },
   disabled: { label: 'مُعطَّل', tone: 'danger', icon: Ban },
 };
 
-// حالة `pending` بالخادم تعني شيئين مختلفين تماماً: قالب أُرسل فعلاً لميتا وينتظر قرارها
-// (provider_template_id موجود)، أو قالب لسه محلي ما أُرسل إطلاقاً (مسوّدة، بلا provider_template_id).
-// الشارة "قيد المراجعة" لهذا الثاني كانت تقرأ "أُرسل!" فعلاً بينما لم يُرسل شيء — وُجد حياً حين
-// حفظ مستخدم قالباً جديداً واستغرب رؤية "قيد المراجعة" فوراً. هذا التمييز محلي بالواجهة فقط، لا
-// حالة خامسة بالخادم — مجرد قراءة أدق لنفس البيانات.
-const DRAFT_META = { label: 'مسوّدة، لم تُرسَل بعد', tone: 'neutral' as const, icon: FileText };
-function isDraft(t: Template): boolean {
-  return t.status === 'pending' && !t.provider_template_id;
-}
+// جُرِّب هنا فعلياً تمييز pending إلى "مسوّدة" (بلا provider_template_id) مقابل "قيد المراجعة"
+// (معه) — وتبيّن غلطاً: register() بـcore/whatsapp_templates.py يُبقي provider_template_id كما هو
+// عند تعديل قالب مُرسَل سابقاً (لا يصفّره)، فقالب اتعدّل بعد رفضٍ يحمل status=pending WITH
+// provider_template_id — نفس شكل قالب فعلاً قيد المراجعة عند ميتا، بلا أي حقل يفرّق بينهما. وسم
+// أحدهما "مسوّدة" والآخر "قيد المراجعة" كان يخمّن يقيناً لا نملكه. "قيد الإعداد" وحدها — صحيحة
+// بكل الحالات الثلاث (جديد لم يُرسَل / اتعدّل بعد رفض / فعلاً عند ميتا) بلا ادّعاء زائد.
 function displayMeta(t: Template) {
-  return isDraft(t) ? DRAFT_META : (STATUS_META[t.status] ?? STATUS_META.pending);
+  return STATUS_META[t.status] ?? STATUS_META.pending;
+}
+
+/**
+ * يعزل كل رمز {{متغيّر}} بـ<bdi dir="ltr"> بدل فرض اتجاه على الفقرة كاملة. فرق حاسم: dir="ltr"
+ * على الفقرة كلها يقلب ترتيب المقاطع العربية المتعددة حول الرمز (جُرِّب حياً هنا وانقلبت الجملة
+ * كاملة — "صالح لمدة 5 دقائق {{code}} رمز التحقق هو" بدل ترتيبها الصحيح)، بينما <bdi> يعزل الرمز
+ * فقط عن سياق bidi المحيط به (يمنع انعكاس شكل الأقواس) ويترك بقية الجملة العربية بترتيبها الطبيعي
+ * تماماً — لا تأثير خارج حدود الرمز نفسه.
+ */
+function renderBidiSafe(text: string) {
+  const parts = text.split(/(\{\{[^{}]+\}\})/g);
+  return parts.map((part, i) => (
+    /^\{\{[^{}]+\}\}$/.test(part)
+      ? <bdi key={i} dir="ltr">{part}</bdi>
+      : <Fragment key={i}>{part}</Fragment>
+  ));
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -72,7 +87,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 const FILTERS: { value: TemplateStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'الكل' },
-  { value: 'pending', label: 'قيد المراجعة' },
+  { value: 'pending', label: 'قيد الإعداد' },
   { value: 'approved', label: 'معتمد' },
   { value: 'rejected', label: 'مرفوض' },
 ];
@@ -234,17 +249,14 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
       </div>
 
       {template.body ? (
-        // dir="ltr" + text-right: بدون هذا، أقواس {{...}} تُظهرها خوارزمية bidi معكوسة الشكل
-        // ("}code{" بدل "{{code}}") لأنها أحرف مرآة تنعكس داخل نص عربي (RTL) — لُوحظ حياً بلوحة
-        // الإدارة. فرض LTR يصحح شكل الأقواس، والمحاذاة يمين تبقي القراءة العربية طبيعية بصرياً.
-        <p dir="ltr" className="whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-right text-sm text-text-secondary">
-          {template.body}
+        <p className="whitespace-pre-wrap rounded-lg bg-surface-2 p-3 text-sm text-text-secondary">
+          {renderBidiSafe(template.body)}
         </p>
       ) : null}
 
       {template.variables.length > 0 ? (
-        <p dir="ltr" className="text-right text-label text-text-secondary">
-          المتغيّرات: {template.variables.map((v) => `{{${v}}}`).join('  ')}
+        <p className="text-label text-text-secondary">
+          {renderBidiSafe(`المتغيّرات: ${template.variables.map((v) => `{{${v}}}`).join('  ')}`)}
         </p>
       ) : null}
 
@@ -258,13 +270,20 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
 
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
 
+      {/* الزر يظهر بأي حالة "قيد الإعداد" بلا استثناء — لا شرط على provider_template_id. كان
+         الشرط القديم يخفي الزر لأي قالب سبق إرساله، فقالب اتعدّل بعد رفضٍ (يحمل status=pending
+         WITH provider_template_id، انظر تعليق displayMeta أعلاه) يعلَق بلا طريقة لإرساله من
+         جديد — نفس مشكلة التسمية بالضبط، لكن بالوظيفة هذي المرة لا العرض فقط. */}
+      {template.status === 'pending' && template.provider_template_id ? (
+        <p className="text-label text-text-secondary">
+          له نسخة سابقة عند ميتا — الإرسال الآن يحدّثها بالمحتوى الحالي.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        {template.status === 'pending' && !template.provider_template_id && submitAction ? (
+        {template.status === 'pending' && submitAction ? (
           <Button size="sm" onClick={() => setArm(true)} disabled={busy} className="w-fit gap-2">
             <Send size={14} /> أرسل للمراجعة
           </Button>
-        ) : template.status === 'pending' && template.provider_template_id ? (
-          <p className="text-label text-text-secondary">أُرسل لميتا — بانتظار القرار.</p>
         ) : null}
         {registerAction ? (
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}>تعديل</Button>
@@ -288,6 +307,12 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
  * إرسال تجريبي — يتجاوز خط الإرسال العادي عمداً (نفس تجاوز /whatsapp/register و/whatsapp/status
  * لخط الإرسال العادي) عشان يجاوب سؤال "هل الاتصال شغّال فعلاً" بلا انتظار WHATSAPP_CHAIN. رسالة
  * واحدة، بلا طابور، بلا تكرار — تُسجَّل بالتدقيق تلقائياً من طرف الخادم نفسه.
+ *
+ * شكل الطلب/الرد مطابق تماماً لما شحنته base-services-de (v0.18.17، بُني من نفس تصميم الطلب
+ * المُرسَل لها): {to, phone_number_id, mode, body|template_name+language+variables} —
+ * 200 {ok, message_id}, 409 {ok:false, reason:"NOT_CONNECTED"}, 502 {ok:false,
+ * reason:"SEND_FAILED"}. req() بـapi.ts يرمي AdminRefused على أي رد غير 2xx حاملاً `.reason` —
+ * لذا NOT_CONNECTED/SEND_FAILED تُمسَك بـcatch، لا بقراءة جسم رد ناجح؛ لا حالة "نجح لكنه فشل".
  */
 function TestSendPanel({ session, action, templates }: {
   session: AdminSession; action: AdminAction; templates: Template[];
@@ -295,16 +320,17 @@ function TestSendPanel({ session, action, templates }: {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'text' | 'template'>('text');
   const [to, setTo] = useState('');
+  const [phoneNumberId, setPhoneNumberId] = useState('');
   const [message, setMessage] = useState('');
   const [templateKey, setTemplateKey] = useState('');
   const [values, setValues] = useState<Record<string, string>>({});
   const [arm, setArm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<{ sent: boolean; wamid?: string; reason?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; messageId?: string; reason?: string } | null>(null);
 
   const selected = templates.find((t) => `${t.name}::${t.language}` === templateKey);
-  const canSend = to.trim().length > 0
+  const canSend = to.trim().length > 0 && phoneNumberId.trim().length > 0
     && (mode === 'text' ? message.trim().length > 0 : !!selected);
 
   function onSelectTemplate(key: string) {
@@ -320,14 +346,21 @@ function TestSendPanel({ session, action, templates }: {
     setResult(null);
     try {
       const body = mode === 'text'
-        ? { to, mode: 'text', message }
-        : { to, mode: 'template', template_name: selected!.name, language: selected!.language,
+        ? { to, phone_number_id: phoneNumberId, mode: 'text', body: message }
+        : { to, phone_number_id: phoneNumberId, mode: 'template', template_name: selected!.name,
+           language: selected!.language,
            variables: (selected!.variables ?? []).map((v) => values[v] ?? '') };
-      const out = await req<{ sent: boolean; wamid?: string; reason?: string }>(
+      const out = await req<{ ok: boolean; message_id?: string }>(
         action.path, 'POST', body, session.access_token);
-      setResult(out);
+      setResult({ ok: true, messageId: out.message_id });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الإرسال.');
+      if (err instanceof AdminRefused && err.reason) {
+        // 409 NOT_CONNECTED / 502 SEND_FAILED — refusals the server names explicitly, not a
+        // generic network/programming error. Shown as a result, not `error`, same tone as success.
+        setResult({ ok: false, reason: err.reason });
+      } else {
+        setError(err instanceof Error ? err.message : 'تعذّر الإرسال.');
+      }
     } finally {
       setBusy(false);
       setArm(false);
@@ -362,6 +395,12 @@ function TestSendPanel({ session, action, templates }: {
                   placeholder="9665xxxxxxxx" />
           </Field>
 
+          <Field label="معرّف رقم هاتف المنصة (Phone Number ID)" required htmlFor="wa-test-phone-id"
+                hint="نفس WHATSAPP_PHONE_NUMBER_ID المُعدّ ببطاقة ميتا بشاشة مفاتيح المزوّدين.">
+            <Input id="wa-test-phone-id" dir="ltr" value={phoneNumberId}
+                  onChange={(e) => setPhoneNumberId(e.target.value)} />
+          </Field>
+
           {mode === 'text' ? (
             <Field label="نص الرسالة" required htmlFor="wa-test-msg">
               <Textarea id="wa-test-msg" rows={3} value={message}
@@ -394,11 +433,13 @@ function TestSendPanel({ session, action, templates }: {
           )}
 
           {result ? (
-            result.sent ? (
-              <p className="text-label text-success">أُرسلت. wamid: <span dir="ltr">{result.wamid}</span></p>
+            result.ok ? (
+              <p className="text-label text-success">أُرسلت. message_id: <span dir="ltr">{result.messageId}</span></p>
             ) : (
               <p role="alert" className="text-label text-danger">
-                لم تُرسل — {result.reason === 'NOT_CONNECTED' ? 'الرقم غير مربوط بعد' : result.reason}
+                لم تُرسل — {result.reason === 'NOT_CONNECTED' ? 'الرقم غير مربوط بعد'
+                  : result.reason === 'SEND_FAILED' ? 'رفضته ميتا (تحقق من النافذة الزمنية أو اعتماد القالب)'
+                  : result.reason}
               </p>
             )
           ) : null}
@@ -418,10 +459,11 @@ function TestSendPanel({ session, action, templates }: {
 }
 
 /**
- * التسجيل والتعديل نفس النموذج، نفس المسار — الخادم نفسه يعيد الحالة إلى "قيد المراجعة" تلقائياً
- * عند تعديل قالب مرفوض (register() بـcore/whatsapp_templates.py)، فتعديل القالب هو نفسه "حاول
- * ثانية" — بلا مسار منفصل. بوضع التعديل، الاسم واللغة مقفلان: هما مفتاح هوية القالب عند ميتا،
- * وتغييرهما يسجّل قالباً جديداً منفصلاً بدل تعديل هذا.
+ * التسجيل والتعديل نفس النموذج، نفس المسار. لكن الحفظ وحده لا يُرسل شيئاً لميتا — register() بـ
+ * core/whatsapp_templates.py يكتب المحتوى الجديد محلياً فقط ويعيد الحالة "قيد الإعداد"، والإرسال
+ * الفعلي زر منفصل ("أرسل للمراجعة") يضغطه المستخدم صراحة، بلا مفاجأة — بالضبط نفس مبدأ التسجيل
+ * الأول. بوضع التعديل، الاسم واللغة مقفلان: هما مفتاح هوية القالب عند ميتا، وتغييرهما يسجّل قالباً
+ * جديداً منفصلاً بدل تعديل هذا.
  */
 function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: {
   session: AdminSession; action: AdminAction; open: boolean; initial?: Template;
@@ -472,7 +514,7 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
   return (
     <Drawer open={open} onClose={onClose} title={editingExisting ? `تعديل "${initial!.name}"` : 'قالب واتساب جديد'}
            subtitle={editingExisting
-             ? 'حفظ التعديل يعيد القالب "قيد المراجعة" تلقائياً — نفس أثر إرساله للمراجعة من جديد.'
+             ? 'الحفظ وحده لا يُرسل شيئاً لميتا — يحفظ المحتوى الجديد بحالة "قيد الإعداد" فقط. اضغط "أرسل للمراجعة" بعده لإرسال هذا المحتوى فعلياً.'
              : 'النص من عندنا — الخدمة تخزّنه بلا فهم معناه، وترسله لميتا فقط عند "إرسال للمراجعة".'}
            footer={
              <>
@@ -504,9 +546,12 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
           </Field>
         </div>
         <Field label="نص القالب" required htmlFor="wa-tpl-body">
-          {/* dir="ltr" + text-right: بدونه أقواس {{...}} تنعكس شكلاً داخل نص عربي (bidi mirroring)
-             وتظهر "}code{" بدل "{{code}}" — لُوحظ حياً. المحاذاة يمين تبقي القراءة طبيعية بصرياً. */}
-          <Textarea id="wa-tpl-body" dir="ltr" className="text-right" rows={5} value={body}
+          {/* لا dir هنا عمداً — جُرِّب dir="ltr" هنا فعلياً وقلب ترتيب الجُمل العربية كاملاً (كل
+             جملة عربية تصير بموضع الجملة المقابلة لها بدل مكانها، لا مجرد أقواس معكوسة)، لأن
+             textarea الأصلي متعدد المقاطع (عربي + {{code}} + عربي) لا فقرة عربية واحدة بسيطة.
+             هذا خانة تحرير نصية بلا تحكّم عنصر-بعنصر (بخلاف المعاينة أسفل، انظر renderBidiSafe) —
+             فرض أي dir واحد يكسر جهة كاملة؛ العرض الافتراضي (بلا فرض) هو الأقل ضرراً المتاح هنا. */}
+          <Textarea id="wa-tpl-body" rows={5} value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="رمز التحقق الخاص بك هو {{code}}. صالح لمدة 5 دقائق." />
         </Field>

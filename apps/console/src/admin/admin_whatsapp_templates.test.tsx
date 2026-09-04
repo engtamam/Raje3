@@ -1,12 +1,12 @@
 /**
- * قوالب واتساب — الاختبارات تتأكد أن كل حالة (قيد المراجعة/معتمد/مرفوض) تُعرض بوضوح مع سبب الرفض
+ * قوالب واتساب — الاختبارات تتأكد أن كل حالة (قيد الإعداد/معتمد/مرفوض) تُعرض بوضوح مع سبب الرفض
  * إن وُجد، أن التسجيل يبني {name, language, category, body, variables} صحيحة، أن "إرسال للمراجعة"
  * لا يصير بدون تأكيد، وأن غياب الصلاحية يُقال صراحة.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AdminWhatsAppTemplates } from './AdminWhatsAppTemplates';
-import type { AdminSession } from './api';
+import { AdminRefused, type AdminSession } from './api';
 
 const SESSION: AdminSession = { access_token: 'tok-1' };
 
@@ -52,19 +52,34 @@ vi.mock('./api', async (importOriginal) => {
 afterEach(() => vi.clearAllMocks());
 
 describe('AdminWhatsAppTemplates', () => {
-  it('shows a draft (never submitted) template with a submit-for-review action, no auto-submit', async () => {
+  it('shows a pending (never submitted) template with a submit-for-review action, no auto-submit', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({ templates: [tpl()] });
 
     render(<AdminWhatsAppTemplates session={SESSION} />);
     await waitFor(() => expect(screen.getByText('auth.otp')).toBeTruthy());
-    // status="pending" with no provider_template_id is a local DRAFT, never sent to Meta — the
-    // badge must say so plainly, not "قيد المراجعة" (which reads as "already sent, awaiting Meta").
-    expect(screen.getByText('مسوّدة، لم تُرسَل بعد')).toBeTruthy();
+    // "قيد الإعداد" not "قيد المراجعة": the server has no field distinguishing "never sent" from
+    // "edited after rejection, not yet resent" -- both are status=pending, so the label must not
+    // claim either with false certainty (see displayMeta's own comment).
+    expect(screen.getByText('قيد الإعداد')).toBeTruthy();
     expect(screen.getByText('أرسل للمراجعة')).toBeTruthy();
     // never called on its own — only a real click does
     expect(reqMock).not.toHaveBeenCalledWith(
       expect.stringContaining('/submit'), 'POST', expect.anything(), 'tok-1');
+  });
+
+  it('a pending template that already has a provider id still shows the submit button', async () => {
+    // The bug this guards: register() PRESERVES provider_template_id on edit, so a template
+    // edited after rejection is status=pending WITH a provider id -- the old gating
+    // (!provider_template_id) hid the submit button here entirely, a dead end.
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      templates: [tpl({ status: 'pending', provider_template_id: 'meta123' })],
+    });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('أرسل للمراجعة')).toBeTruthy());
+    expect(screen.getByText(/له نسخة سابقة عند ميتا/)).toBeTruthy();
   });
 
   it('shows the rejection reason for a rejected template, plainly, no submit action', async () => {
@@ -143,13 +158,14 @@ describe('AdminWhatsAppTemplates', () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({ templates: [tpl()] })
-      .mockResolvedValueOnce({ sent: true, wamid: 'wamid.123' });
+      .mockResolvedValueOnce({ ok: true, message_id: 'wamid.123' });
 
     render(<AdminWhatsAppTemplates session={SESSION} />);
     await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
     fireEvent.click(screen.getByText('إرسال تجريبي'));
 
     fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/معرّف رقم هاتف المنصة/), { target: { value: 'pnid1' } });
     fireEvent.change(screen.getByLabelText(/نص الرسالة/), { target: { value: 'وعليكم السلام' } });
     fireEvent.click(screen.getByText('إرسال'));
 
@@ -160,7 +176,7 @@ describe('AdminWhatsAppTemplates', () => {
     fireEvent.click(screen.getByText('تأكيد'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/whatsapp/templates/test-send', 'POST',
-      { to: '966500000000', mode: 'text', message: 'وعليكم السلام' }, 'tok-1'));
+      { to: '966500000000', phone_number_id: 'pnid1', mode: 'text', body: 'وعليكم السلام' }, 'tok-1'));
     await waitFor(() => expect(screen.getByText(/wamid\.123/)).toBeTruthy());
   });
 
@@ -168,7 +184,7 @@ describe('AdminWhatsAppTemplates', () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({ templates: [tpl({ status: 'approved' })] })
-      .mockResolvedValueOnce({ sent: true, wamid: 'wamid.456' });
+      .mockResolvedValueOnce({ ok: true, message_id: 'wamid.456' });
 
     render(<AdminWhatsAppTemplates session={SESSION} />);
     await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
@@ -176,6 +192,7 @@ describe('AdminWhatsAppTemplates', () => {
     fireEvent.click(screen.getByText(/بقالب معتمد/));
 
     fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/معرّف رقم هاتف المنصة/), { target: { value: 'pnid1' } });
     fireEvent.change(screen.getByLabelText(/^القالب/), { target: { value: 'auth.otp::ar' } });
     fireEvent.change(screen.getByLabelText('{{code}}'), { target: { value: '482913' } });
     fireEvent.click(screen.getByText('إرسال'));
@@ -183,20 +200,22 @@ describe('AdminWhatsAppTemplates', () => {
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/whatsapp/templates/test-send', 'POST',
-      { to: '966500000000', mode: 'template', template_name: 'auth.otp', language: 'ar',
-       variables: ['482913'] }, 'tok-1'));
+      { to: '966500000000', phone_number_id: 'pnid1', mode: 'template', template_name: 'auth.otp',
+       language: 'ar', variables: ['482913'] }, 'tok-1'));
   });
 
   it('test-send panel: NOT_CONNECTED reports plainly, never a silent failure', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({ templates: [tpl()] })
-      .mockResolvedValueOnce({ sent: false, reason: 'NOT_CONNECTED' });
+      // req() throws AdminRefused on any non-2xx (see api.ts) -- 409 NOT_CONNECTED never resolves.
+      .mockRejectedValueOnce(new AdminRefused('تعذّر إكمال الطلب. حاول مرة أخرى.', 'NOT_CONNECTED'));
 
     render(<AdminWhatsAppTemplates session={SESSION} />);
     await waitFor(() => expect(screen.getByText('إرسال تجريبي')).toBeTruthy());
     fireEvent.click(screen.getByText('إرسال تجريبي'));
     fireEvent.change(screen.getByLabelText(/رقم المستقبل/), { target: { value: '966500000000' } });
+    fireEvent.change(screen.getByLabelText(/معرّف رقم هاتف المنصة/), { target: { value: 'pnid1' } });
     fireEvent.change(screen.getByLabelText(/نص الرسالة/), { target: { value: 'test' } });
     fireEvent.click(screen.getByText('إرسال'));
     fireEvent.click(screen.getByText('تأكيد'));
