@@ -31,6 +31,7 @@ SCREENS = [
     "apps/console/src/screens/Bookings.tsx",
     "apps/console/src/screens/Services.tsx",
     "apps/console/src/screens/ServicesImportDrawer.tsx",
+    "apps/console/src/screens/Points.tsx",
 ]
 
 ARABIC = re.compile(r"[؀-ۿ]")

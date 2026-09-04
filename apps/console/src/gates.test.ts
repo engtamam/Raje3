@@ -50,7 +50,7 @@ describe('«نقاطي»: a failed settings read must not draw rules as facts', 
     // he was never shown correctly, and the shop starts granting what the screen made up.
     const points = pointsSrc;
     expect(points).toContain('!isReady(earn) ?');
-    expect(points).toContain('تعذّرت قراءة إعدادات النقاط');
+    expect(points).toContain("t('points.settingsFailed.title')");
   });
 });
 

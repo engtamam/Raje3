@@ -34,6 +34,8 @@ import { isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './points-i18n';
 
 /** `cost`, NOT `cost_points`. The API's own field name — see the module note. */
 interface Reward {
@@ -90,17 +92,23 @@ interface EarnSettings {
  * neither, because its name IS the whole of it and the system does nothing with it beyond
  * spending the points.
  */
-const TYPES: { value: string; label: string; hint: string }[] = [
-  { value: 'service', label: 'من خدماتي', hint: 'يختار ما يحصل عليه مما تقدّمه — خدمةً كان أو منتجاً' },
-  { value: 'item', label: 'هدية', hint: 'شيء من خارج ما تقدّمه — الاسم يكفي' },
-  { value: 'discount', label: 'خصم', hint: 'مبلغ يُخصم من الزيارة' },
-];
+type T = (key: string) => string;
 
-function typeLabel(t: string): string {
-  return TYPES.find((x) => x.value === t)?.label ?? t;
+function typesFor(t: T): { value: string; label: string; hint: string }[] {
+  return [
+    { value: 'service', label: t('points.type.service.label'), hint: t('points.type.service.hint') },
+    { value: 'item', label: t('points.type.item.label'), hint: t('points.type.item.hint') },
+    { value: 'discount', label: t('points.type.discount.label'), hint: t('points.type.discount.hint') },
+  ];
+}
+
+function typeLabel(t: T, types: { value: string; label: string }[], val: string): string {
+  return types.find((x) => x.value === val)?.label ?? val;
 }
 
 export function PointsScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
+  const TYPES = typesFor(t);
   const [tab, setTab] = useState<'rewards' | 'earning'>('rewards');
   const [rewards, setRewards] = useState<Reward[] | null | undefined>(undefined);
   const [report, setReport] = useState<Report | null | undefined>(undefined);
@@ -162,7 +170,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       await call(session, canEdit, { reward_id: id, ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+      setError(e instanceof Error ? e.message : t('points.error.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -181,7 +189,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
     if (minor === null) {
       // REFUSED WITH A REASON, not rounded for him. «2.305 ريال» is not a price this product can
       // charge, and quietly making it 2.30 spends his money to save him a keystroke.
-      setError('اكتب مبلغ الخصم بالريال — رقمٌ بمنزلتين عشريتين على الأكثر، مثل 2.30');
+      setError(t('points.error.discountAmount'));
       return;
     }
     setSaving(true);
@@ -197,7 +205,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       setAdding(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر إضافة المكافأة.');
+      setError(err instanceof Error ? err.message : t('points.error.addFailed'));
     } finally {
       setSaving(false);
     }
@@ -211,7 +219,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       await call(session, canSetService, { service_id: serviceId, points });
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(err instanceof Error ? err.message : t('points.error.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -222,7 +230,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). This guard read `=== null`, and the failure
   // handler set `null` too — so a failed read waited here for ever and the «تعذّرت القراءة»
   // sentence below could never be reached. Now the wait is `undefined` and the sentence is live.
-  if (isLoading(rewards)) return <Waiting what="نقرأ نقاطك وجوائزك" />;
+  if (isLoading(rewards)) return <Waiting what={t('points.waiting')} />;
 
   /** A service's effective points, and whether the number is its own (§9.2: inherit, never copy). */
   /** The groups the engine already knows — from his own «خدماتي», never a second list. */
@@ -259,17 +267,17 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
           nothing is. */}
       {report ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard icon={<Users size={18} />} label="عميل يجمع نقاطاً"
+          <KpiCard icon={<Users size={18} />} label={t('points.kpi.customers')}
                    value={String(report.customers ?? 0)} />
-          <KpiCard icon={<Gift size={18} />} label="استبدال"
+          <KpiCard icon={<Gift size={18} />} label={t('points.kpi.redemptions')}
                    value={String(report.redemptions ?? 0)} />
-          <KpiCard icon={<Coins size={18} />} label="نقطة لم تُستبدل بعد" tone="accent"
+          <KpiCard icon={<Coins size={18} />} label={t('points.kpi.outstanding')} tone="accent"
                    value={String(report.outstanding ?? 0)}
-                   hint="ما وعدت به ولم يُصرف — وهو التزام على محلّك." />
-          <KpiCard icon={<AlertTriangle size={18} />} label="من كل نقطة مُنحت، انتهت بلا استبدال"
+                   hint={t('points.kpi.outstanding.hint')} />
+          <KpiCard icon={<AlertTriangle size={18} />} label={t('points.kpi.expiredShare')}
                    tone="warning"
-                   value={`${Math.round((report.expired_share ?? 0) * 100)}٪`}
-                   hint="نسبة عالية تعني أن حدود مكافآتك بعيدة عن متناول عملائك." />
+                   value={tf(t, 'points.percentValue', { n: Math.round((report.expired_share ?? 0) * 100) })}
+                   hint={t('points.kpi.expiredShare.hint')} />
         </div>
       ) : null}
 
@@ -279,11 +287,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
           that the KPI above has not already said. */}
       {report?.top_rewards && report.top_rewards.length > 0 ? (
         <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
-          <h2 className="text-sm font-medium text-text-secondary">أكثر ما يُستبدل</h2>
+          <h2 className="text-sm font-medium text-text-secondary">{t('points.topRewards.title')}</h2>
           <ul className="flex flex-col divide-y divide-border-subtle">
             {report.top_rewards.map(([name, count]) => (
               <li key={name} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                <span className="truncate">{name || 'بلا اسم'}</span>
+                <span className="truncate">{name || t('points.noName')}</span>
                 <span className="shrink-0 tabular-nums text-text-secondary">{count}</span>
               </li>
             ))}
@@ -295,12 +303,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
         // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is `inline-flex flex-wrap`,
         // which on a phone stacks two long Arabic labels into a ragged block half the screen wide.
         className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-        ariaLabel="أقسام النقاط"
+        ariaLabel={t('points.tabsAriaLabel')}
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'rewards', label: 'المكافآت' },
-          { value: 'earning', label: 'الكسب' },
+          { value: 'rewards', label: t('points.tab.rewards') },
+          { value: 'earning', label: t('points.tab.earning') },
         ]}
       />
 
@@ -308,33 +316,33 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
       {tab === 'rewards' ? (
         <section className="flex flex-col gap-3">
-          <Head title="جدول المكافآت"
-                said="ما يستبدله عميلك بنقاطه — ويصل معبّأً لقطاعك."
+          <Head title={t('points.table.title')}
+                said={t('points.table.said')}
                 action={canAdd && !adding
-                  ? <Button onClick={() => setAdding(true)}>إضافة مكافأة</Button>
+                  ? <Button onClick={() => setAdding(true)}>{t('points.addReward')}</Button>
                   : null} />
 
           {adding ? (
             <form onSubmit={addReward}
                   className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-              <Field label="اسم المكافأة" htmlFor="rw-name" hint="يظهر في رسالة واتساب للعميل — اجعله قصيراً">
+              <Field label={t('points.form.name.label')} htmlFor="rw-name" hint={t('points.form.name.hint')}>
                 <Input id="rw-name" name="name" required maxLength={40} />
               </Field>
-              <Field label="التكلفة بالنقاط" htmlFor="rw-cost">
+              <Field label={t('points.form.cost.label')} htmlFor="rw-cost">
                 <Input id="rw-cost" name="cost" type="number" min={1} required dir="ltr" />
               </Field>
               {/* THE HINT IS UNDER THE SELECT, NOT INSIDE IT. A native option list sizes itself to
                   its longest string and is drawn by the OS, outside our layout. */}
-              <Field label="النوع" htmlFor="rw-type" hint={TYPES.find((t) => t.value === type)?.hint}>
+              <Field label={t('points.form.type.label')} htmlFor="rw-type" hint={TYPES.find((x) => x.value === type)?.hint}>
                 <Select id="rw-type" name="type" value={type}
                         onChange={(e) => setType(e.target.value)}>
-                  {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {TYPES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
                 </Select>
               </Field>
               {/* ONE FIELD AT A TIME. Showing both and labelling each with the case it belongs to
                   asks the owner to do the branching we already know the answer to. */}
               {type === 'discount' ? (
-                <Field label="مبلغ الخصم بالريال" htmlFor="rw-riyals">
+                <Field label={t('points.form.riyals.label')} htmlFor="rw-riyals">
                   {/* STEP IS PART OF THE FIX, NOT DECORATION. A number input with the default
                       step of 1 rejects «2.30» in the browser's own validation, so the halalas
                       the conversion now preserves could never have been typed in the first
@@ -343,7 +351,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                          inputMode="decimal" dir="ltr" required />
                 </Field>
               ) : type === 'service' ? (
-                <Field label="ما يحصل عليه" htmlFor="rw-service" hint="مما تقدّمه — خدمةً كان أو منتجاً">
+                <Field label={t('points.form.service.label')} htmlFor="rw-service" hint={t('points.form.service.hint')}>
                   <Select id="rw-service" name="service_id" required>
                     <option value="">—</option>
                     {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -351,8 +359,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                 </Field>
               ) : null}
               <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>حفظ</Button>
-                <Button type="button" variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button>
+                <Button type="submit" disabled={saving}>{t('points.save')}</Button>
+                <Button type="button" variant="ghost" onClick={() => setAdding(false)}>{t('points.cancel')}</Button>
               </div>
             </form>
           ) : null}
@@ -362,8 +370,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
             // was never seeded and asks him to call us — a serious claim, and one we may only make
             // once we have actually read the table.
             <EmptyState
-              title="تعذّرت قراءة جدول المكافآت"
-              description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+              title={t('points.loadFailed.title')}
+              description={t('points.loadFailed.description')}
             />
           ) : rewards.length === 0 ? (
             // AN INVITATION, AND IT USED TO BE A FAULT REPORT. The table was seeded from the trade
@@ -372,8 +380,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
             // never seen is wrong for most shops — so empty is the true first state of every new
             // shop, and it must read as a beginning rather than as our failure.
             <EmptyState
-              title="لا مكافآت بعد"
-              description="أضف أول مكافأة: اختر خدمة، وكم زيارة تُستحق بها."
+              title={t('points.empty.title')}
+              description={t('points.empty.description')}
             />
           ) : (
             <ul className="flex flex-col gap-2">
@@ -395,7 +403,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                         type="number"
                         min={1}
                         defaultValue={r.cost}
-                        aria-label={`تكلفة ${r.name} بالنقاط`}
+                        aria-label={tf(t, 'points.costAriaLabel', { name: r.name })}
                         dir="ltr"
                         // A BLANK FIELD IS NOT A ZERO, and here it would also be a refusal: cost
                         // must be greater than zero.
@@ -407,7 +415,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                         }}
                         className="h-11 w-20 rounded-xl bg-accent-soft px-1 text-center text-lg font-semibold tabular-nums text-accent-on-soft"
                       />
-                      <span className="text-[0.65rem] text-text-secondary">نقطة</span>
+                      <span className="text-[0.65rem] text-text-secondary">{t('points.pointUnit')}</span>
                     </label>
                   ) : (
                     <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-accent-soft text-lg font-semibold tabular-nums text-accent-on-soft">
@@ -418,8 +426,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="truncate font-medium">{r.name}</span>
                     <span className="flex items-center gap-2">
-                      <Badge tone="neutral">{typeLabel(r.type)}</Badge>
-                      {r.active === false ? <Badge tone="warning">موقوفة</Badge> : null}
+                      <Badge tone="neutral">{typeLabel(t, TYPES, r.type)}</Badge>
+                      {r.active === false ? <Badge tone="warning">{t('points.stoppedBadge')}</Badge> : null}
                     </span>
                   </span>
 
@@ -428,8 +436,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   {canEdit ? (
                     <button
                       type="button"
-                      title={r.active === false ? 'تفعيل' : 'إيقاف — يختفي من قائمة الاستبدال'}
-                      aria-label={r.active === false ? 'تفعيل' : 'إيقاف'}
+                      title={r.active === false ? t('points.activate') : t('points.deactivate')}
+                      aria-label={r.active === false ? t('points.activate') : t('points.deactivateShort')}
                       disabled={saving}
                       onClick={() => patchReward(r.id, { active: r.active === false })}
                       className={[
@@ -458,10 +466,10 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
         // up. A programme silently reset to zero is discovered by customers, at the counter.
         <section className="flex flex-col gap-4">
           <EmptyState
-            title={isLoading(earn) ? 'نقرأ إعدادات النقاط' : 'تعذّرت قراءة إعدادات النقاط'}
+            title={isLoading(earn) ? t('points.settingsWaiting.title') : t('points.settingsFailed.title')}
             description={isLoading(earn)
-              ? 'لحظة واحدة.'
-              : 'لم نعرضها كي لا تُعدّل رقماً على غير أصله — قواعد محلك كما هي. أعد المحاولة.'}
+              ? t('points.settingsWaiting.description')
+              : t('points.settingsFailed.description')}
           />
         </section>
       ) : (
@@ -471,15 +479,15 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               the end of the month, as an obligation double what he expected. */}
           {canSetMode ? (
             <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-              <Head title="طريقة الاحتساب"
-                    said="بالخدمات: كل خدمة نقاطها. بقيمة الفاتورة: نقطة لكل ريال." />
+              <Head title={t('points.mode.title')}
+                    said={t('points.mode.said')} />
               <Segmented
                 // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
                 // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
                 // ragged block half the screen wide. It takes a className and merges with
                 // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
                 className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-                ariaLabel="طريقة احتساب النقاط"
+                ariaLabel={t('points.mode.ariaLabel')}
                 value={earn?.config?.mode === 'invoice' ? 'invoice' : 'services'}
                 onChange={async (mode) => {
                   setSaving(true);
@@ -494,14 +502,14 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                     // A SHOP WITH NO TILL CANNOT EARN BY INVOICE — the field screen records no
                     // amounts (§9.3). The service refuses in a sentence the owner can read; the
                     // switch must show it, not swallow it, and must stay where it was.
-                    setError(e instanceof Error ? e.message : 'تعذّر تغيير طريقة الاحتساب');
+                    setError(e instanceof Error ? e.message : t('points.error.modeChangeFailed'));
                   } finally {
                     setSaving(false);
                   }
                 }}
                 options={[
-                  { value: 'services', label: 'بالخدمات' },
-                  { value: 'invoice', label: 'بقيمة الفاتورة' },
+                  { value: 'services', label: t('points.mode.services') },
+                  { value: 'invoice', label: t('points.mode.invoice') },
                 ]}
               />
               {/* SAID BEFORE THE PRESS, NOT AFTER IT. The service refuses invoice earning without a
@@ -511,7 +519,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   and a choice that vanishes reads as a fault (§ui 11). */}
               {earn?.config?.integrated === false ? (
                 <p className="mt-3 text-sm text-text-secondary">
-                  الاحتساب بقيمة الفاتورة يحتاج ربطاً بالكاشير — الشاشة الميدانية تسجّل زيارة، لا مبلغاً.
+                  {t('points.mode.needsIntegration')}
                 </p>
               ) : null}
             </div>
@@ -521,9 +529,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
             <div className="rounded-card border border-border-subtle bg-surface-1 p-4">
               <label className="flex items-center justify-between gap-3">
                 <span className="flex flex-col">
-                  <span className="text-sm">نقاط لكل زيارة (عام)</span>
+                  <span className="text-sm">{t('points.general.label')}</span>
                   <span className="text-sm text-text-secondary">
-                    كل خدمة بلا رقم خاص تأخذ هذا الرقم.
+                    {t('points.general.hint')}
                   </span>
                 </span>
                 <input
@@ -532,7 +540,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   defaultValue={earn?.general?.points ?? 0}
                   // NAMED, because the label wraps this input as a sibling of two spans and a
                   // screen reader — or a test — has no way to say which field this is otherwise.
-                  aria-label="نقاط لكل زيارة (عام)"
+                  aria-label={t('points.general.label')}
                   dir="ltr"
                   onBlur={async (e) => {
                     const raw = e.target.value.trim();
@@ -543,7 +551,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                       await call(session, canSetGeneral, { points: Number(raw) });
                       load();
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+                      setError(err instanceof Error ? err.message : t('points.error.saveFailed'));
                       e.target.value = String(earn?.general?.points ?? 0);
                     } finally {
                       setSaving(false);
@@ -561,16 +569,16 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   number for the whole establishment (§9.5). */}
               <label className="mt-4 flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
                 <span className="flex flex-col">
-                  <span className="text-sm">مكافأة تحتاج اعتماد المدير من</span>
+                  <span className="text-sm">{t('points.threshold.label')}</span>
                   <span className="text-sm text-text-secondary">
-                    أي مكافأة بهذه النقاط فأكثر تحتاج اسم المدير عند الاستبدال. 0 يعني لا اعتماد.
+                    {t('points.threshold.hint')}
                   </span>
                 </span>
                 <input
                   type="number"
                   min={0}
                   defaultValue={Number(earn?.general?.manager_threshold ?? 0)}
-                  aria-label="مكافأة تحتاج اعتماد المدير من"
+                  aria-label={t('points.threshold.label')}
                   dir="ltr"
                   onBlur={async (e) => {
                     const raw = e.target.value.trim();
@@ -589,7 +597,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                       });
                       load();
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+                      setError(err instanceof Error ? err.message : t('points.error.saveFailed'));
                       e.target.value = String(was);
                     } finally {
                       setSaving(false);
@@ -612,8 +620,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               for the two to disagree. */}
           {canSetGroup && groupNames.length > 0 ? (
             <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-              <Head title="نقاط مجموعة"
-                    said="تسري على كل خدمة في المجموعة لم تُخصَّص وحدها." />
+              <Head title={t('points.group.title')}
+                    said={t('points.group.said')} />
               <ul className="flex flex-col gap-2">
                 {groupNames.map((g) => (
                   <li key={g} className="flex items-center justify-between gap-3">
@@ -623,7 +631,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                       min={0}
                       dir="ltr"
                       defaultValue={String(earn?.groups?.[g]?.points ?? earn?.general?.points ?? 0)}
-                      aria-label={`نقاط مجموعة ${g}`}
+                      aria-label={tf(t, 'points.group.ariaLabel', { group: g })}
                       onBlur={async (e) => {
                         const raw = e.target.value.trim();
                         if (raw === '') return;
@@ -645,7 +653,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                           });
                           load();
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+                          setError(err instanceof Error ? err.message : t('points.error.saveFailed'));
                           e.target.value = String(was === -1 ? (earn?.general?.points ?? 0) : was);
                         } finally {
                           setSaving(false);
@@ -661,8 +669,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
           {canSetService && (services ?? []).length > 0 ? (
             <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-              <Head title="نقاط خدمة بعينها"
-                    said="رقمٌ خاص يتقدّم على المجموعة وعلى العام." />
+              <Head title={t('points.perService.title')}
+                    said={t('points.perService.said')} />
               <ul className="flex flex-col gap-2">
                 {(services ?? []).map((s) => {
                   const { points, own } = earnFor(s.id);
@@ -672,14 +680,14 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                         <span>{s.name}</span>
                         {/* SHOWN WHERE IT HAPPENED (§10.8.1), never in a distant settings screen
                             he would have to find. */}
-                        {own ? <Badge tone="accent">إعداد خاص</Badge> : null}
+                        {own ? <Badge tone="accent">{t('points.customSetting')}</Badge> : null}
                       </span>
                       <span className="flex items-center gap-2">
                         <input
                           type="number"
                           min={0}
                           defaultValue={points}
-                          aria-label={`نقاط ${s.name}`}
+                          aria-label={tf(t, 'points.serviceAriaLabel', { name: s.name })}
                           dir="ltr"
                           onBlur={(e) => {
                             const raw = e.target.value.trim();
@@ -705,7 +713,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                               }
                             }}
                           >
-                            العودة إلى العام
+                            {t('points.returnToGeneral')}
                           </Button>
                         ) : null}
                       </span>
