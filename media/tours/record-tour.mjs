@@ -448,8 +448,26 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     return;
   }
 
-  const target = step.click ?? step.type ?? step.check ?? step.longPress
+  // AN ARRAY ON `click`/`hover` — candidates in order, not one guessed selector. Real grid data
+  // (e.g. الحجوزات's staff columns, each independently seeded with random gaps) shifts which
+  // exact slot is free across reseeds; a single hardcoded nth= reads as flaky when it's really
+  // just stale about which column happens to be open THIS run. `trial: true` performs Playwright's
+  // full actionability check (visible, stable, not covered by another element) without actually
+  // clicking, so this costs nothing on the candidate that would have worked anyway.
+  let target = step.click ?? step.type ?? step.check ?? step.longPress
     ?? step.select ?? step.hover ?? step.dragFrom ?? step.dragOver ?? step.dragDrop;
+  if (Array.isArray(target)) {
+    const candidates = target;
+    target = null;
+    for (const candidate of candidates) {
+      const ok = await locate(page, candidate).first().click({ trial: true, timeout: 2_000 }).then(() => true).catch(() => false);
+      if (ok) { target = candidate; break; }
+    }
+    if (!target) throw new Error(`step ${index + 1}: none of ${JSON.stringify(candidates)} resolved to a clickable element`);
+    // Reassign so the actual click/hover below (which reads step.click/step.hover directly) uses
+    // the winning candidate instead of the original array.
+    for (const key of ['click', 'hover']) if (Array.isArray(step[key])) step[key] = target;
+  }
   if (target) {
     // BOTH THE RING AND THE CAPTION, HIDDEN THROUGH THE WHOLE WAIT — not left showing while it
     // settles. Clearing only the ring still let the PREVIOUS step's CAPTION sit on screen over an

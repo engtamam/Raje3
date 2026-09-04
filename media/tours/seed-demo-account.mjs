@@ -150,11 +150,39 @@ async function main() {
   if (process.env.BOOKINGS_ONLY === '1') {
     console.log('▸ bookings only (BOOKINGS_ONLY=1)');
     const onlyBranch = await getBranchId(session, act);
+    // Several BOOKINGS_ONLY reruns on the same real day (normal across re-recording takes) only
+    // ever ADD bookings into whatever gaps are still open — nothing here used to remove any — so
+    // the board crept toward fully booked a few reruns in, taking with it every empty slot a tour
+    // step depends on clicking. RESET_TODAY=1 cancels today's non-essential bookings first so the
+    // day starts from the same ~two-thirds-busy baseline every time instead of compounding.
+    if (process.env.RESET_TODAY === '1') {
+      const today = riyadhToday();
+      const existing = await callAction(session, LIST_BOOKINGS(onlyBranch, today)).catch(() => ({ bookings: [] }));
+      let cancelled = 0;
+      for (const b of existing.bookings ?? []) {
+        if (b.status !== 'booked') continue; // leave attended/no_show/cancelled history alone
+        await callAction(session, CANCEL_BOOKING(b.id)).catch(() => {});
+        cancelled += 1;
+      }
+      console.log(`  ✔ reset today: cancelled ${cancelled} booking(s) before reseeding`);
+    }
     await seedWeekBoard(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     await seedDenseDay(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     await seedTouchMoveCard(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     await seedHeroBookings(session, onlyBranch, [operatorId, ...extraOperatorIds]);
+    await seedNoShowRiskCustomer(session, onlyBranch, [operatorId, ...extraOperatorIds]);
+    await seedOverdueBooking(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     console.log('✔ bookings board refreshed');
+    return;
+  }
+
+  // A booking-tour re-recording spends the hero's real reward redemption (loyalty.adjust is not
+  // reversible — same reasoning noted elsewhere in this file). Re-topping her up alone, without
+  // the full thousand-customer reseed, is what a re-recording between takes actually needs.
+  if (process.env.HERO_ONLY === '1') {
+    console.log('▸ hero customer only (HERO_ONLY=1)');
+    await seedHeroCustomer(session, act, serviceIds, operatorId, ticket);
+    console.log('✔ hero customer refreshed');
     return;
   }
 
@@ -177,6 +205,8 @@ async function main() {
   await seedDenseDay(session, branchId, [operatorId, ...extraOperatorIds]);
   await seedTouchMoveCard(session, branchId, [operatorId, ...extraOperatorIds]);
   await seedHeroBookings(session, branchId, [operatorId, ...extraOperatorIds]);
+  await seedNoShowRiskCustomer(session, branchId, [operatorId, ...extraOperatorIds]);
+  await seedOverdueBooking(session, branchId, [operatorId, ...extraOperatorIds]);
   console.log('  ✔ bookings seeded');
 
   console.log('✔ demo account ready');
@@ -339,6 +369,99 @@ const HERO_NAME = 'عميلة العرض';
 // manager-approval reward at cost 600 for real, not by inventing a smaller reward to fit fewer
 // visits. Matched by NAME, not a hardcoded id — service ids are minted fresh every signup.
 const HERO_SERVICE_NAME = 'بروتين شعر';
+
+// A FIXED, MEMORABLE NUMBER for the bookings tour's own no-show-risk badge chapter — needs a real
+// closed history of mostly-missed appointments, which no other seeded customer has on purpose.
+const RISKY_PHONE = '0555020202';
+const RISKY_NAME = 'عميل متأخر';
+
+// A FIXED slot for the bookings tour's own overdue-banner chapter — every OTHER seed pass in this
+// file deliberately CLOSES OUT a booking once its time has passed (see seedWeekBoard/seedDenseDay's
+// own comments on why: a demo board full of permanent alarms proves nothing). This one is created
+// LAST and left exactly as a receptionist would forget it — «محجوز» well after it ended — so the
+// banner has something real to point at. It reverts to normal (auto-closed) on the NEXT full
+// reseed, which is the same "reseed right before recording" rhythm every other tour here already
+// depends on, not a special case to remember.
+async function seedOverdueBooking(session, branchId, operatorIds) {
+  if (!branchId || !operatorIds?.length) return;
+  const { services = [] } = await callAction(session, CATALOGUE).catch(() => ({ services: [] }));
+  // THE SHORTEST REAL SERVICE, NOT JUST THE FIRST ONE WITH A DURATION — "overdue" (Bookings.tsx's
+  // own `overdueMinutes`) checks the APPOINTMENT'S END, not its start. A 2-hour-ago start on a
+  // 180-minute service ends an hour from NOW — still genuinely in progress, not overdue at all —
+  // which is exactly why this banner never showed no matter how many times this got reseeded: the
+  // first service in the catalogue happened to be a long one, and the "seeded" booking was quietly
+  // never actually overdue.
+  const withDuration = services.filter((s) => s.duration_minutes > 0);
+  const service = withDuration.reduce((shortest, s) =>
+    (!shortest || s.duration_minutes < shortest.duration_minutes ? s : shortest), null);
+  if (!service) return;
+  const today = riyadhToday();
+  const existing = await callAction(session, LIST_BOOKINGS(branchId, today)).catch(() => ({ bookings: [] }));
+  const already = (existing.bookings ?? []).some((b) => b.status === 'booked'
+    && b.starts_at + b.duration_minutes * 60 < Math.floor(Date.now() / 1000));
+  if (already) { console.log('  · an overdue booking already sits on today\'s board — left alone'); return; }
+  const phone = randomPhone();
+  const ensured = await callAction(session, ENSURE_CUSTOMER, { phone, name: randomName() }).catch(() => ({}));
+  const customerId = ensured.customer?.id;
+  if (!customerId) return;
+  // Starts far enough back that it ENDS at least an hour ago, whatever the chosen (shortest)
+  // service's own duration is — genuinely overdue, not a borderline "ends any minute now" case a
+  // real recording's own timing could race against.
+  const startsAt = Math.floor(Date.now() / 1000) - (service.duration_minutes + 60) * 60;
+  // operatorIds[0] alone kept losing this slot to whatever the dense-day/board seeding already put
+  // on her calendar two hours ago — try every operator in turn rather than only the first.
+  let booking = null;
+  for (const operatorId of operatorIds) {
+    booking = await callAction(session, CREATE_BOOKING, {
+      branch_id: branchId, operator_id: operatorId, customer_id: customerId,
+      service_ids: [service.id], starts_at: startsAt, payment_status: 'none',
+    }).catch(() => null);
+    if (booking?.id) break;
+  }
+  console.log(booking?.id ? '  ✔ one overdue booking seeded for the alert banner' : '  · could not seed the overdue booking — slot busy, left for next run');
+}
+
+// A REAL RISK SCORE, NOT A LABEL — `no_show_risk` (services/bookings/app/core) reads the last
+// `risk_window` (default 5) CLOSED appointments and flags risky at >=60% no-shows, with a minimum
+// sample so 1-for-1 never reads as "100% risky". Four no-shows out of five clears both bars
+// honestly, through the same attend/no-show endpoints every other booking here goes through —
+// nothing here writes a "risk" field directly, because there isn't one; it is computed fresh.
+async function seedNoShowRiskCustomer(session, branchId, operatorIds) {
+  if (!branchId || !operatorIds?.length) return;
+  const { services = [] } = await callAction(session, CATALOGUE).catch(() => ({ services: [] }));
+  const service = services.find((s) => s.duration_minutes > 0);
+  if (!service) return;
+  const ensured = await callAction(session, ENSURE_CUSTOMER, { phone: RISKY_PHONE, name: RISKY_NAME })
+    .catch(() => ({}));
+  const customerId = ensured.customer?.id;
+  if (!customerId) { console.log('  · risky customer unresolvable — skipping her history'); return; }
+
+  // Already has a closed history from a previous run? Leave it — re-seeding five MORE closed
+  // appointments every recording would only grow her ledger without changing what the badge shows.
+  const today = riyadhToday();
+  const probe = await callAction(session, LIST_BOOKINGS(branchId, addDaysStr(today, -1))).catch(() => ({ bookings: [] }));
+  if ((probe.bookings ?? []).some((b) => b.customer_id === customerId && b.status !== 'booked')) {
+    console.log('  · risky customer already has a closed history — left alone');
+    return;
+  }
+
+  const outcomes = ['no_show', 'no_show', 'attended', 'no_show', 'no_show'];   // 4/5 = 80%, well past the 60% bar
+  let created = 0;
+  for (const [i, outcome] of outcomes.entries()) {
+    const date = addDaysStr(today, -(i + 1) * 7);   // one appointment a week, going back — a real weekly rhythm gone wrong
+    const startsAt = epochAtRiyadh(date, 600);       // 10:00, comfortably inside any real working day
+    const operator = operatorIds[i % operatorIds.length];
+    const booking = await callAction(session, CREATE_BOOKING, {
+      branch_id: branchId, operator_id: operator, customer_id: customerId,
+      service_ids: [service.id], starts_at: startsAt, payment_status: 'none',
+    }).catch(() => null);
+    if (!booking?.id) continue;
+    await callAction(session, outcome === 'no_show' ? NO_SHOW_BOOKING(booking.id) : ATTEND_BOOKING(booking.id))
+      .catch(() => {});
+    created += 1;
+  }
+  console.log(`  ✔ risk-history customer (${RISKY_PHONE}): ${created} closed appointment(s), 4 of 5 no-show`);
+}
 
 /**
  * ONE customer with real points, a real cheap reward, and a real manager-approval reward — built
@@ -751,6 +874,13 @@ async function seedDenseDay(session, branchId, operatorIds) {
     // day is laid out right the first time instead of being cancelled back open.
     const closeHere = (operator.name || '').includes(TOUR_OPERATOR_NAME) ? close - TOUR_TAIL_MINUTES : close;
     const mine = busy.get(operator.id) ?? [];
+    // A RE-RECORDING RUNS THIS MORE THAN ONCE ON THE SAME DAY. Without a ceiling, each rerun only
+    // ever ADDS bookings into whatever gaps are still open (never removes any), so the board
+    // monotonically fills toward 100% across repeated takes — breaking the "two-thirds busy, real
+    // empty slots for the tour to use" design a few reseeds in. Skip a column outright once it's
+    // already past that intended density instead of packing it fuller every run.
+    const occupiedMinutes = mine.reduce((sum, [s, e]) => sum + (e - s), 0);
+    if (occupiedMinutes / (closeHere - open) > 0.7) continue;
     // STAGGERED STARTS — three columns all beginning on the hour reads as generated data.
     let minute = open + i * 45;
     // `k` COUNTS APPOINTMENTS PLACED, NOT LOOP TURNS — a first version incremented it on every

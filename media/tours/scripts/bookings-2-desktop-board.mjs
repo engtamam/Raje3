@@ -1,68 +1,51 @@
 /**
- * «الحجوزات» — PART 2 OF 3: the whole board on a desktop browser, and everything you actually DO
- * on it. The longest of the three on purpose: this is the layout a shop runs its day from, and
- * every act that only exists at this width lives here.
+ * «الحجوزات» — أهم شاشة بالمنصة، بالعرض الأفقي الكامل: كل قدرة حقيقية فيها، بلا استثناء.
  *
- *   1 — a phone: the list, the grid, day/week, working hours, filters.
- *   2 (this file) — a desktop browser: the grid at full width, the fifteen-minute cell, a real
- *       drag-and-drop reschedule with its conflict warning, the whole new-booking flow, the phone
- *       lookup, the filters, editing an existing booking, and a real reward being spent at «حضر».
- *   3 — a phone again: managing a booking that already exists.
+ * لماذا هذا المقطع طويل عمداً: هذي الشاشة اللي يدير منها المحل يومه كامل، وطلب صريح ألا يُفوَّت
+ * فيها شيء — حتى الحالات الصعبة والنادرة. الطول مو مشكلة هنا، التغطية الناقصة هي المشكلة.
  *
- * LANDSCAPE MEANS A MOUSE, AND THE SCREEN KNOWS IT. Bookings.tsx reads
- * `matchMedia('(pointer: coarse)')` ONCE at mount to pick its default layout — a phone opens on
- * the list, a browser on the grid. record-tour.mjs leaves `hasTouch` false for an
- * `orientation: 'landscape'` tour precisely so that check answers the way a real desktop answers;
- * nothing here switches the layout by hand, because nothing should have to.
+ * العرض الأفقي = فأرة، والشاشة تعرف ذلك. Bookings.tsx يقرأ `matchMedia('(pointer: coarse)')`
+ * مرة وحدة عند التحميل ليقرر شكلها الافتراضي — جوال يفتح على القائمة، حاسوب على الشبكة.
+ * record-tour.mjs يترك `hasTouch` false لأي تسجيل `orientation: 'landscape'`، فتجاوب الشاشة
+ * بالضبط متل ما يجاوب حاسوب حقيقي — بلا أي تدخل يدوي هنا.
  *
- * THE FIFTEEN-MINUTE CELL IS NOT A ROUNDING, IT IS THE GRAIN OF THE WHOLE SCREEN.
- * `SNAP_MINUTES = 15` (Bookings.tsx:42) is what every drop snaps to, the grid draws exactly
- * `WINDOW_LEN / 15` clickable cells per column from it, and the server's own double-booking lock
- * buckets on the same fifteen minutes (services/bookings/app/core/availability.py's
- * `DEFAULT_GRANULARITY_MINUTES`). One number, three layers, so the clip says it once and plainly.
+ * بيانات العرض الحقيقية المطلوبة (media/tours/seed-demo-account.mjs، BOOKINGS_ONLY=1 قبل التسجيل):
+ *   · 0555010101 «عميلة العرض» — نقاط ومكافأة حقيقية جاهزة للاستبدال (seedHeroCustomer).
+ *   · 0555020202 «عميل متأخر» — ٤ من ٥ مواعيد ماضية «لم يحضر»، فعلياً عبر /no-show، لا حقل مصطنع
+ *     (seedNoShowRiskCustomer) — النسبة (٨٠٪) تتجاوز حد التحذير الافتراضي (٦٠٪) بمسافة مريحة.
+ *   · حجز واحد فات وقته ولم يُغلق بعد (seedOverdueBooking) — لبانر التنبيه.
  *
- * THE DRAG IS THE REAL ONE. `dragFrom`/`dragOver`/`dragDrop` (record-tour.mjs) carry one real
- * `DataTransfer` through the screen's own `onDragStart`/`onDragOver`/`onDrop`, which is what makes
- * the live conflict colouring, the snapped arrival time on the preview, the optimistic move, the
- * real `PATCH /api/v1/bookings/{id}/reschedule` and the five-second undo bar all happen for real
- * on camera. Split into three steps rather than one so the clip can HOLD the card over an occupied
- * quarter-hour long enough to read why it went red.
+ * ثلاث قدرات حقيقية موجودة بالكود ومذكورة صوتياً هنا، لكن غير مُفعَّلة حياً بهذا التسجيل — تحتاج
+ * بيانات تجريبية إضافية لم تُجهَّز بعد (تُذكر صراحة، لا تُخفى):
+ *   · «لا يوجد موظف واحد يقدر يسوّي كل هذه الخدمات معاً» — يحتاج قيود تأهيل موظفين حقيقية بين
+ *     خدمتين (StaffEligibilityLookup)؛ البيانات الحالية كل موظف مؤهّل للكل، فالحالة لا تظهر أبداً.
+ *   · إصلاح «مدة الخدمة الناقصة» المضمّن — يحتاج خدمة حقيقية بمدة صفر بالكتالوج؛ لا توجد حالياً.
+ *   · «أقرب يوم فيه فتحة» — يحتاج يوماً بلا أي فراغ إطلاقاً عند موظف بعينه؛ لوحة اليوم مشغولة
+ *     ثلثيها عمداً (لا كاملة)، فالزر يظهر لكن لا يُضغَط بثقة أنه سيُفعَّل فعلياً.
  *
- * THE REWARD IS REALLY SPENT. 0555010101 («عميلة العرض») carries thousands of real points and a
- * real reward tied to a real service («قص شعر مجاناً», 300 نقطة — seed-demo-account.mjs). The
- * booking made on camera attaches it as INTENT only; the spend happens at «حضر», where
- * `BookingOperations.attend` calls operations' loyalty desk and clears `intended_reward_id`
- * (services/bookings/app/core/operations.py). Verified end to end against the live cluster before
- * this was scripted: a `-300 redeem` row lands in her ledger and the ⭐ leaves the card.
- *
- * SELECTORS READ OFF THE LIVE PAGE AT THIS EXACT VIEWPORT, never off the source. What that
- * settled here:
- *   · COLUMN ORDER IS DOM ORDER, NOT SCREEN ORDER. The page is RTL, so the first column in the
- *     markup is the RIGHTMOST one. `>> nth=0` is «أخصائية الأظافر», `nth=1` «أخصائية الشعر»,
- *     `nth=2` «موظفة الاستقبال» — confirmed by reading every header's real bounding box.
- *   · A QUARTER-HOUR CELL HAS NO ACCESSIBLE NAME. Its only text is a `hidden group-hover:block`
- *     time pill, so it is reached by that pill's exact text and the column index.
- *   · THE PHONE FILTER EXISTS ONCE HERE, unlike on a phone: the `sm:hidden` panel that duplicates
- *     it is not rendered at all until its chip is tapped, which never happens at this width.
- *   · «حضر» IS A PREFIX OF «لم يحضر», and «عربون» of «بدون عربون» — both need exact matching.
+ * SELECTORS قُرئت من الصفحة الحية بهذا المقاس تحديداً، لا من التخمين:
+ *   · ترتيب الأعمدة = ترتيب الـDOM لا ترتيب الشاشة (الصفحة RTL، فأول عمود بالكود هو الأقصى يميناً).
+ *   · خانة ربع الساعة بلا اسم واجهة — تُقرأ عبر رقاقة وقتها (`hidden group-hover:block`).
+ *   · «حضر» بادئة لـ«لم يحضر»، و«عربون» بادئة لـ«بدون عربون» — كلاهما يحتاج مطابقة تامّة (`!`).
+ *   · أزرار «فعّل العربون الآن»، «أقرب يوم فيه فتحة»، «إدخال يدوي»، «افتح الأقدم» كلها أزرار نص
+ *     بسيطة بلا testid — تُقرأ بنصها الحرفي (BookingDialog.tsx، Bookings.tsx، قُرئت مباشرة).
+ *   · «احجز الجلسة القادمة — بعد N يوماً» يحوي رقماً متغيراً (`cycleDays`) — مطابقة جزئية بالبادئة
+ *     فقط، لا نص كامل.
  */
 export default {
   id: 'bookings-2-desktop-board',
-  title: 'الحجوزات ٢ — لوحة المحل كاملة على الشاشة',
+  title: 'الحجوزات — كل قدراتها، شاشة كاملة',
   section: 'الحجوزات',
   useDemoSession: true,
   orientation: 'landscape',
   preload: true,
-  // EIGHT STATIONS DEEP, AND LONG BECAUSE THE SCREEN IS. The 180s default is a runaway detector
-  // for a five-step clip, not a length this one could ever fit inside — see record-tour.mjs's own
-  // note on `secondsCap`.
-  secondsCap: 480,
+  secondsCap: 900,
   steps: [
-    // ── لوحة يومك كاملة ─────────────────────────────────────────────────────────────────────
+    // ── الافتتاحية ──────────────────────────────────────────────────────────────────────────
     {
       goto: '/bookings',
       chapter: 'لوحة يومك كاملة',
-      say: 'على شاشة كبيرة تفتح الحجوزات شبكة — يومك كامل بضربة عين',
+      say: 'هذي أهم شاشة بمحلّك — كل موعد اليوم، وكل قرار عليه، بمكان واحد',
     },
     { waitFor: 'testid=rj-grid' },
     {
@@ -76,9 +59,42 @@ export default {
       hover: 'css=[data-testid="rj-grid"] div[draggable="true"]:has-text("صبغة شعر كاملة")',
       say: 'وطول البطاقة هو طول الخدمة — ساعتان تاخذ ضعف الساعة الواحدة',
     },
-    // ── الخانة ربع ساعة ─────────────────────────────────────────────────────────────────────
+    // ── تنبيه المواعيد المتأخرة ─────────────────────────────────────────────────────────────
+    // MOVED HERE FROM LATER IN THE SCRIPT, RIGHT AFTER THE GRID LOADS — not a stylistic choice.
+    // Live testing found the seeded overdue booking (seedOverdueBooking) reliably flips out of
+    // 'booked' within under a minute of being created, for a reason not yet root-caused (checked
+    // and ruled out: our own code has no cron/scheduled sweep on bookings at all, no event
+    // consumer anywhere touches booking status, and the peer session's own tree has zero
+    // bookings-related code). Since the fifty-odd steps that used to run before this chapter
+    // reliably burned past that window every single recording, this chapter now runs first,
+    // while the seed is still fresh — the actual fix for whatever is closing it early, if it
+    // turns out to be ours, is still open.
     {
-      hover: 'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=1',
+      waitFor: 'text=فات وقته',
+      chapter: 'تنبيه المواعيد المتأخرة',
+      say: 'وشريط فوق اللوحة يراقب شي ثاني: مواعيد فاتت ولا أحد أقفلها',
+    },
+    {
+      say: 'موعدٌ حضر عميله ولا أحد سجّله «حضر»؟ يبقى معلّقاً — وهذا الشريط يذكّرك',
+    },
+    {
+      click: 'role=button:افتح الأقدم',
+      say: 'وزر واحد يفتحه لك مباشرة — أقدم موعد معلّق، بلا ما تدوّر عليه بنفسك',
+    },
+    {
+      click: 'role=button:إغلاق!',
+      say: 'نغلق ونكمل جولتنا على اللوحة',
+    },
+    // ── الخانة ربع ساعة ─────────────────────────────────────────────────────────────────────
+    // NOT a fixed nth= — the seed data intentionally leaves the day two-thirds busy (see header
+    // comment), and which column's 5:30 م slot is the free one shifts across reseeds (record-tour
+    // .mjs's own array-candidate support picks whichever one is actually clickable this run).
+    {
+      hover: [
+        'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=0',
+        'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=1',
+        'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=2',
+      ],
       chapter: 'الخانة ربع ساعة',
       say: 'مرّر على أي فراغ: يضيء ويقول وقته',
     },
@@ -86,15 +102,16 @@ export default {
       say: 'كل خانة ربع ساعة بالضبط — وعليها يستوي كل حجز وكل نقل',
     },
     {
-      // ALSO WHAT KEEPS THIS CHAPTER TEN SECONDS CLEAR OF THE NEXT ONE — YouTube drops a whole
-      // chapter list when any two marks are closer than that, and a two-step station is not
-      // reliably longer than that on its own.
       say: 'ونفس الربع ساعة هو اللي يمنع موعدين يتصادمون على موظفة وحدة',
     },
-    // ── حجز جديد من نفس الخانة ──────────────────────────────────────────────────────────────
+    // ── حجز جديد بذكاء ──────────────────────────────────────────────────────────────────────
     {
-      click: 'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=1',
-      chapter: 'حجز جديد من نفس الخانة',
+      click: [
+        'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=0',
+        'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=1',
+        'css=[data-testid="rj-grid"] button:has(> span:text-is("5:30 م")) >> nth=2',
+      ],
+      chapter: 'حجز جديد بذكاء',
       say: 'واضغطها يفتح الحجز وقد عرف الموظفة والوقت',
     },
     {
@@ -102,11 +119,6 @@ export default {
       text: '0555010101',
       say: 'ابدأ بجوال العميلة',
     },
-    // THE SUGGESTION IS A ROUND TRIP, NOT A RENDER. `waitForDomQuiet` goes quiet the instant
-    // typing stops — 180ms of debounce and a real request still to come — and under the
-    // capture loop's own load that answer can land after the next step has already given up
-    // (it did, on the first take). Every asynchronous arrival in this clip is waited for by
-    // name rather than by hoping the pacing covers it.
     { waitFor: 'role=button:عميلة العرض' },
     {
       click: 'role=button:عميلة العرض',
@@ -120,24 +132,46 @@ export default {
       click: 'role=button:قص شعر',
       say: 'اختر الخدمة — و⭐ عليها معناها نقاطها تكفي مكافأة عليها',
     },
-    // THE SLOT CHIPS ARE SEVERAL `nearest-slot` CALLS DEEP — one per round, sequentially.
-    { waitFor: 'role=button:17:30' },
+    // A SPECIFIC TIME CANNOT BE HARDCODED HERE — the chips are real `nearest_slot` answers
+    // against whatever the board's live occupancy happens to be at recording time, so the exact
+    // first-available time shifts run to run. A regex accessible-name grabs whichever chip is
+    // actually first, matching only the HH:MM shape `timeOfEpoch()` renders (confirmed live:
+    // Playwright's own CSS `:text-matches()` silently matches nothing in this build — see
+    // lib/locate.mjs's own note on why `role=.../…/` exists).
+    { waitFor: 'role=button:/^\\d{2}:\\d{2}/' },
     {
       hover: 'label=الموظف',
       say: 'الموظفة جاهزة من الخانة اللي ضغطتها، وتقدر تغيّرها',
     },
     {
-      click: 'role=button:17:30',
+      // THE STAFF FIELD NARROWS TO THE INTERSECTION OF OPERATORS ELIGIBLE FOR EVERY CHOSEN
+      // SERVICE — mentioned here rather than forced live: current seed data has no per-operator
+      // restriction, so "أي متاح" always resolves; the refusal message only appears against real
+      // eligibility rules this demo doesn't carry yet.
+      say: 'ولو اخترت خدمتين ما فيه موظفة وحدة تسوّيهما مع بعض، النظام يقولها صراحة بدل ما يخمّن',
+    },
+    {
+      click: 'role=button:/^\\d{2}:\\d{2}/',
       say: 'والوقت رقاقات — كل رقاقة فتحة فاضية فعلاً عند هذي الموظفة',
+    },
+    {
+      say: 'ولو يوم بأكمله ما فيه فتحة، زر «أقرب يوم فيه فتحة» يقفز لك أقرب موعد خلال أسبوعين',
     },
     {
       click: 'text=تفاصيل الدفع',
       say: 'وتحت «تفاصيل الدفع» سعر هذا الموعد وحالة دفعه',
     },
+    { waitFor: 'label=السعر (اختياري، ريال)' },
+    {
+      type: 'label=السعر (اختياري، ريال)',
+      text: '90',
+      say: 'وتقدر تغيّر سعرها هنا — لهذا الموعد بس، افتراضياً',
+    },
+    {
+      say: 'أو فعّل «احفظه كسعر ثابت لهذه الخدمة» لو تبغى كل الحجوزات الجاية تاخذ نفس السعر تلقائياً',
+    },
     { waitFor: 'role=radio:عربون!' },
     {
-      // A RADIO, NOT A BUTTON — rj-ui/Segmented renders its options as `role="radio"` inside a
-      // `role="radiogroup"`. Exact, because «بدون عربون» beside it contains this whole word.
       click: 'role=radio:عربون!',
       say: 'اطلب عربون لو تبغى تأكيد الموعد',
     },
@@ -146,13 +180,19 @@ export default {
       text: '50',
       say: 'والمبلغ إجباري — عشان يبقى رقمٌ يُرجع له بعد شهر',
     },
-    // HER BALANCE IS TWO CHAINED READS (by-phone → balance), so the reward picker mounts well
-    // after the customer was chosen — and only if she can actually afford something.
     { waitFor: 'label=جائزة يريد استبدالها' },
     {
       select: 'label=جائزة يريد استبدالها (اختياري)',
       option: 'قص شعر مجاناً (300)',
       say: 'واختر جائزتها — تُصرف عند حضورها، لا الآن',
+    },
+    {
+      click: 'text=إدخال يدوي',
+      say: 'ولو محتاج تاريخاً ماضياً أو حالة ما يغطيها شريط الرقائق، «إدخال يدوي» مسار احتياطي مطويّ',
+    },
+    {
+      click: 'text=إخفاء الإدخال اليدوي',
+      say: 'نطويه ونرجع للرقائق الذكية — هي الأسرع بكل الحالات العادية',
     },
     {
       click: 'role=button:احجز!',
@@ -161,6 +201,49 @@ export default {
     { waitFor: 'css=[data-testid="rj-grid"] div[draggable="true"]:has(span[title="جائزة بانتظار الاستبدال عند الحضور"])' },
     {
       say: 'وطلعت بطاقتها بمكان وقتها، وعليها «عربون 50» و⭐ الجائزة',
+    },
+    // ── عميل يتأخر عن مواعيده ───────────────────────────────────────────────────────────────
+    // THE FLOATING «حجز جديد» BUTTON, NOT A GRID CELL — a specific cell's occupancy shifts every
+    // recording as the board fills up with whatever this same take already booked, and guessing
+    // an empty one is exactly the fragility that broke this take once already. The floating
+    // button opens the SAME dialog with nothing pre-filled, so staff/time still come from the
+    // real slot search either way — nothing about the scenario changes, only how it opens.
+    {
+      hover: 'role=button:حجز جديد',
+      chapter: 'عميل يتأخر عن مواعيده',
+      say: 'وشي ثاني تشوفه بس مع عملاء معيّنين — تنبيه ذكي عن سلوكهم',
+    },
+    {
+      click: 'role=button:حجز جديد',
+      say: 'خلنا نحجز لعميل له تاريخ متكرر بالتأخر',
+    },
+    {
+      type: 'label=جوّال العميل',
+      text: '0555020202',
+      say: 'جواله',
+    },
+    { waitFor: 'role=button:عميل متأخر' },
+    {
+      click: 'role=button:عميل متأخر',
+      say: 'وهذا هو',
+    },
+    { waitFor: 'text=نسبة عدم حضوره مرتفعة' },
+    {
+      say: 'المنصة راقبت تاريخه الحقيقي: غاب عن أغلب مواعيده آخر فترة، فتحذّرك قبل ما تحجز له',
+    },
+    {
+      say: 'الرقم حقيقي محسوب من زياراته الفعلية — مو انطباعاً ولا تخميناً',
+    },
+    {
+      click: 'role=button:فعّل العربون الآن',
+      say: 'وضغطة وحدة تفعّل له العربون فوراً — القرار قرارك، والنظام يقترحه بس',
+    },
+    {
+      say: 'ولو ما ضغطتها، ولا شي يمنعك تكمل حجزه عادي — هذا تنبيه، لا رفض',
+    },
+    {
+      click: 'role=button:إلغاء!',
+      say: 'نلغي هذا الحجز التجريبي ونرجع للوحة',
     },
     // ── انقل موعد بالسحب ────────────────────────────────────────────────────────────────────
     {
@@ -190,18 +273,21 @@ export default {
       say: 'انتقلت للموظفة الجديدة، و«تراجع» تحت يرجّعها لو غلطت',
     },
     // ── ابحث بجوال العميل ───────────────────────────────────────────────────────────────────
+    // (the overdue-alert chapter itself now runs right after the grid loads — see top of file)
+    {
+      chapter: 'ابحث بجوال العميل',
+      say: 'ونبحث الآن عن عميلة واقفة تسأل عن موعدها',
+    },
     {
       type: 'label=ابحث عن حجز عميل بجواله',
       text: '0555010101',
-      chapter: 'ابحث بجوال العميل',
-      say: 'عميلة واقفة عندك تسأل عن موعدها؟ اكتب جوالها',
+      say: 'اكتب جوالها',
     },
     { waitFor: 'role=button:عميلة العرض' },
     {
       click: 'role=button:عميلة العرض',
       say: 'اضغط اسمها',
     },
-    // A DIFFERENT READ FROM THE GRID'S — `bookings.for-customer`, across every date and branch.
     { waitFor: 'role=button:السابقة' },
     {
       say: 'وتطلع مواعيدها القادمة كلها — أي يوم وأي فرع، مو يومك هذا',
@@ -234,15 +320,42 @@ export default {
       say: 'وما بقي على اللوحة إلا مواعيد هذي الخدمة',
     },
     {
-      // «عربون», NOT «مدفوع» — the two filters COMBINE, so this one has to be a state the
-      // already-narrowed board actually contains, or the chapter demonstrates its own
-      // combination by emptying the screen (which is what «مدفوع» + «مانيكير» did).
       click: 'role=button:عربون!',
       say: 'وحالة الدفع فلتر ثانٍ يجتمع معه',
     },
     {
       click: 'role=button:إزالة كل الفلاتر',
       say: 'وضغطة وحدة تشيلها كلها',
+    },
+    // ── أوقات الدوام ────────────────────────────────────────────────────────────────────────
+    {
+      click: 'role=button:أوقات الدوام',
+      chapter: 'أوقات الدوام',
+      say: 'ومن هنا تضبط دوامك الأسبوعي — سياسة واحدة تحكم كل فروعك',
+    },
+    { waitFor: 'text=الجمعة' },
+    {
+      say: 'كل يوم له فتح وإغلاق، أو تقفله كامل لو عطلة',
+    },
+    {
+      say: 'وعلى هذي الساعات بالضبط تُبنى كل رقاقة وقت تشوفها بالحجز — لا تخمين',
+    },
+    {
+      click: 'role=button:Close',
+      say: 'نغلق دون تعديل — دوامك الحالي مضبوط أصلاً',
+    },
+    // ── الأسبوع كامل ────────────────────────────────────────────────────────────────────────
+    {
+      click: 'role=button:الأسبوع',
+      chapter: 'الأسبوع كامل',
+      say: 'و«الأسبوع» يوريك أسبوعك كامل بصف واحد',
+    },
+    {
+      say: 'مرتّب بالأيام، ونفس منطق الشبكة يحكمه',
+    },
+    {
+      click: 'role=button:اليوم!',
+      say: 'وترجع ليومك بضغطة',
     },
     // ── إدارة موعد قائم ─────────────────────────────────────────────────────────────────────
     {
@@ -255,46 +368,104 @@ export default {
       say: 'خدمتها ووقتها ومدتها وموظفتها وسعرها — قبل ما تقرر شي',
     },
     {
-      hover: 'role=button:حضر!',
-      say: '«حضر» تسجّل زيارتها فعلاً، و«لم يحضر» و«إلغاء» يقفلانه بلا زيارة',
-    },
-    {
       click: 'role=button:تعديل الحجز',
       say: 'و«تعديل» يفتح نفس شاشة الحجز على هذا الموعد',
     },
     {
+      // THE PRICE FIELD IS CREATE-ONLY (`!editing && chosen.length > 0` in BookingDialog.tsx) —
+      // already shown and set on the FIRST booking created earlier in this same recording; an
+      // edit only touches service/time/note/payment, never the price field itself.
+      click: 'text=تفاصيل الدفع',
+      say: 'ولو تبغى تغيّر خدمتها أو موظفتها من هنا، نفس الحوار',
+    },
+    {
       type: 'label=ملاحظة (اختياري)',
-      // OVER WHATEVER IS THERE — this booking is a real row on a real demo shop, and a re-recorded
-      // take must not stack its line on top of the last take's.
       replace: true,
       text: 'أكدت بالواتساب',
-      say: 'غيّر خدمتها أو وقتها أو اكتب ملاحظة تقرأها بكرة',
+      say: 'واكتب ملاحظة تقرأها بكرة',
     },
     {
       click: 'role=button:حفظ التعديل',
       say: 'واحفظ — نفس الموعد يتعدّل، ما ينفتح حجزٌ ثانٍ',
     },
-    // ── المكافأة تُصرف عند الحضور ────────────────────────────────────────────────────────────
+    // ── إلغاء موعد ──────────────────────────────────────────────────────────────────────────
+    // «حجز جديد» AGAIN, NOT A GUESSED-EMPTY CELL — same reasoning as the risk-badge chapter above.
     {
+      hover: 'role=button:حجز جديد',
+      chapter: 'إلغاء موعد',
+      say: 'ولو عميل اتصل واعتذر عن موعده',
+    },
+    {
+      click: 'role=button:حجز جديد',
+      say: 'نفتح موعداً تجريبياً بسيطاً',
+    },
+    {
+      type: 'label=جوّال العميل',
+      text: '0599112233',
+      say: 'جوال عميل جديد',
+    },
+    // A GENUINELY NEW NUMBER — no suggestion to click, so the dialog opens its own inline name
+    // field instead (`phone.length >= 3` with no match), exactly as it would for a real walk-in.
+    { waitFor: 'label=اسمها (اختياري)' },
+    {
+      type: 'label=اسمها (اختياري)',
+      text: 'عميل تجريبي',
+      say: 'وعميل جديد كلياً — الاسم يُكتب مرة وحدة، ما راح يُطلب ثانية',
+    },
+    {
+      click: 'role=button:مانيكير',
+      say: 'خدمة سريعة',
+    },
+    { waitFor: 'role=button:/^\\d{2}:\\d{2}/' },
+    {
+      click: 'role=button:/^\\d{2}:\\d{2}/',
+      say: 'ونؤكد وقتها',
+    },
+    { waitFor: 'role=button:احجز!' },
+    {
+      click: 'role=button:احجز!',
+      say: 'نحجزه أول',
+    },
+    {
+      click: 'css=[data-testid="rj-grid"] div[draggable="true"]:has-text("مانيكير") >> nth=0',
+      say: 'ونفتحه من جديد',
+    },
+    { waitFor: 'role=button:إلغاء الحجز' },
+    {
+      click: 'role=button:إلغاء الحجز',
+      say: 'زر «إلغاء» يقفله بلا زيارة مسجّلة — وقته يرجع فاضياً فوراً لأي حجز آخر',
+    },
+    // ── حضر ولم يحضر ────────────────────────────────────────────────────────────────────────
+    {
+      // `:has-text` MATCHES RENDERED innerText — the "جائزة بانتظار…" string only ever lives in
+      // the ⭐ icon's `title` attribute (a hover tooltip, not painted text), so this must match the
+      // same way the two earlier steps on this same card already do (`:has(span[title=…])`).
       click: 'css=[data-testid="rj-grid"] div[draggable="true"]:has(span[title="جائزة بانتظار الاستبدال عند الحضور"])',
-      chapter: 'المكافأة تُصرف عند الحضور',
+      chapter: 'حضر أو لم يحضر',
       say: 'ونرجع لموعد عميلتنا صاحبة الجائزة',
     },
     {
       say: '⭐ معناها جائزة محجوزة لها، ونقاطها لسه ما انخصمت',
     },
     {
-      click: 'role=button:حضر!',
-      say: 'وأول ما تجي وتخلص، اضغط «حضر»',
+      hover: 'role=button:لم يحضر!',
+      say: 'ولو ما جاء العميل إطلاقاً، «لم يحضر» يقفل الموعد بلا زيارة — وتدخل بياناته بحساب سلوكه لاحقاً',
     },
-    // ATTEND IS THREE SERVICES DEEP — a real Visit through operations, then the loyalty spend.
+    {
+      click: 'role=button:حضر!',
+      say: 'لكن عميلتنا جت وخلصت، فنضغط «حضر»',
+    },
     { waitFor: 'text=سُجّل الحضور' },
     {
       say: 'سُجّلت زيارتها، وانخصمت نقاط جائزتها بنفس اللحظة — لا قبلها',
     },
+    { waitFor: 'text=احجز الجلسة القادمة' },
+    {
+      say: 'وفوراً — «احجز الجلسة القادمة» يقترح موعدها الجاي حسب دورتها المعتادة، بضغطة وحدة',
+    },
     {
       click: 'role=button:إغلاق!',
-      say: 'ومن نفس المكان تحجز جلستها الجاية',
+      say: 'نكتفي بهذا الآن',
     },
     {
       say: 'وصارت بطاقتها «حضر»، والنجمة راحت: الجائزة انصرفت فعلاً',

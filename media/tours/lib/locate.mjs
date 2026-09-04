@@ -31,6 +31,16 @@
  * `getByRole('button', { name: 'إيقاف' })` matching a button whose title carries a longer
  * sentence after it). A trailing `!` on the name half asks for an EXACT match instead —
  * `role=button:إيقاف!` — for the rare control whose name is itself a prefix of another one.
+ *
+ * A NAME WRAPPED IN `/…/` IS A REGEX, for the one real case a fixed string can't cover: content
+ * that is itself data, not copy — `role=button:/^\d{2}:\d{2}/` finds a live availability slot
+ * chip whose exact time depends on the board's real occupancy at recording time, never the same
+ * value twice. Playwright's own CSS engine has no working `:text-matches()` in this build
+ * (confirmed live — it silently matched nothing), so this is the one path that actually works;
+ * `getByRole`'s `name` option accepts a RegExp directly. Kept to `role=`, not added to every
+ * strategy, because a regex over an ACCESSIBLE NAME is the one place this is unambiguous — the
+ * same pattern against raw text or a CSS selector would invite exactly the fragile scripts this
+ * whole file exists to prevent.
  */
 
 const STRATEGIES = {
@@ -39,6 +49,9 @@ const STRATEGIES = {
     const kind = sep === -1 ? rest : rest.slice(0, sep);
     const name = sep === -1 ? undefined : rest.slice(sep + 1);
     if (name === undefined) return page.getByRole(kind);
+    if (name.length > 1 && name.startsWith('/') && name.endsWith('/')) {
+      return page.getByRole(kind, { name: new RegExp(name.slice(1, -1)) });
+    }
     const exact = name.endsWith('!');
     const value = exact ? name.slice(0, -1) : name;
     return page.getByRole(kind, { name: value, exact });
