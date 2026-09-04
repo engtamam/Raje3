@@ -12,10 +12,11 @@ import { AdminAuditLog } from './AdminAuditLog';
 import { AdminConfig } from './AdminConfig';
 import { AdminSecrets } from './AdminSecrets';
 import { AdminProviderSecrets } from './AdminProviderSecrets';
+import { AdminLegal } from './AdminLegal';
 import { AdminTeam } from './AdminTeam';
 import type { AdminSession } from './api';
 
-type SubTab = 'config' | 'secrets' | 'provider_secrets' | 'team' | 'audit';
+type SubTab = 'config' | 'secrets' | 'provider_secrets' | 'legal' | 'team' | 'audit';
 
 export function AdminPlatform({ session }: { session: AdminSession }) {
   const [sub, setSub] = useState<SubTab>('config');
@@ -29,6 +30,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
             { value: 'config', label: 'الإعدادات الحيّة' },
             { value: 'secrets', label: 'الأسرار' },
             { value: 'provider_secrets', label: 'مفاتيح المزوّدين' },
+            { value: 'legal', label: 'المستندات القانونية' },
             { value: 'team', label: 'فريق الإدارة' },
             { value: 'audit', label: 'سجل التدقيق' },
           ]}
@@ -37,6 +39,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
       {sub === 'config' ? <AdminConfig session={session} /> : null}
       {sub === 'secrets' ? <AdminSecrets session={session} /> : null}
       {sub === 'provider_secrets' ? <AdminProviderSecrets session={session} /> : null}
+      {sub === 'legal' ? <AdminLegal session={session} /> : null}
       {sub === 'team' ? <AdminTeam session={session} /> : null}
       {sub === 'audit' ? <AdminAuditLog session={session} /> : null}
     </div>
