@@ -85,10 +85,12 @@ class ConfigDrivenAvailabilityProvider:
         self._tz = timezone(timedelta(hours=tz_offset_hours))
 
     async def availability(self, *, tenant: str, service_id: str, earliest: int,
-                           horizon_days: int = 0, branch_id: str = "") -> list[Slot]:
-        # `branch_id` IS ACCEPTED AND IGNORED — this placeholder never had a branch concept (a
-        # `subject_ref` pseudonym was always enough for its own local store); see
-        # app/ports/booking_provider.py's own note on why the port keeps this optional.
+                           horizon_days: int = 0, branch_id: str = "",
+                           exclude_booking_id: str = "") -> list[Slot]:
+        # `branch_id`/`exclude_booking_id` ARE ACCEPTED AND IGNORED — this placeholder never had a
+        # branch concept (a `subject_ref` pseudonym was always enough for its own local store), and
+        # has no existing-booking-id concept to exclude either; see app/ports/booking_provider.py's
+        # own note on why the port keeps both optional.
         horizon = min(horizon_days or self._cfg.max_lead_days, self._cfg.max_lead_days)
         duration = self._cfg.duration_for(service_id)
         step = self._cfg.slot_granularity_minutes

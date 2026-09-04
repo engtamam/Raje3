@@ -206,6 +206,12 @@ class Settings(BaseSettings):
     BOOKINGS_SERVICE_URL: str = ""
     BOOKINGS_NEAREST_REAL_SLOT_PATH: str = "/internal/bookings/nearest-real-slot"
     BOOKINGS_CREATE_PATH: str = "/internal/bookings"
+    # Booking-management-via-WhatsApp (view/cancel/reschedule an EXISTING booking) — the
+    # customer-ownership counterparts to bookings-service's staff-only routes. See
+    # services/bookings/app/api/internal.py's own "customer self-service" section.
+    BOOKINGS_FOR_CUSTOMER_PATH: str = "/internal/bookings/for-customer"
+    BOOKINGS_CANCEL_PATH: str = "/internal/bookings/{booking_id}/cancel"
+    BOOKINGS_RESCHEDULE_PATH: str = "/internal/bookings/{booking_id}/reschedule"
     # "config" (default): the zero-infra placeholder, ConfigDrivenAvailabilityProvider — writes
     # into THIS service's own store, never a real bookings/operations peer (see core/booking.py's
     # own docstring). "real": core/booking_assignment.py's RealBookingProvider — real branch
@@ -214,6 +220,26 @@ class Settings(BaseSettings):
     # deployed and reachable, the same "opt in, never silently upgrade" posture WALLET_SERVICE_URL
     # and every other optional peer on this service already takes.
     BOOKING_PROVIDER_DRIVER: str = "config"
+
+    # Booking-management-via-WhatsApp — view/cancel/reschedule an EXISTING booking through the
+    # bot. TWO INDEPENDENT FLAGS, both default true (fully on, for this round's testing), each
+    # flippable with a plain config-value change and a restart — NO code edit, NO redeploy of new
+    # code — the same "flip it off, no surgery" requirement every other kill-switch on this
+    # service already meets.
+    #
+    # BOOKING_MANAGEMENT_ENABLED: the master switch for the whole capability (list/cancel/
+    # reschedule together). False removes the three tools from `llm_tool_allowlist` below AND
+    # stops booking_assignment.py::build() from even constructing the peers they'd need (belt and
+    # suspenders — either one alone already prevents the model from ever reaching bookings-service
+    # for this).
+    BOOKING_MANAGEMENT_ENABLED: bool = True
+    # BOOKING_HISTORY_VISIBLE: separate and narrower — governs ONLY whether `list_my_bookings` may
+    # also show bookings BEFORE today (Riyadh business day). Current and upcoming bookings show
+    # regardless of this flag; false does not hide anything happening today or later, it only
+    # refuses a look further into the past — see core/tools.py::list_my_bookings for the exact
+    # cutoff and the "ask a human for older bookings" refusal text it returns instead of silently
+    # trimming or guessing.
+    BOOKING_HISTORY_VISIBLE: bool = True
 
     # loyalty — points summaries only (read-only; see core/points.py's own docstring on why this
     # service no longer redeems anything directly — a reward rides on a real booking instead).
@@ -282,11 +308,29 @@ class Settings(BaseSettings):
     # tool name outside this list is rejected before any tool body runs.
     LLM_TOOL_ALLOWLIST: str = (
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
-        "suggest_related_service")
+        "suggest_related_service,list_my_bookings,propose_cancel_booking,"
+        "propose_reschedule_booking")
+
+    # The three booking-management tool names — named once here so the kill-switch below and
+    # core/tools.py's own dispatch never risk drifting apart on the literal strings.
+    _BOOKING_MANAGEMENT_TOOLS = frozenset(
+        {"list_my_bookings", "propose_cancel_booking", "propose_reschedule_booking"})
 
     @property
     def llm_tool_allowlist(self) -> frozenset[str]:
-        return frozenset(t.strip() for t in self.LLM_TOOL_ALLOWLIST.split(",") if t.strip())
+        declared = frozenset(t.strip() for t in self.LLM_TOOL_ALLOWLIST.split(",") if t.strip())
+        # THE MASTER KILL-SWITCH, ENFORCED HERE REGARDLESS OF WHAT LLM_TOOL_ALLOWLIST LITERALLY
+        # SAYS — see BOOKING_MANAGEMENT_ENABLED's own note. Flipping this one value off silently
+        # drops the three tools even if an operator forgot to also edit the allowlist string.
+        # ALSO gated on the booking driver being "real": ConfigDrivenAvailabilityProvider (the
+        # zero-infra local placeholder — core/booking.py) has no concept of "this customer's real
+        # existing bookings" at all, so these tools are meaningless — and unsafe to even offer —
+        # under any driver but "real" (booking_assignment.py's own module docstring). A deployment
+        # still on "config" gets these three withheld automatically, not by remembering to also
+        # flip BOOKING_MANAGEMENT_ENABLED off.
+        if not self.BOOKING_MANAGEMENT_ENABLED or self.BOOKING_PROVIDER_DRIVER != "real":
+            return declared - self._BOOKING_MANAGEMENT_TOOLS
+        return declared
 
     def assert_llm_config_ok(self) -> None:
         if not self.is_production:

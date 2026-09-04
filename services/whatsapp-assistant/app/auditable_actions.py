@@ -25,6 +25,25 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "unprovable auto-booking is indistinguishable from a bug that double-booked a slot",
     },
     {
+        "action": "whatsapp_assistant.booking_cancelled",
+        "source": "internal",
+        "critical": True,
+        "resource": "booking",
+        "why": "a booking cancelled on a customer's behalf via the button-confirm gate — same "
+               "reasoning as booking_confirmed above: an unprovable auto-cancel is indistinguishable "
+               "from a bug that dropped a customer's appointment, and the shop needs to be able to "
+               "show WHY a slot that looked booked opened back up",
+    },
+    {
+        "action": "whatsapp_assistant.booking_rescheduled",
+        "source": "internal",
+        "critical": True,
+        "resource": "booking",
+        "why": "a booking's time moved on a customer's behalf via the button-confirm gate — same "
+               "reasoning as booking_confirmed/booking_cancelled above: an unprovable auto-move is "
+               "indistinguishable from a bug that silently relocated an appointment",
+    },
+    {
         "action": "whatsapp_assistant.chat_retention_purged",
         "source": "internal",
         "critical": True,

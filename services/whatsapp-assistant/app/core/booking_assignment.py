@@ -43,14 +43,21 @@ class _Peer:
     import, this service holds no shared library with any other."""
 
     def __init__(self, *, url: str, path: str, token: str, timeout: int) -> None:
-        self._url = url.rstrip("/") + path
+        # `path` may carry a "{booking_id}"-style placeholder (see BOOKINGS_CANCEL_PATH/
+        # BOOKINGS_RESCHEDULE_PATH) — left unformatted here, filled in per-call by `call()`'s
+        # own `path_params`, since a single _Peer instance is built once at startup for every
+        # booking id it will ever be asked about, not one per id.
+        self._base = url.rstrip("/")
+        self._path = path
         self._token = token
         self._timeout = timeout
 
-    def call(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+    def call(self, payload: dict[str, Any], path_params: dict[str, str] | None = None
+             ) -> dict[str, Any] | None:
+        url = self._base + self._path.format(**(path_params or {}))
         body = json.dumps(payload).encode()
         req = urllib.request.Request(
-            self._url, data=body, method="POST",
+            url, data=body, method="POST",
             headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
@@ -65,13 +72,20 @@ class RealBookingProvider:
     driver = "real"
 
     def __init__(self, *, branch_operators: _Peer, service_eligibility: _Peer,
-                customer_id_by_phone: _Peer, nearest_real_slot: _Peer, create_booking: _Peer
-                ) -> None:
+                customer_id_by_phone: _Peer, nearest_real_slot: _Peer, create_booking: _Peer,
+                bookings_for_customer: _Peer | None = None, cancel_booking: _Peer | None = None,
+                reschedule_booking: _Peer | None = None) -> None:
         self._branch_operators = branch_operators
         self._service_eligibility = service_eligibility
         self._customer_id_by_phone = customer_id_by_phone
         self._nearest_real_slot = nearest_real_slot
         self._create_booking = create_booking
+        # Optional — only set when BOOKING_MANAGEMENT_ENABLED is true at build() time (see below).
+        # None-guarded at every call site so an old/half-configured deployment fails the same loud
+        # way the rest of this module already does, rather than a silent AttributeError.
+        self._bookings_for_customer = bookings_for_customer
+        self._cancel_booking = cancel_booking
+        self._reschedule_booking = reschedule_booking
 
     async def _pick_operator(self, tenant: str, branch_id: str, service_id: str) -> str:
         """FIRST ELIGIBLE, DETERMINISTIC — see this module's own docstring for the policy. Raises
@@ -99,19 +113,29 @@ class RealBookingProvider:
         return str((result or {}).get("customer_id") or "")
 
     async def availability(self, *, tenant: str, service_id: str, earliest: int,
-                           horizon_days: int, branch_id: str = "") -> list[Slot]:
+                           horizon_days: int, branch_id: str = "",
+                           exclude_booking_id: str = "") -> list[Slot]:
         # NO BRANCH, NO ANSWER — see module docstring. `horizon_days` is accepted for Protocol
         # compatibility but unused: `nearest_real_slot` always returns the single NEXT open
         # candidate, not a set across a window (the "أقرب موعد" shape, not the grid's).
+        #
+        # `exclude_booking_id` (booking-management-via-WhatsApp's reschedule check) — the booking
+        # being moved is not a conflict with itself; without this, asking "is my own current time,
+        # or any nearby overlapping time, available?" always reads as busy against the booking's
+        # OWN occupancy and the search jumps past to the next genuinely free slot instead. See
+        # app/ports/booking_provider.py's own note.
         if not branch_id:
             return []
         try:
             operator_id = await self._pick_operator(tenant, branch_id, service_id)
         except BookingAssignmentError:
             return []
-        result = self._nearest_real_slot.call(
-            {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
-             "service_ids": [service_id], "after": earliest})
+        payload: dict[str, Any] = {
+            "tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
+            "service_ids": [service_id], "after": earliest}
+        if exclude_booking_id:
+            payload["exclude_booking_id"] = exclude_booking_id
+        result = self._nearest_real_slot.call(payload)
         starts_at = (result or {}).get("starts_at")
         if not starts_at:
             return []
@@ -152,6 +176,50 @@ class RealBookingProvider:
             raise BookingAssignmentError("bookings-service refused or was unreachable")
         return result
 
+    # ── booking management (view/cancel/reschedule an EXISTING booking) ──────────────────────
+    # Each method resolves customer_id from the phone the same way hold_and_confirm does above —
+    # the caller NEVER supplies a customer_id itself, so there is no parameter anywhere in this
+    # class that could be pointed at someone else's bookings. Ownership of the specific booking
+    # id is re-checked again, server-side, by bookings-service's own internal route (see that
+    # file's `_own_booking`) — this module does not trust its own resolve as the final word either.
+
+    async def list_bookings(self, *, tenant: str, from_number: str) -> list[dict]:
+        if self._bookings_for_customer is None:
+            raise BookingAssignmentError("booking management is not enabled on this deployment")
+        customer_id = await self._resolve_customer_id(tenant, from_number)
+        if not customer_id:
+            raise BookingAssignmentError("could not resolve a real customer for this phone")
+        result = self._bookings_for_customer.call({"tenant": tenant, "customer_id": customer_id})
+        return list((result or {}).get("bookings") or [])
+
+    async def cancel_booking(self, *, tenant: str, from_number: str, booking_id: str,
+                             reason: str = "") -> dict:
+        if self._cancel_booking is None:
+            raise BookingAssignmentError("booking management is not enabled on this deployment")
+        customer_id = await self._resolve_customer_id(tenant, from_number)
+        if not customer_id:
+            raise BookingAssignmentError("could not resolve a real customer for this phone")
+        result = self._cancel_booking.call(
+            {"tenant": tenant, "customer_id": customer_id, "reason": reason},
+            path_params={"booking_id": booking_id})
+        if result is None:
+            raise BookingAssignmentError("bookings-service refused or was unreachable")
+        return result
+
+    async def reschedule_booking(self, *, tenant: str, from_number: str, booking_id: str,
+                                 starts_at: int) -> dict:
+        if self._reschedule_booking is None:
+            raise BookingAssignmentError("booking management is not enabled on this deployment")
+        customer_id = await self._resolve_customer_id(tenant, from_number)
+        if not customer_id:
+            raise BookingAssignmentError("could not resolve a real customer for this phone")
+        result = self._reschedule_booking.call(
+            {"tenant": tenant, "customer_id": customer_id, "starts_at": starts_at},
+            path_params={"booking_id": booking_id})
+        if result is None:
+            raise BookingAssignmentError("bookings-service refused or was unreachable")
+        return result
+
 
 def build(settings: Any) -> Any:
     """"config" (default) keeps the zero-infra placeholder built in core/booking.py — this
@@ -166,6 +234,21 @@ def build(settings: Any) -> Any:
             "BOOKINGS_SERVICE_URL both set")
     timeout = settings.PEER_TIMEOUT_SECONDS
     token = settings.INTERNAL_SERVICE_TOKEN
+    # BOOKING_MANAGEMENT_ENABLED is THE master kill-switch (app/config.py's own note): false means
+    # these three peers are simply never built, so list/cancel/reschedule_booking above always
+    # raise "not enabled" — the SAME "flip a value, no redeploy" shutoff LLM_TOOL_ALLOWLIST's own
+    # property enforces on the tool side. Two independent layers refusing the same thing on purpose.
+    management_peers: dict[str, _Peer] = {}
+    if settings.BOOKING_MANAGEMENT_ENABLED:
+        management_peers = dict(
+            bookings_for_customer=_Peer(url=settings.BOOKINGS_SERVICE_URL,
+                                        path=settings.BOOKINGS_FOR_CUSTOMER_PATH,
+                                        token=token, timeout=timeout),
+            cancel_booking=_Peer(url=settings.BOOKINGS_SERVICE_URL,
+                                 path=settings.BOOKINGS_CANCEL_PATH, token=token, timeout=timeout),
+            reschedule_booking=_Peer(url=settings.BOOKINGS_SERVICE_URL,
+                                     path=settings.BOOKINGS_RESCHEDULE_PATH,
+                                     token=token, timeout=timeout))
     return RealBookingProvider(
         branch_operators=_Peer(url=settings.OPERATIONS_SERVICE_URL,
                                path=settings.OPERATIONS_BRANCH_OPERATORS_PATH,
@@ -180,4 +263,5 @@ def build(settings: Any) -> Any:
                                 path=settings.BOOKINGS_NEAREST_REAL_SLOT_PATH,
                                 token=token, timeout=timeout),
         create_booking=_Peer(url=settings.BOOKINGS_SERVICE_URL,
-                             path=settings.BOOKINGS_CREATE_PATH, token=token, timeout=timeout))
+                             path=settings.BOOKINGS_CREATE_PATH, token=token, timeout=timeout),
+        **management_peers)

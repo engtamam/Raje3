@@ -15,6 +15,13 @@ ignores both (it never needed a branch or a phone; a `subject_ref` pseudonym was
 its own local store). `RealBookingProvider` requires them in practice and refuses without them —
 see its own docstring — but the PORT stays permissive so a placeholder implementation with no use
 for either need not accept or thread through arguments it would only ever discard.
+
+`exclude_booking_id` (booking-management-via-WhatsApp) — the booking being RESCHEDULED is not a
+conflict with itself; without excluding it, a candidate slot inside its own current window reads
+as busy against its own occupancy. `ConfigDrivenAvailabilityProvider` accepts and ignores it (no
+concept of an existing booking id to exclude in its own arithmetic); `RealBookingProvider` threads
+it to bookings-service's own `nearest_slot(exclude_booking_id=...)`, the SAME parameter the
+console's own reschedule screen already relies on (app/api/v1/bookings.py's `nearest_slot` route).
 """
 from __future__ import annotations
 
@@ -33,7 +40,8 @@ class BookingProvider(Protocol):
     driver: str
 
     async def availability(self, *, tenant: str, service_id: str, earliest: int,
-                           horizon_days: int, branch_id: str = "") -> list[Slot]: ...
+                           horizon_days: int, branch_id: str = "",
+                           exclude_booking_id: str = "") -> list[Slot]: ...
 
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
                                starts_at: int, idempotency_key: str, branch_id: str = "",

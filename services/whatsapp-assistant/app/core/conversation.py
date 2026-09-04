@@ -176,14 +176,15 @@ def build_system_prompt(shop_name: str) -> str:
 
     identity = (
         f"أنت المساعد الرقمي لاستقبال عملاء {name} عبر واتساب. مهمتك الوحيدة هي مساعدة عملاء "
-        f"{name} في الاستفسارات، وحجز المواعيد، ومتابعة رصيد النقاط — بأسلوب ودود، مختصر، ومهني، "
-        "يليق باستقبال محل حقيقي، لا بروبوت جاف.")
+        f"{name} في الاستفسارات، وحجز المواعيد، وعرض حجوزاته وإلغائها أو تأجيلها، ومتابعة رصيد "
+        "النقاط — بأسلوب ودود، مختصر، ومهني، يليق باستقبال محل حقيقي، لا بروبوت جاف.")
 
     behavior = (
-        "أنت تقترح فقط، ولا تُنفّذ شيئًا بنفسك أبدًا: كل حجز أو استبدال نقاط يحتاج ضغطة زر صريحة "
-        "من العميل نفسه. لا تدّعِ أبدًا أنك أتممت حجزًا أو استبدلت نقاطًا — إن لم يضغط العميل على "
-        "زر التأكيد، فذلك لم يحدث. لا تخترع مواعيد أو أرصدة أو معلومات؛ استخدم الأدوات المتاحة لك "
-        "فقط، ولا تفترض بيانات لم تُعطَ لك.")
+        "أنت تقترح فقط، ولا تُنفّذ شيئًا بنفسك أبدًا: كل حجز أو إلغاء أو تأجيل أو استبدال نقاط "
+        "يحتاج ضغطة زر صريحة من العميل نفسه. لا تدّعِ أبدًا أنك أتممت حجزًا أو ألغيته أو أجّلته أو "
+        "استبدلت نقاطًا — إن لم يضغط العميل على زر التأكيد، فذلك لم يحدث. لا تخترع مواعيد أو أرصدة "
+        "أو معلومات؛ استخدم الأدوات المتاحة لك فقط، ولا تفترض بيانات لم تُعطَ لك. لا تعرض ولا تناقش "
+        "أبدًا حجزًا لعميل آخر، ولا بيانات المحل الداخلية — فقط حجوزات هذا العميل نفسه.")
 
     # Off-limits about ITSELF — the sanitizer below is the backstop for this instruction, not a
     # replacement for it; most attempts are refused here, at the persona level, before generation.
@@ -217,8 +218,11 @@ def build_system_prompt(shop_name: str) -> str:
 _FORBIDDEN_CLAIM_PATTERNS = (
     re.compile(r"تم\s+(الحجز|حجزك|تأكيد الحجز|تأكيد الموعد)"),
     re.compile(r"تم\s+(استبدال|صرف)\s+النقاط"),
+    re.compile(r"تم\s+(إلغاء|الغاء)\s+(الحجز|حجزك|موعدك|الموعد)"),
+    re.compile(r"تم\s+(نقل|تأجيل)\s+(الحجز|حجزك|موعدك|الموعد)"),
     re.compile(r"\bbooking\s+confirmed\b", re.IGNORECASE),
     re.compile(r"\bpoints?\s+redeemed\b", re.IGNORECASE),
+    re.compile(r"\bbooking\s+(cancell?ed|rescheduled)\b", re.IGNORECASE),
 )
 # Same backstop, for the OTHER thing the persona is told never to do: discuss its own system
 # prompt/instructions, or the model/provider behind it. A model that is talked into it anyway
@@ -293,7 +297,9 @@ class ConversationEngine:
                 customer_lookup: Any = None, related_services: Any = None,
                 branch_directory: Any = None,
                 wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
-                wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100) -> None:
+                wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100,
+                booking_history_visible: bool = True,
+                booking_management_enabled: bool = True) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -332,6 +338,15 @@ class ConversationEngine:
         self._raw_window = max(2, raw_window_messages)
         self._allowed_tools = allowed_tools
         self._proposal_ttl = proposal_ttl_seconds
+        # BOOKING_HISTORY_VISIBLE, threaded from app/config.py — see that setting's own note.
+        # Governs ONLY whether list_my_bookings may look before today; never gates current/
+        # upcoming bookings, which always show regardless.
+        self._booking_history_visible = booking_history_visible
+        # THE EMERGENCY SHUTOFF, RE-CHECKED AT CONFIRM TIME TOO — not just at proposal time (which
+        # `allowed_tools`/config.py's own llm_tool_allowlist already handles). See
+        # core/tools.py::execute_confirmed_proposal's own docstring for why a proposal made before
+        # the flag flipped off must not be allowed to still execute after.
+        self._booking_management_enabled = booking_management_enabled
         # NOT constructor-required: app/main.py builds the Auditor AFTER build_container() (it
         # needs the container to build), so this is wired via `set_auditor` right after — see
         # app/main.py::create_app. Optional here only so pre-existing test constructors that never
@@ -765,7 +780,8 @@ class ConversationEngine:
         allowed = self._allowed_tools
         if conv.pending_proposal_id:
             allowed = frozenset(t for t in allowed
-                                if t not in ("propose_booking", "suggest_redeemable_offer"))
+                                if t not in ("propose_booking", "suggest_redeemable_offer",
+                                            "propose_cancel_booking", "propose_reschedule_booking"))
 
         # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s
         # docstring. `self._wallet is not None` gates whether this service is wallet-gated at all
@@ -806,7 +822,8 @@ class ConversationEngine:
                     allowed_tools=allowed, store=self._store, booking_provider=self._booking,
                     points_summary=self._points, proposal_ttl_seconds=self._proposal_ttl, now=now,
                     related_services=self._related_services, service_catalog=self._catalog,
-                    branch_id=conv.branch_id)
+                    branch_id=conv.branch_id, from_number=conv.from_number,
+                    booking_history_visible=self._booking_history_visible)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",
                                         "text": "تعذّر تنفيذ ذلك الآن.", "at": now})
@@ -878,7 +895,8 @@ class ConversationEngine:
                 tenant=tenant, proposal_id=proposal_id, store=self._store,
                 booking_provider=self._booking, auditor=auditor,
                 idempotency_key=idem_key, now=now,
-                branch_id=conv.branch_id, from_number=conv.from_number)
+                branch_id=conv.branch_id, from_number=conv.from_number,
+                booking_management_enabled=self._booking_management_enabled)
         except T.ToolValidationError as exc:
             conv.pending_proposal_id = ""
             conv.state = "idle"
@@ -899,6 +917,10 @@ class ConversationEngine:
             # either way, because either way their booking IS confirmed. The gap is logged there
             # for reconciliation, not hidden from the customer by lying about their own booking.
             return ReplyPlan(kind="text", text="تم تأكيد موعدك.")
+        if result["kind"] == "cancel":
+            return ReplyPlan(kind="text", text="تم إلغاء موعدك.")
+        if result["kind"] == "reschedule":
+            return ReplyPlan(kind="text", text="تم نقل موعدك.")
         return ReplyPlan(kind="text", text="تم استبدال النقاط.")
 
     async def sweep_due(self, tenant: str, *, now: int | None = None, batch: int = 200

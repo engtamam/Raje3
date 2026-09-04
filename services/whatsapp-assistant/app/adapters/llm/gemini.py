@@ -86,6 +86,52 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "required": ["service_id"],
         },
     },
+    "list_my_bookings": {
+        "name": "list_my_bookings",
+        "description": (
+            "Read-only: list THIS customer's OWN bookings — never another customer's, there is "
+            "no argument for that. Always includes current and upcoming appointments regardless "
+            "of include_history. Set include_history=true only if the customer explicitly asks "
+            "about a PAST appointment; it may be declined (a human-required refusal, not an "
+            "error) depending on deployment settings."),
+        "parameters": {
+            "type": "object",
+            "properties": {"include_history": {
+                "type": "boolean",
+                "description": "True only if the customer is asking about a past appointment."}},
+        },
+    },
+    "propose_cancel_booking": {
+        "name": "propose_cancel_booking",
+        "description": (
+            "Propose (never actually cancel) cancelling one of the customer's OWN upcoming "
+            "bookings, identified by the booking_id from list_my_bookings. Never invent a "
+            "booking_id."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string"},
+                "reason": {"type": "string", "description": "Optional, customer's own words."},
+            },
+            "required": ["booking_id"],
+        },
+    },
+    "propose_reschedule_booking": {
+        "name": "propose_reschedule_booking",
+        "description": (
+            "Propose (never actually reschedule) moving one of the customer's OWN upcoming "
+            "bookings to a new time. booking_id must come from list_my_bookings; "
+            "new_starts_at_iso should be a real, still-open slot — check with check_availability "
+            "first if unsure."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string"},
+                "new_starts_at_iso": {"type": "string"},
+            },
+            "required": ["booking_id", "new_starts_at_iso"],
+        },
+    },
 }
 
 
