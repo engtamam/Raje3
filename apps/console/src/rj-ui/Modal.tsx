@@ -20,6 +20,9 @@ import { X } from 'lucide-react';
 const SIZE = {
   md: 'max-w-lg',
   lg: 'max-w-3xl',
+  // A tabbed detail view (a customer's whole profile, say) needs real room for a table or a form
+  // per tab — lg (max-w-3xl) reads cramped for that; xl gives it without going full-bleed.
+  xl: 'max-w-5xl',
 } as const;
 
 export function Modal({

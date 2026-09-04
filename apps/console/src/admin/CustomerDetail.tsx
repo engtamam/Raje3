@@ -1,15 +1,15 @@
 /**
- * ملف العميل — Drawer بستة تبويبات (انظر AdminCustomers.tsx's own header للخطة الكاملة). المرحلة
+ * ملف العميل — نافذة مركزية كبيرة (rj-ui/Modal، size="xl") بستة تبويبات، لا شريط جانبي — طُلب
+ * صراحة بدل الشكل الجانبي الأول (انظر AdminCustomers.tsx's own header للخطة الكاملة). المرحلة
  * ١ هنا: "نظرة عامة" و"الاشتراك والفوترة" بالبيانات الحقيقية الموجودة فعلاً بالخادم. البقية
  * (الفروع والمستخدمين، التذاكر والدعم، واتساب، السجل والتدقيق) تُعرض كتبويبات حقيقية بالقائمة —
  * لا تُخفى — لكن بمحتوى "قريباً" صريح بدل أن تختفي وتقرأ كأنها لم تُصمَّم أصلاً؛ كل واحدة تشرح
  * بالضبط ما ينقصها (نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت").
  */
 import { useEffect, useState } from 'react';
-import { X, Building2 } from 'lucide-react';
-import { Button } from './../rj-ui/Button';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
+import { Modal } from './../rj-ui/Modal';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
 import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
@@ -37,25 +37,8 @@ export function CustomerDetail({ session, tenant, subscription, catalog, onClose
   const [tab, setTab] = useState<Tab>('overview');
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}
-          className="flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto bg-surface-1 p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
-              <Building2 size={18} />
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold leading-tight">{tenant.name}</h2>
-              <p dir="ltr" className="text-label text-text-muted">{tenant.slug}</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} aria-label="إغلاق"
-                 className="text-text-secondary hover:text-text-primary">
-            <X size={20} />
-          </button>
-        </div>
-
+    <Modal open onClose={onClose} size="xl" title={tenant.name} subtitle={<span dir="ltr">{tenant.slug}</span>}>
+      <div className="flex flex-col gap-4">
         <Segmented value={tab} onChange={(v) => setTab(v as Tab)}
                   options={[
                     { value: 'overview', label: 'نظرة عامة' },
@@ -81,7 +64,7 @@ export function CustomerDetail({ session, tenant, subscription, catalog, onClose
           <ComingSoon text="يُبنى من نفس نظام التدقيق (auditor.record) المستخدم بكل مسار إداري فعلاً — يحتاج مسار قراءة مُجمَّع حسب المستأجر، غير موجود بعد." />
         ) : null}
       </div>
-    </div>
+    </Modal>
   );
 }
 
