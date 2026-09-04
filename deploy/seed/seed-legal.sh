@@ -94,16 +94,16 @@ POD=$(kubectl -n "$NS" get pods --no-headers \
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
-printf '%s\n' "$KEY" > /tmp/.legal-key.pem
-chmod 600 /tmp/.legal-key.pem
+printf '%s\n' "$KEY" > "$HERE/.legal-key.pem"
+chmod 600 "$HERE/.legal-key.pem"
 # THE kid HEADER — see seed-roles.sh's own note. A token minted with none is rejected by every
 # JWKS verifier on this fleet; this thumbprints the SAME key it signs with (RFC 7638, identical to
 # identity-service's own `public_jwk`), so it works across a rotation with no code change.
 TOKEN=$(python3 -c '
-import base64, hashlib, json, jwt, time
+import base64, hashlib, json, jwt, sys, time
 from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
-private_pem = open("/tmp/.legal-key.pem").read()
+private_pem = open(sys.argv[1]).read()
 key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
 jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
 canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
@@ -112,8 +112,8 @@ kid = base64.urlsafe_b64encode(hashlib.sha256(canonical).digest()).rstrip(b"=").
 print(jwt.encode({"sub": "seed-legal", "tenant": "_platform",
                   "caps": ["platform.compliance"],
                   "iss": "raje3", "aud": "raje3", "iat": now, "exp": now + 900},
-                 private_pem, algorithm="RS256", headers={"kid": kid}))' 2>/dev/null)
-rm -f /tmp/.legal-key.pem
+                 private_pem, algorithm="RS256", headers={"kid": kid}))' "$HERE/.legal-key.pem" 2>/dev/null)
+rm -f "$HERE/.legal-key.pem"
 [ -n "$TOKEN" ] || { red "could not mint a token (pyjwt installed?)"; exit 1; }
 
 # A SUBSHELL CANNOT REPORT. `printf | while` runs the loop in a subshell, so a variable set inside
@@ -126,12 +126,21 @@ printf '%s\n' "$TITLES" | while IFS='=' read -r doc_id title_ar title_en; do
   yaml_src="$HERE/legal/$doc_id.yaml"
   [ -f "$md_src" ] || { red "$doc_id.md is missing"; : > "$FAILMARK"; continue; }
 
-  # PARSE THE TWO SECTIONS render_markdown.py ITSELF WRITES ("## العربية" / "## English") — the
-  # only contract between the two scripts. Strips the HTML-comment header this script's own
-  # generator leaves at the top; that comment is a note to whoever opens the file, not content.
-  content=$(python3 - "$md_src" <<'PY'
+  if [ "$DRY" = "1" ]; then inf "would draft $doc_id v$VERSION from $doc_id.md"; continue; fi
+
+  # ONE PYTHON PROCESS, EVERYTHING BY ARGV — no bash-built JSON/Python-literal string is ever
+  # interpolated into a -c script. That used to be two separate calls stitched together with
+  # `'''$content'''` and `'$title_en'` — broke on the first apostrophe in a title ("Processor's
+  # Commitments") and on the first real newline inside the parsed Markdown (a JSON string built by
+  # one process, re-embedded as a Python literal by fragments of shell, is exactly the kind of
+  # thing that looks fine until a character neither side expected shows up). Argv is untouched by
+  # either JSON or Python string-literal escaping — the OS hands the exact bytes across, so this
+  # class of bug cannot recur here.
+  draft_body=$(python3 - "$md_src" "$yaml_src" "$title_ar" "$title_en" <<'PY'
 import json, re, sys
-text = open(sys.argv[1], encoding="utf-8").read()
+md_src, yaml_src, title_ar, title_en = sys.argv[1:5]
+
+text = open(md_src, encoding="utf-8").read()
 text = re.sub(r"<!--.*?-->\n*", "", text, flags=re.DOTALL)
 
 def section(marker):
@@ -148,35 +157,39 @@ def section(marker):
     body = text[start:start + nxt.start()] if nxt else text[start:]
     return body.rstrip().removesuffix("---").rstrip()
 
-print(json.dumps({"md_ar": section("العربية"), "md_en": section("English")}, ensure_ascii=False))
+md_ar, md_en = section("العربية"), section("English")
+
+requires_accept = False
+try:
+    import yaml
+    d = yaml.safe_load(open(yaml_src, encoding="utf-8")) or {}
+    requires_accept = d.get("publication") == "accept"
+except FileNotFoundError:
+    pass
+
+print(json.dumps({
+    "content": {"title": {"ar": title_ar, "en": title_en},
+               "blocks": [{"legal_text": {"md_ar": md_ar, "md_en": md_en}}]},
+    "requires_acceptance": requires_accept,
+}, ensure_ascii=False))
 PY
 )
-  [ -n "$content" ] || { red "$doc_id.md: unreadable"; : > "$FAILMARK"; continue; }
-
-  requires_accept="false"
-  if [ -f "$yaml_src" ]; then
-    requires_accept=$(python3 -c "import yaml,sys; d=yaml.safe_load(open('$yaml_src',encoding='utf-8')) or {}; print('true' if d.get('publication')=='accept' else 'false')")
-  fi
-
-  if [ "$DRY" = "1" ]; then inf "would draft $doc_id v$VERSION from $doc_id.md"; continue; fi
-
-  draft_body=$(python3 -c "
-import json, sys
-md = json.loads('''$content''')
-print(json.dumps({
-    'content': {'title': {'ar': '$title_ar', 'en': '$title_en'},
-               'blocks': [{'legal_text': {'md_ar': md['md_ar'], 'md_en': md['md_en']}}]},
-    'requires_acceptance': $requires_accept,
-}, ensure_ascii=False))
-")
+  [ -n "$draft_body" ] || { red "$doc_id.md: unreadable"; : > "$FAILMARK"; continue; }
 
   # PUT ONLY — NEVER A publish CALL HERE. Drafting a version is reversible (it is not yet live to
   # anyone); publishing is not, and is exactly the one act this script leaves entirely to a human
   # in AdminLegal.tsx, confirm dialog and all — see this file's own header.
-  out=$(kubectl -n "$NS" exec -i "$POD" -- python3 - "$doc_id" "$VERSION" "$TOKEN" <<PY 2>/dev/null
-import json, sys, urllib.error, urllib.request
-doc_id, ver, token = sys.argv[1], sys.argv[2], sys.argv[3]
-body = json.loads('''$draft_body''')
+  #
+  # base64, NOT `'''$draft_body'''`. This crosses TWO shells (this one, then whatever ssh runs
+  # remotely inside cluster.sh's kubectl() wrapper) before a THIRD process (the remote python3)
+  # ever reads it — three chances for a quote, a backslash or a real document's own apostrophe to
+  # be read as syntax instead of data. base64 has no character any of those three layers treats
+  # specially, so it crosses all three unchanged; the remote side decodes it, never re-parses it.
+  body_b64=$(printf '%s' "$draft_body" | base64 -w0 2>/dev/null || printf '%s' "$draft_body" | base64)
+  out=$(kubectl -n "$NS" exec -i "$POD" -- python3 - "$doc_id" "$VERSION" "$TOKEN" "$body_b64" <<PY 2>/dev/null
+import base64, json, sys, urllib.error, urllib.request
+doc_id, ver, token, body_b64 = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+body = json.loads(base64.b64decode(body_b64))
 req = urllib.request.Request(
     f"http://127.0.0.1:8000/api/v1/compliance/legal/{doc_id}/versions/{ver}",
     data=json.dumps(body).encode(), method="PUT",

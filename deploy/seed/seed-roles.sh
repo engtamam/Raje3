@@ -58,8 +58,8 @@ POD=$(kubectl -n "$NS" get pods --no-headers | awk '/^authz-service-/ && $3=="Ru
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
-printf '%s\n' "$KEY" > /tmp/.seed-key.pem
-chmod 600 /tmp/.seed-key.pem
+printf '%s\n' "$KEY" > "$HERE/.seed-key.pem"
+chmod 600 "$HERE/.seed-key.pem"
 # THE kid HEADER, WITHOUT WHICH EVERY SELF-SIGNED TOKEN IN THIS FILE FAILED, EVERY TIME.
 # jwks.py's own JWKSVerifier comment says a kid-less token "falls back to the client's own
 # resolution" for a single-key issuer — PyJWKClient does not: `get_signing_key_from_jwt` reads
@@ -70,10 +70,10 @@ chmod 600 /tmp/.seed-key.pem
 # this never needs network access to identity's own JWKS endpoint and stays correct across a key
 # rotation for free (whichever key TOKEN_PRIVATE_KEY holds right now is the one this thumbprints).
 TOKEN=$(SCOPE="$SCOPE" python3 -c '
-import base64, hashlib, json, jwt, os, time
+import base64, hashlib, json, jwt, os, sys, time
 from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
-private_pem = open("/tmp/.seed-key.pem").read()
+private_pem = open(sys.argv[1]).read()
 key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
 jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
 canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
@@ -85,8 +85,8 @@ print(jwt.encode({"sub": "seed-roles", "tenant": os.environ["SCOPE"],
                   # SHORT. This token can create a role carrying any capability; it exists for the
                   # length of one seed run and not a minute longer.
                   "exp": now + 300},
-                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")')
-rm -f /tmp/.seed-key.pem
+                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")' "$HERE/.seed-key.pem")
+rm -f "$HERE/.seed-key.pem"
 case "$TOKEN" in
   ey*) : ;;   # a JWT starts `ey` — anything else is a credential of the wrong kind
   *) red "minting failed; got a ${#TOKEN}-character value that is not a JWT"; exit 1 ;;

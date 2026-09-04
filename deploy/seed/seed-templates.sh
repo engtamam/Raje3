@@ -61,16 +61,16 @@ POD=$(kubectl -n "$NS" get pods --no-headers \
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
-printf '%s\n' "$KEY" > /tmp/.tpl-key.pem
-chmod 600 /tmp/.tpl-key.pem
+printf '%s\n' "$KEY" > "$HERE/.tpl-key.pem"
+chmod 600 "$HERE/.tpl-key.pem"
 # THE kid HEADER — see seed-roles.sh's own note. A token minted with none is rejected by every
 # JWKS verifier on this fleet; this thumbprints the SAME key it signs with (RFC 7638, identical to
 # identity-service's own `public_jwk`), so it works across a rotation with no code change.
 TOKEN=$(TENANT="$TENANT" python3 -c '
-import base64, hashlib, json, jwt, os, time
+import base64, hashlib, json, jwt, os, sys, time
 from jwt.algorithms import RSAAlgorithm
 now = int(time.time())
-private_pem = open("/tmp/.tpl-key.pem").read()
+private_pem = open(sys.argv[1]).read()
 key_obj = RSAAlgorithm(RSAAlgorithm.SHA256).prepare_key(private_pem)
 jwk = json.loads(RSAAlgorithm.to_jwk(key_obj))
 canonical = json.dumps({"e": jwk["e"], "kty": jwk["kty"], "n": jwk["n"]},
@@ -81,8 +81,8 @@ print(jwt.encode({"sub": "seed-templates", "tenant": os.environ["TENANT"],
                   "iss": "raje3", "aud": "raje3", "iat": now,
                   # SHORT. It exists for the length of one run.
                   "exp": now + 900},
-                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")')
-rm -f /tmp/.tpl-key.pem
+                 private_pem, algorithm="RS256", headers={"kid": kid}), end="")' "$HERE/.tpl-key.pem")
+rm -f "$HERE/.tpl-key.pem"
 case "$TOKEN" in
   ey*) : ;;   # a JWT starts `ey` — anything else is a credential of the wrong kind
   *) red "minting failed; got a ${#TOKEN}-character value that is not a JWT"; exit 1 ;;
