@@ -1,0 +1,185 @@
+/**
+ * ملف العميل — Drawer بستة تبويبات (انظر AdminCustomers.tsx's own header للخطة الكاملة). المرحلة
+ * ١ هنا: "نظرة عامة" و"الاشتراك والفوترة" بالبيانات الحقيقية الموجودة فعلاً بالخادم. البقية
+ * (الفروع والمستخدمين، التذاكر والدعم، واتساب، السجل والتدقيق) تُعرض كتبويبات حقيقية بالقائمة —
+ * لا تُخفى — لكن بمحتوى "قريباً" صريح بدل أن تختفي وتقرأ كأنها لم تُصمَّم أصلاً؛ كل واحدة تشرح
+ * بالضبط ما ينقصها (نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت").
+ */
+import { useEffect, useState } from 'react';
+import { X, Building2 } from 'lucide-react';
+import { Button } from './../rj-ui/Button';
+import { Badge } from './../rj-ui/Badge';
+import { Segmented } from './../rj-ui/Segmented';
+import { req, type AdminSession } from './api';
+import type { AdminCatalog } from './catalog';
+import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
+
+interface Invoice {
+  id: string; tenant: string; number: string; status: 'draft' | 'open' | 'partially_paid' | 'paid' | 'uncollectible' | 'void';
+  total_minor: number; currency: string; created: string;
+}
+
+const INVOICE_STATUS_META: Record<Invoice['status'], { label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' }> = {
+  draft: { label: 'مسوّدة', tone: 'neutral' },
+  open: { label: 'مستحقة', tone: 'warning' },
+  partially_paid: { label: 'مدفوعة جزئياً', tone: 'warning' },
+  paid: { label: 'مدفوعة', tone: 'success' },
+  uncollectible: { label: 'متعذّر تحصيلها', tone: 'danger' },
+  void: { label: 'ملغاة', tone: 'neutral' },
+};
+
+type Tab = 'overview' | 'billing' | 'seats' | 'tickets' | 'whatsapp' | 'audit';
+
+export function CustomerDetail({ session, tenant, subscription, catalog, onClose }: {
+  session: AdminSession; tenant: Tenant; subscription: Subscription | null; catalog: AdminCatalog;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<Tab>('overview');
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}
+          className="flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto bg-surface-1 p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+              <Building2 size={18} />
+            </span>
+            <div>
+              <h2 className="text-xl font-semibold leading-tight">{tenant.name}</h2>
+              <p dir="ltr" className="text-label text-text-muted">{tenant.slug}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="إغلاق"
+                 className="text-text-secondary hover:text-text-primary">
+            <X size={20} />
+          </button>
+        </div>
+
+        <Segmented value={tab} onChange={(v) => setTab(v as Tab)}
+                  options={[
+                    { value: 'overview', label: 'نظرة عامة' },
+                    { value: 'billing', label: 'الاشتراك والفوترة' },
+                    { value: 'seats', label: 'الفروع والمستخدمين' },
+                    { value: 'tickets', label: 'التذاكر والدعم' },
+                    { value: 'whatsapp', label: 'واتساب' },
+                    { value: 'audit', label: 'السجل والتدقيق' },
+                  ]} />
+
+        {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} /> : null}
+        {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} /> : null}
+        {tab === 'seats' ? (
+          <ComingSoon text='لا يوجد مفهوم "حد فروع/مستخدمين" بالخادم حالياً — يحتاج نموذج بيانات جديد كلياً (ليس فلتراً على شي موجود) قبل ما يُبنى هذا التبويب.' />
+        ) : null}
+        {tab === 'tickets' ? (
+          <ComingSoon text="نظام التذاكر جاهز بالخادم بالكامل (حالة، أولوية، رد، تصعيد، رد مقترح بالذكاء الاصطناعي) — ناقصه فقط فلترة حسب المستأجر على مسار القائمة، إضافة صغيرة." />
+        ) : null}
+        {tab === 'whatsapp' ? (
+          <ComingSoon text="قوالب واتساب حالياً عامة للمنصة كلها، لا يوجد مفهوم قالب خاص بمنشأة — فجوة معمارية حقيقية، ليست مجرد فلتر ناقص." />
+        ) : null}
+        {tab === 'audit' ? (
+          <ComingSoon text="يُبنى من نفس نظام التدقيق (auditor.record) المستخدم بكل مسار إداري فعلاً — يحتاج مسار قراءة مُجمَّع حسب المستأجر، غير موجود بعد." />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ComingSoon({ text }: { text: string }) {
+  return (
+    <div className="rounded-card border border-dashed border-border-subtle bg-surface-2 p-6 text-center">
+      <p className="text-sm text-text-secondary">قريباً — {text}</p>
+    </div>
+  );
+}
+
+function OverviewTab({ tenant, subscription }: { tenant: Tenant; subscription: Subscription | null }) {
+  const subMeta = subscription ? SUB_STATUS_META[subscription.status] : null;
+  return (
+    <div className="flex flex-col gap-3">
+      <Row label="الحالة"><Badge tone={tenant.status === 'active' ? 'success' : tenant.status === 'suspended' ? 'danger' : 'neutral'}>{tenant.status}</Badge></Row>
+      <Row label="الاشتراك">{subMeta ? <Badge tone={subMeta.tone}>{subMeta.label}</Badge> : <span className="text-text-muted">بلا اشتراك</span>}</Row>
+      <Row label="تاريخ الانضمام"><span dir="ltr">{tenant.created_at?.slice(0, 10)}</span></Row>
+      <Row label="آخر تحديث"><span dir="ltr">{tenant.updated_at?.slice(0, 10)}</span></Row>
+      <Row label="المسوّق">
+        <span className="text-text-muted">غير متاح — الربط موجود بكود affiliate-service (of_tenant) لكن غير مكشوف كمسار إداري بعد.</span>
+      </Row>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-2">
+      <span className="text-label text-text-secondary">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function BillingTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
+  const [subs, setSubs] = useState<Subscription[] | 'loading' | 'failed'>('loading');
+  const [invoices, setInvoices] = useState<Invoice[] | 'loading' | 'failed'>('loading');
+
+  const subsAction = findCustomerAction(catalog, 'billing.platform_subscriptions');
+  const invAction = findCustomerAction(catalog, 'billing.platform_invoices');
+
+  useEffect(() => {
+    if (!subsAction) { setSubs('failed'); return; }
+    req<{ subscriptions: Subscription[] }>(
+      `${subsAction.path}?tenant=${encodeURIComponent(tenant.id)}&limit=50`, 'GET', undefined, session.access_token)
+      .then((r) => setSubs(r.subscriptions)).catch(() => setSubs('failed'));
+    if (!invAction) { setInvoices('failed'); return; }
+    req<{ invoices: Invoice[] }>(
+      `${invAction.path}?tenant=${encodeURIComponent(tenant.id)}&limit=50`, 'GET', undefined, session.access_token)
+      .then((r) => setInvoices(r.invoices)).catch(() => setInvoices('failed'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
+  }, [tenant.id]);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="mb-2 font-medium">الاشتراكات</h3>
+        {!subsAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p>
+         : subs === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+         : subs === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
+         : subs.length === 0 ? <p className="text-sm text-text-muted">بلا اشتراكات.</p>
+         : (
+          <div className="flex flex-col gap-2">
+            {subs.map((s) => (
+              <div key={s.id} className="flex items-center justify-between rounded-lg bg-surface-2 p-3 text-sm">
+                <span dir="ltr" className="font-mono">{s.plan_id}</span>
+                <Badge tone={SUB_STATUS_META[s.status]?.tone ?? 'neutral'}>{SUB_STATUS_META[s.status]?.label ?? s.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-2 font-medium">الفواتير</h3>
+        {!invAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p>
+         : invoices === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+         : invoices === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
+         : invoices.length === 0 ? <p className="text-sm text-text-muted">بلا فواتير.</p>
+         : (
+          <div className="flex flex-col gap-2">
+            {invoices.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between rounded-lg bg-surface-2 p-3 text-sm">
+                <span dir="ltr" className="font-mono">{inv.number || inv.id}</span>
+                <span dir="ltr">{(inv.total_minor / 100).toFixed(2)} {inv.currency}</span>
+                <Badge tone={INVOICE_STATUS_META[inv.status]?.tone ?? 'neutral'}>{INVOICE_STATUS_META[inv.status]?.label ?? inv.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-card border border-dashed border-border-subtle bg-surface-2 p-4 text-center">
+        <p className="text-sm text-text-secondary">
+          "منح تجربة مجانية" — إجراء إداري جديد كلياً، غير موجود بالخادم حالياً. يحتاج تصميماً وبناءً منفصلاً قبل إضافته هنا.
+        </p>
+      </div>
+    </div>
+  );
+}

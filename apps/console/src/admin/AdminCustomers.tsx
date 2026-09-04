@@ -1,24 +1,26 @@
 /**
- * العملاء والدعم — المرحلة ٣ فقط هنا: أول قائمة حقيقية عبر المحرّك العام
- * (`ActionRenderer.tsx`)، طلبات المسوّقين المعلّقة (`affiliates.list_pending` +
- * `approve_application`/`reject_application`) — نفس نظام الموافقة المبني اليوم بجلسة سابقة.
+ * العملاء والدعم — الشاشة الأهم بلوحة الإدارة (بتصريح المستخدم صراحة). جدول العملاء (`CustomerList.tsx`)
+ * هو التبويب الافتراضي الآن — قائمة حقيقية بخصائصها الخاصة (بحث، فلاتر حالة، KPIs، ملف عميل بستة
+ * تبويبات)، لا محرّك عام. طلبات المسوّقين (المحرّك العام، مجموعة "Affiliates" فقط) وتشخيص واتساب
+ * يبقيان تبويبين منفصلين كما كانا.
  *
- * هذا فرع مؤقت من الكتالوج (مجموعة "Affiliates" فقط) — بقية "العملاء والدعم" (جدول العملاء
- * السبعة الأعمدة، ملف العميل الستة تبويبات، تشخيص واتساب) تُبنى كشاشات مصقولة يدوياً بمراحل
- * لاحقة (٧/٩ بالخطة)، لا تُترك للمحرّك العام.
+ * المرحلة الحالية (١): جدول العملاء + تبويبَي "نظرة عامة" و"الاشتراك والفوترة" ببيانات حقيقية.
+ * البقية (فروع/مستخدمين، تذاكر، واتساب لكل عميل، سجل تدقيق) ظاهرة كتبويبات بمحتوى "قريباً" صريح
+ * يشرح بالضبط الفجوة — انظر CustomerDetail.tsx's own header.
  */
 import { useEffect, useState } from 'react';
 import { Segmented } from '../rj-ui/Segmented';
 import { ActionCatalogPanel } from './ActionRenderer';
 import { AdminWhatsAppDiagnostics } from './AdminWhatsAppDiagnostics';
+import { CustomerList } from './CustomerList';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 
-type SubTab = 'affiliates' | 'whatsapp';
+type SubTab = 'customers' | 'affiliates' | 'whatsapp';
 
 export function AdminCustomers({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
-  const [sub, setSub] = useState<SubTab>('affiliates');
+  const [sub, setSub] = useState<SubTab>('customers');
 
   useEffect(() => {
     let cancelled = false;
@@ -45,11 +47,13 @@ export function AdminCustomers({ session }: { session: AdminSession }) {
           value={sub}
           onChange={(v) => setSub(v as SubTab)}
           options={[
+            { value: 'customers', label: 'العملاء' },
             { value: 'affiliates', label: 'طلبات المسوّقين' },
             { value: 'whatsapp', label: 'تشخيص واتساب' },
           ]}
         />
       </div>
+      {sub === 'customers' ? <CustomerList session={session} /> : null}
       {sub === 'affiliates' ? <ActionCatalogPanel session={session} actions={affiliateActions} catalog={catalog} /> : null}
       {sub === 'whatsapp' ? <AdminWhatsAppDiagnostics session={session} /> : null}
     </div>
