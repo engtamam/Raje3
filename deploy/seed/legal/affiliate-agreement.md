@@ -1,0 +1,157 @@
+<!-- Rendered by deploy/seed/legal/render_markdown.py — do not hand-edit. -->
+
+<!-- Source of truth: affiliate-agreement.yaml's own clauses:/categories:/additions:. -->
+
+
+
+> ⚠️ **DRAFT ONLY — not published.** Needs a licensed Saudi lawyer's review before any real publish (see the YAML file's own header).
+
+
+## العربية
+
+
+### التعريفات
+
+"المزوّد": راجِع (اسم مؤقت — يُستبدل قبل الإطلاق). "المسوّق": الشخص الطبيعي الذي اعتُمد طلب انضمامه إلى برنامج المسوّقين وفق سجلّ القبول لديه، سواء كان "مروِّجاً" يُحيل منشآت مباشرةً أو "مديراً" يشرف على فريق من المروِّجين. "الإحالة": منشأة سُجِّلت عبر رابط أو رمز المسوّق ونُسبت إليه وفق آلية "الأسبقية تفوز" الموضّحة في البند ٦. "العمولة": المبلغ المستحق للمسوّق عن إحالة تحوّلت إلى اشتراك مدفوع فعلي. "برنامج دعم الوفاء": البرنامج الإضافي الموصوف في البند ٦-٢. "المنصة": برمجيات المزوّد وموقعه ولوحاته الإلكترونية، بما فيها لوحة المسوّق.
+
+### برنامج المسوّقين
+
+يقوم برنامج المسوّقين على ثلاثة مسارات مستقلة، ولكل منها آلية استحقاق خاصة به:
+أولاً، العمولة العادية: تُحسب عمولة واحدة عن كل إحالة، عند أول فاتورة مدفوعة فعلياً للمنشأة المُحالة — لا عن كل تجديد لاحق. تبقى العمولة "معلَّقة" لمدة حجزٍ يُنشرها المزوّد في لوحة المسوّق للتحقق من صحتها، ثم تصبح "مؤكدة" وقابلة للسحب. وإذا استُرجع للمنشأة المُحالة كامل ما دفعته قبل أن تتأكد عمولتها، تُعدّ العمولة "ملغاة" ولا تُدفع؛ أما العمولة التي تأكدت فعلاً فمراجعة استرجاعها تقع على المزوّد لا تلقائياً. ولا تُحتسب عمولة عن إحالة تجاوزت نافذة التحوّل المعلَنة في لوحة المسوّق دون أن تدفع المنشأة المُحالة.
+ثانياً، برنامج دعم الوفاء: دعمٌ إضافي شهري لمسوّق يحافظ فعلياً على المنشآت التي أحالها ويستمر في جلب أعمال جديدة، لا لمن يجلب عدداً من المنشآت ثم يتوقف. يُحتسب بحسب شرائح عدد المنشآت النشطة المنشورة في لوحة المسوّق، ولا يُصرف تلقائياً بمجرد بلوغ الشريحة: بلوغها يفتح الأهلية لتقديم طلب فحسب، ويُشترط لقبول الطلب أن يكون المسوّق قد حقّق — خلال ذات فترة الدورة المعلَنة — عملاء جدداً تحوّلوا فعلياً من تجربة مجانية إلى اشتراك مدفوع، لا مجرد الاحتفاظ بمنشآت قديمة. ويُراجَع كل طلب من مديره (رأيٌ استشاري لا يُلزم المزوّد) ثم يبتّ فيه المزوّد بقرار نهائي قد يخالف رأي المدير في أي اتجاه. ولا تُحتسب دورة جديدة إلا بعد مضي مدة الدورة المعلَنة من تاريخ تقديم آخر طلب تمت الموافقة عليه، بصرف النظر عن سرعة البتّ فيه.
+ثالثاً، الترشّح للتوظيف الرسمي: عند بلوغ المسوّق عدداً من العملاء المشترَكين فعلياً (لا المُحالين فقط) يُعلَن في لوحته، يصبح مؤهَّلاً لتقديم طلب انضمام كموظف رسمي لدى المزوّد، منفصل كلياً عن هذه الاتفاقية ويخضع — إن قُبل — لعقد عمل مستقل. تقديم الطلب لا يُلزم المزوّد بالقبول، ورفضه لا يمنع تقديم طلب لاحق متى تحقق الشرط من جديد.
+
+### شروط التسجيل
+
+لا يُصبح طلب الانضمام إلى البرنامج نافذاً إلا باعتماد المزوّد له. ويلتزم المتقدّم بتقديم بيانات صحيحة عن هويته ورقم جواله، وبأنه لا يُحيل منشأته الخاصة أو منشأة يملك فيها مصلحة — فرقم جوال صاحب المنشأة المُحالة لا يجوز أن يطابق رقم جوال المسوّق نفسه، ومحاولة ذلك تُعامَل كإحالة باطلة لا تنشئ عمولة. وللمزوّد رفض أي طلب دون إبداء سبب، وله إنهاء حساب مسوّق لم يقبل نسخة معدَّلة جوهرياً من هذه الاتفاقية وفق البند ١٤.
+
+### التزامات المسوّق
+
+يلتزم المسوّق بألّا يستخدم أي وسيلة ترويج مضلِّلة أو كاذبة، ولا يعرض عروضاً أو ضمانات لم يصرّح بها المزوّد رسمياً، ولا ينتحل صفة المزوّد ولا يوهم أي منشأة بأنه موظف لديه. ويلتزم بألّا يُحيل منشأة دون علمها ورضاها، ولا يشتري نقرات أو زياراتٍ آلية أو وهمية، ولا يستخدم وسائل تقنية للتلاعب بعدّاد الإحالات أو العمولات. وكل رقم جوّالٍ يزوّده لبرنامج التوظيف أو لأي غرض آخر يجب أن يكون قد جمعه هو بنفسه من صاحبه بموافقته. وعليه حماية بيانات دخوله للوحته وعدم مشاركتها مع الغير. ومخالفة أي مما سبق تجيز للمزوّد الإيقاف الفوري دون إشعار مسبق، وفق البند ٧.
+
+### الإقرارات والضمانات
+
+يُقرّ المسوّق بأنه يعمل بصفته مقاولاً مستقلاً، لا موظفاً ولا وكيلاً ولا شريكاً للمزوّد، وأن هذه الاتفاقية لا تنشئ علاقة عمل ولا تأمينات اجتماعية ولا أي التزام يترتب على المزوّد بصفته رب عمل. ولا يُغيّر من ذلك وجود هيكل إشراف بين مدير ومروِّجين تحته، ولا مراجعة أداء دورية، ولا إتاحة مسار للترشّح لوظيفة رسمية وفق البند ٢-ثالثاً؛ فالعلاقة تبقى مقاولة مستقلة حتى تُقبَل طلبٌ للتوظيف الرسمي فعلياً بعقد عمل منفصل. ولا يملك المسوّق صلاحية الالتزام باسم المزوّد أو التعاقد نيابةً عنه بأي صورة. ويُقرّ بأن جميع البيانات التي قدّمها عند التسجيل صحيحة، وأنه يحمل الأهلية النظامية الكاملة لإبرام هذه الاتفاقية.
+
+### العمولة والدفعات والضرائب
+
+نِسَب العمولة وشرائح دعم الوفاء والحدّ الأدنى للسحب وطرق الاستلام المتاحة هي القيم المنشورة في لوحة المسوّق وقت استحقاق كل منها، وهي المرجع لا هذا النص، وللمزوّد تطويرها للإحالات الجديدة. ولا يخفّض المزوّد نسبة عمولة على إحالة قائمة فعلاً إلا بإشعار مسبق للمسوّق لا يقل عن 30 يوماً قبل سريان التخفيض، ولا يسري على عمولة استحقّت قبل ذلك التاريخ. وتُصرف العمولة المؤكدة بناءً على طلب سحب من المسوّق وفق الآلية والحدّ الأدنى المعلَنين، وتُرفق كل عملية سحب مكتملة بإيصال تحويل. ويتحمّل المسوّق وحده ما يستحق عليه من ضرائب أو رسوم نظامية عن دخله من هذا البرنامج، ولا يتحمّل المزوّد اقتطاعها أو توريدها نيابةً عنه ما لم يُلزمه النظام بذلك صراحةً.
+
+### الإنهاء
+
+للمسوّق إنهاء انضمامه إلى البرنامج في أي وقت بإشعار المزوّد. وللمزوّد إيقاف حساب المسوّق أو إنهاءه فوراً ودون إشعار مسبق عند الغش أو الخداع أو أي مخالفة جوهرية للبند ٤، وإيقافه أو إنهاءه بإشعار معقول في غير ذلك من الحالات، بما فيها توقّف نشاطه التسويقي فعلياً لمدة طويلة. وعند الإنهاء لأي سبب: تبقى عمولة استحقّت فعلاً قبل تاريخه واجبة الصرف وفق حالتها، ولا يجوز حجز عمولة مؤكدة أو معلَّقة لأكثر من 90 يوماً من تاريخ الإنهاء للتحقق من صحتها (إلغاءات أو استرجاعات على المنشآت المُحالة) — وهي ذات المدة التي يحسبها محرك العمولات لحجز أي عمولة قبل تأكيدها؛ ولا تُحتسب عمولات عن إحالات جديدة بعد تاريخ الإنهاء. ولا يُنهي انتهاء هذه الاتفاقية التزامات السرية (البند ١٣) ولا عدم المنافسة (البند ١٦) ولا حدّ المسؤولية (البند ١١) ولا التعويض (البند ١٢)، فهذه تبقى نافذة وفق مددها الخاصة.
+
+### الملكية الفكرية
+
+تبقى المنصة وبرمجياتها وعلاماتها التجارية وشعاراتها ملكاً حصرياً للمزوّد. ويمنح المزوّد المسوّق ترخيصاً محدوداً غير حصري وغير قابل للتنازل باستخدام اسمه وشعاره في مواد ترويجية وفق الأدلة والقوالب التي يوفّرها المزوّد في لوحة المسوّق فقط، وذلك طوال مدة انضمامه للبرنامج، وللمزوّد سحب هذا الترخيص أو تعديله في أي وقت. ولا يجوز للمسوّق تعديل الشعار أو استخدامه بما يوحي بشراكة أو تأييد أو صفة موظف لدى المزوّد، ولا تسجيل أي علامة أو نطاق يتضمّن اسم المزوّد أو ما يشابهه. وكل رابط أو رمز إحالة يُنشئه المزوّد للمسوّق يبقى ملكاً للمزوّد، ويُبطَل عند إنهاء انضمامه.
+
+### إخلاءات المسؤولية
+
+لا يضمن المزوّد للمسوّق مستوى دخل معيناً ولا استمرار توفّر أي إحالة أو عمولة أو دعم وفاء، فذلك يتوقف على أداء المسوّق نفسه وسوقه لا على وعدٍ من المزوّد. ولا يضمن المزوّد استمرار برنامج المسوّقين بشكله الحالي، وله تطويره أو تعديل آلياته للإحالات الجديدة وفق البند ١٤. وتُقدَّم لوحة المسوّق ومؤشراتها "كما هي"، ويبذل المزوّد عناية معقولة في دقتها دون ضمان خلوّها من الخطأ.
+
+### تصعيد الدعم الفني
+
+قد يمنح مروِّج تحت مدير مشاركةً في محادثات الدعم الفني لمنشأة أحالها، وفي هذه الحالة يُصعَّد أي تذكرة دعم لم يرد عليها المروِّج خلال المهلة المعلَنة في وثائق المنصة إلى مديره تلقائياً، كما تُصعَّد فوراً جميع تذاكره المفتوحة إلى مديره متى أُوقِف حسابه. ولا ينشئ هذا التصعيد لمدير حقاً دائماً في بيانات المنشأة المُحالة تجاوز نطاق التذكرة المصعَّدة، ولا يُعفي المروِّج من التزاماته تجاه المنشآت التي أحالها.
+
+### حدّ المسؤولية
+
+لا يُسأل المزوّد عن الأضرار غير المباشرة أو التبعية، ولا عن فوات الكسب أو الفرصة، الناشئة عن هذه الاتفاقية أو مشاركة المسوّق في البرنامج. وتقتصر مسؤولية المزوّد الإجمالية عن كل المطالبات الناشئة عن هذه الاتفاقية، أياً كان أساسها، على إجمالي ما دفعه فعلاً للمسوّق من عمولات خلال الأشهر الستة السابقة لواقعة المطالبة. ويُستثنى من هذا الحدّ الغش والخطأ الجسيم والفعل العمدي وما لا يجوز نظاماً حدّه أو استبعاده.
+
+### التعويض
+
+يعوّض المسوّق المزوّد عن كل مطالبة أو غرامة أو تكلفة دفاع تنشأ عن مخالفته هذه الاتفاقية، أو عن نشاطه الترويجي بما فيه أي بيان مضلِّل قدّمه، أو عن إحالته منشأة دون رضا صاحبها، أو عن استخدامه علامة المزوّد أو اسمه تجاوزاً لما رخّص به البند ٨. ويُشعِر المزوّد المسوّق بالمطالبة دون تأخير غير مبرر.
+
+### السرية
+
+يطّلع المسوّق خلال مشاركته في البرنامج على بيانات فعلية عن منشآت حقيقية — أسماءها وأرقام التواصل معها وأرقام إحالاتها وعمولاتها — وعلى تفاصيل تشغيلية عن آليات المزوّد غير المنشورة للعموم. يلتزم المسوّق بعدم إفشاء أي من ذلك لأي طرف ثالث، وبعدم استخدامه لغير غرض مشاركته في البرنامج، وذلك طوال مدة مشاركته ولمدة 5 سنوات من تاريخ انتهائها. ولا يشمل هذا الالتزام ما كان معلوماً للعموم دون فعل من المسوّق، ولا ما يُلزمه النظام أو أمر قضائي بالإفصاح عنه، بشرط إشعار المزوّد بذلك مسبقاً ما أمكن.
+
+### تعديل الاتفاقية
+
+للمزوّد الحق في تعديل هذه الاتفاقية من وقتٍ لآخر، وتصبح النسخة المعدَّلة نافذة بمجرد نشرها. ويُعدّ استمرار المسوّق في المشاركة بالبرنامج بعد نشر أي تعديل موافقةً منه على الاتفاقية بصيغتها المعدَّلة.
+
+### النظام الواجب التطبيق
+
+تخضع هذه الاتفاقية لأنظمة المملكة العربية السعودية، وتختصّ المحاكم المختصة في مدينة مكة المكرمة دون غيرها بالفصل في أي نزاع ينشأ عنها. وإذا وُجد بندٌ باطلاً أو غير قابل للنفاذ بقيت بقية البنود نافذة، وحلّ محلّ الباطل أقرب ما يمكن إنفاذه إلى قصد الطرفين.
+
+### أحكام عامة
+
+عدم المنافسة: يلتزم المسوّق، لمدة لا تتجاوز 2 سنتين من تاريخ انتهاء مشاركته في البرنامج أياً كان سببه، بألّا يعمل مسوّقاً أو مروِّجاً لمنتج أو خدمة منافسة مباشرة لخدمة المزوّد الموصوفة في البند ٢ (برمجيات إدارة زيارات العملاء وإرسال متابعاتهم وبرامج الولاء للمنشآت الصغيرة والمتوسطة)، تجاه أي منشأة أحالها فعلاً إلى المزوّد خلال مشاركته، داخل المملكة العربية السعودية. ولا يمتد هذا القيد إلى أي عمل أو منتج لا ينافس هذه الخدمة تحديداً، ولا إلى أي منشأة لم يُحلها المسوّق بنفسه. وإذا قضت جهة قضائية مختصة ببطلان جزء من هذا القيد لتجاوزه ما يسمح به النظام، اقتصر أثره على الحد الذي يسمح به دون إبطاله كاملاً.
+التنازل: لا يجوز للمسوّق التنازل عن هذه الاتفاقية دون موافقة المزوّد الكتابية. وتنتقل حقوق المزوّد والتزاماته بموجب هذه الاتفاقية تلقائياً — دون حاجة لموافقة المسوّق ودون أثرٍ على استمرار البرنامج — إلى من يخلفه بالاندماج، أو نقل نشاطه أو جزء جوهري منه، أو بيعه، أو تحوّل شكله النظامي (كتحوّل مؤسسة فردية إلى شركة أو أي تحوّل مماثل)، ويشمل ذلك كل التزام أو مطالبة قائمة وقت الانتقال. ويقرّ المسوّق، وهو كامل الأهلية للتعاقد، بعلمه المسبق منذ قبوله هذه الاتفاقية باحتمال هذا الانتقال بصوره المذكورة أعلاه، وبموافقته التامة والنهائية عليه مقدَّماً أياً كان وقت حدوثه أو صورته، فلا يتوقف نفاذه على موافقة المسوّق عليه من جديد ولا على سبق إخطاره به — وهو إقرارٌ قائمٌ بذاته لا يحتاج تجديداً. وتمثّل هذه الاتفاقية كامل الاتفاق بين الطرفين بخصوص برنامج المسوّقين، وتحلّ محلّ كل تفاهم سابق بشأنه. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه. وتُنشَر هذه الاتفاقية بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
+
+
+---
+
+
+## English
+
+
+### Definitions
+
+"The Provider": راجِع (اسم مؤقت — يُستبدل قبل الإطلاق). "The Affiliate": the natural person whose application to the affiliate programme was approved per the Provider's acceptance record, whether a "promoter" who refers establishments directly or a "manager" who oversees a team of promoters. "Referral": an establishment registered through the Affiliate's link or code and attributed to him under the first-wins mechanism described in clause 6. "Commission": the amount owed the Affiliate for a referral that converted into an actual paid subscription. "Wafa support programme": the additional programme described in clause 6.2. "The Platform": the Provider's software, website and consoles, including the affiliate console.
+
+### The Affiliate Programme
+
+The affiliate programme rests on three independent tracks, each with its own vesting mechanism:
+First, the ordinary commission: one commission is calculated per referral, on the referred establishment's first ever actually-paid invoice — not on any subsequent renewal. The commission remains "pending" for a hold period published on the affiliate console, to allow it to be verified, after which it becomes "confirmed" and withdrawable. If the referred establishment is refunded in full before its commission is confirmed, the commission is "voided" and not paid; a commission already confirmed is reviewed by the Provider rather than voided automatically. No commission is calculated for a referral that lapsed its published conversion window before the referred establishment ever paid.
+Second, the Wafa support programme: an additional monthly stipend for an Affiliate who actually retains the establishments he referred and keeps bringing in new business, not one who brings a number of establishments and then stops. It is calculated by active-shop tiers published on the affiliate console, and is not disbursed automatically merely on reaching a tier: reaching it only unlocks eligibility to request it, and a request is granted only if the Affiliate has also achieved — within the same published cycle — genuine new customers who converted from a free trial into a paid subscription, not merely retention of existing establishments. Every request is reviewed by his manager (an advisory opinion that does not bind the Provider) and then decided finally by the Provider, which may depart from the manager's view in either direction. A new cycle is not counted until the published cycle length has elapsed from the date the last approved request was submitted, regardless of how quickly it was decided.
+Third, candidacy for formal employment: on reaching a number of actually-converted paying customers (not merely referred ones) published on his console, the Affiliate becomes eligible to apply to join the Provider as a formal employee, entirely separate from this Agreement and governed, if accepted, by its own independent employment contract. Applying does not bind the Provider to accept, and a refusal does not bar a later application once the condition is met again.
+
+### Registration requirements
+
+An application to join the programme does not take effect until the Provider approves it. An applicant undertakes to provide accurate identity and mobile-number details, and that he is not referring his own establishment or one in which he holds an interest — the referred establishment owner's mobile number may not match the Affiliate's own, and an attempt to do so is treated as a void referral creating no commission. The Provider may refuse any application without stating a reason, and may terminate an Affiliate's account that does not accept a materially amended version of this Agreement per clause 14.
+
+### The Affiliate's obligations
+
+The Affiliate undertakes not to use any misleading or false means of promotion, not to present offers or guarantees the Provider has not officially authorised, not to impersonate the Provider, and not to lead any establishment to believe he is the Provider's employee. He undertakes not to refer an establishment without its knowledge and consent, not to purchase clicks or automated or fabricated visits, and not to use technical means to manipulate the referral or commission count. Any mobile number he supplies for the employment programme or any other purpose must have been collected by him personally with its owner's consent. He must protect his own console credentials and not share them with any third party. Breach of any of the foregoing permits immediate suspension by the Provider without prior notice, per clause 7.
+
+### Warranties and representations
+
+The Affiliate represents that he acts as an independent contractor, not an employee, agent or partner of the Provider, and that this Agreement creates no employment relationship, no social-insurance obligation, and no obligation on the Provider in its capacity as an employer. This is unchanged by the existence of a manager/promoter oversight structure, periodic performance review, or the availability of a path to apply for formal employment under clause 2·third; the relationship remains an independent contractor relationship unless and until an application for formal employment is actually accepted under a separate employment contract. The Affiliate holds no authority to bind the Provider or to contract on its behalf in any form. He represents that all details he provided at registration are accurate and that he holds full legal capacity to enter into this Agreement.
+
+### Commission, payments, and taxes
+
+Commission rates, the Wafa tiers, the minimum withdrawal amount, and the available payout channels are the values published on the affiliate console at the time each becomes relevant, and are the reference rather than this text; the Provider may develop them for new referrals. The Provider does not reduce the commission rate on a referral already existing except on prior notice to the Affiliate of no less than 30 days before the reduction takes effect, and it does not apply to a commission that vested before that date. A confirmed commission is disbursed on the Affiliate's own withdrawal request under the published mechanism and minimum, and every completed withdrawal carries a transfer receipt. The Affiliate alone bears any tax or statutory levy due on his income from this programme; the Provider bears no obligation to withhold or remit it on his behalf unless the law expressly requires it.
+
+### Termination
+
+The Affiliate may end his participation in the programme at any time on notice to the Provider. The Provider may suspend or terminate an Affiliate's account immediately and without prior notice for fraud, deception, or any material breach of clause 4, and may suspend or terminate on reasonable notice in other cases, including a prolonged real cessation of his marketing activity. On termination for any reason: a commission that had already vested before that date remains payable according to its status; a confirmed or pending commission may not be held for more than 90 days from the date of termination to verify it (cancellations or refunds on the referred establishments) — the same period the commission engine itself applies to hold any commission before it confirms; no commission is calculated for new referrals after the termination date. The end of this Agreement does not end the confidentiality obligations (clause 13), the non-compete (clause 16), the limitation of liability (clause 11), or the indemnity (clause 12); these remain in force for their own stated periods.
+
+### Intellectual property
+
+The platform, its software and its trademarks and logos remain the Provider's exclusive property. The Provider grants the Affiliate a limited, non-exclusive, non-transferable licence to use its name and logo in promotional materials, per the guides and templates the Provider makes available on the affiliate console only, for the duration of his participation in the programme, and the Provider may withdraw or amend this licence at any time. The Affiliate may not alter the logo or use it in a manner suggesting partnership, endorsement, or employee status with the Provider, nor register any mark or domain incorporating the Provider's name or anything confusingly similar to it. Every referral link or code the Provider generates for the Affiliate remains the Provider's property and is invalidated on the end of his participation.
+
+### Disclaimers
+
+The Provider gives the Affiliate no guarantee of a particular level of income, nor of the continued availability of any referral, commission, or Wafa support, as these depend on the Affiliate's own performance and market, not on a promise from the Provider. The Provider does not guarantee the affiliate programme will continue in its current form, and may develop it or amend its mechanisms for new referrals under clause 14. The affiliate console and its indicators are provided "as is", and the Provider exercises reasonable care in their accuracy without warranting them free of error.
+
+### Support ticket escalation
+
+A promoter under a manager may be granted access to a referred establishment's support ticket threads; in that case any support ticket the promoter has not answered within the period published in the platform's documentation is automatically escalated to his manager, and every one of his open tickets is escalated to his manager immediately should his account be suspended. This escalation does not create a permanent right for the manager over the referred establishment's data beyond the scope of the escalated ticket, and does not relieve the promoter of his obligations toward the establishments he referred.
+
+### Limitation of liability
+
+The Provider is not liable for indirect or consequential loss, nor for loss of profit or opportunity, arising from this Agreement or the Affiliate's participation in the programme. The Provider's aggregate liability for all claims arising under this Agreement, on any basis, is limited to the total commissions it actually paid the Affiliate during the six months preceding the event giving rise to the claim. Excluded from this limit are fraud, gross negligence, wilful misconduct, and anything the law does not permit to be limited or excluded.
+
+### Indemnity
+
+The Affiliate indemnifies the Provider against any claim, fine, or cost of defence arising from his breach of this Agreement, from his promotional activity including any misleading statement he made, from referring an establishment without its owner's consent, or from using the Provider's mark or name beyond what clause 8 licenses. The Provider notifies the Affiliate of any such claim without undue delay.
+
+### Confidentiality
+
+During his participation in the programme the Affiliate is exposed to actual data about real establishments — their names, contact numbers, referral and commission figures — and to operational details of the Provider's mechanisms not published to the public. The Affiliate undertakes not to disclose any of it to any third party and not to use it for any purpose other than his participation in the programme, throughout his participation and for 5 years from its end. This obligation does not extend to what became publicly known through no act of the Affiliate's, nor to what he is compelled to disclose by law or court order, provided he notifies the Provider beforehand where possible.
+
+### Amendment
+
+The Provider may amend this Agreement from time to time, and the amended version takes effect once published. The Affiliate's continued participation in the programme after any amendment is published constitutes its acceptance of the Agreement as amended.
+
+### Governing law
+
+This Agreement is governed by the laws of the Kingdom of Saudi Arabia, and the competent courts of Makkah al-Mukarramah alone have jurisdiction over any dispute arising from it. If any provision is void or unenforceable the remainder continues in force, and the void provision is replaced by the closest enforceable expression of the parties' intent.
+
+### General
+
+Non-compete: for a period not exceeding 2 years from the end of his participation in the programme, however it ends, the Affiliate undertakes not to act as a marketer or promoter for a product or service directly competing with the Provider's service as described in clause 2 (software for recording customer visits, sending their follow-ups, and loyalty programmes for small and medium establishments), toward any establishment he actually referred to the Provider during his participation, within the Kingdom of Saudi Arabia. This restriction does not extend to any work or product that does not specifically compete with this service, nor to any establishment the Affiliate did not himself refer. Should a competent judicial authority rule part of this restriction void for exceeding what the law permits, its effect is limited to what the law permits rather than voided entirely.
+Assignment: the Affiliate may not assign this Agreement without the Provider's written consent. The Provider's rights and obligations under this Agreement transfer automatically — with no consent from the Affiliate required — to whoever succeeds it by merger, by transfer of its business or a material part of it, by sale, or by a change in its legal form (such as conversion of a sole proprietorship to a company or any similar conversion), and this includes every obligation or claim outstanding at the time of transfer. By accepting this Agreement, the Affiliate — being fully competent to contract — represents that it has known, from the moment of acceptance, of the possibility of such a transfer in the forms described above, and gives its full and final advance consent to it whenever and however it occurs; this effect does not depend on the Affiliate's consenting again or on prior notice being given — it is a standing representation that needs no renewal. This Agreement constitutes the entire agreement between the parties regarding the affiliate programme and supersedes any prior understanding of it. A party's failure to exercise a right is not a waiver of it. This Agreement is published in Arabic and English; the Arabic text prevails in the event of a discrepancy.
+
+
+---

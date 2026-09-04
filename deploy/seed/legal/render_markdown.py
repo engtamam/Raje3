@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""Render every legal document to a plain Markdown FILE, alongside its YAML source — a readable,
+grep-able, diffable copy for anyone who does not want to open compliance-service or the admin
+console to read what a document actually says. NOT a new source of truth: the YAML files (+ the
+PDPL pack, for the seven templated ones) stay authoritative; this is a rendered COPY, regenerated
+by re-running this script, never hand-edited.
+
+TWO FAMILIES, SAME AS seed-legal.sh's OWN SPLIT:
+  · templated (privacy-policy, data-subject-rights, ropa, dpia, cookies, processing-agreement,
+    processor-dpa) — the prose lives in platform's PDPL pack (READ-ONLY here: platform/ is never
+    edited from this side, only read — same discipline as everywhere else in this repo), filled
+    with this file's own `values:`. Reproduces exactly what `instantiate` sends compliance-service.
+  · direct (terms, affiliate-privacy-policy, affiliate-agreement) — `clauses:`/`categories:`/
+    `additions:` are the prose itself; same token substitution as seed-legal.sh's DIRECT loop.
+
+Usage:  python3 deploy/seed/legal/render_markdown.py
+Writes one <name>.md next to each <name>.yaml in this directory.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import yaml
+
+HERE = Path(__file__).resolve().parent
+PACK = HERE.parent.parent.parent / "platform/services/compliance-service/app/data/pdpl-templates"
+
+# file -> pdpl template id — same map seed-legal.sh and ci/check_legal.py carry, kept in sync by hand
+TEMPLATED = {
+    "privacy-policy.yaml": "doc01_privacy_policy",
+    "data-subject-rights.yaml": "doc03_data_subject_rights",
+    "ropa.yaml": "doc04_ropa",
+    "dpia.yaml": "doc10_dpia",
+    "cookies.yaml": "doc12_cookies",
+    "processing-agreement.yaml": "doc13_processing_agreement",
+    "processor-dpa.yaml": "doc14_processor_dpa",
+}
+DIRECT = ["terms.yaml", "affiliate-privacy-policy.yaml", "affiliate-agreement.yaml"]
+
+
+def flat(v, locale: str = "ar") -> str:
+    if isinstance(v, dict):
+        return v.get(locale) or v.get("ar") or v.get("en") or ""
+    return str(v) if v is not None else ""
+
+
+def sub(text: str, values: dict, locale: str) -> str:
+    def repl(m: re.Match) -> str:
+        v = values.get(m.group(1))
+        return m.group(0) if v is None else flat(v, locale)
+    return re.sub(r"\{\{(\w+)\}\}", repl, text or "")
+
+
+def cell(v, values: dict, locale: str) -> str:
+    return sub(flat(v, locale), values, locale)
+
+
+def block_to_md(block: dict, values: dict, locale: str) -> str:
+    """One PDPL-pack block ({kind: {...fields}}) -> Markdown. Covers every kind actually used in
+    the pack today (checked against every doc0*.yaml in it) — an unknown kind still renders its
+    text-bearing fields rather than vanishing, same forward-compat spirit as DocBlockRenderer's
+    own Fallback."""
+    kind = next(iter(block))
+    a = block[kind] or {}
+    if kind == "cover":
+        out = f"# {cell(a.get('title'), values, locale)}\n"
+        if a.get("subtitle"):
+            out += f"\n*{cell(a['subtitle'], values, locale)}*\n"
+        return out
+    if kind in ("snapshot", "fields"):
+        rows = a.get("rows") or []
+        return "\n".join(f"- **{cell(r[0], values, locale)}**: {cell(r[1], values, locale)}" for r in rows)
+    if kind == "lead":
+        return cell(a.get("text"), values, locale)
+    if kind == "clause":
+        title = cell(a.get("title"), values, locale)
+        n = a.get("n", "")
+        out = f"## {n}. {title}" if n else f"## {title}"
+        paras = [cell(p, values, locale) for p in (a.get("paras") or [])]
+        return out + "\n\n" + "\n\n".join(paras)
+    if kind == "section":
+        level = min(max(int(a.get("level", 2)) // 3 or 2, 2), 4)  # the pack's levels run large; clamp to h2-h4
+        return f"{'#' * level} {cell(a.get('text'), values, locale)}"
+    if kind == "bullets":
+        items = a.get("items") or []
+        lines = []
+        for it in items:
+            if isinstance(it, list) and len(it) == 2:
+                lines.append(f"- **{cell(it[0], values, locale)}** {cell(it[1], values, locale)}")
+            else:
+                lines.append(f"- {cell(it, values, locale)}")
+        return "\n".join(lines)
+    if kind == "callout":
+        title = cell(a.get("title"), values, locale)
+        items = [cell(i, values, locale) for i in (a.get("items") or [])]
+        out = f"> **{title}**" if title else ">"
+        for i in items:
+            out += f"\n> - {i}"
+        return out
+    if kind == "helper":
+        return f"> ⚠️ {cell(a.get('text'), values, locale)}"
+    if kind == "footer_band":
+        return f"---\n*{cell(a.get('text'), values, locale)}*"
+    if kind == "signoff":
+        roles = [cell(r, values, locale) for r in (a.get("roles") or [])]
+        return "\n".join(f"- {r}: ________________________" for r in roles)
+    if kind == "references":
+        title = cell(a.get("title"), values, locale)
+        out = f"### {title}\n" if title else ""
+        for it in (a.get("items") or []):
+            label, src = (it + [""])[:2] if isinstance(it, list) else (it, "")
+            out += f"- {cell(label, values, locale)} — {src}\n"
+        return out
+    if kind == "table":
+        headers = [cell(h, values, locale) for h in (a.get("headers") or [])]
+        rows = [[cell(c, values, locale) for c in row] for row in (a.get("rows") or [])]
+        if not headers:
+            return ""
+        out = "| " + " | ".join(headers) + " |\n"
+        out += "| " + " | ".join("---" for _ in headers) + " |\n"
+        for row in rows:
+            out += "| " + " | ".join(row) + " |\n"
+        return out
+    if kind == "page_break":
+        return ""
+    # unknown kind: degrade to whatever text-bearing fields it carries, never silently vanish
+    texts = [cell(v, values, locale) for v in a.values() if isinstance(v, (str, dict))]
+    return "\n\n".join(t for t in texts if t)
+
+
+def render_templated(file: str, template_id: str) -> None:
+    src = HERE / file
+    doc = yaml.safe_load(src.read_text(encoding="utf-8")) or {}
+    values = doc.get("values") or {}
+    pack = yaml.safe_load((PACK / f"{template_id}.yaml").read_text(encoding="utf-8")) or {}
+    blocks = pack.get("blocks") or []
+
+    parts = ["<!-- Rendered by deploy/seed/legal/render_markdown.py — do not hand-edit. -->",
+             "<!-- Source of truth: this file's own values: + platform's PDPL pack (read-only). -->", ""]
+    for locale, label in (("ar", "العربية"), ("en", "English")):
+        parts.append(f"## {label}\n")
+        for b in blocks:
+            if not isinstance(b, dict):
+                continue
+            md = block_to_md(b, values, locale)
+            if md:
+                parts.append(md)
+        parts.append("\n---\n")
+    (HERE / file.replace(".yaml", ".md")).write_text(
+        "\n\n".join(parts), encoding="utf-8", newline="\n")  # LF — repo convention for .md
+
+
+def render_direct(file: str) -> None:
+    src = HERE / file
+    doc = yaml.safe_load(src.read_text(encoding="utf-8")) or {}
+    values = doc.get("values") or {}
+
+    parts = ["<!-- Rendered by deploy/seed/legal/render_markdown.py — do not hand-edit. -->",
+             f"<!-- Source of truth: {file}'s own clauses:/categories:/additions:. -->", ""]
+    if file == "affiliate-agreement.yaml":
+        parts.append("> ⚠️ **DRAFT ONLY — not published.** Needs a licensed Saudi lawyer's review "
+                     "before any real publish (see the YAML file's own header).\n")
+
+    for locale, label in (("ar", "العربية"), ("en", "English")):
+        parts.append(f"## {label}\n")
+        for clause in (doc.get("clauses") or {}).values():
+            t = clause.get("title", {})
+            parts.append(f"### {t.get(locale, '')}\n\n{sub(clause.get(locale, ''), values, locale)}")
+        for cat in doc.get("categories") or []:
+            name, ex, req = cat.get("name", {}), cat.get("examples", {}), cat.get("required", {})
+            parts.append(f"### {name.get(locale, '')}\n\n{sub(ex.get(locale, ''), values, locale)}\n\n"
+                        f"**{req.get(locale, '')}**")
+        for key, addition in (doc.get("additions") or {}).items():
+            parts.append(f"### {key.replace('_', ' ').capitalize()}\n\n"
+                        f"{sub(addition.get(locale, ''), values, locale)}")
+        parts.append("\n---\n")
+    (HERE / file.replace(".yaml", ".md")).write_text(
+        "\n\n".join(parts), encoding="utf-8", newline="\n")  # LF — repo convention for .md
+
+
+def main() -> None:
+    for file, template_id in TEMPLATED.items():
+        render_templated(file, template_id)
+        print(f"  wrote {file.replace('.yaml', '.md')}")
+    for file in DIRECT:
+        render_direct(file)
+        print(f"  wrote {file.replace('.yaml', '.md')}")
+
+
+if __name__ == "__main__":
+    main()
