@@ -112,7 +112,12 @@ def _license_sources(dist: metadata.Distribution) -> tuple[list[str], str, str]:
     """(classifier lines, License-Expression, short License name) — kept SEPARATE because they carry
     different logic: a classifier list is disjunctive, an expression states its own OR/AND."""
     md = dist.metadata
-    classifiers = [c for c in md.get_all("Classifier", []) if "License" in c]
+    # The bare `License :: OSI Approved` classifier says a package IS OSI-approved but names no
+    # actual license — it carries no information classify_one can use and, kept in the list, it
+    # makes an empty-but-non-empty `classifiers` win over a real `License:` field further down
+    # (prometheus-fastapi-instrumentator 8.1.0 ships exactly this: the bare classifier plus
+    # `License: ISC` — found live, flagged UNKNOWN, when it should read ALLOW off the real field).
+    classifiers = [c for c in md.get_all("Classifier", []) if "License" in c and c.strip() != "License :: OSI Approved"]
     expr = (md.get("License-Expression") or "").strip()
     lic = md.get("License")
     # A short License field is a name; a long one is full text (misleading) — skip long.
