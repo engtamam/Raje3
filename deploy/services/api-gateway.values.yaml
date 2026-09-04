@@ -181,15 +181,6 @@ env:
   # built for it (AdminWhatsAppTemplates.tsx) could never load. Longest-prefix-first matching
   # (adapters/routes/static.py) means a more specific /api/v1/whatsapp/templates entry, placed
   # anywhere in this list, correctly wins over the broader /api/v1/whatsapp one below it.
-  #
-  # A FOURTH auth=none PATH, FOUND THE SAME DAY: /webhooks/whatsapp (notification-service's own
-  # Meta webhook receiver, app/api/webhooks.py) was never routed at all — not misrouted, simply
-  # absent from this table, so Meta had no reachable URL to call and every inbound message/receipt/
-  # opt-out silently went nowhere. auth=none is correct here, not a hole: Meta cannot hold one of
-  # our tokens, and the receiver verifies X-Hub-Signature-256 itself (HMAC over the raw body under
-  # META_APP_SECRET, fail-closed if that secret is unset) — the same shape as every other webhook
-  # receiver in this file, gateway-level auth would just be a second, redundant, and impossible-
-  # for-Meta-to-satisfy gate in front of a route that already verifies its own caller.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -218,7 +209,6 @@ env:
       {"prefix":"/api/v1/partner","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/subscription","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/whatsapp/templates","upstream":"http://notification-service:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/webhooks/whatsapp","upstream":"http://notification-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/operator","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/reminders","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
