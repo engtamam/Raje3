@@ -53,6 +53,7 @@ const SUB_STATUSES: Subscription['status'][] = ['trialing', 'active', 'past_due'
 export function CustomerList({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
   const [tenants, setTenants] = useState<Tenant[] | 'loading' | 'failed'>('loading');
+  const [planNames, setPlanNames] = useState<Map<string, string>>(new Map());
   const [subsByTenant, setSubsByTenant] = useState<Map<string, Subscription>>(new Map());
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Tenant['status'] | 'all'>('all');
@@ -66,6 +67,8 @@ export function CustomerList({ session }: { session: AdminSession }) {
     ? allActions(catalog).find((a) => a.id === 'tenant.list') : undefined;
   const subsAction = catalog !== 'loading' && catalog !== 'failed'
     ? allActions(catalog).find((a) => a.id === 'billing.platform_subscriptions') : undefined;
+  const plansAction = catalog !== 'loading' && catalog !== 'failed'
+    ? allActions(catalog).find((a) => a.id === 'billing.list_plans') : undefined;
 
   useEffect(() => {
     if (!listAction) return;
@@ -90,6 +93,17 @@ export function CustomerList({ session }: { session: AdminSession }) {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- subsAction identity is stable per catalog load
   }, [subsAction]);
+
+  useEffect(() => {
+    if (!plansAction) return;
+    // include_hidden=true — a subscriber on a since-retired plan must still show its real name,
+    // not "غير معروف". Fetched once, not per-subscription: same bulk-not-N+1 reasoning as above.
+    req<{ plans: { id: string; name: string }[] }>(
+      `${plansAction.path}?include_hidden=true`, 'GET', undefined, session.access_token)
+      .then((r) => setPlanNames(new Map(r.plans.map((p) => [p.id, p.name]))))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plansAction identity is stable per catalog load
+  }, [plansAction]);
 
   // كل الـhooks قبل أي return مبكر — ترتيبها يجب يثبت بكل تصيير (Rules of Hooks)، وإلا React
   // يخلط حالة hook بأخرى بين تصييرة "جارٍ التحميل" (بلا useMemo) وتصييرة البيانات (معه).
@@ -172,8 +186,12 @@ export function CustomerList({ session }: { session: AdminSession }) {
                     <td className="p-3 font-medium">{t.name}</td>
                     <td className="p-3"><Badge tone={meta.tone}>{meta.label}</Badge></td>
                     <td className="p-3">
-                      {subMeta ? <Badge tone={subMeta.tone}>{subMeta.label}</Badge>
-                       : <span className="text-text-muted">بلا اشتراك</span>}
+                      {subMeta ? (
+                        <span className="flex items-center gap-2">
+                          <Badge tone={subMeta.tone}>{subMeta.label}</Badge>
+                          <span className="text-text-secondary">{planNames.get(sub!.plan_id) ?? sub!.plan_id}</span>
+                        </span>
+                      ) : <span className="text-text-muted">بلا اشتراك</span>}
                     </td>
                     <td className="p-3 text-text-secondary" dir="ltr">{t.created_at?.slice(0, 10)}</td>
                   </tr>
@@ -186,7 +204,7 @@ export function CustomerList({ session }: { session: AdminSession }) {
 
       {openTenant ? (
         <CustomerDetail session={session} tenant={openTenant} subscription={subsByTenant.get(openTenant.id) ?? null}
-                        catalog={catalog} onClose={() => setOpenTenant(null)} />
+                        planNames={planNames} catalog={catalog} onClose={() => setOpenTenant(null)} />
       ) : null}
     </div>
   );

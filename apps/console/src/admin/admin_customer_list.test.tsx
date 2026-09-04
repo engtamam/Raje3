@@ -25,6 +25,10 @@ const CATALOG = {
       { id: 'audit.query', label: 'x', method: 'GET' as const,
        path: '/api/v1/audit', capability: 'platform.audit' },
     ] },
+    { service: 'billing-service-2', actions: [
+      { id: 'billing.list_plans', label: 'x', method: 'GET' as const,
+       path: '/api/v1/billing/plans', capability: 'billing.manage' },
+    ] },
     { service: 'affiliate-service', actions: [] },
   ],
   unreachable: [],
@@ -129,6 +133,29 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     expect(screen.getByText('نظرة عامة')).toBeTruthy();
     expect(screen.getByText('الاشتراك والفوترة')).toBeTruthy();
+  });
+
+  it('shows the plan NAME, not the raw plan_id, in both the table and the detail view', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('status=trialing')) {
+        return Promise.resolve({ subscriptions: [{ id: 's1', tenant: 't1', plan_id: 'plan_abc123', status: 'trialing' }] });
+      }
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/billing/plans')) {
+        return Promise.resolve({ plans: [{ id: 'plan_abc123', name: 'الباقة الاحترافية' }] });
+      }
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      return Promise.resolve({ subscriptions: [] });
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('الباقة الاحترافية')).toBeTruthy());
+    expect(screen.queryByText('plan_abc123')).toBeNull();
+
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getAllByText('الباقة الاحترافية').length).toBeGreaterThan(1));
   });
 
   it('the audit tab queries audit.query scoped to this tenant', async () => {

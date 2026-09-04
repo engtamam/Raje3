@@ -36,9 +36,9 @@ const INVOICE_STATUS_META: Record<Invoice['status'], { label: string; tone: 'neu
 
 type Tab = 'overview' | 'billing' | 'seats' | 'tickets' | 'whatsapp' | 'audit';
 
-export function CustomerDetail({ session, tenant, subscription, catalog, onClose }: {
-  session: AdminSession; tenant: Tenant; subscription: Subscription | null; catalog: AdminCatalog;
-  onClose: () => void;
+export function CustomerDetail({ session, tenant, subscription, planNames, catalog, onClose }: {
+  session: AdminSession; tenant: Tenant; subscription: Subscription | null;
+  planNames: Map<string, string>; catalog: AdminCatalog; onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -55,8 +55,8 @@ export function CustomerDetail({ session, tenant, subscription, catalog, onClose
                     { value: 'audit', label: 'السجل والتدقيق' },
                   ]} />
 
-        {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} /> : null}
-        {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} /> : null}
+        {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} planNames={planNames} /> : null}
+        {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
         {tab === 'seats' ? (
           <ComingSoon text='لا يوجد مفهوم "حد فروع/مستخدمين" بالخادم حالياً — يحتاج نموذج بيانات جديد كلياً (ليس فلتراً على شي موجود) قبل ما يُبنى هذا التبويب.' />
         ) : null}
@@ -80,12 +80,21 @@ function ComingSoon({ text }: { text: string }) {
   );
 }
 
-function OverviewTab({ tenant, subscription }: { tenant: Tenant; subscription: Subscription | null }) {
+function OverviewTab({ tenant, subscription, planNames }: {
+  tenant: Tenant; subscription: Subscription | null; planNames: Map<string, string>;
+}) {
   const subMeta = subscription ? SUB_STATUS_META[subscription.status] : null;
   return (
     <div className="flex flex-col gap-3">
       <Row label="الحالة"><Badge tone={tenant.status === 'active' ? 'success' : tenant.status === 'suspended' ? 'danger' : 'neutral'}>{tenant.status}</Badge></Row>
-      <Row label="الاشتراك">{subMeta ? <Badge tone={subMeta.tone}>{subMeta.label}</Badge> : <span className="text-text-muted">بلا اشتراك</span>}</Row>
+      <Row label="الاشتراك">
+        {subMeta ? (
+          <span className="flex items-center gap-2">
+            <Badge tone={subMeta.tone}>{subMeta.label}</Badge>
+            <span>{planNames.get(subscription!.plan_id) ?? subscription!.plan_id}</span>
+          </span>
+        ) : <span className="text-text-muted">بلا اشتراك</span>}
+      </Row>
       <Row label="تاريخ الانضمام"><span dir="ltr">{tenant.created_at?.slice(0, 10)}</span></Row>
       <Row label="آخر تحديث"><span dir="ltr">{tenant.updated_at?.slice(0, 10)}</span></Row>
       <Row label="المسوّق">
@@ -104,7 +113,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function BillingTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
+function BillingTab({ session, tenant, catalog, planNames }: {
+  session: AdminSession; tenant: Tenant; catalog: AdminCatalog; planNames: Map<string, string>;
+}) {
   const [subs, setSubs] = useState<Subscription[] | 'loading' | 'failed'>('loading');
   const [invoices, setInvoices] = useState<Invoice[] | 'loading' | 'failed'>('loading');
 
@@ -135,7 +146,7 @@ function BillingTab({ session, tenant, catalog }: { session: AdminSession; tenan
           <div className="flex flex-col gap-2">
             {subs.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-lg bg-surface-2 p-3 text-sm">
-                <span dir="ltr" className="font-mono">{s.plan_id}</span>
+                <span>{planNames.get(s.plan_id) ?? s.plan_id}</span>
                 <Badge tone={SUB_STATUS_META[s.status]?.tone ?? 'neutral'}>{SUB_STATUS_META[s.status]?.label ?? s.status}</Badge>
               </div>
             ))}
