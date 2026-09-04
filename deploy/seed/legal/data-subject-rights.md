@@ -130,9 +130,6 @@
 - اللائحة التنفيذية للنظام، المواد 3–8، 11، 13 — sdaia.gov.sa
 
 
----
-*نموذج — استبدل [PLACEHOLDERS] وراجعه مع المستشار النظامي قبل الاستخدام.*
-
 
 ---
 
@@ -262,9 +259,6 @@ Every request is recorded here — the evidence that requests were handled withi
 - PDPL (Royal Decree M/19), Articles 4, 9, 14 — sdaia.gov.sa
 - PDPL Implementing Regulation, Articles 3–8, 11, 13 — sdaia.gov.sa
 
-
----
-*Template — replace [PLACEHOLDERS] and review with legal counsel before use.*
 
 
 ---

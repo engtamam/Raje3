@@ -107,9 +107,6 @@
 - نظام حماية البيانات الشخصية (م/19)، المواد 18، 19، 20، 29 — sdaia.gov.sa
 
 
----
-*نموذج — استبدل [PLACEHOLDERS] وأكمِل الملاحق وراجعه مع المستشار النظامي قبل التوقيع.*
-
 
 ---
 
@@ -216,9 +213,6 @@ The Processor applies at least the following, proportionate to the sensitivity a
 - PDPL Implementing Regulation, Article 17 (Processor selection) — sdaia.gov.sa
 - PDPL (Royal Decree M/19), Articles 18, 19, 20, 29 — sdaia.gov.sa
 
-
----
-*Template — replace [PLACEHOLDERS], complete the annexes, and review with legal counsel before signing.*
 
 
 ---

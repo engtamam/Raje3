@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Publish our legal documents into compliance-service.
+# Publish our legal documents into compliance-service — FROM THE MARKDOWN FILES.
 #
-#   ./deploy/seed/seed-legal.sh              # instantiate each template with our values, publish
+#   ./deploy/seed/seed-legal.sh              # publish every deploy/seed/legal/*.md
 #   ./deploy/seed/seed-legal.sh --dry-run    # say what would be published, change nothing
 #   ./deploy/seed/seed-legal.sh --version 2  # a NEW version, when a document's text changed
 #
@@ -15,14 +15,33 @@
 #     the establishment whose customers' data we immediately begin processing — the one document
 #     PDPL Article 17 requires to exist BEFORE the processing does.
 #
-# And it looked healthy the whole time: the service was up, the route answered 200, the list was
-# simply empty. The same shape as every gap the deploy hooks exist to catch — a truthful report
-# about the wrong thing.
+# THE MARKDOWN FILE IS THE SOURCE OF TRUTH — a deliberate change from this script's first version.
+# That one filled compliance's own PDPL-pack templates (`{{TOKEN}}` placeholders, `instantiate`)
+# for seven of the ten documents, and hand-built content for the other three. Both paths are gone:
 #
-# HOW IT WORKS, AND WHY IT IS NOT A FILE UPLOAD. compliance ships the PDPL pack as templates with
-# {{TOKENS}}; our YAML files carry the VALUES for those tokens and nothing else. `instantiate` fills
-# one with the other, refuses on any unfilled placeholder, and stores the result as a versioned
-# legal page. So the words stay the pack's, the party details stay ours, and neither copy drifts.
+#   * the pack's OWN authoring notes ("delete this red note once published", "replace
+#     [PLACEHOLDERS] before publishing") were being sent to `instantiate` UNFILTERED and rendered,
+#     verbatim, in the actually-published privacy policy — found live, reading the rendered output;
+#   * editing a document meant editing YAML `values:`/`clauses:` — correct, but not something
+#     anyone could read or review as prose without running this script's own renderer first.
+#
+# `deploy/seed/legal/render_markdown.py` used to be the one-way generator (YAML+pack -> .md); now
+# the .md file IS what gets published, edited directly (by hand, or via AdminLegal.tsx — which
+# writes the identical `legal_text` block shape), and the YAML files stay only for `publication:`
+# (does this document require explicit acceptance) — nothing else about them is read here anymore.
+#
+# THE BLOCK SHAPE IS `{legal_text: {md_ar, md_en}}`, NOT `{type:"text", data:{...}}`. A real
+# customer reads published legal content through DocBlocksView (compliance's unified renderer,
+# single-key `{kind:{...}}` nodes) — never through the separate markdown-only BlockRenderer that
+# AdminLegal.tsx's OWN preview happens to use locally. `legal_text` is the namespaced shim
+# DocBlockRenderer.tsx/legalToDocBlocks.ts define for exactly this markdown content, and is what
+# makes it actually render at accept-time (found live: the admin preview looked correct while the
+# real customer view was blank, because the two renderers were never the same one).
+#
+# affiliate-agreement.md IS DELIBERATELY EXCLUDED. Its own YAML source says so: "DRAFT ONLY. ...
+# not a Saudi legal consultation... do not publish this file before a licensed Saudi lawyer
+# reviews it". A contract term reaching a real marketer is a commitment made in the company's
+# name — outside what a repeatable seed step should ever decide on its own.
 #
 # IDEMPOTENT. Re-running with the same version is a no-op that reports as one: the service answers
 # 409 for a version that already exists, and this treats that as "already published" rather than as
@@ -48,17 +67,18 @@ red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
 inf(){ printf '  %s\n' "$*"; }
 
-# WHICH OF OUR FILES FILLS WHICH TEMPLATE. The same map ci/check_legal.py holds — and the reason it
-# is written twice rather than shared is that the guard must keep working if this script is
-# deleted. `terms` is ours alone: the pack is a data-protection pack and the Terms are a service
-# contract, so no template exists for it upstream.
-MAP="privacy-policy.yaml=doc01_privacy_policy
-data-subject-rights.yaml=doc03_data_subject_rights
-ropa.yaml=doc04_ropa
-dpia.yaml=doc10_dpia
-cookies.yaml=doc12_cookies
-processing-agreement.yaml=doc13_processing_agreement
-processor-dpa.yaml=doc14_processor_dpa"
+# doc_id = title_ar = title_en — one row per PUBLISHABLE document, matched to legal/<doc_id>.md and
+# legal/<doc_id>.yaml (the latter read only for `publication:`). Titles kept here, not derived from
+# anything, because the .md file's own body starts at the content, not a title line to parse.
+TITLES="privacy-policy=سياسة الخصوصية=Privacy Policy
+data-subject-rights=إجراء حقوق أصحاب البيانات=Data Subject Rights Procedure
+ropa=سجل أنشطة معالجة البيانات الشخصية=Records of Processing Activities (ROPA)
+dpia=تقييم الأثر لحماية البيانات الشخصية=Data Protection Impact Assessment (DPIA)
+cookies=سياسة ملفات الارتباط والتقنيات المتتبِّعة=Cookies & Tracking Technologies Policy
+processing-agreement=اتفاقية معالجة البيانات=Data Processing Agreement
+processor-dpa=اتفاقية معالجة البيانات (التزامات المعالِج)=Data Processing Agreement (Processor's Commitments)
+terms=الشروط والأحكام=Terms of Service
+affiliate-privacy-policy=سياسة خصوصية المسوّقين=Affiliate Privacy Policy"
 
 POD=$(kubectl -n "$NS" get pods --no-headers \
       | awk '/^compliance-service-/ && $3=="Running" {print $1; exit}')
@@ -96,165 +116,45 @@ rm -f /tmp/.legal-key.pem
 # it is discarded — the first version ended by announcing success over five refusals, which is the
 # exact class of lie this whole seed step exists to prevent. A marker file survives the subshell.
 FAILMARK="$(mktemp -u)"
-printf '%s\n' "$MAP" | while IFS='=' read -r file template; do
-  [ -n "$file" ] || continue
-  src="$HERE/legal/$file"
-  [ -f "$src" ] || { red "$file is missing"; : > "$FAILMARK"; continue; }
+printf '%s\n' "$TITLES" | while IFS='=' read -r doc_id title_ar title_en; do
+  [ -n "$doc_id" ] || continue
+  md_src="$HERE/legal/$doc_id.md"
+  yaml_src="$HERE/legal/$doc_id.yaml"
+  [ -f "$md_src" ] || { red "$doc_id.md is missing"; : > "$FAILMARK"; continue; }
 
-  # THE VALUES ONLY. Our YAML also carries `publication` and `clauses` — the first is our own note
-  # about how the document is used, the second is prose we keep for review. Neither belongs in the
-  # instantiate body, and sending them would be sending the service fields it never declared.
-  payload=$(python3 - "$src" "$VERSION" <<'PY'
-import json, sys
-import yaml
-doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
-raw = doc.get("values") or {}
+  # PARSE THE TWO SECTIONS render_markdown.py ITSELF WRITES ("## العربية" / "## English") — the
+  # only contract between the two scripts. Strips the HTML-comment header this script's own
+  # generator leaves at the top; that comment is a note to whoever opens the file, not content.
+  content=$(python3 - "$md_src" <<'PY'
+import json, re, sys
+text = open(sys.argv[1], encoding="utf-8").read()
+text = re.sub(r"<!--.*?-->\n*", "", text, flags=re.DOTALL)
 
-# BILINGUAL VALUES ARE FLATTENED TO THE PUBLISHED LOCALE, and this is a workaround rather than a
-# design. Our documents answer several tokens bilingually — {ar: ..., en: ...} — because the same
-# policy is read in both languages, and compliance's instantiate route declares `values` as
-# dict[str, str]: a nested object is a 422 before the route's own code runs. Three documents could
-# not be published for that reason alone, and the error said only VALIDATION_ERROR.
-#
-# So the Arabic is sent, matching `default_locale: ar`, and the English is kept in the file rather
-# than deleted — the day the route accepts an object, this line goes and nothing else changes.
-# ESCALATED UPSTREAM: `values: dict[str, str]` cannot express a bilingual document, which the pack
-# itself is.
-vals = {k: (v.get("ar") or v.get("en") or "") if isinstance(v, dict) else str(v)
-        for k, v in raw.items()}
-# ACCEPTANCE IS A PROPERTY OF THE DOCUMENT, not a flag somebody remembers to pass. `publication:
-# accept` in the file is what makes the gate hold a signup on it.
-print(json.dumps({"values": vals, "version": sys.argv[2], "publish": True,
-                  "requires_acceptance": (doc.get("publication") == "accept"),
-                  "default_locale": "ar"}, ensure_ascii=False))
+def section(marker):
+    # ONLY the two exact section markers end a section — NOT every "## " (a document's own
+    # clauses/headings inside the section use "##" too, e.g. "## 1. جهة التحكم..." — matching any
+    # "## " here cut the Arabic section off at its OWN first clause heading, a real bug caught by
+    # testing this against privacy-policy.md directly: 723 chars back instead of the ~11,000 the
+    # document actually has).
+    m = re.search(rf"^## {marker}\s*\n", text, re.MULTILINE)
+    if not m:
+        return ""
+    start = m.end()
+    nxt = re.search(r"^## (?:العربية|English)\s*$", text[start:], re.MULTILINE)
+    body = text[start:start + nxt.start()] if nxt else text[start:]
+    return body.rstrip().removesuffix("---").rstrip()
+
+print(json.dumps({"md_ar": section("العربية"), "md_en": section("English")}, ensure_ascii=False))
 PY
 )
-  [ -n "$payload" ] || { red "$file: unreadable (is pyyaml installed?)"; : > "$FAILMARK"; continue; }
+  [ -n "$content" ] || { red "$doc_id.md: unreadable"; : > "$FAILMARK"; continue; }
 
-  if [ "$DRY" = "1" ]; then inf "would publish $template v$VERSION from $file"; continue; fi
+  requires_accept="false"
+  if [ -f "$yaml_src" ]; then
+    requires_accept=$(python3 -c "import yaml,sys; d=yaml.safe_load(open('$yaml_src',encoding='utf-8')) or {}; print('true' if d.get('publication')=='accept' else 'false')")
+  fi
 
-  out=$(kubectl -n "$NS" exec -i "$POD" -- python3 - "$template" "$VERSION" "$TOKEN" <<PY 2>/dev/null
-import json, sys, urllib.error, urllib.request
-template, ver, token = sys.argv[1], sys.argv[2], sys.argv[3]
-body = json.loads('''$payload''')
-req = urllib.request.Request(
-    f"http://127.0.0.1:8000/api/v1/compliance/legal/templates/{template}/instantiate",
-    data=json.dumps(body).encode(), method="POST",
-    headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
-try:
-    with urllib.request.urlopen(req, timeout=20) as r:
-        print(r.status)
-except urllib.error.HTTPError as e:
-    print(f"{e.code} {e.read().decode()[:160]}")
-except Exception as e:
-    print(f"0 {e}")
-PY
-)
-  case "$out" in
-    2*)   grn "$template v$VERSION published" ;;
-    409*) grn "$template v$VERSION already published" ;;
-    *)    red "$template v$VERSION — ${out:-no answer}"; : > "$FAILMARK" ;;
-  esac
-done
-
-if [ -e "$FAILMARK" ] && [ "$DRY" != "1" ]; then
-  rm -f "$FAILMARK"
-  # NAMED, BECAUSE THIS IS THE EXPECTED FAILURE UNTIL THE COMPANY DETAILS EXIST. compliance refuses
-  # a document with an unfilled {{TOKEN}} — correctly: a privacy policy that reaches a customer
-  # with a literal placeholder in it is worse than no policy. The values live in the YAML files
-  # under `values:` and ci/check_legal.py lists exactly which are still blank.
-  red "some documents were refused — usually a blank value (company name, CR, address, date)."
-  red "run: python3 ci/check_legal.py   to see which."
-  exit 1
-fi
-
-# ── THE THREE THAT HAVE NO PDPL TEMPLATE ─────────────────────────────────────────────────────
-# terms.yaml, affiliate-privacy-policy.yaml, affiliate-agreement.yaml are "ours entirely" (see
-# MAP's own comment and ci/check_legal.py's OURS dict) — no upstream template to `instantiate`
-# against, so the MAP loop above never touches them. That is not a smaller gap than the templated
-# ones: terms.yaml is the actual Terms of Service every shop is meant to accept at signup
-# (`publication: accept`), and until THIS loop existed, nothing ever published it — a shop's
-# acceptance record pointed at a version that had never been drafted, let alone published.
-#
-# DIRECT PUBLISH, NOT instantiate: these carry their own prose (`clauses:` / `categories:` +
-# `additions:`), not template placeholders to fill — so this builds content directly, then calls
-# draft + publish, the two routes AdminLegal.tsx itself uses.
-#
-# THE BLOCK SHAPE MUST BE `{legal_text: {md_ar, md_en}}`, NOT `{type:"text", data:{...}}`. A real
-# customer reads published legal content through DocBlocksView (compliance's unified renderer,
-# single-key `{kind:{...}}` nodes) — never through the separate markdown-only BlockRenderer that
-# AdminLegal.tsx's OWN preview happens to use locally. `{type,data}` is invisible to DocBlocksView
-# (it reads Object.keys(block)[0] as the kind, so "type" itself becomes a bogus kind); `legal_text`
-# is the namespaced shim DocBlockRenderer.tsx/legalToDocBlocks.ts define for exactly this markdown
-# content, and is what makes it actually render at accept-time (see AdminLegal.tsx's own header
-# note — this was found live: the admin preview looked correct while the real customer view was
-# blank, because the two renderers were never the same one).
-#
-# affiliate-agreement.yaml IS DELIBERATELY EXCLUDED. Its own header says so: "DRAFT ONLY. ...
-# not a Saudi legal consultation... do not publish this file before a licensed Saudi lawyer
-# reviews it". A contract term reaching a real marketer is a commitment made in the company's
-# name — outside what a repeatable seed step should ever decide on its own.
-DIRECT="terms.yaml=terms=الشروط والأحكام=Terms of Service
-affiliate-privacy-policy.yaml=affiliate-privacy-policy=سياسة خصوصية المسوّقين=Affiliate Privacy Policy"
-
-printf '%s\n' "$DIRECT" | while IFS='=' read -r file doc_id title_ar title_en; do
-  [ -n "$file" ] || continue
-  src="$HERE/legal/$file"
-  [ -f "$src" ] || { red "$file is missing"; : > "$FAILMARK"; continue; }
-
-  content=$(python3 - "$src" <<'PY'
-import re, sys
-import yaml
-
-doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
-values = doc.get("values") or {}
-
-def flat(v):
-    return (v.get("ar") or v.get("en") or "") if isinstance(v, dict) else str(v)
-
-def sub(text, locale):
-    def repl(m):
-        v = values.get(m.group(1))
-        if v is None:
-            return m.group(0)
-        return v.get(locale, flat(v)) if isinstance(v, dict) else str(v)
-    return re.sub(r"\{\{(\w+)\}\}", repl, text or "")
-
-def humanize(key):
-    return key.replace("_", " ").strip().capitalize()
-
-lines_ar, lines_en = [], []
-
-for clause in (doc.get("clauses") or {}).values():
-    t = clause.get("title", {})
-    lines_ar.append(f"## {t.get('ar', '')}\n\n{sub(clause.get('ar', ''), 'ar')}")
-    lines_en.append(f"## {t.get('en', '')}\n\n{sub(clause.get('en', ''), 'en')}")
-
-for cat in doc.get("categories") or []:
-    name = cat.get("name", {})
-    ex = cat.get("examples", {})
-    req = cat.get("required", {})
-    lines_ar.append(f"### {name.get('ar', '')}\n\n{sub(ex.get('ar', ''), 'ar')}\n\n**{req.get('ar', '')}**")
-    lines_en.append(f"### {name.get('en', '')}\n\n{sub(ex.get('en', ''), 'en')}\n\n**{req.get('en', '')}**")
-
-for key, addition in (doc.get("additions") or {}).items():
-    lines_ar.append(f"### {humanize(key)}\n\n{sub(addition.get('ar', ''), 'ar')}")
-    lines_en.append(f"### {humanize(key)}\n\n{sub(addition.get('en', ''), 'en')}")
-
-md_ar, md_en = "\n\n".join(lines_ar), "\n\n".join(lines_en)
-if "{{" in md_ar or "{{" in md_en:
-    print("TOKEN_UNFILLED", file=sys.stderr)
-    sys.exit(1)
-
-import json
-print(json.dumps({"md_ar": md_ar, "md_en": md_en}, ensure_ascii=False))
-PY
-) || { red "$doc_id: an unfilled {{TOKEN}} in clauses/categories/additions text"; : > "$FAILMARK"; continue; }
-  [ -n "$content" ] || { red "$file: unreadable"; : > "$FAILMARK"; continue; }
-
-  requires_accept=$(python3 -c "import yaml,sys; d=yaml.safe_load(open('$src',encoding='utf-8')) or {}; print('true' if d.get('publication')=='accept' else 'false')")
-
-  if [ "$DRY" = "1" ]; then inf "would publish $doc_id v$VERSION from $file (direct)"; continue; fi
+  if [ "$DRY" = "1" ]; then inf "would publish $doc_id v$VERSION from $doc_id.md"; continue; fi
 
   draft_body=$(python3 -c "
 import json, sys
@@ -294,8 +194,8 @@ PY
 done
 
 inf ""
-inf "affiliate-agreement.yaml was NOT published — it needs a licensed Saudi lawyer's review first"
-inf "(its own header says so). Publish it manually once that review clears."
+inf "affiliate-agreement.md was NOT published — it needs a licensed Saudi lawyer's review first"
+inf "(its own YAML source says so). Publish it manually once that review clears."
 
 [ "$DRY" = "1" ] && exit 0
 if [ -e "$FAILMARK" ]; then

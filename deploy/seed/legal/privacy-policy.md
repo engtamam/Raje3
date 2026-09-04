@@ -121,8 +121,6 @@
 - **** نراجع السياسة دورياً ونُدوّن أي تغيير في سجل التحديث (البند 2).
 - **** روابط ذات صلة: الشروط والأحكام، وسياسة ملفات الارتباط، ونظام حماية البيانات الشخصية — اتفاقية معالجة البيانات · إشعار حقوق أصحاب البيانات · سياسة ملفات الارتباط.
 
-> ⚠️ قبل النشر: يجب أن تكون هذه السياسة متاحة قبل جمع أي بيانات شخصية — فالمادة (12) تجعلها إلزامية لا اختيارية. وتأكّد من أن البند (4) يذكر المسوغ النظامي الفعلي لكل غرض من أغراضك؛ والمسوغات المتاحة لك واردة في المواد (5) و(6) و(10) و(15)، وقد عدّدها البند (4). واحذف هذه الملاحظة الحمراء بعد نشر السياسة.
-
 ### مطابقة ضوابط النظام
 
 | الضابط | المادة / المصدر | الدليل في |
@@ -141,9 +139,6 @@
 - نظام حماية البيانات الشخصية (م/19)، المواد 4، 5، 6، 7، 10، 11، 12، 13، 15، 18، 40 — sdaia.gov.sa
 - سدايا — الدليل الاسترشادي لإعداد وتطوير سياسة الخصوصية (أغسطس 2024) — sdaia.gov.sa
 
-
----
-*نموذج — استبدل [PLACEHOLDERS] وراجعه مع المستشار النظامي قبل النشر.*
 
 
 ---
@@ -266,8 +261,6 @@ If you cannot exercise a right within the stated period, or you object to proces
 - **** We review the policy periodically and log any change in the update record (Section 2).
 - **** Related links: Terms & Conditions, Cookie Policy, and the Personal Data Protection Law — The data processing agreement · The data-subject rights notice · The cookie policy.
 
-> ⚠️ Before publishing: this policy must be reachable BEFORE any Personal Data is collected — Article 12 makes it mandatory, not optional. Check that Section 4 names the actual legal basis for each of your purposes; the bases available to you are in Articles 5, 6, 10 and 15, and Section 4 already lists them. Delete this red note once the policy is published.
-
 ### PDPL Control Mapping
 
 | PDPL Control | Article / Source | Evidenced in |
@@ -286,9 +279,6 @@ If you cannot exercise a right within the stated period, or you object to proces
 - PDPL (Royal Decree M/19), Articles 4, 5, 6, 7, 10, 11, 12, 13, 15, 18, 40 — sdaia.gov.sa
 - SDAIA — Elaboration and Developing Privacy Policy Guideline (Aug 2024) — sdaia.gov.sa
 
-
----
-*Template — replace [PLACEHOLDERS] and review with legal counsel before publishing.*
 
 
 ---

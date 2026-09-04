@@ -20,11 +20,7 @@
 
 تقييم الأثر هو تقييم مكتوب لمخاطر الخصوصية الناتجة عن نشاط معالجة، يُجرى قبل بدء النشاط، بحيث تُكتشف المخاطر وتُقلَّل مبكراً. وبموجب المادة (25) من اللائحة التنفيذية، تُجري راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) تقييم أثر للحالات عالية الخطورة أدناه. وهذه الوثيقة هي المنهجية ونموذج قابل لإعادة الاستخدام: استكمل تقييماً واحداً لكل نشاط عالي الخطورة.
 
-> ⚠️ طريقة استخدام النموذج: استبدل كل [قوس مربّع] بقيمتك الخاصة. وكل ما هو باللون الأحمر (بين قوسين) هو إرشاد — احذفه قبل الاعتماد. أما البقية فهي النص النظامي الجاهز؛ احتفظ به.
-
 ## متى يلزم تقييم الأثر؟ — قائمة تحقق
-
-> ⚠️ حدّد ما ينطبق على النشاط. إذا تحقّق بند واحد على الأقل، فيلزم إجراء تقييم أثر (اللائحة م.25-1).
 
 | ✓ | المُحفّز | ✓ | المُحفّز |
 | --- | --- | --- | --- |
@@ -54,8 +50,6 @@
 
 ## نموذج تقييم الأثر — قالب فارغ
 
-> ⚠️ استكمل نموذجاً واحداً لكل نشاط عالي الخطورة. كرّر هذا القالب حسب الحاجة. استبدل كل [قوس مربّع] بقيمتك؛ واحذف الملاحظات الحمراء (الإرشادية).
-
 - **اسم النشاط / المرجع**: [ACTIVITY]
 - **المالك / المُقيّم**: [OWNER]
 - **الغرض والأساس النظامي**: [PURPOSE + LEGAL_BASIS]
@@ -65,8 +59,6 @@
 - **الضرورة والتناسب وتقليل البيانات**: [NECESSITY]
 - **تاريخ التقييم / المراجعة التالية**: [DATE]
 
-> ⚠️ سجل المخاطر — اذكر كل خطر على الأفراد، وقيّمه، وبيّن إجراء الحد منه (منخفض / متوسط / مرتفع).
-
 | الخطر على الأفراد | الاحتمال | الشدة | إجراء الحد | المتبقي |
 | --- | --- | --- | --- | --- |
 | [الخطر 1] | [م/و/ع] | [م/و/ع] | [الإجراء] | [م/و/ع] |
@@ -75,8 +67,6 @@
 
 
 ## مثال مُستكمل — تقييم أثر مكتمل
-
-> ⚠️ للتوضيح فقط — الدخول بالتعرف على الوجه (البيانات الحيوية = بيانات حساسة). احذف هذا القسم بالكامل واستبدله بنشاطك.
 
 - **النشاط**: الدخول بالتعرف على الوجه — BIO-01
 - **الغرض والأساس النظامي**: دخول أسرع وأكثر أماناً؛ الأساس: الموافقة الصريحة
@@ -114,9 +104,6 @@
 - نظام حماية البيانات الشخصية (م/19)، المادة 22 — sdaia.gov.sa
 
 
----
-*نموذج — افحص عبر البند 1، واستكمل النموذج، وراجعه مع المستشار النظامي قبل الاستخدام.*
-
 
 ---
 
@@ -137,11 +124,7 @@
 
 A DPIA is a written assessment of the privacy risks of a processing activity, carried out BEFORE the activity begins, so risks are found and reduced early. Under Article 25 of the Implementing Regulation, راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) conducts a DPIA for the high-risk cases below. This document is the method and a reusable form: complete one DPIA per high-risk activity.
 
-> ⚠️ How to use this template: replace each [SQUARE BRACKET] with your own value. Everything shown in RED (in parentheses) is guidance — delete it before you publish. The rest is the ready legal text; keep it.
-
 ## When Is a DPIA Required? — Trigger Checklist
-
-> ⚠️ Tick any that apply to the activity. If even ONE is ticked, a DPIA is required (Reg. Art. 25-1).
 
 | ✓ | Trigger | ✓ | Trigger |
 | --- | --- | --- | --- |
@@ -171,8 +154,6 @@ Each DPIA must include, at a minimum (Reg. Art. 25-2):
 
 ## DPIA Form — Blank Template
 
-> ⚠️ Complete one form per high-risk activity. Duplicate this block as needed. Replace each [SQUARE BRACKET] with your value; delete the red (guidance) notes.
-
 - **Activity name / reference**: [ACTIVITY]
 - **Owner / assessor**: [OWNER]
 - **Purpose & legal basis**: [PURPOSE + LEGAL_BASIS]
@@ -182,8 +163,6 @@ Each DPIA must include, at a minimum (Reg. Art. 25-2):
 - **Necessity, proportionality & minimization**: [NECESSITY]
 - **Date assessed / next review**: [DATE]
 
-> ⚠️ Risk register — list each risk to individuals, rate it, and state the mitigation (Low / Medium / High).
-
 | Risk to individuals | Likelihood | Severity | Mitigation measure | Residual |
 | --- | --- | --- | --- | --- |
 | [RISK 1] | [L/M/H] | [L/M/H] | [MITIGATION] | [L/M/H] |
@@ -192,8 +171,6 @@ Each DPIA must include, at a minimum (Reg. Art. 25-2):
 
 
 ## Worked Example — One Completed DPIA
-
-> ⚠️ Illustration only — face-recognition login (biometric = sensitive data). Delete this whole section; replace with your own.
 
 - **Activity**: Face-recognition login — BIO-01
 - **Purpose & legal basis**: Faster, more secure sign-in; basis: explicit consent
@@ -230,9 +207,6 @@ Each DPIA must include, at a minimum (Reg. Art. 25-2):
 - PDPL Implementing Regulation, Article 25 — sdaia.gov.sa
 - PDPL (Royal Decree M/19), Article 22 — sdaia.gov.sa
 
-
----
-*Template — screen with Section 1, complete the form, and review with legal counsel before use.*
 
 
 ---

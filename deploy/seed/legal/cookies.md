@@ -78,9 +78,6 @@
 - اللائحة التنفيذية للنظام، المادة 11 (شروط الموافقة) — sdaia.gov.sa
 
 
----
-*نموذج — استبدل [PLACEHOLDERS] وأكمِل سجل ملفات الارتباط وراجعه مع المستشار النظامي قبل الاستخدام.*
-
 
 ---
 
@@ -158,9 +155,6 @@ Every cookie in use is recorded here — its name, who sets it, its category, pu
 - PDPL (Royal Decree M/19), Articles 5, 11, 12, 29 — sdaia.gov.sa
 - PDPL Implementing Regulation, Article 11 (conditions of consent) — sdaia.gov.sa
 
-
----
-*Template — replace [PLACEHOLDERS], complete the cookie register, and review with legal counsel before use.*
 
 
 ---

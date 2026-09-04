@@ -98,10 +98,14 @@ def block_to_md(block: dict, values: dict, locale: str) -> str:
         for i in items:
             out += f"\n> - {i}"
         return out
-    if kind == "helper":
-        return f"> ⚠️ {cell(a.get('text'), values, locale)}"
-    if kind == "footer_band":
-        return f"---\n*{cell(a.get('text'), values, locale)}*"
+    if kind in ("helper", "footer_band"):
+        # DRAFTING-ONLY, NEVER PUBLISHED CONTENT. Both kinds are the pack's own authoring notes
+        # to WHOEVER FILLS THE TEMPLATE ("delete this red note once the policy is published",
+        # "replace [PLACEHOLDERS] and review with legal counsel before publishing") — found live,
+        # rendered verbatim in the actually-published privacy policy, because `instantiate` never
+        # stripped them. Dropped entirely here rather than kept as a note, since this Markdown
+        # copy is now what gets read and edited, not the pack's own instructions to an author.
+        return ""
     if kind == "signoff":
         roles = [cell(r, values, locale) for r in (a.get("roles") or [])]
         return "\n".join(f"- {r}: ________________________" for r in roles)

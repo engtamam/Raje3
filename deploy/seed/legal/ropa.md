@@ -20,8 +20,6 @@
 
 دون الإخلال بالمادة (18) من النظام، تحتفظ راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) بسجلات لأنشطة معالجتها للبيانات الشخصية، بحسب طبيعة النشاط الذي تمارسه، وتُتيحها للجهة المختصة متى طلبتها. وتحدّد هذه الوثيقة تلك الالتزامات، والحد الأدنى لمحتويات كل سجل كما يوجبه النظام واللائحة، ونموذج السجل الذي يُستكمل لكل نشاط معالجة. (النظام م.31 · اللائحة م.33)
 
-> ⚠️ طريقة استخدام النموذج: استبدل كل [قوس مربّع] بقيمتك الخاصة. وكل ما هو باللون الأحمر (بين قوسين) هو إرشاد — احذفه قبل الاعتماد. أما البقية فهي النص النظامي الجاهز؛ احتفظ به.
-
 ## التزامات حفظ السجل
 
 - **** نحتفظ بسجل لأنشطة معالجة البيانات الشخصية طوال مدة معالجتنا لها، ونحتفظ بكل سجل مدة خمس سنوات بعد توقف نشاط المعالجة الذي يصفه.
@@ -46,8 +44,6 @@
 
 ## أنشطة المعالجة الشائعة — قائمة تحقق
 
-> ⚠️ "نشاط المعالجة" هو أي غرض تستخدم فيه البيانات الشخصية. لدى معظم المنشآت من 10 إلى 20 نشاطاً. حدّد ما ينطبق عليك، وأضف أنشطتك الخاصة، ثم استكمل سجلاً (البند 5) لكل نشاط محدّد.
-
 | ✓ | النشاط | ✓ | النشاط |
 | --- | --- | --- | --- |
 | ☐ | إدارة الموارد البشرية وشؤون الموظفين | ☐ | الرواتب والمزايا |
@@ -69,8 +65,6 @@
 
 ## مثال مُستكمل — سجل واحد مكتمل
 
-> ⚠️ للتوضيح فقط — يبيّن كيفية تسجيل نشاط واحد ("الرواتب"). احذف هذا القسم بالكامل واستبدله بنشاطك.
-
 - **اسم النشاط / المرجع**: الرواتب — PR-01
 - **المالك / الوحدة**: المالية / الموارد البشرية
 - **أغراض المعالجة**: صرف رواتب الموظفين وتوريد الاستقطاعات النظامية
@@ -84,8 +78,6 @@
 - **تاريخ الإنشاء / آخر مراجعة**: ٢٠٢٥-٠١-٠١ / ٢٠٢٥-٠٦-٠١
 
 ## سجل نشاط المعالجة — نموذج فارغ
-
-> ⚠️ استكمل سجلاً واحداً لكل نشاط محدّد. كرّر هذا القالب حسب الحاجة. استبدل كل [قوس مربّع] بقيمتك؛ واحذف الملاحظات الحمراء (الإرشادية).
 
 - **اسم النشاط / المرجع**: [ACTIVITY]
 - **المالك / الوحدة**: [OWNER]
@@ -118,9 +110,6 @@
 - سدايا — دليل سجل أنشطة معالجة البيانات الشخصية — sdaia.gov.sa
 
 
----
-*نموذج — استبدل [PLACEHOLDERS] وراجعه مع المستشار النظامي قبل الاستخدام.*
-
 
 ---
 
@@ -140,8 +129,6 @@
 - **Version / Effective date**: 1.0  ·  1446-01-01 (تاريخ مؤقت)
 
 Without prejudice to Article 18 of the Law, راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) maintains records of its Personal Data processing activities, based on the nature of the activity it carries out, and makes them available whenever the Competent Authority requests them. This document sets out those obligations, the minimum contents the Law and the Regulation require of each record, and the record template completed for every processing activity. (Law Art. 31 · Reg. Art. 33)
-
-> ⚠️ How to use this template: replace each [SQUARE BRACKET] with your own value. Everything shown in RED (in parentheses) is guidance — delete it before you publish. The rest is the ready legal text; keep it.
 
 ## Record-Keeping Obligations
 
@@ -167,8 +154,6 @@ Each processing-activity record contains, as a minimum, the eight elements the R
 
 ## Common Processing Activities — Checklist
 
-> ⚠️ A "processing activity" is any purpose for which you use personal data. Most organizations have 10–20. Tick the ones that apply, add your own, then complete one record (Section 5) for each ticked item.
-
 | ✓ | Activity | ✓ | Activity |
 | --- | --- | --- | --- |
 | ☐ | Employee HR & personnel admin | ☐ | Payroll & benefits |
@@ -190,8 +175,6 @@ Each processing-activity record contains, as a minimum, the eight elements the R
 
 ## Worked Example — One Completed Record
 
-> ⚠️ Illustration only — shows how one activity ("Payroll") is recorded. Delete this whole section; replace with your own.
-
 - **Activity name / reference**: Payroll — PR-01
 - **Owner / business unit**: Finance / HR
 - **Purpose(s) of processing**: Pay employees and remit statutory deductions
@@ -205,8 +188,6 @@ Each processing-activity record contains, as a minimum, the eight elements the R
 - **Date created / last reviewed**: 2025-01-01 / 2025-06-01
 
 ## Processing Activity Record — Blank Template
-
-> ⚠️ Complete one record for every ticked activity. Duplicate this block as needed. Replace each [SQUARE BRACKET] with your value; delete the red (guidance) notes.
 
 - **Activity name / reference**: [ACTIVITY]
 - **Owner / business unit**: [OWNER]
@@ -238,9 +219,6 @@ Each processing-activity record contains, as a minimum, the eight elements the R
 - PDPL (Royal Decree M/19), Article 31 — sdaia.gov.sa
 - SDAIA — Processing Activities Records Guideline — sdaia.gov.sa
 
-
----
-*Template — replace [PLACEHOLDERS] and review with legal counsel before use.*
 
 
 ---
