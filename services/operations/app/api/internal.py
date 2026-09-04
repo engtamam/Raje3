@@ -374,6 +374,25 @@ async def partner_invite(request: Request, body: PartnerInviteIn) -> dict:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)[:200])
 
 
+class TenantByPhoneIn(BaseModel):
+    phone: str = Field(min_length=1, max_length=32)
+
+
+@router.post("/operations/tenant-by-phone", dependencies=[Depends(require_internal_token)])
+async def tenant_by_phone(request: Request, body: TenantByPhoneIn) -> dict:
+    """Which establishment did THIS phone number sign up as owner of — the one direction
+    `SignupService.tenant_of_phone` (core/signup.py) already answers internally but had no route
+    of its own. Investigation tooling knows an owner's phone when a dispute reaches us; it does
+    not already know his tenant id, which is the whole reason this exists.
+
+    READ-ONLY, and answers only THIS index — never creates a row, never touches `signup_phone_
+    index`, matching `customer-by-phone`'s own discipline for the customer-facing twin of this
+    lookup.
+    """
+    tenant = await request.app.state.container.signup.tenant_of_phone(body.phone)
+    return {"found": bool(tenant), "tenant": tenant}
+
+
 class CustomerVisitsIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)
