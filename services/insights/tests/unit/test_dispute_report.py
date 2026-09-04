@@ -42,6 +42,9 @@ URLS = _Urls(
     audit_query_path="/internal/audit", evidence_path="/internal/reminders/evidence",
     legal_list_path="/internal/compliance/legal",
     legal_history_path="/internal/compliance/legal/{doc_id}/history",
+    identity="http://identity-service:8000",
+    tenancy_members_path="/internal/tenancy/members",
+    consent_history_path="/internal/compliance/consent-history",
 )
 
 
@@ -138,3 +141,31 @@ def test_contract_breach_scenario_lists_legal_versions_newest_last_by_ts():
     # `/internal/compliance/legal/{doc_id}/history` was resolved per-doc, from the list's own doc_id.
     hist_calls = [c for c in caller.calls if c[2] == "/internal/compliance/legal/terms/history"]
     assert len(hist_calls) == 1
+
+
+def test_acceptance_source_reports_the_owners_actual_consent_proofs_not_just_published_versions():
+    caller = FakeCaller(
+        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}},
+        get_answers={
+            "/internal/compliance/legal": {"documents": []},
+            "/internal/tenancy/members": {"members": [
+                {"person_id": "p_staff", "roles": ["staff"]},
+                {"person_id": "p_owner", "roles": ["owner"]},
+            ]},
+            "/internal/compliance/consent-history": {"proofs": [
+                {"purpose": "legal:terms", "action": "granted", "notice_version": "1",
+                 "ip": "1.2.3.4", "at": 1000},
+                {"purpose": "legal:terms", "action": "granted", "notice_version": "2", "at": 3000},
+                {"purpose": "marketing:promos", "action": "granted", "at": 2000},  # not legal — excluded
+            ]},
+        },
+        fail_paths={"/internal/audit"},
+    )
+    result = run_scenario(caller, URLS, "0501234567", "contract_breach")
+    labels = [it.label for it in result.items]
+    assert any("وافق على مستند «terms» — نسخة 1 — من IP 1.2.3.4" in x for x in labels)
+    assert any("وافق على مستند «terms» — نسخة 2" in x for x in labels)
+    assert not any("marketing" in x for x in labels)
+    # the OWNER's person_id was used, never the staff member's
+    member_call = [c for c in caller.calls if c[2] == "/internal/compliance/consent-history"][0]
+    assert member_call[3] == {"tenant": "tnt_x", "subject": "p_owner"}

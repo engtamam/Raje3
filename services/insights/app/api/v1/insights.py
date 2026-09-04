@@ -536,6 +536,9 @@ async def dispute_report(request: Request, body: DisputeReportIn,
         audit_query_path=settings.AUDIT_QUERY_PATH, evidence_path=settings.REMINDERS_EVIDENCE_PATH,
         legal_list_path=settings.COMPLIANCE_LEGAL_LIST_PATH,
         legal_history_path=settings.COMPLIANCE_LEGAL_HISTORY_PATH,
+        identity=settings.IDENTITY_SERVICE_URL,
+        tenancy_members_path=settings.IDENTITY_TENANCY_MEMBERS_PATH,
+        consent_history_path=settings.COMPLIANCE_CONSENT_HISTORY_PATH,
     )
     caller = HttpPeerCaller(token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
 

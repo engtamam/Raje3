@@ -290,6 +290,14 @@ class Settings(BaseSettings):
     # the user-tier legal list/history routes, built for exactly this.
     COMPLIANCE_LEGAL_LIST_PATH: str = "/internal/compliance/legal"
     COMPLIANCE_LEGAL_HISTORY_PATH: str = "/internal/compliance/legal/{doc_id}/history"
+    # THE ACTUAL EVIDENCE, NOT JUST WHAT WAS PUBLISHED. `legal` above answers "what did the
+    # document say and when did it change" — this answers "did THIS shop's owner actually accept
+    # it, and when": identity-service's member directory to find the owner's person_id from a
+    # tenant, then compliance's own consent-history for that person's append-only proof records
+    # (grant/withdraw, notice_version, actor, ip, timestamp) filtered to `legal:*` purposes.
+    IDENTITY_SERVICE_URL: str = ""
+    IDENTITY_TENANCY_MEMBERS_PATH: str = "/internal/tenancy/members"
+    COMPLIANCE_CONSENT_HISTORY_PATH: str = "/internal/compliance/consent-history"
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── the association engine's four judgements ──────────────────────────────

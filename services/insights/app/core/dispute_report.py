@@ -13,11 +13,21 @@ SAME SMALL FRAMEWORK AS THE ORIGINAL:
   the caller  resolves the owner's phone to a tenant id, then runs the scenario's sources, each
               failing independently — one peer being down never blanks the whole report.
 
-ALL 6 SOURCES / ALL 7 SCENARIOS ARE WIRED (2026-09-04). `legal` was the last gap — it needed an
-internal-tier compliance route that did not exist yet (only user-tier `/api/v1/compliance/legal*`
-did, and this service cannot mint a signed JWT itself the way the ops-mcp workaround did — only
-identity-service holds that key). base-services_de added the internal-token twins in v0.18.11;
-`_fetch_legal` below calls them directly, no workaround needed.
+ALL 7 SOURCES / ALL 7 SCENARIOS ARE WIRED (2026-09-04). `legal` needed an internal-tier compliance
+route that did not exist yet (only user-tier `/api/v1/compliance/legal*` did, and this service
+cannot mint a signed JWT itself the way the ops-mcp workaround did — only identity-service holds
+that key). base-services_de added the internal-token twins in v0.18.11; `_fetch_legal` calls them
+directly, no workaround needed. `acceptance` is the newest source: `legal` answers "what did the
+document say and when did it change" — a real dispute needs "did THIS shop's owner actually
+accept it, and when", which is a different question with a different answer (compliance's
+append-only ConsentProof trail, resolved through identity-service's member directory).
+
+ALSO FOUND LIVE, SAME DAY: `backup_coverage` and `legal` had been silently broken since they were
+built — `deploy/services/insights.values.yaml` never set BACKUP_SERVICE_URL or
+COMPLIANCE_SERVICE_URL, so every call from either source failed and (by this module's own
+per-source isolation) the report just always showed those two sections as unavailable, with
+nothing that looked like an error. Fixed in the same values.yaml change that adds
+IDENTITY_SERVICE_URL for `acceptance`.
 """
 from __future__ import annotations
 
@@ -76,6 +86,9 @@ class _Urls:
     evidence_path: str
     legal_list_path: str
     legal_history_path: str
+    identity: str
+    tenancy_members_path: str
+    consent_history_path: str
 
 
 def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
@@ -242,6 +255,41 @@ def _fetch_legal(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem
     return items
 
 
+def _fetch_acceptance(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem]:
+    """WHAT `legal` ABOVE CANNOT ANSWER: not what a document said, but whether THIS shop's own
+    owner actually accepted it, and when. `legal` lists publications; this lists proof.
+
+    Two hops, both internal-token: identity-service's member directory finds the owner's
+    person_id from the tenant (the `subject` every acceptance was recorded under — see
+    compliance's own legal_gate.py: accepting IS a consent grant for purpose "legal:{doc_id}"),
+    then compliance's consent-history returns that person's append-only proof records — each one
+    grant or withdrawal, the exact notice_version, who/where it happened, and when. This is the
+    append-only ConsentProof trail (models.py), not the mutable current-consent row, precisely
+    because a dispute needs "what happened", never "what is true right now"."""
+    items: list[ReportItem] = []
+    members_out = peers.get(urls.identity, urls.tenancy_members_path, {"tenant": tenant})
+    members = members_out.get("members") or []
+    owner = next((m for m in members if "owner" in (m.get("roles") or [])), None) \
+        or (members[0] if members else None)
+    if not owner or not owner.get("person_id"):
+        return items
+    hist_out = peers.get(urls.compliance, urls.consent_history_path,
+                         {"tenant": tenant, "subject": owner["person_id"]})
+    for p in hist_out.get("proofs") or []:
+        purpose = str(p.get("purpose") or "")
+        if not purpose.startswith("legal:"):
+            continue
+        doc_id = purpose.split(":", 1)[1]
+        action_ar = {"granted": "وافق على", "withdrawn": "سحب موافقته على"}.get(
+            p.get("action"), str(p.get("action") or "؟"))
+        label = (f"{action_ar} مستند «{doc_id}» — نسخة {p.get('notice_version', '؟')}"
+                f" — من IP {p.get('ip', '؟')}" if p.get("ip") else
+                f"{action_ar} مستند «{doc_id}» — نسخة {p.get('notice_version', '؟')}")
+        items.append(ReportItem(ts=int(p.get("at") or 0) or None, source="acceptance",
+                                label=label, raw=_redact_dict(p)))
+    return items
+
+
 SOURCES: dict[str, Source] = {
     "backup_coverage": _fetch_backup_coverage,
     "billing": _fetch_billing,
@@ -249,6 +297,7 @@ SOURCES: dict[str, Source] = {
     "audit": _fetch_audit,
     "marketing_evidence": _fetch_marketing_evidence,
     "legal": _fetch_legal,
+    "acceptance": _fetch_acceptance,
 }
 
 
@@ -258,8 +307,8 @@ SCENARIOS: dict[str, dict[str, Any]] = {
     "data_loss": {"title": "فقدان بيانات / لا نسخة احتياطية", "sources": ["backup_coverage"]},
     "billing_error": {"title": "خطأ فوترة / اشتراك", "sources": ["billing"]},
     "suspended_no_notice": {"title": "تعليق حساب بدون إشعار", "sources": ["audit", "staff"]},
-    "contract_breach": {"title": "خرق عقد / اتفاقية مستوى خدمة", "sources": ["legal", "audit"]},
-    "suspended_tos": {"title": "تعليق حساب لمخالفة الشروط", "sources": ["legal", "audit"]},
+    "contract_breach": {"title": "خرق عقد / اتفاقية مستوى خدمة", "sources": ["legal", "acceptance", "audit"]},
+    "suspended_tos": {"title": "تعليق حساب لمخالفة الشروط", "sources": ["legal", "acceptance", "audit"]},
     "ai_hallucination": {"title": "هلوسة الذكاء الاصطناعي بدون تأكيد حقيقي", "sources": ["audit"]},
     "unauthorized_marketing": {"title": "تسويق غير مصرَّح به", "sources": ["marketing_evidence"]},
 }

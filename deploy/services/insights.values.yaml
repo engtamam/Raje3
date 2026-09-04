@@ -134,6 +134,18 @@ env:
   LOYALTY_REPORT_PATH: "/internal/loyalty/report"
   TENANT_SERVICE_URL: "http://tenant-service:8000"
   TENANT_READ_PATH: "/internal/tenants/{id}"
+  # FOUND MISSING LIVE (2026-09-04): the dispute-defense report's `backup_coverage` and `legal`
+  # sources have called these two since they were built — every call against them was failing
+  # silently the whole time (each source fails independently, per report_render's own design, so
+  # nothing crashed; the report just always showed those sections as unavailable). No base URL
+  # defaults to empty in config.py, and boot never checks it because the report is admin-triggered
+  # on demand, not a startup dependency — the gap had nothing to make it visible until read.
+  BACKUP_SERVICE_URL: "http://backup-service:8000"
+  COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
+  # For the dispute report's acceptance-proof source: which shop owner accepted which legal
+  # document version, and when — the actual evidence a dispute needs, distinct from `legal`'s
+  # list of what was PUBLISHED (see dispute_report.py's own note on the difference).
+  IDENTITY_SERVICE_URL: "http://identity-service:8000"
   PEER_TIMEOUT_SECONDS: "8"
 
   # ── the sweep ─────────────────────────────────────────────────────────────────────────────
