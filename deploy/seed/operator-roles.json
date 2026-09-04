@@ -38,7 +38,14 @@
     "service. platform-owner had the first and not the second, which the AdminApps.tsx screen made",
     "visible: the whole Plans & pricing section rendered nothing at all, not even an empty state,",
     "because there was no action to key it on — found live, then fixed here. Explicit, not starred,",
-    "same reason as every other capability on this file."
+    "same reason as every other capability on this file.",
+    "",
+    "A FOURTH ONE, SAME SHAPE: 'notifications.templates' (notification-service's WhatsApp template",
+    "list/register/submit routes) was never granted to ANY role at all — not missing from one role",
+    "next to a sibling that had it, absent everywhere, because the admin screen that reaches it",
+    "(AdminWhatsAppTemplates.tsx) was built the same day this was found. platform-owner gets it as",
+    "everything-owner; platform-operator too, since its own description already names 'مكتبة",
+    "القوالب' (the template library) as squarely its job."
   ],
   "roles": [
     {
@@ -68,7 +75,8 @@
         "platform.loyalty",
         "platform.insights",
         "platform.affiliates",
-        "platform.affiliates_payouts"
+        "platform.affiliates_payouts",
+        "notifications.templates"
       ]
     },
     {
@@ -91,7 +99,8 @@
         "platform.campaigns",
         "platform.support",
         "platform.loyalty",
-        "platform.insights"
+        "platform.insights",
+        "notifications.templates"
       ]
     },
     {
