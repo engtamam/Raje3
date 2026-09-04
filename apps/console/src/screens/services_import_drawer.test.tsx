@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ServicesImportDrawer } from './ServicesImportDrawer';
+import { OperatorI18nProvider } from '../operator-i18n';
 import type { Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -26,6 +27,14 @@ vi.mock('../catalog', async (importOriginal) => {
   return { ...real, call: (...args: unknown[]) => callMock(...args) };
 });
 
+// THE OPERATOR-LOCALE PROVIDER'S OWN READ — irrelevant to this suite's assertions (every fixture
+// is written in Arabic, the default), so it stays absent rather than answered, the same "not this
+// person at all" case `OperatorI18nProvider` already falls back to Arabic for.
+vi.mock('../api', () => ({
+  getMyOperator: async () => { throw new Error('not mocked'); },
+  setMyOperatorLocale: async () => ({}),
+}));
+
 afterEach(() => vi.clearAllMocks());
 
 // jsdom's own File has no working `.text()` in this toolchain's version — the component only
@@ -40,32 +49,40 @@ function selectFile(text: string) {
 
 describe('ServicesImportDrawer', () => {
   it('parses a real file and shows جديد for a name not already on screen', async () => {
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
-                                onClose={() => {}} onImported={() => {}} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
     selectFile('name,price\nقص شعر,50');
     await waitFor(() => expect(screen.getByText('قص شعر')).toBeTruthy());
     expect(screen.getByText('جديد')).toBeTruthy();
   });
 
   it('a name that matches an existing active service shows تحديث, not جديد', async () => {
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG}
-                                existing={[{ name: 'قص شعر', active: true }]} open
-                                onClose={() => {}} onImported={() => {}} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG}
+                            existing={[{ name: 'قص شعر', active: true }]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
     selectFile('name,price\nقص شعر,60');
     await waitFor(() => expect(screen.getByText('تحديث')).toBeTruthy());
   });
 
   it('a stopped service reappearing shows إعادة تفعيل', async () => {
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG}
-                                existing={[{ name: 'قص شعر', active: false }]} open
-                                onClose={() => {}} onImported={() => {}} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG}
+                            existing={[{ name: 'قص شعر', active: false }]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
     selectFile('name\nقص شعر');
     await waitFor(() => expect(screen.getByText('إعادة تفعيل')).toBeTruthy());
   });
 
   it('a name repeated twice in the file blocks import and marks BOTH rows', async () => {
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
-                                onClose={() => {}} onImported={() => {}} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
     selectFile('name\nقص شعر\nقص شعر');
     await waitFor(() => expect(screen.getAllByText(/الاسم مكرر/).length).toBe(2));
     expect(screen.getByText(/2 صف فيه خطأ/)).toBeTruthy();
@@ -74,8 +91,10 @@ describe('ServicesImportDrawer', () => {
   });
 
   it('an empty name is refused, and the row explains why', async () => {
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
-                                onClose={() => {}} onImported={() => {}} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
     selectFile('name,price\n,50');
     await waitFor(() => expect(screen.getByText('الاسم فاضي.')).toBeTruthy());
   });
@@ -83,8 +102,10 @@ describe('ServicesImportDrawer', () => {
   it('a clean file imports through the real action, halalas on the wire', async () => {
     callMock = vi.fn().mockResolvedValue({ created: 1, updated: 0, reactivated: 0, deactivated: 0 });
     const onImported = vi.fn();
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
-                                onClose={() => {}} onImported={onImported} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={onImported} />
+    </OperatorI18nProvider>);
     selectFile('name,price\nقص شعر,50');
     await waitFor(() => expect(screen.getByText('جديد')).toBeTruthy());
 
@@ -101,9 +122,11 @@ describe('ServicesImportDrawer', () => {
   });
 
   it('an active service missing from the file offers the opt-in deactivate toggle, off by default', async () => {
-    render(<ServicesImportDrawer session={SESSION} catalog={CATALOG}
-                                existing={[{ name: 'قص شعر', active: true }, { name: 'غسيل', active: true }]}
-                                open onClose={() => {}} onImported={() => {}} />);
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG}
+                            existing={[{ name: 'قص شعر', active: true }, { name: 'غسيل', active: true }]}
+                            open onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
     selectFile('name\nقص شعر');
     await waitFor(() => expect(screen.getByText(/1 خدمة مفعّلة/)).toBeTruthy());
     expect(screen.getByText('غسيل')).toBeTruthy();

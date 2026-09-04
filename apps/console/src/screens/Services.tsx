@@ -30,6 +30,8 @@ import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import { halalas, riyals } from '../money';
 import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './services-i18n';
 import { ServicesImportDrawer } from './ServicesImportDrawer';
 
 interface Service {
@@ -80,13 +82,13 @@ const UNGROUPED = '';
  * follow-up asks whether the last visit went well, and is timed to a few days after it. An owner
  * reading this line is deciding whether to open the row, so it has to say which of the two are on.
  */
-function summarise(v: ServiceSetting): string {
+function summarise(t: (key: string) => string, v: ServiceSetting): string {
   const parts: string[] = [];
-  if (v.interval_days) parts.push(`كل ${v.interval_days} يوماً`);
-  if (v.follow_up_days) parts.push(`واطمئنان بعد ${v.follow_up_days}`);
+  if (v.interval_days) parts.push(tf(t, 'services.summary.interval', { n: v.interval_days }));
+  if (v.follow_up_days) parts.push(tf(t, 'services.summary.followUp', { n: v.follow_up_days }));
   // NOT «بلا دورة» WHEN A FOLLOW-UP EXISTS. A service with no cycle but a follow-up is a perfectly
   // ordinary thing — a one-off job you still check on — and the old line called it silent.
-  return parts.length ? parts.join(' · ') : 'بلا دورة';
+  return parts.length ? parts.join(' · ') : t('services.summary.none');
 }
 
 /** loyalty's settings tree, in the shape it answers with: a number per level, and where it came from. */
@@ -103,6 +105,7 @@ interface EarnSettings {
 }
 
 export function ServicesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [services, setServices] = useState<Service[] | null | undefined>(undefined);
   /** The list could not be READ — as opposed to being read and found empty. Two different facts,
    *  and this screen used to say the same sentence for both. */
@@ -237,7 +240,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, earnAction, { service_id: serviceId, points });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حفظ النقاط.');
+      setError(e instanceof Error ? e.message : t('services.error.pointsSaveFailed'));
     } finally {
       setSaving(false);
     }
@@ -292,7 +295,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setNaming(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر إنشاء المجموعة.');
+      setError(e instanceof Error ? e.message : t('services.error.groupCreateFailed'));
     } finally {
       setSaving(false);
     }
@@ -316,7 +319,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setNaming(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر نقل الخدمة إلى المجموعة.');
+      setError(e instanceof Error ? e.message : t('services.error.moveToGroupFailed'));
     } finally {
       setSaving(false);
     }
@@ -394,7 +397,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       setAdding(false);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّرت إضافة الخدمة.');
+      setError(e instanceof Error ? e.message : t('services.error.addFailed'));
     } finally {
       setSaving(false);
     }
@@ -409,7 +412,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { id, ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حفظ التعديل.');
+      setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
     } finally {
       setSaving(false);
     }
@@ -425,9 +428,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    */
   const toggleEligible = async (svc: Service, operatorId: string) => {
     const activeIds = (staff ?? []).filter((s) => s.active !== false).map((s) => s.id);
+    // «كل الموظفين» — لا قيد بعد
     const current = svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
       ? new Set(svc.eligible_staff_ids)
-      : new Set(activeIds);   // «كل الموظفين» — لا قيد بعد
+      : new Set(activeIds);
     if (current.has(operatorId)) current.delete(operatorId); else current.add(operatorId);
     const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
     await patchService(svc.id, { eligible_staff_ids });
@@ -459,7 +463,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       // NOT A SILENT NO-OP. The catalogue is cached per token for the session, so a browser open
       // since before this action existed simply does not have it — and returning quietly made the
       // dropdown look broken. Say the one thing that fixes it.
-      setError('هذا الإجراء جديد — أعد فتح الصفحة أو سجّل الدخول من جديد ليظهر.');
+      setError(t('services.error.actionNeedsRefresh'));
       return;
     }
     setSaving(true);
@@ -468,7 +472,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { name, service_id: serviceId });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر إخراج الخدمة من المجموعة.');
+      setError(e instanceof Error ? e.message : t('services.error.leaveGroupFailed'));
     } finally {
       setSaving(false);
     }
@@ -483,14 +487,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const deleteGroup = async (name: string) => {
     const a = action(catalog, 'reminders.delete_group');
     if (!a) return;
-    if (!window.confirm(`حذف مجموعة «${name}»؟ تبقى خدماتها كما هي، بلا مجموعة.`)) return;
+    if (!window.confirm(tf(t, 'services.confirmDeleteGroup', { name }))) return;
     setSaving(true);
     setError('');
     try {
       await call(session, a, { name });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حذف المجموعة.');
+      setError(e instanceof Error ? e.message : t('services.error.deleteGroupFailed'));
     } finally {
       setSaving(false);
     }
@@ -535,7 +539,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       applyReasons(out?.reasons);
     } catch (e) {
       setVisitOn(!on);
-      setError(e instanceof Error ? e.message : 'تعذّر حفظ الإعداد.');
+      setError(e instanceof Error ? e.message : t('services.error.visitSettingFailed'));
     } finally {
       setSaving(false);
     }
@@ -549,7 +553,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حفظ الإعداد العام.');
+      setError(e instanceof Error ? e.message : t('services.error.generalSettingFailed'));
     } finally {
       setSaving(false);
     }
@@ -564,7 +568,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       await call(session, a, { service_id: id, ...patch });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+      setError(e instanceof Error ? e.message : t('services.error.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -587,7 +591,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). This guard read `=== null` and the failure
   // handler set `null` too, so a failed read waited here for ever and the `unread` sentence below
   // — which was written for exactly this — could never be reached.
-  if (isLoading(services)) return <Waiting what="نقرأ خدماتك" />;
+  if (isLoading(services)) return <Waiting what={t('services.loading')} />;
 
   // TWO DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. «We could not read your services»
   // is about us; «you have not added any yet» is about his shop — and until now both arrived here
@@ -602,9 +606,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     return (
       <div className="p-4">
         <EmptyState
-          title="تعذّر عرض خدماتك"
-          description="خدماتك موجودة ولم نستطع قراءتها الآن. أعد المحاولة، وإن تكرّر فتواصل معنا."
-          action={<Button onClick={load}>أعد المحاولة</Button>}
+          title={t('services.loadFailed.title')}
+          description={t('services.loadFailed.description')}
+          action={<Button onClick={load}>{t('services.retry')}</Button>}
         />
       </div>
     );
@@ -619,12 +623,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     return (
       <div className="p-4">
         <EmptyState
-          title="ابدأ بإضافة خدماتك"
-          description="اكتب ما تبيعه فعلاً — اسم الخدمة، وكل كم يوم يعود العميل لها. تقدر تضيف وتعدّل متى شئت."
+          title={t('services.empty.title')}
+          description={t('services.empty.description')}
           action={
             <div className="flex gap-2">
               {action(catalog, 'operations.create_service') ? (
-                <Button onClick={() => setAdding(true)}>أضف خدمتك الأولى</Button>
+                <Button onClick={() => setAdding(true)}>{t('services.addFirst')}</Button>
               ) : null}
               {/* A SHOP MIGRATING FROM A CASHIER/POS SYSTEM ALREADY HAS ITS FULL LIST SOMEWHERE —
                   offering only "type your first one" here means the fastest path for exactly that
@@ -632,7 +636,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   which it can never be before the first import. Found while wiring the button in,
                   fixed here rather than shipped with the same gap. */}
               {action(catalog, 'operations.bulk_import_services') ? (
-                <Button variant="outline" onClick={() => setImporting(true)}>استيراد من ملف</Button>
+                <Button variant="outline" onClick={() => setImporting(true)}>{t('services.importFromFile')}</Button>
               ) : null}
             </div>
           }
@@ -654,17 +658,17 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       {suggestion && action(catalog, 'reminders.set_group') ? (
         <div className="rounded-card border border-border-subtle bg-surface-1 p-4">
           <p className="text-sm">
-            {`${suggestion.services.length} خدمات لها نفس الإعداد. تبغى تجمعها في مجموعة واحدة؟`}
+            {tf(t, 'services.suggestion.text', { n: suggestion.services.length })}
           </p>
           <p className="mt-1 text-sm text-text-secondary">
-            تعديل المجموعة بعدها يكفي عن تعديلها خدمةً خدمة.
+            {t('services.suggestion.hint')}
           </p>
           {naming === null ? (
             <div className="mt-3 flex gap-2">
-              <Button onClick={() => setNaming('')}>اجمعها</Button>
+              <Button onClick={() => setNaming('')}>{t('services.groupThem')}</Button>
               {/* DISMISSED, NOT SAVED AS A REFUSAL. The suggestion is recomputed from his own
                   settings; if he changes them it should be free to reappear. */}
-              <Button variant="ghost" onClick={() => setSuggestion(null)}>ليس الآن</Button>
+              <Button variant="ghost" onClick={() => setSuggestion(null)}>{t('services.notNow')}</Button>
             </div>
           ) : (
             <div className="mt-3 flex gap-2">
@@ -672,13 +676,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 autoFocus
                 value={naming}
                 onChange={(e) => setNaming(e.target.value)}
-                placeholder="اسم المجموعة"
+                placeholder={t('services.groupName.placeholder')}
                 className="h-10 flex-1 rounded-lg bg-surface-2 px-3"
               />
               <Button disabled={saving || !naming.trim()} onClick={() => makeGroup(naming)}>
-                حفظ
+                {t('services.save')}
               </Button>
-              <Button variant="ghost" onClick={() => setNaming(null)}>إلغاء</Button>
+              <Button variant="ghost" onClick={() => setNaming(null)}>{t('services.cancel')}</Button>
             </div>
           )}
         </div>
@@ -721,15 +725,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       <div className="flex flex-wrap items-center gap-2">
         {action(catalog, 'reminders.set_group') && bins.length > 1 ? (
           <select
-            aria-label="تصفية بالمجموعة"
+            aria-label={t('services.filterByGroup')}
             value={only ?? ''}
             onChange={(e) => setOnly(e.target.value === '' ? null : e.target.value)}
             className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm"
           >
-            <option value="">كل المجموعات ({visible.length})</option>
+            <option value="">{tf(t, 'services.allGroups', { n: visible.length })}</option>
             {bins.map(([g, list]) => (
               <option key={g || 'ungrouped'} value={g}>
-                {`${g === UNGROUPED ? 'غير مجمّعة' : g} (${list.length})`}
+                {tf(t, 'services.groupOption', { group: g === UNGROUPED ? t('services.ungroupedHeading') : g, n: list.length })}
               </option>
             ))}
           </select>
@@ -737,14 +741,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
         {stoppedCount > 0 ? (
           <Segmented
-            ariaLabel="عرض الخدمات والمنتجات"
+            ariaLabel={t('services.viewAriaLabel')}
             value={view}
             onChange={(v) => setShow(v as 'active' | 'stopped')}
             options={[
               // TWO, NOT THREE. «الكل» mixes what he sells with what he stopped, which is the one
               // view that answers no question.
-              { value: 'active', label: 'المفعّلة' },
-              { value: 'stopped', label: `الموقوفة (${stoppedCount})` },
+              { value: 'active', label: t('services.active') },
+              { value: 'stopped', label: tf(t, 'services.stopped', { n: stoppedCount }) },
             ]}
           />
         ) : null}
@@ -759,18 +763,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           onClick={() => setAsked(asked ? null : 'legend')}
           className="grid h-10 place-items-center rounded-lg px-3 text-sm text-text-secondary"
         >
-          {asked ? 'إخفاء الشرح' : 'شرح الأعمدة'}
+          {asked ? t('services.hideExplain') : t('services.showExplain')}
         </button>
 
         {action(catalog, 'operations.bulk_import_services') && !adding ? (
           <Button className={action(catalog, 'operations.create_service') ? undefined : 'ms-auto'}
                  variant="outline" onClick={() => setImporting(true)}>
-            استيراد من ملف
+            {t('services.importFromFile')}
           </Button>
         ) : null}
 
         {action(catalog, 'operations.create_service') && !adding ? (
-          <Button className="ms-auto" onClick={() => setAdding(true)}>إضافة خدمة أو منتج</Button>
+          <Button className="ms-auto" onClick={() => setAdding(true)}>{t('services.addServiceOrProduct')}</Button>
         ) : null}
       </div>
 
@@ -781,39 +785,38 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       {action(catalog, 'reminders.set_general') ? (
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-1 py-1 text-sm text-text-secondary">
-            <span className="font-medium text-text-primary">الإعداد العام</span>
+            <span className="font-medium text-text-primary">{t('services.generalSetting')}</span>
             <span className="tabular-nums">
-              {summarise({
+              {summarise(t, {
                 interval_days: settings?.general?.interval_days,
                 follow_up_days: settings?.general?.follow_up_days,
               })}
             </span>
-            <span className="text-xs opacity-70 group-open:hidden">تغيير</span>
+            <span className="text-xs opacity-70 group-open:hidden">{t('services.change')}</span>
           </summary>
           <div className="mt-2 flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-text-secondary">يسري على كل خدمة لم تُخصَّص</span>
+              <span className="text-sm text-text-secondary">{t('services.appliesToUncustomized')}</span>
               <Hint>
-                يسري على كل خدمة لم تُخصَّص. وما خصّصته يبقى كما هو — تغيير هذا الرقم لا يلغي ما
-                ضبطته بنفسك على خدمة بعينها.
+                {t('services.appliesToUncustomized.hint')}
               </Hint>
             </div>
             <Setting
-              label="دورة التذكير"
-              name="دورة التذكير العامة"
-              meaning="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة."
+              label={t('services.reminderCycle.label')}
+              name={t('services.reminderCycle.name')}
+              meaning={t('services.reminderCycle.meaning')}
               value={settings?.general?.interval_days}
-              preview={(n) => `تذكير بعد ${n} يوماً من كل زيارة`}
-              zero="لا تذكير — إلا لخدمة خصّصتها"
+              preview={(n) => tf(t, 'services.reminderCycle.preview', { n })}
+              zero={t('services.reminderCycle.zero')}
               onSave={(n) => setGeneral({ interval_days: n })}
             />
             <Setting
-              label="الاطمئنان"
-              name="الاطمئنان العام"
-              meaning="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها."
+              label={t('services.followUp')}
+              name={t('services.followUp.name')}
+              meaning={t('services.followUp.meaning')}
               value={settings?.general?.follow_up_days}
-              preview={(n) => `سؤال بعد ${n} يوماً من الزيارة`}
-              zero="لا نسأل — إلا لخدمة خصّصتها"
+              preview={(n) => tf(t, 'services.followUp.preview', { n })}
+              zero={t('services.followUp.zero')}
               onSave={(n) => setGeneral({ follow_up_days: n })}
             />
 
@@ -829,20 +832,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             <div className="flex items-start justify-between gap-3 border-t border-border-subtle pt-3">
               <span className="flex min-w-0 flex-col gap-1">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  تأكيد الزيارة
+                  {t('services.visitConfirmation')}
                   <Hint>
-                    رسالة تصل عميلك بعد تسجيل زيارته مباشرة. تناسب من يترك شيئاً عندك — ورشة أو
-                    مغسلة — وقد لا تناسب من يدفع ويمشي.
+                    {t('services.visitConfirmation.hint')}
                   </Hint>
                 </span>
                 <span className="text-xs text-text-secondary">
                   {visitOn
-                    ? 'نرسل رسالة قصيرة بعد تسجيل الزيارة.'
-                    : 'لا نرسل شيئاً عند تسجيل الزيارة.'}
+                    ? t('services.visitConfirmation.on')
+                    : t('services.visitConfirmation.off')}
                 </span>
               </span>
               <Toggle
-                ariaLabel="تأكيد الزيارة"
+                ariaLabel={t('services.visitConfirmation')}
                 disabled={saving}
                 // PRESENCE, NOT TRUTH — the server answers with the reason's own state, and
                 // «لم يختر» is «نرسل». Rendering undefined as off would show a switch that
@@ -874,7 +876,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   // used to fall into the same branch as an empty box, so «إضافة» created the
                   // service with no price at all and said nothing about why.
                   if (priceText !== '' && halalas(priceText) === null) {
-                    setError('السعر غير صحيح — رقم بخانتين عشريتين على الأكثر.');
+                    setError(t('services.error.priceInvalid'));
                     return;
                   }
                   addService(String(f.get('name') || ''), {
@@ -891,9 +893,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 }}
               >
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm">الاسم</span>
+                  <span className="text-sm">{t('services.name')}</span>
                   <input name="name" required autoFocus maxLength={128}
-                         placeholder="مثال: تلميع وتشميع، أو كيس قهوة 250 جم"
+                         placeholder={t('services.name.placeholder')}
                          className="h-10 rounded-lg bg-surface-2 px-3" />
                 </label>
 
@@ -901,8 +903,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     fit the label column on a phone and arrived clipped mid-word — «كل كم يوماً
                     ي…» is worse than a short name, because a truncated question is unanswerable
                     while a short one is merely brief. */}
-                <Row label="دورة التذكير"
-                     hint="كل كم يوماً يحتاج العميل هذه الخدمة؟ اتركه 0 إن كانت لمرة واحدة — فلا تذكير لها.">
+                <Row label={t('services.reminderCycle.label')}
+                     hint={t('services.reminderCycle.rowHint')}>
                   <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
@@ -911,29 +913,29 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     أصلاً، وأقرب افتراض واقعي لخدمة سريعة. رقم مقترح يُعدَّل قبل الحفظ، لا قيمة
                     يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً.
                     `step` يحرّك أسهم الحقل بوحدات ١٥ فقط — لا يمنع كتابة رقم آخر يدوياً. */}
-                <Row label="المدة (بالدقائق)"
-                     hint="كم يقعد الموظف يقدّم هذي الخدمة فعلياً؟ رقم حقيقي تحتاجه الحجوزات — بلا مدة، ما تقدر تحجزها.">
+                <Row label={t('services.duration.label')}
+                     hint={t('services.duration.hint')}>
                   <input name="duration_minutes" type="number" min={0} max={720} step={15} defaultValue={15} dir="ltr"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
                 {/* السعر اختياري — فارغ يبقى فارغاً، لا صفر مفروض. */}
-                <Row label="السعر" hint="بالريال. اتركه فارغاً إن كان لا يُسعَّر من هنا.">
+                <Row label={t('services.price.label')} hint={t('services.price.hint')}>
                   <input name="price" type="text" inputMode="decimal" dir="ltr" placeholder="—"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
                 {action(catalog, 'reminders.set_service_settings') ? (
-                  <Row label="الاطمئنان"
-                       hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام، وتُلغى تلقائياً إن عاد قبل موعدها. اتركه 0 فلا نسأل.">
+                  <Row label={t('services.followUp')}
+                       hint={t('services.followUp.rowHint')}>
                     <input name="follow_up_days" type="number" min={0} defaultValue={0} dir="ltr"
                            className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                   </Row>
                 ) : null}
 
                 {earnAction ? (
-                  <Row label="نقاطها"
-                       hint="اتركه فارغاً لتتبع إعدادك العام — واكتب رقماً لتكون لها نقاطها وحدها.">
+                  <Row label={t('services.points.label')}
+                       hint={t('services.points.hint')}>
                     <input name="points" type="number" min={0} dir="ltr"
                            placeholder={String(earn?.general?.points ?? 0)}
                            className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
@@ -941,10 +943,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 ) : null}
 
                 {action(catalog, 'reminders.set_group') ? (
-                  <Row label="المجموعة"
-                       hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها. واتركه بلا مجموعة إن لم تكن متأكداً؛ تنقلها متى شئت.">
+                  <Row label={t('services.group')}
+                       hint={t('services.group.hint')}>
                     <select name="group" className="h-10 w-full rounded-lg bg-surface-2 px-2 text-sm">
-                      <option value="">بلا مجموعة</option>
+                      <option value="">{t('services.noGroupOption')}</option>
                       {Object.keys(settings?.groups ?? {}).map((g) => (
                         <option key={g} value={g}>{g}</option>
                       ))}
@@ -953,8 +955,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 ) : null}
 
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={saving}>إضافة</Button>
-                  <Button type="button" variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button>
+                  <Button type="submit" disabled={saving}>{t('services.add')}</Button>
+                  <Button type="button" variant="ghost" onClick={() => setAdding(false)}>{t('services.cancel')}</Button>
                 </div>
               </form>
             )
@@ -965,12 +967,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       {asked ? (
         <dl className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-2/60 px-4 py-3 text-sm leading-relaxed">
           {[
-            ['المدة', 'كم يقعد الموظف يقدّم هذي الخدمة فعلياً، بالدقائق. الحجوزات تحتاجها لتحديد وقتها — بلا مدة، ما تُحجَز.'],
-            ['السعر', 'بالريال، واختياري تماماً. خانة فاضية تعني أنك لا تسعّر من هنا، لا أنها مجانية.'],
-            ['الدورة', 'الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.'],
-            ['الاطمئنان', 'رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.'],
-            ['النقاط', 'كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.'],
-            ['المجموعة', 'ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.'],
+            [t('services.legend.duration.term'), t('services.legend.duration.def')],
+            [t('services.price.label'), t('services.legend.price.def')],
+            [t('services.legend.cycle.term'), t('services.legend.cycle.def')],
+            [t('services.followUp'), t('services.legend.followUp.def')],
+            [t('services.points'), t('services.legend.points.def')],
+            [t('services.group'), t('services.legend.group.def')],
           ].map(([term, said]) => (
             <div key={term} className="flex flex-wrap gap-x-2">
               <dt className="font-medium">{term}</dt>
@@ -1009,18 +1011,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         <table className="w-full table-fixed border-collapse text-sm">
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
-              <Th className="w-[38%]">الخدمة</Th>
-              <Th wide className="w-24">المدة (د)</Th>
-              <Th wide className="w-24">السعر</Th>
-              <Th narrow>الدورة</Th>
-              <Th narrow wide>الاطمئنان</Th>
-              {earnAction ? <Th narrow wide>النقاط</Th> : null}
+              <Th className="w-[38%]">{t('services.table.service')}</Th>
+              <Th wide className="w-24">{t('services.table.duration')}</Th>
+              <Th wide className="w-24">{t('services.price.label')}</Th>
+              <Th narrow>{t('services.legend.cycle.term')}</Th>
+              <Th narrow wide>{t('services.followUp')}</Th>
+              {earnAction ? <Th narrow wide>{t('services.points')}</Th> : null}
               {action(catalog, 'reminders.set_group') ? (
                 // WIDER THAN THE NUMBER COLUMNS, because it holds a name and a dropdown arrow.
                 // At 64px «بلا مجموعة» rendered as «بلا» — a truncation that reads as a value.
-                <Th wide className="w-36">المجموعة</Th>
+                <Th wide className="w-36">{t('services.group')}</Th>
               ) : null}
-              <Th narrow className="w-24">إجراءات</Th>
+              <Th narrow className="w-24">{t('services.table.actions')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -1038,9 +1040,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               <td colSpan={11} className="px-3 py-2">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 text-sm font-semibold text-text-secondary">
-                    {group === UNGROUPED ? 'غير مجمّعة' : group}
+                    {group === UNGROUPED ? t('services.ungroupedHeading') : group}
                     {group !== UNGROUPED && settings?.groups?.[group]?.interval_days
-                      ? ` · كل ${settings.groups[group].interval_days} يوماً`
+                      ? tf(t, 'services.groupIntervalSuffix', { n: settings.groups[group].interval_days as number })
                       : ''}
                   </span>
                   {/* THE GROUP CAN BE UNMADE. It could be created and never removed, so an owner
@@ -1049,7 +1051,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                       what is left over, and a delete button on it would delete nothing. */}
                   {group !== UNGROUPED && action(catalog, 'reminders.delete_group') ? (
                     <Button variant="ghost" disabled={saving} onClick={() => deleteGroup(group)}>
-                      حذف المجموعة
+                      {t('services.deleteGroup')}
                     </Button>
                   ) : null}
                 </div>
@@ -1074,7 +1076,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <input
                   defaultValue={svc.name}
                   autoFocus
-                  aria-label={`اسم ${svc.name}`}
+                  aria-label={tf(t, 'services.nameAriaLabel', { name: svc.name })}
                   maxLength={128}
                   onBlur={(e) => {
                     const v = e.target.value.trim();
@@ -1088,7 +1090,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               ) : (
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-medium">{svc.name}</span>
-                  {stopped ? <Badge tone="neutral">موقوفة</Badge> : null}
+                  {stopped ? <Badge tone="neutral">{t('services.stoppedBadge')}</Badge> : null}
                 </span>
               )}
             </td>
@@ -1102,7 +1104,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <input
                   type="number" min={0} max={720} dir="ltr"
                   defaultValue={svc.duration_minutes ? String(svc.duration_minutes) : ''}
-                  aria-label={`مدة ${svc.name}`}
+                  aria-label={tf(t, 'services.durationAriaLabel', { name: svc.name })}
                   onBlur={(e) => {
                     const raw = e.target.value.trim();
                     if (raw === '') return;   // blank saves nothing, same rule as every Num cell
@@ -1113,7 +1115,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 />
               ) : (
                 <span className={svc.duration_minutes ? '' : 'text-danger'}>
-                  {svc.duration_minutes ? svc.duration_minutes : 'غير مضبوطة'}
+                  {svc.duration_minutes ? svc.duration_minutes : t('services.notSet')}
                 </span>
               )}
             </td>
@@ -1127,7 +1129,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <input
                   type="text" inputMode="decimal" dir="ltr"
                   defaultValue={svc.price_minor ? riyals(svc.price_minor) : ''}
-                  aria-label={`سعر ${svc.name}`}
+                  aria-label={tf(t, 'services.priceAriaLabel', { name: svc.name })}
                   placeholder="—"
                   onBlur={(e) => {
                     const raw = e.target.value.trim();
@@ -1138,7 +1140,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     // word said, so the box quietly kept whatever he had actually typed while the
                     // service kept its old price. `halalas`'s own comment says the caller shows a
                     // reason; this was the caller, and it never did.
-                    if (minor === null) { setError('السعر غير صحيح — رقم بخانتين عشريتين على الأكثر.'); return; }
+                    if (minor === null) { setError(t('services.error.priceInvalid')); return; }
                     if (minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
                   }}
                   className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
@@ -1156,7 +1158,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               value={value.interval_days}
               own={own}
               editable={editing && !!action(catalog, 'reminders.set_service_settings')}
-              label={`دورة ${svc.name}`}
+              label={tf(t, 'services.cycleAriaLabel', { name: svc.name })}
               onSave={(n) => setService(svc.id, { interval_days: n })}
             />
             <Num
@@ -1164,7 +1166,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               value={value.follow_up_days}
               own={own}
               editable={editing && !!action(catalog, 'reminders.set_service_settings')}
-              label={`اطمئنان ${svc.name}`}
+              label={tf(t, 'services.followUpAriaLabel', { name: svc.name })}
               onSave={(n) => setService(svc.id, { follow_up_days: n })}
             />
             {earnAction ? (
@@ -1173,7 +1175,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 value={earnFor(svc.id).points}
                 own={earnFor(svc.id).own}
                 editable={editing}
-                label={`نقاط ${svc.name}`}
+                label={tf(t, 'services.pointsAriaLabel', { name: svc.name })}
                 onSave={(n) => { if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n); }}
               />
             ) : null}
@@ -1182,7 +1184,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               <td className="hidden truncate px-3 py-2 md:table-cell">
                 {editing ? (
                   <select
-                    aria-label={`مجموعة ${svc.name}`}
+                    aria-label={tf(t, 'services.groupAriaLabel', { name: svc.name })}
                     value={settings?.service_group?.[svc.id] ?? ''}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -1194,11 +1196,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     }}
                     className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2 text-sm"
                   >
-                    <option value="">بلا مجموعة</option>
+                    <option value="">{t('services.noGroupOption')}</option>
                     {Object.keys(settings?.groups ?? {}).map((g) => (
                       <option key={g} value={g}>{g}</option>
                     ))}
-                    <option value="__new__">مجموعة جديدة…</option>
+                    <option value="__new__">{t('services.newGroupOption')}</option>
                   </select>
                 ) : (
                   <span className="text-text-secondary">
@@ -1219,19 +1221,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               <div className="flex items-center justify-end gap-0.5 md:gap-1">
                 {own && action(catalog, 'reminders.follow_general') ? (
                   <IconButton
-                    title="العودة إلى الإعداد العام"
+                    title={t('services.returnToGeneral')}
                     disabled={saving}
                     onClick={() => followGeneral(svc.id)}
                   ><RotateCcw size={18} aria-hidden /></IconButton>
                 ) : null}
                 <IconButton
-                  title={editing ? 'إنهاء التعديل' : 'تعديل'}
+                  title={editing ? t('services.finishEditing') : t('services.edit')}
                   onClick={() => setOpen(editing ? null : svc.id)}
                   active={editing}
                 >{editing ? <Check size={18} aria-hidden /> : <Pencil size={18} aria-hidden />}</IconButton>
                 {action(catalog, 'operations.update_service') ? (
                   <IconButton
-                    title={stopped ? 'تفعيل' : 'إيقاف — تختفي من شاشة الزيارة وتسكت تذكيراتها'}
+                    title={stopped ? t('services.activate') : t('services.deactivate')}
                     disabled={saving}
                     danger={!stopped}
                     onClick={() => patchService(svc.id, { active: stopped })}
@@ -1258,11 +1260,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               <td colSpan={3} className="px-3 py-3">
                 <div className="flex flex-col gap-2">
                   {action(catalog, 'reminders.set_service_settings') ? (
-                    <Field label="الاطمئنان">
+                    <Field label={t('services.followUp')}>
                       <input
                         type="number" min={0} dir="ltr"
                         defaultValue={String(value.follow_up_days ?? 0)}
-                        aria-label={`اطمئنان ${svc.name}`}
+                        aria-label={tf(t, 'services.followUpAriaLabel', { name: svc.name })}
                         onBlur={(e) => {
                           const raw = e.target.value.trim();
                           if (raw !== '' && Number(raw) !== (value.follow_up_days ?? 0)) {
@@ -1274,11 +1276,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     </Field>
                   ) : null}
                   {earnAction ? (
-                    <Field label="النقاط">
+                    <Field label={t('services.points')}>
                       <input
                         type="number" min={0} dir="ltr"
                         defaultValue={String(earnFor(svc.id).points)}
-                        aria-label={`نقاط ${svc.name}`}
+                        aria-label={tf(t, 'services.pointsAriaLabel', { name: svc.name })}
                         onBlur={(e) => {
                           const raw = e.target.value.trim();
                           if (raw !== '' && Number(raw) !== earnFor(svc.id).points) {
@@ -1290,9 +1292,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     </Field>
                   ) : null}
                   {action(catalog, 'reminders.set_group') ? (
-                    <Field label="المجموعة">
+                    <Field label={t('services.group')}>
                       <select
-                        aria-label={`مجموعة ${svc.name}`}
+                        aria-label={tf(t, 'services.groupAriaLabel', { name: svc.name })}
                         value={settings?.service_group?.[svc.id] ?? ''}
                         onChange={(e) => {
                           const v = e.target.value;
@@ -1302,11 +1304,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                         }}
                         className="h-10 rounded-lg bg-surface-1 px-2 text-sm"
                       >
-                        <option value="">بلا مجموعة</option>
+                        <option value="">{t('services.noGroupOption')}</option>
                         {Object.keys(settings?.groups ?? {}).map((g) => (
                           <option key={g} value={g}>{g}</option>
                         ))}
-                        <option value="__new__">مجموعة جديدة…</option>
+                        <option value="__new__">{t('services.newGroupOption')}</option>
                       </select>
                     </Field>
                   ) : null}
@@ -1323,7 +1325,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             <tr className="border-b border-border-subtle bg-surface-2/40">
               <td colSpan={11} className="px-3 py-2">
                 <FilterMenu
-                  label="من يقدر يسوّيها"
+                  label={t('services.whoCanDoIt')}
                   options={(staff ?? []).filter((s) => s.active !== false)
                     .map((s) => ({ value: s.id, label: s.name }))}
                   selected={eligibleIdsFor(svc)}
@@ -1340,15 +1342,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <div className="flex items-center gap-2">
                   <input
                     autoFocus
-                    aria-label="اسم المجموعة الجديدة"
-                    placeholder="مثال: خدمات المحرك"
+                    aria-label={t('services.newGroupNameAriaLabel')}
+                    placeholder={t('services.newGroupPlaceholder')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') joinGroup(svc.id, e.currentTarget.value);
                       if (e.key === 'Escape') setNaming(null);
                     }}
                     className="h-9 flex-1 rounded-lg bg-surface-1 px-3"
                   />
-                  <Button variant="ghost" onClick={() => setNaming(null)}>إلغاء</Button>
+                  <Button variant="ghost" onClick={() => setNaming(null)}>{t('services.cancel')}</Button>
                 </div>
               </td>
             </tr>
@@ -1529,6 +1531,7 @@ function Setting({
   zero: string;
   onSave: (n: number) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [draft, setDraft] = useState(String(value ?? 0));
   const n = Number(draft.trim() || 0);
 
@@ -1560,7 +1563,7 @@ function Setting({
           // on screen — correctly, it is the same setting at two levels — and an accessible name
           // repeated twice on one page is a screen reader announcing two identical fields and a
           // person unable to tell which one he is in.
-          aria-label={`${name || label} (بالأيام)`}
+          aria-label={tf(t, 'services.byDaysAriaLabel', { name: name || label })}
           dir="ltr"
           className="ms-auto h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
         />
