@@ -13,6 +13,7 @@ import { AdminDoor } from './AdminDoor';
 import { AdminFinance } from './AdminFinance';
 import { AdminHome } from './AdminHome';
 import { AdminPlatform } from './AdminPlatform';
+import { AdminTickets } from './AdminTickets';
 import { useAdminSession } from './session';
 
 export function AdminPortal() {
@@ -31,6 +32,7 @@ export function AdminPortal() {
           {tab === 'home' ? <AdminHome session={session} /> : null}
           {tab === 'apps' ? <AdminApps session={session} /> : null}
           {tab === 'customers' ? <AdminCustomers session={session} /> : null}
+          {tab === 'tickets' ? <AdminTickets session={session} /> : null}
           {tab === 'billing' ? <AdminFinance session={session} /> : null}
           {tab === 'platform' ? <AdminPlatform session={session} /> : null}
           {tab === 'account' ? <AdminAccount onSignOut={signOut} /> : null}

@@ -102,7 +102,8 @@
         "service_accounts:read",
         "service_accounts:write",
         "tenant.manage",
-        "tickets.manage"
+        "tickets.manage",
+        "platform.tickets"
       ]
     },
     {
@@ -136,7 +137,8 @@
       "protected": false,
       "read_only": true,
       "capabilities": [
-        "platform.support"
+        "platform.support",
+        "platform.tickets"
       ]
     },
     {

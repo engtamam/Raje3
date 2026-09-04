@@ -19,7 +19,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/ticket-service
-  digest: "sha256:756db61042cadf5a3a854518846d781a77b1770deff468015056aecab1a4173b"   # v0.18.16
+  digest: "sha256:e4bf0ae46cec0410039a2104e50b16e0b5cb9beab6407b6cd3d16b57e3fe246d"   # v0.18.20 — GET /api/v1/tickets/admin/tickets(/{id}), platform.tickets
 
 replicas: 1
 

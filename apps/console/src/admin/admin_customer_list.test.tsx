@@ -34,6 +34,12 @@ const CATALOG = {
        path: '/api/v1/platform/tenants/{tenant_id}/capacity', capability: 'platform.operations' },
     ] },
     { service: 'affiliate-service', actions: [] },
+    { service: 'ticket-service', actions: [
+      { id: 'tickets.platform_inbox', label: 'x', method: 'GET' as const,
+       path: '/api/v1/tickets/admin/tickets', capability: 'platform.tickets' },
+      { id: 'tickets.platform_detail', label: 'x', method: 'GET' as const,
+       path: '/api/v1/tickets/admin/tickets/{ticket_id}', capability: 'platform.tickets' },
+    ] },
   ],
   unreachable: [],
 };
@@ -230,6 +236,52 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/audit?tenant=t1'), 'GET', undefined, 'tok-1'));
     await waitFor(() => expect(screen.getByText('billing.plan_changed')).toBeTruthy());
+  });
+
+  it('the tickets tab lists this tenant\'s tickets, then opens full detail with the reply thread', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/tickets/admin/tickets/tk1')) {
+        return Promise.resolve({
+          tenant: 't1',
+          ticket: { id: 'tk1', type: 'support', status: 'open', priority: 'normal',
+                   created: '2026-09-01T00:00:00Z', updated: '2026-09-01T01:00:00Z',
+                   assignee: '', tags: [], raiser_ref: 'ref-1',
+                   subject: 'ما وصلتني الرسالة', body: 'حاولت أرسل تذكير وما وصل شي' },
+          events: [{ id: 'ev1', kind: 'replied', ts: '2026-09-01T01:00:00Z', actor: 'op-1',
+                    body: 'نتحقق الآن' }],
+        });
+      }
+      if (path.includes('/tickets/admin/tickets')) {
+        return Promise.resolve({
+          tenant: 't1',
+          tickets: [{ id: 'tk1', type: 'support', status: 'open', priority: 'normal',
+                     created: '2026-09-01T00:00:00Z', updated: '2026-09-01T01:00:00Z',
+                     assignee: '', tags: [], raiser_ref: 'ref-1' }],
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('التذاكر والدعم'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/tickets/admin/tickets?tenant=t1'), 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('tk1')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('tk1'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/tickets/admin/tickets/tk1?tenant=t1'), 'GET', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('ما وصلتني الرسالة')).toBeTruthy());
+    expect(screen.getByText('حاولت أرسل تذكير وما وصل شي')).toBeTruthy();
+    expect(screen.getByText('نتحقق الآن')).toBeTruthy();
   });
 
   it('no capability, no silent blank table', async () => {

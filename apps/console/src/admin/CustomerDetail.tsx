@@ -10,10 +10,10 @@
  * رقم مخترَع. الباقي (التذاكر والدعم، واتساب) يبقى "قريباً" صريح يشرح بالضبط ما
  * ينقصه — لا يختفي، نفس انضباط AdminWhatsAppTemplates.tsx's "لا عذر صامت".
  *
- * تصحيح مهم لتبويب التذاكر تحديداً: مسار /tickets/operator/tickets الحالي مبني لعملية محل واحد
- * يشوف تذاكر تينانته هو نفسه (`_tenant(principal)`، غير قابل لتمرير tenant من الخارج) — يعني
- * فجوته أعمق مما ذُكر أول مرة ("فلتر ناقص")؛ هذا مسار مختلف تماماً عن حاجتنا (منصة تشوف تذاكر
- * أي عميل)، يحتاج مساراً إدارياً جديداً على نمط billing.platform_subscriptions، لا مجرد معامل.
+ * تبويب التذاكر (المرحلة 4): مسار إداري جديد كلياً من ticket-service (v0.18.20)، بناءً على طلب
+ * صريح — GET /api/v1/tickets/admin/tickets(?tenant=) للقائمة، و.../{ticket_id} للتفاصيل الكاملة
+ * (نص + ردود)، بصلاحية platform.tickets وحدها (دور tenant/operator يُرفض 403). كل قراءة تُسجَّل
+ * fail-closed (ticket.platform_viewed) — شرط طلبناه صراحة، لا اقتراح منهم.
  */
 import { useEffect, useState } from 'react';
 import { Badge } from './../rj-ui/Badge';
@@ -61,9 +61,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
         {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} planNames={planNames} /> : null}
         {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
         {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
-        {tab === 'tickets' ? (
-          <ComingSoon text="مسار عرض التذاكر الحالي مبني لمحل يشوف تذاكره هو فقط، لا يقبل تحديد أي عميل من الخارج — يحتاج مساراً إدارياً جديداً كلياً (على نمط billing.platform_subscriptions)، لا مجرد فلتر ناقص." />
-        ) : null}
+        {tab === 'tickets' ? <TicketsTab session={session} tenant={tenant} catalog={catalog} /> : null}
         {tab === 'whatsapp' ? (
           <ComingSoon text="قوالب واتساب حالياً عامة للمنصة كلها، لا يوجد مفهوم قالب خاص بمنشأة — فجوة معمارية حقيقية، ليست مجرد فلتر ناقص." />
         ) : null}
@@ -260,6 +258,124 @@ function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant:
       <Row label="الموظفون">
         <span className="font-medium">{seatsLabel(capacity.operators, capacity.operators_limit)}</span>
       </Row>
+    </div>
+  );
+}
+
+interface TicketSummary {
+  id: string; type: string; status: string; priority: string;
+  created: string; updated: string; assignee: string; tags: string[]; raiser_ref: string;
+}
+
+interface TicketEvent {
+  id: string; kind: string; ts: string; actor: string; body?: string;
+}
+
+interface TicketDetail extends TicketSummary {
+  subject: string;
+  body: string;
+}
+
+/** لا خريطة حالات ثابتة عمداً — الحالة نص حرّ يحدّده تدفّق عمل (workflow) كل تينانت
+ * (GET /api/v1/workflows بـticket-service)، لا قيمة مغلقة من مجموعة معروفة سلفاً. عرض الخام
+ * كما هو أصدق من تلوين حالة قد لا تطابق تعريفها الحقيقي. */
+function statusTone(status: string): 'neutral' | 'success' | 'danger' | 'warning' {
+  const s = status.toLowerCase();
+  if (s.includes('resolv') || s.includes('closed') || s.includes('حُل') || s.includes('مغلق')) return 'success';
+  if (s.includes('escalat') || s.includes('تصعيد')) return 'danger';
+  if (s.includes('pending') || s.includes('انتظار')) return 'warning';
+  return 'neutral';
+}
+
+/**
+ * قائمة/تفاصيل — نفس نمط الاختيار من قائمة يفتح تفاصيل تحتها المستخدم بمكونات ثانية بهذا الملف
+ * (لا Modal متداخل). قراءة فقط: لا ردّ ولا تغيير حالة من هنا — هذي شاشة دعم المنصة على تذاكر
+ * عميل، لا لوحة عامل التذاكر نفسها.
+ */
+/** مُصدَّرة — نفس المكوّن يُستخدم هنا (تبويب داخل ملف عميل واحد) وبصفحة "تذاكر" المستقلة
+ * بالشريط الجانبي (AdminTickets.tsx) بعد اختيار مستأجر من قائمة — لا تكرار منطق. */
+export function TicketsTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
+  const [tickets, setTickets] = useState<TicketSummary[] | 'loading' | 'failed'>('loading');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [detail, setDetail] = useState<{ ticket: TicketDetail; events: TicketEvent[] } | 'loading' | 'failed' | null>(null);
+
+  const listAction = findCustomerAction(catalog, 'tickets.platform_inbox');
+  const detailAction = findCustomerAction(catalog, 'tickets.platform_detail');
+
+  useEffect(() => {
+    if (!listAction) { setTickets('failed'); return; }
+    req<{ tenant: string; tickets: TicketSummary[] }>(
+      `${listAction.path}?tenant=${encodeURIComponent(tenant.id)}&limit=50`, 'GET', undefined, session.access_token)
+      .then((r) => setTickets(r.tickets)).catch(() => setTickets('failed'));
+    setSelected(null);
+    setDetail(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
+  }, [tenant.id]);
+
+  useEffect(() => {
+    if (!selected) return;
+    if (!detailAction) { setDetail('failed'); return; }
+    setDetail('loading');
+    const path = detailAction.path.replace(/\{[^}]*\}/, encodeURIComponent(selected));
+    req<{ tenant: string; ticket: TicketDetail; events: TicketEvent[] }>(
+      `${path}?tenant=${encodeURIComponent(tenant.id)}`, 'GET', undefined, session.access_token)
+      .then((r) => setDetail({ ticket: r.ticket, events: r.events })).catch(() => setDetail('failed'));
+  }, [selected, detailAction, tenant.id, session.access_token]);
+
+  if (!listAction) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
+  if (tickets === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (tickets === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>;
+  if (tickets.length === 0) return <p className="text-sm text-text-muted">لا تذاكر لهذا العميل.</p>;
+
+  if (selected) {
+    return (
+      <div className="flex flex-col gap-3">
+        <button type="button" onClick={() => setSelected(null)} className="self-start text-label text-brand">
+          ← رجوع للقائمة
+        </button>
+        {detail === 'loading' || detail === null ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+         : detail === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
+         : (
+          <div className="flex flex-col gap-4">
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <h3 className="font-medium">{detail.ticket.subject || detail.ticket.id}</h3>
+                <Badge tone={statusTone(detail.ticket.status)}>{detail.ticket.status}</Badge>
+              </div>
+              <p className="whitespace-pre-wrap text-sm text-text-secondary">{detail.ticket.body}</p>
+            </div>
+            <div>
+              <h4 className="mb-2 text-label text-text-muted">سجل الردود</h4>
+              {detail.events.length === 0 ? <p className="text-sm text-text-muted">لا ردود بعد.</p> : (
+                <div className="flex flex-col gap-2">
+                  {detail.events.map((e) => (
+                    <div key={e.id} className="rounded-lg bg-surface-2 p-3 text-sm">
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
+                        <span dir="ltr" className="text-label text-text-muted">{new Date(e.ts).toLocaleString('ar-SA')}</span>
+                      </div>
+                      {e.body ? <p className="whitespace-pre-wrap">{e.body}</p> : <span className="text-text-muted">{e.kind}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {tickets.map((t) => (
+        <button key={t.id} type="button" onClick={() => setSelected(t.id)}
+                className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 p-3 text-sm text-start hover:bg-surface-3">
+          <span dir="ltr" className="font-mono text-text-muted">{t.id}</span>
+          <span dir="ltr" className="text-label text-text-muted">{new Date(t.updated).toLocaleString('ar-SA')}</span>
+          <Badge tone={statusTone(t.status)}>{t.status}</Badge>
+        </button>
+      ))}
     </div>
   );
 }

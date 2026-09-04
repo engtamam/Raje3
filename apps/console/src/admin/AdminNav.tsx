@@ -1,23 +1,25 @@
 /**
- * لوحة الإدارة's own nav — 5 أقسام فقط ("ابغ من صفحة الادارة يكون 5 الى 6
- * حاجات فقط على الشريط الجانبي"), same dual-layout idiom as the affiliate portal's own
- * `AffiliateNav.tsx`: one tab list, two renderings picked by CSS (`md:hidden`/`hidden md:flex`),
- * never `matchMedia`. Sidebar on desktop; bottom bar on the phone, thumb-reachable — the SAME
- * behaviour from day one, never "mobile support added later".
+ * لوحة الإدارة's own nav — كان القيد الأصلي "5 إلى 6 أقسام فقط بالشريط الجانبي"؛ رُفع عمداً
+ * لستة تشغيلية (+ حسابي = سبعة إجمالاً) بإضافة "تذاكر" كصفحة مستقلة — قرار المستخدم صراحة
+ * (فصلها عن "العملاء والدعم" أوضح من دمجها بمودال عميل واحد)، لا انزلاق غير مقصود بالعدد. نفس
+ * dual-layout idiom الأصلي: one tab list, two renderings picked by CSS (`md:hidden`/
+ * `hidden md:flex`), never `matchMedia`. Sidebar on desktop; bottom bar on the phone,
+ * thumb-reachable — the SAME behaviour from day one, never "mobile support added later".
  */
 import type { ReactNode } from 'react';
 import {
-  LayoutDashboard, Package, Users, Wallet, Settings2, CircleUserRound,
+  LayoutDashboard, Package, Users, Ticket, Wallet, Settings2, CircleUserRound,
 } from 'lucide-react';
 
-export type Tab = 'home' | 'apps' | 'customers' | 'billing' | 'platform' | 'account';
+export type Tab = 'home' | 'apps' | 'customers' | 'tickets' | 'billing' | 'platform' | 'account';
 
-// خمسة أقسام تشغيلية فقط + سادس مخصّص لحساب المشغّل نفسه — كلمة مروره
-// وبياناته الشخصية، لا وظيفة تشغيلية زيادة على الخمسة.
+// ستة أقسام تشغيلية + سابع مخصّص لحساب المشغّل نفسه — كلمة مروره
+// وبياناته الشخصية، لا وظيفة تشغيلية زيادة على الستة.
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: 'home', label: 'الرئيسية', icon: <LayoutDashboard size={20} /> },
   { id: 'apps', label: 'التطبيقات والأسعار', icon: <Package size={20} /> },
   { id: 'customers', label: 'العملاء والدعم', icon: <Users size={20} /> },
+  { id: 'tickets', label: 'تذاكر', icon: <Ticket size={20} /> },
   { id: 'billing', label: 'المالية', icon: <Wallet size={20} /> },
   { id: 'platform', label: 'المنصّة والفريق', icon: <Settings2 size={20} /> },
 ];
