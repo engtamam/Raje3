@@ -83,6 +83,24 @@
       ]
     },
     {
+      "name": "svc_visit_confirmation_rating",
+      "deferral": "drop",
+      "title": "تأكيد الزيارة مع طلب تقييم",
+      "cls": "service",
+      "category": "UTILITY",
+      "header": "",
+      "tones": {
+        "warm": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}. سجّلنا زيارتك! {{3}} ⭐ {{4}} 🎁",
+        "feminine": "يا هلا {{1}}، نوّرتِنا اليوم في {{2}}. سجّلنا زيارتك! {{3}} ⭐ {{4}} 🎁"
+      },
+      "fills": [
+        "system",
+        "system",
+        "rating_cta",
+        "invite"
+      ]
+    },
+    {
       "name": "svc_booking_confirmation",
       "deferral": "drop",
       "title": "تأكيد الحجز",

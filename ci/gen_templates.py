@@ -43,7 +43,12 @@ TONES = ("warm", "feminine")
 # generated JSON, which this generator then overwrote on its next run — the field vanished, every
 # reader fell back to «system», and the owner's discount reached no slot. A value that only one
 # writer can write cannot be lost that way.
-FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link")
+FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link",
+         # THE RATING APP'S OWN CLAUSE (rating-app-feature.md) — a whole sentence computed
+         # server-side (points-participation line, or a neutral one when no points are configured),
+         # never a template-level condition. Same discipline as «invite»: WhatsApp refuses an
+         # empty variable, so this is always a full sentence, never blank.
+         "rating_cta")
 FREE = "owner"
 
 # THE LAST BLANK OF EVERY TEMPLATE, AND IT IS NOT A STYLE RULE.

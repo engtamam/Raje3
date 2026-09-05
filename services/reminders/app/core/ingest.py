@@ -42,6 +42,20 @@ async def _resolve(flag: Any, tenant: str) -> bool:
     return bool(flag)
 
 
+async def _resolve_int(value: Any, tenant: str, default: int) -> int:
+    """The same treatment as `_resolve`, for a NUMBER rather than a bool — the rating app's own
+    per-tenant delay (rating_settings.delay_minutes*60). A plain int stays an int; a callable is
+    asked about this tenant, same async-or-not handling, same reason: a single global cursor reads
+    across every tenant, so a bare number here would apply one shop's delay to another shop's
+    customer."""
+    if callable(value):
+        out = value(tenant)
+        if hasattr(out, "__await__"):
+            out = await out
+        return int(out) if out else default
+    return int(value or default)
+
+
 async def _resolve_config(config: Any, tenant: str) -> dict:
     """The same treatment for the SERVICE CONFIG, and for the same reason (ج-5).
 
@@ -77,7 +91,9 @@ class Ingest:
 
     async def on_event(self, event: Any, *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None,
-                       confirm_visits: Any = True) -> None:
+                       confirm_visits: Any = True,
+                       rating_eligible: Any = False,
+                       rating_delay_seconds: Any = 600) -> None:
         """Handle one `operations.visit.recorded`.
 
         NEVER RAISES. The bus swallows subscriber exceptions anyway, so raising here buys nothing
@@ -85,9 +101,13 @@ class Ingest:
         """
         payload = getattr(event, "payload", None) or (event if isinstance(event, dict) else {})
         try:
-            confirm = await _resolve(confirm_visits, str(payload.get("tenant") or ""))
+            of_tenant = str(payload.get("tenant") or "")
+            confirm = await _resolve(confirm_visits, of_tenant)
+            rating = await _resolve(rating_eligible, of_tenant)
+            delay = await _resolve_int(rating_delay_seconds, of_tenant, 600)
             await self._sched.on_visit(payload, now=now, service_config=service_config or {},
-                                       confirm_visits=confirm)
+                                       confirm_visits=confirm, rating_eligible=rating,
+                                       rating_delay_seconds=delay)
             # THE WATERMARK DOES NOT ADVANCE HERE, AND THAT IS THE WHOLE SAFETY NET.
             #
             # It used to, to save the catch-up from re-reading what the events had handled. The
@@ -111,6 +131,8 @@ class Ingest:
     async def discover(self, *, now: int,
                        service_config: dict[str, Any] | None = None,
                        confirm_visits: Any = True,
+                       rating_eligible: Any = False,
+                       rating_delay_seconds: Any = 600,
                        max_batches: int = 5) -> dict[str, int]:
         """Catch up across EVERY tenant, from a single global watermark.
 
@@ -126,11 +148,15 @@ class Ingest:
         """
         return await self.catch_up("", now=now, service_config=service_config,
                                    confirm_visits=confirm_visits,
+                                   rating_eligible=rating_eligible,
+                                   rating_delay_seconds=rating_delay_seconds,
                                    max_batches=max_batches)
 
     async def catch_up(self, tenant: str, *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None,
                        confirm_visits: Any = True,
+                       rating_eligible: Any = False,
+                       rating_delay_seconds: Any = 600,
                        max_batches: int = 5) -> dict[str, int]:
         """Read visits since our watermark and schedule whatever the events missed.
 
@@ -156,9 +182,12 @@ class Ingest:
                 # belongs to; a plain bool still works for the single-tenant path.
                 of_tenant = str(v.get("tenant") or tenant)
                 confirm = await _resolve(confirm_visits, of_tenant)
+                rating = await _resolve(rating_eligible, of_tenant)
+                delay = await _resolve_int(rating_delay_seconds, of_tenant, 600)
                 cfg = await _resolve_config(service_config, of_tenant)
                 out = await self._sched.on_visit(v, now=now, service_config=cfg,
-                                                 confirm_visits=confirm)
+                                                 confirm_visits=confirm, rating_eligible=rating,
+                                                 rating_delay_seconds=delay)
                 read += 1
                 if not out.duplicate:
                     scheduled += len(out.scheduled)

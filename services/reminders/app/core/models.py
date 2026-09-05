@@ -36,7 +36,7 @@ CLASSES = ("service", "personal", "awareness", "warning", "marketing")
 # What a schedule is FOR. Not the same axis as the class: a reminder and a follow-up are both
 # service-class messages, and they behave differently — a visit cancels the follow-up and advances
 # the reminder.
-KINDS = ("reminder", "follow_up", "review_request", "campaign")
+KINDS = ("reminder", "follow_up", "review_request", "campaign", "rating_request")
 
 # Where a schedule is in its life. `suppressed` is a terminal state and NOT a failure: the gate
 # refused it for a reason we recorded, and retrying tomorrow would re-refuse it for the same reason.

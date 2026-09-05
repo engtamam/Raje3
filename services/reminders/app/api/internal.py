@@ -150,7 +150,9 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
             # Asked per visit, by the tenant on the visit — exactly as `confirm_visits` already is.
             got = await c.ingest.discover(now=now,
                                           service_config=lambda t: _service_config(c, t),
-                                          confirm_visits=lambda t: _confirms_visits(c, t))
+                                          confirm_visits=lambda t: _confirms_visits(c, t),
+                                          rating_eligible=lambda t: _rating_eligible(c, t),
+                                          rating_delay_seconds=lambda t: _rating_delay_seconds(c, t))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)
         except Exception as exc:                                            # noqa: BLE001
@@ -164,7 +166,9 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
         cfg = await _service_config(c, tenant)
         try:
             got = await c.ingest.catch_up(tenant, now=now, service_config=cfg,
-                                          confirm_visits=await _confirms_visits(c, tenant))
+                                          confirm_visits=await _confirms_visits(c, tenant),
+                                          rating_eligible=await _rating_eligible(c, tenant),
+                                          rating_delay_seconds=await _rating_delay_seconds(c, tenant))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)
         except Exception as exc:                                            # noqa: BLE001
@@ -448,6 +452,33 @@ async def _confirms_visits(c, tenant: str) -> bool:
     if not tenant:
         return True
     return (await ChoiceStore(c.datastore).load(tenant)).enabled("visit_recorded")
+
+
+async def _rating_eligible(c, tenant: str) -> bool:
+    """Does this shop get the rating app's message instead of the plain confirmation right now?
+
+    TWO FACTS, BOTH MUST HOLD. Owning the app (billing) says nothing about whether the shop has
+    switched it ON (rating_settings.py) — a shop that paused it keeps the plain confirmation, same
+    as one that never bought the app at all. `False` on either an outage or a genuine "no" — a
+    missed rating message for one visit costs nothing a retry would fix, unlike the base licence's
+    own refusal, which is why this asks no LicenceError-style question at all.
+    """
+    if not tenant:
+        return False
+    owns = await c.app_entitlement.allowed(tenant, "feature.rating")
+    if not owns:
+        return False
+    from app.core.rating_settings import RatingSettingsStore
+    settings_row = await RatingSettingsStore(c.datastore).load(tenant)
+    return settings_row.enabled
+
+
+async def _rating_delay_seconds(c, tenant: str) -> int:
+    """This shop's own configured delay, in seconds — meaningless when `_rating_eligible` is
+    false, and never asked for a tenant that is not (the caller resolves eligibility first)."""
+    from app.core.rating_settings import RatingSettingsStore
+    settings_row = await RatingSettingsStore(c.datastore).load(tenant)
+    return settings_row.delay_minutes * 60
 
 
 async def _service_config(c, tenant: str) -> dict:

@@ -252,7 +252,7 @@ def render(*, template: dict[str, Any], system: dict[str, str],
            catalogue: dict[str, str], owner: dict[str, str],
            by_meaning: dict[str, str] | None = None,
            public_base_url: str = "", reference: str = "",
-           marketing_consent: str = "") -> Rendered:
+           marketing_consent: str = "", rating_points: int = 0) -> Rendered:
     """Fill every variable the template declares, in order.
 
     `system`, `catalogue` and `owner` are keyed by variable NUMBER as a string ("1", "2", ...).
@@ -305,6 +305,12 @@ def render(*, template: dict[str, Any], system: dict[str, str],
                                   public_base_url=public_base_url, reference=reference))
             except L.LinkError as exc:
                 raise RenderError(str(exc)) from exc
+        elif source == "rating_cta":
+            # A WHOLE SENTENCE, COMPUTED HERE — same discipline as `invite` just above: WhatsApp
+            # refuses an empty variable, so a shop with no participation points configured gets a
+            # full neutral sentence, never a blank and never a sentence naming zero points.
+            from app.core import rating_cta as RC
+            out.append(RC.line(rating_points))
         elif source == "amount":
             value = (system.get(key) or "").strip()
             if not _AMOUNT.fullmatch(value):

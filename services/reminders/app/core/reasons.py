@@ -18,15 +18,19 @@ WHAT IS NOT HERE. The firing itself. This is a registry, not a scheduler: `sched
 decides when a cycle is due, loyalty still decides when a balance changed. They ask this module
 which template answers their event, and the answer stops being a literal in five places.
 
-AND WHAT IS STILL DELIBERATELY ABSENT. Four texts sat in the library with nothing to fire them — an
-appointment reminder, a ready-for-pickup, a review request and a free-slot offer. `booking_confirmed`
-below is the FIRST of the five to be wired, now that a booking system exists
-(docs/خطة-تنفيذ-الحجوزات.md); the appointment reminder and the free-slot offer follow it in that
-product's own Stage 8, once there is a scheduled tick that knows a booking's time is approaching —
-this registry only answers "which template", never "when". The review request folds into the
-follow-up, which already asks «كل شيء تمام؟» and does not compete with the one button that collects
-marketing consent. A registry that listed the rest before their triggers exist would describe a
-product that does not exist yet.
+AND WHAT IS STILL DELIBERATELY ABSENT. Three texts sat in the library with nothing to fire them — an
+appointment reminder, a ready-for-pickup, and a free-slot offer. `booking_confirmed` below is the
+FIRST of the four to be wired, now that a booking system exists (docs/خطة-تنفيذ-الحجوزات.md); the
+appointment reminder and the free-slot offer follow it in that product's own Stage 8, once there is
+a scheduled tick that knows a booking's time is approaching — this registry only answers "which
+template", never "when". A registry that listed the rest before their triggers exist would describe
+a product that does not exist yet.
+
+`review_request` (models.py's own KINDS) is still exactly that — unwired, for a possible FUTURE
+public review ask (Google Maps or similar), explicitly out of scope for now. `rating_request` below
+is a different, already-built thing: an INTERNAL rating (stars + free text, never public), asked
+INSTEAD of the plain visit confirmation for a shop that owns the rating app — never both, and never
+folded into `after_visit` (rating-app-feature.md's own plan; the two were never the same feature).
 """
 from __future__ import annotations
 
@@ -60,6 +64,11 @@ APPT_TIME = "appt_time"      # a booking's day and hour, phrased by us — never
 LINK = "link"                # his page: <base>/p/<ref>
 STOP_LINK = "stop_link"      # one tap to stop marketing — a requirement, not a courtesy
 INVITE = "invite"            # the last line of every utility text: the only way consent is given
+# THE RATING APP'S OWN CLAUSE — a whole sentence, computed and chosen server-side (never a
+# template-level "if"), exactly like INVITE above: WhatsApp refuses an empty template variable,
+# so a shop with no points configured for participation gets a full neutral sentence in this slot
+# instead of a blank one, never the points sentence with a zero in it.
+RATING_CTA = "rating_cta"
 
 # WHAT EVERY MESSAGE CARRIES, WHATEVER ITS REASON.
 #
@@ -176,6 +185,23 @@ REASONS: tuple[Reason, ...] = (
         label="سُجّلت زيارة",
         when="بعد تسجيل الزيارة بعشر دقائق — حين يكون قد غادر",
         cls="service", template_type="svc_visit_confirmation",
+    ),
+    # THE RATING APP'S OWN MESSAGE — the SAME SLOT `visit_recorded` fills, never a second message
+    # (rating-app-feature.md's own plan: the shop pays for one send, not two). `scheduling.py`
+    # picks ONE of these two reasons per visit, never both, based on whether this establishment
+    # owns `feature.rating` and has it enabled (reminders' own rating_settings.py) — the choice
+    # happens there, not here; this registry only says what each one means once chosen.
+    #
+    # A DIFFERENT APPROVED TEMPLATE, NOT A VARIANT OF THE SAME ONE — a WhatsApp Flow button is part
+    # of the template itself, fixed at Meta's approval, so a shop with the app and one without it
+    # are never the same template with a toggle.
+    Reason(
+        id="rating_requested",
+        label="طُلب تقييم بعد الزيارة",
+        when="بدل رسالة التأكيد العادية، بالتوقيت الذي يحدده المحل — فقط لمن يملك تطبيق "
+             "التقييم ومفعّل عنده",
+        cls="service", template_type="svc_visit_confirmation_rating",
+        slots=(RATING_CTA,),
     ),
     Reason(
         id="booking_confirmed",
@@ -302,6 +328,7 @@ def slots_for(reason_id: str) -> tuple[str, ...]:
 # reminders may not want to be reminded of the reminder.
 _BY_KIND = {
     "visit_confirmation": "visit_recorded",
+    "rating_request": "rating_requested",
     "reminder": "service_due",
     "follow_up": "after_visit",
     "booking_confirmation": "booking_confirmed",

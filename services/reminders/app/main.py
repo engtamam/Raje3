@@ -89,7 +89,8 @@ def create_app() -> FastAPI:
         # work — five minutes slower. If the catch-up failed, customers would silently never be
         # reminded.
         async def _on_visit(event) -> None:
-            from app.api.internal import _confirms_visits, _service_config
+            from app.api.internal import (_confirms_visits, _rating_delay_seconds,
+                                          _rating_eligible, _service_config)
 
             # THE SHOP'S OWN CYCLES, ON THIS PATH TOO — and the reason it is not `{}`.
             #
@@ -109,7 +110,12 @@ def create_app() -> FastAPI:
                 event, now=int(time.time()), service_config=cfg,
                 # The fast path must honour the same switch as the tick, or an owner who turned
                 # confirmations off would still see them whenever the bus delivered.
-                confirm_visits=lambda t: _confirms_visits(container, t))
+                confirm_visits=lambda t: _confirms_visits(container, t),
+                # SAME RULE FOR THE RATING APP — the fast path must pick the same one of the two
+                # messages the tick's catch-up would have, or a shop with the app on sees the plain
+                # confirmation whenever the bus happens to deliver instead of dropping.
+                rating_eligible=lambda t: _rating_eligible(container, t),
+                rating_delay_seconds=lambda t: _rating_delay_seconds(container, t))
 
         try:
             await container.event_bus.subscribe("operations.visit.recorded", _on_visit)

@@ -150,6 +150,7 @@ class Container:
     ingest: Any = None
     tick: Any = None
     rating_consumer: Any = None
+    app_entitlement: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -345,4 +346,10 @@ def build_container(settings: Settings) -> Container:
     from app.core.base_licence import build_base_licence
 
     container.base_licence = build_base_licence(settings)
+
+    # `feature.rating` — the rating app's own entitlement, asked when a visit is scheduled
+    # (api/internal.py's `_rating_eligible`) to decide which of the two post-visit messages fires.
+    from app.core.app_entitlement import build_app_entitlement
+
+    container.app_entitlement = build_app_entitlement(settings)
     return container

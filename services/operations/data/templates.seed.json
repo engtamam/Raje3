@@ -95,6 +95,92 @@
       ]
     },
     {
+      "_": [
+        "THE RATING APP'S OWN TEMPLATE (rating-app-feature.md, phase 3) — the SAME slot",
+        "svc_visit_confirmation fills, never sent alongside it (scheduling.py picks one of the",
+        "two per visit, based on whether this shop owns feature.rating and has it enabled).",
+        "",
+        "{{3}} IS COMPUTED SERVER-SIDE, NEVER A TEMPLATE-LEVEL CONDITION (fills: rating_cta) —",
+        "same discipline as {{invite}}: WhatsApp refuses an empty variable, so a shop with no",
+        "participation points configured gets a full neutral sentence here, never a blank or a",
+        "sentence naming zero points.",
+        "",
+        "NOT YET SUBMITTABLE TO META AS WRITTEN. A WhatsApp Flow button is a component of the",
+        "APPROVED TEMPLATE ITSELF (fixed at Meta's review, never attached at send time) and needs",
+        "a real flow_id Meta assigns once the Flow is created and approved — neither the Flow nor",
+        "the template-registration support for a Flow-button component exist yet (requested from",
+        "the platform team, rating-app-feature.md phase 3). `button` below names the INTENDED",
+        "label only; it is not a structural button declaration and submitting this template as-is",
+        "would not carry a working button. Flip this note once both land."
+      ],
+      "name": "svc_visit_confirmation_rating_warm",
+      "type": "svc_visit_confirmation_rating",
+      "tone": "warm",
+      "label": "تأكيد الزيارة مع طلب تقييم",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}. سجّلنا زيارتك! {{3}} ⭐ {{4}} 🎁",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "قيّم زيارتك",
+      "fills": [
+        "system",
+        "system",
+        "rating_cta",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "شاركنا رأيك بزيارتك واكسب 5 نقطة",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
+    },
+    {
+      "name": "svc_visit_confirmation_rating_feminine",
+      "type": "svc_visit_confirmation_rating",
+      "tone": "feminine",
+      "label": "تأكيد الزيارة مع طلب تقييم",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "يا هلا {{1}}، نوّرتِنا اليوم في {{2}}. سجّلنا زيارتك! {{3}} ⭐ {{4}} 🎁",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "قيّم زيارتك",
+      "fills": [
+        "system",
+        "system",
+        "rating_cta",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "شاركي رأيك بزيارتك واكسبي 5 نقطة",
+        "تحبين توصلك عروضنا على واتساب؟ فعّليها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+      ]
+    },
+    {
       "name": "svc_visit_redeemed_warm",
       "type": "svc_visit_redeemed",
       "tone": "warm",

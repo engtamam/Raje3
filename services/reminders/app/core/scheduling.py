@@ -80,7 +80,9 @@ class Scheduler:
 
     async def on_visit(self, event: dict[str, Any], *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None,
-                       confirm_visits: bool = True) -> VisitOutcome:
+                       confirm_visits: bool = True,
+                       rating_eligible: bool = False,
+                       rating_delay_seconds: int = 600) -> VisitOutcome:
         """Consume one `operations.visit.recorded`.
 
         `service_config` maps service_id -> {cycle_days, lead_days, follow_up_days, min_days,
@@ -90,6 +92,13 @@ class Scheduler:
         `confirm_visits` is the shop's own answer to "does a visit get a message on the day?".
         Passed in for the same reason — and it is a TENANT setting, not a per-service one, because
         the confirmation is keyed to the visit and a visit has several services.
+
+        `rating_eligible` — resolved by the caller from TWO peer reads this function must not make
+        itself: does this establishment own `feature.rating` (app_entitlement.py), and has it
+        turned the rating app on (rating_settings.py). When true, it OVERRIDES `confirm_visits`
+        entirely — see the schedule block below for why that is "instead of", never "as well as".
+        `rating_delay_seconds` is that shop's own configured delay (rating_settings.delay_minutes),
+        meaningless when `rating_eligible` is false.
         """
         tenant = event.get("tenant") or ""
         subject = event.get("subject_ref") or ""
@@ -193,7 +202,22 @@ class Scheduler:
         # does. The engine had no opinion to offer here and no switch either — every shop got the
         # confirmation whether it fit or not, and the only escape was cancelling messages one by
         # one in «رسائلي». It is a tenant setting because the confirmation belongs to the visit.
-        if confirm_visits:
+        # THE RATING APP'S OWN MESSAGE, INSTEAD OF THE PLAIN CONFIRMATION — NEVER BOTH. Chosen
+        # exclusively by what the CALLER already resolved (does this shop own `feature.rating` AND
+        # has it enabled — app_entitlement.py + rating_settings.py, both peer reads a core function
+        # must not make itself, same reasoning `service_config`/`confirm_visits` are passed in
+        # rather than fetched here). `rating_eligible` overrides `confirm_visits` entirely: a shop
+        # that turned the rating app on has made its own decision about this exact slot, superseding
+        # the older plain switch rather than stacking with it — one message per visit, always.
+        if rating_eligible:
+            rating = Schedule(
+                tenant=tenant, subject_ref=subject, service_id="", kind="rating_request",
+                due_at=occurred + rating_delay_seconds, cls="service",
+                template_type=T.get("rating_requested").template_type, visit_id=visit_id,
+                branch_id=event.get("branch_id") or "")
+            await self._sched.upsert(tenant, rating.key, as_row(rating))
+            outcome.scheduled.append(rating.key)
+        elif confirm_visits:
             confirm = Schedule(
                 tenant=tenant, subject_ref=subject, service_id="", kind="visit_confirmation",
                 due_at=occurred + self._confirm_delay, cls="service",
