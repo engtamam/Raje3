@@ -105,13 +105,9 @@
         "participation points configured gets a full neutral sentence here, never a blank or a",
         "sentence naming zero points.",
         "",
-        "NOT YET SUBMITTABLE TO META AS WRITTEN. A WhatsApp Flow button is a component of the",
-        "APPROVED TEMPLATE ITSELF (fixed at Meta's review, never attached at send time) and needs",
-        "a real flow_id Meta assigns once the Flow is created and approved — neither the Flow nor",
-        "the template-registration support for a Flow-button component exist yet (requested from",
-        "the platform team, rating-app-feature.md phase 3). `button` below names the INTENDED",
-        "label only; it is not a structural button declaration and submitting this template as-is",
-        "would not carry a working button. Flip this note once both land."
+        "flow_button references the per-shop Flow clone by its stable flow_name (flows.py,",
+        "RATING_FLOW_NAME = \"rating_flow\") — not by flow_id, which differs per shop and only",
+        "exists after that shop's clone is provisioned."
       ],
       "name": "svc_visit_confirmation_rating_warm",
       "type": "svc_visit_confirmation_rating",
@@ -129,6 +125,9 @@
       ],
       "header": "",
       "button": "قيّم زيارتك",
+      "flow_button": {
+        "flow_name": "rating_flow"
+      },
       "fills": [
         "system",
         "system",
@@ -163,6 +162,9 @@
       ],
       "header": "",
       "button": "قيّم زيارتك",
+      "flow_button": {
+        "flow_name": "rating_flow"
+      },
       "fills": [
         "system",
         "system",

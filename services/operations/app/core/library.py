@@ -133,7 +133,7 @@ class HttpLibrary:
         `examples` are BUILT from the seed's own variable map — see `examples_for`, and see ح-2 for
         what happened while the rows carried none.
         """
-        status, _ = self._post(self._register, {
+        body = {
             "tenant": tenant,
             "name": template.get("name", ""),
             "language": template.get("language", ""),
@@ -141,7 +141,11 @@ class HttpLibrary:
             "body": template.get("body", ""),
             "variables": template.get("variables") or [],
             "examples": examples_for(template),
-        })
+        }
+        flow_button = template.get("flow_button")
+        if flow_button:
+            body["flow_button"] = flow_button
+        status, _ = self._post(self._register, body)
         return status < 400
 
     async def drain(self, tenant: str) -> dict[str, Any]:

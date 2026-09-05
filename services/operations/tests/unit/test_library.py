@@ -63,6 +63,33 @@ def test_a_template_is_registered_with_the_tenant_and_its_examples():
     assert seen["url"].endswith("/internal/whatsapp/templates")
 
 
+def test_a_flow_button_on_the_template_is_forwarded_to_the_registry():
+    """The rating template's flow_button (flows.py provisions the per-shop Flow it names) must
+    reach notification-service's register() call, or the approved template ships with no button."""
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "svc_visit_confirmation_rating_warm"})
+
+    with_flow = dict(TEMPLATE, flow_button={"flow_name": "rating_flow"})
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(client().register("t1", with_flow)) is True
+    assert seen["body"]["flow_button"] == {"flow_name": "rating_flow"}
+
+
+def test_a_template_with_no_flow_button_sends_none():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "svc_visit_confirm"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(client().register("t1", TEMPLATE)) is True
+    assert "flow_button" not in seen["body"]
+
+
 def test_a_refused_registration_is_reported_rather_than_raised():
     boom = urllib.error.HTTPError("u", 422, "bad", None, None)
 
