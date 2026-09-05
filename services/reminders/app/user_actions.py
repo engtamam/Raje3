@@ -188,6 +188,21 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يقرّر هل يخرج هذا النوع من الرسائل، وبنصّك أم بنصّنا.",
     },
     {
+        "id": "reminders.rating_settings", "label": "إعدادات التقييم", "method": "GET",
+        "path": "/api/v1/reminders/rating_settings", "capability": "reminders.read",
+        "group": "الإعدادات",
+        # RATING-APP FOUNDATION (nothing reads these yet — a later phase wires the post-visit
+        # message and the point credit to them). Present regardless of whether the shop owns the
+        # rating app, same as any other setting screen a shop can look at before buying.
+        "help": "هل رسالة التقييم مفعّلة، بعد كم دقيقة تُرسَل، وكم نقطة تُمنح على المشاركة.",
+    },
+    {
+        "id": "reminders.set_rating_settings", "label": "تعديل إعدادات التقييم", "method": "PUT",
+        "path": "/api/v1/reminders/rating_settings", "capability": "reminders.manage",
+        "confirm": True, "group": "الإعدادات",
+        "help": "يغيّر تشغيل رسالة التقييم، توقيتها، أو نقاط المشاركة فيها.",
+    },
+    {
         "id": "reminders.get_settings", "label": "إعدادات التذكير", "method": "GET",
         "path": "/api/v1/reminders/settings", "capability": "reminders.read",
         "group": "الإعدادات",

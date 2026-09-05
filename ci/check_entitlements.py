@@ -83,7 +83,13 @@ DISPLAY_ONLY = (
 # EMPTY, AND THAT IS THE POINT. `feature.roles.custom` sat here for one commit: it was sold on
 # every tier and the product has three fixed roles with no screen that makes a fourth. With no
 # subscribers yet, the honest fix was to stop selling it rather than to keep a note about it.
-SOLD_UNBUILT: dict[str, str] = {}
+SOLD_UNBUILT: dict[str, str] = {
+    "feature.rating": "post-visit rating app (WhatsApp Flow) — foundation phase only so far "
+                      "(the Visit model fields and reminders' rating_settings store exist); the "
+                      "Flow send/webhook and the scheduling switch that would actually check this "
+                      "key are later phases of the same plan. The plan row is `listed: false` for "
+                      "the same reason. Delete this line once a service checks the key.",
+}
 
 
 def gated() -> dict[str, list[str]]:

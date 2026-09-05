@@ -78,7 +78,8 @@
     "feature.api": "the programmatic link: a till writing visits in the shop's name",
     "templates.custom": "templates he writes himself and submits to Meta, per month",
     "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing",
-    "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway"
+    "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway",
+    "feature.rating": "the post-visit rating app (WhatsApp Flow, stars + free text) — replaces the plain visit-confirmation message for a shop that owns it, never a second message"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -232,6 +233,26 @@
       "listed": true,
       "limits": {
         "feature.bookings": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "SOLD, NOT BUILT YET — same convention `feature.bookings` used while its own ten stages",
+        "were in progress. `listed: false` so this row exists (the price is decided, the wording is",
+        "ready, ci/check_entitlements.py's SOLD_UNBUILT knows about it) but no shop can actually buy",
+        "it until the WhatsApp Flow send/webhook and the post-visit scheduling switch both ship.",
+        "Flip to `listed: true` the day a shop can actually use what this key sells — same rule the",
+        "bookings row's own history states in its comment above."
+      ],
+      "name": "التقييم",
+      "amount": 9900,
+      "trial_days": 30,
+      "listed": false,
+      "limits": {
+        "feature.rating": {
           "kind": "boolean",
           "limit": 1
         }

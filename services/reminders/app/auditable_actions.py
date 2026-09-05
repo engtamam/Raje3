@@ -174,6 +174,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "wrong time — by which point nobody remembers the edit",
     },
     {
+        "action": "reminders.rating_settings_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "rating_settings",
+        "why": "foundation phase only — nothing yet reads these three numbers, so a wrong value "
+               "here has no effect on a customer until a later phase wires the post-visit message "
+               "and the point credit to them; audited anyway because every settings write in this "
+               "service is, and a row that starts non-critical stays easy to find the day it stops "
+               "being harmless",
+    },
+    {
         "action": "reminders.schedule_cancelled",
         "source": "admin",
         "critical": False,

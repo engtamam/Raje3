@@ -72,6 +72,13 @@ APPS: tuple[dict[str, Any], ...] = (
 # can actually choose — it stays out of this tuple until it is one they can actually buy. Add the
 # row the day it is priced; nothing about the gate above needs to change when that happens.
 
+# `feature.rating` (the post-visit rating app, WhatsApp Flow — stars + free text) IS THE SAME CASE
+# AS `feature.bookings` WAS: it has a plan row now (`listed: false` in plans.json, `SOLD_UNBUILT`
+# in ci/check_entitlements.py), but nothing checks the key yet and no shop can actually buy it —
+# `listed: false` keeps it off `Plans.tsx`'s store grid regardless. Add the row here the same day
+# the plan flips to `listed: true` — not before, or the console draws a lock on an app nobody can
+# purchase.
+
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 
 CANNOT_ASK = "تعذّر التحقق من اشتراكك الآن — حاول بعد قليل."

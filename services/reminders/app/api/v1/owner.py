@@ -337,6 +337,38 @@ async def set_reason(request: Request, reason_id: str, body: ReasonIn,
     return {"ok": True, "reasons": choices.public()}
 
 
+# ── the rating app's own settings (foundation phase — nothing reads these yet) ───────────────
+class RatingSettingsIn(BaseModel):
+    """Three knobs, all optional — `None` means "leave it", same rule `ReasonIn` uses above."""
+
+    enabled: bool | None = None
+    delay_minutes: int | None = Field(default=None, ge=1, le=7 * 24 * 60)
+    points: int | None = Field(default=None, ge=0, le=10_000)
+
+
+@router.get("/rating_settings", dependencies=[Depends(rate_limit)])
+async def get_rating_settings(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    from app.core.rating_settings import RatingSettingsStore
+    settings = await RatingSettingsStore(request.app.state.container.datastore).load(_tenant(principal))
+    return settings.public()
+
+
+@router.put("/rating_settings", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_rating_settings(request: Request, body: RatingSettingsIn,
+                              principal: Principal = Depends(_MANAGE)) -> dict:
+    from app.core.rating_settings import RatingSettingsStore
+    await request.app.state.auditor.record(
+        "reminders.rating_settings_changed", actor=principal.subject, tenant=_tenant(principal),
+        resource="rating_settings", ip=request.client.host if request.client else "")
+    store = RatingSettingsStore(request.app.state.container.datastore)
+    try:
+        settings = await store.set(_tenant(principal), enabled=body.enabled,
+                                   delay_minutes=body.delay_minutes, points=body.points)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, **settings.public()}
+
+
 @router.get("/reasons/{reason_id}/preview", dependencies=[Depends(rate_limit)])
 async def preview_reason(request: Request, reason_id: str,
                           principal: Principal = Depends(_READ)) -> dict:

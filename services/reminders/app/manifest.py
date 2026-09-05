@@ -153,6 +153,10 @@ def build_manifest(
             {"path": "/api/v1/reminders/reasons", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/reasons/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/reasons/{}/preview", "tier": "user", "method": "GET"},
+            # The rating app's own settings — foundation phase (core/rating_settings.py); nothing
+            # reads these yet, present regardless of whether the shop owns the app.
+            {"path": "/api/v1/reminders/rating_settings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/rating_settings", "tier": "user", "method": "PUT"},
             # Settings, three levels deep (spec 10.8.1). The owner never picks a level — they edit
             # a service and it becomes an override, with the way back offered where it happened.
             {"path": "/api/v1/reminders/settings", "tier": "user", "method": "GET"},

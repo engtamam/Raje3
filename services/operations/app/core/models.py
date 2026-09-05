@@ -356,6 +356,18 @@ class Visit:
     # knows to look up the PACKAGE's own point value rather than summing the components' (see
     # services/loyalty/app/core/earning.py's package-level override).
     package_id: str = ""
+    # THE RATING APP'S OWN FACTS (0 = not yet, on every one of these — never a sentinel that could
+    # be confused with a real value: a real rating is 1-5, never 0). Written by the WhatsApp Flow
+    # webhook once the customer answers, never at visit-creation time — same shape as `offer_used_at`
+    # above, a fact recorded AFTER the visit, not part of what happened at the counter.
+    rating: int = 0
+    feedback_text: str = ""
+    rated_at: int = 0
+    # SET BY THE OWNER, FROM THE CONSOLE'S «التقييمات» TAB — never by anything automatic. A rating
+    # is "handled" only because a human read it and did something about it; there is no rule here
+    # that could mark one handled on its own.
+    rating_handled_at: int = 0
+    rating_handled_note: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "customer_id": self.customer_id,
@@ -366,7 +378,10 @@ class Visit:
                 "free": self.free,
                 "occurred_at": self.occurred_at or self.created,
                 "offer_ref": self.offer_ref, "offer_text": self.offer_text,
-                "offer_used_at": self.offer_used_at, "package_id": self.package_id}
+                "offer_used_at": self.offer_used_at, "package_id": self.package_id,
+                "rating": self.rating, "feedback_text": self.feedback_text,
+                "rated_at": self.rated_at, "rating_handled_at": self.rating_handled_at,
+                "rating_handled_note": self.rating_handled_note}
 
 
 @dataclass

@@ -99,6 +99,22 @@ export const APP_ROWS: AppRow[] = [
     section: '',
     onCustomer: '',
   },
+  // SOLD, NOT BUILT YET — same convention as `feature.bookings` while its own ten stages were in
+  // progress. Kept here (per this file's own header comment: "the wording is ready the day it
+  // flips to listed") even though it is not yet reachable — `owns()` answers correctly regardless
+  // (the underlying plan is `listed: false` in plans.json, so `Plans.tsx` never offers it for
+  // purchase), and nothing renders behind this key until a later phase actually gates on it.
+  {
+    id: 'rating',
+    key: 'feature.rating',
+    name: 'التقييم',
+    what: 'رسالة تقييم بالنجوم والتعليق بعد كل زيارة، بدل رسالة التأكيد العادية — بلا رسالة إضافية.',
+    // Adds a tab to the EXISTING customer-list screen ("عملائي"), not a rail section of its own —
+    // see the plan's own note on this being a deliberate, small extension of `onCustomer`'s usual
+    // meaning (inside ONE customer's page) rather than a silent assumption.
+    section: '',
+    onCustomer: '',
+  },
 ];
 
 /** The key that locks a nav section, or null when the section belongs to the base. */
