@@ -16,6 +16,17 @@ from app.core.sending_identity import split as split_sending_identity
 from app.ports.consent_gate import DENIED, UNKNOWN
 
 
+async def outbound_allowed(container: Any, settings: Any, tenant: str) -> bool:
+    """One tenant's outbound AI replies are capped per rolling hour — belt beside
+    notification-service's own ceiling (OUTBOUND_MAX_PER_TENANT_PER_HOUR's own config.py note), so
+    a runaway conversation loop or a bug that keeps re-proposing the same reply cannot spend a
+    shop's whole WhatsApp allowance by itself. Shared by both send paths — this fast-path ingest
+    and app/api/internal.py's tick — so the budget is the same no matter which one is sending."""
+    verdict = await container.rate_limiter.check(
+        f"wa_outbound:{tenant}", limit=settings.OUTBOUND_MAX_PER_TENANT_PER_HOUR, window_s=3600)
+    return verdict.allowed
+
+
 async def ingest_inbound_message(
     *, container: Any, logger: Any, settings: Any, auditor: Any,
     tenant: str, wamid: str, from_number: str, kind: str, text: str, reply_id: str,
@@ -112,7 +123,10 @@ async def ingest_inbound_message(
                 tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text,
                 branch_id=branch_id)
 
-        if plan is not None and plan.kind == "text" and plan.text:
+        if plan is not None and plan.kind in ("text", "list") and not await outbound_allowed(
+                container, settings, tenant):
+            logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
+        elif plan is not None and plan.kind == "text" and plan.text:
             await container.sender.send_template(
                 tenant=tenant, to=from_number, template_name="wa_assistant_reply",
                 variables=[plan.text], idempotency_key=f"{wamid}:reply")
