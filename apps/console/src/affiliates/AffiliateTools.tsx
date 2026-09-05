@@ -152,7 +152,7 @@ function BackRow({ onBack, title }: { onBack: () => void; title: string }) {
 function TemplateLibrary({ session, isManager, onBack }: {
   session: AffiliateSession; isManager: boolean; onBack: () => void;
 }) {
-  const [stages, setStages] = useState<OutreachStage[] | 'loading'>('loading');
+  const [stages, setStages] = useState<OutreachStage[] | 'loading' | 'failed'>('loading');
   const [stage, setStage] = useState('');
   const [rows, setRows] = useState<MessageTemplate[] | 'loading' | 'failed'>('loading');
   const [stats, setStats] = useState<Record<string, TemplateStat>>({});
@@ -162,7 +162,7 @@ function TemplateLibrary({ session, isManager, onBack }: {
     outreachStages(session).then((r) => {
       setStages(r.stages);
       if (r.stages.length) setStage((s) => s || r.stages[0].code);
-    }).catch(() => setStages([]));
+    }).catch(() => setStages('failed'));
   }, [session]);
 
   const load = () => {
@@ -181,7 +181,7 @@ function TemplateLibrary({ session, isManager, onBack }: {
     return (
       <div className="flex flex-col gap-4 p-6">
         <BackRow onBack={() => setEditing(null)} title={editing === 'new' ? 'قالب جديد' : 'تعديل القالب'} />
-        <TemplateForm session={session} stages={stages === 'loading' ? [] : stages}
+        <TemplateForm session={session} stages={typeof stages === 'string' ? [] : stages}
                      defaultStage={stage} existing={editing === 'new' ? null : editing}
                      onDone={() => { setEditing(null); load(); }} />
       </div>
@@ -192,7 +192,9 @@ function TemplateLibrary({ session, isManager, onBack }: {
     <div className="flex flex-col gap-4 p-6">
       <BackRow onBack={onBack} title="مكتبة الرسائل" />
 
-      {stages === 'loading' ? <Skeleton height={40} /> : (
+      {stages === 'loading' ? <Skeleton height={40} /> : stages === 'failed' ? (
+        <p role="alert" className="text-sm text-danger">تعذّرت قراءة مراحل التواصل</p>
+      ) : (
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
           {stages.map((s) => (
             <button key={s.code} type="button" onClick={() => setStage(s.code)}
