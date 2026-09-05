@@ -1226,6 +1226,7 @@ export function PlansPane({
           AND IT IS WHAT MAKES THE NEXT APP CHEAP TO ADD. Invoicing and CRM arrive as rows in the
           price list; this screen groups by what a row GRANTS, so neither needs a line here. */}
       {undoCancelError ? <p className="text-sm text-danger">{undoCancelError}</p> : null}
+      {cancelSwitchError ? <p className="text-sm text-danger">{cancelSwitchError}</p> : null}
 
       {/* ── THE BASE, WIDE, WITH ITS CAPACITY BESIDE IT ────────────────────────────────────
           ONE ROW, NOT A STACK BELOW A STACK. The base is what he already pays for; «السعة» is

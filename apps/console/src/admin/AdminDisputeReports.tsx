@@ -20,6 +20,7 @@ import { Badge } from '../rj-ui/Badge';
 import { fetchCatalog, type AdminCatalog } from './catalog';
 import { AdminRefused, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
+import { digitsOnly } from '../digits';
 
 type ScenarioId =
   | 'data_loss' | 'billing_error' | 'suspended_no_notice' | 'contract_breach'
@@ -119,7 +120,7 @@ export function AdminDisputeReports({ session }: { session: AdminSession }) {
           <div className="relative">
             <Search size={18} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-secondary" />
             <Input id="dispute-phone" dir="ltr" inputMode="tel" placeholder="05xxxxxxxx"
-                  value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  value={phone} onChange={(e) => setPhone(digitsOnly(e.target.value).slice(0, 10))}
                   className="h-14 ps-10 text-center text-xl font-semibold tracking-wide" />
           </div>
         </Field>
