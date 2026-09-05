@@ -11,6 +11,7 @@ import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 export interface DeliveryRow {
@@ -61,7 +62,7 @@ function DiagnosticsSearch({ session, action }: { session: AdminSession; action:
       setRows(body.deliveries ?? []);
     } catch (err) {
       setRows('failed');
-      setError(err instanceof Error ? err.message : 'تعذّر جلب سجلّ الإرسال.');
+      setError(sentenceFor(err, 'تعذّر جلب سجلّ الإرسال.'));
     }
   }
 

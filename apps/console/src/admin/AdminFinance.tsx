@@ -16,6 +16,7 @@ import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { Table, type TableColumn } from '../rj-ui/Table';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { riyalsLabel, halalas } from '../money';
 import { NoActionAvailable } from './NoActionAvailable';
 
@@ -127,7 +128,7 @@ function InvoicesPanel({ session, action, settleAction, settlementsAction, rever
       setRows(body.invoices);
     } catch (err) {
       setRows('failed');
-      setError(err instanceof Error ? err.message : 'تعذّرت قراءة الفواتير.');
+      setError(sentenceFor(err, 'تعذّرت قراءة الفواتير.'));
     }
   }
 
@@ -264,7 +265,7 @@ function SettleDialog({ session, action, invoice, onClose, onSettled }: {
       onSettled();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّرت التسوية.');
+      setError(sentenceFor(err, 'تعذّرت التسوية.'));
     } finally {
       setBusy(false);
     }
@@ -377,7 +378,7 @@ function ReverseSettlementDialog({ session, action, settlement, onClose }: {
                 { reason: reason.trim(), actor: '' }, session.access_token);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر عكس التسوية.');
+      setError(sentenceFor(err, 'تعذّر عكس التسوية.'));
     } finally {
       setBusy(false);
     }
@@ -423,7 +424,7 @@ function SubscriptionsPanel({ session, action }: { session: AdminSession; action
       setRows(body.subscriptions);
     } catch (err) {
       setRows('failed');
-      setError(err instanceof Error ? err.message : 'تعذّرت قراءة الاشتراكات.');
+      setError(sentenceFor(err, 'تعذّرت قراءة الاشتراكات.'));
     }
   }
 
@@ -484,7 +485,7 @@ function PaymentTools({ session, refundAction, reconcileAction, catalog }: {
       );
       setResult(body.ok ? `تم الاسترجاع — الحالة: ${body.status}` : `تعذّر: ${body.reason}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الاسترجاع.');
+      setError(sentenceFor(err, 'تعذّر الاسترجاع.'));
     } finally {
       setBusy(false);
       setArmRefund(false);
@@ -502,7 +503,7 @@ function PaymentTools({ session, refundAction, reconcileAction, catalog }: {
       );
       setResult(JSON.stringify(body));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّرت المطابقة مع البوابة.');
+      setError(sentenceFor(err, 'تعذّرت المطابقة مع البوابة.'));
     } finally {
       setBusy(false);
     }

@@ -16,6 +16,7 @@ import { Toggle } from '../rj-ui/Toggle';
 import { riyals, riyalsLabel, halalas } from '../money';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 
 interface Coupon {
   code: string; type: 'percent' | 'fixed' | 'trial'; value: number; currency?: string;
@@ -218,7 +219,7 @@ function CouponEditDrawer({ session, action, mode, coupon, plans, open, onClose,
       await req(path, mode === 'edit' ? 'PATCH' : 'POST', body, session.access_token);
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(sentenceFor(err, 'تعذّر حفظ القسيمة.'));
     } finally {
       setBusy(false);
     }

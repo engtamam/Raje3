@@ -23,6 +23,7 @@ import type { AdminAction, AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { resolvePath, runAction, rowLabel } from './actionApi';
 import { NoActionAvailable } from './NoActionAvailable';
+import { sentenceFor } from '../api';
 
 type Row = Record<string, unknown>;
 
@@ -80,7 +81,7 @@ export function ActionListGroup({ session, listAction, rowActions }: {
       setConfirming(null);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر تنفيذ الإجراء.');
+      setError(sentenceFor(err, `تعذّر تنفيذ «${confirming.action.label}»`));
     } finally {
       setBusy(false);
     }

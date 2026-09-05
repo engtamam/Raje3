@@ -33,6 +33,7 @@ import { Toggle } from '../rj-ui/Toggle';
 import { riyals, riyalsLabel, halalas } from '../money';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 
 interface LimitEntry { kind: 'boolean' | 'gauge' | 'counter' | string; limit: number | 'unlimited'; period?: string }
 interface Price { type: string; currency: string; interval: string; amount_minor: number }
@@ -251,7 +252,7 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
       }, session.access_token);
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(sentenceFor(err, 'تعذّر حفظ الخطة.'));
     } finally {
       setBusy(false);
     }

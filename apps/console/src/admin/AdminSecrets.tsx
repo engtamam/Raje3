@@ -16,6 +16,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 interface SecretRow { name: string; hint: string; set_at: string; rotating: boolean }
@@ -169,7 +170,7 @@ function ServiceSecretsCard({ session, svc, onReload }: {
       setNewValue('');
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر ضبط السرّ.');
+      setError(sentenceFor(err, 'تعذّر ضبط السرّ.'));
     } finally {
       setBusy(false);
       setArmSet(false);
@@ -185,7 +186,7 @@ function ServiceSecretsCard({ session, svc, onReload }: {
                 'DELETE', undefined, session.access_token);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر مسح السرّ.');
+      setError(sentenceFor(err, 'تعذّر مسح السرّ.'));
     } finally {
       setBusy(false);
       setArmClear(null);

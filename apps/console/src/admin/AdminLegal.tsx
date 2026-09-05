@@ -32,6 +32,7 @@ import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 function findAction(catalog: AdminCatalog, id: string): AdminAction | undefined {
@@ -202,7 +203,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
       setSelected(docId);
       await refreshTypeAfterChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ المسوّدة.');
+      setError(sentenceFor(err, 'تعذّر حفظ المسوّدة.'));
     } finally {
       setBusy(false);
     }
@@ -218,7 +219,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
       setPublished(true);
       await refreshTypeAfterChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر النشر.');
+      setError(sentenceFor(err, 'تعذّر النشر.'));
     } finally {
       setBusy(false);
       setArmPublish(false);

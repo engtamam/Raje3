@@ -11,6 +11,7 @@ import { Input } from '../rj-ui/Field';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
+import { sentenceFor } from '../api';
 
 interface ServiceConfig {
   service: string;
@@ -100,7 +101,7 @@ function ServiceConfigCard({ session, svc, onReload }: {
       await req(svc.setAction.path, 'PUT', { key, value: drafts[key] }, session.access_token);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ القيمة.');
+      setError(sentenceFor(err, 'تعذّر حفظ القيمة.'));
     } finally {
       setBusyKey(null);
     }
@@ -115,7 +116,7 @@ function ServiceConfigCard({ session, svc, onReload }: {
                 'DELETE', undefined, session.access_token);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر إعادة الضبط.');
+      setError(sentenceFor(err, 'تعذّر إعادة الضبط.'));
     } finally {
       setBusyKey(null);
     }

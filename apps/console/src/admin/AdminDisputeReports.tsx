@@ -20,6 +20,7 @@ import { Badge } from '../rj-ui/Badge';
 import { fetchCatalog, type AdminCatalog } from './catalog';
 import { AdminRefused, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
+import { sentenceFor } from '../api';
 import { digitsOnly } from '../digits';
 
 type ScenarioId =
@@ -88,7 +89,7 @@ export function AdminDisputeReports({ session }: { session: AdminSession }) {
       setFile({ blob, name: nameMatch?.[1] || `dispute_${scenario}.${format}` });
       setPhase('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر توليد التقرير.');
+      setError(sentenceFor(err, 'تعذّر توليد التقرير.'));
       setPhase('failed');
     }
   }

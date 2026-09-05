@@ -28,6 +28,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 interface SecretRow {
@@ -229,7 +230,7 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
       setSavedLast4(out.last4);
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ المفتاح.');
+      setError(sentenceFor(err, 'تعذّر حفظ المفتاح.'));
     } finally {
       // THE FIELD CLEARS EITHER WAY — success or failure, nothing typed here survives the
       // request. A failed save is retried by typing again, never by re-submitting what is

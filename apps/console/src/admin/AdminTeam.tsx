@@ -22,6 +22,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { Table, type TableColumn } from '../rj-ui/Table';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 const PLATFORM_ROLES: { id: string; label: string }[] = [
@@ -150,7 +151,7 @@ function TeamRoster({ session, listAction, addAction, updateAction, statusAction
                                     session.access_token);
                           reload();
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : 'تعذّر تغيير حالة العضو.');
+                          setError(sentenceFor(err, 'تعذّر تغيير حالة العضو.'));
                         } finally {
                           setArmStatus(null);
                         }
@@ -170,7 +171,7 @@ function TeamRoster({ session, listAction, addAction, updateAction, statusAction
                                     'DELETE', undefined, session.access_token);
                           reload();
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : 'تعذّرت الإزالة.');
+                          setError(sentenceFor(err, 'تعذّرت الإزالة.'));
                         } finally {
                           setArmRemove(null);
                         }
@@ -209,7 +210,7 @@ function AddMemberDialog({ session, action, open, onClose, onAdded }: {
         onClose();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّرت الدعوة.');
+      setError(sentenceFor(err, 'تعذّرت الدعوة.'));
     } finally {
       setBusy(false);
     }
@@ -275,7 +276,7 @@ function EditRolesDialog({ session, action, member, onClose, onSaved }: {
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ الأدوار.');
+      setError(sentenceFor(err, 'تعذّر حفظ الأدوار.'));
     } finally {
       setBusy(false);
     }

@@ -27,6 +27,7 @@ import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { AdminRefused, req, type AdminSession } from './api';
+import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 type TemplateStatus = 'pending' | 'approved' | 'rejected' | 'paused' | 'disabled';
@@ -224,7 +225,7 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
         'POST', undefined, session.access_token);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الإرسال للمراجعة.');
+      setError(sentenceFor(err, 'تعذّر الإرسال للمراجعة.'));
     } finally {
       setBusy(false);
       setArm(false);
@@ -363,7 +364,7 @@ function TestSendPanel({ session, action, templates }: {
         // generic network/programming error. Shown as a result, not `error`, same tone as success.
         setResult({ ok: false, reason: err.reason });
       } else {
-        setError(err instanceof Error ? err.message : 'تعذّر الإرسال.');
+        setError(sentenceFor(err, 'تعذّر الإرسال.'));
       }
     } finally {
       setBusy(false);
@@ -509,7 +510,7 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
       }
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(sentenceFor(err, 'تعذّر حفظ القالب.'));
     } finally {
       setBusy(false);
     }
