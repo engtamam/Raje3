@@ -234,7 +234,7 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
                 list to memorise. `download` names the saved file regardless of what the browser
                 shows in its address bar for a static /public/ asset. */}
             <a href="/templates/services-import-template.xlsx"
-               download="قالب-استيراد-الخدمات.xlsx"
+               download={t('services.import.templateFileName')}
                className="flex items-center justify-center gap-1.5 self-center rounded-lg px-3 py-1.5
                           text-xs font-medium text-accent-on-soft transition-colors hover:bg-surface-2">
               <Download size={13} aria-hidden />

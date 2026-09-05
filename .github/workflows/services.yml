@@ -35,7 +35,8 @@ jobs:
       # one, push, wait, and discover the second.
       fail-fast: false
       matrix:
-        service: [bookings, campaigns, insights, loyalty, operations, portal, reminders]
+        service: [affiliate-service, bookings, campaigns, insights, loyalty, operations, portal,
+                 reminders, secrets-admin, whatsapp-assistant]
 
     defaults:
       run:

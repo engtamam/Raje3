@@ -67,12 +67,16 @@ TOKEN_VALUE=$(kubectl -n "$NS" get secret backup-service-secrets \
               -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null | base64 -d)
 [ -n "$TOKEN_VALUE" ] || { red "no INTERNAL_SERVICE_TOKEN in backup-service-secrets"; exit 1; }
 
-# A SIGNED TOKEN, NOT THE INTERNAL ONE — `/api/v1/operator/backup/targets` is a user-tier route
-# holding `platform.backup`, and registering what gets archived is administration.
+# A SIGNED TOKEN, NOT THE INTERNAL ONE — `/api/v1/backup/operator/backup/targets` is a user-tier
+# route holding `platform.backup`, and registering what gets archived is administration.
 #
 # THE `operator/` IN THAT PATH IS THE WHOLE POINT. Without it every registration answered 404, the
 # installer printed one amber line among a hundred green ones, and the fleet finished every install
 # with zero backup targets — nightly archives running against nothing.
+#
+# THE LEADING `/backup` SEGMENT DRIFTED IN LATER (ci/check_a_seeder_calls_a_route_its_service_serves.py
+# caught it) — every route in this service now sits under its own service-name prefix, same as
+# every other service's manifest, and this script's own calls had not been updated to match.
 # `ci/check_a_seeder_calls_a_route_its_service_serves.py` now reads the routes the vendored
 # services declare and refuses any seed call that names one they do not serve.
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
@@ -155,7 +159,7 @@ def call(method, path, body=None):
 if dry:
     print("  would store operator secret " + SECRET_NAME)
 else:
-    code, out = call("PUT", "/api/v1/operator/secrets",
+    code, out = call("PUT", "/api/v1/backup/operator/secrets",
                      {"name": SECRET_NAME, "value": token_value})
     if code >= 400:
         print("  ! could not store the secret: " + str(code) + " " + str(out))
@@ -177,7 +181,7 @@ for pair in roster.split(","):
         continue
     wanted[name] = url
 
-code, out = call("GET", "/api/v1/operator/backup/targets")
+code, out = call("GET", "/api/v1/backup/operator/backup/targets")
 have = {t.get("service"): t for t in (out.get("targets") or [])} if code < 400 else {}
 
 added = fixed = same = 0
@@ -190,7 +194,7 @@ for name, url in sorted(wanted.items()):
     if dry:
         print(("  would register " if current is None else "  would correct ") + name)
         continue
-    code, out = call("PUT", "/api/v1/operator/backup/targets",
+    code, out = call("PUT", "/api/v1/backup/operator/backup/targets",
                      {"service": name, "base_url": url, "token_ref": SECRET_NAME,
                       "enabled": True, "note": "seeded from PRIVACY_TARGETS"})
     if code >= 400:

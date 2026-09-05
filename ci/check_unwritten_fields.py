@@ -38,7 +38,17 @@ C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 # Fields that arrive from OUTSIDE this service — a peer's payload, a platform row, an event. Each
 # entry names who writes it, because «it comes from somewhere else» is a claim that has to be
 # checkable by the next reader.
-FROM_A_PEER: dict[str, str] = {}
+FROM_A_PEER: dict[str, str] = {
+    # Meta's own webhook payload shape — reminders/rating_reply.py and whatsapp-assistant/
+    # inbound_parse.py read a customer's raw inbound WhatsApp message, which this product never
+    # constructs itself (notification-service forwards Meta's JSON verbatim onto the bus).
+    "nfm_reply": "Meta's WhatsApp webhook — a Flow reply, forwarded verbatim onto the bus",
+    "response_json": "Meta's WhatsApp webhook — the Flow's own completion payload, inside nfm_reply",
+    "button_reply": "Meta's WhatsApp webhook — a template button tap, forwarded verbatim onto the bus",
+    "list_reply": "Meta's WhatsApp webhook — an interactive-list selection, forwarded verbatim",
+    "geometry": "Google Places API's own response shape (lead_sourcing.py's search step)",
+    "formatted_phone_number": "Google Places API's own response shape (lead_sourcing.py's details step)",
+}
 
 # DELIBERATELY UNFED, AND FAILING CLOSED. Not every unwritten field is a defect: one may be a
 # placeholder for data we do not hold yet, where the code chooses the SAFE answer rather than the

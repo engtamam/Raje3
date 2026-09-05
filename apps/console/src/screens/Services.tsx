@@ -608,12 +608,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // does nothing" rule the whole console follows.
   const switcher = packagesEnabled ? (
     <Segmented
-      ariaLabel="التبويب"
+      ariaLabel={t('services.tabSwitcherAriaLabel')}
       value={tab}
       onChange={(v) => setTab(v as ServicesPageTab)}
       options={[
         { value: 'services', label: t('services.title') },
-        { value: 'packages', label: 'الباقات' },
+        { value: 'packages', label: t('services.packagesTab') },
       ]}
     />
   ) : null;

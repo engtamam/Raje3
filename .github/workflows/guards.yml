@@ -156,6 +156,20 @@ jobs:
       - name: no screen shows a person a log line
         run: python3 ci/check_operator_sentences.py
 
+      # AN ADMIN-ONLY CAPABILITY DECLARED AND ENFORCED CORRECTLY, GRANTED TO NOBODY — found live
+      # the day this gate was written (AdminWhatsAppTemplates.tsx: every check passed and the
+      # screen refused every seeded role, including platform-owner). Neither check_capability_truth
+      # nor check_roles asks this question; this is the one gate that does.
+      - name: every admin capability a screen needs is granted to some role
+        run: python3 ci/check_admin_capability_reachable.py
+
+      # A SCREEN MIGRATED TO operator-i18n MUST CARRY NO RAW ARABIC OUTSIDE t('key'). This gate
+      # itself was written, ran clean once by hand, and then never ran again — the exact "complete,
+      # correct, wired to nothing" shape ci/check_a_workflow_lives_where_github_reads_it.py's own
+      # docstring names. `--all` is the exhaustive mode, not a single-file check.
+      - name: no operator screen carries a raw, unlocalized Arabic string
+        run: python3 ci/check_operator_screen_localized.py --all
+
       # AND AN ERROR IS NOT AN ANSWER. Every HTTP helper here returns `(status, body)` and hands
       # back an EMPTY body when the peer failed — so `if status >= 400 or not out.get("allowed")`
       # read that emptiness as a decision. billing returned 500 and the subscriber was told
