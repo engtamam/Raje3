@@ -201,4 +201,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "It is the one movement the ledger cannot explain by itself, so who did it and why "
                "has to be written down beside it",
     },
+    {
+        "action": "loyalty.rating_bonus_credited",
+        "source": "internal",
+        "critical": False,
+        "resource": "balance",
+        "why": "the rating app's own CTA (rating_cta.py) tells a customer he will earn points for "
+               "answering — this is the one call that makes that sentence true. Unlike the regular "
+               "per-visit `earn` (unaudited, one row per visit, every shop, since the day it "
+               "shipped), this fires once per SUBMITTED RATING, a rarer and more disputable event: "
+               "a customer who answered and was not paid asks the shop, and the shop needs a record "
+               "that says whether the credit happened and for how much. Not critical — refusing a "
+               "genuine rating's credit because the audit log is briefly down would punish the "
+               "customer for an outage that is ours, not his",
+    },
 ]

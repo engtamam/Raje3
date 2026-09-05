@@ -398,6 +398,60 @@ async def earn(request: Request, body: EarnIn) -> dict:
         branch_id=body.branch_id, package_id=body.package_id)
 
 
+class RatingBonusIn(BaseModel):
+    tenant: str
+    visit_id: str
+    subject_ref: str
+    # THE SHOP'S CONFIGURED RATING INCENTIVE, PASSED IN — never recomputed here. `reminders` is the
+    # one service that owns `rating_settings.py` and `feature.rating` entitlement; asking this
+    # service to re-derive "how many points a rating is worth" would be a second copy of that rule,
+    # and the second copy is the one that drifts the day someone changes the setting.
+    points: int = Field(ge=0)
+    actor: str = ""
+    branch_id: str = ""
+
+
+@router.post("/loyalty/rating-bonus", dependencies=[Depends(require_internal_token)])
+async def rating_bonus(request: Request, body: RatingBonusIn) -> dict:
+    """Credit points for one SUBMITTED rating — the incentive `rating_cta.py`'s message text
+    already promises. Idempotent on the visit id, same shape as `earn` above.
+
+    A DISTINCT `source` FROM THE VISIT'S OWN `earn` ENTRY, ON PURPOSE. `Ledger.already_posted` is
+    keyed on (tenant, source, reason) — both this call and the visit's regular earn use
+    reason="earn", so `source=f"rating:{visit_id}"` (never the bare `visit_id`) is what keeps the
+    two from colliding: one visit legitimately produces both an ordinary earn AND a rating bonus,
+    and they must not look like the same movement retried.
+
+    ZERO POINTS CREDITS NOTHING, NOT A ZERO ROW. `Ledger.post` already refuses a zero-delta
+    movement (see its own docstring — it would stamp `last_movement_at` for a customer who gained
+    nothing), so a disabled or unconfigured incentive simply produces no ledger entry at all here,
+    matching the "never show/promise zero" discipline the rest of the rating app holds.
+    """
+    c = request.app.state.container
+
+    # SAME GATE AS `earn`, SAME REASON. A lapsed licence must not grow a debt further — see that
+    # route's own comment; redemption and reads still go around it, this credit does not.
+    licence = getattr(c, "licence", None)
+    if licence is not None and not await licence.allowed(body.tenant):
+        return {"earned": 0, "balance": 0, "reason": LICENCE_NOT_INCLUDED}
+
+    if body.points <= 0 or not body.subject_ref or not body.visit_id:
+        return {"earned": 0, "reason": "nothing to credit"}
+
+    entry = await c.ledger.post(
+        tenant=body.tenant, subject_ref=body.subject_ref, delta=body.points, reason="earn",
+        source=f"rating:{body.visit_id}", actor=body.actor, rule_level="rating",
+        branch_id=body.branch_id)
+    if entry is None:
+        return {"earned": 0, "duplicate": True, "reason": "already credited for this rating"}
+
+    await request.app.state.auditor.record(
+        "loyalty.rating_bonus_credited", actor=body.actor or "operations", tenant=body.tenant,
+        resource=f"visit:{body.visit_id}", ip=request.client.host if request.client else "",
+        metadata={"points": body.points})
+    return {"earned": body.points, "balance": entry.balance_after, "entry_id": entry.id}
+
+
 # ── the customer's own page ────────────────────────────────────────────────────────────────────
 @router.get("/loyalty/portal/balance", dependencies=[Depends(require_internal_token)])
 async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dict:
