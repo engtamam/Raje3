@@ -953,31 +953,6 @@ def test_customer_id_by_phone_refuses_without_the_internal_token(client):
     assert r.status_code in (401, 403)
 
 
-# ── /internal/operations/whatsapp-channel-pricing — notification-service's own policy read ───────
-def test_whatsapp_channel_pricing_defaults_to_zero_like_every_other_pricing_constant(client):
-    r = client.post("/internal/operations/whatsapp-channel-pricing",
-                    json={"tenant": "tnt_wa_pricing_default"}, headers=_internal_headers())
-    assert r.status_code == 200
-    assert r.json() == {"included_messages_per_period": 0, "overage_halalas_per_message": 0}
-
-
-def test_whatsapp_channel_pricing_reflects_configured_values(client, monkeypatch):
-    monkeypatch.setattr(client.app.state.container_settings,
-                        "WHATSAPP_CHANNEL_PRICING_TIER_INCLUDED_MESSAGES", 500, raising=False)
-    monkeypatch.setattr(client.app.state.container_settings,
-                        "WHATSAPP_CHANNEL_PRICING_TIER_OVERAGE_HALALAS_PER_MESSAGE", 5,
-                        raising=False)
-    r = client.post("/internal/operations/whatsapp-channel-pricing",
-                    json={"tenant": "tnt_wa_pricing_set"}, headers=_internal_headers())
-    assert r.status_code == 200
-    assert r.json() == {"included_messages_per_period": 500, "overage_halalas_per_message": 5}
-
-
-def test_whatsapp_channel_pricing_refuses_without_the_internal_token(client):
-    r = client.post("/internal/operations/whatsapp-channel-pricing", json={"tenant": "tnt_x"})
-    assert r.status_code in (401, 403)
-
-
 # ── closed_at, branch.updated's real diff, and the ops-mcp report routes ─────────────────────────
 
 def test_closing_a_branch_stamps_closed_at_reopening_clears_it(client):

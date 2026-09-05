@@ -68,18 +68,6 @@ class WhatsAppDiagnostics:
         out = await run_in_threadpool(self._call, "/internal/whatsapp/deliveries" + q)
         return None if out is None or "_status" in out else out
 
-    async def channel_usage(self, tenant: str, period: str = "") -> dict[str, Any] | None:
-        """One tenant's REAL provider-billed WhatsApp usage for a period — units, never money
-        (see `app.core.whatsapp_channel_billing`, which turns this into what we charge). `period`
-        omitted means notification-service's own current-month default."""
-        if not self.configured:
-            return None
-        q = f"?tenant={urllib.parse.quote(tenant)}"
-        if period:
-            q += f"&period={urllib.parse.quote(period)}"
-        out = await run_in_threadpool(self._call, "/internal/whatsapp/channel-usage" + q)
-        return None if out is None or "_status" in out else out
-
 
 def build_whatsapp_diagnostics(settings) -> WhatsAppDiagnostics:
     return WhatsAppDiagnostics(base_url=settings.NOTIFICATION_SERVICE_URL,

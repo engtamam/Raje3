@@ -109,18 +109,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         ],
         "help": "سجلّ إرسال واتساب لمحل واحد بسببه — أحد الحقلين مطلوب.",
     },
-    {
-        "id": "operations.whatsapp_channel_bill", "label": "فاتورة قناة واتساب لمحل", "method": "GET",
-        "path": "/api/v1/platform/whatsapp/channel-bill", "capability": "platform.operations",
-        "group": "المنصة",
-        "params": [
-            {"name": "tenant", "in": "query", "type": "string", "required": True},
-            {"name": "period", "in": "query", "type": "string", "required": False,
-             "help": "شهر ميلادي YYYY-MM — افتراضياً الشهر الحالي"},
-        ],
-        "help": "كم نحاسب هذا المحل عن رسائل واتساب المرسلة عبر مزوّد ندفع نحن فاتورته — "
-               "وحدات حقيقية مُسعَّرة بجدولنا، لا تخمين.",
-    },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {
         "id": "operations.list_partners", "label": "الشركاء", "method": "GET",

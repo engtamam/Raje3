@@ -555,24 +555,6 @@ class Settings(BaseSettings):
     # Path to a step->CWE map override (TOML). Empty => built-in default map.
     CWE_STEP_MAP_FILE: str = ""
 
-    # ── WhatsApp channel pricing (app/core/whatsapp_channel_pricing.py) — SHAPE only, not a
-    # final decision. Only matters for a send provider whose commercial model bills US rather
-    # than the establishment directly (see that module's own docstring on why direct-Meta is
-    # zero here by construction). tier_plus_cap | addon_on_existing_plan | usage_based.
-    WHATSAPP_CHANNEL_PRICING_STRATEGY: str = "tier_plus_cap"
-    WHATSAPP_CHANNEL_PRICING_TIER_BASE_HALALAS: int = 0
-    WHATSAPP_CHANNEL_PRICING_TIER_INCLUDED_MESSAGES: int = 0
-    WHATSAPP_CHANNEL_PRICING_TIER_OVERAGE_HALALAS_PER_MESSAGE: int = 0
-    WHATSAPP_CHANNEL_PRICING_ADDON_FLAT_HALALAS: int = 0
-    WHATSAPP_CHANNEL_PRICING_USAGE_MARGIN_PERCENT: int = 0
-    WHATSAPP_CHANNEL_PRICING_USAGE_FLAT_HALALAS_PER_MESSAGE: int = 0
-
-    # ── Meta's own rate card (app/core/whatsapp_meta_rate_card.py) — a FACT we source and date,
-    # not a decision. Empty means every (category, country) rate is the default below — honest
-    # zero until someone actually sources Meta's current published rates.
-    WHATSAPP_META_RATE_CARD_JSON: str = ""
-    WHATSAPP_META_RATE_CARD_DEFAULT_HALALAS: int = 0
-
     @property
     def egress_allowed_hosts(self) -> frozenset[str]:
         return frozenset(

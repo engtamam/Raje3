@@ -49,7 +49,6 @@ const SECRET_HELP: Record<string, string> = {
   META_APP_ID: 'من لوحة مطوّري Meta (developers.facebook.com) — تطبيقك ← إعدادات أساسية ← "معرّف التطبيق".',
   META_APP_SECRET: 'من نفس صفحة إعدادات التطبيق بلوحة مطوّري Meta — "سر التطبيق" (يحتاج تأكيد كلمة مرور حسابك لإظهاره).',
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'نص تختاره أنت بنفسك (أي نص عشوائي قوي) وتُدخِله هنا وبنفس الوقت بإعدادات الـwebhook بلوحة Meta — يجب أن يتطابق النصّان بالضبط.',
-  WHATSAPP_360DIALOG_API_KEY: 'من لوحة 360dialog (hub.360dialog.com) — قسم API Keys الخاص برقم واتساب التجاري. (متوقف حالياً — المسار الحالي مزوّد ميتا مباشرة.)',
   // هوية واتساب المنصة نفسها (لا محل معيّن) — إرسالات النظام زي رمز التحقق (OTP) عند التسجيل.
   // خطوات ميتا: Business Manager ← Users ← System users ← أنشئ واحداً بصلاحية Admin ← فعّل صلاحية
   // whatsapp_business_messaging (وwhatsapp_business_management لو بنسجّل قوالب) ← ولّد توكن دائم.
@@ -77,12 +76,10 @@ function generateToken(): string {
 const PROVIDER_OF: Record<string, string> = {
   META_APP_ID: 'meta', META_APP_SECRET: 'meta', WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
-  WHATSAPP_360DIALOG_API_KEY: '360dialog',
   GEMINI_API_KEY: 'gemini',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
   meta: { label: 'Meta (واتساب)', icon: MessageCircle },
-  '360dialog': { label: '360dialog', icon: MessageCircle },
   gemini: { label: 'Gemini', icon: Sparkles },
   other: { label: 'أخرى', icon: CircleHelp },
 };

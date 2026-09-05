@@ -323,29 +323,6 @@ env:
   NOTIFICATION_TEMPLATE_DRAIN_PATH: "/internal/whatsapp/templates/submit-pending"
   TEMPLATE_SYNC_MAX_TENANTS: "200"
 
-  # ── WhatsApp channel pricing (app/core/whatsapp_channel_pricing.py + whatsapp_meta_rate_card.py,
-  # joined by whatsapp_channel_billing.py, read at GET /platform/whatsapp/channel-bill) ─────────
-  # A REAL DECISION, SET AHEAD OF THE SWITCH IT DEPENDS ON. We do not use Meta's own Cloud API
-  # directly — every send goes through 360dialog (a BSP), billed to US, so every message this
-  # tenant sends is now a real cost with a real margin decision, not a someday-maybe. This block
-  # is wired and correct today; it only waits on WHATSAPP_CHAIN (notification-service.values.yaml)
-  # actually naming `threesixtydialog` and a real WHATSAPP_360DIALOG_API_KEY existing — flip those
-  # two and this pricing is already live, nothing here needs touching again.
-  #
-  # usage_based: charge cost + a flat margin per billable message. 100% margin_percent means "pass
-  # the real cost through at par, no markup on the cost itself" — the flat component below is the
-  # entire margin, not a markup stacked on top of one.
-  WHATSAPP_CHANNEL_PRICING_STRATEGY: "usage_based"
-  WHATSAPP_CHANNEL_PRICING_USAGE_MARGIN_PERCENT: "100"
-  WHATSAPP_CHANNEL_PRICING_USAGE_FLAT_HALALAS_PER_MESSAGE: "5"
-  # Meta's own per-(category, calling code) rate card — WHAT THEY CHARGE 360dialog, not what we
-  # charge the shop (that is the block above). Left EMPTY on purpose: nobody has sourced and dated
-  # Meta's current published rates yet. Empty means every real cost reads 0 — the flat 5-halala
-  # margin above still charges on every billable message, cost-plus becomes real once someone
-  # sources Meta's rates and seeds them here, e.g. {"marketing:966": 25, "utility:966": 12}.
-  WHATSAPP_META_RATE_CARD_JSON: ""
-  WHATSAPP_META_RATE_CARD_DEFAULT_HALALAS: "0"
-
   # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
   # THE ENTITLEMENT KEY IS WHAT MAKES THE SECOND CLOCK RUN. Billing publishes no subscription-end
   # date internally (the same gap as trial_end), so the sweep OBSERVES instead: the first night it

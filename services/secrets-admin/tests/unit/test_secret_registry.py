@@ -25,7 +25,7 @@ from app.core.secret_registry import (
 def test_the_registry_is_the_ones_we_decided_on():
     assert {e.key for e in SECRETS} == {
         "META_APP_ID", "META_APP_SECRET", "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
-        "WHATSAPP_360DIALOG_API_KEY", "GEMINI_API_KEY",
+        "GEMINI_API_KEY",
         # the platform's OWN WhatsApp-via-Meta identity — env fallback for tenant="" sends,
         # distinct from a shop's own per-tenant WHATSAPP_ACCESS_TOKEN (a different store entirely)
         "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID",

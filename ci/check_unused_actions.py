@@ -54,6 +54,11 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     "wallet.my_ledger": "wallet is not sold in any plan (§6.8)",
     "wallet.my_balance": "wallet is not sold in any plan (§6.8)",
 
+    # rating-app foundation phase (rating-app-feature.md phases 1-2): the backend store, routes
+    # and tests exist; the console settings screen that would call them is phase 5, not built yet.
+    "reminders.rating_settings": "rating-app foundation phase — no console screen until phase 5",
+    "reminders.set_rating_settings": "rating-app foundation phase — no console screen until phase 5",
+
     # bookings.list/create/reschedule/edit_note/cancel/attend are all called now — Bookings.tsx
     # and BookingDialog.tsx (Stage 6). bookings.no_show is called too (the row action on a booked
     # appointment) — the whole family shipped together rather than screen by screen.

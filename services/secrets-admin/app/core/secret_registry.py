@@ -2,8 +2,8 @@
 
 WHY THIS FILE EXISTS AT ALL, AND WHY IT IS A CLOSED LIST.
 
-Meta rotates an app secret, a 360dialog key leaks in a screenshot, a Gemini key hits its quota and
-is reissued. Every one of those is an ordinary Tuesday, and until now every one of them meant
+Meta rotates an app secret, a webhook verify token leaks in a screenshot, a Gemini key hits its
+quota and is reissued. Every one of those is an ordinary Tuesday, and until now every one of them meant
 somebody with a kubeconfig running `kubectl create secret … --dry-run | kubectl apply` and then
 remembering to restart the right Deployment. That is a developer on call for a task with no
 engineering in it, performed by hand, at a keyboard where one wrong namespace edits the wrong
@@ -18,10 +18,10 @@ tried; the two are deliberately the same fact written twice, in the two places t
 
 ADDING A NEW ONE IS A ONE-PLACE EDIT HERE — plus one line in that Role, UNLESS THE SECRET OBJECT IS
 ALREADY NAMED THERE (WHATSAPP_ACCESS_TOKEN/WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_BUSINESS_ACCOUNT_ID
-below all write into `notification-service-secrets`, already covered by the Role's existing
-`resourceNames` from WHATSAPP_360DIALOG_API_KEY — no Role change needed for those three). Nothing
-else in this service knows the name of a secret: the routes, the console screen and the audit
-record all read this list.
+below all write into `notification-service-secrets`, already named in the Role's own
+`resourceNames` alongside every other key that shares that Secret object — no Role change needed
+for those three). Nothing else in this service knows the name of a secret: the routes, the console
+screen and the audit record all read this list.
 
 WHAT IS DELIBERATELY NOT HERE: our own secrets. INTERNAL_SERVICE_TOKEN, TOKEN_PUBLIC_KEY, PII_SALT
 and BACKUP_KEK are shared across the fleet and changing one of them is a coordinated migration, not
@@ -88,14 +88,6 @@ SECRETS: tuple[SecretEntry, ...] = (
         namespace="base-services",
         deployment="notification-service",
         label="توكن تحقق الـwebhook",
-    ),
-    # ── WhatsApp, through the 360dialog BSP ───────────────────────────────────────────────────
-    SecretEntry(
-        key="WHATSAPP_360DIALOG_API_KEY",
-        secret="notification-service-secrets",
-        namespace="base-services",
-        deployment="notification-service",
-        label="مفتاح 360dialog",
     ),
     # ── WhatsApp, through Meta directly — the PLATFORM'S OWN identity, not any shop's ────────────
     # A shop's own WHATSAPP_ACCESS_TOKEN is a per-tenant credential, resolved through the secret

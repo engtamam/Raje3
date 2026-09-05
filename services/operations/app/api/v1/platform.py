@@ -32,9 +32,6 @@ from app.core.seats import BRANCHES, SEATS
 from app.core.stores import BranchStore, OperatorStore, PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry, validate_commission_rate
 from app.core.templates import TemplateError, TemplateLibrary
-from app.core.whatsapp_channel_billing import bill_period
-from app.core.whatsapp_channel_pricing import ChannelPricingConfig
-from app.core.whatsapp_meta_rate_card import MetaRateCard
 from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -514,37 +511,3 @@ async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_
             {"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
             status_code=502)
     return out
-
-
-@router.get("/whatsapp/channel-bill", dependencies=[Depends(rate_limit)])
-async def whatsapp_channel_bill(request: Request, tenant: str = "", period: str = "",
-                                principal: Principal = Depends(_PLATFORM)) -> dict:
-    """«كم نحاسب هذا المحل عن قناة الواتساب هذا الشهر؟» — one tenant/period's REAL provider-billed
-    WhatsApp usage (read live from notification-service), priced through our own rate card and
-    channel-pricing config. Same door as `whatsapp_diagnostics` above: `platform.operations`,
-    audited here, the peer call behind `container.whatsapp_diagnostics` so no browser token ever
-    carries the internal one.
-
-    Zero-config-safe like every pricing module it composes: with WHATSAPP_META_RATE_CARD_JSON
-    unset every real cost reads 0, and with WHATSAPP_CHANNEL_PRICING_* unset every charge reads 0
-    — this route only ever reports a real number once someone has actually set one.
-    """
-    if not tenant:
-        return _refuse("مرّر tenant.")
-    await request.app.state.auditor.record(
-        "platform.whatsapp_channel_bill_viewed", actor=getattr(principal, "subject", "") or "",
-        tenant=tenant, resource=f"whatsapp-bill:{tenant}:{period or 'current'}",
-        ip=request.client.host if request.client else "")
-    desk = request.app.state.container.whatsapp_diagnostics
-    usage = await desk.channel_usage(tenant, period)
-    if usage is None:
-        return JSONResponse(
-            {"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
-            status_code=502)
-    settings = request.app.state.container_settings
-    card = MetaRateCard.from_settings(settings)
-    cfg = ChannelPricingConfig.from_settings(settings)
-    try:
-        return bill_period(card, cfg, usage)
-    except ValueError as exc:
-        return _refuse(str(exc))

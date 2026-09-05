@@ -216,7 +216,6 @@ def build_manifest(
             {"path": "/api/v1/platform/branches/locations", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/tenants/{}/capacity", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/diagnostics", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/platform/whatsapp/channel-bill", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},

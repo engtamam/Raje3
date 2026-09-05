@@ -5,7 +5,7 @@
 
 ## What it is for
 
-Meta rotates an app secret. A 360dialog key ends up in a screenshot. A Gemini key is reissued.
+Meta rotates an app secret. A webhook verify token ends up in a screenshot. A Gemini key is reissued.
 Every one of those is an ordinary Tuesday, and until this service each one meant somebody with
 cluster access running `kubectl create secret … --dry-run=client -o yaml | kubectl apply -f -` and
 then remembering to restart the right Deployment — by hand, under time pressure, at a keyboard
@@ -32,12 +32,12 @@ no variable in that scope that has ever held a credential.
 
 ## What it can touch
 
-Five keys, in two Secret objects, restarting two Deployments — listed once in
+Seven keys, in two Secret objects, restarting two Deployments — listed once in
 `app/core/secret_registry.py`. That list is the allow-list, and the cluster Role in
 `deploy/k3s/secrets-admin-rbac.yaml` names the same two objects with `resourceNames`, so the same
 rule is enforced twice: once by this code, once by the API server that would refuse it anyway.
 
-Adding a sixth is a one-line edit in each. It is deliberately not a generic secret editor: a route
+Adding a new one is a one-line edit in each. It is deliberately not a generic secret editor: a route
 that took an object name from the request body could rewrite `identity-service-secrets` — the
 signing key every token in the product is verified against — from a form.
 
