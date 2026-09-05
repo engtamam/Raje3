@@ -215,6 +215,12 @@ class Settings(BaseSettings):
     # app/adapters/staff_hours_lookup/http.py). `null` for an operator means he simply inherits
     # the shop's own hours; unreachable means the same thing, never a guess of narrower hours.
     OPERATIONS_STAFF_HOURS_PATH: str = "/internal/operations/staff-hours"
+    # ── the three package questions (packages feature) — same peer, three more paths. A package
+    # booking cannot be created at all when these are empty (BookingOperations.create refuses it
+    # explicitly), same "never a guess" posture as OPERATIONS_DURATIONS_PATH above.
+    OPERATIONS_PACKAGE_SERVICES_PATH: str = "/internal/operations/package-services"
+    OPERATIONS_PACKAGE_DURATIONS_PATH: str = "/internal/operations/package-durations"
+    OPERATIONS_PACKAGE_ELIGIBILITY_PATH: str = "/internal/operations/package-eligibility"
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.

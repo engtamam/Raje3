@@ -49,6 +49,12 @@ class Booking:
                                           # from operations (§6.5, DSAR fan-out target; also what
                                           # bookings.booking.changed events key on for reminders)
     service_ids: tuple[str, ...] = ()    # mutable; drives duration_minutes and the picker
+    # "" for an ordinary booking. Set at creation, MUTUALLY EXCLUSIVE with a client-chosen
+    # `service_ids` (which is instead RESOLVED from the package's own components and stamped here
+    # for display continuity — see BookingOperations.create's own note). Fixed after creation, same
+    # as `branch_id`: changing what package a booking is for is a cancel + a new booking, never a
+    # field edit — the price/duration/eligibility were all computed for THIS package at THIS time.
+    package_id: str = ""
     starts_at: int = 0                   # unix seconds, mutable — this IS the reschedule act
     duration_minutes: int = 0            # a SNAPSHOT of the sum of Service.duration_minutes at
                                           # booking time, recomputed only on an explicit

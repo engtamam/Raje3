@@ -191,7 +191,11 @@ class CreateIn(BaseModel):
     branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(min_length=1, max_length=64)
     customer_id: str = Field(min_length=1, max_length=64)
-    service_ids: list[str] = Field(min_length=1, max_length=20)
+    # EMPTY IS VALID — but only when `package_id` is set instead. Bookings' own `create()` refuses
+    # the "both" and "neither" cases with a clear Arabic reason; pydantic only bounds the shape.
+    service_ids: list[str] = Field(default_factory=list, max_length=20)
+    # MUTUALLY EXCLUSIVE WITH `service_ids` — a booking is one or the other (packages feature).
+    package_id: str = Field(default="", max_length=64)
     starts_at: int = Field(gt=0)
     note: str = Field(default="", max_length=500)
     idempotency_key: str = Field(default="", max_length=128)
@@ -218,6 +222,7 @@ async def create_booking(request: Request, body: CreateIn,
         booking = await c.booking_ops.create(
             tenant=tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             customer_id=body.customer_id, service_ids=body.service_ids,
+            package_id=body.package_id,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             created_by=principal.subject, series_id=body.series_id, series_seq=body.series_seq,
             payment_status=body.payment_status, deposit_amount_minor=body.deposit_amount_minor,

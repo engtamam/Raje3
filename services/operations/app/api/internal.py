@@ -826,6 +826,24 @@ async def internal_service_eligibility(request: Request, body: ServiceEligibilit
     return {"eligible_staff_ids": out}
 
 
+class PackageServicesIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    package_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/operations/package-services", dependencies=[Depends(require_internal_token)])
+async def internal_package_services(request: Request, body: PackageServicesIn) -> dict:
+    """A package's own component service ids — `bookings`' one call to resolve what to show on a
+    package booking (the picker, the calendar card) without duplicating the catalogue. `None` when
+    the package is unknown or retired, same convention as the two routes below.
+    """
+    c = request.app.state.container
+    pkg = await PackageStore(c.datastore).get(body.tenant, body.package_id)
+    if pkg is None or not pkg.active:
+        return {"service_ids": None}
+    return {"service_ids": list(pkg.service_ids)}
+
+
 class PackageDurationsIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     package_id: str = Field(min_length=1, max_length=64)
@@ -943,9 +961,22 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
     customer = await CustomerStore(c.datastore).get(body.tenant, body.customer_id)
     if customer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "العميلة غير موجودة")
+
+    # RE-RESOLVED HERE, NEVER TRUSTED FROM THE CALLER — when this attendance fulfils a package
+    # booking, the components THIS SERVICE holds right now are the source of truth, not whatever
+    # `bookings` cached at booking time (which may be days old — an owner could have edited the
+    # package's own service_ids since). Same "the write itself re-checks, not only the suggestion"
+    # posture as everywhere else in this fleet.
+    service_ids = body.service_ids
+    if body.package_id:
+        pkg = await PackageStore(c.datastore).get(body.tenant, body.package_id)
+        if pkg is None or not pkg.active:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "الباقة غير موجودة أو أُوقفت")
+        service_ids = list(pkg.service_ids)
+
     try:
         recorded = await c.operations.record_visit(
-            tenant=body.tenant, phone=customer.phone, service_ids=body.service_ids,
+            tenant=body.tenant, phone=customer.phone, service_ids=service_ids,
             operator_id=body.operator_id, branch_id=body.branch_id, note=body.note,
             idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
             package_id=body.package_id)

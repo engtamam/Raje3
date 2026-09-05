@@ -241,7 +241,9 @@ def build_container(settings: Settings) -> Container:
     # this service asks `operations` (a service's duration, the booking->visit gateway, and the
     # customer's pseudonym), the confirmation event, and the operations that use all of them.
     from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
-                                     RewardGateway, StaffEligibilityLookup, StaffHoursLookup,
+                                     PackageDurationLookup, PackageEligibilityLookup,
+                                     PackageServicesLookup, RewardGateway,
+                                     StaffEligibilityLookup, StaffHoursLookup,
                                      SubjectRefLookup, VisitGateway)
     from app.core.stores import BookingStore, WorkingHoursStore
     container.bookings = BookingStore(container.datastore)
@@ -252,6 +254,9 @@ def build_container(settings: Settings) -> Container:
     container.reward_gateway = _build_reward_gateway(settings)
     container.staff_eligibility_lookup = _build_staff_eligibility_lookup(settings)
     container.staff_hours_lookup = _build_staff_hours_lookup(settings)
+    container.package_durations_lookup = _build_package_duration_lookup(settings)
+    container.package_eligibility_lookup = _build_package_eligibility_lookup(settings)
+    container.package_services_lookup = _build_package_services_lookup(settings)
     from app.adapters.branch_scope import build as build_branch_scope
     container.branch_scope = build_branch_scope(settings)
     container.booking_ops = BookingOperations(
@@ -265,7 +270,10 @@ def build_container(settings: Settings) -> Container:
         risk_threshold_percent=settings.NO_SHOW_RISK_THRESHOLD_PERCENT,
         working_hours=container.working_hours,
         staff_eligibility=StaffEligibilityLookup(lookup=container.staff_eligibility_lookup),
-        staff_hours=StaffHoursLookup(lookup=container.staff_hours_lookup))
+        staff_hours=StaffHoursLookup(lookup=container.staff_hours_lookup),
+        package_durations=PackageDurationLookup(lookup=container.package_durations_lookup),
+        package_eligibility=PackageEligibilityLookup(lookup=container.package_eligibility_lookup),
+        package_services=PackageServicesLookup(lookup=container.package_services_lookup))
     return container
 
 
@@ -312,6 +320,52 @@ def _build_staff_eligibility_lookup(settings: Settings):
     return HttpStaffEligibility(
         operations_url=settings.OPERATIONS_SERVICE_URL,
         path=settings.OPERATIONS_SERVICE_ELIGIBILITY_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_package_services_lookup(settings: Settings):
+    """`http` when `operations` is wired, or a lookup that always refuses (`None`) otherwise — a
+    package booking cannot be created at all without knowing what it is made of, same fail-closed
+    posture as `_build_duration_lookup`."""
+    from app.adapters.package_services.http import HttpPackageServices
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_PACKAGE_SERVICES_PATH:
+        async def _refuses_always(tenant: str, package_id: str) -> list[str] | None:
+            return None
+        return _refuses_always
+    return HttpPackageServices(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_PACKAGE_SERVICES_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_package_duration_lookup(settings: Settings):
+    """Same fail-closed posture as `_build_duration_lookup` — a package's duration is never
+    guessed."""
+    from app.adapters.duration_lookup.package_http import HttpPackageDurationLookup
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_PACKAGE_DURATIONS_PATH:
+        async def _refuses_always(tenant: str, package_id: str) -> int | None:
+            return None
+        return _refuses_always
+    return HttpPackageDurationLookup(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_PACKAGE_DURATIONS_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_package_eligibility_lookup(settings: Settings):
+    """Same "no restriction found" fail-open posture as `_build_staff_eligibility_lookup` — an
+    unconfigured peer must not narrow who may perform a package nobody has restricted."""
+    from app.adapters.staff_eligibility.package_http import HttpPackageEligibility
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_PACKAGE_ELIGIBILITY_PATH:
+        async def _no_restriction(tenant: str, package_id: str) -> list[str] | None:
+            return None
+        return _no_restriction
+    return HttpPackageEligibility(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_PACKAGE_ELIGIBILITY_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
 
 

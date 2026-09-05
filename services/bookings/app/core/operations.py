@@ -94,6 +94,40 @@ class StaffEligibilityLookup:
 
 
 @dataclass
+class PackageDurationLookup:
+    """The package sibling of `DurationLookup` — what a PACKAGE costs in minutes, right now,
+    summed FRESH from its live components by `operations` on every call (never cached — see
+    operations' own Package docstring). A separate port, not a `package_id` branch inside
+    `DurationLookup`, because the two ask different peer routes with different bodies."""
+    lookup: Any   # async (tenant, package_id) -> int | None
+
+    async def minutes(self, tenant: str, package_id: str) -> int | None:
+        return await self.lookup(tenant, package_id)
+
+
+@dataclass
+class PackageEligibilityLookup:
+    """The package sibling of `StaffEligibilityLookup` — which operators may perform EVERY
+    component of a package, already intersected by `operations`. `None` means "no restriction
+    found", same convention as the service lookup's per-service `None`."""
+    lookup: Any   # async (tenant, package_id) -> list[str] | None
+
+    async def eligible_for(self, tenant: str, package_id: str) -> list[str] | None:
+        return await self.lookup(tenant, package_id)
+
+
+@dataclass
+class PackageServicesLookup:
+    """A package's own component service ids, resolved ONCE at booking creation and stamped onto
+    `Booking.service_ids` — so the picker/calendar card can still name what was booked without this
+    service holding a copy of the catalogue. `None` means the package is unknown or retired."""
+    lookup: Any   # async (tenant, package_id) -> list[str] | None
+
+    async def resolve(self, tenant: str, package_id: str) -> list[str] | None:
+        return await self.lookup(tenant, package_id)
+
+
+@dataclass
 class StaffHoursLookup:
     """Each candidate operator's own working-hours OVERRIDE — the FIFTH question this module asks
     `operations`. `None` for an operator (or an unreachable peer) means "inherits the shop's own
@@ -141,7 +175,10 @@ class BookingOperations:
                 risk_window: int = 5, risk_threshold_percent: int = 60,
                 working_hours: Any = None,
                 staff_eligibility: StaffEligibilityLookup | None = None,
-                staff_hours: StaffHoursLookup | None = None) -> None:
+                staff_hours: StaffHoursLookup | None = None,
+                package_durations: PackageDurationLookup | None = None,
+                package_eligibility: PackageEligibilityLookup | None = None,
+                package_services: PackageServicesLookup | None = None) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
@@ -166,6 +203,13 @@ class BookingOperations:
         # safe defaults the peer itself answers with when it IS wired but has nothing to say.
         self._staff_eligibility = staff_eligibility
         self._staff_hours = staff_hours
+        # OPTIONAL, SAME SHAPE — a test/local run with none of these wired simply cannot book a
+        # PACKAGE at all (`create()` refuses with a clear reason rather than silently falling back
+        # to treating it as an ordinary service list, which would price/duration/eligibility-check
+        # it wrong in a way nobody would notice until a customer complained).
+        self._package_durations = package_durations
+        self._package_eligibility = package_eligibility
+        self._package_services = package_services
 
     async def _refuse_if_ineligible(self, tenant: str, operator_id: str, service_ids: list[str]) -> None:
         """Refuses when `operator_id` cannot perform one of `service_ids` — enforced here, at the
@@ -215,12 +259,27 @@ class BookingOperations:
                      series_id: str | None = None, series_seq: int | None = None,
                      payment_status: str = PAYMENT_NONE, deposit_amount_minor: int | None = None,
                      price_override_minor: int | None = None,
-                     intended_reward_id: str | None = None) -> Booking:
+                     intended_reward_id: str | None = None,
+                     # MUTUALLY EXCLUSIVE WITH `service_ids` — a booking is one or the other,
+                     # never both (§ packages feature). "" is the ordinary, unchanged path below;
+                     # everything in this `if package_id:` block is the ONLY new code path this
+                     # feature adds — an ordinary service booking is untouched byte for byte.
+                     package_id: str = "") -> Booking:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
         if not branch_id or not operator_id or not customer_id:
             raise OperationError("الفرع والموظفة والعميلة مطلوبون لإنشاء حجز")
-        if not service_ids or any(not str(s).strip() for s in service_ids):
+        package_id = (package_id or "").strip()
+        if package_id:
+            if service_ids:
+                raise OperationError("اختر إما خدمات منفردة أو باقة — لا الاثنين معاً")
+            if self._package_services is None or self._package_durations is None:
+                raise OperationError("حجز الباقات غير متاح في هذه البيئة الآن")
+            resolved = await self._package_services.resolve(tenant, package_id)
+            if not resolved:
+                raise OperationError("هذه الباقة غير موجودة أو أُوقفت")
+            service_ids = resolved
+        elif not service_ids or any(not str(s).strip() for s in service_ids):
             raise OperationError("اختر خدمة واحدة على الأقل")
         if not starts_at or int(starts_at) <= 0:
             raise OperationError("وقت الحجز مطلوب")
@@ -247,15 +306,26 @@ class BookingOperations:
         # never strands an existing booking, but it stops a new one being made.
         await self._licence.require(tenant)
 
-        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        if package_id:
+            duration = await self._package_durations.minutes(tenant, package_id)
+        else:
+            duration = await self._durations.minutes(tenant, tuple(service_ids))
         if not duration:
             # THE "SILENT DEFAULT DECIDES POLICY" FAMILY, NAMED EXPLICITLY: no thirty-minute
             # guess. §4 of the plan requires this refusal by name.
-            raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+            raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»"
+                                if not package_id else
+                                "مدة هذه الباقة غير مضبوطة — تحقق من مدة كل خدمة داخلها")
 
         # THE WRITE ITSELF REFUSES, NOT ONLY THE SUGGESTION — see `_refuse_if_ineligible`'s own
         # docstring.
-        await self._refuse_if_ineligible(tenant, operator_id, service_ids)
+        if package_id:
+            if self._package_eligibility is not None:
+                allowed = await self._package_eligibility.eligible_for(tenant, package_id)
+                if allowed and operator_id not in allowed:
+                    raise OperationError("هذا الموظف لا يقدر يسوّي هذه الباقة")
+        else:
+            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
         # STAMPED ONCE, HERE, FAIL-CLOSED — same family as the duration refusal above. Without a
         # pseudonym this booking can never be found by a DSAR (§6.5) and can never key a
@@ -271,6 +341,7 @@ class BookingOperations:
         booking = Booking(
             id=new_id("bkg"), tenant=tenant, branch_id=branch_id, operator_id=operator_id,
             customer_id=customer_id, subject_ref=subject_ref, service_ids=tuple(service_ids),
+            package_id=package_id,
             starts_at=int(starts_at), duration_minutes=duration, status=STATUS_BOOKED,
             series_id=series_id, series_seq=series_seq, payment_status=payment_status,
             deposit_amount_minor=deposit_amount_minor,
@@ -412,7 +483,8 @@ class BookingOperations:
         result = await self._visits.record(
             tenant=tenant, customer_id=booking.customer_id, service_ids=booking.service_ids,
             operator_id=booking.operator_id, branch_id=booking.branch_id, note=booking.note,
-            idempotency_key=f"bkg:{booking.id}", occurred_at=occurred_at)
+            idempotency_key=f"bkg:{booking.id}", occurred_at=occurred_at,
+            package_id=booking.package_id)
         if result is None or not result.get("visit_id"):
             raise OperationError("تعذّر تسجيل الزيارة الآن — حاول مجدداً بعد قليل")
 
