@@ -86,11 +86,14 @@ export function BranchSwitch({
       <button
         type="button"
         onClick={onAdd}
-        className="flex items-center gap-2 rounded-lg border border-dashed border-border-subtle
-                   px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors
-                   hover:border-accent hover:bg-surface-2 hover:text-accent-on-soft"
+        className="group flex items-center gap-2 rounded-lg border border-dashed border-border-subtle
+                   px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-all duration-150
+                   hover:border-accent/50 hover:bg-surface-2 hover:text-accent-on-soft"
       >
-        <span className="grid size-5 shrink-0 place-items-center rounded-md bg-surface-2 text-text-muted">
+        <span className="grid size-5 shrink-0 place-items-center rounded-md bg-surface-2 text-text-muted
+                          ring-1 ring-border-subtle/60 transition-all duration-150
+                          group-hover:bg-accent/10 group-hover:text-accent-on-soft group-hover:ring-accent/20
+                          group-hover:scale-105">
           <Plus size={12} aria-hidden />
         </span>
         أضف فرعاً
@@ -128,10 +131,11 @@ export function BranchSwitch({
         <button
           type="button"
           onClick={onAdd}
-          className="flex items-center gap-2 self-start rounded-lg px-2 py-1 text-xs font-medium
-                     text-accent-on-soft transition-colors hover:bg-surface-2"
+          className="group flex items-center gap-2 self-start rounded-lg px-2 py-1 text-xs font-medium
+                     text-accent-on-soft transition-all duration-150 hover:bg-surface-2"
         >
-          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-accent/10 text-accent-on-soft">
+          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-accent/10 text-accent-on-soft
+                            ring-1 ring-accent/20 transition-transform duration-150 group-hover:scale-105">
             <Plus size={12} aria-hidden />
           </span>
           أضف فرعاً

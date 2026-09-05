@@ -117,24 +117,30 @@ function renderNavItem(
   const Icon = item.icon;
   // min-h-11 (44px) is the accessible touch-target floor; py-1.5 alone rendered ~32px and failed the
   // mobile spec. The row still hugs its content width; only its HEIGHT is floored.
-  const base = 'group relative flex min-h-11 items-center rounded-lg py-1.5 text-sm font-medium transition-colors focus-ring';
+  const base = 'group relative flex min-h-11 items-center rounded-lg py-1.5 text-sm font-medium transition-all focus-ring';
   const layout = collapsed ? 'justify-center px-0' : 'gap-3 px-3';
-  // ACTIVE = A DISTINCT ICON CHIP, NOT A TINTED ROW. A soft-background row with a thin accent bar is
-  // the same shape every admin-template sidebar uses; the icon sitting inside its own accent-filled,
-  // rounded square (Linear/Vercel-style) is what actually reads as deliberate rather than generic, and
-  // it survives collapse unchanged — the chip alone still tells the current section apart with no label.
-  const active = 'bg-surface-2 text-text-primary font-semibold';
+  // ACTIVE = A DISTINCT ICON CHIP PLUS A LEADING ACCENT BAR, NOT A TINTED ROW ALONE. The bar (a thin
+  // absolutely-positioned pseudo-element at the row's leading edge) is what a premium admin rail
+  // actually carries — the chip alone read as "a slightly darker button", the bar is what makes the
+  // whole row read as "this is where you are". It survives collapse unchanged since it never depends
+  // on the label being visible.
+  const active =
+    'bg-surface-2 text-text-primary font-semibold ' +
+    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-accent before:content-['']";
   const inactive = 'text-text-secondary hover:bg-surface-2 hover:text-text-primary';
-  // EVERY ICON GETS A CHIP, ACTIVE OR NOT. A plain glyph floating with no background read as an
-  // afterthought next to the active row's filled square — the row list looked "half-finished"
-  // rather than one consistent design. A soft, borderless chip at rest (bg-surface-2) still lets
-  // the ACTIVE state (bg-accent + shadow) read as the one that is different, just no longer as
-  // "styled vs. unstyled".
+  // EVERY ICON GETS A CHIP, ACTIVE OR NOT — a plain glyph floating with no background read as an
+  // afterthought next to the active row's filled square, so the list looked "half-finished" rather
+  // than one consistent design. AT REST the chip is a tinted surface with a hairline ring (depth
+  // without weight); ON HOVER it warms toward the accent instead of just going one shade darker, so
+  // the row feels like it is responding to the cursor, not just re-painting; ACTIVE is a soft
+  // accent-tinted gradient with its own ring and shadow, one step up from "flat filled square" —
+  // still fully legible in bare accent-on-white, just less generic.
   const iconWrap = (isActive: boolean) => cn(
-    'grid size-7 shrink-0 place-items-center rounded-md transition-colors',
+    'grid size-7 shrink-0 place-items-center rounded-md transition-all duration-150',
+    'group-hover:scale-105',
     isActive
-      ? 'bg-accent text-accent-contrast shadow-sm'
-      : 'bg-surface-2 text-text-muted group-hover:text-text-secondary',
+      ? 'bg-gradient-to-br from-accent to-accent/85 text-accent-contrast shadow-sm ring-1 ring-accent/40'
+      : 'bg-surface-2 text-text-muted ring-1 ring-border-subtle/60 group-hover:bg-accent/10 group-hover:text-accent-on-soft group-hover:ring-accent/20',
   );
   // COLLAPSED ACCESSIBLE NAME WAS `title=` ALONE — a hover tooltip, invisible to a screen reader that
   // never receives a synthetic hover. `aria-label` (paired with `aria-hidden` on the visual glyphs
