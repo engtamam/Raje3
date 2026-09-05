@@ -129,7 +129,11 @@ export function AccountScreen(
   // `operations.list_branches_for_bookings`. Only rendered when it resolves to exactly ONE
   // branch: a multi-branch owner already has the switcher for this, and naming several here would
   // just repeat it worse.
-  const [myBranch, setMyBranch] = useState<{ id: string; name?: string } | null>(null);
+  const [myBranch, setMyBranch] = useState<{ id: string; name?: string } | null | undefined>(undefined);
+  // TOLD APART FROM «not applicable» AND «not a single branch» — both of those are `myBranch ===
+  // null` and stay silent, same as before. Only an actual failed read sets this, so the line
+  // below can finally say so instead of looking identical to a shop with several branches.
+  const [myBranchFailed, setMyBranchFailed] = useState(false);
 
   useEffect(() => {
     const b = action(catalog, 'operations.list_branches')
@@ -137,7 +141,7 @@ export function AccountScreen(
     if (!b) { setMyBranch(null); return; }
     call<{ branches?: { id: string; name?: string }[] }>(session, b)
       .then((x) => setMyBranch((x.branches?.length ?? 0) === 1 ? x.branches![0] : null))
-      .catch(() => setMyBranch(null));
+      .catch(() => { setMyBranch(null); setMyBranchFailed(true); });
   }, [session, catalog]);
 
   useEffect(() => {
@@ -201,6 +205,8 @@ export function AccountScreen(
           <span className="text-sm text-text-secondary">
             {myBranch.name || myBranch.id}
           </span>
+        ) : myBranchFailed ? (
+          <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
         ) : null}
       </div>
 

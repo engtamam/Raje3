@@ -18,6 +18,7 @@ vi.mock('../catalog', async (importOriginal) => {
     },
     call: async (_s: unknown, a: { id: string }) => {
       if (a.id === 'operations.list_branches_for_bookings') {
+        if ((globalThis as any).__branchReadFails) throw new Error('boom');
         return { branches: [{ id: 'brn-main', name: 'الفرع الرئيسي' }] };
       }
       if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
@@ -49,5 +50,17 @@ describe('«حسابي» — who he is, and where he works', () => {
     const session = { operatorName: 'سالم العتيبي', operator: 'op_1' } as never;
     render(<AccountScreen session={session} catalog={catalog} />);
     await screen.findByText('الفرع الرئيسي');
+  });
+
+  // م · النمط 1 — `myBranch` used to start `null` and its failure handler set `null` too, so a
+  // failed branch read was indistinguishable from one that simply resolved to «not exactly one
+  // branch» — nothing was ever shown for either, and the sentence written for the failure never
+  // rendered.
+  it('says his branch read failed rather than silently showing nothing, same as an unresolved one would', async () => {
+    (globalThis as any).__branchReadFails = true;
+    const session = { operatorName: 'سالم العتيبي', operator: 'op_1' } as never;
+    render(<AccountScreen session={session} catalog={catalog} />);
+    await screen.findByText('تعذّرت قراءة فرعك');
+    (globalThis as any).__branchReadFails = false;
   });
 });
