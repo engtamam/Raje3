@@ -1059,6 +1059,9 @@ class ServiceIn(BaseModel):
     # 720 = 12 hours, generous above any real salon/workshop service, still a real ceiling.
     duration_minutes: int = Field(default=0, ge=0, le=720)
     sort: int = Field(default=0, ge=0, le=9999)
+    # A SHORT LINE THE OWNER WRITES — see Service.description's own docstring. Empty is the
+    # common case; nothing here invents one.
+    description: str = Field(default="", max_length=300)
 
 
 @router.get("/services", dependencies=[Depends(rate_limit)])
@@ -1091,7 +1094,7 @@ async def create_service(request: Request, body: ServiceIn,
     s = Service(id=new_id("srv"), tenant=tenant, name=body.name.strip(),
                 cycle_days=body.cycle_days, price_minor=body.price_minor,
                 duration_minutes=body.duration_minutes, sort=body.sort,
-                created=int(time.time()))
+                description=body.description.strip(), created=int(time.time()))
     await ServiceStore(request.app.state.container.datastore).save(s)
     return s.public()
 
@@ -1215,6 +1218,7 @@ class ServicePatch(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=0, le=720)
     active: bool | None = None
     sort: int | None = Field(default=None, ge=0, le=9999)
+    description: str | None = Field(default=None, max_length=300)
     # WHO CAN ACTUALLY DO THIS — `None` MEANS «LEAVE IT», same convention every other field on
     # this model already uses. An EXPLICIT empty list is a real value (models.py's own
     # `Service.eligible_staff_ids` docstring: "[] means every active operator"), not "leave it" —
@@ -1241,7 +1245,8 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         "service.updated", actor=principal.subject, tenant=tenant,
         resource=f"service:{service_id}", ip=request.client.host if request.client else "")
 
-    for fld in ("name", "cycle_days", "price_minor", "duration_minutes", "active", "sort"):
+    for fld in ("name", "cycle_days", "price_minor", "duration_minutes", "active", "sort",
+                "description"):
         val = getattr(body, fld)
         if val is not None:
             setattr(s, fld, val.strip() if isinstance(val, str) else val)
@@ -1256,6 +1261,86 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
 
     await store.save(s)
     return s.public()
+
+
+class CatalogueImageIn(BaseModel):
+    """A product photo, sent as JSON — the same shape notification-service's own
+    `WaMediaUploadIn` already uses for a media upload, kept consistent rather than adding a second
+    (multipart) upload convention to this service for one route."""
+    content_type: str = Field(min_length=1, max_length=64)   # image/jpeg|image/png|image/webp
+    data_base64: str = Field(min_length=1)
+
+
+@router.post("/services/{service_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def upload_service_image(request: Request, service_id: str, body: CatalogueImageIn,
+                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """Replace this service's photo. See `catalogue_image.py`'s module docstring for why this is a
+    real object, never a URL the console types in."""
+    tenant = _tenant(principal)
+    store = ServiceStore(request.app.state.container.datastore)
+    s = await store.get(tenant, service_id)
+    if s is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    import base64
+    import binascii
+
+    from app.core.catalogue_image import CatalogueImageError, store_image
+    try:
+        data = base64.b64decode(body.data_base64, validate=True)
+    except (ValueError, binascii.Error):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "data_base64 is not valid base64")
+    try:
+        stored = await store_image(
+            request.app.state.container.object_store, tenant=tenant, kind="service",
+            item_id=service_id, data=data, content_type=body.content_type, old_key=s.image_key)
+    except CatalogueImageError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    s.image_key = stored.key
+    await store.save(s)
+    await request.app.state.auditor.record(
+        "service.image_set", actor=principal.subject, tenant=tenant,
+        resource=f"service:{service_id}", ip=request.client.host if request.client else "")
+    return s.public()
+
+
+@router.delete("/services/{service_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def delete_service_image(request: Request, service_id: str,
+                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    tenant = _tenant(principal)
+    store = ServiceStore(request.app.state.container.datastore)
+    s = await store.get(tenant, service_id)
+    if s is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    if s.image_key:
+        from app.core.catalogue_image import delete_image
+        await delete_image(request.app.state.container.object_store, s.image_key)
+        s.image_key = ""
+        await store.save(s)
+        await request.app.state.auditor.record(
+            "service.image_cleared", actor=principal.subject, tenant=tenant,
+            resource=f"service:{service_id}", ip=request.client.host if request.client else "")
+    return s.public()
+
+
+@router.get("/services/{service_id}/image", dependencies=[Depends(rate_limit)])
+async def get_service_image(request: Request, service_id: str,
+                            principal: Principal = Depends(_MANAGE_SERVICES)):
+    """The photo itself, streamed back — gated the same as the rest of this catalogue (`operations.
+    manage`/`manage_services`) rather than left public, since a photo is still the shop's own
+    content."""
+    tenant = _tenant(principal)
+    s = await ServiceStore(request.app.state.container.datastore).get(tenant, service_id)
+    if s is None or not s.image_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    from starlette.responses import Response
+
+    from app.core.catalogue_image import read_image
+    from app.ports.errors import NotFound
+    try:
+        data, ctype = await read_image(request.app.state.container.object_store, s.image_key)
+    except NotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return Response(content=data, media_type=ctype)
 
 
 # ── the package catalogue ─────────────────────────────────────────────────────────────────────
@@ -1286,6 +1371,7 @@ class PackageIn(BaseModel):
     recurrence_yearly_to: str = Field(default="", max_length=5)
     # PURELY DESCRIPTIVE — see Package.person_count's own docstring. 1 = say nothing about it.
     person_count: int = Field(default=1, ge=1, le=50)
+    description: str = Field(default="", max_length=300)
 
 
 def _validate_package_services(tenant: str, service_ids: list[str],
@@ -1363,7 +1449,7 @@ async def create_package(request: Request, body: PackageIn,
                recurrence_days_of_month=list(body.recurrence_days_of_month),
                recurrence_yearly_from=body.recurrence_yearly_from,
                recurrence_yearly_to=body.recurrence_yearly_to,
-               person_count=body.person_count,
+               person_count=body.person_count, description=body.description.strip(),
                created=int(time.time()))
     await PackageStore(request.app.state.container.datastore).save(p)
     return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
@@ -1387,6 +1473,7 @@ class PackagePatch(BaseModel):
     recurrence_yearly_from: str | None = Field(default=None, max_length=5)
     recurrence_yearly_to: str | None = Field(default=None, max_length=5)
     person_count: int | None = Field(default=None, ge=1, le=50)
+    description: str | None = Field(default=None, max_length=300)
 
 
 @router.patch("/packages/{package_id}",
@@ -1447,10 +1534,78 @@ async def update_package(request: Request, package_id: str, body: PackagePatch,
         "package.updated", actor=principal.subject, tenant=tenant,
         resource=f"package:{package_id}", ip=request.client.host if request.client else "")
 
-    for fld in ("name", "price_minor", "active", "sort", "person_count"):
+    for fld in ("name", "price_minor", "active", "sort", "person_count", "description"):
         val = getattr(body, fld)
         if val is not None:
             setattr(p, fld, val.strip() if isinstance(val, str) else val)
 
     await store.save(p)
     return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
+
+
+@router.post("/packages/{package_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def upload_package_image(request: Request, package_id: str, body: CatalogueImageIn,
+                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """Replace this package's photo — same rules as `upload_service_image`."""
+    tenant = _tenant(principal)
+    store = PackageStore(request.app.state.container.datastore)
+    p = await store.get(tenant, package_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    import base64
+    import binascii
+
+    from app.core.catalogue_image import CatalogueImageError, store_image
+    try:
+        data = base64.b64decode(body.data_base64, validate=True)
+    except (ValueError, binascii.Error):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "data_base64 is not valid base64")
+    try:
+        stored = await store_image(
+            request.app.state.container.object_store, tenant=tenant, kind="package",
+            item_id=package_id, data=data, content_type=body.content_type, old_key=p.image_key)
+    except CatalogueImageError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    p.image_key = stored.key
+    await store.save(p)
+    await request.app.state.auditor.record(
+        "package.image_set", actor=principal.subject, tenant=tenant,
+        resource=f"package:{package_id}", ip=request.client.host if request.client else "")
+    return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
+
+
+@router.delete("/packages/{package_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def delete_package_image(request: Request, package_id: str,
+                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    tenant = _tenant(principal)
+    store = PackageStore(request.app.state.container.datastore)
+    p = await store.get(tenant, package_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    if p.image_key:
+        from app.core.catalogue_image import delete_image
+        await delete_image(request.app.state.container.object_store, p.image_key)
+        p.image_key = ""
+        await store.save(p)
+        await request.app.state.auditor.record(
+            "package.image_cleared", actor=principal.subject, tenant=tenant,
+            resource=f"package:{package_id}", ip=request.client.host if request.client else "")
+    return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
+
+
+@router.get("/packages/{package_id}/image", dependencies=[Depends(rate_limit)])
+async def get_package_image(request: Request, package_id: str,
+                            principal: Principal = Depends(_MANAGE_SERVICES)):
+    tenant = _tenant(principal)
+    p = await PackageStore(request.app.state.container.datastore).get(tenant, package_id)
+    if p is None or not p.image_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    from starlette.responses import Response
+
+    from app.core.catalogue_image import read_image
+    from app.ports.errors import NotFound
+    try:
+        data, ctype = await read_image(request.app.state.container.object_store, p.image_key)
+    except NotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return Response(content=data, media_type=ctype)

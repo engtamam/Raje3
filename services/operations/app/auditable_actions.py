@@ -276,6 +276,30 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "package",
     },
     {
+        "action": "service.image_set",
+        "source": "admin",
+        "critical": False,
+        "resource": "service",
+    },
+    {
+        "action": "service.image_cleared",
+        "source": "admin",
+        "critical": False,
+        "resource": "service",
+    },
+    {
+        "action": "package.image_set",
+        "source": "admin",
+        "critical": False,
+        "resource": "package",
+    },
+    {
+        "action": "package.image_cleared",
+        "source": "admin",
+        "critical": False,
+        "resource": "package",
+    },
+    {
         "action": "service.bulk_imported",
         "source": "admin",
         # Same reason as service.updated — a whole catalogue's prices can change in one call, and

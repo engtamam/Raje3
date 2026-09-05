@@ -183,6 +183,18 @@ class Service:
     # `/internal/operations/service-durations` (extended to carry this alongside duration), never
     # duplicated into bookings' own store.
     eligible_staff_ids: list[str] = field(default_factory=list)
+    # A SHORT, OWNER-WRITTEN LINE — real value the WhatsApp assistant did not have before this
+    # field existed: `service_catalog.py` hands the AI the bare priced row (name, price, duration)
+    # and nothing else, so "what does this service actually involve" had no answer. Empty is the
+    # common case and stays empty — never invented, never a placeholder sentence.
+    description: str = ""
+    # THE OBJECT'S KEY IN `ObjectStore`, NEVER A DIRECT URL. A URL a caller could set to anything —
+    # someone else's image, a link that later goes dead or gets swapped for something we never
+    # reviewed — is a photo we do not actually own. A key we control (see the image upload route)
+    # means every service photo is a file we hold, the same trust boundary `logo_url`'s own removed
+    # file-service note argued for keeping OUT of scope for one picture per shop; a catalogue can
+    # hold dozens, so this one earns the real object store that logo deliberately went without.
+    image_key: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
@@ -190,7 +202,8 @@ class Service:
                 "duration_minutes": self.duration_minutes,
                 "active": self.active, "sort": self.sort, "catchall": self.catchall,
                 "external_id": self.external_id, "seeded": self.seeded, "created": self.created,
-                "eligible_staff_ids": list(self.eligible_staff_ids)}
+                "eligible_staff_ids": list(self.eligible_staff_ids),
+                "description": self.description, "has_image": bool(self.image_key)}
 
 
 @dataclass
@@ -259,6 +272,11 @@ class Package:
     # a genuine group booking (several distinct customer records under one appointment) is a
     # materially larger feature, deliberately out of scope here.
     person_count: int = 1
+    # SAME TWO FIELDS, SAME REASONING AS `Service` ABOVE — a package is sold the same way a service
+    # is, and the WhatsApp assistant should be able to say what a bundle actually contains just as
+    # much as what one service does.
+    description: str = ""
+    image_key: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
@@ -271,7 +289,8 @@ class Package:
                 "recurrence_days_of_month": list(self.recurrence_days_of_month),
                 "recurrence_yearly_from": self.recurrence_yearly_from,
                 "recurrence_yearly_to": self.recurrence_yearly_to,
-                "person_count": self.person_count}
+                "person_count": self.person_count,
+                "description": self.description, "has_image": bool(self.image_key)}
 
 
 @dataclass

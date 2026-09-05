@@ -59,6 +59,20 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     "reminders.rating_settings": "rating-app foundation phase — no console screen until phase 5",
     "reminders.set_rating_settings": "rating-app foundation phase — no console screen until phase 5",
 
+    # services-images-board.md phase 1: model + storage + routes exist and are fully tested; the
+    # console upload button and image display (phase 3 of that plan) are not built yet. Note that
+    # the SERVICE-image actions accidentally match this gate's own path-stem heuristic (their stem,
+    # "/api/v1/staff/services", is already a substring the console writes out for the existing
+    # services list/create calls) and so are not actually reported as orphans today — only the
+    # PACKAGE-image ones are. Both families are declared here anyway, honestly, rather than relying
+    # on that coincidence to keep the gate quiet.
+    "operations.upload_service_image": "services-images-board phase 1 — no console screen until phase 3",
+    "operations.get_service_image": "services-images-board phase 1 — no console screen until phase 3",
+    "operations.delete_service_image": "services-images-board phase 1 — no console screen until phase 3",
+    "operations.upload_package_image": "services-images-board phase 1 — no console screen until phase 3",
+    "operations.get_package_image": "services-images-board phase 1 — no console screen until phase 3",
+    "operations.delete_package_image": "services-images-board phase 1 — no console screen until phase 3",
+
     # bookings.list/create/reschedule/edit_note/cancel/attend are all called now — Bookings.tsx
     # and BookingDialog.tsx (Stage 6). bookings.no_show is called too (the row action on a booked
     # appointment) — the whole family shipped together rather than screen by screen.
