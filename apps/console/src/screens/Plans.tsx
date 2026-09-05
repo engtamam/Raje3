@@ -38,7 +38,7 @@ import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
 import {
-  CalendarClock, Check, Gift, Layers, Megaphone, Sparkles, type LucideIcon,
+  CalendarClock, Check, Gift, Layers, Megaphone, Minus, Plus, Sparkles, type LucideIcon,
 } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import { isReady, type Loading } from '../loading';
@@ -89,6 +89,10 @@ export interface Plan {
 }
 export interface Subscription {
   id: string; plan_id?: string; plan_name?: string; status?: string;
+  /** How many units of a CAPACITY row this one subscription holds — Odoo-style per-seat licensing,
+   *  not one row per unit. Defaults to 1 server-side; absent entirely on rows minted before this
+   *  existed, so `?? 1` at every read site, never a bare `sub.quantity`. */
+  quantity?: number;
   /** Seconds on the wire — the model's real field name is `current_period_end`; `period_end` here
    *  was declared and never actually read by anything in this file. */
   current_period_end?: number;
@@ -517,6 +521,85 @@ function AppCard({
   );
 }
 
+/** The word for ONE of whatever this capacity row grants («مقعد»/«فرع») — read off its own
+ *  gauge limit key, never guessed from its name. Falls back to a generic word rather than the raw
+ *  machine key, matching `planLines`' own rule: a key we have no sentence for says nothing sooner
+ *  than it says something wrong. */
+function capacityUnitWord(plan: Plan): string {
+  for (const [key, lim] of Object.entries(plan.limits ?? {})) {
+    if (lim.kind === 'boolean') continue;
+    if ((typeof lim.limit === 'number' && lim.limit > 0) || lim.limit === 'unlimited') {
+      const word = LIMIT_WORDS[key]?.unit;
+      if (word) return word;
+    }
+  }
+  return 'وحدة';
+}
+
+/**
+ * ONE CARD PER CAPACITY KIND (موظفين، فروع)، WITH A +/- INSTEAD OF A REPEATED «أضِف».
+ *
+ * A CAPACITY PLAN IS PRICED PER UNIT — the row itself already says so (one seat, one branch); this
+ * card is the one place that price is multiplied by how many he wants, live, before he ever presses
+ * anything that charges him. THE FIRST UNIT GOES THROUGH THE ORDINARY CARD-FORM PURCHASE (a real
+ * subscription needs a payment token the first time); every unit after that is the SAME
+ * subscription's own `quantity` moved up or down — no repeated purchase, no second row.
+ *
+ * ZERO IS NOT A QUANTITY THIS CARD EVER SENDS. Billing refuses `quantity < 1` outright, and
+ * deciding what "remove the last one" means is not this stepper's job — that is the same confirm
+ * dialog an app's own cancel already uses, reached here identically.
+ */
+function CapacityAddonCard({
+  plan, sub, busy, sellable, unreadNote, onBuyFirst, onChangeQuantity, onRemoveLast,
+}: {
+  plan: Plan;
+  /** `undefined` — nothing bought yet, the stepper reads as zero. */
+  sub: Subscription | undefined;
+  /** THIS card's own press in flight — never the screen-wide `busy` (that one is the card-form
+   *  purchase only; the stepper has its own so a customer bumping seats does not grey out every
+   *  other capacity card too). */
+  busy: boolean;
+  sellable: boolean;
+  unreadNote?: string;
+  onBuyFirst: () => void;
+  onChangeQuantity: (quantity: number) => void;
+  onRemoveLast: () => void;
+}) {
+  const price = monthly(plan);
+  const unit = capacityUnitWord(plan);
+  const qty = sub?.quantity ?? 0;
+  const unitMinor = price?.amount_minor ?? 0;
+  return (
+    <article className="flex h-full flex-col gap-2 rounded-card bg-surface-1 p-3 shadow-sm">
+      <h3 className="text-sm font-medium leading-tight">{plan.name}</h3>
+      {unitMinor ? (
+        <p className="text-xs text-text-secondary">
+          {riyals(unitMinor)} ريال / شهر لكل {unit}
+        </p>
+      ) : null}
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
+        <div className="flex items-center gap-2" role="group" aria-label={`عدد ${plan.name}`}>
+          <Button type="button" variant="outline" size="sm" aria-label={`إنقاص ${unit}`}
+                  disabled={busy || !sellable || qty === 0}
+                  onClick={() => (qty > 1 ? onChangeQuantity(qty - 1) : onRemoveLast())}>
+            <Minus size={14} />
+          </Button>
+          <span className="min-w-[1.5rem] text-center text-sm font-medium tabular-nums">{qty}</span>
+          <Button type="button" variant="outline" size="sm" aria-label={`زيادة ${unit}`}
+                  disabled={busy || !sellable}
+                  onClick={() => (qty === 0 ? onBuyFirst() : onChangeQuantity(qty + 1))}>
+            <Plus size={14} />
+          </Button>
+        </div>
+        {qty > 0 && unitMinor ? (
+          <span className="text-sm font-semibold tabular-nums">{riyals(unitMinor * qty)} ريال</span>
+        ) : null}
+      </div>
+      {unreadNote ? <p className="text-xs text-text-secondary">{unreadNote}</p> : null}
+    </article>
+  );
+}
+
 
 export function PlansPane({
   session, catalog, onGoConnect, owned,
@@ -556,6 +639,10 @@ export function PlansPane({
    *  the pending subscription id AND its app's name, since the dialog needs both and neither
    *  the id alone nor `apps` alone can answer «which app, in his own words» on its own. */
   const [confirmingCancelApp, setConfirmingCancelApp] = useState<{ subId: string; name: string } | null>(null);
+  /** WHICH CAPACITY ROW'S STEPPER IS MID-PRESS — its plan id, not its subscription id: the very
+   *  first + (nothing owned yet) has no subscription id to key on, only the plan being bought. */
+  const [capacityBusyPlanId, setCapacityBusyPlanId] = useState('');
+  const [capacityError, setCapacityError] = useState('');
   /** THE CARD FORM, OPEN FOR ONE OF TWO REASONS — buying an app, or replacing the card on the
    *  base subscription. `null` is closed; it is not a screen of its own, same as `reading` on
    *  «رسائلي». Which reason decides what a resolved token is handed to next. */
@@ -717,6 +804,29 @@ export function PlansPane({
     }
   };
 
+  /** THE CAPACITY STEPPER'S +/- — same route as `changeBase` (`billing.change_plan`), same
+   *  plan id on both sides, only `quantity` moves. Server-side this is `change_plan()` editing
+   *  `sub.quantity` IN PLACE on the one row he already holds: raising it charges the prorated
+   *  difference now (an upgrade, by price), lowering it schedules the smaller amount for the next
+   *  renewal (a downgrade) — never a second subscription, never a refund line here.
+   *
+   *  NEVER CALLED AT quantity < 1 — the backend itself refuses that (`ge=1`), and it is not this
+   *  screen's job to guess what removing the last unit should mean; that is `cancelApp` above,
+   *  reached through the same confirm dialog an app's own cancel uses. */
+  const changeCapacityQuantity = async (plan: Plan, sub: Subscription, quantity: number) => {
+    const a = action(catalog, 'billing.change_plan');
+    if (!a || quantity < 1) return;
+    setCapacityBusyPlanId(plan.id); setCapacityError('');
+    try {
+      await call(session, a, { id: sub.id, plan_id: plan.id, quantity });
+      load();
+    } catch (e) {
+      setCapacityError(e instanceof Error ? e.message : 'تعذّر تعديل العدد.');
+    } finally {
+      setCapacityBusyPlanId('');
+    }
+  };
+
   /** «تراجع عن التبديل» (v0.16.33) — undoes a SCHEDULED downgrade before its renewal. Idempotent on
    *  the server (a no-op when nothing is scheduled), so a stale button or a double click is
    *  harmless rather than an error. */
@@ -768,7 +878,7 @@ export function PlansPane({
   // never sees — it is a real form, and almost always a full redirect to his bank's own 3DS page
   // and back (see payment.ts). `choose` only decides WHETHER a card is needed at all; the form
   // and the redirect-return effect below do the rest.
-  const choose = (p: Plan) => {
+  const choose = (p: Plan, quantity = 1) => {
     setError('');
     // NOT GATED ON THE CONNECTION ANY MORE — see the module note. Only on having the action at
     // all, which is a capability question and not a readiness one.
@@ -782,17 +892,21 @@ export function PlansPane({
     if (!canSubscribe) return;
     if (!canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled),
                  canMint: canMintToken })) return;
-    setCardFormPending({ kind: 'subscribe', planId: p.id });
+    setCardFormPending({ kind: 'subscribe', planId: p.id, quantity });
   };
 
   /** The purchase itself, once a token exists — reached either straight from the form (a card
-   *  that skipped 3DS) or from the redirect-return effect below (the ordinary case). */
-  const finishSubscribe = async (planId: string, payment_token: string) => {
+   *  that skipped 3DS) or from the redirect-return effect below (the ordinary case).
+   *
+   *  `quantity` — sent even at its default of 1 rather than omitted, so this call always states
+   *  what it means: a capacity row's first unit is a subscription with quantity 1, not a bare
+   *  subscribe that happens to read as one. */
+  const finishSubscribe = async (planId: string, payment_token: string, quantity = 1) => {
     if (!canSubscribe) return;
     setBusy(true); setError('');
     try {
       const out = await call<{ notice?: string }>(session, canSubscribe,
-                                                 { plan_id: planId, payment_token });
+                                                 { plan_id: planId, payment_token, quantity });
       // THE SERVER'S SENTENCE, NOT OURS. What is still owed after a successful subscription is a
       // product rule and it lives in one place; a second copy here is the one that goes stale.
       setNotice(out?.notice ?? '');
@@ -839,7 +953,9 @@ export function PlansPane({
       .then((result) => {
         if (result.kind === 'error') { setError(result.message); return; }
         if (result.kind !== 'token') return;
-        if (pending.kind === 'subscribe') return finishSubscribe(pending.planId, result.token);
+        if (pending.kind === 'subscribe') {
+          return finishSubscribe(pending.planId, result.token, pending.quantity ?? 1);
+        }
         return finishUpdatePaymentMethod(pending.subscriptionId, result.token);
       })
       .finally(() => {
@@ -874,6 +990,11 @@ export function PlansPane({
   // plainly as cancelling all of them together, never a silent side effect.
   const appSubs = (subs ?? []).filter((s) => apps.some((p) => p.id === s.plan_id));
   const activeAppSubs = appSubs.filter((s) => s.status !== 'canceled' && !s.cancel_at_period_end);
+  // A CAPACITY ROW'S OWN SUBSCRIPTION — same matching rule as `appSubs`, one row per plan (its
+  // `quantity` is what varies now, not how many rows exist). `undefined` reads as "none bought yet"
+  // at every call site below, same as `appSub` above never guesses at a missing app subscription.
+  const capacitySubs = (subs ?? []).filter((s) => capacity.some((p) => p.id === s.plan_id))
+    .filter((s) => s.status !== 'canceled' && !s.cancel_at_period_end);
   // FOUR ANSWERS NOW, and none of them is «he has not bought». The read may be in flight
   // (`undefined`), have failed (`null`), be one his role cannot make (DENIED), or have arrived
   // with `checked: false` because billing itself could not be asked. The sections claim nothing
@@ -934,7 +1055,9 @@ export function PlansPane({
           pending={cardFormPending}
           onCancel={() => setCardFormPending(null)}
           onToken={(token) => {
-            if (cardFormPending.kind === 'subscribe') void finishSubscribe(cardFormPending.planId, token);
+            if (cardFormPending.kind === 'subscribe') {
+              void finishSubscribe(cardFormPending.planId, token, cardFormPending.quantity ?? 1);
+            }
             else void finishUpdatePaymentMethod(cardFormPending.subscriptionId, token);
           }}
         />
@@ -996,7 +1119,7 @@ export function PlansPane({
           <div className="flex flex-col gap-4">
             <p className="text-sm text-text-secondary">
               {(() => {
-                const s = appSubs.find((x) => x.id === confirmingCancelApp.subId);
+                const s = appSubs.concat(capacitySubs).find((x) => x.id === confirmingCancelApp.subId);
                 return renewalDay(s?.current_period_end)
                   ? `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى ${renewalDay(s?.current_period_end)}، ولن يتجدّد بعدها. لن نخصم منك شيئاً إضافياً.`
                   : `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد بعدها.`;
@@ -1222,22 +1345,25 @@ export function PlansPane({
           {capacity.length ? (
             <section className="flex flex-col gap-2">
               <h2 className="text-sm text-text-secondary">السعة</h2>
+              {capacityError ? <p className="text-sm text-danger">{capacityError}</p> : null}
               <ul className="grid gap-3 grid-cols-2">
-                {capacity.map((p) => (
-                  <li key={p.id}>
-                    <AppCard
-                      plan={p}
-                      owned={false}
-                      busy={busy}
-                      sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}
-                      onBuy={() => choose(p)}
-                      unreadNote={unreadNote}
-                      ownedLabel=""
-                      buyLabel="أضِف"
-                      compact
-                    />
-                  </li>
-                ))}
+                {capacity.map((p) => {
+                  const sub = capacitySubs.find((s) => s.plan_id === p.id);
+                  return (
+                    <li key={p.id}>
+                      <CapacityAddonCard
+                        plan={p}
+                        sub={sub}
+                        busy={capacityBusyPlanId === p.id}
+                        sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}
+                        unreadNote={unreadNote}
+                        onBuyFirst={() => choose(p, 1)}
+                        onChangeQuantity={(quantity) => sub && void changeCapacityQuantity(p, sub, quantity)}
+                        onRemoveLast={() => sub && setConfirmingCancelApp({ subId: sub.id, name: p.name })}
+                      />
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ) : null}

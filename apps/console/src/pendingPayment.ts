@@ -11,7 +11,10 @@
 const KEY = 'raje3.pending_payment.v1';
 
 export type PendingPayment =
-  | { kind: 'subscribe'; planId: string }
+  // `quantity` — the seat/branch capacity add-on's own stepper (Plans.tsx's `CapacityAddonCard`)
+  // picks a count BEFORE the card form ever opens; the redirect must come back remembering how
+  // many, not just which plan, or a shop that chose 3 seats would land back subscribed to 1.
+  | { kind: 'subscribe'; planId: string; quantity?: number }
   | { kind: 'update_payment_method'; subscriptionId: string };
 
 export function remember(p: PendingPayment): void {
@@ -31,7 +34,11 @@ export function takePending(): PendingPayment | null {
     sessionStorage.removeItem(KEY);
     if (!raw) return null;
     const row = JSON.parse(raw) as PendingPayment;
-    if (row.kind === 'subscribe' && typeof row.planId === 'string') return row;
+    if (row.kind === 'subscribe' && typeof row.planId === 'string') {
+      return typeof row.quantity === 'number' && row.quantity > 0
+        ? { kind: 'subscribe', planId: row.planId, quantity: row.quantity }
+        : { kind: 'subscribe', planId: row.planId };
+    }
     if (row.kind === 'update_payment_method' && typeof row.subscriptionId === 'string') return row;
     return null;
   } catch {
