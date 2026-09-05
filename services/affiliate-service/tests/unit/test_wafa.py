@@ -372,7 +372,37 @@ async def test_performance_for_reports_full_retention_and_zero_refund_with_no_hi
     assert out["total_referrals"] == 0 and out["total_commissions"] == 0
 
 
-# ── §13: real support KPIs, additive and best-effort ────────────────────────────────────────────
+@pytest.mark.anyio
+async def test_performance_for_counts_every_referral_and_commission_past_a_single_page():
+    """Regression: `performance_for` used to read both referrals and commissions with
+    `limit=2000` and throw the cursor away — past that count (or past the internal page size)
+    the read silently stopped and every figure computed from it (active_shops, retention_rate,
+    total_referrals) was confidently wrong. Seeds well past one internal page (500) of both and
+    asserts every count reflects ALL of them."""
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store)
+    shop_count = 650
+    await _stamp_n_shops(referrals, "mgr-1", shop_count)
+
+    out = await wafa.performance_for("mgr-1")
+    assert out["active_shops"] == shop_count
+    assert out["total_referrals"] == shop_count
+    assert out["retention_rate"] == 1.0
+
+    # Now push commissions past one page too — one CONFIRMED commission per referred shop.
+    from app.core.models import COMMISSIONS, CONFIRMED, CONVERSION, Commission
+    for i in range(shop_count):
+        c = Commission(id=f"c-{i:05d}", tenant=f"t-{i}", affiliate_id="mgr-1", kind=CONVERSION,
+                       amount_halalas=100, status=CONFIRMED)
+        await store.put(COMMISSIONS, c.id, c.to_dict())
+
+    out = await wafa.performance_for("mgr-1")
+    assert out["total_commissions"] == shop_count
+    assert out["refund_rate"] == 0.0
+
+
+# ── §١٣: real support KPIs, additive and best-effort ────────────────────────────────────────────
 
 class FakeTickets:
     """Answers by tenant — same "scripted by key" idiom as the platform's other fakes."""

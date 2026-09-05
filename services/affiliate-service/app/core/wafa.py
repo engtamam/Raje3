@@ -36,6 +36,7 @@ from app.core.models import (
     CONVERSION,
     LAPSED,
     PENDING,
+    REFERRALS,
     REFERRED,
     REVOKED,
     VOIDED,
@@ -48,11 +49,49 @@ from app.core.models import (
     WAFA_REQUESTS,
     Affiliate,
     Commission,
+    Referral,
     WafaRequest,
     new_id,
 )
 
 _DAY = 24 * 60 * 60
+
+# Page size for walking every commission an affiliate has, ever — a page, never the whole thing,
+# same reasoning and same size as payouts.py's own _COMMISSION_PAGE / backup.py's _PAGE.
+_COMMISSION_PAGE = 500
+
+
+async def _all_referrals(store, affiliate_id: str) -> list[Referral]:
+    """Every referral this affiliate has, full stop — the SAME bug, one call above: passing
+    `limit=2000` straight into `ReferralRegistry.of_affiliate` and trusting that to be everything
+    silently truncates a prolific manager's real shop count at whatever page happened to fit,
+    right next to the commission read this file already had to fix the same way. Bypasses the
+    port and pages the raw collection directly (same shape `payouts.py`/this file already use for
+    COMMISSIONS) since `of_affiliate` itself exposes no cursor to bind."""
+    out: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        rows, cursor = await store.find(REFERRALS, {"affiliate_id": affiliate_id},
+                                        limit=_COMMISSION_PAGE, after=cursor, sort=("id", "asc"))
+        out.extend(rows)
+        if not cursor:
+            return [Referral.from_dict(r) for r in out]
+
+
+async def _all_commissions(store, affiliate_id: str) -> list[dict[str, Any]]:
+    """Every commission this affiliate has, full stop. `performance_for` computes eligibility and
+    performance figures a real payment decision leans on — a truncated read here does not just
+    show a wrong number, it can make a marketer look eligible (or not) based on whichever slice of
+    his history happened to fit in one page. So this pages the cursor until find() itself says
+    there is nothing left, rather than trusting one page's worth to be everything."""
+    out: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        rows, cursor = await store.find(COMMISSIONS, {"affiliate_id": affiliate_id},
+                                        limit=_COMMISSION_PAGE, after=cursor, sort=("id", "asc"))
+        out.extend(rows)
+        if not cursor:
+            return out
 
 
 class WafaError(Exception):
@@ -98,14 +137,14 @@ class WafaService:
         `available: False`, never hides the rest of this dict). Deliberately NOT folded into
         `_recommend`'s own threshold yet — changing what decides a real payment is a separate
         policy call, not a side effect of adding a new read."""
-        referrals = await self._referrals.of_affiliate(affiliate_id, limit=2000)
+        referrals = await _all_referrals(self._s, affiliate_id)
         active = sum(1 for r in referrals if r.status == REFERRED)
         ended = sum(1 for r in referrals if r.status in (LAPSED, REVOKED))
         total = active + ended
         # No referral has ended yet ⇒ no evidence AGAINST him ⇒ full retention, not zero.
         retention_rate = (active / total) if total else 1.0
 
-        rows, _ = await self._s.find(COMMISSIONS, {"affiliate_id": affiliate_id}, limit=2000)
+        rows = await _all_commissions(self._s, affiliate_id)
         commissions = [Commission.from_dict(r) for r in rows]
         voided = sum(1 for c in commissions if c.status == VOIDED)
         earned = sum(1 for c in commissions if c.status in (CONFIRMED, PENDING, VOIDED))
