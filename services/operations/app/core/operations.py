@@ -260,7 +260,13 @@ class Operations:
                            # every consumer of it — the event, the feed, the earner — sees the
                            # same fact rather than inferring it from the note.
                            free: bool = False,
-                           allow_unknown_services: bool = False) -> RecordedVisit:
+                           allow_unknown_services: bool = False,
+                           # SET ONLY WHEN THIS VISIT FULFILLED A PACKAGE BOOKING — see
+                           # Visit.package_id's own docstring. `service_ids` still carries the
+                           # package's real components either way; this is threaded through
+                           # unchanged to the seams event so loyalty can look up the package's own
+                           # point value instead of summing the components'.
+                           package_id: str = "") -> RecordedVisit:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
         phone = _normalise_phone(phone)
@@ -345,7 +351,7 @@ class Operations:
                       total_minor=max(0, int(total_minor or 0)),
                       quantities={k: int(v) for k, v in (quantities or {}).items()
                                   if k in set(service_ids) and int(v) > 0},
-                      free=bool(free),
+                      free=bool(free), package_id=package_id,
                       idempotency_key=idempotency_key, created=now,
                       occurred_at=_sane_occurred_at(occurred_at, now,
                                                                     self._max_backdate))

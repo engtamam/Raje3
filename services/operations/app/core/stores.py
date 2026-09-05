@@ -19,8 +19,8 @@ from typing import Any
 
 from app.adapters.datastore.drain import drain
 from app.core import privacy_requests as PR
-from app.core.models import (ASSETS, BRANCHES, CUSTOMERS, OPERATORS, SERVICES, VISITS,
-                             Asset, Branch, Customer, Operator, Service, Visit)
+from app.core.models import (ASSETS, BRANCHES, CUSTOMERS, OPERATORS, PACKAGES, SERVICES, VISITS,
+                             Asset, Branch, Customer, Operator, Package, Service, Visit)
 
 _PAGE = 100
 
@@ -221,6 +221,23 @@ class ServiceStore(_Base):
             if s.external_id == external_id:
                 return s
         return None
+
+
+class PackageStore(_Base):
+    collection = PACKAGES
+
+    async def get(self, tenant: str, ident: str) -> Package | None:
+        row = await self._get(tenant, ident)
+        return Package(**row) if row else None
+
+    async def list(self, tenant: str, *, active_only: bool = True) -> list[Package]:
+        rows, _ = await self._find(tenant, {"active": True} if active_only else None,
+                                   limit=200, sort=("sort", "asc"))
+        return [Package(**r) for r in rows]
+
+    async def save(self, p: Package) -> Package:
+        await self._put(p.tenant, p.id, p.__dict__.copy())
+        return p
 
 
 class VisitStore(_Base):

@@ -39,14 +39,14 @@ from app.api.authz import require_any_capability, require_capability
 from app.api.ratelimit import rate_limit
 from app.api.scope import branch_scope
 from app.api import scope as SCOPE
-from app.core.models import Branch, Operator, Service
+from app.core.models import Branch, Operator, Package, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
 from app.core import seats as S
 from app.core import shop_mode as SM
 from app.core import vehicles as V
 from app.core.signup import SignupRefused
-from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
+from app.core.stores import BranchStore, OperatorStore, PackageStore, ServiceStore, new_id
 from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -1255,3 +1255,116 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
 
     await store.save(s)
     return s.public()
+
+
+# ── the package catalogue ─────────────────────────────────────────────────────────────────────
+# A package is a named, priced GROUP of the owner's own services (see core/models.py::Package's
+# own docstring for why price and points are never derived from the components). Same house style
+# as the service routes just above — same capability gate (packages are "خدماتي ومنتجاتي" too),
+# same subscribed_write, same rate limit, same audit-on-write, same deactivate-never-delete.
+class PackageIn(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    # AT LEAST TWO, NO UPPER BOUND — a "package" of one service is just that service; how many
+    # belong together past that is entirely the owner's call (packages feature decision).
+    service_ids: list[str] = Field(min_length=2, max_length=64)
+    # Minor units, OWNER-ENTERED, > 0 — a package at price 0 is an accidental free booking, never
+    # a real state (see Package's own docstring: never derived from the components either way).
+    price_minor: int = Field(gt=0)
+    sort: int = Field(default=0, ge=0, le=9999)
+    # Set by the console when a package is accepted straight from محلّي's "اجعلها باقة" suggestion
+    # — see services/insights/app/core/bundles.py. Left at the default for anything typed by hand.
+    source: str = Field(default="manual", pattern="^(manual|suggested)$")
+    source_service_ids: list[str] = Field(default_factory=list, max_length=64)
+
+
+def _validate_package_services(tenant: str, service_ids: list[str],
+                               live: dict[str, Service]) -> list[str] | None:
+    """Every id must exist, belong to THIS tenant, and still be active — a package is a promise
+    that everything inside it can actually be delivered today. Returns the cleaned, de-duplicated
+    list, or None if any id fails (the caller turns that into a 400 naming the reason)."""
+    seen: list[str] = []
+    for sid in service_ids:
+        if sid in seen:
+            continue
+        svc = live.get(sid)
+        if svc is None or svc.tenant != tenant or not svc.active:
+            return None
+        seen.append(sid)
+    return seen if len(seen) >= 2 else None
+
+
+@router.get("/packages", dependencies=[Depends(rate_limit)])
+async def list_packages(request: Request, include_retired: bool = False,
+                        principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    rows = await PackageStore(request.app.state.container.datastore).list(
+        _tenant(principal), active_only=not include_retired)
+    return {"packages": [p.public() for p in rows]}
+
+
+@router.post("/packages", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def create_package(request: Request, body: PackageIn,
+                         principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    tenant = _tenant(principal)
+    svc_store = ServiceStore(request.app.state.container.datastore)
+    live = {s.id: s for s in await svc_store.list(tenant, active_only=False)}
+    cleaned = _validate_package_services(tenant, body.service_ids, live)
+    if cleaned is None:
+        return JSONResponse(
+            {"error": "INVALID_SERVICES",
+             "reason": "لازم خدمتين على الأقل، موجودتين وفعّالتين في قائمتك."},
+            status_code=status.HTTP_400_BAD_REQUEST)
+
+    await request.app.state.auditor.record(
+        "package.created", actor=principal.subject, tenant=tenant, resource="package",
+        ip=request.client.host if request.client else "")
+    p = Package(id=new_id("pkg"), tenant=tenant, name=body.name.strip(),
+               service_ids=cleaned, price_minor=body.price_minor, sort=body.sort,
+               source=body.source, source_service_ids=list(body.source_service_ids),
+               created=int(time.time()))
+    await PackageStore(request.app.state.container.datastore).save(p)
+    return p.public()
+
+
+class PackagePatch(BaseModel):
+    name: str | None = Field(default=None, max_length=128)
+    service_ids: list[str] | None = Field(default=None, min_length=2, max_length=64)
+    price_minor: int | None = Field(default=None, gt=0)
+    active: bool | None = None
+    sort: int | None = Field(default=None, ge=0, le=9999)
+
+
+@router.patch("/packages/{package_id}",
+              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def update_package(request: Request, package_id: str, body: PackagePatch,
+                         principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
+    """Edit a package. DEACTIVATE rather than delete — same reasoning as `update_service`: a past
+    visit that fulfilled this package must still make sense a year from now."""
+    tenant = _tenant(principal)
+    store = PackageStore(request.app.state.container.datastore)
+    p = await store.get(tenant, package_id)
+    if p is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    if body.service_ids is not None:
+        svc_store = ServiceStore(request.app.state.container.datastore)
+        live = {s.id: s for s in await svc_store.list(tenant, active_only=False)}
+        cleaned = _validate_package_services(tenant, body.service_ids, live)
+        if cleaned is None:
+            return JSONResponse(
+                {"error": "INVALID_SERVICES",
+                 "reason": "لازم خدمتين على الأقل، موجودتين وفعّالتين في قائمتك."},
+                status_code=status.HTTP_400_BAD_REQUEST)
+        p.service_ids = cleaned
+
+    await request.app.state.auditor.record(
+        "package.updated", actor=principal.subject, tenant=tenant,
+        resource=f"package:{package_id}", ip=request.client.host if request.client else "")
+
+    for fld in ("name", "price_minor", "active", "sort"):
+        val = getattr(body, fld)
+        if val is not None:
+            setattr(p, fld, val.strip() if isinstance(val, str) else val)
+
+    await store.save(p)
+    return p.public()

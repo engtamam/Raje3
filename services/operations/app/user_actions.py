@@ -291,6 +291,25 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "ملف كامل يُرفض لو فيه أي صف خاطئ أو اسم مكرر — لا استيراد جزئي أبداً.",
     },
     {
+        "id": "operations.list_packages", "label": "الباقات — للإدارة", "method": "GET",
+        "path": "/api/v1/staff/packages", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي",
+        "help": "يشمل الموقوفة عند طلبها، ليمكن إعادة تفعيلها.",
+    },
+    {
+        "id": "operations.create_package", "label": "إنشاء باقة", "method": "POST",
+        "path": "/api/v1/staff/packages", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي",
+        "help": "خدمتان على الأقل، وسعر أكبر من صفر — لا يُشتق سعر الباقة من مكوّناتها أبداً.",
+    },
+    {
+        "id": "operations.update_package", "label": "تعديل أو إيقاف باقة", "method": "PATCH",
+        "path": "/api/v1/staff/packages/{id}", "capability": "operations.manage_services",
+        "group": "خدماتي ومنتجاتي", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "الإيقاف بـ active=false لا بالحذف — الحذف ييتّم كل زيارة تشير إليها.",
+    },
+    {
         "id": "operations.list_operators", "label": "العاملون", "method": "GET",
         "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
     },

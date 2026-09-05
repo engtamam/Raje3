@@ -24,7 +24,7 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore,
+from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore, PackageStore,
                              PrivacyRequestStore, ServiceStore, VisitStore, new_id)
 from app.core.operations import OperationError, RecordedVisit
 from app.core import backup as _backup
@@ -826,6 +826,67 @@ async def internal_service_eligibility(request: Request, body: ServiceEligibilit
     return {"eligible_staff_ids": out}
 
 
+class PackageDurationsIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    package_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/operations/package-durations", dependencies=[Depends(require_internal_token)])
+async def internal_package_durations(request: Request, body: PackageDurationsIn) -> dict:
+    """The SAME question `service-durations` answers, for a package's components — summed FRESH
+    every call, never from a cached field on `Package` (see Package's own docstring for why: a
+    component's own duration can change after the package was created, and a stale cached sum would
+    silently mis-size a slot the owner never re-confirmed). `null` under the exact same rule as
+    `service-durations` — ANY unconfigured (0-minute) component makes the whole package unbookable
+    until the owner sets a real duration on it, same as an ordinary service would be.
+    """
+    c = request.app.state.container
+    pkg = await PackageStore(c.datastore).get(body.tenant, body.package_id)
+    if pkg is None or not pkg.active:
+        return {"duration_minutes": None}
+    services = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
+    by_id = {s.id: s for s in services}
+    total = 0
+    for sid in pkg.service_ids:
+        svc = by_id.get(sid)
+        if svc is None or not svc.duration_minutes:
+            return {"duration_minutes": None}
+        total += svc.duration_minutes
+    return {"duration_minutes": total}
+
+
+class PackageEligibilityIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    package_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/operations/package-eligibility", dependencies=[Depends(require_internal_token)])
+async def internal_package_eligibility(request: Request, body: PackageEligibilityIn) -> dict:
+    """Which operators may perform EVERY component of this package — the INTERSECTION of each
+    component's own `eligible_staff_ids`, same "empty means everyone" convention as
+    `service-eligibility` above (an empty stored list on a component means unrestricted, so
+    intersecting naturally keeps the common "no restriction anywhere" case unrestricted too).
+    `None` when the package is unknown/retired, or when no component restricts anybody — mirroring
+    `service-eligibility`'s own "None means every active operator qualifies".
+    """
+    c = request.app.state.container
+    pkg = await PackageStore(c.datastore).get(body.tenant, body.package_id)
+    if pkg is None or not pkg.active:
+        return {"eligible_staff_ids": None}
+    services = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
+    by_id = {s.id: s for s in services}
+    intersection: set[str] | None = None
+    for sid in pkg.service_ids:
+        svc = by_id.get(sid)
+        if svc is None:
+            continue
+        if not svc.eligible_staff_ids:
+            continue                       # unrestricted component narrows nothing
+        this_one = set(svc.eligible_staff_ids)
+        intersection = this_one if intersection is None else (intersection & this_one)
+    return {"eligible_staff_ids": sorted(intersection) if intersection is not None else None}
+
+
 class StaffHoursIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     operator_ids: list[str] = Field(min_length=1, max_length=50)
@@ -858,6 +919,10 @@ class VisitFromCustomerIn(BaseModel):
     note: str = Field(default="", max_length=1000)
     idempotency_key: str = Field(min_length=1, max_length=128)
     occurred_at: int = Field(default=0, ge=0)
+    # "" for an ordinary attended booking — set when this attendance fulfilled a PACKAGE booking,
+    # so the visit (and, downstream, loyalty) knows it. `service_ids` above still carries the
+    # package's real components either way; this changes nothing about how the visit is built.
+    package_id: str = Field(default="", max_length=64)
 
 
 @router.post("/operations/visits/from-customer", dependencies=[Depends(require_internal_token)])
@@ -882,7 +947,8 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
         recorded = await c.operations.record_visit(
             tenant=body.tenant, phone=customer.phone, service_ids=body.service_ids,
             operator_id=body.operator_id, branch_id=body.branch_id, note=body.note,
-            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at)
+            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
+            package_id=body.package_id)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     # THE SEAMS RUN HERE TOO (ز-7) — same guard as the interactive path: a retry that lands on an
@@ -1204,6 +1270,9 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
             "visit_count": (cust or {}).get("visit_count", 0),
             "occurred_at": r.get("occurred_at") or r.get("created"),
             "created": r.get("created"),
+            # SAME NAME AS THE EVENT — a package visit repaired on this path must earn the same way
+            # it would have earned live.
+            "package_id": r.get("package_id", ""),
         })
     return {"visits": out, "count": len(out),
             # WHETHER THIS ANSWER IS THE WHOLE ANSWER. A caller that cannot tell a complete page

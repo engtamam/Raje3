@@ -172,6 +172,9 @@ class Seams:
                 "free": bool(v.free),
                 "occurred_at": v.occurred_at or v.created,
                 "created": v.created,
+                # "" for an ordinary visit. Set, loyalty looks up THIS package's own point value
+                # instead of summing `service_ids` — see loyalty's earning.py package override.
+                "package_id": v.package_id,
             }))
         except Exception as exc:                                            # noqa: BLE001
             self._note("visit_event_failed", error=str(exc)[:200], visit=v.id)

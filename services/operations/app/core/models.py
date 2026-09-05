@@ -55,6 +55,7 @@ from typing import Any
 CUSTOMERS = "customers"
 ASSETS = "assets"
 SERVICES = "services"
+PACKAGES = "packages"
 VISITS = "visits"
 OPERATORS = "operators"
 BRANCHES = "branches"
@@ -193,6 +194,56 @@ class Service:
 
 
 @dataclass
+class Package:
+    """A named, priced group of the owner's OWN services — sold as one thing, booked as one thing.
+
+    NOT A DISCOUNT, NOT DERIVED. `price_minor` is entered by the owner and carries no relationship
+    to the sum of its `service_ids`' own `price_minor` — the same "the platform never invents a
+    price" doctrine campaigns' and insights' own docstrings already state for messages and
+    suggestions. `services/insights/app/core/bundles.py` may SUGGEST which two services to combine
+    (real, statistically-supported demand — never a discount), but the number typed here is always
+    the owner's, from zero, every time.
+
+    `service_ids` MUST hold at least two ids — a "package" of one service is just that service. No
+    upper bound: the owner decides how many belong together, same as he decides for an ordinary
+    visit's own `Visit.service_ids`. A service may sit in more than one active package at once —
+    deliberately unrestricted, the owner's own call each time (§ decision, packages feature).
+
+    `duration_minutes` is NEVER cached here — see bookings' own duration-lookup adapter for why:
+    a component's own duration can change after the package was created, and a stale cached sum
+    would silently mis-size a slot the owner never re-confirmed. Recomputed fresh, every booking
+    attempt, by summing the CURRENT `Service.duration_minutes` of each live member — the same
+    "never guessed, never stale" posture `Service.duration_minutes` itself already documents.
+
+    Eligible staff are likewise never stored here — see the internal package-eligible-staff route:
+    derived as the INTERSECTION of each component's own `eligible_staff_ids` at read time (an empty
+    list on a component means "everyone", so intersecting naturally keeps the common "no
+    restriction anywhere" case unrestricted too).
+    """
+    id: str
+    tenant: str
+    name: str
+    service_ids: list[str] = field(default_factory=list)
+    price_minor: int = 0             # minor units, owner-entered, independent of the components
+    active: bool = True
+    sort: int = 0
+    # WHICH DOOR MADE IT — "manual" (owner picked services himself) or "suggested" (accepted from
+    # محلّي's real-demand card). Telemetry only; both are the exact same entity from here on, and
+    # neither is treated differently by bookings, visits, or loyalty.
+    source: str = "manual"
+    # THE PAIR THIS CAME FROM, if `source == "suggested"` — so محلّي can stop re-offering a pair the
+    # owner already turned into a package. Empty otherwise.
+    source_service_ids: list[str] = field(default_factory=list)
+    created: int = 0
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "tenant": self.tenant, "name": self.name,
+                "service_ids": list(self.service_ids), "price_minor": self.price_minor,
+                "active": self.active, "sort": self.sort, "source": self.source,
+                "source_service_ids": list(self.source_service_ids), "created": self.created}
+
+
+@dataclass
 class Visit:
     """One recorded service event — the product, from the shop floor.
 
@@ -266,6 +317,14 @@ class Visit:
     offer_ref: str = ""
     offer_text: str = ""
     offer_used_at: int = 0
+    # SET ONLY WHEN THIS VISIT FULFILLED A PACKAGE BOOKING — "" for an ordinary visit. `service_ids`
+    # is STILL populated with the package's own components either way (never left empty), so every
+    # existing reader (reminders' per-service cycle, the associations engine, loyalty's default
+    # per-service sum) keeps working completely unmodified — this field exists purely so the
+    # receipt/history UI can say «باقة: غيار + فحص» instead of two unrelated lines, and so loyalty
+    # knows to look up the PACKAGE's own point value rather than summing the components' (see
+    # services/loyalty/app/core/earning.py's package-level override).
+    package_id: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "customer_id": self.customer_id,
@@ -276,7 +335,7 @@ class Visit:
                 "free": self.free,
                 "occurred_at": self.occurred_at or self.created,
                 "offer_ref": self.offer_ref, "offer_text": self.offer_text,
-                "offer_used_at": self.offer_used_at}
+                "offer_used_at": self.offer_used_at, "package_id": self.package_id}
 
 
 @dataclass

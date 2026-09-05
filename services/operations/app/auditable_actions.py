@@ -250,6 +250,20 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "service",
     },
     {
+        "action": "package.created",
+        "source": "admin",
+        "critical": False,
+        "resource": "package",
+    },
+    {
+        "action": "package.updated",
+        "source": "admin",
+        # Same reason as service.updated — this route changes what a package costs and what it's
+        # made of.
+        "critical": False,
+        "resource": "package",
+    },
+    {
         "action": "service.bulk_imported",
         "source": "admin",
         # Same reason as service.updated — a whole catalogue's prices can change in one call, and
