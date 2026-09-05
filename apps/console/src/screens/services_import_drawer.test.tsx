@@ -114,11 +114,40 @@ describe('ServicesImportDrawer', () => {
     await waitFor(() => expect(callMock).toHaveBeenCalledWith(SESSION,
       expect.objectContaining({ id: 'operations.bulk_import_services' }),
       expect.objectContaining({
-        rows: [{ name: 'قص شعر', price_minor: 5000, duration_minutes: 0, cycle_days: 0, external_id: '' }],
+        rows: [{ name: 'قص شعر', price_minor: 5000, duration_minutes: 0, cycle_days: 0,
+                external_id: '', description: '' }],
         deactivate_missing: false,
       })));
     await waitFor(() => expect(onImported).toHaveBeenCalled());
     expect(screen.getByText(/تم الاستيراد/)).toBeTruthy();
+  });
+
+  it('a description column rides along to the import call', async () => {
+    callMock = vi.fn().mockResolvedValue({ created: 1, updated: 0, reactivated: 0, deactivated: 0 });
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
+    selectFile('name,description\nقص شعر,قص وتصفيف بالمقص');
+    await waitFor(() => expect(screen.getByText('جديد')).toBeTruthy());
+    fireEvent.click(screen.getByText(/استيراد 1 صف/));
+    await waitFor(() => expect(callMock).toHaveBeenCalledWith(SESSION,
+      expect.objectContaining({ id: 'operations.bulk_import_services' }),
+      expect.objectContaining({
+        rows: [{ name: 'قص شعر', price_minor: 0, duration_minutes: 0, cycle_days: 0,
+                external_id: '', description: 'قص وتصفيف بالمقص' }],
+        deactivate_missing: false,
+      })));
+  });
+
+  it('offers a downloadable template pointing at the generated xlsx file', () => {
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
+    const link = screen.getByText('نزّل قالب ملف الاستيراد').closest('a');
+    expect(link).toBeTruthy();
+    expect(link?.getAttribute('href')).toBe('/templates/services-import-template.xlsx');
   });
 
   it('an active service missing from the file offers the opt-in deactivate toggle, off by default', async () => {

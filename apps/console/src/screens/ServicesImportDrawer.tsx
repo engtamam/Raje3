@@ -15,10 +15,17 @@
  *
  * EXPECTED COLUMNS (English headers, case-insensitive — matches csv.ts's own lower-casing):
  *   name (required), price (ريال، اختياري), duration_minutes (اختياري), cycle_days (اختياري),
- *   external_id (اختياري — معرّف من نظام كاشير خارجي، يخلي إعادة تسمية الصف بدون تكراره).
+ *   external_id (اختياري — معرّف من نظام كاشير خارجي، يخلي إعادة تسمية الصف بدون تكراره),
+ *   description (اختياري — سطر قصير، يُستبدل بالكامل كل استيراد، لا يُدمَج).
+ *
+ * A DOWNLOADABLE TEMPLATE, NOT A BLANK PAGE. An owner typing his own header row from memory is
+ * exactly how "duration" and "duration_minutes" end up as two different files nobody can import —
+ * `/templates/services-import-template.xlsx` (public/, generated once by
+ * scripts/generate-services-import-template.py, never hand-edited) already carries the right
+ * headers and one example row, so the only thing he has to get right is the values.
  */
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Download, Upload } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Drawer } from '../rj-ui/Drawer';
 import { Toggle } from '../rj-ui/Toggle';
@@ -40,7 +47,7 @@ interface ParsedRow {
   line: number;                 // 1-indexed, INCLUDING the header row, so it matches what a
                                 // person counts when they open the file in a spreadsheet app
   name: string; price_minor: number; duration_minutes: number; cycle_days: number;
-  external_id: string;
+  external_id: string; description: string;
   error: string;                // '' = valid
   willBe: WillBe;
 }
@@ -84,7 +91,8 @@ function parseRows(t: (key: string) => string, text: string, existing: ExistingS
 
     return {
       line, name, price_minor: priceMinor ?? 0, duration_minutes: duration, cycle_days: cycle,
-      external_id: (o.external_id ?? '').trim(), error, willBe,
+      external_id: (o.external_id ?? '').trim(), description: (o.description ?? '').trim(),
+      error, willBe,
     };
   });
 
@@ -141,7 +149,7 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
         session, importAction, {
           rows: rows.map((r) => ({
             name: r.name, price_minor: r.price_minor, duration_minutes: r.duration_minutes,
-            cycle_days: r.cycle_days, external_id: r.external_id,
+            cycle_days: r.cycle_days, external_id: r.external_id, description: r.description,
           })),
           deactivate_missing: deactivateMissing,
         });
@@ -188,6 +196,17 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
           </div>
         ) : (
           <>
+            {/* THE TEMPLATE, ABOVE THE PICKER — a real file to download and fill, not a column
+                list to memorise. `download` names the saved file regardless of what the browser
+                shows in its address bar for a static /public/ asset. */}
+            <a href="/templates/services-import-template.xlsx"
+               download="قالب-استيراد-الخدمات.xlsx"
+               className="flex items-center justify-center gap-1.5 self-center rounded-lg px-3 py-1.5
+                          text-xs font-medium text-accent-on-soft transition-colors hover:bg-surface-2">
+              <Download size={13} aria-hidden />
+              {t('services.import.downloadTemplate')}
+            </a>
+
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-border-subtle p-8 text-center hover:bg-surface-2">
               <Upload size={24} className="text-text-muted" />
               <span className="text-sm font-medium">{fileName || t('services.import.chooseFile')}</span>

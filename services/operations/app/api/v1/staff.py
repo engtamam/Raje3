@@ -1113,6 +1113,9 @@ class ServiceImportRow(BaseModel):
     # carrying one matches an EXISTING service by it first (survives a rename in the file);
     # falls back to matching by name only when empty, same as a shop that never had a POS.
     external_id: str = Field(default="", max_length=128)
+    # SAME "THE FILE WINS COMPLETELY" CONVENTION AS EVERY FIELD ABOVE — a blank column clears an
+    # existing description the same way a blank price would zero one out. Not a partial edit.
+    description: str = Field(default="", max_length=300)
 
 
 class ServiceImportIn(BaseModel):
@@ -1177,6 +1180,7 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
             target.cycle_days = row.cycle_days
             target.price_minor = row.price_minor
             target.duration_minutes = row.duration_minutes
+            target.description = row.description.strip()
             target.active = True
             if row.external_id:
                 target.external_id = row.external_id
@@ -1189,7 +1193,8 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
         else:
             s = Service(id=new_id("srv"), tenant=tenant, name=name, cycle_days=row.cycle_days,
                        price_minor=row.price_minor, duration_minutes=row.duration_minutes,
-                       external_id=row.external_id, created=int(time.time()))
+                       external_id=row.external_id, description=row.description.strip(),
+                       created=int(time.time()))
             await store.save(s)
             touched_ids.add(s.id)
             created += 1

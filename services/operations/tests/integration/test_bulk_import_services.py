@@ -140,3 +140,19 @@ def test_needs_manage_services_capability(client):
     denied = client.post("/api/v1/staff/services/bulk_import", json={"rows": [{"name": "قص شعر"}]},
                          headers=_auth("operations.manage"))
     assert denied.status_code == 403
+
+
+def test_a_description_column_is_saved_on_a_new_row(client):
+    r = _import(client, [{"name": "قص شعر", "description": "قص وتصفيف بالمقص والمكينة"}])
+    assert r.status_code == 200, r.text
+    rows = client.get("/api/v1/staff/services", headers=HEADERS).json()["services"]
+    assert rows[0]["description"] == "قص وتصفيف بالمقص والمكينة"
+
+
+def test_a_blank_description_column_clears_an_existing_description_same_as_a_blank_price(client):
+    # THE FILE WINS COMPLETELY, same convention price_minor/duration_minutes already hold — a
+    # blank column is not "leave it alone", it is the file's own value: nothing.
+    _import(client, [{"name": "قص شعر", "description": "وصف أول"}])
+    _import(client, [{"name": "قص شعر"}])
+    rows = client.get("/api/v1/staff/services", headers=HEADERS).json()["services"]
+    assert rows[0]["description"] == ""
