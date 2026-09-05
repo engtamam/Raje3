@@ -22,13 +22,13 @@ import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
-import { Check, Pencil, Power, RotateCcw } from 'lucide-react';
+import { Check, ImageOff, LayoutGrid, List, Pencil, Power, RotateCcw, Upload, X } from 'lucide-react';
 import { Hint } from '../Hint';
 import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
-import { action, call, type Catalog } from '../catalog';
+import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { halalas, riyals } from '../money';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
@@ -48,6 +48,13 @@ interface Service {
    *  single-operator shop, or one where everybody does everything, never touches this). A real
    *  list narrows it to those specific people. */
   eligible_staff_ids?: string[];
+  /** A short owner-written line — the WhatsApp assistant's only source for "what does this
+   *  service actually involve" (services-images-board.md phase 1). */
+  description?: string;
+  /** NEVER the image itself, NEVER a key — just whether one exists. The real bytes are fetched
+   *  through their own gated route (operations.get_service_image), same "never leak an internal
+   *  reference" discipline the rest of this product already holds. */
+  has_image?: boolean;
 }
 
 /** Just enough of an operator to list him as a candidate — same shape Team.tsx reads. */
@@ -178,6 +185,35 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // labelled. A shop with one operator (or none of this screen's role) never reads this at all
   // in any way that shows: the row below is hidden whenever there is one or fewer of them.
   const [staff, setStaff] = useState<StaffMember[] | null | undefined>(undefined);
+
+  // ── board/cards view (services-images-board.md phase 3) ────────────────────────────────────
+  // SAME DEFAULT-BY-INPUT-TYPE AS Bookings.tsx's OWN TOGGLE, read once at mount, never tracked
+  // live — a touch device opens on cards, a mouse on the dense table, and rotating a tablet
+  // mid-glance must not yank the layout out from under him.
+  const [layout, setLayout] = useState<'list' | 'grid'>(() => (
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(pointer: coarse)').matches
+      ? 'grid' : 'list'
+  ));
+  // Object URLs, one per service that HAS a photo — fetched lazily (never for a service with no
+  // photo at all) and revoked on unmount so a long session does not leak blob handles.
+  const [images, setImages] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const getAction = action(catalog, 'operations.get_service_image');
+    if (!getAction || !services) return;
+    let cancelled = false;
+    for (const svc of services) {
+      if (!svc.has_image || images[svc.id]) continue;
+      downloadUrl(session, getAction, { id: svc.id }).then((url) => {
+        if (!cancelled) setImages((m) => ({ ...m, [svc.id]: url }));
+      }).catch(() => undefined);
+    }
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, catalog]);
+  useEffect(() => () => { Object.values(images).forEach((u) => URL.revokeObjectURL(u)); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []);
 
   const load = () => {
     // THE OWNER'S LIST WHEN HE HAS IT, and it includes what he has retired. The field grid is
@@ -426,6 +462,48 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     setError('');
     try {
       await call(session, a, { id, ...patch });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** A picked file, read as base64 and sent as-is — the server (catalogue_image.py) is the one
+   *  place that validates type/size, matching AccountPanes.tsx's own "the server decides" posture
+   *  for a write this small; no client-side resize needed for a product photo (unlike the shop
+   *  logo, which is inlined directly and so had to be shrunk by hand). */
+  const uploadServiceImage = async (id: string, file: File) => {
+    const a = action(catalog, 'operations.upload_service_image');
+    if (!a) return;
+    setSaving(true);
+    setError('');
+    try {
+      const data_base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      await call(session, a, { id, content_type: file.type, data_base64 });
+      setImages((m) => { const n = { ...m }; delete n[id]; return n; });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteServiceImage = async (id: string) => {
+    const a = action(catalog, 'operations.delete_service_image');
+    if (!a) return;
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, a, { id });
+      setImages((m) => { const n = { ...m }; delete n[id]; return n; });
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
@@ -802,6 +880,26 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           />
         ) : null}
 
+        {/* GRID vs LIST — same control Bookings.tsx already carries, same reason: it changes only
+            how the same read is drawn, never what is filtered. Icon-only, each with its own
+            aria-label/title for the first glance an icon alone does not explain. */}
+        <div className="flex items-center gap-1 rounded-full bg-surface-2 p-1">
+          {([
+            { id: 'list' as const, icon: List, label: 'جدول' },
+            { id: 'grid' as const, icon: LayoutGrid, label: 'بطاقات' },
+          ]).map(({ id, icon: Icon, label }) => (
+            <button key={id} type="button" onClick={() => setLayout(id)}
+                   aria-label={label} title={label}
+                   className={[
+                     'grid h-8 w-9 place-items-center rounded-full transition-colors',
+                     layout === id ? 'bg-accent text-accent-contrast shadow-sm'
+                                  : 'text-text-secondary hover:text-text-primary',
+                   ].join(' ')}>
+              <Icon size={15} aria-hidden />
+            </button>
+          ))}
+        </div>
+
         {/* ONE «؟» FOR THE TABLE, NOT ONE PER COLUMN. Four marks across a header sixty-four
             pixels per column wide crowded into each other and spilled onto the neighbouring
             label — «النقاط؟» reading as one word. A legend answers all four at once, in a
@@ -1047,6 +1145,61 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           compare are off-screen — the worst of both shapes. So the phone gets the three columns
           that answer «ما عندي، وكل كم يوماً، وماذا أفعل بها», and the other three appear stacked
           under the row the moment he taps ✎. Nothing is unreachable; it is only unasked. */}
+      {layout === 'grid' ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.flatMap(([, inGroup]) => inGroup).map((svc) => {
+            const stopped = svc.active === false;
+            const live = !stopped;
+            return (
+              <div key={svc.id}
+                  className={[
+                    'group relative flex flex-col gap-2 overflow-hidden rounded-2xl border p-3',
+                    'transition-all duration-200 hover:-translate-y-0.5',
+                    live
+                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg hover:shadow-accent/5'
+                      : 'border-border-subtle bg-surface-1 opacity-70',
+                  ].join(' ')}>
+                {live ? (
+                  <span aria-hidden
+                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-accent to-accent/40" />
+                ) : null}
+                {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — never a blank box. The absence
+                    of a photo is a fact worth seeing at a glance (an owner missing photos across
+                    his catalogue should notice), not something the layout quietly hides. */}
+                <div className="relative -mx-3 -mt-3 mb-1 aspect-[16/9] overflow-hidden bg-surface-2">
+                  {images[svc.id] ? (
+                    <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full place-items-center text-text-muted">
+                      <ImageOff size={22} aria-hidden />
+                    </div>
+                  )}
+                </div>
+                <div className="relative flex items-start justify-between gap-2 ps-2">
+                  <span className="flex min-w-0 items-center gap-2 font-medium">
+                    <span className="truncate">{svc.name}</span>
+                    {stopped ? <Badge tone="neutral">{t('services.stoppedBadge')}</Badge> : null}
+                  </span>
+                </div>
+                {svc.description ? (
+                  <p className="relative line-clamp-2 ps-2 text-xs text-text-secondary">{svc.description}</p>
+                ) : null}
+                <span className="relative ps-2 text-sm text-text-secondary">
+                  {svc.price_minor ? riyals(svc.price_minor) : '—'}
+                </span>
+                <div className="relative mt-1 flex items-center justify-end ps-2">
+                  {action(catalog, 'operations.update_service') ? (
+                    <Button variant="outline" size="sm"
+                           onClick={() => { setLayout('list'); setOpen(svc.id); }}>
+                      {t('services.edit')}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div className="rounded-card border border-border-subtle bg-surface-1">
         {/* THE NAME TAKES THE SLACK, THE NUMBERS STAY NARROW. With every column an equal share the
             table spread four dashes across a desktop — a metre of white between a service and the
@@ -1121,27 +1274,66 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             stopped ? 'opacity-55' : '',
           ].join(' ')}>
             <td className="px-3 py-2">
-              {editing && action(catalog, 'operations.update_service') ? (
-                <input
-                  defaultValue={svc.name}
-                  autoFocus
-                  aria-label={tf(t, 'services.nameAriaLabel', { name: svc.name })}
-                  maxLength={128}
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v && v !== svc.name) patchService(svc.id, { name: v });
-                  }}
-                  // NO MINIMUM WIDTH. A `min-w` inside a fixed-width cell does not widen the
-                  // column — it overflows it, which is what put the name box outside its own row
-                  // on a phone. The column is half the table; the input takes exactly that.
-                  className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2"
-                />
-              ) : (
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium">{svc.name}</span>
-                  {stopped ? <Badge tone="neutral">{t('services.stoppedBadge')}</Badge> : null}
+              <div className="flex items-center gap-2">
+                {/* THE THUMBNAIL — present or absent, never a blank gap, so a missing photo reads
+                    as a real fact rather than a layout hiccup. Small here on purpose: the table's
+                    own value is a column scan, and a large photo per row would be the phone-table
+                    mistake this screen's own header comment already argues against, just moved to
+                    a different column. */}
+                <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-text-muted">
+                  {images[svc.id] ? (
+                    <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
+                  ) : <ImageOff size={14} aria-hidden />}
                 </span>
-              )}
+                {editing && action(catalog, 'operations.update_service') ? (
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <input
+                      defaultValue={svc.name}
+                      autoFocus
+                      aria-label={tf(t, 'services.nameAriaLabel', { name: svc.name })}
+                      maxLength={128}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== svc.name) patchService(svc.id, { name: v });
+                      }}
+                      // NO MINIMUM WIDTH. A `min-w` inside a fixed-width cell does not widen the
+                      // column — it overflows it, which is what put the name box outside its own row
+                      // on a phone. The column is half the table; the input takes exactly that.
+                      className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2"
+                    />
+                    <input
+                      defaultValue={svc.description ?? ''}
+                      placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
+                      maxLength={300}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== (svc.description ?? '')) patchService(svc.id, { description: v });
+                      }}
+                      className="h-8 w-full min-w-0 rounded-lg bg-surface-2 px-2 text-xs"
+                    />
+                    {action(catalog, 'operations.upload_service_image') ? (
+                      <div className="flex items-center gap-1">
+                        <label className="flex cursor-pointer items-center gap-1 text-xs text-accent-on-soft">
+                          <Upload size={12} aria-hidden /> صورة
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
+                        </label>
+                        {svc.has_image ? (
+                          <button type="button" onClick={() => deleteServiceImage(svc.id)}
+                                 className="flex items-center gap-1 text-xs text-danger">
+                            <X size={12} aria-hidden /> حذف الصورة
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium">{svc.name}</span>
+                    {stopped ? <Badge tone="neutral">{t('services.stoppedBadge')}</Badge> : null}
+                  </span>
+                )}
+              </div>
             </td>
 
             {/* THE ONE FIELD BOOKINGS ACTUALLY REFUSES WITHOUT (docs/خطة-تنفيذ-الحجوزات.md §6.2):
@@ -1412,6 +1604,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           </tbody>
         </table>
       </div>
+      )}
       </div>
       </div>
         );
