@@ -90,6 +90,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "show a shop owner exactly when and why their customers stopped getting answers",
     },
     {
+        "action": "whatsapp_assistant.stopped_not_subscribed",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "the AI stopped replying because this shop does not hold `feature.whatsapp` — never "
+               "bought it, or the subscription lapsed. A real operational stop, same shape as "
+               "stopped_wallet_depleted above (true for every customer of this shop, not this one "
+               "conversation). If this cannot be recorded there is no way to later show a shop "
+               "owner exactly when their customers stopped getting AI replies and why",
+    },
+    {
         "action": "whatsapp_assistant.proposal_rejected",
         "source": "system",
         "critical": False,

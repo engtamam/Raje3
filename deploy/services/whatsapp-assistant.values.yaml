@@ -197,6 +197,12 @@ env:
   # itself be what pushes a confirm past the true available balance.
   WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: "4000"
   WALLET_SAFETY_MARGIN_HALALAS: "100"
+  # feature.whatsapp — the AI assistant sold as its own app (app/core/licence.py), checked live at
+  # every reply, same billing endpoint every other paid app in this fleet asks (campaigns.values.yaml
+  # sets the identical two keys). Not yet a row in any price list a shop can browse — see
+  # services/operations/app/core/apps.py's own note — but the gate is live from day one regardless.
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
   PEER_TIMEOUT_SECONDS: "8"
 
   # ── consent (compliance-service) ───────────────────────────────────────────────────────────

@@ -62,6 +62,16 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً."},
 )
 
+# `feature.whatsapp` (the AI assistant's auto-reply/auto-booking over WhatsApp — NOT the ordinary
+# service messages, which stay inside the base unchanged) IS DELIBERATELY NOT A ROW HERE YET. It is
+# already gated, live, at the one act that matters (whatsapp-assistant's own core/licence.py talks
+# to billing directly — this file is not in that call path at all, exactly like every other key
+# below is checked at its own act and not through this catalogue). A row here is what makes an app
+# BROWSABLE: it draws its lock on a console screen and appears in `/apps`'s list. Its price has not
+# been agreed, so — same as «المؤسسات» stays out of the ordinary plan listing until it is one a shop
+# can actually choose — it stays out of this tuple until it is one they can actually buy. Add the
+# row the day it is priced; nothing about the gate above needs to change when that happens.
+
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 
 CANNOT_ASK = "تعذّر التحقق من اشتراكك الآن — حاول بعد قليل."

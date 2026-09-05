@@ -140,6 +140,7 @@ class Container:
     service_catalog: Any = None
     related_services: Any = None
     wallet_balance: Any = None
+    licence: Any = None
     sender: Any = None
     secret_store: Any = None
     inbound_feed: Any = None
@@ -208,6 +209,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import service_catalog as SC
     from app.core import related_services as RS
     from app.core import wallet_balance as WB
+    from app.core.licence import build_licence
     from app.core.conversation import ConversationEngine
     from app.core.secret_store import SecretStore
 
@@ -239,6 +241,7 @@ def build_container(settings: Settings) -> Container:
     container.service_catalog = SC.build(settings)
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
+    container.licence = build_licence(settings)
     container.sender = build_sender(settings)
     # WAS NEVER ASSIGNED HERE AT ALL — `_CONSENT_GATE`'s registry existed, the field on `Container`
     # existed, and nothing between the two ever ran; `container.consent_gate` stayed the dataclass
@@ -258,6 +261,7 @@ def build_container(settings: Settings) -> Container:
         service_catalog=container.service_catalog, customer_lookup=container.customer_lookup,
         branch_directory=container.branch_directory,
         related_services=container.related_services, wallet_balance=container.wallet_balance,
+        licence=container.licence,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
         wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,
@@ -272,14 +276,4 @@ def build_container(settings: Settings) -> Container:
     # `auditor` is NOT passed here — app/main.py builds it AFTER build_container() (it needs the
     # container) and wires it in with `container.engine.set_auditor(...)` right after. See
     # app/core/conversation.py::ConversationEngine.__init__ for why.
-    # NO container.licence HERE — deliberately, unlike loyalty/campaigns' core/licence.py.
-    # docs/adding-a-new-app.md §2 requires a licence gate "if this is a sold app", and this one
-    # plausibly will be, but the gate's whole design turns on a read/write asymmetry decision
-    # (what fails closed when billing is unreachable vs. what must never ask at all) that nobody
-    # has made for this product yet — deploy/seed/plans.json has no "feature.whatsapp_assistant"
-    # row, and ci/check_entitlements.py passes today precisely because nothing here claims to be
-    # a sold feature. Writing licence.py now would mean guessing that decision to satisfy a gate,
-    # which is the opposite of what §2 asks for ("write that decision as the module's own
-    # docstring, because it is the whole design"). Add it the day the business makes that call,
-    # mirroring loyalty's core/licence.py — not before.
     return container

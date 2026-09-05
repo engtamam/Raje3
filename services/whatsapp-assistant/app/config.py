@@ -352,6 +352,28 @@ class Settings(BaseSettings):
                 "GEMINI_API_KEY, or set SECRETS_KEK and PUT the key to /api/v1/assistant/operator/secrets "
                 "once the service is up.")
 
+    # ── billing — feature.whatsapp, the AI assistant sold as its own app (core/licence.py) ────
+    # An independent price-list row, same shape as campaigns'/loyalty's own licence gate (and the
+    # same billing endpoint every one of them calls — a generic keyed check, not a route owned by
+    # this catalogue). Ordinary service messages are NOT behind this key and never asked here; only
+    # an AI-composed reply and an AI-driven booking are. See core/licence.py's own docstring.
+    BILLING_SERVICE_URL: str = ""
+    BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
+
+    def assert_licence_config_ok(self) -> None:
+        """Boot guard. Refuse production that cannot ask whether a shop bought the assistant.
+
+        Without billing wired, build_licence returns NullLicence and every shop gets the AI
+        assistant for free, silently, for as long as nobody compares the price list to the code —
+        the same invisible-giveaway defect campaigns' own boot guard exists to close.
+        """
+        if not self.is_production:
+            return
+        if not self.BILLING_SERVICE_URL or not self.BILLING_CHECK_PATH:
+            raise ValueError(
+                "BILLING_SERVICE_URL/BILLING_CHECK_PATH empty in production: the WhatsApp AI "
+                "assistant would be given away to every shop, quietly. Set them.")
+
     # ── conversation engine — debounce, session, summary (all config-driven) ─
     # Consecutive inbound messages inside this window are coalesced into ONE reply cycle — a
     # customer typing three short messages in a row must not receive three separate replies.

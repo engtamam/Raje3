@@ -84,6 +84,10 @@ class ConversationState:
     # re-recording the same audit fact on a re-entrant tick or a stray message. Reset on a fresh
     # session the same way `escalated` is.
     wallet_stopped: bool = False
+    # Same shape as `wallet_stopped`, for the other real operational stop: `feature.whatsapp` not
+    # held (never bought, or the subscription lapsed) — see core/licence.py and
+    # ConversationEngine._stop_not_subscribed. Reset on a fresh session the same way.
+    licence_stopped: bool = False
     # Has THIS session already answered the triage gate? `state` alone cannot carry this: a
     # resolved triage pick sets `state` back to "idle" so `on_inbound_text`'s own idle/closed
     # session-open branch still runs unmodified — but "idle" is ALSO a brand-new conversation's

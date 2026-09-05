@@ -128,6 +128,12 @@ _HUMAN_HANDOVER_TEXT = "تم تحويلك إلى أحد موظفينا وسيت�
 # via WhatsApp coexistence) rather than left with a dead end.
 _WALLET_DEPLETED_TEXT = ("نعتذر، الخدمة الآلية متوقفة مؤقتًا. يسعد أحد موظفي المحل مساعدتك مباشرة "
                         "على نفس المحادثة.")
+# `feature.whatsapp` not held — the shop has not bought the AI assistant (or its subscription
+# lapsed). Same tone/shape as the wallet-depleted text on purpose: a customer reads no difference
+# between "this shop's wallet ran out" and "this shop never bought this", and should not — both are
+# the establishment's own billing state, never his to untangle. See core/licence.py's own docstring.
+_NOT_SUBSCRIBED_TEXT = ("نعتذر، الخدمة الآلية متوقفة مؤقتًا. يسعد أحد موظفي المحل مساعدتك مباشرة "
+                       "على نفس المحادثة.")
 
 # ── mid-conversation human-handover intent ──────────────────────────────────────────────────────
 # A customer may ask for a human at ANY point, not just at the triage gate. This is intent
@@ -304,7 +310,7 @@ class ConversationEngine:
                 wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
                 wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100,
                 booking_history_visible: bool = True,
-                booking_management_enabled: bool = True) -> None:
+                booking_management_enabled: bool = True, licence: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -325,6 +331,12 @@ class ConversationEngine:
         # "optional peer, safe default" shape as every other one, though this is the one peer
         # that fails CLOSED rather than open once it IS configured (see wallet_balance.py).
         self._wallet = wallet_balance
+        # None-safe, same shape as every other optional peer here: a conversation built without one
+        # (pre-existing test constructors, or a deployment with no BILLING_SERVICE_URL) never asks
+        # and never blocks — matching NullLicence's own "allows everything" contract, which the boot
+        # guard in config.py refuses in production. See core/licence.py's module docstring for why
+        # this is the one gate checked twice (handle_inbound_text AND compose_reply below).
+        self._licence = licence
         self._wallet_estimated_tokens = max(0, int(wallet_estimated_tokens))
         self._wallet_rate_halalas_per_1k = max(0, int(wallet_rate_halalas_per_1k))
         self._wallet_margin_halalas = max(0, int(wallet_margin_halalas))
@@ -500,6 +512,29 @@ class ConversationEngine:
             await self._save(conv)
         return ReplyPlan(kind="text", text=_WALLET_DEPLETED_TEXT)
 
+    async def _stop_not_subscribed(self, conv: ConversationState, *, tenant: str,
+                                   subject_ref: str, now: int) -> ReplyPlan:
+        """The subscription lapsed (or a billing outage refused the ask) mid-conversation — the
+        second of the two checks (see core/licence.py's docstring for why one at the door is not
+        enough): a session already past `handle_inbound_text`'s own gate must still stop before the
+        one action that would actually deliver the paid feature. Same idempotent-per-session shape
+        as `_stop_wallet_depleted` — a re-entrant tick does not re-record the same fact.
+        """
+        conversation_ref = self._key(tenant, subject_ref)
+        if not conv.licence_stopped:
+            if self._auditor is not None:
+                await self._auditor.record(
+                    "whatsapp_assistant.stopped_not_subscribed", actor="whatsapp-assistant",
+                    tenant=tenant, resource=f"conversation:{conversation_ref}",
+                    metadata={"subject_ref": subject_ref})
+            conv.licence_stopped = True
+            conv.state = "closed"
+            conv.pending_proposal_id = ""
+            conv.batch_deadline = 0
+            conv.session_closed_at = now
+            await self._save(conv)
+        return ReplyPlan(kind="text", text=_NOT_SUBSCRIBED_TEXT)
+
     async def handle_inbound_text(self, *, tenant: str, subject_ref: str, from_number: str,
                                   text: str, branch_id: str = "",
                                   now: int | None = None) -> ReplyPlan:
@@ -512,6 +547,14 @@ class ConversationEngine:
         model.
         """
         now = now if now is not None else int(time.time())
+
+        # AS EARLY AS POSSIBLE — before even the triage list, which is itself part of the AI
+        # assistant's own gateway, not an "ordinary service message" (see core/licence.py's module
+        # docstring for that boundary). NO STATE IS TOUCHED on a refusal: a shop that has not
+        # bought this must never accumulate a conversation record for it either.
+        if self._licence is not None and not await self._licence.allowed(tenant):
+            return ReplyPlan(kind="text", text=_NOT_SUBSCRIBED_TEXT)
+
         conv = await self._get(tenant, subject_ref, branch_id=branch_id)
 
         # NO WALLET CHECK HERE, DELIBERATELY. The triage list is fixed product copy, not an LLM
@@ -536,6 +579,7 @@ class ConversationEngine:
             conv.unconfirmed_proposal_attempts = 0
             conv.escalated = False
             conv.wallet_stopped = False
+            conv.licence_stopped = False
             await self._save(conv)
             return await self._triage_list_plan(tenant)
 
@@ -787,6 +831,16 @@ class ConversationEngine:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer",
                                             "propose_cancel_booking", "propose_reschedule_booking"))
+
+        # THE SECOND ASK, RIGHT BEFORE THE ONE ACTION THAT DELIVERS THE PAID FEATURE — a session
+        # already past `handle_inbound_text`'s own gate may have sat batching for up to
+        # CONVERSATION_DEBOUNCE_SECONDS; a subscription that lapsed in that window must still stop
+        # the reply, not merely the next customer's opening message. Checked BEFORE the wallet
+        # hold on purpose: reserving money against a reply that will never be sent is a real, if
+        # small, waste, and licence is the cheaper of the two checks to fail on first.
+        if self._licence is not None and not await self._licence.allowed(tenant):
+            return await self._stop_not_subscribed(
+                conv, tenant=tenant, subject_ref=subject_ref, now=now)
 
         # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s
         # docstring. `self._wallet is not None` gates whether this service is wallet-gated at all
