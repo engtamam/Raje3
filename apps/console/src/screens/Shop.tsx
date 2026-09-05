@@ -105,8 +105,13 @@ interface Dashboard {
 }
 interface Pairs { learning?: boolean; have?: number; need?: number;
                  pairs?: { a: string; b: string; verdict: string; customers: number }[] }
-interface Bundle { a_name?: string; b_name?: string; why?: string; customers?: number;
-                  action?: string; action_label?: string }
+interface Bundle { a?: string; b?: string; a_name?: string; b_name?: string; why?: string;
+                  customers?: number; action?: string; action_label?: string;
+                  /** THE PACKAGE'S OWN id (packages feature) — set only when `action ===
+                   *  'extend_package'`, i.e. one side of the pair is already a package
+                   *  (insights' bundles.py) and the opportunity is adding the OTHER side to it,
+                   *  not creating a new one. */
+                  package_id?: string }
 interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }[];
                     unknown?: number; can_rank?: boolean }
 interface OperatorRow { operator_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }
@@ -572,16 +577,35 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         ) : bundles && bundles.length ? (
           <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
-            {bundles.slice(0, 4).map((b, i) => (
-              <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
-                <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
-                {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
-                <div className="flex items-center justify-between gap-2">
-                  {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
-                  <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+            {bundles.slice(0, 4).map((b, i) => {
+              // WHERE THE BUTTON GOES (packages feature). `bundle` pre-fills a brand-new
+              // package's create form with both services already picked; `extend_package`
+              // opens the EXISTING package instead, with the one real service beside it (not
+              // itself) offered to add — see insights' bundles.py for which action means which.
+              const other = b.a === `pkg:${b.package_id}` ? b.b : b.a;
+              const href = b.action === 'bundle' && b.a && b.b
+                ? `/services?tab=packages&prefill_a=${encodeURIComponent(b.a)}&prefill_b=${encodeURIComponent(b.b)}`
+                : b.action === 'extend_package' && b.package_id && other
+                ? `/services?tab=packages&extend_package=${encodeURIComponent(b.package_id)}&extend_service=${encodeURIComponent(other)}`
+                : '';
+              return (
+                <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
+                  <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
+                  {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+                  <div className="flex items-center justify-between gap-2">
+                    {b.action_label && href ? (
+                      <Link to={href} className="text-[11px] font-semibold underline-offset-2 hover:underline"
+                           style={{ color: 'var(--sh-violet-deep)' }}>
+                        {b.action_label}
+                      </Link>
+                    ) : b.action_label ? (
+                      <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span>
+                    ) : <span />}
+                    <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : bundles ? (
           <div className="mb-3 break-inside-avoid">{muted('باقات مقترحة', 'ما فيه اقترانات كافية بعد لنقترح باقة منها.')}</div>

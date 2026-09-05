@@ -22,6 +22,18 @@ vi.mock('../catalog', async (importOriginal) => {
     ...real,
     action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
     call: async (_s: unknown, a: { id: string }) => {
+      if (a.id === 'insights.bundles') {
+        return {
+          bundles: [
+            { a: 'pkg:pkg1', b: 'svc_wax', a_name: 'باقة الصيانة', b_name: 'تلميع',
+             why: 'يُطلبان معاً', customers: 30, action: 'extend_package',
+             action_label: 'أضفها لهذه الباقة', package_id: 'pkg1' },
+            { a: 'svc_a', b: 'svc_b', a_name: 'غيار زيت', b_name: 'فحص فرامل',
+             why: 'يُطلبان معاً', customers: 40, action: 'bundle',
+             action_label: 'اجعلها باقة — تحدّد سعرها أنت' },
+          ],
+        };
+      }
       if (a.id === 'insights.dashboard') {
         return {
           computing: false,
@@ -30,7 +42,11 @@ vi.mock('../catalog', async (importOriginal) => {
           // THE ENTRY PLAN, ON PURPOSE: this is the shop whose page carried a locked surface above
           // its own retention rate. If the lock ever climbs back over the ring, this test is the
           // one that notices.
-          entitlements: [],
+          //
+          // 'feature.insights.engine' IS REQUIRED for the bundles/associations reads to even fire
+          // (Shop.tsx's own gate) — without it `setBundles(null)` short-circuits before either of
+          // the two new packages-feature tests below ever see a bundle card.
+          entitlements: ['feature.insights.engine'],
           // THE ENGINE'S OWN CATCH-ALL (services/insights/app/core/next_step.py's `all_is_well`)
           // — a shop with nothing else matching always gets this, never silence.
           next_step: {
@@ -98,5 +114,24 @@ describe('«محلّي» — one page, and the number first', () => {
     // silence.
     expect(screen.getByText('الخطوة التالية')).toBeTruthy();
     expect(screen.getByText(/وضعك ثابت/)).toBeTruthy();
+  });
+
+  // ── packages feature: the bundle card's own action link ───────────────────────────────────────
+  it('an extend_package suggestion links to the existing package, not a new one', async () => {
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText('أضفها لهذه الباقة')).toBeTruthy());
+    const link = screen.getByRole('link', { name: 'أضفها لهذه الباقة' });
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('extend_package=pkg1');
+    expect(href).toContain('extend_service=svc_wax');
+  });
+
+  it('a bundle suggestion pre-fills a brand-new package with both services', async () => {
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText('اجعلها باقة — تحدّد سعرها أنت')).toBeTruthy());
+    const link = screen.getByRole('link', { name: 'اجعلها باقة — تحدّد سعرها أنت' });
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('prefill_a=svc_a');
+    expect(href).toContain('prefill_b=svc_b');
   });
 });

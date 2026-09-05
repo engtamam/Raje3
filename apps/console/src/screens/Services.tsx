@@ -17,6 +17,7 @@
  * holds its own, which is why "return to general" is a DELETE and not a write of today's default.
  */
 import { Fragment, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
@@ -33,6 +34,7 @@ import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './services-i18n';
 import { ServicesImportDrawer } from './ServicesImportDrawer';
+import { PackagesTab } from './PackagesTab';
 
 interface Service {
   id: string; name: string; cycle_days: number; price_minor: number;
@@ -104,8 +106,22 @@ interface EarnSettings {
   service_group?: Record<string, string>;
 }
 
+/** «الخدمات» (this screen's original body) / «الباقات» (PackagesTab.tsx) — two tabs, one route.
+ *  `?tab=packages` is how محلّي's «باقات مقترحة» card and «أضفها لهذه الباقة» button (Shop.tsx)
+ *  land here already on the right tab, carrying their own prefill params that PackagesTab reads
+ *  and clears itself. */
+type ServicesPageTab = 'services' | 'packages';
+
 export function ServicesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { t } = useOperatorI18n();
+  const [params, setParams] = useSearchParams();
+  const tab: ServicesPageTab = params.get('tab') === 'packages' ? 'packages' : 'services';
+  const setTab = (next: ServicesPageTab) => {
+    const p = new URLSearchParams(params);
+    if (next === 'services') p.delete('tab'); else p.set('tab', next);
+    setParams(p, { replace: true });
+  };
+  const packagesEnabled = !!action(catalog, 'operations.list_packages');
   const [services, setServices] = useState<Service[] | null | undefined>(undefined);
   /** The list could not be READ — as opposed to being read and found empty. Two different facts,
    *  and this screen used to say the same sentence for both. */
@@ -586,12 +602,42 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     }
   };
 
+  // THE TAB SWITCHER — shown above every state below it (loading, failed, empty, and the full
+  // page), so switching to «الباقات» never depends on «الخدمات» having finished loading first.
+  // Hidden entirely for a role that cannot see packages at all, same "don't show a control that
+  // does nothing" rule the whole console follows.
+  const switcher = packagesEnabled ? (
+    <Segmented
+      ariaLabel="التبويب"
+      value={tab}
+      onChange={(v) => setTab(v as ServicesPageTab)}
+      options={[
+        { value: 'services', label: t('services.title') },
+        { value: 'packages', label: 'الباقات' },
+      ]}
+    />
+  ) : null;
+
+  // «الباقات» IS ITS OWN SELF-CONTAINED SUB-COMPONENT — it does not depend on `services`/
+  // `settings` having loaded here at all, so it renders regardless of this screen's own guards
+  // below (which are all about the SERVICES tab's own data).
+  if (tab === 'packages') {
+    return (
+      <div className="flex flex-col gap-3 p-4">
+        {switcher}
+        <PackagesTab session={session} catalog={catalog} />
+      </div>
+    );
+  }
+
   // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
   // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
   // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). This guard read `=== null` and the failure
   // handler set `null` too, so a failed read waited here for ever and the `unread` sentence below
   // — which was written for exactly this — could never be reached.
-  if (isLoading(services)) return <Waiting what={t('services.loading')} />;
+  if (isLoading(services)) return (
+    <div className="flex flex-col gap-3 p-4">{switcher}<Waiting what={t('services.loading')} /></div>
+  );
 
   // TWO DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. «We could not read your services»
   // is about us; «you have not added any yet» is about his shop — and until now both arrived here
@@ -604,7 +650,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // invite rather than apologise.
   if (hasFailed(services) || unread) {
     return (
-      <div className="p-4">
+      <div className="flex flex-col gap-3 p-4">
+        {switcher}
         <EmptyState
           title={t('services.loadFailed.title')}
           description={t('services.loadFailed.description')}
@@ -621,7 +668,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // exact branch the true first state of the product while still letting him leave it.
   if (services.length === 0 && !adding && !importing) {
     return (
-      <div className="p-4">
+      <div className="flex flex-col gap-3 p-4">
+        {switcher}
         <EmptyState
           title={t('services.empty.title')}
           description={t('services.empty.description')}
@@ -649,6 +697,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      {switcher}
       {error ? <p className="text-danger">{error}</p> : null}
 
       {/* THE PROPOSAL, AND IT ONLY EVER PROPOSES. The engine noticed the owner set the same value
