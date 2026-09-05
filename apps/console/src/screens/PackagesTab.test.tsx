@@ -22,6 +22,7 @@ let servicesResponse: unknown[] = [
   { id: 'svc_b', name: 'فحص فرامل', active: true },
 ];
 let earnResponse: unknown = { services: {}, groups: {}, service_group: {}, general: {}, packages: {} };
+let servicesFail = false;
 const createCalls: unknown[] = [];
 const pointsCalls: unknown[] = [];
 
@@ -32,7 +33,10 @@ vi.mock('../catalog', async (importOriginal) => {
     action: (_c: unknown, id: string) => ACTIONS[id] ?? null,
     call: async (_session: unknown, a: { id: string }, body: unknown) => {
       if (a.id === 'operations.list_packages') return { packages: packagesResponse };
-      if (a.id === 'operations.list_services') return { services: servicesResponse };
+      if (a.id === 'operations.list_services') {
+        if (servicesFail) throw new Error('boom');
+        return { services: servicesResponse };
+      }
       if (a.id === 'loyalty.settings.read') return earnResponse;
       if (a.id === 'operations.create_package') { createCalls.push(body); return { id: 'pkg_new' }; }
       if (a.id === 'operations.update_package') { createCalls.push(body); return {}; }
@@ -61,6 +65,20 @@ describe('الباقات', () => {
     open();
     await waitFor(() => expect(screen.getByText('لا توجد باقات بعد')).toBeTruthy());
     expect(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ })).toBeTruthy();
+  });
+
+  // م · النمط 1 — «services» used to fail into the same empty state a genuinely empty catalogue
+  // renders, so a failed read of the shop's own services looked exactly like a fresh shop with
+  // nothing configured yet.
+  it('says the read failed when the services catalogue cannot be read, never that there are no packages', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000, active: true },
+    ];
+    servicesFail = true;
+    open();
+    await waitFor(() => expect(screen.getByText(/تعذّرت قراءة الباقات أو الخدمات/)).toBeTruthy());
+    expect(screen.queryByText('لا توجد باقات بعد')).toBeNull();
+    servicesFail = false;
   });
 
   it('lists an existing package with its real component names and price', async () => {

@@ -115,7 +115,7 @@ function CouponsPane({ session, listAction, plansListAction, createAction, updat
   // Plans are fetched here too, independently of PlansPane's own copy — this pane needs only
   // {id, name} for the coupon form's plan picker and the card's own plan-name lookup, and the two
   // sub-tabs are never both mounted at once (Segmented), so there is nothing to keep in sync.
-  const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
+  const [plans, setPlans] = useState<{ id: string; name: string }[] | 'loading' | 'failed'>('loading');
 
   const reload = () => {
     setRows('loading');
@@ -127,14 +127,18 @@ function CouponsPane({ session, listAction, plansListAction, createAction, updat
   useEffect(reload, [listAction, session]);
   useEffect(() => {
     if (!plansListAction) return;
+    setPlans('loading');
     req<{ plans: { id: string; name: string }[] }>(
       `${plansListAction.path}?include_hidden=true`, 'GET', undefined, session.access_token,
-    ).then((body) => setPlans(body.plans.map((p) => ({ id: p.id, name: p.name })))).catch(() => setPlans([]));
+    ).then((body) => setPlans(body.plans.map((p) => ({ id: p.id, name: p.name }))))
+      .catch(() => setPlans('failed'));
   }, [plansListAction, session]);
 
   if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
   if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة الكوبونات.</p>;
+  if (plans === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة الخطط.</p>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same reason as PlansPane above.
   return <CouponCards session={session} createAction={createAction} updateAction={updateAction}
-                      deleteAction={deleteAction} coupons={rows as any} plans={plans} onReload={reload} />;
+                      deleteAction={deleteAction} coupons={rows as any}
+                      plans={plans === 'loading' ? [] : plans} onReload={reload} />;
 }

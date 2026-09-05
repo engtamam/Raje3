@@ -174,6 +174,22 @@ describe('AdminApps', () => {
       '/api/v1/billing/coupons/RAMADAN26', 'DELETE', undefined, 'tok-1'));
   });
 
+  // م · النمط 1 — the coupon pane's own `plans` lookup used to start `[]` and fail into `[]`
+  // too, so a failed read of the plan picker's own list was indistinguishable from a shop that
+  // genuinely has no plans, and the coupon form silently offered an empty picker instead of
+  // saying the read had failed.
+  it('says the plan lookup failed rather than silently rendering an empty plan picker', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ plans: [] })                 // plans pane (default tab)
+      .mockResolvedValueOnce({ coupons: [COUPON] })          // coupons list
+      .mockRejectedValueOnce(new Error('boom'));             // coupons pane's own plan lookup fails
+
+    render(<AdminApps session={SESSION} />);
+    fireEvent.click(await screen.findByText('الخصومات والعروض'));
+    await waitFor(() => expect(screen.getByText(/تعذّرت قراءة الخطط/)).toBeTruthy());
+  });
+
   it('an honest sentence, no sub-tabs, when nothing is readable', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminApps session={SESSION} />);

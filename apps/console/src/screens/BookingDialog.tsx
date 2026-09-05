@@ -164,9 +164,9 @@ export function BookingDialog(
   // — only while being checked in for the one he was already standing at the counter for. Same
   // resolution path Visit.tsx uses: the phone answers a `subject_ref`, and that pseudonym is what
   // offers and balances are actually keyed on (operations never learns a name from either read).
-  const [earn, setEarn] = useState<EarnSettings | null>(null);
-  const [offer, setOffer] = useState<FieldOffer | null>(null);
-  const [balance, setBalance] = useState<Balance | null>(null);
+  const [earn, setEarn] = useState<EarnSettings | null | undefined>(undefined);
+  const [offer, setOffer] = useState<FieldOffer | null | undefined>(undefined);
+  const [balance, setBalance] = useState<Balance | null | undefined>(undefined);
 
   useEffect(() => {
     earnSettings(session).then(setEarn).catch(() => setEarn(null));
@@ -573,6 +573,15 @@ export function BookingDialog(
           {attempted && servicesMissing ? (
             <p className="mb-2 text-sm text-danger">اختر خدمة واحدة على الأقل</p>
           ) : null}
+          {/* A FAILED READ, NAMED — earn/offer/balance used to fail into `null` from the same
+              starting `null` a load-in-progress uses, so a customer with a live offer or reward
+              points would silently look like one with none at all: the grid rendered clean, the
+              save still worked, and nobody was ever told his points or offer could not be read. */}
+          {customer && (earn === null || offer === null || balance === null) ? (
+            <p className="mb-2 text-xs text-danger">
+              تعذّرت قراءة نقاط هذا العميل وعروضه — الحجز نفسه غير متأثر
+            </p>
+          ) : null}
           <ServiceGrid services={services} selected={chosen}
                       onToggle={(id) => setChosen((cur) => (
                         cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))}
@@ -580,7 +589,7 @@ export function BookingDialog(
                       redeemable={new Set(
                         (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
                       )}
-                      points={pointsByService(earn, services.map((s) => s.id))} />
+                      points={pointsByService(earn ?? null, services.map((s) => s.id))} />
           {chosen.length > 0 ? (
             missingDuration ? (
               <div className="mt-1 flex flex-col gap-1.5">

@@ -171,13 +171,16 @@ function TeamRoster({ session }: { session: AffiliateSession }) {
 }
 
 function TeamWafaQueue({ session }: { session: AffiliateSession }) {
-  const [rows, setRows] = useState<WafaRequest[] | 'loading'>('loading');
+  const [rows, setRows] = useState<WafaRequest[] | 'loading' | 'failed'>('loading');
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = () => { teamWafaRequests(session).then((r) => setRows(r.wafa_requests)).catch(() => setRows([])); };
+  const load = () => { teamWafaRequests(session).then((r) => setRows(r.wafa_requests)).catch(() => setRows('failed')); };
   useEffect(load, [session]);
 
   if (rows === 'loading') return <Skeleton height={60} />;
+  if (rows === 'failed') {
+    return <p role="alert" className="text-sm text-danger">تعذّرت قراءة طلبات دعم الوفاء</p>;
+  }
   if (rows.length === 0) return null;
 
   async function decide(id: string, decision: 'approve' | 'reject') {

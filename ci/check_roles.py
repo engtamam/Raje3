@@ -58,18 +58,26 @@ def capabilities() -> dict[str, str]:
 
 
 def _code(text: str) -> str:
-    """The source with its prose removed — a comment decides nothing and must be read as nothing.
+    r"""The source with its prose removed — a comment decides nothing and must be read as nothing.
 
     Only a line whose FIRST non-space characters are `//` is cut: a `//` inside a string is not a
     comment, and a cruder rule would blind this gate to a real row sharing its line with a note.
+
+    THE BLOCK-COMMENT REGEX IS ANCHORED OFF QUOTES FOR THE SAME REASON. `'/*'` — the literal path
+    a catch-all route is named by, quoted exactly as CATCH_ALL_PATH is here — starts with the two
+    characters `/*`. A bare `/\*.*?\*/` reads that as the OPENING of a block comment and consumes
+    everything up to the next real `*/` in the file, which is the start of whatever docblock
+    happens to follow: real code between the two vanishes, silently, from a file this gate is
+    trusted to read whole. `(?<!')` refuses a `/*` sitting directly against a preceding quote,
+    which a real block comment never does and a quoted route literal always does.
     """
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = re.sub(r"(?<!')/\*.*?\*/", "", text, flags=re.DOTALL)
     lines = ["" if line.lstrip().startswith("//") else line for line in text.splitlines()]
     return chr(10).join(lines)
 
 
 def sections() -> list[tuple[str, list[str]]]:
-    """Every nav section and the capabilities it needs.
+    r"""Every nav section and the capabilities it needs.
 
     ANCHORED ON `requires:`, NOT ON THE SHAPE OF THE LINE. The pattern here used to be
     `{ id: '...', ... requires: [...] }` — it assumed `id` came first in the object literal.

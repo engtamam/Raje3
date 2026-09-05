@@ -13,11 +13,18 @@ vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
   return {
     ...real,
-    action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
+    action: (_c: unknown, id: string) => (
+      (globalThis as any).__denyBranches && id === 'operations.list_branches'
+        ? undefined
+        : { id, label: id, method: 'GET', path: `/${id}` }
+    ),
     call: async (_s: unknown, a: { id: string }, params: unknown = {}) => {
       calls.push({ id: a.id, params });
       if (a.id === 'operations.shop_mode') return (globalThis as any).__mode;
-      if (a.id === 'operations.list_branches') return { branches: (globalThis as any).__branches ?? [] };
+      if (a.id === 'operations.list_branches') {
+        if ((globalThis as any).__branchesFail) throw new Error('boom');
+        return { branches: (globalThis as any).__branches ?? [] };
+      }
       if (a.id === 'whatsapp.connect_status') {
         return { state: '', message: 'لم تبدأ الربط بعد.', can_send: false };
       }
@@ -66,5 +73,29 @@ describe('ConnectByBranch', () => {
     (globalThis as any).__branches = [];
     render(<ConnectByBranch session={session} catalog={catalog} />);
     await screen.findByText(/بلا فروع بعد/);
+  });
+
+  // م · النمط 2 — a missing capability used to answer as an empty branch list, indistinguishable
+  // from a shop with no branches, so a role that simply cannot list branches read the same
+  // sentence as one whose shop genuinely has none.
+  it('says his role cannot reach this section when the capability to list branches is missing, not that his shop has no branches', async () => {
+    (globalThis as any).__mode = { mode: 'per_branch', available: true };
+    (globalThis as any).__denyBranches = true;
+    render(<ConnectByBranch session={session} catalog={catalog} />);
+    await screen.findByText(/لا يشمل دورك هذا القسم/);
+    expect(screen.queryByText(/بلا فروع بعد/)).toBeNull();
+    (globalThis as any).__denyBranches = false;
+  });
+
+  // م · النمط 1 — a failed read used to fall into the exact same `[]` the missing-capability
+  // guard used, so a shop with branches whose read simply failed saw «بلا فروع بعد» — a lie about
+  // its own data rather than a sentence about the failed request.
+  it('says the read failed when listing branches errors, never that the shop has none', async () => {
+    (globalThis as any).__mode = { mode: 'per_branch', available: true };
+    (globalThis as any).__branchesFail = true;
+    render(<ConnectByBranch session={session} catalog={catalog} />);
+    await screen.findByText(/تعذّرت قراءة فروعك/);
+    expect(screen.queryByText(/بلا فروع بعد/)).toBeNull();
+    (globalThis as any).__branchesFail = false;
   });
 });

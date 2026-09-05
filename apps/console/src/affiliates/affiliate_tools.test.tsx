@@ -83,6 +83,22 @@ describe('AffiliateTools — the template library', () => {
     expect(screen.getByText('50٪ تقدّم — 10 استخدام')).toBeTruthy();
   });
 
+  // م · النمط 1 — `stages` used to fail into the same `[]` an empty stage list renders, so a
+  // failed read of the outreach stages looked exactly like a shop with none configured, and the
+  // chip row simply stayed empty with nobody told the read had failed.
+  it('says the stages read failed rather than silently rendering an empty chip row', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    stagesMock = () => Promise.reject(new Error('boom'));
+    templatesMock = () => Promise.resolve({ templates: [] });
+    templateStatsMock = () => Promise.resolve({ stats: [] });
+
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('مكتبة الرسائل')).toBeTruthy());
+    fireEvent.click(screen.getByText('مكتبة الرسائل'));
+
+    await waitFor(() => expect(screen.getByText(/تعذّرت قراءة مراحل التواصل/)).toBeTruthy());
+  });
+
   it('a promoter sees no edit/deactivate/new-template controls', async () => {
     meMock = () => Promise.resolve(PROMOTER);
     stagesMock = () => Promise.resolve({ stages: [STAGE] });

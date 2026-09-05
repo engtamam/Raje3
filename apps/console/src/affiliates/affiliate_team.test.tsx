@@ -141,4 +141,14 @@ describe('AffiliateTeam — WAFA queue', () => {
     fireEvent.click(screen.getByLabelText('موافقة'));
     await waitFor(() => expect(decideCalls).toEqual([{ id: 'w1', decision: 'approve' }]));
   });
+
+  // م · النمط 1 — a failed read of the queue used to fall into the same `[]` a genuinely empty
+  // queue renders as, and both then rendered nothing at all — a manager with pending WAFA
+  // requests whose read simply failed saw the exact same silence as one with none pending.
+  it('says the queue read failed rather than silently rendering nothing, same as an empty one would', async () => {
+    teamMock = () => Promise.resolve(EMPTY_TEAM);
+    teamWafaMock = () => Promise.reject(new Error('boom'));
+    render(<AffiliateTeam session={SESSION} />);
+    await waitFor(() => expect(screen.getByText(/تعذّرت قراءة طلبات دعم الوفاء/)).toBeTruthy());
+  });
 });
