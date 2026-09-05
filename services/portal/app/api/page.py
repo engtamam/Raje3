@@ -36,7 +36,6 @@ from fastapi.responses import HTMLResponse
 from app.api.ratelimit import rate_limit
 from app.core.reference import parse
 from app.core.onescreen import render_one_screen, statement_for
-from app.core.render import render_page
 from app.core.theme import build_theme
 
 router = APIRouter(prefix="/p", tags=["page"])
@@ -48,16 +47,6 @@ NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate, private",
             "Pragma": "no-cache",
             # Belt and braces against a proxy that ignores Cache-Control on a 200.
             "Vary": "Cookie"}
-
-
-def _page_open(request: Request) -> bool:
-    """Is the full page served? ALWAYS FALSE — the full page was deleted, not merely closed.
-
-    Kept as a function, not inlined to `False` at each call site, because `ask_about_data` and
-    `stop` are untouched on purpose (see their docstrings): a single place to read still means one
-    thing changes if a future page ever comes back, rather than call sites disagreeing.
-    """
-    return False
 
 
 async def _shop(c, tenant: str) -> tuple[str, str, str]:
@@ -79,27 +68,6 @@ async def _shop(c, tenant: str) -> tuple[str, str, str]:
             str(branding.get("logo_url") or ""))
 
 
-async def _logo(c, tenant: str) -> str:
-    """The shop's mark, and NEVER the reason the page fails.
-
-    THE 500 THIS CLOSES. `compose.py` swallows a tenant-service outage on purpose — the page still
-    has his points, his visits and his switches, and half a page beats none. Then this read was
-    added after it, bare, and threw the exception straight out: an outage at tenant-service turned
-    the customer's page into an English error screen.
-
-    He arrived from a WhatsApp message sent by a shop he knows. A page that answers with a stack
-    trace does not read as «a service is down» to him — it reads as «that message was a scam», and
-    that is not a conclusion we get to correct later.
-    """
-    read = getattr(c.identity, "logo_url", None)
-    if read is None:
-        return ""
-    try:
-        return await read(tenant) or ""
-    except Exception:                                                         # noqa: BLE001
-        return ""
-
-
 @router.post("/{ref}/data", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
 async def ask_about_data(request: Request, ref: str) -> Response:
     """«اطلب نسخة من بياناتي» / «اطلب حذف بياناتي» — his right, exercised against his shop.
@@ -114,21 +82,17 @@ async def ask_about_data(request: Request, ref: str) -> Response:
     """
     r = parse(ref)
     c = request.app.state.container
-    # CLOSED WITH THE PAGE, AND THIS ONE COSTS SOMETHING TO CLOSE. A privacy request is his right
-    # under the PDPL and the page is where he exercises it. But a route that records a request no
-    # screen can show him the outcome of is worse than one that is honestly shut: he would be told
-    # to wait thirty days by a page we then took away. The rights notice in the message and the
-    # shop's own channel remain, and the page returns with them.
-    if not _page_open(request):
-        name, accent, logo = await _shop(c, r.tenant) if r.valid else ("", "", "")
-        return HTMLResponse(render_one_screen(
-            shop_name=name, theme=build_theme(accent or None), logo_url=logo,
-            headline="صفحتك قيد التجهيز",
-            body="لطلب نسخة من بياناتك أو حذفها، تواصل مع المتجر مباشرة."), headers=NO_STORE)
+    # NOT PART OF "THE PAGE" AT ALL — this route never depended on the full page (it was never
+    # rendered by it, never linked from it even before the full page existed), so its deletion
+    # does not touch this route's own job: recording a real DSAR request. Kept reachable exactly
+    # as before, deliberately unlinked from any UI (see user_actions.py's own UNDECLARED_ROUTES
+    # entry for why) — for a future channel, not dead code.
     if not r.valid:
-        from app.core.compose import Page
-        return HTMLResponse(render_page(Page(reference=ref, tenant=""), build_theme(None)),
-                            headers=NO_STORE)
+        return HTMLResponse(render_one_screen(
+            shop_name="", theme=build_theme(None),
+            headline="تعذّر تسجيل طلبك الآن",
+            body="لم يتغيّر شيء في بياناتك. حاول لاحقاً، أو أخبر المتجر مباشرة."),
+            headers=NO_STORE)
 
     import urllib.parse
 
@@ -136,31 +100,25 @@ async def ask_about_data(request: Request, ref: str) -> Response:
     kind = (urllib.parse.parse_qs(raw).get("ask") or [""])[0]
     ok = False
     if kind in ("export", "erase"):
-        # THE PEER'S FAILURE IS AN ANSWER, NOT A CRASH — and this call had nothing around it.
-        #
-        # `HttpOperations.privacy_request` lets a urllib error propagate, so a restarting or slow
-        # operations pod reached the app-wide handler, which answers `{"error":"INTERNAL_ERROR"}`
-        # with a 500 — a JSON blob rendered into a CUSTOMER's browser, on the page he opened from a
-        # WhatsApp message, on the one action that is his legal right. He cannot tell whether his
-        # request was recorded, and the thirty-day clock never starts.
-        #
-        # The honest sentence was already written four lines below and simply could not be reached:
-        # «تعذّر تسجيل طلبك الآن … ولم يتغيّر شيء في بياناتك» — which is true, and is what he needs
-        # to know in order to try again.
+        # THE PEER'S FAILURE IS AN ANSWER, NOT A CRASH. `HttpOperations.privacy_request` lets a
+        # urllib error propagate; unguarded, a restarting/slow operations pod would reach the
+        # app-wide handler, which answers `{"error":"INTERNAL_ERROR"}` with a 500 — a JSON blob
+        # rendered into a customer's browser, on the one action that is his legal right. He could
+        # not tell whether his request was recorded, and the thirty-day clock would never start.
         try:
             ok = await c.operations.privacy_request(r.tenant, r.subject_ref, kind)
         except Exception:                                                   # noqa: BLE001
             ok = False
 
-    built = await c.composer.build(r.tenant, r.subject_ref)
-    theme = build_theme(built.brand_colour)
-    logo = await c.identity.logo_url(r.tenant) if hasattr(c.identity, "logo_url") else ""
+    name, accent, logo = await _shop(c, r.tenant)
     # WHAT HAPPENS NEXT, IN HIS WORDS AND WITH A DEADLINE. «تم» tells him nothing about whether to
     # wait or to follow up; the regulation gives the shop thirty days and he is entitled to know it.
     said = ("وصل طلبك إلى المتجر. يرد عليك خلال ثلاثين يوماً — وقد يتواصل معك للتأكد من هويتك قبل "
             "التنفيذ." if ok else
             "تعذّر تسجيل طلبك الآن. حاول بعد قليل — ولم يتغيّر شيء في بياناتك.")
-    return HTMLResponse(render_page(built, theme, logo_url=logo, asked=said), headers=NO_STORE)
+    return HTMLResponse(render_one_screen(
+        shop_name=name, theme=build_theme(accent or None), logo_url=logo,
+        headline="وصل طلبك" if ok else "تعذّر التسجيل الآن", body=said), headers=NO_STORE)
 
 
 @router.get("/{ref}/stop", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
@@ -196,26 +154,17 @@ async def stop(request: Request, ref: str) -> Response:
         saved = bool(await c.reminders.set_prefs(
             r.tenant, r.subject_ref, stopped=["marketing"], merge=True))
 
-    # WHATEVER ELSE IS CLOSED, THIS ANSWERS (spec §8.3). With the page shut it renders the outcome
-    # on one screen rather than composing five sections he cannot see anyway — and it still reports
-    # the PEER's answer, because the whole point of this route is that he is told the truth about
-    # whether the offers stopped.
-    if not _page_open(request):
-        name, accent, logo = await _shop(c, r.tenant) if r.valid else ("", "", "")
-        return HTMLResponse(render_one_screen(
-            shop_name=name, theme=build_theme(accent or None), logo_url=logo,
-            headline="أُوقفت العروض" if saved else "تعذّر الإيقاف الآن",
-            body=("لن تصلك رسائل عروض بعد الآن. رسائل الخدمة — تأكيد زيارتك وموعد صيانتك — "
-                  "تستمر كما هي." if saved else
-                  "لم يتغيّر شيء. افتح الرابط مرة أخرى بعد قليل، أو أخبر المتجر مباشرة.")),
-            headers=NO_STORE)
-
-    built = (await c.composer.build(r.tenant, r.subject_ref)) if r.valid else None
-    if built is None:
-        from app.core.compose import Page
-        built = Page(reference=ref, tenant="")
-    theme = build_theme(built.brand_colour)
-    return HTMLResponse(render_page(built, theme, saved=saved), headers=NO_STORE)
+    # ONE SCREEN, ALWAYS (spec §8.3) — the full page is gone, not merely closed, so this is the
+    # only response now; still reports the PEER's answer, because the whole point of this route
+    # is that he is told the truth about whether the offers actually stopped.
+    name, accent, logo = await _shop(c, r.tenant) if r.valid else ("", "", "")
+    return HTMLResponse(render_one_screen(
+        shop_name=name, theme=build_theme(accent or None), logo_url=logo,
+        headline="أُوقفت العروض" if saved else "تعذّر الإيقاف الآن",
+        body=("لن تصلك رسائل عروض بعد الآن. رسائل الخدمة — تأكيد زيارتك وموعد صيانتك — "
+              "تستمر كما هي." if saved else
+              "لم يتغيّر شيء. افتح الرابط مرة أخرى بعد قليل، أو أخبر المتجر مباشرة.")),
+        headers=NO_STORE)
 
 
 @router.get("/{ref}/allow", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
