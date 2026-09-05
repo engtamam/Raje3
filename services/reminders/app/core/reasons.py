@@ -64,9 +64,9 @@ INVITE = "invite"            # the last line of every utility text: the only way
 # WHAT EVERY MESSAGE CARRIES, WHATEVER ITS REASON.
 #
 # `LINK` IS NOT ON THIS LIST, and that is a decision rather than an omission. It addresses the
-# customer page, which is closed for this release (portal's PUBLIC_PAGE_ENABLED) — so a template
-# offering it would invite somebody to open «صفحتك» and land on «قيد التجهيز». The constant and its
-# composer stay for the day the page opens (#349); nothing may fill a template with it until then.
+# customer page, which portal has deleted outright — so a template offering it would invite
+# somebody to open «صفحتك» and land on nothing at all. The constant and its composer stay in case a
+# future page is ever built, but nothing may fill a template with it until then.
 #
 # `INVITE` replaces it as the address a utility message carries, because it resolves to a door that
 # IS open — and it is the only door marketing consent can ever come through.

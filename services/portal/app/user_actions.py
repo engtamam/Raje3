@@ -32,33 +32,16 @@ from typing import Any
 
 
 USER_ACTIONS: list[dict[str, Any]] = [
-    # THE CUSTOMER'S OWN, and the only actions this service has. Reached from the link at the end
-    # of a message — no account, no session, and no capability, because the person taking them has
-    # none and never will (spec 8.6.1).
-    {
-        "id": "portal.view", "label": "صفحتي", "method": "GET",
-        "path": "/p/{ref}", "capability": "", "group": "صفحتي",
-        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
-        "help": "زياراتك وتفضيلات رسائلك، بهوية المحل.",
-    },
-    {
-        "id": "portal.set_prefs", "label": "تعديل إشعاراتي", "method": "POST",
-        "path": "/p/{ref}/prefs", "capability": "", "group": "صفحتي",
-        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
-        # Five switches, one per class — including the personal one. Somebody who switches
-        # everything off has said what they want (spec 8.4.2 section 5).
-        "help": "أوقف أي نوع من الرسائل على حدة، أو أوقفها كلها.",
-    },
-    {
-        "id": "portal.ask_about_data", "label": "طلب نسخة من بياناتي أو حذفها", "method": "POST",
-        "path": "/p/{ref}/data", "capability": "", "group": "صفحتي",
-        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
-        "danger": True,
-        # HIS RIGHT UNDER THE PDPL, AGAINST THE SHOP — which is why it is recorded for the shop to
-        # answer rather than executed here. A right nobody is told about is not a right, and until
-        # this existed the only way to exercise it was to telephone the workshop.
-        "help": "يسجّل طلبك لدى المتجر: نسخة من بياناتك أو حذفها. المتجر ينفّذه ويرد خلال 30 يوماً.",
-    },
+    # THE CUSTOMER'S OWN, and the only actions this service declares. Reached from the link at the
+    # end of a message -- no account, no session, and no capability, because the person taking them
+    # has none and never will (spec 8.6.1).
+    #
+    # THE FULL CUSTOMER PAGE (points, visits, preferences) IS DELETED, so its actions ("صفحتي",
+    # "تعديل إشعاراتي") are gone too -- there is no route left for them to point at.
+    #
+    # POST /p/{ref}/data (the DSAR request) IS DELIBERATELY NOT DECLARED HERE. The route's code
+    # is kept (see app/api/page.py) for reuse, but it must not be linked from any UI that ships
+    # today -- an app-catalog entry would be exactly that link.
     {
         "id": "portal.stop", "label": "إيقاف العروض", "method": "GET",
         "path": "/p/{ref}/stop", "capability": "", "group": "صفحتي",
@@ -83,4 +66,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
         "help": "يسجّل موافقتك على استقبال العروض، بالنصّ الذي عُرض عليك ونسخته.",
     },
+]
+
+
+# Routes deliberately NOT rendered as app controls, each with the reason. The wiring gate reads
+# this list and refuses an entry without a `why`.
+UNDECLARED_ROUTES: list[dict[str, str]] = [
+    {"method": "POST", "path": "/p/{}/data",
+     "why": "the DSAR request route survives the full customer page's deletion on purpose, kept "
+            "callable for reuse (e.g. wired to WhatsApp, or a future UI) — but there is no page "
+            "left to put its button on, and declaring it here would be exactly that button"},
 ]

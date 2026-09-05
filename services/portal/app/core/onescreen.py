@@ -1,12 +1,12 @@
-"""One screen, one sentence, one button — the only thing this service serves at launch.
+"""One screen, one sentence, one button — the only thing this service serves.
 
-WHY THIS FILE EXISTS. The full customer page is closed for the first release (PUBLIC_PAGE_ENABLED),
-because it is a product of its own and it is not finished. But closing it would take the marketing
-consent path down with it, and consent is not decoration: without a grant NO marketing message may
-leave, so a closed page means the campaigns engine — which is built, complete and paid for — sends
-nothing at all, forever.
+WHY THIS FILE EXISTS. The full customer page (points, visits, preferences, DSAR buttons) has been
+deleted outright — a product of its own, and not one worth carrying forward half-built. Deleting it
+would take the marketing consent path down with it if these two screens were part of it, and
+consent is not decoration: without a grant NO marketing message may leave, so no page means the
+campaigns engine — which is built, complete and paid for — sends nothing at all, forever.
 
-So two screens survive the closure, and they are the two that carry a legal obligation:
+So two screens survive the page's deletion, and they are the two that carry a legal obligation:
 
     GET  /p/{ref}/allow    ask, in one screen
     POST /p/{ref}/allow    record the grant

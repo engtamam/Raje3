@@ -21,11 +21,10 @@ boolean, which made a withdrawal indistinguishable from silence: every service m
 sent would have re-asked a customer who had already said no, forever. His way back is his own
 choice from the preferences page, not an invitation we repeat at him.
 
-WHY THE GRANTED LINE CARRIES NO LINK. It used to point at his page — and the page is closed for
-this release (portal's PUBLIC_PAGE_ENABLED). A message that invites him to open «صفحتك» and lands
-on «قيد التجهيز» breaks a promise in the first sentence we ever send him. A link is only ever
-mentioned where it opens something real; the day the page opens (#349) this line gains one and no
-template is touched.
+WHY THE GRANTED LINE CARRIES NO LINK. It used to point at his page — and the full customer page has
+been deleted from portal, not merely closed. A message that invites him to open «صفحتك» and lands
+on nothing at all breaks a promise in the first sentence we ever send him. A link is only ever
+mentioned where it opens something real, so this line stays without one.
 
 AND THE INVITATION IS DELIBERATELY QUIET. Everything in it wants to shout — the discounts are the
 reason anybody says yes. But this line rides inside a UTILITY template, and a utility text that

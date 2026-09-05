@@ -42,7 +42,7 @@ def test_nothing_may_store_this_page():
 def test_every_route_that_renders_sends_the_no_store_headers():
     """One route that forgets is the one route somebody's page leaks through."""
     import app.api.page as mod
-    for fn in (mod.page, mod.save_prefs, mod.stop):
+    for fn in (mod.stop, mod.allow, mod.grant, mod.ask_about_data):
         assert "NO_STORE" in inspect.getsource(fn), f"{fn.__name__} does not send no-store"
 
 

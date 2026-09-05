@@ -1,22 +1,18 @@
-"""The page is closed for the first release; the two consent doors are not.
+"""The full customer page is gone; the two consent doors are not.
 
-THE DECISION. The full customer page ships closed (PUBLIC_PAGE_ENABLED=false): it is a product of
-its own, it is not finished, and a half-built page opened from a shop's WhatsApp message reads as a
-scam rather than as a work in progress.
-
-THE TRAP THAT DECISION SETS, and it is the reason this file exists. Marketing consent is opt-IN.
-Close every route and nobody can ever grant, so no marketing message may lawfully leave — and the
-campaigns engine, which is complete and sold as an app, sends nothing for the life of the release.
-The closure would look like a UI decision and land as a dead product line, with no error anywhere.
-
-So the flag closes the PAGE and leaves the two obligations open:
+THE DECISION. The full customer page (points, visits, preferences, DSAR buttons) was never shipped
+open in production and has now been deleted outright — a product of its own, not finished, and not
+worth carrying forward half-built. What remains is the minimal surface spec §8.3/§8.5 require:
 
     GET  /p/{ref}/allow    ask, in one screen
     POST /p/{ref}/allow    record it — and report what the peer actually said
     GET  /p/{ref}/stop     withdraw in one tap, whatever else is shut (spec §8.3)
 
-These tests run with the flag WHERE IT SHIPS. A suite that opened it to test the closure would be
-proving something about a configuration nobody deploys.
+THE TRAP THAT MADE THESE TWO SURVIVE THE PAGE'S DEATH. Marketing consent is opt-IN. Delete every
+route and nobody can ever grant, so no marketing message may lawfully leave — and the campaigns
+engine, complete and sold as an app, sends nothing for the life of the release. Deleting the page
+looks like a scope cut and lands as a dead product line, with no error anywhere, unless these two
+doors are kept open on their own.
 """
 from __future__ import annotations
 
@@ -31,11 +27,8 @@ def client():
     from app.config import get_settings
 
     saved = dict(os.environ)
-    # PUBLIC_PAGE_ENABLED is deliberately NOT set: the default is the shipped value, and a test
-    # that had to set it could keep passing after somebody changed that default.
     os.environ.update({"ENV": "test", "INTERNAL_SERVICE_TOKEN": "t" * 40,
                        "PAGE_REF_SECRET": "s" * 40, "RATELIMIT_MAX": "1000"})
-    os.environ.pop("PUBLIC_PAGE_ENABLED", None)
     get_settings.cache_clear()
     from app.main import create_app
 
@@ -75,36 +68,22 @@ class _Reminders:
         return self.granted
 
 
-# ── the page itself is shut ───────────────────────────────────────────────────────────────────
+# ── the full page is gone ─────────────────────────────────────────────────────────────────────
 
-def test_the_page_does_not_render_his_history(client):
-    """THE CLOSURE. Visits, points and the five switches are the page, and none of them appears."""
-    body = client.get(f"/p/{_ref()}").text
-
-    assert "قيد التجهيز" in body
-    # The switches are the page's whole write surface — their absence is what «closed» means here.
-    assert "type='checkbox'" not in body and 'type="checkbox"' not in body
+def test_the_full_page_route_no_longer_exists(client):
+    """GET /p/{ref} was the full page — visits, points, five switches, DSAR buttons. Deleted, not
+    hidden behind a flag: a 404 here is the correct answer now, not a regression."""
+    assert client.get(f"/p/{_ref()}").status_code == 404
 
 
-def test_the_closed_page_is_not_a_404(client):
-    """A DEAD LINK IS THE WRONG ANSWER. The shop's own message sent this URL minutes ago, and a
-    404 tells the customer the message was fake — a conclusion we do not get to correct later."""
-    assert client.get(f"/p/{_ref()}").status_code == 200
-
-
-def test_the_writes_behind_the_page_close_with_it(client):
-    """A form nobody can reach must not leave an unauthenticated write open behind it."""
-    reminders = _Reminders()
-    client.app.state.container.reminders = reminders
-
-    client.post(f"/p/{_ref()}/prefs", content="on=marketing")
-
-    assert reminders.stops == 0, "the preferences write ran while the page that drives it is shut"
+def test_the_prefs_route_no_longer_exists(client):
+    """POST /p/{ref}/prefs saved the five switches that only the full page ever showed."""
+    assert client.post(f"/p/{_ref()}/prefs", content="on=marketing").status_code == 404
 
 
 # ── and consent is not ────────────────────────────────────────────────────────────────────────
 
-def test_the_grant_screen_is_served_with_the_page_closed(client):
+def test_the_grant_screen_is_served(client):
     """WITHOUT THIS, NO MARKETING MESSAGE MAY EVER LEAVE. Opt-in with no way to opt in is a dead
     campaigns engine, and nothing would report it."""
     body = client.get(f"/p/{_ref()}/allow").text
@@ -155,9 +134,9 @@ def test_a_grant_that_did_not_save_does_not_say_it_did(client):
     assert "تعذّر" in body
 
 
-def test_the_stop_still_answers_with_the_page_closed(client):
-    """SPEC §8.3. Withdrawal is one tap whatever else is shut — and it reports the peer's answer,
-    because a stop that silently failed is how a shop loses a customer and its number together."""
+def test_the_stop_still_answers(client):
+    """SPEC §8.3. Withdrawal is one tap — and it reports the peer's answer, because a stop that
+    silently failed is how a shop loses a customer and its number together."""
     reminders = _Reminders(stopped_ok=True)
     client.app.state.container.reminders = reminders
 
@@ -167,7 +146,7 @@ def test_the_stop_still_answers_with_the_page_closed(client):
     assert "أُوقفت العروض" in body
 
 
-def test_a_stop_that_failed_says_so_even_when_the_page_is_closed(client):
+def test_a_stop_that_failed_says_so(client):
     client.app.state.container.reminders = _Reminders(stopped_ok=False)
 
     body = client.get(f"/p/{_ref()}/stop").text

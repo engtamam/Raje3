@@ -167,22 +167,6 @@ class Settings(BaseSettings):
     # CAN make it during an audit outage, and it is documented so nobody makes it by accident.
     AUDIT_FAIL_CLOSED: bool = True
 
-    # ── is the full customer page open? ───────────────────────────────────────
-    # CLOSED FOR THE FIRST RELEASE, by decision. The page is a product of its own — visits, points,
-    # offers, five switches, two privacy rights — and it is not finished to the standard something
-    # a customer opens from a message deserves. Shipping it half-done to make a launch date is how
-    # a shop's message starts looking like a scam.
-    #
-    # WHAT SURVIVES THE CLOSURE, AND WHY IT IS NOT ALL OF IT. Marketing consent is opt-IN: without
-    # a grant no marketing message may leave, ever. Closing every route would therefore silently
-    # disable the campaigns engine — built, complete, and sold — because nothing could grant. And
-    # withdrawal must stay one tap whatever else is closed (spec §8.3).
-    #
-    # So `/allow` and `/stop` are served whatever this says, and only the page itself is gated.
-    # A flag, not deleted code: the page is coming back, and code that has to be rewritten to be
-    # re-enabled is code that comes back with new defects.
-    PUBLIC_PAGE_ENABLED: bool = False
-
     # ── the three services this page reads ────────────────────────────────────
     # `null` renders a shell with no shop name and no data. Correct for a local run; refused in
     # production by the boot guard, where it would mean every customer opening a link sees an

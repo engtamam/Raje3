@@ -152,21 +152,11 @@ def test_the_unsubscribe_merges_rather_than_replacing():
 
 def test_a_failed_save_shows_no_confirmation():
     """A customer told their choice was saved who keeps receiving messages does not try again —
-    they block the number."""
+    they block the number. The full page's own save route is gone; the surviving one-tap /stop
+    still follows the rule."""
     import inspect
     from app.adapters.peers import HttpReminders
     assert "return False" in inspect.getsource(HttpReminders.set_prefs)
-    from app.api import page as mod
-    assert "saved=saved" in inspect.getsource(mod.save_prefs)
-
-
-def test_an_invalid_reference_makes_no_peer_calls():
-    """Otherwise the route is a way to make three services do work on behalf of anyone with a
-    URL."""
-    import inspect
-    src = inspect.getsource(__import__("app.api.page", fromlist=["x"]).page)
-    before = src.split("if not r.valid:", 1)[1].split("return", 1)[0]
-    assert "composer" not in before
 
 
 # ── his offers: the reason most people open this link ──────────────────────────────────────────

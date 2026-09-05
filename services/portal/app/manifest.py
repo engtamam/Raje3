@@ -100,16 +100,16 @@ def build_manifest(
              # Declared even though this service holds nothing. "Holds nothing" and "was never
              # asked" look identical from outside, and only one of them is a decision.
              "erasure_category": "presentation"},
-            # ── the page, and the only routes a customer ever reaches ──────────────────────
+            # ── the routes a customer ever reaches, and one that survives unlinked ───────────
             # PUBLIC. No token, no capability, no session — the link lands in a chat that gets
             # forwarded, and whoever opens it must learn nothing about whose it is.
-            {"path": "/p/{}", "tier": "public", "method": "GET"},
-            {"path": "/p/{}/prefs", "tier": "public", "method": "POST"},
+            #
+            # THE FULL CUSTOMER PAGE (points, visits, preferences) IS DELETED, BY PRODUCT DECISION.
+            # What remains is the minimal surface §8.3/§8.5 actually require: granting and
+            # withdrawing marketing consent. Opt-in marketing with no way to opt in is a campaigns
+            # engine that can never send.
             {"path": "/p/{}/data", "tier": "public", "method": "POST"},
             {"path": "/p/{}/stop", "tier": "public", "method": "GET"},
-            # THE TWO THAT SURVIVE THE PAGE BEING CLOSED (PUBLIC_PAGE_ENABLED). Granting and
-            # withdrawing are the obligations, not the page: opt-in marketing with no way to opt in
-            # is a campaigns engine that can never send.
             {"path": "/p/{}/allow", "tier": "public", "method": "GET"},
             {"path": "/p/{}/allow", "tier": "public", "method": "POST"},
         ],

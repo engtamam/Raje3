@@ -1,8 +1,19 @@
-"""The three routes a customer ever reaches.
+"""The routes a customer ever reaches, and one that survives unlinked.
 
 PUBLIC, ALL OF THEM. No token, no capability, no session — the link arrives in a chat and the
 person opening it has no account and never will. Everything that makes that safe lives in
 core/reference.py; this file's job is to never undo it.
+
+THE FULL CUSTOMER PAGE (points, visits, preferences, the `PUBLIC_PAGE_ENABLED` closed placeholder)
+IS GONE, BY PRODUCT DECISION — not unfinished, deleted. It was never shipped open in production and
+this service now serves only what §8.3/§8.5 actually require: a minimal marketing consent screen.
+
+  GET  /p/{ref}/allow    ask, in one screen (§8.5)
+  POST /p/{ref}/allow    record the grant
+  GET  /p/{ref}/stop     withdraw, in one tap (§8.3)
+
+`POST /p/{ref}/data` (the DSAR request) is kept exactly as it was, on purpose, though there is no
+longer any page that links to it — see its own docstring below.
 
 FOUR RULES THIS FILE MUST NOT BREAK:
 
@@ -40,10 +51,13 @@ NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate, private",
 
 
 def _page_open(request: Request) -> bool:
-    """Is the full page served? Read from settings on every request rather than captured at import,
-    so a deployment can open it without a code change — and so a test can close it without one."""
-    settings = getattr(request.app.state, "settings", None)
-    return bool(getattr(settings, "PUBLIC_PAGE_ENABLED", False))
+    """Is the full page served? ALWAYS FALSE — the full page was deleted, not merely closed.
+
+    Kept as a function, not inlined to `False` at each call site, because `ask_about_data` and
+    `stop` are untouched on purpose (see their docstrings): a single place to read still means one
+    thing changes if a future page ever comes back, rather than call sites disagreeing.
+    """
+    return False
 
 
 async def _shop(c, tenant: str) -> tuple[str, str, str]:
@@ -84,105 +98,6 @@ async def _logo(c, tenant: str) -> str:
         return await read(tenant) or ""
     except Exception:                                                         # noqa: BLE001
         return ""
-
-
-def _render(request: Request, ref: str, *, saved: bool = False) -> Response:
-    return HTMLResponse("", headers=NO_STORE)
-
-
-@router.get("/{ref}", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
-async def page(request: Request, ref: str) -> Response:
-    """The page.
-
-    ALWAYS 200, EVEN FOR A REFERENCE THAT MEANS NOTHING. A 404 here answers "does this shop have a
-    customer with this reference?" to anyone holding a forwarded link — and the caller's behaviour
-    is identical either way, because there is nothing they can do about it. So an unknown reference
-    renders the same shell as a known one, with empty sections.
-    """
-    r = parse(ref)
-    c = request.app.state.container
-    if not _page_open(request):
-        # CLOSED, AND IT STILL ANSWERS 200 WITH THE SHOP'S FACE. A 404 here would say "this link is
-        # dead" about a link the shop's own message sent five minutes ago, and the customer's
-        # conclusion is that the message was fake. It says what is true: this page is not open yet,
-        # your messages keep working, and you can stop the offers from any of them.
-        name, accent, logo = await _shop(c, r.tenant) if r.valid else ("", "", "")
-        return HTMLResponse(render_one_screen(
-            shop_name=name, theme=build_theme(accent or None), logo_url=logo,
-            headline="صفحتك قيد التجهيز",
-            body="رسائلك من المتجر تصلك كالمعتاد. ولإيقاف العروض في أي وقت، الرابط في أسفل أي "
-                 "رسالة عروض."), headers=NO_STORE)
-
-    if not r.valid:
-        # The shell, with no peer calls at all. Not an error, and not a lookup: asking three
-        # services about a reference we know is malformed would also make this route a way to make
-        # us do work.
-        from app.core.compose import Page
-        blank = Page(reference=ref, tenant="")
-        return HTMLResponse(render_page(blank, build_theme(None)), headers=NO_STORE)
-
-    built = await c.composer.build(r.tenant, r.subject_ref)
-    theme = build_theme(built.brand_colour)
-    logo = await _logo(c, r.tenant)
-    return HTMLResponse(render_page(built, theme, saved=False, logo_url=logo), headers=NO_STORE)
-
-
-@router.post("/{ref}/prefs", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
-async def save_prefs(request: Request, ref: str) -> Response:
-    """Save the five switches.
-
-    THE BODY IS PARSED BY HAND, and that is a dependency decision rather than a style one.
-    FastAPI's `Form(...)` requires `python-multipart` the moment it appears — even for a form that
-    sends nothing multipart. Ours is five checkboxes with no file input, so the browser sends
-    `application/x-www-form-urlencoded`, which the standard library already reads. Adding a
-    package to parse a format we do not use would be a third-party dependency in the only
-    internet-facing service on the product, for nothing.
-
-    Found by deploying: the import succeeded, the tests passed, and the pod crash-looped on
-    startup because FastAPI checks for the library when it builds the route, not when it is called.
-
-    THE FORM SENDS WHAT IS ON, so what is off is everything else. That is how an HTML checkbox
-    works — an unchecked box submits nothing — and it is why this takes the enabled list rather
-    than a stopped one: reading the absent values is the browser's contract, not a convention we
-    invented.
-
-    RENDERS THE RESULT RATHER THAN REDIRECTING. A redirect would put the reference through a
-    Location header and a second request, which is two more places it can be logged. And the page
-    it would redirect to is the page we already have.
-    """
-    r = parse(ref)
-    c = request.app.state.container
-    # THE WRITE CLOSES WITH THE PAGE THAT DRIVES IT. Leaving it open while the form is unreachable
-    # would be an unauthenticated write on a service we are telling everyone is shut — and the
-    # switches it writes are the ones the closed page says it is not showing.
-    if not _page_open(request):
-        name, accent, logo = await _shop(c, r.tenant) if r.valid else ("", "", "")
-        return HTMLResponse(render_one_screen(
-            shop_name=name, theme=build_theme(accent or None), logo_url=logo,
-            headline="صفحتك قيد التجهيز",
-            body="رسائلك من المتجر تصلك كالمعتاد."), headers=NO_STORE)
-    if not r.valid:
-        from app.core.compose import Page
-        return HTMLResponse(render_page(Page(reference=ref, tenant=""), build_theme(None)),
-                            headers=NO_STORE)
-
-    import urllib.parse
-
-    from app.core.compose import CLASS_ORDER
-    # Bounded read: this is the only unauthenticated write on the product, and an unbounded body
-    # read is a way to make us hold memory for anyone with the URL.
-    raw = (await request.body())[:4096].decode("utf-8", "ignore")
-    on = set(urllib.parse.parse_qs(raw).get("on", []))
-    stopped = [cls for cls in CLASS_ORDER if cls not in on]
-    saved = await c.reminders.set_prefs(r.tenant, r.subject_ref, stopped=stopped)
-
-    built = await c.composer.build(r.tenant, r.subject_ref)
-    theme = build_theme(built.brand_colour)
-    logo = await _logo(c, r.tenant)
-    # `saved` is the PEER's answer, not our optimism. A save that failed must not show a
-    # confirmation — a customer who is told their choice was saved and keeps receiving messages
-    # does not try again, they block the number.
-    return HTMLResponse(render_page(built, theme, saved=saved, logo_url=logo), headers=NO_STORE)
 
 
 @router.post("/{ref}/data", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
