@@ -361,8 +361,16 @@ for p in sorted(ROOT.rglob("*")):
     # of the submodule — so this gate walked upstream's files by a longer path and reported their
     # house style as ours. A skip rule anchored at the root is a skip rule that a nested checkout
     # walks straight past.
+    # `.venv`/`__pycache__` AT ANY DEPTH — found live while answering "why does this take over two
+    # minutes": every one of our ~15 Python services carries its own `.venv`, thousands of installed
+    # package files each, and this loop was `read_text()`-ing all of them (most fail fast on
+    # UnicodeDecodeError for a compiled `.pyc`, but a wheel's `.py` sources decode fine and get
+    # scanned in full) — vendored dependency code, exactly the same class of "not ours to hold to
+    # our house style" the node_modules/platform skips already exist for, just missing for Python's
+    # own vendoring directory.
     if parts and (parts[0] in (".git", ".claude") or "platform" in parts
-                  or "node_modules" in parts or "dist" in parts):
+                  or "node_modules" in parts or "dist" in parts
+                  or ".venv" in parts or "__pycache__" in parts):
         continue
     try:
         text = p.read_text(encoding="utf-8")
