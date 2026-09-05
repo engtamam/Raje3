@@ -1,0 +1,83 @@
+{
+  "_readme": [
+    "THE MASTER RATING FLOW — authored once, cloned per shop by deploy/seed/bootstrap-rating-flow.py",
+    "via notification-service's POST /internal/whatsapp/flows/provision (clone_flow_id XOR flow_json;",
+    "this file is the flow_json source, sent exactly once, on the platform's own WABA).",
+    "",
+    "ONE SCREEN, TERMINAL. A star pick (RadioButtonsGroup, 1-5) and an optional free-text comment",
+    "(TextArea), submitted once via the Footer's `complete` action — no endpoint_uri, no second",
+    "screen, no back-and-forth: `complete` terminates the Flow and hands the payload straight to",
+    "the completion message on the chat thread, which is what services/reminders' rating-reply",
+    "parser reads as interactive.nfm_reply.response_json.",
+    "",
+    "KEY NAMES ARE THE CONTRACT. `flow_token`, `stars` and `comment` are the exact keys the parser",
+    "reads (per the Phase-3 spec) — do not rename them here without renaming them there.",
+    "",
+    "SCHEMA VERIFIED AGAINST: developers.facebook.com/docs/whatsapp/flows/reference/flowjson and",
+    "developers.facebook.com/docs/whatsapp/flows/reference/components (fetched 2026-09-05). A",
+    "static, endpoint-less Flow needs only `version` and `screens`; RadioButtonsGroup/TextArea",
+    "must sit inside a `Form` (pre-4.0 rule, still valid at the pinned version below); the",
+    "terminal action is `{\"name\": \"complete\", \"payload\": {...}}\", which needs no endpoint_uri."
+  ],
+  "version": "6.2",
+  "screens": [
+    {
+      "id": "RATING",
+      "title": "قيّم زيارتك",
+      "terminal": true,
+      "data": {
+        "flow_token": {
+          "type": "string",
+          "__example__": "unused-until-send-time"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "rating_form",
+            "children": [
+              {
+                "type": "TextHeading",
+                "text": "كيف كانت زيارتك؟"
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "stars",
+                "label": "قيّم من 1 إلى 5",
+                "required": true,
+                "data-source": [
+                  {"id": "1", "title": "1 - ضعيفة"},
+                  {"id": "2", "title": "2"},
+                  {"id": "3", "title": "3"},
+                  {"id": "4", "title": "4"},
+                  {"id": "5", "title": "5 - ممتازة"}
+                ]
+              },
+              {
+                "type": "TextArea",
+                "name": "comment",
+                "label": "أضف تعليقاً (اختياري)",
+                "required": false,
+                "max-length": 600
+              },
+              {
+                "type": "Footer",
+                "label": "إرسال",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "flow_token": "${data.flow_token}",
+                    "stars": "${form.stars}",
+                    "comment": "${form.comment}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
