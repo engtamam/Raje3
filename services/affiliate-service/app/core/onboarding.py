@@ -587,9 +587,15 @@ class OnboardingService:
         status, body = self._http.call(
             f"{self._identity}/api/v1/auth/change-password", method="POST",
             body={"old_password": old_password, "new_password": new_password}, bearer=bearer)
-        if status == 400 and body.get("detail") == "WEAK_PASSWORD":
-            raise OnboardingRefused("كلمة المرور الجديدة ضعيفة جداً.", reason="weak_password")
         if status != 200:
+            # THE STATUS DECIDES FIRST, ALONE — a non-200 with no body (a timeout, a 500 with an
+            # empty response) must never be read as "weak password" just because `body.get(...)`
+            # defaults to None either way. Only once the peer is known to have actually answered
+            # with 400 is its own body worth asking WHY.
+            if status == 400:
+                if body.get("detail") == "WEAK_PASSWORD":
+                    raise OnboardingRefused(
+                        "كلمة المرور الجديدة ضعيفة جداً.", reason="weak_password")
             raise OnboardingRefused("كلمة المرور الحالية غير صحيحة.", reason="wrong_password")
 
 

@@ -736,3 +736,16 @@ async def test_a_stranger_cannot_edit_someone_elses_referral():
         await svc.update_application(app_out["application_id"], editor_person_id="someone-else",
                                      name="محاولة")
     assert exc.value.reason == "not_your_referral"
+@pytest.mark.anyio
+async def test_change_password_on_a_transport_failure_is_never_read_as_weak_password():
+    """A 500 with an empty body (a timeout, an identity-service hiccup) must be judged on its
+    STATUS alone. Regression for the status+body joined in one condition: `body.get("detail")`
+    on an empty `{}` is None either way, so the old `status == 400 and body.get(...)` shape never
+    actually distinguished this case from a real 400 — it just happened to fall through to the
+    same `wrong_password` message by accident of a second `if`. Pinning `reason` here (rather than
+    only the message) is what would have caught a regression that swapped it for "weak_password"."""
+    http = FakeHttp([("/change-password", (500, {}))])
+    svc = build(http)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.change_password(bearer="Bearer tok-123", old_password="old", new_password="new-strong-1")
+    assert exc.value.reason == "wrong_password"
