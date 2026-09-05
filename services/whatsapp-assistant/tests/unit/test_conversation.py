@@ -79,6 +79,35 @@ async def test_session_timeout_closes_a_silent_conversation():
     assert conv.state == "closed"
 
 
+async def test_max_duration_closes_a_conversation_that_never_goes_silent():
+    """CONVERSATION_MAX_DURATION_SECONDS is a ceiling UNDER the silence timeout, not a
+    replacement for it — a conversation kept alive by constant activity (a stuck confirmation
+    loop, a chatty back-and-forth) would otherwise never trip session_timeout_seconds and would
+    stay open forever."""
+    store = MemoryDataStore()
+    engine = _engine(store, StubLlm(), session_timeout_seconds=100_000, max_duration_seconds=500)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="hi", now=1000)
+    # Kept "active" the whole time — last_activity_at is fresh, so silence alone never closes it.
+    still_open = await engine.sweep_timed_out(TENANT, now=1000 + 400)
+    assert SUBJECT not in still_open
+    closed = await engine.sweep_timed_out(TENANT, now=1000 + 501)
+    assert SUBJECT in closed
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.state == "closed"
+
+
+async def test_max_duration_zero_disables_the_ceiling():
+    """0 (the default when unset) must not close every conversation immediately — it means "no
+    ceiling", not "ceiling of zero seconds"."""
+    store = MemoryDataStore()
+    engine = _engine(store, StubLlm(), session_timeout_seconds=100_000, max_duration_seconds=0)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="hi", now=1000)
+    still_open = await engine.sweep_timed_out(TENANT, now=1000 + 99_999)
+    assert SUBJECT not in still_open
+
+
 async def test_a_conversation_with_a_pending_proposal_is_not_offered_a_second_state_changing_tool():
     store = MemoryDataStore()
     llm = StubLlm()

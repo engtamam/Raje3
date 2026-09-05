@@ -314,6 +314,7 @@ class ReplyPlan:
 class ConversationEngine:
     def __init__(self, *, store: Any, llm: Any, booking_provider: Any, points_summary: Any,
                 debounce_seconds: int, session_timeout_seconds: int,
+                max_duration_seconds: int = 0,
                 raw_window_messages: int, allowed_tools: frozenset[str],
                 proposal_ttl_seconds: int = 1800, auditor: Any = None,
                 frustration_unconfirmed_proposals_threshold: int = 2,
@@ -370,6 +371,7 @@ class ConversationEngine:
         self._shop_name_cache: dict[str, str] = {}
         self._debounce = debounce_seconds
         self._session_timeout = session_timeout_seconds
+        self._max_duration = max(0, int(max_duration_seconds))
         self._raw_window = max(2, raw_window_messages)
         self._allowed_tools = allowed_tools
         self._proposal_ttl = proposal_ttl_seconds
@@ -1021,7 +1023,12 @@ class ConversationEngine:
     async def sweep_timed_out(self, tenant: str, *, now: int | None = None, batch: int = 200
                               ) -> list[str]:
         """Sessions past CONVERSATION_SESSION_TIMEOUT_SECONDS of silence — closed, never left
-        open forever accumulating raw messages nobody will read."""
+        open forever accumulating raw messages nobody will read.
+
+        ALSO closes a session past CONVERSATION_MAX_DURATION_SECONDS regardless of activity — a
+        ceiling UNDER the silence timeout, not a replacement for it: a customer who never goes
+        quiet (a stuck tool-confirmation loop, a chatty back-and-forth that never triggers the
+        silence window) would otherwise never close at all. 0 disables the ceiling."""
         now = now if now is not None else int(time.time())
         rows, _ = await self._store.find(
             CONVERSATIONS, {"tenant": tenant}, limit=batch)
@@ -1029,7 +1036,10 @@ class ConversationEngine:
         for r in rows:
             if r.get("state") == "closed":
                 continue
-            if now - int(r.get("last_activity_at") or 0) >= self._session_timeout:
+            silence_expired = now - int(r.get("last_activity_at") or 0) >= self._session_timeout
+            duration_expired = bool(self._max_duration) and (
+                now - int(r.get("session_started_at") or 0) >= self._max_duration)
+            if silence_expired or duration_expired:
                 r["state"] = "closed"
                 r["pending_proposal_id"] = ""
                 r["session_closed_at"] = now

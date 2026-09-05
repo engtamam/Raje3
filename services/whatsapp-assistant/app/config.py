@@ -177,7 +177,11 @@ class Settings(BaseSettings):
     # existing CustomerStore.by_phone — see services/operations/app/api/internal.py), returning a
     # pseudonym and a visit-count/last-visit PATTERN only — never the phone or name back to us.
     OPERATIONS_CUSTOMER_BY_PHONE_PATH: str = "/internal/operations/customer-by-phone"
-    OPERATIONS_CUSTOMER_VISITS_PATH: str = "/internal/operations/customer-visits"
+    # NOT DECLARED: a "customer-visits" path was published here once, alongside this one, and
+    # nothing in this service ever called it — `customer_lookup.py` only ever asks
+    # OPERATIONS_CUSTOMER_BY_PHONE_PATH above (which already returns visit_count_90d bundled in
+    # that one response). Deleted rather than wired: giving the assistant its own separate
+    # full-visit-history read is a real feature (what would it DO with it?), not a config fix.
     # The shop's display name, for the persona built in core/conversation.py::build_system_prompt —
     # see app/core/shop_identity.py and operations' own /internal/operations/shop-name docstring for
     # why this reads the main branch's name rather than the tenant registry's.
@@ -385,9 +389,12 @@ class Settings(BaseSettings):
     # How many raw messages are kept verbatim before being folded into the rolling summary. Bounds
     # LLM context/cost — the transcript is never sent whole, only this window plus the summary.
     CONVERSATION_RAW_WINDOW_MESSAGES: int = 12
-    # A tick (see core/conversation.py Ticker) sweeps for debounce-window-elapsed and
-    # session-timeout-elapsed conversations at this cadence.
-    CONVERSATION_TICK_SECONDS: int = 30
+    # NOT DECLARED: a "tick cadence in seconds" setting was published here once, but nothing ever
+    # read it — the tick's real cadence is the CronJob's `schedule` string in this service's own
+    # values file (deploy/services/whatsapp-assistant.values.yaml's `cronJobs:`), which is
+    # minute-granularity cron syntax and cannot represent "every 30 seconds" at all. Deleted rather
+    # than wired: computing a cron expression FROM a seconds value would mean templating the chart
+    # itself, well past a backlog-cleanup fix, for a schedule that already has one place it lives.
 
     # ── frustration escalation (core/frustration.py) ──────────────────────────
     # NO RAW TURN-COUNT CEILING, DELIBERATELY — a conversation continues however many turns it

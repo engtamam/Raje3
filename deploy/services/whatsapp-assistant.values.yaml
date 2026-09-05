@@ -132,7 +132,6 @@ env:
   INBOUND_POLL_MAX_PAGES: "20"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   OPERATIONS_CUSTOMER_BY_PHONE_PATH: "/internal/operations/customer-by-phone"
-  OPERATIONS_CUSTOMER_VISITS_PATH: "/internal/operations/customer-visits"
   # ESCALATED: no phone->customer lookup existed anywhere in operations before this service needed
   # one — every existing internal caller already held a subject_ref (reminders, loyalty) or a raw
   # phone it wrote itself (the field screen). We added the narrowest possible route,
@@ -256,7 +255,6 @@ env:
   # short enough that a conversation is not "open" a week later with a stale summary.
   CONVERSATION_SESSION_TIMEOUT_SECONDS: "2400"
   CONVERSATION_RAW_WINDOW_MESSAGES: "12"
-  CONVERSATION_TICK_SECONDS: "30"
   CONVERSATION_TICK_BATCH_SIZE: "200"
   CONVERSATION_MAX_DURATION_SECONDS: "14400"
   OUTBOUND_MAX_PER_TENANT_PER_HOUR: "200"
@@ -286,3 +284,19 @@ env:
   PRICING_ADDON_FLAT_HALALAS: "0"
   PRICING_USAGE_HALALAS_PER_1K_TOKENS: "0"
   PRICING_USAGE_HALALAS_PER_CONVERSATION: "0"
+
+# THE HEARTBEAT. Without this CronJob the whole /whatsapp_assistant/tick sweep is unreachable and
+# this service is inert in the exact way reminders' own values file warns about: conversations
+# arrive, replies compose, every probe stays green, and a debounced reply or a timed-out session
+# simply never gets swept — a customer who typed three quick messages never gets the ONE reply
+# they are owed, forever, with no symptom anywhere but a shop asking why the bot went quiet.
+#
+# Every minute, not every five: CONVERSATION_DEBOUNCE_SECONDS is 180s and
+# CONVERSATION_SESSION_TIMEOUT_SECONDS is 2400s — both short enough that reminders' five-minute
+# cadence would be visibly late to a customer mid-conversation, unlike a reminder scheduled days
+# out. The tick call itself discovers every tenant with a conversation row (no body needed, no
+# per-tenant templating possible — see app/api/internal.py's tick docstring).
+cronJobs:
+  - name: tick
+    schedule: "* * * * *"
+    path: /internal/whatsapp_assistant/tick
