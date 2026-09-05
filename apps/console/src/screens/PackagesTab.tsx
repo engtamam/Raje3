@@ -343,11 +343,37 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
           {canManage ? (
             <Button className="self-start" onClick={openCreate}><Plus size={16} /> باقة جديدة</Button>
           ) : null}
+          {/* REDESIGNED CARD (this session): the flat bordered box read as an afterthought next
+              to the rest of the console's own premium chip/gradient language (see AppShell's own
+              nav-icon redesign) — no depth, no accent, every card visually identical whether
+              active, stopped, or unusually scheduled. Now: a leading accent bar on an ACTIVE card
+              (same "this one is live" tell the nav rail uses), a soft gradient header strip behind
+              the name/price so the card reads as a unit rather than a stack of lines, and a real
+              hover lift (`hover:-translate-y-0.5` + a deeper shadow) so the grid feels alive under
+              a cursor instead of static like a table row. A stopped card drops the accent bar and
+              gradient entirely — visually "off" at a glance, not just a badge you have to read. */}
           <div className="grid gap-3 sm:grid-cols-2">
-            {(packages ?? []).map((p) => (
+            {(packages ?? []).map((p) => {
+              const live = p.active !== false;
+              return (
               <div key={p.id}
-                  className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
-                <div className="flex items-start justify-between gap-2">
+                  className={[
+                    'group relative flex flex-col gap-2 overflow-hidden rounded-2xl border p-4',
+                    'transition-all duration-200 hover:-translate-y-0.5',
+                    live
+                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg hover:shadow-accent/5'
+                      : 'border-border-subtle bg-surface-1 opacity-70',
+                  ].join(' ')}>
+                {live ? (
+                  <span aria-hidden
+                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-accent to-accent/40" />
+                ) : null}
+                {live ? (
+                  <span aria-hidden
+                       className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-accent/[0.06] to-transparent" />
+                ) : null}
+
+                <div className="relative flex items-start justify-between gap-2 ps-2">
                   <div className="flex flex-col">
                     <span className="font-semibold">{p.name}</span>
                     <span className="text-sm text-text-secondary">
@@ -363,14 +389,14 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   </div>
                 </div>
                 {scheduleSummary(p) ? (
-                  <span className="text-xs text-text-muted">{scheduleSummary(p)}</span>
+                  <span className="relative ps-2 text-xs text-text-muted">{scheduleSummary(p)}</span>
                 ) : null}
-                <div className="flex flex-wrap gap-1">
+                <div className="relative flex flex-wrap gap-1 ps-2">
                   {p.service_ids.map((sid) => (
                     <Badge key={sid} tone="neutral">{namesById[sid] ?? sid}</Badge>
                   ))}
                 </div>
-                <div className="mt-1 flex items-center justify-between gap-2">
+                <div className="relative mt-1 flex items-center justify-between gap-2 ps-2">
                   {canManage ? (
                     <Button variant="outline" size="sm" onClick={() => openEdit(p)}>تعديل</Button>
                   ) : <span />}
@@ -380,7 +406,8 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   ) : null}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
