@@ -163,7 +163,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
     if (svc) {
       call<{ services: ServiceLite[] }>(session, svc, {})
         .then((x) => setServices((x.services ?? []).filter((s) => s.active !== false)))
-        .catch(() => setServices([]));
+        .catch(() => setServices(null));
     } else {
       setServices([]);
     }
@@ -331,7 +331,13 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
     <div className="flex flex-col gap-3">
       {error ? <p className="text-danger">{error}</p> : null}
 
-      {(packages ?? []).length === 0 ? (
+      {/* A NULL READ IS NOT AN EMPTY ONE — `packages`/`services` set to `null` after a failed
+          fetch used to fall straight into `(packages ?? []).length === 0`, rendering «لا توجد
+          باقات بعد» to a shop whose read simply failed. Told apart here so the sentence he gets
+          matches what actually happened. */}
+      {packages === null || services === null ? (
+        <p role="alert" className="text-sm text-danger">تعذّرت قراءة الباقات أو الخدمات — حاول مجدداً.</p>
+      ) : (packages ?? []).length === 0 ? (
         <EmptyState
           icon={<Boxes size={22} />}
           title="لا توجد باقات بعد"
