@@ -57,7 +57,17 @@
     "platform-owner only, on the same reasoning check_roles.py already states for the shop side:",
     "'the owner, who must reach everything — a section he cannot open is one nobody can.' None are",
     "split out to a narrower role yet; that is a product decision about who should actually hold",
-    "each one, not something a gate can answer, and stays open rather than guessed at here."
+    "each one, not something a gate can answer, and stays open rather than guessed at here.",
+    "",
+    "A SIXTH FIND, THIS ONE A GATEWAY ROUTE RATHER THAN A ROLE: /api/v1/audit's gateway route gated",
+    "on 'audit.view', a capability declared in audit-service's own catalog but granted to no role",
+    "anywhere, ever — platform-owner has always held 'platform.audit' instead, the one audit-service",
+    "actually checks for a cross-tenant read. Every admin request to the customer audit tab was",
+    "rejected at the gateway, before audit-service ever saw it (fixed in api-gateway.values.yaml:",
+    "the route now accepts either). AND platform-support — described right below as the role that",
+    "'reads a shop's log to answer why a message didn't arrive' — held platform.support and",
+    "platform.tickets but not platform.audit, so the one role whose own job description names this",
+    "exact task could not do it. Added here to match what the role already claims to be for."
   ],
   "roles": [
     {
@@ -138,7 +148,8 @@
       "read_only": true,
       "capabilities": [
         "platform.support",
-        "platform.tickets"
+        "platform.tickets",
+        "platform.audit"
       ]
     },
     {
