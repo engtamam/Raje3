@@ -22,6 +22,7 @@ from typing import Any
 
 from app.core.models import (
     AFFILIATES,
+    COMMISSIONS,
     EMPLOYMENT_APPROVED,
     EMPLOYMENT_REJECTED,
     EMPLOYMENT_REQUESTED,
@@ -34,6 +35,29 @@ from app.core.models import (
 APPROVE = EMPLOYMENT_APPROVED
 REJECT = EMPLOYMENT_REJECTED
 _DECISIONS = (APPROVE, REJECT)
+
+# Same page size, same reasoning, as payouts.py's _COMMISSION_PAGE / wafa.py's own copy: a page,
+# never the whole thing, so a prolific marketer's history is walked rather than silently
+# truncated wherever one page happened to end.
+_COMMISSION_PAGE = 500
+
+
+async def _count_commissions(store, affiliate_id: str) -> int:
+    """Every Commission this affiliate ever earned, counted — never just one page of them. The
+    eligibility threshold this backs (§8, 500 converted customers) is a milestone a marketer is
+    either over or under; a count silently capped at whatever `of_affiliate`'s own default limit
+    was would make a marketer with 2,001 commissions look exactly like one with 2,000, forever
+    short of a threshold he has long since passed. Bypasses the registry's own `of_affiliate`
+    (which throws its cursor away) and pages the raw collection directly — same shape
+    payouts.py/wafa.py already use for this exact bug in their own commission reads."""
+    total = 0
+    cursor: str | None = None
+    while True:
+        rows, cursor = await store.find(COMMISSIONS, {"affiliate_id": affiliate_id},
+                                        limit=_COMMISSION_PAGE, after=cursor, sort=("id", "asc"))
+        total += len(rows)
+        if not cursor:
+            return total
 
 
 class EmploymentError(Exception):
@@ -53,8 +77,7 @@ class EmploymentService:
         customer — see the module docstring on why a referral count is the wrong number. Never
         filtered by status: a customer who later got refunded still genuinely subscribed once,
         and "عميل مشترك" is a historical fact, not a current balance."""
-        rows = await self._commissions.of_affiliate(affiliate_id, limit=2000)
-        return len(rows)
+        return await _count_commissions(self._s, affiliate_id)
 
     async def eligibility_preview(self, affiliate_id: str) -> dict[str, Any]:
         """Same gap as WafaService's own eligibility_preview: the threshold check today only

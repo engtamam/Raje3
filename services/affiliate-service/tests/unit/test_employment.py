@@ -55,6 +55,21 @@ async def test_converted_customers_counts_commissions_never_referrals():
 
 
 @pytest.mark.anyio
+async def test_converted_customers_counts_every_commission_past_a_single_page():
+    """Regression: `converted_customers` used to read `of_affiliate(..., limit=2000)` and throw
+    the cursor away — a marketer past that count (or past the internal page size) was silently
+    capped and could never clear the §8 threshold no matter how many customers he actually
+    converted. Seeds past one internal page (500) and asserts the real count, same shape as the
+    identical fix already made in payouts.py/wafa.py for this exact bug."""
+    store = MemoryDataStore()
+    await _seed_affiliate(store)
+    row_count = 650
+    await _seed_n_conversions(store, "aff-1", row_count)
+    svc = build(store)
+    assert await svc.converted_customers("aff-1") == row_count
+
+
+@pytest.mark.anyio
 async def test_eligibility_preview_answers_how_close_without_ever_refusing():
     """request() refuses below threshold — a promoter could never see his own progress without
     triggering a refusal. This must succeed at any count, including zero."""
