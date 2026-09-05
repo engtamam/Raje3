@@ -1,4 +1,4 @@
-"""Ingest threads rating_eligible/rating_delay_seconds through BOTH paths, resolved per tenant —
+"""Ingest threads rating_eligible/message_delay_seconds through BOTH paths, resolved per tenant —
 same discipline confirm_visits/service_config already have (ج-5): a single answer computed once
 for a multi-tenant catch-up would apply one shop's rating settings to another shop's customer.
 """
@@ -58,7 +58,7 @@ def rows_for(st, kind, tenant, subject):
 def test_on_event_with_a_plain_true_schedules_the_rating_kind(st):
     ing = _ing(st, [])
     run(ing.on_event(Event(type="operations.visit.recorded", payload=visit(1)), now=NOW,
-                     service_config=CFG, rating_eligible=True, rating_delay_seconds=900))
+                     service_config=CFG, rating_eligible=True, message_delay_seconds=900))
     rows = rows_for(st, "rating_request", "t1", "sub_1")
     assert rows and rows[0]["due_at"] == NOW + 900
 
@@ -108,7 +108,7 @@ def test_catch_up_resolves_each_tenants_own_delay(st):
 
     ing = _ing(st, [visit(1, tenant="t_a"), visit(2, tenant="t_b")])
     run(ing.catch_up("", now=NOW, service_config=CFG, rating_eligible=True,
-                     rating_delay_seconds=delay_for))
+                     message_delay_seconds=delay_for))
 
     a = rows_for(st, "rating_request", "t_a", "sub_1")[0]
     b = rows_for(st, "rating_request", "t_b", "sub_2")[0]
@@ -119,7 +119,7 @@ def test_catch_up_resolves_each_tenants_own_delay(st):
 def test_a_plain_bool_still_works_for_the_single_tenant_path(st):
     ing = _ing(st, [visit(1)])
     run(ing.catch_up("t1", now=NOW, service_config=CFG, rating_eligible=True,
-                     rating_delay_seconds=1200))
+                     message_delay_seconds=1200))
     row = rows_for(st, "rating_request", "t1", "sub_1")[0]
     assert row["due_at"] == NOW + 1200
 

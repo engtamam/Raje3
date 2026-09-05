@@ -152,7 +152,7 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
                                           service_config=lambda t: _service_config(c, t),
                                           confirm_visits=lambda t: _confirms_visits(c, t),
                                           rating_eligible=lambda t: _rating_eligible(c, t),
-                                          rating_delay_seconds=lambda t: _rating_delay_seconds(c, t))
+                                          message_delay_seconds=lambda t: _message_delay_seconds(c, t))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)
         except Exception as exc:                                            # noqa: BLE001
@@ -168,7 +168,7 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
             got = await c.ingest.catch_up(tenant, now=now, service_config=cfg,
                                           confirm_visits=await _confirms_visits(c, tenant),
                                           rating_eligible=await _rating_eligible(c, tenant),
-                                          rating_delay_seconds=await _rating_delay_seconds(c, tenant))
+                                          message_delay_seconds=await _message_delay_seconds(c, tenant))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)
         except Exception as exc:                                            # noqa: BLE001
@@ -473,9 +473,12 @@ async def _rating_eligible(c, tenant: str) -> bool:
     return settings_row.enabled
 
 
-async def _rating_delay_seconds(c, tenant: str) -> int:
-    """This shop's own configured delay, in seconds — meaningless when `_rating_eligible` is
-    false, and never asked for a tenant that is not (the caller resolves eligibility first)."""
+async def _message_delay_seconds(c, tenant: str) -> int:
+    """This shop's own configured delay for the post-visit message, in seconds — asked of EVERY
+    tenant regardless of `_rating_eligible` (product decision: one "بعد كم دقيقة" answer governs
+    both the plain confirmation and the rating request, not a platform-wide constant any more, and
+    not gated behind owning the rating app — a shop with no interest in ratings can still want its
+    confirmation sooner or later than the 10-minute default)."""
     from app.core.rating_settings import RatingSettingsStore
     settings_row = await RatingSettingsStore(c.datastore).load(tenant)
     return settings_row.delay_minutes * 60

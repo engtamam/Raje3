@@ -1,5 +1,7 @@
-"""`_rating_eligible`/`_rating_delay_seconds` (api/internal.py) — two facts, both must hold for the
-first, and the second is meaningless without it.
+"""`_rating_eligible`/`_message_delay_seconds` (api/internal.py) — two INDEPENDENT facts.
+`_rating_eligible` needs app ownership AND the settings toggle; `_message_delay_seconds` is asked
+of every shop regardless of ownership (product decision: one delay setting governs both variants
+of the post-visit-message slot, not gated behind owning the rating app).
 """
 from __future__ import annotations
 
@@ -8,7 +10,7 @@ import asyncio
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.api.internal import _rating_delay_seconds, _rating_eligible
+from app.api.internal import _message_delay_seconds, _rating_eligible
 from app.core.rating_settings import RatingSettingsStore
 
 
@@ -69,17 +71,26 @@ def test_empty_tenant_is_never_eligible():
 def test_delay_seconds_reflects_the_configured_minutes():
     c = _C(owned=True)
     run(RatingSettingsStore(c.datastore).set("t1", delay_minutes=45))
-    assert run(_rating_delay_seconds(c, "t1")) == 45 * 60
+    assert run(_message_delay_seconds(c, "t1")) == 45 * 60
 
 
 def test_delay_seconds_defaults_to_ten_minutes_like_the_platform_default():
     c = _C(owned=True)
-    assert run(_rating_delay_seconds(c, "t1")) == 600
+    assert run(_message_delay_seconds(c, "t1")) == 600
 
 
 def test_two_tenants_get_their_own_delay_independently():
     c = _C(owned=True)
     run(RatingSettingsStore(c.datastore).set("t1", delay_minutes=15))
     run(RatingSettingsStore(c.datastore).set("t2", delay_minutes=120))
-    assert run(_rating_delay_seconds(c, "t1")) == 15 * 60
-    assert run(_rating_delay_seconds(c, "t2")) == 120 * 60
+    assert run(_message_delay_seconds(c, "t1")) == 15 * 60
+    assert run(_message_delay_seconds(c, "t2")) == 120 * 60
+
+
+def test_delay_is_resolved_regardless_of_app_ownership():
+    """A shop that does not own (or has never bought) the rating app can still configure its own
+    plain-confirmation delay — the setting is not gated behind `_rating_eligible`."""
+    c = _C(owned=False)
+    run(RatingSettingsStore(c.datastore).set("t1", delay_minutes=30))
+    assert run(_rating_eligible(c, "t1")) is False
+    assert run(_message_delay_seconds(c, "t1")) == 30 * 60

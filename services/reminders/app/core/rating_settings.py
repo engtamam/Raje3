@@ -1,5 +1,11 @@
-"""One establishment's answers about the rating app — whether it runs, how long after the visit it
-asks, and what it pays for an answer.
+"""One establishment's answers about the post-visit message — how long after the visit it goes out,
+whether it runs the rating app's variant, and what that variant pays for an answer.
+
+`delay_minutes` GOVERNS BOTH VARIANTS OF THE SLOT (product decision, rating-app-feature.md), and is
+asked of EVERY shop — not only ones that own the rating app. A shop with no interest in ratings can
+still want its plain confirmation sooner or later than the 10-minute default; it is no longer a
+platform-wide constant. `enabled`/`points` stay specific to the rating app itself: whether OWNING it
+also means USING it right now, and what participating pays.
 
 A SEPARATE STORE FROM `reason_choices.py`, ON PURPOSE. `Choices` is documented as carrying exactly
 two decisions per reason — on/off, and whose words — and nothing else; cramming a delay and a point
@@ -9,9 +15,9 @@ concern rather than growing `reason_choices.py` a fourth time.
 
 THIS STORE HAS NO OPINION ON WHETHER THE APP IS OWNED. Reading and writing these numbers before a
 shop has bought the rating app is harmless — the same way a plan's price exists in the catalogue
-before anyone subscribes to it. Whether the numbers here actually MOVE anything (whether a message
-goes out, whether a point is credited) is decided at the point of consequence — the scheduling code
-that reads this store — never here.
+before anyone subscribes to it. Whether `enabled`/`points` actually MOVE anything is decided at the
+point of consequence — the scheduling code that reads this store — never here; `delay_minutes`
+applies regardless of ownership, by design.
 
 PRESENCE DECIDES, NOT TRUTH — same rule as `reason_choices.py` and `settings_tree.py`: a row that
 has never been written answers with the product's own defaults, not with a stored zero that could
@@ -24,10 +30,10 @@ from typing import Any
 
 _COLL = "rating_settings"
 
-# THE DEFAULTS, NAMED HERE AND NOWHERE ELSE. `10` matches the platform's own pre-existing
-# `VISIT_CONFIRM_DELAY_SECONDS` default (600 seconds) so a shop that never touches this setting
-# sees no change in when its post-visit message arrives — only what it says, once the rating app is
-# actually wired to read `enabled` (a later phase).
+# THE DEFAULTS, NAMED HERE AND NOWHERE ELSE. `10` matches `VISIT_CONFIRM_DELAY_SECONDS` (600
+# seconds) — that constant is now only Scheduler's ultimate fallback for a caller that never
+# resolves this setting at all (an old test, an untaught call site); every real caller resolves
+# THIS per tenant instead. A shop that never touches the setting sees no change either way.
 DEFAULT_ENABLED = True
 DEFAULT_DELAY_MINUTES = 10
 DEFAULT_POINTS = 0

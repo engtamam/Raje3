@@ -82,7 +82,7 @@ class Scheduler:
                        service_config: dict[str, dict[str, Any]] | None = None,
                        confirm_visits: bool = True,
                        rating_eligible: bool = False,
-                       rating_delay_seconds: int = 600) -> VisitOutcome:
+                       message_delay_seconds: int | None = None) -> VisitOutcome:
         """Consume one `operations.visit.recorded`.
 
         `service_config` maps service_id -> {cycle_days, lead_days, follow_up_days, min_days,
@@ -97,8 +97,11 @@ class Scheduler:
         itself: does this establishment own `feature.rating` (app_entitlement.py), and has it
         turned the rating app on (rating_settings.py). When true, it OVERRIDES `confirm_visits`
         entirely — see the schedule block below for why that is "instead of", never "as well as".
-        `rating_delay_seconds` is that shop's own configured delay (rating_settings.delay_minutes),
-        meaningless when `rating_eligible` is false.
+
+        `message_delay_seconds` — this shop's own configured delay for WHICHEVER message this visit
+        gets (rating_settings.delay_minutes, asked of every shop, not only ones with the rating
+        app — product decision: one "بعد كم دقيقة" answer for both variants of this slot, no
+        longer a platform-wide constant). `None` falls back to the constructor's own default.
         """
         tenant = event.get("tenant") or ""
         subject = event.get("subject_ref") or ""
@@ -202,6 +205,16 @@ class Scheduler:
         # does. The engine had no opinion to offer here and no switch either — every shop got the
         # confirmation whether it fit or not, and the only escape was cancelling messages one by
         # one in «رسائلي». It is a tenant setting because the confirmation belongs to the visit.
+        # ONE DELAY FOR BOTH VARIANTS OF THIS SLOT (product decision, rating-app-feature.md) — a
+        # shop's own "بعد كم دقيقة" answer governs whichever message this visit gets, the plain
+        # confirmation and the rating request alike. It is no longer a platform-wide constant: the
+        # caller resolves it per tenant (rating_settings.py's delay_minutes, asked of EVERY shop,
+        # not only ones that own the rating app) and passes it in here, same reasoning
+        # `service_config`/`confirm_visits` are passed in rather than fetched. `None` (an untaught
+        # caller, or a test written before this existed) falls back to `self._confirm_delay` —
+        # the constructor's own default, unchanged, so nothing that never passes this breaks.
+        delay = message_delay_seconds if message_delay_seconds is not None else self._confirm_delay
+
         # THE RATING APP'S OWN MESSAGE, INSTEAD OF THE PLAIN CONFIRMATION — NEVER BOTH. Chosen
         # exclusively by what the CALLER already resolved (does this shop own `feature.rating` AND
         # has it enabled — app_entitlement.py + rating_settings.py, both peer reads a core function
@@ -212,7 +225,7 @@ class Scheduler:
         if rating_eligible:
             rating = Schedule(
                 tenant=tenant, subject_ref=subject, service_id="", kind="rating_request",
-                due_at=occurred + rating_delay_seconds, cls="service",
+                due_at=occurred + delay, cls="service",
                 template_type=T.get("rating_requested").template_type, visit_id=visit_id,
                 branch_id=event.get("branch_id") or "")
             await self._sched.upsert(tenant, rating.key, as_row(rating))
@@ -220,7 +233,7 @@ class Scheduler:
         elif confirm_visits:
             confirm = Schedule(
                 tenant=tenant, subject_ref=subject, service_id="", kind="visit_confirmation",
-                due_at=occurred + self._confirm_delay, cls="service",
+                due_at=occurred + delay, cls="service",
                 template_type=T.get("visit_recorded").template_type, visit_id=visit_id,
                 branch_id=event.get("branch_id") or "")
             await self._sched.upsert(tenant, confirm.key, as_row(confirm))

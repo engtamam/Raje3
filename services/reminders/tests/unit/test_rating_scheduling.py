@@ -48,7 +48,7 @@ def rows_for(st, kind, tenant="t1", subject="sub_a"):
 
 def test_rating_eligible_schedules_the_rating_kind_not_the_plain_confirmation(st, sch):
     out = run(sch.on_visit(visit(), now=NOW, service_config=CFG, confirm_visits=True,
-                           rating_eligible=True, rating_delay_seconds=900))
+                           rating_eligible=True, message_delay_seconds=900))
     assert rows_for(st, "rating_request")
     assert not rows_for(st, "visit_confirmation")
     assert any(k.endswith("|rating_request") for k in out.scheduled)
@@ -56,7 +56,7 @@ def test_rating_eligible_schedules_the_rating_kind_not_the_plain_confirmation(st
 
 def test_rating_eligible_uses_the_configured_delay(st, sch):
     run(sch.on_visit(visit(), now=NOW, service_config=CFG, rating_eligible=True,
-                     rating_delay_seconds=7200))
+                     message_delay_seconds=7200))
     row = rows_for(st, "rating_request")[0]
     assert row["due_at"] == NOW + 7200
 
@@ -110,6 +110,27 @@ def test_default_rating_eligible_is_false_existing_callers_unaffected(st, sch):
     run(sch.on_visit(visit(), now=NOW, service_config=CFG, confirm_visits=True))
     assert rows_for(st, "visit_confirmation")
     assert not rows_for(st, "rating_request")
+
+
+def test_the_configured_delay_applies_to_the_plain_confirmation_too(st, sch):
+    """The product decision this test pins: one 'بعد كم دقيقة' answer for BOTH variants of this
+    slot — a shop with no interest in the rating app can still want its plain confirmation sooner
+    or later than the 10-minute default."""
+    run(sch.on_visit(visit(), now=NOW, service_config=CFG, confirm_visits=True,
+                     rating_eligible=False, message_delay_seconds=1800))
+    row = rows_for(st, "visit_confirmation")[0]
+    assert row["due_at"] == NOW + 1800
+
+
+def test_no_delay_passed_falls_back_to_the_constructors_own_default(st):
+    """An untaught caller (an old test, a call site that predates this setting) gets the
+    constructor's own default unchanged — never a crash, never a silently wrong delay."""
+    from app.core.scheduling import Scheduler as S
+    sch2 = S(store=st, cfg=adaptive.AdaptiveConfig(), eng_cfg=engagement.EngagementConfig(),
+             confirm_delay_seconds=300)
+    run(sch2.on_visit(visit(), now=NOW, service_config=CFG, confirm_visits=True))
+    row = rows_for(st, "visit_confirmation")[0]
+    assert row["due_at"] == NOW + 300
 
 
 def test_two_different_tenants_are_scheduled_independently(st, sch):
