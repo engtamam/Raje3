@@ -44,7 +44,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: screen prints it, and either one can be the place the jargon enters.
 SURFACES = (
     "services/insights/app/core/coverage.py",
-    "apps/console/src/screens/Local.tsx",
+    # Local.tsx + Today.tsx merged into Shop.tsx alone (6c6345d6, "محلّي rebuilt as one file").
+    "apps/console/src/screens/Shop.tsx",
 )
 
 #: Terms that only ever reach a string when its author was thinking about the system rather than

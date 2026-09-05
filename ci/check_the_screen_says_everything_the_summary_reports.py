@@ -30,7 +30,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUMMARY = ROOT / "services" / "reminders" / "app" / "api" / "v1" / "owner.py"
-SCREEN = ROOT / "apps" / "console" / "src" / "screens" / "Today.tsx"
+SCREEN = ROOT / "apps" / "console" / "src" / "screens" / "Shop.tsx"  # Today.tsx merged in, 6c6345d6
 
 #: The block the screen is built from.
 BLOCK = "messages"
