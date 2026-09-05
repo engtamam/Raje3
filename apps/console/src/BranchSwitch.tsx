@@ -86,9 +86,13 @@ export function BranchSwitch({
       <button
         type="button"
         onClick={onAdd}
-        className="flex items-center gap-1.5 text-xs text-text-secondary"
+        className="flex items-center gap-2 rounded-lg border border-dashed border-border-subtle
+                   px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors
+                   hover:border-accent hover:bg-surface-2 hover:text-accent-on-soft"
       >
-        <Plus size={12} aria-hidden />
+        <span className="grid size-5 shrink-0 place-items-center rounded-md bg-surface-2 text-text-muted">
+          <Plus size={12} aria-hidden />
+        </span>
         أضف فرعاً
       </button>
     ) : null;
@@ -124,9 +128,12 @@ export function BranchSwitch({
         <button
           type="button"
           onClick={onAdd}
-          className="flex items-center gap-1.5 self-start text-xs text-accent-on-soft"
+          className="flex items-center gap-2 self-start rounded-lg px-2 py-1 text-xs font-medium
+                     text-accent-on-soft transition-colors hover:bg-surface-2"
         >
-          <Plus size={12} aria-hidden />
+          <span className="grid size-5 shrink-0 place-items-center rounded-md bg-accent/10 text-accent-on-soft">
+            <Plus size={12} aria-hidden />
+          </span>
           أضف فرعاً
         </button>
       ) : null}

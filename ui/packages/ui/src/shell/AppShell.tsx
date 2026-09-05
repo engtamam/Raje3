@@ -125,9 +125,16 @@ function renderNavItem(
   // it survives collapse unchanged — the chip alone still tells the current section apart with no label.
   const active = 'bg-surface-2 text-text-primary font-semibold';
   const inactive = 'text-text-secondary hover:bg-surface-2 hover:text-text-primary';
+  // EVERY ICON GETS A CHIP, ACTIVE OR NOT. A plain glyph floating with no background read as an
+  // afterthought next to the active row's filled square — the row list looked "half-finished"
+  // rather than one consistent design. A soft, borderless chip at rest (bg-surface-2) still lets
+  // the ACTIVE state (bg-accent + shadow) read as the one that is different, just no longer as
+  // "styled vs. unstyled".
   const iconWrap = (isActive: boolean) => cn(
     'grid size-7 shrink-0 place-items-center rounded-md transition-colors',
-    isActive ? 'bg-accent text-accent-contrast shadow-sm' : 'text-text-muted group-hover:text-text-secondary',
+    isActive
+      ? 'bg-accent text-accent-contrast shadow-sm'
+      : 'bg-surface-2 text-text-muted group-hover:text-text-secondary',
   );
   // COLLAPSED ACCESSIBLE NAME WAS `title=` ALONE — a hover tooltip, invisible to a screen reader that
   // never receives a synthetic hover. `aria-label` (paired with `aria-hidden` on the visual glyphs
