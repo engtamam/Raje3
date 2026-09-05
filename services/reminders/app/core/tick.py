@@ -773,6 +773,16 @@ class Tick:
         # reads it. What separates this from a policy suppression is the REASON, which carries the
         # renderer's own sentence: the one thing that tells an owner whether he is waiting on
         # Meta, on his own text, or on us.
+        # THE RATING APP'S OWN NUMBER, ONLY FOR ITS OWN KIND. A direct store read here, not a
+        # peer call scheduling.py would have to be taught — tick.py already reads several stores
+        # per row (prefs, engagement, consent above), and this is the same shape, asked only for
+        # the one kind that needs it.
+        is_rating = row.get("kind") == "rating_request"
+        rating_points = 0
+        if is_rating:
+            from app.core.rating_settings import RatingSettingsStore
+            rating_points = (await RatingSettingsStore(self._store).load(tenant)).points
+
         try:
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                                 library=library, approved=approved,
@@ -832,7 +842,10 @@ class Tick:
                 # A second read here would be a second answer, and the two could disagree across
                 # the milliseconds between them — the message would then invite somebody the gate
                 # had just recorded as having agreed.
-                marketing_consent=consent)
+                marketing_consent=consent,
+                # IGNORED BY EVERY TEMPLATE EXCEPT svc_visit_confirmation_rating's own rating_cta
+                # slot (rendering.py) — harmless to pass on every other kind.
+                rating_points=rating_points)
         except R.RenderError as exc:
             # `why`, NOT `reason` — the name is already taken on this path by the trigger that
             # scheduled the row, and it is read a few lines above to find the owner's own text.
@@ -871,6 +884,19 @@ class Tick:
             res.suppressed += 1
             return
 
+        # THE RATING APP'S OWN ANCHOR — remembered BEFORE the send, not after, same reasoning as
+        # the quota consume above: a timeout is not evidence that nothing was sent, and a reply
+        # that arrives before this call returns must still resolve to something. Deterministic on
+        # the visit id, so a retry of this exact schedule row remembers the SAME token rather than
+        # orphaning the first one (RatingRequestStore.remember is a plain overwrite, harmless).
+        flow_token = ""
+        if is_rating:
+            from app.core.rating_request import RatingRequestStore
+            flow_token = f"rate:{row.get('visit_id', '')}"
+            await RatingRequestStore(self._store).remember(
+                flow_token=flow_token, tenant=tenant, subject_ref=subject,
+                visit_id=str(row.get("visit_id") or ""), now=now)
+
         try:
             delivery_id = await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
@@ -879,7 +905,10 @@ class Tick:
                 # happened at; this is the one line that turns it into the credentials the message
                 # is actually sent with. `""` — every shop in the default mode — resolves to the
                 # establishment inside the sender, exactly as before.
-                sending_identity=_sending_identity(tenant, row))
+                sending_identity=_sending_identity(tenant, row),
+                # EMPTY FOR EVERY KIND EXCEPT rating_request — the sender itself omits the wire
+                # field entirely when flow_token is "", so this is harmless for every other send.
+                flow_token=flow_token)
         except CeilingReached as exc:
             # WHATSAPP WILL NOT TAKE ANOTHER MESSAGE FROM THIS SHOP RIGHT NOW (spec §8.4.3).
             # Nothing left, so nothing is counted — and what happens next is the TEMPLATE's

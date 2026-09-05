@@ -65,14 +65,16 @@ class NullSender:
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
-                   sending_identity: str = "") -> None:
+                   sending_identity: str = "", flow_token: str = "",
+                   flow_action_data: dict[str, Any] | None = None) -> None:
         self.sent.append({"tenant": tenant,
                           # RECORDED BY THE FAKE TOO, so a test that targets a branch can assert
                           # which number it would have gone out from.
                           "sending_identity": sending_identity or tenant,
                           "subject_ref": subject_ref,
                           "template_name": template_name, "variables": variables,
-                          "cls": cls, "idempotency_key": idempotency_key})
+                          "cls": cls, "idempotency_key": idempotency_key,
+                          "flow_token": flow_token, "flow_action_data": dict(flow_action_data or {})})
         # THE FAKE RETURNS A HANDLE TOO, derived from the key so it is stable across a retry —
         # exactly as the peer's own delivery id is. A fake that returned "" would let the receipt
         # reconciler's tests pass against a shape the real sender never produces.
@@ -117,7 +119,13 @@ class HttpSender:
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
-                   sending_identity: str = "") -> None:
+                   sending_identity: str = "", flow_token: str = "",
+                   flow_action_data: dict[str, Any] | None = None) -> None:
+        """`flow_token`/`flow_action_data` — the rating app's own Flow-button-in-a-template send
+        (notification-service v0.18.24): when the approved template carries a Flow button, these
+        supply the per-send action; empty otherwise, and notification-service ignores them for an
+        ordinary template. `flow_action_data` is omitted from the wire body entirely when empty —
+        Meta rejects an empty data object, same rule build_flow's own docstring states."""
         recipient, name = self._recipient(tenant, subject_ref)
         if not recipient:
             # NOT AN ERROR, and not a retry. The subject was erased, or never existed. Raising
@@ -144,7 +152,7 @@ class HttpSender:
         if name and variables and variables[0] in ("", FALLBACK_NAME):
             variables[0] = name
 
-        body = json.dumps({
+        payload: dict[str, Any] = {
             "recipient": recipient,
             "channel": self._channel,
             "template_key": template_name,
@@ -169,7 +177,18 @@ class HttpSender:
             # is the second one, and it is the one that survives — a receipt arriving for a message
             # whose delivery row we lost still says which of OUR sends it was about.
             "biz_opaque_callback_data": idempotency_key,
-        }).encode()
+        }
+        # THE RATING APP'S OWN ACTION — only when this call actually carries one. An ordinary
+        # template send (every message today except rating_request) must not grow a flow_token
+        # key at all: notification-service ignores it harmlessly either way, but sending "" for
+        # every plain confirmation is a wire field with no meaning, forever. `flow_action_data` is
+        # additionally never sent as an empty {} — Meta rejects an empty data object, same rule
+        # build_flow's own docstring states for the interactive-Flow path.
+        if flow_token:
+            payload["flow_token"] = flow_token
+            if flow_action_data:
+                payload["flow_action_data"] = dict(flow_action_data)
+        body = json.dumps(payload).encode()
         # Built in adapters/internal_http.py, the one place this service attaches the token.
         status, raw = internal_http.send(
             self._notify, timeout=self._timeout, method="POST", body=body,

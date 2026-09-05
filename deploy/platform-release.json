@@ -12,7 +12,7 @@
     "feature-flag-service": "sha256:59e3551ccb4fcde5baabcd49498998cea95777845de4663b5acc6e841d43dcf6",
     "identity-service": "sha256:82f47cb49ed449b7b56a679bb9fa6c8689ec5c58bdd265edf0bd3b0bc5919265",
     "job-service": "sha256:47884c99ade63c1e30bcbc4a920e27f72a5419a4100dde76a1af87cb0da11f6c",
-    "notification-service": "sha256:734fd0e72dc4b85fc5a88b1631d3ccc49430959e8ab40dd52ae62b10e7182cdf",
+    "notification-service": "sha256:815ec6dcb35d093a19baf363ac2cc03af87201bdc70d6439b18c6af34de4e2c6",
     "onboarding-service": "sha256:3874118dc74702d25b743a5e14a578abf7926b8b6eae036a909450bba84dac3e",
     "search-service": "sha256:701ba5b338cf673c9083a0dbc229c02d24cd0256b63e66403606d5a95313b16e",
     "tenant-service": "sha256:b74459db8b78b882d3c89f6e7f9cac214d48ca138f4b36fe6f9ffb63703c4e01",
