@@ -6,7 +6,7 @@
     "audit-service": "sha256:0a62eb385880f264e2b3f8f01062dbc273ac4bf0a982f01d45374bbd9ff2767c",
     "authz-service": "sha256:75c330e03001742b2afa88f3a76db60c22fcae96b82936ffbd86bf51117d4f3e",
     "backup-service": "sha256:72a191c0dcf3800778b123c0123a9defb16014d97cd724ed83e9c44b43c3badb",
-    "billing-service": "sha256:0758035a69fd159aaab1753377d32031eed922a24055b78727a9dfeb14a6d5ec",
+    "billing-service": "sha256:e9c59a3868ec562f68de6523fd81c9b397f185027ae424098a07d1fd3fc49ce5",
     "compliance-service": "sha256:9521735fed6da5eb045a3a9233523a5aee31e7515ec99348819799eaa925ebe3",
     "connector-service": "sha256:e54c3b6cd21d63564ae85a79b2616207b91b0639241d7a9e9241ccf0304975c3",
     "feature-flag-service": "sha256:59e3551ccb4fcde5baabcd49498998cea95777845de4663b5acc6e841d43dcf6",
