@@ -175,4 +175,143 @@ describe('الباقات', () => {
     expect(screen.getByText('غيار زيت')).toBeTruthy();
     expect(screen.getByText('فحص فرامل')).toBeTruthy();
   });
+
+  // ── deep robustness pass (100-test confidence sweep) ────────────────────────────────────────
+
+  it('opens the extend-existing-package dialog with the extra service already added', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a'], price_minor: 15000, active: true },
+    ];
+    open(['/services?tab=packages&extend_package=pkg1&extend_service=svc_b']);
+    await waitFor(() => expect(screen.getByDisplayValue('باقة الصيانة')).toBeTruthy());
+    expect(screen.getByText('الخدمات (2 مُختارة — خدمتان على الأقل)')).toBeTruthy();
+  });
+
+  it('extend does nothing when the named package no longer exists', async () => {
+    packagesResponse = [];
+    open(['/services?tab=packages&extend_package=does_not_exist&extend_service=svc_b']);
+    await waitFor(() => expect(screen.getByText('لا توجد باقات بعد')).toBeTruthy());
+    expect(screen.queryByPlaceholderText(/باقة الصيانة الشاملة/)).toBeNull();
+  });
+
+  it('editing an existing package pre-fills its current price and services', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true },
+    ];
+    open();
+    await waitFor(() => screen.getByText('باقة الصيانة'));
+    fireEvent.click(screen.getByRole('button', { name: 'تعديل' }));
+    await waitFor(() => expect(screen.getByDisplayValue('باقة الصيانة')).toBeTruthy());
+    expect((screen.getByPlaceholderText('0') as HTMLInputElement).value).toBe('150');
+  });
+
+  it('toggling active calls update_package with the flipped value', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true },
+    ];
+    createCalls.length = 0;
+    open();
+    await waitFor(() => screen.getByText('باقة الصيانة'));
+    fireEvent.click(screen.getByRole('switch'));
+    await waitFor(() => expect(createCalls.length).toBe(1));
+    expect((createCalls[0] as { active: boolean }).active).toBe(false);
+  });
+
+  it('creating a monthly package sends the chosen days of month', async () => {
+    packagesResponse = [];
+    createCalls.length = 0;
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+
+    fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة الشهر' } });
+    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('فحص فرامل'));
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
+    fireEvent.click(screen.getByText('شهرياً'));
+    fireEvent.click(screen.getByText('1'));
+
+    await waitFor(() => expect(
+      (screen.getByRole('button', { name: 'حفظ' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
+
+    await waitFor(() => expect(createCalls.length).toBe(1));
+    const body = createCalls[0] as { recurrence: string; recurrence_days_of_month: number[] };
+    expect(body.recurrence).toBe('monthly');
+    expect(body.recurrence_days_of_month).toEqual([1]);
+  });
+
+  it('refuses to save a yearly schedule with no dates chosen', async () => {
+    packagesResponse = [];
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+
+    fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة' } });
+    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('فحص فرامل'));
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
+    fireEvent.click(screen.getByText('سنوياً'));
+
+    expect((screen.getByRole('button', { name: 'حفظ' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('unchecking a service removes it from the selection', async () => {
+    packagesResponse = [];
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+
+    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('فحص فرامل'));
+    expect(screen.getByText('الخدمات (2 مُختارة — خدمتان على الأقل)')).toBeTruthy();
+    fireEvent.click(screen.getByText('غيار زيت'));
+    expect(screen.getByText('الخدمات (1 مُختارة — خدمتان على الأقل)')).toBeTruthy();
+  });
+
+  it('the points box can be reset to the live suggested sum with one tap', async () => {
+    earnResponse = { services: { svc_a: { points: 10 }, svc_b: { points: 15 } }, groups: {},
+                     service_group: {}, general: {}, packages: {} };
+    packagesResponse = [];
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('فحص فرامل'));
+    await waitFor(() => expect(screen.getByText(/استخدم مجموع نقاط الخدمات \(25\)/)).toBeTruthy());
+    fireEvent.click(screen.getByText(/استخدم مجموع نقاط الخدمات/));
+    const pointsBox = screen.getAllByDisplayValue('25')[0] as HTMLInputElement;
+    expect(pointsBox.value).toBe('25');
+    earnResponse = { services: {}, groups: {}, service_group: {}, general: {}, packages: {} };
+  });
+
+  it('a read-only role (no manage capability) sees no edit or create controls', async () => {
+    const savedCreate = ACTIONS['operations.manage_services'];
+    delete ACTIONS['operations.manage_services'];
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true },
+    ];
+    open();
+    await waitFor(() => screen.getByText('باقة الصيانة'));
+    expect(screen.queryByRole('button', { name: 'تعديل' })).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
+    ACTIONS['operations.manage_services'] = savedCreate;
+  });
+
+  it('a retired package with source=suggested still carries its badge', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة من محلّي', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: false, source: 'suggested' },
+    ];
+    open();
+    await waitFor(() => expect(screen.getByText('باقة من محلّي')).toBeTruthy());
+    expect(screen.getByText('من اقتراح محلّي')).toBeTruthy();
+  });
 });

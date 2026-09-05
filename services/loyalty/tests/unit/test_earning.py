@@ -259,3 +259,99 @@ def test_the_catch_up_honours_a_packages_own_points_too():
          "package_id": "pkg1"},
     ]))
     assert out["awarded"] == 1
+
+
+# ── deep robustness pass (100-test confidence sweep) ─────────────────────────────────────────────
+
+def test_package_points_take_priority_over_invoice_mode():
+    """THE BUG THIS CLOSES. A package visit from a booking/WhatsApp carries no `amount_halalas`
+    (no till involved) — an integrated shop in invoice mode reaching this BEFORE the package check
+    would silently compute (0 // 100) * rate == 0 for every package sold, forever, with nothing
+    anywhere to notice it by."""
+    _, settings, earner = build()
+    run(settings.set_config(T, mode="invoice", points_per_riyal=2, integrated=True))
+    run(settings.set_package(T, "pkg1", 77))
+    res = run(earner.from_visit(T, visit_id="v_inv_pkg", subject_ref=S,
+                                service_ids=["oil", "filter"], amount_halalas=0,
+                                package_id="pkg1"))
+    assert res["earned"] == 77
+    assert res["rule_level"] == "package"
+
+
+def test_an_ordinary_service_visit_still_uses_invoice_mode_when_no_package_id():
+    _, settings, earner = build()
+    run(settings.set_config(T, mode="invoice", points_per_riyal=2, integrated=True))
+    res = run(earner.from_visit(T, visit_id="v_inv_plain", subject_ref=S,
+                                service_ids=["wash"], amount_halalas=5000))
+    assert res["earned"] == 100          # (5000 // 100) * 2
+    assert res["rule_level"] == "invoice"
+
+
+def test_a_free_package_visit_earns_nothing_regardless_of_its_own_points():
+    """ب-6 applies to packages exactly as it does to ordinary visits — a reward redemption must
+    never also pay out points, whatever the package's own configured value is."""
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 999))
+    res = run(earner.from_visit(T, visit_id="v_free_pkg", subject_ref=S,
+                                service_ids=["oil", "filter"], package_id="pkg1", free=True))
+    assert res["earned"] == 0
+
+
+def test_a_package_with_zero_points_explicitly_set_earns_zero_not_a_default():
+    """`points: 0` is a decision — the same "absence is not a value" rule EarnTree.resolve already
+    documents for services applies to packages too."""
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 0))
+    res = run(earner.from_visit(T, visit_id="v_zero_pkg", subject_ref=S,
+                                service_ids=["oil"], package_id="pkg1"))
+    assert res["earned"] == 0
+    assert res["rule_level"] == "package"
+
+
+def test_two_different_packages_keep_independent_point_values():
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 10))
+    run(settings.set_package(T, "pkg2", 20))
+    r1 = run(earner.from_visit(T, visit_id="v1", subject_ref=S, service_ids=[], package_id="pkg1"))
+    r2 = run(earner.from_visit(T, visit_id="v2", subject_ref=S, service_ids=[], package_id="pkg2"))
+    assert r1["earned"] == 10
+    assert r2["earned"] == 20
+
+
+def test_setting_a_packages_points_twice_overwrites_not_accumulates():
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 10))
+    run(settings.set_package(T, "pkg1", 25))
+    res = run(earner.from_visit(T, visit_id="v1", subject_ref=S, service_ids=[], package_id="pkg1"))
+    assert res["earned"] == 25
+
+
+def test_package_points_are_isolated_per_tenant():
+    _, settings, _ = build()
+    run(settings.set_package(T, "pkg1", 10))
+    other_tree = run(settings.load("some_other_shop"))
+    assert other_tree.points_for_package("pkg1") == 0
+
+
+def test_a_redelivered_package_visit_event_earns_only_once():
+    """The ledger's own idempotency (source=visit_id) — same guarantee an ordinary visit gets,
+    proven here specifically for the package code path."""
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 30))
+    first = run(earner.from_visit(T, visit_id="v_dup", subject_ref=S, service_ids=[],
+                                  package_id="pkg1"))
+    second = run(earner.from_visit(T, visit_id="v_dup", subject_ref=S, service_ids=[],
+                                   package_id="pkg1"))
+    assert first["earned"] == 30
+    assert second.get("duplicate") is True
+
+
+def test_catch_up_replays_a_package_visit_exactly_once_no_matter_how_many_times_it_appears():
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 12))
+    out = run(earner.catch_up(T, [
+        {"visit_id": "v_x", "subject_ref": S, "service_ids": [], "package_id": "pkg1"},
+        {"visit_id": "v_x", "subject_ref": S, "service_ids": [], "package_id": "pkg1"},
+    ]))
+    assert out["awarded"] == 1
+    assert out["skipped"] == 1

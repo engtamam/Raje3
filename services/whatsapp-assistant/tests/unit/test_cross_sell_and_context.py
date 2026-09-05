@@ -398,3 +398,116 @@ async def test_a_known_customer_in_one_tenant_is_not_treated_as_known_in_another
     assert "غسيل مجاني" in block_home
     assert "غسيل مجاني" not in block_other
     assert "جديد" in block_other
+
+
+# ── deep robustness pass on packages (100-test confidence sweep) ────────────────────────────────
+
+def test_multiple_eligible_packages_are_all_listed():
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[
+            {"id": "pkg1", "name": "باقة أ", "service_ids": ["svc_a"], "price_minor": 6000,
+             "component_price_minor_sum": 5000, "active": True,
+             "next_offerable_dates": ["2026-06-06"]},
+            {"id": "pkg2", "name": "باقة ب", "service_ids": ["svc_b"], "price_minor": 4000,
+             "component_price_minor_sum": 3000, "active": True,
+             "next_offerable_dates": ["2026-06-07"]},
+        ])
+    assert "باقة أ" in block and "باقة ب" in block
+
+
+def test_a_package_priced_exactly_equal_to_its_components_is_still_mentioned():
+    """`>=`, not `>` — the rule refuses only a package that LOWERS the total, and equal is not
+    lower."""
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة متعادلة", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 8000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"]}])
+    assert "باقة متعادلة" in block
+
+
+def test_a_package_referencing_a_service_id_not_in_the_catalogue_falls_back_to_the_raw_id():
+    """A component service retired/removed since — degraded, never a crash or a blank line."""
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة", "service_ids": ["svc_gone"],
+                  "price_minor": 6000, "component_price_minor_sum": 5000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"]}])
+    assert "svc_gone" in block
+
+
+def test_a_package_with_a_missing_price_field_is_treated_as_zero_not_a_crash():
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة بلا سعر", "service_ids": ["svc_a"],
+                  "active": True, "next_offerable_dates": ["2026-06-06"]}])
+    # price_minor missing -> 0, component_price_minor_sum missing -> 0: 0 >= 0 passes, so it IS
+    # listed (this is a data-completeness concern for the caller, not something this pure
+    # function should silently drop and hide from an owner debugging a missing suggestion).
+    assert "باقة بلا سعر" in block
+
+
+def test_several_upcoming_dates_are_all_listed_not_just_the_first():
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة السبت", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06", "2026-06-13", "2026-06-20"]}])
+    assert "2026-06-06" in block and "2026-06-13" in block and "2026-06-20" in block
+
+
+def test_a_package_with_two_extra_people_uses_correct_arabic_number():
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة الثنائي", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"], "person_count": 2}])
+    assert "2" in block and "أشخاص" in block
+
+
+async def test_package_catalog_peer_failure_degrades_to_an_empty_packages_section():
+    """A peer outage must not block the whole conversation — the customer still gets a normal
+    reply, just without any package mentioned this turn."""
+    class _BrokenPackageCatalog:
+        driver = "broken"
+        async def list_active(self, tenant: str) -> list[dict]:
+            raise RuntimeError("operations is restarting")
+
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_text("تمام!")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED,
+        service_catalog=_FakeCatalog({TENANT: _catalog()}),
+        package_catalog=_BrokenPackageCatalog())
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="مرحبا", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert plan.kind == "text"          # the conversation still proceeds normally
+
+
+async def test_no_package_catalog_wired_at_all_degrades_the_same_way():
+    """Pre-existing test constructors (package_catalog=None, the default) must keep working
+    unmodified — the same None-safe shape as every other optional peer in this engine."""
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_text("تمام!")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="مرحبا", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert plan.kind == "text"

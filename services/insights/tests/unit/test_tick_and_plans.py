@@ -332,6 +332,55 @@ def test_a_temporal_pair_with_a_package_side_is_still_only_a_reminder():
     assert bundles.build([p])[0]["action"] == "reminder"
 
 
+# ── deep robustness pass (100-test confidence sweep) ─────────────────────────────────────────────
+
+def test_visit_items_folds_a_multi_component_package_of_three():
+    v = {"service_ids": ["oil", "filter", "brake"], "package_id": "pkg1"}
+    assert _visit_items(v, {"pkg1": frozenset({"oil", "filter", "brake"})}) == ["pkg:pkg1"]
+
+
+def test_visit_items_keeps_two_extra_services_alongside_the_package_sorted():
+    v = {"service_ids": ["oil", "filter", "wax", "polish"], "package_id": "pkg1"}
+    result = _visit_items(v, {"pkg1": frozenset({"oil", "filter"})})
+    assert result == sorted(["pkg:pkg1", "wax", "polish"])
+
+
+def test_visit_items_a_visit_that_is_only_the_package_with_nothing_extra():
+    v = {"service_ids": ["oil", "filter"], "package_id": "pkg1"}
+    assert _visit_items(v, {"pkg1": frozenset({"oil", "filter"})}) == ["pkg:pkg1"]
+
+
+def test_visit_items_two_different_packages_never_confused_with_each_other():
+    v1 = {"service_ids": ["oil", "filter"], "package_id": "pkg1"}
+    v2 = {"service_ids": ["wax", "polish"], "package_id": "pkg2"}
+    pkg_components = {"pkg1": frozenset({"oil", "filter"}), "pkg2": frozenset({"wax", "polish"})}
+    assert _visit_items(v1, pkg_components) == ["pkg:pkg1"]
+    assert _visit_items(v2, pkg_components) == ["pkg:pkg2"]
+
+
+def test_bundles_build_limits_still_apply_with_package_pairs_mixed_in():
+    pairs = [Pair(tenant=T, a=f"pkg:pkg{i}", b=f"svc{i}", verdict="real", customers=100,
+                 lift_basket=2.0) for i in range(15)]
+    cards = bundles.build(pairs, limit=10)
+    assert len(cards) == 10
+
+
+def test_a_package_pair_below_the_opportunity_size_is_not_suggested():
+    p = Pair(tenant=T, a="pkg:pkg1", b="wax", verdict="real", customers=3, lift_basket=9.0)
+    assert bundles.build([p]) == []
+
+
+def test_missed_opportunities_treats_a_package_id_like_any_other_item():
+    """missed_opportunities has no special knowledge of 'pkg:' ids — it just matches strings, which
+    is exactly correct: a customer who has the package but not the extra service is a real,
+    ordinary missed opportunity, the same shape as any other pair."""
+    p = Pair(tenant=T, a="pkg:pkg1", b="wax", verdict="real", customers=50)
+    sequences = {"cust1": ["pkg:pkg1"], "cust2": ["wax"]}
+    out = associations.missed_opportunities([p], sequences)
+    assert {"subject_ref": "cust1", "has": "pkg:pkg1", "missing": "wax", "verdict": "real"} in out
+    assert {"subject_ref": "cust2", "has": "wax", "missing": "pkg:pkg1", "verdict": "real"} in out
+
+
 # ── the weekly message ─────────────────────────────────────────────────────────────────────────
 def snap(visits=120, week=None, **values):
     """`visits` is the LIFETIME count — the denominator behind the indicators, and the digest reads

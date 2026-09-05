@@ -62,14 +62,21 @@ class Earner:
         t = tree if tree is not None else await self.settings.load(tenant)
         cfg = t.config
 
-        if cfg.mode == "invoice":
+        if package_id:
+            # CHECKED BEFORE INVOICE MODE, DELIBERATELY — a package visit from a booking or the
+            # WhatsApp assistant never carries `amount_halalas` (no till is involved), so an
+            # integrated shop reaching this in invoice-mode order would silently compute
+            # `(0 // 100) * rate == 0` for every package sold, forever, with no error anywhere to
+            # notice it by. A package's own explicit points (set once, at the package itself —
+            # see EarnTree.packages' own docstring) apply regardless of which mode this
+            # establishment otherwise earns in.
+            points, level = t.points_for_package(package_id), "package"
+        elif cfg.mode == "invoice":
             # Whole riyals. A shop that grants "one point per riyal" and sees a customer earn 47
             # points on a 47.60 invoice understands the rule; fractional points would be a number
             # nobody can explain at the counter.
             points = (int(amount_halalas) // 100) * int(cfg.points_per_riyal)
             level = "invoice"
-        elif package_id:
-            points, level = t.points_for_package(package_id), "package"
         else:
             points, level = t.points_for(list(service_ids or []))
 

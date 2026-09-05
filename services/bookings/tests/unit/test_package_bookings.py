@@ -245,3 +245,136 @@ def test_no_package_ports_wired_refuses_a_package_booking_explicitly():
     with pytest.raises(OperationError, match="غير متاح"):
         _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
                         service_ids=[], package_id="pkg1", starts_at=1786860000))
+
+
+# ── deep robustness pass (100-test confidence sweep) ─────────────────────────────────────────────
+
+def test_a_second_create_with_the_same_idempotency_key_returns_the_first_package_booking():
+    ops, _ = _ops()
+    first = _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                            service_ids=[], package_id="pkg1", starts_at=1786860000,
+                            idempotency_key="tap-pkg-1"))
+    second = _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                             service_ids=[], package_id="pkg1", starts_at=1786860000,
+                             idempotency_key="tap-pkg-1"))
+    assert first.id == second.id
+
+
+def test_a_lapsed_subscription_refuses_a_package_booking_too():
+    from app.core.licence import LicenceError
+
+    class _RefusingLicence:
+        async def allowed(self, tenant: str) -> bool:
+            return False
+
+        async def require(self, tenant: str) -> None:
+            raise LicenceError("تطبيق الحجوزات ليس في اشتراكك")
+
+    ops, _ = _ops()
+    ops._licence = _RefusingLicence()
+    with pytest.raises(LicenceError):
+        _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                        service_ids=[], package_id="pkg1", starts_at=1786860000))
+
+
+def test_a_package_booking_without_a_branch_is_refused():
+    ops, _ = _ops()
+    with pytest.raises(OperationError, match="الفرع"):
+        _run(ops.create(tenant=TENANT, branch_id="", operator_id="op1", customer_id="c1",
+                        service_ids=[], package_id="pkg1", starts_at=1786860000))
+
+
+def test_a_package_booking_without_starts_at_is_refused():
+    ops, _ = _ops()
+    with pytest.raises(OperationError, match="وقت الحجز"):
+        _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                        service_ids=[], package_id="pkg1", starts_at=0))
+
+
+def test_reschedule_of_a_package_booking_preserves_its_package_id():
+    ops, visits = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=[], package_id="pkg1",
+                                   starts_at=1786860000)
+        moved = await ops.reschedule(tenant=TENANT, booking_id=booking.id, starts_at=1786870000)
+        return moved
+
+    moved = _run(run())
+    assert moved.package_id == "pkg1"
+    assert moved.starts_at == 1786870000
+
+
+def test_attend_is_idempotent_for_a_package_booking():
+    ops, visits = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=[], package_id="pkg1",
+                                   starts_at=1786860000)
+        first = await ops.attend(TENANT, booking.id)
+        second = await ops.attend(TENANT, booking.id)
+        return first, second
+
+    first, second = _run(run())
+    assert first.visit_id == second.visit_id
+    assert len(visits.calls) == 1     # the second attend() is a no-op, no second peer call
+
+
+def test_cancelling_a_package_booking_works_the_same_as_an_ordinary_one():
+    ops, _ = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=[], package_id="pkg1",
+                                   starts_at=1786860000)
+        return await ops.cancel(TENANT, booking.id, reason="غيّرت رأيها")
+
+    cancelled = _run(run())
+    assert cancelled.status == "cancelled"
+    assert cancelled.package_id == "pkg1"
+
+
+def test_package_services_lookup_returning_a_single_service_still_books():
+    """The resolved component list is trusted as-is — operations' own PackageStore is the source
+    of truth for "at least two services" (enforced at package CREATE time there); bookings does
+    not re-derive that rule, it only asks what the components currently are."""
+    ops, _ = _ops(package_services=_FixedPackageServices({"pkg1": ["svc_only_one"]}))
+    booking = _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                              service_ids=[], package_id="pkg1", starts_at=1786860000))
+    assert booking.service_ids == ("svc_only_one",)
+
+
+def test_nearest_slot_day_steps_across_a_month_boundary():
+    after = int(__import__("datetime").datetime(2026, 1, 30, 9, 0, tzinfo=__import__("datetime").timezone.utc).timestamp())
+    day = 86400
+    offerable = _RecordingOfferable(only_ok_day_start=after + 3 * day, only_ok_day_end=after + 4 * day)
+    ops, _ = _ops(package_offerable=offerable)
+    starts_at = _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                      service_ids=[], package_id="pkg1", after=after,
+                                      search_days=14))
+    assert starts_at is not None
+    assert starts_at >= after + 3 * day
+
+
+def test_nearest_slot_respects_search_days_and_finds_nothing_just_past_the_window():
+    after = 1786860000
+    day = 86400
+    # Only offerable ONE second past the search window's own end.
+    offerable = _RecordingOfferable(only_ok_day_start=after + 14 * day, only_ok_day_end=after + 15 * day)
+    ops, _ = _ops(package_offerable=offerable)
+    starts_at = _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                      service_ids=[], package_id="pkg1", after=after,
+                                      search_days=14))
+    assert starts_at is None
+
+
+def test_an_eligible_operator_for_one_component_but_not_for_the_package_as_a_whole_is_refused():
+    """The package's OWN eligibility answer is authoritative — bookings never re-derives it from
+    individual components, it trusts whatever operations' package-eligibility route already
+    computed (including its own disjoint-specialty degradation)."""
+    ops, _ = _ops(package_eligibility=_FixedPackageEligibility({"pkg1": ["op_other"]}))
+    with pytest.raises(OperationError, match="لا يقدر"):
+        _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                        service_ids=[], package_id="pkg1", starts_at=1786860000))

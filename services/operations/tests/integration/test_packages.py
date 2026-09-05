@@ -349,3 +349,200 @@ def test_a_package_with_person_count_carries_it_through(client):
                                 "price_minor": 20000, "person_count": 3},
                           headers=_auth("operations.manage_services")).json()
     assert created["person_count"] == 3
+
+
+# ── deep robustness pass (100-test confidence sweep) ─────────────────────────────────────────────
+
+def test_a_package_is_invisible_across_tenants(client):
+    a, b = _two_services(client, tenant="tnt_iso_a")
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة أ", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000},
+                          headers=_auth("operations.manage_services", tenant="tnt_iso_a")).json()
+    listed_b = client.get("/api/v1/staff/packages",
+                          headers=_auth("operations.manage_services", tenant="tnt_iso_b")).json()
+    assert not any(p["id"] == created["id"] for p in listed_b["packages"])
+
+
+def test_a_service_id_belonging_to_another_tenant_cannot_be_smuggled_into_a_package(client):
+    foreign = client.post("/api/v1/staff/services", json={"name": "خدمة غريبة"},
+                          headers=_auth("operations.manage_services", tenant="tnt_smuggle_x")).json()
+    mine, _ = _two_services(client, tenant="tnt_smuggle_y")
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [mine["id"], foreign["id"]],
+                          "price_minor": 5000},
+                    headers=_auth("operations.manage_services", tenant="tnt_smuggle_y"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_SERVICES"
+
+
+def test_price_of_exactly_one_halala_is_accepted(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة رخيصة جداً", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 1},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 201
+    assert r.json()["price_minor"] == 1
+
+
+def test_duplicate_service_ids_in_the_request_are_deduplicated(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], a["id"], b["id"]],
+                          "price_minor": 5000},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 201, r.text
+    assert sorted(r.json()["service_ids"]) == sorted([a["id"], b["id"]])
+
+
+def test_only_duplicates_of_the_same_service_never_reaches_the_minimum_of_two(client):
+    a, _ = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], a["id"]],
+                          "price_minor": 5000},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_SERVICES"
+
+
+def test_a_package_can_hold_many_more_than_two_services(client):
+    tenant = "tnt_many_services"
+    ids = []
+    for i in range(6):
+        s = client.post("/api/v1/staff/services", json={"name": f"خدمة {i}"},
+                        headers=_auth("operations.manage_services", tenant=tenant)).json()
+        ids.append(s["id"])
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة كبيرة", "service_ids": ids, "price_minor": 50000},
+                    headers=_auth("operations.manage_services", tenant=tenant))
+    assert r.status_code == 201, r.text
+    assert sorted(r.json()["service_ids"]) == sorted(ids)
+
+
+def test_a_retired_and_reactivated_package_keeps_its_own_data(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة تتوقف وترجع", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000},
+                          headers=_auth("operations.manage_services")).json()
+    client.patch(f"/api/v1/staff/packages/{created['id']}", json={"active": False},
+                headers=_auth("operations.manage_services"))
+    reactivated = client.patch(f"/api/v1/staff/packages/{created['id']}", json={"active": True},
+                               headers=_auth("operations.manage_services"))
+    assert reactivated.status_code == 200
+    assert reactivated.json()["active"] is True
+    assert reactivated.json()["name"] == "باقة تتوقف وترجع"
+    assert set(reactivated.json()["service_ids"]) == {a["id"], b["id"]}
+
+
+def test_patching_only_weekdays_with_no_recurrence_field_sent_is_still_validated_against_current(client):
+    """A patch touching JUST recurrence_weekdays (recurrence itself untouched, still "none" on the
+    row) must not accidentally require weekday validation — "none" needs nothing from any of the
+    per-mode fields, whatever is sent alongside it."""
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000},
+                          headers=_auth("operations.manage_services")).json()
+    r = client.patch(f"/api/v1/staff/packages/{created['id']}",
+                     json={"recurrence_weekdays": [5]},
+                     headers=_auth("operations.manage_services"))
+    assert r.status_code == 200, r.text
+    assert r.json()["recurrence"] == "none"
+    assert r.json()["recurrence_weekdays"] == [5]
+
+
+def test_patching_price_alone_leaves_the_schedule_completely_untouched(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000, "recurrence": "weekly",
+                                "recurrence_weekdays": [5]},
+                          headers=_auth("operations.manage_services")).json()
+    r = client.patch(f"/api/v1/staff/packages/{created['id']}", json={"price_minor": 7000},
+                     headers=_auth("operations.manage_services"))
+    assert r.status_code == 200, r.text
+    assert r.json()["price_minor"] == 7000
+    assert r.json()["recurrence"] == "weekly"
+    assert r.json()["recurrence_weekdays"] == [5]
+
+
+def test_person_count_zero_is_refused(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 5000, "person_count": 0},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 422
+
+
+def test_person_count_above_the_ceiling_is_refused(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 5000, "person_count": 51},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 422
+
+
+def test_negative_price_is_refused(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                          "price_minor": -100},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 422
+
+
+def test_missing_name_is_refused(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"service_ids": [a["id"], b["id"]], "price_minor": 5000},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 422
+
+
+def test_updating_a_package_that_does_not_exist_is_404(client):
+    r = client.patch("/api/v1/staff/packages/does_not_exist", json={"active": False},
+                     headers=_auth("operations.manage_services"))
+    assert r.status_code == 404
+
+
+def test_editing_service_ids_to_a_retired_services_only_is_refused(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000},
+                          headers=_auth("operations.manage_services")).json()
+    client.patch(f"/api/v1/staff/services/{a['id']}", json={"active": False},
+                headers=_auth("operations.manage_services"))
+    r = client.patch(f"/api/v1/staff/packages/{created['id']}",
+                     json={"service_ids": [a["id"], b["id"]]},
+                     headers=_auth("operations.manage_services"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_SERVICES"
+
+
+def test_yearly_schedule_end_to_end_through_the_api(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة الصيف", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 8000, "recurrence": "yearly",
+                          "recurrence_yearly_from": "06-01", "recurrence_yearly_to": "08-31"},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["recurrence_yearly_from"] == "06-01"
+    assert body["recurrence_yearly_to"] == "08-31"
+
+
+def test_monthly_schedule_end_to_end_through_the_api(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة أول الشهر", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 8000, "recurrence": "monthly",
+                          "recurrence_days_of_month": [1, 15]},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 201, r.text
+    assert sorted(r.json()["recurrence_days_of_month"]) == [1, 15]

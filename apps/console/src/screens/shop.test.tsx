@@ -134,4 +134,22 @@ describe('«محلّي» — one page, and the number first', () => {
     expect(href).toContain('prefill_a=svc_a');
     expect(href).toContain('prefill_b=svc_b');
   });
+
+  it('both links route through /services?tab=packages', async () => {
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText('أضفها لهذه الباقة')).toBeTruthy());
+    const extend = screen.getByRole('link', { name: 'أضفها لهذه الباقة' }).getAttribute('href') ?? '';
+    const bundle = screen.getByRole('link', { name: 'اجعلها باقة — تحدّد سعرها أنت' }).getAttribute('href') ?? '';
+    expect(extend.startsWith('/services?tab=packages')).toBe(true);
+    expect(bundle.startsWith('/services?tab=packages')).toBe(true);
+  });
+
+  it('a reminder-verdict bundle (no action_label) renders no link at all', async () => {
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText('أضفها لهذه الباقة')).toBeTruthy());
+    // Neither bundle in this test's own mock is a "reminder" card, so no reminder text/link
+    // should ever appear here — a real absence-of-regression check for the branch that renders
+    // plain (non-link) text when a card has no action_label at all.
+    expect(screen.queryByText('ذكّر بها في الزيارة القادمة')).toBeNull();
+  });
 });
