@@ -246,7 +246,7 @@ env:
   #
   # Flipped to true in the SAME change that points WHATSAPP_CHAIN at `meta`; a guard in
   # ci/check_deploy_wiring.py fails the build if the two ever disagree, in either direction.
-  SIGNUP_OTP_DELIVERABLE: "false"
+  SIGNUP_OTP_DELIVERABLE: "true"
   # DEFERRED, NOT ABANDONED — and only because the line above is false. A proof we cannot send is
   # a locked door with no key: the owner signs up, is told to confirm a number, and no message is
   # ever attempted. The number is still recorded unverified and «حسابي» still says so; it simply

@@ -109,12 +109,14 @@ env:
   # the environment fallback — the exact mechanism a shop's own number already uses when it
   # connects (whatsapp_onboarding.py), except the platform has never run that flow for itself.
   # A Meta System User (permanent) access token is the credential that flow would have produced —
-  # see AdminProviderSecrets.tsx's own note on where to get one. WHAT REMAINS: provision a real
-  # phone number + System User token for the platform's own WhatsApp identity, store them (as a
-  # sixth secrets-admin entry, matching secret_registry.py's own "adding a sixth" note — never as
-  # plaintext in this file, the same reasoning *.pem/*.env are gitignored for), then flip this to
-  # "meta,console".
-  WHATSAPP_CHAIN: "console"
+  # see AdminProviderSecrets.tsx's own note on where to get one.
+  #
+  # FLIPPED TO A BARE "meta" — NOT "meta,console" — deliberately: the owner asked for the real
+  # production experience starting now, meaning a genuine failure (no Meta credentials sealed yet
+  # at the time of this flip) must read as a genuine failure, not get masked by a console fallback
+  # reporting fake success. Add ",console" back only if a temporary safety net is wanted while
+  # credentials are still being provisioned — never as the permanent shape.
+  WHATSAPP_CHAIN: "meta"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   EMAIL_FROM: "no-reply@raje3.sa"
   HTTP_TIMEOUT_SECONDS: "15"
