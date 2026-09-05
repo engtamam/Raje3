@@ -214,3 +214,86 @@ def test_internal_packages_route_includes_retired_ones(client):
 def test_internal_packages_route_needs_a_token(client):
     r = client.post("/internal/operations/packages", json={"tenant": "t1"})
     assert r.status_code == 401
+
+
+# ── scheduling (packages feature, phase 2) ────────────────────────────────────────────────────
+def test_creating_a_package_with_a_weekly_schedule(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة السبت", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000, "recurrence": "weekly",
+                                "recurrence_weekdays": [5]},
+                          headers=_auth("operations.manage_services"))
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["recurrence"] == "weekly"
+    assert body["recurrence_weekdays"] == [5]
+    assert "offerable_now" in body
+
+
+def test_a_weekly_package_with_no_weekdays_is_refused(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 5000, "recurrence": "weekly"},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_SCHEDULE"
+
+
+def test_an_end_date_before_the_start_date_is_refused(client):
+    a, b = _two_services(client)
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                          "price_minor": 5000, "starts_at": 2000000000, "ends_at": 1000000000},
+                    headers=_auth("operations.manage_services"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_SCHEDULE"
+
+
+def test_listing_reports_offerable_now_honestly(client):
+    a, b = _two_services(client)
+    # A package bound to a start date far in the future is not offerable today.
+    client.post("/api/v1/staff/packages",
+               json={"name": "باقة مستقبلية", "service_ids": [a["id"], b["id"]],
+                     "price_minor": 5000, "starts_at": 9999999999},
+               headers=_auth("operations.manage_services"))
+    listed = client.get("/api/v1/staff/packages",
+                        headers=_auth("operations.manage_services")).json()
+    future = next(p for p in listed["packages"] if p["name"] == "باقة مستقبلية")
+    assert future["offerable_now"] is False
+
+
+def test_editing_only_the_recurrence_mode_is_checked_against_the_packages_own_existing_days(client):
+    """A PATCH that sends only `recurrence` (no weekdays) must be validated against the days the
+    package ALREADY has, not against an empty list — the "None = leave it" convention applied to
+    a whole shape, not just one field of it."""
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000, "recurrence": "weekly",
+                                "recurrence_weekdays": [5]},
+                          headers=_auth("operations.manage_services")).json()
+    # Switching to "monthly" without ever sending days_of_month must be refused — there is
+    # nothing for the new mode to recur on yet.
+    r = client.patch(f"/api/v1/staff/packages/{created['id']}", json={"recurrence": "monthly"},
+                     headers=_auth("operations.manage_services"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_SCHEDULE"
+
+    # Sending both together succeeds.
+    ok = client.patch(f"/api/v1/staff/packages/{created['id']}",
+                      json={"recurrence": "monthly", "recurrence_days_of_month": [1]},
+                      headers=_auth("operations.manage_services"))
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["recurrence"] == "monthly"
+    assert ok.json()["recurrence_days_of_month"] == [1]
+
+
+def test_a_package_with_person_count_carries_it_through(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة العائلة", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 20000, "person_count": 3},
+                          headers=_auth("operations.manage_services")).json()
+    assert created["person_count"] == 3

@@ -236,11 +236,42 @@ class Package:
     source_service_ids: list[str] = field(default_factory=list)
     created: int = 0
 
+    # ── scheduling (packages feature, phase 2) ──────────────────────────────────────────────────
+    # See core/scheduling.py::is_offerable — the ONE place every one of these fields is actually
+    # read; this dataclass only carries them.
+    #
+    # BOTH OPTIONAL AND INDEPENDENT. 0 means no bound on that side — an owner may set only a start
+    # (a package that begins next month, no planned end), only an end (stop this on a date, no
+    # particular start), both (a true limited-time run), or neither (fully open-ended).
+    starts_at: int = 0
+    ends_at: int = 0
+    # "none" | "weekly" | "monthly" | "yearly" — see scheduling.py's own RECURRENCES/is_offerable.
+    # "none" is NOT "always on regardless of dates" — starts_at/ends_at above still bound it; it
+    # is "no repeating weekly/monthly/yearly PATTERN on top of that bound".
+    recurrence: str = "none"
+    recurrence_weekdays: list[int] = field(default_factory=list)          # 0=Mon..6=Sun
+    recurrence_days_of_month: list[int] = field(default_factory=list)    # 1-31
+    recurrence_yearly_from: str = ""    # "MM-DD"
+    recurrence_yearly_to: str = ""      # "MM-DD"
+    # PURELY DESCRIPTIVE — "تكفي لِـ N أشخاص" on the card and in what the WhatsApp assistant is
+    # told. 1 (the default) means "not a group thing, say nothing about it". NOT a real multi-
+    # customer booking: one Booking/Visit still belongs to exactly one customer_id, unchanged —
+    # a genuine group booking (several distinct customer records under one appointment) is a
+    # materially larger feature, deliberately out of scope here.
+    person_count: int = 1
+
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "service_ids": list(self.service_ids), "price_minor": self.price_minor,
                 "active": self.active, "sort": self.sort, "source": self.source,
-                "source_service_ids": list(self.source_service_ids), "created": self.created}
+                "source_service_ids": list(self.source_service_ids), "created": self.created,
+                "starts_at": self.starts_at, "ends_at": self.ends_at,
+                "recurrence": self.recurrence,
+                "recurrence_weekdays": list(self.recurrence_weekdays),
+                "recurrence_days_of_month": list(self.recurrence_days_of_month),
+                "recurrence_yearly_from": self.recurrence_yearly_from,
+                "recurrence_yearly_to": self.recurrence_yearly_to,
+                "person_count": self.person_count}
 
 
 @dataclass

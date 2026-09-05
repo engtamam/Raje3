@@ -42,6 +42,7 @@ from app.api import scope as SCOPE
 from app.core.models import Branch, Operator, Package, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
+from app.core import scheduling as SCHED
 from app.core import seats as S
 from app.core import shop_mode as SM
 from app.core import vehicles as V
@@ -1275,6 +1276,16 @@ class PackageIn(BaseModel):
     # — see services/insights/app/core/bundles.py. Left at the default for anything typed by hand.
     source: str = Field(default="manual", pattern="^(manual|suggested)$")
     source_service_ids: list[str] = Field(default_factory=list, max_length=64)
+    # ── scheduling (packages feature, phase 2) — see core/scheduling.py::is_offerable ──────────
+    starts_at: int = Field(default=0, ge=0)
+    ends_at: int = Field(default=0, ge=0)
+    recurrence: str = Field(default="none", pattern="^(none|weekly|monthly|yearly)$")
+    recurrence_weekdays: list[int] = Field(default_factory=list, max_length=7)
+    recurrence_days_of_month: list[int] = Field(default_factory=list, max_length=31)
+    recurrence_yearly_from: str = Field(default="", max_length=5)
+    recurrence_yearly_to: str = Field(default="", max_length=5)
+    # PURELY DESCRIPTIVE — see Package.person_count's own docstring. 1 = say nothing about it.
+    person_count: int = Field(default=1, ge=1, le=50)
 
 
 def _validate_package_services(tenant: str, service_ids: list[str],
@@ -1293,12 +1304,30 @@ def _validate_package_services(tenant: str, service_ids: list[str],
     return seen if len(seen) >= 2 else None
 
 
+def _schedule_error(*, starts_at: int, ends_at: int, recurrence: str,
+                    weekdays: list[int], days_of_month: list[int],
+                    yearly_from: str, yearly_to: str) -> str:
+    """One sentence naming what is wrong with a proposed schedule, or "" — checked at WRITE time
+    so a malformed schedule is refused here, never discovered the first time a booking silently
+    fails to validate against it (core/scheduling.py's own module docstring)."""
+    if ends_at and starts_at and ends_at < starts_at:
+        return "تاريخ النهاية قبل تاريخ البداية"
+    return SCHED.validate_recurrence(
+        recurrence=recurrence, weekdays=weekdays, days_of_month=days_of_month,
+        yearly_from=yearly_from, yearly_to=yearly_to)
+
+
 @router.get("/packages", dependencies=[Depends(rate_limit)])
 async def list_packages(request: Request, include_retired: bool = False,
                         principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     rows = await PackageStore(request.app.state.container.datastore).list(
         _tenant(principal), active_only=not include_retired)
-    return {"packages": [p.public() for p in rows]}
+    now = int(time.time())
+    # `offerable_now` IS A CONVENIENCE, COMPUTED HERE FROM THE SAME FUNCTION EVERYTHING ELSE USES
+    # — never a second rule. The console reads it to show "غير مفعّلة اليوم" beside a package
+    # that is `active` but simply outside its own schedule right now (e.g. a Saturday-only
+    # package viewed on a Tuesday) — a real, useful distinction from "the owner turned it off".
+    return {"packages": [{**p.public(), "offerable_now": SCHED.is_offerable(p, now)} for p in rows]}
 
 
 @router.post("/packages", status_code=status.HTTP_201_CREATED,
@@ -1315,15 +1344,29 @@ async def create_package(request: Request, body: PackageIn,
              "reason": "لازم خدمتين على الأقل، موجودتين وفعّالتين في قائمتك."},
             status_code=status.HTTP_400_BAD_REQUEST)
 
+    sched_error = _schedule_error(
+        starts_at=body.starts_at, ends_at=body.ends_at, recurrence=body.recurrence,
+        weekdays=body.recurrence_weekdays, days_of_month=body.recurrence_days_of_month,
+        yearly_from=body.recurrence_yearly_from, yearly_to=body.recurrence_yearly_to)
+    if sched_error:
+        return JSONResponse({"error": "INVALID_SCHEDULE", "reason": sched_error},
+                            status_code=status.HTTP_400_BAD_REQUEST)
+
     await request.app.state.auditor.record(
         "package.created", actor=principal.subject, tenant=tenant, resource="package",
         ip=request.client.host if request.client else "")
     p = Package(id=new_id("pkg"), tenant=tenant, name=body.name.strip(),
                service_ids=cleaned, price_minor=body.price_minor, sort=body.sort,
                source=body.source, source_service_ids=list(body.source_service_ids),
+               starts_at=body.starts_at, ends_at=body.ends_at, recurrence=body.recurrence,
+               recurrence_weekdays=list(body.recurrence_weekdays),
+               recurrence_days_of_month=list(body.recurrence_days_of_month),
+               recurrence_yearly_from=body.recurrence_yearly_from,
+               recurrence_yearly_to=body.recurrence_yearly_to,
+               person_count=body.person_count,
                created=int(time.time()))
     await PackageStore(request.app.state.container.datastore).save(p)
-    return p.public()
+    return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
 
 
 class PackagePatch(BaseModel):
@@ -1332,6 +1375,18 @@ class PackagePatch(BaseModel):
     price_minor: int | None = Field(default=None, gt=0)
     active: bool | None = None
     sort: int | None = Field(default=None, ge=0, le=9999)
+    # ── scheduling — `None` MEANS "LEAVE IT", same convention as every other field here. Editing
+    # the schedule always sends the WHOLE shape (all recurrence-relevant fields together) rather
+    # than one piece — a partial edit could otherwise leave e.g. `recurrence="weekly"` with the
+    # PREVIOUS package's `recurrence_weekdays` silently still attached.
+    starts_at: int | None = Field(default=None, ge=0)
+    ends_at: int | None = Field(default=None, ge=0)
+    recurrence: str | None = Field(default=None, pattern="^(none|weekly|monthly|yearly)$")
+    recurrence_weekdays: list[int] | None = Field(default=None, max_length=7)
+    recurrence_days_of_month: list[int] | None = Field(default=None, max_length=31)
+    recurrence_yearly_from: str | None = Field(default=None, max_length=5)
+    recurrence_yearly_to: str | None = Field(default=None, max_length=5)
+    person_count: int | None = Field(default=None, ge=1, le=50)
 
 
 @router.patch("/packages/{package_id}",
@@ -1357,14 +1412,45 @@ async def update_package(request: Request, package_id: str, body: PackagePatch,
                 status_code=status.HTTP_400_BAD_REQUEST)
         p.service_ids = cleaned
 
+    # SCHEDULE FIELDS VALIDATED TOGETHER, AS THE SHAPE THEY WILL END UP AS — merging each patched
+    # field over the package's CURRENT value first (the same "None = leave it" convention every
+    # other field on this route uses), so an edit that only touches `recurrence` still gets
+    # checked against whatever weekdays/dates the package already had, not against an empty patch.
+    schedule_touched = any(
+        getattr(body, f) is not None for f in
+        ("starts_at", "ends_at", "recurrence", "recurrence_weekdays", "recurrence_days_of_month",
+         "recurrence_yearly_from", "recurrence_yearly_to"))
+    if schedule_touched:
+        starts_at = body.starts_at if body.starts_at is not None else p.starts_at
+        ends_at = body.ends_at if body.ends_at is not None else p.ends_at
+        recurrence = body.recurrence if body.recurrence is not None else p.recurrence
+        weekdays = (body.recurrence_weekdays if body.recurrence_weekdays is not None
+                   else p.recurrence_weekdays)
+        days_of_month = (body.recurrence_days_of_month if body.recurrence_days_of_month is not None
+                         else p.recurrence_days_of_month)
+        yearly_from = (body.recurrence_yearly_from if body.recurrence_yearly_from is not None
+                      else p.recurrence_yearly_from)
+        yearly_to = (body.recurrence_yearly_to if body.recurrence_yearly_to is not None
+                    else p.recurrence_yearly_to)
+        sched_error = _schedule_error(
+            starts_at=starts_at, ends_at=ends_at, recurrence=recurrence, weekdays=weekdays,
+            days_of_month=days_of_month, yearly_from=yearly_from, yearly_to=yearly_to)
+        if sched_error:
+            return JSONResponse({"error": "INVALID_SCHEDULE", "reason": sched_error},
+                                status_code=status.HTTP_400_BAD_REQUEST)
+        p.starts_at, p.ends_at, p.recurrence = starts_at, ends_at, recurrence
+        p.recurrence_weekdays = list(weekdays)
+        p.recurrence_days_of_month = list(days_of_month)
+        p.recurrence_yearly_from, p.recurrence_yearly_to = yearly_from, yearly_to
+
     await request.app.state.auditor.record(
         "package.updated", actor=principal.subject, tenant=tenant,
         resource=f"package:{package_id}", ip=request.client.host if request.client else "")
 
-    for fld in ("name", "price_minor", "active", "sort"):
+    for fld in ("name", "price_minor", "active", "sort", "person_count"):
         val = getattr(body, fld)
         if val is not None:
             setattr(p, fld, val.strip() if isinstance(val, str) else val)
 
     await store.save(p)
-    return p.public()
+    return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
