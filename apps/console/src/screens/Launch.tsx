@@ -117,6 +117,8 @@ interface Branch { id: string; name: string; active?: boolean }
 
 interface Service { id: string; name: string }
 
+interface Package { id: string; name: string; active?: boolean }
+
 export function Launch({ session, catalog, onDone, initialGoalId }:
     { session: Session; catalog: Catalog; onDone: () => void; initialGoalId?: string }) {
   const [goals, setGoals] = useState<Loading<Goal[]>>(undefined);
@@ -145,6 +147,10 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   // arabic-indic-digits: intentional — «٢٠٪» appears in the note above as the shape we refuse.
   const [offerValue, setOfferValue] = useState('');
   const [services, setServices] = useState<Service[] | null>([]);
+  // `package_offer`'s OWN answer for the "catalogue" blank — a package, never a service (packages
+  // feature). Fetched the same way `services` is: this service holds no catalogue of its own.
+  const [packages, setPackages] = useState<Package[] | null>([]);
+  const [packageId, setPackageId] = useState('');
   // HIS BRANCHES, and the empty list is the common case — one branch, or a role that may not read
   // them. The picker below simply does not render then, which is right: a shop with one place has
   // no targeting decision to make, and a control offering one option is a control that lies about
@@ -223,6 +229,14 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         .catch(() => setServices(null));
     }
 
+    // AND HIS PACKAGES, for `package_offer` — same reasoning, same door.
+    const pkgs = action(catalog, 'operations.list_packages');
+    if (pkgs) {
+      call<{ packages: Package[] }>(session, pkgs)
+        .then((x) => setPackages((x.packages ?? []).filter((p) => p.active !== false)))
+        .catch(() => setPackages(null));
+    }
+
     // AND HIS BRANCHES, for the same reason: a campaign aimed at one of them must name it, and a
     // name this screen invented would reach nobody.
     const brs = action(catalog, 'operations.list_branches');
@@ -239,11 +253,14 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
     try {
       setPreview(await call<Preview>(session, previewAction, {
         goal: goal.goal, owner_text: ownerText, service_id: serviceId,
+        // MUTUALLY EXCLUSIVE WITH `service_id` — only `package_offer` ever sets this.
+        package_id: packageId,
         // THE BRANCH IS IN THE PREVIEW TOO, and that is the whole point of previewing: the count
         // he decides on must be the count that goes out.
         branch_id: branchId,
         offer_value: offerValue,
         service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
+        package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
         // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
         // would still be sending after the offer has ended, and that refusal is only useful
         // BEFORE he presses.
@@ -414,8 +431,24 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         ) : null}
 
         {/* WHICH SERVICE, when the goal is about one. The cycle lock (§10.9.1) holds back whoever
-            took it too recently — and it can only do that if the campaign names the service. */}
-        {hasBlank(picked, 'catalogue') ? (
+            took it too recently — and it can only do that if the campaign names the service.
+            `package_offer` shares this SAME "catalogue" blank kind (one template, `mkt_offer`,
+            approved once for both — see core/models.py's own note) but fills it with a PACKAGE
+            instead: no cycle lock applies to it (a package has no single rhythm to hold anyone
+            back on), so this is purely which package the message names. */}
+        {hasBlank(picked, 'catalogue') && picked.goal === 'package_offer' ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">على أي باقة؟</span>
+            <select
+              value={packageId}
+              onChange={(e) => { setPackageId(e.target.value); setPreview(null); }}
+              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+            >
+              <option value="">اختر باقة</option>
+              {(packages ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+        ) : hasBlank(picked, 'catalogue') ? (
           <label className="flex flex-col gap-1">
             <span className="text-sm">على أي خدمة؟</span>
             <select
@@ -512,9 +545,11 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
                 try {
                   await call(session, createAction, {
                     goal: picked.goal, owner_text: ownerText, service_id: serviceId,
+                    package_id: packageId,
                     branch_id: branchId,
                     offer_value: offerValue,
                     service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
+                    package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
                     expires_at: expiresAt,
                     fire_at: fireAt,
                   });
