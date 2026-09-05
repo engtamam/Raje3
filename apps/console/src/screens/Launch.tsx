@@ -488,9 +488,17 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
 
         <div className="flex flex-wrap gap-2">
           {!preview ? (
-            // REFUSED HERE RATHER THAN BY THE SERVER. He is looking at the field; a round trip to
-            // be told to fill it in is a round trip that teaches him nothing.
-            <Button disabled={busy || (picked.offers && (!endsOn || !offerValue))}
+            // REFUSED HERE RATHER THAN BY THE SERVER, BUT ONLY FOR A FIELD HE CAN ACTUALLY SEE.
+            // This used to gate on `picked.offers` — a fact about the GOAL, not about what THIS
+            // shop's template currently has room for. A goal whose template is still under Meta's
+            // review (or never seeded) comes back with `blanks: []` — no amount/date box renders
+            // at all (both gated on `hasBlank` below) — yet the button still demanded them,
+            // deadlocking the exact screen the card was just unlocked to let him reach. Gating on
+            // `hasBlank` instead means: if the box is not drawn, nothing here waits on it — press
+            // resolves to the server's own refusal (`ask()`'s catch already renders it as-is).
+            <Button disabled={busy
+                              || (hasBlank(picked, 'amount') && !offerValue)
+                              || (hasBlank(picked, 'date') && !endsOn)}
                     onClick={() => void ask(picked)}>اعرض ما سيصل</Button>
           ) : (
             <Button
