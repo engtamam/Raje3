@@ -45,6 +45,17 @@ def subject_ref(salt: str, tenant: str, subject: str) -> str:
                          "every email address, which is not a pseudonym at all")
     if not subject:
         raise ValueError("subject must not be empty")
+    # ALREADY A PSEUDONYM (د-2, same defect a sibling service's own pii.py names in full). An
+    # erasure fans out by the pseudonym, since that is the one identifier every other service
+    # holds — hashing it AGAIN here would produce the ref of a ref, matching no row anywhere: the
+    # scan finds nothing, answers `already_absent` with 200, and the request closes COMPLETED
+    # while every message and pseudonymised record stays exactly where it was.
+    #
+    # IDEMPOTENT, NOT REFUSED. A caller that already holds a subject_ref and passes it back in is
+    # the ordinary case, not the bug — folding it to itself fixes the defect without turning that
+    # ordinary call into a crash.
+    if is_subject_ref(subject):
+        return subject
     mac = hmac.new(salt.encode("utf-8"),
                    f"{tenant}|{subject}".encode("utf-8"),
                    hashlib.sha256)
