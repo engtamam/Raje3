@@ -74,6 +74,11 @@ def build(pairs: list[Pair], *, names: dict[str, str] | None = None,
         size = missing_counts.get((p.a, p.b)) or missing_counts.get((p.b, p.a)) or p.customers
         if size < min_opportunity:
             continue
+        # ONE SIDE ALREADY A PACKAGE (packages feature) — `pkg:<id>` is a synthetic item
+        # (core/tick.py's `_visit_items`), never a real service id, and the right action for the
+        # owner is different: he does not need a NEW package for something one of his packages
+        # already is — he needs to ADD the extra, still-separate service INTO the existing one.
+        pkg_side = p.a if p.a.startswith("pkg:") else (p.b if p.b.startswith("pkg:") else "")
         out.append({
             "a": p.a, "b": p.b,
             "a_name": names.get(p.a, p.a), "b_name": names.get(p.b, p.b),
@@ -81,9 +86,16 @@ def build(pairs: list[Pair], *, names: dict[str, str] | None = None,
             "customers": size,
             # A temporal pair is NOT a bundle. The action differs, and saying so on the card is
             # what stops an owner pricing two things together that belong a month apart.
-            "action": "bundle" if p.verdict == "real" else "reminder",
-            "action_label": ("اجعلها باقة — تحدّد سعرها أنت" if p.verdict == "real"
-                             else "ذكّر بها في الزيارة القادمة"),
+            "action": ("extend_package" if pkg_side and p.verdict == "real" else
+                      "bundle" if p.verdict == "real" else "reminder"),
+            "action_label": (
+                "أضفها لهذه الباقة" if pkg_side and p.verdict == "real" else
+                "اجعلها باقة — تحدّد سعرها أنت" if p.verdict == "real" else
+                "ذكّر بها في الزيارة القادمة"),
+            # THE PACKAGE'S OWN id, "" for an ordinary pair — the console reads this to know WHICH
+            # package to open the "add a service" form against, rather than parsing it back out of
+            # `a`/`b`.
+            "package_id": pkg_side[len("pkg:"):] if pkg_side else "",
         })
         if len(out) >= limit:
             break

@@ -1457,6 +1457,24 @@ async def read_catalogue(request: Request, body: CatalogueIn) -> dict:
             "count": len(rows)}
 
 
+@router.post("/operations/packages", dependencies=[Depends(require_internal_token)])
+async def read_packages(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's packages — id, name, and its live component service ids.
+
+    FOR `insights`, so a visit tagged `package_id` can be folded into the association engine as
+    ONE synthetic item (`pkg:<id>`) rather than as its raw components — a package and an extra,
+    un-bundled service bought alongside it are then a real, learnable pair, the same way two
+    ordinary services are (see core/tick.py's own note on where this is used). Retired packages
+    ARE included, same reasoning as `read_catalogue` above: a 90-day window covers visits to a
+    package that has since been stopped.
+    """
+    c = request.app.state.container
+    rows = await PackageStore(c.datastore).list(body.tenant, active_only=False)
+    return {"packages": [{"id": p.id, "name": p.name, "service_ids": list(p.service_ids),
+                          "active": p.active} for p in rows],
+            "count": len(rows)}
+
+
 @router.post("/operations/catalogue-with-prices", dependencies=[Depends(require_internal_token)])
 async def read_catalogue_with_prices(request: Request, body: CatalogueIn) -> dict:
     """One establishment's ACTIVE services — id, name, and price. A separate route from

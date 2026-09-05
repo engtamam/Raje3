@@ -190,3 +190,27 @@ def test_a_suggested_package_carries_its_source_pair(client):
                           headers=_auth("operations.manage_services")).json()
     assert created["source"] == "suggested"
     assert set(created["source_service_ids"]) == {a["id"], b["id"]}
+
+
+# ── /internal/operations/packages — insights' read of the catalogue's own packages ──────────────
+def test_internal_packages_route_includes_retired_ones(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة داخلية", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000},
+                          headers=_auth("operations.manage_services")).json()
+    client.patch(f"/api/v1/staff/packages/{created['id']}", json={"active": False},
+                headers=_auth("operations.manage_services"))
+
+    r = client.post("/internal/operations/packages",
+                    json={"tenant": "t1"}, headers={"X-Internal-Token": "t" * 40})
+    assert r.status_code == 200, r.text
+    rows = {p["id"]: p for p in r.json()["packages"]}
+    assert created["id"] in rows
+    assert rows[created["id"]]["active"] is False
+    assert set(rows[created["id"]]["service_ids"]) == {a["id"], b["id"]}
+
+
+def test_internal_packages_route_needs_a_token(client):
+    r = client.post("/internal/operations/packages", json={"tenant": "t1"})
+    assert r.status_code == 401

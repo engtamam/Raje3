@@ -248,6 +248,7 @@ class Settings(BaseSettings):
     # THEIRS. Service names and cycles: names make a bundle card pressable, cycles make cycle
     # completion free.
     OPERATIONS_CATALOGUE_PATH: str = "/internal/operations/catalogue"
+    OPERATIONS_PACKAGES_PATH: str = "/internal/operations/packages"
     # Branch NAMES for the comparison table — ids alone made every row read «بلا اسم».
     OPERATIONS_BRANCHES_PATH: str = "/internal/operations/branches"
     # Operator NAMES for the staff comparison table — same reason as branches above.

@@ -86,6 +86,17 @@ class Tick:
         """
         visits = await self.peers.visits(tenant, since=since, limit=self.visit_limit)
         catalogue = await self.peers.catalogue(tenant)
+        # A PACKAGE'S OWN LIVE COMPONENTS, so a visit tagged `package_id` can be folded into ONE
+        # synthetic item (`pkg:<id>`) for the association engine — see `_pkg_item_ids`'s own note.
+        # ASKED FOR, NOT DEMANDED, same "an older deploy simply lacks this" reasoning as `branches`/
+        # `operators` below: a peers driver without `packages` degrades to reading a package
+        # visit's components as ordinary services, which is correct (if less sharp) rather than
+        # broken — see `packages()`'s own docstring on `HttpPeers`.
+        ask_pkgs = getattr(self.peers, "packages", None)
+        packages = await ask_pkgs(tenant) if ask_pkgs else []
+        pkg_components = {str(p.get("id") or ""): frozenset(str(s) for s in p.get("service_ids") or [])
+                          for p in packages}
+        pkg_names = {f"pkg:{p.get('id', '')}": p.get("name", "") for p in packages}
         # THE SEND LOG, ONCE PER TENANT. Read here rather than inside _compute_scope: a branch
         # snapshot would otherwise re-fetch the whole shop's messages for every branch.
         #
@@ -129,7 +140,8 @@ class Tick:
                           for o in (await ask_ops(tenant) if ask_ops else [])}
         snap = await self._compute_scope(tenant, visits, catalogue, now=now, branch_id="",
                                          effect=effect, branch_names=branch_names,
-                                         operator_names=operator_names)
+                                         operator_names=operator_names,
+                                         pkg_components=pkg_components, pkg_names=pkg_names)
 
         branches = sorted({str(v.get("branch_id") or "") for v in visits if v.get("branch_id")})
         # ONLY FOR A SHOP WITH MORE THAN ONE. A single-branch establishment gets no branch
@@ -146,16 +158,20 @@ class Tick:
                 scoped.truncated = bool(getattr(visits, "truncated", False))
                 await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
                                           effect=effect, branch_names=branch_names,
-                                          operator_names=operator_names)
+                                          operator_names=operator_names,
+                                          pkg_components=pkg_components, pkg_names=pkg_names)
         return snap
 
     async def _compute_scope(self, tenant: str, visits: list[dict], catalogue: list[dict],
                              *, now: int, branch_id: str,
                              effect: dict[str, Any] | None = None,
                              branch_names: dict[str, str] | None = None,
-                             operator_names: dict[str, str] | None = None) -> Snapshot:
+                             operator_names: dict[str, str] | None = None,
+                             pkg_components: dict[str, frozenset[str]] | None = None,
+                             pkg_names: dict[str, str] | None = None) -> Snapshot:
         cycles = {s.get("id", ""): int(s.get("cycle_days") or 0) for s in catalogue}
         names = {s.get("id", ""): s.get("name", "") for s in catalogue}
+        pkg_components = pkg_components or {}
 
         eff = effect or {}
         # DID WE ACTUALLY READ THE SEND LOG? The peer sets `ok` only on a read that succeeded; a
@@ -220,6 +236,7 @@ class Tick:
             "weak_services": indicators.weak_services(
                 visits, catalogue=[s.get("id", "") for s in catalogue]),
             "service_names": names,
+            "package_names": dict(pkg_names or {}),
         }
 
         # ── the engine — THE WHOLE ESTABLISHMENT ONLY ─────────────────────────────────────────
@@ -239,9 +256,13 @@ class Tick:
             # Sequences are rebuilt rather than incremented, because a corrected or erased visit
             # must DISAPPEAR from them — an incremented set can only grow, and a customer's
             # deleted history would live on in the thing we derived from it.
-            sequences = await self._rebuild_sequences(tenant, visits, now=now)
+            sequences = await self._rebuild_sequences(tenant, visits, now=now,
+                                                      pkg_components=pkg_components)
             median = _median_basket(visits)
-            baskets = [list(set(v.get("service_ids") or [])) for v in visits
+            # THE GROUP-BASKET TEST STILL READS THE RAW SERVICE LIST — `is_group_basket` looks for
+            # a repeated line or an outsized receipt, both facts about what was literally on the
+            # bill, unrelated to whether some of those lines happen to be one package's components.
+            baskets = [_visit_items(v, pkg_components) for v in visits
                        if not associations.is_group_basket(
                            list(set(v.get("service_ids") or [])),
                            quantities=v.get("quantities") or {}, median_size=median)]
@@ -342,14 +363,20 @@ class Tick:
         return snap
 
     async def _rebuild_sequences(self, tenant: str, visits: list[dict],
-                                 *, now: int) -> list[CustomerSequence]:
+                                 *, now: int,
+                                 pkg_components: dict[str, frozenset[str]] | None = None
+                                 ) -> list[CustomerSequence]:
+        pkg_components = pkg_components or {}
         by_ref: dict[str, CustomerSequence] = {}
         for v in visits:
             ref = str(v.get("subject_ref") or "")
             if not ref:
                 continue
             seq = by_ref.setdefault(ref, CustomerSequence(tenant=tenant, subject_ref=ref))
-            here = {str(x) for x in (v.get("service_ids") or []) if x}
+            # SAME FOLDING AS THE BASKET SIDE — a customer's own history must speak the identical
+            # item vocabulary as the per-receipt one, or the two lift axes are comparing different
+            # things for the same visit (see `_visit_items`'s own docstring).
+            here = set(_visit_items(v, pkg_components))
             seq.services = sorted(set(seq.services) | here)
             for svc in here:
                 # Per VISIT, not per line: a receipt listing the same service twice is one visit
@@ -379,6 +406,36 @@ class Tick:
                                       sum(1 for v in visits if v.get("operator_id")) / total, 3)
                                   if total else 0.0},
         }
+
+
+def _visit_items(v: dict, pkg_components: dict[str, frozenset[str]]) -> list[str]:
+    """This visit's fingerprint for the association engine — its real `service_ids`, UNLESS it was
+    tagged `package_id` and we know that package's own current components, in which case those
+    components collapse into ONE synthetic item (`pkg:<id>`).
+
+    WHY THIS EXISTS (packages feature, requirement: "a package + an extra service bought together
+    often should surface the same way two services do"). Left unfolded, a package's own components
+    would always appear together on every visit that included it — a manufactured, meaningless
+    lift of ~infinity between them, and no way for the engine to ever learn "this package is often
+    taken WITH service X" (X would be one basket item among the package's own several, diluted into
+    noise rather than standing on its own against the package as a whole).
+
+    ANY SERVICE ON THE VISIT NOT PART OF THE PACKAGE IS KEPT AS ITSELF — that is exactly the pair
+    this feature exists to find: `pkg:<id>` + a real, un-bundled `service_id`, scored by the SAME
+    two-axis engine as any other pair, with no new code path in associations.py at all.
+
+    A visit with `package_id` set but the package unknown to us (a peer read that failed, or a
+    package retired since) falls back to its raw `service_ids` — degraded, never broken: the
+    package's components are simply learned as ordinary services for that one pass, same as before
+    this feature existed.
+    """
+    ids = [str(x) for x in (v.get("service_ids") or []) if x]
+    pkg_id = str(v.get("package_id") or "")
+    components = pkg_components.get(pkg_id) if pkg_id else None
+    if not components:
+        return ids
+    extra = [i for i in ids if i not in components]
+    return sorted(set(extra) | {f"pkg:{pkg_id}"})
 
 
 def _median_basket(visits: list[dict]) -> int:

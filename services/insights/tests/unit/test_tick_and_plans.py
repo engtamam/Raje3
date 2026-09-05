@@ -8,7 +8,7 @@ from app.adapters.peers import NullPeers
 from app.core import associations, bundles, plans
 from app.core.digest import Subscriptions, build as build_digest
 from app.core.models import PAIRS, SEQUENCES, SNAPSHOTS, Pair
-from app.core.tick import Tick
+from app.core.tick import Tick, _visit_items
 
 NOW = 1_800_000_000
 DAY = 86400
@@ -285,6 +285,50 @@ def test_a_bundle_card_names_the_services_and_the_size_and_no_price():
 def test_a_temporal_pair_is_a_reminder_not_a_bundle():
     """Pricing them together sells the customer something he did not need today."""
     p = Pair(tenant=T, a="oil", b="filter", verdict="temporal", customers=200)
+    assert bundles.build([p])[0]["action"] == "reminder"
+
+
+# ── a package as its own item (packages feature) ─────────────────────────────────────────────────
+def test_a_package_paired_with_an_extra_service_offers_extend_not_a_new_bundle():
+    """He does not need a NEW package for something one of his packages already is — he needs the
+    extra service ADDED to the existing one."""
+    p = Pair(tenant=T, a="pkg:pkg1", b="wax", verdict="real", customers=50, lift_basket=2.0)
+    card = bundles.build([p], names={"pkg:pkg1": "باقة الصيانة", "wax": "تلميع"})[0]
+    assert card["action"] == "extend_package"
+    assert card["action_label"] == "أضفها لهذه الباقة"
+    assert card["package_id"] == "pkg1"
+    assert card["a_name"] == "باقة الصيانة" and card["b_name"] == "تلميع"
+
+
+def test_an_ordinary_pair_carries_no_package_id():
+    p = Pair(tenant=T, a="oil", b="filter", verdict="real", customers=340, lift_basket=2.4)
+    assert bundles.build([p])[0]["package_id"] == ""
+
+
+def test_visit_items_folds_a_packages_own_components_into_one_synthetic_item():
+    v = {"service_ids": ["oil", "filter"], "package_id": "pkg1"}
+    assert _visit_items(v, {"pkg1": frozenset({"oil", "filter"})}) == ["pkg:pkg1"]
+
+
+def test_visit_items_keeps_an_extra_service_bought_alongside_the_package():
+    v = {"service_ids": ["oil", "filter", "wax"], "package_id": "pkg1"}
+    assert _visit_items(v, {"pkg1": frozenset({"oil", "filter"})}) == ["pkg:pkg1", "wax"]
+
+
+def test_visit_items_falls_back_to_raw_service_ids_when_the_package_is_unknown():
+    """A peer read that failed, or a package retired since — degraded, never broken."""
+    v = {"service_ids": ["oil", "filter"], "package_id": "pkg_gone"}
+    assert _visit_items(v, {}) == ["oil", "filter"]
+
+
+def test_visit_items_is_unaffected_for_an_ordinary_visit():
+    v = {"service_ids": ["wash"], "package_id": ""}
+    assert _visit_items(v, {"pkg1": frozenset({"oil"})}) == ["wash"]
+
+
+def test_a_temporal_pair_with_a_package_side_is_still_only_a_reminder():
+    """A temporal pair is never priced together regardless of which side is a package."""
+    p = Pair(tenant=T, a="pkg:pkg1", b="wax", verdict="temporal", customers=200)
     assert bundles.build([p])[0]["action"] == "reminder"
 
 

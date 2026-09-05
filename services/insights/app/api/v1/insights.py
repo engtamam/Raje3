@@ -301,8 +301,8 @@ async def suggested_bundles(request: Request, principal: Principal = Depends(_RE
     for m in values.get("missed_opportunities") or []:
         k = (m.get("has", ""), m.get("missing", ""))
         missing[k] = missing.get(k, 0) + 1
-    cards = _bundles.build(pairs, names=values.get("service_names") or {},
-                           missing_counts=missing,
+    names = {**(values.get("service_names") or {}), **(values.get("package_names") or {})}
+    cards = _bundles.build(pairs, names=names, missing_counts=missing,
                            min_opportunity=get_settings().INSIGHTS_MIN_OPPORTUNITY)
     return {"bundles": cards, "count": len(cards)}
 

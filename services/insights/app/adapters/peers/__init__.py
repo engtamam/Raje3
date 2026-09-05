@@ -55,11 +55,13 @@ class NullPeers:
                  catalogue: list[dict] | None = None,
                  entitlements: set[str] | None = None,
                  branches: list[dict] | None = None,
-                 operators: list[dict] | None = None) -> None:
+                 operators: list[dict] | None = None,
+                 packages: list[dict] | None = None) -> None:
         self._visits = visits or []
         self._catalogue = catalogue or []
         self._branches = branches or []
         self._operators = operators or []
+        self._packages = packages or []
         # What a test says this caller may see. Empty is the ordinary case: an owner sees it all.
         self.scope = ""
         # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
@@ -81,6 +83,9 @@ class NullPeers:
 
     async def catalogue(self, tenant: str) -> list[dict]:
         return list(self._catalogue)
+
+    async def packages(self, tenant: str) -> list[dict]:
+        return list(self._packages)
 
     async def branches(self, tenant: str) -> list[dict]:
         return list(self._branches)
@@ -115,6 +120,7 @@ class HttpPeers:
     driver = "http"
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
+                 packages_path: str = "/internal/operations/packages",
                  branches_path: str = "/internal/operations/branches",
                  operators_path: str = "/internal/operations/operators",
                  scope_path: str = "/internal/operations/branch-scope",
@@ -128,6 +134,7 @@ class HttpPeers:
                  token: str, timeout: int = 8) -> None:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
+        self._packages_url = operations_url.rstrip("/") + packages_path
         self._branches_url = operations_url.rstrip("/") + branches_path
         self._operators_url = operations_url.rstrip("/") + operators_path
         self._scope_url = operations_url.rstrip("/") + scope_path
@@ -192,6 +199,16 @@ class HttpPeers:
             # NOT fatal. Without the catalogue we lose service NAMES and cycle completion, and
             # every other indicator still computes. Failing the whole snapshot over a display
             # detail would take the dashboard down to protect a label.
+            return []
+
+    async def packages(self, tenant: str) -> list[dict]:
+        try:
+            return (_post(self._packages_url, {"tenant": tenant},
+                          self._token, self._timeout)).get("packages") or []
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            # NOT fatal, same posture as `catalogue` above. Without this a package visit is simply
+            # not folded into a synthetic item — its components still count as ordinary services,
+            # which is the CORRECT degraded behaviour (see tick.py's own note), not a broken one.
             return []
 
     async def branch_scope(self, tenant: str, subject: str) -> str:
@@ -420,6 +437,7 @@ def build_peers(settings) -> Any:
     return HttpPeers(operations_url=settings.OPERATIONS_SERVICE_URL,
                      visits_path=settings.OPERATIONS_VISITS_SINCE_PATH,
                      catalogue_path=settings.OPERATIONS_CATALOGUE_PATH,
+                     packages_path=settings.OPERATIONS_PACKAGES_PATH,
                      branches_path=settings.OPERATIONS_BRANCHES_PATH,
                      operators_path=settings.OPERATIONS_OPERATORS_PATH,
                      scope_path=settings.OPERATIONS_SCOPE_PATH,
