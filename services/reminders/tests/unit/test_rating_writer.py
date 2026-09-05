@@ -47,7 +47,8 @@ def test_posts_to_the_visit_specific_url():
         ok = run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text="ممتاز"))
     assert ok is True
     assert seen["url"] == "http://ops/internal/operations/visits/vis_1/rating"
-    assert seen["body"] == {"tenant": "t1", "rating": 5, "feedback_text": "ممتاز"}
+    assert seen["body"] == {"tenant": "t1", "rating": 5, "feedback_text": "ممتاز",
+                            "subject_ref": "", "rating_points": 0}
 
 
 def test_recorded_false_from_operations_is_reported_as_false():
@@ -175,3 +176,32 @@ def test_two_different_operations_urls_never_cross_talk():
         run(b.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text=""))
     assert seen == ["http://ops-a/internal/operations/visits/vis_1/rating",
                     "http://ops-b/internal/operations/visits/vis_1/rating"]
+
+
+def test_subject_ref_and_rating_points_ride_along_when_given():
+    w = writer()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text="",
+                    subject_ref="sub_abc", rating_points=25))
+    assert seen["body"]["subject_ref"] == "sub_abc"
+    assert seen["body"]["rating_points"] == 25
+
+
+def test_subject_ref_and_rating_points_default_to_blank_and_zero():
+    w = writer()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text=""))
+    assert seen["body"]["subject_ref"] == ""
+    assert seen["body"]["rating_points"] == 0

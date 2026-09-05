@@ -84,7 +84,8 @@ def test_a_matched_reply_writes_the_rating_and_returns_true():
     ok = run(consumer.handle(_msg("rate:vis_1", stars="4", comment="جيد")))
     assert ok is True
     assert writer.written == [{"tenant": "t1", "visit_id": "vis_1", "rating": 4,
-                               "feedback_text": "جيد"}]
+                               "feedback_text": "جيد", "subject_ref": "sub_a",
+                               "rating_points": 0}]
 
 
 def test_an_unmatched_token_writes_nothing_and_returns_false():
@@ -207,3 +208,62 @@ def test_the_writer_receives_exactly_the_comment_the_customer_sent_including_emp
                           visit_id="vis_1", now=1000))
     run(consumer.handle(_msg("t1", stars="4")))       # no comment
     assert writer.written[0]["feedback_text"] == ""
+
+
+# ── loyalty bonus wiring (Phase 4) ──────────────────────────────────────────────────────────────
+def test_no_bonus_points_callback_credits_nothing_by_default():
+    # a consumer built without `bonus_points` (e.g. an older wiring) never invents points.
+    consumer, requests, writer = _consumer()
+    run(requests.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_1", now=1000))
+    run(consumer.handle(_msg("t1", stars="5")))
+    assert writer.written[0]["rating_points"] == 0
+    assert writer.written[0]["subject_ref"] == "sub_a"
+
+
+def test_bonus_points_callback_result_rides_through_to_the_writer():
+    store = MemoryDataStore()
+    writer = NullRatingWriter()
+    requests = RatingRequestStore(store)
+
+    async def _points(tenant: str) -> int:
+        assert tenant == "t1"
+        return 25
+
+    consumer = RatingConsumer(requests=requests, writer=writer, bonus_points=_points)
+    run(requests.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_1", now=1000))
+    run(consumer.handle(_msg("t1", stars="5")))
+    assert writer.written[0]["rating_points"] == 25
+    assert writer.written[0]["subject_ref"] == "sub_a"
+
+
+def test_bonus_points_callback_returning_zero_credits_nothing():
+    store = MemoryDataStore()
+    writer = NullRatingWriter()
+    requests = RatingRequestStore(store)
+
+    async def _points(tenant: str) -> int:
+        return 0    # disabled, unentitled, or points=0 — the callback's own decision
+
+    consumer = RatingConsumer(requests=requests, writer=writer, bonus_points=_points)
+    run(requests.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_1", now=1000))
+    run(consumer.handle(_msg("t1", stars="5")))
+    assert writer.written[0]["rating_points"] == 0
+
+
+def test_bonus_points_callback_is_never_called_for_an_unmatched_token():
+    calls = []
+
+    async def _points(tenant: str) -> int:
+        calls.append(tenant)
+        return 10
+
+    store = MemoryDataStore()
+    writer = NullRatingWriter()
+    requests = RatingRequestStore(store)
+    consumer = RatingConsumer(requests=requests, writer=writer, bonus_points=_points)
+    ok = run(consumer.handle(_msg("no-such-token", stars="5")))
+    assert ok is False
+    assert calls == []

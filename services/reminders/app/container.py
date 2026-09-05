@@ -267,8 +267,27 @@ def build_container(settings: Settings) -> Container:
             token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
     else:
         rating_writer = NullRatingWriter()
+    async def _rating_bonus_points(tenant: str) -> int:
+        """How many points a NEW rating on this tenant's visit is worth right now.
+
+        THE LIVE SETTING, RE-CHECKED AT REPLY TIME — same two facts `_rating_eligible`
+        (api/internal.py) already asks before SENDING the message, asked again here at the one
+        later moment this product can still act on: the customer's actual answer. See the
+        operations rating route's own docstring for why this is the deliberate choice over trying
+        to honour a send-time value nothing in this codebase durably records.
+        """
+        owns = await container.app_entitlement.allowed(tenant, "feature.rating")
+        if not owns:
+            return 0
+        from app.core.rating_settings import RatingSettingsStore
+        settings_row = await RatingSettingsStore(container.datastore).load(tenant)
+        if not settings_row.enabled:
+            return 0
+        return settings_row.points
+
     container.rating_consumer = RatingConsumer(
-        requests=RatingRequestStore(container.datastore), writer=rating_writer)
+        requests=RatingRequestStore(container.datastore), writer=rating_writer,
+        bonus_points=_rating_bonus_points)
 
     # DID IT ARRIVE. The receipt feed is the other half of the sender: one hands the message over,
     # the other hears back what happened to it. Built beside it deliberately — a deployment that
