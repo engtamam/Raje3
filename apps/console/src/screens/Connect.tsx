@@ -18,7 +18,7 @@
  * itself what a CANCEL means.
  */
 import { useEffect, useState } from 'react';
-import { hasFailed, isLoading } from '../loading';
+import { DENIED, hasFailed, isDenied, isLoading, type Loading } from '../loading';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { action, call, type Catalog } from '../catalog';
@@ -351,7 +351,7 @@ export function Connect({
  */
 export function ConnectByBranch({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [mode, setMode] = useState<{ mode: string; available?: boolean } | null | undefined>(undefined);
-  const [branches, setBranches] = useState<{ id: string; name?: string }[] | null>(null);
+  const [branches, setBranches] = useState<Loading<{ id: string; name?: string }[]>>(undefined);
   // ONE INDEPENDENT STATUS PER BRANCH — a Map, not one shared `ConnectState`, because a chain's
   // three branches are three unrelated connections and reading one must never repaint another.
   const [states, setStates] = useState<Record<string, ConnectState | null | undefined>>({});
@@ -369,14 +369,14 @@ export function ConnectByBranch({ session, catalog }: { session: Session; catalo
   useEffect(() => {
     if (mode?.mode !== 'per_branch') return;
     const b = action(catalog, 'operations.list_branches');
-    if (!b) { setBranches([]); return; }
+    if (!b) { setBranches(DENIED); return; }
     call<{ branches?: { id: string; name?: string }[] }>(session, b)
       .then((x) => setBranches(x.branches ?? []))
-      .catch(() => setBranches([]));
+      .catch(() => setBranches(null));
   }, [session, catalog, mode?.mode]);
 
   useEffect(() => {
-    if (!branches || !branches.length) return;
+    if (!Array.isArray(branches) || !branches.length) return;
     const statusAction = action(catalog, 'whatsapp.connect_status');
     if (!statusAction) return;
     branches.forEach((br) => {
@@ -399,7 +399,21 @@ export function ConnectByBranch({ session, catalog }: { session: Session; catalo
     return <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />;
   }
 
-  if (!branches) return null;
+  if (isLoading(branches)) return null;
+  if (isDenied(branches)) {
+    return (
+      <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
+        لا يشمل دورك هذا القسم
+      </p>
+    );
+  }
+  if (hasFailed(branches)) {
+    return (
+      <p role="alert" className="rounded-card bg-surface-1 p-4 text-sm text-danger shadow-sm">
+        تعذّرت قراءة فروعك
+      </p>
+    );
+  }
   if (!branches.length) {
     return (
       <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
