@@ -43,6 +43,18 @@ SHARED = re.compile(r'^\s*SHARED="([^"]+)"', re.M)
 #: A shell string listing service names, in the same file.
 LIST = re.compile(r'^\s*([A-Za-z_][A-Za-z0-9_]*)="([a-z0-9 _-]+)"\s*$', re.M)
 
+#: A service minted by its OWN hardcoded block rather than through one of the named lists above —
+#: written down with the reason, same idiom as every other "found, judged, and it's fine" allow-list
+#: in this repository (NOT_FOR_A_SCREEN, SOLD_UNBUILT, FROM_A_PEER). Checked by literal string
+#: presence in the minting script, not by parsing its shell — this file does not need to.
+HANDLED_SEPARATELY: dict[str, str] = {
+    "secrets-admin": "has no database and holds no pseudonym — it gets its own two-value block "
+                     "(INTERNAL_SERVICE_TOKEN, TOKEN_PUBLIC_KEY only), never PII_SALT/DATASTORE_DSN "
+                     "it has no use for; see mint-our-secrets.sh's own comment on why lumping it "
+                     "into a list built for a service WITH a database would be wrong, not just "
+                     "differently-shaped",
+}
+
 
 def main() -> int:
     if not SERVICES.is_dir() or not DEPLOY.is_dir():
@@ -71,25 +83,41 @@ def main() -> int:
         return 1
 
     bad: list[str] = []
-    checked = 0
     for path, text in minters:
         rel = path.relative_to(ROOT).as_posix()
-        # The list of recipients: the assignment in this file that names services and nothing else.
+        # THE UNION, NOT EACH LIST ALONE. What this gate's own docstring actually asks — "every
+        # service we own gets minted somewhere in this file" — is a coverage question, not a demand
+        # that any ONE list be complete by itself. A script legitimately splits provisioning into
+        # complementary phases (a full create-then-patch loop for services with their own database,
+        # a patch-only loop for two whose secret and DSN gen-secrets.py already owns) — checking
+        # each list for 100% coverage would fail the very design that keeps a shared value from
+        # ever clobbering a DSN it must not touch.
         lists = [(name, set(val.split())) for name, val in LIST.findall(text)
                  if set(val.split()) & ours]
-        if not lists:
+        if not lists and not any(f"{svc}-secrets" in text for svc in HANDLED_SEPARATELY):
             bad.append(f"{rel}: mints shared secrets but names no service — nobody receives them")
             continue
+
+        named_union: set[str] = set()
         for name, named in lists:
-            checked += 1
-            missing = ours - named
+            named_union |= named
             extra = named - ours
-            if missing:
-                bad.append(f"{rel}: {name} omits {' '.join(sorted(missing))} — that service is "
-                           f"never minted, and boots without PII_SALT")
             if extra:
                 bad.append(f"{rel}: {name} names {' '.join(sorted(extra))}, which is not a service "
                            f"in this repository")
+
+        # A service this file's own comments say is handled by a hardcoded block rather than one of
+        # the named lists — credited only if that block is genuinely present (the literal secret
+        # name it creates/patches), never assumed from the allow-list entry alone.
+        for svc, _reason in HANDLED_SEPARATELY.items():
+            if f"{svc}-secrets" in text:
+                named_union.add(svc)
+
+        missing = ours - named_union
+        if missing:
+            bad.append(f"{rel}: no list (and no documented separate block) covers "
+                       f"{' '.join(sorted(missing))} — that service is never minted, and boots "
+                       f"without PII_SALT")
 
     if bad:
         print(f"{len(bad)} problem(s) with the services that receive our shared secrets:")
@@ -100,7 +128,8 @@ def main() -> int:
         print("becomes two people — surfacing at an erasure that reports success over nothing.")
         return 1
 
-    print(f"{checked} shared-secret recipient list(s): every one names all {len(ours)} services")
+    print(f"every one of {len(ours)} services is minted somewhere — by a named list or a "
+         f"documented separate block")
     return 0
 
 
