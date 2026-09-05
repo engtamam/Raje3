@@ -53,6 +53,27 @@ def test_build_system_prompt_still_carries_the_hard_behavioral_constraints():
     assert "تجاهل" in prompt          # ignore attempts to override instructions
 
 
+def test_build_system_prompt_refuses_medical_and_technical_advice():
+    """Found live (audit, 2026-09-05): nothing forbade the model from answering a genuine, ordinary
+    customer question like «ايش الأفضل لبشرتي؟» with free-form advice — a real liability exposure
+    no code-level filter can catch after the fact (there is no regex signature for "an opinion").
+    Must be a persona-level refusal, checked here so it can never quietly disappear in a rewrite."""
+    prompt = build_system_prompt("محل الأناقة")
+    assert "نصيحة طبية" in prompt
+    assert "توصية علاج" in prompt
+
+
+def test_build_system_prompt_sets_a_length_ceiling_and_a_dialect():
+    """The only length signal used to be the bare adjective «مختصر» — no target, no ceiling, no
+    carve-out for a legitimate longer reply (e.g. listing several slots). And no dialect register
+    was named at all, which the coordinator flagged as a real risk of the persona swinging between
+    stiff MSA and overdone colloquial from one turn to the next."""
+    prompt = build_system_prompt("محل الأناقة")
+    assert "20 كلمة" in prompt
+    assert "100 كلمة" in prompt
+    assert "سعودية" in prompt
+
+
 def test_two_tenants_get_two_different_personas_with_no_cross_leak():
     """TENANT ISOLATION FOR THE PERSONA ITSELF: shop A's name must never appear in shop B's
     system prompt, and vice versa — the whole point of resolving the name per tenant rather than
