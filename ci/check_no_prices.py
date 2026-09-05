@@ -18,6 +18,16 @@ price list we retired.
 IT ONLY READS WHAT WE WROTE. platform/ is somebody else's tree and read-only to us, and a test
 fixture that happens to charge 29800 for something is not our price list.
 
+A TEST'S OWN MOCK RESPONSE IS THE SAME KIND OF NOT-OUR-PRICE-LIST. An `amount_minor` inside a
+`vi.mock('../catalog', ...)` or a `FakeHttp` script is not a constant the product renders to a
+real customer — it is a made-up number standing in for "whatever billing answers", there so a test
+can assert the screen formats and displays SOME price correctly. It does not drift with the real
+price list, because nothing about the test's own correctness depends on it matching plans.json —
+unlike `PRICE_SMART = 298`, which this guard exists to catch specifically because it silently stops
+matching what billing actually charges. So a file whose own name says it is a test is exempted by
+name (`*.test.ts(x)` under apps/, `tests/` under services/) rather than by loosening the pattern
+that guards real code.
+
 A NUMBER THAT IS GENUINELY NOT A PRICE — 598 as a count, an id, a timeout — is exempted here by
 name with the reason written down, rather than by loosening the pattern until it stops firing.
 """
@@ -115,6 +125,19 @@ PATTERNS = [re.compile(rf"(?<![\d.]){p}(?![\d.])") for p in PRICES]
 # Written down rather than pattern-loosened. Each entry says WHY the number is not a price.
 ALLOW: dict[str, str] = {}
 
+# A TEST FILE'S OWN MOCK DATA, NEVER PRODUCT CODE — see the module docstring's own paragraph on
+# why this is not the same exemption class as EXEMPT_FILES/ALLOW above. `*.test.ts`/`*.test.tsx`
+# is this repo's own console naming convention (see apps/console/vitest config); `tests/` is every
+# service's own pytest root. Anything else under `services/`/`apps/` is still real code and still
+# guarded — this narrows by an actual, checkable fact about the file (its own name/directory), not
+# by loosening what counts as a price.
+def _is_test_file(rel: str) -> bool:
+    parts = rel.split("/")
+    if "tests" in parts[:-1]:
+        return True
+    name = parts[-1]
+    return name.endswith((".test.ts", ".test.tsx", ".test.js"))
+
 
 def main() -> int:
     problems: list[str] = []
@@ -136,6 +159,8 @@ def main() -> int:
                 continue
             rel = f.relative_to(ROOT).as_posix()
             if rel in EXEMPT_FILES or rel in ALLOW:
+                continue
+            if _is_test_file(rel):
                 continue
             try:
                 text = f.read_text(encoding="utf-8")
