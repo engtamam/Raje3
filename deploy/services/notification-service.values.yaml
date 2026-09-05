@@ -117,7 +117,10 @@ env:
   # reporting fake success. Add ",console" back only if a temporary safety net is wanted while
   # credentials are still being provisioned — never as the permanent shape.
   WHATSAPP_CHAIN: "meta"
-  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  # DELETED, NOT LEFT: notification-service's Settings (checked directly, current pinned version)
+  # declares no such field — pydantic silently drops an unknown key, so this line applied nothing,
+  # ever, on any deploy. ci/check_deploy_wiring.py's own gate caught it. If notification-service
+  # genuinely needs to call operations someday, add the field there first, then this line.
   EMAIL_FROM: "no-reply@raje3.sa"
   HTTP_TIMEOUT_SECONDS: "15"
 
