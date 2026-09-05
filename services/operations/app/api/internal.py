@@ -1505,6 +1505,9 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
         return {"recorded": False, "reason": "unknown visit"}
     if visit.rating:
         return {"recorded": True, "changed": False, "visit_id": visit.id}
+    await request.app.state.auditor.record(
+        "visit.rated", actor="reminders", tenant=body.tenant, resource=f"visit:{visit.id}",
+        ip=request.client.host if request.client else "")
     visit.rating = body.rating
     visit.feedback_text = body.feedback_text.strip()
     visit.rated_at = int(time.time())

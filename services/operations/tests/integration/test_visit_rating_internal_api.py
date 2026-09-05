@@ -18,7 +18,13 @@ def client():
     saved = dict(os.environ)
     os.environ.update({"ENV": "test", "INTERNAL_SERVICE_TOKEN": "t" * 40,
                        "RATELIMIT_MAX": "1000", "PII_SALT": "s" * 32,
-                       "SECRETS_KEK": "unit-test-kek-not-a-real-key"})
+                       "SECRETS_KEK": "unit-test-kek-not-a-real-key",
+                       # conftest.py's own 2048-byte default is fine for most fixtures here but too
+                       # small for a real ~2000-character feedback comment (UTF-8 Arabic runs ~2
+                       # bytes/char) — this file's own boundary tests need the real production
+                       # default (1 MiB, config.py) to exercise the API's OWN 2000-char limit
+                       # rather than tripping the test suite's unrelated body-size guard first.
+                       "BODY_LIMIT_BYTES": "1048576"})
     get_settings.cache_clear()
     from app.main import create_app
 
@@ -148,3 +154,124 @@ def test_two_tenants_own_visits_independently(client):
     store = VisitStore(client.app.state.container.datastore)
     assert asyncio.run(store.get("t_a", va)).rating == 5
     assert asyncio.run(store.get("t_b", vb)).rating == 1
+
+
+# ── boundaries and shapes ─────────────────────────────────────────────────────────────────────
+def test_rating_one_the_lowest_valid_value_is_accepted(client):
+    vid = _visit(client, "t1")
+    out = _rate(client, "t1", vid, rating=1)
+    assert out["changed"] is True
+
+
+def test_rating_five_the_highest_valid_value_is_accepted(client):
+    vid = _visit(client, "t1")
+    out = _rate(client, "t1", vid, rating=5)
+    assert out["changed"] is True
+
+
+def test_a_negative_rating_is_refused_at_the_schema_boundary(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"tenant": "t1", "rating": -1})
+    assert r.status_code == 422
+
+
+def test_a_non_numeric_rating_is_refused_at_the_schema_boundary(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"tenant": "t1", "rating": "excellent"})
+    assert r.status_code == 422
+
+
+def test_a_missing_rating_field_entirely_is_refused(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"tenant": "t1"})
+    assert r.status_code == 422
+
+
+def test_a_missing_tenant_field_entirely_is_refused(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"rating": 5})
+    assert r.status_code == 422
+
+
+def test_an_empty_tenant_string_is_refused_at_the_schema_boundary(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"tenant": "", "rating": 5})
+    assert r.status_code == 422
+
+
+def test_feedback_text_at_exactly_the_length_cap_is_accepted(client):
+    from app.core.stores import VisitStore
+
+    vid = _visit(client, "t1")
+    long_text = "ا" * 2000
+    _rate(client, "t1", vid, rating=4, feedback_text=long_text)
+    got = asyncio.run(VisitStore(client.app.state.container.datastore).get("t1", vid))
+    assert got.feedback_text == long_text
+
+
+def test_feedback_text_one_over_the_length_cap_is_refused(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"tenant": "t1", "rating": 4, "feedback_text": "ا" * 2001})
+    assert r.status_code == 422
+
+
+def test_a_whitespace_only_comment_is_stored_as_an_empty_string(client):
+    from app.core.stores import VisitStore
+
+    vid = _visit(client, "t1")
+    _rate(client, "t1", vid, rating=3, feedback_text="   \n\t  ")
+    got = asyncio.run(VisitStore(client.app.state.container.datastore).get("t1", vid))
+    assert got.feedback_text == ""
+
+
+def test_feedback_text_omitted_entirely_defaults_to_empty(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating", headers=_internal(),
+                    json={"tenant": "t1", "rating": 5})
+    assert r.status_code == 200 and r.json()["changed"] is True
+
+
+def test_the_wrong_internal_token_value_is_401(client):
+    vid = _visit(client, "t1")
+    r = client.post(f"/internal/operations/visits/{vid}/rating",
+                    headers={"X-Internal-Token": "wrong" * 8},
+                    json={"tenant": "t1", "rating": 5})
+    assert r.status_code == 401
+
+
+
+# ── the audit trail ───────────────────────────────────────────────────────────────────────────
+def test_a_real_change_is_audited_as_visit_rated(client):
+    from unittest.mock import AsyncMock
+
+    vid = _visit(client, "t1")
+    original = client.app.state.auditor.record
+    spy = AsyncMock(side_effect=original)
+    client.app.state.auditor.record = spy
+    try:
+        _rate(client, "t1", vid, rating=5)
+    finally:
+        client.app.state.auditor.record = original
+    actions = [c.args[0] for c in spy.await_args_list]
+    assert "visit.rated" in actions
+
+
+def test_a_no_op_rerating_is_not_audited_a_second_time(client):
+    from unittest.mock import AsyncMock
+
+    vid = _visit(client, "t1")
+    _rate(client, "t1", vid, rating=5)   # the real change, before the spy is attached
+    original = client.app.state.auditor.record
+    spy = AsyncMock(side_effect=original)
+    client.app.state.auditor.record = spy
+    try:
+        _rate(client, "t1", vid, rating=1)   # a retried webhook — already rated, no-op
+    finally:
+        client.app.state.auditor.record = original
+    assert spy.await_args_list == []

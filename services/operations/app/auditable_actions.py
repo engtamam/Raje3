@@ -130,6 +130,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "cannot be disputed, corrected, or attributed to whoever entered it",
     },
     {
+        "action": "visit.rated",
+        "source": "internal",
+        # NOT CRITICAL — unlike visit.recorded, an audit outage must not turn away a customer's
+        # rating: the visit already happened and is already witnessed; this is a fact ABOUT it,
+        # not the evidence that it occurred.
+        "critical": False,
+        "resource": "visit",
+        "why": "a customer's WhatsApp Flow reply writes a rating and free-text comment onto an "
+               "existing visit — attributing which call did that, and when, matters the same way "
+               "any other write to a visit does",
+    },
+    {
         "action": "subscription.created",
         "source": "admin",
         "critical": True,

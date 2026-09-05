@@ -116,3 +116,94 @@ def test_a_second_delivery_of_the_same_reply_is_a_no_op_the_second_time():
 def test_an_empty_message_does_not_raise():
     consumer, _requests, writer = _consumer()
     assert run(consumer.handle({})) is False
+
+
+# ── more RatingRequestStore edge cases ─────────────────────────────────────────────────────────
+def test_remembering_the_same_token_twice_before_resolve_keeps_the_latest_row(requests_store):
+    # A caller retry before any reply arrives — the second remember() should win, not raise.
+    run(requests_store.remember(flow_token="t1", tenant="t1", subject_ref="sub_old",
+                                visit_id="vis_old", now=1000))
+    run(requests_store.remember(flow_token="t1", tenant="t1", subject_ref="sub_new",
+                                visit_id="vis_new", now=2000))
+    got = run(requests_store.resolve("t1"))
+    assert got.visit_id == "vis_new"
+
+
+def test_a_zero_sent_at_is_held_as_a_real_zero_not_a_missing_value(requests_store):
+    run(requests_store.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                                visit_id="vis_1", now=0))
+    got = run(requests_store.resolve("t1"))
+    assert got.sent_at == 0
+
+
+def test_tenant_and_subject_ref_survive_the_round_trip_exactly(requests_store):
+    run(requests_store.remember(flow_token="t1", tenant="tenant-with-dashes_1",
+                                subject_ref="sub_" + "z" * 24, visit_id="vis_1", now=1000))
+    got = run(requests_store.resolve("t1"))
+    assert got.tenant == "tenant-with-dashes_1"
+    assert got.subject_ref == "sub_" + "z" * 24
+
+
+def test_resolving_a_token_that_was_never_remembered_does_not_raise(requests_store):
+    assert run(requests_store.resolve("rate:vis_never_sent")) is None
+
+
+# ── more RatingConsumer edge cases ─────────────────────────────────────────────────────────────
+def test_a_writer_that_fails_returns_false_from_the_consumer():
+    from app.core.rating_request import RatingRequestStore
+    from app.adapters.datastore.memory import MemoryDataStore
+
+    class _FailingWriter:
+        async def write(self, **kwargs):
+            return False
+
+    requests = RatingRequestStore(MemoryDataStore())
+    run(requests.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_1", now=1000))
+    consumer = RatingConsumer(requests=requests, writer=_FailingWriter())
+    assert run(consumer.handle(_msg("t1", stars="5"))) is False
+
+
+def test_the_token_is_consumed_even_when_the_writer_fails():
+    """The reply was real and matched a real pending request — resolving it and then failing to
+    write must not leave the token resolvable again (Meta will not resend this reply)."""
+    from app.core.rating_request import RatingRequestStore
+    from app.adapters.datastore.memory import MemoryDataStore
+
+    class _FailingWriter:
+        async def write(self, **kwargs):
+            return False
+
+    requests = RatingRequestStore(MemoryDataStore())
+    run(requests.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_1", now=1000))
+    consumer = RatingConsumer(requests=requests, writer=_FailingWriter())
+    run(consumer.handle(_msg("t1", stars="5")))
+    assert run(requests.resolve("t1")) is None
+
+
+def test_two_different_customers_ratings_processed_in_sequence_both_land():
+    consumer, requests, writer = _consumer()
+    run(requests.remember(flow_token="t_a", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_a", now=1000))
+    run(requests.remember(flow_token="t_b", tenant="t1", subject_ref="sub_b",
+                          visit_id="vis_b", now=1000))
+    run(consumer.handle(_msg("t_a", stars="5")))
+    run(consumer.handle(_msg("t_b", stars="2")))
+    assert {(w["visit_id"], w["rating"]) for w in writer.written} == {("vis_a", 5), ("vis_b", 2)}
+
+
+def test_a_status_shaped_bus_payload_with_no_rating_content_is_a_no_op():
+    consumer, _requests, writer = _consumer()
+    # a delivery-receipt-shaped message, not a customer reply at all
+    ok = run(consumer.handle({"type": "unknown_event"}))
+    assert ok is False
+    assert writer.written == []
+
+
+def test_the_writer_receives_exactly_the_comment_the_customer_sent_including_empty():
+    consumer, requests, writer = _consumer()
+    run(requests.remember(flow_token="t1", tenant="t1", subject_ref="sub_a",
+                          visit_id="vis_1", now=1000))
+    run(consumer.handle(_msg("t1", stars="4")))       # no comment
+    assert writer.written[0]["feedback_text"] == ""

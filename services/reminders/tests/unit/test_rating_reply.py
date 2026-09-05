@@ -100,3 +100,61 @@ def test_an_empty_message_does_not_crash():
 
 def test_a_message_missing_the_interactive_block_does_not_crash():
     assert parse_rating_reply({"type": "interactive"}) is None
+
+
+def test_a_flow_token_with_a_colon_shaped_id_parses_intact():
+    # the convention this whole phase relies on: "rate:<visit_id>" or similar caller-chosen shape.
+    r = parse_rating_reply(_msg({"flow_token": "rate:vis_7f2a9c", "stars": "5"}))
+    assert r.flow_token == "rate:vis_7f2a9c"
+
+
+def test_extra_unrecognised_fields_in_response_json_are_ignored_not_fatal():
+    r = parse_rating_reply(_msg({"flow_token": "t", "stars": "3", "comment": "ok",
+                                 "screen_name": "RATING", "some_future_field": 42}))
+    assert r is not None and (r.stars, r.comment) == (3, "ok")
+
+
+def test_a_float_looking_stars_string_is_rejected_not_coerced():
+    # "5.0" must not silently become 5 — a Flow honestly built to this contract sends a plain
+    # integer string, and anything else is a shape this parser does not recognise.
+    assert parse_rating_reply(_msg({"flow_token": "t", "stars": "5.0"})) is None
+
+
+def test_stars_as_a_json_number_rather_than_a_string_still_parses():
+    # Meta's response_json is itself a JSON string the Flow authored; a numeric (not string-typed)
+    # stars field inside it is still a reasonable shape to accept.
+    r = parse_rating_reply(_msg({"flow_token": "t", "stars": 4}))
+    assert r is not None and r.stars == 4
+
+
+def test_a_very_long_comment_still_parses_here_length_capping_is_operations_job():
+    r = parse_rating_reply(_msg({"flow_token": "t", "stars": "3", "comment": "ا" * 5000}))
+    assert r is not None and len(r.comment) == 5000
+
+
+def test_an_emoji_only_comment_parses_intact():
+    r = parse_rating_reply(_msg({"flow_token": "t", "stars": "5", "comment": "👍🔥"}))
+    assert r.comment == "👍🔥"
+
+
+def test_leading_and_trailing_newlines_in_the_comment_are_stripped():
+    r = parse_rating_reply(_msg({"flow_token": "t", "stars": "3", "comment": "\n\nنص\n\n"}))
+    assert r.comment == "نص"
+
+
+def test_response_json_as_a_json_object_with_only_flow_token_and_no_stars_key_is_rejected():
+    assert parse_rating_reply(_msg({"flow_token": "t"})) is None
+
+
+def test_a_null_stars_value_is_rejected_not_a_crash():
+    assert parse_rating_reply(_msg({"flow_token": "t", "stars": None})) is None
+
+
+def test_a_null_flow_token_value_is_rejected_not_a_crash():
+    assert parse_rating_reply(_msg({"flow_token": None, "stars": "5"})) is None
+
+
+def test_an_nfm_reply_with_a_non_string_response_json_value_does_not_crash():
+    msg = {"type": "interactive",
+          "interactive": {"type": "nfm_reply", "nfm_reply": {"response_json": {"stars": 5}}}}
+    assert parse_rating_reply(msg) is None

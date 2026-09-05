@@ -177,3 +177,72 @@ def test_null_sender_returns_empty_handle_with_no_idempotency_key():
     result = run(s.send_flow(tenant="t1", subject_ref="sub_a", body="x", flow_token="tok",
                              flow_id="f1", flow_cta="Go", flow_screen="S1"))
     assert result == ""
+
+
+# ── more edge cases ───────────────────────────────────────────────────────────────────────────
+def test_a_custom_ceiling_code_set_is_honoured_not_only_the_default():
+    s = sender(ceiling_codes=("999999",))
+    with patch.object(s, "_recipient", return_value=("+966500000000", "")), \
+         patch("urllib.request.urlopen",
+              return_value=_Resp({"status": "failed", "error_code": "999999"})):
+        with pytest.raises(CeilingReached):
+            run(s.send_flow(tenant="t1", subject_ref="sub_a", body="x", flow_token="tok",
+                            flow_id="f1", flow_cta="Go", flow_screen="S1"))
+
+
+def test_a_ceiling_code_outside_the_configured_set_is_a_plain_sendfailed():
+    s = sender(ceiling_codes=("999999",))
+    with patch.object(s, "_recipient", return_value=("+966500000000", "")), \
+         patch("urllib.request.urlopen",
+              return_value=_Resp({"status": "failed", "error_code": "130429"})):
+        with pytest.raises(SendFailed):
+            run(s.send_flow(tenant="t1", subject_ref="sub_a", body="x", flow_token="tok",
+                            flow_id="f1", flow_cta="Go", flow_screen="S1"))
+
+
+def test_the_body_text_is_sent_exactly_as_given():
+    _, seen = _flow_call(body="كيف كانت تجربتك معنا اليوم؟")
+    assert seen["body"]["body"] == "كيف كانت تجربتك معنا اليوم؟"
+
+
+def test_flow_id_and_flow_cta_ride_through_untouched():
+    _, seen = _flow_call(flow_id="987654321", flow_cta="قيّم زيارتك")
+    assert seen["body"]["flow_id"] == "987654321"
+    assert seen["body"]["flow_cta"] == "قيّم زيارتك"
+
+
+def test_no_idempotency_key_sends_an_empty_string_not_none():
+    s = sender()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"status": "sent", "delivery_id": "dlv_x"})
+
+    with patch.object(s, "_recipient", return_value=("+966500000000", "")), \
+         patch("urllib.request.urlopen", _urlopen):
+        run(s.send_flow(tenant="t1", subject_ref="sub_a", body="x", flow_token="tok",
+                        flow_id="f1", flow_cta="Go", flow_screen="S1"))
+    assert seen["body"]["idempotency_key"] == ""
+
+
+def test_the_flow_screen_is_carried_through_the_request_body():
+    _, seen = _flow_call(flow_screen="THANK_YOU")
+    assert seen["body"]["flow_screen"] == "THANK_YOU"
+
+
+def test_two_calls_to_send_flow_use_independent_recipient_lookups():
+    s = sender()
+    calls = []
+
+    def fake_recipient(tenant, subject_ref):
+        calls.append(subject_ref)
+        return ("+9665" + subject_ref[-8:], "")
+
+    with patch.object(s, "_recipient", side_effect=fake_recipient), \
+         patch("urllib.request.urlopen", return_value=_Resp({"status": "sent"})):
+        run(s.send_flow(tenant="t1", subject_ref="sub_aaaaaaaa", body="x", flow_token="t1",
+                        flow_id="f1", flow_cta="Go", flow_screen="S1"))
+        run(s.send_flow(tenant="t1", subject_ref="sub_bbbbbbbb", body="x", flow_token="t2",
+                        flow_id="f1", flow_cta="Go", flow_screen="S1"))
+    assert calls == ["sub_aaaaaaaa", "sub_bbbbbbbb"]

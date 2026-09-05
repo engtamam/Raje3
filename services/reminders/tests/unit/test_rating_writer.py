@@ -5,6 +5,8 @@ import asyncio
 import json
 from unittest.mock import patch
 
+import pytest
+
 from app.core.rating_writer import HttpRatingWriter
 
 
@@ -77,3 +79,99 @@ def test_changed_false_already_rated_still_reports_true_recorded():
     w = writer()
     with patch("urllib.request.urlopen", return_value=_Resp({"recorded": True, "changed": False})):
         assert run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text="")) is True
+
+
+def test_a_301_redirect_status_is_reported_as_false_not_followed_blindly():
+    w = writer()
+    with patch("urllib.request.urlopen", return_value=_Resp({}, status=301)):
+        assert run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text="")) is False
+
+
+def test_an_unparseable_response_body_does_not_raise():
+    class _BadResp:
+        status = 200
+
+        def read(self):
+            return b"not json"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    w = writer()
+    with patch("urllib.request.urlopen", return_value=_BadResp()):
+        with pytest.raises(Exception):     # json.loads raising IS the current contract — pinned
+            run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text=""))
+
+
+def test_the_visit_id_is_interpolated_into_the_configured_path_exactly_once():
+    w = writer()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["url"] = req.full_url
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(w.write(tenant="t1", visit_id="vis_with_underscores_9", rating=3, feedback_text=""))
+    assert seen["url"].count("vis_with_underscores_9") == 1
+
+
+def test_feedback_text_rides_through_untouched_by_the_writer():
+    w = writer()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(w.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text="نص عربي طويل جداً"))
+    assert seen["body"]["feedback_text"] == "نص عربي طويل جداً"
+
+
+def test_an_empty_feedback_text_is_sent_as_an_empty_string_not_omitted():
+    w = writer()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(w.write(tenant="t1", visit_id="vis_1", rating=1, feedback_text=""))
+    assert seen["body"]["feedback_text"] == ""
+
+
+def test_the_tenant_is_sent_exactly_as_given(monkeypatch=None):
+    w = writer()
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(w.write(tenant="tenant_with_underscore_1", visit_id="vis_1", rating=5,
+                    feedback_text=""))
+    assert seen["body"]["tenant"] == "tenant_with_underscore_1"
+
+
+def test_two_different_operations_urls_never_cross_talk():
+    a = HttpRatingWriter(operations_url="http://ops-a",
+                        path="/internal/operations/visits/{}/rating", token="t")
+    b = HttpRatingWriter(operations_url="http://ops-b",
+                        path="/internal/operations/visits/{}/rating", token="t")
+    seen = []
+
+    def _urlopen(req, timeout=0):
+        seen.append(req.full_url)
+        return _Resp({"recorded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(a.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text=""))
+        run(b.write(tenant="t1", visit_id="vis_1", rating=5, feedback_text=""))
+    assert seen == ["http://ops-a/internal/operations/visits/vis_1/rating",
+                    "http://ops-b/internal/operations/visits/vis_1/rating"]
