@@ -252,7 +252,7 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
       }, session.access_token);
       onSaved();
     } catch (err) {
-      setError(sentenceFor(err, 'تعذّر حفظ الخطة.'));
+      setError(sentenceFor(err, 'تعذّر حفظ التطبيق.'));
     } finally {
       setBusy(false);
     }
