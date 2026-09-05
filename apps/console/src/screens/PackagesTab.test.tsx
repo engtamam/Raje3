@@ -109,6 +109,63 @@ describe('الباقات', () => {
     expect(pointsCalls.length).toBe(1);
   });
 
+  it('shows a schedule summary and the "غير مفعّلة اليوم" badge honestly', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة السبت', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, recurrence: 'weekly', recurrence_weekdays: [5], offerable_now: false },
+    ];
+    open();
+    await waitFor(() => expect(screen.getByText('باقة السبت')).toBeTruthy());
+    expect(screen.getByText('كل السبت')).toBeTruthy();
+    expect(screen.getByText('غير مفعّلة اليوم')).toBeTruthy();
+  });
+
+  it('refuses to save a weekly schedule with no days chosen', async () => {
+    packagesResponse = [];
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+
+    fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة' } });
+    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('فحص فرامل'));
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
+    fireEvent.click(screen.getByText('أسبوعياً'));
+
+    expect((screen.getByRole('button', { name: 'حفظ' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/أكمل تفاصيل الجدولة/)).toBeTruthy();
+
+    fireEvent.click(screen.getByText('السبت'));
+    await waitFor(() => expect(
+      (screen.getByRole('button', { name: 'حفظ' }) as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it('creating a weekly package sends the chosen weekdays', async () => {
+    packagesResponse = [];
+    createCalls.length = 0;
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+
+    fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة السبت' } });
+    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('فحص فرامل'));
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
+    fireEvent.click(screen.getByText('أسبوعياً'));
+    fireEvent.click(screen.getByText('السبت'));
+
+    await waitFor(() => expect(
+      (screen.getByRole('button', { name: 'حفظ' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
+
+    await waitFor(() => expect(createCalls.length).toBe(1));
+    const body = createCalls[0] as { recurrence: string; recurrence_weekdays: number[] };
+    expect(body.recurrence).toBe('weekly');
+    expect(body.recurrence_weekdays).toEqual([5]);
+  });
+
   it('opens the create dialog pre-filled from محلّي\'s bundle suggestion', async () => {
     packagesResponse = [];
     open(['/services?tab=packages&prefill_a=svc_a&prefill_b=svc_b']);
