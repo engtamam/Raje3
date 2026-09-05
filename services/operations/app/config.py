@@ -350,6 +350,16 @@ class Settings(BaseSettings):
     # cap; `drain` hands over what has never been submitted, inside Meta's 100/hour.
     NOTIFICATION_TEMPLATE_REGISTER_PATH: str = "/internal/whatsapp/templates"
     NOTIFICATION_TEMPLATE_DRAIN_PATH: str = "/internal/whatsapp/templates/submit-pending"
+    # GIVING A SHOP ITS OWN COPY OF THE RATING FLOW (base-services v0.18.26's flow-provisioning
+    # twin) — see core/flows.py. Idempotent by name on notification-service's own side, same as
+    # the template register above.
+    WHATSAPP_FLOW_PROVISION_PATH: str = "/internal/whatsapp/flows/provision"
+    # THE MASTER FLOW'S id, minted ONCE by deploy/seed/bootstrap-rating-flow.py under the
+    # platform's own WABA and stored through THIS SETTING'S RuntimeConfig override (platform
+    # scope, tenant="") — never a static default, because the id does not exist until that
+    # script has run. Read at connect time through RuntimeConfig, not this field directly, so a
+    # fresh install needs no redeploy once the bootstrap script has written it.
+    MASTER_RATING_FLOW_ID: str = ""
     # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
     # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
     TEMPLATE_SYNC_MAX_TENANTS: int = 200

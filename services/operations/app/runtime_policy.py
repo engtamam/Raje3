@@ -17,4 +17,9 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # every sweep. Our configured value is the ceiling and the default: a shop may shorten it and
     # may not extend it past what we hold.
     "RETENTION_CUSTOMER_YEARS",
+    # The master rating-Flow id, minted once by deploy/seed/bootstrap-rating-flow.py and written
+    # here rather than to a values file — core/flows.py's caller (connect.py) reads it per shop
+    # through RuntimeConfig, so the id takes effect the moment the bootstrap script writes it,
+    # with no redeploy of this service required.
+    "MASTER_RATING_FLOW_ID",
 })

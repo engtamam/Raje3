@@ -1,0 +1,132 @@
+"""Giving a shop its own copy of the rating Flow — mirrors test_library.py's own structure.
+
+WHAT WAS BROKEN. A template with a Flow button referencing a Flow this shop's WABA never got a
+copy of is refused by Meta at submission. Something has to provision that copy — cloned from the
+one master, named the same on every shop — right where the template library itself is registered.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import urllib.error
+from unittest.mock import patch
+
+from app.core.flows import (RATING_FLOW_CATEGORIES, RATING_FLOW_NAME, HttpFlows, NullFlows,
+                            build_flows, provision_shop_flow)
+
+
+def run(c):
+    return asyncio.run(c)
+
+
+class _Resp:
+    def __init__(self, payload, status=200):
+        self._p = json.dumps(payload).encode()
+        self.status = status
+
+    def read(self):
+        return self._p
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def client():
+    return HttpFlows(notify_url="http://notify",
+                     provision_path="/internal/whatsapp/flows/provision", token="t")
+
+
+# ── NullFlows: honest about being unconfigured ──────────────────────────────────────────────────
+def test_null_flows_says_it_is_not_configured_rather_than_pretend_success():
+    null = NullFlows()
+    out = run(null.provision("t1", clone_flow_id="mf1"))
+    assert out == {"ok": False, "reason": "flow provisioning is not configured"}
+    assert null.provisioned == ["t1"]
+
+
+# ── HttpFlows: the shape of the call ────────────────────────────────────────────────────────────
+def test_a_shop_clone_is_requested_with_the_stable_name_and_the_master_id():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["url"] = req.full_url
+        seen["body"] = json.loads(req.data)
+        return _Resp({"ok": True, "flow_id": "clone-1", "name": RATING_FLOW_NAME,
+                     "status": "PUBLISHED", "created": True, "published": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(client().provision("t1", clone_flow_id="master-1"))
+    assert seen["url"].endswith("/internal/whatsapp/flows/provision")
+    assert seen["body"] == {
+        "tenant": "t1", "name": RATING_FLOW_NAME, "categories": RATING_FLOW_CATEGORIES,
+        "clone_flow_id": "master-1", "publish": True,
+    }
+    assert out["ok"] is True and out["flow_id"] == "clone-1"
+
+
+def test_no_master_id_is_refused_before_any_call_is_made():
+    """An empty clone_flow_id is not "author from scratch" — it means the bootstrap script has
+    not run yet, and asking Meta to clone nothing would either be refused there or, worse,
+    misread by some future manager as a create-from-scratch request."""
+    def _urlopen(req, timeout=0):
+        raise AssertionError("must not call Meta with no master flow configured")
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(client().provision("t1", clone_flow_id=""))
+    assert out == {"ok": False, "reason": "no master rating flow configured"}
+
+
+def test_a_refused_provision_is_reported_rather_than_raised():
+    boom = urllib.error.HTTPError("u", 422, "bad", None, None)
+
+    def _urlopen(req, timeout=0):
+        raise boom
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(client().provision("t1", clone_flow_id="master-1"))
+    assert out["ok"] is False and "reason" in out
+
+
+def test_an_unreachable_peer_is_a_failure_that_says_so():
+    down = urllib.error.URLError("connection refused")
+
+    def _urlopen(req, timeout=0):
+        raise down
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(client().provision("t1", clone_flow_id="master-1"))
+    assert out["ok"] is False and out["reason"]
+
+
+# ── the factory ──────────────────────────────────────────────────────────────────────────────────
+def test_no_peer_configured_gives_the_null_driver():
+    class S:
+        NOTIFICATION_SERVICE_URL = ""
+        WHATSAPP_FLOW_PROVISION_PATH = "/internal/whatsapp/flows/provision"
+        INTERNAL_SERVICE_TOKEN = ""
+        PEER_TIMEOUT_SECONDS = 8
+
+    flows = build_flows(S())
+    assert flows.driver == "null"
+    assert run(flows.provision("t1", clone_flow_id="mf"))["ok"] is False
+
+
+def test_a_wired_peer_gives_the_http_client():
+    class S:
+        NOTIFICATION_SERVICE_URL = "http://notification-service:8000"
+        WHATSAPP_FLOW_PROVISION_PATH = "/internal/whatsapp/flows/provision"
+        INTERNAL_SERVICE_TOKEN = "t"
+        PEER_TIMEOUT_SECONDS = 8
+
+    assert build_flows(S()).driver == "http"
+
+
+# ── the free function connect.py's background task calls ───────────────────────────────────────
+def test_provision_shop_flow_forwards_to_the_driver():
+    null = NullFlows()
+    out = run(provision_shop_flow(null, "t1", "master-1"))
+    assert out["ok"] is False
+    assert null.provisioned == ["t1"]

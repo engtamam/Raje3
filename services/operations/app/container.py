@@ -288,6 +288,11 @@ def build_container(settings: Settings) -> Container:
     from app.core.library import build_library
 
     container.library = build_library(settings)
+    # Each shop's own clone of the master rating Flow, provisioned right alongside the library —
+    # see core/flows.py's module docstring for why a Flow needs cloning per WABA at all.
+    from app.core.flows import build_flows
+
+    container.flows = build_flows(settings)
     # And `feature.api`, asked on the one act that IS the programmatic link: a machine writing
     # visits. Separate from `apps` because it answers a third state — «تعذّر السؤال» — that the
     # till path treats as a yes and the store treats as unknown.
