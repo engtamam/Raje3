@@ -102,7 +102,8 @@ def create_app() -> FastAPI:
                     service_ids=list(payload.get("service_ids") or []),
                     amount_halalas=int(payload.get("amount_halalas") or 0),
                     actor=str(payload.get("operator_id") or ""),
-                    branch_id=str(payload.get("branch_id") or ""))
+                    branch_id=str(payload.get("branch_id") or ""),
+                    package_id=str(payload.get("package_id") or ""))
             except Exception as exc:                                        # noqa: BLE001
                 # NEVER RAISES INTO THE BUS. The visit already happened and is not ours to undo;
                 # a handler that throws here would, on some drivers, redeliver for ever.

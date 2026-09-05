@@ -407,6 +407,10 @@ class ServiceIn(BaseModel):
     points: int = Field(ge=0, le=100_000)
 
 
+class PackageIn(BaseModel):
+    points: int = Field(ge=0, le=100_000)
+
+
 class ConfigIn(BaseModel):
     mode: str = Field(min_length=4, max_length=16)
     points_per_riyal: int = Field(default=1, ge=0, le=1000)
@@ -424,6 +428,7 @@ async def read_settings(request: Request, principal: Principal = Depends(_READ))
     tree = await c.earn_settings.load(_tenant(principal))
     return {"general": tree.general, "groups": tree.groups,
             "service_group": tree.service_group, "services": tree.services,
+            "packages": tree.packages,
             "defaults": tree.defaults, "config": tree.config.to_dict()}
 
 
@@ -490,6 +495,22 @@ async def follow_again(request: Request, service_id: str,
     c = request.app.state.container
     tree = await c.earn_settings.follow_again(_tenant(principal), service_id)
     return {"services": tree.services}
+
+
+@router.put("/settings/package/{package_id}", dependencies=[Depends(rate_limit)])
+async def set_package(request: Request, package_id: str, body: PackageIn,
+                      principal: Principal = Depends(_MANAGE)) -> dict:
+    """A package's own point value — always explicit, no group and no general rate to follow (see
+    core/earning.py's own EarnTree.packages docstring for why this has no "follow again" delete,
+    unlike a service). The console prefills `points` with the sum of the components' current
+    resolved points when the package is first created; this route is what actually stores whatever
+    number ends up in that field, whether the owner kept the suggestion or changed it."""
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
+    c = request.app.state.container
+    tree = await c.earn_settings.set_package(_tenant(principal), package_id, body.points)
+    return {"packages": tree.packages}
 
 
 @router.put("/settings/mode", dependencies=[Depends(rate_limit)])

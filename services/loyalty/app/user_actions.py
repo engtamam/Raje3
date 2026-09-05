@@ -93,6 +93,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # identical now and silently stop following the next time the general one changes.
     },
     {
+        "id": "loyalty.settings.package", "label": "نقاط باقة بعينها", "method": "PUT",
+        "path": "/api/v1/loyalty/settings/package/{package_id}", "capability": "loyalty.manage",
+        "params": [{"name": "package_id", "in": "path", "type": "string", "required": True}],
+        "group": "الولاء",
+        "help": "لا إعداد عام تتبعه الباقة — رقم صريح دائماً، مثل سعرها بالضبط.",
+    },
+    {
         "id": "loyalty.settings.mode", "label": "طريقة الاحتساب", "method": "PUT",
         "path": "/api/v1/loyalty/settings/mode", "capability": "loyalty.manage",
         "confirm": True, "group": "الولاء",

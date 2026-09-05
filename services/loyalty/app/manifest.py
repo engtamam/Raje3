@@ -115,6 +115,7 @@ def build_manifest(
             {"path": "/api/v1/loyalty/settings/group", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/loyalty/settings/service/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/loyalty/settings/service/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/loyalty/settings/package/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/loyalty/settings/mode", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/loyalty/report", "tier": "user", "method": "GET"},
             # OURS: support repairing a balance for a shop that is not theirs.

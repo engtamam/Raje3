@@ -231,6 +231,18 @@ def test_following_again_through_the_route_deletes_the_override(client, owner):
     assert "wax" not in got["services"]
 
 
+def test_a_packages_own_points_through_the_route(client, owner):
+    r = client.put("/api/v1/loyalty/settings/package/pkg1", json={"points": 60}, headers=owner)
+    assert r.status_code == 200, r.text
+    got = client.get("/api/v1/loyalty/settings", headers=owner).json()
+    assert got["packages"]["pkg1"]["points"] == 60
+
+
+def test_a_negative_package_points_value_is_refused_through_the_route(client, owner):
+    r = client.put("/api/v1/loyalty/settings/package/pkg1", json={"points": -1}, headers=owner)
+    assert r.status_code == 422
+
+
 def test_invoice_mode_is_refused_for_a_shop_with_no_till_with_the_reason(client, owner):
     r = client.put("/api/v1/loyalty/settings/mode",
                    json={"mode": "invoice", "points_per_riyal": 1}, headers=owner)

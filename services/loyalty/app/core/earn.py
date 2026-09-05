@@ -35,12 +35,19 @@ class Earner:
     async def from_visit(self, tenant: str, *, visit_id: str, subject_ref: str,
                          service_ids: list[str], amount_halalas: int = 0,
                          actor: str = "", branch_id: str = "", free: bool = False,
-                         tree: EarnTree | None = None) -> dict:
+                         package_id: str = "", tree: EarnTree | None = None) -> dict:
         """Award points for one visit. Returns what happened, and never raises for a redelivery.
 
         `amount_halalas` is used ONLY in invoice mode and ONLY when the establishment is integrated
         — the mode itself refuses to be set otherwise (`EarnConfig.validate`), so this function
         does not need to re-check the combination, and having one owner of that rule is the point.
+
+        `package_id`, WHEN SET, TAKES OVER FROM THE SERVICES SUM ENTIRELY (still skipped in
+        `invoice` mode, same as `services` mode is) — a package earns its OWN explicit points
+        (`EarnTree.points_for_package`), never a sum of what its components would have earned
+        separately. `service_ids` is still passed by the caller for every other reader (reminders,
+        associations); this function simply does not fold it into the points calculation when a
+        package_id is present.
         """
         if not subject_ref or not visit_id:
             return {"earned": 0, "reason": "missing subject or visit"}
@@ -61,6 +68,8 @@ class Earner:
             # nobody can explain at the counter.
             points = (int(amount_halalas) // 100) * int(cfg.points_per_riyal)
             level = "invoice"
+        elif package_id:
+            points, level = t.points_for_package(package_id), "package"
         else:
             points, level = t.points_for(list(service_ids or []))
 
@@ -98,7 +107,7 @@ class Earner:
                 branch_id=str(v.get("branch_id") or ""),
                 # SAME RULE ON THE REPAIRED PATH. A free visit that earned nothing live must not
                 # earn when the catch-up replays it.
-                free=bool(v.get("free")), tree=t)
+                free=bool(v.get("free")), package_id=str(v.get("package_id") or ""), tree=t)
             if res.get("earned"):
                 awarded += 1
             else:

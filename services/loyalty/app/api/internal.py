@@ -359,6 +359,10 @@ class EarnIn(BaseModel):
     # its branches (§12.2) — this does not change that; it answers WHERE, which the owner asks
     # immediately after WHO.
     branch_id: str = ""
+    # "" for an ordinary visit. Set when this visit fulfilled a PACKAGE booking — takes over the
+    # points calculation entirely (see Earner.from_visit's own docstring); `service_ids` above is
+    # still carried for every other reader.
+    package_id: str = ""
 
 
 @router.post("/loyalty/earn", dependencies=[Depends(require_internal_token)])
@@ -391,7 +395,7 @@ async def earn(request: Request, body: EarnIn) -> dict:
         body.tenant, visit_id=body.visit_id, subject_ref=body.subject_ref,
         service_ids=body.service_ids, amount_halalas=body.amount_halalas,
         free=body.free, actor=body.actor,
-        branch_id=body.branch_id)
+        branch_id=body.branch_id, package_id=body.package_id)
 
 
 # ── the customer's own page ────────────────────────────────────────────────────────────────────

@@ -211,3 +211,51 @@ def test_the_catch_up_honours_it_too():
     ]))
 
     assert out["awarded"] == 1 and out["skipped"] == 1
+
+
+# ── a package's own, explicit points — never a sum of its parts at earning time ──────────────────
+def test_a_package_earns_its_own_explicit_points_not_the_sum_of_its_services():
+    """The console may PREFILL the input with the components' sum when the package is first
+    created, but earning-time reads only what was stored for the package itself."""
+    _, settings, earner = build()
+    run(settings.set_service(T, "oil", {"points": 50}))
+    run(settings.set_service(T, "filter", {"points": 30}))     # sum would be 80
+    run(settings.set_package(T, "pkg1", 999))                  # the owner typed something else
+
+    res = run(earner.from_visit(T, visit_id="v1", subject_ref=S,
+                                service_ids=["oil", "filter"], package_id="pkg1"))
+    assert res["earned"] == 999
+    assert res["rule_level"] == "package"
+
+
+def test_a_package_with_no_points_set_earns_nothing_rather_than_a_guess():
+    _, _, earner = build()
+    res = run(earner.from_visit(T, visit_id="v2", subject_ref=S,
+                                service_ids=["oil"], package_id="pkg_unset"))
+    assert res["earned"] == 0
+    assert res["rule_level"] == "package"
+
+
+def test_a_negative_package_points_value_is_refused():
+    _, settings, _ = build()
+    with pytest.raises(LoyaltyError):
+        run(settings.set_package(T, "pkg1", -1))
+
+
+def test_removing_a_package_clears_its_point_value():
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 40))
+    run(settings.remove_package(T, "pkg1"))
+    res = run(earner.from_visit(T, visit_id="v3", subject_ref=S,
+                                service_ids=["oil"], package_id="pkg1"))
+    assert res["earned"] == 0
+
+
+def test_the_catch_up_honours_a_packages_own_points_too():
+    _, settings, earner = build()
+    run(settings.set_package(T, "pkg1", 15))
+    out = run(earner.catch_up(T, [
+        {"visit_id": "v_pkg", "subject_ref": S, "service_ids": ["oil", "filter"],
+         "package_id": "pkg1"},
+    ]))
+    assert out["awarded"] == 1

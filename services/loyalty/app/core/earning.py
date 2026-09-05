@@ -93,6 +93,14 @@ class EarnTree:
     groups: dict[str, dict[str, Any]] = field(default_factory=dict)
     service_group: dict[str, str] = field(default_factory=dict)
     services: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # A PACKAGE'S OWN POINTS — NOT A FOURTH INHERITING LEVEL. Unlike a service (which follows a
+    # group, then the general figure, then a platform default when it has no override of its own),
+    # a package has no group, no general rate, and no default to fall back on: it earns EXACTLY the
+    # number stored here, always explicit, the same way its own `price_minor` is (operations'
+    # Package model, same doctrine: "the platform never invents this number"). The console prefills
+    # this input with the sum of the components' CURRENT resolved points at creation time — a
+    # convenience shown once, never a value this tree computes or remembers deriving.
+    packages: dict[str, dict[str, Any]] = field(default_factory=dict)
     defaults: dict[str, Any] = field(default_factory=dict)
     config: EarnConfig = field(default_factory=EarnConfig)
 
@@ -143,6 +151,13 @@ class EarnTree:
     def is_customised(self, service_id: str) -> bool:
         return bool(self.services.get(service_id))
 
+    def points_for_package(self, package_id: str) -> int:
+        """A package's own explicit point value — 0 if none was ever set (should not happen in
+        practice, since operations/console always writes one at creation; a missing value is
+        treated as "earns nothing yet" rather than guessed at, same as an unconfigured service
+        earning nothing rather than inheriting a number nobody set for it)."""
+        return int((self.packages.get(package_id) or {}).get("points") or 0)
+
 
 class EarnStore:
     """Reads and writes the three levels plus the mode switch. One row per tenant holds all of it.
@@ -164,6 +179,7 @@ class EarnStore:
             groups=dict(row.get("groups") or {}),
             service_group=dict(row.get("service_group") or {}),
             services=dict(row.get("services") or {}),
+            packages=dict(row.get("packages") or {}),
             defaults=dict(self._defaults),
             config=EarnConfig(mode=cfg.get("mode", "services"),
                               points_per_riyal=int(cfg.get("points_per_riyal") or 1),
@@ -174,6 +190,7 @@ class EarnStore:
             "id": f"{tree.tenant}|earning", "tenant": tree.tenant,
             "general": tree.general, "groups": tree.groups,
             "service_group": tree.service_group, "services": tree.services,
+            "packages": tree.packages,
             "config": tree.config.to_dict()})
 
     async def set_general(self, tenant: str, values: dict[str, Any]) -> EarnTree:
@@ -201,6 +218,25 @@ class EarnStore:
         current = dict(tree.services.get(service_id) or {})
         current.update(_clean(values))
         tree.services[service_id] = current
+        await self._save(tree)
+        return tree
+
+    async def set_package(self, tenant: str, package_id: str, points: int) -> EarnTree:
+        """Set a package's own, always-explicit point value — no inheriting, no "follow again":
+        a package has no group and no general rate to fall back to (see EarnTree.packages' own
+        docstring), so unlike `set_service` there is nothing here but the number itself."""
+        if points < 0:
+            raise LoyaltyError("النقاط لا تكون سالبة — الزيارة لا تكلّف العميل شيئاً")
+        tree = await self.load(tenant)
+        tree.packages[package_id] = {"points": int(points)}
+        await self._save(tree)
+        return tree
+
+    async def remove_package(self, tenant: str, package_id: str) -> EarnTree:
+        """Called when a package is deactivated/deleted from operations, so a stale point value
+        does not linger for an id nobody can create a visit against any more."""
+        tree = await self.load(tenant)
+        tree.packages.pop(package_id, None)
         await self._save(tree)
         return tree
 
