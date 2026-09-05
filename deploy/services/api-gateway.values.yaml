@@ -197,7 +197,7 @@ env:
       {"prefix":"/api/v1/roles","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/policies","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/subjects","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/api/v1/audit","upstream":"http://audit-service:8000","auth":"required","strip_prefix":false,"capabilities":["audit.view"]},
+      {"prefix":"/api/v1/audit","upstream":"http://audit-service:8000","auth":"required","strip_prefix":false,"capabilities":["audit.view","platform.audit"]},
       {"prefix":"/api/v1/compliance","upstream":"http://compliance-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/billing","upstream":"http://billing-service:8000","auth":"required","strip_prefix":false},
 
