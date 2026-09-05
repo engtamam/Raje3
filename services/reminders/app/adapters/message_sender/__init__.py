@@ -78,6 +78,17 @@ class NullSender:
         # reconciler's tests pass against a shape the real sender never produces.
         return f"dlv_{idempotency_key}" if idempotency_key else ""
 
+    async def send_flow(self, *, tenant: str, subject_ref: str, body: str, flow_token: str,
+                        flow_id: str, flow_cta: str, flow_screen: str,
+                        flow_data: dict[str, Any] | None = None, idempotency_key: str = "",
+                        sending_identity: str = "") -> str:
+        self.sent.append({"tenant": tenant, "sending_identity": sending_identity or tenant,
+                          "subject_ref": subject_ref, "type": "flow", "body": body,
+                          "flow_token": flow_token, "flow_id": flow_id, "flow_cta": flow_cta,
+                          "flow_screen": flow_screen, "flow_data": dict(flow_data or {}),
+                          "idempotency_key": idempotency_key})
+        return f"dlv_{idempotency_key}" if idempotency_key else ""
+
 
 class HttpSender:
     """The real one: resolve the recipient from operations, then hand it to notification-service.
@@ -89,9 +100,16 @@ class HttpSender:
 
     def __init__(self, *, notify_url: str, notify_path: str, operations_url: str,
                  recipient_path: str, token: str, channel: str = "whatsapp",
-                 timeout: int = 8, ceiling_codes: tuple[str, ...] = DEFAULT_CEILING_CODES) -> None:
+                 timeout: int = 8, ceiling_codes: tuple[str, ...] = DEFAULT_CEILING_CODES,
+                 interactive_notify_path: str = "") -> None:
         self._ceiling = frozenset(ceiling_codes)
         self._notify = notify_url.rstrip("/") + notify_path
+        # OPTIONAL, and empty when omitted — a deployment that has not set
+        # NOTIFICATION_INTERACTIVE_SEND_PATH yet simply cannot reach `send_flow` (it raises
+        # SendFailed rather than posting to an empty URL), same as every other not-yet-wired knob
+        # on this platform fails closed rather than guessing at a path.
+        self._notify_interactive = (notify_url.rstrip("/") + interactive_notify_path
+                                    if interactive_notify_path else "")
         self._resolve = operations_url.rstrip("/") + recipient_path
         self._token = token
         self._channel = channel
@@ -190,6 +208,51 @@ class HttpSender:
         # matched», which the reconciler must be able to tell apart from «not delivered yet».
         return str(result.get("delivery_id") or "")
 
+    async def send_flow(self, *, tenant: str, subject_ref: str, body: str, flow_token: str,
+                        flow_id: str, flow_cta: str, flow_screen: str,
+                        flow_data: dict[str, Any] | None = None, idempotency_key: str = "",
+                        sending_identity: str = "") -> str:
+        """The rating app's own message — same recipient resolution as `send()` (this service holds
+        only `subject_ref`, never a stored phone number), posted to the SAME interactive route
+        whatsapp-assistant already uses for buttons/lists, with `type: "flow"`.
+
+        Foundation-phase wiring: nothing schedules a call to this yet (a later phase does). Kept to
+        the same shape as `send()` — same recipient lookup, same erased-customer/ceiling/failure
+        handling — so scheduling it later is a call site, not a new sending path to build.
+        """
+        if not self._notify_interactive:
+            raise SendFailed("NOTIFICATION_INTERACTIVE_SEND_PATH is not configured")
+        recipient, _name = self._recipient(tenant, subject_ref)
+        if not recipient:
+            raise Unsendable(f"no recipient for {subject_ref} — erased or unknown")
+        req_body = json.dumps({
+            "recipient": recipient,
+            "tenant": tenant,
+            "type": "flow",
+            "body": body,
+            "flow_token": flow_token,
+            "flow_id": flow_id,
+            "flow_cta": flow_cta,
+            "flow_screen": flow_screen,
+            "flow_data": dict(flow_data or {}),
+            "sending_identity": sending_identity or tenant,
+            "idempotency_key": idempotency_key,
+            "biz_opaque_callback_data": idempotency_key,
+        }).encode()
+        status, raw = internal_http.send(
+            self._notify_interactive, timeout=self._timeout, method="POST", body=req_body,
+            content_type=internal_http.JSON, token=self._token)
+        if not 200 <= status < 300:
+            raise SendFailed(f"notification-service returned {status}")
+        result = json.loads(raw or b"{}")
+        result_status = str(result.get("status") or "")
+        if result_status and result_status not in _DELIVERED:
+            code = str(result.get("error_code") or result.get("code") or "")
+            if code in self._ceiling:
+                raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
+            raise SendFailed(f"{result_status}: {result.get('error') or 'no reason given'}")
+        return str(result.get("delivery_id") or "")
+
     def _recipient(self, tenant: str, subject_ref: str) -> tuple[str, str]:
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()
         try:
@@ -264,4 +327,5 @@ def build_sender(settings) -> Any:
         token=settings.INTERNAL_SERVICE_TOKEN,
         channel=settings.MESSAGE_CHANNEL,
         timeout=settings.PEER_TIMEOUT_SECONDS,
-        ceiling_codes=settings.whatsapp_ceiling_codes)
+        ceiling_codes=settings.whatsapp_ceiling_codes,
+        interactive_notify_path=getattr(settings, "NOTIFICATION_INTERACTIVE_SEND_PATH", ""))

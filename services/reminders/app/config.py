@@ -186,6 +186,11 @@ class Settings(BaseSettings):
     # and every notification went to a silent 404 for weeks — a failed notification is not a failed
     # ticket, so nothing looked wrong.
     NOTIFICATION_SEND_PATH: str = "/internal/notify"
+    # THE RATING APP'S OWN MESSAGE (foundation for a later phase) — a WhatsApp Flow, sent through
+    # the SAME interactive route whatsapp-assistant already uses for button/list messages
+    # (notification-service's request model gained `type: "flow"` alongside them). Nothing schedules
+    # a flow send yet; this is only the wiring so `HttpSender.send_flow` has somewhere to post.
+    NOTIFICATION_INTERACTIVE_SEND_PATH: str = "/internal/notify/whatsapp/interactive"
     # DID IT ARRIVE, AND WAS IT READ. The status webhook is at-most-once and lands on the
     # notification peer, which persists each receipt against the delivery it belongs to and serves
     # them from a cursor, oldest first. This service reads that forward and writes the fact onto
