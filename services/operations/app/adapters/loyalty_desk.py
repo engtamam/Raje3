@@ -101,6 +101,22 @@ class LoyaltyDesk:
             # a default supplied by a middle layer would be a signature nobody wrote.
             "approved_by": approved_by})
 
+    async def rating_bonus(self, *, tenant: str, subject_ref: str, visit_id: str, points: int,
+                           actor: str = "", branch_id: str = "") -> dict[str, Any] | None:
+        """Credit the rating app's own incentive for one just-submitted rating.
+
+        BEST-EFFORT, LIKE THE REST OF THIS FILE'S WRITES TO A PEER. `None` on an unreachable
+        loyalty (see `_call`) is handed back to the caller, which does not undo the rating it just
+        wrote — the rating happened and is real regardless of whether the credit landed; nothing
+        in this product retries a lost credit today, the same accepted gap `RatingConsumer`'s own
+        docstring already names for a missed reply.
+        """
+        if not self.configured or points <= 0:
+            return None
+        return await run_in_threadpool(self._call, "/internal/loyalty/rating-bonus", body={
+            "tenant": tenant, "subject_ref": subject_ref, "visit_id": visit_id, "points": points,
+            "actor": actor, "branch_id": branch_id})
+
 
 def build_loyalty_desk(settings) -> LoyaltyDesk:
     return LoyaltyDesk(base_url=settings.LOYALTY_SERVICE_URL,

@@ -1478,6 +1478,16 @@ class VisitRatingIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     rating: int = Field(ge=1, le=5)
     feedback_text: str = Field(default="", max_length=2000)
+    # BOTH OPTIONAL, AND BOTH BLANK MEANS "DO NOT CREDIT" — a deployment mid-rollout, or a caller
+    # older than this field, still records the rating exactly as before. `subject_ref` is the
+    # customer's loyalty pseudonym (reminders resolves it from its own RatingRequest row, which
+    # already carries it — see rating_request.py); `rating_points` is what reminders computed the
+    # incentive to be worth AT THE MOMENT OF THIS REPLY (see the design note below), never
+    # recomputed here — operations has no opinion on the rating app's own settings or entitlement.
+    subject_ref: str = Field(default="", max_length=256)
+    # BOUNDED THE SAME AS rating_settings.MAX_POINTS (10_000) — not imported from reminders (a
+    # cross-service import this codebase does not do), restated here as the same product ceiling.
+    rating_points: int = Field(default=0, ge=0, le=10_000)
 
 
 @router.post("/operations/visits/{visit_id}/rating", dependencies=[Depends(require_internal_token)])
@@ -1498,6 +1508,25 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
     caller (reminders) already told the customer "شكراً" via WhatsApp's own delivery receipt and
     must not treat this as something to retry forever; a 404 here would also answer "does this
     establishment have a visit with this id?" to anyone holding the internal token.
+
+    LOYALTY CREDIT RIDES THE SAME "ALREADY RATED" GATE (Phase 4). A rating exists exactly once per
+    visit — this `if visit.rating:` check above is that fact enforced — so the credit call below,
+    placed strictly AFTER it, fires exactly once per visit too: a retried nfm_reply for an
+    already-rated visit returns `changed: false` and never reaches the credit call at all. No
+    second idempotency guard was added here on purpose; this one already covers it.
+
+    DESIGN DECISION — WHICH POINTS VALUE. The message the customer answered quoted whatever
+    `RatingSettingsStore.points` held AT SEND TIME, but that value is never persisted anywhere
+    durable (rating_cta.py's `line()` is a pure formatter; neither `SendLog` nor the visit nor any
+    schedule row carries it — see rating_settings.py's own docstring on why the store is a live
+    setting, not a snapshot). Reminders therefore computes `rating_points` FRESH, from the shop's
+    CURRENT setting and CURRENT `feature.rating` entitlement, at the moment the customer's reply is
+    resolved — the same live re-check `_rating_eligible` already does for whether to send the
+    message at all, just re-run at the one later moment this product can still act on it. The
+    practical effect: a shop that raises or lowers its points between send and reply credits at
+    today's rate, and a shop that loses the app or disables it entirely between send and reply
+    credits nothing — matching the entitlement gate's own outage-as-refusal rule rather than
+    honouring a promise this codebase has no durable record of ever having made.
     """
     store = VisitStore(request.app.state.container.datastore)
     visit = await store.get(body.tenant, visit_id)
@@ -1512,6 +1541,14 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
     visit.feedback_text = body.feedback_text.strip()
     visit.rated_at = int(time.time())
     await store.save(visit)
+    if body.subject_ref and body.rating_points > 0:
+        desk = getattr(request.app.state.container, "loyalty_desk", None)
+        if desk is not None:
+            # BEST-EFFORT (see LoyaltyDesk.rating_bonus's own docstring) — a lost credit here does
+            # not undo the rating just written above; the rating is real either way.
+            await desk.rating_bonus(
+                tenant=body.tenant, subject_ref=body.subject_ref, visit_id=visit.id,
+                points=body.rating_points, actor="reminders")
     return {"recorded": True, "changed": True, "visit_id": visit.id}
 
 

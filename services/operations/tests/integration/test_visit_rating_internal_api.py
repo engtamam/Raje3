@@ -49,11 +49,34 @@ def _visit(client, tenant: str, *, visit_id: str = "vis_1") -> str:
     return v.id
 
 
-def _rate(client, tenant: str, visit_id: str, *, rating: int, feedback_text: str = "") -> dict:
+def _rate(client, tenant: str, visit_id: str, *, rating: int, feedback_text: str = "",
+          subject_ref: str = "", rating_points: int = 0) -> dict:
+    body = {"tenant": tenant, "rating": rating, "feedback_text": feedback_text}
+    if subject_ref:
+        body["subject_ref"] = subject_ref
+    if rating_points:
+        body["rating_points"] = rating_points
     r = client.post(f"/internal/operations/visits/{visit_id}/rating", headers=_internal(),
-                    json={"tenant": tenant, "rating": rating, "feedback_text": feedback_text})
+                    json=body)
     assert r.status_code == 200, r.text
     return r.json()
+
+
+class _FakeLoyaltyDesk:
+    """A stand-in for LoyaltyDesk that records every `rating_bonus` call instead of reaching a
+    real (or absent) loyalty-service peer — this file's own tests only care about WHETHER and with
+    WHAT ARGUMENTS operations asks for a credit, never about the ledger itself (that belongs to
+    loyalty's own test suite)."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+        self.configured = True
+
+    async def rating_bonus(self, *, tenant, subject_ref, visit_id, points, actor="",
+                           branch_id=""):
+        self.calls.append({"tenant": tenant, "subject_ref": subject_ref, "visit_id": visit_id,
+                           "points": points, "actor": actor, "branch_id": branch_id})
+        return {"earned": points}
 
 
 def test_a_first_rating_is_recorded_and_marked_changed(client):
@@ -275,3 +298,67 @@ def test_a_no_op_rerating_is_not_audited_a_second_time(client):
     finally:
         client.app.state.auditor.record = original
     assert spy.await_args_list == []
+
+
+# ── loyalty-points crediting (Phase 4) ────────────────────────────────────────────────────────
+def test_a_real_rating_with_points_credits_the_customer(client):
+    vid = _visit(client, "t1")
+    desk = _FakeLoyaltyDesk()
+    client.app.state.container.loyalty_desk = desk
+    _rate(client, "t1", vid, rating=5, subject_ref="sub_abc", rating_points=15)
+    assert desk.calls == [{"tenant": "t1", "subject_ref": "sub_abc", "visit_id": vid,
+                           "points": 15, "actor": "reminders", "branch_id": ""}]
+
+
+def test_zero_points_config_credits_nothing_no_call_at_all(client):
+    vid = _visit(client, "t1")
+    desk = _FakeLoyaltyDesk()
+    client.app.state.container.loyalty_desk = desk
+    _rate(client, "t1", vid, rating=5, subject_ref="sub_abc", rating_points=0)
+    assert desk.calls == []
+
+
+def test_a_blank_subject_ref_credits_nothing_even_with_points_set(client):
+    # reminders sends a blank subject_ref only when it could not resolve one — never guess a
+    # customer to credit.
+    vid = _visit(client, "t1")
+    desk = _FakeLoyaltyDesk()
+    client.app.state.container.loyalty_desk = desk
+    _rate(client, "t1", vid, rating=5, subject_ref="", rating_points=15)
+    assert desk.calls == []
+
+
+def test_a_retried_already_rated_visit_never_double_credits(client):
+    vid = _visit(client, "t1")
+    desk = _FakeLoyaltyDesk()
+    client.app.state.container.loyalty_desk = desk
+    _rate(client, "t1", vid, rating=5, subject_ref="sub_abc", rating_points=15)
+    # a retried/duplicate webhook for the same visit — must not reach the credit call at all,
+    # because it never leaves the "already rated" branch (see the route's own docstring).
+    _rate(client, "t1", vid, rating=1, subject_ref="sub_abc", rating_points=15)
+    assert len(desk.calls) == 1
+
+
+def test_the_exact_points_amount_configured_is_what_gets_credited(client):
+    vid = _visit(client, "t1")
+    desk = _FakeLoyaltyDesk()
+    client.app.state.container.loyalty_desk = desk
+    _rate(client, "t1", vid, rating=4, subject_ref="sub_xyz", rating_points=250)
+    assert desk.calls[0]["points"] == 250
+
+
+def test_a_missing_loyalty_desk_does_not_fail_the_rating_write(client):
+    # a deployment with LOYALTY_SERVICE_URL unset — build_loyalty_desk still returns an
+    # unconfigured LoyaltyDesk, never None, but this guards the (getattr default) case too.
+    vid = _visit(client, "t1")
+    client.app.state.container.loyalty_desk = None
+    out = _rate(client, "t1", vid, rating=5, subject_ref="sub_abc", rating_points=15)
+    assert out == {"recorded": True, "changed": True, "visit_id": vid}
+
+
+def test_an_unconfigured_loyalty_desk_is_a_silent_no_op(client):
+    # the REAL LoyaltyDesk with no LOYALTY_SERVICE_URL configured — `.configured` is False, so
+    # `rating_bonus` returns None without attempting any network call.
+    vid = _visit(client, "t1")
+    out = _rate(client, "t1", vid, rating=5, subject_ref="sub_abc", rating_points=15)
+    assert out == {"recorded": True, "changed": True, "visit_id": vid}
