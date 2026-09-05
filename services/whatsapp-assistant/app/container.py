@@ -271,6 +271,7 @@ def build_container(settings: Settings) -> Container:
         wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,
         debounce_seconds=settings.CONVERSATION_DEBOUNCE_SECONDS,
         session_timeout_seconds=settings.CONVERSATION_SESSION_TIMEOUT_SECONDS,
+        max_duration_seconds=settings.CONVERSATION_MAX_DURATION_SECONDS,
         raw_window_messages=settings.CONVERSATION_RAW_WINDOW_MESSAGES,
         allowed_tools=settings.llm_tool_allowlist,
         frustration_unconfirmed_proposals_threshold=settings.FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD,

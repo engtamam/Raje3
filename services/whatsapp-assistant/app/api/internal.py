@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hmac
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 from app.backup_manifest import BACKUP
 from app.config import Settings, get_settings
 from app.core import backup as _backup
+from app.core.inbound_ingest import outbound_allowed
 from app.manifest import build_manifest
 
 
@@ -47,35 +49,26 @@ async def manifest(request: Request, settings: Settings = Depends(get_settings))
     return build_manifest(settings, ports=container.describe())
 
 
-@router.post("/whatsapp_assistant/tick", dependencies=[Depends(require_internal_token)])
-async def tick(request: Request, settings: Settings = Depends(get_settings)) -> dict:
-    """The scheduled sweep: compose debounced replies whose window elapsed, close sessions past
-    their silence timeout. Imitates services/reminders' /internal split between the event
-    fast-path (subscribed in main.py's lifespan) and this cron-driven tick — the fast path can
-    silently miss an event; this cannot silently miss a due conversation, because it scans this
-    service's OWN datastore rather than depending on the bus a second time.
+async def _active_tenants(c: Any, *, limit: int) -> list[str]:
+    """Tenants with a conversation row at all, from OUR OWN datastore — same "derive it from our
+    own rows rather than ask a peer" shape as services/reminders' `_active_tenants`. A CronJob
+    posts no body and cannot be templated per tenant (one fixed TARGET_URL — see
+    platform/deploy/chart/templates/cronjob.yaml), so a global sweep must discover its own
+    worklist rather than be handed one."""
+    from app.core.models import CONVERSATIONS
 
-    Per-tenant, bounded (CONVERSATION_TICK_BATCH_SIZE) — the same reasoning as reminders'
-    TICK_BATCH_SIZE: an unbounded sweep is how one busy tenant starves every other one.
-    """
-    import time as _time
+    rows = await c.datastore.scan_all(CONVERSATIONS, limit)
+    seen: list[str] = []
+    for r in rows:
+        t = r.get("tenant") or ""
+        if t and t not in seen:
+            seen.append(t)
+    return seen
 
-    c = request.app.state.container
-    tenant = ""
-    body: dict = {}
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    tenant = str(body.get("tenant") or "")
-    if not tenant:
-        return {"error": "tenant is required"}
 
-    now = int(_time.time())
-    batch = settings.CONVERSATION_TICK_BATCH_SIZE
+async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int, batch: int,
+                           auditor: Any) -> dict:
     replied = 0
-    closed = 0
-
     due = await c.engine.sweep_due(tenant, now=now, batch=batch)
     for subject_ref in due:
         plan = await c.engine.compose_reply(tenant, subject_ref, now=now)
@@ -84,6 +77,11 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
         conv = await c.datastore.get("wa_conversations", f"{tenant}|{subject_ref}")
         to = (conv or {}).get("from_number", "")
         if not to:
+            continue
+        if not await outbound_allowed(c, settings, tenant):
+            from app.observability.logging import get_logger
+            get_logger("app.internal.tick").warning(
+                "whatsapp_outbound_capped", extra={"tenant": tenant})
             continue
         if plan.kind == "text" and plan.text:
             await c.sender.send_template(
@@ -97,7 +95,6 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
             replied += 1
 
     timed_out = await c.engine.sweep_timed_out(tenant, now=now, batch=batch)
-    closed = len(timed_out)
 
     # ── chat data retention — same tick, no separate unmonitored cron ────────────────────────
     # Runs AFTER the reply/timeout sweep above: a conversation must actually be closed (which the
@@ -107,17 +104,66 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
 
     retention = await run_retention_tick(
         tenant, now=now, store=c.datastore, inbound_store=c.inbound_store,
-        auditor=request.app.state.auditor, retention_days=settings.CHAT_RETENTION_DAYS,
+        auditor=auditor,
+        retention_days=settings.CHAT_RETENTION_DAYS,
         batch=settings.CHAT_RETENTION_TICK_BATCH_SIZE,
         max_scan_per_subject=settings.ERASURE_MAX_SCAN)
+
+    return {"replied": replied, "closed": len(timed_out), "scanned": len(due),
+            "retention_purged_conversations": retention.purged_conversations,
+            "retention_purged_messages": retention.purged_messages,
+            "retention_truncated": retention.truncated}
+
+
+@router.post("/whatsapp_assistant/tick", dependencies=[Depends(require_internal_token)])
+async def tick(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    """The scheduled sweep: compose debounced replies whose window elapsed, close sessions past
+    their silence timeout. Imitates services/reminders' /internal split between the event
+    fast-path (subscribed in main.py's lifespan) and this cron-driven tick — the fast path can
+    silently miss an event; this cannot silently miss a due conversation, because it scans this
+    service's OWN datastore rather than depending on the bus a second time.
+
+    EMPTY BODY (NO `tenant`) MEANS EVERY TENANT WITH A CONVERSATION ROW — the platform's CronJob
+    template posts an EMPTY body (no way to template one per tenant, one fixed TARGET_URL), so a
+    tick that REQUIRED `tenant` would fail on every single scheduled invocation while every probe
+    stayed green: the exact defect reminders' own /reminders/tick already carries this same fix
+    for. `tenant` in the body is what an operator uses to unstick one shop by hand.
+
+    Per-tenant, bounded (CONVERSATION_TICK_BATCH_SIZE) — the same reasoning as reminders'
+    TICK_BATCH_SIZE: an unbounded sweep is how one busy tenant starves every other one.
+    """
+    import time as _time
+
+    c = request.app.state.container
+    body: dict = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    tenant = str(body.get("tenant") or "")
+
+    now = int(_time.time())
+    batch = settings.CONVERSATION_TICK_BATCH_SIZE
+    tenants = [tenant] if tenant else await _active_tenants(c, limit=2000)
+
+    replied = closed = scanned = 0
+    retention_purged_conversations = retention_purged_messages = 0
+    retention_truncated = False
+    for t in tenants:
+        got = await _tick_one_tenant(c, settings, t, now=now, batch=batch,
+                                     auditor=request.app.state.auditor)
+        replied += got["replied"]
+        closed += got["closed"]
+        scanned += got["scanned"]
+        retention_purged_conversations += got["retention_purged_conversations"]
+        retention_purged_messages += got["retention_purged_messages"]
+        retention_truncated = retention_truncated or got["retention_truncated"]
 
     # ── inbound catch-up sweep — closes the "bus dropped a whatsapp.message event" gap ────────
     # Not tenant-scoped (unlike the reply/timeout sweep above): notification-service's inbound
     # feed is one global cursor across every tenant, so it runs once per tick call regardless of
-    # which tenant's cron invocation triggered it. Bounded and idempotent (see
-    # app/core/inbound_poll.py), so a tick firing per-tenant every CONVERSATION_TICK_SECONDS just
-    # means this sweep is revisited that often — never a correctness issue, only extra no-op work
-    # once the cursor is caught up.
+    # which (or how many) tenants this invocation swept above. Bounded and idempotent (see
+    # app/core/inbound_poll.py).
     from app.core.inbound_poll import InboundPoller
     from app.observability.logging import get_logger
 
@@ -125,10 +171,11 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
                            max_pages=settings.INBOUND_POLL_MAX_PAGES)
     inbound_poll = await poller.run(auditor=request.app.state.auditor)
 
-    return {"tenant": tenant, "replied": replied, "closed": closed, "scanned": len(due),
-            "retention_purged_conversations": retention.purged_conversations,
-            "retention_purged_messages": retention.purged_messages,
-            "retention_truncated": retention.truncated,
+    return {"tenant": tenant, "tenants_swept": len(tenants), "replied": replied, "closed": closed,
+            "scanned": scanned,
+            "retention_purged_conversations": retention_purged_conversations,
+            "retention_purged_messages": retention_purged_messages,
+            "retention_truncated": retention_truncated,
             "inbound_poll": inbound_poll}
 
 

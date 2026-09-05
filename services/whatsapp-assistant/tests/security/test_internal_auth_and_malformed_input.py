@@ -23,11 +23,19 @@ def test_tick_with_malformed_json_body_does_not_crash(client):
     assert resp.status_code != 500
 
 
-def test_tick_with_no_tenant_is_rejected_cleanly_not_crashed(client):
+def test_tick_with_no_tenant_sweeps_every_tenant_instead_of_erroring(client):
+    """A CronJob posts NO body at all (one fixed TARGET_URL, no per-tenant templating — see
+    platform/deploy/chart/templates/cronjob.yaml) — the exact shape this hits. Refusing an empty
+    `tenant` used to mean the heartbeat failed on every single scheduled invocation while every
+    probe stayed green (the same defect class reminders' own /reminders/tick already carries the
+    fix for). An empty body now means "every tenant with a conversation row", not an error."""
     resp = client.post("/internal/whatsapp_assistant/tick", json={},
                        headers={"X-Internal-Token": INTERNAL_TOKEN})
-    assert resp.status_code != 500
-    assert resp.json().get("error") == "tenant is required"
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "error" not in body
+    assert body["tenant"] == ""
+    assert "tenants_swept" in body
 
 
 def test_manifest_requires_internal_token(client):
