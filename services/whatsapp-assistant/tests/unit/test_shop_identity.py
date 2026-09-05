@@ -74,6 +74,15 @@ def test_build_system_prompt_sets_a_length_ceiling_and_a_dialect():
     assert "سعودية" in prompt
 
 
+def test_build_system_prompt_carries_the_package_upsell_rule():
+    """packages feature: the persona must state the rule in its own words, not only rely on
+    context_builder.py's structural filter — see that module's own docstring for why both layers
+    exist."""
+    prompt = build_system_prompt("محل الأناقة")
+    assert "أرخص" in prompt          # never suggest a package cheaper than what was chosen
+    assert "باقة" in prompt
+
+
 def test_two_tenants_get_two_different_personas_with_no_cross_leak():
     """TENANT ISOLATION FOR THE PERSONA ITSELF: shop A's name must never appear in shop B's
     system prompt, and vice versa — the whole point of resolving the name per tenant rather than

@@ -23,8 +23,34 @@ def _fmt_price(price_minor: int) -> str:
     return f"{riyals:g} ر.س"
 
 
+def _eligible_upsell_packages(packages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Which packages may even be MENTIONED this turn — packages feature's own anti-hallucination
+    and anti-discount rules, enforced HERE, structurally, never left to the model to judge:
+
+      1. `active` and genuinely bookable soon — `next_offerable_dates` non-empty (precomputed by
+         operations' core/scheduling.py; a package with none is either off/expired/out-of-season
+         and simply does not exist for this purpose right now).
+
+      2. `price_minor >= component_price_minor_sum` — THE WHOLE UPSELL RULE. A package priced
+         below what the same services would cost bought separately would LOWER what the customer
+         was about to pay; this feature exists to raise the average invoice, never to talk a
+         customer into spending less. A package failing this check is silently never shown to
+         the model at all — there is nothing for it to accidentally suggest.
+    """
+    out = []
+    for p in packages:
+        if not p.get("active"):
+            continue
+        if not (p.get("next_offerable_dates") or []):
+            continue
+        if int(p.get("price_minor") or 0) < int(p.get("component_price_minor_sum") or 0):
+            continue
+        out.append(p)
+    return out
+
+
 def build_context_block(*, catalog: list[dict[str, Any]], offers: list[dict[str, Any]],
-                        known_customer: bool) -> str:
+                        known_customer: bool, packages: list[dict[str, Any]] | None = None) -> str:
     lines: list[str] = []
 
     if catalog:
@@ -57,5 +83,27 @@ def build_context_block(*, catalog: list[dict[str, Any]], offers: list[dict[str,
             lines.append(line)
     else:
         lines.append("لا توجد عروض قابلة للاستبدال برصيد العميل الحالي.")
+
+    # ── packages worth mentioning for upselling — see `_eligible_upsell_packages`'s own doctrine.
+    # A GENERIC SECTION HEADER, NOT A PERSUASIVE ONE — the persona itself (build_system_prompt)
+    # carries the "only if it truly fits, only these, only these dates" instruction; this block's
+    # job is only to hand over the real, already-filtered facts.
+    names_by_id = {str(s.get("id")): str(s.get("name") or "") for s in catalog}
+    eligible = _eligible_upsell_packages(packages or [])
+    if eligible:
+        lines.append("")
+        lines.append("باقات حقيقية قد تناسب العميل (اذكرها فقط إذا كانت أعلى قيمة مما يختاره أصلاً، "
+                     "ولا تخترع باقة أو تاريخاً غير الموجودَين هنا):")
+        for p in eligible:
+            included = "، ".join(names_by_id.get(sid, sid) for sid in p.get("service_ids") or [])
+            price = _fmt_price(int(p.get("price_minor") or 0))
+            line = f"- {p.get('name')} (id: {p.get('id')}): تشمل {included} — بسعر {price}"
+            person_count = int(p.get("person_count") or 1)
+            if person_count > 1:
+                line += f"، تكفي {person_count} أشخاص"
+            dates = p.get("next_offerable_dates") or []
+            if dates:
+                line += f" — الأيام المتاحة قريبًا: {'، '.join(dates)}"
+            lines.append(line)
 
     return "\n".join(lines)

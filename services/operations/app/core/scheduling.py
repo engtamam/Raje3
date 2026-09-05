@@ -112,6 +112,29 @@ def is_offerable(pkg: Any, at: int) -> bool:
     return False    # an unknown recurrence value — fail CLOSED, never "always on" by default
 
 
+def next_offerable_dates(pkg: Any, *, from_at: int, horizon_days: int = 14) -> list[str]:
+    """The next `horizon_days` Riyadh calendar days (starting from the day `from_at` falls in,
+    inclusive) this package is actually offerable on — as plain "YYYY-MM-DD" strings.
+
+    THE ONE FACT THE WHATSAPP ASSISTANT IS HANDED, PRECOMPUTED, RATHER THAN THE RAW SCHEDULE.
+    An LLM asked to reason "today is Thursday, this runs on Saturdays, so mention the 6th and the
+    13th" is doing date arithmetic — exactly the kind of thing this whole feature exists to keep
+    out of the model's hands (packages feature: "لازم ما يهلوس... لأنها تواريخ ودورات"). Handing it
+    a ready list of real dates instead means there is nothing left for it to compute, only to
+    read and phrase in its own words.
+    """
+    import datetime as _dt
+
+    out: list[str] = []
+    start_day = _dt.datetime.fromtimestamp(int(from_at), RIYADH).replace(
+        hour=12, minute=0, second=0, microsecond=0)
+    for offset in range(horizon_days):
+        at = int((start_day + _dt.timedelta(days=offset)).timestamp())
+        if is_offerable(pkg, at):
+            out.append((start_day + _dt.timedelta(days=offset)).strftime("%Y-%m-%d"))
+    return out
+
+
 def validate_recurrence(*, recurrence: str, weekdays: list[int] | None,
                         days_of_month: list[int] | None,
                         yearly_from: str, yearly_to: str) -> str:

@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 import pytest
 
 from app.core.riyadh import RIYADH
-from app.core.scheduling import (RECURRENCES, is_offerable, valid_mmdd, validate_recurrence)
+from app.core.scheduling import (RECURRENCES, is_offerable, next_offerable_dates, valid_mmdd,
+                                 validate_recurrence)
 
 
 @dataclass
@@ -158,6 +159,30 @@ def test_yearly_with_a_malformed_boundary_refuses_rather_than_guess():
 def test_an_unknown_recurrence_value_refuses_rather_than_defaulting_to_always_on():
     p = _Pkg(recurrence="daily")     # not a real value
     assert is_offerable(p, _riyadh(2026, 6, 1)) is False
+
+
+# ── next_offerable_dates — the WhatsApp assistant's own precomputed fact ──────────────────────
+def test_next_offerable_dates_for_an_open_ended_package_is_every_day_in_the_horizon():
+    p = _Pkg()
+    dates = next_offerable_dates(p, from_at=_riyadh(2026, 6, 1), horizon_days=3)
+    assert dates == ["2026-06-01", "2026-06-02", "2026-06-03"]
+
+
+def test_next_offerable_dates_for_a_weekly_package_lists_only_matching_days():
+    p = _Pkg(recurrence="weekly", recurrence_weekdays=[5])   # Saturday
+    dates = next_offerable_dates(p, from_at=_riyadh(2026, 6, 1), horizon_days=14)
+    assert dates == ["2026-06-06", "2026-06-13"]
+
+
+def test_next_offerable_dates_is_empty_for_an_inactive_package():
+    p = _Pkg(active=False)
+    assert next_offerable_dates(p, from_at=_riyadh(2026, 6, 1), horizon_days=7) == []
+
+
+def test_next_offerable_dates_respects_an_upcoming_end_date():
+    p = _Pkg(ends_at=_riyadh(2026, 6, 3, hh=23))
+    dates = next_offerable_dates(p, from_at=_riyadh(2026, 6, 1), horizon_days=7)
+    assert dates == ["2026-06-01", "2026-06-02", "2026-06-03"]
 
 
 # ── input validation (the CRUD routes' own guard) ─────────────────────────────────────────────

@@ -1501,20 +1501,38 @@ async def read_catalogue(request: Request, body: CatalogueIn) -> dict:
 
 @router.post("/operations/packages", dependencies=[Depends(require_internal_token)])
 async def read_packages(request: Request, body: CatalogueIn) -> dict:
-    """One establishment's packages — id, name, and its live component service ids.
+    """One establishment's packages — for TWO different peers, in one shape both can read.
 
-    FOR `insights`, so a visit tagged `package_id` can be folded into the association engine as
-    ONE synthetic item (`pkg:<id>`) rather than as its raw components — a package and an extra,
-    un-bundled service bought alongside it are then a real, learnable pair, the same way two
-    ordinary services are (see core/tick.py's own note on where this is used). Retired packages
-    ARE included, same reasoning as `read_catalogue` above: a 90-day window covers visits to a
-    package that has since been stopped.
+    FOR `insights`, id/name/service_ids/active is enough: a visit tagged `package_id` folds into
+    the association engine as ONE synthetic item (`pkg:<id>`) rather than its raw components — see
+    core/tick.py's own note. Retired packages ARE included, same reasoning as `read_catalogue`
+    above: a 90-day window covers visits to a package that has since been stopped.
+
+    FOR `whatsapp-assistant`, the extra fields below are the whole point (packages feature,
+    upselling): `component_price_minor_sum` (what the SAME services would cost bought separately,
+    at TODAY's prices — never cached, never derived from the package's own price) is what lets
+    the assistant refuse to suggest a package priced BELOW that sum, a rule enforced entirely on
+    that side, never here. `offerable_today`/`next_offerable_dates` are core/scheduling.py's own
+    answer, PRECOMPUTED — the assistant is hallucination-prone at date arithmetic and is handed
+    the real dates rather than the raw schedule to reason about itself. `person_count` is the
+    descriptive "تكفي N أشخاص" field, unchanged either way.
     """
     c = request.app.state.container
     rows = await PackageStore(c.datastore).list(body.tenant, active_only=False)
-    return {"packages": [{"id": p.id, "name": p.name, "service_ids": list(p.service_ids),
-                          "price_minor": p.price_minor, "active": p.active} for p in rows],
-            "count": len(rows)}
+    services = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
+    price_by_id = {s.id: s.price_minor for s in services}
+    now = int(time.time())
+    out = []
+    for p in rows:
+        out.append({
+            "id": p.id, "name": p.name, "service_ids": list(p.service_ids),
+            "price_minor": p.price_minor, "active": p.active,
+            "component_price_minor_sum": sum(price_by_id.get(sid, 0) for sid in p.service_ids),
+            "offerable_today": scheduling.is_offerable(p, now),
+            "next_offerable_dates": scheduling.next_offerable_dates(p, from_at=now),
+            "person_count": p.person_count,
+        })
+    return {"packages": out, "count": len(out)}
 
 
 @router.post("/operations/catalogue-with-prices", dependencies=[Depends(require_internal_token)])

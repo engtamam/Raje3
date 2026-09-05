@@ -227,6 +227,118 @@ def test_context_block_lists_full_priced_catalogue_and_the_customers_own_real_of
     assert "غسيل مجاني" in block and "100" in block and "150" in block and "2026-12-01" in block
 
 
+# ── packages worth upselling (packages feature) ──────────────────────────────────────────────────
+
+def _catalog():
+    return [{"id": "svc_a", "name": "قص شعر", "price_minor": 5000},
+           {"id": "svc_b", "name": "غسيل", "price_minor": 3000}]
+
+
+def test_a_package_priced_at_or_above_its_components_is_mentioned():
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة العناية", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"], "person_count": 1}])
+    assert "باقة العناية" in block
+    assert "قص شعر" in block and "غسيل" in block
+    assert "90" in block
+    assert "2026-06-06" in block
+
+
+def test_a_package_priced_below_its_components_is_never_mentioned():
+    """THE WHOLE RULE (user's own words: "لو الخدمات اعلى من الباقة... خلاص ما يقترحها"). A
+    package that would LOWER what the customer already pays must never even reach the model."""
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة رخيصة", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 7000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"]}])
+    assert "باقة رخيصة" not in block
+
+
+def test_an_inactive_package_is_never_mentioned():
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة موقوفة", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": False,
+                  "next_offerable_dates": ["2026-06-06"]}])
+    assert "باقة موقوفة" not in block
+
+
+def test_a_package_with_no_upcoming_offerable_date_is_never_mentioned():
+    """Expired, off-season, or a schedule that never falls in the lookahead window — same "does
+    not exist for this purpose" reading as an inactive one."""
+    block = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة منتهية", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": []}])
+    assert "باقة منتهية" not in block
+
+
+def test_a_packages_person_count_is_mentioned_only_when_more_than_one():
+    solo = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"], "person_count": 1}])
+    assert "أشخاص" not in solo
+
+    family = build_context_block(
+        catalog=_catalog(), offers=[], known_customer=True,
+        packages=[{"id": "pkg1", "name": "باقة العائلة", "service_ids": ["svc_a", "svc_b"],
+                  "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+                  "next_offerable_dates": ["2026-06-06"], "person_count": 3}])
+    assert "3" in family and "أشخاص" in family
+
+
+def test_no_packages_at_all_adds_nothing_to_the_block():
+    with_none = build_context_block(catalog=_catalog(), offers=[], known_customer=True)
+    with_empty = build_context_block(catalog=_catalog(), offers=[], known_customer=True, packages=[])
+    assert with_none == with_empty
+
+
+class _FakePackageCatalogFixedList:
+    """Distinct from `_FakePackageCatalog` above (tenant-keyed) — this one always answers the
+    same flat list regardless of tenant, which is all the end-to-end wiring test below needs."""
+    driver = "fake"
+
+    def __init__(self, packages: list[dict]) -> None:
+        self._packages = packages
+
+    async def list_active(self, tenant: str) -> list[dict]:
+        return self._packages
+
+
+async def test_an_eligible_package_reaches_the_models_own_context_block():
+    """END TO END: package_catalog -> ConversationEngine._context_block -> the exact text the LLM
+    is handed as `context_block` this turn — proving the wiring, not just the pure function."""
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_text("تمام!")
+    packages = _FakePackageCatalogFixedList([
+        {"id": "pkg1", "name": "باقة العناية", "service_ids": ["svc_a", "svc_b"],
+         "price_minor": 9000, "component_price_minor_sum": 8000, "active": True,
+         "next_offerable_dates": ["2026-06-06"], "person_count": 1},
+    ])
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED,
+        service_catalog=_FakeCatalog({TENANT: _catalog()}), package_catalog=packages)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="مرحبا", now=1002)
+    await engine.compose_reply(TENANT, SUBJECT, now=1200)
+
+    assert "باقة العناية" in llm.calls[0]["context_block"]
+    assert "2026-06-06" in llm.calls[0]["context_block"]
+
+
 # ── the brand-new, never-seen-before customer: resolve-or-continue, never an error ──────────────
 
 async def test_a_brand_new_unregistered_customer_gets_a_normal_first_visit_conversation():

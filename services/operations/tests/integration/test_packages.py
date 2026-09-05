@@ -211,6 +211,26 @@ def test_internal_packages_route_includes_retired_ones(client):
     assert set(rows[created["id"]]["service_ids"]) == {a["id"], b["id"]}
 
 
+def test_internal_packages_route_carries_price_comparison_and_schedule_facts(client):
+    a = client.post("/api/v1/staff/services", json={"name": "خدمة أ", "price_minor": 3000},
+                    headers=_auth("operations.manage_services")).json()
+    b = client.post("/api/v1/staff/services", json={"name": "خدمة ب", "price_minor": 4000},
+                    headers=_auth("operations.manage_services")).json()
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 6000, "person_count": 2},
+                          headers=_auth("operations.manage_services")).json()
+
+    r = client.post("/internal/operations/packages",
+                    json={"tenant": "t1"}, headers={"X-Internal-Token": "t" * 40})
+    row = next(p for p in r.json()["packages"] if p["id"] == created["id"])
+    assert row["component_price_minor_sum"] == 7000
+    assert row["price_minor"] == 6000
+    assert row["offerable_today"] is True
+    assert row["next_offerable_dates"]           # open-ended → today is in the list
+    assert row["person_count"] == 2
+
+
 def test_internal_packages_route_needs_a_token(client):
     r = client.post("/internal/operations/packages", json={"tenant": "t1"})
     assert r.status_code == 401
