@@ -246,6 +246,9 @@ class Settings(BaseSettings):
     # in this service. See adapters/message_sender for why this is a route and not a column.
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
     OPERATIONS_RECIPIENT_PATH: str = "/internal/operations/recipient"
+    # THE RATING APP'S OWN WRITE (foundation phase) — `{}` is the visit id, filled at call time
+    # (see core/rating_writer.py). Idempotent on "already rated" server-side.
+    OPERATIONS_VISIT_RATING_PATH: str = "/internal/operations/visits/{}/rating"
     # WHICH BRANCH THIS PERSON MAY SEE — asked of the only service that staffs the shop.
     #
     # The send log narrows by branch, and until now it narrowed by whatever branch the CALLER

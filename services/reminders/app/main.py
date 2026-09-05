@@ -131,6 +131,23 @@ def create_app() -> FastAPI:
         except Exception as exc:                                            # noqa: BLE001
             logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
 
+        # ── the rating app's own reply (foundation phase) — every inbound WhatsApp message,
+        # unfiltered, the same fan-out every other consumer of this topic reads. `handle` is a
+        # no-op for anything that is not a recognised rating Flow reply, which is everything today
+        # (nothing schedules a send yet). AT-MOST-ONCE, same as the two subscriptions above — see
+        # RatingConsumer's own docstring for why no catch-up path exists yet.
+        async def _on_whatsapp_message(event) -> None:
+            payload = event.payload if hasattr(event, "payload") else (event or {})
+            message = dict(payload).get("message") or {}
+            if message:
+                await container.rating_consumer.handle(message)
+
+        try:
+            await container.event_bus.subscribe("whatsapp.message", _on_whatsapp_message)
+            logger.info("subscribed", extra={"topic": "whatsapp.message"})
+        except Exception as exc:                                            # noqa: BLE001
+            logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
+
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})

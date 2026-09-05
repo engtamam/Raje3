@@ -1474,6 +1474,44 @@ async def record_visit_by_ref(request: Request, body: FreeVisitIn) -> dict:
     return {"recorded": True, "visit_id": res.visit.id, "duplicate": res.duplicate}
 
 
+class VisitRatingIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    rating: int = Field(ge=1, le=5)
+    feedback_text: str = Field(default="", max_length=2000)
+
+
+@router.post("/operations/visits/{visit_id}/rating", dependencies=[Depends(require_internal_token)])
+async def record_visit_rating(request: Request, visit_id: str, body: VisitRatingIn) -> dict:
+    """The rating app's own write — a customer's answer to the post-visit WhatsApp Flow, resolved
+    by `reminders` (its `flow_token` -> visit lookup) and handed here as a plain fact.
+
+    RATING ONLY, NEVER SENT AT VISIT-CREATION TIME (foundation phase, models.py's own docstring) —
+    a customer answers hours after the visit exists, so this is always a write to an EXISTING row,
+    never part of recording the visit itself.
+
+    IDEMPOTENT ON "ALREADY RATED", not an error. Meta retries a webhook it did not get a fast
+    enough 200 for, and a second nfm_reply for the same flow_token must not silently overwrite an
+    owner's meanwhile-recorded handling of the first one — so a visit that already carries a
+    rating simply keeps it, and this call reports `changed: false` rather than clobbering it.
+
+    Returns `recorded: false` for an unknown visit or a tenant mismatch rather than 404 — the
+    caller (reminders) already told the customer "شكراً" via WhatsApp's own delivery receipt and
+    must not treat this as something to retry forever; a 404 here would also answer "does this
+    establishment have a visit with this id?" to anyone holding the internal token.
+    """
+    store = VisitStore(request.app.state.container.datastore)
+    visit = await store.get(body.tenant, visit_id)
+    if visit is None:
+        return {"recorded": False, "reason": "unknown visit"}
+    if visit.rating:
+        return {"recorded": True, "changed": False, "visit_id": visit.id}
+    visit.rating = body.rating
+    visit.feedback_text = body.feedback_text.strip()
+    visit.rated_at = int(time.time())
+    await store.save(visit)
+    return {"recorded": True, "changed": True, "visit_id": visit.id}
+
+
 class CatalogueIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
 

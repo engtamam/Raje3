@@ -103,6 +103,9 @@ def build_manifest(
             # A visit performed for no money, bought with points. Identified by PSEUDONYM because
             # the caller (`loyalty`) holds no phone number and must not be handed one.
             {"path": "/internal/operations/visits/by-ref", "tier": "internal", "method": "POST"},
+            # The rating app's own write (foundation phase) — reminders resolves a Flow reply's
+            # flow_token back to a visit and hands the rating here as a plain fact.
+            {"path": "/internal/operations/visits/{}/rating", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/seed-tenant", "tier": "internal", "method": "POST"},
             {"path": "/internal/signup/partner-invite", "tier": "internal", "method": "POST"},
             # The most sensitive surface this service has: it turns a pseudonym back into a phone

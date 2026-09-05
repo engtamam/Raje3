@@ -149,6 +149,7 @@ class Container:
     scheduler: Any = None
     ingest: Any = None
     tick: Any = None
+    rating_consumer: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -250,6 +251,24 @@ def build_container(settings: Settings) -> Container:
         daily_total_cap=settings.DAILY_TOTAL_CAP)
 
     container.sender = build_sender(settings)
+
+    # THE RATING APP'S OWN RECEIVE SIDE (foundation phase) — the bus subscriber that turns a Flow
+    # completion into a written rating. Built regardless of whether any shop owns the app yet;
+    # `RatingConsumer.handle` is a no-op for every message that is not a recognised rating reply,
+    # which is every message today (nothing schedules a send yet — a later phase does).
+    from app.core.rating_consumer import RatingConsumer
+    from app.core.rating_request import RatingRequestStore
+    from app.core.rating_writer import HttpRatingWriter, NullRatingWriter
+    if settings.OPERATIONS_SERVICE_URL:
+        rating_writer: Any = HttpRatingWriter(
+            operations_url=settings.OPERATIONS_SERVICE_URL,
+            path=settings.OPERATIONS_VISIT_RATING_PATH,
+            token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+    else:
+        rating_writer = NullRatingWriter()
+    container.rating_consumer = RatingConsumer(
+        requests=RatingRequestStore(container.datastore), writer=rating_writer)
+
     # DID IT ARRIVE. The receipt feed is the other half of the sender: one hands the message over,
     # the other hears back what happened to it. Built beside it deliberately — a deployment that
     # can send and cannot hear is the state this service was in since it was written.
