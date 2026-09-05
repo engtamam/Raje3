@@ -170,3 +170,53 @@ def test_identical_reasons_are_counted_not_listed(st):
     s = Sender(refuse=["a", "b", "c"], reason="بلغ الحد اليومي")
     res = fire(st, s, resolver("a", "b", "c"))
     assert res.run.reasons["بلغ الحد اليومي"] == 3
+
+
+# ── package_offer — re-asking whether the package is still offerable at fire time ────────────────
+
+class _FixedOfferable:
+    def __init__(self, offerable: bool = True) -> None:
+        self._offerable = offerable
+        self.calls: list[tuple[str, str, int]] = []
+
+    async def offerable(self, tenant: str, package_id: str, at: int) -> bool:
+        self.calls.append((tenant, package_id, at))
+        return self._offerable
+
+
+PACKAGE_CAMPAIGN = {**CAMPAIGN, "goal": "package_offer", "package_id": "pkg1"}
+
+
+def test_a_package_offer_still_offerable_at_fire_time_sends_normally(st):
+    check = _FixedOfferable(offerable=True)
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"),
+                  package_offerable=check)
+    res = run(d.fire(PACKAGE_CAMPAIGN, now=NOW))
+    assert res.run.sent == 1
+    assert check.calls == [("t1", "pkg1", NOW)]
+
+
+def test_a_package_no_longer_offerable_refuses_the_whole_run_sending_nothing(st):
+    check = _FixedOfferable(offerable=False)
+    sender = Sender()
+    d = Dispatcher(store=st, sender=sender, audience_resolver=resolver("a"),
+                  package_offerable=check)
+    res = run(d.fire(PACKAGE_CAMPAIGN, now=NOW))
+    assert res.run.sent == 0
+    assert sender.calls == []
+    assert "الباقة لم تعد متاحة" in res.run.reasons
+
+
+def test_an_ordinary_campaign_with_no_package_id_never_asks_the_offerable_check(st):
+    check = _FixedOfferable(offerable=False)     # would refuse if asked — must never be asked
+    res = fire(st, Sender(), resolver("a"), package_offerable=check)
+    assert res.run.sent == 1
+    assert check.calls == []
+
+
+def test_no_offerable_peer_wired_at_all_never_blocks_a_package_campaign(st):
+    """Backward compatible — a Dispatcher built before this feature (package_offerable=None, the
+    default) must not suddenly refuse every package_offer campaign."""
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"))
+    res = run(d.fire(PACKAGE_CAMPAIGN, now=NOW))
+    assert res.run.sent == 1

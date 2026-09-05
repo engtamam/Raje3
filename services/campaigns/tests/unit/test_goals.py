@@ -166,3 +166,31 @@ def test_a_goal_whose_template_declares_nothing_asks_for_nothing():
     by_goal = {c.goal: c for c in cards(now=0, fills_by_type={})}
     assert by_goal["service_offer"].blanks == []
     assert by_goal["announce"].blanks == []
+
+
+# ── package_offer (packages feature) ──────────────────────────────────────────────────────────
+
+def test_package_offer_has_its_own_card():
+    by_goal = {c.goal: c for c in cards(now=NOW)}
+    assert "package_offer" in by_goal
+    assert by_goal["package_offer"].title and by_goal["package_offer"].line
+
+
+def test_package_offer_is_a_manual_offer_goal_same_as_service_offer():
+    spec = resolve_goal("package_offer")
+    assert spec["trigger"] == "manual"
+    from app.core.models import offers_something
+    assert offers_something("package_offer") is True
+
+
+def test_package_offer_shares_the_mkt_offer_template_and_marketing_class():
+    spec = resolve_goal("package_offer")
+    assert spec["template_type"] == "mkt_offer"
+    assert spec["cls"] == "marketing"
+
+
+def test_package_offer_reuses_the_catalogue_blank_kind():
+    """No new blank kind was invented — a package fills the SAME 'catalogue' slot a service
+    would, since both are simply 'what he sells'."""
+    by_goal = {c.goal: c for c in cards(now=NOW, fills_by_type={"mkt_offer": ["amount", "catalogue", "date"]})}
+    assert by_goal["package_offer"].blanks == ["amount", "catalogue", "date"]

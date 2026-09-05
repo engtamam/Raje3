@@ -35,12 +35,15 @@ class DispatchResult:
 
 class Dispatcher:
     def __init__(self, *, store, sender, audience_resolver, batch: int = 200,
-                 telemetry=None, daily_share: int = 0) -> None:
+                 telemetry=None, daily_share: int = 0, package_offerable=None) -> None:
         self._s = store
         self._sender = sender
         self._resolve = audience_resolver
         self._batch = batch
         self._t = telemetry
+        # OPTIONAL — a deployment with none wired (tests, a driver not yet configured) simply never
+        # runs this check; package_offer campaigns are a newer feature than this constructor.
+        self._package_offerable = package_offerable
         # THE CAMPAIGN'S SHARE OF TODAY'S PROVIDER CEILING — the ceiling minus what the automatic
         # engine reserved (spec §8.4.3). Deliberately a NUMBER rather than a channel: this module
         # must not learn which provider imposes it, and a test enforces that by reading this
@@ -59,6 +62,19 @@ class Dispatcher:
         tenant = campaign.get("tenant", "")
         cid = campaign.get("id", "")
         run = Run(tenant=tenant, campaign_id=cid, at=now, fired_by=fired_by)
+
+        # THE PACKAGE'S OWN SCHEDULE, RE-ASKED FRESH — never trusted from whenever the campaign was
+        # created (§ package_offer, packages feature). A manual campaign is usually fired the same
+        # minute it is made, but a scheduled or standing one can sit for weeks; an owner stopping
+        # the package, or its own recurring window simply ending, must silence the campaign rather
+        # than advertise something that no longer exists. Checked BEFORE resolving the audience —
+        # refusing here costs nothing an audience read would have spent for nothing.
+        package_id = str(campaign.get("package_id") or "")
+        if package_id and self._package_offerable is not None:
+            if not await self._package_offerable.offerable(tenant, package_id, now):
+                run.reasons["الباقة لم تعد متاحة"] = 0
+                await self._save(run)
+                return DispatchResult(run=run, finished=True)
 
         reached = await self._already_reached(tenant, cid)
         audience = await self._resolve(campaign, already_reached=reached, now=now)

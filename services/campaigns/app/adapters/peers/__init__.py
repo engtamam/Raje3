@@ -374,6 +374,39 @@ class HttpSender:
 
 
 # ── the shop's name, for the preview ───────────────────────────────────────────────────────────
+# ── packages: is the package_offer goal's own package still active/in-schedule right now ────────
+# A THIN, DIRECT CALL TO operations' core/scheduling.py — never a second copy of the rule. Asked at
+# TWO moments, mirroring HttpAudience.allows()'s own "ask again independently, never trust the
+# earlier answer" shape: once at campaign creation (a clear refusal while the owner is looking at
+# the screen), and once more at every dispatch.fire() pass (a campaign created weeks ago, or a
+# standing/scheduled one, must not advertise a package that has since been turned off or fallen
+# outside its own schedule).
+class NullPackageOfferable:
+    driver = "null"
+
+    async def offerable(self, tenant: str, package_id: str, at: int) -> bool:
+        return True
+
+
+class HttpPackageOfferable:
+    driver = "http"
+
+    def __init__(self, *, operations_url: str, path: str, token: str, timeout: int = 8) -> None:
+        self._url = operations_url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+
+    async def offerable(self, tenant: str, package_id: str, at: int) -> bool:
+        """`False` on ANY failure — an unreachable peer or an unknown package both mean "do not
+        advertise it", the same fail-closed posture as every other paid-surface gate here."""
+        try:
+            out = _post(self._url, {"tenant": tenant, "package_id": package_id, "at": int(at)},
+                       self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return False
+        return bool(out.get("offerable"))
+
+
 class NullIdentity:
     driver = "null"
 
@@ -429,6 +462,7 @@ def build_peers(settings) -> dict[str, Any]:
     if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
         return {"templates": NullTemplates(), "audience": NullAudience(),
                 "sender": NullSender(), "identity": NullIdentity(),
+                "package_offerable": NullPackageOfferable(),
                 "window": Window(start_hour=settings.SEND_WINDOW_START_HOUR,
                                  end_hour=settings.SEND_WINDOW_END_HOUR)}
     t = settings.PEER_TIMEOUT_SECONDS
@@ -462,6 +496,10 @@ def build_peers(settings) -> dict[str, Any]:
         "identity": HttpIdentity(url=settings.TENANT_SERVICE_URL,
                                  path=settings.TENANT_READ_PATH,
                                  token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+        "package_offerable": HttpPackageOfferable(
+            operations_url=settings.OPERATIONS_SERVICE_URL,
+            path=settings.PACKAGE_OFFERABLE_PATH,
+            token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "window": Window(start_hour=settings.SEND_WINDOW_START_HOUR,
                          end_hour=settings.SEND_WINDOW_END_HOUR),
     }

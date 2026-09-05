@@ -47,10 +47,18 @@ class Press:
 
 
 def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_id: str,
-            offer_value: str, expires_at: int, fire_at: int) -> str:
-    """A stable name for one intention. Every part of it is something the owner typed or chose."""
+            offer_value: str, expires_at: int, fire_at: int, package_id: str = "") -> str:
+    """A stable name for one intention. Every part of it is something the owner typed or chose.
+
+    `package_id` DEFAULTS EMPTY, NOT OMITTED — two DIFFERENT `package_offer` presses (different
+    packages) that otherwise share every other field (same blank owner_text, same branch, same
+    offer_value/dates — a real, plausible shape: an owner running the same wording on two
+    packages the same week) would collide onto ONE press key without it, and the second press
+    would be silently returned as "the same campaign, already sent" instead of creating its own.
+    """
     raw = "|".join([tenant, goal, owner_text.strip(), service_id.strip(), branch_id.strip(),
-                    offer_value.strip(), str(int(expires_at or 0)), str(int(fire_at or 0))])
+                    offer_value.strip(), str(int(expires_at or 0)), str(int(fire_at or 0)),
+                    package_id.strip()])
     return "prs_" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 

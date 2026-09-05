@@ -91,6 +91,14 @@ CARDS = {
         "line": "لمن قارب موعد خدمة معيّنة",
         "icon": "tag",
     },
+    "package_offer": {
+        "title": "عرض على باقة",
+        # NO CYCLE HERE, UNLIKE service_offer'S LINE — a package has no single rhythm to be "قارب
+        # موعده" for (GOAL_TEMPLATE's own note), so the honest sentence is simply who it reaches:
+        # everyone, the same as an announcement, with the message naming the package itself.
+        "line": "روّج لباقة كاملة بسعرها الحقيقي",
+        "icon": "tag",
+    },
 }
 
 

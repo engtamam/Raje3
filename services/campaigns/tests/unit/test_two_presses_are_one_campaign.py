@@ -42,6 +42,20 @@ def test_a_different_intention_is_a_different_campaign():
     assert _key(expires_at=NOW + 1) != base
 
 
+def test_two_package_offer_presses_on_different_packages_are_different_campaigns():
+    """THE COLLISION THIS CLOSES. Two package_offer presses sharing every other field (same blank
+    owner_text, same branch, same offer_value/dates — a real shape: the same wording run on two
+    packages the same week) would otherwise hash to the SAME key without package_id in it, and the
+    second press would be silently returned as "the same campaign, already sent"."""
+    a = _key(goal="package_offer", package_id="pkg1")
+    b = _key(goal="package_offer", package_id="pkg2")
+    assert a != b
+
+
+def test_the_same_package_offer_press_twice_is_the_same_key():
+    assert _key(goal="package_offer", package_id="pkg1") == _key(goal="package_offer", package_id="pkg1")
+
+
 def test_the_key_does_not_depend_on_the_attempt():
     """Nothing in it comes from us — no uuid, no clock. The attempt is what is uncertain."""
     assert _key() == _key()          # called at two different instants, same answer

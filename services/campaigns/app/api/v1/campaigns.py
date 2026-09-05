@@ -87,6 +87,15 @@ class CampaignIn(BaseModel):
     # never engaged once, and the reach number read as proof that it had. A feature complete in
     # the depth and severed at the door.
     service_id: str = Field(default="", max_length=64)
+    # WHICH PACKAGE THE `package_offer` GOAL IS ABOUT — mutually exclusive with `service_id`, same
+    # "one or the other, never both" rule the packages feature already applies at every other
+    # layer (operations' own Package/Booking). The console fetches its own package list directly
+    # from operations (this service holds no catalogue of its own — see peers/__init__.py's
+    # module docstring), so it already has this id before the owner ever presses launch.
+    package_id: str = Field(default="", max_length=64)
+    # THE CHOSEN PACKAGE'S NAME (and, since it is worth stating, its own price) — same reasoning
+    # as `service_name` just above: the screen has it, this service does not.
+    package_name: str = Field(default="", max_length=120)
     # WHICH BRANCH THIS CAMPAIGN IS FOR — empty is the whole establishment, and is the default for
     # every shop that never opened a second one.
     branch_id: str = Field(default="", max_length=64)
@@ -152,10 +161,11 @@ async def preview(request: Request, body: CampaignIn,
             owner_text=body.owner_text, audience=audience,
             offer_value=body.offer_value,
             ends_at=arabic_date(body.expires_at or 0),
-            # NAMED BY THE CALLER, and it has to be: this service holds service IDs and the
-            # catalogue belongs to operations. «خصم على svc_9f2» is not a message, and an empty
-            # name makes the renderer refuse rather than send a hole in a sentence.
-            service_text=body.service_name,
+            # NAMED BY THE CALLER, and it has to be: this service holds service/package IDS and
+            # the catalogue belongs to operations. «خصم على svc_9f2» is not a message, and an empty
+            # name makes the renderer refuse rather than send a hole in a sentence. `package_name`
+            # takes over the SAME "catalogue" fill for `package_offer` — one blank kind, two doors.
+            service_text=body.package_name or body.service_name,
             when=describe_when(trigger=spec["trigger"],
                                inside_window=c.gate.inside_window(_now())))
     except PreviewError as exc:
@@ -271,6 +281,24 @@ async def create(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": str(exc)})
 
+    # ── package_offer needs a real, CURRENTLY OFFERABLE package ──────────────────────────────
+    # CHECKED HERE, WHILE HE IS LOOKING AT THE SCREEN — the same "ask fresh, never assume" rule
+    # HttpAudience.allows() already applies to the audience gate, and the same reason dispatch.fire()
+    # asks again at every pass rather than trusting this answer forever: a package can be turned
+    # off or fall outside its own schedule at any moment after this campaign is created.
+    if body.goal == "package_offer":
+        if not body.package_id:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "اختر الباقة التي يخصّها هذا العرض."})
+        offerable = getattr(c, "package_offerable", None)
+        if offerable is None or not await offerable.offerable(_tenant(principal),
+                                                               body.package_id, now):
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "هذه الباقة غير متاحة الآن — تحقّق من حالتها "
+                                                   "وجدولتها من «خدماتي ومنتجاتي»."})
+
     # AN OFFER WITHOUT AN END IS A PRICE CHANGE NOBODY DECIDED ON — refused here, before anything
     # exists, and with the reason named. It is also what makes "this offer is yours" enforceable:
     # the send log says who received it, and this says until when. Without a date the operator at
@@ -316,7 +344,8 @@ async def create(request: Request, body: CampaignIn,
     press_key = press.key_for(
         _tenant(principal), goal=body.goal, owner_text=clean, service_id=body.service_id or "",
         branch_id=body.branch_id or "", offer_value=body.offer_value or "",
-        expires_at=body.expires_at or 0, fire_at=body.fire_at or 0)
+        expires_at=body.expires_at or 0, fire_at=body.fire_at or 0,
+        package_id=body.package_id or "")
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
         if taken.in_flight:
@@ -346,13 +375,23 @@ async def create(request: Request, body: CampaignIn,
                         # not: the owner was shown a targeted count and the campaign went to the
                         # whole shop. One field, and it made the feature a demo.
                         service_id=(body.service_id or "").strip(),
+                        # STORED THE SAME WAY, for the SAME reason — dispatch.fire() re-asks
+                        # whether this exact package is still offerable on every pass, reading it
+                        # off the row (container.py `_resolver`'s sibling check), never off
+                        # whatever was true the moment this campaign was created.
+                        package_id=(body.package_id or "").strip(),
                         branch_id=(body.branch_id or "").strip(),
                         offer_value=offer_value,
-                        scope_service_names=([body.service_name] if body.service_name else []),
+                        scope_service_names=([body.service_name] if body.service_name else
+                                             ([body.package_name] if body.package_name else [])),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
                         # people who are 70% through their cycle for one service; an offer that
                         # arrived because of a service and then did not cover it would be the
-                        # cruellest version of this feature.
+                        # cruellest version of this feature. `package_offer` has no single service
+                        # of its own to force in this way — the console already sends the
+                        # package's own component ids as `scope_service_ids` directly (it fetched
+                        # them from operations for its own picker), so nothing is force-injected
+                        # here for it.
                         scope_service_ids=list(dict.fromkeys(
                             ([body.service_id] if getattr(body, "service_id", "") else [])
                             + list(body.scope_service_ids))))

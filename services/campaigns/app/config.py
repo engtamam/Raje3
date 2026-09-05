@@ -176,6 +176,9 @@ class Settings(BaseSettings):
     # THEIRS. The template library and the customer list, both verified against operations'
     # manifest rather than assumed.
     CUSTOMERS_PATH: str = "/internal/operations/customers"
+    # package_offer goal — is the referenced package still active/in-schedule, asked fresh at both
+    # campaign creation and at every fire() pass (never trusted from the moment it was created).
+    PACKAGE_OFFERABLE_PATH: str = "/internal/operations/package-offerable"
     # THEIRS (ط-3). Given who a campaign reached and when, how many of them came back and spent
     # an offer since — the question the campaign's own send log can name and had nowhere to ask.
     OFFERS_REDEEMED_PATH: str = "/internal/operations/offers-redeemed"

@@ -188,6 +188,7 @@ class Container:
     audience: Any = None
     sender: Any = None
     identity: Any = None
+    package_offerable: Any = None
     gate: Any = None
     dispatcher: Any = None
     tick: Any = None
@@ -270,6 +271,7 @@ def build_container(settings: Settings) -> Container:
                                          max_audience=settings.CAMPAIGN_MAX_AUDIENCE)
     container.sender = peers["sender"]
     container.identity = peers["identity"]
+    container.package_offerable = peers["package_offerable"]
     container.gate = peers["window"]
     # THE THREE NUMBERS BEHIND "this will take five days", each from whoever owns it (core/share).
     # The ceiling is Meta's, read through notification-service; the reserve and today's usage
@@ -291,6 +293,7 @@ def build_container(settings: Settings) -> Container:
 
     container.dispatcher = Dispatcher(store=container.datastore, sender=container.sender,
                                       audience_resolver=_resolver,
+                                      package_offerable=container.package_offerable,
                                       batch=settings.DISPATCH_BATCH_SIZE,
                                       telemetry=container.telemetry)
     from app.core.licence import build_licence

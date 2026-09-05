@@ -32,7 +32,8 @@ CAMPAIGNS = "campaigns"
 RUNS = "campaign_runs"
 
 # What the owner picks. Not a taxonomy they learn — five cards with two words each (spec §10.9).
-GOALS = ("win_back", "reward_loyal", "announce", "occasion", "awareness", "service_offer")
+GOALS = ("win_back", "reward_loyal", "announce", "occasion", "awareness", "service_offer",
+        "package_offer")
 
 # Which template type each goal sends, and its regulatory class. The class is NOT the owner's
 # choice: every campaign is promotional except awareness, and awareness is the one with a lock.
@@ -57,6 +58,17 @@ GOAL_TEMPLATE = {
     # it covers, and the day it stops. The audience rule (§10.9.1) is unchanged — what changed is
     # that the message now says what the campaign is.
     "service_offer": ("mkt_offer", "marketing"),
+    # A PACKAGE, NOT A SERVICE — but the SAME template. `mkt_offer`'s "catalogue" fill is a tap on
+    # what he sells, not specifically a service; a package is exactly as much "what he sells" as a
+    # service is, and reusing the template means Meta approved this wording once, for both.
+    #
+    # NO CYCLE LOCK, DELIBERATELY (unlike service_offer). A package spans several services with no
+    # single rhythm to be 70% through — audience.resolve()'s own lock only ever engages when
+    # `service_id` is set (core/audience.py), and a package_offer campaign never sets it, so this
+    # falls through to the same plain whole-shop/branch audience an announcement uses. Inventing a
+    # cross-service cycle for this would be a real, separate design question this feature does not
+    # answer by guessing.
+    "package_offer": ("mkt_offer", "marketing"),
 }
 
 # WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.
@@ -74,7 +86,7 @@ GOAL_TEMPLATE = {
 #
 # An offer without an end is a price change nobody decided on, and it is also the only thing the
 # counter can be asked to honour.
-OFFER_GOALS = ("service_offer", "win_back", "reward_loyal", "occasion")
+OFFER_GOALS = ("service_offer", "package_offer", "win_back", "reward_loyal", "occasion")
 
 
 def offers_something(goal: str) -> bool:
@@ -90,6 +102,7 @@ GOAL_TRIGGER = {
     # week — a standing one would keep discounting the same service for ever, to a rota of people
     # crossing 70% of their cycle, with nobody ever deciding to stop.
     "service_offer": "manual",
+    "package_offer": "manual",     # same reasoning: a package offer is this week's decision
     "announce": "manual",          # news is not recurring
     "occasion": "scheduled",
     "awareness": "manual",         # pressed by the owner, then locked for a month (spec §10.9)
@@ -129,6 +142,14 @@ class Campaign:
     # offer should reach. Without it the goal would be an announcement wearing a targeted name,
     # and the reach number would read as proof it worked.
     service_id: str = ""
+    # WHICH PACKAGE THIS OFFER IS ABOUT — `package_offer` only, mutually exclusive with
+    # `service_id` (a campaign is about one or the other, never both). NOT read by the cycle lock
+    # — see GOAL_TEMPLATE's own note on `package_offer` for why a package has no single rhythm to
+    # be checked against. It exists so dispatch.fire() can re-ask, at every pass, whether this
+    # exact package is still active and in its own schedule (core/scheduling.py, operations) —
+    # never trusted from the moment the campaign was created, the same "ask again, never assume"
+    # rule HttpAudience.allows() already applies to the audience gate.
+    package_id: str = ""
     # WHICH BRANCH'S CUSTOMERS — empty means the whole establishment (spec 12.2).
     #
     # A BRANCH IS A DESCRIPTION ON AN EVENT, NEVER A DIVISION OF THE ACCOUNT. The customer, the
