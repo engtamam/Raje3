@@ -1116,6 +1116,14 @@ class ServiceImportRow(BaseModel):
     # SAME "THE FILE WINS COMPLETELY" CONVENTION AS EVERY FIELD ABOVE — a blank column clears an
     # existing description the same way a blank price would zero one out. Not a partial edit.
     description: str = Field(default="", max_length=300)
+    # AN IMAGE EMBEDDED IN THE ROW'S OWN CELL, EXTRACTED BY THE CONSOLE — see
+    # services-images-board.md phase 2: an xlsx's picture is read client-side (this service still
+    # has no business knowing what a .xlsx looks like) and arrives here as plain base64 bytes,
+    # same shape as `CatalogueImageIn`. Blank means "leave whatever photo this service already
+    # has" — UNLIKE description/price/etc. above, a re-import without a picture in every row must
+    # not silently wipe photos uploaded one at a time from the edit screen.
+    image_base64: str = Field(default="", max_length=8_000_000)  # ~6MB decoded, matches MAX_BYTES
+    image_content_type: str = Field(default="", max_length=64)
 
 
 class ServiceImportIn(BaseModel):
@@ -1161,6 +1169,35 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
              "reason": "الملف فيه أكثر من صف بنفس الاسم — صحّح الملف وأعد الرفع."},
             status_code=status.HTTP_400_BAD_REQUEST)
 
+    # IMAGES VALIDATED BEFORE ANY ROW IS WRITTEN, same "no partial import" discipline as the
+    # duplicate-name check just above — decoding is cheap, and a file with one bad picture among
+    # two hundred good rows must fail loud and name the row, not silently skip that one photo.
+    import base64
+    import binascii
+
+    from app.core.catalogue_image import ALLOWED_TYPES, MAX_BYTES
+    for row in body.rows:
+        if not row.image_base64:
+            continue
+        ctype = row.image_content_type.lower().split(";")[0].strip()
+        if ctype not in ALLOWED_TYPES:
+            return JSONResponse(
+                {"error": "INVALID_IMAGE", "name": row.name,
+                 "reason": f"{row.name}: نوع الصورة غير مدعوم."},
+                status_code=status.HTTP_400_BAD_REQUEST)
+        try:
+            decoded = base64.b64decode(row.image_base64, validate=True)
+        except (ValueError, binascii.Error):
+            return JSONResponse(
+                {"error": "INVALID_IMAGE", "name": row.name,
+                 "reason": f"{row.name}: تعذّرت قراءة الصورة."},
+                status_code=status.HTTP_400_BAD_REQUEST)
+        if not decoded or len(decoded) > MAX_BYTES:
+            return JSONResponse(
+                {"error": "INVALID_IMAGE", "name": row.name,
+                 "reason": f"{row.name}: حجم الصورة غير صالح."},
+                status_code=status.HTTP_400_BAD_REQUEST)
+
     store = ServiceStore(request.app.state.container.datastore)
     existing = await store.list(tenant, active_only=False)
     by_external_id = {s.external_id: s for s in existing if s.external_id}
@@ -1184,6 +1221,13 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
             target.active = True
             if row.external_id:
                 target.external_id = row.external_id
+            if row.image_base64:
+                from app.core.catalogue_image import store_image
+                stored = await store_image(
+                    request.app.state.container.object_store, tenant=tenant, kind="service",
+                    item_id=target.id, data=base64.b64decode(row.image_base64),
+                    content_type=row.image_content_type, old_key=target.image_key)
+                target.image_key = stored.key
             await store.save(target)
             touched_ids.add(target.id)
             if was_stopped:
@@ -1195,6 +1239,13 @@ async def bulk_import_services(request: Request, body: ServiceImportIn,
                        price_minor=row.price_minor, duration_minutes=row.duration_minutes,
                        external_id=row.external_id, description=row.description.strip(),
                        created=int(time.time()))
+            if row.image_base64:
+                from app.core.catalogue_image import store_image
+                stored = await store_image(
+                    request.app.state.container.object_store, tenant=tenant, kind="service",
+                    item_id=s.id, data=base64.b64decode(row.image_base64),
+                    content_type=row.image_content_type, old_key="")
+                s.image_key = stored.key
             await store.save(s)
             touched_ids.add(s.id)
             created += 1

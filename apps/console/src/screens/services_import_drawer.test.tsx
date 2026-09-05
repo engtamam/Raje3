@@ -3,6 +3,8 @@
  * duplicate name within the file, telling apart "جديد" from "تحديث" against the services already
  * on screen, and refusing to enable Import while any row is still wrong.
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ServicesImportDrawer } from './ServicesImportDrawer';
@@ -43,6 +45,19 @@ afterEach(() => vi.clearAllMocks());
 function selectFile(text: string) {
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   const file = { name: 'services.csv', text: () => Promise.resolve(text) };
+  Object.defineProperty(input, 'files', { value: [file] });
+  fireEvent.change(input);
+}
+
+/** The real fixture xlsx (generate-xlsx-image-fixture.py) — same duck-typing reasoning as
+ *  `selectFile` above, `.arrayBuffer()` is the one method `onFile`'s xlsx branch calls. */
+function selectXlsxFixture() {
+  const buf = readFileSync(path.join(__dirname, '..', '__fixtures__', 'services-import-with-images.xlsx'));
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  const file = {
+    name: 'services.xlsx',
+    arrayBuffer: () => Promise.resolve(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)),
+  };
   Object.defineProperty(input, 'files', { value: [file] });
   fireEvent.change(input);
 }
@@ -115,7 +130,7 @@ describe('ServicesImportDrawer', () => {
       expect.objectContaining({ id: 'operations.bulk_import_services' }),
       expect.objectContaining({
         rows: [{ name: 'قص شعر', price_minor: 5000, duration_minutes: 0, cycle_days: 0,
-                external_id: '', description: '' }],
+                external_id: '', description: '', image_base64: '', image_content_type: '' }],
         deactivate_missing: false,
       })));
     await waitFor(() => expect(onImported).toHaveBeenCalled());
@@ -135,7 +150,8 @@ describe('ServicesImportDrawer', () => {
       expect.objectContaining({ id: 'operations.bulk_import_services' }),
       expect.objectContaining({
         rows: [{ name: 'قص شعر', price_minor: 0, duration_minutes: 0, cycle_days: 0,
-                external_id: '', description: 'قص وتصفيف بالمقص' }],
+                external_id: '', description: 'قص وتصفيف بالمقص',
+                image_base64: '', image_content_type: '' }],
         deactivate_missing: false,
       })));
   });
@@ -160,5 +176,32 @@ describe('ServicesImportDrawer', () => {
     await waitFor(() => expect(screen.getByText(/1 خدمة مفعّلة/)).toBeTruthy());
     expect(screen.getByText('غسيل')).toBeTruthy();
     expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('a real .xlsx with real embedded pictures imports each row with its own real photo', async () => {
+    callMock = vi.fn().mockResolvedValue({ created: 2, updated: 0, reactivated: 0, deactivated: 0 });
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
+    selectXlsxFixture();
+    await waitFor(() => expect(screen.getAllByText('جديد')).toHaveLength(2));
+    // The preview table itself proves the picture rode along — not just that the import call did.
+    expect(screen.getAllByText('مرفقة ✓')).toHaveLength(2);
+
+    fireEvent.click(screen.getByText(/استيراد 2 صف/));
+    await waitFor(() => expect(callMock).toHaveBeenCalled());
+    const sentRows = callMock.mock.calls[0][2].rows as { name: string; image_base64: string }[];
+    expect(sentRows).toHaveLength(2);
+    for (const row of sentRows) {
+      expect(row.image_base64.length).toBeGreaterThan(0);
+      // Real, decodable base64 that starts with the real PNG signature bytes — proof the actual
+      // picture's bytes made it all the way from the .xlsx into the outgoing request.
+      const bytes = Uint8Array.from(atob(row.image_base64), (c) => c.charCodeAt(0));
+      expect(Array.from(bytes.slice(0, 8))).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    }
+    // The two rows' pictures are genuinely different photos, matching the fixture's own two
+    // distinct colours — not the same image duplicated onto both rows by mistake.
+    expect(sentRows[0].image_base64).not.toBe(sentRows[1].image_base64);
   });
 });

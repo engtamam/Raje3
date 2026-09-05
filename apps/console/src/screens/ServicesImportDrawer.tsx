@@ -30,6 +30,7 @@ import { Button } from '../rj-ui/Button';
 import { Drawer } from '../rj-ui/Drawer';
 import { Toggle } from '../rj-ui/Toggle';
 import { parseCsv, csvToObjects } from '../csv';
+import { extractRowImages, readXlsxRows } from '../xlsx_images';
 import { halalas } from '../money';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -48,13 +49,21 @@ interface ParsedRow {
                                 // person counts when they open the file in a spreadsheet app
   name: string; price_minor: number; duration_minutes: number; cycle_days: number;
   external_id: string; description: string;
+  // BLANK MEANS "NO PICTURE IN THIS ROW", never "clear the existing one" — see
+  // ServiceImportRow.image_base64's own note on the server side; a CSV (which cannot carry a
+  // picture at all) always leaves these blank.
+  image_base64: string; image_content_type: string;
   error: string;                // '' = valid
   willBe: WillBe;
 }
 
-function parseRows(t: (key: string) => string, text: string, existing: ExistingService[]): ParsedRow[] {
+/** The shared core: a plain object per row (already extracted from EITHER a .csv's text or an
+ *  .xlsx's cells — see `onFile` for which), plus whatever pictures an .xlsx anchored per row. */
+function parseRowObjects(
+  t: (key: string) => string, objs: Record<string, string>[],
+  images: Map<number, { base64: string; contentType: string }>, existing: ExistingService[],
+): ParsedRow[] {
   const byName = new Map(existing.map((s) => [s.name.trim().toLowerCase(), s]));
-  const objs = csvToObjects(parseCsv(text));
   const seenNames = new Set<string>();
   const dupeNames = new Set<string>();
 
@@ -89,9 +98,12 @@ function parseRows(t: (key: string) => string, text: string, existing: ExistingS
     const found = byName.get(key);
     const willBe: WillBe = found ? (found.active === false ? 'reactivate' : 'update') : 'new';
 
+    const image = images.get(line);
+
     return {
       line, name, price_minor: priceMinor ?? 0, duration_minutes: duration, cycle_days: cycle,
       external_id: (o.external_id ?? '').trim(), description: (o.description ?? '').trim(),
+      image_base64: image?.base64 ?? '', image_content_type: image?.contentType ?? '',
       error, willBe,
     };
   });
@@ -102,6 +114,21 @@ function parseRows(t: (key: string) => string, text: string, existing: ExistingS
     !r.error && dupeNames.has(r.name.toLowerCase())
       ? { ...r, error: t('services.import.error.duplicateName') } : r
   ));
+}
+
+/** A .csv is always text-only — no pictures ride along, `parseRowObjects` gets an empty map. */
+function parseCsvRows(t: (key: string) => string, text: string, existing: ExistingService[]): ParsedRow[] {
+  return parseRowObjects(t, csvToObjects(parseCsv(text)), new Map(), existing);
+}
+
+/** An .xlsx's rows AND whatever pictures were anchored inside it, joined by spreadsheet line. */
+async function parseXlsxRows(
+  t: (key: string) => string, file: ArrayBuffer, existing: ExistingService[],
+): Promise<ParsedRow[]> {
+  const bytes = new Uint8Array(file);
+  const [objs, images] = await Promise.all([readXlsxRows(bytes), extractRowImages(bytes)]);
+  const byLine = new Map(images.map((i) => [i.row, { base64: i.base64, contentType: i.contentType }]));
+  return parseRowObjects(t, objs, byLine, existing);
 }
 
 /** `willBe`'s screen text — a status code translated at the one place it is shown. */
@@ -136,8 +163,14 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
     setResult(null);
     setError('');
     setFileName(f.name);
-    const text = await f.text();
-    setRows(parseRows(t, text, existing));
+    // THE EXTENSION DECIDES THE READER, NOT THE MIME TYPE — a browser's guess at a spreadsheet's
+    // MIME type is inconsistent (an .xlsx dragged from some file managers arrives with a blank
+    // `type`), while the extension the owner himself chose when saving is never ambiguous.
+    if (/\.xlsx$/i.test(f.name)) {
+      setRows(await parseXlsxRows(t, await f.arrayBuffer(), existing));
+    } else {
+      setRows(parseCsvRows(t, await f.text(), existing));
+    }
   }
 
   async function doImport() {
@@ -150,6 +183,7 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
           rows: rows.map((r) => ({
             name: r.name, price_minor: r.price_minor, duration_minutes: r.duration_minutes,
             cycle_days: r.cycle_days, external_id: r.external_id, description: r.description,
+            image_base64: r.image_base64, image_content_type: r.image_content_type,
           })),
           deactivate_missing: deactivateMissing,
         });
@@ -210,7 +244,9 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed border-border-subtle p-8 text-center hover:bg-surface-2">
               <Upload size={24} className="text-text-muted" />
               <span className="text-sm font-medium">{fileName || t('services.import.chooseFile')}</span>
-              <input type="file" accept=".csv,text/csv" className="hidden"
+              <input type="file"
+                    accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
             </label>
 
@@ -230,6 +266,7 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
                         <th className="p-2 text-start">{t('services.name')}</th>
                         <th className="p-2 text-start">{t('services.price.label')}</th>
                         <th className="p-2 text-start">{t('services.import.table.status')}</th>
+                        <th className="p-2 text-start">{t('services.import.table.image')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -239,6 +276,9 @@ export function ServicesImportDrawer({ session, catalog, existing, open, onClose
                           <td className="p-2">{r.name || '—'}</td>
                           <td className="p-2 tabular-nums">{(r.price_minor / 100).toFixed(2)}</td>
                           <td className="p-2">{r.error || willBeLabel(t, r.willBe)}</td>
+                          <td className="p-2 text-success">
+                            {r.image_base64 ? t('services.import.table.hasImage') : ''}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

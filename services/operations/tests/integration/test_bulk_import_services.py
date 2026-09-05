@@ -57,6 +57,19 @@ def client():
     get_settings.cache_clear()
 
 
+@pytest.fixture()
+def client_mem():
+    """Same app, `OBJECTSTORE_DRIVER=memory` — for the image-in-import tests, so a real photo's
+    bytes are exercised without touching the filesystem (see test_catalogue_image.py's own note)."""
+    saved = dict(os.environ)
+    c = _make_app(OBJECTSTORE_DRIVER="memory")
+    yield c
+    os.environ.clear()
+    os.environ.update(saved)
+    from app.config import get_settings
+    get_settings.cache_clear()
+
+
 HEADERS = _auth("operations.manage_services")
 
 
@@ -156,3 +169,83 @@ def test_a_blank_description_column_clears_an_existing_description_same_as_a_bla
     _import(client, [{"name": "قص شعر"}])
     rows = client.get("/api/v1/staff/services", headers=HEADERS).json()["services"]
     assert rows[0]["description"] == ""
+
+
+# ── an image embedded in an import row, end to end — this is the real thing, not a stub ────────
+import base64  # noqa: E402 — kept beside the tests that use it, matching this file's own style
+
+_PNG_1PX = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+
+
+def _image_get(client, service_id):
+    return client.get(f"/api/v1/staff/services/{service_id}/image", headers=HEADERS)
+
+
+def test_a_new_row_with_an_embedded_image_ends_up_a_real_readable_photo_on_the_service(client_mem):
+    r = client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(_PNG_1PX).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+    assert r.status_code == 200, r.text
+
+    rows = client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"]
+    assert len(rows) == 1
+    assert rows[0]["has_image"] is True
+
+    got = _image_get(client_mem, rows[0]["id"])
+    assert got.status_code == 200
+    assert got.content == _PNG_1PX
+    assert got.headers["content-type"] == "image/png"
+
+
+def test_reimporting_the_same_row_without_an_image_keeps_the_existing_photo(client_mem):
+    # UNLIKE description/price, a blank image column is NOT "clear it" — see ServiceImportRow's
+    # own note: a partial photo-refresh file must not wipe every OTHER row's picture.
+    client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(_PNG_1PX).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+    sid = client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"][0]["id"]
+
+    r = client_mem.post("/api/v1/staff/services/bulk_import",
+                       json={"rows": [{"name": "غسيل خارجي", "price_minor": 7000}]},
+                       headers=HEADERS)
+    assert r.status_code == 200, r.text
+    assert client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"][0][
+        "has_image"] is True
+    assert _image_get(client_mem, sid).content == _PNG_1PX
+
+
+def test_an_invalid_embedded_image_refuses_the_whole_import_and_writes_nothing(client_mem):
+    r = client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [
+        {"name": "خدمة سليمة"},
+        {"name": "خدمة صورتها تالفة", "image_base64": "not-base64!!",
+         "image_content_type": "image/png"},
+    ]}, headers=HEADERS)
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_IMAGE"
+    assert client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"] == []
+
+
+def test_an_unsupported_embedded_image_type_refuses_the_whole_import(client_mem):
+    r = client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "خدمة", "image_base64": base64.b64encode(b"not-a-real-file").decode(),
+        "image_content_type": "application/pdf"}]}, headers=HEADERS)
+    assert r.status_code == 400
+    assert r.json()["error"] == "INVALID_IMAGE"
+
+
+def test_replacing_a_photo_via_reimport_deletes_the_old_object(client_mem):
+    client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(_PNG_1PX).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+    sid = client_mem.get("/api/v1/staff/services", headers=HEADERS).json()["services"][0]["id"]
+
+    other_png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAIAAAUAAen63NgAAAAASUVORK5CYII=")
+    client_mem.post("/api/v1/staff/services/bulk_import", json={"rows": [{
+        "name": "غسيل خارجي", "image_base64": base64.b64encode(other_png).decode(),
+        "image_content_type": "image/png"}]}, headers=HEADERS)
+
+    got = _image_get(client_mem, sid)
+    assert got.content == other_png
+    assert got.content != _PNG_1PX
