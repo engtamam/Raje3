@@ -103,8 +103,18 @@ class InteractiveNotifySender:
             raise SendFailed(f"notification-service returned {exc.code}") from exc
         except urllib.error.URLError as exc:
             raise SendFailed(f"notification-service unreachable: {exc}") from exc
-        if not result.get("ok", True):
-            raise SendFailed(str(result.get("reason") or "notification-service refused the send"))
+        # NOTIFICATION-SERVICE'S REAL RESPONSE NEVER CARRIES AN "ok" KEY AT ALL — its own
+        # notifier.py returns {"delivery_id", "status", "provider", ...}, "status" being one of
+        # queued/sending/sent/suppressed/failed/dead_letter (core/retry.py). The old
+        # `result.get("ok", True)` check was reading a key that has never once been present in a
+        # real response, on a success OR a failure — so this branch has never fired, for anything.
+        # Only "sent" is a real success; queued/suppressed/failed/dead_letter all mean the message
+        # has not gone out (queued is "not yet, will retry" — a real answer for a caller that
+        # expects an immediate result, not a success dressed up in a calmer word).
+        status = str(result.get("status") or "")
+        if status != "sent":
+            reason = str(result.get("error") or status or "notification-service did not send it")
+            raise SendFailed(reason)
         return str(result.get("delivery_id") or "")
 
     async def send_template(self, **kwargs) -> str:                    # pragma: no cover - unused half

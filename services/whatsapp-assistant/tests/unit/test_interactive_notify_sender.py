@@ -47,7 +47,7 @@ def test_send_interactive_posts_to_the_interactive_route_with_internal_token():
         seen["url"] = req.full_url
         seen["header"] = req.get_header("X-internal-token")
         seen["body"] = json.loads(req.data or b"{}")
-        return _Resp({"ok": True, "delivery_id": "dlv_1"})
+        return _Resp({"status": "sent", "delivery_id": "dlv_1"})
 
     with patch("urllib.request.urlopen", _urlopen):
         delivery_id = run(s.send_interactive(
@@ -72,7 +72,7 @@ def test_send_list_shapes_one_section_of_rows():
 
     def _urlopen(req, timeout=0):
         seen["body"] = json.loads(req.data or b"{}")
-        return _Resp({"ok": True, "delivery_id": "dlv_2"})
+        return _Resp({"status": "sent", "delivery_id": "dlv_2"})
 
     with patch("urllib.request.urlopen", _urlopen):
         run(s.send_list(
@@ -112,6 +112,62 @@ def test_peer_unreachable_raises_send_failed():
 
     def _urlopen(req, timeout=0):
         raise urllib.error.URLError("connection refused")
+
+    with patch("urllib.request.urlopen", _urlopen):
+        with pytest.raises(SendFailed):
+            run(s.send_interactive(tenant="shop1", to="+9665", body="x", buttons=[],
+                                   idempotency_key="k"))
+
+
+# ── the real response shape, not the "ok" key that never existed ────────────────────────────────
+# Found by ci/check_absent_means_ok.py: notification-service's real response is
+# {"delivery_id", "status", "provider", ...} — "status" one of queued/sending/sent/suppressed/
+# failed/dead_letter (platform core/retry.py). The old check read a nonexistent "ok" key with a
+# `True` default, so a 2xx response NEVER raised SendFailed regardless of what actually happened.
+def test_a_2xx_with_status_queued_is_not_a_success():
+    s = sender()
+
+    def _urlopen(req, timeout=0):
+        return _Resp({"status": "queued", "delivery_id": "dlv_3", "retry_at": 123.0})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        with pytest.raises(SendFailed, match="queued"):
+            run(s.send_interactive(tenant="shop1", to="+9665", body="x", buttons=[],
+                                   idempotency_key="k"))
+
+
+def test_a_2xx_with_status_suppressed_is_not_a_success():
+    s = sender()
+
+    def _urlopen(req, timeout=0):
+        return _Resp({"status": "suppressed", "delivery_id": "dlv_4"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        with pytest.raises(SendFailed, match="suppressed"):
+            run(s.send_interactive(tenant="shop1", to="+9665", body="x", buttons=[],
+                                   idempotency_key="k"))
+
+
+def test_a_2xx_with_status_dead_letter_raises_with_the_real_error():
+    s = sender()
+
+    def _urlopen(req, timeout=0):
+        return _Resp({"status": "dead_letter", "delivery_id": "dlv_5",
+                     "error": "provider rejected: invalid recipient"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        with pytest.raises(SendFailed, match="invalid recipient"):
+            run(s.send_interactive(tenant="shop1", to="+9665", body="x", buttons=[],
+                                   idempotency_key="k"))
+
+
+def test_a_2xx_with_no_status_at_all_is_refused_not_assumed_successful():
+    """The old bug's own worst case: a malformed/empty body reads as `{}`, which used to default
+    straight to success."""
+    s = sender()
+
+    def _urlopen(req, timeout=0):
+        return _Resp({})
 
     with patch("urllib.request.urlopen", _urlopen):
         with pytest.raises(SendFailed):

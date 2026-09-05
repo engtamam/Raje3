@@ -526,7 +526,12 @@ class BookingOperations:
                 tenant=tenant, subject_ref=booking.subject_ref,
                 reward_id=booking.intended_reward_id, idempotency_key=f"bkg-reward:{booking.id}",
                 branch_id=booking.branch_id, actor=f"booking:{booking.id}")
-            if spent is not None and spent.get("ok", True):
+            # DEFAULT FALSE, NOT TRUE. The real peer (operations' internal_booking_redeem) always
+            # includes "ok" explicitly — {"ok": bool, ...} on every path, by its own contract — so
+            # this default should never actually fire; but reading a MISSING key as success is
+            # exactly the shape that silently clears intended_reward_id for a spend that never
+            # happened, so it fails closed like every other peer-response check in this codebase.
+            if spent is not None and spent.get("ok", False):
                 booking.intended_reward_id = None
         booking.updated = int(time.time())
         saved = await self._bookings.save_if_unchanged(booking, expected_rev=expected)
