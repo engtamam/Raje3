@@ -187,13 +187,6 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "المسوّق يشوف عملاءه المحتملين المُسنَدين له فقط؛ المدير يشوف ما وجده بحثه هو.",
     },
     {
-        "id": "affiliates.stale_leads", "label": "عملاء محتملون بانتظار ردّي", "method": "GET",
-        "path": "/api/v1/affiliates/me/leads/stale", "capability": "affiliates.self",
-        "group": "عملائي المحتملين",
-        "params": [{"name": "stale_after_days", "in": "query", "type": "integer",
-                   "required": False}],
-    },
-    {
         "id": "affiliates.assign_lead", "label": "أسنِد عميلًا محتملًا لمسوّق", "method": "POST",
         "path": "/api/v1/affiliates/me/leads/{}/assign", "capability": "affiliates.self",
         "group": "عملائي المحتملين",

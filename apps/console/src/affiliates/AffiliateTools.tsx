@@ -27,17 +27,19 @@ import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import {
-  AffiliateRefused, me, outreachStages, templates, templateStats, createTemplate, updateTemplate,
+  AffiliateRefused, me, outreachStages, templates, templateStats, templateKindStats,
+  createTemplate, updateTemplate,
   deactivateTemplate, statCitations, createStatCitation, updateStatCitation,
   deactivateStatCitation, placesApiKey, setPlacesApiKey, clearPlacesApiKey, myLeadSearches,
   leadSearchStatus, startLeadSearch, sectorStats, referredShops, shopTickets, openShopTicket,
   replyShopTicket,
   type AffiliateSession, type OutreachStage, type MessageTemplate, type TemplateStat,
+  type KindStat,
   type StatCitation, type PlacesApiKeyInfo, type LeadSearchJob, type ReferredShop,
   type ShopTicket, type SectorStat, type HomeTicket,
 } from './api';
 
-type View = 'menu' | 'templates' | 'citations' | 'search' | 'sector-stats' | 'tickets';
+type View = 'menu' | 'templates' | 'citations' | 'search' | 'sector-stats' | 'kind-stats' | 'tickets';
 
 export function AffiliateTools({ session, deepLinkTicket, onConsumeDeepLinkTicket }: {
   session: AffiliateSession;
@@ -66,6 +68,7 @@ export function AffiliateTools({ session, deepLinkTicket, onConsumeDeepLinkTicke
   if (view === 'citations') return <CitationLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'search') return <LeadSearchTool session={session} onBack={() => setView('menu')} />;
   if (view === 'sector-stats') return <SectorStatsView session={session} onBack={() => setView('menu')} />;
+  if (view === 'kind-stats') return <KindStatsView session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'tickets') return <ShopTicketsView session={session} onBack={() => setView('menu')} />;
 
   if (isManager === 'loading') {
@@ -85,6 +88,11 @@ export function AffiliateTools({ session, deepLinkTicket, onConsumeDeepLinkTicke
                subtitle={isManager ? 'قوالب واتساب لكل مرحلة — أضِف، عدّل، وتابع أداءها'
                                     : 'قوالب واتساب جاهزة لكل مرحلة من رحلة العميل'}
                onClick={() => setView('templates')} />
+
+      <ToolCard icon={<BarChart3 size={20} />} title="أداء أنواع المحتوى"
+               subtitle={isManager ? 'أي نوع رسالة يحرّك عملاء الفريق فعلاً — عبر كل القوالب'
+                                    : 'أي نوع رسالة يحرّك عملاءك أنت فعلاً — عبر كل القوالب'}
+               onClick={() => setView('kind-stats')} />
 
       <ToolCard icon={<Quote size={20} />} title="مكتبة الأدلة"
                subtitle={isManager ? 'حقائق مالية مُوثَّقة تدعم رسائلك — أضِف وعدّل'
@@ -726,6 +734,54 @@ function SectorStatsView({ session, onBack }: { session: AffiliateSession; onBac
                   </span>
                   <Badge tone={s.registered_count > 0 ? 'success' : 'neutral'}>{s.lead_count}</Badge>
                 </div>
+              </li>
+            ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** «أداء أنواع المحتوى» — the coarser twin of `TemplateLibrary`'s per-template badges: which
+ *  CONTENT KIND (testimonial, offer, ...) actually advances a lead, aggregated across every
+ *  template that shares it, regardless of stage. A promoter sees his OWN numbers (`mine=true`,
+ *  matching how his template-library badges already scope to what he can act on); a manager sees
+ *  the whole team's, matching `sectorStats`' own manager-wide scope right above it in this menu. */
+function KindStatsView({ session, isManager, onBack }: {
+  session: AffiliateSession; isManager: boolean; onBack: () => void;
+}) {
+  const [rows, setRows] = useState<KindStat[] | 'loading' | 'failed'>('loading');
+
+  useEffect(() => {
+    templateKindStats(session, { mine: !isManager }).then((r) => setRows(r.stats))
+      .catch(() => setRows('failed'));
+  }, [session, isManager]);
+
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      <BackRow onBack={onBack} title="أداء أنواع المحتوى" />
+
+      {rows === 'loading' ? (
+        <Skeleton height={220} />
+      ) : rows === 'failed' ? (
+        <EmptyState title="تعذّرت القراءة" />
+      ) : rows.length === 0 ? (
+        <EmptyState title="لا استخدام بعد"
+                   description="يظهر أول ما ترسل قالباً وتُسجَّل نتيجته." />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rows
+            .slice()
+            .sort((a, b) => b.advance_rate - a.advance_rate)
+            .map((k, i) => (
+              <li key={i} className="flex items-center justify-between rounded-card bg-surface-1 px-4 py-3 shadow-sm">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{k.kind || 'بلا نوع'}</span>
+                  <span className="text-xs text-text-secondary">{k.uses} استخدام</span>
+                </div>
+                <Badge tone={k.advance_rate >= 0.4 ? 'success' : k.advance_rate >= 0.15 ? 'warning' : 'neutral'}>
+                  {Math.round(k.advance_rate * 100)}٪ تقدّم
+                </Badge>
               </li>
             ))}
         </ul>

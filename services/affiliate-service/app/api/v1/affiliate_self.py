@@ -602,20 +602,6 @@ async def my_leads(request: Request, status_eq: str = "", stage_code: str = "", 
     return {"leads": [l.to_dict() for l in leads]}
 
 
-@router.get("/leads/stale", dependencies=[Depends(_SELF), Depends(rate_limit)])
-async def my_stale_leads(request: Request, stale_after_days: int = 3,
-                         principal: Principal = Depends(require_user)) -> dict:
-    """The home screen's "بانتظارك الآن" candidate — leads assigned to the CALLER with no
-    activity in `stale_after_days`. Deliberately his own assigned leads only (same scope as
-    `leads_assigned_to`, never the whole team) — a manager rarely holds leads assigned to
-    himself the way a promoter does, so this answers honestly for whichever role asks it rather
-    than silently becoming a team-wide sweep."""
-    affiliate_id = await _my_affiliate_id(request, principal)
-    leads = await _lead_sourcing(request).stale_leads(
-        affiliate_id, stale_after_seconds=max(1, stale_after_days) * 86400)
-    return {"leads": [l.to_dict() for l in leads]}
-
-
 @router.post("/leads/{lead_id}/assign", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def assign_lead(request: Request, lead_id: str, body: AssignIn,
                       principal: Principal = Depends(require_user)) -> Any:

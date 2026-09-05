@@ -87,6 +87,12 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     "partner.my_shops": "the till partner's own portal, not our console (§16.6.3)",
     "partner.my_statements": "the till partner's own portal — his commission, his screen",
     "partner.one_statement": "the till partner's own portal",
+
+    # the lead-search form's own sector picker — deferred, deliberately, when template_kind_stats
+    # and the redundant stale_leads route were triaged together: sectors is genuinely missing UI,
+    # but building it means wiring a picker into an ALREADY-SHIPPED search screen, a materially
+    # bigger task than the other two turned out to be. Owner's call: not now.
+    "affiliates.sectors": "deferred — the lead-search screen exists but has no sector picker yet",
 }
 
 

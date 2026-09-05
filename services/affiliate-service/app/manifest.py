@@ -139,7 +139,6 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/leads/{}/link-registration", "tier": "user",
              "method": "POST"},
             {"path": "/api/v1/affiliates/me/leads/sector-stats", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/affiliates/me/leads/stale", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/home", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/sectors", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/referred-shops", "tier": "user", "method": "GET"},

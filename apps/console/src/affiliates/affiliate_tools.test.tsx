@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AffiliateTools } from './AffiliateTools';
 import type {
-  AffiliateSession, Me, OutreachStage, MessageTemplate, TemplateStat, StatCitation, SectorStat,
-  ReferredShop, ShopTicket,
+  AffiliateSession, Me, OutreachStage, MessageTemplate, TemplateStat, KindStat, StatCitation,
+  SectorStat, ReferredShop, ShopTicket,
 } from './api';
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
@@ -17,6 +17,7 @@ let meMock: () => Promise<Me>;
 let stagesMock: () => Promise<{ stages: OutreachStage[] }>;
 let templatesMock: () => Promise<{ templates: MessageTemplate[] }>;
 let templateStatsMock: () => Promise<{ stats: TemplateStat[] }>;
+let templateKindStatsMock: (opts: { mine?: boolean }) => Promise<{ stats: KindStat[] }>;
 let citationsMock: () => Promise<{ citations: StatCitation[] }>;
 let sectorStatsMock: () => Promise<{ stats: SectorStat[] }>;
 let referredShopsMock: () => Promise<{ shops: ReferredShop[] }>;
@@ -30,6 +31,7 @@ vi.mock('./api', async (importOriginal) => {
     outreachStages: (...args: unknown[]) => stagesMock(),
     templates: (...args: unknown[]) => templatesMock(),
     templateStats: (...args: unknown[]) => templateStatsMock(),
+    templateKindStats: (_session: unknown, opts: { mine?: boolean }) => templateKindStatsMock(opts),
     statCitations: (...args: unknown[]) => citationsMock(),
     sectorStats: (...args: unknown[]) => sectorStatsMock(),
     referredShops: (...args: unknown[]) => referredShopsMock(),
@@ -205,5 +207,51 @@ describe('AffiliateTools — deep-linked ticket (Home\'s own carousel, 2026-08-2
     await waitFor(() => expect(screen.getByText('س')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('رجوع'));
     expect(onConsume).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AffiliateTools — content-kind performance', () => {
+  it('every role sees the card, and opening it reads real per-kind numbers', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    templateKindStatsMock = () => Promise.resolve({ stats: [
+      { kind: 'شهادة عميل', uses: 20, pending: 2, advanced: 10, no_response: 6, rejected: 2, advance_rate: 0.5 },
+      { kind: 'عرض سعر', uses: 8, pending: 1, advanced: 1, no_response: 5, rejected: 1, advance_rate: 0.125 },
+    ] });
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('أداء أنواع المحتوى')).toBeTruthy());
+    fireEvent.click(screen.getByText('أداء أنواع المحتوى'));
+    await waitFor(() => expect(screen.getByText('شهادة عميل')).toBeTruthy());
+    expect(screen.getByText('20 استخدام')).toBeTruthy();
+    expect(screen.getByText('50٪ تقدّم')).toBeTruthy();
+    expect(screen.getByText('عرض سعر')).toBeTruthy();
+    expect(screen.getByText('13٪ تقدّم')).toBeTruthy();
+  });
+
+  it('a promoter asks for HIS OWN numbers (mine=true), a manager for the whole team (mine=false)', async () => {
+    templateKindStatsMock = (opts) => Promise.resolve({ stats: [] });
+    const spy = vi.fn(() => Promise.resolve({ stats: [] }));
+    templateKindStatsMock = spy;
+
+    meMock = () => Promise.resolve(PROMOTER);
+    const { unmount } = render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('أداء أنواع المحتوى')).toBeTruthy());
+    fireEvent.click(screen.getByText('أداء أنواع المحتوى'));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ mine: true }));
+    unmount();
+
+    meMock = () => Promise.resolve(MANAGER);
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('أداء أنواع المحتوى')).toBeTruthy());
+    fireEvent.click(screen.getByText('أداء أنواع المحتوى'));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ mine: false }));
+  });
+
+  it('no uses at all shows the real empty state, not a blank list', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    templateKindStatsMock = () => Promise.resolve({ stats: [] });
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('أداء أنواع المحتوى')).toBeTruthy());
+    fireEvent.click(screen.getByText('أداء أنواع المحتوى'));
+    await waitFor(() => expect(screen.getByText('لا استخدام بعد')).toBeTruthy());
   });
 });

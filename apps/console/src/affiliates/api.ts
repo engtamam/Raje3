@@ -333,6 +333,16 @@ export async function templateStats(session: AffiliateSession,
              session.access_token);
 }
 
+/** Which CONTENT TYPE (kind) actually moves a lead forward, across every template sharing it —
+ *  a coarser grain than `templateStats`' per-template rows, answering "should I write more
+ *  testimonial-style messages" rather than "which exact template". */
+export async function templateKindStats(session: AffiliateSession, opts: { mine?: boolean } = {}):
+    Promise<{ stats: KindStat[] }> {
+  const qs = opts.mine ? '?mine=true' : '';
+  return req(`/api/v1/affiliates/me/template-kind-stats${qs}`, 'GET', undefined,
+             session.access_token);
+}
+
 export async function upsertOutreachStage(session: AffiliateSession, input: {
   code: string; name: string; order?: number;
 }): Promise<OutreachStage> {
