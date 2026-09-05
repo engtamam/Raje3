@@ -201,8 +201,25 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         # on his screen — the account IS connected, and that fact is already recorded and audited.
         # What can still go wrong is a slow or half-finished publish, and the hourly pass
         # (/internal/operations/templates/publish) is what covers it.
+        from app.config import Settings
+        from app.core.flows import provision_shop_flow
         from app.core.library import publish
+        from app.core.runtime_config import RuntimeConfig
+        from app.runtime_policy import RUNTIME_POLICY
 
+        # THE FLOW BEFORE THE TEMPLATES THAT POINT AT IT. A template whose flow_button names a
+        # Flow this shop's WABA does not yet have is refused by Meta at submission — so the clone
+        # must exist (or at least have been attempted) before the library that references it by
+        # name is registered. Both are still "after the response, not inside it" — see above.
+        #
+        # PLATFORM SCOPE (tenant=""), because the master id is the SAME for every shop; it is
+        # written once by deploy/seed/bootstrap-rating-flow.py and read here through RuntimeConfig
+        # rather than `s.MASTER_RATING_FLOW_ID` directly, so a fresh install needs no redeploy
+        # once that script has run.
+        rc = RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY)
+        master_flow_id = await rc.get(
+            tenant="", key="MASTER_RATING_FLOW_ID", default=s.MASTER_RATING_FLOW_ID)
+        background.add_task(provision_shop_flow, c.flows, tenant, master_flow_id)
         background.add_task(publish, c.library, await c.templates.list(), tenant)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the

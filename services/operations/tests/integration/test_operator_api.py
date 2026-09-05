@@ -164,16 +164,17 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
 
 
 def test_the_config_surface_offers_exactly_what_something_reads(client, operator_auth):
-    """One knob, because exactly one is wired.
+    """Two knobs, because exactly two are wired.
 
     A key enters RUNTIME_POLICY in the same change that wires the read — the retention horizon is
-    read per tenant by core/retention.py on every sweep. Everything else stays unavailable, which
-    is honest: an advertised knob nothing consults reports a change that never happened, with an
-    audit entry to prove it.
+    read per tenant by core/retention.py on every sweep, and the master rating-Flow id is read
+    (platform scope) by api/v1/connect.py's background provisioning task. Everything else stays
+    unavailable, which is honest: an advertised knob nothing consults reports a change that never
+    happened, with an audit entry to prove it.
     """
     h = {"headers": operator_auth}
     assert list(client.get("/api/v1/operations/operator/config", **h).json()["config"]) == [
-        "RETENTION_CUSTOMER_YEARS"]
+        "MASTER_RATING_FLOW_ID", "RETENTION_CUSTOMER_YEARS"]
     r = client.put("/api/v1/operations/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"
 
