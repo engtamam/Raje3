@@ -305,6 +305,7 @@ class ConversationEngine:
                 frustration_unconfirmed_proposals_threshold: int = 2,
                 frustration_duplicate_messages_threshold: int = 3,
                 shop_identity: Any = None, service_catalog: Any = None,
+                package_catalog: Any = None,
                 customer_lookup: Any = None, related_services: Any = None,
                 branch_directory: Any = None,
                 wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
@@ -319,6 +320,9 @@ class ConversationEngine:
         # `shop_identity` below — a conversation built without any of these simply gets an empty
         # catalogue/offers context block and no cross-sell suggestions, rather than failing.
         self._catalog = service_catalog
+        # Same None-safe optional-peer shape as every other one here — see package_catalog.py's
+        # own NullPackageCatalog for the "nothing configured" default.
+        self._package_catalog = package_catalog
         self._customer_lookup = customer_lookup
         self._related_services = related_services
         # None-safe, same reasoning as every other optional peer here: a conversation built
@@ -881,6 +885,7 @@ class ConversationEngine:
                     allowed_tools=allowed, store=self._store, booking_provider=self._booking,
                     points_summary=self._points, proposal_ttl_seconds=self._proposal_ttl, now=now,
                     related_services=self._related_services, service_catalog=self._catalog,
+                    package_catalog=self._package_catalog,
                     branch_id=conv.branch_id, from_number=conv.from_number,
                     booking_history_visible=self._booking_history_visible)
             except T.ToolValidationError as exc:

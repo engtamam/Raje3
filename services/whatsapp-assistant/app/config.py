@@ -190,6 +190,7 @@ class Settings(BaseSettings):
     # app/core/service_catalog.py's module docstring) so it can answer "how much" and cross-sell
     # honestly instead of guessing.
     OPERATIONS_CATALOGUE_WITH_PRICES_PATH: str = "/internal/operations/catalogue-with-prices"
+    OPERATIONS_PACKAGES_PATH: str = "/internal/operations/packages"
     # Real booking assignment (core/booking_assignment.py, Phase 4) — the branch's own active
     # people, and which services a customer's picked one may perform. Neither invents an
     # assignment on its own; see booking_assignment.py's own module docstring for the full policy.

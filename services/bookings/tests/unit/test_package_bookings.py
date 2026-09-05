@@ -147,6 +147,21 @@ def test_attending_a_package_booking_carries_its_package_id_to_the_visit_gateway
     assert set(visits.calls[-1]["service_ids"]) == {"svc1", "svc2"}
 
 
+def test_nearest_slot_for_a_package_uses_the_package_duration_and_eligibility():
+    ops, _ = _ops(package_durations=_FixedPackageDurations({"pkg1": 60}),
+                 package_eligibility=_FixedPackageEligibility({"pkg1": ["op1"]}))
+    starts_at = _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                      service_ids=[], package_id="pkg1", after=1786860000))
+    assert starts_at is not None
+
+
+def test_nearest_slot_refuses_an_ineligible_operator_for_a_package():
+    ops, _ = _ops(package_eligibility=_FixedPackageEligibility({"pkg1": ["op9"]}))
+    with pytest.raises(OperationError, match="لا يقدر"):
+        _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
+                              service_ids=[], package_id="pkg1", after=1786860000))
+
+
 def test_no_package_ports_wired_refuses_a_package_booking_explicitly():
     store = MemoryDataStore()
     ops = BookingOperations(

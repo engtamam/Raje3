@@ -38,6 +38,16 @@ class _FakeCatalog:
         return self._by.get(tenant, [])
 
 
+class _FakePackageCatalog:
+    driver = "fake"
+
+    def __init__(self, by_tenant: dict[str, list[dict]]) -> None:
+        self._by = by_tenant
+
+    async def list_active(self, tenant: str) -> list[dict]:
+        return self._by.get(tenant, [])
+
+
 class _FakeCustomerLookup:
     driver = "fake"
 
@@ -116,6 +126,77 @@ async def test_cross_sell_tool_with_no_associated_service_says_so_plainly():
     plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
     assert "لا توجد خدمة أخرى" in plan.text
     # Never fabricated an offer despite the model asking — the tool's own answer, unaltered.
+
+
+# ── a package as the cross-sell answer (packages feature) ───────────────────────────────────────
+
+async def test_cross_sell_names_a_package_and_its_real_price():
+    store = MemoryDataStore()
+    related = _FakeRelatedServices({"t1:svc_a": ["pkg:pkg1"]})
+    packages = _FakePackageCatalog(
+        {"t1": [{"id": "pkg1", "name": "باقة الصيانة", "price_minor": 15000, "active": True}]})
+    llm = StubLlm()
+    llm.queue_tool_call("suggest_related_service", service_id="svc_a")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED,
+        related_services=related, service_catalog=_FakeCatalog({}), package_catalog=packages)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="أبي أضيف خدمة", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert "باقة الصيانة" in plan.text
+    assert "150" in plan.text            # 15000 halalas = 150 ريال, stated plainly
+
+
+async def test_cross_sell_mixes_a_package_and_a_plain_service():
+    store = MemoryDataStore()
+    related = _FakeRelatedServices({"t1:svc_a": ["pkg:pkg1", "svc_b"]})
+    catalog = _FakeCatalog({"t1": [{"id": "svc_b", "name": "تلميع", "price_minor": 0}]})
+    packages = _FakePackageCatalog(
+        {"t1": [{"id": "pkg1", "name": "باقة الصيانة", "price_minor": 15000, "active": True}]})
+    llm = StubLlm()
+    llm.queue_tool_call("suggest_related_service", service_id="svc_a")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED,
+        related_services=related, service_catalog=catalog, package_catalog=packages)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="أبي أضيف خدمة", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert "تلميع" in plan.text and "باقة الصيانة" in plan.text
+
+
+async def test_cross_sell_skips_a_package_the_catalogue_no_longer_knows():
+    """A peer read that failed, or a package retired since — degraded, never a raw 'pkg:...' id
+    leaking into the reply."""
+    store = MemoryDataStore()
+    related = _FakeRelatedServices({"t1:svc_a": ["pkg:gone"]})
+    llm = StubLlm()
+    llm.queue_tool_call("suggest_related_service", service_id="svc_a")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED,
+        related_services=related, service_catalog=_FakeCatalog({}),
+        package_catalog=_FakePackageCatalog({}))
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="أبي أضيف خدمة", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert "pkg:" not in plan.text
 
 
 # ── never a fabricated discount, structurally (the tool result carries no such field) ───────────

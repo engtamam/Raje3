@@ -138,6 +138,7 @@ class Container:
     branch_directory: Any = None
     shop_identity: Any = None
     service_catalog: Any = None
+    package_catalog: Any = None
     related_services: Any = None
     wallet_balance: Any = None
     licence: Any = None
@@ -207,6 +208,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import shop_identity as SI
     from app.core import points as P
     from app.core import service_catalog as SC
+    from app.core import package_catalog as PC
     from app.core import related_services as RS
     from app.core import wallet_balance as WB
     from app.core.licence import build_licence
@@ -239,6 +241,7 @@ def build_container(settings: Settings) -> Container:
     container.branch_directory = BD.build(settings)
     container.shop_identity = SI.build(settings)
     container.service_catalog = SC.build(settings)
+    container.package_catalog = PC.build(settings)
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = build_licence(settings)
@@ -258,7 +261,8 @@ def build_container(settings: Settings) -> Container:
     container.engine = ConversationEngine(
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
         points_summary=container.points_summary, shop_identity=container.shop_identity,
-        service_catalog=container.service_catalog, customer_lookup=container.customer_lookup,
+        service_catalog=container.service_catalog, package_catalog=container.package_catalog,
+        customer_lookup=container.customer_lookup,
         branch_directory=container.branch_directory,
         related_services=container.related_services, wallet_balance=container.wallet_balance,
         licence=container.licence,

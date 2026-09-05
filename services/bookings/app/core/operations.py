@@ -617,7 +617,10 @@ class BookingOperations:
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
                            search_days: int = 14,
-                           exclude_booking_id: str = "") -> int | None:
+                           exclude_booking_id: str = "",
+                           # MUTUALLY EXCLUSIVE WITH `service_ids` — same packages-feature rule as
+                           # `create()`. "" is the ordinary, unchanged path below.
+                           package_id: str = "") -> int | None:
         """The "أقرب موعد" button (§6.2) - the same pure derivation (app/core/availability.py),
         fed busy intervals from the operator's OWN real bookings, the shop's own working hours,
         and now (this feature) THIS OPERATOR'S OWN hours when he has a custom schedule - see
@@ -625,11 +628,23 @@ class BookingOperations:
         actually perform one of `service_ids` - a probe against an ineligible operator must not
         leak an open slot he could never actually be booked into.
         """
-        duration = await self._durations.minutes(tenant, tuple(service_ids))
-        if not duration:
-            raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+        package_id = (package_id or "").strip()
+        if package_id:
+            if self._package_durations is None or self._package_eligibility is None:
+                raise OperationError("حجز الباقات غير متاح في هذه البيئة الآن")
+            duration = await self._package_durations.minutes(tenant, package_id)
+            if not duration:
+                raise OperationError("مدة هذه الباقة غير مضبوطة — تحقق من مدة كل خدمة داخلها")
+            allowed = await self._package_eligibility.eligible_for(tenant, package_id)
+            if allowed and operator_id not in allowed:
+                raise OperationError("هذا الموظف لا يقدر يسوّي هذه الباقة")
+        else:
+            duration = await self._durations.minutes(tenant, tuple(service_ids))
+            if not duration:
+                raise OperationError(
+                    "مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
 
-        await self._refuse_if_ineligible(tenant, operator_id, service_ids)
+            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
         from app.core.availability import Busy, nearest_slot as _nearest
 

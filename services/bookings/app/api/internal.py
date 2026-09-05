@@ -281,7 +281,10 @@ class InternalNearestRealSlotIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(min_length=1, max_length=64)
-    service_ids: list[str] = Field(min_length=1, max_length=20)
+    # EMPTY IS VALID — but only when `package_id` is set instead (packages feature, mutually
+    # exclusive, same as the console's own POST /bookings body).
+    service_ids: list[str] = Field(default_factory=list, max_length=20)
+    package_id: str = Field(default="", max_length=64)
     after: int = Field(gt=0)
     search_days: int = Field(default=14, ge=1, le=90)
     # Booking-management-via-WhatsApp's own reschedule check (whatsapp-assistant's
@@ -309,7 +312,7 @@ async def internal_nearest_real_slot(request: Request, body: InternalNearestReal
         found = await c.booking_ops.nearest_slot(
             tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             service_ids=body.service_ids, after=body.after, search_days=body.search_days,
-            exclude_booking_id=body.exclude_booking_id)
+            exclude_booking_id=body.exclude_booking_id, package_id=body.package_id)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return {"starts_at": found}
@@ -320,7 +323,9 @@ class InternalCreateBookingIn(BaseModel):
     branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(min_length=1, max_length=64)
     customer_id: str = Field(min_length=1, max_length=64)
-    service_ids: list[str] = Field(min_length=1, max_length=20)
+    # EMPTY IS VALID — but only when `package_id` is set instead (packages feature).
+    service_ids: list[str] = Field(default_factory=list, max_length=20)
+    package_id: str = Field(default="", max_length=64)
     starts_at: int = Field(gt=0)
     note: str = Field(default="", max_length=500)
     idempotency_key: str = Field(default="", max_length=128)
@@ -348,6 +353,7 @@ async def internal_create_booking(request: Request, body: InternalCreateBookingI
         booking = await c.booking_ops.create(
             tenant=body.tenant, branch_id=body.branch_id, operator_id=body.operator_id,
             customer_id=body.customer_id, service_ids=body.service_ids,
+            package_id=body.package_id,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             intended_reward_id=body.intended_reward_id)
     except (SlotClaimBusy, ConcurrentEditError) as exc:

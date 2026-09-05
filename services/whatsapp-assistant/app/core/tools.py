@@ -50,6 +50,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               store: Any, booking_provider: Any, points_summary: Any,
                               proposal_ttl_seconds: int, now: int | None = None,
                               related_services: Any = None, service_catalog: Any = None,
+                              package_catalog: Any = None,
                               branch_id: str = "", from_number: str = "",
                               booking_history_visible: bool = True) -> RenderedProposal | str:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
@@ -163,13 +164,41 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         if service_catalog is not None:
             for s in await service_catalog.list_active(tenant):
                 names_by_id[str(s.get("id"))] = str(s.get("name") or s.get("id"))
-        names = [names_by_id.get(rid, rid) for rid in related_ids]
+        # A "pkg:<id>" ANSWER (packages feature) — this service and that PACKAGE are bought
+        # together often. Resolved against the package catalogue, never the service one (a
+        # package id would never be found there and would print the raw "pkg:..." string).
+        # UNLIKE AN ORDINARY SERVICE SUGGESTION, A PACKAGE'S PRICE IS SAFE TO STATE — see
+        # package_catalog.py's own docstring: it is the owner's own published price, not a number
+        # the engine or this reply invents.
+        packages_by_id: dict[str, dict[str, Any]] = {}
+        if package_catalog is not None and any(rid.startswith("pkg:") for rid in related_ids):
+            for p in await package_catalog.list_active(tenant):
+                packages_by_id[str(p.get("id"))] = p
+
+        plain_names: list[str] = []
+        package_lines: list[str] = []
+        for rid in related_ids:
+            if rid.startswith("pkg:"):
+                pkg = packages_by_id.get(rid[len("pkg:"):])
+                if pkg is None:
+                    continue    # a peer read that failed, or a package retired since — skipped
+                riyals = int(pkg.get("price_minor") or 0) / 100
+                package_lines.append(f"باقة «{pkg.get('name')}» بسعر {riyals:g} ريال")
+            else:
+                plain_names.append(names_by_id.get(rid, rid))
+
+        if package_lines and not plain_names:
+            listed = "، ".join(package_lines[:3])
+            return f"عندنا {listed} تجمع هذه الخدمة مع خدمات أخرى تُطلب معها عادةً. هل تحب معرفة المزيد؟"
+        if package_lines:
+            return (f"عادةً ما يُطلب مع هذه الخدمة أيضًا: {'، '.join(plain_names[:3])}. "
+                   f"وعندنا أيضًا {package_lines[0]} تجمعها مع خدمات أخرى. هل تحب إضافتها؟")
         # NO DISCOUNT FIELD EXISTS ANYWHERE IN THIS RESULT — the associations engine
         # (services/insights/app/core/associations.py) returns only a verdict and an id, never a
         # price or a discount. There is nothing here for the model to embellish from; any discount
         # claim in its reply is therefore always fabricated and is caught by
         # core/conversation.py's `_sanitize_reply` regardless of what this tool returns.
-        listed = "، ".join(names[:3])
+        listed = "، ".join(plain_names[:3])
         return f"عادةً ما يُطلب مع هذه الخدمة أيضًا: {listed}. هل تحب إضافتها؟"
 
     if tool == "list_my_bookings":

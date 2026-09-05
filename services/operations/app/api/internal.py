@@ -1471,7 +1471,7 @@ async def read_packages(request: Request, body: CatalogueIn) -> dict:
     c = request.app.state.container
     rows = await PackageStore(c.datastore).list(body.tenant, active_only=False)
     return {"packages": [{"id": p.id, "name": p.name, "service_ids": list(p.service_ids),
-                          "active": p.active} for p in rows],
+                          "price_minor": p.price_minor, "active": p.active} for p in rows],
             "count": len(rows)}
 
 
