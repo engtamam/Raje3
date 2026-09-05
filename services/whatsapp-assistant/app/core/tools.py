@@ -587,7 +587,9 @@ def _parse_iso(value: Any) -> int | None:
 
 def _fmt_slot(epoch: int) -> str:
     import datetime as _dt
-    d = _dt.datetime.fromtimestamp(epoch, _dt.timezone(_dt.timedelta(hours=3)))
+
+    from app.core.riyadh import RIYADH
+    d = _dt.datetime.fromtimestamp(epoch, RIYADH)
     return d.strftime("%Y-%m-%d %H:%M")
 
 
@@ -596,8 +598,9 @@ def _riyadh_today_start(now: int) -> int:
     BOOKING_HISTORY_VISIBLE cutoff: a booking starting at or after this is "current/upcoming" and
     always shown regardless of the flag; before it is "history", gated by the flag."""
     import datetime as _dt
-    tz = _dt.timezone(_dt.timedelta(hours=3))
-    d = _dt.datetime.fromtimestamp(now, tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    from app.core.riyadh import RIYADH
+    d = _dt.datetime.fromtimestamp(now, RIYADH).replace(hour=0, minute=0, second=0, microsecond=0)
     return int(d.timestamp())
 
 
