@@ -271,3 +271,167 @@ def test_a_package_description_is_saved_and_returned(client):
                     headers=HEADERS)
     assert r.status_code == 201
     assert r.json()["description"] == "غسيل وتلميع بسعر واحد"
+
+
+# ── edge cases ────────────────────────────────────────────────────────────────────────────────
+def test_uploading_without_the_capability_is_403(client):
+    sid = _new_service(client)
+    r = client.post(f"/api/v1/staff/services/{sid}/image", json={
+        "content_type": "image/png", "data_base64": base64.b64encode(_PNG_1PX).decode()},
+        headers=_auth("operations.read"))
+    assert r.status_code == 403
+
+
+def test_uploading_without_auth_at_all_is_401(client):
+    sid = _new_service(client)
+    r = client.post(f"/api/v1/staff/services/{sid}/image", json={
+        "content_type": "image/png", "data_base64": base64.b64encode(_PNG_1PX).decode()})
+    assert r.status_code == 401
+
+
+def test_reading_without_the_capability_is_403(client):
+    sid = _new_service(client)
+    _upload(client, f"/api/v1/staff/services/{sid}/image")
+    r = client.get(f"/api/v1/staff/services/{sid}/image", headers=_auth("operations.read"))
+    assert r.status_code == 403
+
+
+def test_deleting_without_the_capability_is_403(client):
+    sid = _new_service(client)
+    _upload(client, f"/api/v1/staff/services/{sid}/image")
+    r = client.delete(f"/api/v1/staff/services/{sid}/image", headers=_auth("operations.read"))
+    assert r.status_code == 403
+
+
+def test_missing_content_type_field_is_422(client):
+    sid = _new_service(client)
+    r = client.post(f"/api/v1/staff/services/{sid}/image",
+                    json={"data_base64": base64.b64encode(_PNG_1PX).decode()}, headers=HEADERS)
+    assert r.status_code == 422
+
+
+def test_missing_data_base64_field_is_422(client):
+    sid = _new_service(client)
+    r = client.post(f"/api/v1/staff/services/{sid}/image",
+                    json={"content_type": "image/png"}, headers=HEADERS)
+    assert r.status_code == 422
+
+
+def test_content_type_with_a_parameter_suffix_still_works(client):
+    sid = _new_service(client)
+    r = _upload(client, f"/api/v1/staff/services/{sid}/image",
+               content_type="image/png; charset=binary")
+    assert r.status_code == 200, r.text
+
+
+def test_content_type_is_case_insensitive(client):
+    sid = _new_service(client)
+    r = _upload(client, f"/api/v1/staff/services/{sid}/image", content_type="IMAGE/PNG")
+    assert r.status_code == 200, r.text
+
+
+def test_jpeg_upload_works(client):
+    sid = _new_service(client)
+    # A minimal real JPEG (SOI/EOI markers) — not a placeholder string.
+    jpeg = bytes.fromhex("ffd8ffe000104a46494600010100000100010000ffd9")
+    r = _upload(client, f"/api/v1/staff/services/{sid}/image", data=jpeg,
+               content_type="image/jpeg")
+    assert r.status_code == 200, r.text
+    got = client.get(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
+    assert got.content == jpeg
+    assert got.headers["content-type"] == "image/jpeg"
+
+
+def test_webp_upload_works(client):
+    sid = _new_service(client)
+    r = _upload(client, f"/api/v1/staff/services/{sid}/image", data=_PNG_1PX,
+               content_type="image/webp")
+    assert r.status_code == 200, r.text
+    got = client.get(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
+    assert got.headers["content-type"] == "image/webp"
+
+
+def test_content_that_decodes_to_zero_bytes_is_refused(client):
+    sid = _new_service(client)
+    r = client.post(f"/api/v1/staff/services/{sid}/image",
+                    json={"content_type": "image/png", "data_base64": ""}, headers=HEADERS)
+    # An empty string fails the field's own min_length=1 before catalogue_image.py's own
+    # "empty file" check ever runs — either way, refused, never a 200.
+    assert r.status_code == 422
+
+
+def test_reuploading_the_identical_bytes_is_not_an_error(client):
+    sid = _new_service(client)
+    first = _upload(client, f"/api/v1/staff/services/{sid}/image")
+    assert first.status_code == 200
+    second = _upload(client, f"/api/v1/staff/services/{sid}/image")
+    assert second.status_code == 200
+    got = client.get(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
+    assert got.content == _PNG_1PX
+
+
+def test_has_image_is_false_by_default_on_a_new_service(client):
+    r = client.post("/api/v1/staff/services", json={"name": "خدمة جديدة"}, headers=HEADERS)
+    assert r.json()["has_image"] is False
+
+
+def test_has_image_is_false_by_default_on_a_new_package(client):
+    s1 = _new_service(client, "أ")
+    s2 = _new_service(client, "ب")
+    r = client.post("/api/v1/staff/packages",
+                    json={"name": "باقة جديدة", "service_ids": [s1, s2], "price_minor": 1000},
+                    headers=HEADERS)
+    assert r.json()["has_image"] is False
+
+
+def test_two_services_photos_are_fully_independent(client):
+    s1 = _new_service(client, "خدمة أولى")
+    s2 = _new_service(client, "خدمة ثانية")
+    _upload(client, f"/api/v1/staff/services/{s1}/image")
+    # s2 never got a photo — its own read must still 404, not accidentally return s1's.
+    got = client.get(f"/api/v1/staff/services/{s2}/image", headers=HEADERS)
+    assert got.status_code == 404
+    # and deleting s2's (nonexistent) photo must not touch s1's real one.
+    client.delete(f"/api/v1/staff/services/{s2}/image", headers=HEADERS)
+    still_there = client.get(f"/api/v1/staff/services/{s1}/image", headers=HEADERS)
+    assert still_there.status_code == 200
+    assert still_there.content == _PNG_1PX
+
+
+def test_an_unknown_package_id_404s_on_upload(client):
+    r = _upload(client, "/api/v1/staff/packages/no-such-id/image")
+    assert r.status_code == 404
+
+
+def test_a_package_with_no_photo_reads_404(client):
+    pid = _new_package(client)
+    got = client.get(f"/api/v1/staff/packages/{pid}/image", headers=HEADERS)
+    assert got.status_code == 404
+
+
+def test_a_second_tenants_package_photo_is_invisible(client):
+    pid = _new_package(client)
+    _upload(client, f"/api/v1/staff/packages/{pid}/image")
+    other = client.get(f"/api/v1/staff/packages/{pid}/image",
+                       headers=_auth("operations.manage_services", tenant="t2"))
+    assert other.status_code == 404
+
+
+def test_description_at_the_max_length_is_accepted(client):
+    r = client.post("/api/v1/staff/services",
+                    json={"name": "خدمة", "description": "ط" * 300}, headers=HEADERS)
+    assert r.status_code == 201
+    assert len(r.json()["description"]) == 300
+
+
+def test_description_over_the_max_length_is_refused_422(client):
+    r = client.post("/api/v1/staff/services",
+                    json={"name": "خدمة", "description": "ط" * 301}, headers=HEADERS)
+    assert r.status_code == 422
+
+
+def test_whitespace_only_description_is_stripped_to_blank(client):
+    r = client.post("/api/v1/staff/services",
+                    json={"name": "خدمة", "description": "   "}, headers=HEADERS)
+    assert r.status_code == 201
+    assert r.json()["description"] == ""

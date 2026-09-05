@@ -16,7 +16,6 @@ discipline `rating_request.py`'s `flow_token` already holds for a different key.
 """
 from __future__ import annotations
 
-import mimetypes
 from dataclasses import dataclass
 
 from app.ports.errors import NotFound
@@ -24,6 +23,15 @@ from app.ports.object_store import ObjectStore
 
 #: Meta's own carousel/media rules accept these; a product photo has no reason to be anything else.
 ALLOWED_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+#: THE REVERSE MAP, AND WHY IT EXISTS RATHER THAN `mimetypes.guess_type`. `ObjectStore.get` returns
+#: bytes only — no content-type travels with them — so the read side must recover it from the key's
+#: own extension somehow. `mimetypes`'s system registry does not reliably know `.webp` across every
+#: platform this runs on (found by this module's own test suite: a stored webp came back as
+#: `application/octet-stream` on this box), so the extension is mapped back through the SAME fixed
+#: table the write side used to produce it — never a platform-dependent guess for a three-value set
+#: we already control completely.
+_EXT_TO_TYPE = {ext: ctype for ctype, ext in ALLOWED_TYPES.items()}
 
 #: A product photo, not a video — generous for a real phone photo, still a real ceiling.
 MAX_BYTES = 5 * 1024 * 1024
@@ -74,7 +82,8 @@ async def read_image(store: ObjectStore, key: str) -> tuple[bytes, str]:
     if not key:
         raise NotFound("no image set")
     data = await store.get(key)
-    ctype = mimetypes.guess_type(key)[0] or "application/octet-stream"
+    ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+    ctype = _EXT_TO_TYPE.get(ext, "application/octet-stream")
     return data, ctype
 
 
