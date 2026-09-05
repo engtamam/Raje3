@@ -74,7 +74,8 @@ class RealBookingProvider:
     def __init__(self, *, branch_operators: _Peer, service_eligibility: _Peer,
                 customer_id_by_phone: _Peer, nearest_real_slot: _Peer, create_booking: _Peer,
                 bookings_for_customer: _Peer | None = None, cancel_booking: _Peer | None = None,
-                reschedule_booking: _Peer | None = None) -> None:
+                reschedule_booking: _Peer | None = None,
+                package_eligibility: _Peer | None = None) -> None:
         self._branch_operators = branch_operators
         self._service_eligibility = service_eligibility
         self._customer_id_by_phone = customer_id_by_phone
@@ -86,6 +87,14 @@ class RealBookingProvider:
         self._bookings_for_customer = bookings_for_customer
         self._cancel_booking = cancel_booking
         self._reschedule_booking = reschedule_booking
+        # OPTIONAL, SAME SHAPE — packages feature. `availability_for_package`/
+        # `hold_and_confirm_package` below are EXTRA methods, not part of `BookingProvider`'s own
+        # Protocol (app/ports/booking_provider.py stays untouched, deliberately — see that file's
+        # own docstring on why every package capability lives here, checked by the caller via
+        # `getattr`, the same pattern the booking-management methods below already use). A
+        # deployment with this unset simply cannot offer a package through the chat at all; the
+        # ordinary single-service path is completely unaffected either way.
+        self._package_eligibility = package_eligibility
 
     async def _pick_operator(self, tenant: str, branch_id: str, service_id: str) -> str:
         """FIRST ELIGIBLE, DETERMINISTIC — see this module's own docstring for the policy. Raises
@@ -168,6 +177,79 @@ class RealBookingProvider:
         # core/tools.py's `propose_booking` branch for how `reward_id` gets here.
         body = {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
                 "customer_id": customer_id, "service_ids": [service_id], "starts_at": starts_at,
+                "idempotency_key": idempotency_key}
+        if intended_reward_id:
+            body["intended_reward_id"] = intended_reward_id
+        result = self._create_booking.call(body)
+        if result is None or not result.get("id"):
+            raise BookingAssignmentError("bookings-service refused or was unreachable")
+        return result
+
+    # ── packages (book a PACKAGE instead of a single service) ─────────────────────────────────
+    # Same shape as availability()/hold_and_confirm() above, but the peer questions are answered
+    # by bookings-service's own package-aware routes (nearest-real-slot/create with `package_id`
+    # set instead of `service_ids` — see services/bookings' own operations.py, phase 2 of this
+    # feature) — which already enforce the package's schedule against the REAL requested date and
+    # the eligibility-intersection rule for multi-specialist packages. Nothing about the schedule
+    # or eligibility logic is duplicated here; this module only resolves which operator to try and
+    # forwards the call.
+
+    async def _pick_operator_for_package(self, tenant: str, branch_id: str, package_id: str) -> str:
+        """Same "first eligible, deterministic" policy as `_pick_operator` — but "eligible" here
+        already accounts for the multi-specialist degradation (operations' own package-eligibility
+        route: a genuinely disjoint-specialty package reads as unrestricted, never impossible)."""
+        ops = self._branch_operators.call({"tenant": tenant, "branch_id": branch_id})
+        candidates = [str(o.get("id")) for o in (ops or {}).get("operators") or []]
+        if not candidates:
+            raise BookingAssignmentError(f"no active operators at branch {branch_id!r}")
+        if self._package_eligibility is None:
+            return sorted(candidates)[0]
+        elig = self._package_eligibility.call({"tenant": tenant, "package_id": package_id})
+        allowed = (elig or {}).get("eligible_staff_ids")
+        eligible_pool = candidates if allowed is None else [c for c in candidates if c in allowed]
+        if not eligible_pool:
+            raise BookingAssignmentError(
+                f"no operator at branch {branch_id!r} is eligible for package {package_id!r}")
+        return sorted(eligible_pool)[0]
+
+    async def availability_for_package(self, *, tenant: str, package_id: str, earliest: int,
+                                       branch_id: str = "", exclude_booking_id: str = ""
+                                       ) -> list[Slot]:
+        if not branch_id:
+            return []
+        try:
+            operator_id = await self._pick_operator_for_package(tenant, branch_id, package_id)
+        except BookingAssignmentError:
+            return []
+        payload: dict[str, Any] = {
+            "tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
+            "package_id": package_id, "after": earliest}
+        if exclude_booking_id:
+            payload["exclude_booking_id"] = exclude_booking_id
+        result = self._nearest_real_slot.call(payload)
+        starts_at = (result or {}).get("starts_at")
+        if not starts_at:
+            return []
+        # DURATION 0 — same reasoning as `availability()` above: bookings-service computes the
+        # real duration itself, from the package's own LIVE components, at create() time.
+        return [Slot(starts_at=int(starts_at), duration_minutes=0)]
+
+    async def hold_and_confirm_package(self, *, tenant: str, subject_ref: str, package_id: str,
+                                       starts_at: int, idempotency_key: str, branch_id: str = "",
+                                       from_number: str = "", intended_reward_id: str = "") -> dict:
+        if not branch_id:
+            raise BookingAssignmentError("no branch on this conversation — cannot create a real booking")
+        if not from_number:
+            raise BookingAssignmentError("no phone on this conversation — cannot resolve a customer")
+
+        customer_id = await self._resolve_customer_id(tenant, from_number)
+        if not customer_id:
+            raise BookingAssignmentError("could not resolve a real customer for this phone")
+
+        operator_id = await self._pick_operator_for_package(tenant, branch_id, package_id)
+
+        body = {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
+                "customer_id": customer_id, "package_id": package_id, "starts_at": starts_at,
                 "idempotency_key": idempotency_key}
         if intended_reward_id:
             body["intended_reward_id"] = intended_reward_id
@@ -264,4 +346,7 @@ def build(settings: Any) -> Any:
                                 token=token, timeout=timeout),
         create_booking=_Peer(url=settings.BOOKINGS_SERVICE_URL,
                              path=settings.BOOKINGS_CREATE_PATH, token=token, timeout=timeout),
+        package_eligibility=_Peer(url=settings.OPERATIONS_SERVICE_URL,
+                                  path=settings.OPERATIONS_PACKAGE_ELIGIBILITY_PATH,
+                                  token=token, timeout=timeout),
         **management_peers)

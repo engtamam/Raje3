@@ -68,30 +68,59 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
 
     if tool == "check_availability":
         service_id = str(args.get("service_id") or "")
-        if not service_id:
-            raise ToolValidationError("check_availability requires service_id")
+        package_id = str(args.get("package_id") or "")
+        if not service_id and not package_id:
+            raise ToolValidationError("check_availability requires service_id or package_id")
+        if service_id and package_id:
+            raise ToolValidationError("check_availability takes service_id OR package_id, not both")
         earliest = _parse_date(args.get("earliest_date")) or now
-        slots = await booking_provider.availability(
-            tenant=tenant, service_id=service_id, earliest=earliest, horizon_days=0,
-            branch_id=branch_id)
+        if package_id:
+            # PACKAGES ARE REAL-DRIVER ONLY — see booking_assignment.py's own module docstring:
+            # the zero-infra placeholder has no concept of a package's real components/duration
+            # at all. `getattr` rather than an isinstance check, matching how the booking-
+            # management tools (list_my_bookings etc.) already gate the same distinction.
+            avail = getattr(booking_provider, "availability_for_package", None)
+            if avail is None:
+                raise ToolValidationError("package booking is not available on this deployment")
+            slots = await avail(tenant=tenant, package_id=package_id, earliest=earliest,
+                                branch_id=branch_id)
+        else:
+            slots = await booking_provider.availability(
+                tenant=tenant, service_id=service_id, earliest=earliest, horizon_days=0,
+                branch_id=branch_id)
         if not slots:
-            return "لا توجد مواعيد متاحة قريبًا لهذه الخدمة."
+            return "لا توجد مواعيد متاحة قريبًا."
         listed = ", ".join(_fmt_slot(s.starts_at) for s in slots[:5])
         return f"المواعيد المتاحة: {listed}"
 
     if tool == "propose_booking":
         service_id = str(args.get("service_id") or "")
+        package_id = str(args.get("package_id") or "")
         starts_at = _parse_iso(args.get("starts_at_iso"))
-        if not service_id or starts_at is None:
-            raise ToolValidationError("propose_booking requires service_id and starts_at_iso")
+        if not (service_id or package_id) or starts_at is None:
+            raise ToolValidationError(
+                "propose_booking requires (service_id or package_id) and starts_at_iso")
+        if service_id and package_id:
+            raise ToolValidationError("propose_booking takes service_id OR package_id, not both")
         # RE-VALIDATED, not trusted: is this slot STILL real, right now, independent of whatever
-        # the model believed when it proposed it.
-        slots = await booking_provider.availability(
-            tenant=tenant, service_id=service_id, earliest=starts_at, horizon_days=0,
-            branch_id=branch_id)
+        # the model believed when it proposed it — including, for a package, whether TODAY's
+        # request still falls on a day it actually recurs on (operations' own schedule check,
+        # re-asked fresh here, never assumed from an earlier turn's context block).
+        if package_id:
+            avail = getattr(booking_provider, "availability_for_package", None)
+            if avail is None:
+                raise ToolValidationError("package booking is not available on this deployment")
+            slots = await avail(tenant=tenant, package_id=package_id, earliest=starts_at,
+                                branch_id=branch_id)
+            anchor = package_id
+        else:
+            slots = await booking_provider.availability(
+                tenant=tenant, service_id=service_id, earliest=starts_at, horizon_days=0,
+                branch_id=branch_id)
+            anchor = service_id
         if not any(s.starts_at == starts_at for s in slots):
             raise ToolValidationError(
-                f"proposed slot {starts_at} for {service_id!r} is not actually available")
+                f"proposed slot {starts_at} for {anchor!r} is not actually available")
 
         # OPTIONAL — «و+use my reward with this booking». RE-VALIDATED against the customer's REAL
         # affordable-without-approval offers (never trusted from the model's own args, same
@@ -110,7 +139,11 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                 reward_dropped = True
 
         proposal_id = f"prp_{uuid.uuid4().hex[:24]}"
-        proposal_args: dict[str, Any] = {"service_id": service_id, "starts_at": starts_at}
+        proposal_args: dict[str, Any] = {"starts_at": starts_at}
+        if package_id:
+            proposal_args["package_id"] = package_id
+        else:
+            proposal_args["service_id"] = service_id
         if reward_id:
             proposal_args["reward_id"] = reward_id
         proposal = PendingProposal(
@@ -399,12 +432,25 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
         # standalone, unconditional-on-confirm redemption this branch used to also handle
         # (tool == "suggest_redeemable_offer") no longer exists; see that tool's own docstring in
         # `validate_and_render` above for why.
+        package_id = str(args.get("package_id") or "")
         try:
-            booking = await booking_provider.hold_and_confirm(
-                tenant=tenant, subject_ref=subject_ref, service_id=args["service_id"],
-                starts_at=int(args["starts_at"]), idempotency_key=idempotency_key,
-                branch_id=branch_id, from_number=from_number,
-                intended_reward_id=str(args.get("reward_id") or ""))
+            if package_id:
+                hold = getattr(booking_provider, "hold_and_confirm_package", None)
+                if hold is None:
+                    raise ToolValidationError("package booking is not available on this deployment")
+                booking = await hold(
+                    tenant=tenant, subject_ref=subject_ref, package_id=package_id,
+                    starts_at=int(args["starts_at"]), idempotency_key=idempotency_key,
+                    branch_id=branch_id, from_number=from_number,
+                    intended_reward_id=str(args.get("reward_id") or ""))
+            else:
+                booking = await booking_provider.hold_and_confirm(
+                    tenant=tenant, subject_ref=subject_ref, service_id=args["service_id"],
+                    starts_at=int(args["starts_at"]), idempotency_key=idempotency_key,
+                    branch_id=branch_id, from_number=from_number,
+                    intended_reward_id=str(args.get("reward_id") or ""))
+        except ToolValidationError:
+            raise
         except Exception as exc:
             raise ToolValidationError(f"booking confirm failed: {exc}") from exc
 
@@ -432,7 +478,9 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
         try:
             await auditor.record("whatsapp_assistant.booking_confirmed", actor="whatsapp-assistant",
                                  resource=f"booking:{booking.get('id', '')}", tenant=tenant,
-                                 metadata={"subject_ref": subject_ref, "service_id": args["service_id"],
+                                 metadata={"subject_ref": subject_ref,
+                                          "service_id": args.get("service_id") or "",
+                                          "package_id": args.get("package_id") or "",
                                           "intended_reward_id": args.get("reward_id") or ""})
         except AuditUnavailable:
             _logger.error("booking_confirmed_audit_gap", extra={

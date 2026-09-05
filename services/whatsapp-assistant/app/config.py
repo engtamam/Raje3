@@ -196,6 +196,7 @@ class Settings(BaseSettings):
     # assignment on its own; see booking_assignment.py's own module docstring for the full policy.
     OPERATIONS_BRANCH_OPERATORS_PATH: str = "/internal/operations/branch-operators"
     OPERATIONS_SERVICE_ELIGIBILITY_PATH: str = "/internal/operations/service-eligibility"
+    OPERATIONS_PACKAGE_ELIGIBILITY_PATH: str = "/internal/operations/package-eligibility"
     # Real booking assignment's OTHER question: a real, durable `customer_id` for this phone —
     # never the pseudonym `customer-by-phone` deliberately withholds it from. See that route's own
     # docstring in services/operations/app/api/internal.py for why this is a SEPARATE door.

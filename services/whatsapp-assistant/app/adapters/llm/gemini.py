@@ -32,33 +32,39 @@ from app.ports.llm import LlmReply, ToolCall
 _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "check_availability": {
         "name": "check_availability",
-        "description": "Check open appointment slots for a service on or after a given date.",
+        "description": (
+            "Check open appointment slots on or after a given date, for a single service OR a "
+            "package (never both) — package_id must be an id shown under the context block's "
+            "own 'باقات حقيقية قد تناسب العميل' section, never invented."),
         "parameters": {
             "type": "object",
             "properties": {
                 "service_id": {"type": "string"},
+                "package_id": {"type": "string"},
                 "earliest_date": {"type": "string", "description": "YYYY-MM-DD"},
             },
-            "required": ["service_id"],
         },
     },
     "propose_booking": {
         "name": "propose_booking",
         "description": (
-            "Propose (never confirm) one specific appointment slot to the customer. If the "
-            "customer wants to use one of their own real rewards (shown in the context block, "
-            "never invented) WITH this booking, pass its id as reward_id — it is only ever "
-            "spent when the shop marks them attended, never on confirm alone, so nothing is "
-            "risked if they do not show up."),
+            "Propose (never confirm) one specific appointment slot to the customer, for a single "
+            "service OR a package (never both — package_id only from the context block's own "
+            "package list, never invented, and never a date it did not name). If the customer "
+            "wants to use one of their own real rewards (shown in the context block, never "
+            "invented) WITH this booking, pass its id as reward_id — it is only ever spent when "
+            "the shop marks them attended, never on confirm alone, so nothing is risked if they "
+            "do not show up."),
         "parameters": {
             "type": "object",
             "properties": {
                 "service_id": {"type": "string"},
+                "package_id": {"type": "string"},
                 "starts_at_iso": {"type": "string"},
                 "reward_id": {"type": "string", "description": (
                     "Optional. Only an id the context block actually showed for this customer.")},
             },
-            "required": ["service_id", "starts_at_iso"],
+            "required": ["starts_at_iso"],
         },
     },
     "get_customer_points_summary": {
