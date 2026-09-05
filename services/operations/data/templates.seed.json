@@ -750,30 +750,24 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، هذا ملخّص أسبوعك في {{2}}: {{3}}. {{4}} 🎁",
+      "body": "أهلاً، هذا ملخّص أسبوعك في {{1}}: {{2}}.",
       "variables": [
         1,
-        2,
-        3,
-        4
+        2
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
-        "system",
-        "system",
-        "invite"
+        "system"
       ],
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
       "active": true,
       "deferral": "defer",
       "examples": [
-        "محمد",
         "مغسلة النخيل",
-        "غيار الزيت",
-        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+        "غيار الزيت"
       ]
     },
     {
@@ -784,30 +778,24 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، هذا ملخّص أسبوعك في {{2}}: {{3}}. {{4}} 🎁",
+      "body": "أهلاً، هذا ملخّص أسبوعك في {{1}}: {{2}}.",
       "variables": [
         1,
-        2,
-        3,
-        4
+        2
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
-        "system",
-        "system",
-        "invite"
+        "system"
       ],
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
       "active": true,
       "deferral": "defer",
       "examples": [
-        "سارة",
         "صالون لمسات",
-        "قص وتشذيب",
-        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+        "قص وتشذيب"
       ]
     },
     {
@@ -997,8 +985,8 @@
         "date",
         "stop_link"
       ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
       "active": true,
       "deferral": "defer",
       "examples": [
@@ -1037,8 +1025,8 @@
         "date",
         "stop_link"
       ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
       "active": true,
       "deferral": "defer",
       "examples": [
@@ -1219,8 +1207,8 @@
         "date",
         "stop_link"
       ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
       "active": true,
       "deferral": "defer",
       "examples": [
@@ -1259,8 +1247,8 @@
         "date",
         "stop_link"
       ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
       "active": true,
       "deferral": "defer",
       "examples": [

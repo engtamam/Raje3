@@ -373,9 +373,18 @@ async def preview_reason(request: Request, reason_id: str,
         if row.get("type") != reason.template_type or not row.get("active", True):
             continue
         try:
-            rendered = R.render(template=row,
-                                system=TR.sample_slots(row, establishment=establishment),
-                                catalogue={}, owner={})
+            # ONE DICT, PASSED AS ALL THREE — the same shape `tick.py`'s real send already uses
+            # (see its own comment). This used to pass `catalogue={}, owner={}` and no link at
+            # all: `sample_slots()` computes a plausible sample for EVERY source kind (catalogue,
+            # owner, stop_link, ...), but `render()` reads catalogue/owner/link fills from their
+            # OWN separate arguments, never from `system` — so every one of those slots raised and
+            # the whole option silently vanished. Found live: every marketing template (mandatory
+            # `stop_link` tail) and both awareness/warning templates (`owner`/`catalogue` fills)
+            # disappeared from every reason's preview, for a mismatch that had nothing to do with
+            # Meta review or the template's own text.
+            system = TR.sample_slots(row, establishment=establishment)
+            rendered = R.render(template=row, system=system, catalogue=system, owner=system,
+                                public_base_url=TR._SAMPLE_BASE, reference=TR._SAMPLE_REF)
         except R.RenderError:
             # A TEXT WE CANNOT RENDER IS NOT OFFERED. Listing it would let him choose a wording
             # that silently never sends — the failure this whole preview exists to make visible.
