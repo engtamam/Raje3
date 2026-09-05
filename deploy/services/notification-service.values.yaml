@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:815ec6dcb35d093a19baf363ac2cc03af87201bdc70d6439b18c6af34de4e2c6"   # v0.18.24 — WhatsApp Flow button in an approved template: registration (POST .../templates flow_button) + send (notify's flow_token/flow_action_data) — verified against Meta's own current docs, not a BSP mirror
+  digest: "sha256:799e61c856817e0349ebccb53f7b474876ea1d21663a6c4752456df5d9b4accb"   # v0.18.26
 
 replicas: 1
 
