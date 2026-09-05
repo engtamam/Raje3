@@ -180,6 +180,27 @@ export const SHOP_PATH = '/shop';
  *  and drifts from the row above it. Every «أضِفه» button in the product points here. */
 export const STORE_PATH = '/store';
 
+/** A sibling of `/`, outside `<App/>` on purpose (see main.tsx) — a legal document has to render
+ *  for someone who has never signed up, so it carries no `requires:` and no section row. Named
+ *  here, in code, for the same reason ACCOUNT_PATH and TEAM_PATH are: `check_roles.py` learns the
+ *  screens a person can open from this file, and a route it never names in code is a route it
+ *  cannot ask any role about. */
+export const LEGAL_PATH = '/legal';
+
+/** THE AFFILIATE PORTAL AND THE ADMIN PANEL ARE NOT SECTIONS OF THIS SHOP — they are their own
+ *  products (their own session store, their own audience: a marketer or a platform operator, never
+ *  a shop role), still registered on this router too for a link sent before their own subdomain
+ *  existed (see main.tsx). `check_roles.py` measures shop roles against shop sections; neither of
+ *  these is one, and naming them here — instead of leaving them for the gate to discover as an
+ *  unexplained gap — is the honest exemption, not an omission. */
+export const AFFILIATES_PATH = '/affiliates';
+export const ADMIN_PATH = '/admin';
+
+/** THE CATCH-ALL, on the affiliate and admin routers alone (main.tsx) — a 404/legacy fallback that
+ *  renders one of the two portals above for any path their own router does not otherwise match.
+ *  Never a screen a shop role could be asked to reach, so it earns the same named exemption. */
+export const CATCH_ALL_PATH = '/*';
+
 export function visibleSections(catalog: Catalog): SectionState[] {
   const down = new Set(catalog.unreachable);
   return SECTIONS
