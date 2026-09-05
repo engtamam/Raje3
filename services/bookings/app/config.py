@@ -221,6 +221,7 @@ class Settings(BaseSettings):
     OPERATIONS_PACKAGE_SERVICES_PATH: str = "/internal/operations/package-services"
     OPERATIONS_PACKAGE_DURATIONS_PATH: str = "/internal/operations/package-durations"
     OPERATIONS_PACKAGE_ELIGIBILITY_PATH: str = "/internal/operations/package-eligibility"
+    OPERATIONS_PACKAGE_OFFERABLE_PATH: str = "/internal/operations/package-offerable"
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.

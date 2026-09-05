@@ -120,6 +120,19 @@ def test_one_unrestricted_component_does_not_narrow_the_other_restricted_one(cli
     assert r.json()["eligible_staff_ids"] == ["op9"]
 
 
+def test_genuinely_disjoint_specialties_degrade_to_unrestricted_not_impossible(client):
+    """THE "5 خدمات، 5 موظفات" EDGE CASE. A package spanning two specialties with NO staff member
+    in common must still be bookable — the intersection is real and empty, and that degrades to
+    "no restriction" (None) rather than "nobody qualifies" ([]), same reasoning as the route's own
+    docstring: which staff actually does which part is a manual floor matter, not a hard gate."""
+    a = _seed(client, sid="pe_g", eligible=["nail_tech"])
+    b = _seed(client, sid="pe_h", eligible=["hair_stylist"])     # disjoint from the above
+    pkg = _seed_package(client, package_id="pe_pkg4", service_ids=[a, b])
+    r = client.post(ELIGIBILITY_PATH, json={"tenant": TENANT, "package_id": pkg}, headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert r.json()["eligible_staff_ids"] is None
+
+
 def test_an_unknown_package_is_null(client):
     r = client.post(ELIGIBILITY_PATH, json={"tenant": TENANT, "package_id": "does_not_exist"},
                     headers=INTERNAL)

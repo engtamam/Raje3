@@ -10,7 +10,8 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.licence import NullLicence
 from app.core.operations import (BookingEvents, BookingOperations, DurationLookup, OperationError,
                                  PackageDurationLookup, PackageEligibilityLookup,
-                                 PackageServicesLookup, SubjectRefLookup, VisitGateway)
+                                 PackageOfferableCheck, PackageServicesLookup, SubjectRefLookup,
+                                 VisitGateway)
 from app.core.stores import BookingStore
 
 TENANT = "t1"
@@ -45,6 +46,17 @@ class _FixedPackageEligibility:
         return self._by_package.get(package_id)
 
 
+class _FixedPackageOfferable:
+    """Defaults to "always offerable" — this file's own scheduling behaviour is covered in
+    test_package_scheduling.py; these tests are about duration/eligibility/attend, and must not
+    trip over the schedule gate by accident."""
+    def __init__(self, offerable: bool = True) -> None:
+        self._offerable = offerable
+
+    async def __call__(self, tenant: str, package_id: str, at: int) -> bool:
+        return self._offerable
+
+
 class _RecordingVisits:
     def __init__(self) -> None:
         self.calls: list[dict] = []
@@ -59,7 +71,7 @@ async def _subject_ref(tenant: str, customer_id: str) -> str:
 
 
 def _ops(*, package_durations=None, package_services=None, package_eligibility=None,
-        visits=None) -> tuple[BookingOperations, _RecordingVisits]:
+        package_offerable=None, visits=None) -> tuple[BookingOperations, _RecordingVisits]:
     store = MemoryDataStore()
     visits = visits or _RecordingVisits()
     ops = BookingOperations(
@@ -73,7 +85,9 @@ def _ops(*, package_durations=None, package_services=None, package_eligibility=N
         package_services=PackageServicesLookup(
             lookup=package_services or _FixedPackageServices()),
         package_eligibility=PackageEligibilityLookup(
-            lookup=package_eligibility or _FixedPackageEligibility()))
+            lookup=package_eligibility or _FixedPackageEligibility()),
+        package_offerable=PackageOfferableCheck(
+            lookup=package_offerable or _FixedPackageOfferable()))
     return ops, visits
 
 
@@ -160,6 +174,64 @@ def test_nearest_slot_refuses_an_ineligible_operator_for_a_package():
     with pytest.raises(OperationError, match="لا يقدر"):
         _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
                               service_ids=[], package_id="pkg1", after=1786860000))
+
+
+def test_a_package_off_its_own_schedule_refuses_the_requested_date():
+    ops, _ = _ops(package_offerable=_FixedPackageOfferable(offerable=False))
+    with pytest.raises(OperationError, match="غير متاحة في هذا التاريخ"):
+        _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                        service_ids=[], package_id="pkg1", starts_at=1786860000))
+
+
+def test_no_offerable_check_wired_refuses_a_package_booking():
+    ops, _ = _ops(package_offerable=None)
+    ops._package_offerable = None            # simulate a deployment with none wired at all
+    with pytest.raises(OperationError, match="غير متاحة في هذا التاريخ"):
+        _run(ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                        service_ids=[], package_id="pkg1", starts_at=1786860000))
+
+
+class _RecordingOfferable:
+    """Records which (package_id, at) pairs it was actually asked about, and refuses everything
+    except the one day named `only_ok_at` — the day-stepping test's stand-in for a weekly
+    package that only runs on Saturdays."""
+    def __init__(self, only_ok_day_start: int, only_ok_day_end: int) -> None:
+        self.only_ok_day_start = only_ok_day_start
+        self.only_ok_day_end = only_ok_day_end
+        self.calls: list[tuple[str, int]] = []
+
+    async def __call__(self, tenant: str, package_id: str, at: int) -> bool:
+        self.calls.append((package_id, at))
+        return self.only_ok_day_start <= at < self.only_ok_day_end
+
+
+def test_nearest_slot_day_steps_past_days_the_package_does_not_run_on():
+    """THE LOAD-BEARING GUARANTEE: a package that only runs on some days must never have
+    nearest_slot hand back a time on a day it does not — even though the shop is open and the
+    operator is free every day in the window."""
+    # after = day 0 at 09:00; the package is only offerable from day 2 onward.
+    after = 1786860000
+    day = 86400
+    offerable = _RecordingOfferable(only_ok_day_start=after + 2 * day, only_ok_day_end=after + 3 * day)
+    ops, _ = _ops(package_offerable=offerable)
+    starts_at = _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                      service_ids=[], package_id="pkg1", after=after))
+    assert starts_at is not None
+    assert starts_at >= after + 2 * day
+    assert starts_at < after + 3 * day
+    # MEMOISED PER DAY — several candidate slots fall on each rejected day (business hours give
+    # more than one), and each must be asked about at most once.
+    asked_days = [at for (_pid, at) in offerable.calls]
+    from app.core.stores import day_bucket
+    assert len(asked_days) == len(set(day_bucket(a) for a in asked_days))
+
+
+def test_nearest_slot_finds_nothing_when_the_package_never_runs_in_the_whole_window():
+    offerable = _FixedPackageOfferable(offerable=False)
+    ops, _ = _ops(package_offerable=offerable)
+    starts_at = _run(ops.nearest_slot(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                      service_ids=[], package_id="pkg1", after=1786860000))
+    assert starts_at is None
 
 
 def test_no_package_ports_wired_refuses_a_package_booking_explicitly():

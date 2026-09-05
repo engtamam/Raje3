@@ -242,7 +242,7 @@ def build_container(settings: Settings) -> Container:
     # customer's pseudonym), the confirmation event, and the operations that use all of them.
     from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
                                      PackageDurationLookup, PackageEligibilityLookup,
-                                     PackageServicesLookup, RewardGateway,
+                                     PackageOfferableCheck, PackageServicesLookup, RewardGateway,
                                      StaffEligibilityLookup, StaffHoursLookup,
                                      SubjectRefLookup, VisitGateway)
     from app.core.stores import BookingStore, WorkingHoursStore
@@ -257,6 +257,7 @@ def build_container(settings: Settings) -> Container:
     container.package_durations_lookup = _build_package_duration_lookup(settings)
     container.package_eligibility_lookup = _build_package_eligibility_lookup(settings)
     container.package_services_lookup = _build_package_services_lookup(settings)
+    container.package_offerable_check = _build_package_offerable_check(settings)
     from app.adapters.branch_scope import build as build_branch_scope
     container.branch_scope = build_branch_scope(settings)
     container.booking_ops = BookingOperations(
@@ -273,7 +274,8 @@ def build_container(settings: Settings) -> Container:
         staff_hours=StaffHoursLookup(lookup=container.staff_hours_lookup),
         package_durations=PackageDurationLookup(lookup=container.package_durations_lookup),
         package_eligibility=PackageEligibilityLookup(lookup=container.package_eligibility_lookup),
-        package_services=PackageServicesLookup(lookup=container.package_services_lookup))
+        package_services=PackageServicesLookup(lookup=container.package_services_lookup),
+        package_offerable=PackageOfferableCheck(lookup=container.package_offerable_check))
     return container
 
 
@@ -366,6 +368,22 @@ def _build_package_eligibility_lookup(settings: Settings):
     return HttpPackageEligibility(
         operations_url=settings.OPERATIONS_SERVICE_URL,
         path=settings.OPERATIONS_PACKAGE_ELIGIBILITY_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_package_offerable_check(settings: Settings):
+    """`http` when `operations` is wired, or a check that always refuses (`False`) otherwise —
+    fail-closed, same posture as `_build_duration_lookup`: an unreachable schedule check must
+    never let a package booking through."""
+    from app.adapters.package_services.offerable_http import HttpPackageOfferable
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_PACKAGE_OFFERABLE_PATH:
+        async def _refuses_always(tenant: str, package_id: str, at: int) -> bool:
+            return False
+        return _refuses_always
+    return HttpPackageOfferable(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_PACKAGE_OFFERABLE_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
 
 

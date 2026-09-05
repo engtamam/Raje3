@@ -290,6 +290,38 @@ def test_editing_only_the_recurrence_mode_is_checked_against_the_packages_own_ex
     assert ok.json()["recurrence_days_of_month"] == [1]
 
 
+def test_internal_package_offerable_route(client):
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة السبت", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000, "recurrence": "weekly",
+                                "recurrence_weekdays": [5]},
+                          headers=_auth("operations.manage_services")).json()
+    # 2026-06-06 is a Saturday, 2026-06-07 is a Sunday.
+    ok = client.post("/internal/operations/package-offerable",
+                     json={"tenant": "t1", "package_id": created["id"], "at": 1780771200},
+                     headers={"X-Internal-Token": "t" * 40})
+    assert ok.status_code == 200
+    assert ok.json()["offerable"] is True
+    refused = client.post("/internal/operations/package-offerable",
+                          json={"tenant": "t1", "package_id": created["id"], "at": 1780857600},
+                          headers={"X-Internal-Token": "t" * 40})
+    assert refused.json()["offerable"] is False
+
+
+def test_internal_package_offerable_route_needs_a_token(client):
+    r = client.post("/internal/operations/package-offerable",
+                    json={"tenant": "t1", "package_id": "x", "at": 1780771200})
+    assert r.status_code == 401
+
+
+def test_internal_package_offerable_route_unknown_package_is_false(client):
+    r = client.post("/internal/operations/package-offerable",
+                    json={"tenant": "t1", "package_id": "does_not_exist", "at": 1780771200},
+                    headers={"X-Internal-Token": "t" * 40})
+    assert r.json()["offerable"] is False
+
+
 def test_a_package_with_person_count_carries_it_through(client):
     a, b = _two_services(client)
     created = client.post("/api/v1/staff/packages",

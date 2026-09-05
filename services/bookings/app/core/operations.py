@@ -117,6 +117,18 @@ class PackageEligibilityLookup:
 
 
 @dataclass
+class PackageOfferableCheck:
+    """Is this package bookable for the Riyadh calendar day a given timestamp falls on — always
+    asked against the APPOINTMENT's own date (see operations' core/scheduling.py), never "now".
+    `False` on any failure — an unreachable peer or an unknown package both mean "do not book
+    it", never a guessed yes."""
+    lookup: Any   # async (tenant, package_id, at) -> bool
+
+    async def offerable(self, tenant: str, package_id: str, at: int) -> bool:
+        return await self.lookup(tenant, package_id, at)
+
+
+@dataclass
 class PackageServicesLookup:
     """A package's own component service ids, resolved ONCE at booking creation and stamped onto
     `Booking.service_ids` — so the picker/calendar card can still name what was booked without this
@@ -178,7 +190,8 @@ class BookingOperations:
                 staff_hours: StaffHoursLookup | None = None,
                 package_durations: PackageDurationLookup | None = None,
                 package_eligibility: PackageEligibilityLookup | None = None,
-                package_services: PackageServicesLookup | None = None) -> None:
+                package_services: PackageServicesLookup | None = None,
+                package_offerable: PackageOfferableCheck | None = None) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
@@ -210,6 +223,10 @@ class BookingOperations:
         self._package_durations = package_durations
         self._package_eligibility = package_eligibility
         self._package_services = package_services
+        # OPTIONAL, SAME SHAPE — a deployment with none of these wired cannot book a PACKAGE at
+        # all regardless (see `create()`'s own explicit refusal), so a missing schedule check
+        # here never becomes a missing check in practice.
+        self._package_offerable = package_offerable
 
     async def _refuse_if_ineligible(self, tenant: str, operator_id: str, service_ids: list[str]) -> None:
         """Refuses when `operator_id` cannot perform one of `service_ids` — enforced here, at the
@@ -283,6 +300,13 @@ class BookingOperations:
             raise OperationError("اختر خدمة واحدة على الأقل")
         if not starts_at or int(starts_at) <= 0:
             raise OperationError("وقت الحجز مطلوب")
+        if package_id:
+            # THE APPOINTMENT'S OWN DATE, NEVER "NOW" — a customer messaging today about a
+            # Saturday-only package, for a booking on the coming Saturday, must succeed. Asked
+            # AFTER `starts_at` is confirmed real and positive, for exactly that date.
+            if self._package_offerable is None or not await self._package_offerable.offerable(
+                    tenant, package_id, int(starts_at)):
+                raise OperationError("هذه الباقة غير متاحة في هذا التاريخ")
         if payment_status not in PAYMENT_STATES:
             raise OperationError("حالة دفع غير معروفة")
         # "عربون اجباري ولكن مدفوع السعر غير اجباري" — a deposit with no
@@ -646,7 +670,7 @@ class BookingOperations:
 
             await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
-        from app.core.availability import Busy, nearest_slot as _nearest
+        from app.core.availability import Busy, free_slots, nearest_slot as _nearest
 
         schedule = await self._effective_schedule(tenant, operator_id)
 
@@ -659,6 +683,26 @@ class BookingOperations:
         busy = [Busy(b.starts_at, b.starts_at + b.duration_minutes * 60)
                for b in candidates if b.operator_id == operator_id and b.status != STATUS_CANCELLED
                and b.id != exclude_booking_id]
+
+        if package_id:
+            # DAY-STEPPED, NOT A SINGLE CALL — a package may only recur on SOME days in this
+            # window (weekly/monthly/yearly, core/scheduling.py on the operations side), so the
+            # ordinary "first free slot" answer would happily return a slot on a day the package
+            # does not run. `free_slots` (pure, no I/O) gives every candidate across the whole
+            # window at once; each is checked against the package's own schedule for its OWN day,
+            # memoised so a day with several candidate slots is only asked about once.
+            all_slots = free_slots(schedule, busy, duration_minutes=duration,
+                                   window_start=after, window_end=after + search_days * 86400)
+            offerable_by_day: dict[int, bool] = {}
+            for slot in all_slots:
+                day = day_bucket(slot.starts_at)
+                if day not in offerable_by_day:
+                    offerable_by_day[day] = (self._package_offerable is not None and
+                                             await self._package_offerable.offerable(
+                                                 tenant, package_id, slot.starts_at))
+                if offerable_by_day[day]:
+                    return slot.starts_at
+            return None
 
         found = _nearest(schedule, busy, duration_minutes=duration, after=after,
                          search_days=search_days)

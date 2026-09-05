@@ -18,6 +18,7 @@ from app.config import Settings, get_settings
 from app.core.branches import MAIN as MAIN_BRANCH_ID
 from app.core import evidence as EV
 from app.core import privacy_requests as PR
+from app.core import scheduling
 from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
 from app.core.models import CUSTOMERS, VISITS
@@ -844,6 +845,31 @@ async def internal_package_services(request: Request, body: PackageServicesIn) -
     return {"service_ids": list(pkg.service_ids)}
 
 
+class PackageOfferableIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    package_id: str = Field(min_length=1, max_length=64)
+    # Unix seconds — THE APPOINTMENT'S OWN DATE, never "now" (see core/scheduling.py's own module
+    # docstring on why: a customer booking on Tuesday for a Saturday-only package must be told
+    # yes, and checking against today would refuse every advance booking for anything narrower
+    # than a fully open-ended package).
+    at: int = Field(gt=0)
+
+
+@router.post("/operations/package-offerable", dependencies=[Depends(require_internal_token)])
+async def internal_package_offerable(request: Request, body: PackageOfferableIn) -> dict:
+    """Is this package bookable for the Riyadh calendar day `at` falls on — `bookings`' schedule
+    question, asked once per candidate day rather than trusted from whatever the model or the
+    client believes about a date. `False` for an unknown/retired package, same fail-closed
+    posture as `core/scheduling.py::is_offerable` itself (this route is a thin, direct call to it,
+    never a second copy of the rule).
+    """
+    c = request.app.state.container
+    pkg = await PackageStore(c.datastore).get(body.tenant, body.package_id)
+    if pkg is None:
+        return {"offerable": False}
+    return {"offerable": scheduling.is_offerable(pkg, body.at)}
+
+
 class PackageDurationsIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     package_id: str = Field(min_length=1, max_length=64)
@@ -884,8 +910,21 @@ async def internal_package_eligibility(request: Request, body: PackageEligibilit
     component's own `eligible_staff_ids`, same "empty means everyone" convention as
     `service-eligibility` above (an empty stored list on a component means unrestricted, so
     intersecting naturally keeps the common "no restriction anywhere" case unrestricted too).
-    `None` when the package is unknown/retired, or when no component restricts anybody — mirroring
-    `service-eligibility`'s own "None means every active operator qualifies".
+    `None` when the package is unknown/retired, when no component restricts anybody, OR when the
+    components restrict to GENUINELY DISJOINT staff sets — mirroring `service-eligibility`'s own
+    "None means every active operator qualifies".
+
+    THE DISJOINT CASE IS DELIBERATE, NOT A BUG (packages feature, the "5 خدمات، 5 موظفات" question).
+    A package spanning several specialties — a nail service AND a hair service, say — has no single
+    operator qualified for the whole intersection by construction, and refusing every booking of it
+    for that reason would make the feature unusable for exactly the combinations owners actually
+    want to sell. Which staff member does which component of the visit is a real, but MANUAL, floor
+    coordination — the same one this product already leaves alone for an ordinary multi-service
+    visit with more than one person's hands in it. So an intersection that computes to EMPTY (as
+    opposed to never having been computed at all, which is the same `None`) degrades to "no
+    restriction" here rather than "impossible" — the booking's own operator field stays what it has
+    always been: attribution, who the appointment sits under on the calendar, never a hard
+    per-skill gate for a package whose whole point is combining more than one.
     """
     c = request.app.state.container
     pkg = await PackageStore(c.datastore).get(body.tenant, body.package_id)
@@ -902,7 +941,10 @@ async def internal_package_eligibility(request: Request, body: PackageEligibilit
             continue                       # unrestricted component narrows nothing
         this_one = set(svc.eligible_staff_ids)
         intersection = this_one if intersection is None else (intersection & this_one)
-    return {"eligible_staff_ids": sorted(intersection) if intersection is not None else None}
+    # `or None` — TRUTHINESS, NOT `is not None`. An intersection that came out empty (real,
+    # conflicting restrictions) reads exactly like one that was never computed (no restriction
+    # found at all) — see this function's own docstring for why that is the intended behaviour.
+    return {"eligible_staff_ids": sorted(intersection) if intersection else None}
 
 
 class StaffHoursIn(BaseModel):
