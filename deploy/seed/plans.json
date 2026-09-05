@@ -152,6 +152,10 @@
         "feature.bookings": {
           "kind": "boolean",
           "limit": 0
+        },
+        "feature.rating": {
+          "kind": "boolean",
+          "limit": 0
         }
       }
     },
@@ -354,6 +358,10 @@
           "limit": 1
         },
         "feature.bookings": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.rating": {
           "kind": "boolean",
           "limit": 0
         }

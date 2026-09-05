@@ -57,7 +57,8 @@ C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 # `invite` and `stop_link` carry an ADDRESS rather than a word, and each is the last blank of
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
-KINDS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link")
+KINDS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link",
+        "rating_cta")
 
 # The blank the shop writes itself. One at most, and the library refuses a second — this gate
 # catches it in the seed instead of at the far end of a deploy.

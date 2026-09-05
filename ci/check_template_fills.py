@@ -38,7 +38,8 @@ SERVICES = ROOT / "services"
 # `invite` and `stop_link` carry an ADDRESS rather than a word, and each is the last blank of
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
-FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link")
+FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link",
+        "rating_cta")
 
 # A blank of this kind may only appear in a template of these classes. `amount` and `code` are an
 # offer by their nature: a utility template carrying a discount is marketing by its text whatever

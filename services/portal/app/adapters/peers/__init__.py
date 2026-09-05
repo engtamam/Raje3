@@ -261,13 +261,12 @@ class HttpReminders:
         stopped = sorted({str(p.get("class") or "") for p in prefs
                           if isinstance(p, dict) and not p.get("enabled", True)}
                          - {"marketing", ""})
+        # SAME CALL AS `set_prefs`, deliberately — `urllib.request`/`json` were never imported in
+        # this file (every other client here goes through `_post`/`_get`), so this method raised
+        # NameError on every real invocation. Never caught by a test that mocks `_post`.
         url = f"{self._url}{self._ref_path(tenant, subject_ref)}"
-        req = urllib.request.Request(
-            url, data=json.dumps({"stopped": stopped}).encode(), method="PUT",
-            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
-                body = json.loads(resp.read() or b"{}")
+            body = _post(url, {"stopped": stopped}, self._token, self._timeout, method="PUT")
             return bool(body.get("saved"))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False

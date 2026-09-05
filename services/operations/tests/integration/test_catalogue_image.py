@@ -249,7 +249,7 @@ def test_a_service_description_is_saved_and_returned(client):
 
 
 def test_a_blank_description_stays_blank_by_default(client):
-    sid = _new_service(client)
+    _new_service(client)
     assert client.get("/api/v1/staff/services", headers=HEADERS).json()["services"][0][
         "description"] == ""
 

@@ -1344,13 +1344,17 @@ async def upload_service_image(request: Request, service_id: str, body: Catalogu
     try:
         data = base64.b64decode(body.data_base64, validate=True)
     except (ValueError, binascii.Error):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "data_base64 is not valid base64")
+        # RETURNED, NEVER RAISED — the platform's global handler strips a raised `detail`, and
+        # this reason is written for the person who submitted the file (ci/check_refusal_survives.py).
+        return JSONResponse({"ok": False, "reason": "data_base64 is not valid base64"},
+                           status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     try:
         stored = await store_image(
             request.app.state.container.object_store, tenant=tenant, kind="service",
             item_id=service_id, data=data, content_type=body.content_type, old_key=s.image_key)
     except CatalogueImageError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        return JSONResponse({"ok": False, "reason": str(exc)},
+                           status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     s.image_key = stored.key
     await store.save(s)
     await request.app.state.auditor.record(
@@ -1615,13 +1619,15 @@ async def upload_package_image(request: Request, package_id: str, body: Catalogu
     try:
         data = base64.b64decode(body.data_base64, validate=True)
     except (ValueError, binascii.Error):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "data_base64 is not valid base64")
+        return JSONResponse({"ok": False, "reason": "data_base64 is not valid base64"},
+                           status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     try:
         stored = await store_image(
             request.app.state.container.object_store, tenant=tenant, kind="package",
             item_id=package_id, data=data, content_type=body.content_type, old_key=p.image_key)
     except CatalogueImageError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        return JSONResponse({"ok": False, "reason": str(exc)},
+                           status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     p.image_key = stored.key
     await store.save(p)
     await request.app.state.auditor.record(
