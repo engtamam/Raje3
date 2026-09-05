@@ -53,6 +53,28 @@ class PayoutError(Exception):
         self.reason = reason
 
 
+# How many rows one find() page pulls when walking every commission an affiliate has, ever —
+# a page, never the whole thing, so a marketer with a long history is streamed rather than
+# silently truncated at whatever page size looked "big enough" the day this was written. Same
+# reasoning, same page size, as backup.py's own _PAGE.
+_COMMISSION_PAGE = 500
+
+
+async def _all_commissions(store, where: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every commission matching `where` — balance() and request_withdrawal() both mean
+    literally every row an affiliate has (a total, a claim over everything confirmed), never a
+    screenful, so this pages the cursor until find() itself says there is nothing left rather
+    than trusting one page's worth to be the whole history."""
+    out: list[dict[str, Any]] = []
+    cursor: str | None = None
+    while True:
+        rows, cursor = await store.find(COMMISSIONS, where, limit=_COMMISSION_PAGE, after=cursor,
+                                        sort=("id", "asc"))
+        out.extend(rows)
+        if not cursor:
+            return out
+
+
 _OBJECT_PREFIX = "object:"
 
 
@@ -150,7 +172,7 @@ class PayoutService:
 
     # ── the balance a marketer actually sees ────────────────────────────────────────────────
     async def balance(self, affiliate_id: str) -> dict[str, int]:
-        rows, _ = await self._s.find(COMMISSIONS, {"affiliate_id": affiliate_id}, limit=2000)
+        rows = await _all_commissions(self._s, {"affiliate_id": affiliate_id})
         pending = confirmed_available = withdrawn = 0
         for r in rows:
             c = Commission.from_dict(r)
@@ -183,8 +205,8 @@ class PayoutService:
         if existing_open is not None:
             raise PayoutError("عندك طلب سحب قائم بالفعل.", reason="already_pending")
 
-        available_rows, _ = await self._s.find(
-            COMMISSIONS, {"affiliate_id": affiliate_id, "status": CONFIRMED}, limit=2000)
+        available_rows = await _all_commissions(
+            self._s, {"affiliate_id": affiliate_id, "status": CONFIRMED})
         claimable = [Commission.from_dict(r) for r in available_rows if not r.get("withdrawal_id")]
         total = sum(c.amount_halalas for c in claimable)
         if total < threshold:

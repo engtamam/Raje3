@@ -348,6 +348,44 @@ async def test_balance_splits_pending_confirmed_and_withdrawn():
                        "withdrawn_halalas": 3000}
 
 
+@pytest.mark.anyio
+async def test_balance_sees_every_commission_past_a_single_page():
+    """Regression: `balance()` used to read `find(..., limit=2000)` and throw the cursor away —
+    a 2001st confirmed commission simply vanished from the total with no signal anywhere. Seeds
+    more rows than one `_COMMISSION_PAGE` (500) and asserts the sum reflects ALL of them, proving
+    the fix actually pages through rather than trusting the first page to be everything."""
+    svc, store = build()
+    await _seed_affiliate(store)
+    row_count = 1200
+    for i in range(row_count):
+        await _seed_commission(store, id=f"c-{i:05d}", amount=100, status=CONFIRMED)
+
+    balance = await svc.balance(AFF)
+    assert balance["confirmed_available_halalas"] == row_count * 100
+
+
+@pytest.mark.anyio
+async def test_request_withdrawal_claims_every_confirmed_commission_past_a_single_page():
+    """Same regression as balance() above, for the withdrawal-claiming read: seeded past one
+    page, the withdrawal must claim ALL confirmed commissions and the request's own amount must
+    reflect every single one of them, not just whatever fit in the first page find() returned."""
+    svc, store = build()
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    row_count = 1200
+    for i in range(row_count):
+        await _seed_commission(store, id=f"c-{i:05d}", amount=100, status=CONFIRMED)
+
+    request = await svc.request_withdrawal(AFF)
+    assert request["amount_halalas"] == row_count * 100
+    assert len(request["commission_ids"]) == row_count
+
+    # every one of them is now actually locked to this withdrawal, not just the first page.
+    balance = await svc.balance(AFF)
+    assert balance["confirmed_available_halalas"] == 0
+    assert balance["withdrawn_halalas"] == row_count * 100
+
+
 # ── receipt upload marker (core/payouts.py::save_receipt_upload) ────────────────────────────────
 from app.core.payouts import is_uploaded_receipt, receipt_key, receipt_object_key
 
