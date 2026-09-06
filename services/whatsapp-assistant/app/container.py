@@ -284,6 +284,8 @@ def build_container(settings: Settings) -> Container:
         related_services=container.related_services, wallet_balance=container.wallet_balance,
         licence=container.licence,
         base_entitlement=container.base_entitlement,
+        catalog_provider=container.catalog_provider,
+        max_carousel_cards=settings.MAX_CAROUSEL_CARDS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
         wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,

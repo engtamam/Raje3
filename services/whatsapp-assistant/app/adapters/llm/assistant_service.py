@@ -145,6 +145,18 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "required": ["booking_id", "new_starts_at_iso"],
         },
     },
+    "suggest_services_carousel": {
+        "name": "suggest_services_carousel",
+        "description": (
+            "Show the customer a visual, swipeable carousel of a few of the shop's REAL services/"
+            "packages that have a real photo — use this ONLY when the customer is browsing or "
+            "undecided (e.g. asking 'what do you offer?' or 'what do you have?'), NEVER after "
+            "they have already named a specific service, and NEVER on every turn. Read-only: it "
+            "never books or changes anything by itself — a customer who wants one still goes "
+            "through propose_booking like any other service. May return nothing if too few items "
+            "currently have a real photo."),
+        "parameters": {"type": "object", "properties": {}},
+    },
 }
 
 

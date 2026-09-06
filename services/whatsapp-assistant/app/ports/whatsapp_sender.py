@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+from app.ports.catalog_provider import CatalogCard
+
 
 @runtime_checkable
 class WhatsAppSender(Protocol):
@@ -37,3 +39,11 @@ class WhatsAppSender(Protocol):
     # as send_interactive above — see DirectCloudApiSender.
     async def send_list(self, *, tenant: str, to: str, body: str, button_text: str,
                         rows: list[dict[str, str]], idempotency_key: str) -> str: ...
+
+    # A real media-card carousel — see app/adapters/whatsapp_sender/carousel.py's own module
+    # docstring for the two-step (fetch photo, upload as a Meta media id) send this requires, and
+    # app/ports/catalog_provider.py for where `cards` comes from. Same business-initiated-template
+    # posture as send_template: a carousel is ALWAYS an approved template on WhatsApp's platform,
+    # never a free-form session message, whatever window the conversation is inside.
+    async def send_carousel(self, *, tenant: str, to: str, template_name: str, language: str,
+                            cards: list[CatalogCard], idempotency_key: str) -> str: ...

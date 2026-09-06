@@ -128,6 +128,8 @@ _BRANCH_REPLY_PREFIX = "branch:"
 # hide a real branch from the picker, so this is enforced explicitly with a visible fallback
 # rather than truncated in silence (see `_branch_list_plan`).
 _BRANCH_LIST_MAX_ROWS = 10
+# WhatsApp's own list-message row cap is 10 — kept under it, same margin _BRANCH_LIST_MAX_ROWS uses.
+_SLOT_PICK_LIST_MAX_ROWS = 8
 _HUMAN_HANDOVER_TEXT = "تم تحويلك إلى أحد موظفينا وسيتواصل معك قريبًا لمتابعة طلبك."
 # A REAL operational stop, not an escalation — the customer is told plainly rather than met with
 # sudden silence, and pointed at a human being (the same shop staff who already see this thread
@@ -342,12 +344,14 @@ def opaque_reference(subject_ref: str) -> str:
 class ReplyPlan:
     """What core/conversation.py decided to send, for the caller (main.py's tick, or the button-
     reply handler) to actually dispatch through a WhatsAppSender."""
-    kind: str                       # "text" | "interactive" | "list" | "none"
+    kind: str                       # "text" | "interactive" | "list" | "carousel" | "none"
     text: str = ""
     proposal: T.RenderedProposal | None = None
     # Populated only when kind == "list" — the mandatory triage gate's WhatsApp List Message.
     list_button_text: str = ""
     list_rows: list[dict[str, str]] | None = None
+    # Populated only when kind == "carousel" — see app/core/tools.py::RenderedCarousel.
+    carousel: T.RenderedCarousel | None = None
 
 
 class ConversationEngine:
@@ -367,7 +371,8 @@ class ConversationEngine:
                 booking_history_visible: bool = True,
                 booking_management_enabled: bool = True, licence: Any = None,
                 shop_notes_enabled: bool = True, msg_word_limit_enabled: bool = True,
-                base_entitlement: Any = None) -> None:
+                base_entitlement: Any = None, catalog_provider: Any = None,
+                max_carousel_cards: int = 5) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -379,6 +384,10 @@ class ConversationEngine:
         # Same None-safe optional-peer shape as every other one here — see package_catalog.py's
         # own NullPackageCatalog for the "nothing configured" default.
         self._package_catalog = package_catalog
+        # None-safe the same way — see app/core/tools.py::validate_and_render's own
+        # `catalog_provider is None` check for the "no photos to offer" degrade.
+        self._catalog_provider = catalog_provider
+        self._max_carousel_cards = max_carousel_cards
         self._customer_lookup = customer_lookup
         self._related_services = related_services
         # None-safe, same reasoning as every other optional peer here: a conversation built
@@ -1012,7 +1021,9 @@ class ConversationEngine:
                     related_services=self._related_services, service_catalog=self._catalog,
                     package_catalog=self._package_catalog,
                     branch_id=conv.branch_id, from_number=conv.from_number,
-                    booking_history_visible=self._booking_history_visible)
+                    booking_history_visible=self._booking_history_visible,
+                    catalog_provider=self._catalog_provider,
+                    max_carousel_cards=self._max_carousel_cards)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",
                                         "text": "تعذّر تنفيذ ذلك الآن.", "at": now})
@@ -1030,6 +1041,16 @@ class ConversationEngine:
                 await self._save(conv)
                 return ReplyPlan(kind="interactive", proposal=result)
 
+            if isinstance(result, T.RenderedCarousel):
+                # NO PendingProposal — presentational, same posture as any other read-only tool.
+                conv.raw_window.append({"role": "assistant",
+                                        "text": "[كاروسيل خدمات]", "at": now})
+                conv.state = "idle"
+                conv.session_closed_at = now
+                conv.batch_deadline = 0
+                await self._save(conv)
+                return ReplyPlan(kind="carousel", carousel=result)
+
             text = _sanitize_reply(str(result))
             conv.raw_window.append({"role": "assistant", "text": text, "at": now})
             conv.state = "idle"
@@ -1046,14 +1067,108 @@ class ConversationEngine:
         await self._save(conv)
         return ReplyPlan(kind="text", text=text)
 
+    async def _availability_for(self, *, tenant: str, kind: str, item_id: str, branch_id: str,
+                                earliest: int) -> list[Any]:
+        """Same service/package split `propose_booking` already uses in core/tools.py — packages
+        are REAL-DRIVER ONLY (see that tool's own comment), so a placeholder deployment with no
+        `availability_for_package` simply has nothing to offer, not an error."""
+        if kind == "package":
+            avail = getattr(self._booking, "availability_for_package", None)
+            if avail is None:
+                return []
+            return await avail(tenant=tenant, package_id=item_id, earliest=earliest,
+                               branch_id=branch_id)
+        return await self._booking.availability(tenant=tenant, service_id=item_id,
+                                                earliest=earliest, horizon_days=0,
+                                                branch_id=branch_id)
+
+    async def _propose_slot(self, *, tenant: str, subject_ref: str, conv: ConversationState,
+                            kind: str, item_id: str, starts_at: int, now: int) -> ReplyPlan:
+        """The SAME propose_booking tool the LLM itself calls (core/tools.py), driven here
+        deterministically instead — re-validates the slot against real state exactly as an
+        LLM-proposed one would be, never trusting the button's own claim that it is still open."""
+        import datetime as dt
+        iso = dt.datetime.fromtimestamp(starts_at, dt.timezone.utc).isoformat()
+        args: dict[str, Any] = {"starts_at_iso": iso}
+        args["package_id" if kind == "package" else "service_id"] = item_id
+        try:
+            result = await T.validate_and_render(
+                tenant=tenant, subject_ref=subject_ref,
+                conversation_id=self._key(tenant, subject_ref), tool="propose_booking", args=args,
+                allowed_tools=frozenset({"propose_booking"}), store=self._store,
+                booking_provider=self._booking, points_summary=self._points,
+                proposal_ttl_seconds=self._proposal_ttl, now=now,
+                branch_id=conv.branch_id, from_number=conv.from_number)
+        except T.ToolValidationError as exc:
+            return ReplyPlan(kind="text", text=f"تعذّر عرض هذا الموعد: {exc}"[:200])
+        if not isinstance(result, T.RenderedProposal):
+            return ReplyPlan(kind="text", text=str(result))
+        conv.pending_proposal_id = result.proposal_id
+        conv.state = "awaiting_confirmation"
+        conv.batch_deadline = 0
+        conv.raw_window.append({"role": "assistant", "text": result.body, "at": now})
+        await self._save(conv)
+        return ReplyPlan(kind="interactive", proposal=result)
+
+    async def _handle_carousel_pick(self, *, tenant: str, subject_ref: str,
+                                    conv: ConversationState, reply_id: str, now: int) -> ReplyPlan:
+        """A carousel card's own button (app/adapters/whatsapp_sender/carousel.py builds the
+        payload as "carousel:{kind}:{item_id}") — never the model's decision, the card was built
+        from a real CatalogCard the customer is looking at right now."""
+        rest = reply_id[len("carousel:"):]
+        kind, _, item_id = rest.partition(":")
+        if kind not in ("service", "package") or not item_id:
+            return ReplyPlan(kind="text", text="لم أفهم هذا الرد.")
+        slots = await self._availability_for(tenant=tenant, kind=kind, item_id=item_id,
+                                             branch_id=conv.branch_id, earliest=now)
+        if not slots:
+            return ReplyPlan(kind="text", text="لا توجد مواعيد متاحة قريبًا.")
+        if len(slots) == 1:
+            return await self._propose_slot(tenant=tenant, subject_ref=subject_ref, conv=conv,
+                                            kind=kind, item_id=item_id,
+                                            starts_at=slots[0].starts_at, now=now)
+        # MULTIPLE CANDIDATES — only ever happens on the zero-infra placeholder provider today;
+        # RealBookingProvider.availability returns at most one slot (see that adapter's own
+        # docstring) — real deployments always take the single-slot branch above.
+        rows = [{"id": f"slotpick:{kind}:{item_id}:{s.starts_at}", "title": T._fmt_slot(s.starts_at)}
+               for s in slots[:_SLOT_PICK_LIST_MAX_ROWS]]
+        return ReplyPlan(kind="list", text="اختر الوقت المناسب:",
+                         list_button_text="اختر وقتاً", list_rows=rows)
+
+    async def _handle_slot_pick(self, *, tenant: str, subject_ref: str, conv: ConversationState,
+                                reply_id: str, now: int) -> ReplyPlan:
+        """A time picked from `_handle_carousel_pick`'s own list — the id is self-describing
+        (kind/item_id/starts_at all travel in it), so nothing about "which list this answers"
+        needs to be remembered on the conversation between showing it and this reply."""
+        rest = reply_id[len("slotpick:"):]
+        parts = rest.split(":")
+        if len(parts) != 3:
+            return ReplyPlan(kind="text", text="لم أفهم هذا الرد.")
+        kind, item_id, starts_at_s = parts
+        if kind not in ("service", "package") or not item_id or not starts_at_s.isdigit():
+            return ReplyPlan(kind="text", text="لم أفهم هذا الرد.")
+        return await self._propose_slot(tenant=tenant, subject_ref=subject_ref, conv=conv,
+                                        kind=kind, item_id=item_id, starts_at=int(starts_at_s),
+                                        now=now)
+
     async def handle_button_reply(self, *, tenant: str, subject_ref: str, reply_id: str,
                                   auditor: Any, now: int | None = None
                                   ) -> ReplyPlan:
         """THE ONLY PATH a state-changing action can fire from. `reply_id` must be
         "{proposal_id}:confirm" or "{proposal_id}:cancel" — never free text, never a model
-        decision (design point 5, restated at the one place it is actually enforced)."""
+        decision (design point 5, restated at the one place it is actually enforced). TWO OTHER
+        SHAPES are handled first, both equally deterministic (never the model): "carousel:{kind}:
+        {item_id}" (a carousel card's own button) and "slotpick:{kind}:{item_id}:{starts_at}" (a
+        time picked from the list the carousel branch may show) — both end at the SAME
+        RenderedProposal/confirm-cancel flow below, unchanged."""
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
+        if reply_id.startswith("carousel:"):
+            return await self._handle_carousel_pick(tenant=tenant, subject_ref=subject_ref,
+                                                     conv=conv, reply_id=reply_id, now=now)
+        if reply_id.startswith("slotpick:"):
+            return await self._handle_slot_pick(tenant=tenant, subject_ref=subject_ref,
+                                                conv=conv, reply_id=reply_id, now=now)
         if ":" not in reply_id:
             return ReplyPlan(kind="text", text="لم أفهم هذا الرد.")
         proposal_id, _, action = reply_id.partition(":")

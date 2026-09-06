@@ -93,6 +93,13 @@ async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int,
                 tenant=tenant, to=to, body=plan.proposal.body, buttons=plan.proposal.buttons,
                 idempotency_key=f"tick_{plan.proposal.proposal_id}")
             replied += 1
+        elif plan.kind == "carousel" and plan.carousel is not None:
+            await c.sender.send_carousel(
+                tenant=tenant, to=to,
+                template_name=settings.WHATSAPP_CATALOG_CAROUSEL_TEMPLATE_NAME,
+                language=settings.WHATSAPP_CATALOG_CAROUSEL_LANGUAGE,
+                cards=plan.carousel.cards, idempotency_key=f"tick_{tenant}_{subject_ref}_{now}")
+            replied += 1
 
     timed_out = await c.engine.sweep_timed_out(tenant, now=now, batch=batch)
 

@@ -28,6 +28,7 @@ from typing import Any
 from app.core.audit import AuditUnavailable
 from app.core.models import PENDING_PROPOSALS, PendingProposal, as_row
 from app.observability.logging import get_logger
+from app.ports.catalog_provider import CatalogCard
 
 _logger = get_logger("app.tools")
 
@@ -39,6 +40,15 @@ class RenderedProposal:
     proposal_id: str
     body: str
     buttons: list[dict[str, str]]
+
+
+@dataclass(frozen=True)
+class RenderedCarousel:
+    """What core/conversation.py hands to WhatsAppSender.send_carousel — presentational, no
+    PendingProposal (a carousel never books or changes anything by itself; see
+    suggest_services_carousel's own note below). `cards` already carries only items with a real
+    `image_url`, capped at MAX_CAROUSEL_CARDS."""
+    cards: list[CatalogCard]
 
 
 class ToolValidationError(Exception):
@@ -53,7 +63,10 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               related_services: Any = None, service_catalog: Any = None,
                               package_catalog: Any = None,
                               branch_id: str = "", from_number: str = "",
-                              booking_history_visible: bool = True) -> RenderedProposal | str:
+                              booking_history_visible: bool = True,
+                              catalog_provider: Any = None,
+                              max_carousel_cards: int = 5,
+                              ) -> RenderedProposal | RenderedCarousel | str:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
     state-changing tool, or a plain str for a read-only one. Raises ToolValidationError if the
     model's proposal does not hold up against real state.
@@ -234,6 +247,21 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         # core/conversation.py's `_sanitize_reply` regardless of what this tool returns.
         listed = "، ".join(plain_names[:3])
         return f"عادةً ما يُطلب مع هذه الخدمة أيضًا: {listed}. هل تحب إضافتها؟"
+
+    if tool == "suggest_services_carousel":
+        # READ-ONLY, same posture as suggest_related_service above — a carousel is presentational;
+        # a customer wanting an item still goes through propose_booking like any other service.
+        if catalog_provider is None:
+            return "لا تتوفر صور للخدمات حالياً."
+        cards = await catalog_provider.list_cards(tenant=tenant, limit=max_carousel_cards * 2)
+        # THE FLOOR IS ENFORCED HERE, NOT AT SEND TIME — Meta's own carousel minimum is two cards,
+        # and checking it here (before ever building a RenderedCarousel) means a network hiccup on
+        # one photo at SEND time is the only way the sender's own floor can ever fire, never a
+        # model proposing something invalid.
+        with_images = [c for c in cards if c.image_url][:max_carousel_cards]
+        if len(with_images) < 2:
+            return "ما عندي صور كافية حالياً أعرضها لك — بس أقدر أخبرك عن خدماتنا بالتفصيل."
+        return RenderedCarousel(cards=with_images)
 
     if tool == "list_my_bookings":
         # READ-ONLY — no proposal, no button, same posture as check_availability. Ownership is

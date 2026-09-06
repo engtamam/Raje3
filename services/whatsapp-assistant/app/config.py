@@ -160,6 +160,10 @@ class Settings(BaseSettings):
     # Interactive button/list sends (app/adapters/whatsapp_sender/direct.py::InteractiveNotifySender)
     # — resolved via platform v0.16.38, commit 0c54f5e. See app/ports/whatsapp_sender.py.
     NOTIFICATION_INTERACTIVE_SEND_PATH: str = "/internal/notify/whatsapp/interactive"
+    # A real media-card carousel (app/adapters/whatsapp_sender/carousel.py::CarouselSender) —
+    # both routes already exist and are already used by other carousel senders on the platform.
+    NOTIFICATION_CAROUSEL_SEND_PATH: str = "/internal/notify/whatsapp/carousel"
+    NOTIFICATION_MEDIA_UPLOAD_ID_PATH: str = "/internal/whatsapp/media/upload-id"
     # The durable, replayable catch-up read for inbound WhatsApp messages (app/core/inbound_poll.py)
     # — resolved via platform v0.16.38, commit 31e556e. See app/api/internal.py's tick route.
     NOTIFICATION_INBOUND_PATH: str = "/internal/whatsapp/inbound"
@@ -362,12 +366,22 @@ class Settings(BaseSettings):
     LLM_TOOL_ALLOWLIST: str = (
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
-        "propose_reschedule_booking")
+        "propose_reschedule_booking,suggest_services_carousel")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.
     _BOOKING_MANAGEMENT_TOOLS = frozenset(
         {"list_my_bookings", "propose_cancel_booking", "propose_reschedule_booking"})
+
+    # ── carousel (real photos, real services — app/ports/catalog_provider.py) ────────────────
+    # One platform-wide approved template — see the approved plan (`stateless-wondering-fox.md`):
+    # ONE carousel template, registered once with a placeholder example image, used by every shop;
+    # the REAL per-shop photos travel as media ids at send time, never at template-registration time.
+    WHATSAPP_CATALOG_CAROUSEL_TEMPLATE_NAME: str = "wa_catalog_carousel"
+    WHATSAPP_CATALOG_CAROUSEL_LANGUAGE: str = "ar"
+    # Meta's own carousel bounds are 2-10 cards; the default stays well under that ceiling — a
+    # customer scrolling ten cards on a small screen is not "helpful", it is noise.
+    MAX_CAROUSEL_CARDS: int = 5
 
     @property
     def llm_tool_allowlist(self) -> frozenset[str]:
@@ -382,7 +396,13 @@ class Settings(BaseSettings):
         # still on "config" gets these three withheld automatically, not by remembering to also
         # flip BOOKING_MANAGEMENT_ENABLED off.
         if not self.BOOKING_MANAGEMENT_ENABLED or self.BOOKING_PROVIDER_DRIVER != "real":
-            return declared - self._BOOKING_MANAGEMENT_TOOLS
+            declared = declared - self._BOOKING_MANAGEMENT_TOOLS
+        # SAME REASONING FOR THE CAROUSEL TOOL: NullCatalogProvider always returns [], so offering
+        # this tool with no real provider wired would be a model that "tries" it every time and
+        # always gets nothing — withheld entirely rather than offered and refused, same posture as
+        # the booking-management tools above.
+        if self.CATALOG_PROVIDER_DRIVER != "platform":
+            declared = declared - {"suggest_services_carousel"}
         return declared
 
     def assert_llm_config_ok(self) -> None:
