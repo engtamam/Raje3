@@ -139,6 +139,7 @@ class Container:
     shop_identity: Any = None
     service_catalog: Any = None
     package_catalog: Any = None
+    catalog_provider: Any = None
     related_services: Any = None
     wallet_balance: Any = None
     licence: Any = None
@@ -243,6 +244,18 @@ def build_container(settings: Settings) -> Container:
     container.shop_identity = SI.build(settings)
     container.service_catalog = SC.build(settings)
     container.package_catalog = PC.build(settings)
+    # Infrastructure only — see app/ports/catalog_provider.py's own docstring. No caller depends
+    # on this yet; an unknown driver still fails fast, same reasoning as BOOKING_PROVIDER_DRIVER
+    # just above.
+    from app.core import catalog_provider as CP
+    if settings.CATALOG_PROVIDER_DRIVER == "null":
+        container.catalog_provider = CP.NullCatalogProvider()
+    elif settings.CATALOG_PROVIDER_DRIVER == "platform":
+        container.catalog_provider = CP.build(
+            settings, service_catalog=container.service_catalog,
+            package_catalog=container.package_catalog)
+    else:
+        raise ValueError(f"unknown CATALOG_PROVIDER_DRIVER {settings.CATALOG_PROVIDER_DRIVER!r}")
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = build_licence(settings)

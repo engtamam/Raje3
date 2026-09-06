@@ -126,6 +126,10 @@ def build_manifest(
             # Service names and cycles, for insights. Includes retired services on purpose.
             {"path": "/internal/operations/catalogue", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/catalogue-with-prices", "tier": "internal", "method": "POST"},
+            # The photo itself, for a peer with no owner bearer token (whatsapp-assistant's
+            # catalog provider) — same bytes GET /api/v1/staff/{services,packages}/{id}/image
+            # streams to an owner, under the internal token instead.
+            {"path": "/internal/operations/catalogue/{}/{}/image", "tier": "internal", "method": "GET"},
             # THE EVIDENCE FILE (task 283). Assembled from ledgers written at the moment each
             # thing happened, never reconstructed — and the extraction is itself audited.
             {"path": "/internal/operations/evidence", "tier": "internal", "method": "POST"},

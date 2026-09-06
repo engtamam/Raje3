@@ -195,6 +195,12 @@ class Settings(BaseSettings):
     # honestly instead of guessing.
     OPERATIONS_CATALOGUE_WITH_PRICES_PATH: str = "/internal/operations/catalogue-with-prices"
     OPERATIONS_PACKAGES_PATH: str = "/internal/operations/packages"
+    # The photo behind a CatalogCard (app/ports/catalog_provider.py) — `{}`/`{}` are `kind`/
+    # `item_id`, filled in per card by PlatformCatalogProvider, never templated at request time.
+    OPERATIONS_CATALOGUE_IMAGE_PATH: str = "/internal/operations/catalogue/{}/{}/image"
+    # null (no provider wired) | platform (our own services/packages, images included). See
+    # app/ports/catalog_provider.py's own docstring — infrastructure only, no consumer wired yet.
+    CATALOG_PROVIDER_DRIVER: str = "null"
     # Real booking assignment (core/booking_assignment.py, Phase 4) — the branch's own active
     # people, and which services a customer's picked one may perform. Neither invents an
     # assignment on its own; see booking_assignment.py's own module docstring for the full policy.

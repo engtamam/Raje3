@@ -1645,6 +1645,7 @@ async def read_packages(request: Request, body: CatalogueIn) -> dict:
             "offerable_today": scheduling.is_offerable(p, now),
             "next_offerable_dates": scheduling.next_offerable_dates(p, from_at=now),
             "person_count": p.person_count,
+            "has_image": bool(p.image_key),
         })
     return {"packages": out, "count": len(out)}
 
@@ -1664,9 +1665,41 @@ async def read_catalogue_with_prices(request: Request, body: CatalogueIn) -> dic
     """
     c = request.app.state.container
     rows = await ServiceStore(c.datastore).list(body.tenant, active_only=True)
-    return {"services": [{"id": s.id, "name": s.name, "price_minor": s.price_minor}
-                         for s in rows],
+    return {"services": [{"id": s.id, "name": s.name, "price_minor": s.price_minor,
+                          "has_image": bool(s.image_key)} for s in rows],
             "count": len(rows)}
+
+
+@router.get("/operations/catalogue/{kind}/{item_id}/image",
+           dependencies=[Depends(require_internal_token)])
+async def read_catalogue_image_internal(request: Request, kind: str, item_id: str, tenant: str):
+    """The same photo `GET /api/v1/staff/{services,packages}/{id}/image` streams to an owner —
+    under the internal token instead, for a peer with no owner bearer token at all (whatsapp-
+    assistant's core/catalog_provider_platform.py, resolving a CatalogCard's image_url).
+
+    `kind` is "service" or "package" — anything else 404s, same as an unknown id, rather than a
+    400: a caller building this URL from CatalogCard.kind can never construct an invalid one, so a
+    third value is as absent as a real id nobody has.
+    """
+    from starlette.responses import Response
+
+    from app.core.catalogue_image import read_image
+    from app.ports.errors import NotFound
+
+    c = request.app.state.container
+    if kind == "service":
+        item = await ServiceStore(c.datastore).get(tenant, item_id)
+    elif kind == "package":
+        item = await PackageStore(c.datastore).get(tenant, item_id)
+    else:
+        item = None
+    if item is None or not item.image_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    try:
+        data, ctype = await read_image(c.object_store, item.image_key)
+    except NotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return Response(content=data, media_type=ctype)
 
 
 @router.post("/operations/branches", dependencies=[Depends(require_internal_token)])
