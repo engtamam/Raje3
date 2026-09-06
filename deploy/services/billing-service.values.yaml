@@ -59,10 +59,10 @@ networkPolicy:
   egress:
     dns: true
     datastore: true
-    # FALSE while PAYMENT_GATEWAY_DRIVER is null. It becomes true the day a real gateway is
-    # wired, and that is a decision with a blast radius: this service will then hold the
-    # credentials that move our customers' money.
-    internet: false
+    # TRUE — TuwaiqPay activated (owner's decision, 2026-09-06). This service now holds the
+    # credentials that move our customers' money; EGRESS_ALLOWED_HOSTS below is the actual
+    # egress control (the CWE self-guard), narrowed to TuwaiqPay's own host and nothing else.
+    internet: true
 
 metrics:
   serviceMonitor: false
@@ -198,11 +198,21 @@ env:
   INVOICE_SELLER_ADDRESS: ""
 
   # ── Not yet wired, each with the reason rather than a silent default ──────────────────────
-  # PAYMENT_GATEWAY_DRIVER: the service ships Moyasar, Tap, HyperPay, PayTabs, Geidea and APS —
-  # Mada, Apple Pay and STC Pay reach us through them — plus Stripe/PayPal/Checkout. `null`
-  # FAILS CLOSED, which is the right state while we have no merchant account: nothing can
-  # accidentally take money. `recording` runs the whole flow without charging when we pilot.
-  PAYMENT_GATEWAY_DRIVER: "null"
+  # TUWAIQPAY ACTIVATED (owner's decision, 2026-09-06) — a hosted-link gateway (bill -> payment
+  # link -> customer pays on TuwaiqPay's own page -> we poll/verify status), NOT a token/card-on-
+  # file gateway: charge(token) and refund() both fail closed by the adapter's own design (see
+  # services/billing-service/app/adapters/payment/tuwaiqpay.py in the vendored platform/ tree) —
+  # a renewal on this gateway is a fresh payment link per cycle, never a silent auto-charge. This
+  # is exactly why WALLET_RENEWAL_FUND/BILLING_WALLET_RENEWAL_ENABLED above exist: a subscription
+  # pinned to payment_gateway=="wallet" bypasses this gateway entirely for its renewals.
+  #
+  # ⚠ PAYMENT_API_KEY (TuwaiqPay username/mobile) and PAYMENT_EXTRA_SECRET (password) are real
+  # merchant credentials — NOT set here, NEVER typed into this file. They must be added directly
+  # to the `billing-service-secrets` k3s Secret (the two keys the adapter reads via that name) by
+  # whoever holds the TuwaiqPay account, the same way every other per-service secret on this
+  # cluster is set — this values file only turns the driver on and opens the one egress host it
+  # needs. Nothing charges until those two keys are actually present.
+  PAYMENT_GATEWAY_DRIVER: "tuwaiqpay"
   # EINVOICER: null, and no longer urgent. ZATCA e-invoicing obliges VAT-REGISTERED persons; an
   # unregistered seller issuing receipts has nothing to report. This stops being a gap and
   # becomes a prerequisite the day we register — see the VAT block above. zatca-service moves
@@ -218,7 +228,13 @@ env:
 
   CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
   CORS_ALLOW_CREDENTIALS: "true"
-  EGRESS_ALLOWED_HOSTS: ""
+  # THE CWE SELF-GUARD'S SSRF ALLOWLIST — THE actual egress control (networkPolicy.internet above
+  # only opens the door at the cluster level). TuwaiqPay's own default base
+  # (onboarding-prod.tuwaiqpay.com.sa) — the ONLY host this service may now reach beyond DNS/its
+  # own datastore. Override with PAYMENT_API_BASE (real UAT vs production endpoint per TuwaiqPay's
+  # own onboarding) if it ever differs from this default; this host must match whatever base is
+  # actually configured.
+  EGRESS_ALLOWED_HOSTS: "onboarding-prod.tuwaiqpay.com.sa"
 
 # cycle-due bills every subscription whose period has ended; dunning retries what failed.
 # Without cycle-due nobody is ever invoiced — the product would run for free and look healthy
