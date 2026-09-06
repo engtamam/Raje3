@@ -1,21 +1,12 @@
-"""The operator surface — credentials and policy, changeable after launch.
+"""The operator surface — policy, changeable after launch.
 
-WRITE-ONLY IS ENFORCED HERE, and this file is where the guarantee lives. `SecretStore.get()`
-returns plaintext because an adapter cannot authenticate with a masked string; no route in this
-module returns it, and `safety:no-secret-reads` fails the build if one ever does. That split is
-deliberate: the store is a mechanism, the API boundary is the control.
-
-`platform.secrets` IS ITS OWN CAPABILITY. Setting a payment key and reading a report are not the
-same privilege, and a panel that conflates them hands every report-reader the ability to redirect
-money.
-
-EVERY MUTATION IS AUDITED WRITE-AHEAD AND CRITICAL. A credential change that cannot be recorded
-must not happen: an unprovable one is indistinguishable from an attacker's, and the previous value
-is already gone by the time anybody looks.
+EVERY MUTATION IS AUDITED WRITE-AHEAD. A change that cannot be recorded must not happen: an
+unprovable one is indistinguishable from an attacker's, and the previous value is already gone by
+the time anybody looks.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -25,11 +16,9 @@ from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.pii import subject_ref
 from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
-from app.core.secret_store import SecretError, SecretStore
 
 router = APIRouter(prefix="/api/v1/campaigns/operator", tags=["operator"])
 
-_SECRETS = require_capability("platform.secrets")
 _CONFIG = require_capability("platform.config")
 
 
@@ -40,18 +29,6 @@ def _actor(principal: Principal) -> str:
     if not s.PII_SALT:
         return ""
     return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
-
-
-def _secret_store(request: Request) -> SecretStore:
-    s = get_settings()
-    if not s.SECRETS_KEK:
-        # A clear refusal rather than a 500. Without a KEK there is nothing to seal with, and
-        # storing the credential anyway is the one outcome that must never happen.
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "SECRETS_UNAVAILABLE")
-    return SecretStore(request.app.state.container.datastore, s.SECRETS_KEK,
-                       rotation_window_s=s.SECRETS_ROTATION_WINDOW_SECONDS)
 
 
 def _runtime_config(request: Request) -> RuntimeConfig:
@@ -86,66 +63,14 @@ def _refuse(reason: str, status_code: int = 400) -> JSONResponse:
     return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=status_code)
 
 
-class SecretIn(BaseModel):
-    name: str = Field(..., min_length=1, max_length=128)
-    value: str = Field(..., min_length=1, max_length=8192)
-    # Omitted means platform-wide. A tenant may hold its own credential where the provider is
-    # per-customer; most are not.
-    tenant: str = Field(default="", max_length=128)
-
-
 class ConfigIn(BaseModel):
     key: str = Field(..., min_length=1, max_length=128)
     value: str | int | float | bool
     tenant: str = Field(default="", max_length=128)
 
 
-# ── credentials ───────────────────────────────────────────────────────────────
-@router.get("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
-async def list_secrets(request: Request, tenant: str = "",
-                       principal: Principal = Depends(require_user)) -> dict:
-    """Which credentials are set, and a four-character hint for each.
-
-    There is no value in this response and no route that would return one. The hint exists so an
-    operator can tell which key is loaded before replacing it — replacing the wrong one is the
-    mistake this prevents.
-    """
-    store = _secret_store(request)
-    infos = await store.list_info(tenant=tenant)
-    return {"secrets": [{"name": i.name, "hint": i.hint, "set_at": i.set_at,
-                         "rotating": i.rotating} for i in infos]}
-
-
-@router.put("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
-async def set_secret(request: Request, body: SecretIn,
-                     principal: Principal = Depends(require_user)) -> dict:
-    """Set or rotate a credential. The previous one stays valid for a bounded window.
-
-    Audited BEFORE the write: a change the log cannot take must not happen, and here the old value
-    is overwritten by the action itself, so an unrecorded rotation is unreconstructable.
-    """
-    await request.app.state.auditor.record(
-        "operator.secret_set", actor=_actor(principal), tenant=body.tenant or "",
-        resource=f"secret:{body.name}",          # the NAME, never the value or the hint
-        ip=request.client.host if request.client else "")
-    try:
-        info = await _secret_store(request).set(
-            tenant=body.tenant, name=body.name, value=body.value, actor_ref=_actor(principal))
-    except SecretError as exc:
-        return _refuse(str(exc))
-    return {"name": info.name, "hint": info.hint, "rotating": info.rotating}
-
-
-@router.delete("/secrets/{name}", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
-async def clear_secret(request: Request, name: str, tenant: str = "",
-                       principal: Principal = Depends(require_user)) -> dict:
-    """Remove a credential so the configured environment value applies again."""
-    await request.app.state.auditor.record(
-        "operator.secret_cleared", actor=_actor(principal), tenant=tenant,
-        resource=f"secret:{name}", ip=request.client.host if request.client else "")
-    return {"cleared": await _secret_store(request).clear(tenant=tenant, name=name)}
-
-
+# The operator surface: policy an operator changes after launch. The credential-management routes
+# that used to sit here (a dead SecretStore nothing ever consumed) were removed — see git history.
 # ── policy ────────────────────────────────────────────────────────────────────
 @router.get("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
 async def effective_config(request: Request, tenant: str = "",
