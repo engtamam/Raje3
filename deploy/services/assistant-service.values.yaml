@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/assistant-service
-  digest: "sha256:94aea0653eb63cc28973487d9c0b1923e8e2d79dcd62b13c89d04bf52df446a0"   # v0.18.30
+  digest: "sha256:4d6d7ae31be6db24fc4655564047f72b11762bdaccb27dd5c16e93bf99feb326"   # v0.18.34 — mintable MESSAGE_KEY + Saudi national-ID redaction
 
 replicas: 1
 
@@ -116,7 +116,9 @@ env:
   # ── Conversations — OFF until a real console actually calls /ask ──────────────────────────
   # Storing nothing has nothing to leak or erase. Turned on deliberately in Phase 6 (the chat
   # widget itself), together with MESSAGE_KEY — never flipped on ahead of a real caller existing.
-  CONVERSATIONS_ENABLED: "false"
+  # v0.18.34: MESSAGE_KEY is now mintable by gen-secrets.py (a new svc_secret type — unique per
+  # service, preserved across re-runs so a re-mint never orphans an already-sealed conversation).
+  CONVERSATIONS_ENABLED: "true"
   # Same policy as whatsapp-assistant's own CHAT_RETENTION_DAYS default (30) — one retention rule
   # for every chat surface on the platform, not a second number nobody chose. Set now, independent
   # of CONVERSATIONS_ENABLED above: harmless while conversations stay off, and already correct the
