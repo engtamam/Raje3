@@ -36,7 +36,15 @@ def declared_paths() -> set[str]:
             text = Path(f).read_text(encoding="utf-8")
             paths |= set(re.findall(r'"path":\s*"(/api/[^"]+)"', text))
     # The platform's own auth surface is served by the gateway itself and declared nowhere here.
-    paths |= {"/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh"}
+    #
+    # `/api/v1/auth/tenant` WAS MISSING FROM THIS SET, not from the product. It is a real, live
+    # route (platform/services/identity-service/app/api/v1/tenancy.py's own `POST /tenant`,
+    # mounted under this router's `/api/v1/auth` prefix) already proxied by the gateway
+    # (api-gateway.values.yaml's own ROUTES block) — this gate's hardcoded list of the platform's
+    # auth surface had simply never been extended to include it, so its real rate-limit class
+    # read as a prefix matching nothing.
+    paths |= {"/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh",
+              "/api/v1/auth/tenant"}
     return paths
 
 
