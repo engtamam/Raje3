@@ -402,7 +402,7 @@ async def test_performance_for_counts_every_referral_and_commission_past_a_singl
     assert out["refund_rate"] == 0.0
 
 
-# ── §١٣: real support KPIs, additive and best-effort ────────────────────────────────────────────
+# ── §13: real support KPIs, additive and best-effort ────────────────────────────────────────────
 
 class FakeTickets:
     """Answers by tenant — same "scripted by key" idiom as the platform's other fakes."""
