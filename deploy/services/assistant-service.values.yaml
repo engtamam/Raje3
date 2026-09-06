@@ -72,11 +72,17 @@ env:
   AUDIT_SINK_DRIVER: "http"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
 
-  # ── Knowledge base — Phase 2 default: unconfigured, safe, answers nothing yet ────────────────
-  # `memory` with no entries — the assistant boots and abstains on every question rather than
-  # reaching for a catalog that does not exist yet in merged, cross-platform form. Phase 3 flips
-  # this to `catalog` (or `composite`) once that merge exists; see this file's header note above.
-  KB_SOURCE_DRIVER: "memory"
+  # ── Knowledge base — Phase 3: fed from the platform's own declared actions ────────────────────
+  # api-gateway v0.18.32's GET /internal/assistant-catalog — reuses the SAME hardened
+  # build_catalog() the browser-facing /api/v1/app|admin/catalog routes use, called unfiltered
+  # (frozenset({"*"})) across ADMIN_SERVICES (which already lists every service, including
+  # affiliate-service — its `user_actions` are the marketer catalog, `affiliates.self`-scoped, no
+  # separate fetch needed). One document, every action's own `capability` preserved as this
+  # entry's `requires` — filtered per asking user at retrieval/answer time, never at fetch time.
+  # This is what makes the three-console isolation real without three deployments; see this
+  # file's header note.
+  KB_SOURCE_DRIVER: "catalog"
+  KB_CATALOG_URL: "http://api-gateway:8000/internal/assistant-catalog"
 
   # ── Answering — extractive first ──────────────────────────────────────────────────────────
   # Needs no API key, cannot hallucinate (quotes the retrieved KB passage verbatim). The
