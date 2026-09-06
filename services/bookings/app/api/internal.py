@@ -386,10 +386,19 @@ def _refusal(reason: str) -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, reason)
 
 
-async def _own_booking(request: Request, tenant: str, booking_id: str, customer_id: str):
+async def _own_booking(request: Request, tenant: str, booking_id: str, customer_id: str,
+                       branch_id: str = ""):
+    """`branch_id`, WHEN THE CALLER PASSES ONE, IS PART OF OWNERSHIP TOO — not a second, looser
+    check. A per_branch shop's WhatsApp number IS a branch (sending_identity.py on the caller's
+    side), and a customer texting branch B's number must not be able to view/cancel/reschedule a
+    booking that belongs to branch A just because both bookings are hers. Refused with the exact
+    same sentence as "not hers at all" — same enumeration-oracle reasoning as the ownership check
+    above: a customer must not learn "this id is real, just not at this branch" any more than she
+    should learn "this id belongs to someone else"."""
     c = request.app.state.container
     booking = await c.bookings.get(tenant, booking_id)
-    if booking is None or booking.customer_id != customer_id:
+    if (booking is None or booking.customer_id != customer_id
+            or (branch_id and booking.branch_id != branch_id)):
         raise _refusal("الحجز غير موجود أو لا يخصّك")
     return booking
 
@@ -397,6 +406,10 @@ async def _own_booking(request: Request, tenant: str, booking_id: str, customer_
 class InternalForCustomerIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     customer_id: str = Field(min_length=1, max_length=64)
+    # Empty (the default) means "every branch" — a central shop with no branch fixed on this
+    # conversation yet must still see her whole history. Non-empty narrows to that one branch's
+    # bookings only — see `_own_booking`'s own note on why this is ownership, not a filter.
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.post("/bookings/for-customer", dependencies=[Depends(require_internal_token)])
@@ -409,6 +422,8 @@ async def internal_bookings_for_customer(request: Request, body: InternalForCust
     could name a different customer's data."""
     c = request.app.state.container
     rows = await c.booking_ops.bookings_for_customer(body.tenant, body.customer_id)
+    if body.branch_id:
+        rows = [b for b in rows if b.branch_id == body.branch_id]
     return {"bookings": [b.public() for b in rows]}
 
 
@@ -434,11 +449,12 @@ class InternalCancelIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     customer_id: str = Field(min_length=1, max_length=64)
     reason: str = Field(default="", max_length=300)
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.post("/bookings/{booking_id}/cancel", dependencies=[Depends(require_internal_token)])
 async def internal_cancel_booking(request: Request, booking_id: str, body: InternalCancelIn) -> dict:
-    await _own_booking(request, body.tenant, booking_id, body.customer_id)
+    await _own_booking(request, body.tenant, booking_id, body.customer_id, body.branch_id)
     c = request.app.state.container
     try:
         booking = await c.booking_ops.cancel(body.tenant, booking_id, body.reason)
@@ -457,12 +473,13 @@ class InternalRescheduleIn(BaseModel):
     customer_id: str = Field(min_length=1, max_length=64)
     starts_at: int = Field(gt=0)
     operator_id: str = Field(default="", max_length=64)
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.post("/bookings/{booking_id}/reschedule", dependencies=[Depends(require_internal_token)])
 async def internal_reschedule_booking(request: Request, booking_id: str,
                                       body: InternalRescheduleIn) -> dict:
-    await _own_booking(request, body.tenant, booking_id, body.customer_id)
+    await _own_booking(request, body.tenant, booking_id, body.customer_id, body.branch_id)
     c = request.app.state.container
     try:
         booking = await c.booking_ops.reschedule(

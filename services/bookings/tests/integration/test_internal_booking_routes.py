@@ -255,6 +255,83 @@ def test_for_customer_returns_only_that_customers_own_bookings(env_guard):
     assert ids == [mine["id"]]
 
 
+# ── branch scoping (booking-management-via-WhatsApp, cross-branch fix) ───────────────────────────
+#
+# A per_branch shop's WhatsApp number IS a branch: a customer texting branch B's number must never
+# see/cancel/reschedule a booking she made at branch A, even though both are genuinely hers.
+
+def test_for_customer_with_no_branch_id_sees_every_branch_unchanged(env_guard):
+    """No regression for a central shop (or a session with no branch fixed yet): omitting
+    branch_id keeps today's behaviour exactly — every one of her bookings, any branch."""
+    client = _make_app()
+    _stub_ops(client)
+    a = _book(client, branch_id="branch-a", idempotency_key="k-branch-a")
+    b = _book(client, branch_id="branch-b", idempotency_key="k-branch-b")
+    r = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                    headers=_h())
+    ids = {x["id"] for x in r.json()["bookings"]}
+    assert ids == {a["id"], b["id"]}
+
+
+def test_for_customer_with_a_branch_id_sees_only_that_branch(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    a = _book(client, branch_id="branch-a", idempotency_key="k-branch-a-2")
+    _book(client, branch_id="branch-b", idempotency_key="k-branch-b-2")
+    r = client.post("/internal/bookings/for-customer",
+                    json={"tenant": "t1", "customer_id": "c1", "branch_id": "branch-a"},
+                    headers=_h())
+    ids = [x["id"] for x in r.json()["bookings"]]
+    assert ids == [a["id"]]
+
+
+def test_cancel_from_a_different_branch_is_refused_identically_to_not_found(env_guard):
+    """SAME enumeration-oracle discipline as the cross-customer refusal: 'exists, wrong branch'
+    must read exactly like 'does not exist', never distinguished."""
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, branch_id="branch-a", idempotency_key="k-cancel-branch")
+    r = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                    json={"tenant": "t1", "customer_id": "c1", "branch_id": "branch-b"},
+                    headers=_h())
+    assert r.status_code == 404
+    ghost = client.post("/internal/bookings/does-not-exist/cancel",
+                        json={"tenant": "t1", "customer_id": "c1", "branch_id": "branch-b"},
+                        headers=_h())
+    assert ghost.status_code == 404
+    assert r.json()["error"] == ghost.json()["error"]
+    # AND THE REAL BOOKING IS UNTOUCHED — the refused cross-branch attempt must not have cancelled
+    # it underneath the 404.
+    mine = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                       headers=_h()).json()["bookings"][0]
+    assert mine["status"] == "booked"
+
+
+def test_cancel_from_the_same_branch_still_succeeds(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, branch_id="branch-a", idempotency_key="k-cancel-branch-ok")
+    r = client.post(f"/internal/bookings/{booking['id']}/cancel",
+                    json={"tenant": "t1", "customer_id": "c1", "branch_id": "branch-a"},
+                    headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "cancelled"
+
+
+def test_reschedule_from_a_different_branch_is_refused_and_leaves_the_booking_untouched(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, branch_id="branch-a", idempotency_key="k-resch-branch")
+    r = client.post(f"/internal/bookings/{booking['id']}/reschedule",
+                    json={"tenant": "t1", "customer_id": "c1", "starts_at": 1786870000,
+                         "branch_id": "branch-b"},
+                    headers=_h())
+    assert r.status_code == 404
+    mine = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                       headers=_h()).json()["bookings"][0]
+    assert mine["starts_at"] == 1786860000
+
+
 # ── for-subject: the same read, keyed by the pseudonym (the case-timeline tool's own entry) ──────
 
 def test_for_subject_refuses_without_the_internal_token(env_guard):
