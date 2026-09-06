@@ -193,6 +193,15 @@ export function planLines(p: Plan): string[] {
 
 export type Kind = 'base' | 'app' | 'capacity';
 
+/** Read straight off the SAME field operations' own `may_add`/`is_standalone` reads
+ * (deploy/seed/plans.json's `plan.standalone`) — never a name or an id, same discipline as
+ * `kindOf` just below. THE ONE APP SOLD WITHOUT الأساس UNDERNEATH IT: a plan carrying this may be
+ * bought (and its purchase button stays enabled) even when `hasBase === false`. */
+export function isStandalone(plan: Plan): boolean {
+  const raw = plan.limits?.['plan.standalone']?.limit;
+  return typeof raw === 'string' ? raw.toLowerCase() === 'unlimited' : Number(raw ?? 0) !== 0;
+}
+
 /**
  * WHAT KIND OF THING IS THIS ROW — read off its limits, never off its name.
  *
@@ -1415,8 +1424,10 @@ export function PlansPane({
           </h2>
           {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
               after he presses. operations refuses the pair regardless; this is so he never meets
-              that refusal. */}
-          {hasBase === false ? (
+              that refusal. EXCEPT a `plan.standalone` row (e.g. واتساب الذكي المستقل) — the one
+              app sold with no base at all, so the note beneath it is never shown and its own card
+              stays purchasable regardless of `hasBase`. */}
+          {hasBase === false && apps.some((p) => !isStandalone(p)) ? (
             <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
           ) : null}
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1438,7 +1449,8 @@ export function PlansPane({
                     session={session}
                     owned={owns(owned ?? null, appKey(p))}
                     busy={busy}
-                    sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}
+                    sellable={Boolean(canSubscribe && pay?.enabled && canMintToken
+                                     && (hasBase !== false || isStandalone(p)))}
                     onBuy={() => choose(p)}
                     unreadNote={unreadNote}
                     ownedLabel="مفعّل"

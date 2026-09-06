@@ -9,7 +9,7 @@
  * code is the one that goes stale the day marketing renames a row.
  */
 import { describe, expect, it } from 'vitest';
-import { appKey, canBuy, kindOf, type Plan } from './Plans';
+import { appKey, canBuy, isStandalone, kindOf, type Plan } from './Plans';
 
 const plan = (name: string, limits: Record<string, { kind?: string; limit: number }>) =>
   ({ id: name, name, limits } as Plan);
@@ -24,6 +24,10 @@ const CAMPAIGNS = plan('الحملات', {
   'templates.custom': { kind: 'counter', limit: 1 },
 });
 const SEATS = plan('10 مقاعد إضافية', { 'staff.seats': { kind: 'gauge', limit: 10 } });
+const WHATSAPP_STANDALONE = plan('واتساب الذكي (مستقل)', {
+  'feature.whatsapp': { kind: 'boolean', limit: 1 },
+  'plan.standalone': { kind: 'boolean', limit: 1 },
+});
 
 describe('kindOf', () => {
   it('knows the base by the METER it carries, not by its name', () => {
@@ -48,6 +52,26 @@ describe('kindOf', () => {
 
   it('files a row with no limits at all as capacity rather than crashing', () => {
     expect(kindOf({ id: 'x', name: 'x' } as Plan)).toBe('capacity');
+  });
+});
+
+describe('isStandalone', () => {
+  it('reads the one field operations itself decides from — never a name', () => {
+    expect(isStandalone(WHATSAPP_STANDALONE)).toBe(true);
+  });
+
+  it('is false for every ordinary app, base and capacity row', () => {
+    expect(isStandalone(CAMPAIGNS)).toBe(false);
+    expect(isStandalone(BASE)).toBe(false);
+    expect(isStandalone(SEATS)).toBe(false);
+  });
+
+  it('a declared zero is a deny, not a grant — same reading as every other boolean limit', () => {
+    expect(isStandalone(plan('x', { 'plan.standalone': { kind: 'boolean', limit: 0 } }))).toBe(false);
+  });
+
+  it('does not crash on a plan with no limits at all', () => {
+    expect(isStandalone({ id: 'x', name: 'x' } as Plan)).toBe(false);
   });
 });
 
