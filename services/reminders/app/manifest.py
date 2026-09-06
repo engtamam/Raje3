@@ -177,9 +177,9 @@ def build_manifest(
             {"path": "/api/v1/platform/silent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/reminders/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/reminders/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/reminders/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            # The operator surface: policy an operator changes after launch. The credential-
+            # management routes that used to sit here (a dead SecretStore nothing ever consumed)
+            # were removed — see git history for the incident.
             {"path": "/api/v1/reminders/operator/config", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/operator/config", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/operator/config/{}", "tier": "user", "method": "DELETE"},

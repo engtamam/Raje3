@@ -77,27 +77,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     # ── the operator surface, and it is declared in every service or in none ──────────────
     {
-        "id": "reminders.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/reminders/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
-        # The NAMES only — a route that returned a value would put a credential in a screenshot.
-        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
-    },
-    {
-        "id": "reminders.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
-        "path": "/api/v1/reminders/operator/secrets", "capability": "platform.secrets",
-        "confirm": True, "danger": True, "group": "المنصة",
-        # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
-        # reconstructed and an unattributable one is indistinguishable from an attacker's.
-        "help": "القيمة السابقة تختفي فوراً — لا رجعة ولا نسخة.",
-    },
-    {
-        "id": "reminders.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
-        "path": "/api/v1/reminders/operator/secrets/{name}", "capability": "platform.secrets",
-        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "danger": True, "group": "المنصة",
-        "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
-    },
-    {
         "id": "reminders.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/reminders/operator/config", "capability": "platform.config", "group": "المنصة",
         "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
@@ -125,7 +104,10 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "reminders.whoami", "label": "من أنا", "method": "GET",
-        "path": "/api/v1/reminders/whoami", "capability": "platform.secrets", "group": "المنصة",
+        # The route itself enforces no capability — grouped under platform.config here only so it
+        # shows up alongside the operator screens an admin already reaches. Was platform.secrets
+        # until that capability's own credential routes were removed (dead SecretStore).
+        "path": "/api/v1/reminders/whoami", "capability": "platform.config", "group": "المنصة",
         "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
     },
 ]
