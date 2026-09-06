@@ -24,7 +24,7 @@ const CAMPAIGNS = plan('الحملات', {
   'templates.custom': { kind: 'counter', limit: 1 },
 });
 const SEATS = plan('10 مقاعد إضافية', { 'staff.seats': { kind: 'gauge', limit: 10 } });
-const WHATSAPP_STANDALONE = plan('واتساب الذكي (مستقل)', {
+const WHATSAPP_STANDALONE = plan('بوت خدمة العملاء الذكي', {
   'feature.whatsapp': { kind: 'boolean', limit: 1 },
   'plan.standalone': { kind: 'boolean', limit: 1 },
 });

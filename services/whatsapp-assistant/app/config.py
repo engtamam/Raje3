@@ -287,7 +287,13 @@ class Settings(BaseSettings):
     # THE HARD SAFETY MARGIN (halalas — 100 = 1 SAR) held back on TOP of the token estimate on
     # every reserve, so a misestimate or a mid-flight rate change can never itself be what pushes
     # a confirm past the true available balance. Config, not a literal in the reserve call itself.
-    WALLET_SAFETY_MARGIN_HALALAS: int = 100
+    #
+    # 0 (2026-09-06, the owner's own call): a margin only earns its keep once
+    # PRICING_USAGE_HALALAS_PER_1K_TOKENS is a real, non-zero rate — held back against a cost that
+    # is currently 0 only shrinks every shop's included balance for no protection, and reads as
+    # "why is my wallet lower than what I was told" with nothing to show for it. Revisit the moment
+    # real per-token pricing lands.
+    WALLET_SAFETY_MARGIN_HALALAS: int = 0
 
     @field_validator("WALLET_ESTIMATED_MAX_TOKENS_PER_TURN", "WALLET_SAFETY_MARGIN_HALALAS")
     @classmethod

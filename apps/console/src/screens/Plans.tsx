@@ -1424,7 +1424,7 @@ export function PlansPane({
           </h2>
           {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
               after he presses. operations refuses the pair regardless; this is so he never meets
-              that refusal. EXCEPT a `plan.standalone` row (e.g. واتساب الذكي المستقل) — the one
+              that refusal. EXCEPT a `plan.standalone` row (e.g. بوت خدمة العملاء الذكي) — the one
               app sold with no base at all, so the note beneath it is never shown and its own card
               stays purchasable regardless of `hasBase`. */}
           {hasBase === false && apps.some((p) => !isStandalone(p)) ? (
