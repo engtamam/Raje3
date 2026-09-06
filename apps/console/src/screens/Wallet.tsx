@@ -21,12 +21,15 @@
  */
 import { useEffect, useState } from 'react';
 import { Banknote, Bot, RefreshCw, Wallet as WalletIcon } from 'lucide-react';
-import { Badge } from '../rj-ui/Badge';
+import { Button } from '../rj-ui/Button';
+import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
+import { Input } from '../rj-ui/Field';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { Skeleton } from '../rj-ui/Skeleton';
+import { ApiError, sentenceFor } from '../api';
 import { action, call, type Catalog } from '../catalog';
-import { riyalsLabel } from '../money';
+import { halalas, riyalsLabel } from '../money';
 import type { Session } from '../session';
 
 interface WalletBalance {
@@ -46,7 +49,9 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
 
   const balanceAction = action(catalog, 'wallet.my_balance');
   const subsAction = action(catalog, 'billing.my_subscriptions');
+  const topupCheckoutAction = action(catalog, 'billing.wallet_topup_checkout');
   const isPartner = !!action(catalog, 'partner.my_shops');
+  const [topupOpen, setTopupOpen] = useState(false);
 
   const load = () => {
     if (!balanceAction) { setWallet(null); return; }
@@ -135,11 +140,14 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
               {topup > 0 ? (
                 <span>+ {riyalsLabel(topup)} شحنته يدوياً — يُستخدم فقط بعد ما ينتهي المضمّن</span>
               ) : (
-                <span className="flex items-center gap-1">
-                  الشحن اليدوي يبقيه شغّالاً لو انتهى المضمّن قبل نهاية الشهر
-                  <Badge tone="neutral">قريباً</Badge>
-                </span>
+                <span>الشحن اليدوي يبقيه شغّالاً لو انتهى المضمّن قبل نهاية الشهر</span>
               )}
+              {topupCheckoutAction ? (
+                <Button type="button" size="sm" variant="outline" className="mt-1 self-start"
+                       onClick={() => setTopupOpen(true)}>
+                  شحن رصيدي يدوياً
+                </Button>
+              ) : null}
             </span>
           }
         />
@@ -166,6 +174,84 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
           />
         ) : null}
       </div>
+
+      {topupCheckoutAction ? (
+        <TopUpDialog session={session} action={topupCheckoutAction} open={topupOpen}
+                    onClose={() => setTopupOpen(false)} onCharged={load} />
+      ) : null}
     </div>
   );
+}
+
+/**
+ * ONE FUND: the manual top-up always credits `topup` (the fund's own default on the backend, per
+ * `WALLET_TOPUP_FUND` — this dialog does not pass `fund` at all, so a future second top-uppable
+ * fund needs its own explicit decision here rather than silently reusing this button).
+ *
+ * TUWAIQPAY HAS NO CARD-ON-FILE, so this always uses the HOSTED-CHECKOUT route
+ * (`billing.wallet_topup_checkout`) and redirects the browser to the gateway's own page — never
+ * the token route (`billing.wallet_topup`), which TuwaiqPay cannot serve at all.
+ */
+function TopUpDialog({ session, action: checkoutAction, open, onClose, onCharged }: {
+  session: Session; action: import('../catalog').Action; open: boolean;
+  onClose: () => void; onCharged: () => void;
+}) {
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { if (open) { setAmount(''); setError(''); } }, [open]);
+
+  const amountMinor = halalas(amount);
+  const ready = amountMinor !== null && amountMinor > 0;
+
+  async function submit() {
+    if (!ready) { setError('أدخل مبلغاً صحيحاً أولاً.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      const result = await call<{ checkout: { ok: boolean; redirect_url: string; error?: string } }>(
+        session, checkoutAction, { amount_minor: amountMinor, return_url: window.location.href },
+      );
+      if (result.checkout?.ok && result.checkout.redirect_url) {
+        // A real redirect to the gateway's own hosted page — not a fetch we can retry from here.
+        // `onCharged()` is not called: nothing was credited yet, only a pending payment opened.
+        window.location.href = result.checkout.redirect_url;
+        return;
+      }
+      setError('تعذّر فتح صفحة الدفع — حاول مرة أخرى بعد قليل.');
+    } catch (err) {
+      setError(topupErrorSentence(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ConfirmDialog open={open} onClose={onClose} onConfirm={submit} busy={busy} danger={false}
+                  confirmLabel="الدفع الآن" title="شحن رصيدك"
+                  body="سيحوّلك هذا لصفحة الدفع الآمنة. المبلغ يُضاف لرصيدك فور إتمام الدفع، ولا يُسترجع بعد الشحن.">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-label font-medium text-text-secondary">المبلغ (ريال)</span>
+        <Input dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </label>
+      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+    </ConfirmDialog>
+  );
+}
+
+/** The backend's own words are English codes written for a client, not a person — «AMOUNT_EXCEEDS_
+ *  MAX» is meaningless to a shop owner staring at a failed payment. Map the ones this screen can
+ *  actually trigger; anything else falls to sentenceFor's own generic handling. */
+function topupErrorSentence(err: unknown): string {
+  if (err instanceof ApiError) {
+    const detail = String((err.body as { detail?: string } | null)?.detail ?? '');
+    if (detail === 'AMOUNT_EXCEEDS_MAX') return 'هذا المبلغ أكبر من الحد المسموح للشحن اليدوي.';
+    if (detail === 'AMOUNT_MUST_BE_POSITIVE' || detail === 'FUND_REQUIRED') return 'مبلغ غير صالح — جرّب رقماً آخر.';
+    if (detail === 'CHECKOUT_UNSUPPORTED' || detail === 'CHECKOUT_FAILED') {
+      return 'تعذّر فتح صفحة الدفع الآن. حاول بعد قليل.';
+    }
+    if (err.status === 503) return 'بوابة الدفع لا تستجيب الآن. حاول بعد قليل.';
+  }
+  return sentenceFor(err, 'تعذّر بدء عملية الشحن.');
 }

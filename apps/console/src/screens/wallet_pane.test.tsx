@@ -2,8 +2,9 @@
  * «محفظتي» — the fund breakdown, and the absence discipline: a purpose-specific card (renewal,
  * commission) must never render for a shop it does not apply to.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ApiError } from '../api';
 
 let actionIds: Set<string>;
 let callImpl: (session: unknown, a: { id: string }, body?: unknown) => Promise<unknown>;
@@ -147,5 +148,103 @@ describe('WalletPane', () => {
     render(<WalletPane session={session} catalog={catalog} />);
     // 10000 - 2000 = 8000 halalas = 80 ريال, shown inside the AI-credit card's hint.
     await waitFor(() => expect(screen.getByText(/80 ريال مضمّن/)).toBeTruthy());
+  });
+
+  it('the manual top-up button is absent when billing.wallet_topup_checkout is not in the catalogue', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 5000, funds: { ai_credit: 5000 }, held: {}, balance: 5000,
+      };
+      if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    expect(screen.queryByText('شحن رصيدي يدوياً')).toBeNull();
+  });
+
+  describe('manual top-up', () => {
+    let originalLocation: Location;
+
+    function setup() {
+      withActions(['billing.wallet_topup_checkout']);
+      callImpl = async (_s, a) => {
+        if (a.id === 'wallet.my_balance') return {
+          currency: 'SAR', available_total: 5000, funds: { ai_credit: 5000 }, held: {}, balance: 5000,
+        };
+        if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
+        return {};
+      };
+    }
+
+    // jsdom does not implement real navigation — replace `window.location` with a plain
+    // writable stub so setting `.href` is observable instead of throwing "not implemented".
+    beforeEach(() => {
+      originalLocation = window.location;
+      // @ts-expect-error — deliberately narrowing for the test's own stub
+      delete window.location;
+      // @ts-expect-error — same
+      window.location = { href: 'https://shop.raje3.sa/wallet' } as Location;
+    });
+    afterEach(() => {
+      // @ts-expect-error — restoring the real Location object after the test's own stub
+      window.location = originalLocation;
+    });
+
+    it('opens a dialog, and redirects the browser to the gateway on success', async () => {
+      setup();
+      const topupCall = vi.fn().mockResolvedValue({
+        checkout: { ok: true, redirect_url: 'https://onboarding-prod.tuwaiqpay.com.sa/pay/abc' },
+      });
+      const realCallImpl = callImpl;
+      callImpl = async (s, a, body) => {
+        if (a.id === 'billing.wallet_topup_checkout') return topupCall(s, a, body);
+        return realCallImpl(s, a, body);
+      };
+
+      render(<WalletPane session={session} catalog={catalog} />);
+      fireEvent.click(await screen.findByText('شحن رصيدي يدوياً'));
+      await screen.findByText('شحن رصيدك');
+
+      // no amount typed yet — the dialog refuses rather than calling the backend with nothing
+      fireEvent.click(screen.getByText('الدفع الآن'));
+      await screen.findByText('أدخل مبلغاً صحيحاً أولاً.');
+      expect(topupCall).not.toHaveBeenCalled();
+
+      fireEvent.change(screen.getByLabelText('المبلغ (ريال)'), { target: { value: '50' } });
+      fireEvent.click(screen.getByText('الدفع الآن'));
+
+      await waitFor(() => expect(topupCall).toHaveBeenCalledWith(
+        session, expect.objectContaining({ id: 'billing.wallet_topup_checkout' }),
+        expect.objectContaining({ amount_minor: 5000 }),
+      ));
+      await waitFor(() => expect(window.location.href).toBe(
+        'https://onboarding-prod.tuwaiqpay.com.sa/pay/abc',
+      ));
+    });
+
+    it('shows a real Arabic sentence for a known backend error code, not the raw code', async () => {
+      setup();
+      const realCallImpl = callImpl;
+      callImpl = async (s, a, body) => {
+        if (a.id === 'billing.wallet_topup_checkout') {
+          throw new ApiError(400, { detail: 'AMOUNT_EXCEEDS_MAX' }, 'x');
+        }
+        return realCallImpl(s, a, body);
+      };
+
+      render(<WalletPane session={session} catalog={catalog} />);
+      fireEvent.click(await screen.findByText('شحن رصيدي يدوياً'));
+      await screen.findByText('شحن رصيدك');
+
+      fireEvent.change(screen.getByLabelText('المبلغ (ريال)'), { target: { value: '999999' } });
+      fireEvent.click(screen.getByText('الدفع الآن'));
+
+      await waitFor(() => expect(
+        screen.getByText('هذا المبلغ أكبر من الحد المسموح للشحن اليدوي.'),
+      ).toBeTruthy());
+      expect(screen.queryByText(/AMOUNT_EXCEEDS_MAX/)).toBeNull();
+    });
   });
 });
