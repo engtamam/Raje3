@@ -350,6 +350,9 @@ class Settings(BaseSettings):
     # cap; `drain` hands over what has never been submitted, inside Meta's 100/hour.
     NOTIFICATION_TEMPLATE_REGISTER_PATH: str = "/internal/whatsapp/templates"
     NOTIFICATION_TEMPLATE_DRAIN_PATH: str = "/internal/whatsapp/templates/submit-pending"
+    # The one-time placeholder-image upload a carousel template's cards need at creation — see
+    # app/core/library.py's own note on why this is never a static, pre-baked handle.
+    NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH: str = "/internal/whatsapp/media/upload-handle"
     # GIVING A SHOP ITS OWN COPY OF THE RATING FLOW (base-services v0.18.26's flow-provisioning
     # twin) — see core/flows.py. Idempotent by name on notification-service's own side, same as
     # the template register above.

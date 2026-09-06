@@ -1661,6 +1661,64 @@
         "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ]
+    },
+    {
+      "name": "wa_catalog_carousel",
+      "type": "wa_catalog_carousel",
+      "tone": "neutral",
+      "label": "كاروسيل خدمات المحل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "شوف بعض خدماتنا:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "أي محل صوّر بعض خدماته/باقاته — الذكاء الاصطناعي يعرضها كبطاقات صور حقيقية بدل النص فقط. header_example_handle فاضٍ عمداً — services/operations/app/core/library.py يملؤه بمقبض حقيقي طازج (رفعة صورة placeholder واحدة) وقت كل تسجيل، بدل مقبض ثابت ينتهي صلاحيته.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — {{2}}",
+            "body_examples": ["قص شعر", "50 ريال"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — {{2}}",
+            "body_examples": ["قص شعر", "50 ريال"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — {{2}}",
+            "body_examples": ["قص شعر", "50 ريال"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — {{2}}",
+            "body_examples": ["قص شعر", "50 ريال"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — {{2}}",
+            "body_examples": ["قص شعر", "50 ريال"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+          }
+        ]
+      }
     }
   ]
 }

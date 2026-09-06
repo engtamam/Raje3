@@ -34,14 +34,29 @@ class _Resp:
         return False
 
 
-def client():
-    return HttpLibrary(notify_url="http://notify",
-                       register_path="/internal/whatsapp/templates",
-                       drain_path="/internal/whatsapp/templates/submit-pending", token="t")
+def client(**overrides):
+    kwargs = dict(notify_url="http://notify",
+                 register_path="/internal/whatsapp/templates",
+                 drain_path="/internal/whatsapp/templates/submit-pending", token="t")
+    kwargs.update(overrides)
+    return HttpLibrary(**kwargs)
 
 
 TEMPLATE = {"name": "svc_visit_confirm", "language": "ar", "category": "UTILITY",
             "body": "أهلاً {{1}}", "variables": ["name"], "examples": ["محمد"]}
+
+_CAROUSEL_TEMPLATE = {
+    "name": "wa_catalog_carousel", "language": "ar", "category": "MARKETING",
+    "body": "شوف بعض خدماتنا:", "variables": [], "examples": [],
+    "carousel": {"cards": [
+        {"header_format": "IMAGE", "header_example_handle": "", "body": "{{1}} — {{2}}",
+         "body_examples": ["قص شعر", "50 ريال"],
+         "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]},
+        {"header_format": "IMAGE", "header_example_handle": "", "body": "{{1}} — {{2}}",
+         "body_examples": ["قص شعر", "50 ريال"],
+         "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]},
+    ]},
+}
 
 
 # ── registering ───────────────────────────────────────────────────────────────────────────────
@@ -88,6 +103,113 @@ def test_a_template_with_no_flow_button_sends_none():
     with patch("urllib.request.urlopen", _urlopen):
         assert run(client().register("t1", TEMPLATE)) is True
     assert "flow_button" not in seen["body"]
+
+
+# ── carousel templates: a fresh placeholder handle per registration ─────────────────────────────
+def test_a_carousel_template_uploads_a_placeholder_handle_then_registers_with_it():
+    calls = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if req.full_url.endswith("/whatsapp/media/upload-handle"):
+            return _Resp({"ok": True, "handle": "hnd_fresh_1"})
+        return _Resp({"name": "wa_catalog_carousel"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        ok = run(c.register("t1", _CAROUSEL_TEMPLATE))
+
+    assert ok is True
+    assert calls[0].endswith("upload-handle")
+    assert calls[1].endswith("/internal/whatsapp/templates")
+
+
+def test_every_card_gets_the_same_freshly_uploaded_handle():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        if req.full_url.endswith("upload-handle"):
+            return _Resp({"ok": True, "handle": "hnd_fresh_2"})
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "wa_catalog_carousel"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", _CAROUSEL_TEMPLATE))
+
+    cards = seen["body"]["carousel"]["cards"]
+    assert len(cards) == 2
+    assert all(c["header_example_handle"] == "hnd_fresh_2" for c in cards)
+
+
+def test_a_carousel_template_never_registers_a_static_handle_across_two_calls():
+    """A handle is a live, one-time Meta artifact — never cached across registrations, even for
+    the exact same template, so a shop connecting long after this row was written never inherits
+    a handle minted for someone else's registration."""
+    handles = iter(["hnd_a", "hnd_b"])
+    seen = []
+
+    def _urlopen(req, timeout=0):
+        if req.full_url.endswith("upload-handle"):
+            return _Resp({"ok": True, "handle": next(handles)})
+        seen.append(json.loads(req.data)["carousel"]["cards"][0]["header_example_handle"])
+        return _Resp({"name": "wa_catalog_carousel"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", _CAROUSEL_TEMPLATE))
+        run(c.register("t2", _CAROUSEL_TEMPLATE))
+
+    assert seen == ["hnd_a", "hnd_b"]
+
+
+def test_a_carousel_template_with_no_upload_path_configured_fails_that_one_registration():
+    c = client()   # media_upload_handle_path left at its default (empty)
+    assert run(c.register("t1", _CAROUSEL_TEMPLATE)) is False
+
+
+def test_a_failed_placeholder_upload_fails_that_one_registration_not_a_crash():
+    def _urlopen(req, timeout=0):
+        return _Resp({"ok": False, "reason": "Meta rejected the upload"}, status=502)
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(c.register("t1", _CAROUSEL_TEMPLATE)) is False
+
+
+def test_an_ordinary_template_never_touches_the_upload_handle_route():
+    calls = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        return _Resp({"name": "svc_visit_confirm"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", TEMPLATE))
+
+    assert len(calls) == 1
+    assert calls[0].endswith("/internal/whatsapp/templates")
+
+
+def test_a_card_that_already_carries_a_real_handle_is_left_alone():
+    """Not every future carousel template needs a placeholder — one that already resolved (or
+    hand-supplied) real handles skips the upload step entirely."""
+    already_real = {**_CAROUSEL_TEMPLATE, "carousel": {"cards": [
+        {**_CAROUSEL_TEMPLATE["carousel"]["cards"][0], "header_example_handle": "hnd_real"},
+        {**_CAROUSEL_TEMPLATE["carousel"]["cards"][1], "header_example_handle": "hnd_real"},
+    ]}}
+    calls = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        return _Resp({"name": "wa_catalog_carousel"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(c.register("t1", already_real)) is True
+
+    assert len(calls) == 1   # no upload-handle call at all
 
 
 def test_a_refused_registration_is_reported_rather_than_raised():

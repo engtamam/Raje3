@@ -73,10 +73,21 @@ def examples_for(template: dict) -> list[str]:
                 f"template whose placeholder carries none")
         out.append(value)
     return out
+import base64
+import copy
 import urllib.error
 import urllib.parse
 from typing import Any
 from app.adapters import internal_http
+
+# A 1x1 transparent PNG — real, valid image bytes, never shown to a real customer. Meta requires
+# an example image PER CARD at template CREATION time only to review the carousel's shape; the
+# actual per-shop photos travel as separate media ids at SEND time (see notification-service's own
+# /whatsapp/media/upload-id vs /upload-handle split) — so one tiny placeholder, uploaded once per
+# registration, is exactly what "the example, not the real thing" already means for every other
+# template header on this platform.
+_PLACEHOLDER_CAROUSEL_IMAGE = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 
 
 class NullLibrary:
@@ -106,10 +117,11 @@ class HttpLibrary:
     driver = "http"
 
     def __init__(self, *, notify_url: str, register_path: str, drain_path: str,
-                 token: str, timeout: int = 8) -> None:
+                 token: str, timeout: int = 8, media_upload_handle_path: str = "") -> None:
         base = notify_url.rstrip("/")
         self._register = base + register_path
         self._drain = base + drain_path
+        self._media_upload_handle = (base + media_upload_handle_path) if media_upload_handle_path else ""
         self._token = token
         self._timeout = timeout
 
@@ -125,6 +137,36 @@ class HttpLibrary:
             return exc.code, {"detail": exc.read().decode()[:200]}
         except (urllib.error.URLError, OSError, ValueError) as exc:
             return 503, {"detail": str(exc)[:120]}
+
+    def _upload_placeholder_handle(self, tenant: str) -> str:
+        """A fresh resumable-upload handle for the placeholder image — NEVER cached across calls
+        or tenants: a handle is a live Meta artifact tied to one upload session, not a portable
+        constant, so baking a static one into the seed file would go stale for a shop connecting
+        long after it was minted. One extra upload per registration call is the cost of that."""
+        if not self._media_upload_handle:
+            return ""
+        body = {"tenant": tenant, "file_type": "image/png", "file_name": "carousel-placeholder.png",
+                "data_base64": base64.b64encode(_PLACEHOLDER_CAROUSEL_IMAGE).decode()}
+        status, out = self._post(self._media_upload_handle, body)
+        if status >= 400 or not isinstance(out, dict):
+            return ""
+        return str(out.get("handle") or "")
+
+    def _resolve_carousel(self, tenant: str, carousel: dict[str, Any]) -> dict[str, Any] | None:
+        """Fill in `header_example_handle` on every card that has none — `None` means resolution
+        failed (no upload path configured, or the upload itself failed), which `register()` below
+        treats as a failed registration for THIS template alone, same as any other bad row."""
+        cards = list(carousel.get("cards") or [])
+        if not cards or all(c.get("header_example_handle") for c in cards):
+            return carousel   # nothing to resolve — already has real handles, or no carousel at all
+        handle = self._upload_placeholder_handle(tenant)
+        if not handle:
+            return None
+        out = copy.deepcopy(carousel)
+        for card in out["cards"]:
+            if not card.get("header_example_handle"):
+                card["header_example_handle"] = handle
+        return out
 
     async def register(self, tenant: str, template: dict[str, Any]) -> bool:
         """Upsert ONE template into this shop's registry. No Meta call, so no cap applies.
@@ -145,6 +187,12 @@ class HttpLibrary:
         flow_button = template.get("flow_button")
         if flow_button:
             body["flow_button"] = flow_button
+        carousel = template.get("carousel")
+        if carousel:
+            resolved = self._resolve_carousel(tenant, carousel)
+            if resolved is None:
+                return False
+            body["carousel"] = resolved
         status, _ = self._post(self._register, body)
         return status < 400
 
@@ -169,7 +217,9 @@ def build_library(settings: Any) -> Any:
         return NullLibrary()
     return HttpLibrary(notify_url=url, register_path=register, drain_path=drain,
                        token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "",
-                       timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+                       timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8),
+                       media_upload_handle_path=getattr(
+                           settings, "NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH", "") or "")
 
 
 async def publish(library: Any, templates: list[dict[str, Any]], tenant: str) -> dict[str, Any]:

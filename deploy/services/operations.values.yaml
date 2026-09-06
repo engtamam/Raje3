@@ -333,6 +333,7 @@ env:
   # over, inside Meta's 100/hour, and skips anything already awaiting a verdict.
   NOTIFICATION_TEMPLATE_REGISTER_PATH: "/internal/whatsapp/templates"
   NOTIFICATION_TEMPLATE_DRAIN_PATH: "/internal/whatsapp/templates/submit-pending"
+  NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH: "/internal/whatsapp/media/upload-handle"
   TEMPLATE_SYNC_MAX_TENANTS: "200"
 
   # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
