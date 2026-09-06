@@ -16,9 +16,10 @@ import { AdminLegal } from './AdminLegal';
 import { AdminDisputeReports } from './AdminDisputeReports';
 import { AdminWhatsAppTemplates } from './AdminWhatsAppTemplates';
 import { AdminTeam } from './AdminTeam';
+import { AdminCompliance } from './AdminCompliance';
 import type { AdminSession } from './api';
 
-type SubTab = 'config' | 'secrets' | 'provider_secrets' | 'wa_templates' | 'legal' | 'disputes' | 'team' | 'audit';
+type SubTab = 'config' | 'secrets' | 'provider_secrets' | 'wa_templates' | 'legal' | 'disputes' | 'team' | 'audit' | 'compliance';
 
 export function AdminPlatform({ session }: { session: AdminSession }) {
   const [sub, setSub] = useState<SubTab>('config');
@@ -37,6 +38,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
             { value: 'disputes', label: 'تقارير الدفاع النزاعي' },
             { value: 'team', label: 'فريق الإدارة' },
             { value: 'audit', label: 'سجل التدقيق' },
+            { value: 'compliance', label: 'الامتثال' },
           ]}
         />
       </div>
@@ -48,6 +50,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
       {sub === 'disputes' ? <AdminDisputeReports session={session} /> : null}
       {sub === 'team' ? <AdminTeam session={session} /> : null}
       {sub === 'audit' ? <AdminAuditLog session={session} /> : null}
+      {sub === 'compliance' ? <AdminCompliance session={session} /> : null}
     </div>
   );
 }
