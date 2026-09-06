@@ -1,0 +1,151 @@
+/**
+ * «محفظتي» — the fund breakdown, and the absence discipline: a purpose-specific card (renewal,
+ * commission) must never render for a shop it does not apply to.
+ */
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+
+let actionIds: Set<string>;
+let callImpl: (session: unknown, a: { id: string }, body?: unknown) => Promise<unknown>;
+
+vi.mock('../catalog', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../catalog')>();
+  return {
+    ...real,
+    action: (_c: unknown, id: string) => (actionIds.has(id) ? { id, label: id, method: 'GET', path: `/${id}` } : undefined),
+    call: async (session: unknown, a: { id: string }, body?: unknown) => callImpl(session, a, body),
+  };
+});
+
+const { WalletPane } = await import('./Wallet');
+
+const session = {} as never;
+const catalog = { services: [], unreachable: [] } as never;
+
+afterEach(() => { cleanup(); });
+
+function withActions(extra: string[] = []) {
+  actionIds = new Set(['wallet.my_balance', 'billing.my_subscriptions', ...extra]);
+}
+
+describe('WalletPane', () => {
+  it('is absent entirely when wallet.my_balance is not in the catalogue', () => {
+    actionIds = new Set([]);
+    const { container } = render(<WalletPane session={session} catalog={catalog} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('shows the total and the bundled AI-credit card', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 20000,
+        funds: { ai_credit: 10000, topup: 2345 }, held: {}, balance: 20000,
+      };
+      if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('200 ريال')).toBeTruthy());
+    expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy();
+    expect(screen.getByText('123.45 ريال')).toBeTruthy();   // the bundled ai_credit+topup total
+  });
+
+  it('a failed read shows the real failure sentence, not an empty screen', async () => {
+    withActions();
+    callImpl = async () => { throw new Error('boom'); };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('تعذّرت قراءة محفظتك')).toBeTruthy());
+  });
+
+  it('the renewal card is absent for a shop with no wallet-pinned subscription', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 5000, funds: { ai_credit: 5000 }, held: {}, balance: 5000,
+      };
+      if (a.id === 'billing.my_subscriptions') return {
+        subscriptions: [{ payment_gateway: 'tuwaiqpay', status: 'active' }],
+      };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    expect(screen.queryByText('رصيد تجديد الاشتراك')).toBeNull();
+  });
+
+  it('the renewal card appears for a shop pinned to pay-by-wallet', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 5000,
+        funds: { ai_credit: 5000, renewal: 3000 }, held: {}, balance: 8000,
+      };
+      if (a.id === 'billing.my_subscriptions') return {
+        subscriptions: [{ payment_gateway: 'wallet', status: 'active' }],
+      };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('رصيد تجديد الاشتراك')).toBeTruthy());
+  });
+
+  it('a canceled wallet-pinned subscription does not surface the renewal card', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 5000, funds: { ai_credit: 5000 }, held: {}, balance: 5000,
+      };
+      if (a.id === 'billing.my_subscriptions') return {
+        subscriptions: [{ payment_gateway: 'wallet', status: 'canceled' }],
+      };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    expect(screen.queryByText('رصيد تجديد الاشتراك')).toBeNull();
+  });
+
+  it('the commission card is absent for an ordinary (non-partner) shop', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 5000, funds: { ai_credit: 5000 }, held: {}, balance: 5000,
+      };
+      if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    expect(screen.queryByText('عمولتك كشريك')).toBeNull();
+  });
+
+  it('the commission card appears for a partner account', async () => {
+    withActions(['partner.my_shops']);
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 5000,
+        funds: { ai_credit: 5000, commission: 1500 }, held: {}, balance: 6500,
+      };
+      if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    await waitFor(() => expect(screen.getByText('عمولتك كشريك')).toBeTruthy());
+  });
+
+  it('a held amount is subtracted from the shown balance', async () => {
+    withActions();
+    callImpl = async (_s, a) => {
+      if (a.id === 'wallet.my_balance') return {
+        currency: 'SAR', available_total: 8000,
+        funds: { ai_credit: 10000 }, held: { ai_credit: 2000 }, balance: 10000,
+      };
+      if (a.id === 'billing.my_subscriptions') return { subscriptions: [] };
+      return {};
+    };
+    render(<WalletPane session={session} catalog={catalog} />);
+    // 10000 - 2000 = 8000 halalas = 80 ريال, shown inside the AI-credit card's hint.
+    await waitFor(() => expect(screen.getByText(/80 ريال مضمّن/)).toBeTruthy());
+  });
+});

@@ -31,6 +31,7 @@ import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
 import { DataPane, InvoicesPane, KeysPane, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
+import { WalletPane } from './Wallet';
 import { TeamScreen } from './Team';
 import { type Loading } from '../loading';
 import type { Owned } from '../apps';
@@ -44,7 +45,7 @@ import type { Owned } from '../apps';
  * a page that opens on the wrong thing — which is exactly the failure a deep link exists to
  * prevent.
  */
-export type Pane = 'shop' | 'billing' | 'invoices' | 'data';
+export type Pane = 'shop' | 'billing' | 'wallet' | 'invoices' | 'data';
 export type PaneLink = Pane | 'login' | 'whatsapp' | 'team' | 'keys';
 
 /**
@@ -60,7 +61,7 @@ export function resolvePane(link?: string): Pane {
   // answers with an object rather than undefined — which would leave `pane` holding something
   // that is not a tab at all.
   if (Object.hasOwn(MOVED, link)) return MOVED[link];
-  return (['shop', 'billing', 'invoices', 'data'] as const).includes(link as Pane)
+  return (['shop', 'billing', 'wallet', 'invoices', 'data'] as const).includes(link as Pane)
     ? (link as Pane)
     : 'shop';
 }
@@ -97,6 +98,11 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   // «اشتراكي» and four screens said «متجر التطبيقات» — two names for one place, and the one
   // printed in the sentences that send people here was the one that did not exist.
   { id: 'billing', label: 'متجر التطبيقات', hint: 'تطبيقاتك ووسيلة الدفع' },
+  // A NEW TAB, DELIBERATELY NOT A NEW RAIL SECTION — nav.ts documents "the nine sections" as a
+  // fixed architectural constant (a phone-width limit), so a wallet balance broken down by
+  // purpose lives here instead, beside the other money errand. Its own component, its own
+  // design — built independently of PlansPane's, which is slated for a full rebuild.
+  { id: 'wallet', label: 'محفظتي', hint: 'رصيدك موزّعاً حسب الغرض' },
   // THE INVOICES CAME OUT OF THE STORE AND BECAME A TAB. They were the second half of a tab
   // whose first half is a catalogue: a person arriving to buy an app scrolled past his
   // receipts, and a person arriving for a receipt scrolled past the shop. Two errands, and
@@ -231,6 +237,8 @@ export function AccountScreen(
           />
         </div>
       ) : null}
+
+      {active === 'wallet' ? <WalletPane session={session} catalog={catalog} /> : null}
 
       {active === 'invoices' ? <InvoicesPane session={session} catalog={catalog} /> : null}
 
