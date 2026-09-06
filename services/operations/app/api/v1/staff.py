@@ -42,6 +42,7 @@ from app.api import scope as SCOPE
 from app.core.models import Branch, Operator, Package, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
+from app.core import ai_notes as AN
 from app.core import scheduling as SCHED
 from app.core import seats as S
 from app.core import shop_mode as SM
@@ -803,6 +804,59 @@ async def set_shop_name(request: Request, body: ShopNameIn,
         "shop.renamed", actor=principal.subject, tenant=tenant, resource="tenant",
         ip=request.client.host if request.client else "")
     return {"name": str(out.get("name") or body.name.strip())}
+
+
+# ── the AI assistant's own notes ─────────────────────────────────────────────────────────────
+class AiNotesIn(BaseModel):
+    text: str = Field(default="", max_length=4000)  # the service's own 2000-char message is the
+    # one the owner reads; this wider Pydantic cap only stops an oversized payload before it does
+    # any work at all — belt, not the actual limit.
+
+
+@router.get("/ai-notes", dependencies=[Depends(rate_limit)])
+async def read_ai_notes(request: Request, principal: Principal = Depends(_MANAGE)) -> dict:
+    """What the owner has told the WhatsApp AI assistant about his own shop.
+
+    Reads back empty while `AI_NOTES_ENABLED` is off, regardless of what is stored — see that
+    setting's own comment for why this is a behaviour switch, never a data-loss one.
+    """
+    s = request.app.state.container_settings
+    if not getattr(s, "AI_NOTES_ENABLED", True):
+        return {"text": ""}
+    text = await AN.AiNotesStore(request.app.state.container.datastore).get(_tenant(principal))
+    return {"text": text}
+
+
+@router.put("/ai-notes", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_ai_notes(request: Request, body: AiNotesIn,
+                       principal: Principal = Depends(_MANAGE)) -> Any:
+    """Set what the WhatsApp AI assistant knows about this shop beyond its catalogue — hours,
+    policies, whatever a real receptionist would know and the platform does not.
+
+    REDACTED BEFORE IT IS EVER STORED, never after. The text is merged into a prompt sent to a
+    model that may be hosted outside the Kingdom (`whatsapp-assistant/core/conversation.py`), which
+    redacts it AGAIN at merge time as a second, independent check — but the value written here is
+    already safe even if that second check is ever bypassed.
+    """
+    s = request.app.state.container_settings
+    if not getattr(s, "AI_NOTES_ENABLED", True):
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"error": "NOT_CONFIGURED",
+                                     "message": "هذه الميزة غير مفعّلة حالياً."})
+    tenant = _tenant(principal)
+    try:
+        cleaned = AN.sanitise(body.text)
+    except AN.AiNotesError as exc:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "message": str(exc)})
+    await AN.AiNotesStore(request.app.state.container.datastore).set(tenant, cleaned.text)
+    await request.app.state.auditor.record(
+        "shop.ai_notes_changed", actor=principal.subject, tenant=tenant,
+        resource="shop_ai_notes", ip=request.client.host if request.client else "")
+    # `redacted` NAMES THE CATEGORIES, NEVER THE VALUE — same shape as assistant-service's own
+    # `redacted` response field, so the owner learns a phone number was stripped without either of
+    # us ever handling it a second time to tell him which one.
+    return {"text": cleaned.text, "redacted": list(cleaned.hits)}
 
 
 # ── branches ──────────────────────────────────────────────────────────────────────────────────

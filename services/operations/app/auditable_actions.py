@@ -229,6 +229,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "shop_vehicles",
     },
     {
+        # What the owner told the WhatsApp AI assistant about his own shop. Not critical: this is
+        # a routine profile edit, redacted and length-capped before it is ever written, and refusing
+        # to change it because the log is down protects nothing a customer would notice.
+        "action": "shop.ai_notes_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "shop_ai_notes",
+    },
+    {
         "action": "member.hired",
         "source": "admin",
         # CRITICAL: this is a person being given access to an establishment's data. An unrecorded

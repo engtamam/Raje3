@@ -667,7 +667,7 @@ class ShopNameQueryIn(BaseModel):
 
 @router.post("/operations/shop-name", dependencies=[Depends(require_internal_token)])
 async def shop_name(request: Request, body: ShopNameQueryIn) -> dict:
-    """A shop's display name for a peer that only holds a tenant id.
+    """A shop's display name AND its AI-assistant notes, for a peer that only holds a tenant id.
 
     ADDED FOR services/whatsapp-assistant, which needs to greet a customer as a NAMED shop's
     assistant rather than a generic one — same "narrowest possible addition, reuse what already
@@ -681,12 +681,21 @@ async def shop_name(request: Request, body: ShopNameQueryIn) -> dict:
     route deliberately does not add. A shop that renames itself keeps its OLD name here until it
     next touches its main branch; acceptable for a WhatsApp greeting, not for anything billed or
     legal.
+
+    `ai_notes` RIDES THIS SAME CALL RATHER THAN A SECOND ONE — whatsapp-assistant resolves both
+    per turn (no local cache on its side, see that service's shop_identity.py), so answering both
+    here is one round trip instead of two on every single reply. Reads back empty while
+    `AI_NOTES_ENABLED` is off, same as the owner's own GET /staff/ai-notes.
     """
     c = request.app.state.container
     branch = await BranchStore(c.datastore).get(body.tenant, MAIN_BRANCH_ID)
+    notes = ""
+    if getattr(request.app.state.container_settings, "AI_NOTES_ENABLED", True):
+        from app.core.ai_notes import AiNotesStore
+        notes = await AiNotesStore(c.datastore).get(body.tenant)
     if branch is None or not (branch.name or "").strip():
-        return {"found": False, "name": ""}
-    return {"found": True, "name": branch.name.strip()}
+        return {"found": False, "name": "", "ai_notes": notes}
+    return {"found": True, "name": branch.name.strip(), "ai_notes": notes}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

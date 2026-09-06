@@ -202,6 +202,9 @@ def build_manifest(
             {"path": "/api/v1/staff/mode", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/vehicles", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/vehicles", "tier": "user", "method": "PUT"},
+            # What the owner told the WhatsApp AI assistant about his own shop — see ai_notes.py.
+            {"path": "/api/v1/staff/ai-notes", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/ai-notes", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/branches/{}", "tier": "user", "method": "PATCH"},

@@ -440,6 +440,15 @@ class Settings(BaseSettings):
     # be describing a wish.
     PIN_OPERATORS_ENABLED: bool = False
 
+    # THE FULL KILL SWITCH for shop-owner AI-assistant notes (app/core/ai_notes.py). False means
+    # the field always reads back empty — GET, PUT, and the internal peer route whatsapp-assistant
+    # calls — regardless of what is stored. The stored text is NOT erased when this is off: turning
+    # it back on returns exactly what was there before, so this is a behaviour switch, never a
+    # data-loss one. Enforced at every route that touches the field, not only hidden from the
+    # console — a capability hidden by the console alone is a capability, and this line would then
+    # be describing a wish.
+    AI_NOTES_ENABLED: bool = True
+
     MAX_BACKDATE_SECONDS: int = 7_776_000
 
     CONSENT_GATE_DRIVER: str = "null"        # null | http

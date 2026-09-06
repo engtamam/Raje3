@@ -69,6 +69,9 @@ BACKUP: dict[str, Any] = {
         # AND WHETHER IT WORKS ON CARS — the one question we still ask, and the one the visit sheet
         # changes shape for. Losing it takes the plate page away from every tyre shop at once.
         {"name": "shop_vehicles", "tenant_scoped": True},
+        # WHAT THE OWNER TOLD THE AI ASSISTANT about his own shop — losing it silently degrades
+        # the WhatsApp bot back to generic answers, with no error anywhere to say why.
+        {"name": "shop_ai_notes", "tenant_scoped": True},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a

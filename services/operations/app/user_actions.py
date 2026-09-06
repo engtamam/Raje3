@@ -43,6 +43,19 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "الاسم الذي يراه عميلك ويوقّع رسائلك. يُغيَّر متى شاء.",
     },
     {
+        "id": "operations.ai_notes", "label": "ملاحظات المساعد الذكي", "method": "GET",
+        "path": "/api/v1/staff/ai-notes", "capability": "operations.manage", "group": "منشأتي",
+        # Absent from the catalog entirely while AI_NOTES_ENABLED is off — the route itself also
+        # refuses/blanks (defense in depth), but hiding the control is what stops an owner writing
+        # into a field that is quietly discarded.
+        "help": "ما كتبه صاحب المحل ليساعد المساعد الآلي عبر واتساب يخدم عملاءه بمعلومات إضافية.",
+    },
+    {
+        "id": "operations.set_ai_notes", "label": "تعديل ملاحظات المساعد الذكي", "method": "PUT",
+        "path": "/api/v1/staff/ai-notes", "capability": "operations.manage", "group": "منشأتي",
+        "help": "يُستخدم مباشرة لتوجيه الذكاء الاصطناعي — لا تكتب هنا بيانات شخصية لعملائك.",
+    },
+    {
         "id": "operations.my_operator_row", "label": "بياناتي كموظف", "method": "GET",
         "path": "/api/v1/staff/operators/me", "capability": "operations.read", "group": "الشاشة",
         "help": "قد لا تجد شيئاً — صاحب المحل نفسه ليس له صفّ موظف، وهذا رد طبيعي لا خلل.",
