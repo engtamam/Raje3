@@ -26,12 +26,15 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         "path": "/api/v1/insights/dashboard", "capability": "insights.read", "group": "المؤشرات",
         # Everything in one read: eleven indicators fetched separately is eleven round trips on a
         # phone, and the screen would paint itself in pieces.
+        "help": "كل مؤشرات محلك في شاشة واحدة: الإيرادات والزيارات وما شابه، بآخر حساب لها.",
     },
     {
         "id": "insights.refresh", "label": "حدّث المؤشرات", "method": "POST",
         "path": "/api/v1/insights/refresh", "capability": "insights.read", "group": "المؤشرات",
         # SAME CAPABILITY AS READING, deliberately: it computes nothing new about the shop, it
         # only computes it EARLIER. Whoever may see the numbers may ask for today's.
+        "help": "يعيد حساب لوحتك الآن بدل انتظار التحديث التلقائي — مفيد بعد تسجيل زيارات جديدة، "
+                "وله فترة انتظار قصيرة بين طلب وآخر.",
     },
     {
         "id": "insights.dismiss_next_step", "label": "ليس الآن", "method": "POST",
@@ -45,20 +48,24 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         "path": "/api/v1/insights/associations", "capability": "insights.read",
         "group": "المؤشرات",
         # Returns the verdict and the count, never the arithmetic — the engine is ours.
+        "help": "الخدمات التي يطلبها عملاؤك معاً غالباً، وعدد من فعل ذلك. من ميزات الباقات الأعلى.",
     },
     {
         "id": "insights.bundles", "label": "الباقات المقترحة", "method": "GET",
         "path": "/api/v1/insights/bundles", "capability": "insights.read", "group": "المؤشرات",
         # We say where the relationship is and how many customers it covers. He sets the price.
+        "help": "اقتراحات لباقات خدمات مبنية على ما يطلبه عملاؤك معاً فعلاً. أنت من يحدّد سعرها.",
     },
     {
         "id": "insights.branches", "label": "مقارنة الفروع", "method": "GET",
         "path": "/api/v1/insights/branches", "capability": "insights.read", "group": "المؤشرات",
+        "help": "جدول يقارن أداء فروعك ببعضها: من الأنشط ومن يحتاج متابعة.",
     },
     {
         "id": "insights.digest", "label": "التقرير الأسبوعي", "method": "PUT",
         "path": "/api/v1/insights/digest", "capability": "insights.read", "group": "المؤشرات",
         # Per person, not per establishment: a manager may want it and the owner may not.
+        "help": "فعّل أو أوقف استقبالك أنت شخصياً لتقرير أسبوعي بأداء محلك — لا يؤثر على غيرك.",
     },
     {
         # AND THE READ THAT TELLS THE SWITCH WHERE IT STANDS. Without it the control was
@@ -66,5 +73,6 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         # again on his next visit and could not tell whether his choice had been saved.
         "id": "insights.digest_state", "label": "حالة التقرير الأسبوعي", "method": "GET",
         "path": "/api/v1/insights/digest", "capability": "insights.read", "group": "المؤشرات",
+        "help": "هل أنت مشترك حالياً في التقرير الأسبوعي أم لا.",
     },
 ]

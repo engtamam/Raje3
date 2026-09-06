@@ -27,32 +27,38 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "loyalty.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
         "path": "/api/v1/loyalty/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
+        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
     },
     {
         "id": "loyalty.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
         "path": "/api/v1/loyalty/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "group": "المنصة",
+        "help": "يسري فوراً على هذه الخدمة دون إعادة نشر.",
     },
     {
         "id": "loyalty.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
         "path": "/api/v1/loyalty/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يحذف الاعتماد نهائياً من هذه الخدمة — أي استخدام له بعدها يفشل.",
     },
     {
         "id": "loyalty.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/loyalty/operator/config", "capability": "platform.config", "group": "المنصة",
+        "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
     },
     {
         "id": "loyalty.operator_config_set", "label": "تعديل إعداد تشغيلي", "method": "PUT",
         "path": "/api/v1/loyalty/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
+        "help": "يغيّر سلوك الخدمة من الآن فصاعداً.",
     },
     {
         "id": "loyalty.operator_config_clear", "label": "إرجاع إعداد لقيمته", "method": "DELETE",
         "path": "/api/v1/loyalty/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "المنصة",
+        "help": "يعيد الإعداد إلى قيمته الافتراضية.",
     },
     # ── the programme's settings (spec §9.2, §9.3) ─────────────────────────────────────────────
 
@@ -65,6 +71,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "group": "المنصة",
         # The answer to "where did my points go?" — the only question this programme generates.
         # Recomputes the total from the ledger, which is the truth, and repairs a disagreement.
+        "help": "يعيد حساب رصيد نقاط عميل معيّن من سجل حركاته الفعلي، ويصلح أي فرق ظاهر في رصيده.",
     },
     {
         "id": "loyalty.ping", "label": "فحص الاتصال", "method": "GET",

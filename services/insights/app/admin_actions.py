@@ -16,32 +16,38 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "insights.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
         "path": "/api/v1/insights/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
+        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
     },
     {
         "id": "insights.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
         "path": "/api/v1/insights/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "group": "المنصة",
+        "help": "يسري فوراً على هذه الخدمة دون إعادة نشر.",
     },
     {
         "id": "insights.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
         "path": "/api/v1/insights/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يحذف الاعتماد نهائياً من هذه الخدمة — أي استخدام له بعدها يفشل.",
     },
     {
         "id": "insights.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/insights/operator/config", "capability": "platform.config", "group": "المنصة",
+        "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
     },
     {
         "id": "insights.operator_config_set", "label": "تعديل إعداد تشغيلي", "method": "PUT",
         "path": "/api/v1/insights/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
+        "help": "يغيّر سلوك الخدمة من الآن فصاعداً.",
     },
     {
         "id": "insights.operator_config_clear", "label": "إرجاع إعداد لقيمته", "method": "DELETE",
         "path": "/api/v1/insights/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "المنصة",
+        "help": "يعيد الإعداد إلى قيمته الافتراضية.",
     },
     # ── the owner's dashboard (spec §10) ──────────────────────────────────────────────────────
     {
@@ -49,6 +55,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/insights/platform/recompute", "capability": "platform.insights",
         "confirm": True, "group": "المنصة",
         # OURS. Support answering "why does my dashboard say that?" for a shop not theirs.
+        "help": "يعيد حساب لوحة مؤشرات منشأة معيّنة الآن، لدعم الرد على سؤالها عمّا تعرضه.",
     },
     {
         "id": "insights.platform_summary", "label": "ملخص المنصّة الكلي", "method": "GET",
