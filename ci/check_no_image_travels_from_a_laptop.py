@@ -76,6 +76,13 @@ AN_IMAGE_LINE = re.compile(
 # one network's own search domain. The port is REQUIRED rather than optional, and that is the whole
 # of the false-positive defence: without it this would match `raje3/console:dev` in every
 # `docker build -t` line in the repository and be wrong about more lines than it was right about.
+#: THE PATH MUST CONTAIN A LETTER — `(?=[\w./-]*[a-z])`, a lookahead rather than a narrower
+#: character class, so the rest of the shape (dots, slashes, digits — a real repo path has all
+#: three) stays exactly as permissive as it needs to be. Without it `10.43.0.1/32` — a NetworkPolicy
+#: egress rule's own CIDR, `cidr: 10.43.0.1/32`, `172.31.37.58/32` — read as `<ip>/<repo-path>`,
+#: because a netmask suffix is itself `[a-z0-9][\w./-]*`: all digits, which this grammar cannot
+#: tell apart from a one-character, all-numeric repository name. A real image reference always
+#: has a letter in it (`raje3/console`, `engtamam/whatsapp-assistant`); a CIDR mask never does.
 A_PRIVATE_REGISTRY = re.compile(
     r"(?<![\w.-])(?:"
     r"\d{1,3}(?:\.\d{1,3}){3}"            # an IPv4 literal
@@ -83,8 +90,8 @@ A_PRIVATE_REGISTRY = re.compile(
     r"|localhost"
     r"|host\.docker\.internal"            # Docker Desktop's name for the machine running Docker
     r"|[a-z0-9][\w-]*\.local"             # mDNS: only resolvable on one LAN
-    r")(?::\d+)?/[a-z0-9][\w./-]*"
-    r"|(?<![\w.-])[a-z][a-z0-9-]*:\d+/[a-z0-9][\w./-]*",  # a single-label host, and a port
+    r")(?::\d+)?/(?=[\w./-]*[a-z])[a-z0-9][\w./-]*"
+    r"|(?<![\w.-])[a-z][a-z0-9-]*:\d+/(?=[\w./-]*[a-z])[a-z0-9][\w./-]*",  # a single-label host, and a port
     re.IGNORECASE)
 
 #: `REG="127.0.0.1:5055/raje3"` — a shell, YAML or env assignment whose value IS a private
@@ -98,10 +105,12 @@ A_PRIVATE_REGISTRY = re.compile(
 ASSIGNS_A_REGISTRY = re.compile(
     r"""(?:^|\s)[A-Za-z_][\w.-]*\s*[:=]\s*["']?"""
     r"""(?P<reg>(?:\d{1,3}(?:\.\d{1,3}){3}|\[?::1\]?|localhost|host\.docker\.internal"""
-    r"""|[a-z0-9][\w-]*\.local)(?::\d+)?/[a-z0-9][\w./-]*"""
+    r"""|[a-z0-9][\w-]*\.local)(?::\d+)?/(?=[\w./-]*[a-z])[a-z0-9][\w./-]*"""
     # The same single-label host, for the same reason: `REG="buildbox:5000/raje3"` is the assignment
-    # form of the case the pattern above had been claiming to cover and did not.
-    r"""|[a-z][a-z0-9-]*:\d+/[a-z0-9][\w./-]*)""", re.IGNORECASE)
+    # form of the case the pattern above had been claiming to cover and did not. And the same
+    # letter requirement as A_PRIVATE_REGISTRY above — `cidr: 10.43.0.1/32` is `key: value` too,
+    # and without it every NetworkPolicy egress CIDR in the repo read as a registry assignment.
+    r"""|[a-z][a-z0-9-]*:\d+/(?=[\w./-]*[a-z])[a-z0-9][\w./-]*)""", re.IGNORECASE)
 
 # MOVING AN IMAGE BY HAND. Each of these is a way to put a layer on the node without the node
 # having pulled it, which is the thing being banned.
