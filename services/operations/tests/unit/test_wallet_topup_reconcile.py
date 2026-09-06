@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 
-from app.core.wallet_topup_reconcile import WalletTopupReconciler
+from app.core.wallet_topup_reconcile import HttpWalletTopups, WalletTopupReconciler
 
 
 def run(c):
@@ -72,3 +72,27 @@ def test_a_row_with_no_payment_id_is_skipped_rather_than_reconciled_blindly():
     assert out.scanned == 3
     assert out.reconciled == 1
     assert topups.reconciled_ids == ["pay_1"]
+
+
+# ── HttpWalletTopups: no credential, no poll — same fail-closed gate settlements.py's own
+#    SettlementsSource.configured uses, since both routes are platform.billing (ADMIN tier). ──────
+def real_topups(**overrides):
+    args = dict(billing_url="http://billing-service:8000", identity_url="http://identity-service:8000",
+               client_id="", client_secret="", pending_path="/api/v1/billing/admin/wallet-topups/pending",
+               reconcile_path="/api/v1/billing/payments/{payment_id}/reconcile")
+    args.update(overrides)
+    return HttpWalletTopups(**args)
+
+
+def test_with_no_client_credential_configured_is_false():
+    assert real_topups().configured is False
+    assert real_topups(client_id="cid").configured is False           # secret alone is not enough
+    assert real_topups(client_secret="sec").configured is False        # nor id alone
+    assert real_topups(client_id="cid", client_secret="sec").configured is True
+
+
+def test_with_no_client_credential_pending_answers_unreachable_rather_than_calling_out():
+    """No credential means nothing to poll WITH — the sweep must not attempt a mint that can only
+    fail, since `configured` already knows the answer without a network call."""
+    out = run(real_topups().pending())
+    assert out is None

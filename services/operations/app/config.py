@@ -412,14 +412,16 @@ class Settings(BaseSettings):
 
     # ── wallet top-up reconciliation (v0.18.44's hosted-checkout top-up has no signed webhook) ──
     # billing-service's own listing/reconcile routes — path templates, not full URLs, joined onto
-    # BILLING_SERVICE_URL the same way BILLING_CHECK_PATH already is above.
-    BILLING_WALLET_TOPUPS_PENDING_PATH: str = "/api/v1/billing/operator/wallet-topups/pending"
+    # BILLING_SERVICE_URL. BOTH ARE platform.billing (ADMIN tier, confirmed v0.18.45), same as
+    # the invoice list settlements.py already reads — so this reuses BILLING_CLIENT_ID/
+    # BILLING_CLIENT_SECRET/IDENTITY_SERVICE_URL above rather than the internal token.
+    BILLING_WALLET_TOPUPS_PENDING_PATH: str = "/api/v1/billing/admin/wallet-topups/pending"
     BILLING_WALLET_TOPUP_RECONCILE_PATH: str = "/api/v1/billing/payments/{payment_id}/reconcile"
     # How many pending payments one sweep may take, and how fresh one may be before it is worth
     # asking about — a payment opened seconds ago is almost never done yet, and asking anyway is a
     # wasted round trip on every single sweep of every single top-up.
     WALLET_TOPUP_RECONCILE_LIMIT: int = 50
-    WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS: int = 30
+    WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS: int = 90
 
     # How far back a claimed visit time may be before it is a broken clock rather than a backlog.
     # A shop migrating a year of its own history legitimately needs more than the default, and a

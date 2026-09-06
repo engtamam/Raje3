@@ -2114,8 +2114,10 @@ async def wallet_topups_reconcile(request: Request) -> dict:
     """
     s = get_settings()
     topups = wallet_topup_core.HttpWalletTopups(
-        billing_url=s.BILLING_SERVICE_URL, pending_path=s.BILLING_WALLET_TOPUPS_PENDING_PATH,
-        reconcile_path=s.BILLING_WALLET_TOPUP_RECONCILE_PATH, token=s.INTERNAL_SERVICE_TOKEN,
+        billing_url=s.BILLING_SERVICE_URL, identity_url=s.IDENTITY_SERVICE_URL,
+        client_id=s.BILLING_CLIENT_ID, client_secret=s.BILLING_CLIENT_SECRET,
+        pending_path=s.BILLING_WALLET_TOPUPS_PENDING_PATH,
+        reconcile_path=s.BILLING_WALLET_TOPUP_RECONCILE_PATH,
         timeout=s.PEER_TIMEOUT_SECONDS, limit=s.WALLET_TOPUP_RECONCILE_LIMIT,
         older_than_seconds=s.WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS)
     out = await wallet_topup_core.WalletTopupReconciler(topups=topups).run()

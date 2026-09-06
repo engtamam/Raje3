@@ -183,11 +183,17 @@ env:
   BILLING_USAGE_SET_PATH: "/internal/billing/usage/set"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
   # The wallet top-up reconcile poll (see app/core/wallet_topup_reconcile.py's own header) —
-  # billing-service's own listing/reconcile routes, joined onto BILLING_SERVICE_URL above.
-  BILLING_WALLET_TOPUPS_PENDING_PATH: "/api/v1/billing/operator/wallet-topups/pending"
+  # billing-service's own listing/reconcile routes, joined onto BILLING_SERVICE_URL above. Both are
+  # platform.billing (ADMIN tier, confirmed v0.18.45) — read under BILLING_CLIENT_ID/
+  # BILLING_CLIENT_SECRET below, the same still-unconfigured credential settlements.py's own note
+  # already flags: until that credential is minted, this poll runs and reports "unreachable" every
+  # cycle, same as the settlement sweep issuing nothing today.
+  BILLING_WALLET_TOPUPS_PENDING_PATH: "/api/v1/billing/admin/wallet-topups/pending"
   BILLING_WALLET_TOPUP_RECONCILE_PATH: "/api/v1/billing/payments/{payment_id}/reconcile"
+  # 60-120s is the sibling team's own suggestion — a bill opened seconds ago is almost never done
+  # yet, and asking anyway is a wasted round trip on every single sweep of every single top-up.
   WALLET_TOPUP_RECONCILE_LIMIT: "50"
-  WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS: "30"
+  WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS: "90"
   # WHAT THIS SHOP HOLDS — arrived in base-services v0.16.7, answering our own escalation. The two
   # purchase rules (one base per establishment, one copy of each app) turn on this list, and it is
   # the SAME billable set the entitlement resolver computes over, so a purchase refused here and a

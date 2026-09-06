@@ -6,53 +6,129 @@ success, runs the same _mark_paid grant outbox a plan renewal uses). TuwaiqPay s
 webhook, so polling from our side is the only path — this is that poll, run as a cron sweep rather
 than left to whoever happens to open the console next.
 
-FAIL-OPEN, LIKE `retention.py`'s `HttpSubscriptions`. An unreachable or not-yet-shipped billing
-route answers with NO ROWS this run, never an exception that would fail the whole sweep — the next
-run five minutes later tries again. A payment that stays pending an extra sweep or two costs
-nothing; a cron that starts throwing 500s every five minutes costs an on-call page for no reason.
+BOTH ROUTES ARE PLATFORM.BILLING, NOT INTERNAL — confirmed with the sibling team (v0.18.45 ships
+GET /api/v1/billing/admin/wallet-topups/pending under the same tier as the existing
+POST /payments/{id}/reconcile). Same situation `adapters/settlements.py` already documents at
+length: billing exposes this on the ADMIN tier, so a service that wants it presents a capability
+token rather than the fleet's internal secret. This mints one the same way (client-credentials
+against identity-service, cached until shortly before it expires) rather than a second mint
+mechanism living beside the one settlements.py already built — the token-minting logic is
+duplicated in this one small class deliberately, though, since sharing an instance across two
+sweeps that run on unrelated schedules would only save an HTTP call neither of them makes often.
+
+FAIL-CLOSED ON A MISSING CREDENTIAL, FAIL-OPEN ON EVERYTHING ELSE. No client_id/secret configured
+answers `unreachable` immediately, same as settlements.py's `configured` gate — there is nothing to
+poll without one, and pretending otherwise would be a silent no-op with no signal. Once configured,
+an unreachable billing-service or a not-yet-matching route ALSO answers `unreachable` rather than
+raising — the next run a few minutes later just tries again. A payment that stays pending an extra
+sweep or two costs nothing; a cron that starts throwing 500s every few minutes costs an on-call
+page for no reason.
 
 ONE PAYMENT'S RECONCILE FAILING DOES NOT STOP THE SWEEP. Each row is reconciled independently and
 counted; the sweep's own job is throughput across the whole pending set, not all-or-nothing.
 """
 from __future__ import annotations
 
+import json
+import time
 import urllib.error
 import urllib.parse
+import urllib.request
 from dataclasses import dataclass
-from app.adapters import internal_http
+from typing import Any
+
+# Bounded, like settlements.py's own page walk — a backlog that outgrew this in one sweep is not
+# meant to be swallowed silently; the next sweep a few minutes later picks up where this one left
+# off (the pending list is re-queried fresh every run, so nothing here needs to remember a cursor
+# across runs).
+MAX_PAGES = 20
 
 
 class HttpWalletTopups:
-    """billing-service's own pending-list + reconcile routes, called under the internal token."""
+    """billing-service's pending-list + reconcile routes, called under a minted capability token."""
 
-    def __init__(self, *, billing_url: str, pending_path: str, reconcile_path: str, token: str,
-                 timeout: int = 8, limit: int = 50, older_than_seconds: int = 30) -> None:
-        self._pending_url = billing_url.rstrip("/") + pending_path
+    def __init__(self, *, billing_url: str, identity_url: str, client_id: str, client_secret: str,
+                 pending_path: str, reconcile_path: str, timeout: int = 8, limit: int = 50,
+                 older_than_seconds: int = 30) -> None:
+        self._billing = billing_url.rstrip("/")
+        self._identity = identity_url.rstrip("/")
+        self._id = client_id
+        self._secret = client_secret
+        self._pending_path = pending_path
         # `{payment_id}` is substituted per row — the same path-template convention every other
         # per-resource route in this service already carries in its config default.
-        self._reconcile_url = billing_url.rstrip("/") + reconcile_path
-        self._token = token
+        self._reconcile_path = reconcile_path
         self._timeout = timeout
         self._limit = limit
         self._older_than = older_than_seconds
+        self._token = ""
+        self._token_until = 0
+
+    @property
+    def configured(self) -> bool:
+        return bool(self._billing and self._identity and self._id and self._secret)
+
+    def _mint(self) -> str:
+        """A client-credentials token, reused until shortly before it expires — see
+        `adapters/settlements.py::SettlementsSource._mint` for the same shape, kept separate here
+        rather than shared (see this module's own header for why)."""
+        now = int(time.time())
+        if self._token and now < self._token_until:
+            return self._token
+        body = json.dumps({"grant_type": "client_credentials",
+                           "client_id": self._id, "client_secret": self._secret}).encode()
+        req = urllib.request.Request(self._identity + "/api/v1/oauth/token", data=body,
+                                     method="POST", headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+            payload = json.loads(resp.read() or b"{}")
+        self._token = payload.get("access_token") or ""
+        self._token_until = now + max(0, int(payload.get("expires_in") or 0) - 60)
+        return self._token
+
+    def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
+        token = self._mint()
+        q = urllib.parse.urlencode(params)
+        req = urllib.request.Request(f"{self._billing}{path}?{q}",
+                                     headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+            return json.loads(resp.read() or b"{}")
+
+    def _post(self, path: str) -> None:
+        token = self._mint()
+        req = urllib.request.Request(f"{self._billing}{path}", data=b"{}", method="POST",
+                                     headers={"Authorization": f"Bearer {token}",
+                                              "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+            resp.read()
 
     async def pending(self) -> list[dict] | None:
-        """The pending wallet-topup payments, oldest reasonable candidates only.
+        """Every pending top-up payment, page-walked and bounded.
 
-        `None` means "could not ask" (unreachable, or the route does not exist yet) — told apart
+        `None` means "could not ask" — no credential configured, or the read failed — told apart
         from "asked, and there are none" (`[]`), which is the ordinary quiet case.
         """
-        q = urllib.parse.urlencode({"limit": self._limit, "older_than_seconds": self._older_than})
+        if not self.configured:
+            return None
+        out: list[dict] = []
+        cursor = ""
         try:
-            out = internal_http.get_json(f"{self._pending_url}?{q}", self._token, self._timeout)
+            for _ in range(MAX_PAGES):
+                params = {"limit": self._limit, "older_than_seconds": self._older_than}
+                if cursor:
+                    params["cursor"] = cursor
+                payload = self._get(self._pending_path, params)
+                rows = payload.get("payments") or []
+                out.extend(r for r in rows if isinstance(r, dict))
+                cursor = payload.get("next_cursor") or ""
+                if not cursor:
+                    break
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
-        return list(out.get("payments") or [])
+        return out
 
     async def reconcile(self, payment_id: str) -> bool:
-        url = self._reconcile_url.replace("{payment_id}", payment_id)
         try:
-            internal_http.post_json(url, {}, self._token, self._timeout)
+            self._post(self._reconcile_path.replace("{payment_id}", payment_id))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
         return True
