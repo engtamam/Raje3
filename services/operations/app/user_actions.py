@@ -324,12 +324,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/services/{id}/image", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "يعرض الصورة المرفوعة حالياً، إن وُجدت.",
     },
     {
         "id": "operations.delete_service_image", "label": "حذف صورة خدمة أو منتج", "method": "DELETE",
         "path": "/api/v1/staff/services/{id}/image", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "يحذف الصورة نهائياً — الخدمة أو المنتج يبقى بلا صورة حتى تُرفع صورة جديدة.",
     },
     {
         "id": "operations.upload_package_image", "label": "رفع صورة باقة", "method": "POST",
@@ -343,12 +345,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/packages/{id}/image", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "يعرض الصورة المرفوعة حالياً، إن وُجدت.",
     },
     {
         "id": "operations.delete_package_image", "label": "حذف صورة باقة", "method": "DELETE",
         "path": "/api/v1/staff/packages/{id}/image", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "يحذف الصورة نهائياً — الباقة تبقى بلا صورة حتى تُرفع صورة جديدة.",
     },
     {
         "id": "operations.list_operators", "label": "العاملون", "method": "GET",
@@ -362,6 +366,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # but not `operations.read`. See staff.py::_READ_OPERATORS_FOR_BOOKINGS's own note.
         "id": "operations.list_operators_for_bookings", "label": "العاملون", "method": "GET",
         "path": "/api/v1/staff/operators", "capability": "bookings.read", "group": "الفريق",
+        "help": "نفس قائمة الفريق، تُستخدم هنا لنسبة الحجز لعامل ورسم قائمة الفنيين بشاشة الحجوزات.",
     },
     {
         "id": "operations.create_operator", "label": "إضافة عامل", "method": "POST",
@@ -393,6 +398,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/operators/{id}/working-hours", "capability": "operations.manage",
         "group": "الفريق",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "يحذف دوام هذا العامل الخاص — يعود يعمل بنفس دوام المحل تلقائياً.",
     },
     {
         "id": "operations.shop_mode", "label": "نظام الفروع", "method": "GET",
@@ -432,6 +438,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # audiences must each half-satisfy.
         "id": "operations.list_branches_for_bookings", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "bookings.read", "group": "الفروع",
+        "help": "نفس قائمة الفروع، تُستخدم هنا ليقدر عامل الفرع يجيب جدول يومه بشاشة الحجوزات.",
     },
     {
         "id": "operations.create_branch", "label": "إضافة فرع", "method": "POST",
