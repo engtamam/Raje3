@@ -29,6 +29,10 @@ def test_the_registry_is_the_ones_we_decided_on():
         # the platform's OWN WhatsApp-via-Meta identity — env fallback for tenant="" sends,
         # distinct from a shop's own per-tenant WHATSAPP_ACCESS_TOKEN (a different store entirely)
         "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID",
+        # the active payment gateway's credential — generic slot names, added 2026-09-06 alongside
+        # TuwaiqPay's activation (see the registry's own comment on why the label never names a
+        # specific gateway even though today's is TuwaiqPay).
+        "PAYMENT_API_KEY", "PAYMENT_EXTRA_SECRET",
     }
 
 
@@ -47,12 +51,13 @@ def test_every_entry_carries_every_field_it_needs_to_be_written():
         assert any("؀" <= ch <= "ۿ" for ch in e.label), e.key
 
 
-def test_only_the_two_secret_objects_the_cluster_role_names():
-    """Pinned against deploy/k3s/secrets-admin-rbac.yaml. A sixth entry pointing at a third Secret
-    would be refused 403 by the cluster, and the failure would arrive in production."""
+def test_only_the_secret_objects_the_cluster_role_names():
+    """Pinned against deploy/k3s/secrets-admin-rbac.yaml. An entry pointing at a Secret the Role
+    does not name would be refused 403 by the cluster, and the failure would arrive in production."""
     assert {e.secret for e in SECRETS} == {
-        "notification-service-secrets", "whatsapp-assistant-secrets"}
-    assert {e.deployment for e in SECRETS} == {"notification-service", "whatsapp-assistant"}
+        "notification-service-secrets", "whatsapp-assistant-secrets", "billing-service-secrets"}
+    assert {e.deployment for e in SECRETS} == {
+        "notification-service", "whatsapp-assistant", "billing-service"}
     assert {e.namespace for e in SECRETS} == {"base-services"}
 
 

@@ -180,6 +180,27 @@ describe('AdminProviderSecrets', () => {
     expect(input.type).toBe('password');
   });
 
+  it('groups the payment-gateway credentials into their own provider card, with no gateway name hardcoded', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      secrets: [
+        { key: 'PAYMENT_API_KEY', label: 'اسم مستخدم بوابة الدفع', configured: false,
+         last4: null, updated_at: null, updated_by: null },
+        { key: 'PAYMENT_EXTRA_SECRET', label: 'كلمة مرور بوابة الدفع', configured: false,
+         last4: null, updated_at: null, updated_by: null },
+      ],
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider('بوابة الدفع');
+    await waitFor(() => expect(screen.getByText('اسم مستخدم بوابة الدفع')).toBeTruthy());
+    expect(screen.getByText('كلمة مرور بوابة الدفع')).toBeTruthy();
+    // NO SPECIFIC GATEWAY NAME ANYWHERE ON SCREEN — the slot is generic because
+    // PAYMENT_GATEWAY_DRIVER can change, and a label naming today's gateway would silently
+    // describe the wrong one after a switch.
+    expect(screen.queryByText(/تويق باي|tuwaiqpay|moyasar|stripe/i)).toBeNull();
+  });
+
   it('never renders any "reveal" or "show" control', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({

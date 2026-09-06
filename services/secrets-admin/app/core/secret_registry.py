@@ -128,6 +128,33 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="whatsapp-assistant",
         label="مفتاح Gemini",
     ),
+    # ── The active payment gateway ────────────────────────────────────────────────────────────
+    # GENERIC SLOT NAMES, DELIBERATELY NOT "TUWAIQPAY_*" — every gateway billing-service ships
+    # (Moyasar, Tap, HyperPay, PayTabs, Geidea, APS, TuwaiqPay, ...) reuses the SAME two config
+    # keys (PAYMENT_API_KEY/PAYMENT_EXTRA_SECRET), switched by PAYMENT_GATEWAY_DRIVER — a label
+    # naming today's gateway would silently describe the wrong provider the day that changes. The
+    # console's own help text below names the CURRENT gateway; this file's label stays generic.
+    #
+    # ADDED 2026-09-06 — a real, found gap: TuwaiqPay was activated (PAYMENT_GATEWAY_DRIVER in
+    # deploy/services/billing-service.values.yaml) before either credential had anywhere safe to
+    # be written. Without this entry the only way to set them was raw kubectl against
+    # billing-service-secrets — exactly the access this whole service exists to remove. See
+    # deploy/k3s/secrets-admin-rbac.yaml's matching addition — this entry is refused by the
+    # cluster itself without it, not only by this file.
+    SecretEntry(
+        key="PAYMENT_API_KEY",
+        secret="billing-service-secrets",
+        namespace="base-services",
+        deployment="billing-service",
+        label="اسم مستخدم بوابة الدفع",
+    ),
+    SecretEntry(
+        key="PAYMENT_EXTRA_SECRET",
+        secret="billing-service-secrets",
+        namespace="base-services",
+        deployment="billing-service",
+        label="كلمة مرور بوابة الدفع",
+    ),
 )
 
 #: key -> entry. Built once; the routes look up by key and 404 on anything not here.

@@ -20,7 +20,7 @@
  * the write-only guarantee above, which is about a value already saved.
  */
 import { useEffect, useState } from 'react';
-import { CircleHelp, ChevronDown, Copy, MessageCircle, Sparkles } from 'lucide-react';
+import { CircleHelp, ChevronDown, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
@@ -57,6 +57,11 @@ const SECRET_HELP: Record<string, string> = {
   WHATSAPP_PHONE_NUMBER_ID: 'من لوحة WhatsApp Manager بنفس حساب الأعمال — رقم هاتف المنصة نفسه (لا رقم محل) ← "معرّف رقم الهاتف" (Phone Number ID)، رقم وليس رقم الجوال نفسه.',
   WHATSAPP_BUSINESS_ACCOUNT_ID: 'من نفس WhatsApp Manager — معرّف حساب واتساب الأعمال (WABA ID) نفسه، يظهر أعلى لوحة الحساب. يلزم فقط لتسجيل القوالب، لا للإرسال نفسه.',
   GEMINI_API_KEY: 'من Google AI Studio (aistudio.google.com/apikey) — الأسهل، بلا مشروع GCP. أو من GCP نفسه (console.cloud.google.com): فعّل "Generative Language API" وأنشئ مفتاحاً من Credentials، لو تبي تربطه بمشروع/فوترة محددة.',
+  // خانة عامة يعيد استخدامها كل مزوّد دفع (Moyasar/Tap/HyperPay/PayTabs/Geidea/APS/TuwaiqPay) —
+  // بلا اسم مزوّد مكتوب هنا بالكود عمداً، لأن أي مزوّد نشط اليوم قد لا يكون النشط غداً: أي مزوّد
+  // بوابة الدفع المفعّل حالياً بإعدادات النشر (PAYMENT_GATEWAY_DRIVER) — راجع بيانات حسابك عنده.
+  PAYMENT_API_KEY: 'اسم المستخدم لحساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً بإعدادات النشر.',
+  PAYMENT_EXTRA_SECRET: 'كلمة مرور نفس حساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً.',
 };
 
 // مفاتيح نخترعها نحن، لا يصدرها مزوّد خارجي — زر "توليد" يبني قيمة عشوائية قوية بدل ما يُكتب
@@ -78,10 +83,12 @@ const PROVIDER_OF: Record<string, string> = {
   META_APP_ID: 'meta', META_APP_SECRET: 'meta', WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
   GEMINI_API_KEY: 'gemini',
+  PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
   meta: { label: 'Meta (واتساب)', icon: MessageCircle },
   gemini: { label: 'Gemini', icon: Sparkles },
+  payment: { label: 'بوابة الدفع', icon: CreditCard },
   other: { label: 'أخرى', icon: CircleHelp },
 };
 
