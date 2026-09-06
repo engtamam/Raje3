@@ -265,38 +265,46 @@ class RealBookingProvider:
     # id is re-checked again, server-side, by bookings-service's own internal route (see that
     # file's `_own_booking`) — this module does not trust its own resolve as the final word either.
 
-    async def list_bookings(self, *, tenant: str, from_number: str) -> list[dict]:
+    async def list_bookings(self, *, tenant: str, from_number: str, branch_id: str = "") -> list[dict]:
+        """`branch_id`, WHEN THE CONVERSATION HAS ONE, NARROWS TO THAT BRANCH — a per_branch shop's
+        WhatsApp number IS a branch, so a customer texting branch B's number must not see her own
+        booking at branch A. Empty (a central shop with no branch fixed on this conversation yet)
+        means every branch, unchanged from before this existed. bookings-service's own internal
+        route re-applies this as ownership, not a filter it trusts from here (see that route's
+        `_own_booking`)."""
         if self._bookings_for_customer is None:
             raise BookingAssignmentError("booking management is not enabled on this deployment")
         customer_id = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
-        result = self._bookings_for_customer.call({"tenant": tenant, "customer_id": customer_id})
+        result = self._bookings_for_customer.call(
+            {"tenant": tenant, "customer_id": customer_id, "branch_id": branch_id})
         return list((result or {}).get("bookings") or [])
 
     async def cancel_booking(self, *, tenant: str, from_number: str, booking_id: str,
-                             reason: str = "") -> dict:
+                             reason: str = "", branch_id: str = "") -> dict:
         if self._cancel_booking is None:
             raise BookingAssignmentError("booking management is not enabled on this deployment")
         customer_id = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
         result = self._cancel_booking.call(
-            {"tenant": tenant, "customer_id": customer_id, "reason": reason},
+            {"tenant": tenant, "customer_id": customer_id, "reason": reason, "branch_id": branch_id},
             path_params={"booking_id": booking_id})
         if result is None:
             raise BookingAssignmentError("bookings-service refused or was unreachable")
         return result
 
     async def reschedule_booking(self, *, tenant: str, from_number: str, booking_id: str,
-                                 starts_at: int) -> dict:
+                                 starts_at: int, branch_id: str = "") -> dict:
         if self._reschedule_booking is None:
             raise BookingAssignmentError("booking management is not enabled on this deployment")
         customer_id = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
         result = self._reschedule_booking.call(
-            {"tenant": tenant, "customer_id": customer_id, "starts_at": starts_at},
+            {"tenant": tenant, "customer_id": customer_id, "starts_at": starts_at,
+             "branch_id": branch_id},
             path_params={"booking_id": booking_id})
         if result is None:
             raise BookingAssignmentError("bookings-service refused or was unreachable")

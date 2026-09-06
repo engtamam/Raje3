@@ -247,7 +247,8 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         # crash the turn with no reply sent at all — the exact "silence" defect class this
         # module's docstring already flags for the audit step below; the fix is the same shape.
         try:
-            bookings = await booking_provider.list_bookings(tenant=tenant, from_number=from_number)
+            bookings = await booking_provider.list_bookings(
+                tenant=tenant, from_number=from_number, branch_id=branch_id)
         except Exception as exc:
             raise ToolValidationError(f"could not list bookings: {exc}") from exc
         wants_history = bool(args.get("include_history"))
@@ -278,7 +279,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         booking_id = str(args.get("booking_id") or "")
         if not booking_id:
             raise ToolValidationError("propose_cancel_booking requires booking_id")
-        booking = await _find_own_booking(booking_provider, tenant, from_number, booking_id)
+        booking = await _find_own_booking(booking_provider, tenant, from_number, booking_id, branch_id)
         if booking is None:
             raise ToolValidationError("هذا الحجز غير موجود أو لا يخصّك")
         if booking.get("status") == "cancelled":
@@ -307,7 +308,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         if not booking_id or new_starts_at is None:
             raise ToolValidationError(
                 "propose_reschedule_booking requires booking_id and new_starts_at_iso")
-        booking = await _find_own_booking(booking_provider, tenant, from_number, booking_id)
+        booking = await _find_own_booking(booking_provider, tenant, from_number, booking_id, branch_id)
         if booking is None:
             raise ToolValidationError("هذا الحجز غير موجود أو لا يخصّك")
         if booking.get("status") != "booked":
@@ -511,7 +512,7 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
         try:
             booking = await booking_provider.cancel_booking(
                 tenant=tenant, from_number=from_number, booking_id=args["booking_id"],
-                reason=str(args.get("reason") or ""))
+                reason=str(args.get("reason") or ""), branch_id=branch_id)
         except Exception as exc:
             raise ToolValidationError(f"booking cancel failed: {exc}") from exc
         store_ok = await _mark_consumed(store=store, proposal_id=proposal_id, row=row,
@@ -539,7 +540,7 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
         try:
             booking = await booking_provider.reschedule_booking(
                 tenant=tenant, from_number=from_number, booking_id=args["booking_id"],
-                starts_at=int(args["starts_at"]))
+                starts_at=int(args["starts_at"]), branch_id=branch_id)
         except Exception as exc:
             raise ToolValidationError(f"booking reschedule failed: {exc}") from exc
         store_ok = await _mark_consumed(store=store, proposal_id=proposal_id, row=row,
@@ -612,14 +613,18 @@ def _fmt_booking_row(b: dict[str, Any]) -> str:
 
 
 async def _find_own_booking(booking_provider: Any, tenant: str, from_number: str,
-                            booking_id: str) -> dict[str, Any] | None:
+                            booking_id: str, branch_id: str = "") -> dict[str, Any] | None:
     """The double-check every write tool above performs before ever building a proposal: does this
     booking id genuinely exist, and does it genuinely belong to the customer on THIS conversation's
     own phone number — never trusted from the model's claim alone. Goes through
-    booking_provider.list_bookings, the SAME customer-scoped read `list_my_bookings` itself uses,
-    so there is no second, looser path for "does this booking belong to me" to diverge through."""
+    booking_provider.list_bookings, the SAME customer-scoped (and now branch-scoped) read
+    `list_my_bookings` itself uses, so there is no second, looser path for "does this booking
+    belong to me" to diverge through. `branch_id`, when this conversation has one, means a booking
+    at a DIFFERENT branch is treated exactly like one that does not exist at all — a per_branch
+    shop's number is a branch, and texting branch B's number must not surface branch A's booking."""
     try:
-        bookings = await booking_provider.list_bookings(tenant=tenant, from_number=from_number)
+        bookings = await booking_provider.list_bookings(
+            tenant=tenant, from_number=from_number, branch_id=branch_id)
     except Exception as exc:
         # SAME "caught, not left to propagate" reasoning as list_my_bookings above — this helper
         # is called from inside propose_cancel_booking/propose_reschedule_booking, where an

@@ -12,6 +12,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
+import pytest
+
 from app.adapters.audit_sink.null import NullAuditSink
 from app.adapters.datastore.memory import MemoryDataStore
 from app.auditable_actions import AUDITABLE_ACTIONS
@@ -52,23 +54,26 @@ class _FakeManagementProvider:
     def _customer(self, tenant, from_number):
         return self.phones.get((tenant, from_number))
 
-    async def list_bookings(self, *, tenant, from_number):
+    async def list_bookings(self, *, tenant, from_number, branch_id=""):
         cid = self._customer(tenant, from_number)
         return [dict(b) for b in self.bookings.values()
-               if b["tenant"] == tenant and b["customer_id"] == cid]
+               if b["tenant"] == tenant and b["customer_id"] == cid
+               and (not branch_id or b.get("branch_id") == branch_id)]
 
-    async def cancel_booking(self, *, tenant, from_number, booking_id, reason=""):
+    async def cancel_booking(self, *, tenant, from_number, booking_id, reason="", branch_id=""):
         cid = self._customer(tenant, from_number)
         b = self.bookings.get(booking_id)
-        if b is None or b["tenant"] != tenant or b["customer_id"] != cid:
+        if (b is None or b["tenant"] != tenant or b["customer_id"] != cid
+                or (branch_id and b.get("branch_id") != branch_id)):
             raise T.ToolValidationError("not found or not yours")
         b["status"] = "cancelled"
         return dict(b)
 
-    async def reschedule_booking(self, *, tenant, from_number, booking_id, starts_at):
+    async def reschedule_booking(self, *, tenant, from_number, booking_id, starts_at, branch_id=""):
         cid = self._customer(tenant, from_number)
         b = self.bookings.get(booking_id)
-        if b is None or b["tenant"] != tenant or b["customer_id"] != cid:
+        if (b is None or b["tenant"] != tenant or b["customer_id"] != cid
+                or (branch_id and b.get("branch_id") != branch_id)):
             raise T.ToolValidationError("not found or not yours")
         if starts_at not in self.slots:
             raise T.ToolValidationError("slot no longer available")
@@ -134,6 +139,83 @@ async def test_list_my_bookings_never_returns_another_customers_booking():
         from_number="+9665", booking_history_visible=True)
     assert "bkg_mine" in text
     assert "bkg_other" not in text
+
+
+# ── branch scoping (a per_branch shop's number IS a branch) ─────────────────────────────────────
+
+async def test_list_my_bookings_hides_a_booking_from_a_different_branch():
+    """A customer texting branch B's number must not see her own booking at branch A — the same
+    protection cross-customer isolation already gets, applied to branch too."""
+    store = MemoryDataStore()
+    provider = _FakeManagementProvider()
+    now = int(time.time())
+    _seed(provider, booking_id="bkg_branch_a", from_number="+9665", customer_id="cust1",
+         starts_at=now + 3600)
+    provider.bookings["bkg_branch_a"]["branch_id"] = "branch-a"
+    text = await T.validate_and_render(
+        tenant=TENANT, subject_ref="sub1", conversation_id="c1", tool="list_my_bookings",
+        args={}, allowed_tools=ALLOWED, store=store, booking_provider=provider,
+        points_summary=NullPointsSummary(), proposal_ttl_seconds=1800, now=now,
+        from_number="+9665", booking_history_visible=True, branch_id="branch-b")
+    assert "bkg_branch_a" not in text
+    assert "لا توجد حجوزات" in text
+
+
+async def test_list_my_bookings_with_no_branch_on_the_conversation_sees_every_branch():
+    """No regression for a central shop (or a session with no branch fixed yet)."""
+    store = MemoryDataStore()
+    provider = _FakeManagementProvider()
+    now = int(time.time())
+    _seed(provider, booking_id="bkg_branch_a", from_number="+9665", customer_id="cust1",
+         starts_at=now + 3600)
+    provider.bookings["bkg_branch_a"]["branch_id"] = "branch-a"
+    text = await T.validate_and_render(
+        tenant=TENANT, subject_ref="sub1", conversation_id="c1", tool="list_my_bookings",
+        args={}, allowed_tools=ALLOWED, store=store, booking_provider=provider,
+        points_summary=NullPointsSummary(), proposal_ttl_seconds=1800, now=now,
+        from_number="+9665", booking_history_visible=True)
+    assert "bkg_branch_a" in text
+
+
+async def test_propose_cancel_booking_from_a_different_branch_is_refused_like_not_found():
+    store = MemoryDataStore()
+    provider = _FakeManagementProvider()
+    now = int(time.time())
+    _seed(provider, booking_id="bkg_branch_a", from_number="+9665", customer_id="cust1",
+         starts_at=now + 3600)
+    provider.bookings["bkg_branch_a"]["branch_id"] = "branch-a"
+    with pytest.raises(T.ToolValidationError) as exc:
+        await T.validate_and_render(
+            tenant=TENANT, subject_ref="sub1", conversation_id="c1", tool="propose_cancel_booking",
+            args={"booking_id": "bkg_branch_a"}, allowed_tools=ALLOWED, store=store,
+            booking_provider=provider, points_summary=NullPointsSummary(),
+            proposal_ttl_seconds=1800, now=now, from_number="+9665", branch_id="branch-b")
+    assert "لا يخصّك" in str(exc.value)
+    # UNTOUCHED — the refused cross-branch attempt must not have cancelled it.
+    assert provider.bookings["bkg_branch_a"]["status"] == "booked"
+
+
+async def test_confirming_a_cancel_still_checks_branch_at_confirm_time():
+    """Re-validated AGAIN at confirm time, same discipline as ownership — a proposal built while
+    branch_id happened to be empty (or a stale one) must still be refused if it does not match the
+    booking's real branch when the customer actually taps confirm."""
+    store = MemoryDataStore()
+    provider = _FakeManagementProvider()
+    now = int(time.time())
+    _seed(provider, booking_id="bkg_branch_a", from_number="+9665", customer_id="cust1",
+         starts_at=now + 3600)
+    provider.bookings["bkg_branch_a"]["branch_id"] = "branch-a"
+    rendered = await T.validate_and_render(
+        tenant=TENANT, subject_ref="sub1", conversation_id="c1", tool="propose_cancel_booking",
+        args={"booking_id": "bkg_branch_a"}, allowed_tools=ALLOWED, store=store,
+        booking_provider=provider, points_summary=NullPointsSummary(),
+        proposal_ttl_seconds=1800, now=now, from_number="+9665")   # no branch at propose time
+    with pytest.raises(T.ToolValidationError):
+        await T.execute_confirmed_proposal(
+            tenant=TENANT, proposal_id=rendered.proposal_id, store=store,
+            booking_provider=provider, auditor=_FakeAuditor(), idempotency_key="idem-1", now=now,
+            from_number="+9665", branch_id="branch-b")   # wrong branch at confirm time
+    assert provider.bookings["bkg_branch_a"]["status"] == "booked"
 
 
 async def test_list_my_bookings_always_shows_current_and_upcoming_regardless_of_history_flag():
@@ -638,7 +720,7 @@ class _RaisingProvider:
     core/conversation.py's own `except T.ToolValidationError` — the exact "silent crash" class of
     bug this module's docstring already flags for the audit step elsewhere."""
 
-    async def list_bookings(self, *, tenant, from_number):
+    async def list_bookings(self, *, tenant, from_number, branch_id=""):
         raise RuntimeError("peer unreachable")
 
 
