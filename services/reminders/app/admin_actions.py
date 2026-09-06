@@ -52,6 +52,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "reminders.silent", "label": "محلات لا ترسل", "method": "GET",
         "path": "/api/v1/platform/silent", "capability": "platform.reminders",
+        "help": "محلات لديها رسائل بانتظار الإرسال ولا تستطيع، مع سبب التعطّل لكل واحد.",
         # ONE ROW PER SHOP THAT HAS WORK WAITING AND CANNOT MOVE IT. «0 أُرسلت اليوم» is also what
         # a quiet Friday looks like; the conjunction is the alarm.
     },

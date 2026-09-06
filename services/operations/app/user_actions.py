@@ -91,6 +91,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.manage", "group": "Customers",
         "params": [{"name": "request_id", "in": "path", "type": "string", "required": True}],
         "confirm": True,
+        "help": "يسجّل أنك أجبت العميل على طلبه. يبقى اسمك على الإجابة.",
     },
     {
         "id": "operations.erase_customer",
@@ -102,6 +103,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Customers",
+        "help": "حذفٌ لا رجوع عنه لكل ما تحتفظ به المنصة عن هذا العميل، بناءً على طلبه هو.",
     },
     {
         # THE ONE EDIT AN OWNER NEEDED AND COULD NOT MAKE. The name arrives after five visits by
@@ -118,6 +120,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/field/customers/{id}", "capability": "operations.read",
         "group": "الشاشة",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "سيارات العميل وزياراته الأخيرة، مقصورة على فرعك إن كان لزياراته فرع.",
     },
     {
         "id": "operations.customers_by_refs", "label": "عملاء من قائمة التذكيرات", "method": "POST",
@@ -350,6 +353,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.list_operators", "label": "العاملون", "method": "GET",
         "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
+        "help": "فريقك في فرعك، لا فروع أخرى إن كان للمحل أكثر من فرع.",
     },
     {
         # SAME ROUTE, A SECOND DOOR — same shape as list_branches_for_bookings
@@ -393,6 +397,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.shop_mode", "label": "نظام الفروع", "method": "GET",
         "path": "/api/v1/staff/mode", "capability": "operations.read", "group": "الفروع",
+        "help": "هل المحل مركزي أم بفروع مستقلة، وهل التحويل بينهما متاح لك أصلاً.",
     },
     {
         "id": "operations.set_shop_mode", "label": "تغيير نظام الفروع", "method": "PUT",
@@ -403,6 +408,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.shop_vehicles", "label": "العمل على السيارات", "method": "GET",
         "path": "/api/v1/staff/vehicles", "capability": "operations.read", "group": "منشأتي",
+        "help": "هل تسجيل الزيارة يعرض حقل رقم اللوحة والعدّاد لهذا المحل.",
     },
     {
         "id": "operations.set_shop_vehicles", "label": "تغيير العمل على السيارات", "method": "PUT",
@@ -414,6 +420,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.list_branches", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
+        "help": "فروعك، وكم فرعاً تسمح به باقتك.",
     },
     {
         # SAME ROUTE, A SECOND DOOR — a field operator holds `bookings.read`
@@ -429,6 +436,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.create_branch", "label": "إضافة فرع", "method": "POST",
         "path": "/api/v1/staff/branches", "capability": "operations.manage", "group": "الفروع",
+        "help": "فرع جديد — يُحتسب ضمن عدد الفروع المسموح به في باقتك.",
     },
     {
         "id": "operations.update_branch", "label": "تعديل فرع", "method": "PATCH",
