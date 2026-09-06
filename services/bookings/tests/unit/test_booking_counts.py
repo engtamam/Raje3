@@ -62,17 +62,32 @@ def test_a_cancelled_or_zero_day_still_only_counts_rows_that_exist():
 
 
 def test_counts_hold_across_more_than_one_page_of_the_underlying_index():
-    """`find()`'s own default page is 100 rows. A busy shop's year is bigger than that — this
-    proves `counts_between` pages through every row rather than trusting a single page."""
+    """`counts_between` itself asks `find()` for pages of 500 — this proves it PAGES rather than
+    trusting the first one back, with a row count genuinely past that (550), not merely past
+    `find()`'s own unrelated default of 100. A weaker version of this test (250 rows) passed
+    trivially in ONE call to `find()` regardless of whether the pagination loop was even
+    correct — verified directly by counting real `find()` calls before writing this version."""
     async def run():
         store = MemoryDataStore()
         bookings = BookingStore(store)
-        # 250 bookings, spread across 250 different days, well over one `find()` page.
-        for i in range(250):
-            await bookings.save(_booking(id=f"bkg_{i}", starts_at=1786860000 + i * 86400))
-        return await bookings.counts_between(
-            "t1", "b1", start_bucket="2000-01-01", end_bucket="2100-01-01")
+        calls = 0
+        orig_find = store.find
 
-    counts = asyncio.run(run())
-    assert len(counts) == 250
+        async def counting_find(*a, **kw):
+            nonlocal calls
+            calls += 1
+            return await orig_find(*a, **kw)
+
+        store.find = counting_find
+        # 550 bookings, spread across 550 different days — past `counts_between`'s own
+        # `limit=500`, so a correct implementation must call `find()` at least twice.
+        for i in range(550):
+            await bookings.save(_booking(id=f"bkg_{i}", starts_at=1786860000 + i * 86400))
+        counts = await bookings.counts_between(
+            "t1", "b1", start_bucket="2000-01-01", end_bucket="2100-01-01")
+        return counts, calls
+
+    counts, calls = asyncio.run(run())
+    assert len(counts) == 550
     assert all(v == 1 for v in counts.values())
+    assert calls >= 2
