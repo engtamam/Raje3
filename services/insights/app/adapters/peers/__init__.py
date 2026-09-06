@@ -124,6 +124,7 @@ class HttpPeers:
                  branches_path: str = "/internal/operations/branches",
                  operators_path: str = "/internal/operations/operators",
                  scope_path: str = "/internal/operations/branch-scope",
+                 ratings_summary_path: str = "/internal/operations/ratings-summary",
                  tenants_path: str = "/internal/operations/tenants-with-visits",
                  reminders_url: str, send_path: str, consent_count_path: str,
                  ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
@@ -138,6 +139,7 @@ class HttpPeers:
         self._branches_url = operations_url.rstrip("/") + branches_path
         self._operators_url = operations_url.rstrip("/") + operators_path
         self._scope_url = operations_url.rstrip("/") + scope_path
+        self._ratings_summary_url = operations_url.rstrip("/") + ratings_summary_path
         self._tenants_url = operations_url.rstrip("/") + tenants_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
@@ -428,6 +430,19 @@ class HttpPeers:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass
 
+        # The rating app's own week (rating-app-feature.md phase 6). Absent on any failure — a
+        # shop that never bought the rating app gets a count of 0 from the peer itself and this
+        # line simply never appears (see core/digest.py's own zero-drops-the-line rule), same as
+        # a peer that is genuinely down.
+        try:
+            rat = _post(self._ratings_summary_url, {"tenant": tenant, "since": since},
+                       self._token, self._timeout)
+            out["ratings_count"] = int(rat.get("count") or 0)
+            out["ratings_average"] = float(rat.get("average") or 0.0)
+            out["ratings_unhandled"] = int(rat.get("unhandled") or 0)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            pass
+
         return out
 
 
@@ -441,6 +456,7 @@ def build_peers(settings) -> Any:
                      branches_path=settings.OPERATIONS_BRANCHES_PATH,
                      operators_path=settings.OPERATIONS_OPERATORS_PATH,
                      scope_path=settings.OPERATIONS_SCOPE_PATH,
+                     ratings_summary_path=settings.OPERATIONS_RATINGS_SUMMARY_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,

@@ -450,6 +450,30 @@ class Operations:
         await self._visits.save(v)
         return v
 
+    async def ratings_summary(self, tenant: str, *, since: int, limit: int = 500
+                              ) -> dict[str, Any]:
+        """The weekly digest's own rating line (rating-app-feature.md phase 6) — count, average,
+        and how many are still unhandled, all THIS WEEK ONLY.
+
+        BOUNDED, NOT FILTERED AT THE STORE. `_find` only supports exact/membership match, and
+        `since` is a range — so this reads the `limit` most recent ratings (already sorted newest
+        first by `VisitStore.ratings`) and narrows to `since` in Python, same "read the bound,
+        narrow after" shape as `offers_redeemed` above. A shop that receives more than `limit`
+        ratings in a single week undercounts rather than reading unbounded — matching every other
+        weekly-digest figure's own "one aggregate read, not a scan" discipline (see
+        `HttpPeers.digest_extras`'s own module note: each of these figures fails or narrows on its
+        own, and the report still ships with 7 correct lines rather than none).
+        """
+        rows, _ = await self._visits.ratings(tenant, limit=limit)
+        this_week = [v for v in rows if v.rated_at >= since]
+        if not this_week:
+            return {"count": 0, "average": 0.0, "unhandled": 0}
+        return {
+            "count": len(this_week),
+            "average": round(sum(v.rating for v in this_week) / len(this_week), 1),
+            "unhandled": sum(1 for v in this_week if not v.rating_handled_at),
+        }
+
     async def customers_by_refs(self, tenant: str, refs: set[str]) -> list[Customer]:
         """The join reminders cannot make: pseudonyms to customers, inside one establishment."""
         return await self._customers.by_refs(tenant, refs)

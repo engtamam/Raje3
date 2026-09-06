@@ -149,6 +149,9 @@ def build_manifest(
             # One customer's own history, shaped for their page: service names and a date, and
             # nothing else. Everything omitted is something a forwarded link could otherwise show.
             {"path": "/internal/operations/customer-visits", "tier": "internal", "method": "POST"},
+            # The weekly digest's own rating line (rating-app-feature.md phase 6) — insights calls
+            # this once per tenant per week.
+            {"path": "/internal/operations/ratings-summary", "tier": "internal", "method": "POST"},
             # ADDED for services/whatsapp-assistant — resolve an inbound WhatsApp number to a
             # pseudonym and a visit-count pattern, never a name or the number back. See the
             # route's own docstring in api/internal.py for why nothing like this existed before.

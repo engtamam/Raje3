@@ -61,6 +61,7 @@ def _line(label: str, value: Any) -> str:
 
 def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
           points_redeemed: int = 0, consented: int = 0,
+          ratings_count: int = 0, ratings_average: float = 0.0, ratings_unhandled: int = 0,
           can_campaign: bool = True, shop: str = "") -> dict[str, Any] | None:
     """The message, or None when there is nothing honest to send.
 
@@ -150,6 +151,18 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #     must not see an empty points line (spec §8.6.1).
     if points_redeemed:
         lines.append(_line("نقاط استُبدلت", points_redeemed))
+
+    # 7b · THE RATING APP'S OWN WEEK, for shops that have it (rating-app-feature.md phase 6).
+    #      Absent otherwise — a shop that never bought the rating app must not see an empty
+    #      "0/5 (0)" line, same discipline as points above. Two lines, not one: the average tells
+    #      him HOW he did, the unhandled count tells him what he still owes a reply — and the
+    #      second is dropped on its own when it is zero, because zero unhandled is not news, it is
+    #      the state every shop wants and printing it every week is the "eight zeros" defect the
+    #      module docstring already warns about.
+    if ratings_count:
+        lines.append(_line("تقييمات الأسبوع", f"{ratings_average}/5 ({ratings_count})"))
+        if ratings_unhandled:
+            lines.append(_line("بانتظار المعالجة", ratings_unhandled))
 
     # 8 · THE AUDIENCE HE ALREADY HAS, for a shop that cannot send offers yet. Customers who
     #     explicitly agreed, sitting there while he has no way to reach them — a fact about his own

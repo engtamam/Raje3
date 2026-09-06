@@ -597,3 +597,54 @@ def test_one_man_on_two_keyboards_is_one_customer():
     assert _normalise_phone("+966٥٠١٢٣٤٥٦٧") == _normalise_phone("+966501234567")
     # The Persian/Urdu forms ship on phones sold here too.
     assert _normalise_phone("۰۵۰۱۲۳۴۵۶۷") == _normalise_phone("0501234567")
+
+
+# ── ratings_summary — the weekly digest's rating line (rating-app-feature.md phase 6) ───────────
+def _rated_visit(tenant: str, visit_id: str, *, rating: int, rated_at: int,
+                 rating_handled_at: int = 0) -> "Visit":
+    from app.core.models import Visit
+    return Visit(id=visit_id, tenant=tenant, customer_id="cus_1", service_ids=["svc_1"],
+                created=rated_at, occurred_at=rated_at, rating=rating, rated_at=rated_at,
+                rating_handled_at=rating_handled_at)
+
+
+def test_ratings_summary_with_nothing_this_week_reads_zero_not_a_crash(ops):
+    svc, store = ops
+    out = run(svc.ratings_summary(A, since=1_000))
+    assert out == {"count": 0, "average": 0.0, "unhandled": 0}
+
+
+def test_ratings_summary_counts_only_this_week(ops):
+    svc, store = ops
+    run(VisitStore(store).save(_rated_visit(A, "vis_old", rating=5, rated_at=500)))
+    run(VisitStore(store).save(_rated_visit(A, "vis_new", rating=3, rated_at=2_000)))
+    out = run(svc.ratings_summary(A, since=1_000))
+    assert out["count"] == 1
+
+
+def test_ratings_summary_computes_a_real_decimal_average(ops):
+    svc, store = ops
+    run(VisitStore(store).save(_rated_visit(A, "v1", rating=5, rated_at=1_000)))
+    run(VisitStore(store).save(_rated_visit(A, "v2", rating=4, rated_at=1_001)))
+    run(VisitStore(store).save(_rated_visit(A, "v3", rating=5, rated_at=1_002)))
+    out = run(svc.ratings_summary(A, since=500))
+    assert out["count"] == 3
+    assert out["average"] == pytest.approx(4.7, abs=0.05)
+
+
+def test_ratings_summary_counts_unhandled_exactly(ops):
+    svc, store = ops
+    run(VisitStore(store).save(_rated_visit(A, "v1", rating=3, rated_at=1_000)))
+    run(VisitStore(store).save(_rated_visit(A, "v2", rating=3, rated_at=1_001,
+                                            rating_handled_at=2_000)))
+    out = run(svc.ratings_summary(A, since=500))
+    assert out["count"] == 2
+    assert out["unhandled"] == 1
+
+
+def test_ratings_summary_is_tenant_scoped(ops):
+    svc, store = ops
+    run(VisitStore(store).save(_rated_visit(A, "v_mine", rating=5, rated_at=1_000)))
+    run(VisitStore(store).save(_rated_visit(B, "v_theirs", rating=1, rated_at=1_000)))
+    out = run(svc.ratings_summary(A, since=500))
+    assert out["count"] == 1

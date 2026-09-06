@@ -255,6 +255,10 @@ class Settings(BaseSettings):
     OPERATIONS_OPERATORS_PATH: str = "/internal/operations/operators"
     # Who may see which branch (§12.4) — the staffing join only operations can make.
     OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
+    # THEIRS. The weekly digest's rating line (rating-app-feature.md phase 6) — count, average and
+    # unhandled count over the reported week. Absent means "no rating app / peer down", and the
+    # line simply drops (see core/digest.py) — same degrade-by-omission as every other extra.
+    OPERATIONS_RATINGS_SUMMARY_PATH: str = "/internal/operations/ratings-summary"
     REMINDERS_SERVICE_URL: str = ""
     # THE ONLY WAY THIS SERVICE SENDS ANYTHING — the weekly digest and nothing else.
     REMINDERS_SEND_PATH: str = "/internal/reminders/send"
