@@ -140,8 +140,8 @@ printf '%s\n' "$TITLES" | while IFS='=' read -r doc_id title_ar title_en; do
 import json, re, sys
 md_src, yaml_src, title_ar, title_en = sys.argv[1:5]
 
-text = open(md_src, encoding="utf-8").read()
-text = re.sub(r"<!--.*?-->\n*", "", text, flags=re.DOTALL)
+raw_text = open(md_src, encoding="utf-8").read()
+text = re.sub(r"<!--.*?-->\n*", "", raw_text, flags=re.DOTALL)
 
 def section(marker):
     # ONLY the two exact section markers end a section — NOT every "## " (a document's own
@@ -160,12 +160,20 @@ def section(marker):
 md_ar, md_en = section("العربية"), section("English")
 
 requires_accept = False
-try:
-    import yaml
-    d = yaml.safe_load(open(yaml_src, encoding="utf-8")) or {}
-    requires_accept = d.get("publication") == "accept"
-except FileNotFoundError:
-    pass
+# The .md's OWN <!-- publication: ... --> comment wins where present — privacy-policy.md carries
+# one and has no yaml_src at all any more (the YAML+PDPL-pack template it used to be rendered from
+# was retired as a stale, unread second copy of what this file already says). Documents that have
+# not made that move yet still fall back to their yaml's `publication:` field.
+m = re.search(r"<!--\s*publication:\s*(\w+)\s*-->", raw_text)
+if m:
+    requires_accept = m.group(1) == "accept"
+else:
+    try:
+        import yaml
+        d = yaml.safe_load(open(yaml_src, encoding="utf-8")) or {}
+        requires_accept = d.get("publication") == "accept"
+    except FileNotFoundError:
+        pass
 
 print(json.dumps({
     "content": {"title": {"ar": title_ar, "en": title_en},

@@ -1,6 +1,9 @@
-<!-- Rendered by deploy/seed/legal/render_markdown.py — do not hand-edit. -->
+<!-- THIS FILE IS THE SOURCE OF TRUTH. Edit it directly — that is now the correct thing to do. -->
+<!-- privacy-policy.yaml (the YAML+PDPL-pack template it used to be rendered from) is retired: -->
+<!-- seed-legal.sh has published straight from this .md for a while, and the YAML was left -->
+<!-- behind as a stale, unread copy — removed rather than kept as a second, drifting source. -->
 
-<!-- Source of truth: this file's own values: + platform's PDPL pack (read-only). -->
+<!-- publication: public -->
 
 
 
@@ -182,24 +185,27 @@ Update record — every amendment to this policy is logged below (version, date,
 
 ## 3. Personal Data We Collect
 
-We collect the categories below. For each, we indicate at the point of collection whether providing it is mandatory or optional for the relevant service.
+We collect no data without a stated purpose, and we keep no category below longer than its purpose requires.
 
-| Category | Examples | Mandatory / optional |
-| --- | --- | --- |
-| Account data | name, national/Iqama ID, address, contact numbers — [DATA_TYPES] | [MANDATORY/OPTIONAL] |
-| Payment data | card number, payment amounts | [MANDATORY/OPTIONAL] |
-| Data from third parties | data obtained from other parties — [SOURCES] | [MANDATORY/OPTIONAL] |
-| Cookies / technical | logs, cookies, device data — [COOKIE_TYPES] | [MANDATORY/OPTIONAL] |
-| Location data | geolocation where enabled | [MANDATORY/OPTIONAL] |
+1. **Customer data** — name, phone number, visit history, and vehicle data where the business is vehicle-related. Purpose: identifying the customer and attributing the visit to them, tracking visit history, and reminding them of bookings once that feature is enabled.
+2. **Staff data** — name, phone number, role, permissions, and login credentials. Purpose: attributing service to whoever provided it, and controlling permissions.
+3. **Customer conversations with the WhatsApp AI assistant**, where this service is enabled. Purpose: automatically responding to customer inquiries.
+4. **Support questions asked of the platform's assistant** (for shop owners and their staff, not customers), where this service is enabled. Purpose: helping them use the platform.
+5. **Billing and subscription data** — plan, status, payment transaction identifier. We do not store raw card data ourselves; it is tokenized by the licensed payment gateway.
+6. **Account and login data.**
+7. **A technical audit log** of sensitive operations (such as a permission change), for security purposes.
+8. **Encrypted backups.**
+
+When AI is used to respond to an inquiry (items 3 and 4), the text is automatically redacted to remove any sensitive data it may contain (such as bank account or ID numbers) before processing, whether the model is hosted inside the Kingdom or with an external provider.
 
 
 ## 4. Collection Methods, Purposes and Legal Basis
 
-Direct collection — from the Data Subject via e-forms, fields, drop-down lists: From what you enter yourself at sign-up and while using the platform, from what you write in support messages, and from what your use of the platform generates automatically, such as sign-in times..
+Direct collection — from the Data Subject, via forms, fields and drop-down lists: what you enter yourself at sign-up and while using the platform, what you write in support messages, and what your use of the platform generates automatically, such as sign-in times.
 
-Indirect collection — via cookies, website analytics, automatic collection, or interconnection with another entity: We buy no data and collect none from data brokers or commercial sources. The only indirect source is the referral stamp of the partner who introduced you to the platform, if you came through one, covering your establishment's name and the referral date alone..
+Indirect collection — via cookies, site analytics, automatic collection, or linkage with another party: we buy no data and collect none from data brokers or commercial sources. The only indirect source is the referral stamp of the partner who introduced you to the platform, if you came through one, covering your establishment's name and the referral date alone.
 
-Purposes: Creating your account, letting you sign in to it and protecting it; running your subscription and determining your entitlements on the platform; issuing your invoices and keeping their records as the regulations require; answering and tracking your support requests; notifying you about your account and service; keeping an audit log evidencing who performed which action and when; and computing the commission of the partner who introduced your establishment, if any.. Each purpose rests on your consent (Law Art. 5-1), or on one of the cases in which the Law provides that processing is not subject to your consent: where the processing serves your actual interests but communicating with you is impossible or difficult; where it is pursuant to another law or in implementation of a previous agreement to which you are a party; where the Controller is a Public Entity and the processing is required for security purposes or to satisfy judicial requirements; or where it is necessary to achieve the Controller's legitimate interests, provided it does not prejudice your rights or interests and no Sensitive Data is processed. (Law Arts. 5, 6)
+Purposes: creating your account and letting you sign in to it and protecting it; running your subscription and determining your entitlement to the platform's capabilities; issuing your invoices and keeping their records as the regulations require; responding to your support requests and following up on them; notifying you of matters concerning your account and service; keeping an audit log that proves who performed an action and when; and computing the commission due to the partner who brought your establishment, if any. Each purpose rests on your consent (Law Art. 5-1), or on one of the cases in which the Law provides that processing is not subject to your consent: where the processing serves your actual interest and contacting you is impracticable or impossible; where it is pursuant to another law or in implementation of a prior agreement to which you are a party; where the Controller is a public entity and the processing is required for security purposes or to satisfy judicial requirements; or where it is necessary to achieve the Controller's legitimate interests, provided it does not prejudice your rights or interests and the data is not Sensitive Data. (Law Arts. 5, 6)
 
 Articles 10 and 15 do not create legal bases. Article 10 governs the cases in which we may collect your Personal Data from a source other than you, or process it for a purpose other than the one it was collected for. Article 15 governs the cases in which we may disclose it. Where we rely on either, we say so at the point of collection or disclosure.
 
@@ -224,7 +230,7 @@ Processing is defined precisely at each stage of the data life cycle and limited
 
 ## 6. Sharing and Disclosure
 
-We disclose Personal Data only to: Meta Platforms — because the WhatsApp service inherently runs on its global network, the content of the conversations the platform sends reaches it and is processed there for delivery, including your sign-in verification code; the in-Kingdom cloud infrastructure provider hosting the systems; our external accountant for the financial records; the payment gateway when you complete a payment; and the competent authorities on lawful request. We do not sell your data, do not rent it, and make it available to no advertiser. (with a description of each entity). We state whether the disclosure is inside or outside the Kingdom, its purpose, and whether it is occasional (one-off) or regular: Only when the event requiring it occurs — there is no periodic or scheduled disclosure..
+We do not sell your Personal Data, and we do not share it with a third party for that party's own marketing purposes. We disclose it only to: the WhatsApp message delivery provider (to the extent needed for delivery), the cloud infrastructure provider hosting our systems, our accountant, the licensed payment gateway, the AI model provider (after the text is redacted as described in Section 3), and the competent authorities on lawful request.
 
 We disclose Personal Data only where the disclosure serves the purpose you were told about, rests on a lawful basis, and is limited to the minimum data the recipient needs. We do not disclose it where doing so would harm you, prejudice national security or the Kingdom's vital interests, or conflict with a judicial proceeding. (Law Arts. 6, 15, 16)
 
@@ -232,17 +238,17 @@ Where a recipient is outside the Kingdom, we transfer only for a purpose Article
 
 ## 7. Storage, Retention, Destruction and Security
 
-Storage — Personal Data is stored using Inside the Kingdom of Saudi Arabia. The exception is what delivering a WhatsApp message inherently requires: the recipient's number and the message content reach Meta outside the Kingdom, a transfer made under Article 29 and unavoidable while the channel itself is retained. (e.g. the Controller's servers or a cloud provider, inside or outside the Kingdom).
+Storage — Personal Data is stored inside the Kingdom of Saudi Arabia. The exception is what delivering a WhatsApp message inherently requires: the recipient's number and the message content reach Meta outside the Kingdom — a transfer made under Article 29 and unavoidable while the channel itself is kept.
 
-Retention — data is kept only for the period necessary for the purpose or as required by law: Your account and subscription data: for your subscription then a grace period of no more than two years, after which it is deleted — and the period ends at once if you ask for deletion. Support tickets: two years from closure. Invoices and accounting records: the period the financial and tax regulations require, which is longer and is not covered by deletion because retaining them is a statutory duty and not a choice. Verification codes: minutes. The audit log: it carries a pseudonym rather than your identity, and is kept for the audit purpose., with specific periods per data type where applicable.
+Retention — we keep your data for as long as your account remains active, and for a limited period after that depending on the purpose of each type of data, no more. The exception is the security and audit log, which is kept longer because it is legal and operational evidence, and your identity within it is pseudonymised once a deletion request is carried out. Invoices and accounting records are subject to the period financial and tax regulations require.
 
-Destruction — we destroy Personal Data without undue delay once it is no longer necessary for the purpose it was collected for, so that it cannot afterwards be viewed or recovered. We keep it beyond that point in only two cases: where a legal basis requires us to retain it for a set period — then we destroy it when that period lapses or the purpose is satisfied, whichever is later — and where it is closely related to a case before a judicial authority and is needed for it, in which case we destroy it once those proceedings conclude. We may also keep data after the purpose ends only if it no longer contains anything that could identify you. (Law Art. 18)
+Destruction — we destroy data without undue delay once it is no longer necessary for the purpose it was collected for, including backups once their cycle ends. We keep it beyond that point only where a law requires a set period, or where it is related to a case before a judicial authority. (Law Art. 18)
 
-Security — administrative, technical and organizational measures protect the data from leakage, damage or unlawful access, including encryption, anonymization and pseudonymisation: Encryption in transit and at rest; full isolation between establishments enforced in the storage layer rather than in the interface; role-based, least-privilege access control; passwords stored as an irreversible one-way hash; a pseudonymous identifier used in place of the number in every service but the one that must search by number; an audit log that cannot be altered retroactively; key-sealed backups; and automated security checks that block the release of a change violating these controls.. The level of measures reflects the sensitivity and amount of data.
+Security — your identity is replaced with an irreversible pseudonym in audit logs and internal analytics. Text sent to our AI assistant is redacted of sensitive data before processing. Other measures: encryption in transit and at rest, full isolation between establishments, role-based least-privilege access control, passwords stored as irreversible hashes, a tamper-evident audit log, and key-sealed backups.
 
 ## Your Rights as a Data Subject
 
-You may exercise the following rights through mang.raje3@gmail.com or other channels we provide (email, SMS, in-app). We respond within thirty days, extendable by a further thirty for disproportionate effort, with prior notice of the reason.
+You may submit a request to access your data, obtain a copy of it, correct it, or delete it, through your account on the platform, or by email at mang.raje3@gmail.com. We verify your identity before carrying out any request touching Personal Data. A deletion request is carried out across every part of the platform that holds data about you, except the security and audit log (Section 7).
 
 - **Be informed** of the legal basis and purpose of collection.
 - **Access** your Personal Data held by the Controller, in accordance with the rules and procedures set out in the Regulations, and without prejudice to the cases in which the Law requires or permits access to be limited or prevented. (Law Arts. 4-2, 9)

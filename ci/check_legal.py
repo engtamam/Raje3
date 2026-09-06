@@ -52,7 +52,11 @@ DOCS = {
     "processing-agreement.yaml": "doc13_processing_agreement.yaml",
     "ropa.yaml": "doc04_ropa.yaml",
     "data-subject-rights.yaml": "doc03_data_subject_rights.yaml",
-    "privacy-policy.yaml": "doc01_privacy_policy.yaml",
+    # privacy-policy.yaml is RETIRED. It used to fill doc01_privacy_policy.yaml; seed-legal.sh
+    # publishes straight from privacy-policy.md now (has been for a while), so the YAML was a
+    # stale, unread second copy of what the .md already said — removed rather than kept as a
+    # source nothing consumes. Its `publication:` marker moved into the .md's own HTML comment;
+    # see the modes/gates_of loop below.
     "dpia.yaml": "doc10_dpia.yaml",
     "cookies.yaml": "doc12_cookies.yaml",
 }
@@ -162,6 +166,16 @@ for name in DOCS:
         modes[name] = m.group(1) if m else ""
         g = re.search(r"^gates:\s*(\w+)", text, re.M)
         gates_of[name] = g.group(1) if g else "shop"
+# privacy-policy.yaml is gone (see the note in DOCS above) — its publication mode now lives in the
+# .md's own <!-- publication: ... --> comment, and this is the one place that reads it, so it still
+# counts toward "every document declares a mode" and "exactly one accept per engagement" below.
+pp_md = OURS / "privacy-policy.md"
+if pp_md.exists():
+    pm = re.search(r"<!--\s*publication:\s*(\w+)\s*-->", pp_md.read_text(encoding="utf-8"))
+    modes["privacy-policy.md"] = pm.group(1) if pm else ""
+    gates_of["privacy-policy.md"] = "shop"
+else:
+    problems.append("privacy-policy.md is missing — nothing publishes the privacy policy")
 missing_mode = [n for n, m in modes.items() if not m]
 if missing_mode:
     problems.append(f"no publication mode declared for {', '.join(sorted(missing_mode))} — "
