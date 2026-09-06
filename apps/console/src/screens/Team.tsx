@@ -442,10 +442,17 @@ export function People({ session, operators, branches, add, edit, hire, setHours
               that wanted a manager had no way to say so, and «فريقي» could only ever produce one
               kind of person. */}
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 flex items-center gap-1 text-sm text-text-secondary">
+            {/* `<legend>` only ever accepts phrasing content — AssistantHint's opened state is a
+                block-level `<p>`, and browsers do not agree on what to do with one nested inside a
+                legend (observed live: the fieldset's layout box breaks and the whole page grows
+                tall with a deep scroll the moment the hint opens). The label and the hint sit in an
+                ordinary `<div>` right above the fieldset instead — same visual placement, valid
+                nesting either way. */}
+            <div className="mb-1 flex items-center gap-1 text-sm text-text-secondary">
               الدور
               <AssistantHint anchor="team.roles" session={session} />
-            </legend>
+            </div>
+            <legend className="sr-only">الدور</legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {ROLES.map((r) => {
                 const selected = role === r.value;

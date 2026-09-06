@@ -23,12 +23,9 @@
  */
 import { useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
-import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
-import { Skeleton } from '../rj-ui/Skeleton';
-import { AssistantHint } from '../AssistantHint';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
@@ -37,10 +34,6 @@ import { PlansPane } from './Plans';
 import { TeamScreen } from './Team';
 import { type Loading } from '../loading';
 import type { Owned } from '../apps';
-
-interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
-/** Mirrors what operations answers — see Connect.tsx for why `can_send` is its own question. */
-interface ConnectState { state: string; message: string; can_send?: boolean }
 
 /**
  * FOUR TABS, AND FOUR OLD NAMES THAT STILL RESOLVE.
@@ -120,8 +113,6 @@ export function AccountScreen(
   // that loses half the people who pressed it. Ignored when he may not read that tab.
   { session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Loading<Owned> },
 ) {
-  const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
-  const [connected, setConnected] = useState<ConnectState | null | undefined>(undefined);
   // WHICH BRANCH IS HIS — a field operator landing here saw a page that never
   // said who he is or where he works, because every tab that WOULD have said so («منشأتي») is
   // gated on capabilities his role does not hold. This reads independently of any tab, off the
@@ -143,22 +134,6 @@ export function AccountScreen(
     call<{ branches?: { id: string; name?: string }[] }>(session, b)
       .then((x) => setMyBranch((x.branches?.length ?? 0) === 1 ? x.branches![0] : null))
       .catch(() => { setMyBranch(null); setMyBranchFailed(true); });
-  }, [session, catalog]);
-
-  useEffect(() => {
-    const a = action(catalog, 'billing.my_subscriptions');
-    if (a) {
-      call<{ subscriptions: Subscription[] }>(session, a)
-        .then((x) => setSub(x.subscriptions?.[0] ?? null))
-        .catch(() => setSub(null));
-    } else {
-      // The manager reaches this page without billing. Not an error and not a blank: the tab is
-      // simply not offered to him, and the status line does not claim a subscription it cannot read.
-      setSub(null);
-    }
-
-    const w = action(catalog, 'whatsapp.connect_status');
-    if (w) call<ConnectState>(session, w).then(setConnected).catch(() => setConnected(null));
   }, [session, catalog]);
 
   const tabs = TABS.filter((t) => {
@@ -187,73 +162,9 @@ export function AccountScreen(
   // holds it, and the section itself is on that page.
   const [pane, setPane] = useState<Pane>(() => resolvePane(openOn));
   const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
-  const isConnected = connected?.state === 'connected';
-  // «يعمل» IS THE STRONGEST CLAIM ON THIS PAGE, and it was made on the strength of a successful
-  // connection alone. A shop can be connected while nothing can leave — see Connect.tsx — and this
-  // badge is what an owner glances at to decide everything is fine.
-  const sendingOpen = isConnected && connected?.can_send !== false;
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* ── who he is, and where he works — the two facts every screenshot of «حسابي» was missing
-          for anyone but an owner. Always shown, unlike the tabs below: it does not depend on a
-          single capability, only on `session.operatorName` (never absent — the door would not
-          have let him in) and the branch read above (silently absent when it cannot resolve to
-          exactly one, never a broken line). */}
-      <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
-        <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
-        {myBranch ? (
-          <span className="text-sm text-text-secondary">
-            {myBranch.name || myBranch.id}
-          </span>
-        ) : myBranchFailed ? (
-          <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
-        ) : null}
-      </div>
-
-      {/* ── change my own password — EVERY role's own account, not the owner's alone. Shown here,
-          outside every tab, for the same reason the "who am I" card above is: it depends on no
-          capability the establishment grants him, only on identity.self — held by every human role
-          (owner, manager, marketer, supervisor, operator; see deploy/seed/roles.json's own note on
-          why this capability existed fully built end to end yet reached nobody until it was
-          granted). Rendered only when the action actually resolves, so a role that somehow lacks it
-          gets a shorter page, never a broken one — same rule the whole screen already follows. */}
-      {action(catalog, 'identity.change_password') ? (
-        <ChangePasswordCard session={session} catalog={catalog} />
-      ) : null}
-
-      {/* ── the two lines that answer the page's question without a tap ── */}
-      <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-        {sub === undefined ? (
-          <Skeleton height={20} />
-        ) : (
-          <div className="flex items-center justify-between">
-            <span>{sub ? `اشتراكك «${sub.plan_name ?? '—'}»` : 'لا يوجد اشتراك فعّال'}</span>
-            {sub?.status
-              ? <span className="flex items-center gap-1">
-                  <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
-                    {sub.status === 'active' ? 'فعّالة' : 'متوقفة'}
-                  </Badge>
-                  <AssistantHint anchor="account.subscription_status" session={session} />
-                </span>
-              : null}
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span>
-            {!isConnected ? 'واتساب غير مربوط'
-              : sendingOpen ? 'واتساب مربوط' : 'واتساب مربوط — الإرسال لم يُفتح بعد'}
-          </span>
-          {!isConnected
-            ? <Badge tone="warning">يحتاج ربط</Badge>
-            : sendingOpen
-              ? <Badge tone="success">يعمل</Badge>
-              // NOT «يحتاج ربط»: he did the work and it succeeded. What is missing is ours, and a
-              // badge that sends him back to a button he already pressed is the worse lie.
-              : <Badge tone="warning">بانتظارنا</Badge>}
-        </div>
-      </div>
-
       <div className="flex flex-col gap-1">
         <Segmented
           // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
@@ -300,6 +211,29 @@ export function AccountScreen(
 
       {active === 'shop' ? (
         <div className="flex flex-col gap-6">
+          {/* ── who he is, and where he works — moved here (was floating above every tab) at the
+              product owner's own direction: «منشأتي» is where an owner looks for anything about
+              his own identity within the shop, the same reasoning ShopPane's own weekly-digest
+              toggle already follows. Depends on no capability, only `session.operatorName` (never
+              absent) and the branch read above. */}
+          <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
+            <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
+            {myBranch ? (
+              <span className="text-sm text-text-secondary">
+                {myBranch.name || myBranch.id}
+              </span>
+            ) : myBranchFailed ? (
+              <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
+            ) : null}
+          </div>
+
+          {/* ── change my own password — moved here from floating above every tab, same reasoning:
+              «منشأتي» is where he looks, even though the capability behind it (identity.self) is
+              per-person rather than per-establishment (held by every human role). */}
+          {action(catalog, 'identity.change_password') ? (
+            <ChangePasswordCard session={session} catalog={catalog} />
+          ) : null}
+
           {/* THE ORDER IS THE ORDER HE NEEDS THEM IN, not the order we built them: what the
               customer sees, then where the shop is, then who works there, then what sends in its
               name. Sections rather than nested tabs — a tab inside a tab hides half the page
