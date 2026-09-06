@@ -25,24 +25,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # this service. Declared because a user-facing route with no action is a route the console
     # cannot render — and nothing anywhere fails to say so.
     {
-        "id": "loyalty.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/loyalty/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
-        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
-    },
-    {
-        "id": "loyalty.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
-        "path": "/api/v1/loyalty/operator/secrets", "capability": "platform.secrets",
-        "confirm": True, "group": "المنصة",
-        "help": "يسري فوراً على هذه الخدمة دون إعادة نشر.",
-    },
-    {
-        "id": "loyalty.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
-        "path": "/api/v1/loyalty/operator/secrets/{name}", "capability": "platform.secrets",
-        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "danger": True, "group": "المنصة",
-        "help": "يحذف الاعتماد نهائياً من هذه الخدمة — أي استخدام له بعدها يفشل.",
-    },
-    {
         "id": "loyalty.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/loyalty/operator/config", "capability": "platform.config", "group": "المنصة",
         "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
@@ -83,7 +65,10 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "loyalty.whoami", "label": "من أنا", "method": "GET",
-        "path": "/api/v1/loyalty/whoami", "capability": "platform.secrets", "group": "المنصة",
+        # The route itself enforces no capability — grouped under platform.config here only so it
+        # shows up alongside the operator screens an admin already reaches. Was platform.secrets
+        # until that capability's own credential routes were removed (dead SecretStore).
+        "path": "/api/v1/loyalty/whoami", "capability": "platform.config", "group": "المنصة",
         "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
     },
 ]
