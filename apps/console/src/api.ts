@@ -728,6 +728,17 @@ export function listBookings(
   return call(session, `/api/v1/bookings?${q.toString()}`);
 }
 
+/** The month/year view's own read — how many bookings land on each day of a range, never the
+ *  bookings themselves (docs/خطة-تصميم-تقويم-الحجوزات.md §1). `start`/`end` are `YYYY-MM-DD`,
+ *  inclusive, the shop's own business-day buckets. Keys missing from `counts` mean zero, same as
+ *  an explicit `0` — the caller should read a missing day as empty. */
+export function fetchBookingCounts(
+  session: Session, branchId: string, start: string, end: string,
+): Promise<{ counts: Record<string, number> }> {
+  const q = new URLSearchParams({ branch_id: branchId, start, end });
+  return call(session, `/api/v1/bookings/counts?${q.toString()}`);
+}
+
 /** His own history, newest first — the customer page's own section (docs/وصف-تطبيق-الحجوزات.md
  *  §3: "مواعيده القادمة والسابقة، ونسبة حضوره"). Not branch-scoped: his history is his across
  *  every branch he was ever served at. */

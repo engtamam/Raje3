@@ -101,6 +101,21 @@ async def list_bookings(request: Request, branch_id: str, date: str,
     return {"bookings": [_public(b) for b in rows]}
 
 
+@router.get("/counts", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def booking_counts(request: Request, branch_id: str, start: str, end: str,
+                         principal: Principal = Depends(require_user)) -> dict:
+    """The month/year view's own read (docs/خطة-تصميم-تقويم-الحجوزات.md §1) — how many bookings
+    land on each day of the range, NEVER the bookings themselves: no name, no phone, nothing
+    `Booking.public()` would carry. `start`/`end` are `YYYY-MM-DD`, same business-day buckets
+    `day_bucket()` produces. Deliberately no row cap here — see `counts_between`'s own docstring."""
+    tenant = _tenant(principal)
+    await _require_branch(request, principal, branch_id)
+    c = request.app.state.container
+    counts = await c.bookings.counts_between(
+        tenant, branch_id, start_bucket=start, end_bucket=end)
+    return {"counts": counts}
+
+
 @router.get("/risk", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def no_show_risk(request: Request, customer_id: str,
                        principal: Principal = Depends(require_user)) -> dict:

@@ -31,6 +31,9 @@ import { FilterMenu } from '../rj-ui/FilterMenu';
 import type { Session } from '../session';
 import { BookingDialog } from './BookingDialog';
 import { WorkingHoursDialog } from './WorkingHoursDialog';
+import { BookingsMonthView } from './BookingsMonthView';
+import { BookingsYearView } from './BookingsYearView';
+import { addMonths, addYears, startOfMonth, startOfYear } from './calendarMath';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './bookings-i18n';
 
@@ -59,6 +62,15 @@ function addDays(date: string, delta: number): string {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + delta);
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+/** One step of nav, in whichever unit the current view owns — day/week keep their exact original
+ *  arithmetic (`addDays` by ±1 or ±7, untouched); month/year move by real calendar months/years
+ *  (`calendarMath.ts`), never manual day-arithmetic (docs/خطة-تصميم-تقويم-الحجوزات.md §2). */
+function stepDate(date: string, view: 'day' | 'week' | 'month' | 'year', dir: 1 | -1): string {
+  if (view === 'day') return addDays(date, dir);
+  if (view === 'week') return addDays(date, dir * 7);
+  if (view === 'month') return addMonths(date, dir);
+  return addYears(date, dir);
 }
 function startOfWeek(date: string): string {
   // Sunday is the first day — same calendar convention the rest of the product uses.
@@ -156,7 +168,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const { t } = useOperatorI18n();
   const activeBranch = branch || (branches.length === 1 ? branches[0].id : '');
 
-  const [view, setView] = useState<'day' | 'week'>('day');
+  const [view, setView] = useState<'day' | 'week' | 'month' | 'year'>('day');
   // A SEPARATE AXIS FROM `view` ON PURPOSE — `view` decides WHAT DATA is loaded (one day vs a
   // week of seven), `layout` decides only HOW it is drawn. Neither filters, search, the picked
   // date, nor `view` itself resets when this changes — the same data, read a different way, is
@@ -351,17 +363,22 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // ── the read: one day, or the whole week, depending on the view ────────────────────────────
   const daysToLoad = useMemo(() => {
     if (view === 'day') return [date];
+    // month/year READ NOTHING HERE — they carry their own read (`fetchBookingCounts`,
+    // BookingsMonthView/BookingsYearView's own effect), never the day/week grid's full-detail
+    // `listBookings` (docs/خطة-تصميم-تقويم-الحجوزات.md §1: a whole month or year of full bookings
+    // is exactly the waste that endpoint exists to avoid).
+    if (view !== 'week') return [];
     const start = startOfWeek(date);
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [view, date]);
 
   const load = useCallback(() => {
-    if (!activeBranch) return;
+    if (!activeBranch || (view !== 'day' && view !== 'week')) return;
     setRows(undefined);
     Promise.all(daysToLoad.map((d) => listBookings(session, activeBranch, d)))
       .then((answers) => setRows(answers.flatMap((a) => a.bookings)))
       .catch(() => setRows(null));
-  }, [session, activeBranch, daysToLoad]);
+  }, [session, activeBranch, daysToLoad, view]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -602,7 +619,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         <div className="mx-auto flex max-w-[1400px] flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setDate((d) => addDays(d, view === 'day' ? -1 : -7))}
+              <button type="button" onClick={() => setDate((d) => stepDate(d, view, -1))}
                      aria-label={t('bookings.prev')}
                      className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                      style={{ background: 'var(--rj-surface)' }}>
@@ -611,7 +628,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               <div className="flex flex-col items-center leading-tight">
                 <h1 className="text-xl font-semibold tracking-tight">
                   {view === 'day' ? humanDate(t, date)
-                    : `${shortDate(t, startOfWeek(date))} – ${shortDate(t, addDays(startOfWeek(date), 6))}`}
+                    : view === 'week' ? `${shortDate(t, startOfWeek(date))} – ${shortDate(t, addDays(startOfWeek(date), 6))}`
+                    : view === 'month' ? `${monthLabel(t, Number(date.split('-')[1]) - 1)} ${date.split('-')[0]}`
+                    : date.split('-')[0]}
                 </h1>
                 {date !== todayLocal() ? (
                   <button type="button" onClick={() => setDate(todayLocal())}
@@ -620,7 +639,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   </button>
                 ) : null}
               </div>
-              <button type="button" onClick={() => setDate((d) => addDays(d, view === 'day' ? 1 : 7))}
+              <button type="button" onClick={() => setDate((d) => stepDate(d, view, 1))}
                      aria-label={t('bookings.next')}
                      className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                      style={{ background: 'var(--rj-surface)' }}>
@@ -633,13 +652,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               واحد بدل صفّين، بدل ما يتفرّق التحكّم بالعرض عن التحكّم بالمحتوى. */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
-              {(['day', 'week'] as const).map((v) => (
+              {(['day', 'week', 'month', 'year'] as const).map((v) => (
                 <button key={v} type="button" onClick={() => setView(v)}
                        className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
                        style={v === view
                          ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                          : { color: 'var(--rj-ink-soft)' }}>
-                  {v === 'day' ? t('bookings.day') : t('bookings.week')}
+                  {v === 'day' ? t('bookings.day') : v === 'week' ? t('bookings.week')
+                    : v === 'month' ? t('bookings.month') : t('bookings.year')}
                 </button>
               ))}
             </div>
@@ -647,7 +667,10 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             {/* GRID vs LIST — a separate control from يوم/أسبوع above, because it changes only
                 how the same read is drawn. Icon-only (كالإعدادات بجانبه) fits the toolbar's own
                 width budget; each carries its own aria-label and title for the first-time case
-                an icon alone does not explain itself. */}
+                an icon alone does not explain itself. MEANINGLESS FOR MONTH/YEAR — those two draw
+                their own dedicated grid, never `rows`/`visible`, so this toggle has nothing to
+                switch between there and is hidden rather than shown inert. */}
+            {(view === 'day' || view === 'week') ? (
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
               {([
                 { id: 'grid' as const, icon: LayoutGrid, label: t('bookings.view.grid') },
@@ -663,6 +686,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </button>
               ))}
             </div>
+            ) : null}
 
             <button type="button" onClick={() => setHoursDialogOpen(true)}
                    aria-label={t('bookings.workingHours')} title={t('bookings.workingHours')}
@@ -702,6 +726,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 on the day filtering actually touches. On anything wider there is room to just
                 SHOW the two controls inline, which is the one-tap version this was always meant
                 to be; the chip below only exists for the width that cannot afford it. */}
+            {/* FILTERS NARROW `rows`/`visible` — MEANINGLESS FOR MONTH/YEAR, which never load
+                `rows` at all (see `daysToLoad`'s own guard above). Hidden for those two views
+                rather than shown and silently inert. */}
+            {(view === 'day' || view === 'week') ? (
+            <>
             <div className="hidden items-center gap-2 sm:flex">
               <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
                           phoneMatches={phoneMatches} filterCustomer={filterCustomer}
@@ -812,6 +841,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </>
               ) : null}
             </div>
+            </>
+            ) : null}
           </div>
         </div>
       </header>
@@ -852,7 +883,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
       {/* ── body ───────────────────────────────────────────────────────────────────────────── */}
       <div className="mx-auto max-w-[1400px] px-4 pb-28 pt-4 sm:px-6">
-        {rows === undefined ? (
+        {view === 'month' ? (
+          <BookingsMonthView session={session} branchId={activeBranch} date={date} today={todayLocal()} t={t}
+                             onSelectDay={(d) => { setDate(d); setView('day'); }} />
+        ) : view === 'year' ? (
+          <BookingsYearView session={session} branchId={activeBranch} date={date} today={todayLocal()} t={t}
+                            onSelectDay={(d) => { setDate(d); setView('day'); }}
+                            onSelectMonth={(m) => { setDate(m); setView('month'); }} />
+        ) : rows === undefined ? (
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
             {t('bookings.loadingSchedule')}
           </div>

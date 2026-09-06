@@ -134,6 +134,33 @@ class BookingStore:
                 out.append(b)
         return out
 
+    async def counts_between(self, tenant: str, branch_id: str, *,
+                             start_bucket: str, end_bucket: str) -> dict[str, int]:
+        """The month/year view's own query — how many bookings land on each day of a range,
+        NEVER the bookings themselves. `slots_between` calls `self.get()` per row, which hydrates
+        a full `Booking` for every slot; fine for one day or one week, wasteful for a whole year
+        (docs/خطة-تصميم-تقويم-الحجوزات.md §1). This reads the SAME `BOOKING_SLOTS` index and only
+        tallies `bucket` values — no `Booking` is ever built here.
+
+        Pages through `find()` itself rather than trusting its default `limit` — the same lesson
+        this session already paid for on the affiliate side (`performance_for()`/`balance()`
+        paging through every referral/commission): a busy shop's full year is exactly the case a
+        single bounded page would silently undercount.
+        """
+        counts: dict[str, int] = {}
+        after: str | None = None
+        while True:
+            rows, after = await self._s.find(
+                BOOKING_SLOTS, {"tenant": tenant, "branch_id": branch_id}, limit=500,
+                after=after, sort=("bucket", "asc"))
+            for row in rows:
+                bucket = str(row.get("bucket") or "")
+                if start_bucket <= bucket <= end_bucket:
+                    counts[bucket] = counts.get(bucket, 0) + 1
+            if not after:
+                break
+        return counts
+
     async def save(self, b: Booking) -> Booking:
         # A RESCHEDULE MOVES THE BUCKET. `starts_at` is mutable (it IS the reschedule act), and
         # `branch_id` is fixed but read here for symmetry — either changing means the OLD slot key

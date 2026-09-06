@@ -143,6 +143,45 @@ def test_a_second_tenant_never_sees_the_first_tenants_booking(env_guard):
     assert listed.json()["bookings"] == []
 
 
+def test_counts_endpoint_reports_correct_totals_and_never_carries_booking_details(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.read", "bookings.write")
+
+    for i in range(2):
+        client.post("/api/v1/bookings", json={
+            "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+            "service_ids": ["svc1"], "starts_at": 1786860000 + i * 3600,
+        }, headers=auth)
+    client.post("/api/v1/bookings", json={
+        "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000 + 30 * 86400,
+    }, headers=auth)
+
+    r = client.get("/api/v1/bookings/counts", params={
+        "branch_id": "b1", "start": "2026-08-01", "end": "2026-09-30",
+    }, headers=_auth("bookings.read"))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body == {"counts": {"2026-08-16": 2, "2026-09-15": 1}}
+
+    # counts-only: no customer id, name, or phone anywhere in the response body.
+    raw = r.text
+    assert "c1" not in raw
+    assert "customer" not in raw
+    assert "phone" not in raw
+
+
+def test_counts_respects_branch_scope(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    client.app.state.container.branch_scope = _DeniedScope()
+    r = client.get("/api/v1/bookings/counts", params={
+        "branch_id": "b1", "start": "2026-08-01", "end": "2026-08-31",
+    }, headers=_auth("bookings.read"))
+    assert r.status_code == 503
+
+
 def test_no_show_risk_is_reachable_and_answers_honestly_for_a_new_customer(env_guard):
     client = _make_app()
     _stub_ops(client)

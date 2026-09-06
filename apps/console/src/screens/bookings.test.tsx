@@ -59,6 +59,10 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'listBookings', args });
       return { bookings: bookingsOverride };
     },
+    fetchBookingCounts: async (...args: unknown[]) => {
+      asked.push({ fn: 'fetchBookingCounts', args });
+      return { counts: {} };
+    },
     fetchCatalogue: async () => ({
       services: [
         { id: 'svc1', name: 'قص شعر', duration_minutes: 30, cycle_days: 21 },
@@ -766,5 +770,61 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
     await waitFor(() => history());
     within(history()).getByText('قص شعر').click();
     expect(screen.queryByLabelText('حضر')).toBeNull();
+  });
+});
+
+describe('month/year views — the switcher, docs/خطة-تصميم-تقويم-الحجوزات.md', () => {
+  it('day/week own read still fires normally when the switcher opens on day', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => expect(asked.some((a) => a.fn === 'listBookings')).toBe(true));
+  });
+
+  it('switching to month never calls listBookings, and calls the counts endpoint instead', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    asked.length = 0;
+
+    fireEvent.click(screen.getByText('الشهر'));
+    await waitFor(() => expect(screen.getByTestId('rj-month-grid')).toBeTruthy());
+    await waitFor(() => expect(asked.some((a) => a.fn === 'fetchBookingCounts')).toBe(true));
+    expect(asked.some((a) => a.fn === 'listBookings')).toBe(false);
+  });
+
+  it('switching to year draws 12 mini-months and calls the counts endpoint', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.click(screen.getByText('السنة'));
+    await waitFor(() => expect(screen.getByTestId('rj-year-grid')).toBeTruthy());
+    await waitFor(() => expect(asked.some((a) => a.fn === 'fetchBookingCounts')).toBe(true));
+    // 12 month labels, one per mini-calendar.
+    expect(within(screen.getByTestId('rj-year-grid')).getAllByRole('button', { name: /^[أ-ي]+$/ }).length)
+      .toBeGreaterThanOrEqual(12);
+  });
+
+  it('clicking a day in month view jumps to day view for that date', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    fireEvent.click(screen.getByText('الشهر'));
+    await waitFor(() => screen.getByTestId('rj-month-grid'));
+
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    fireEvent.click(screen.getByTestId(`rj-month-day-${todayKey}`));
+
+    await waitFor(() => expect(screen.getByTestId('rj-grid')).toBeTruthy());
+  });
+
+  it('clicking a month label in year view switches to month view for that month', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    fireEvent.click(screen.getByText('السنة'));
+    await waitFor(() => screen.getByTestId('rj-year-grid'));
+
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    fireEvent.click(screen.getByTestId(`rj-year-month-${monthStart}`));
+
+    await waitFor(() => expect(screen.getByTestId('rj-month-grid')).toBeTruthy());
   });
 });
