@@ -192,35 +192,50 @@ def _fetch_staff(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem
     return items
 
 
-#: audit-service's own `/query` caps at 1000 (Query(..., le=1000) — its API layer), and its
-#: response is `{"events": [...], "count": N}` with NO cursor and NO "more available" flag — so
-#: `count == limit` is the only signal this source has that the read may have been cut off, and
-#: it is read newest-first (audit_service.py::query, `sort(...reverse=True)`). 200 was silently
-#: capping a suspended_no_notice/contract_breach dispute at whatever a tenant's most recent 200
-#: audited actions were — for a shop with months of activity since an old suspension, the ONE
-#: event a scenario like `suspended_no_notice` exists to surface could already have aged off the
-#: page, with nothing in the report saying so. Raised to the service's own real ceiling; a
-#: truncation is now reported rather than silently absorbed, same posture as
-#: `_fetch_marketing_evidence`'s own `truncated` flags below.
-_AUDIT_QUERY_LIMIT = 1000
+#: audit-service's own `/query` caps a single page at 1000 (Query(..., le=1000) — its API layer),
+#: read newest-first (audit_service.py::query, `sort(...reverse=True)`). This path is always
+#: tenant-scoped (single partition), which audit-service v0.18.31 made genuinely pageable: the
+#: response now carries `next_cursor` (a keyset cursor over (_seq_key, id) — never skips or
+#: duplicates as new events append mid-page), re-sent as `after` to fetch the next page.
+#: 200, then a flat 1000, were both silently capping a suspended_no_notice/contract_breach dispute
+#: at whatever a tenant's most recent N audited actions were — for a shop with months of activity
+#: since an old suspension, the ONE event a scenario like `suspended_no_notice` exists to surface
+#: could already have aged off a single page, with nothing in the report saying so. Now the pages
+#: are actually followed, bounded only by `_AUDIT_MAX_PAGES` (a dispute report must still finish in
+#: bounded time) — and unlike the old `count == limit` guess, `next_cursor` is a REAL signal: a
+#: warning is only ever emitted when the page cap was reached with more still pending, never as a
+#: heuristic over a count that could just as well mean "that was everything".
+_AUDIT_PAGE_LIMIT = 1000
+_AUDIT_MAX_PAGES = 20   # 20k events — far past any real tenant's history; a true safety bound
 
 
 def _fetch_audit(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem]:
-    out = peers.get(urls.audit, urls.audit_query_path,
-                    {"tenant": tenant, "limit": _AUDIT_QUERY_LIMIT})
-    events = out.get("events") or []
-    items = []
-    for ev in events:
-        actor = str(ev.get("actor") or "") or "النظام"
-        action = str(ev.get("action") or "؟")
-        label = f"تدقيق — {action} — بواسطة: {actor} — على: {ev.get('resource', '؟')}"
-        items.append(ReportItem(ts=int(ev.get("at") or ev.get("created_at") or 0) or None,
-                                source="audit", label=label, raw=_redact_dict(ev)))
-    if len(events) >= _AUDIT_QUERY_LIMIT:
+    items: list[ReportItem] = []
+    cursor = ""
+    truncated = False
+    for _ in range(_AUDIT_MAX_PAGES):
+        query = {"tenant": tenant, "limit": _AUDIT_PAGE_LIMIT}
+        if cursor:
+            query["after"] = cursor
+        out = peers.get(urls.audit, urls.audit_query_path, query)
+        events = out.get("events") or []
+        for ev in events:
+            actor = str(ev.get("actor") or "") or "النظام"
+            action = str(ev.get("action") or "؟")
+            label = f"تدقيق — {action} — بواسطة: {actor} — على: {ev.get('resource', '؟')}"
+            items.append(ReportItem(ts=int(ev.get("at") or ev.get("created_at") or 0) or None,
+                                    source="audit", label=label, raw=_redact_dict(ev)))
+        cursor = str(out.get("next_cursor") or "")
+        if not cursor:
+            break
+    else:
+        truncated = True   # the loop ran out of pages, and the LAST page still had a cursor
+
+    if truncated:
         items.append(ReportItem(
             ts=None, source="audit",
-            label=f"⚠ سجل التدقيق قد يحوي أحداثاً أقدم من أحدث {_AUDIT_QUERY_LIMIT} — "
-                 f"هذا التقرير لا يغطيها",
+            label=f"⚠ سجل التدقيق أطول من {_AUDIT_MAX_PAGES * _AUDIT_PAGE_LIMIT} حدث — "
+                 f"هذا التقرير توقف عند هذا الحد ولم يغطِ ما قبله",
             raw={}))
     return items
 

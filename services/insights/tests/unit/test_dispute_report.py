@@ -193,19 +193,54 @@ def test_audit_scenario_labels_each_event_with_actor_action_and_resource():
     assert call[3]["limit"] == 1000
 
 
-def test_audit_scenario_warns_when_the_page_may_have_cut_off_older_events():
-    """1000 events back exactly at the query's own limit — audit-service's `/query` response
-    carries no cursor and no "more available" flag, so `count == limit` is the only signal this
-    source has that an OLDER event (the one a suspended_no_notice/contract_breach dispute is
-    actually about) may already be off the page."""
-    events = [{"action": "x.happened", "actor": "sub_1", "resource": "r", "at": i}
-             for i in range(1000)]
+def test_audit_scenario_follows_next_cursor_across_a_full_page_and_a_half():
+    """A first page at exactly the page limit, carrying next_cursor — audit-service v0.18.31's
+    real pagination signal — is followed to a second, final page (next_cursor null) rather than
+    stopping at the first 1000. Every event from BOTH pages ends up in the report, and no warning
+    is emitted: next_cursor going null is proof nothing was left behind, unlike the old
+    `count == limit` guess this replaces."""
+    page_1 = [{"action": "x.happened", "actor": "sub_1", "resource": "r", "at": i}
+              for i in range(1000)]
+    page_2 = [{"action": "y.happened", "actor": "sub_2", "resource": "r2", "at": 1000}]
     caller = FakeCaller(
-        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}},
-        get_answers={"/internal/audit": {"events": events}},
-    )
+        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}})
+
+    def get_fake(base_url, path, query=None):
+        caller.calls.append(("GET", base_url, path, query))
+        if path != "/internal/audit":
+            return {}
+        if query and query.get("after"):
+            assert query["after"] == "cursor_1"
+            return {"events": page_2, "next_cursor": None}
+        return {"events": page_1, "next_cursor": "cursor_1"}
+
+    caller.get = get_fake
     result = run_scenario(caller, URLS, "0501234567", "ai_hallucination")
-    assert any("⚠" in it.label and "1000" in it.label for it in result.items)
+    assert not any("⚠" in it.label for it in result.items)
+    assert any("y.happened" in it.label and "sub_2" in it.label for it in result.items)
+    audit_calls = [c for c in caller.calls if c[2] == "/internal/audit"]
+    assert len(audit_calls) == 2
+
+
+def test_audit_scenario_warns_only_when_the_page_cap_itself_is_reached():
+    """next_cursor never goes null — the tenant's history genuinely outruns
+    `_AUDIT_MAX_PAGES * _AUDIT_PAGE_LIMIT` — so the fetch stops at the bound and says so, rather
+    than paging forever or silently truncating."""
+    caller = FakeCaller(
+        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}})
+
+    def get_fake(base_url, path, query=None):
+        caller.calls.append(("GET", base_url, path, query))
+        if path != "/internal/audit":
+            return {}
+        return {"events": [{"action": "x.happened", "actor": "sub_1", "resource": "r", "at": 1}],
+                "next_cursor": "always_more"}
+
+    caller.get = get_fake
+    result = run_scenario(caller, URLS, "0501234567", "ai_hallucination")
+    assert any("⚠" in it.label for it in result.items)
+    audit_calls = [c for c in caller.calls if c[2] == "/internal/audit"]
+    assert len(audit_calls) == 20   # _AUDIT_MAX_PAGES, then it gives up and says so
 
 
 def test_audit_scenario_says_nothing_extra_when_well_under_the_page_limit():
