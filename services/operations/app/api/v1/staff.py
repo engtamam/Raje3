@@ -43,6 +43,7 @@ from app.core.models import Branch, Operator, Package, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
 from app.core import ai_notes as AN
+from app.core import msg_limits as ML
 from app.core import scheduling as SCHED
 from app.core import seats as S
 from app.core import shop_mode as SM
@@ -857,6 +858,50 @@ async def set_ai_notes(request: Request, body: AiNotesIn,
     # `redacted` response field, so the owner learns a phone number was stripped without either of
     # us ever handling it a second time to tell him which one.
     return {"text": cleaned.text, "redacted": list(cleaned.hits)}
+
+
+# ── the customer-message word limit ──────────────────────────────────────────────────────────
+class MsgWordLimitIn(BaseModel):
+    limit: int = Field(ge=ML.MIN_MSG_WORD_LIMIT, le=ML.MAX_MSG_WORD_LIMIT)
+
+
+@router.get("/msg-word-limit", dependencies=[Depends(rate_limit)])
+async def read_msg_word_limit(request: Request, principal: Principal = Depends(_MANAGE)) -> dict:
+    """How many words a customer's single WhatsApp message may be before the assistant refuses it
+    outright, asking for something shorter, without ever calling the model.
+
+    Reads back the default while `MSG_WORD_LIMIT_ENABLED` is off, regardless of what is stored —
+    same behaviour-switch discipline as `AI_NOTES_ENABLED`.
+    """
+    s = request.app.state.container_settings
+    if not getattr(s, "MSG_WORD_LIMIT_ENABLED", True):
+        return {"limit": ML.DEFAULT_MSG_WORD_LIMIT}
+    limit = await ML.MsgWordLimitStore(request.app.state.container.datastore).get(_tenant(principal))
+    return {"limit": limit}
+
+
+@router.put("/msg-word-limit", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_msg_word_limit(request: Request, body: MsgWordLimitIn,
+                             principal: Principal = Depends(_MANAGE)) -> Any:
+    """Set this shop's own ceiling — bounded between `ML.MIN_MSG_WORD_LIMIT` and
+    `ML.MAX_MSG_WORD_LIMIT` at the Pydantic layer already, `ML.sanitise` re-checks the same bound
+    server-side rather than trusting the schema alone."""
+    s = request.app.state.container_settings
+    if not getattr(s, "MSG_WORD_LIMIT_ENABLED", True):
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"error": "NOT_CONFIGURED",
+                                     "message": "هذه الميزة غير مفعّلة حالياً."})
+    tenant = _tenant(principal)
+    try:
+        cleaned = ML.sanitise(body.limit)
+    except ML.MsgWordLimitError as exc:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "message": str(exc)})
+    await ML.MsgWordLimitStore(request.app.state.container.datastore).set(tenant, cleaned)
+    await request.app.state.auditor.record(
+        "shop.msg_word_limit_changed", actor=principal.subject, tenant=tenant,
+        resource="shop_msg_word_limits", ip=request.client.host if request.client else "")
+    return {"limit": cleaned}
 
 
 # ── branches ──────────────────────────────────────────────────────────────────────────────────

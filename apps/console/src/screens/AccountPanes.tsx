@@ -152,6 +152,12 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           switch (AI_NOTES_ENABLED) hides it without a redeploy on this side. */}
       <AiNotesCard session={session} catalog={catalog} />
 
+      {/* HOW LONG A CUSTOMER'S SINGLE MESSAGE MAY BE before the assistant refuses it outright and
+          asks for something shorter, without ever calling the model. Same absence discipline as
+          AiNotesCard above — `operations.msg_word_limit` missing from the catalogue hides the
+          card entirely, also how MSG_WORD_LIMIT_ENABLED hides it without a redeploy. */}
+      <MsgWordLimitCard session={session} catalog={catalog} />
+
       {/* A PERSONAL PREFERENCE, LAST — not because it matters less, but because it is not a fact
           ABOUT the establishment the way everything above it is; it is one person's own inbox
           setting, and the pane's own comment on it already says so («لك وحدك»). Standardised to
@@ -277,6 +283,95 @@ function AiNotesCard({ session, catalog }: { session: Session; catalog: Catalog 
       {write ? (
         <Button type="button" size="sm" className="self-start"
                disabled={!dirty || overCap || busy} onClick={save}>
+          {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+
+const MSG_WORD_LIMIT_MIN = 20;
+const MSG_WORD_LIMIT_MAX = 300;
+const MSG_WORD_LIMIT_DEFAULT = 100;
+
+/**
+ * أطول رسالة يقبلها المساعد من العميل، بالكلمات، قبل أن يرفضها فوراً بأسلوب مؤدب ويطلب منه
+ * اختصارها — بلا أي استدعاء للذكاء الاصطناعي.
+ */
+function MsgWordLimitCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const read = action(catalog, 'operations.msg_word_limit');
+  const write = action(catalog, 'operations.set_msg_word_limit');
+  const [limit, setLimit] = useState<number | null | undefined>(undefined);
+  const [draft, setDraft] = useState(MSG_WORD_LIMIT_DEFAULT);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!read) { setLimit(null); return; }
+    call<{ limit?: number }>(session, read)
+      .then((x) => { const n = x.limit ?? MSG_WORD_LIMIT_DEFAULT; setLimit(n); setDraft(n); })
+      .catch(() => setLimit(null));
+  }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!read || limit === null) return null;
+  if (limit === undefined) return <Skeleton height={90} />;
+
+  const inRange = draft >= MSG_WORD_LIMIT_MIN && draft <= MSG_WORD_LIMIT_MAX;
+  const dirty = draft !== limit;
+
+  async function save() {
+    if (!write || !inRange || busy) return;
+    setBusy(true);
+    setError('');
+    setSaved(false);
+    try {
+      const out = await call<{ limit?: number }>(session, write, { limit: draft });
+      const n = out.limit ?? draft;
+      setLimit(n);
+      setDraft(n);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الحفظ. حاول بعد قليل.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <span className="flex flex-col">
+        <span className="text-sm font-medium">حد كلمات رسالة العميل</span>
+        <span className="text-xs text-text-secondary">
+          رسالة أطول من هذا الحد تُرفض تلقائياً بأسلوب مؤدب يطلب من العميل اختصارها، بلا أي تكلفة
+          ذكاء اصطناعي. القيمة الافتراضية {MSG_WORD_LIMIT_DEFAULT} كلمة.
+        </span>
+      </span>
+
+      {write ? (
+        <Field
+          error={!inRange
+            ? `القيمة يجب أن تكون بين ${MSG_WORD_LIMIT_MIN} و${MSG_WORD_LIMIT_MAX} كلمة.`
+            : undefined}
+        >
+          <input
+            type="number" dir="ltr" inputMode="numeric"
+            min={MSG_WORD_LIMIT_MIN} max={MSG_WORD_LIMIT_MAX} value={draft} disabled={busy}
+            aria-label="حد كلمات رسالة العميل"
+            onChange={(e) => { setDraft(Number(e.target.value) || 0); setSaved(false); }}
+            className="h-11 w-32 rounded-xl bg-surface-2 px-3"
+          />
+        </Field>
+      ) : (
+        <p className="text-sm text-text-secondary">لا تملك صلاحية تعديل هذا الحد.</p>
+      )}
+
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {saved && !dirty ? <p className="text-sm text-text-secondary">تم الحفظ.</p> : null}
+
+      {write ? (
+        <Button type="button" size="sm" className="self-start"
+               disabled={!dirty || !inRange || busy} onClick={save}>
           {busy ? 'جارٍ الحفظ…' : 'حفظ'}
         </Button>
       ) : null}

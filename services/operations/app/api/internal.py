@@ -686,16 +686,27 @@ async def shop_name(request: Request, body: ShopNameQueryIn) -> dict:
     per turn (no local cache on its side, see that service's shop_identity.py), so answering both
     here is one round trip instead of two on every single reply. Reads back empty while
     `AI_NOTES_ENABLED` is off, same as the owner's own GET /staff/ai-notes.
+
+    `msg_word_limit` rides the same call for the same reason — the customer-message word ceiling
+    (core/msg_limits.py) is resolved fresh every turn, no local cache, so it belongs on this one
+    round trip rather than a third peer call. Reads back `DEFAULT_MSG_WORD_LIMIT` while
+    `MSG_WORD_LIMIT_ENABLED` is off, same as the owner's own GET /staff/msg-word-limit.
     """
     c = request.app.state.container
     branch = await BranchStore(c.datastore).get(body.tenant, MAIN_BRANCH_ID)
+    s = request.app.state.container_settings
     notes = ""
-    if getattr(request.app.state.container_settings, "AI_NOTES_ENABLED", True):
+    if getattr(s, "AI_NOTES_ENABLED", True):
         from app.core.ai_notes import AiNotesStore
         notes = await AiNotesStore(c.datastore).get(body.tenant)
+    from app.core.msg_limits import DEFAULT_MSG_WORD_LIMIT, MsgWordLimitStore
+    word_limit = DEFAULT_MSG_WORD_LIMIT
+    if getattr(s, "MSG_WORD_LIMIT_ENABLED", True):
+        word_limit = await MsgWordLimitStore(c.datastore).get(body.tenant)
     if branch is None or not (branch.name or "").strip():
-        return {"found": False, "name": "", "ai_notes": notes}
-    return {"found": True, "name": branch.name.strip(), "ai_notes": notes}
+        return {"found": False, "name": "", "ai_notes": notes, "msg_word_limit": word_limit}
+    return {"found": True, "name": branch.name.strip(), "ai_notes": notes,
+            "msg_word_limit": word_limit}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

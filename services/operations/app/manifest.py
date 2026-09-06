@@ -205,6 +205,9 @@ def build_manifest(
             # What the owner told the WhatsApp AI assistant about his own shop — see ai_notes.py.
             {"path": "/api/v1/staff/ai-notes", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/ai-notes", "tier": "user", "method": "PUT"},
+            # The customer-message word limit — see msg_limits.py.
+            {"path": "/api/v1/staff/msg-word-limit", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/msg-word-limit", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/branches/{}", "tier": "user", "method": "PATCH"},

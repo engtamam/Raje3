@@ -56,6 +56,20 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يُستخدم مباشرة لتوجيه الذكاء الاصطناعي — لا تكتب هنا بيانات شخصية لعملائك.",
     },
     {
+        "id": "operations.msg_word_limit", "label": "حد كلمات رسالة العميل", "method": "GET",
+        "path": "/api/v1/staff/msg-word-limit", "capability": "operations.manage", "group": "منشأتي",
+        # Absent from the catalog entirely while MSG_WORD_LIMIT_ENABLED is off — same reasoning as
+        # ai_notes above.
+        "help": "أطول رسالة يقبلها المساعد من العميل قبل أن يطلب منه اختصارها بلا استدعاء للذكاء "
+                "الاصطناعي.",
+    },
+    {
+        "id": "operations.set_msg_word_limit", "label": "تعديل حد كلمات رسالة العميل",
+        "method": "PUT", "path": "/api/v1/staff/msg-word-limit",
+        "capability": "operations.manage", "group": "منشأتي",
+        "help": "بين 20 و300 كلمة — القيمة الافتراضية 100.",
+    },
+    {
         "id": "operations.my_operator_row", "label": "بياناتي كموظف", "method": "GET",
         "path": "/api/v1/staff/operators/me", "capability": "operations.read", "group": "الشاشة",
         "help": "قد لا تجد شيئاً — صاحب المحل نفسه ليس له صفّ موظف، وهذا رد طبيعي لا خلل.",

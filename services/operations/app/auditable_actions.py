@@ -238,6 +238,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "shop_ai_notes",
     },
     {
+        # The ceiling on a customer's single WhatsApp message before the assistant refuses it
+        # without ever calling the model. Not critical for the same reason as ai_notes_changed —
+        # a routine setting, not an access grant.
+        "action": "shop.msg_word_limit_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "shop_msg_word_limits",
+    },
+    {
         "action": "member.hired",
         "source": "admin",
         # CRITICAL: this is a person being given access to an establishment's data. An unrecorded

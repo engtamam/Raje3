@@ -455,6 +455,12 @@ class Settings(BaseSettings):
     # be describing a wish.
     AI_NOTES_ENABLED: bool = True
 
+    # THE FULL KILL SWITCH for the per-shop customer-message word limit (app/core/msg_limits.py).
+    # False means the internal peer route always answers `DEFAULT_MSG_WORD_LIMIT`, and the owner's
+    # own GET/PUT read/refuse the same way `AI_NOTES_ENABLED` does above — the stored value is not
+    # erased, only ignored while this is off.
+    MSG_WORD_LIMIT_ENABLED: bool = True
+
     MAX_BACKDATE_SECONDS: int = 7_776_000
 
     CONSENT_GATE_DRIVER: str = "null"        # null | http
