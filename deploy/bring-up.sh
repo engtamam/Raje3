@@ -672,6 +672,12 @@ soft "roles" bash "$HERE/seed/seed-roles.sh"
 # AFTER THE ROLES, and the order is the requirement: the account is granted `platform-owner`, and a
 # role granted before it is defined is a membership pointing at nothing.
 soft "admin account" bash "$HERE/seed/seed-admin.sh"
+# THE CROSS-TENANT CREDENTIAL operations-service NEEDS FROM billing-service (settlements' partner
+# statement + the wallet top-up reconcile poller) — minted here because this is the first point in
+# the install where a platform-owner account (holding platform.billing + service_accounts:write)
+# actually exists to log in as. See the script's own header for why this could not run any earlier
+# and why it is safe to re-run.
+soft "billing service-account for operations" bash "$HERE/hooks/provision-billing-service-account.sh"
 soft "plans" bash "$HERE/seed/seed-plans.sh"
 soft "legal" bash "$HERE/seed/seed-legal.sh"
 # THE BACKUP TARGETS — runtime data, and nothing was creating it.
