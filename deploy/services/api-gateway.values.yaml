@@ -182,6 +182,16 @@ env:
   # built for it (AdminWhatsAppTemplates.tsx) could never load. Longest-prefix-first matching
   # (adapters/routes/static.py) means a more specific /api/v1/whatsapp/templates entry, placed
   # anywhere in this list, correctly wins over the broader /api/v1/whatsapp one below it.
+  #
+  # /api/v1/assistant NARROWED, 2026-09-06 — same disease as /api/v1/whatsapp above, caught before
+  # it shipped rather than after: whatsapp-assistant's bare "/api/v1/assistant" entry only ever
+  # covered the routes it actually serves, /api/v1/assistant/operator/* (its own WhatsApp-AI
+  # operator-secrets screen) — but was written broad enough to also swallow assistant-service (a
+  # DIFFERENT service, the new help/KB assistant, independently named "assistant" and declaring
+  # /api/v1/assistant/{ask,help,conversations,branding,...}). Narrowed the first entry to
+  # /api/v1/assistant/operator (which longest-prefix-first matching then correctly prefers over the
+  # new broader /api/v1/assistant -> assistant-service entry below it) rather than leaving the two
+  # to depend on list order.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -247,7 +257,8 @@ env:
       {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
 
       {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/api/v1/assistant","upstream":"http://whatsapp-assistant:8000","auth":"required","strip_prefix":false}
+      {"prefix":"/api/v1/assistant/operator","upstream":"http://whatsapp-assistant:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/assistant","upstream":"http://assistant-service:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
 
