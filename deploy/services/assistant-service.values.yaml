@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/assistant-service
-  digest: "sha256:4d6d7ae31be6db24fc4655564047f72b11762bdaccb27dd5c16e93bf99feb326"   # v0.18.34 — mintable MESSAGE_KEY + Saudi national-ID redaction
+  digest: "sha256:4d6d7ae31be6db24fc4655564047f72b11762bdaccb27dd5c16e93bf99feb326"   # v0.18.39
 
 replicas: 1
 

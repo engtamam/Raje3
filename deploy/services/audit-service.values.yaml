@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/audit-service
-  digest: "sha256:252278911ea1ca1bbf7db3e7152be947e76738adeba3db0a68e1ebeec0441a92"   # v0.18.31 — ships next_cursor pagination on /internal/audit, which insights' dispute_report.py now relies on
+  digest: "sha256:252278911ea1ca1bbf7db3e7152be947e76738adeba3db0a68e1ebeec0441a92"   # v0.18.39
 
 replicas: 1
 
