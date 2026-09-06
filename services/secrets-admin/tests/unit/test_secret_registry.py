@@ -35,6 +35,9 @@ def test_the_registry_is_the_ones_we_decided_on():
         # TuwaiqPay's activation (see the registry's own comment on why the label never names a
         # specific gateway even though today's is TuwaiqPay).
         "PAYMENT_API_KEY", "PAYMENT_EXTRA_SECRET",
+        # the ONE payment credential a browser is meant to read (operations' own
+        # /subscription/status route) — a different service holding a slice of the same answer.
+        "PAYMENT_PUBLISHABLE_KEY",
     }
 
 
@@ -57,9 +60,10 @@ def test_only_the_secret_objects_the_cluster_role_names():
     """Pinned against deploy/k3s/secrets-admin-rbac.yaml. An entry pointing at a Secret the Role
     does not name would be refused 403 by the cluster, and the failure would arrive in production."""
     assert {e.secret for e in SECRETS} == {
-        "notification-service-secrets", "whatsapp-assistant-secrets", "billing-service-secrets"}
+        "notification-service-secrets", "whatsapp-assistant-secrets", "billing-service-secrets",
+        "operations-secrets"}
     assert {e.deployment for e in SECRETS} == {
-        "notification-service", "whatsapp-assistant", "billing-service"}
+        "notification-service", "whatsapp-assistant", "billing-service", "operations"}
     assert {e.namespace for e in SECRETS} == {"base-services"}
 
 

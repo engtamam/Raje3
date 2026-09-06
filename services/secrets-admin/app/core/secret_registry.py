@@ -162,6 +162,18 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="billing-service",
         label="كلمة مرور بوابة الدفع",
     ),
+    # THE ONE PAYMENT CREDENTIAL A BROWSER IS MEANT TO READ — operations' own /subscription/status
+    # route returns it verbatim so the plans screen can mint a card form; the two above never leave
+    # billing-service. A DIFFERENT service (operations, not billing-service) holding a slice of the
+    # same "is a payment gateway configured" answer, found the same day the other two were: nowhere
+    # safe to write it either, until now.
+    SecretEntry(
+        key="PAYMENT_PUBLISHABLE_KEY",
+        secret="operations-secrets",
+        namespace="base-services",
+        deployment="operations",
+        label="المفتاح العام لبوابة الدفع (Publishable)",
+    ),
 )
 
 #: key -> entry. Built once; the routes look up by key and 404 on anything not here.

@@ -65,6 +65,9 @@ const SECRET_HELP: Record<string, string> = {
   // بوابة الدفع المفعّل حالياً بإعدادات النشر (PAYMENT_GATEWAY_DRIVER) — راجع بيانات حسابك عنده.
   PAYMENT_API_KEY: 'اسم المستخدم لحساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً بإعدادات النشر.',
   PAYMENT_EXTRA_SECRET: 'كلمة مرور نفس حساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً.',
+  // يظهر لمتصفح العميل مباشرة (شاشة الاشتراك) — ليس سرّاً بنفس معنى الاثنين أعلاه، لكنه بلا مكان
+  // آمن يُكتب فيه غير هنا حتى الآن.
+  PAYMENT_PUBLISHABLE_KEY: 'المفتاح العام (Publishable) لنفس حساب التاجر — من لوحة تحكّم مزوّد بوابة الدفع المفعّل حالياً، وليس سرّياً بذاته لكنه ما زال يحتاج مكاناً واحداً موثوقاً يُكتب فيه.',
 };
 
 // مفاتيح نخترعها نحن، لا يصدرها مزوّد خارجي — زر "توليد" يبني قيمة عشوائية قوية بدل ما يُكتب
@@ -87,6 +90,7 @@ const PROVIDER_OF: Record<string, string> = {
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
   ASSISTANT_MODEL_PROJECT: 'assistant_ai', ASSISTANT_MODEL_CREDENTIAL: 'assistant_ai',
   PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
+  PAYMENT_PUBLISHABLE_KEY: 'payment',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
   meta: { label: 'Meta (واتساب)', icon: MessageCircle },
