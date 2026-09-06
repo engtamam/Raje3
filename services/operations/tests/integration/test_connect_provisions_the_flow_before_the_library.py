@@ -58,7 +58,11 @@ class _FakeExchange:
 def test_provision_shop_flow_is_scheduled_before_publish(client, monkeypatch):
     calls: list[str] = []
 
-    async def _fake_provision(flows, tenant, master_flow_id):
+    async def _fake_provision(flows, tenant, master_flow_id, **_kwargs):
+        # TWO CLONE CALLS NOW (rating-app-feature.md phase 6b added a second Flow, the weekly
+        # report) — both still queued before the library publish, which is the property this
+        # test actually protects. `**_kwargs` absorbs the newer `flow_name`/`categories` args
+        # without caring which Flow this particular call is for.
         calls.append("flow")
         return {"ok": False, "reason": "test double"}
 
@@ -79,7 +83,8 @@ def test_provision_shop_flow_is_scheduled_before_publish(client, monkeypatch):
         "phone_number_id": "pn_order", "business_id": "biz_order",
     }, headers=_headers())
     assert r.status_code == 200, r.text
-    # THE ORDER IS THE ASSERTION. Both are background tasks queued during the same request; a
-    # background task added SECOND still runs after one added first (BackgroundTasks is FIFO), so
-    # this only holds if connect.py schedules the flow provision before the library publish.
-    assert calls == ["flow", "library"], calls
+    # THE ORDER IS THE ASSERTION. All three are background tasks queued during the same request;
+    # a background task added later still runs after ones added earlier (BackgroundTasks is
+    # FIFO), so this only holds if connect.py schedules BOTH Flow clones before the library
+    # publish that references them by name.
+    assert calls == ["flow", "flow", "library"], calls

@@ -360,6 +360,10 @@ class Settings(BaseSettings):
     # script has run. Read at connect time through RuntimeConfig, not this field directly, so a
     # fresh install needs no redeploy once the bootstrap script has written it.
     MASTER_RATING_FLOW_ID: str = ""
+    # THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b),
+    # minted once by deploy/seed/bootstrap-report-flow.sh. See MASTER_RATING_FLOW_ID's own comment
+    # above for why this is read through RuntimeConfig at connect time rather than used directly.
+    MASTER_REPORT_FLOW_ID: str = ""
     # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
     # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
     TEMPLATE_SYNC_MAX_TENANTS: int = 200

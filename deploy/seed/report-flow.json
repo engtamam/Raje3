@@ -1,0 +1,127 @@
+{
+  "_readme": [
+    "THE MASTER WEEKLY-REPORT FLOW — authored once, cloned per shop by",
+    "deploy/seed/bootstrap-report-flow.sh (mirrors bootstrap-rating-flow.sh), via",
+    "notification-service's POST /internal/whatsapp/flows/provision (flow_json, sent exactly",
+    "once, on the platform's own WABA).",
+    "",
+    "STATIC AND READ-ONLY, ON PURPOSE (WhatsApp-Flow-interactive-report-2026-09-06 memory). No",
+    "endpoint_uri, no data-exchange call, no encryption to build — every value below is baked in",
+    "at SEND time (services/insights/app/core/digest.py builds `flow_action_data`), exactly the",
+    "same 'no live round trip when the Flow opens' shape rating-flow.json already proves.",
+    "",
+    "ONE SCREEN PER SECTION, EACH WITH ITS OWN `visible` FLAG — this is what lets a shop with a",
+    "quiet week see only the two lines that actually happened, instead of a screen of empty",
+    "rows. The label text is fixed here (it never changes); only the VALUE and the VISIBILITY",
+    "flag travel per send. Order mirrors digest.py's own line order exactly, so a shop who has",
+    "seen the old text report recognises the same priorities in the new screen.",
+    "",
+    "KEY NAMES ARE THE CONTRACT — `show_*`/`*_text` pairs below are exactly what",
+    "core/digest.py's `build()` must emit in `flow_action_data`; do not rename either side",
+    "without renaming the other.",
+    "",
+    "SCHEMA VERIFIED AGAINST: developers.facebook.com/docs/whatsapp/flows/reference/flowjson and",
+    "developers.facebook.com/docs/whatsapp/flows/reference/components (same pinned version",
+    "rating-flow.json uses) — `visible` accepts a boolean OR a `${data.x}` reference on any",
+    "layout component, and a Footer needs no Form when the screen collects no input at all."
+  ],
+  "version": "6.2",
+  "screens": [
+    {
+      "id": "REPORT",
+      "title": "تقريرك الأسبوعي",
+      "terminal": true,
+      "data": {
+        "flow_token": { "type": "string", "__example__": "unused-until-send-time" },
+        "header_text": { "type": "string", "__example__": "أسبوعك في مغسلة النخيل" },
+
+        "show_visits": { "type": "boolean", "__example__": true },
+        "visits_text": { "type": "string", "__example__": "120 (+15)" },
+
+        "show_new": { "type": "boolean", "__example__": true },
+        "new_text": { "type": "string", "__example__": "8" },
+
+        "show_returning": { "type": "boolean", "__example__": true },
+        "returning_text": { "type": "string", "__example__": "22" },
+
+        "show_at_risk": { "type": "boolean", "__example__": true },
+        "at_risk_text": { "type": "string", "__example__": "5" },
+
+        "show_top_service": { "type": "boolean", "__example__": true },
+        "top_service_text": { "type": "string", "__example__": "غسيل خارجي (40)" },
+
+        "show_messages": { "type": "boolean", "__example__": true },
+        "messages_text": { "type": "string", "__example__": "60" },
+
+        "show_ceiling": { "type": "boolean", "__example__": false },
+        "ceiling_text": { "type": "string", "__example__": "" },
+
+        "show_points": { "type": "boolean", "__example__": true },
+        "points_text": { "type": "string", "__example__": "300" },
+
+        "show_ratings": { "type": "boolean", "__example__": true },
+        "ratings_text": { "type": "string", "__example__": "4.7/5 (12)" },
+
+        "show_unhandled": { "type": "boolean", "__example__": false },
+        "unhandled_text": { "type": "string", "__example__": "" },
+
+        "show_consented": { "type": "boolean", "__example__": false },
+        "consented_text": { "type": "string", "__example__": "" },
+
+        "show_associations": { "type": "boolean", "__example__": false },
+        "associations_text": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "${data.header_text}" },
+
+          { "type": "TextSubheading", "text": "زيارات الأسبوع", "visible": "${data.show_visits}" },
+          { "type": "TextBody", "text": "${data.visits_text}", "visible": "${data.show_visits}" },
+
+          { "type": "TextSubheading", "text": "عملاء جدد", "visible": "${data.show_new}" },
+          { "type": "TextBody", "text": "${data.new_text}", "visible": "${data.show_new}" },
+
+          { "type": "TextSubheading", "text": "عادوا", "visible": "${data.show_returning}" },
+          { "type": "TextBody", "text": "${data.returning_text}", "visible": "${data.show_returning}" },
+
+          { "type": "TextSubheading", "text": "تأخّروا عن موعدهم", "visible": "${data.show_at_risk}" },
+          { "type": "TextBody", "text": "${data.at_risk_text}", "visible": "${data.show_at_risk}" },
+
+          { "type": "TextSubheading", "text": "أكثر خدمة", "visible": "${data.show_top_service}" },
+          { "type": "TextBody", "text": "${data.top_service_text}", "visible": "${data.show_top_service}" },
+
+          { "type": "TextSubheading", "text": "رسائل أرسلتها", "visible": "${data.show_messages}" },
+          { "type": "TextBody", "text": "${data.messages_text}", "visible": "${data.show_messages}" },
+
+          { "type": "TextSubheading", "text": "لم تصلهم رسائلك (حد واتساب)", "visible": "${data.show_ceiling}" },
+          { "type": "TextBody", "text": "${data.ceiling_text}", "visible": "${data.show_ceiling}" },
+
+          { "type": "TextSubheading", "text": "نقاط استُبدلت", "visible": "${data.show_points}" },
+          { "type": "TextBody", "text": "${data.points_text}", "visible": "${data.show_points}" },
+
+          { "type": "TextSubheading", "text": "تقييمات الأسبوع", "visible": "${data.show_ratings}" },
+          { "type": "TextBody", "text": "${data.ratings_text}", "visible": "${data.show_ratings}" },
+
+          { "type": "TextSubheading", "text": "بانتظار المعالجة", "visible": "${data.show_unhandled}" },
+          { "type": "TextBody", "text": "${data.unhandled_text}", "visible": "${data.show_unhandled}" },
+
+          { "type": "TextSubheading", "text": "وافقوا على استقبال عروضك", "visible": "${data.show_consented}" },
+          { "type": "TextBody", "text": "${data.consented_text}", "visible": "${data.show_consented}" },
+
+          { "type": "TextSubheading", "text": "اكتشفنا", "visible": "${data.show_associations}" },
+          { "type": "TextBody", "text": "${data.associations_text}", "visible": "${data.show_associations}" },
+
+          {
+            "type": "Footer",
+            "label": "تم",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "flow_token": "${data.flow_token}" }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

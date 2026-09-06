@@ -291,12 +291,21 @@ class HttpPeers:
         return sorted(str(x) for x in (data.get("tenants") or []) if x)
 
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
-                   owner_text: str, idempotency_key: str) -> dict[str, Any]:
+                   owner_text: str, idempotency_key: str, flow_token: str = "",
+                   flow_action_data: dict[str, Any] | None = None) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "tenant": tenant, "subject_ref": subject_ref, "template_type": template_type,
+            "class": cls, "owner_text": owner_text, "idempotency_key": idempotency_key,
+        }
+        # THE WEEKLY REPORT'S OWN FLOW BUTTON (rating-app-feature.md phase 6b) — omitted entirely
+        # when empty, same "no meaningless field on an ordinary send" rule reminders' own
+        # HttpSender.send follows for this exact pair.
+        if flow_token:
+            body["flow_token"] = flow_token
+            if flow_action_data:
+                body["flow_action_data"] = dict(flow_action_data)
         try:
-            return _post(self._send_url, {
-                "tenant": tenant, "subject_ref": subject_ref, "template_type": template_type,
-                "class": cls, "owner_text": owner_text, "idempotency_key": idempotency_key,
-            }, self._token, self._timeout)
+            return _post(self._send_url, body, self._token, self._timeout)
         except urllib.error.HTTPError as exc:
             return {"sent": False, "reason": f"رفض الإرسال ({exc.code})"}
         except (urllib.error.URLError, OSError) as exc:

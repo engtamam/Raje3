@@ -78,6 +78,15 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
         return None
 
     lines: list[str] = []
+    # THE SAME FACTS, SHAPED FOR THE REPORT FLOW (rating-app-feature.md phase 6b) — one
+    # `show_X`/`X_text` pair per section, filled alongside the matching text line below rather
+    # than recomputed separately, so the two can never drift apart. Keys match
+    # deploy/seed/report-flow.json's own `data` schema exactly; every key is always present
+    # (`show_X=False`/`X_text=""` for a section this week has nothing to say about) because a
+    # Flow's `flow_action_data` supplies every placeholder the published screen declares, not
+    # only the ones with something to show — the `visible` binding is what hides them, not their
+    # absence from this dict.
+    flow: dict[str, Any] = {}
 
     # 1 · THE WEEK, AND ONLY THE WEEK (ي-2). This line used to print `snapshot.visits` — the count
     #     over the shop's ENTIRE history — under the heading «أسبوعك» and directly above two lines
@@ -95,24 +104,35 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     week = values.get("visits_week") or {}
     visits = int(week.get("visits") or 0)
     prev_visits = week.get("previous")
+    flow["show_visits"] = bool(visits)
     if visits:
         delta = visits - int(prev_visits) if prev_visits is not None else 0
         if delta:
             sign = "+" if delta > 0 else "−"
-            lines.append(_line("زيارات الأسبوع", f"{visits} ({sign}{abs(delta)})"))
+            visits_text = f"{visits} ({sign}{abs(delta)})"
         else:
-            lines.append(_line("زيارات الأسبوع", visits))
+            visits_text = str(visits)
+        lines.append(_line("زيارات الأسبوع", visits_text))
+        flow["visits_text"] = visits_text
+    else:
+        flow["visits_text"] = ""
 
     # 2 and 3 · NEW AND RETURNING AS TWO LINES, not one total. A shop growing on new customers
     #     alone is a shop bleeding, and no combined figure shows that.
     nvr = values.get("new_vs_returning") or {}
-    if int(nvr.get("new") or 0):
+    flow["show_new"] = bool(int(nvr.get("new") or 0))
+    flow["new_text"] = str(nvr["new"]) if flow["show_new"] else ""
+    if flow["show_new"]:
         lines.append(_line("عملاء جدد", nvr["new"]))
-    if int(nvr.get("returning") or 0):
+    flow["show_returning"] = bool(int(nvr.get("returning") or 0))
+    flow["returning_text"] = str(nvr["returning"]) if flow["show_returning"] else ""
+    if flow["show_returning"]:
         lines.append(_line("عادوا", nvr["returning"]))
 
     # 4 · THE ONLY LINE THAT ENDS IN AN ACTION, and the reason the message exists.
     at_risk = list(values.get("at_risk") or [])
+    flow["show_at_risk"] = bool(at_risk)
+    flow["at_risk_text"] = str(len(at_risk)) if at_risk else ""
     if at_risk:
         lines.append(_line("تأخّروا عن موعدهم", len(at_risk)))
 
@@ -120,11 +140,16 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #     it changes, which is the point.
     pop = list(values.get("service_popularity") or [])
     names = values.get("service_names") or {}
+    flow["show_top_service"] = False
+    flow["top_service_text"] = ""
     if pop:
         top = pop[0]
         label = names.get(top.get("service_id"), top.get("service_id", ""))
         if label:
-            lines.append(_line("أكثر خدمة", f"{label} ({top.get('count', 0)})"))
+            top_service_text = f"{label} ({top.get('count', 0)})"
+            lines.append(_line("أكثر خدمة", top_service_text))
+            flow["show_top_service"] = True
+            flow["top_service_text"] = top_service_text
 
     # 6 · WHAT HE SENT, not what he has left. We do not sell messages — Meta bills him directly
     #     (spec §16.7) — so a "balance" here would be a balance of nothing, and the first time he
@@ -132,6 +157,8 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #
     #     It is still worth a line: it is the only place he sees the volume his shop generates
     #     without opening anything, and it is what makes his own bill explicable.
+    flow["show_messages"] = bool(messages_sent)
+    flow["messages_text"] = str(messages_sent) if messages_sent else ""
     if messages_sent:
         lines.append(_line("رسائل أرسلتها", messages_sent))
 
@@ -144,11 +171,15 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #
     #      AND ONLY IN A WEEK IT ACTUALLY BIT. A shop that never touched its ceiling gets no line;
     #      a limit that has cost him nothing is not news about his shop.
+    flow["show_ceiling"] = bool(ceiling_missed)
+    flow["ceiling_text"] = str(ceiling_missed) if ceiling_missed else ""
     if ceiling_missed:
         lines.append(_line("لم تصلهم رسائلك (حد واتساب)", ceiling_missed))
 
     # 7 · the loyalty programme, for shops that have one. Absent otherwise — a shop without points
     #     must not see an empty points line (spec §8.6.1).
+    flow["show_points"] = bool(points_redeemed)
+    flow["points_text"] = str(points_redeemed) if points_redeemed else ""
     if points_redeemed:
         lines.append(_line("نقاط استُبدلت", points_redeemed))
 
@@ -159,6 +190,10 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #      second is dropped on its own when it is zero, because zero unhandled is not news, it is
     #      the state every shop wants and printing it every week is the "eight zeros" defect the
     #      module docstring already warns about.
+    flow["show_ratings"] = bool(ratings_count)
+    flow["ratings_text"] = f"{ratings_average}/5 ({ratings_count})" if ratings_count else ""
+    flow["show_unhandled"] = bool(ratings_count and ratings_unhandled)
+    flow["unhandled_text"] = str(ratings_unhandled) if flow["show_unhandled"] else ""
     if ratings_count:
         lines.append(_line("تقييمات الأسبوع", f"{ratings_average}/5 ({ratings_count})"))
         if ratings_unhandled:
@@ -170,6 +205,8 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #
     #     ONLY HONEST BECAUSE CONSENT IS NOW EXPLICIT. Counted from refusals, as it would have been
     #     a week ago, this was every customer he had.
+    flow["show_consented"] = bool(consented and not can_campaign)
+    flow["consented_text"] = str(consented) if flow["show_consented"] else ""
     if consented and not can_campaign:
         lines.append(_line("وافقوا على استقبال عروضك", consented))
 
@@ -178,11 +215,16 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
     #     the card. No price, no plan, no invitation — see the module docstring.
     assoc = values.get("associations") or {}
     pairs = [p for p in (assoc.get("pairs") or []) if p.get("verdict") in ("real", "temporal")]
+    flow["show_associations"] = False
+    flow["associations_text"] = ""
     if pairs:
         biggest = max(pairs, key=lambda p: int(p.get("customers") or 0))
         if int(biggest.get("customers") or 0):
-            lines.append(f"وجدنا {len(pairs)} ترابطات بين خدماتك، "
-                         f"أكبرها يشمل {biggest['customers']} عميلاً")
+            associations_text = (f"وجدنا {len(pairs)} ترابطات بين خدماتك، "
+                                 f"أكبرها يشمل {biggest['customers']} عميلاً")
+            lines.append(associations_text)
+            flow["show_associations"] = True
+            flow["associations_text"] = associations_text
 
     header = f"أسبوعك في {shop}" if shop else "أسبوعك"
     # BOUNDED HERE, WHERE A LINE CAN STILL BE DROPPED WHOLE.
@@ -228,6 +270,13 @@ def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
         # spent budget meant for confirmations and receipts, on a message the library never classed
         # that way.
         "cls": "personal",
+        # THE REPORT FLOW'S OWN DATA (rating-app-feature.md phase 6b) — same facts as `lines`
+        # above, shaped for `deploy/seed/report-flow.json`'s `${data.*}` placeholders. Trimming
+        # (the `while` loop above) only shortens the PLAIN-TEXT teaser; the Flow screen still
+        # shows every section that has something to say, regardless of what the text version had
+        # to drop for length — the two are sent together on one template (button + body) and are
+        # allowed to say slightly different amounts for exactly that reason.
+        "flow_action_data": {"header_text": header, **flow},
     }
 
 

@@ -265,12 +265,20 @@ async def digest(request: Request, body: TickIn | None = None) -> dict:
             skipped += 1
             continue
         for subject in await c.subscriptions.recipients(tenant):
+            idempotency_key = (f"insights:digest:{tenant}:{subject}:"
+                              f"{int(snap.get('computed_at', 0)) // 604800}")
             res = await c.peers.send(
                 tenant=tenant, subject_ref=subject, template_type=msg["template_type"],
                 cls=msg["cls"], owner_text=msg["text"],
                 # The week, so a retry inside the same week sends once.
-                idempotency_key=f"insights:digest:{tenant}:{subject}:"
-                                f"{int(snap.get('computed_at', 0)) // 604800}")
+                idempotency_key=idempotency_key,
+                # THE REPORT FLOW'S OWN BUTTON (rating-app-feature.md phase 6b) — reusing the
+                # send's own idempotency key as the Flow token needs no separate mint: it is
+                # already unique per tenant+subject+week, which is all a token that nothing ever
+                # resolves back (the screen is read-only, see report-flow.json's own docstring)
+                # needs to be.
+                flow_token=idempotency_key,
+                flow_action_data=msg.get("flow_action_data"))
             if res.get("sent"):
                 sent += 1
             else:

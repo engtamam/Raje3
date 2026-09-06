@@ -844,13 +844,16 @@
         2
       ],
       "header": "",
-      "button": "",
+      "button": "اعرض تقريرك",
+      "flow_button": {
+        "flow_name": "report_flow"
+      },
       "fills": [
         "system",
         "system"
       ],
       "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. الزر يفتح نفس التقرير كشاشة تفاعلية منظّمة (rating-app-feature.md phase 6b) — النص يبقى كملخّص سريع، بلا أي اعتماد بينهما: شحن الفلو فشل أو لم يُوفَّر بعد لهذا المحل، والنص وحده يكفي.",
       "active": true,
       "deferral": "defer",
       "examples": [
@@ -872,7 +875,10 @@
         2
       ],
       "header": "",
-      "button": "",
+      "button": "اعرض تقريرك",
+      "flow_button": {
+        "flow_name": "report_flow"
+      },
       "fills": [
         "system",
         "system"

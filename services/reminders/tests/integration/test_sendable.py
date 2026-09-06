@@ -264,3 +264,59 @@ def test_the_owners_line_still_wins_at_the_route(client):
 
     assert r.status_code == 200, r.text
     assert seen["offer_text"] == "لك غسلة مجانية"
+
+
+# ── the report Flow's own button (rating-app-feature.md phase 6b) ──────────────────────────────
+def test_a_send_with_no_flow_fields_carries_none_through(client):
+    """Every existing caller (campaigns never opens a Flow) must get byte-identical behaviour —
+    an absent flow_token/flow_action_data on the request must arrive as empty on the schedule."""
+    seen: dict = {}
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen.update(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    r = client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "خصم", "idempotency_key": "cmp:4:sub_abcdefgh"})
+
+    assert r.status_code == 200, r.text
+    assert seen.get("flow_token") == ""
+    assert seen.get("flow_action_data") == {}
+
+
+def test_a_report_sends_flow_token_and_flow_action_data_through_to_the_schedule(client):
+    """insights' weekly digest is the one caller that DOES open a Flow — its flow_token and the
+    report screen's data must reach `send_one`'s schedule dict unchanged."""
+    seen: dict = {}
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen.update(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    r = client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "per_weekly_digest",
+        "class": "personal", "owner_text": "أسبوعك في مغسلة النخيل",
+        "idempotency_key": "insights:digest:t-1:sub_abcdefgh:2900",
+        "flow_token": "insights:digest:t-1:sub_abcdefgh:2900",
+        "flow_action_data": {"header_text": "أسبوعك في مغسلة النخيل", "show_visits": True,
+                             "visits_text": "120 (+15)"}})
+
+    assert r.status_code == 200, r.text
+    assert seen["flow_token"] == "insights:digest:t-1:sub_abcdefgh:2900"
+    assert seen["flow_action_data"]["show_visits"] is True
+    assert seen["flow_action_data"]["visits_text"] == "120 (+15)"

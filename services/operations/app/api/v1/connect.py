@@ -222,6 +222,16 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         master_flow_id = await rc.get(
             tenant="", key="MASTER_RATING_FLOW_ID", default=s.MASTER_RATING_FLOW_ID)
         background.add_task(provision_shop_flow, c.flows, tenant, master_flow_id)
+        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, A SECOND FLOW — the weekly owner report
+        # (rating-app-feature.md phase 6b, deploy/seed/report-flow.json). Its own master id,
+        # minted by deploy/seed/bootstrap-report-flow.sh; an install that has not run that script
+        # yet simply gets "no master report_flow configured" from provision(), same harmless
+        # after-the-response failure as an unconfigured rating Flow.
+        from app.core.flows import REPORT_FLOW_CATEGORIES, REPORT_FLOW_NAME
+        master_report_flow_id = await rc.get(
+            tenant="", key="MASTER_REPORT_FLOW_ID", default=s.MASTER_REPORT_FLOW_ID)
+        background.add_task(provision_shop_flow, c.flows, tenant, master_report_flow_id,
+                            flow_name=REPORT_FLOW_NAME, categories=REPORT_FLOW_CATEGORIES)
         background.add_task(publish, c.library, await c.templates.list(), tenant)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the

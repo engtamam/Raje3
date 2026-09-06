@@ -22,4 +22,7 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # through RuntimeConfig, so the id takes effect the moment the bootstrap script writes it,
     # with no redeploy of this service required.
     "MASTER_RATING_FLOW_ID",
+    # THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b),
+    # minted once by deploy/seed/bootstrap-report-flow.sh, read per shop by connect.py.
+    "MASTER_REPORT_FLOW_ID",
 })

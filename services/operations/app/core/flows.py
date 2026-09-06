@@ -32,6 +32,15 @@ RATING_FLOW_NAME = "rating_flow"
 #: Meta's fixed category set requires at least one; a rating screen is a survey and nothing else.
 RATING_FLOW_CATEGORIES = ["SURVEY"]
 
+#: THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b).
+#: Static and read-only (deploy/seed/report-flow.json's own docstring), so it clones and
+#: publishes through the exact same call `provision()` already makes generic below.
+REPORT_FLOW_NAME = "report_flow"
+#: Meta's fixed category set (SIGN_UP/SIGN_IN/APPOINTMENT_BOOKING/LEAD_GENERATION/CONTACT_US/
+#: CUSTOMER_SUPPORT/SURVEY/OTHER) has no "report"/"dashboard" category — OTHER is the honest fit,
+#: never SURVEY (this Flow asks nothing, unlike rating_flow).
+REPORT_FLOW_CATEGORIES = ["OTHER"]
+
 
 class NullFlows:
     """No notification-service peer configured. Says so, provisions nothing.
@@ -46,7 +55,9 @@ class NullFlows:
     def __init__(self) -> None:
         self.provisioned: list[str] = []
 
-    async def provision(self, tenant: str, *, clone_flow_id: str) -> dict[str, Any]:
+    async def provision(self, tenant: str, *, clone_flow_id: str,
+                       flow_name: str = RATING_FLOW_NAME,
+                       categories: list[str] | None = None) -> dict[str, Any]:
         self.provisioned.append(tenant)
         return {"ok": False, "reason": "flow provisioning is not configured"}
 
@@ -76,8 +87,15 @@ class HttpFlows:
         except (urllib.error.URLError, OSError, ValueError) as exc:
             return 503, {"detail": str(exc)[:120]}
 
-    async def provision(self, tenant: str, *, clone_flow_id: str) -> dict[str, Any]:
-        """Ensure THIS shop's WABA has a published clone of the master Flow, named `RATING_FLOW_NAME`.
+    async def provision(self, tenant: str, *, clone_flow_id: str,
+                       flow_name: str = RATING_FLOW_NAME,
+                       categories: list[str] | None = None) -> dict[str, Any]:
+        """Ensure THIS shop's WABA has a published clone of a master Flow, named `flow_name`.
+
+        GENERIC SINCE THE REPORT FLOW (rating-app-feature.md phase 6b) — this used to hardcode
+        `RATING_FLOW_NAME`/`RATING_FLOW_CATEGORIES`; every existing caller keeps working
+        unchanged (the defaults are exactly what it used to send), and a caller cloning a second
+        Flow (e.g. `REPORT_FLOW_NAME`) passes its own name/categories instead.
 
         NO MASTER, NO CALL. `clone_flow_id` is resolved by the caller (connect.py) from the stored
         setting the bootstrap script writes once — see its module docstring. Calling Meta with an
@@ -85,9 +103,10 @@ class HttpFlows:
         which is not what an empty configuration means.
         """
         if not clone_flow_id:
-            return {"ok": False, "reason": "no master rating flow configured"}
+            return {"ok": False, "reason": f"no master {flow_name.replace('_', ' ')} configured"}
         status, out = self._post({
-            "tenant": tenant, "name": RATING_FLOW_NAME, "categories": RATING_FLOW_CATEGORIES,
+            "tenant": tenant, "name": flow_name,
+            "categories": categories or RATING_FLOW_CATEGORIES,
             "clone_flow_id": clone_flow_id, "publish": True,
         })
         if status >= 400:
@@ -105,7 +124,15 @@ def build_flows(settings: Any) -> Any:
                      timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
 
 
-async def provision_shop_flow(flows: Any, tenant: str, master_flow_id: str) -> dict[str, Any]:
+async def provision_shop_flow(flows: Any, tenant: str, master_flow_id: str, *,
+                              flow_name: str = RATING_FLOW_NAME,
+                              categories: list[str] | None = None) -> dict[str, Any]:
     """The one call connect.py's background task makes — mirrors `library.publish`'s free-function
-    shape so the two background tasks read the same way at the call site."""
-    return await flows.provision(tenant, clone_flow_id=master_flow_id)
+    shape so the two background tasks read the same way at the call site. Defaults to the rating
+    Flow so the existing call site (connect.py) needs no change; a second call with
+    `flow_name=REPORT_FLOW_NAME` clones the report Flow instead."""
+    # NO GUESSED DEFAULT HERE — a caller naming a non-rating flow_name must name its own
+    # categories too (connect.py does, for the report Flow); guessing RATING_FLOW_CATEGORIES for
+    # an unrecognised flow_name would submit "SURVEY" for a Flow that asks nothing.
+    return await flows.provision(tenant, clone_flow_id=master_flow_id, flow_name=flow_name,
+                                 categories=categories)

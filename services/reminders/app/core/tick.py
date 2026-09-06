@@ -529,7 +529,18 @@ class Tick:
                 # happened at; this is the one line that turns it into the credentials the message
                 # is actually sent with. `""` — every shop in the default mode — resolves to the
                 # establishment inside the sender, exactly as before.
-                sending_identity=_sending_identity(tenant, row))
+                sending_identity=_sending_identity(tenant, row),
+                # THE SAME OPTIONAL FLOW-BUTTON FIELDS THE SCHEDULED RATING SEND USES BELOW
+                # (`flow_token=f"rate:{visit_id}"`), read off THIS row instead of computed here —
+                # `send_one` serves every caller of `/internal/reminders/send` (campaigns AND
+                # insights' weekly digest), so it has no visit of its own to derive a token from;
+                # the caller (campaign_send) is the one that knows whether this particular send
+                # opens a Flow, and passes both fields straight through the schedule dict it
+                # already builds. Empty on every existing caller, so this is a no-op for them —
+                # `HttpSender.send` already omits `flow_token` from the wire body entirely when
+                # it is "".
+                flow_token=str(row.get("flow_token") or ""),
+                flow_action_data=row.get("flow_action_data") or None)
         except Unsendable as exc:
             # GIVE THE UNIT BACK. The consume had to come first to be atomic, so a send that did
             # not happen leaves a unit spent — and an erased recipient is not something the shop

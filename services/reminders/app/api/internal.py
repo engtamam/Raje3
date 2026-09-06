@@ -10,6 +10,8 @@ import time
 
 import hmac
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -735,6 +737,18 @@ class CampaignSendIn(BaseModel):
     # The services the offer covers, NAMED — this service holds ids, and «خصم على svc_9f2» is not
     # a message. The caller owns the catalogue, so the caller sends the words.
     service_names: list[str] = Field(default_factory=list, max_length=100)
+    # THE WEEKLY REPORT'S OWN FLOW BUTTON (rating-app-feature.md phase 6b) — empty for every other
+    # caller today (campaigns never opens a Flow), so this is a no-op everywhere but insights'
+    # digest send. `flow_action_data` fills the report screen's `${data.*}` placeholders; the
+    # Flow itself is published once (deploy/seed/report-flow.json) and never changes — only the
+    # values and the per-section `visible` flags travel per send. See core/tick.py's own comment
+    # on why these ride straight through the schedule dict rather than becoming a new parameter.
+    # SAME CEILING AS `idempotency_key` ABOVE (256, not the rating app's own 128) — insights
+    # reuses its own idempotency_key verbatim as this Flow's token (see the module docstring
+    # comment at the call site), so a cap narrower than that field's own would reject a value
+    # the SAME request already accepted under a different name.
+    flow_token: str = Field(default="", max_length=256)
+    flow_action_data: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True}
 
@@ -783,6 +797,8 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_services": list(body.offer_services),
         "offer_value": body.offer_value,
         "coupon_code": body.coupon_code,
+        "flow_token": body.flow_token,
+        "flow_action_data": dict(body.flow_action_data),
     }
     library = await _library(c, body.tenant)
     # THE APPROVED SET, WHICH THIS PATH NEVER READ. The reminder tick has always preferred a
