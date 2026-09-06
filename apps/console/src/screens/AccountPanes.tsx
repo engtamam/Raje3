@@ -14,6 +14,7 @@ import { Badge } from '../rj-ui/Badge';
 import { riyalsLabel } from '../money';
 import { Button } from '../rj-ui/Button';
 import { Toggle } from '../rj-ui/Toggle';
+import { Field, Textarea } from '../rj-ui/Field';
 import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
@@ -144,6 +145,13 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           about the whole establishment, and no shop works on cars in one branch and not another. */}
       <VehiclesCard session={session} catalog={catalog} />
 
+      {/* WHAT THE OWNER WANTS THE WHATSAPP AI ASSISTANT TO KNOW ABOUT HIS OWN SHOP — hours,
+          policies, service details nothing else on the platform already carries. Absent entirely
+          (not shown, not disabled) whenever `operations.ai_notes` is missing from the catalogue —
+          same as every other action-gated card on this pane, and also how the feature's own kill
+          switch (AI_NOTES_ENABLED) hides it without a redeploy on this side. */}
+      <AiNotesCard session={session} catalog={catalog} />
+
       {/* A PERSONAL PREFERENCE, LAST — not because it matters less, but because it is not a fact
           ABOUT the establishment the way everything above it is; it is one person's own inbox
           setting, and the pane's own comment on it already says so («لك وحدك»). Standardised to
@@ -171,6 +179,108 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
         </div>
       ) : null}
     </div>
+  );
+}
+
+// The categories `redact()` (services/operations/app/core/redaction.py) may report — Arabic
+// labels for the transient "تم الحفظ" confirmation, so an owner learns WHAT was stripped without
+// either of us ever handling the actual value a second time to tell him.
+const REDACTED_LABELS: Record<string, string> = {
+  iban: 'رقم حساب بنكي (آيبان)', card: 'رقم بطاقة', email: 'بريد إلكتروني',
+  national_id: 'رقم هوية/إقامة', phone: 'رقم جوال', secret: 'مفتاح سرّي',
+};
+
+const AI_NOTES_MAX = 2000;
+
+/**
+ * ما يعرفه المساعد الذكي عبر واتساب عن هذا المحل تحديداً — مواعيد، سياسات، تفاصيل خدمات لا
+ * يعرفها من مكان آخر على المنصة.
+ *
+ * A EXPLICIT SAVE BUTTON, NOT AUTOSAVE-ON-BLUR (unlike the shorter fields on this same pane's
+ * sibling cards). This field is paragraphs, not a word or two — a save the owner did not clearly
+ * ask for, firing because he tabbed away mid-thought, is a worse failure here than the extra tap
+ * a real button costs.
+ */
+function AiNotesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const read = action(catalog, 'operations.ai_notes');
+  const write = action(catalog, 'operations.set_ai_notes');
+  const [text, setText] = useState<string | null | undefined>(undefined);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState('');
+
+  useEffect(() => {
+    if (!read) { setText(null); return; }
+    call<{ text?: string }>(session, read)
+      .then((x) => { const t = x.text || ''; setText(t); setDraft(t); })
+      .catch(() => setText(null));
+  }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!read || text === null) return null;
+  if (text === undefined) return <Skeleton height={160} />;
+
+  const overCap = draft.length > AI_NOTES_MAX;
+  const dirty = draft !== text;
+
+  async function save() {
+    if (!write || overCap || busy) return;
+    setBusy(true);
+    setError('');
+    setSaved('');
+    try {
+      const out = await call<{ text?: string; redacted?: string[] }>(
+        session, write, { text: draft });
+      const t = out.text || '';
+      setText(t);
+      setDraft(t);
+      const hits = (out.redacted || []).map((c) => REDACTED_LABELS[c] || c);
+      setSaved(hits.length
+        ? `تم الحفظ — حذفنا تلقائياً: ${hits.join('، ')} (لا يُكتب هنا أي بيانات شخصية).`
+        : 'تم الحفظ.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر حفظ الملاحظات. حاول بعد قليل.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <span className="flex flex-col">
+        <span className="text-sm font-medium">ملاحظات المساعد الذكي عبر واتساب</span>
+        <span className="text-xs text-text-secondary">
+          مثال: مواعيد الدوام، سياسة الدفع، تفاصيل خدمة معيّنة — أي شيء يساعد المساعد يجاوب عملاءك
+          بدقّة أكثر. لا تكتب هنا بيانات شخصية لعملائك (أرقام جوال، حسابات بنكية) — يُستخدم هذا
+          النص مباشرة لتوجيه الذكاء الاصطناعي.
+        </span>
+      </span>
+
+      {write ? (
+        <Field
+          error={overCap ? `النص أطول من ${AI_NOTES_MAX} حرفاً — اختصره.` : undefined}
+          hint={!overCap ? `${draft.length} / ${AI_NOTES_MAX}` : undefined}
+        >
+          <Textarea
+            dir="rtl" rows={6} value={draft} disabled={busy}
+            aria-label="ملاحظات المساعد الذكي عبر واتساب"
+            onChange={(e) => { setDraft(e.target.value); setSaved(''); }}
+          />
+        </Field>
+      ) : (
+        <p className="text-sm text-text-secondary">لا تملك صلاحية تعديل هذه الملاحظات.</p>
+      )}
+
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {saved && !dirty ? <p className="text-sm text-text-secondary">{saved}</p> : null}
+
+      {write ? (
+        <Button type="button" size="sm" className="self-start"
+               disabled={!dirty || overCap || busy} onClick={save}>
+          {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+        </Button>
+      ) : null}
+    </section>
   );
 }
 

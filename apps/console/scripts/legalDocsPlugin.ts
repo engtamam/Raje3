@@ -11,7 +11,7 @@
 // pack has no service contract, so its `clauses:` are the whole document and are converted to the
 // same block shape here. Reading the pack is a READ ONLY use of platform/, the same way vite.config
 // already consumes platform/ui as source: nothing under platform/ is written.
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import * as yaml from 'js-yaml';
 import type { Plugin } from 'vite';
@@ -108,9 +108,54 @@ function loadPackBlocks(packDir: string, file: string): DocBlock[] {
   return blocks.filter((b) => b && typeof b === 'object' && !('cover' in b));
 }
 
+// A doc whose YAML+PDPL-pack template was retired (privacy-policy — see that .md's own header
+// comment) — the .md itself is now the whole document, its own `<!-- publication: ... -->` HTML
+// comment says whether it is readable here, and its `## العربية`/`## English` sections become one
+// `legal_text` block each (the same namespaced legacy shim compliance-service's OWN legal pages
+// already render raw markdown through — see legalToDocBlocks.ts's own docstring on why this
+// renderer stays a superset of both block families). SAME AR/EN SECTION SPLIT as
+// deploy/seed/seed-legal.sh's own python step, so the two never drift on how a section ends.
+function section(text: string, marker: string): string {
+  const m = text.match(new RegExp(`^## ${marker}\\s*\\n`, 'm'));
+  if (!m || m.index === undefined) return '';
+  const start = m.index + m[0].length;
+  const rest = text.slice(start);
+  const next = rest.match(/^## (?:العربية|English)\s*$/m);
+  const body = next && next.index !== undefined ? rest.slice(0, next.index) : rest;
+  return body.trimEnd().replace(/---\s*$/, '').trimEnd();
+}
+
+function loadMdSourcedDoc(mdPath: string, slug: string): LegalDoc | null {
+  const raw = readFileSync(mdPath, 'utf8');
+  const pubMatch = raw.match(/<!--\s*publication:\s*(\w+)\s*-->/);
+  const publication = pubMatch ? pubMatch[1] : '';
+  if (!READABLE.has(publication)) return null;
+  const text = raw.replace(/<!--[\s\S]*?-->\n*/g, '');
+  const md_ar = section(text, 'العربية');
+  const md_en = section(text, 'English');
+  const titleBlock = TITLES[slug];
+  return {
+    slug,
+    publication,
+    title: titleBlock ?? humanize(slug),
+    blocks: [{ legal_text: { md_ar, md_en } }],
+    values: {},
+  };
+}
+
 function buildDocs(seedDir: string, packDir: string): LegalDoc[] {
   const docs: LegalDoc[] = [];
   for (const file of readdirSync(seedDir)) {
+    if (file.endsWith('.md')) {
+      const slug = file.replace(/\.md$/, '');
+      // ONLY when there is no YAML sibling — a document still on the YAML+pack path is built
+      // below, from that file, exactly as before. A document that moved to .md-is-the-source has
+      // none, which is precisely the signal this branch reads.
+      if (existsSync(`${seedDir}/${slug}.yaml`)) continue;
+      const doc = loadMdSourcedDoc(`${seedDir}/${file}`, slug);
+      if (doc) docs.push(doc);
+      continue;
+    }
     if (!file.endsWith('.yaml')) continue;
     const slug = file.replace(/\.yaml$/, '');
     const parsed = yaml.load(readFileSync(`${seedDir}/${file}`, 'utf8')) as
