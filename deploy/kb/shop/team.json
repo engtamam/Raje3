@@ -40,14 +40,6 @@
     "surfaces": ["shop"]
   },
   {
-    "id": "account.subscription_status",
-    "anchor": "account.subscription_status",
-    "title": {"ar": "حالة الاشتراك"},
-    "body": {"ar": "فعّالة تعني اشتراكك يعمل بلا مشاكل. متوقفة تشمل أكثر من حالة: قد تكون فترة تجربة، أو دفعة تأخّرت، أو اشتراك ألغيته — راجع الفواتير لمعرفة السبب بالضبط."},
-    "kind": "glossary",
-    "surfaces": ["shop"]
-  },
-  {
     "id": "account.tenant_status",
     "anchor": "account.tenant_status",
     "title": {"ar": "حالة الحساب"},
