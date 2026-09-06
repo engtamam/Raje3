@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.api import scope as SCOPE
+from app.api.scope import REVOKED, branch_scope
 from app.config import get_settings
 from app.core import connect
 from app.core import sending_identity as SI
@@ -276,10 +278,23 @@ async def whatsapp_connect_status(request: Request, branch_id: str = "",
     it, the POST routes already resolve it — this was the one door that could not answer "is THIS
     branch's number connected", so a chain's second branch always read its OWN status as the
     establishment's (or as unconnected, once a central attempt existed under the bare tenant key).
+
+    FOUND BY THE GATE (ci/check_branch_scope.py): unlike every other branch-scoped read in this
+    service, `branch_id` here was taken from the caller and used as-is — a manager scoped to one
+    branch could pass ANY OTHER branch's id and read whether ITS number is connected and able to
+    send. Scoped the same way as `recent_customers`/`list_operators`: `branch_scope` says what
+    this caller may see, and a request outside it is answered as if nothing had been requested —
+    his own scope, never a 403 — same "not an accusation" reasoning as every other narrowed read.
     """
     tenant = getattr(principal, "tenant", "") or ""
     c = request.app.state.container
-    identity = await SI.resolve(c.datastore, tenant, branch_id)
+    scope = await branch_scope(c.datastore, principal)
+    if scope is REVOKED:
+        return {"state": "", "step": "", "message": "لم تبدأ الربط بعد.", "at": 0,
+               "can_send": False}
+    narrowed = SCOPE.narrow(scope, branch_id)
+    resolved_branch_id = branch_id if narrowed == branch_id else ""
+    identity = await SI.resolve(c.datastore, tenant, resolved_branch_id)
     resolved_branch = SI.split(identity)[1]
     attempt = await connect.ConnectionStore(c.datastore).get(tenant, resolved_branch)
     if attempt is None:

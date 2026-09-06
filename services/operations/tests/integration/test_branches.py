@@ -1057,3 +1057,51 @@ def test_operators_full_returns_the_full_record_never_the_pin_hash(client):
     assert row["created"] == 100
     assert "pin_hash" not in row
     assert row["has_pin"] is True
+
+
+# ── ci/check_branch_scope.py: GET /whatsapp/connect must ask who is asking ─────────────────────
+def test_a_branch_manager_cannot_read_another_branchs_whatsapp_status(client):
+    """FOUND BY THE GATE. `branch_id` used to be taken from the query string and used as-is — a
+    manager scoped to Jeddah could pass `?branch_id=brn-ryd` and read whether RIYADH's number is
+    connected and able to send, the same widening §12.4 exists to stop everywhere else."""
+    import asyncio
+
+    from app.core import connect
+    from app.core.models import Operator
+    from app.core.shop_mode import PER_BRANCH, ModeStore
+    from app.core.stores import OperatorStore
+
+    tenant = "tnt_connect_scope"
+    store = client.app.state.container.datastore
+
+    async def seed():
+        await ModeStore(store).set(tenant, PER_BRANCH, available=True)
+        await OperatorStore(store).save(Operator(
+            id="opr_jed_c", tenant=tenant, name="مدير جدة", role="manager",
+            branch_id="brn-jed", person_id="u_jed_c"))
+        await connect.ConnectionStore(store).record(connect.Attempt(
+            tenant=tenant, state=connect.STATE_CONNECTED, branch_id="brn-jed"))
+        await connect.ConnectionStore(store).record(connect.Attempt(
+            tenant=tenant, state=connect.STATE_CONNECTED, branch_id="brn-ryd"))
+
+    asyncio.run(seed())
+    # `_headers_for` grants operations.manage/read, not billing.self — this route's own
+    # capability — so mint a token for the same subject with the cap it actually needs.
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": "u_jed_c", "iss": ISS, "aud": AUD, "caps": ["billing.self"],
+                      "tenant": tenant, "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     SECRET, algorithm="HS256")
+    h = {"Authorization": f"Bearer {tok}"}
+
+    # HIS OWN BRANCH — the real, connected status.
+    mine = client.get("/api/v1/whatsapp/connect", params={"branch_id": "brn-jed"}, headers=h)
+    assert mine.status_code == 200, mine.text
+    assert mine.json()["state"] == "connected" and mine.json()["branch_id"] == "brn-jed"
+
+    # RIYADH — never Riyadh's real "connected" state, however it is asked for. The request falls
+    # back to his own scope (no bare-tenant row seeded), so this reads as "لم تبدأ الربط بعد" —
+    # never the branch he actually asked for and never a leak of its real status.
+    theirs = client.get("/api/v1/whatsapp/connect", params={"branch_id": "brn-ryd"}, headers=h)
+    assert theirs.status_code == 200, theirs.text
+    assert theirs.json()["state"] != "connected"
+    assert "brn-ryd" not in theirs.json().values()
