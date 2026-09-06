@@ -686,6 +686,9 @@ soft "backup targets" bash "$HERE/seed/seed-backup-targets.sh"
 # name on notification-service's side and by a stored id on ours, so a re-run of this whole
 # install is exactly as safe as the seeders above it.
 soft "rating flow" bash "$HERE/seed/bootstrap-rating-flow.sh"
+# THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b).
+# Same idempotency guarantees as the rating flow above; see bootstrap-report-flow.sh's own header.
+soft "report flow" bash "$HERE/seed/bootstrap-report-flow.sh"
 
 # AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
 # operations seeds its 78 templates on the first boot that finds an empty table. On this install it
