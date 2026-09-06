@@ -40,6 +40,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Affiliates",
+        "help": "طلبات الانضمام كمسوّق الجديدة التي تنتظر قرارك: قبول أو رفض.",
     },
     {
         "id": "affiliates.platform_stats",
@@ -51,6 +52,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Affiliates",
+        "help": "كم عدد المسوّقين النشطين الآن، وإجمالي ما جلبه برنامج التسويق للمنصة منذ بدايته.",
     },
     {
         "id": "affiliates.leaderboard",
@@ -62,6 +64,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Affiliates",
+        "help": "أفضل المسوّقين أداءً، مرتّبين بعدد من أحالوهم ونسبة بقاء عملائهم.",
     },
     {
         "id": "leads.geo_map",
@@ -73,6 +76,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Leads",
+        "help": "نقاط على الخريطة لكل عميل محتمل له موقع معروف، بلا اسم أو رقم هاتف — لمعرفة أين يتركّز السوق فقط.",
     },
     {
         "id": "affiliates.approve_application",
@@ -84,6 +88,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": False,
         "group": "Affiliates",
+        "help": "يوافق على طلب الانضمام ويحوّل صاحبه إلى مسوّق فعلي له رابط إحالة خاص به.",
     },
     {
         "id": "affiliates.reject_application",
@@ -95,6 +100,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Affiliates",
+        "help": "يرفض طلب الانضمام؛ يمكن إرفاق سبب الرفض.",
     },
     {
         "id": "affiliates.suspend",
@@ -106,6 +112,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Affiliates",
+        "help": "يوقف مسوّقاً عن العمل مؤقتاً دون حذف حسابه أو سجله — يمكن إعادة تفعيله لاحقاً.",
     },
     {
         "id": "affiliates.reactivate",
@@ -117,6 +124,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": False,
         "group": "Affiliates",
+        "help": "يعيد تفعيل مسوّق كان موقوفاً ليستأنف عمله.",
     },
     {
         "id": "affiliates.toggle_platform_revenue",
@@ -131,6 +139,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": False,
         "group": "Affiliates",
+        "help": "يتحكم في ما إذا كان هذا المسوّق يرى إجمالي إيرادات المنصة كاملة، لا إيراداته الخاصة فقط.",
     },
     {
         "id": "employment.list_pending",
@@ -142,6 +151,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Employment",
+        "help": "طلبات ترشّح للعمل موظفاً في المنصة، تنتظر قرارك.",
     },
     {
         "id": "employment.decide",
@@ -158,6 +168,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Employment",
+        "help": "يقبل طلب التوظيف أو يرفضه، مع إمكانية كتابة السبب.",
     },
     {
         "id": "sectors.list",
@@ -169,6 +180,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Sectors",
+        "help": "كل قطاعات الاستهداف المُعرَّفة، النشطة والمُعطَّلة معاً.",
     },
     {
         "id": "sectors.upsert",
@@ -183,6 +195,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": False,
         "group": "Sectors",
+        "help": "يضيف قطاعاً جديداً، أو يعيد تفعيل/تسمية قطاع موجود بنفس الرمز.",
     },
     {
         "id": "sectors.delete",
@@ -194,6 +207,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Sectors",
+        "help": "لا يحذف القطاع فعلياً، بل يعطّله فقط — اسمه يبقى ظاهراً في كل عميل محتمل سُجِّل تحته سابقاً.",
     },
     {
         "id": "sectors.stats",
@@ -205,6 +219,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Sectors",
+        "help": "لوحة تُظهر أين يتركّز الطلب حسب القطاع والمدينة، مجمّعة من عمل كل المسوّقين.",
     },
     {
         "id": "wafa.list_pending",
@@ -216,6 +231,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Wafa",
+        "help": "طلبات دعم برنامج الوفاء المعلّقة، مع توصية النظام ورأي مدير المسوّق الاستشاري لمساعدتك في القرار.",
     },
     {
         "id": "wafa.decide",
@@ -232,6 +248,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Wafa",
+        "help": "القرار النهائي والملزم بشأن طلب دعم الوفاء — قد يخالف رأي مدير المسوّق، ويُسجَّل رأي المدير على الطلب في كل الأحوال.",
     },
     {
         "id": "withdrawals.list_pending",
@@ -243,6 +260,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Withdrawals",
+        "help": "طلبات سحب أرباح المسوّقين المعلّقة التي تنتظر تحويل المبلغ أو رفضها.",
     },
     {
         # Upload (POST .../receipt) is deliberately NOT declared here — it's a multipart file
@@ -258,6 +276,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": False,
         "danger": False,
         "group": "Withdrawals",
+        "help": "يعرض إيصال التحويل الذي رفعه المسؤول لهذا الطلب، إن وُجد ملف مرفوع فعلاً.",
     },
     {
         "id": "withdrawals.complete",
@@ -269,6 +288,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": False,
         "group": "Withdrawals",
+        "help": "يؤكد أن تحويل المبلغ تم فعلياً، ويتطلب إرفاق رابط أو إثبات للإيصال.",
     },
     {
         "id": "withdrawals.reject",
@@ -280,6 +300,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True,
         "danger": True,
         "group": "Withdrawals",
+        "help": "يرفض طلب السحب، مع إمكانية كتابة السبب.",
     },
     # ── the platform's own operator surface, inherited from _template ─────────────────────────
     # OURS, not the marketer's: these are the credentials (the manager's own §6 BYOK Google
@@ -288,32 +309,40 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliate_service.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
         "path": "/api/v1/affiliates/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
+        "help": "أسماء الاعتمادات (كلمات المرور والمفاتيح) المُخزَّنة لهذه الخدمة مع تلميح قصير لكل واحد، "
+                "بلا عرض القيمة نفسها.",
     },
     {
         "id": "affiliate_service.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
         "path": "/api/v1/affiliates/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "group": "المنصة",
+        "help": "يضبط أو يستبدل اعتماداً (كلمة مرور أو مفتاح) تستخدمه الخدمة — القيمة القديمة تبقى صالحة "
+                "لفترة انتقالية قصيرة.",
     },
     {
         "id": "affiliate_service.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
         "path": "/api/v1/affiliates/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يحذف اعتماداً مضبوطاً يدوياً، فترجع الخدمة لاستخدام القيمة الافتراضية المُعدّة في نظامها.",
     },
     {
         "id": "affiliate_service.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/affiliates/operator/config", "capability": "platform.config", "group": "المنصة",
+        "help": "الإعدادات القابلة للتعديل في هذه الخدمة، بقيمتها الحالية الفعلية.",
     },
     {
         "id": "affiliate_service.operator_config_set", "label": "تعديل إعداد تشغيلي", "method": "PUT",
         "path": "/api/v1/affiliates/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
+        "help": "يغيّر قيمة أحد إعدادات تشغيل هذه الخدمة.",
     },
     {
         "id": "affiliate_service.operator_config_clear", "label": "إرجاع إعداد لقيمته", "method": "DELETE",
         "path": "/api/v1/affiliates/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يلغي تعديلاً سابقاً على إعداد، فترجع القيمة الافتراضية.",
     },
     {
         "id": "affiliate_service.ping", "label": "فحص الاتصال", "method": "GET",
