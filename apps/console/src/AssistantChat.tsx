@@ -1,0 +1,114 @@
+/**
+ * «خدمة العملاء» — Phase 6: the real chat, next to «الدعم الفني» inside the same screen (product
+ * owner's own design: self-serve first, human ticket escalation second — see Support.tsx).
+ *
+ * A TYPED QUESTION, RANKED AND ANSWERED — the OTHER read path from AssistantHint.tsx's anchor
+ * lookup. `POST /ask` (app/api/v1/assistant.py) ranks against the whole KB and either answers
+ * grounded-and-cited or abstains honestly; it never invents past what the KB actually says.
+ *
+ * STATELESS PER TURN ON THE SERVER'S OWN DESIGN (AskIn carries only `question`, no
+ * conversation_id) — this screen keeps the running back-and-forth in local state only. The server
+ * still records each turn (assistant.message_attributed) independently of what this screen shows,
+ * so history exists even though this screen does not fetch it.
+ *
+ * INDEPENDENT ON/OFF SWITCH, SEPARATE FROM THE "?" ICON'S OWN — a deployment may want one without
+ * the other (see AssistantHint.tsx's identical reasoning).
+ */
+import { useRef, useState } from 'react';
+import { Send } from 'lucide-react';
+import { Button } from './rj-ui/Button';
+import { Input } from './rj-ui/Field';
+import { askAssistant, sentenceFor, type AssistantAnswer } from './api';
+import type { Session } from './session';
+
+interface Turn {
+  question: string;
+  answer?: AssistantAnswer;
+  error?: string;
+  pending?: boolean;
+}
+
+export function AssistantChat({ session, surface }: { session: Session; surface: string }) {
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [question, setQuestion] = useState('');
+  const listEnd = useRef<HTMLDivElement>(null);
+
+  if (import.meta.env.VITE_ASSISTANT_CHAT_ENABLED !== 'true') return null;
+
+  async function send() {
+    const q = question.trim();
+    if (!q) return;
+    setQuestion('');
+    setTurns((t) => [...t, { question: q, pending: true }]);
+    try {
+      const answer = await askAssistant(session, q, surface);
+      setTurns((t) => t.map((turn, i) => (i === t.length - 1 ? { question: q, answer } : turn)));
+    } catch (e) {
+      const error = sentenceFor(e, 'تعذّر إرسال سؤالك.');
+      setTurns((t) => t.map((turn, i) => (i === t.length - 1 ? { question: q, error } : turn)));
+    } finally {
+      // FEATURE-DETECTED, NOT ASSUMED — jsdom (this file's own test environment) has no
+      // scrollIntoView at all, and a real browser missing it must not crash the whole send.
+      requestAnimationFrame(() => listEnd.current?.scrollIntoView?.({ behavior: 'smooth' }));
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <p className="text-sm text-text-secondary">
+        اسأل عن أي شيء بالمنصة — يجاوبك مباشرة، ولو ما عرف الجواب يقولك بصراحة بدل ما يخمّن.
+      </p>
+
+      <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
+        {turns.length === 0 ? (
+          <p className="text-sm text-text-muted">اكتب سؤالك بالأسفل لتبدأ.</p>
+        ) : null}
+        {turns.map((t, i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <div className="self-end rounded-2xl bg-accent px-3 py-2 text-sm text-accent-contrast">
+              {t.question}
+            </div>
+            {t.pending ? (
+              <div className="self-start rounded-2xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+                ...
+              </div>
+            ) : t.error ? (
+              <div className="self-start rounded-2xl bg-surface-2 px-3 py-2 text-sm text-danger">
+                {t.error}
+              </div>
+            ) : t.answer ? (
+              <div className="flex max-w-[85%] flex-col gap-1 self-start rounded-2xl bg-surface-2 px-3 py-2 text-sm">
+                <span>{t.answer.answer}</span>
+                {t.answer.actions.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {t.answer.actions.map((a) => (
+                      <span key={a.id} className="rounded-full bg-surface-3 px-2 py-0.5 text-xs text-text-secondary">
+                        {a.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ))}
+        <div ref={listEnd} />
+      </div>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); void send(); }}
+        className="flex items-center gap-2"
+      >
+        <Input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="اكتب سؤالك هنا..."
+          aria-label="سؤالك"
+        />
+        <Button type="submit" disabled={!question.trim()} className="flex items-center gap-1">
+          <Send size={16} aria-hidden /> إرسال
+        </Button>
+      </form>
+    </div>
+  );
+}

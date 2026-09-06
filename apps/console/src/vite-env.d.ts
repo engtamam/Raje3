@@ -18,6 +18,10 @@ interface ImportMetaEnv {
    *  future chat-widget switch (Phase 6). Absent or anything but the literal string "true" hides
    *  it entirely, not just disables it: a switched-off feature should leave no trace on the screen. */
   readonly VITE_ASSISTANT_HELP_ICON_ENABLED?: string;
+  /** Renders (or hides) the assistant chat (AssistantChat.tsx, «خدمة العملاء» tab on «الدعم
+   *  الفني») — INDEPENDENT of the "?" icon's own switch. Same all-or-nothing rule: anything but
+   *  the literal string "true" hides it entirely. */
+  readonly VITE_ASSISTANT_CHAT_ENABLED?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

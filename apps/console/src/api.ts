@@ -903,6 +903,33 @@ export interface AssistantHelpEntry {
   related: string[];
 }
 
+// ── the chat — a typed question, ranked and answered (Phase 6) ─────────────────────────────────
+//
+// STATELESS PER TURN, ON THE SERVER'S OWN DESIGN: POST /ask takes only `question` (no
+// conversation_id — see app/api/v1/assistant.py's own AskIn model), so there is no server-side
+// multi-turn context to thread. A "conversation" on screen is a client-side running list of
+// independent Q&A turns; the server still records each one (assistant.message_attributed) for
+// history, independent of what the screen shows.
+export interface AssistantAnswer {
+  answer: string;
+  message_id: string;
+  grounded: boolean;
+  citations: { ref: string; entry_id: string; title: string }[];
+  actions: { id: string; label: string; method: string; path: string; service: string; capability: string }[];
+  abstained_because: string;
+  searched: number;
+  redacted: string[];
+}
+
+export function askAssistant(
+  session: Session, question: string, surface: string,
+): Promise<AssistantAnswer> {
+  return call<AssistantAnswer>(session, '/api/v1/assistant/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question, surface }),
+  });
+}
+
 export async function fetchAssistantHelp(
   session: Session, anchor: string,
 ): Promise<AssistantHelpEntry | null> {
