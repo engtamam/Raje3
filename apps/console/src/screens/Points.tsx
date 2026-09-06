@@ -35,6 +35,7 @@ import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { useOperatorI18n, tf } from '../operator-i18n';
+import { AssistantHint } from '../AssistantHint';
 import './points-i18n';
 
 /** `cost`, NOT `cost_points`. The API's own field name — see the module note. */
@@ -425,9 +426,15 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="truncate font-medium">{r.name}</span>
-                    <span className="flex items-center gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
                       <Badge tone="neutral">{typeLabel(t, TYPES, r.type)}</Badge>
-                      {r.active === false ? <Badge tone="warning">{t('points.stoppedBadge')}</Badge> : null}
+                      <AssistantHint anchor="points.rewardType" session={session} />
+                      {r.active === false ? (
+                        <>
+                          <Badge tone="warning">{t('points.stoppedBadge')}</Badge>
+                          <AssistantHint anchor="points.stoppedBadge" session={session} />
+                        </>
+                      ) : null}
                     </span>
                   </span>
 

@@ -31,6 +31,7 @@ import { TodayBookingsStrip } from '../TodayBookingsStrip';
 import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
 import { useOperatorI18n, tf } from '../operator-i18n';
+import { AssistantHint } from '../AssistantHint';
 import './visit-i18n';
 
 /**
@@ -536,7 +537,10 @@ export function Visit() {
                 and a worker who misses it has taken money for something already paid for. */}
             {offer?.text ? (
               <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
-                <div className="mb-1 text-sm font-semibold">{t('visit.offer.title')}</div>
+                <div className="mb-1 flex items-center gap-1 text-sm font-semibold">
+                  {t('visit.offer.title')}
+                  <AssistantHint session={session} anchor="visit.offer" />
+                </div>
                 <div>{offer.text}</div>
                 {/* THE AMOUNT, STATED. The sentence above is whatever was sent — often the
                     owner's own line, which need not name the discount at all. An operator who
@@ -579,7 +583,10 @@ export function Visit() {
             {balance ? (
               <div className="rounded-xl bg-surface-1 p-3 shadow-sm">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-text-secondary">{t('visit.points.balance')}</span>
+                  <span className="flex items-center gap-1 text-sm text-text-secondary">
+                    {t('visit.points.balance')}
+                    <AssistantHint session={session} anchor="visit.points_balance" />
+                  </span>
                   <span className="tabular-nums text-xl font-semibold">{balance.points} {t('visit.points.unit')}</span>
                 </div>
 
@@ -611,8 +618,9 @@ export function Visit() {
                                 found that out from an error message with the customer already
                                 holding out his hand (د-14أ). */}
                             {r.needs_approval ? (
-                              <span className="ms-2 rounded bg-surface-3 px-1.5 py-0.5 text-xs text-text-secondary">
+                              <span className="ms-2 inline-flex items-center gap-1 rounded bg-surface-3 px-1.5 py-0.5 text-xs text-text-secondary">
                                 {t('visit.points.needsApproval')}
+                                <AssistantHint session={session} anchor="visit.needs_approval" />
                               </span>
                             ) : null}
                           </span>
@@ -1007,8 +1015,9 @@ export function Visit() {
           done={(
     <div className="flex items-center gap-3">
           {pending.length > 0 ? (
-            <span className="shrink-0 text-sm text-text-secondary tabular-nums">
+            <span className="inline-flex shrink-0 items-center gap-1 text-sm text-text-secondary tabular-nums">
               {tf(t, 'visit.pending', { n: pending.length })}
+              <AssistantHint session={session} anchor="visit.pending_queue" />
             </span>
           ) : null}
           {/* AND THE ONES THAT WILL NEVER GO. The queue has always told these apart — a 400, a 403
@@ -1017,8 +1026,9 @@ export function Visit() {
               nothing, and a shop lost a customer with no reminder, no points and no metric, in
               silence. That silence was the whole reason for holding it rather than dropping it. */}
           {stuck.length > 0 ? (
-            <span className="shrink-0 text-sm text-danger tabular-nums">
+            <span className="inline-flex shrink-0 items-center gap-1 text-sm text-danger tabular-nums">
               {tf(t, 'visit.stuck', { n: stuck.length })}
+              <AssistantHint session={session} anchor="visit.stuck_queue" />
             </span>
           ) : null}
           {note ? <span className="shrink-0 text-sm text-accent">{note}</span> : null}

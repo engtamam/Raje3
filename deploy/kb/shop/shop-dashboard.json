@@ -1,0 +1,202 @@
+[
+  {
+    "id": "shop.retention_hero",
+    "anchor": "shop.retention_hero",
+    "title": {"ar": "نسبة عودة عملائك"},
+    "body": {"ar": "من بين كل من زاروك، كم واحد يرجع لك مرة ثانية بدل ما يروح لمحل ثاني. كل ما زادت هذي النسبة كل ما دل إنك تكسب ولاء عملائك لا بس زيارة وحدة."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.messages_sent_today",
+    "anchor": "shop.messages_sent_today",
+    "title": {"ar": "رسائل خرجت اليوم"},
+    "body": {"ar": "عدد رسائل الواتساب (تذكير، عرض، أو تنبيه) اللي فعلاً وصلت لعملائك اليوم."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.messages_waiting",
+    "anchor": "shop.messages_waiting",
+    "title": {"ar": "بانتظار الإرسال"},
+    "body": {"ar": "رسائل جاهزة بس لسا ما طلعت — راح تُرسل تلقائيًا أول ما يجيها دورها."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.ceiling_remaining",
+    "anchor": "shop.ceiling_remaining",
+    "title": {"ar": "سقفك المتبقي اليوم"},
+    "body": {"ar": "كم رسالة واتساب باقية تقدر ترسلها اليوم حسب باقتك. إذا وصلت للصفر، الباقي يتأجل ويُرسل تلقائيًا بكرة."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.active_customers",
+    "anchor": "shop.active_customers",
+    "title": {"ar": "عملاء نشطون"},
+    "body": {"ar": "عدد عملائك اللي زاروك مؤخرًا وما زالوا يُحسبون على أنهم يتعاملون معك، مو كل من زارك بيوم من الأيام."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.return_cycle_days",
+    "anchor": "shop.return_cycle_days",
+    "title": {"ar": "دورة العودة"},
+    "body": {"ar": "متوسط عدد الأيام اللي يمر بها عميلك عادةً بين زيارة وأخرى. تساعدك تعرف متى تذكّره قبل ما ينسى."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.churn_rate",
+    "anchor": "shop.churn_rate",
+    "title": {"ar": "التسرّب"},
+    "body": {"ar": "نسبة عملائك اللي توقفوا عن الرجوع لك خلال الفترة الأخيرة. كل ما قلّت هذي النسبة كان أفضل."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.week_pulse",
+    "anchor": "shop.week_pulse",
+    "title": {"ar": "زياراتك آخر أيام"},
+    "body": {"ar": "عدد الزيارات المسجَّلة في الأيام الأخيرة، مقارنة بنفس الفترة اللي قبلها — عشان تعرف إذا محلك أنشط أو أهدأ من العادة."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.new_vs_returning",
+    "anchor": "shop.new_vs_returning",
+    "title": {"ar": "عملاء جدد وعائدون"},
+    "body": {"ar": "من زاروك هذا الشهر لأول مرة، مقابل من كانوا عندك قبل كذا ورجعوا. يوريك إذا محلك يجذب وجوه جديدة أو يعتمد على عملائه القدامى بس."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.services_per_visit",
+    "anchor": "shop.services_per_visit",
+    "title": {"ar": "خدمات لكل زيارة"},
+    "body": {"ar": "متوسط عدد الخدمات اللي يطلبها العميل الواحد في الزيارة الوحدة. رقم أعلى معناه عملاؤك يطلبون أكثر من خدمة كل مرة."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.expected_flow",
+    "anchor": "shop.expected_flow",
+    "title": {"ar": "متوقّع الأسبوع الجاي"},
+    "body": {"ar": "توقّع لعدد الزيارات اللي ننتظرها الأسبوع الجاي، مبني على إيقاع محلك المعتاد — يساعدك تجهّز الطاقم والمخزون بدري."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.cycle_completion",
+    "anchor": "shop.cycle_completion",
+    "title": {"ar": "التزام الدورة الدورية"},
+    "body": {"ar": "نسبة عملائك اللي يرجعون فعلاً بالوقت المتوقع لدورتهم المعتادة، بدل ما يتأخرون أو ينقطعون."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.message_flow",
+    "anchor": "shop.message_flow",
+    "title": {"ar": "أثر رسائلك"},
+    "body": {"ar": "أول رقم يوريك كم زيارة رجعت بعد ما أرسلت رسالة تذكير أو عرض. ثاني رقم يوريك كم شخص من كل ألف رسالة طلب إيقاف الرسائل — لو ارتفع كثير راجع محتوى حملاتك."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.holdout",
+    "anchor": "shop.holdout",
+    "title": {"ar": "أثر الرسائل، مقيساً"},
+    "body": {"ar": "مقارنة حقيقية بين مجموعتين من عملائك: مجموعة ما وصلتها رسائل، ومجموعة وصلتها — عشان تعرف بالضبط هل رسائلك فعلاً هي اللي رجّعت العملاء، أو كانوا راح يرجعون على كل حال."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.at_risk",
+    "anchor": "shop.at_risk",
+    "title": {"ar": "عملاء يستحقون متابعتك الآن"},
+    "body": {"ar": "عملاء تأخروا عن موعد رجوعهم المعتاد أكثر من الطبيعي — «متأخر كذا يوم» يعني عدد الأيام اللي فاتت فوق دورتهم المعتادة. هذولا الأقرب لفقدانهم لو ما تابعتهم."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.branch_compare",
+    "anchor": "shop.branch_compare",
+    "title": {"ar": "مقارنة الفروع"},
+    "body": {"ar": "ترتيب فروعك حسب عدد الزيارات، مع نسبة عودة كل فرع لعملائه — عشان تشوف أي فرع أنشط وأي فرع عملاؤه يرجعون له أكثر."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.staff_compare",
+    "anchor": "shop.staff_compare",
+    "title": {"ar": "مقارنة الموظفين"},
+    "body": {"ar": "ترتيب موظفيك حسب عدد الزيارات اللي سجّلوها، مع نسبة عودة العملاء لنفس الموظف تحديدًا — يعني كم عميل رجع لهذا الموظف بالذات، مو لمحلك بشكل عام."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.service_popularity",
+    "anchor": "shop.service_popularity",
+    "title": {"ar": "الأكثر طلبًا عندك"},
+    "body": {"ar": "خدماتك الأكثر طلبًا، مرتبة من الأعلى للأقل، مع عدد مرات طلبها ونسبتها من إجمالي طلباتك."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.weak_services",
+    "anchor": "shop.weak_services",
+    "title": {"ar": "خدمات ما تُطلب كثيرًا"},
+    "body": {"ar": "أقل خُمس خدماتك طلبًا مقارنة بباقي خدماتك أنت (مو رقم ثابت لكل المحلات) — قد تحتاج ترويج لها أو مراجعة سعرها."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.peak_heatmap",
+    "anchor": "shop.peak_heatmap",
+    "title": {"ar": "أكثر أوقاتك ازدحامًا"},
+    "body": {"ar": "خريطة توضّح أي يوم وأي ساعة يكون محلك أكثر ازدحامًا بالزيارات — كل ما كان اللون أغمق كل ما كان الوقت أزحم، عشان تجهّز طاقمك بالوقت المناسب."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.next_step",
+    "anchor": "shop.next_step",
+    "title": {"ar": "الخطوة التالية"},
+    "body": {"ar": "اقتراح واحد يختاره النظام تلقائيًا كأهم شي تسويه الحين بناءً على وضع محلك — لو ضغطت «ليس الآن» يختفي مؤقتًا ويرجع لاحقًا لو ظل صحيحًا."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.bundles",
+    "anchor": "shop.bundles",
+    "title": {"ar": "باقات مقترحة"},
+    "body": {"ar": "خدمتان لاحظنا إن عملاءك كثير يطلبونهم مع بعض — يقترح عليك تسويهم باقة واحدة بسعر مجمّع بدل ما تُباع منفصلة."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.associations",
+    "anchor": "shop.associations",
+    "title": {"ar": "ما يُطلب معًا"},
+    "body": {"ar": "أزواج من خدماتك اللي عادةً تُطلب مع بعض في نفس الزيارة — يساعدك تقترحها على العميل وقت الحجز."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.missed_opportunities",
+    "anchor": "shop.missed_opportunities",
+    "title": {"ar": "عملاء ما جرّبوا كل اللي يناسبهم"},
+    "body": {"ar": "عملاء طلبوا خدمة معينة، لكن ما جرّبوا خدمة ثانية عادة تُطلب معها — فرصة تقترحها عليهم بزيارتهم الجاية."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "shop.recent_visits",
+    "anchor": "shop.recent_visits",
+    "title": {"ar": "آخر الزيارات"},
+    "body": {"ar": "قائمة بآخر الزيارات المسجَّلة في محلك — مجرد تأكيد إن النظام يسجّل زياراتك فعلاً وبشكل صحيح."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  }
+]

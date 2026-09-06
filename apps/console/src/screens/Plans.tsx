@@ -45,6 +45,16 @@ import { isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import type { Session } from '../session';
 import { riyals } from '../money';
+import { AssistantHint } from '../AssistantHint';
+
+/** The anchor for one status badge's plain-language explanation, or none for the states that
+ *  already say what happens next right on the card (cancelling, active, stopped). */
+function statusAnchor(label?: string): string | undefined {
+  if (label === 'تجريبي') return 'store.trialStatus';
+  if (label === 'متأخر الدفع') return 'store.pastDueStatus';
+  if (label === 'موقوف مؤقتاً') return 'store.pausedStatus';
+  return undefined;
+}
 
 /**
  * Where each app's surface lives, in the words on the rail.
@@ -293,8 +303,11 @@ function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
-  onUndoCancel, undoingCancel,
+  onUndoCancel, undoingCancel, session,
 }: {
+  /** Only for the "?" beside a status badge that genuinely needs one (trial/past-due/paused) —
+   *  every other passive label on this card is already said in plain Arabic right on it. */
+  session: Session;
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
   owned: boolean | null;
@@ -400,8 +413,12 @@ function AppCard({
             {plan.name}
           </h3>
         </div>
-        {has && statusLabel ? <Badge tone={statusTone ?? 'success'}>{statusLabel}</Badge>
-          : has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
+        {has && statusLabel ? (
+          <span className="flex items-center gap-1">
+            <Badge tone={statusTone ?? 'success'}>{statusLabel}</Badge>
+            {statusAnchor(statusLabel) ? <AssistantHint anchor={statusAnchor(statusLabel)!} session={session} /> : null}
+          </span>
+        ) : has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
       </header>
 
       {/* WHAT IT DOES FOR HIM. The one line that does the selling - first, before a single number,
@@ -1238,7 +1255,10 @@ export function PlansPane({
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
           {bases.length ? (
             <section className="flex flex-col gap-2">
-              <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
+              <h2 className="flex items-center gap-1 text-sm text-text-secondary">
+                الاشتراك الأساسي
+                <AssistantHint anchor="store.baseSection" session={session} />
+              </h2>
               <ul className="grid gap-3">
                 {bases.map((p) => {
                   // WHICH BASE, NOT JUST WHETHER ONE - `hasBase` alone used to mark EVERY base
@@ -1305,6 +1325,7 @@ export function PlansPane({
                     <li key={p.id}>
                       <AppCard
                         plan={p}
+                        session={session}
                         owned={isBaseSubRow ? true : isThisOne}
                         busy={busy}
                         sellable={Boolean(canSubscribe && pay?.enabled && canMintToken)}
@@ -1348,7 +1369,10 @@ export function PlansPane({
               bought AGAIN rather than owned: each purchase adds to what he has. */}
           {capacity.length ? (
             <section className="flex flex-col gap-2">
-              <h2 className="text-sm text-text-secondary">السعة</h2>
+              <h2 className="flex items-center gap-1 text-sm text-text-secondary">
+                السعة
+                <AssistantHint anchor="store.capacitySection" session={session} />
+              </h2>
               {capacityError ? <p className="text-sm text-danger">{capacityError}</p> : null}
               <ul className="grid gap-3 grid-cols-2">
                 {capacity.map((p) => {
@@ -1380,7 +1404,10 @@ export function PlansPane({
           half-width column beside the base. */}
       {apps.length ? (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm text-text-secondary">التطبيقات</h2>
+          <h2 className="flex items-center gap-1 text-sm text-text-secondary">
+            التطبيقات
+            <AssistantHint anchor="store.appsSection" session={session} />
+          </h2>
           {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
               after he presses. operations refuses the pair regardless; this is so he never meets
               that refusal. */}
@@ -1403,6 +1430,7 @@ export function PlansPane({
                 <li key={p.id}>
                   <AppCard
                     plan={p}
+                    session={session}
                     owned={owns(owned ?? null, appKey(p))}
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}

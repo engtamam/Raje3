@@ -33,6 +33,7 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { asLocal } from '../phone';
 import { outsideVisits } from '../branch-scope';
+import { AssistantHint } from '../AssistantHint';
 
 export { outsideVisits };
 
@@ -222,12 +223,15 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
       ) : null}
 
       <div className="grid grid-cols-3 gap-2">
-        <Tile label="رسائل خرجت اليوم" value={String(today.messages.sent_today)} tone="violet" />
-        <Tile label="بانتظار الإرسال" value={String(today.messages.waiting)} tone="flat" />
+        <Tile label="رسائل خرجت اليوم" value={String(today.messages.sent_today)} tone="violet"
+             session={session} helpAnchor="shop.messages_sent_today" />
+        <Tile label="بانتظار الإرسال" value={String(today.messages.waiting)} tone="flat"
+             session={session} helpAnchor="shop.messages_waiting" />
         <Tile
           label="سقفك المتبقي اليوم"
           value={!today.ceiling.known ? '—' : today.ceiling.unlimited ? 'بلا حدّ' : String(today.ceiling.remaining)}
           tone={!today.ceiling.known || today.ceiling.unlimited ? 'flat' : today.ceiling.remaining <= 0 ? 'coral' : 'teal'}
+          session={session} helpAnchor="shop.ceiling_remaining"
         />
       </div>
     </>
@@ -246,7 +250,7 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
  *  move `MessageFlow`/`HoldoutCard` already make with their own tinted panels, applied here too. A
  *  tile with no real signal yet (`empty`) drops the tint entirely and dashes its own border, so
  *  "no data yet" reads as a different KIND of tile, not just a lower number. */
-function Tile({ label, value, tone, delta, empty, href, hint }: {
+function Tile({ label, value, tone, delta, empty, href, hint, session, helpAnchor }: {
   label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
   /** THE COMPARISON THAT MAKES A LEVEL MEAN SOMETHING — «good» means "up from before" for most
    *  numbers, so a rising churn rate must still read as bad even though it went up. Pass
@@ -260,6 +264,10 @@ function Tile({ label, value, tone, delta, empty, href, hint }: {
    *  fixes that; a tile with nowhere to send him is silent about the one thing he'd ask next. */
   href?: string;
   hint?: string;
+  /** THE HELP ICON, WHEN THIS TILE'S NUMBER NEEDS EXPLAINING — optional, since some tiles (a plain
+   *  count) need no explanation and the icon would be one more thing to skip past on a busy row. */
+  session?: Session;
+  helpAnchor?: string;
 }) {
   const soft = tone === 'violet' ? 'var(--sh-violet-soft)' : tone === 'teal' ? 'var(--sh-teal-soft)'
     : tone === 'coral' ? 'var(--sh-coral-soft)' : 'var(--sh-surface-2)';
@@ -274,7 +282,10 @@ function Tile({ label, value, tone, delta, empty, href, hint }: {
         : { background: soft, boxShadow: '0 1px 2px rgba(19,18,38,.04)' }
     }>
       <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: empty ? 'var(--sh-ink-faint)' : fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-      <span className="text-[10.5px]" style={{ color: empty ? 'var(--sh-ink-faint)' : 'var(--sh-ink-soft)' }}>{label}</span>
+      <span className="flex items-center justify-center gap-0.5 text-[10.5px]" style={{ color: empty ? 'var(--sh-ink-faint)' : 'var(--sh-ink-soft)' }}>
+        {label}
+        {session && helpAnchor ? <AssistantHint session={session} anchor={helpAnchor} /> : null}
+      </span>
       {empty && hint ? <span className="text-[9.5px] leading-tight" style={{ color: 'var(--sh-violet-deep)' }}>{hint}{href ? ' ←' : ''}</span> : null}
       {diff !== null ? (
         <span dir="ltr" className="text-[10px] font-semibold" style={{
@@ -448,6 +459,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           pct={returnRate}
           series={series && !series.learning ? series : undefined}
           sampleSize={typeof data.values['active_customers'] === 'number' ? data.values['active_customers'] as number : undefined}
+          session={session}
         />
       ) : muted('نسبة عودة عملائك', 'ما نقدر نحسبها بعد — تحتاج زيارات حقيقية أولاً.')}
 
@@ -469,12 +481,12 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           rendered set of cards left-to-right by READING ORDER with no per-card column assignment
           to maintain, and `break-inside-avoid` keeps each card from splitting across the seam. */}
       <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
-        <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} /></div>
+        <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} session={session} /></div>
 
-        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div>
+        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} session={session} /></div>
           : <div className="mb-3 break-inside-avoid">{muted('زياراتك آخر أيام', 'ما نقدر نقرأ نافذة الأسبوع الآن.')}</div>}
         {split && (split.new + split.returning) > 0
-          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} /></div>
+          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} session={session} /></div>
           : <div className="mb-3 break-inside-avoid">{muted('عملاء جدد وعائدون', 'ما فيه زيارات كافية هذا الشهر لنقسمها بعد.')}</div>}
 
         {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
@@ -483,17 +495,17 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
                 average (round(x, 2), e.g. 1.5) and stays exact on the wire; a KPI tile reading
                 "1.5" beside a whole count of visits reads as a typo rather than a statistic, so
                 the tile shows the nearest whole number a shop owner can act on. */}
-            {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={Math.round(perVisit).toLocaleString('en-US')} tone="flat" /> : null}
-            {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
-            {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
+            {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={Math.round(perVisit).toLocaleString('en-US')} tone="flat" session={session} helpAnchor="shop.services_per_visit" /> : null}
+            {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" session={session} helpAnchor="shop.expected_flow" /> : null}
+            {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" session={session} helpAnchor="shop.cycle_completion" /> : null}
           </div>
         ) : (
           <div className="mb-3 break-inside-avoid">{muted('خدماتك لكل زيارة، والالتزام بالدورة', 'تحتاج زياراتٍ حقيقية أولاً لتُحسب.')}</div>
         )}
 
-        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div>
+        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} session={session} /></div>
           : <div className="mb-3 break-inside-avoid">{muted('أثر رسائلك', 'ما وصلنا سجل الرسائل بعد.')}</div>}
-        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div>
+        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} session={session} /></div>
           : <div className="mb-3 break-inside-avoid">{muted('أثر الرسائل، مقيساً', 'يحتاج مجموعتين حقيقيتين للمقارنة — لسا ما تكوّنتا.')}</div>}
 
         {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison
@@ -503,13 +515,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             `staffBlocked` (coverage.py's own signal) is the richer explanation when we HAVE it,
             and the plain muted fallback covers the rest. */}
         <div className="mb-3 break-inside-avoid">
-          {branches ? <BranchCompare branches={branches} />
+          {branches ? <BranchCompare branches={branches} session={session} />
             : branchBlocked ? <BlockedStamp b={branchBlocked} />
             : muted('مقارنة الفروع', 'ما نقدر نقرأ فروعك الآن.')}
         </div>
         <div className="mb-3 break-inside-avoid">
           {operatorRows ? (
-            <StaffCompare rows={operatorRows} unknown={operatorUnknown} canRank={operatorCanRank} />
+            <StaffCompare rows={operatorRows} unknown={operatorUnknown} canRank={operatorCanRank} session={session} />
           ) : staffBlocked ? (
             // THE ONE STAMP WITH A REAL LINK — a team he can invite into the product is the actual
             // fix for "visits arrive with nobody's name on them", unlike the other two (both
@@ -520,15 +532,15 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
 
         <div className="mb-3 break-inside-avoid">
           <Section title="خدماتك">
-            {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
-            {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
+            {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} session={session} /> : null}
+            {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} session={session} /> : null}
             {!(popularity && popularity.length > 0) && !(weak && weak.length > 0)
               ? muted('خدماتك', 'ما فيه بيانات خدمات كافية بعد — سجّل بضع زيارات وتبدأ تظهر.') : null}
           </Section>
         </div>
 
         {peak?.grid && Object.keys(peak.grid).length > 0 ? (
-          <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} /></div>
+          <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} session={session} /></div>
         ) : (
           <div className="mb-3 break-inside-avoid">{muted('أكثر أوقاتك ازدحامًا', 'تحتاج زياراتٍ موزّعة على أيام وساعات كافية لنرسمها.')}</div>
         )}
@@ -549,7 +561,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {/* واحدة تتصدّر دائماً، من محرك حقيقي (services/insights/app/core/next_step.py) — لا
             سلسلة if/else يدوية. أي قاعدة تختارها المنصة تُعرض كما هي، بلا اختراع نص هنا. */}
         <div className="mb-3 break-inside-avoid">
-          <Section title="الخطوة التالية">
+          <Section title="الخطوة التالية" session={session} helpAnchor="shop.next_step">
             {data.next_step ? (
               <NextStepView step={data.next_step} onDismiss={dismissNextStep} busy={dismissingStep} />
             ) : null}
@@ -576,7 +588,10 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           <div className="mb-3 break-inside-avoid"><LockedLine title="باقات مقترحة" text={locked.bundles} /></div>
         ) : bundles && bundles.length ? (
           <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-            <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
+            <h3 className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
+              باقات مقترحة
+              <AssistantHint session={session} anchor="shop.bundles" />
+            </h3>
             {bundles.slice(0, 4).map((b, i) => {
               // WHERE THE BUTTON GOES (packages feature). `bundle` pre-fills a brand-new
               // package's create form with both services already picked; `extend_package`
@@ -615,7 +630,10 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           <div className="mb-3 break-inside-avoid"><LockedLine title="ما يُطلب معًا" text={locked.associations} /></div>
         ) : pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
           <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-            <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>ما يُطلب معًا</h3>
+            <h3 className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
+              ما يُطلب معًا
+              <AssistantHint session={session} anchor="shop.associations" />
+            </h3>
             {/* `p.a`/`p.b` ARE SERVICE IDS, NOT NAMES — `associations.build` derives every pair
                 from raw `service_ids` on the visit and never resolves them, so this rendered a
                 literal id (e.g. `svc_a1b2c3`) beside its partner until now. `service_names` was
@@ -717,7 +735,7 @@ export function retentionStreak(
  *  stated as if it were a fact about ten. An owner does not do the mental math back to «that's
  *  actually just me and my one customer»; he reads it as ten real people. Below a real floor we
  *  say the true, small count instead of a projection dressed as one. */
-function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Series; sampleSize?: number }) {
+function RetentionHero({ pct, series, sampleSize, session }: { pct: number; series?: Series; sampleSize?: number; session?: Session }) {
   const SAMPLE_FLOOR = 10;
   const tooSmall = typeof sampleSize === 'number' && sampleSize < SAMPLE_FLOOR;
   const deltaPts = series ? Math.round(((series.last ?? 0) - (series.first ?? 0)) * 100) : null;
@@ -755,7 +773,10 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
         + 'linear-gradient(160deg,#4c34c4,#2a1f7a)',
       boxShadow: '0 6px 14px rgba(19,18,38,.08), 0 26px 50px -18px rgba(19,18,38,.3)',
     }}>
-      <div className="text-[11.5px] font-semibold opacity-75">نسبة عودة عملائك</div>
+      <div className="flex items-center gap-1 text-[11.5px] font-semibold opacity-75">
+        نسبة عودة عملائك
+        {session ? <AssistantHint session={session} anchor="shop.retention_hero" /> : null}
+      </div>
       <p className="mt-2 text-[20px] font-medium leading-relaxed">{sentence}</p>
       {tooSmall ? (
         <p className="mt-1 text-[12px] opacity-75">العدد يعتبر صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
@@ -866,22 +887,22 @@ function RetentionTrend({ points }: { points: { at: number; customers: number; v
 
 /** The three that surround the hero — absent is not zero: a key the plan withheld or the snapshot
  *  could not compute is skipped entirely rather than drawn as 0. */
-function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
+function SurroundingKpis({ values, session }: { values: Record<string, unknown>; session: Session }) {
   // A SHOP WITH ZERO ACTIVE CUSTOMERS HAS NOT REALLY STARTED — churn and return-cycle are both
   // undefined on nobody, so all three tiles fall back to the dashed "empty" treatment together
   // rather than reading as three unrelated zeros.
   const justStarted = values['active_customers'] === 0;
   const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
-                trendKey?: string; goodIsUp?: boolean; weight?: number; href?: string; hint?: string }[] = [
+                trendKey?: string; goodIsUp?: boolean; weight?: number; href?: string; hint?: string; helpAnchor?: string }[] = [
     // WEIGHT IS A DESIGN CHOICE, NOT A DATA ONE — «عملاء نشطون» is the headline count of the
     // three (the other two are context on it), so it keeps more room whether it happens to be
     // high or low today. A size that swung with the number itself would be a second, competing
     // way of saying "this matters," on top of colour — one signal per idea, not two fighting
     // each other.
-    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3, href: '/visit', hint: 'سجّل أول زيارة' },
-    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat', hint: 'تُحسب تلقائياً بعد أول زيارات' },
+    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3, href: '/visit', hint: 'سجّل أول زيارة', helpAnchor: 'shop.active_customers' },
+    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat', hint: 'تُحسب تلقائياً بعد أول زيارات', helpAnchor: 'shop.return_cycle_days' },
     // MORE TSARRUB IS WORSE — `goodIsUp: false`, so a rising number still shades coral, never teal.
-    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false, hint: 'لا عملاء بعد ليُحسب منهم' },
+    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false, hint: 'لا عملاء بعد ليُحسب منهم', helpAnchor: 'shop.churn_rate' },
   ];
   const shown = items.filter((h) => typeof values[h.key] === 'number');
   if (!shown.length) return null;
@@ -897,7 +918,8 @@ function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
         return (
           <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone}
                delta={justStarted ? undefined : delta} empty={justStarted}
-               href={justStarted ? h.href : undefined} hint={justStarted ? h.hint : undefined} />
+               href={justStarted ? h.href : undefined} hint={justStarted ? h.hint : undefined}
+               session={session} helpAnchor={h.helpAnchor} />
         );
       })}
     </div>
@@ -905,10 +927,13 @@ function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
 }
 
 /** What the messages moved, and what they cost — a flow, not two boxes. */
-function MessageFlow({ eff, opt }: { eff?: Effect; opt?: OptOut }) {
+function MessageFlow({ eff, opt, session }: { eff?: Effect; opt?: OptOut; session?: Session }) {
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="mb-2 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>أثر رسائلك</h3>
+      <h3 className="mb-2 flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
+        أثر رسائلك
+        {session ? <AssistantHint session={session} anchor="shop.message_flow" /> : null}
+      </h3>
       <div className="flex items-center gap-2">
         <FlowNode
           value={eff?.ready ? String(eff.visits ?? 0) : '—'}
@@ -934,7 +959,7 @@ function FlowNode({ value, label, warn }: { value: string; label: string; warn?:
 }
 
 /** Two real cards, the winner visibly warmer — never two numbers with nothing between them. */
-function HoldoutCard({ h }: { h: Holdout }) {
+function HoldoutCard({ h, session }: { h: Holdout; session?: Session }) {
   if (!h?.ready) {
     if (h?.reason === 'holdout_off') {
       return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>قياس أثر الرسائل غير مُفعَّل — كل عملائك يصلهم كل شيء، فلا مجموعة نقارن بها.</p>;
@@ -947,7 +972,10 @@ function HoldoutCard({ h }: { h: Holdout }) {
   const better = (h.gap ?? 0) > 0;
   return (
     <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[13px] font-semibold">أثر الرسائل، مقيساً</h3>
+      <h3 className="flex items-center gap-1 text-[13px] font-semibold">
+        أثر الرسائل، مقيساً
+        {session ? <AssistantHint session={session} anchor="shop.holdout" /> : null}
+      </h3>
       <div className="flex items-stretch gap-2">
         <div className="flex flex-1 flex-col items-center gap-0.5 rounded-xl p-3" style={{ background: 'var(--sh-surface-2)' }}>
           <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct(h.held_rate)}</span>
@@ -968,7 +996,7 @@ function HoldoutCard({ h }: { h: Holdout }) {
 /** This week against last — the pair the weekly report is actually about, never the shop's whole
  *  life mislabelled as «this week». `previous` is null, not 0, when the history does not reach
  *  back — a triumph invented out of the signup date is worse than no comparison at all. */
-function WeekPulse({ week }: { week: WeekWindow }) {
+function WeekPulse({ week, session }: { week: WeekWindow; session?: Session }) {
   const delta = week.previous === null ? null : week.visits - week.previous;
   // A SHOP WITH ZERO VISITS AND NOTHING TO COMPARE AGAINST IS NOT "MISSING A COMPARISON" — it has
   // not started. Same dashed/linked treatment `Tile` now gives that exact case, so this card stops
@@ -989,7 +1017,10 @@ function WeekPulse({ week }: { week: WeekWindow }) {
   return (
     <div className="flex items-center justify-between rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <div className="flex flex-col">
-        <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>زياراتك آخر {week.window_days} أيام</span>
+        <span className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          زياراتك آخر {week.window_days} أيام
+          {session ? <AssistantHint session={session} anchor="shop.week_pulse" /> : null}
+        </span>
         <span dir="ltr" className="text-[22px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{week.visits}</span>
       </div>
       {delta !== null ? (
@@ -1007,13 +1038,16 @@ function WeekPulse({ week }: { week: WeekWindow }) {
 }
 
 /** Who came for the first time this month, against who came back — a split, not two lone numbers. */
-function NewVsReturning({ split }: { split: { new: number; returning: number } }) {
+function NewVsReturning({ split, session }: { split: { new: number; returning: number }; session?: Session }) {
   const total = Math.max(1, split.new + split.returning);
   const newPct = Math.round((split.new / total) * 100);
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <div className="flex items-center justify-between text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
-        <span>عملاء جدد هذا الشهر — {split.new}</span>
+        <span className="flex items-center gap-1">
+          عملاء جدد هذا الشهر — {split.new}
+          {session ? <AssistantHint session={session} anchor="shop.new_vs_returning" /> : null}
+        </span>
         <span>عائدون — {split.returning}</span>
       </div>
       <div className="flex h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
@@ -1047,8 +1081,9 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
   return (
     <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-violet-soft)' }}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[13px] font-bold" style={{ color: 'var(--sh-violet-deep)' }}>
+        <h3 className="flex items-center gap-1 text-[13px] font-bold" style={{ color: 'var(--sh-violet-deep)' }}>
           {rows.length === 1 ? 'عميل واحد يستحق متابعتك الآن' : `${rows.length} عملاء يستحقون متابعتك الآن`}
+          <AssistantHint session={session} anchor="shop.at_risk" />
         </h3>
         {/* THE LIST WAS THE DEAD END. `win_back` already exists as a full campaign goal — the same
             1.5×-cycle threshold this card's own rows are built from — but nothing on this screen
@@ -1112,7 +1147,10 @@ function MissedOpportunities({ session, catalog, rows, names }: {
 
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>عملاء ما جرّبوا كل اللي يناسبهم</h3>
+      <h3 className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
+        عملاء ما جرّبوا كل اللي يناسبهم
+        <AssistantHint session={session} anchor="shop.missed_opportunities" />
+      </h3>
       {who === undefined ? <Skeleton height={40} /> : (
         <ul className="flex flex-col gap-2">
           {rows.slice(0, 8).map((r) => {
@@ -1139,12 +1177,15 @@ function MissedOpportunities({ session, catalog, rows, names }: {
  *  no baseline to compare against. A bar chart reads at a glance; a treemap of two items never had
  *  enough rows to earn its own shape. One hue only (share of demand is a magnitude, not a
  *  category), rounded ends, a hairline gap from the track — the marks this list's siblings use. */
-function ServicePopularity({ rows, names }: { rows: { service_id: string; count: number; share: number }[]; names: Record<string, string> }) {
+function ServicePopularity({ rows, names, session }: { rows: { service_id: string; count: number; share: number }[]; names: Record<string, string>; session?: Session }) {
   const top = rows.slice(0, 8);
   const max = Math.max(1, ...top.map((r) => r.count));
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[13px] font-semibold">الأكثر طلبًا عندك</h3>
+      <h3 className="flex items-center gap-1 text-[13px] font-semibold">
+        الأكثر طلبًا عندك
+        {session ? <AssistantHint session={session} anchor="shop.service_popularity" /> : null}
+      </h3>
       <ul className="flex flex-col gap-2.5">
         {top.map((r) => {
           const pct = Math.round((r.count / max) * 100);
@@ -1181,10 +1222,13 @@ function ServicePopularity({ rows, names }: { rows: { service_id: string; count:
  *  exact count and sentence in its own coral box above — the same fact said twice, once as a
  *  summary with no names attached and once as this list of names with no sentence attached. One
  *  card, both halves: what to do, then which services it's about. */
-function WeakServices({ ids, names }: { ids: string[]; names: Record<string, string> }) {
+function WeakServices({ ids, names, session }: { ids: string[]; names: Record<string, string>; session?: Session }) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[13px] font-semibold">خدمات ما تُطلب كثيرًا</h3>
+      <h3 className="flex items-center gap-1 text-[13px] font-semibold">
+        خدمات ما تُطلب كثيرًا
+        {session ? <AssistantHint session={session} anchor="shop.weak_services" /> : null}
+      </h3>
       {/* "WEAK" IS RELATIVE TO HIS OWN CATALOGUE, NEVER A FIXED NUMBER — insights-service ranks
           his services by demand and names the bottom fifth, ties included (weak_services()).
           A car wash and a body shop cannot share one absolute threshold, so this says exactly
@@ -1212,7 +1256,7 @@ const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأر
  *  darker means busier, never a second hue crossing zero, because this has no "bad" side. The
  *  offset into Riyadh time already happened in `peak_map` itself, deliberately, so a UTC grid never
  *  puts a Saudi evening rush at three in the afternoon here. */
-function PeakHeatmap({ grid, busiest }: { grid: Record<string, number>; busiest?: string }) {
+function PeakHeatmap({ grid, busiest, session }: { grid: Record<string, number>; busiest?: string; session?: Session }) {
   const cells: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   let max = 0;
   for (const [key, count] of Object.entries(grid)) {
@@ -1225,7 +1269,10 @@ function PeakHeatmap({ grid, busiest }: { grid: Record<string, number>; busiest?
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[13px] font-semibold">أكثر أوقاتك ازدحامًا</h3>
+      <h3 className="flex items-center gap-1 text-[13px] font-semibold">
+        أكثر أوقاتك ازدحامًا
+        {session ? <AssistantHint session={session} anchor="shop.peak_heatmap" /> : null}
+      </h3>
       <div dir="ltr" className="flex flex-col gap-[2px]">
         {cells.map((row, d) => (
           <div key={d} className="flex items-center gap-[2px]">
@@ -1513,7 +1560,7 @@ function GhostRow({ label }: { label: string }) {
  *  («متأكد في مؤشرات اساسا؟»). Now: real rows always show at full colour; below two rows the
  *  WHOLE CARD mutes (opacity + a touch of grayscale) and carries the stamp + a plain explanation,
  *  its real shape still fully visible underneath — «تظهر بشكلها الفعلي بالكامل بس بلون باهت شوية». */
-function BranchCompare({ branches }: { branches: Branches }) {
+function BranchCompare({ branches, session }: { branches: Branches; session?: Session }) {
   const rows = (branches.rows ?? []).slice(0, 6);
   const max = Math.max(1, ...rows.map((r) => r.visits ?? 0));
   const thin = rows.length < 2;
@@ -1523,7 +1570,10 @@ function BranchCompare({ branches }: { branches: Branches }) {
       opacity: thin ? 0.6 : 1, filter: thin ? 'grayscale(0.35)' : undefined,
     }}>
       {thin ? <StampBadge /> : null}
-      <h3 className="text-[13px] font-semibold pt-2">مقارنة الفروع</h3>
+      <h3 className="flex items-center gap-1 text-[13px] font-semibold pt-2">
+        مقارنة الفروع
+        {session ? <AssistantHint session={session} anchor="shop.branch_compare" /> : null}
+      </h3>
       <ul className="flex flex-col gap-2.5">
         {rows.length ? rows.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
@@ -1565,7 +1615,7 @@ function BranchCompare({ branches }: { branches: Branches }) {
  *  EMPLOYEE'S OWN slice of visits (`operator_rows` in tick.py), so "72% عودة" here means the
  *  customer came back to THIS person specifically, not to the shop in general. Fairness was the
  *  point of asking. */
-function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown?: number; canRank?: boolean }) {
+function StaffCompare({ rows, unknown, canRank, session }: { rows: OperatorRow[]; unknown?: number; canRank?: boolean; session?: Session }) {
   const top = [...rows].sort((a, b) => (b.visits ?? 0) - (a.visits ?? 0)).slice(0, 6);
   const max = Math.max(1, ...top.map((r) => r.visits ?? 0));
   const thin = top.length < 2;
@@ -1575,7 +1625,10 @@ function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown
       opacity: thin ? 0.6 : 1, filter: thin ? 'grayscale(0.35)' : undefined,
     }}>
       {thin ? <StampBadge /> : null}
-      <h3 className="text-[13px] font-semibold pt-2">مقارنة الموظفين</h3>
+      <h3 className="flex items-center gap-1 text-[13px] font-semibold pt-2">
+        مقارنة الموظفين
+        {session ? <AssistantHint session={session} anchor="shop.staff_compare" /> : null}
+      </h3>
       <ul className="flex flex-col gap-2.5">
         {top.length ? top.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
@@ -1615,7 +1668,7 @@ function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown
   );
 }
 
-function Section({ title, hint, children, folded = false }: { title: string; hint?: string; children: React.ReactNode; folded?: boolean }) {
+function Section({ title, hint, children, folded = false, session, helpAnchor }: { title: string; hint?: string; children: React.ReactNode; folded?: boolean; session?: Session; helpAnchor?: string }) {
   const empty = useMemo(() => {
     const arr = Array.isArray(children) ? children : [children];
     return arr.every((c) => c === null || c === undefined || c === false);
@@ -1625,7 +1678,10 @@ function Section({ title, hint, children, folded = false }: { title: string; hin
     return (
       <details className="group rounded-2xl" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
         <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-[13px] font-semibold">
-          <span>{title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}</span>
+          <span className="flex items-center gap-1">
+            {title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}
+            {session && helpAnchor ? <AssistantHint session={session} anchor={helpAnchor} /> : null}
+          </span>
           {/* THE ONLY VISUAL CUE THIS WAS EXPANDABLE AT ALL used to be the cursor on hover — a
               chevron is the one universal signal for "there is more below", and it turns with the
               element's own open state via `group`, no extra state to keep in sync. */}
@@ -1637,7 +1693,10 @@ function Section({ title, hint, children, folded = false }: { title: string; hin
   }
   return (
     <section className="flex flex-col gap-2.5">
-      <h2 className="px-1 text-[13px] font-bold">{title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}</h2>
+      <h2 className="flex items-center gap-1 px-1 text-[13px] font-bold">
+        {title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}
+        {session && helpAnchor ? <AssistantHint session={session} anchor={helpAnchor} /> : null}
+      </h2>
       {children}
     </section>
   );
@@ -1656,7 +1715,10 @@ function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog
 
   return (
     <section className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h2 className="mb-3 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>آخر الزيارات</h2>
+      <h2 className="mb-3 flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
+        آخر الزيارات
+        <AssistantHint session={session} anchor="shop.recent_visits" />
+      </h2>
       {isLoading(recent) ? <Skeleton height={64} />
       : hasFailed(recent) ? <EmptyState title="تعذّرت قراءة آخر الزيارات" description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل." />
       : recent.length === 0 ? (

@@ -29,6 +29,7 @@ import { riyals } from '../money';
 import { PAYMENT_COLOR, PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import type { Session } from '../session';
+import { AssistantHint } from '../AssistantHint';
 import { BookingDialog } from './BookingDialog';
 import { WorkingHoursDialog } from './WorkingHoursDialog';
 import { BookingsMonthView } from './BookingsMonthView';
@@ -868,6 +869,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 ? t('bookings.overdue.one')
                 : tf(t, 'bookings.overdue.many', { n: overdueBookings.length })}
             </span>
+            <AssistantHint session={session} anchor="bookings.overdue.banner" />
             <button type="button" onClick={() => setOpenBooking(overdueBookings[0])}
                    className="rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
                    style={{ background: 'var(--rj-noshow)', color: 'var(--rj-bg)' }}>
@@ -1862,8 +1864,15 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
                     {tf(t, 'bookings.priceLabel', { amount: riyals(priceMinor) })}
                   </span>
                 ) : null}
+                {pay !== 'none' ? (
+                  <AssistantHint session={session}
+                                anchor={pay === 'deposit' ? 'bookings.payment.deposit' : 'bookings.payment.paid'} />
+                ) : null}
                 {booking.intended_reward_id ? (
                   <span className="text-sm" title={t('bookings.rewardPending')}>⭐</span>
+                ) : null}
+                {booking.intended_reward_id ? (
+                  <AssistantHint session={session} anchor="bookings.rewardPending" />
                 ) : null}
               </div>
             ) : null}
@@ -1872,7 +1881,12 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
           <button type="button" onClick={onClose} aria-label={t('bookings.close')} className="shrink-0"><X size={18} aria-hidden /></button>
         </div>
         {booking.status === 'booked' ? (
-          // أيقونات فقط، صف واحد — التفاصيل أعلاه هي ما يقرأه، هذا فقط ما يضغطه.
+          <>
+          <div className="mb-2 flex items-center justify-center gap-1 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>
+            <span>{statusLabel(t, booking.status)}</span>
+            <AssistantHint session={session} anchor="bookings.status.booked" />
+          </div>
+          {/* أيقونات فقط، صف واحد — التفاصيل أعلاه هي ما يقرأه، هذا فقط ما يضغطه. */}
           <div className="flex items-center justify-center gap-3">
             <button type="button" onClick={() => onEdit(booking)} aria-label={t('bookings.editBooking')} title={t('bookings.editBooking')}
                    className="grid h-12 w-12 place-items-center rounded-full"
@@ -1900,9 +1914,14 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
               <Trash2 size={18} aria-hidden />
             </button>
           </div>
+          </>
         ) : (
-          <p className="rounded-2xl py-3 text-center text-sm" style={{ background: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
+          <p className="flex items-center justify-center gap-1 rounded-2xl py-3 text-center text-sm" style={{ background: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
             {tf(t, 'bookings.noFurtherActions', { status: statusLabel(t, booking.status) })}
+            <AssistantHint session={session} anchor={
+              booking.status === 'attended' ? 'bookings.status.attended'
+                : booking.status === 'no_show' ? 'bookings.status.noShow'
+                : 'bookings.status.cancelled'} />
           </p>
         )}
       </div>

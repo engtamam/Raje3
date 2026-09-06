@@ -34,6 +34,7 @@ import { action, call, type Catalog } from '../catalog';
 import { partitionOffers, remaining, type Offer } from '../offers';
 import type { Session } from '../session';
 import { western } from '../digits';
+import { AssistantHint } from '../AssistantHint';
 
 interface Record {
   customer: { id: string; phone: string; name?: string; subject_ref?: string; visits?: number };
@@ -278,7 +279,12 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             className="flex h-20 flex-col items-center justify-center gap-0.5 rounded-card bg-surface-1 px-2 shadow-sm"
           >
             <div className="truncate text-lg font-semibold tabular-nums">{x.v}</div>
-            <div className="text-xs text-text-secondary">{x.k}</div>
+            <div className="flex items-center gap-0.5 text-xs text-text-secondary">
+              <span>{x.k}</span>
+              {x.k === 'كل كم يوماً' ? (
+                <AssistantHint session={session} anchor="customers.statFrequency" />
+              ) : null}
+            </div>
           </div>
         ))}
       </section>

@@ -29,6 +29,7 @@ import { suggestByPrefix, type CustomerHit } from '../api';
 import type { Session } from '../session';
 import { scopeQuery } from '../branch-scope';
 import { asLocal } from '../phone';
+import { AssistantHint } from '../AssistantHint';
 
 const MIN_PREFIX = 3;
 
@@ -246,6 +247,13 @@ export function CustomersScreen(
         ]}
       />
 
+      {tab === 'overdue' ? (
+        <div className="flex items-center gap-1 text-sm text-text-secondary">
+          <span>من تأخّر عن موعده المعتاد</span>
+          <AssistantHint session={session} anchor="customers.overdueTab" />
+        </div>
+      ) : null}
+
       {/* THE SEARCH BELONGS TO THE LIST, NOT TO THE SCREEN. Typing a number while «من تأخّر» is
           open would search everybody and quietly leave the tab he is looking at. */}
       {tab === 'all' ? (
@@ -298,6 +306,19 @@ export function CustomersScreen(
           />
         )
       ) : (
+        <>
+        {tab === 'all' && overdueIds.size > 0 ? (
+          <p className="flex items-center gap-1 text-xs text-text-secondary">
+            الوسم في القائمة يعني: متأخر عن موعده المعتاد
+            <AssistantHint session={session} anchor="customers.overdueBadge" />
+          </p>
+        ) : null}
+        {tab === 'all' && showing.some((c) => c.marketing === false) ? (
+          <p className="flex items-center gap-1 text-xs text-text-secondary">
+            الوسم في القائمة يعني: أوقف استقبال التسويق
+            <AssistantHint session={session} anchor="customers.marketingOffBadge" />
+          </p>
+        ) : null}
         <ul className="flex flex-col gap-2">
           {showing.map((c) => (
             // THE ROW OPENS HIM. It used to be inert: the owner tapped a customer and nothing
@@ -361,6 +382,7 @@ export function CustomersScreen(
             </li>
           ))}
         </ul>
+        </>
       )}
     </div>
   );

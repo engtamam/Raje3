@@ -26,6 +26,7 @@ import { Modal } from '../rj-ui/Modal';
 import { Toggle } from '../rj-ui/Toggle';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
+import { AssistantHint } from '../AssistantHint';
 import { Boxes, Plus } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import { halalas, riyalsLabel } from '../money';
@@ -388,9 +389,17 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                     </span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    {p.source === 'suggested' ? <Badge tone="accent">من اقتراح محلّي</Badge> : null}
+                    {p.source === 'suggested' ? (
+                      <span className="flex items-center gap-1">
+                        <Badge tone="accent">من اقتراح محلّي</Badge>
+                        <AssistantHint session={session} anchor="services.packageSuggested" />
+                      </span>
+                    ) : null}
                     {p.active && p.offerable_now === false ? (
-                      <Badge tone="warning">غير مفعّلة اليوم</Badge>
+                      <span className="flex items-center gap-1">
+                        <Badge tone="warning">غير مفعّلة اليوم</Badge>
+                        <AssistantHint session={session} anchor="services.packageNotOfferable" />
+                      </span>
                     ) : null}
                   </div>
                 </div>
@@ -489,7 +498,10 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
             </div>
 
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium">لعدد أشخاص (اختياري — وصفي فقط)</span>
+              <span className="flex items-center gap-1 text-sm font-medium">
+                لعدد أشخاص (اختياري — وصفي فقط)
+                <AssistantHint session={session} anchor="services.packagePersonCount" />
+              </span>
               <input
                 value={draft.personCountText} inputMode="numeric"
                 onChange={(e) => setDraft({ ...draft, personCountText: e.target.value })}
@@ -498,7 +510,10 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
             </label>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
-              <span className="text-sm font-medium">جدولة الباقة</span>
+              <span className="flex items-center gap-1 text-sm font-medium">
+                جدولة الباقة
+                <AssistantHint session={session} anchor="services.packageSchedule" />
+              </span>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">

@@ -19,6 +19,7 @@ import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { legalUrl } from '../legal/url';
 import type { Session } from '../session';
+import { AssistantHint } from '../AssistantHint';
 // ONE DEFINITION, RENDERED WHERE IT BELONGS. The card was written for «فريقي» and stayed there
 // when it moved; importing it keeps a single implementation rather than a second copy that drifts.
 import { VehiclesCard } from './Team';
@@ -129,7 +130,8 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           shop, which is what they are: not one of them is editable here. */}
       <section className="grid grid-cols-2 gap-2">
         <Fact label="اسم المنشأة" value={t.name || '—'} wide />
-        <Fact label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')} />
+        <Fact label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')}
+              hint={<AssistantHint anchor="account.tenant_status" session={session} />} />
         {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
             timezone; reading the device's would schedule an owner travelling abroad into his
             customers' small hours. */}
@@ -381,10 +383,14 @@ function shrink(file: File): Promise<string> {
   });
 }
 
-function Fact({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+function Fact({ label, value, wide, hint }:
+    { label: string; value: string; wide?: boolean; hint?: React.ReactNode }) {
   return (
     <div className={`flex flex-col gap-1 rounded-card bg-surface-1 p-3 shadow-sm ${wide ? 'col-span-2' : ''}`}>
-      <span className="text-xs text-text-secondary">{label}</span>
+      <span className="flex items-center gap-1 text-xs text-text-secondary">
+        {label}
+        {hint}
+      </span>
       <span className="truncate">{value}</span>
     </div>
   );

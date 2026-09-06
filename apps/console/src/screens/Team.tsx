@@ -35,6 +35,7 @@ import { branchGate } from '../branches';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 import { isShortGoogleMapsLink, parseGoogleMapsLink } from '../googleMapsLink';
+import { AssistantHint } from '../AssistantHint';
 
 interface DayHours { closed?: boolean; start_minute?: number; end_minute?: number }
 
@@ -369,16 +370,19 @@ export function People({ session, operators, branches, add, edit, hire, setHours
               off there is one way of adding somebody, and a two-option control whose second option
               is refused at the door is worse than no control at all. */}
           {hire && pinKind ? (
-            <Segmented
-              className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-              ariaLabel="نوع الإضافة"
-              value={kind}
-              onChange={(v) => setKind(v as 'pin' | 'login')}
-              options={[
-                { value: 'pin', label: 'رمز على الجهاز' },
-                { value: 'login', label: 'حساب يدخل به' },
-              ]}
-            />
+            <div className="flex items-center gap-2">
+              <Segmented
+                className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+                ariaLabel="نوع الإضافة"
+                value={kind}
+                onChange={(v) => setKind(v as 'pin' | 'login')}
+                options={[
+                  { value: 'pin', label: 'رمز على الجهاز' },
+                  { value: 'login', label: 'حساب يدخل به' },
+                ]}
+              />
+              <AssistantHint anchor="team.add_kind" session={session} />
+            </div>
           ) : null}
 
           {kind === 'login' ? (
@@ -438,7 +442,10 @@ export function People({ session, operators, branches, add, edit, hire, setHours
               that wanted a manager had no way to say so, and «فريقي» could only ever produce one
               kind of person. */}
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm text-text-secondary">الدور</legend>
+            <legend className="mb-1 flex items-center gap-1 text-sm text-text-secondary">
+              الدور
+              <AssistantHint anchor="team.roles" session={session} />
+            </legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {ROLES.map((r) => {
                 const selected = role === r.value;
@@ -743,6 +750,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
         <fieldset className="flex flex-wrap items-center gap-2 text-sm">
           <legend className="sr-only">{`ما يراه ${o.name}`}</legend>
           <span className="text-text-secondary">يرى</span>
+          <AssistantHint anchor="team.branch_visibility" session={session} />
           <label className="flex items-center gap-1">
             <input
               type="checkbox"
@@ -789,10 +797,13 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           أبداً لا يرى منه غير هذا الزر، ودوام الموظف يبقى دوام المحل بلا أي تغيير محسوس. */}
       {o.active !== false && setHours && clearHours ? (
         <div className="text-sm">
-          <button type="button" className="text-text-secondary underline underline-offset-2"
-                  onClick={() => { setHoursDraft(o.working_hours ?? {}); setHoursOpen((v) => !v); }}>
-            {customised ? 'دوام مخصص لهذا الموظف' : 'تخصيص دوام'}
-          </button>
+          <span className="inline-flex items-center gap-1">
+            <button type="button" className="text-text-secondary underline underline-offset-2"
+                    onClick={() => { setHoursDraft(o.working_hours ?? {}); setHoursOpen((v) => !v); }}>
+              {customised ? 'دوام مخصص لهذا الموظف' : 'تخصيص دوام'}
+            </button>
+            <AssistantHint anchor="team.custom_hours" session={session} />
+          </span>
 
           {hoursOpen ? (
             <div className="mt-2 flex flex-col gap-2 rounded-xl bg-surface-2 p-2">
@@ -854,12 +865,15 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           && (allOperators ?? []).filter((op) => op.active !== false).length > 1
           && activeServices.length > 0 ? (
         <div>
-          <FilterMenu
-            label="أي خدمات يسوّيها"
-            options={activeServices.map((s) => ({ value: s.id, label: s.name }))}
-            selected={eligibleServiceIds}
-            onChange={onServicesChange}
-          />
+          <div className="flex items-center gap-1">
+            <FilterMenu
+              label="أي خدمات يسوّيها"
+              options={activeServices.map((s) => ({ value: s.id, label: s.name }))}
+              selected={eligibleServiceIds}
+              onChange={onServicesChange}
+            />
+            <AssistantHint anchor="team.eligible_services" session={session} />
+          </div>
           {servicesBusy ? <p className="mt-1 text-xs text-text-secondary">جارٍ الحفظ…</p> : null}
           {servicesError ? <p role="alert" className="mt-1 text-xs text-danger">{servicesError}</p> : null}
         </div>

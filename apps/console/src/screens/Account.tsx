@@ -28,6 +28,7 @@ import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
 import { Skeleton } from '../rj-ui/Skeleton';
+import { AssistantHint } from '../AssistantHint';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
@@ -229,9 +230,12 @@ export function AccountScreen(
           <div className="flex items-center justify-between">
             <span>{sub ? `اشتراكك «${sub.plan_name ?? '—'}»` : 'لا يوجد اشتراك فعّال'}</span>
             {sub?.status
-              ? <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
-                  {sub.status === 'active' ? 'فعّالة' : 'متوقفة'}
-                </Badge>
+              ? <span className="flex items-center gap-1">
+                  <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
+                    {sub.status === 'active' ? 'فعّالة' : 'متوقفة'}
+                  </Badge>
+                  <AssistantHint anchor="account.subscription_status" session={session} />
+                </span>
               : null}
           </div>
         )}

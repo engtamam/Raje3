@@ -17,6 +17,7 @@ import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Textarea } from '../rj-ui/Field';
 import { Waiting } from '../Waiting';
+import { AssistantHint } from '../AssistantHint';
 import { isLoading, isReady, type Loading } from '../loading';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -72,7 +73,10 @@ export function SupportScreen({ session, catalog }: { session: Session; catalog:
                   {t.body ? <span className="truncate text-sm text-text-secondary">{t.body}</span> : null}
                 </div>
                 {t.status ? (
-                  <Badge tone={STATUS_TONE[t.status.toLowerCase()] ?? 'neutral'}>{t.status}</Badge>
+                  <span className="flex items-center gap-1">
+                    <Badge tone={STATUS_TONE[t.status.toLowerCase()] ?? 'neutral'}>{t.status}</Badge>
+                    <AssistantHint anchor="support.ticket_status" session={session} />
+                  </span>
                 ) : null}
               </li>
             ))}

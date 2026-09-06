@@ -1,0 +1,66 @@
+[
+  {
+    "id": "bookings.status.booked",
+    "anchor": "bookings.status.booked",
+    "title": {"ar": "محجوز"},
+    "body": {"ar": "الموعد لسه ما صار — العميل عنده حجز قائم بهذا الوقت ولسه ما حضر ولا اتلغى."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.status.attended",
+    "anchor": "bookings.status.attended",
+    "title": {"ar": "حضر"},
+    "body": {"ar": "العميل جا فعلاً وأنهيت له الخدمة، وصارت هذي زيارة مسجّلة بملفه — ما ترجع تتغيّر."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.status.noShow",
+    "anchor": "bookings.status.noShow",
+    "title": {"ar": "لم يحضر"},
+    "body": {"ar": "أنت علّمت الحجز إنه العميل ما جا في وقته، فانقفل ولا صارت له زيارة. هذا يدخل في حساب كثرة تغيّبه لاحقاً."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.status.cancelled",
+    "anchor": "bookings.status.cancelled",
+    "title": {"ar": "ملغى"},
+    "body": {"ar": "الحجز اتلغى قبل موعده، وميعاده رجع فاضي يقدر يُحجز فيه غيره."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.payment.deposit",
+    "anchor": "bookings.payment.deposit",
+    "title": {"ar": "عربون"},
+    "body": {"ar": "المبلغ المكتوب هو اللي أخذته من العميل مقدّماً قبل موعده — مو سعر الخدمة كاملاً، بس جزء منه أو تأمين للحجز."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.payment.paid",
+    "anchor": "bookings.payment.paid",
+    "title": {"ar": "مدفوع"},
+    "body": {"ar": "المبلغ المكتوب هو سعر الخدمة أو الخدمات المحجوزة، حسب ما هو مسجّل في قائمة أسعارك."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.rewardPending",
+    "anchor": "bookings.rewardPending",
+    "title": {"ar": "نجمة الجائزة"},
+    "body": {"ar": "العميل طلب وقت الحجز يستبدل جائزة من نقاطه، لكن الاستبدال ما تم بعد — إما محتاج موافقتك، أو صار خلل بسيط. تابعها من صفحة العميل نفسه."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "bookings.overdue.banner",
+    "anchor": "bookings.overdue.banner",
+    "title": {"ar": "تنبيه الحجوزات المتأخرة"},
+    "body": {"ar": "هذي حجوزات فات وقتها المفروض تكون خلصت فيه، بس أنت لسه ما سجّلت هل العميل حضر أو لا. أغلقها بحضور أو عدم حضور عشان سجلّاتك تبقى صحيحة."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  }
+]

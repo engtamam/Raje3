@@ -1,0 +1,34 @@
+[
+  {
+    "id": "customers.overdueTab",
+    "anchor": "customers.overdueTab",
+    "title": {"ar": "من تأخّر"},
+    "body": {"ar": "قائمة العملاء اللي فات وقت رجوعهم المعتاد عندك، حسب تذكيراتك المجدولة، وما رجعوا لك لين الآن."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "customers.overdueBadge",
+    "anchor": "customers.overdueBadge",
+    "title": {"ar": "متأخر"},
+    "body": {"ar": "هذا العميل فات وقت رجوعه المعتاد ولسه ما رجع لك، حسب موعد تذكيره المجدول."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "customers.marketingOffBadge",
+    "anchor": "customers.marketingOffBadge",
+    "title": {"ar": "أوقف التسويق"},
+    "body": {"ar": "هذا العميل طلب ما يوصله عروض وتسويق. رسائل الخدمة العادية ونقاطه ما تتأثر — بس ما ترسل له أي عرض تسويقي بعد اليوم."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "customers.statFrequency",
+    "anchor": "customers.statFrequency",
+    "title": {"ar": "كل كم يوماً"},
+    "body": {"ar": "متوسط عدد الأيام بين زياراته السابقة عندك — نحسبه من زياراته هو فعلاً، مو رقم عام لكل العملاء."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  }
+]

@@ -1,0 +1,10 @@
+[
+  {
+    "id": "support.ticket_status",
+    "anchor": "support.ticket_status",
+    "title": {"ar": "حالة التذكرة"},
+    "body": {"ar": "new تعني وصلت تذكرتك للتو، in_progress أن فريق الدعم يعمل عليها الآن، waiting_customer أنه بانتظار ردّك أنت، resolved أنها حُلّت، وclosed أنها أُغلقت نهائياً."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  }
+]

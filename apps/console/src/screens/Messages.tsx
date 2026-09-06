@@ -36,6 +36,7 @@ import { Skeleton } from '../rj-ui/Skeleton';
 import { Toggle } from '../rj-ui/Toggle';
 import { AlertTriangle, Gauge, Lock } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
+import { AssistantHint } from '../AssistantHint';
 import { Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
@@ -241,7 +242,7 @@ function Stat({ label, value, warn }: { label: string; value: number; warn?: boo
  * numbers say what is happening right now; and the WhatsApp ceiling, when it is close, is the
  * quiet line under them rather than a fourth number competing for attention.
  */
-function TodayCard({ today }: { today: Today }) {
+function TodayCard({ today, session }: { today: Today; session: Session }) {
   // DEFENSIVE ALL THE WAY DOWN. `today` arrives from one network call, same as every other
   // reader in this file — `messages` or `ceiling` missing from a malformed or partial answer
   // must not crash the screen it decorates; it should just draw the parts that did arrive.
@@ -256,10 +257,15 @@ function TodayCard({ today }: { today: Today }) {
           <p>{today.blocked}</p>
         </div>
       ) : (
-        <div className="flex items-stretch divide-x divide-border-subtle rtl:divide-x-reverse">
-          <Stat label="خرجت اليوم" value={messages.sent_today ?? 0} />
-          <Stat label="بانتظار الخروج" value={messages.waiting ?? 0} />
-          <Stat label="تعيد المحاولة" value={messages.retrying ?? 0} warn />
+        <div className="flex flex-col gap-1">
+          <div className="flex items-stretch divide-x divide-border-subtle rtl:divide-x-reverse">
+            <Stat label="خرجت اليوم" value={messages.sent_today ?? 0} />
+            <Stat label="بانتظار الخروج" value={messages.waiting ?? 0} />
+            <Stat label="تعيد المحاولة" value={messages.retrying ?? 0} warn />
+          </div>
+          <div className="flex justify-center">
+            <AssistantHint session={session} anchor="messages.todayStats" />
+          </div>
         </div>
       )}
       {messages.retrying_reason ? (
@@ -272,6 +278,7 @@ function TodayCard({ today }: { today: Today }) {
             {`سقف واتساب اليوم: ${ceiling.remaining ?? 0} متبقٍّ من ${ceiling.limit ?? 0}`}
           </span>
           {quality ? ` · جودة الحساب: ${quality}` : ''}
+          <AssistantHint session={session} anchor="messages.ceiling" />
         </p>
       ) : null}
     </section>
@@ -563,7 +570,7 @@ export function MessagesScreen(
       {isLoading(today) ? (
         <Skeleton height={76} radius="card" />
       ) : isReady(today) ? (
-        <TodayCard today={today} />
+        <TodayCard today={today} session={session} />
       ) : null}
 
       <Segmented
@@ -656,6 +663,7 @@ export function MessagesScreen(
                   selected={clsFilter}
                   onChange={setClsFilter}
                 />
+                <AssistantHint session={session} anchor="messages.class" />
                 <Segmented
                   ariaLabel="تصفية بالحالة"
                   value={stateFilter}
@@ -698,7 +706,12 @@ export function MessagesScreen(
                           ) : null}
                           {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a
                               line saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}
-                          {t.template ? <Badge tone="neutral">بنصّك أنت</Badge> : null}
+                          {t.template ? (
+                            <>
+                              <Badge tone="neutral">بنصّك أنت</Badge>
+                              <AssistantHint session={session} anchor="messages.customTextBadge" />
+                            </>
+                          ) : null}
                         </span>
                         {/* THE «WHEN» STAYS, AND IT IS THE REASON THIS IS NOT A BARE TABLE. «بعد
                             تسجيل الزيارة بعشر دقائق» is what makes the name mean something to
@@ -868,8 +881,9 @@ export function MessagesScreen(
                 { value: 'suppressed', label: 'لم تخرج' },
               ]}
             />
-            <p className="px-1 text-sm text-text-secondary">
+            <p className="flex flex-wrap items-center gap-1 px-1 text-sm text-text-secondary">
               كل رسالة لم تخرج، ومعها سببها — لا شيء يُمنع بصمت.
+              <AssistantHint session={session} anchor="messages.deliveryStatus" />
             </p>
             {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE. «صفِّ حسب فرعك الوحيد» is a control
                 that does nothing, and one more thing to read past. */}

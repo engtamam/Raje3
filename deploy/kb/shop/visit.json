@@ -1,0 +1,42 @@
+[
+  {
+    "id": "visit.offer",
+    "anchor": "visit.offer",
+    "title": {"ar": "عرضه الخاص"},
+    "body": {"ar": "عرض أو خصم مُرسَل لهذا العميل تحديدًا. يظهر هنا بس بعد ما تكتب رقمه كامل، عشان تتأكد إنه العرض الصحيح لهذا الشخص قبل ما تطبّقه."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "visit.points_balance",
+    "anchor": "visit.points_balance",
+    "title": {"ar": "رصيد نقاطه"},
+    "body": {"ar": "عدد نقاط الولاء اللي جمعها هذا العميل عندك لين الحين، وتقدر يصرفها على المكافآت المتاحة تحت هالرقم."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "visit.needs_approval",
+    "anchor": "visit.needs_approval",
+    "title": {"ar": "تحتاج موافقة"},
+    "body": {"ar": "هذي المكافأة كبيرة بما يكفي إن محلك يشترط موافقة مدير قبل صرفها — لازم تكتب اسم من وافق قبل ما تقدر تصرفها."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "visit.pending_queue",
+    "anchor": "visit.pending_queue",
+    "title": {"ar": "زيارات بانتظار الإرسال"},
+    "body": {"ar": "زيارات سجّلتها بس لسا ما وصلت للسيرفر — راح تُرسل تلقائيًا أول ما يرجع الاتصال بالإنترنت، وما راح تضيع."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "visit.stuck_queue",
+    "anchor": "visit.stuck_queue",
+    "title": {"ar": "زيارات ما راح تُرسل"},
+    "body": {"ar": "زيارات رفضها السيرفر بشكل واضح (مو مجرد بطء بالاتصال) — راجعها بنفسك لأنها ما راح تُعاد المحاولة تلقائيًا."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  }
+]

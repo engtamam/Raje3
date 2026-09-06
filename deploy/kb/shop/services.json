@@ -1,0 +1,42 @@
+[
+  {
+    "id": "services.stoppedBadge",
+    "anchor": "services.stoppedBadge",
+    "title": {"ar": "خدمة موقوفة"},
+    "body": {"ar": "خدمة أوقفتها ولم تعد تظهر لموظفيك عند الحجز، وتوقفت رسائلها التلقائية — لكن كل زيارة قديمة سجّلتها تبقى محفوظة كما هي."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "services.packageSuggested",
+    "anchor": "services.packageSuggested",
+    "title": {"ar": "من اقتراح محلّي"},
+    "body": {"ar": "هذه الباقة جاءت من اقتراح تلقائي بناءً على خدمات لاحظنا أن عملاءك يشترونها معاً غالباً. قبلتها وصار بإمكانك تعديل اسمها وسعرها وخدماتها بحرية، وما عادت مرتبطة بالاقتراح الأصلي."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "services.packageNotOfferable",
+    "anchor": "services.packageNotOfferable",
+    "title": {"ar": "غير مفعّلة اليوم"},
+    "body": {"ar": "الباقة مفعّلة أصلاً، لكن جدولها لا يسمح بحجزها في هذا اليوم بالذات — مثل باقة خصّصتها ليوم معيّن من الأسبوع أو لفترة زمنية محددة. تعود متاحة تلقائياً في يومها، بلا أي تدخل منك."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "services.packagePersonCount",
+    "anchor": "services.packagePersonCount",
+    "title": {"ar": "لعدد أشخاص"},
+    "body": {"ar": "رقم وصفي فقط، يذكّرك ويوضّح للعميل حجم الباقة — لا يتحقق منه النظام ولا يمنع حجزها بعدد أشخاص مختلف عمّا كتبته."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  },
+  {
+    "id": "services.packageSchedule",
+    "anchor": "services.packageSchedule",
+    "title": {"ar": "جدولة الباقة"},
+    "body": {"ar": "تحديد متى تكون هذه الباقة متاحة للحجز: تاريخ بداية ونهاية، أو تكرار أسبوعي (أيام معيّنة) أو شهري (تواريخ معيّنة) أو سنوي (موسم معيّن). اتركها «بلا جدولة» لتبقى متاحة طوال الوقت."},
+    "kind": "glossary",
+    "surfaces": ["shop"]
+  }
+]

@@ -24,6 +24,7 @@ import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Check, ImageOff, LayoutGrid, List, Pencil, Power, RotateCcw, Upload, X } from 'lucide-react';
 import { Hint } from '../Hint';
+import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading } from '../loading';
@@ -1330,7 +1331,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 ) : (
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-medium">{svc.name}</span>
-                    {stopped ? <Badge tone="neutral">{t('services.stoppedBadge')}</Badge> : null}
+                    {stopped ? (
+                      <>
+                        <Badge tone="neutral">{t('services.stoppedBadge')}</Badge>
+                        <AssistantHint session={session} anchor="services.stoppedBadge" />
+                      </>
+                    ) : null}
                   </span>
                 )}
               </div>
