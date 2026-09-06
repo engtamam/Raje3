@@ -236,6 +236,22 @@ def test_internal_packages_route_needs_a_token(client):
     assert r.status_code == 401
 
 
+def test_internal_packages_route_is_isolated_per_tenant(client):
+    """ci/check_an_internal_route_is_tried_against_two_tenants.py: a real, LITERAL second
+    tenant — `tenant` is a plain body field here, never a verified token claim (this router's
+    own header comment), so a package created under t1 must never appear in t2's own read."""
+    a, b = _two_services(client)
+    created = client.post("/api/v1/staff/packages",
+                          json={"name": "باقة t1", "service_ids": [a["id"], b["id"]],
+                                "price_minor": 5000},
+                          headers=_auth("operations.manage_services")).json()
+
+    r = client.post("/internal/operations/packages",
+                    json={"tenant": "t2"}, headers={"X-Internal-Token": "t" * 40})
+    assert r.status_code == 200, r.text
+    assert created["id"] not in {p["id"] for p in r.json()["packages"]}
+
+
 # ── scheduling (packages feature, phase 2) ────────────────────────────────────────────────────
 def test_creating_a_package_with_a_weekly_schedule(client):
     a, b = _two_services(client)
@@ -327,6 +343,15 @@ def test_internal_package_offerable_route(client):
                           json={"tenant": "t1", "package_id": created["id"], "at": 1780857600},
                           headers={"X-Internal-Token": "t" * 40})
     assert refused.json()["offerable"] is False
+
+    # ci/check_an_internal_route_is_tried_against_two_tenants.py: a second, LITERAL tenant, so
+    # this suite's own isolation proof (test_package_offerable_is_isolated_per_tenant, in
+    # test_package_durations_and_eligibility.py) is not the only place it is demonstrated — that
+    # test builds its request from a variable path/tenant, invisible to the gate's AST walk.
+    cross_tenant = client.post("/internal/operations/package-offerable",
+                              json={"tenant": "t2", "package_id": created["id"], "at": 1780771200},
+                              headers={"X-Internal-Token": "t" * 40})
+    assert cross_tenant.json()["offerable"] is False
 
 
 def test_internal_package_offerable_route_needs_a_token(client):
