@@ -21,31 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 
-ADMIN_ACTIONS: list[dict[str, Any]] = [    # ── the operator surface: declared in every service or in none ────────────────────────
-    # It was in none but one. The route table a reviewer reads for the highest-privilege surface a
-    # service has had secrets management missing from five of six — not hidden, absent, which reads
-    # the same to anyone consulting the table.
-    {
-        "id": "portal.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/portal/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
-        # The NAMES only — a route that returned a value would put a credential in a screenshot.
-        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
-    },
-    {
-        "id": "portal.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
-        "path": "/api/v1/portal/operator/secrets", "capability": "platform.secrets",
-        "confirm": True, "danger": True, "group": "المنصة",
-        # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
-        # reconstructed and an unattributable one is indistinguishable from an attacker's.
-        "help": "القيمة السابقة تختفي فوراً — لا رجعة ولا نسخة.",
-    },
-    {
-        "id": "portal.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
-        "path": "/api/v1/portal/operator/secrets/{name}", "capability": "platform.secrets",
-        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "danger": True, "group": "المنصة",
-        "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
-    },
+ADMIN_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "portal.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/portal/operator/config", "capability": "platform.config", "group": "المنصة",
@@ -73,7 +49,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [    # ── the operator surface: declar
     },
     {
         "id": "portal.whoami", "label": "من أنا", "method": "GET",
-        "path": "/api/v1/portal/whoami", "capability": "platform.secrets", "group": "المنصة",
+        "path": "/api/v1/portal/whoami", "capability": "platform.config", "group": "المنصة",
         "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
     },
 ]

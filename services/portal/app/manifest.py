@@ -73,14 +73,9 @@ def build_manifest(
                          # 403 to every one of them.
                          "platform.secrets", "platform.config"],  # e.g. ["files.upload", "files.read"] — atomic capability keys
         "endpoints": [
-            # ── the operator surface: credentials and policy, changed after launch ────────
-            # UNDECLARED UNTIL A GUARD COMPARED THE MANIFEST WITH THE APP. The route table this
-            # feeds is where a reviewer looks for the highest-privilege surface a service has, and
-            # secrets management was missing from it — not hidden, absent, which reads the same to
-            # anyone consulting the table.
-            {"path": "/api/v1/portal/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/portal/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/portal/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            # ── the operator surface: policy, changed after launch. The credential-management
+            # routes that used to sit here (a dead SecretStore nothing ever consumed) were
+            # removed — see git history for the incident.
             {"path": "/api/v1/portal/operator/config", "tier": "user", "method": "GET"},
             {"path": "/api/v1/portal/operator/config", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/portal/operator/config/{}", "tier": "user", "method": "DELETE"},
