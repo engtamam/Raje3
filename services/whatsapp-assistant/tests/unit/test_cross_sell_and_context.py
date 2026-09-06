@@ -371,7 +371,7 @@ async def test_a_brand_new_unregistered_customer_gets_a_normal_first_visit_conve
 
     # The context block built for this turn never invented history for a customer who has none —
     # verified directly, the same way the engine itself builds it.
-    block = await engine._context_block(TENANT, new_number_subject, "+966511110000")
+    block = await engine._context_block(TENANT, new_number_subject, "+966511110000", True)
     assert "جديد" in block
     assert "نقاط" not in block or "لا" in block               # no points claimed for an unknown customer
 
@@ -393,8 +393,8 @@ async def test_a_known_customer_in_one_tenant_is_not_treated_as_known_in_another
         session_timeout_seconds=2400, raw_window_messages=12, allowed_tools=_ALLOWED,
         customer_lookup=_PerTenantLookup())
 
-    block_home = await engine._context_block(TENANT, SUBJECT, "+9665")
-    block_other = await engine._context_block(OTHER_TENANT, SUBJECT, "+9665")
+    block_home = await engine._context_block(TENANT, SUBJECT, "+9665", True)
+    block_other = await engine._context_block(OTHER_TENANT, SUBJECT, "+9665", True)
     assert "غسيل مجاني" in block_home
     assert "غسيل مجاني" not in block_other
     assert "جديد" in block_other

@@ -245,6 +245,9 @@ def build_container(settings: Settings) -> Container:
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = build_licence(settings)
+    from app.core.base_entitlement import build_base_entitlement
+
+    container.base_entitlement = build_base_entitlement(settings)
     container.sender = build_sender(settings)
     # WAS NEVER ASSIGNED HERE AT ALL — `_CONSENT_GATE`'s registry existed, the field on `Container`
     # existed, and nothing between the two ever ran; `container.consent_gate` stayed the dataclass
@@ -266,6 +269,7 @@ def build_container(settings: Settings) -> Container:
         branch_directory=container.branch_directory,
         related_services=container.related_services, wallet_balance=container.wallet_balance,
         licence=container.licence,
+        base_entitlement=container.base_entitlement,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
         wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,

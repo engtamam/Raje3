@@ -358,7 +358,7 @@ class ConversationEngine:
                 wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100,
                 booking_history_visible: bool = True,
                 booking_management_enabled: bool = True, licence: Any = None,
-                shop_notes_enabled: bool = True) -> None:
+                shop_notes_enabled: bool = True, base_entitlement: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -424,6 +424,11 @@ class ConversationEngine:
         # the ONE call site that merges owner_notes into the prompt, never inside
         # build_system_prompt itself (that function stays a pure function of its two arguments).
         self._shop_notes_enabled = shop_notes_enabled
+        # WHETHER THIS TENANT HOLDS THE CORE PLATFORM SUBSCRIPTION AT ALL (feature.base) — see
+        # core/base_entitlement.py's own docstring. None (the pre-existing test-constructor
+        # default) means "behave as a full-service tenant", same degrade-open posture as every
+        # other optional peer here (`self._wallet is None`, `self._shop_identity is None`, ...).
+        self._base_entitlement = base_entitlement
         # NOT constructor-required: app/main.py builds the Auditor AFTER build_container() (it
         # needs the container to build), so this is wired via `set_auditor` right after — see
         # app/main.py::create_app. Optional here only so pre-existing test constructors that never
@@ -475,11 +480,20 @@ class ConversationEngine:
         greeting) — kept so they need no changes of their own."""
         return (await self._shop_context(tenant)).name
 
-    async def _context_block(self, tenant: str, subject_ref: str, from_number: str) -> str:
+    async def _context_block(self, tenant: str, subject_ref: str, from_number: str,
+                             has_base: bool) -> str:
         """The shop's real priced catalogue and this customer's real personal offers, fetched
         fresh every turn — a price list can change between messages and a stale one is a wrong
         quote. Any peer failure degrades to an empty section, never a guess (see the callers' own
         docstrings for why each empty case is written out explicitly rather than left silent).
+
+        `has_base` GATES EVERYTHING HERE EXCEPT THE CATALOGUE. A standalone WhatsApp buyer (no
+        `feature.base` at all) may still write his own service catalogue in operations — product
+        decision, this session — so `self._catalog` stays unconditional. Customer records, loyalty
+        offers and packages are all operations/loyalty data that requires the base (or an app that
+        itself requires it) to have ever been written, and a shop that CANCELLED its base keeps
+        that old data sitting in those stores — see base_entitlement.py's own docstring on why
+        this is a deliberate skip, not a hope that the data happens to be empty.
         """
         catalog: list[dict[str, Any]] = []
         if self._catalog is not None:
@@ -489,7 +503,7 @@ class ConversationEngine:
                 catalog = []
 
         known = False
-        if self._customer_lookup is not None and from_number:
+        if has_base and self._customer_lookup is not None and from_number:
             try:
                 looked_up = await self._customer_lookup.resolve(tenant, from_number)
                 known = bool(looked_up.get("found"))
@@ -497,14 +511,14 @@ class ConversationEngine:
                 known = False
 
         offers: list[dict[str, Any]] = []
-        if known:
+        if has_base and known:
             try:
                 offers = await self._points.offers(tenant=tenant, subject_ref=subject_ref)
             except Exception:
                 offers = []
 
         packages: list[dict[str, Any]] = []
-        if self._package_catalog is not None:
+        if has_base and self._package_catalog is not None:
             try:
                 packages = await self._package_catalog.list_active(tenant)
             except Exception:
@@ -896,10 +910,25 @@ class ConversationEngine:
                              and m.get("at", 0) >= conv.batch_started_at)
         recent = [{"role": m["role"], "text": m["text"]} for m in conv.raw_window[:-1]]
 
+        # WHETHER THIS TENANT HOLDS THE CORE PLATFORM SUBSCRIPTION AT ALL — checked live, every
+        # turn, same posture as `self._licence` below (see base_entitlement.py's own docstring for
+        # why a cancelled base must degrade THIS turn, not eventually). None-safe default True for
+        # pre-existing test constructors, matching every other optional peer's degrade-open shape.
+        has_base = True
+        if self._base_entitlement is not None:
+            try:
+                has_base = await self._base_entitlement.allowed(tenant)
+            except Exception:
+                has_base = False
+
         # A conversation already holding an unresolved proposal must not be offered a NEW
         # state-changing tool until the customer answers the one on the table — narrowing what
         # this turn may propose, per adapters/llm/gemini.py's per-call intersection.
-        allowed = self._allowed_tools
+        #
+        # EVERY TOOL BUT PLAIN CONVERSATION IS OPERATIONS/LOYALTY DATA, so a tenant with no base
+        # gets none of them — the same "no base" data isolation `_context_block` enforces, applied
+        # to what the model may even attempt rather than only what it is told.
+        allowed = self._allowed_tools if has_base else frozenset()
         if conv.pending_proposal_id:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer",
@@ -932,7 +961,7 @@ class ConversationEngine:
         shop_ctx = await self._shop_context(tenant)
         owner_notes = shop_ctx.ai_notes if self._shop_notes_enabled else ""
         system_prompt = build_system_prompt(shop_ctx.name, owner_notes)
-        context_block = await self._context_block(tenant, subject_ref, conv.from_number)
+        context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_base)
         reply: LlmReply = await self._llm.respond(
             system_prompt=system_prompt, summary=conv.summary, recent_messages=recent,
             user_message=user_turn, allowed_tools=allowed, context_block=context_block)
