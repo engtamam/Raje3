@@ -40,6 +40,7 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         "id": "insights.dismiss_next_step", "label": "ليس الآن", "method": "POST",
         "path": "/api/v1/insights/next-step/dismiss", "capability": "insights.read",
         "group": "المؤشرات",
+        "help": "يخفي اقتراحاً واحداً من لوحتك لفترة، فتظهر النصيحة اللي بعده — لا يغيّر أي بيانات فعلية.",
         # SAME CAPABILITY AS READING (see insights.refresh above): this changes nothing the
         # shop owns, only which of several true sentences leads the card for a while.
     },

@@ -61,6 +61,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "id": "insights.platform_summary", "label": "ملخص المنصّة الكلي", "method": "GET",
         "path": "/api/v1/insights/platform/summary", "capability": "platform.insights",
         "group": "المنصة",
+        "help": "مجموع مؤشرات كل المنشآت على المنصة، بآخر حساب مُجدوَل له — قد يقول إنه ما زال يُحسَب أول مرة.",
         # A stored row, read as-is — never computed on this request (core/rollup.py).
     },
     {

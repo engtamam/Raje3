@@ -40,6 +40,7 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "method": "POST",
         "path": "/api/v1/platform/evidence",
         "capability": "platform.operations",
+        "help": "كل ما تحتفظ به المنصة عن منشأة معيّنة في فترة معيّنة، لدعم شكوى — الطلب وسحبه يُسجَّل باسمك.",
         "params": [
             {"name": "tenant", "in": "body", "type": "string", "required": True},
             # A WINDOW, and both ends optional: the first question is usually «everything about
