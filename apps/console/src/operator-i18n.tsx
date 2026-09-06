@@ -80,7 +80,19 @@ interface Ctx {
    *  before this settles get the Arabic default, same as an operator whose account has never
    *  set one (`Operator.locale === ""`). */
   ready: boolean;
+  /** DOES THIS ACCOUNT HAVE AN Operator ROW AT ALL. The owner does not (§10.6 — he is not an
+   *  `Operator`), and `PATCH .../operators/me/locale` 404s NOT_AN_OPERATOR for exactly that
+   *  reason. `setLocale` used to be offered to him anyway: he picked a language, the screen
+   *  flipped for an instant, and the silent revert-on-404 below put it straight back — with
+   *  nothing on screen ever saying why, so it read as the control being broken rather than as
+   *  "there is nowhere to save this for you". A control that can only ever fail for a whole
+   *  class of user should not be shown to that user; `OperatorLocaleSwitcher` reads this. */
+  hasOperatorRow: boolean;
   setLocale: (l: OperatorLocale) => void;
+  /** Set only when a REAL operator's save itself failed (a network hiccup, a rate limit) — never
+   *  for the no-row case above, which is not a failure to report, just nothing to offer. Cleared
+   *  on the next attempt. */
+  saveError: boolean;
   t: (key: string) => string;
 }
 
@@ -89,13 +101,18 @@ const OperatorI18nContext = createContext<Ctx | null>(null);
 export function OperatorI18nProvider({ session, children }: { session: Session; children: ReactNode }) {
   const [locale, setLocaleState] = useState<OperatorLocale>('ar');
   const [ready, setReady] = useState(false);
+  const [hasOperatorRow, setHasOperatorRow] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
     let live = true;
     getMyOperator(session)
       .then((row) => {
         if (!live) return;
-        if (row && isKnownLocale(row.locale)) setLocaleState(row.locale);
+        if (row) {
+          setHasOperatorRow(true);
+          if (isKnownLocale(row.locale)) setLocaleState(row.locale);
+        }
         setReady(true);
       })
       // ANY failure — including the owner's real, expected 404 (he has no Operator row) — is
@@ -109,11 +126,14 @@ export function OperatorI18nProvider({ session, children }: { session: Session; 
 
   function setLocale(l: OperatorLocale) {
     const prev = locale;
+    setSaveError(false);
     setLocaleState(l); // optimistic — the switch must feel instant, not wait on a round trip
-    setMyOperatorLocale(session, l).catch(() => setLocaleState(prev)); // account is the truth
+    setMyOperatorLocale(session, l).catch(() => { setLocaleState(prev); setSaveError(true); });
   }
 
-  const value: Ctx = { locale, ready, setLocale, t: (key: string) => translate(locale, key) };
+  const value: Ctx = {
+    locale, ready, hasOperatorRow, setLocale, saveError, t: (key: string) => translate(locale, key),
+  };
   return <OperatorI18nContext.Provider value={value}>{children}</OperatorI18nContext.Provider>;
 }
 

@@ -33,11 +33,13 @@ registerOperatorStrings({
 });
 
 function Probe() {
-  const { t, locale, setLocale, ready } = useOperatorI18n();
+  const { t, locale, setLocale, ready, hasOperatorRow, saveError } = useOperatorI18n();
   return (
     <div>
       <span data-testid="locale">{locale}</span>
       <span data-testid="ready">{String(ready)}</span>
+      <span data-testid="has-row">{String(hasOperatorRow)}</span>
+      <span data-testid="save-error">{String(saveError)}</span>
       <span data-testid="only-ar">{t('x.only.ar')}</span>
       <span data-testid="both">{t('x.both')}</span>
       <span data-testid="unknown">{t('x.totally.unknown.key')}</span>
@@ -127,6 +129,33 @@ describe('account-backed preference, not localStorage', () => {
     await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ur'));
     // THEN ROLLS BACK once the account refuses it — the account is the truth, not the click.
     await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ar'));
+    // AND IT IS SAID, not just reverted silently — the exact defect an owner used to hit.
+    expect(screen.getByTestId('save-error').textContent).toBe('true');
+  });
+
+  it('a real operator has a row, and a fresh attempt clears a previous save error', async () => {
+    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ar' });
+    setMyOperatorLocaleMock = vi.fn()
+      .mockRejectedValueOnce(new Error('refused'))
+      .mockResolvedValueOnce(undefined);
+
+    render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
+    expect(screen.getByTestId('has-row').textContent).toBe('true');
+
+    fireEvent.click(screen.getByText('ur'));
+    await waitFor(() => expect(screen.getByTestId('save-error').textContent).toBe('true'));
+
+    fireEvent.click(screen.getByText('en'));
+    await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('en'));
+    expect(screen.getByTestId('save-error').textContent).toBe('false');
+  });
+
+  it('an account with no operator row at all is never offered the switch — nothing to save it to', async () => {
+    getMyOperatorMock = vi.fn().mockResolvedValue(null);
+    render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
+    expect(screen.getByTestId('has-row').textContent).toBe('false');
   });
 });
 
