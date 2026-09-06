@@ -117,6 +117,11 @@ env:
   # Storing nothing has nothing to leak or erase. Turned on deliberately in Phase 6 (the chat
   # widget itself), together with MESSAGE_KEY — never flipped on ahead of a real caller existing.
   CONVERSATIONS_ENABLED: "false"
+  # Same policy as whatsapp-assistant's own CHAT_RETENTION_DAYS default (30) — one retention rule
+  # for every chat surface on the platform, not a second number nobody chose. Set now, independent
+  # of CONVERSATIONS_ENABLED above: harmless while conversations stay off, and already correct the
+  # moment they are not.
+  CONVERSATION_RETENTION_DAYS: "30"
 
   # ── Widget ─────────────────────────────────────────────────────────────────────────────────
   # Served regardless — nothing embeds it yet (Phase 5/6 wire the "?" icon / chat widget into the
