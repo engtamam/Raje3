@@ -92,6 +92,9 @@ def build_manifest(
             {"path": "/api/v1/affiliates/signin", "tier": "public", "method": "POST"},
             # Who I am — his own id doubles as his referral code (spec §1).
             {"path": "/api/v1/affiliates/me", "tier": "user", "method": "GET"},
+            # This marketer's own action catalog — the shop/admin aggregators' missing third
+            # sibling (see affiliate_self.py::catalog's own docstring).
+            {"path": "/api/v1/affiliates/me/catalog", "tier": "user", "method": "GET"},
             # A manager correcting what a person under him submitted, before an admin decides.
             {"path": "/api/v1/affiliates/me/applications/{application_id}", "tier": "user",
              "method": "PATCH"},

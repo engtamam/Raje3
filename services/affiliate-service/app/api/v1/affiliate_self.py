@@ -110,6 +110,31 @@ async def me(request: Request, principal: Principal = Depends(require_user)) -> 
     return out
 
 
+@router.get("/catalog", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def catalog() -> dict:
+    """This marketer's own action catalog — the `/api/v1/app/catalog` (shop) and
+    `/api/v1/admin/catalog` (platform admin) aggregators' missing third sibling, so all three
+    audiences reach parity: each has ONE place naming every action it may take, in the shape
+    `assistant-service`'s own catalog knowledge-source already expects
+    (`{"services": [{"service", "actions": [...]}]}`).
+
+    NO FAN-OUT, UNLIKE THE OTHER TWO. Those aggregate across every service in `ADMIN_SERVICES`
+    because a shop or a platform admin acts across many services; a marketer's whole world is
+    THIS one service, so there is nothing to discover and nothing to poll — `USER_ACTIONS` is
+    already in this process.
+
+    NO PER-CALLER CAPABILITY FILTER, DELIBERATELY, UNLIKE THE OTHER TWO — not an oversight: every
+    entry in `USER_ACTIONS` already carries the same `affiliates.self` capability (this file's
+    own module docstring states it), which is exactly the one `_SELF` above already required to
+    reach this route at all. Filtering a list against a capability every entry already shares,
+    held by anyone who is already here, would filter nothing; the two-tier gateway aggregators
+    filter because THEY mix many different capabilities in one list and this route does not.
+    """
+    from app.user_actions import USER_ACTIONS
+
+    return {"services": [{"service": "affiliate-service", "actions": USER_ACTIONS}]}
+
+
 class ChangePasswordIn(BaseModel):
     old_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=1, max_length=256)

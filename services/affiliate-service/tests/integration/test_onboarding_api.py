@@ -381,3 +381,32 @@ def test_update_application_lets_the_referring_manager_correct_it(client):
     assert r.status_code == 200, r.text
     assert r.json()["name"] == "بعد التعديل"
     assert r.json()["cv_url"] == "https://example.com/cv.pdf"
+
+
+# ── /api/v1/affiliates/me/catalog — the shop/admin aggregators' missing third sibling ──────────
+def test_my_catalog_refuses_with_no_token(client):
+    r = client.get("/api/v1/affiliates/me/catalog")
+    assert r.status_code == 401
+
+
+def test_my_catalog_refuses_a_token_without_affiliates_self(client):
+    r = client.get("/api/v1/affiliates/me/catalog",
+                   headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+
+
+def test_my_catalog_returns_every_declared_action_in_the_shared_aggregator_shape(client):
+    from app.user_actions import USER_ACTIONS
+
+    r = client.get("/api/v1/affiliates/me/catalog",
+                   headers={"Authorization": f"Bearer {_token()}"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert list(body.keys()) == ["services"]
+    assert len(body["services"]) == 1
+    svc = body["services"][0]
+    assert svc["service"] == "affiliate-service"
+    assert svc["actions"] == USER_ACTIONS
+    # Every action's own help text (this session's own catalog-completeness pass) rides along —
+    # this route is exactly what a future assistant-service KB would read.
+    assert all(a.get("help") for a in svc["actions"])

@@ -398,6 +398,12 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/affiliates/signin",
      "why": "it exchanges a phone and a password FOR a token; a caller who could fetch it as an "
             "action already has one"},
+    {"method": "GET", "path": "/api/v1/affiliates/me/catalog",
+     "why": "it IS the catalogue (the shop/admin aggregators' missing third sibling, "
+            "affiliate_self.py::catalog) — a route the console calls to learn what a marketer "
+            "may do, never a button a marketer presses himself, the same reason "
+            "/api/v1/app/catalog and /api/v1/admin/catalog are not actions in their own lists "
+            "either"},
     {"method": "POST", "path": "/api/v1/admin/withdrawals/{}/receipt",
      "why": "a multipart file upload — a shape the action schema's `params` cannot express "
             "(string/integer/number/boolean/enum/object/array only, no `file`). The GET twin "
