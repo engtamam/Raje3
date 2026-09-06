@@ -300,6 +300,12 @@ class Settings(BaseSettings):
     # "why is my wallet lower than what I was told" with nothing to show for it. Revisit the moment
     # real per-token pricing lands.
     WALLET_SAFETY_MARGIN_HALALAS: int = 0
+    # THE NAMED FUND(S) this bot's own hold is scoped to (wallet-service v0.18.42's fund-scoping,
+    # comma-separated — plural for a future deployment that ever needs more than one). Empty
+    # means the historical all-funds behaviour. Set to the AI-usage credit fund's name once
+    # wallet-service declares one — never left to wander into a shop's commission balance or its
+    # subscription-renewal top-up, which the SAME wallet may also hold.
+    WALLET_RESERVE_FUNDS: str = ""
 
     @field_validator("WALLET_ESTIMATED_MAX_TOKENS_PER_TURN", "WALLET_SAFETY_MARGIN_HALALAS")
     @classmethod

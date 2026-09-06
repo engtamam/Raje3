@@ -27,7 +27,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/wallet-service
-  digest: "sha256:c585ca949705e6a4cbefea16669945c810ba358f39d99b0ebda4865909261037"   # v0.18.39
+  digest: "sha256:8cb5046d61852c524006d6782fe151ff6e3119218c37e848a3b07dbbdfc1e5ee"   # v0.18.43
 
 replicas: 1
 
@@ -101,7 +101,18 @@ env:
   # `commission` is declared now and used by nothing. That is deliberate and stated rather than
   # left as an empty configuration nobody can explain: removing the service today would mean
   # re-adding it, its database and its secrets the day partners ship.
-  WALLET_FUNDS: "commission:1:taxed:withdrawable"
+  # THREE FUNDS, THREE PURPOSES, NEVER CROSS-DRAINING (wallet-service v0.18.42's fund-scoping —
+  # see billing-service.values.yaml's own WALLET_GRANT_FUND/WALLET_RENEWAL_FUND comments and
+  # whatsapp-assistant.values.yaml's WALLET_RESERVE_FUNDS for the callers that each scope
+  # themselves to exactly one of these):
+  #   commission — the partner payout above, untouched, still unused.
+  #   ai_credit  — the WhatsApp bot's own included/purchased AI-usage credit
+  #                (بوت خدمة العملاء الذكي's `credits` plan limit). Locked: this is a service
+  #                allowance, never a payout.
+  #   renewal    — a prepaid top-up a shop puts toward its OWN Raje3 subscription bill, debited
+  #                automatically for a subscription pinned to payment_gateway=="wallet" (gateways
+  #                with no recurring-charge support, e.g. TuwaiqPay). Locked, same reasoning.
+  WALLET_FUNDS: "commission:1:taxed:withdrawable,ai_credit:2:taxed:locked,renewal:3:taxed:locked"
   # Taxed, unlike the message funds that preceded it: a commission paid to a partner IS a supply,
   # and VAT on it is a real obligation rather than a second charge on a riyal already taxed.
   WALLET_VAT_BP: "1500"

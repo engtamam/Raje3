@@ -67,13 +67,18 @@ class HttpWalletBalance:
     driver = "http"
 
     def __init__(self, *, url: str, reserve_path: str, confirm_path: str, release_path: str,
-                token: str, timeout: int = 8) -> None:
+                token: str, timeout: int = 8, reserve_funds: tuple[str, ...] = ()) -> None:
         self._url = url.rstrip("/")
         self._reserve_path = reserve_path
         self._confirm_path = confirm_path
         self._release_path = release_path
         self._token = token
         self._timeout = timeout
+        # SCOPED TO A NAMED FUND (wallet-service v0.18.42's own fund-scoping) — the AI-usage
+        # credit is a fund this bot's own hold must never wander past, into a shop's commission
+        # balance or its subscription-renewal top-up. Empty means the historical all-funds
+        # behaviour (a deployment that has not declared a dedicated fund yet).
+        self._reserve_funds = tuple(reserve_funds)
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any] | None:
         req = urllib.request.Request(
@@ -88,9 +93,12 @@ class HttpWalletBalance:
             return None              # fails CLOSED — see module docstring
 
     async def reserve(self, *, tenant: str, amount_halalas: int, source: str) -> str | None:
-        result = self._post(self._reserve_path, {
+        body: dict[str, Any] = {
             "tenant": tenant, "net": max(0, int(amount_halalas)), "source": source,
-            "reason": "whatsapp_assistant.llm_turn"})
+            "reason": "whatsapp_assistant.llm_turn"}
+        if self._reserve_funds:
+            body["funds"] = list(self._reserve_funds)
+        result = self._post(self._reserve_path, body)
         if result is None:
             return None
         hold_id = result.get("hold_id")
@@ -127,8 +135,10 @@ def new_reserve_source(conversation_ref: str) -> str:
 def build(settings: Any) -> Any:
     if not settings.WALLET_SERVICE_URL:
         return NullWalletBalance()
+    reserve_funds = tuple(
+        f.strip() for f in (settings.WALLET_RESERVE_FUNDS or "").split(",") if f.strip())
     return HttpWalletBalance(
         url=settings.WALLET_SERVICE_URL, reserve_path=settings.WALLET_SERVICE_RESERVE_PATH,
         confirm_path=settings.WALLET_SERVICE_CONFIRM_PATH,
         release_path=settings.WALLET_SERVICE_RELEASE_PATH, token=settings.INTERNAL_SERVICE_TOKEN,
-        timeout=settings.PEER_TIMEOUT_SECONDS)
+        timeout=settings.PEER_TIMEOUT_SECONDS, reserve_funds=reserve_funds)

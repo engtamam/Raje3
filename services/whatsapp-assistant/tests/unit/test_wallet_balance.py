@@ -81,6 +81,42 @@ def test_reserve_posts_net_source_and_reason_and_returns_the_hold_id():
     assert hold_id == "hld_123"
 
 
+def test_reserve_with_no_configured_fund_omits_the_field_entirely():
+    """Backward compatible: a deployment that has not declared a dedicated fund yet gets the
+    historical all-funds behaviour, byte-identical to before this feature shipped."""
+    c = client()
+    seen: dict = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"hold_id": "hld_1"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.reserve(tenant="shop1", amount_halalas=300, source="src1"))
+
+    assert "funds" not in seen["body"]
+
+
+def test_reserve_scoped_to_a_named_fund_sends_it_and_never_wanders_past_it():
+    """wallet-service v0.18.42's fund-scoping — the AI-usage credit must never be checked
+    against, or drain, a shop's commission balance or its subscription-renewal top-up, which
+    the same wallet may also hold."""
+    c = HttpWalletBalance(
+        url="http://wallet-service:8000", reserve_path="/internal/wallet/reserve",
+        confirm_path="/internal/wallet/confirm", release_path="/internal/wallet/release",
+        token="t", timeout=8, reserve_funds=("ai_credit",))
+    seen: dict = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"hold_id": "hld_1"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.reserve(tenant="shop1", amount_halalas=300, source="src1"))
+
+    assert seen["body"]["funds"] == ["ai_credit"]
+
+
 def test_reserve_returns_none_on_a_402_insufficient_funds():
     import urllib.error
 
@@ -134,3 +170,49 @@ async def test_null_wallet_balance_always_reserves_and_never_blocks():
     assert hold_id is not None
     await w.confirm(hold_id)     # must not raise
     await w.release(hold_id)     # must not raise
+
+
+# ── build() — WALLET_RESERVE_FUNDS parsing ──────────────────────────────────────────────────────
+class _Settings:
+    WALLET_SERVICE_URL = "http://wallet-service:8000"
+    WALLET_SERVICE_RESERVE_PATH = "/internal/wallet/reserve"
+    WALLET_SERVICE_CONFIRM_PATH = "/internal/wallet/confirm"
+    WALLET_SERVICE_RELEASE_PATH = "/internal/wallet/release"
+    INTERNAL_SERVICE_TOKEN = "t"
+    PEER_TIMEOUT_SECONDS = 8
+    WALLET_RESERVE_FUNDS = ""
+
+
+def test_build_with_no_configured_fund_scopes_to_nothing():
+    from app.core.wallet_balance import build
+
+    s = _Settings()
+    w = build(s)
+    assert isinstance(w, HttpWalletBalance)
+    assert w._reserve_funds == ()
+
+
+def test_build_parses_a_single_fund():
+    from app.core.wallet_balance import build
+
+    s = _Settings()
+    s.WALLET_RESERVE_FUNDS = "ai_credit"
+    w = build(s)
+    assert w._reserve_funds == ("ai_credit",)
+
+
+def test_build_parses_several_funds_and_strips_whitespace():
+    from app.core.wallet_balance import build
+
+    s = _Settings()
+    s.WALLET_RESERVE_FUNDS = " ai_credit , topup "
+    w = build(s)
+    assert w._reserve_funds == ("ai_credit", "topup")
+
+
+def test_build_with_no_wallet_url_still_returns_the_null_adapter():
+    from app.core.wallet_balance import build
+
+    s = _Settings()
+    s.WALLET_SERVICE_URL = ""
+    assert isinstance(build(s), NullWalletBalance)

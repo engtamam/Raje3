@@ -1,13 +1,13 @@
 {
-  "release": "v0.18.39",
+  "release": "v0.18.43",
   "images": {
     "analytics-service": "sha256:a4f4eafa811232132c02e04900fc48f7b94bb6e3a8df499359c69b37afca4908",
     "api-gateway": "sha256:62339ae16917fd986d815ad3964da1f410045dea532c14f53e6de2f3fceaec24",
-    "assistant-service": "sha256:4d6d7ae31be6db24fc4655564047f72b11762bdaccb27dd5c16e93bf99feb326",
+    "assistant-service": "sha256:0f9570dca90abc1a6c0f10038a23410885f141708bbea9a0234d6d41ffbe1292",
     "audit-service": "sha256:252278911ea1ca1bbf7db3e7152be947e76738adeba3db0a68e1ebeec0441a92",
     "authz-service": "sha256:75c330e03001742b2afa88f3a76db60c22fcae96b82936ffbd86bf51117d4f3e",
     "backup-service": "sha256:72a191c0dcf3800778b123c0123a9defb16014d97cd724ed83e9c44b43c3badb",
-    "billing-service": "sha256:0a20cd7219047db4dfbfb77003942809e609ebce29b9aefed58c1e0610bde72e",
+    "billing-service": "sha256:39721634659acef818f65881e73860b68308e614c4f053fe86350c3ba9851ed8",
     "compliance-service": "sha256:291fe5681b801e7ebe719cff563f67d1be138d5c1ac45f1b109f962ec362ad72",
     "connector-service": "sha256:e54c3b6cd21d63564ae85a79b2616207b91b0639241d7a9e9241ccf0304975c3",
     "feature-flag-service": "sha256:59e3551ccb4fcde5baabcd49498998cea95777845de4663b5acc6e841d43dcf6",
@@ -18,7 +18,7 @@
     "search-service": "sha256:701ba5b338cf673c9083a0dbc229c02d24cd0256b63e66403606d5a95313b16e",
     "tenant-service": "sha256:b74459db8b78b882d3c89f6e7f9cac214d48ca138f4b36fe6f9ffb63703c4e01",
     "ticket-service": "sha256:c902110cf69baf8c86893d9c1a9b5958582a08e71e8c688c44d6639d82c7b592",
-    "wallet-service": "sha256:c585ca949705e6a4cbefea16669945c810ba358f39d99b0ebda4865909261037",
+    "wallet-service": "sha256:8cb5046d61852c524006d6782fe151ff6e3119218c37e848a3b07dbbdfc1e5ee",
     "webhook-service": "sha256:8b6a2de12de7801d740329ff15ff41646a4391b7c8c7e235730fc0fd77d581d0"
   }
 }
