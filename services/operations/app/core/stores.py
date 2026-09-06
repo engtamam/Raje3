@@ -289,6 +289,36 @@ class VisitStore(_Base):
         await self._put(v.tenant, v.id, v.__dict__.copy())
         return v
 
+    async def ratings(self, tenant: str, *, stars: int | None = None, handled: bool | None = None,
+                      branch_id: str = "", limit: int = 50, after: str | None = None
+                      ) -> tuple[list[Visit], str | None]:
+        """Every visit a customer actually rated — the console's «التقييمات» tab (rating-app-
+        feature.md phase 5). `stars` narrows to one exact rank when given; otherwise "has any
+        rating at all", expressed as membership on [1, 2, 3, 4, 5] (0 is the model's own «not yet»
+        sentinel, never itself a valid filter value, so it is simply excluded by the list).
+
+        `handled=False` is an EXACT filter (`rating_handled_at == 0`, the field's own untouched
+        value) and pages correctly like any other `_find` call. `handled=True` cannot be
+        expressed as an equality filter (any nonzero timestamp qualifies, and `_find` only
+        supports exact/membership match) — it is applied AFTER the page is fetched instead, which
+        is a KNOWN, ACCEPTED LIMITATION: a page can come back with fewer than `limit` handled rows
+        even though more exist, since the underlying page was capped before this filter ran. The
+        owner-facing screen is not paginating thousands of ratings, so this is an acceptable
+        approximation rather than a real gap — same "known limit, stated honestly" posture as
+        `unseamed`'s own bounded read above.
+        """
+        where: dict[str, Any] = {"rating": [stars] if stars else [1, 2, 3, 4, 5]}
+        if branch_id:
+            where["branch_id"] = branch_id
+        if handled is False:
+            where["rating_handled_at"] = 0
+        rows, cursor = await self._find(tenant, where, limit=limit, after=after,
+                                        sort=("rated_at", "desc"))
+        visits = [Visit(**r) for r in rows]
+        if handled is True:
+            visits = [v for v in visits if v.rating_handled_at > 0]
+        return visits, cursor
+
 
 class OperatorStore(_Base):
     collection = OPERATORS

@@ -142,6 +142,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "any other write to a visit does",
     },
     {
+        # THE OWNER'S OWN ACT, from the console's «التقييمات» tab — never automatic (see
+        # Visit.rating_handled_at's own docstring). Not critical for the same reason as
+        # visit.rated: an audit outage must not stop him from acting on a rating he is looking at
+        # right now.
+        "action": "visit.rating_handled",
+        "source": "admin",
+        "critical": False,
+        "resource": "visit",
+        "why": "which staff member marked a customer's rating as handled, and when — the same "
+               "accountability any other write to a visit gets",
+    },
+    {
         "action": "subscription.created",
         "source": "admin",
         "critical": True,

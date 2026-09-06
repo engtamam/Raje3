@@ -234,6 +234,56 @@ async def recent_customers(request: Request, limit: int = 10, branch_id: str = "
     return {"customers": kept}
 
 
+@router.get("/ratings", dependencies=[Depends(rate_limit)])
+async def ratings(request: Request, stars: int = 0, handled: str = "", branch_id: str = "",
+                  limit: int = 50, after: str = "",
+                  principal: Principal = Depends(_READ)) -> dict:
+    """The console's «التقييمات» tab (rating-app-feature.md phase 5) — every visit a customer
+    actually rated, one filterable list.
+
+    `stars` (1-5, 0 = every rank), `handled` ("true"/"false", "" = both) — plain query strings
+    rather than a real bool/optional-int, matching this file's own convention of never asking
+    FastAPI to coerce a query param that a browser can send as an empty string. See
+    VisitStore.ratings' own docstring for `handled=true`'s one known pagination limitation.
+    """
+    if stars not in (0, 1, 2, 3, 4, 5):
+        return {"error": "BAD_REQUEST", "message": "التقييم يجب أن يكون بين 1 و5، أو صفر لكل التقييمات."}
+    handled_filter = {"true": True, "false": False, "": None}.get(handled.lower())
+    if handled and handled_filter is None:
+        return {"error": "BAD_REQUEST", "message": "handled يجب أن تكون true أو false."}
+    limit = max(1, min(limit, 100))
+    rows, cursor = await _svc(request).ratings(
+        _tenant(principal), stars=stars or None, handled=handled_filter,
+        branch_id=branch_id, limit=limit, after=after or None)
+    # SAME BRANCH DISCIPLINE AS /customers/recent ABOVE — a manager scoped to one branch must not
+    # read another branch's ratings by passing a different `branch_id` query param himself.
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    kept = SCOPE.visible([v.public() for v in rows], SCOPE.narrow(scope, branch_id),
+                         field="branch_id")
+    return {"ratings": kept, "next_cursor": cursor}
+
+
+class RatingHandledIn(BaseModel):
+    note: str = Field(default="", max_length=500)
+
+
+@router.patch("/ratings/{visit_id}/handled",
+              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def mark_rating_handled(request: Request, visit_id: str, body: RatingHandledIn,
+                              principal: Principal = Depends(_RECORD)) -> dict:
+    """«تمت المعالجة» — a human read this rating and did something about it. Never automatic; see
+    Visit.rating_handled_at's own docstring."""
+    try:
+        v = await _svc(request).mark_rating_handled(_tenant(principal), visit_id, body.note)
+    except OperationError as exc:
+        # RETURNED, NEVER RAISED — see record_visit's own comment above on why.
+        return {"handled": False, "reason": str(exc)}
+    await request.app.state.auditor.record(
+        "visit.rating_handled", actor=principal.subject, tenant=_tenant(principal),
+        resource=f"visit:{visit_id}", ip=request.client.host if request.client else "")
+    return {"handled": True, "visit": v.public()}
+
+
 @router.get("/customers/by-phone", dependencies=[Depends(rate_limit)])
 async def customer_by_phone(request: Request, phone: str,
                             principal: Principal = Depends(_READ)) -> dict:

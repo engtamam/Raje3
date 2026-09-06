@@ -186,3 +186,64 @@ def test_a_package_visit_can_still_be_rated_like_any_other():
     v = _visit(package_id="pkg_9", rating=3)
     assert v.package_id == "pkg_9"
     assert v.rating == 3
+
+
+# ── VisitStore.ratings — the console's «التقييمات» tab query (rating-app-feature.md phase 5) ────
+def test_ratings_returns_only_visits_that_were_actually_rated(store):
+    run(store.save(_visit(id="vis_rated", rating=4, rated_at=1_000)))
+    run(store.save(_visit(id="vis_unrated", rating=0)))
+    rows, _ = run(store.ratings(T))
+    ids = [v.id for v in rows]
+    assert "vis_rated" in ids
+    assert "vis_unrated" not in ids
+
+
+def test_ratings_filters_by_an_exact_star_value(store):
+    run(store.save(_visit(id="vis_5", rating=5, rated_at=1_000)))
+    run(store.save(_visit(id="vis_2", rating=2, rated_at=1_001)))
+    rows, _ = run(store.ratings(T, stars=5))
+    assert [v.id for v in rows] == ["vis_5"]
+
+
+def test_ratings_with_no_stars_filter_returns_every_rank(store):
+    for i, stars in enumerate((1, 2, 3, 4, 5)):
+        run(store.save(_visit(id=f"vis_{stars}", rating=stars, rated_at=1_000 + i)))
+    rows, _ = run(store.ratings(T))
+    assert len(rows) == 5
+
+
+def test_ratings_handled_false_is_an_exact_native_filter(store):
+    run(store.save(_visit(id="vis_open", rating=3, rated_at=1_000)))
+    run(store.save(_visit(id="vis_done", rating=3, rated_at=1_001,
+                          rating_handled_at=2_000, rating_handled_note="تم")))
+    rows, _ = run(store.ratings(T, handled=False))
+    assert [v.id for v in rows] == ["vis_open"]
+
+
+def test_ratings_handled_true_returns_only_handled_ones(store):
+    run(store.save(_visit(id="vis_open", rating=3, rated_at=1_000)))
+    run(store.save(_visit(id="vis_done", rating=3, rated_at=1_001,
+                          rating_handled_at=2_000, rating_handled_note="تم")))
+    rows, _ = run(store.ratings(T, handled=True))
+    assert [v.id for v in rows] == ["vis_done"]
+
+
+def test_ratings_filters_by_branch(store):
+    run(store.save(_visit(id="vis_a", rating=4, rated_at=1_000, branch_id="brn_a")))
+    run(store.save(_visit(id="vis_b", rating=4, rated_at=1_001, branch_id="brn_b")))
+    rows, _ = run(store.ratings(T, branch_id="brn_a"))
+    assert [v.id for v in rows] == ["vis_a"]
+
+
+def test_ratings_sorts_newest_first(store):
+    run(store.save(_visit(id="vis_old", rating=3, rated_at=1_000)))
+    run(store.save(_visit(id="vis_new", rating=3, rated_at=2_000)))
+    rows, _ = run(store.ratings(T))
+    assert [v.id for v in rows] == ["vis_new", "vis_old"]
+
+
+def test_ratings_is_tenant_scoped(store):
+    run(store.save(_visit(id="vis_mine", tenant=T, rating=4, rated_at=1_000)))
+    run(store.save(_visit(id="vis_theirs", tenant="tnt_other", rating=4, rated_at=1_000)))
+    rows, _ = run(store.ratings(T))
+    assert [v.id for v in rows] == ["vis_mine"]

@@ -159,6 +159,20 @@ USER_ACTIONS: list[dict[str, Any]] = [
                 "المنشأة من الجلسة لا من الطلب.",
     },
     {
+        "id": "operations.ratings", "label": "التقييمات", "method": "GET",
+        "path": "/api/v1/field/ratings", "capability": "operations.read",
+        "group": "الشاشة",
+        "help": "كل زيارة قيّمها عميل فعلياً — عبر تطبيق التقييم بعد الزيارة — قابلة للتصفية "
+                "بعدد النجوم أو حالة المعالجة أو الفرع.",
+    },
+    {
+        "id": "operations.mark_rating_handled", "label": "تمت المعالجة", "method": "PATCH",
+        "path": "/api/v1/field/ratings/{visit_id}/handled", "capability": "operations.record",
+        "group": "الشاشة",
+        "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
+        "help": "تسجّل إنك اطّلعت على هذا التقييم وتصرّفت حياله — لا يصير تلقائياً أبداً.",
+    },
+    {
         "id": "operations.ensure_customer", "label": "تسجيل عميلة برقمها (بلا زيارة)", "method": "POST",
         "path": "/api/v1/field/customers/ensure", "capability": "operations.record",
         "group": "الشاشة",

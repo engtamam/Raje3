@@ -30,6 +30,7 @@ import type { Session } from '../session';
 import { scopeQuery } from '../branch-scope';
 import { asLocal } from '../phone';
 import { AssistantHint } from '../AssistantHint';
+import { RatingsTab } from './RatingsTab';
 
 const MIN_PREFIX = 3;
 
@@ -55,7 +56,7 @@ export function CustomersScreen(
   // of «محلّي», this list was ALWAYS the whole chain while the numbers next door might be one
   // branch — and an owner reading both was reading two different shops with nothing saying so.
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'all' | 'overdue'>('all');
+  const [tab, setTab] = useState<'all' | 'overdue' | 'ratings'>('all');
   const [query, setQuery] = useState('');
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [recent, setRecent] = useState<Loading<CustomerHit[]>>(undefined);
@@ -244,8 +245,11 @@ export function CustomersScreen(
         options={[
           { value: 'all', label: 'عملائي' },
           { value: 'overdue', label: 'من تأخّر' },
+          ...(action(catalog, 'operations.ratings') ? [{ value: 'ratings' as const, label: 'التقييمات' }] : []),
         ]}
       />
+
+      {tab === 'ratings' ? <RatingsTab session={session} catalog={catalog} branch={branch} /> : <>
 
       {tab === 'overdue' ? (
         <div className="flex items-center gap-1 text-sm text-text-secondary">
@@ -384,6 +388,7 @@ export function CustomersScreen(
         </ul>
         </>
       )}
+      </>}
     </div>
   );
 }

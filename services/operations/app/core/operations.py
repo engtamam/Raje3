@@ -427,6 +427,29 @@ class Operations:
     async def recent_customers(self, tenant: str, limit: int = 10) -> list[Customer]:
         return await self._customers.recent(tenant, limit=limit)
 
+    async def ratings(self, tenant: str, *, stars: int | None = None, handled: bool | None = None,
+                      branch_id: str = "", limit: int = 50, after: str | None = None
+                      ) -> tuple[list[Visit], str | None]:
+        """The console's «التقييمات» tab — see VisitStore.ratings' own docstring for the filter
+        shape and its one known pagination limitation (handled=True)."""
+        return await self._visits.ratings(tenant, stars=stars, handled=handled,
+                                          branch_id=branch_id, limit=limit, after=after)
+
+    async def mark_rating_handled(self, tenant: str, visit_id: str, note: str = "") -> Visit:
+        """Record that a human read this rating and did something about it — never automatic
+        (see Visit.rating_handled_at's own docstring). Refuses a visit that carries no rating at
+        all rather than silently "handling" nothing, and a visit from another tenant is simply
+        not found (the same tenant-scoped `get` every other route here uses)."""
+        v = await self._visits.get(tenant, visit_id)
+        if v is None:
+            raise OperationError("الزيارة غير موجودة.")
+        if not v.rating:
+            raise OperationError("هذي الزيارة ما فيها تقييم لتُعالَج.")
+        v.rating_handled_at = _now()
+        v.rating_handled_note = (note or "").strip()
+        await self._visits.save(v)
+        return v
+
     async def customers_by_refs(self, tenant: str, refs: set[str]) -> list[Customer]:
         """The join reminders cannot make: pseudonyms to customers, inside one establishment."""
         return await self._customers.by_refs(tenant, refs)

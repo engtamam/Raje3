@@ -186,6 +186,10 @@ def build_manifest(
             {"path": "/api/v1/field/customers/resolve", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/catalogue", "tier": "user", "method": "GET"},
+            # The console's «التقييمات» tab (rating-app-feature.md phase 5) — every rated visit,
+            # and marking one handled.
+            {"path": "/api/v1/field/ratings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/field/ratings/{}/handled", "tier": "user", "method": "PATCH"},
             # ── the back office ───────────────────────────────────────────────────────────
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},
