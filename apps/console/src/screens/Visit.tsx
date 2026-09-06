@@ -31,7 +31,6 @@ import { TodayBookingsStrip } from '../TodayBookingsStrip';
 import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
 import { useOperatorI18n, tf } from '../operator-i18n';
-import { OperatorLocaleSwitcher } from '../OperatorLocaleSwitcher';
 import './visit-i18n';
 
 /**
@@ -961,9 +960,6 @@ export function Visit() {
     // anything this wrapper adds is height the panes cannot see and the arrows pay for.
     <main className="bg-surface-0 text-text-primary">
       <div className="mx-auto max-w-4xl">
-        <div className="flex justify-end p-2">
-          <OperatorLocaleSwitcher />
-        </div>
         {/* NO "TODAY'S CUSTOMERS" STRIP HERE, AND IT WAS THE FIRST THING ON THE SCREEN.
             The premise was that the same car returns an hour later. It does not: the customer
             drives away and comes back in weeks. So the strip spent its height — the height the

@@ -1,9 +1,10 @@
 /**
  * The switch itself — a plain `<select>`, deliberately not a fancier picker. Five options, no
  * search, no icons to learn; a control an operator taps once a shift at most does not earn a
- * custom widget. Placed on the screen itself for now (not the shared shell chrome) because only
- * Visit.tsx reads operator-i18n today — lift it to the shell once a second screen migrates, so
- * it is not duplicated per screen.
+ * custom widget. Mounted once, in the shell's own `railSlot` (App.tsx) — it used to live inside
+ * Visit.tsx alone, back when Visit was the only screen reading operator-i18n; Bookings, Points
+ * and Services all read it now too, so one shared control in the rail replaced four separate
+ * copies (or three screens silently missing it).
  *
  * HIDDEN FOR AN ACCOUNT WITH NO Operator ROW — the owner, chiefly. It used to render for him
  * too: he picked a language, the screen flipped for an instant, and reverted straight back with

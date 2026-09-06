@@ -32,6 +32,7 @@ import type { Owned } from './apps';
 import { isSignedIn, useSession } from './session';
 import { WELCOME_TRIAL_KEY } from './auth';
 import { OperatorI18nProvider } from './operator-i18n';
+import { OperatorLocaleSwitcher } from './OperatorLocaleSwitcher';
 
 export function App() {
   const { session, signedIn, signOut } = useSession();
@@ -209,6 +210,14 @@ export function App() {
 
   return (
     <>
+    {/* THE OPERATOR'S OWN LANGUAGE, ABOVE THE WHOLE SHELL rather than only the routed screens —
+        moved here from around the bare <Outlet/> once a SECOND screen (then a third, a fourth)
+        started reading useOperatorI18n(): the switch itself lives in the rail now
+        (`railSlot` below), which renders alongside the shell's own nav, not inside it, so the
+        provider has to cover the shell too. The preference is still read once per account (not
+        the device — see operator-i18n.tsx's own header), one provider for every screen and the
+        rail control together instead of racing separate fetches for the same row. */}
+    <OperatorI18nProvider session={session}>
     <AppShell
       // OUR OWN MARK, AND IT IS THE ONE LINE THIS WAITED FOR.
       //
@@ -262,6 +271,14 @@ export function App() {
       }
       onAccount={() => navigate(ACCOUNT_PATH)}
       onSignOut={() => { signOut(); navigate('/'); }}
+      // THE LANGUAGE SWITCH ITSELF, IN THE RAIL — not per-screen any more. It used to live inside
+      // Visit.tsx alone, when Visit was the only screen that read useOperatorI18n(); Bookings,
+      // Points and Services all read it now too, so a control duplicated onto each of them (or
+      // missing from the rest) was the wrong shape. `railSlot` is the shell's own extension point
+      // for exactly this — a widget above the user block, alongside `projectSwitcher` above —
+      // and `OperatorLocaleSwitcher` already renders nothing for an account with no Operator row
+      // (the owner), so the rail gains no empty gap for him.
+      railSlot={<OperatorLocaleSwitcher />}
     >
       {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.
           We pass the Outlet explicitly so the screens receive the session and the catalogue we
@@ -277,15 +294,10 @@ export function App() {
             ended. One line here says it before the first press, and says what still works.
             It renders nothing at all while the answer is unknown or the month has time left. */}
         <SubscriptionBar owned={owned} now={Date.now()} />
-        {/* THE OPERATOR'S OWN LANGUAGE, ABOVE EVERY SCREEN THAT READS useOperatorI18n(). Placed
-            here rather than per-screen: the preference is read once (his account, not the
-            device — see operator-i18n.tsx's own header) and every field screen shares one
-            provider instead of racing separate fetches for the same row. */}
-        <OperatorI18nProvider session={session}>
-          <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
-        </OperatorI18nProvider>
+        <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
       </LegalGate>
     </AppShell>
+    </OperatorI18nProvider>
     {welcomeOverlay}
     </>
   );
