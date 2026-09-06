@@ -68,6 +68,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliates.commissions", "label": "عمولاتي", "method": "GET",
         "path": "/api/v1/affiliates/me/commissions", "capability": "affiliates.self", "group": "أرباحي",
+        "help": "قائمة عمولاتك من كل عملية تحويل نجحت — أي عمولة عدّت مهلة التثبيت تتأكّد تلقائيًا وقت ما تفتح الصفحة.",
     },
     {
         "id": "affiliates.team_revenue", "label": "فريقي وإيراده", "method": "GET",
@@ -82,36 +83,43 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliates.get_payout_method", "label": "طريقة استلامي الحالية", "method": "GET",
         "path": "/api/v1/affiliates/me/payout-method", "capability": "affiliates.self", "group": "أرباحي",
+        "help": "طريقة استلام أرباحك المسجّلة حاليًا، برقم الحساب مخفيًا جزئيًا لا كاملًا.",
     },
     {
         "id": "affiliates.balance", "label": "رصيدي", "method": "GET",
         "path": "/api/v1/affiliates/me/balance", "capability": "affiliates.self", "group": "أرباحي",
+        "help": "رصيدك القابل للسحب الآن، مع الحد الأدنى المطلوب حتى تقدر تسحب.",
     },
     {
         "id": "affiliates.request_withdrawal", "label": "اطلب سحب رصيدي", "method": "POST",
         "path": "/api/v1/affiliates/me/withdrawals", "capability": "affiliates.self", "group": "أرباحي",
         "confirm": True,
+        "help": "يقدّم طلب سحب رصيدك الحالي كاملًا إلى طريقة الاستلام المسجّلة — يُرفض إن كان رصيدك أقل من الحد الأدنى.",
     },
     {
         "id": "affiliates.withdrawals", "label": "طلبات سحبي", "method": "GET",
         "path": "/api/v1/affiliates/me/withdrawals", "capability": "affiliates.self", "group": "أرباحي",
+        "help": "قائمة كل طلبات السحب اللي قدّمتها من قبل وحالة كل واحد منها.",
     },
     {
         "id": "affiliates.withdrawal_receipt", "label": "إيصال سحب", "method": "GET",
         "path": "/api/v1/affiliates/me/withdrawals/{}/receipt", "capability": "affiliates.self",
         "group": "أرباحي",
         "params": [{"name": "withdrawal_id", "in": "path", "type": "string", "required": True}],
+        "help": "إثبات تحويل طلب سحب سابق — لا يظهر لك إلا إذا كان الطلب طلبك أنت.",
     },
     # ── دعم الوفاء والترقية للوظيفة (spec §8) ────────────────────────────────────────────────────
     {
         "id": "affiliates.request_wafa", "label": "اطلب دعم الوفاء", "method": "POST",
         "path": "/api/v1/affiliates/me/wafa-requests", "capability": "affiliates.self",
         "group": "دعم الوفاء والترقية",
+        "help": "يقدّم طلب دعم الوفاء نيابة عنك — القرار الملزِم يبقى للمنصة لا لك.",
     },
     {
         "id": "affiliates.wafa_requests", "label": "طلبات دعم الوفاء", "method": "GET",
         "path": "/api/v1/affiliates/me/wafa-requests", "capability": "affiliates.self",
         "group": "دعم الوفاء والترقية",
+        "help": "قائمة طلبات دعم الوفاء اللي قدّمتها وحالة كل واحد منها.",
     },
     {
         "id": "affiliates.wafa_eligibility", "label": "أهليتي لدعم الوفاء", "method": "GET",
@@ -132,16 +140,19 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "دعم الوفاء والترقية",
         "params": [{"name": "wafa_id", "in": "path", "type": "string", "required": True}],
         "confirm": True,
+        "help": "رأيك الاستشاري بطلب دعم وفاء لأحد أفراد فريقك — القرار الملزِم يبقى للمنصة، لا لك.",
     },
     {
         "id": "affiliates.request_employment", "label": "رشّح نفسك لوظيفة", "method": "POST",
         "path": "/api/v1/affiliates/me/employment-requests", "capability": "affiliates.self",
         "group": "دعم الوفاء والترقية",
+        "help": "يرسل ترشيحك لوظيفة داخل البرنامج.",
     },
     {
         "id": "affiliates.employment_requests", "label": "طلبات الترشّح للوظيفة", "method": "GET",
         "path": "/api/v1/affiliates/me/employment-requests", "capability": "affiliates.self",
         "group": "دعم الوفاء والترقية",
+        "help": "قائمة طلبات ترشّحك للوظيفة وحالة كل واحد منها.",
     },
     {
         "id": "affiliates.employment_eligibility", "label": "أهليتي للترشّح لوظيفة", "method": "GET",
@@ -155,6 +166,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "method": "PUT",
         "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self",
         "group": "بحث العملاء المحتملين", "danger": True,
+        "help": "يسجّل مفتاح خرائط جوجل الخاص بك لتشغيل بحث العملاء المحتملين — للمدير فقط، ويستبدل أي مفتاح سابق فورًا.",
     },
     {
         "id": "affiliates.places_api_key_status", "label": "حالة مفتاح خرائط جوجل", "method": "GET",
@@ -165,6 +177,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "affiliates.clear_places_api_key", "label": "احذف مفتاح خرائط جوجل", "method": "DELETE",
         "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
         "confirm": True, "danger": True,
+        "help": "يحذف مفتاح خرائط جوجل المسجّل — بحث العملاء المحتملين يتوقف حتى تسجّل مفتاحًا جديدًا.",
     },
     {
         "id": "affiliates.start_lead_search", "label": "ابدأ بحث عملاء محتملين جديد", "method": "POST",
@@ -174,11 +187,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliates.lead_searches", "label": "عمليات البحث السابقة", "method": "GET",
         "path": "/api/v1/affiliates/me/leads/search", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
+        "help": "قائمة عمليات بحث العملاء المحتملين اللي بدأتها سابقًا.",
     },
     {
         "id": "affiliates.lead_search_status", "label": "تقدّم بحث العملاء المحتملين", "method": "GET",
         "path": "/api/v1/affiliates/me/leads/search/{}", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
         "params": [{"name": "job_id", "in": "path", "type": "string", "required": True}],
+        "help": "تقدّم عملية بحث محدّدة — تتابعها بدل ما تنتظر انتهاءها، فالبحث الكامل قد يأخذ ساعات.",
     },
     # ── عملائي المحتملين ────────────────────────────────────────────────────────────────
     {
@@ -191,12 +206,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/affiliates/me/leads/{}/assign", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
         "params": [{"name": "lead_id", "in": "path", "type": "string", "required": True}],
+        "help": "يسنِد عميلًا محتملًا من نتائج بحثك لأحد مسوّقي فريقك ليتابعه — للمدير فقط.",
     },
     {
         "id": "affiliates.set_lead_status", "label": "حدّث حالة عميل محتمل", "method": "POST",
         "path": "/api/v1/affiliates/me/leads/{}/status", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
         "params": [{"name": "lead_id", "in": "path", "type": "string", "required": True}],
+        "help": "يسجّل آخر تحديث لحالة تواصلك مع عميل محتمل — جزء من متابعة رحلته الحقيقية، لا تخمين.",
     },
     {
         "id": "affiliates.link_lead_registration", "label": "اربط عميلًا محتملًا بمحل مسجَّل",
@@ -211,10 +228,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "method": "GET",
         "path": "/api/v1/affiliates/me/leads/sector-stats", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
+        "help": "إحصاء عدد العملاء المحتملين اللي وجدتها بحسب القطاع والمدينة — لبحثك أنت فقط.",
     },
     {
         "id": "affiliates.sectors", "label": "قطاعات النشاط", "method": "GET",
         "path": "/api/v1/affiliates/me/sectors", "capability": "affiliates.self", "group": "عملائي المحتملين",
+        "help": "قائمة قطاعات النشاط المعتمدة، تختار منها عند إعداد بحث عملاء محتملين جديد.",
     },
     {
         "id": "affiliates.referred_shops", "label": "المحلات اللي أحلتها", "method": "GET",
@@ -226,6 +245,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliates.outreach_stages", "label": "مراحل رحلة التحويل", "method": "GET",
         "path": "/api/v1/affiliates/me/outreach-stages", "capability": "affiliates.self", "group": "أدواتي",
+        "help": "قائمة مراحل رحلة تحويل العميل المحتمل (تواصل أول، متابعة، إقناع...) المعتمدة حاليًا.",
     },
     {
         "id": "affiliates.upsert_outreach_stage", "label": "أضف أو عدّل مرحلة", "method": "PUT",
@@ -237,11 +257,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/affiliates/me/outreach-stages/{}", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "code", "in": "path", "type": "string", "required": True}],
         "confirm": True,
+        "help": "يعطّل مرحلة من رحلة التحويل فلا تظهر بعدها — للمدير فقط، ولا يحذف أي عميل مرتبط بها.",
     },
     {
         "id": "affiliates.templates", "label": "قوالب الرسائل", "method": "GET",
         "path": "/api/v1/affiliates/me/templates", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "stage_code", "in": "query", "type": "string", "required": False}],
+        "help": "قوالب الرسائل الجاهزة، مصنّفة حسب مرحلة رحلة التحويل.",
     },
     {
         "id": "affiliates.create_template", "label": "أضف قالبًا جديدًا", "method": "POST",
@@ -252,12 +274,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "affiliates.update_template", "label": "عدّل قالبًا", "method": "PUT",
         "path": "/api/v1/affiliates/me/templates/{}", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "template_id", "in": "path", "type": "string", "required": True}],
+        "help": "يعدّل محتوى قالب موجود — للمدير فقط، والتعديل ينعكس فورًا لكل مسوّقي البرنامج.",
     },
     {
         "id": "affiliates.deactivate_template", "label": "عطّل قالبًا", "method": "DELETE",
         "path": "/api/v1/affiliates/me/templates/{}", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "template_id", "in": "path", "type": "string", "required": True}],
         "confirm": True,
+        "help": "يعطّل قالبًا فلا يظهر بعدها لأي مسوّق — للمدير فقط.",
     },
     {
         "id": "affiliates.template_stats", "label": "أداء القوالب", "method": "GET",
@@ -270,12 +294,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "affiliates.template_kind_stats", "label": "أداء أنواع المحتوى", "method": "GET",
         "path": "/api/v1/affiliates/me/template-kind-stats", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "mine", "in": "query", "type": "boolean", "required": False}],
+        "help": "أي نوع محتوى (نص، صورة، فيديو...) فعليًا يحرّك العميل المحتمل للمرحلة التالية — mine=true لأدائك أنت وحدك.",
     },
     {
         "id": "affiliates.log_template_use", "label": "سجّل استخدام قالب مع عميل", "method": "POST",
         "path": "/api/v1/affiliates/me/leads/{}/template-uses", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
         "params": [{"name": "lead_id", "in": "path", "type": "string", "required": True}],
+        "help": "يسجّل أنك استخدمت قالبًا معينًا مع عميل محتمل محدّد.",
     },
     {
         "id": "affiliates.lead_template_uses", "label": "سجل القوالب المستخدمة مع عميل",
@@ -283,6 +309,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/affiliates/me/leads/{}/template-uses", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
         "params": [{"name": "lead_id", "in": "path", "type": "string", "required": True}],
+        "help": "سجل كل القوالب اللي استُخدمت مع عميل محتمل معيّن ونتيجة كل واحد منها.",
     },
     {
         "id": "affiliates.set_template_use_outcome", "label": "سجّل نتيجة استخدام قالب",
@@ -297,26 +324,31 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/affiliates/me/leads/{}/decision-maker", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
         "params": [{"name": "lead_id", "in": "path", "type": "string", "required": True}],
+        "help": "يسجّل بيانات التواصل الحقيقية لصاحب القرار في المحل، بعد ما تحصل عليها بنفسك — لا تُخمَّن.",
     },
     {
         "id": "affiliates.stat_citations", "label": "مكتبة الأدلة", "method": "GET",
         "path": "/api/v1/affiliates/me/stat-citations", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "stage_code", "in": "query", "type": "string", "required": False}],
+        "help": "مكتبة أرقام وإحصاءات موثّقة المصدر تستخدمها لإقناع عميل محتمل.",
     },
     {
         "id": "affiliates.create_stat_citation", "label": "أضف رقمًا للمكتبة", "method": "POST",
         "path": "/api/v1/affiliates/me/stat-citations", "capability": "affiliates.self", "group": "أدواتي",
+        "help": "يضيف رقمًا أو إحصاءً جديدًا لمكتبة الأدلة المشتركة — للمدير فقط، ومصدره يُسجَّل معه.",
     },
     {
         "id": "affiliates.update_stat_citation", "label": "عدّل رقمًا بالمكتبة", "method": "PUT",
         "path": "/api/v1/affiliates/me/stat-citations/{}", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "citation_id", "in": "path", "type": "string", "required": True}],
+        "help": "يعدّل رقمًا موجودًا بمكتبة الأدلة — للمدير فقط.",
     },
     {
         "id": "affiliates.deactivate_stat_citation", "label": "عطّل رقمًا بالمكتبة", "method": "DELETE",
         "path": "/api/v1/affiliates/me/stat-citations/{}", "capability": "affiliates.self", "group": "أدواتي",
         "params": [{"name": "citation_id", "in": "path", "type": "string", "required": True}],
         "confirm": True,
+        "help": "يعطّل رقمًا من مكتبة الأدلة فلا يظهر بعدها — للمدير فقط.",
     },
     # ── تذاكر المحلات (spec §13) ─────────────────────────────────────────────────────────────────
     {
@@ -324,6 +356,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/affiliates/me/shops/{}/tickets", "capability": "affiliates.self",
         "group": "تذاكر المحلات",
         "params": [{"name": "tenant", "in": "path", "type": "string", "required": True}],
+        "help": "تذاكر الدعم لمحل أحلته أنت بنفسك — لا تصل لتذاكر محل لم تُحله.",
     },
     {
         "id": "affiliates.shop_ticket", "label": "تفاصيل تذكرة", "method": "GET",
@@ -331,12 +364,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "تذاكر المحلات",
         "params": [{"name": "tenant", "in": "path", "type": "string", "required": True},
                   {"name": "ticket_id", "in": "path", "type": "string", "required": True}],
+        "help": "تفاصيل تذكرة دعم واحدة لمحل أحلته أنت.",
     },
     {
         "id": "affiliates.open_shop_ticket", "label": "افتح تذكرة لمحل", "method": "POST",
         "path": "/api/v1/affiliates/me/shops/{}/tickets", "capability": "affiliates.self",
         "group": "تذاكر المحلات",
         "params": [{"name": "tenant", "in": "path", "type": "string", "required": True}],
+        "help": "يفتح تذكرة دعم جديدة باسمك لمحل أحلته أنت.",
     },
     {
         "id": "affiliates.reply_shop_ticket", "label": "ردّ على تذكرة محل", "method": "POST",
@@ -344,6 +379,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "تذاكر المحلات",
         "params": [{"name": "tenant", "in": "path", "type": "string", "required": True},
                   {"name": "ticket_id", "in": "path", "type": "string", "required": True}],
+        "help": "يضيف ردًا على تذكرة دعم مفتوحة لمحل أحلته أنت.",
     },
 ]
 
