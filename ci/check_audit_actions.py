@@ -24,6 +24,13 @@ ignored and the method name plus a literal first argument is what identifies the
 action (a variable, an f-string) is REPORTED SEPARATELY rather than passed over, because this check
 cannot verify it and silence would read as approval.
 
+A TERNARY OF TWO LITERALS IS NOT "NON-LITERAL" EITHER — `"ok.action" if ok else "fail.action"` is
+exactly the shape `connect.py` writes both success and failure under one call, and both of its own
+branches are simple strings this gate can read and check same as a bare one. Only when a branch is
+itself something else (a variable, a nested call) does the whole expression fall back to
+unverifiable — recursing into nested ternaries the same way, so `"a" if x else ("b" if y else "c")`
+checks all three.
+
     python ci/check_audit_actions.py
 """
 from __future__ import annotations
@@ -79,6 +86,23 @@ def declared_actions(service: pathlib.Path) -> set[str] | None:
     return out
 
 
+def _string_literals(node: ast.expr) -> list[str] | None:
+    """Every string this expression could evaluate to, or `None` if it might be something this
+    gate cannot read. A bare `Constant` is one literal; an `IfExp` (`"a" if x else "b"`) is
+    whichever of its two branches, recursed into on either side — `"a" if x else ("b" if y else
+    "c")` yields all three. Anything else (a variable, an f-string, a call) is unreadable, and the
+    whole expression gives up rather than silently checking only the branch it understood."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return [node.value]
+    if isinstance(node, ast.IfExp):
+        body = _string_literals(node.body)
+        orelse = _string_literals(node.orelse)
+        if body is None or orelse is None:
+            return None
+        return body + orelse
+    return None
+
+
 def emitted_actions(service: pathlib.Path) -> tuple[list[tuple[str, int, str]], list[tuple[str, int]]]:
     """(literal emissions, unverifiable emissions) across the service's app/."""
     literals: list[tuple[str, int, str]] = []
@@ -113,8 +137,10 @@ def emitted_actions(service: pathlib.Path) -> tuple[list[tuple[str, int, str]], 
                     else receiver.attr if isinstance(receiver, ast.Attribute) else "")
             first = node.args[0]
             rel = str(path.relative_to(ROOT)).replace("\\", "/")
-            if isinstance(first, ast.Constant) and isinstance(first.value, str):
-                literals.append((rel, node.lineno, first.value))
+            found = _string_literals(first)
+            if found is not None:
+                for action in found:
+                    literals.append((rel, node.lineno, action))
             elif "audit" in name.lower():
                 dynamic.append((rel, node.lineno))
     return literals, dynamic

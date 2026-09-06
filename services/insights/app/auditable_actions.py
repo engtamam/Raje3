@@ -162,4 +162,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "owner may have just read. Not critical: refusing to recompute because the log is "
                "down leaves support unable to answer the question that prompted it",
     },
+    {
+        "action": "dispute_report.generated",
+        "source": "admin",
+        "critical": True,
+        "resource": "dispute_report",
+        "why": "an operator compiled one tenant's own records (bookings, consent, legal history) "
+               "into a file meant to leave the platform for a dispute — a data export, exactly "
+               "the family of action this file's own guidance names as critical. An "
+               "unattributable export is indistinguishable from a breach; refusing one the log "
+               "cannot record protects the customer whose data it is about",
+    },
 ]
