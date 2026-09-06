@@ -5,6 +5,7 @@ from app.adapters.llm.stub import StubLlm
 from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
 from app.core.conversation import ConversationEngine
 from app.core.points import NullPointsSummary
+from app.core.shop_identity import ShopContext
 
 TENANT = "t1"
 SUBJECT = "sub1"
@@ -48,8 +49,8 @@ async def test_the_self_identification_names_the_real_shop_when_resolvable():
     """Same fixture shape as test_shop_identity.py: the disclosure is per-tenant data, not a
     hardcoded shop name — proven by two tenants getting two different names in the same string."""
     class _FakeShopIdentity:
-        async def resolve(self, tenant: str) -> str:
-            return {"t1": "صالون الأمل", "t2": "مغسلة النور"}[tenant]
+        async def resolve(self, tenant: str) -> ShopContext:
+            return ShopContext(name={"t1": "صالون الأمل", "t2": "مغسلة النور"}[tenant])
 
     store = MemoryDataStore()
     engine = _engine(store, shop_identity=_FakeShopIdentity())

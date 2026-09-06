@@ -239,6 +239,13 @@ class Settings(BaseSettings):
     # suspenders — either one alone already prevents the model from ever reaching bookings-service
     # for this).
     BOOKING_MANAGEMENT_ENABLED: bool = True
+    # THE MERGE-SIDE KILL SWITCH for shop-owner AI-assistant notes (build_system_prompt's
+    # `owner_notes` section). operations.AI_NOTES_ENABLED already blanks the value at its own
+    # source; this is a SECOND, independent switch — turning it off here stops the merge even if
+    # the peer call still answers a non-empty value, no coordination with operations required, and
+    # no code edit or redeploy of new code. False means every reply behaves exactly as it did
+    # before this feature shipped.
+    SHOP_NOTES_ENABLED: bool = True
     # BOOKING_HISTORY_VISIBLE: separate and narrower — governs ONLY whether `list_my_bookings` may
     # also show bookings BEFORE today (Riyadh business day). Current and upcoming bookings show
     # regardless of this flag; false does not hide anything happening today or later, it only
