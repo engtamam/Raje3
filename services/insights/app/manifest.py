@@ -116,13 +116,9 @@ def build_manifest(
             {"path": "/api/v1/insights/platform/recompute", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/platform/summary", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/whoami", "tier": "user", "method": "GET"},
-            # The operator surface: credentials and policy an operator changes after launch.
-            # Declared like anything else — a route table built from manifests that omits the
-            # place credentials are set is a route table that hides the highest-privilege
-            # surface the service has.
-            {"path": "/api/v1/insights/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/insights/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/insights/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            # The operator surface: policy an operator changes after launch. The credential-
+            # management routes that used to sit here (a dead SecretStore nothing ever consumed)
+            # were removed — see git history for the incident.
             {"path": "/api/v1/insights/operator/config", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/operator/config", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/insights/operator/config/{}", "tier": "user", "method": "DELETE"},
