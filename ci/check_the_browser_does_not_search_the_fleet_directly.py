@@ -32,10 +32,19 @@ CONSOLE = ROOT / "apps" / "console" / "src"
 
 #: The prefixes our own services mount under. Derived from the routers rather than typed here would
 #: be better still; this list is checked against the running routers by check_deploy_wiring.
+#:
+#: `affiliates` BELONGS HERE FOR THE SAME REASON `admin` ALREADY DID. Neither is a shop's own
+#: screen reaching past a scope — apps/console/src/affiliates/ is its own separate product (its
+#: own session store, `raje3.affiliate.session`, minted by affiliate-service's own /signin, never
+#: identity-service's shop token — see affiliates/session.ts's own docstring), and every one of
+#: its data routes is `/me/*`, resolving the caller from THAT token (principal.subject) rather
+#: than from anything the browser supplies (checked: affiliate_self.py's own `_my_affiliate_id`).
+#: There is no branch, no tenant, no filter for a browser to spoof here — the defect this gate
+#: exists for needs a caller-chosen scope to exist in the first place.
 OURS = ("field", "staff", "owner", "till", "partner", "loyalty", "campaigns", "insights",
         "portal", "reminders", "subscription", "apps", "connect", "signup", "auth", "branches",
         "privacy", "operators", "services", "customers", "visits", "platform", "admin",
-        "bookings")
+        "bookings", "affiliates")
 
 #: Any `/api/v1/<something>` inside a string literal in the console.
 CALL = re.compile(r"['\"`]/api/v1/([a-z0-9_-]+)")
@@ -53,6 +62,14 @@ def main() -> int:
         if not path.is_file() or path.suffix not in (".ts", ".tsx"):
             continue
         if "node_modules" in path.parts:
+            continue
+        # A TEST'S OWN MOCK, NEVER A REAL CALL. `admin/api.ts`'s real `req(path, ...)` always
+        # takes `path` from a server-declared AdminAction, never a literal — a real violation
+        # can therefore only ever show up in non-test source. A `*.test.ts(x)` file asserting its
+        # own mocked `req` was called with `/api/v1/billing/...` is fixture data standing in for
+        # whatever the server would have sent, exactly the same "not our price list" reasoning
+        # check_no_prices.py already carries for a test's own mock amounts.
+        if path.name.endswith((".test.ts", ".test.tsx")):
             continue
         try:
             text = path.read_text(encoding="utf-8")
