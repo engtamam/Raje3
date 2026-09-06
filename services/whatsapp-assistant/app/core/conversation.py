@@ -988,7 +988,8 @@ class ConversationEngine:
         context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_base)
         reply: LlmReply = await self._llm.respond(
             system_prompt=system_prompt, summary=conv.summary, recent_messages=recent,
-            user_message=user_turn, allowed_tools=allowed, context_block=context_block)
+            user_message=user_turn, allowed_tools=allowed, context_block=context_block,
+            tenant=tenant)
         conv.input_tokens += reply.input_tokens
         conv.output_tokens += reply.output_tokens
 

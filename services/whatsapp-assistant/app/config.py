@@ -329,8 +329,35 @@ class Settings(BaseSettings):
 
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── assistant-service (the migration target — see plans/stateless-wondering-fox.md) ───────
+    # Not selectable via LLM_DRIVER in production yet; built and tested ahead of the switch, per
+    # the approved plan's own "prove it live before deleting Gemini" order.
+    ASSISTANT_SERVICE_URL: str = ""
+    ASSISTANT_SERVICE_CONNECTIONS_PATH: str = "/internal/assistant/connections"
+    ASSISTANT_SERVICE_TIMEOUT_SECONDS: int = 20
+    # The underlying model EVERY tenant's connection points at — one platform-wide GCP project/
+    # model/credential, not a per-tenant choice (see core/assistant_connections.py's own note on
+    # why only system_prompt/tools vary per tenant). me-central2 (Dammam) per the sibling team's
+    # own Saudi-residency guidance.
+    ASSISTANT_MODEL_PROJECT: str = ""
+    ASSISTANT_MODEL_LOCATION: str = "me-central2"
+    ASSISTANT_MODEL_NAME: str = "gemini-2.5-flash"
+    ASSISTANT_MODEL_AUTH: str = "vertex"          # api_key | vertex
+    # A GCP service-account key JSON — env for dev/test, sealed via SecretStore in production
+    # exactly like GEMINI_API_KEY below (the same rotation story, once wired).
+    ASSISTANT_MODEL_CREDENTIAL: str = ""
+
+    @property
+    def assistant_model_url(self) -> str:
+        """The real, resolved Vertex AI endpoint — built here rather than templated in a single
+        env var, so ASSISTANT_MODEL_PROJECT/LOCATION/NAME can each change independently without a
+        find-and-replace inside a URL string."""
+        loc = self.ASSISTANT_MODEL_LOCATION
+        return (f"https://{loc}-aiplatform.googleapis.com/v1/projects/{self.ASSISTANT_MODEL_PROJECT}"
+                f"/locations/{loc}/publishers/google/models/{self.ASSISTANT_MODEL_NAME}:generateContent")
+
     # ── LLM (Gemini function calling) ────────────────────────────────────────
-    LLM_DRIVER: str = "null"                 # null | gemini
+    LLM_DRIVER: str = "null"                 # null | gemini | assistant_service
     GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_API_KEY: str = ""                 # sealed via SecretStore in production; env for dev/test
     GEMINI_TIMEOUT_SECONDS: int = 20
@@ -382,6 +409,13 @@ class Settings(BaseSettings):
                 "there is no way for an operator to supply the key at runtime either. Set "
                 "GEMINI_API_KEY, or set SECRETS_KEK and PUT the key to /api/v1/assistant/operator/secrets "
                 "once the service is up.")
+        if self.LLM_DRIVER == "assistant_service" and (
+                not self.ASSISTANT_SERVICE_URL or not self.ASSISTANT_MODEL_PROJECT
+                or not self.ASSISTANT_MODEL_CREDENTIAL):
+            raise ValueError(
+                "LLM_DRIVER=assistant_service but ASSISTANT_SERVICE_URL/ASSISTANT_MODEL_PROJECT/"
+                "ASSISTANT_MODEL_CREDENTIAL are not all set — the connection cannot be created "
+                "without every one of them.")
 
     # ── billing — feature.whatsapp, the AI assistant sold as its own app (core/licence.py) ────
     # An independent price-list row, same shape as campaigns'/loyalty's own licence gate (and the

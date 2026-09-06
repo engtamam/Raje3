@@ -179,7 +179,10 @@ class GeminiLlm:
 
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
-                      allowed_tools: frozenset[str], context_block: str = "") -> LlmReply:
+                      allowed_tools: frozenset[str], context_block: str = "",
+                      tenant: str = "") -> LlmReply:
+        # UNUSED HERE — one static API key already serves every tenant. See LlmPort's own note.
+        del tenant
         # Per-call intersection too: a caller may narrow (never widen) what this specific turn may
         # propose — e.g. a conversation already holding a pending proposal should not be offered
         # `propose_booking` again until the pending one resolves.

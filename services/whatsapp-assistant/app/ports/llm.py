@@ -52,4 +52,10 @@ class LlmPort(Protocol):
 
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
-                      allowed_tools: frozenset[str], context_block: str = "") -> LlmReply: ...
+                      allowed_tools: frozenset[str], context_block: str = "",
+                      tenant: str = "") -> LlmReply: ...
+    # `tenant` was added for AssistantServiceLlm (app/adapters/llm/assistant_service.py), which
+    # routes each tenant to its OWN isolated AI connection on assistant-service — a single shared
+    # port instance serves every tenant, so it is the one fact this call needs that the prompt/
+    # message arguments do not already carry. GeminiLlm/NullLlm accept and ignore it: one static
+    # API key already serves every tenant for them, so there is nothing to route.

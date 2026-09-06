@@ -17,5 +17,17 @@ def build(settings: Any, *, secret_store: Any = None) -> Any:
             api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL,
             timeout=settings.GEMINI_TIMEOUT_SECONDS, allowed_tools=settings.llm_tool_allowlist,
             secret_store=secret_store)
+    if driver == "assistant_service":
+        from app.adapters.llm.assistant_service import AssistantServiceLlm
+        from app.core.assistant_connections import HttpAssistantConnections
+        connections = HttpAssistantConnections(
+            url=settings.ASSISTANT_SERVICE_URL, connections_path=settings.ASSISTANT_SERVICE_CONNECTIONS_PATH,
+            token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.ASSISTANT_SERVICE_TIMEOUT_SECONDS)
+        return AssistantServiceLlm(
+            connections=connections, model_url=settings.assistant_model_url,
+            model_name=settings.ASSISTANT_MODEL_NAME, model_auth=settings.ASSISTANT_MODEL_AUTH,
+            model_credential=settings.ASSISTANT_MODEL_CREDENTIAL,
+            allowed_tools=settings.llm_tool_allowlist,
+            invoke_timeout=settings.ASSISTANT_SERVICE_TIMEOUT_SECONDS)
     from app.ports.errors import ConfigError
-    raise ConfigError(f"unknown llm driver: {driver!r} — allowed: null, gemini")
+    raise ConfigError(f"unknown llm driver: {driver!r} — allowed: null, gemini, assistant_service")

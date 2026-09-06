@@ -11,5 +11,5 @@ class NullLlm:
 
     async def respond(self, *, system_prompt: str, summary: str, recent_messages: list[dict],
                       user_message: str, allowed_tools: frozenset[str],
-                      context_block: str = "") -> LlmReply:
+                      context_block: str = "", tenant: str = "") -> LlmReply:
         return LlmReply(text="", input_tokens=0, output_tokens=0)
