@@ -162,7 +162,22 @@ env:
   # Must match a fund declared in wallet's WALLET_FUNDS. `topup` is the paid one; `included` is
   # granted by the plan cycle, not bought. Naming the wrong fund here would credit purchased
   # messages into the allowance that gets clawed back every month.
+  #
+  # ⚠ NEITHER FUND ACTUALLY EXISTS YET (2026-09-06) — deploy/services/wallet-service.values.yaml's
+  # real WALLET_FUNDS declares only "commission" today. This key is inert (no plan carries the
+  # `credits` limit yet — see plans.json's own note on "بوت خدمة العملاء الذكي"), but it must be
+  # fixed together with declaring a real fund in wallet-service — and confirming whatsapp-
+  # assistant's own wallet_balance.py reserve (which names NO fund at all) actually draws from
+  # that same fund — before the very first plan ever grants a `credits` limit. Do this the same
+  # day the real per-token rate (PRICING_USAGE_HALALAS_PER_1K_TOKENS) is finally set.
   WALLET_GRANT_FUND: "topup"
+  # RESET, NOT ACCUMULATE (owner's decision, 2026-09-06): a plan's included allowance expires at
+  # the end of the period it was granted for rather than rolling over — expressed as an EXPIRY on
+  # the grant itself (billing_service.py), never by zeroing the wallet first, so a customer's own
+  # separately purchased top-up credit is never touched by this. PLATFORM-WIDE, not per plan — the
+  # one caveat worth remembering if a future plan ever wants its own included credit to accumulate
+  # instead.
+  PLAN_CREDIT_GRANT_MODE: "reset"
 
   # ── Invoicing ─────────────────────────────────────────────────────────────────────────────
   # RECEIPT, not tax_invoice. A tax invoice is a document only a VAT-registered seller may issue;
