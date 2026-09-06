@@ -21,8 +21,14 @@ import type { AdminSession } from './api';
 
 type SubTab = 'config' | 'secrets' | 'provider_secrets' | 'wa_templates' | 'legal' | 'disputes' | 'team' | 'audit' | 'compliance';
 
-export function AdminPlatform({ session }: { session: AdminSession }) {
-  const [sub, setSub] = useState<SubTab>('config');
+export function AdminPlatform({ session, initialSub, initialOpenProvider }: {
+  session: AdminSession;
+  /** رابط تحويل مباشر من شاشة ثانية (مثل تبويب "بوابة الدفع" بالمالية) — يفتح على هذا التبويب
+   *  الفرعي مباشرة بدل "الإعدادات الحيّة" الافتراضي. */
+  initialSub?: SubTab;
+  initialOpenProvider?: string;
+}) {
+  const [sub, setSub] = useState<SubTab>(initialSub ?? 'config');
   return (
     <div className="flex flex-col gap-4">
       <div className="px-6 pt-6">
@@ -44,7 +50,9 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
       </div>
       {sub === 'config' ? <AdminConfig session={session} /> : null}
       {sub === 'secrets' ? <AdminSecrets session={session} /> : null}
-      {sub === 'provider_secrets' ? <AdminProviderSecrets session={session} /> : null}
+      {sub === 'provider_secrets' ? (
+        <AdminProviderSecrets session={session} initialOpenProvider={initialOpenProvider} />
+      ) : null}
       {sub === 'wa_templates' ? <AdminWhatsAppTemplates session={session} /> : null}
       {sub === 'legal' ? <AdminLegal session={session} /> : null}
       {sub === 'disputes' ? <AdminDisputeReports session={session} /> : null}

@@ -20,9 +20,14 @@ import { sentenceFor } from '../api';
 import { riyalsLabel, halalas } from '../money';
 import { NoActionAvailable } from './NoActionAvailable';
 
-type SubTab = 'invoices' | 'subscriptions' | 'tools';
+type SubTab = 'invoices' | 'subscriptions' | 'tools' | 'gateway';
 
-export function AdminFinance({ session }: { session: AdminSession }) {
+export function AdminFinance({ session, onOpenProviderSecrets }: {
+  session: AdminSession;
+  /** رابط تحويل مباشر لبطاقة بوابة الدفع بشاشة "مفاتيح المزوّدين" — اختياري لأن بعض المستدعين
+   *  (اختبارات، شاشات أخرى محتملة لاحقاً) لا تملك حالة تنقّل ترفع إليها. */
+  onOpenProviderSecrets?: () => void;
+}) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
   const [sub, setSub] = useState<SubTab>('invoices');
 
@@ -46,6 +51,16 @@ export function AdminFinance({ session }: { session: AdminSession }) {
   const refundAction = actions.find((a) => a.id === 'billing.refund');
   const reconcileAction = actions.find((a) => a.id === 'billing.reconcile_payment');
 
+  // `operator.get_config`/`operator.set_config`/`operator.payment_activation_preview` are declared
+  // IDENTICALLY by many services (every one of them exposes live config) — a flat `actions.find`
+  // across the whole catalogue would silently grab whichever service happens to come first. The
+  // gateway lives only on billing-service, so its own action list must be searched specifically,
+  // the same resolution `AdminConfig.tsx` already uses.
+  const billingService = catalog.services.find((s) => s.service === 'billing-service');
+  const getConfigAction = billingService?.actions.find((a) => a.id === 'operator.get_config');
+  const setConfigAction = billingService?.actions.find((a) => a.id === 'operator.set_config');
+  const activationPreviewAction = billingService?.actions.find((a) => a.id === 'operator.payment_activation_preview');
+
   if (!invoicesAction && !subscriptionsAction) {
     return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لعرض المالية." />;
   }
@@ -61,6 +76,7 @@ export function AdminFinance({ session }: { session: AdminSession }) {
             { value: 'invoices', label: 'الفواتير' },
             { value: 'subscriptions', label: 'الاشتراكات' },
             { value: 'tools', label: 'أدوات الدفع' },
+            { value: 'gateway', label: 'بوابة الدفع' },
           ]}
         />
       </div>
@@ -74,6 +90,11 @@ export function AdminFinance({ session }: { session: AdminSession }) {
       ) : null}
       {sub === 'tools' ? (
         <PaymentTools session={session} refundAction={refundAction} reconcileAction={reconcileAction} catalog={catalog} />
+      ) : null}
+      {sub === 'gateway' ? (
+        <GatewayPanel session={session} catalog={catalog} getConfigAction={getConfigAction}
+                     setConfigAction={setConfigAction} activationPreviewAction={activationPreviewAction}
+                     onOpenProviderSecrets={onOpenProviderSecrets} />
       ) : null}
     </div>
   );
@@ -623,6 +644,151 @@ function PaymentTools({ session, refundAction, reconcileAction, catalog }: {
                     confirmText={paymentId.trim()} danger
                     title={`استرجاع الدفعة "${paymentId}" بالكامل؟`}
                     body="هذا يعكس المبلغ بالبوابة ويُلغي الفاتورة تلقائياً إن غطّى كامل قيمتها." />
+    </div>
+  );
+}
+
+interface ActivationPreview {
+  driver: string; current_driver: string; switching: boolean; activatable: boolean;
+  reason: string | null; affected_subscribers: number | null;
+}
+
+function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, activationPreviewAction, onOpenProviderSecrets }: {
+  session: AdminSession; catalog: AdminCatalog;
+  getConfigAction?: AdminAction; setConfigAction?: AdminAction; activationPreviewAction?: AdminAction;
+  onOpenProviderSecrets?: () => void;
+}) {
+  const [config, setConfig] = useState<Record<string, unknown> | 'loading' | 'failed'>('loading');
+  const [driver, setDriver] = useState('');
+  const [preview, setPreview] = useState<ActivationPreview | 'loading' | 'failed' | null>(null);
+  const [armSwitch, setArmSwitch] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function loadConfig() {
+    if (!getConfigAction) return;
+    setConfig('loading');
+    try {
+      const body = await req<{ config: Record<string, unknown> }>(
+        getConfigAction.path, 'GET', undefined, session.access_token,
+      );
+      setConfig(body.config);
+      setDriver(String(body.config.PAYMENT_GATEWAY_DRIVER ?? ''));
+    } catch {
+      setConfig('failed');
+    }
+  }
+
+  useEffect(() => { loadConfig(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [getConfigAction, session]);
+
+  async function checkPreview() {
+    if (!activationPreviewAction || !driver.trim()) return;
+    setPreview('loading');
+    setError('');
+    try {
+      const params = new URLSearchParams({ driver: driver.trim() });
+      const body = await req<ActivationPreview>(
+        `${activationPreviewAction.path}?${params.toString()}`, 'GET', undefined, session.access_token,
+      );
+      setPreview(body);
+    } catch (err) {
+      setPreview('failed');
+      setError(sentenceFor(err, 'تعذّرت معاينة التفعيل.'));
+    }
+  }
+
+  async function switchDriver() {
+    if (!setConfigAction || !driver.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await req(setConfigAction.path, 'PUT',
+                { key: 'PAYMENT_GATEWAY_DRIVER', value: driver.trim() }, session.access_token);
+      setArmSwitch(false);
+      setPreview(null);
+      await loadConfig();
+    } catch (err) {
+      setError(sentenceFor(err, 'تعذّر التفعيل.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!getConfigAction) {
+    return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لإدارة بوابة الدفع." />;
+  }
+
+  if (config === 'loading') return <p className="p-6 text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (config === 'failed') return <p role="alert" className="p-6 text-danger">تعذّرت قراءة إعدادات البوابة.</p>;
+
+  // القيمة الحيّة نفسها — لا اسم مزوّد مكتوب بالكود، لأن الفعّال يتغيّر ولا يصح أن يوصف بواجهة
+  // تفترض أنه ثابت.
+  const currentDriver = String(config.PAYMENT_GATEWAY_DRIVER ?? '');
+  const renewalMode = String(config.PAYMENT_RENEWAL_GATEWAY_MODE ?? '');
+  const isSwitching = driver.trim() && driver.trim() !== currentDriver;
+
+  return (
+    <div className="flex flex-col gap-5 px-6 pb-6">
+      <div className="rounded-card border border-border-subtle p-4">
+        <h2 className="mb-2 text-sm font-medium text-text-secondary">الحالة الحالية</h2>
+        <p className="text-lg">
+          البوابة المفعّلة: <span className="font-medium" dir="ltr">{currentDriver || '— بلا بوابة —'}</span>
+        </p>
+        {renewalMode ? (
+          <p className="mt-1 text-sm text-text-secondary">وضع تجديد الاشتراكات: <span dir="ltr">{renewalMode}</span></p>
+        ) : null}
+        {onOpenProviderSecrets ? (
+          <Button type="button" size="sm" variant="outline" className="mt-3" onClick={onOpenProviderSecrets}>
+            إدارة أسرار بوابة الدفع (مفاتيح المزوّدين)
+          </Button>
+        ) : null}
+      </div>
+
+      {setConfigAction ? (
+        <div className="rounded-card border border-border-subtle p-4">
+          <h2 className="mb-2 text-sm font-medium text-text-secondary">تبديل البوابة</h2>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-label font-medium text-text-secondary">معرّف البوابة</span>
+              <Input dir="ltr" value={driver} onChange={(e) => { setDriver(e.target.value); setPreview(null); }} />
+            </label>
+            {activationPreviewAction ? (
+              <Button type="button" variant="outline" disabled={!isSwitching}
+                     onClick={checkPreview}>
+                معاينة
+              </Button>
+            ) : null}
+            <Button type="button" disabled={!isSwitching || preview === 'loading'}
+                   onClick={() => setArmSwitch(true)}>
+              تفعيل
+            </Button>
+          </div>
+
+          {preview === 'loading' ? <p className="mt-2 text-sm text-text-secondary">جارٍ المعاينة…</p> : null}
+          {preview === 'failed' ? <p role="alert" className="mt-2 text-danger text-sm">تعذّرت المعاينة.</p> : null}
+          {preview && preview !== 'loading' && preview !== 'failed' ? (
+            <div className="mt-3 flex flex-col gap-1 text-sm">
+              <p>
+                <Badge tone={preview.activatable ? 'success' : 'danger'}>
+                  {preview.activatable ? 'قابلة للتفعيل' : 'غير قابلة للتفعيل'}
+                </Badge>
+              </p>
+              {preview.reason ? <p className="text-text-secondary">{preview.reason}</p> : null}
+              {preview.affected_subscribers !== null ? (
+                <p className="text-text-secondary">
+                  اشتراكات مرتبطة بالبوابة الحالية ستتأثر بالتبديل: {preview.affected_subscribers}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {error ? <p role="alert" className="mt-2 text-danger text-sm">{error}</p> : null}
+        </div>
+      ) : null}
+
+      <ConfirmDialog open={armSwitch} onClose={() => setArmSwitch(false)} onConfirm={switchDriver} busy={busy}
+                    danger confirmText={driver.trim()}
+                    title={`تفعيل بوابة "${driver.trim()}" بدل "${currentDriver || '—'}"؟`}
+                    body="سيتحول كل اشتراك جديد لهذي البوابة فوراً. الاشتراكات القائمة تبقى على بوابتها الأصلية حتى تُحدَّث بيانات دفعها — اكتب معرّف البوابة للتأكيد." />
     </div>
   );
 }

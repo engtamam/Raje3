@@ -92,11 +92,16 @@ const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle 
   other: { label: 'أخرى', icon: CircleHelp },
 };
 
-export function AdminProviderSecrets({ session }: { session: AdminSession }) {
+export function AdminProviderSecrets({ session, initialOpenProvider }: {
+  session: AdminSession;
+  /** رابط تحويل مباشر من شاشة ثانية (مثل "بوابات الدفع" بالمالية) — يفتح بطاقة هذا المزوّد فور
+   *  الوصول، بدل ما يوصل الشخص شاشة مطوية عليه يفتحها بنفسه من جديد. */
+  initialOpenProvider?: string;
+}) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
   const [rows, setRows] = useState<SecretRow[] | 'loading' | 'failed'>('loading');
   // بطاقة مفتوحة واحدة كحد أقصى — نفس منطق أي قائمة قابلة للطي، أوضح من فتح الكل دفعة واحدة.
-  const [openProvider, setOpenProvider] = useState<string | null>(null);
+  const [openProvider, setOpenProvider] = useState<string | null>(initialOpenProvider ?? null);
 
   useEffect(() => {
     let cancelled = false;

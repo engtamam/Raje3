@@ -28,6 +28,12 @@ const CATALOG = {
      path: '/api/v1/billing/payments/{payment_id}/refund', capability: 'platform.billing', danger: true, confirm: true },
     { id: 'billing.reconcile_payment', label: 'x', method: 'POST' as const,
      path: '/api/v1/billing/payments/{payment_id}/reconcile', capability: 'platform.billing', confirm: true },
+    { id: 'operator.get_config', label: 'x', method: 'GET' as const,
+     path: '/api/v1/billing/operator/config', capability: 'platform.config' },
+    { id: 'operator.set_config', label: 'x', method: 'PUT' as const,
+     path: '/api/v1/billing/operator/config', capability: 'platform.config', confirm: true },
+    { id: 'operator.payment_activation_preview', label: 'x', method: 'GET' as const,
+     path: '/api/v1/billing/operator/payment/activation-preview', capability: 'platform.config' },
   ] }],
   unreachable: [],
 };
@@ -269,5 +275,86 @@ describe('AdminFinance — payment tools', () => {
 
     await screen.findByText(/استرجاع الدفعة/);
     expect(reqMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdminFinance — payment gateway', () => {
+  it('shows the live active driver, never a hardcoded name', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay', PAYMENT_RENEWAL_GATEWAY_MODE: 'active' },
+    });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('بوابة الدفع'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/operator/config', 'GET', undefined, 'tok-1',
+    ));
+    await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
+    expect(screen.getByText(/وضع تجديد الاشتراكات/)).toBeTruthy();
+  });
+
+  it('previewing a switch calls activation-preview with the chosen driver', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay' } })
+      .mockResolvedValueOnce({
+        driver: 'moyasar', current_driver: 'tuwaiqpay', switching: true,
+        activatable: false, reason: 'بيانات الاعتماد غير مكتملة', affected_subscribers: 3,
+      });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('بوابة الدفع'));
+    await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('معرّف البوابة'), { target: { value: 'moyasar' } });
+    fireEvent.click(screen.getByText('معاينة'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/operator/payment/activation-preview?driver=moyasar', 'GET', undefined, 'tok-1',
+    ));
+    await waitFor(() => expect(screen.getByText('غير قابلة للتفعيل')).toBeTruthy());
+    expect(screen.getByText('بيانات الاعتماد غير مكتملة')).toBeTruthy();
+    expect(screen.getByText(/اشتراكات مرتبطة بالبوابة الحالية ستتأثر بالتبديل: 3/)).toBeTruthy();
+  });
+
+  it('switching the driver is gated by a confirm dialog, armed by typing the new driver id', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay' } })
+      .mockResolvedValueOnce({ key: 'PAYMENT_GATEWAY_DRIVER', value: 'moyasar' })
+      .mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'moyasar' } });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('بوابة الدفع'));
+    await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('معرّف البوابة'), { target: { value: 'moyasar' } });
+    fireEvent.click(screen.getByText('تفعيل'));
+
+    await screen.findByText(/تفعيل بوابة "moyasar" بدل "tuwaiqpay"؟/);
+    expect(reqMock).not.toHaveBeenCalledWith(
+      '/api/v1/billing/operator/config', 'PUT', expect.anything(), 'tok-1',
+    );
+
+    fireEvent.change(screen.getByLabelText(/اكتب/), { target: { value: 'moyasar' } });
+    fireEvent.click(screen.getByText('تأكيد'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/operator/config', 'PUT',
+      { key: 'PAYMENT_GATEWAY_DRIVER', value: 'moyasar' }, 'tok-1',
+    ));
+  });
+
+  it('the deep link to «مفاتيح المزوّدين» fires the callback, when given one', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({ config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay' } });
+    const onOpen = vi.fn();
+
+    render(<AdminFinance session={SESSION} onOpenProviderSecrets={onOpen} />);
+    fireEvent.click(await screen.findByText('بوابة الدفع'));
+    await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('إدارة أسرار بوابة الدفع (مفاتيح المزوّدين)'));
+    expect(onOpen).toHaveBeenCalled();
   });
 });
