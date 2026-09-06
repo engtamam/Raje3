@@ -12,10 +12,10 @@
 # without it, an author changes deploy/kb/shop/services.json and the running assistant answers with
 # whatever was mounted at the LAST sync, silently.
 #
-# VALIDATED BEFORE IT EVER REACHES THE CLUSTER. Every file must parse as JSON and every entry must
-# carry a matching id/anchor pair (assistant-service's own parse_kb refuses a bad entry by failing
-# the WHOLE load — a single malformed file would take down every anchor across all nine screens,
-# not just its own).
+# VALIDATION LIVES IN ci/check_shop_kb_is_valid.py, NOT HERE — it runs on every commit, which is
+# where a bad entry needs to be caught (the day it is written, in review), not the day someone
+# happens to run this script. This still runs it first and refuses to touch the cluster if it
+# fails, but the gate is the authority; this is just deploy-time defence in depth.
 #
 # THE ~1MiB CONFIGMAP CEILING (etcd's own limit, not ours). 68 entries today sit nowhere near it;
 # if the authored KB ever grows past it, kubectl apply fails LOUDLY here rather than the pod
@@ -40,38 +40,8 @@ grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
 
 [ -d "$KB_DIR" ] || { red "no $KB_DIR"; exit 2; }
 
-shopt -s nullglob
-FILES=("$KB_DIR"/*.json)
-shopt -u nullglob
-[ "${#FILES[@]}" -gt 0 ] || { red "no *.json files in $KB_DIR — nothing to sync"; exit 2; }
-
-# Every file must parse, and every entry needs a matching id/anchor and an Arabic title/body — the
-# same shape check.py's own reader expects, run here so a bad file is caught before it ever reaches
-# the cluster rather than after assistant-service refuses to boot on a malformed KB.
-python3 - "${FILES[@]}" <<'PYEOF'
-import json, sys
-total = 0
-seen = {}
-for path in sys.argv[1:]:
-    with open(path, encoding="utf-8") as fh:
-        entries = json.load(fh)
-    if not isinstance(entries, list):
-        sys.exit(f"{path}: must be a JSON array of entries")
-    for e in entries:
-        if not isinstance(e, dict):
-            sys.exit(f"{path}: entry is not an object: {e!r}")
-        if e.get("id") != e.get("anchor"):
-            sys.exit(f"{path}: {e.get('id')!r} — id and anchor must match exactly")
-        if e["id"] in seen:
-            sys.exit(f"{path}: duplicate id {e['id']!r}, already in {seen[e['id']]}")
-        seen[e["id"]] = path
-        for field in ("title", "body"):
-            v = e.get(field)
-            if not isinstance(v, dict) or "ar" not in v:
-                sys.exit(f"{path}: {e['id']!r} — {field!r} must be an {{'ar': ...}} map")
-        total += 1
-print(f"{total} entries across {len(sys.argv) - 1} file(s), all valid, no duplicate ids")
-PYEOF
+ROOT="$(cd "$HERE/../.." && pwd)"
+python3 "$ROOT/ci/check_shop_kb_is_valid.py" || { red "refusing to sync — fix the KB files above first"; exit 1; }
 
 CM_YAML=$(kubectl create configmap "$NAME" \
   --from-file="$KB_DIR" \
