@@ -144,6 +144,11 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   // — the card is already titled الأساس, and repeating the title tells him nothing about what
   // the money buys.
   'feature.base': { label: 'سجلّ الزيارات والتذكيرات' },
+  'feature.whatsapp': { label: 'مساعد ذكي يرد على عملائك عبر واتساب' },
+  // THE ONE APP SOLD WITHOUT الأساس UNDERNEATH IT (see plans.json's own note on this plan row) —
+  // a real, customer-meaningful fact worth a line on the card, not an internal implementation
+  // detail: a shop with no other subscription reads this and knows it can buy this one alone.
+  'plan.standalone': { label: 'يُشترى وحده، بلا حاجة لاشتراك أساسي' },
 };
 
 // Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so an
