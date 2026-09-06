@@ -15,6 +15,9 @@ const CATALOG = {
      path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
     { id: 'billing.platform_subscriptions', label: 'x', method: 'GET' as const,
      path: '/api/v1/billing/admin/subscriptions', capability: 'platform.billing' },
+    { id: 'billing.force_suspend_subscription', label: 'x', method: 'POST' as const,
+     path: '/api/v1/billing/admin/subscriptions/{sub_id}/force-suspend',
+     capability: 'platform.billing', danger: true, confirm: true },
     { id: 'billing.settle', label: 'x', method: 'POST' as const,
      path: '/api/v1/billing/invoices/{invoice_id}/settle', capability: 'platform.billing', confirm: true },
     { id: 'billing.list_settlements', label: 'x', method: 'GET' as const,
@@ -186,6 +189,57 @@ describe('AdminFinance — subscriptions', () => {
     fireEvent.click(screen.getByText('بحث'));
 
     await waitFor(() => expect(screen.getAllByText('plan-basic').length).toBeGreaterThan(0));
+  });
+
+  // Reaching subscribers still pinned to a retired gateway (per-subscription pinning: switching
+  // the platform's active driver never moves an existing subscriber) is exactly what this filter
+  // is for — see the panel's own comment.
+  it('filtering by payment gateway searches with payment_gateway=', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValue({
+      subscriptions: [{ id: 'sub-1', tenant: 'tnt_a', plan_id: 'plan-basic', status: 'active',
+                       created: '2026-08-01T00:00:00Z', canceled_at: null, payment_gateway: 'moyasar' }],
+    });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('الاشتراكات'));
+    fireEvent.change(screen.getByLabelText('بوابة الدفع'), { target: { value: 'moyasar' } });
+    fireEvent.click(screen.getByText('بحث'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalled());
+    const url = reqMock.mock.calls[0][0] as string;
+    expect(url).toContain('payment_gateway=moyasar');
+    await waitFor(() => expect(screen.getAllByText('moyasar').length).toBeGreaterThan(0));
+  });
+
+  it('force-suspending a subscription posts reason as a query param, armed by the shop name', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({
+        subscriptions: [{ id: 'sub-1', tenant: 'tnt_a', plan_id: 'plan-basic', status: 'past_due',
+                         created: '2026-08-01T00:00:00Z', canceled_at: null, payment_gateway: 'moyasar' }],
+      })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ subscriptions: [] });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('الاشتراكات'));
+    fireEvent.change(screen.getByLabelText('المحل'), { target: { value: 'tnt_a' } });
+    fireEvent.click(screen.getByText('بحث'));
+    await waitFor(() => expect(screen.getAllByText('plan-basic').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByText('إيقاف يدوي')[0]);
+    const confirmBtn = screen.getByText('تأكيد').closest('button') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText('السبب (يُسجَّل بالتدقيق)'), { target: { value: 'اشتباه احتيال' } });
+    fireEvent.change(screen.getByLabelText(/اكتب/), { target: { value: 'tnt_a' } });
+    fireEvent.click(screen.getByText('تأكيد'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/billing/admin/subscriptions/sub-1/force-suspend?reason='),
+      'POST', undefined, 'tok-1',
+    ));
   });
 });
 

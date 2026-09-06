@@ -39,6 +39,7 @@ export function AdminFinance({ session }: { session: AdminSession }) {
   const actions = catalog.services.flatMap((s) => s.actions);
   const invoicesAction = actions.find((a) => a.id === 'billing.platform_invoices');
   const subscriptionsAction = actions.find((a) => a.id === 'billing.platform_subscriptions');
+  const forceSuspendAction = actions.find((a) => a.id === 'billing.force_suspend_subscription');
   const settleAction = actions.find((a) => a.id === 'billing.settle');
   const settlementsAction = actions.find((a) => a.id === 'billing.list_settlements');
   const reverseAction = actions.find((a) => a.id === 'billing.reverse_settlement');
@@ -68,7 +69,8 @@ export function AdminFinance({ session }: { session: AdminSession }) {
                       settlementsAction={settlementsAction} reverseAction={reverseAction} />
       ) : null}
       {sub === 'subscriptions' && subscriptionsAction ? (
-        <SubscriptionsPanel session={session} action={subscriptionsAction} />
+        <SubscriptionsPanel session={session} action={subscriptionsAction}
+                           forceSuspendAction={forceSuspendAction} />
       ) : null}
       {sub === 'tools' ? (
         <PaymentTools session={session} refundAction={refundAction} reconcileAction={reconcileAction} catalog={catalog} />
@@ -399,17 +401,26 @@ function ReverseSettlementDialog({ session, action, settlement, onClose }: {
 
 interface Subscription {
   id: string; tenant: string; plan_id: string; status: string; created: string; canceled_at: string | null;
+  payment_gateway?: string;
 }
 
-function SubscriptionsPanel({ session, action }: { session: AdminSession; action: AdminAction }) {
+function SubscriptionsPanel({ session, action, forceSuspendAction }: {
+  session: AdminSession; action: AdminAction; forceSuspendAction?: AdminAction;
+}) {
   const [status, setStatus] = useState('');
   const [tenant, setTenant] = useState('');
+  // WHY A FILTER, NOT JUST A COLUMN. `payment_gateway` is what each subscription is PINNED to
+  // (billing-service's per-subscription pinning — a switch of the platform's active gateway only
+  // ever affects new subscribers, never existing ones), so reaching "everyone still on the old
+  // one" to ask them to update payment is exactly the search this field exists for.
+  const [gateway, setGateway] = useState('');
   const [rows, setRows] = useState<Subscription[] | 'idle' | 'loading' | 'failed'>('idle');
   const [error, setError] = useState('');
+  const [suspendFor, setSuspendFor] = useState<Subscription | null>(null);
 
   async function search() {
-    if (!status && !tenant) {
-      setError('فلتر واحد على الأقل مطلوب — الحالة أو المحل.');
+    if (!status && !tenant && !gateway) {
+      setError('فلتر واحد على الأقل مطلوب — الحالة أو المحل أو بوابة الدفع.');
       return;
     }
     setError('');
@@ -417,6 +428,7 @@ function SubscriptionsPanel({ session, action }: { session: AdminSession; action
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (tenant) params.set('tenant', tenant);
+    if (gateway) params.set('payment_gateway', gateway);
     try {
       const body = await req<{ subscriptions: Subscription[] }>(
         `${action.path}?${params.toString()}`, 'GET', undefined, session.access_token,
@@ -432,13 +444,26 @@ function SubscriptionsPanel({ session, action }: { session: AdminSession; action
     { key: 'tenant', header: 'المحل' },
     { key: 'plan_id', header: 'التطبيق' },
     { key: 'status', header: 'الحالة' },
+    { key: 'payment_gateway', header: 'بوابة الدفع', render: (r) => r.payment_gateway || '—' },
     { key: 'created', header: 'بدأ', render: (r) => new Date(r.created).toLocaleDateString('ar-SA') },
     { key: 'canceled_at', header: 'انتهى', render: (r) => r.canceled_at ? new Date(r.canceled_at).toLocaleDateString('ar-SA') : '—' },
   ];
+  if (forceSuspendAction) {
+    columns.push({
+      key: 'actions', header: '',
+      render: (r) => (
+        r.status === 'canceled' ? null : (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setSuspendFor(r)}>
+            إيقاف يدوي
+          </Button>
+        )
+      ),
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4 px-6 pb-6">
-      <form className="grid grid-cols-2 gap-2 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); search(); }}>
+      <form className="grid grid-cols-2 gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); search(); }}>
         <label className="flex flex-col gap-1">
           <span className="text-label font-medium text-text-secondary">الحالة</span>
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -454,13 +479,69 @@ function SubscriptionsPanel({ session, action }: { session: AdminSession; action
           <span className="text-label font-medium text-text-secondary">المحل</span>
           <Input dir="ltr" value={tenant} onChange={(e) => setTenant(e.target.value)} />
         </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-label font-medium text-text-secondary">بوابة الدفع</span>
+          <Input dir="ltr" placeholder="moyasar, tap, …" value={gateway}
+                onChange={(e) => setGateway(e.target.value)} />
+        </label>
         <Button type="submit" className="self-end">بحث</Button>
       </form>
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
       <Table columns={columns} rows={rows === 'idle' ? [] : rows} getRowId={(r) => r.id}
             emptyTitle={rows === 'idle' ? 'اختر فلتراً' : 'لا اشتراكات بهذي الفلاتر'}
             failedTitle="تعذّرت قراءة الاشتراكات" />
+
+      {forceSuspendAction ? (
+        <ForceSuspendDialog session={session} action={forceSuspendAction} subscription={suspendFor}
+                           onClose={() => setSuspendFor(null)} onSuspended={() => search()} />
+      ) : null}
     </div>
+  );
+}
+
+function ForceSuspendDialog({ session, action, subscription, onClose, onSuspended }: {
+  session: AdminSession; action: AdminAction; subscription: Subscription | null;
+  onClose: () => void; onSuspended: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { if (subscription) { setReason(''); setError(''); } }, [subscription]);
+
+  if (!subscription) return null;
+
+  async function suspend() {
+    if (!reason.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({ reason: reason.trim() });
+      await req(`${action.path.replace('{sub_id}', subscription!.id)}?${params.toString()}`,
+                'POST', undefined, session.access_token);
+      onSuspended();
+      onClose();
+    } catch (err) {
+      setError(sentenceFor(err, 'تعذّر الإيقاف.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // MANUAL AND DELIBERATE — this is the exception to "keep renewing on the original gateway",
+  // never a sweep. The automatic behaviour (a subscription stays pinned to whatever gateway it
+  // was created on, and moves only when the customer re-enters payment) does not change here.
+  return (
+    <ConfirmDialog open onClose={onClose} onConfirm={suspend} busy={busy} danger
+                  confirmText={subscription.tenant}
+                  title={`إيقاف اشتراك "${subscription.tenant}" يدوياً؟`}
+                  body="سيتوقف الاشتراك فوراً. يعود العميل تلقائياً بمجرد تحديث بيانات الدفع — اكتب اسم المحل للتأكيد.">
+      <label className="flex flex-col gap-1">
+        <span className="text-label font-medium text-text-secondary">السبب (يُسجَّل بالتدقيق)</span>
+        <Input dir="rtl" value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+    </ConfirmDialog>
   );
 }
 
