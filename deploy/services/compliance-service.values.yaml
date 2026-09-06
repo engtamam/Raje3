@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/compliance-service
-  digest: "sha256:9521735fed6da5eb045a3a9233523a5aee31e7515ec99348819799eaa925ebe3"   # v0.18.26
+  digest: "sha256:291fe5681b801e7ebe719cff563f67d1be138d5c1ac45f1b109f962ec362ad72"   # v0.18.35 — erasure cooling-off (ERASURE_GRACE_DAYS)
 
 replicas: 1
 
@@ -118,6 +118,11 @@ env:
   DSAR_SLA_DAYS: "30"          # the legal deadline, not a target
   BREACH_NOTIFY_HOURS: "72"    # from DISCOVERY, and the API exposes hours_remaining/overdue
   DSAR_VERIFICATION_TTL_SECONDS: "86400"
+  # v0.18.35 — a verified ERASURE (only) sits SCHEDULED for this many days before it actually
+  # dispatches, giving a real window to place a legal hold (compliance.place_legal_hold, already
+  # wired to AdminCompliance's own "حظر الحذف" tab) before data is gone. Independent of
+  # DSAR_SLA_DAYS above by design — access/export/correction still dispatch immediately regardless.
+  ERASURE_GRACE_DAYS: "14"
 
   # ── Erasure orchestration ─────────────────────────────────────────────────────────────────
   # job-http, not null and not eventbus. `null` records and dispatches nothing (and says so).
