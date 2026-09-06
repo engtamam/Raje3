@@ -54,6 +54,19 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "danger": False,
         "group": "الامتثال",
     },
+    # ── THE WALLET TOP-UP RECONCILE POLL — a manual run of the CronJob, for the one moment
+    # somebody is staring at a stuck top-up (see app/core/wallet_topup_reconcile.py's own header).
+    {
+        "id": "operations.wallet_topups_reconcile_now",
+        "label": "تحديث شحنات المحفظة المعلّقة",
+        "method": "POST",
+        "path": "/api/v1/platform/wallet-topups/reconcile-now",
+        "capability": "platform.operations",
+        "help": "يسأل بوابة الدفع عن حالة كل شحنة معلّقة الآن ويضيف رصيد المكتمل منها فوراً، بدل انتظار الجولة القادمة (كل 5 دقائق تلقائياً).",
+        "confirm": True,
+        "danger": False,
+        "group": "المالية",
+    },
     # THE BACK OFFICE. Everything here is the owner's, not the operator's — which is why it sits
     # behind operations.manage and not behind operations.record.
 

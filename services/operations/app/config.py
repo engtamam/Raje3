@@ -410,6 +410,17 @@ class Settings(BaseSettings):
     # between a slow night and an outage on the one tenant large enough to cause it.
     RETENTION_SCAN_CAP: int = 20_000
 
+    # ── wallet top-up reconciliation (v0.18.44's hosted-checkout top-up has no signed webhook) ──
+    # billing-service's own listing/reconcile routes — path templates, not full URLs, joined onto
+    # BILLING_SERVICE_URL the same way BILLING_CHECK_PATH already is above.
+    BILLING_WALLET_TOPUPS_PENDING_PATH: str = "/api/v1/billing/operator/wallet-topups/pending"
+    BILLING_WALLET_TOPUP_RECONCILE_PATH: str = "/api/v1/billing/payments/{payment_id}/reconcile"
+    # How many pending payments one sweep may take, and how fresh one may be before it is worth
+    # asking about — a payment opened seconds ago is almost never done yet, and asking anyway is a
+    # wasted round trip on every single sweep of every single top-up.
+    WALLET_TOPUP_RECONCILE_LIMIT: int = 50
+    WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS: int = 30
+
     # How far back a claimed visit time may be before it is a broken clock rather than a backlog.
     # A shop migrating a year of its own history legitimately needs more than the default, and a
     # release is the wrong way to give it to them.

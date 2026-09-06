@@ -60,6 +60,9 @@ export function AdminFinance({ session, onOpenProviderSecrets }: {
   const getConfigAction = billingService?.actions.find((a) => a.id === 'operator.get_config');
   const setConfigAction = billingService?.actions.find((a) => a.id === 'operator.set_config');
   const activationPreviewAction = billingService?.actions.find((a) => a.id === 'operator.payment_activation_preview');
+  // Lives on operations-service, not billing-service — same per-service resolution, same reason.
+  const operationsService = catalog.services.find((s) => s.service === 'operations');
+  const reconcileNowAction = operationsService?.actions.find((a) => a.id === 'operations.wallet_topups_reconcile_now');
 
   if (!invoicesAction && !subscriptionsAction) {
     return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لعرض المالية." />;
@@ -94,6 +97,7 @@ export function AdminFinance({ session, onOpenProviderSecrets }: {
       {sub === 'gateway' ? (
         <GatewayPanel session={session} catalog={catalog} getConfigAction={getConfigAction}
                      setConfigAction={setConfigAction} activationPreviewAction={activationPreviewAction}
+                     reconcileNowAction={reconcileNowAction}
                      onOpenProviderSecrets={onOpenProviderSecrets} />
       ) : null}
     </div>
@@ -653,13 +657,17 @@ interface ActivationPreview {
   reason: string | null; affected_subscribers: number | null;
 }
 
-function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, activationPreviewAction, onOpenProviderSecrets }: {
+function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, activationPreviewAction, reconcileNowAction, onOpenProviderSecrets }: {
   session: AdminSession; catalog: AdminCatalog;
   getConfigAction?: AdminAction; setConfigAction?: AdminAction; activationPreviewAction?: AdminAction;
+  reconcileNowAction?: AdminAction;
   onOpenProviderSecrets?: () => void;
 }) {
   const [config, setConfig] = useState<Record<string, unknown> | 'loading' | 'failed'>('loading');
   const [driver, setDriver] = useState('');
+  const [reconcileBusy, setReconcileBusy] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState('');
+  const [reconcileError, setReconcileError] = useState('');
   const [preview, setPreview] = useState<ActivationPreview | 'loading' | 'failed' | null>(null);
   const [armSwitch, setArmSwitch] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -714,6 +722,27 @@ function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, acti
     }
   }
 
+  async function reconcileNow() {
+    if (!reconcileNowAction) return;
+    setReconcileBusy(true);
+    setReconcileError('');
+    setReconcileResult('');
+    try {
+      const body = await req<{ scanned: number; reconciled: number; failed: number; unreachable: boolean }>(
+        reconcileNowAction.path, 'POST', undefined, session.access_token,
+      );
+      if (body.unreachable) {
+        setReconcileResult('تعذّر الوصول لبوابة الدفع الآن — حاول بعد قليل.');
+      } else {
+        setReconcileResult(`فُحص ${body.scanned}، اكتمل ${body.reconciled}، لم يكتمل ${body.failed}.`);
+      }
+    } catch (err) {
+      setReconcileError(sentenceFor(err, 'تعذّر تشغيل الفحص.'));
+    } finally {
+      setReconcileBusy(false);
+    }
+  }
+
   if (!getConfigAction) {
     return <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لإدارة بوابة الدفع." />;
   }
@@ -743,6 +772,20 @@ function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, acti
           </Button>
         ) : null}
       </div>
+
+      {reconcileNowAction ? (
+        <div className="rounded-card border border-border-subtle p-4">
+          <h2 className="mb-2 text-sm font-medium text-text-secondary">شحنات المحفظة المعلّقة</h2>
+          <p className="mb-3 text-sm text-text-secondary">
+            الشحنات المعلّقة تُفحص تلقائياً كل 5 دقائق — استخدم هذا فقط لتحديث فوري بدل الانتظار.
+          </p>
+          <Button type="button" variant="outline" disabled={reconcileBusy} onClick={reconcileNow}>
+            فحص الآن
+          </Button>
+          {reconcileResult ? <p className="mt-2 text-sm text-text-primary">{reconcileResult}</p> : null}
+          {reconcileError ? <p role="alert" className="mt-2 text-danger text-sm">{reconcileError}</p> : null}
+        </div>
+      ) : null}
 
       {setConfigAction ? (
         <div className="rounded-card border border-border-subtle p-4">

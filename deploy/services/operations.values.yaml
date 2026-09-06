@@ -182,6 +182,12 @@ env:
   BILLING_CLIENT_ID: ""
   BILLING_USAGE_SET_PATH: "/internal/billing/usage/set"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
+  # The wallet top-up reconcile poll (see app/core/wallet_topup_reconcile.py's own header) —
+  # billing-service's own listing/reconcile routes, joined onto BILLING_SERVICE_URL above.
+  BILLING_WALLET_TOPUPS_PENDING_PATH: "/api/v1/billing/operator/wallet-topups/pending"
+  BILLING_WALLET_TOPUP_RECONCILE_PATH: "/api/v1/billing/payments/{payment_id}/reconcile"
+  WALLET_TOPUP_RECONCILE_LIMIT: "50"
+  WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS: "30"
   # WHAT THIS SHOP HOLDS — arrived in base-services v0.16.7, answering our own escalation. The two
   # purchase rules (one base per establishment, one copy of each app) turn on this list, and it is
   # the SAME billable set the entitlement resolver computes over, so a purchase refused here and a
@@ -370,6 +376,13 @@ cronJobs:
   - name: retention
     schedule: "17 1 * * *"
     path: /internal/operations/retention/sweep
+  # Every 5 minutes — a pending hosted-checkout top-up has no signed webhook, so this poll is the
+  # only path that ever credits the wallet. A fail-open miss just waits for the next run; there is
+  # no cost to running it often, and every minute it is NOT run is a minute a paid top-up sits
+  # uncredited for no reason the customer can see.
+  - name: wallet-topups-reconcile
+    schedule: "*/5 * * * *"
+    path: /internal/operations/wallet-topups/reconcile
 
   # THE SEAT AND BRANCH COUNTS, RECONCILED NIGHTLY — the other half of a deliberate fail-open.
   #

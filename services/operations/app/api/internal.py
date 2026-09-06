@@ -21,6 +21,7 @@ from app.core import privacy_requests as PR
 from app.core import scheduling
 from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
+from app.core import wallet_topup_reconcile as wallet_topup_core
 from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
@@ -2098,6 +2099,30 @@ async def retention_sweep(request: Request) -> dict:
     if out.customers or out.establishments_erased:
         await request.app.state.auditor.record(
             "retention.swept", actor="", tenant="", resource="subject",
+            ip=request.client.host if request.client else "")
+    return out.to_dict()
+
+
+@router.post("/operations/wallet-topups/reconcile", dependencies=[Depends(require_internal_token)])
+async def wallet_topups_reconcile(request: Request) -> dict:
+    """The wallet top-up poll (see app/core/wallet_topup_reconcile.py's own header). Driven by a
+    CronJob every few minutes, never by a person — TuwaiqPay sends no signed webhook, so this poll
+    is the only path a hosted-checkout top-up has to actually credit the wallet.
+
+    NO BODY. Same shape as retention_sweep above: a sweep that took arguments would be inviting a
+    caller to point it at one payment, and the internal token is held by every service in the mesh.
+    """
+    s = get_settings()
+    topups = wallet_topup_core.HttpWalletTopups(
+        billing_url=s.BILLING_SERVICE_URL, pending_path=s.BILLING_WALLET_TOPUPS_PENDING_PATH,
+        reconcile_path=s.BILLING_WALLET_TOPUP_RECONCILE_PATH, token=s.INTERNAL_SERVICE_TOKEN,
+        timeout=s.PEER_TIMEOUT_SECONDS, limit=s.WALLET_TOPUP_RECONCILE_LIMIT,
+        older_than_seconds=s.WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS)
+    out = await wallet_topup_core.WalletTopupReconciler(topups=topups).run()
+
+    if out.reconciled or out.failed:
+        await request.app.state.auditor.record(
+            "billing.wallet_topups_reconciled", actor="", tenant="", resource="wallet-topups",
             ip=request.client.host if request.client else "")
     return out.to_dict()
 

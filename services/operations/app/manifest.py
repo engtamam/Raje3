@@ -235,6 +235,9 @@ def build_manifest(
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.
             {"path": "/api/v1/platform/evidence", "tier": "user", "method": "POST"},
+            # THE WALLET TOP-UP RECONCILE POLL, on demand — the same sweep the CronJob runs every
+            # 5 minutes (see app/core/wallet_topup_reconcile.py's own header).
+            {"path": "/api/v1/platform/wallet-topups/reconcile-now", "tier": "user", "method": "POST"},
             {"path": "/api/v1/platform/branches/locations", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/tenants/{}/capacity", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/diagnostics", "tier": "user", "method": "GET"},

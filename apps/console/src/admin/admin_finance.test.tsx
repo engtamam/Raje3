@@ -34,6 +34,9 @@ const CATALOG = {
      path: '/api/v1/billing/operator/config', capability: 'platform.config', confirm: true },
     { id: 'operator.payment_activation_preview', label: 'x', method: 'GET' as const,
      path: '/api/v1/billing/operator/payment/activation-preview', capability: 'platform.config' },
+  ] }, { service: 'operations', actions: [
+    { id: 'operations.wallet_topups_reconcile_now', label: 'x', method: 'POST' as const,
+     path: '/api/v1/platform/wallet-topups/reconcile-now', capability: 'platform.operations', confirm: true },
   ] }],
   unreachable: [],
 };
@@ -343,6 +346,23 @@ describe('AdminFinance — payment gateway', () => {
       '/api/v1/billing/operator/config', 'PUT',
       { key: 'PAYMENT_GATEWAY_DRIVER', value: 'moyasar' }, 'tok-1',
     ));
+  });
+
+  it('manually reconciling pending top-ups reports the sweep\'s own counts', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay' } })
+      .mockResolvedValueOnce({ scanned: 3, reconciled: 2, failed: 1, unreachable: false });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('بوابة الدفع'));
+    await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('فحص الآن'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/platform/wallet-topups/reconcile-now', 'POST', undefined, 'tok-1',
+    ));
+    await waitFor(() => expect(screen.getByText('فُحص 3، اكتمل 2، لم يكتمل 1.')).toBeTruthy());
   });
 
   it('the deep link to «مفاتيح المزوّدين» fires the callback, when given one', async () => {

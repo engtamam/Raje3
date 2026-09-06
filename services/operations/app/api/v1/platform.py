@@ -27,7 +27,9 @@ from pydantic import BaseModel, Field, field_validator
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.config import get_settings
 from app.core import evidence as EV
+from app.core import wallet_topup_reconcile as wallet_topup_core
 from app.core.seats import BRANCHES, SEATS
 from app.core.stores import BranchStore, OperatorStore, PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry, validate_commission_rate
@@ -426,6 +428,32 @@ async def evidence_file(request: Request, body: EvidenceRequest,
         consent_reader=getattr(c, "evidence_peer", None),
         legal_reader=getattr(c, "legal_acceptances", None))
     return await file.build(body.tenant, since=body.since, until=body.until, actor=actor)
+
+
+@router.post("/wallet-topups/reconcile-now",
+             dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
+async def wallet_topups_reconcile_now(request: Request,
+                                      principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The same sweep the CronJob runs every 5 minutes (see
+    app/core/wallet_topup_reconcile.py's own header) — for the one moment somebody is staring at a
+    stuck top-up and does not want to wait for the next scheduled pass.
+
+    THE INTERNAL-TOKEN ROUTE STAYS SEPARATE (`/internal/operations/wallet-topups/reconcile`),
+    exactly as the evidence file's own note above explains: a person-facing trigger is gated by a
+    capability a person holds and an audit that names them, never by the shared internal token.
+    """
+    s = get_settings()
+    actor = getattr(principal, "subject", "") or ""
+    topups = wallet_topup_core.HttpWalletTopups(
+        billing_url=s.BILLING_SERVICE_URL, pending_path=s.BILLING_WALLET_TOPUPS_PENDING_PATH,
+        reconcile_path=s.BILLING_WALLET_TOPUP_RECONCILE_PATH, token=s.INTERNAL_SERVICE_TOKEN,
+        timeout=s.PEER_TIMEOUT_SECONDS, limit=s.WALLET_TOPUP_RECONCILE_LIMIT,
+        older_than_seconds=s.WALLET_TOPUP_RECONCILE_OLDER_THAN_SECONDS)
+    out = await wallet_topup_core.WalletTopupReconciler(topups=topups).run()
+    await request.app.state.auditor.record(
+        "billing.wallet_topups_reconciled", actor=actor, tenant="", resource="wallet-topups",
+        ip=request.client.host if request.client else "")
+    return out.to_dict()
 
 
 @router.get("/branches/locations", dependencies=[Depends(rate_limit)])

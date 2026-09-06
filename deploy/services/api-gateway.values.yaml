@@ -157,7 +157,7 @@ env:
   # its prefix string so a reader can still find it below.
   #
   # /api/v1/admin/leads, /admin/sectors, /admin/wafa-requests, /admin/withdrawals,
-  # /admin/employment-requests (all -> affiliate-service), and the seven /api/v1/platform/*
+  # /admin/employment-requests (all -> affiliate-service), and the /api/v1/platform/*
   # entries (-> operations or reminders, split by sub-noun) — added the same day ci/
   # check_deploy_wiring.py gained its own check for exactly this: a `manifest.py` endpoint
   # declared `tier: user` with no GATEWAY_ROUTES prefix covering it. Found live: those paths
@@ -252,6 +252,7 @@ env:
       {"prefix":"/api/v1/platform/partners","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/sandbox","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/statements","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/wallet-topups","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/template-help","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/silent","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
