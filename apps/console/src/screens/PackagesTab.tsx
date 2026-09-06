@@ -27,8 +27,8 @@ import { Toggle } from '../rj-ui/Toggle';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { AssistantHint } from '../AssistantHint';
-import { Boxes, Plus } from 'lucide-react';
-import { action, call, type Catalog } from '../catalog';
+import { Boxes, ImageOff, Plus, Upload, X } from 'lucide-react';
+import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { halalas, riyalsLabel } from '../money';
 import type { Session } from '../session';
 
@@ -46,6 +46,12 @@ interface PackageRow {
    *  today" (e.g. viewing a Saturday-only package on a Tuesday), a different, honest sentence
    *  from "the owner turned it off". */
   offerable_now?: boolean;
+  /** SAME TWO FIELDS, SAME REASONING AS `Service` in Services.tsx (services-images-board.md
+   *  phase 1/3) — a package is sold the same way a service is, and the WhatsApp assistant
+   *  should be able to say what a bundle actually contains just as much as what one service
+   *  does. Shipped on the backend from day one; only this card was missing them. */
+  description?: string;
+  has_image?: boolean;
 }
 
 /** Saturday-first, matching how a Saudi week is actually read — but the VALUE stored is always
@@ -147,9 +153,30 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
     weekdays: number[]; daysOfMonth: number[];
     yearlyFrom: string; yearlyTo: string;                     // date-input strings (MM-DD used)
     personCountText: string;
+    description: string;
   } | null>(null);
 
   const canManage = !!action(catalog, 'operations.manage_services');
+
+  // Object URLs, one per package that HAS a photo — same lazy-fetch/revoke-on-unmount shape as
+  // Services.tsx's own board view (services-images-board.md phase 3, mirrored here).
+  const [images, setImages] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const getAction = action(catalog, 'operations.get_package_image');
+    if (!getAction || !packages) return;
+    let cancelled = false;
+    for (const p of packages) {
+      if (!p.has_image || images[p.id]) continue;
+      downloadUrl(session, getAction, { id: p.id }).then((url) => {
+        if (!cancelled) setImages((m) => ({ ...m, [p.id]: url }));
+      }).catch(() => undefined);
+    }
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, catalog]);
+  useEffect(() => () => { Object.values(images).forEach((u) => URL.revokeObjectURL(u)); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []);
 
   const load = () => {
     const list = action(catalog, 'operations.list_packages');
@@ -193,7 +220,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
         priceText: '', pointsText: String(pointsSumFor([a, b], earn)),
         source: 'suggested', sourceServiceIds: [a, b],
         startsAt: '', endsAt: '', recurrence: 'none', weekdays: [], daysOfMonth: [],
-        yearlyFrom: '', yearlyTo: '', personCountText: '1',
+        yearlyFrom: '', yearlyTo: '', personCountText: '1', description: '',
       });
       const next = new URLSearchParams(params);
       next.delete('prefill_a'); next.delete('prefill_b'); next.delete('tab');
@@ -214,6 +241,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
           yearlyFrom: dateInputFromMmdd(target.recurrence_yearly_from ?? ''),
           yearlyTo: dateInputFromMmdd(target.recurrence_yearly_to ?? ''),
           personCountText: String(target.person_count ?? 1),
+          description: target.description ?? '',
         });
       }
       const next = new URLSearchParams(params);
@@ -227,7 +255,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
     id: null, name: '', serviceIds: [], priceText: '', pointsText: '0',
     source: 'manual', sourceServiceIds: [],
     startsAt: '', endsAt: '', recurrence: 'none', weekdays: [], daysOfMonth: [],
-    yearlyFrom: '', yearlyTo: '', personCountText: '1',
+    yearlyFrom: '', yearlyTo: '', personCountText: '1', description: '',
   });
 
   const openEdit = (p: PackageRow) => setDraft({
@@ -241,7 +269,48 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
     yearlyFrom: dateInputFromMmdd(p.recurrence_yearly_from ?? ''),
     yearlyTo: dateInputFromMmdd(p.recurrence_yearly_to ?? ''),
     personCountText: String(p.person_count ?? 1),
+    description: p.description ?? '',
   });
+
+  /** Same "server decides, no client resize" posture as Services.tsx's own upload — a package
+   *  photo is validated (type/size) by catalogue_image.py, not here. */
+  const uploadPackageImage = async (id: string, file: File) => {
+    const a = action(catalog, 'operations.upload_package_image');
+    if (!a) return;
+    setSaving(true);
+    setError('');
+    try {
+      const data_base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      await call(session, a, { id, content_type: file.type, data_base64 });
+      setImages((m) => { const n = { ...m }; delete n[id]; return n; });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر رفع الصورة الآن — حاول مجدداً.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deletePackageImage = async (id: string) => {
+    const a = action(catalog, 'operations.delete_package_image');
+    if (!a) return;
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, a, { id });
+      setImages((m) => { const n = { ...m }; delete n[id]; return n; });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر حذف الصورة الآن.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const toggleService = (id: string) => {
     if (!draft) return;
@@ -270,7 +339,8 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
         if (!create) throw new Error('لا تملك صلاحية إنشاء باقة');
         const created = await call<{ id: string }>(session, create, {
           name: draft.name.trim(), service_ids: draft.serviceIds, price_minor: priceMinor,
-          source: draft.source, source_service_ids: draft.sourceServiceIds, ...schedule,
+          source: draft.source, source_service_ids: draft.sourceServiceIds,
+          description: draft.description.trim(), ...schedule,
         });
         id = created.id;
       } else {
@@ -278,7 +348,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
         if (!patch) throw new Error('لا تملك صلاحية تعديل باقة');
         await call(session, patch, {
           id, name: draft.name.trim(), service_ids: draft.serviceIds, price_minor: priceMinor,
-          ...schedule,
+          description: draft.description.trim(), ...schedule,
         });
       }
       const points = Number(draft.pointsText);
@@ -380,6 +450,18 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                        className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-accent/[0.06] to-transparent" />
                 ) : null}
 
+                {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — same "absence is a visible fact,
+                    never a hidden gap" posture as Services.tsx's own board card. */}
+                <div className="relative -mx-4 -mt-4 mb-1 aspect-[16/9] overflow-hidden bg-surface-2">
+                  {images[p.id] ? (
+                    <img src={images[p.id]} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full place-items-center text-text-muted">
+                      <ImageOff size={22} aria-hidden />
+                    </div>
+                  )}
+                </div>
+
                 <div className="relative flex items-start justify-between gap-2 ps-2">
                   <div className="flex flex-col">
                     <span className="font-semibold">{p.name}</span>
@@ -403,6 +485,9 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                     ) : null}
                   </div>
                 </div>
+                {p.description ? (
+                  <p className="relative line-clamp-2 ps-2 text-xs text-text-secondary">{p.description}</p>
+                ) : null}
                 {scheduleSummary(p) ? (
                   <span className="relative ps-2 text-xs text-text-muted">{scheduleSummary(p)}</span>
                 ) : null}
@@ -442,6 +527,47 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 className="h-10 rounded-lg bg-surface-2 px-3"
               />
             </label>
+
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">وصف قصير (اختياري)</span>
+              <input
+                value={draft.description}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                placeholder="وصف قصير يستخدمه الذكاء الاصطناعي بالواتساب"
+                maxLength={300}
+                className="h-10 rounded-lg bg-surface-2 px-3"
+              />
+            </label>
+
+            {draft.id && action(catalog, 'operations.upload_package_image') ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-medium">صورة الباقة (اختياري)</span>
+                <div className="flex items-center gap-3">
+                  <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-text-muted">
+                    {images[draft.id] ? (
+                      <img src={images[draft.id]} alt="" className="h-full w-full object-cover" />
+                    ) : <ImageOff size={20} aria-hidden />}
+                  </span>
+                  <label className="flex cursor-pointer items-center gap-1 text-sm text-accent-on-soft">
+                    <Upload size={14} aria-hidden /> رفع صورة
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f && draft.id) uploadPackageImage(draft.id, f);
+                          }} />
+                  </label>
+                  {(() => {
+                    const current = packages?.find((x) => x.id === draft.id);
+                    return current?.has_image ? (
+                      <button type="button" onClick={() => draft.id && deletePackageImage(draft.id)}
+                             className="flex items-center gap-1 text-sm text-danger">
+                        <X size={14} aria-hidden /> حذف الصورة
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+            ) : null}
 
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium">

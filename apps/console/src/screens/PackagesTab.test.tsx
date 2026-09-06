@@ -12,6 +12,9 @@ const ACTIONS: Record<string, { id: string; label: string; method: string; path:
   'operations.list_services': { id: 'operations.list_services', label: 'x', method: 'GET', path: '/services' },
   'operations.create_package': { id: 'operations.create_package', label: 'x', method: 'POST', path: '/packages' },
   'operations.update_package': { id: 'operations.update_package', label: 'x', method: 'PATCH', path: '/packages/{id}' },
+  'operations.get_package_image': { id: 'operations.get_package_image', label: 'x', method: 'GET', path: '/packages/{id}/image' },
+  'operations.upload_package_image': { id: 'operations.upload_package_image', label: 'x', method: 'POST', path: '/packages/{id}/image' },
+  'operations.delete_package_image': { id: 'operations.delete_package_image', label: 'x', method: 'DELETE', path: '/packages/{id}/image' },
   'loyalty.settings.read': { id: 'loyalty.settings.read', label: 'x', method: 'GET', path: '/settings' },
   'loyalty.settings.package': { id: 'loyalty.settings.package', label: 'x', method: 'PUT', path: '/settings/package/{package_id}' },
 };
@@ -25,6 +28,8 @@ let earnResponse: unknown = { services: {}, groups: {}, service_group: {}, gener
 let servicesFail = false;
 const createCalls: unknown[] = [];
 const pointsCalls: unknown[] = [];
+const uploadImageCalls: unknown[] = [];
+const deleteImageCalls: unknown[] = [];
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -41,8 +46,11 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'operations.create_package') { createCalls.push(body); return { id: 'pkg_new' }; }
       if (a.id === 'operations.update_package') { createCalls.push(body); return {}; }
       if (a.id === 'loyalty.settings.package') { pointsCalls.push(body); return {}; }
+      if (a.id === 'operations.upload_package_image') { uploadImageCalls.push(body); return {}; }
+      if (a.id === 'operations.delete_package_image') { deleteImageCalls.push(body); return {}; }
       return {};
     },
+    downloadUrl: async () => 'blob:fake-image-url',
   };
 });
 
@@ -331,5 +339,85 @@ describe('الباقات', () => {
     open();
     await waitFor(() => expect(screen.getByText('باقة من محلّي')).toBeTruthy());
     expect(screen.getByText('من اقتراح محلّي')).toBeTruthy();
+  });
+
+  // ── description + photo (services-images-board.md phase 3, mirrored from Services.tsx) ─────
+  it('a package with a description shows it on the card', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, description: 'غيار زيت + فحص فرامل بسعر واحد' },
+    ];
+    open();
+    await waitFor(() => expect(screen.getByText('باقة الصيانة')).toBeTruthy());
+    expect(screen.getByText('غيار زيت + فحص فرامل بسعر واحد')).toBeTruthy();
+  });
+
+  it('a package with has_image shows its real photo; one without shows the placeholder', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة بصورة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, has_image: true },
+      { id: 'pkg2', name: 'باقة بلا صورة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, has_image: false },
+    ];
+    open();
+    await waitFor(() => expect(screen.getByText('باقة بصورة')).toBeTruthy());
+    await waitFor(() => expect(document.querySelectorAll('img').length).toBeGreaterThan(0));
+    const img = document.querySelector('img') as HTMLImageElement;
+    expect(img.src).toContain('blob:fake-image-url');
+  });
+
+  it('editing an existing package pre-fills the description and saves it on create/update', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, description: 'وصف أصلي' },
+    ];
+    open();
+    await waitFor(() => screen.getByText('باقة الصيانة'));
+    fireEvent.click(screen.getByRole('button', { name: 'تعديل' }));
+    const desc = await screen.findByDisplayValue('وصف أصلي') as HTMLInputElement;
+    fireEvent.change(desc, { target: { value: 'وصف مُحدَّث' } });
+    fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
+    await waitFor(() => expect(createCalls.length).toBeGreaterThan(0));
+    expect(createCalls[createCalls.length - 1]).toMatchObject({ description: 'وصف مُحدَّث' });
+  });
+
+  it('the image upload/delete controls only appear once the package already has an id', async () => {
+    packagesResponse = [];
+    open();
+    await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
+    await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
+    // a brand-new (unsaved) package has no id yet — nothing to attach a photo to
+    expect(screen.queryByText('صورة الباقة (اختياري)')).toBeNull();
+  });
+
+  it('uploading a photo on an existing package posts it and clears the cached image', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, has_image: true },
+    ];
+    open();
+    await waitFor(() => screen.getByText('باقة الصيانة'));
+    fireEvent.click(screen.getByRole('button', { name: 'تعديل' }));
+    await waitFor(() => screen.getByText('صورة الباقة (اختياري)'));
+    const file = new File(['x'], 'p.jpg', { type: 'image/jpeg' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => expect(uploadImageCalls.length).toBeGreaterThan(0));
+    expect(uploadImageCalls[0]).toMatchObject({ id: 'pkg1', content_type: 'image/jpeg' });
+  });
+
+  it('deleting a photo is offered only when the package actually has one, and posts the delete', async () => {
+    packagesResponse = [
+      { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
+       active: true, has_image: true },
+    ];
+    open();
+    await waitFor(() => screen.getByText('باقة الصيانة'));
+    fireEvent.click(screen.getByRole('button', { name: 'تعديل' }));
+    const del = await screen.findByText('حذف الصورة');
+    fireEvent.click(del);
+    await waitFor(() => expect(deleteImageCalls.length).toBeGreaterThan(0));
+    expect(deleteImageCalls[0]).toMatchObject({ id: 'pkg1' });
   });
 });
