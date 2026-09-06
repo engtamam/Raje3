@@ -8,9 +8,9 @@
 # KB entry carries `requires=<capability>` and retrieval/answer BOTH re-check it against the
 # caller's own JWT capabilities (app/core/retrieval.py's own docstring: "a retrieval bug should
 # not be sufficient to leak admin help") — a shop owner's token never holds an admin capability,
-# so admin-only entries are invisible to them independent of which console they are on. This is
-# Phase 2 of the rollout plan (bring the service up, unconfigured KB); Phase 3 wires
-# KB_SOURCE_DRIVER=catalog once a single merged catalog across the three platforms exists.
+# so admin-only entries are invisible to them independent of which console they are on. Phase 2
+# brought the service up with an unconfigured KB; Phase 3 wired the generated catalog; Phase 4
+# (below) adds the shop platform's own hand-authored glossary on top of it.
 service:
   name: assistant-service
   port: 8000
@@ -58,6 +58,19 @@ networkPolicy:
 metrics:
   serviceMonitor: false   # flip on with the Prometheus Operator, same wave as every other service
 
+# THE HAND-AUTHORED KB (Phase 4). assistant-kb-shop is a ConfigMap built from deploy/kb/shop/*.json
+# by deploy/kb/sync-shop-kb.sh — NOT applied by this chart; run that script (it validates every
+# file before touching the cluster) whenever those JSON files change, same discipline as any other
+# seed script in deploy/seed/. Mounted read-only: this service reads its KB, never writes it.
+extraVolumes:
+  - name: kb-files
+    configMap:
+      name: assistant-kb-shop
+extraVolumeMounts:
+  - name: kb-files
+    mountPath: /kb
+    readOnly: true
+
 env:
   # ── Token verification ─────────────────────────────────────────────────────────────────────
   TOKEN_VERIFIER_DRIVER: "jwks"
@@ -72,7 +85,7 @@ env:
   AUDIT_SINK_DRIVER: "http"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
 
-  # ── Knowledge base — Phase 3: fed from the platform's own declared actions ────────────────────
+  # ── Knowledge base — Phase 3 (catalog) + Phase 4 (hand-authored, shop only) ───────────────────
   # api-gateway v0.18.32's GET /internal/assistant-catalog — reuses the SAME hardened
   # build_catalog() the browser-facing /api/v1/app|admin/catalog routes use, called unfiltered
   # (frozenset({"*"})) across ADMIN_SERVICES (which already lists every service, including
@@ -81,7 +94,17 @@ env:
   # entry's `requires` — filtered per asking user at retrieval/answer time, never at fetch time.
   # This is what makes the three-console isolation real without three deployments; see this
   # file's header note.
-  KB_SOURCE_DRIVER: "catalog"
+  #
+  # `composite`, not bare `catalog`, now that Phase 4 wrote 68 hand-authored entries
+  # (deploy/kb/shop/*.json, one per shop screen — mounted below via extraVolumes, platform
+  # v0.18.33's generic hook, since FileKnowledgeSource reads local disk and there is no other way
+  # to get content onto a pod). "file,catalog" — file FIRST, so an authored entry always wins over
+  # a same-id generated one rather than the other way around (app/adapters/knowledge_source/
+  # composite.py: first id wins). A failing source fails the WHOLE load by the same file's design —
+  # so a bad mount or an unreachable gateway is a loud boot failure, never a silently thinner KB.
+  KB_SOURCE_DRIVER: "composite"
+  KB_COMPOSITE_SOURCES: "file,catalog"
+  KB_FILE_PATH: "/kb"
   KB_CATALOG_URL: "http://api-gateway:8000/internal/assistant-catalog"
 
   # ── Answering — extractive first ──────────────────────────────────────────────────────────
