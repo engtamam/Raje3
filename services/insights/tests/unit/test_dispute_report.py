@@ -169,3 +169,50 @@ def test_acceptance_source_reports_the_owners_actual_consent_proofs_not_just_pub
     # the OWNER's person_id was used, never the staff member's
     member_call = [c for c in caller.calls if c[2] == "/internal/compliance/consent-history"][0]
     assert member_call[3] == {"tenant": "tnt_x", "subject": "p_owner"}
+
+
+# ── _fetch_audit — no test at all covered this source before this pass, despite it backing 3 of
+# the 7 scenarios (including ai_hallucination, this report's own answer to "the AI acted without
+# a real confirmation") ─────────────────────────────────────────────────────────────────────────
+def test_audit_scenario_labels_each_event_with_actor_action_and_resource():
+    caller = FakeCaller(
+        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}},
+        get_answers={"/internal/audit": {"events": [
+            {"action": "whatsapp_assistant.booking_confirmed", "actor": "sub_abc",
+             "resource": "booking:bkg_1", "at": 1000},
+            {"action": "subject.erased", "resource": "subject:sub_xyz", "at": 2000},  # no actor
+        ]}},
+    )
+    result = run_scenario(caller, URLS, "0501234567", "ai_hallucination")
+    labels = [it.label for it in result.items]
+    assert any("whatsapp_assistant.booking_confirmed" in x and "sub_abc" in x and "bkg_1" in x
+              for x in labels)
+    # a system action with no actor reads «النظام», never a blank or a crash
+    assert any("subject.erased" in x and "النظام" in x for x in labels)
+    call = [c for c in caller.calls if c[2] == "/internal/audit"][0]
+    assert call[3]["limit"] == 1000
+
+
+def test_audit_scenario_warns_when_the_page_may_have_cut_off_older_events():
+    """1000 events back exactly at the query's own limit — audit-service's `/query` response
+    carries no cursor and no "more available" flag, so `count == limit` is the only signal this
+    source has that an OLDER event (the one a suspended_no_notice/contract_breach dispute is
+    actually about) may already be off the page."""
+    events = [{"action": "x.happened", "actor": "sub_1", "resource": "r", "at": i}
+             for i in range(1000)]
+    caller = FakeCaller(
+        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}},
+        get_answers={"/internal/audit": {"events": events}},
+    )
+    result = run_scenario(caller, URLS, "0501234567", "ai_hallucination")
+    assert any("⚠" in it.label and "1000" in it.label for it in result.items)
+
+
+def test_audit_scenario_says_nothing_extra_when_well_under_the_page_limit():
+    caller = FakeCaller(
+        post_answers={"/internal/operations/tenant-by-phone": {"found": True, "tenant": "tnt_x"}},
+        get_answers={"/internal/audit": {"events": [
+            {"action": "x.happened", "actor": "sub_1", "resource": "r", "at": 1}]}},
+    )
+    result = run_scenario(caller, URLS, "0501234567", "ai_hallucination")
+    assert not any("⚠" in it.label for it in result.items)

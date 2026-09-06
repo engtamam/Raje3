@@ -192,15 +192,36 @@ def _fetch_staff(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem
     return items
 
 
+#: audit-service's own `/query` caps at 1000 (Query(..., le=1000) — its API layer), and its
+#: response is `{"events": [...], "count": N}` with NO cursor and NO "more available" flag — so
+#: `count == limit` is the only signal this source has that the read may have been cut off, and
+#: it is read newest-first (audit_service.py::query, `sort(...reverse=True)`). 200 was silently
+#: capping a suspended_no_notice/contract_breach dispute at whatever a tenant's most recent 200
+#: audited actions were — for a shop with months of activity since an old suspension, the ONE
+#: event a scenario like `suspended_no_notice` exists to surface could already have aged off the
+#: page, with nothing in the report saying so. Raised to the service's own real ceiling; a
+#: truncation is now reported rather than silently absorbed, same posture as
+#: `_fetch_marketing_evidence`'s own `truncated` flags below.
+_AUDIT_QUERY_LIMIT = 1000
+
+
 def _fetch_audit(peers: PeerCaller, urls: _Urls, tenant: str) -> list[ReportItem]:
-    out = peers.get(urls.audit, urls.audit_query_path, {"tenant": tenant, "limit": 200})
+    out = peers.get(urls.audit, urls.audit_query_path,
+                    {"tenant": tenant, "limit": _AUDIT_QUERY_LIMIT})
+    events = out.get("events") or []
     items = []
-    for ev in out.get("events") or []:
+    for ev in events:
         actor = str(ev.get("actor") or "") or "النظام"
         action = str(ev.get("action") or "؟")
         label = f"تدقيق — {action} — بواسطة: {actor} — على: {ev.get('resource', '؟')}"
         items.append(ReportItem(ts=int(ev.get("at") or ev.get("created_at") or 0) or None,
                                 source="audit", label=label, raw=_redact_dict(ev)))
+    if len(events) >= _AUDIT_QUERY_LIMIT:
+        items.append(ReportItem(
+            ts=None, source="audit",
+            label=f"⚠ سجل التدقيق قد يحوي أحداثاً أقدم من أحدث {_AUDIT_QUERY_LIMIT} — "
+                 f"هذا التقرير لا يغطيها",
+            raw={}))
     return items
 
 
