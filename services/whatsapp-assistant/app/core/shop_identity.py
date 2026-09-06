@@ -28,6 +28,12 @@ from typing import Any
 GENERIC_SHOP_LABEL = "هذا المحل"
 
 
+#: Matches operations/app/core/msg_limits.py::DEFAULT_MSG_WORD_LIMIT — duplicated rather than
+#: imported (no shared package between these two services), used whenever the peer call fails, is
+#: unconfigured, or answers something unparseable.
+DEFAULT_MSG_WORD_LIMIT = 100
+
+
 @dataclass(frozen=True)
 class ShopContext:
     name: str
@@ -36,6 +42,10 @@ class ShopContext:
     #: NEVER pre-redacted here — build_system_prompt does that itself, right before merging, as a
     #: second, independent check (see that function's own docstring).
     ai_notes: str = ""
+    #: How many words a customer's single message may be before conversation.py refuses it without
+    #: ever calling the model — this shop's own tightened/loosened ceiling, or the default if he
+    #: never touched it, the feature is off, or the peer call failed.
+    msg_word_limit: int = DEFAULT_MSG_WORD_LIMIT
 
 
 class NullShopIdentity:
@@ -71,7 +81,12 @@ class HttpShopIdentity:
             return ShopContext(name=GENERIC_SHOP_LABEL)
         name = str(data.get("name") or "").strip()
         notes = str(data.get("ai_notes") or "").strip()
-        return ShopContext(name=name or GENERIC_SHOP_LABEL, ai_notes=notes)
+        try:
+            word_limit = int(data.get("msg_word_limit"))
+        except (TypeError, ValueError):
+            word_limit = DEFAULT_MSG_WORD_LIMIT
+        return ShopContext(name=name or GENERIC_SHOP_LABEL, ai_notes=notes,
+                           msg_word_limit=word_limit)
 
 
 def build(settings: Any) -> Any:

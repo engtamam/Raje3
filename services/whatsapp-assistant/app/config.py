@@ -246,6 +246,12 @@ class Settings(BaseSettings):
     # no code edit or redeploy of new code. False means every reply behaves exactly as it did
     # before this feature shipped.
     SHOP_NOTES_ENABLED: bool = True
+    # THE MERGE-SIDE KILL SWITCH for the customer-message word limit (handle_inbound_text's own
+    # gate, before any AI call). operations.MSG_WORD_LIMIT_ENABLED already answers
+    # DEFAULT_MSG_WORD_LIMIT at its own source when off; this is a second, independent switch —
+    # turning it off here lets every message through regardless of what the peer answers. False
+    # means this reply behaves exactly as it did before this feature shipped.
+    MSG_WORD_LIMIT_ENABLED: bool = True
     # BOOKING_HISTORY_VISIBLE: separate and narrower — governs ONLY whether `list_my_bookings` may
     # also show bookings BEFORE today (Riyadh business day). Current and upcoming bookings show
     # regardless of this flag; false does not hide anything happening today or later, it only

@@ -141,6 +141,14 @@ _WALLET_DEPLETED_TEXT = ("نعتذر، الخدمة الآلية متوقفة م
 _NOT_SUBSCRIBED_TEXT = ("نعتذر، الخدمة الآلية متوقفة مؤقتًا. يسعد أحد موظفي المحل مساعدتك مباشرة "
                        "على نفس المحادثة.")
 
+# ── over-long message, refused before the model is ever called ─────────────────────────────────
+# Polite on purpose — this is refusing a real customer's real question for a reason he did not
+# cause (a shop's own configured ceiling), not a security refusal, so the tone must not read as
+# suspicion. Never names the actual limit: a number here would invite testing it exactly, and the
+# limit itself is an implementation detail the customer has no use for.
+_MESSAGE_TOO_LONG_TEXT = ("رسالتك طويلة شوي 🙏 لو تكرمت اختصرها بجملة أو جملتين وأرسلها من جديد، "
+                          "وبنكون سعداء بمساعدتك.")
+
 # ── mid-conversation human-handover intent ──────────────────────────────────────────────────────
 # A customer may ask for a human at ANY point, not just at the triage gate. This is intent
 # detection on the customer's own words BEFORE anything reaches the LLM/tool path this turn — a
@@ -358,7 +366,8 @@ class ConversationEngine:
                 wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100,
                 booking_history_visible: bool = True,
                 booking_management_enabled: bool = True, licence: Any = None,
-                shop_notes_enabled: bool = True, base_entitlement: Any = None) -> None:
+                shop_notes_enabled: bool = True, msg_word_limit_enabled: bool = True,
+                base_entitlement: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -424,6 +433,10 @@ class ConversationEngine:
         # the ONE call site that merges owner_notes into the prompt, never inside
         # build_system_prompt itself (that function stays a pure function of its two arguments).
         self._shop_notes_enabled = shop_notes_enabled
+        # THE GATE-SIDE KILL SWITCH — see config.py::MSG_WORD_LIMIT_ENABLED's own comment. Checked
+        # at the ONE call site that refuses an over-long message, `handle_inbound_text`, never
+        # inside `_shop_context` itself.
+        self._msg_word_limit_enabled = msg_word_limit_enabled
         # WHETHER THIS TENANT HOLDS THE CORE PLATFORM SUBSCRIPTION AT ALL (feature.base) — see
         # core/base_entitlement.py's own docstring. None (the pre-existing test-constructor
         # default) means "behave as a full-service tenant", same degrade-open posture as every
@@ -683,6 +696,17 @@ class ConversationEngine:
             conv.last_activity_at = now
             await self._save(conv)
             return self._branch_list_plan(await self._branches_for(tenant))
+
+        # THE WORD-COUNT GATE — before the message ever joins the batch, so a refused message never
+        # reaches the model even as part of a later batch with other, shorter ones. Cheap on
+        # purpose: a whitespace split, no tokenisation, no model call, so refusing costs nothing
+        # beyond the one peer round trip `_shop_context` already pays for the notes/name (see that
+        # method's own docstring — resolved fresh every turn regardless, this rides along for
+        # free). NO STATE IS TOUCHED on a refusal, same discipline as the licence gate above: a
+        # customer who overshoots the limit must be free to just try again shorter, not stuck
+        # having silently "used" part of this session.
+        if self._msg_word_limit_enabled and len(text.split()) > (await self._shop_context(tenant)).msg_word_limit:
+            return ReplyPlan(kind="text", text=_MESSAGE_TOO_LONG_TEXT)
 
         # Triage already resolved for this session — normal debounce/batching path.
         await self.on_inbound_text(tenant=tenant, subject_ref=subject_ref,
