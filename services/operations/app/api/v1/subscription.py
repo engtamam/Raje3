@@ -161,7 +161,10 @@ async def subscribe(request: Request, body: SubscribeIn,
                                 "لم يُخصم شيء."})
     if plan_limits is not None and rows is not None:
         addition = may_add(plan_limits=plan_limits, held=held_keys(rows),
-                           has_base=any(is_base(r.get("limits_snapshot")) for r in rows))
+                           has_base=any(is_base(r.get("limits_snapshot")) for r in rows),
+                           standalone_plans_enabled=getattr(
+                               request.app.state.container_settings,
+                               "STANDALONE_PLANS_ENABLED", True))
         if not addition.allowed:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT,
                                 content={"error": "ALREADY_SUBSCRIBED",

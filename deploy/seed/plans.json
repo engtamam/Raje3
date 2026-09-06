@@ -79,7 +79,8 @@
     "templates.custom": "templates he writes himself and submits to Meta, per month",
     "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing",
     "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway",
-    "feature.rating": "the post-visit rating app (WhatsApp Flow, stars + free text) — replaces the plain visit-confirmation message for a shop that owns it, never a second message"
+    "feature.rating": "the post-visit rating app (WhatsApp Flow, stars + free text) — replaces the plain visit-confirmation message for a shop that owns it, never a second message",
+    "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. THE ONE APP THAT MAY BE BOUGHT STANDALONE, WITHOUT الأساس first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -154,6 +155,10 @@
           "limit": 0
         },
         "feature.rating": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.whatsapp": {
           "kind": "boolean",
           "limit": 0
         }
@@ -264,6 +269,43 @@
     },
     {
       "_": [
+        "THE ONE APP SOLD WITHOUT الأساس UNDERNEATH IT — a shop with no other product at all can buy",
+        "just this and connect its own WhatsApp number. `plan.standalone` is the marker",
+        "`services/operations/app/core/subscribe.py::may_add` reads to skip its own base-required",
+        "rule for THIS plan only — every other app row still needs الأساس first, unchanged. Shaped",
+        "as an ordinary boolean limit (not under the `feature.` prefix, so it grants nothing and",
+        "`ci/check_entitlements.py` never treats it as a sold capability) so billing merges it the",
+        "same well-tested way it merges every other boolean flag.",
+        "",
+        "THE PRICE BELOW IS A PLACEHOLDER, same convention as المؤسسات's own amount note — this is",
+        "its own product with its own price, independent of every other row here, and the real",
+        "number is a data edit to this file whenever it is decided, not a design question.",
+        "",
+        "OPERATIONS STILL NEEDS A SHOP RECORD to attach a WhatsApp number to (a branch to register",
+        "the sending identity against) — signup itself is unconditional today, so a standalone",
+        "buyer already has one before he ever reaches this plan.",
+        "",
+        "STANDALONE_PLANS_ENABLED (operations/app/config.py) is the kill switch: false makes",
+        "`may_add` demand الأساس for this row too, same as every other app, without unlisting or",
+        "deleting it — existing standalone subscribers are unaffected, only new purchases stop."
+      ],
+      "name": "واتساب الذكي (مستقل)",
+      "amount": 9900,
+      "trial_days": 14,
+      "listed": true,
+      "limits": {
+        "feature.whatsapp": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
         "CAPACITY, NOT AN APP — and the two rows the ladder used to hide. Seats and branches came",
         "bundled with a tier, so a two-branch shop that wanted nothing else had to buy الذكية to",
         "get a second branch.",
@@ -364,6 +406,10 @@
         "feature.rating": {
           "kind": "boolean",
           "limit": 0
+        },
+        "feature.whatsapp": {
+          "kind": "boolean",
+          "limit": 1
         }
       }
     }

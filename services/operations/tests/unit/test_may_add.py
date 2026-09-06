@@ -10,7 +10,7 @@ number that means nothing, and the meter that exists to catch our own runaway lo
 """
 from __future__ import annotations
 
-from app.core.subscribe import granted_keys, held_keys, is_base, may_add
+from app.core.subscribe import granted_keys, held_keys, is_base, is_standalone, may_add
 
 BASE = {
     "messages.monthly": {"kind": "counter", "limit": -1},
@@ -21,6 +21,8 @@ BASE = {
 CAMPAIGNS = {"feature.campaigns": {"kind": "boolean", "limit": 1},
              "templates.custom": {"kind": "counter", "limit": 1}}
 SEATS = {"staff.seats": {"kind": "gauge", "limit": 10}}
+WHATSAPP_STANDALONE = {"feature.whatsapp": {"kind": "boolean", "limit": 1},
+                       "plan.standalone": {"kind": "boolean", "limit": 1}}
 
 
 # ── what a plan actually turns on ─────────────────────────────────────────────────────────────
@@ -112,3 +114,38 @@ def test_a_capacity_pack_may_be_bought_again_and_again():
 
 def test_a_capacity_pack_still_needs_a_base():
     assert may_add(plan_limits=SEATS, held=set(), has_base=False).allowed is False
+
+
+# ── the one app sold without a base underneath it ──────────────────────────────────────────────
+def test_is_standalone_reads_the_plans_own_marker():
+    assert is_standalone(WHATSAPP_STANDALONE) is True
+    assert is_standalone(CAMPAIGNS) is False
+    assert is_standalone(None) is False
+
+
+def test_a_declared_zero_standalone_marker_is_not_standalone():
+    """Same «0 is a deny, not a grant» reading as every other boolean limit in this file."""
+    assert is_standalone({"plan.standalone": {"kind": "boolean", "limit": 0}}) is False
+
+
+def test_a_standalone_plan_may_be_bought_with_no_base_at_all():
+    d = may_add(plan_limits=WHATSAPP_STANDALONE, held=set(), has_base=False)
+    assert d.allowed is True
+
+
+def test_a_standalone_plan_still_refuses_a_second_copy():
+    d = may_add(plan_limits=WHATSAPP_STANDALONE, held={"feature.whatsapp"}, has_base=False)
+    assert d.allowed is False and "مفعّل" in d.reason
+
+
+def test_the_kill_switch_makes_a_standalone_plan_need_a_base_too():
+    """STANDALONE_PLANS_ENABLED=False — existing subscribers are untouched by this test's own
+    scope (it is a pure purchase-eligibility function); only a NEW purchase is refused."""
+    d = may_add(plan_limits=WHATSAPP_STANDALONE, held=set(), has_base=False,
+               standalone_plans_enabled=False)
+    assert d.allowed is False and "الأساس" in d.reason
+
+
+def test_an_ordinary_app_is_unaffected_by_the_standalone_marker_being_absent():
+    """No regression: a plan with no `plan.standalone` key at all behaves exactly as before."""
+    assert may_add(plan_limits=CAMPAIGNS, held=set(), has_base=False).allowed is False

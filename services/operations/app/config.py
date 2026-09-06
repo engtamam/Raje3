@@ -440,6 +440,12 @@ class Settings(BaseSettings):
     # be describing a wish.
     PIN_OPERATORS_ENABLED: bool = False
 
+    # THE KILL SWITCH for selling any plan marked `plan.standalone` (core/subscribe.py::may_add,
+    # is_standalone) WITHOUT الأساس underneath it — e.g. "واتساب الذكي (مستقل)". False makes
+    # may_add demand a base for those plans too, same as every other app; existing standalone
+    # subscribers are unaffected, only NEW purchases are refused while it is off.
+    STANDALONE_PLANS_ENABLED: bool = True
+
     # THE FULL KILL SWITCH for shop-owner AI-assistant notes (app/core/ai_notes.py). False means
     # the field always reads back empty — GET, PUT, and the internal peer route whatsapp-assistant
     # calls — regardless of what is stored. The stored text is NOT erased when this is off: turning

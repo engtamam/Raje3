@@ -145,7 +145,26 @@ def is_base(limits: dict[str, Any] | None) -> bool:
     return "messages.monthly" in (limits or {})
 
 
-def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: bool) -> Decision:
+#: The one key an app plan may carry to say "I do not need الأساس underneath me" — read straight
+#: off the CANDIDATE plan's own `limits` (never merged, never a tenant's held entitlements), same
+#: shape/`kind` as every other boolean limit so billing merges it the same well-tested way once
+#: bought (see plans.json's own comment on the "واتساب الذكي (مستقل)" row that carries it).
+#: Not a `feature.*` key on purpose — it grants no capability, it only changes what `may_add` asks.
+STANDALONE_KEY = "plan.standalone"
+
+
+def is_standalone(plan_limits: dict[str, Any] | None) -> bool:
+    """Does THIS plan's own definition say it may be bought with no base underneath it?"""
+    value = (plan_limits or {}).get(STANDALONE_KEY)
+    raw = value.get("limit") if isinstance(value, dict) else value
+    try:
+        return int(raw) != 0
+    except (TypeError, ValueError):
+        return False
+
+
+def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: bool,
+           standalone_plans_enabled: bool = True) -> Decision:
     """May this establishment buy THIS plan, given what it already holds?
 
     NEITHER RULE IS EXPRESSIBLE IN BILLING, and that is why they are here. `subscribe` always
@@ -158,7 +177,13 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: boo
     engine would see a ceiling nobody wrote.
 
     AN APP WITHOUT A BASE is a shop paying for campaigns with no product to run them in: no
-    message meter, no seats, no branch. Billing would take the money.
+    message meter, no seats, no branch. Billing would take the money. **UNLESS THE PLAN ITSELF
+    SAYS OTHERWISE** (`plan.standalone`, e.g. "واتساب الذكي (مستقل)") — a small, explicit,
+    data-driven exemption rather than a plan name hardcoded here, so a second standalone product
+    later needs only a new plans.json row, not a second edit to this file. Gated on
+    `standalone_plans_enabled` (operations/app/config.py's `STANDALONE_PLANS_ENABLED`) so selling
+    every standalone plan can be paused at once without touching plans.json — existing
+    subscribers are unaffected, only new purchases are refused while it is off.
 
     AND AN APP BOUGHT TWICE is two invoices for one thing, every month, until somebody notices.
     Capacity packs are deliberately NOT covered by that rule — buying a second seat pack is how a
@@ -174,7 +199,7 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: boo
                                           "بدل شراء اشتراك ثانٍ.")
         return Decision(True)
 
-    if not has_base:
+    if not has_base and not (standalone_plans_enabled and is_standalone(plan_limits)):
         return Decision(False, reason="التطبيقات تُضاف إلى الاشتراك الأساسي — فعّل الأساس أولاً.")
 
     already = sorted(grants & held)

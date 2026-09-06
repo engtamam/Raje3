@@ -97,6 +97,113 @@ def test_the_refusal_reaches_the_caller_as_402_with_the_owners_sentence():
     assert resp.json()["detail"] == LAPSED
 
 
+# ── the WhatsApp connect routes, which serve TWO different buyers ────────────────────────────
+#
+# "واتساب الذكي (مستقل)" holds no base at all, by design — so the connect routes must accept
+# EITHER licence, not base alone. These tests exercise `subscribed_write_or_whatsapp` the same
+# way the tests above exercise `subscribed_write`: through a real dependency chain, not the
+# licence object directly.
+def test_a_standalone_whatsapp_subscriber_may_connect_with_no_base_at_all():
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.subscribed import subscribed_write_or_whatsapp
+    from app.core.whatsapp_licence import NullWhatsappLicence
+
+    app = FastAPI()
+
+    class _Container:
+        base_licence = NullBaseLicence(False)          # no base at all
+        whatsapp_licence = NullWhatsappLicence(True)    # holds the standalone plan
+
+    app.state.container = _Container()
+
+    @app.post("/whatsapp/connect", dependencies=[Depends(subscribed_write_or_whatsapp)])
+    async def _connect() -> dict:
+        return {"ok": True}
+
+    from app.api.auth import Principal, require_user
+
+    app.dependency_overrides[require_user] = lambda: Principal(
+        subject="usr_1", tenant="t1", caps=frozenset({"billing.self"}))
+
+    resp = TestClient(app).post("/whatsapp/connect")
+    assert resp.status_code == 200, resp.text
+
+
+def test_a_shop_holding_neither_licence_is_still_refused():
+    """This widens WHICH purchase counts — it does not exempt WhatsApp from needing one at all."""
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.subscribed import subscribed_write_or_whatsapp
+    from app.core.whatsapp_licence import NullWhatsappLicence
+
+    app = FastAPI()
+
+    class _Container:
+        base_licence = NullBaseLicence(False)
+        whatsapp_licence = NullWhatsappLicence(False)
+
+    app.state.container = _Container()
+
+    @app.post("/whatsapp/connect", dependencies=[Depends(subscribed_write_or_whatsapp)])
+    async def _connect() -> dict:
+        return {"ok": True}
+
+    from app.api.auth import Principal, require_user
+
+    app.dependency_overrides[require_user] = lambda: Principal(
+        subject="usr_1", tenant="t1", caps=frozenset({"billing.self"}))
+
+    resp = TestClient(app).post("/whatsapp/connect")
+    assert resp.status_code == 402
+
+
+def test_an_ordinary_base_subscriber_may_still_connect_with_no_whatsapp_plan_at_all():
+    """No regression: today's only real buyer (a base subscriber with no standalone plan) keeps
+    working exactly as before."""
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.api.subscribed import subscribed_write_or_whatsapp
+    from app.core.whatsapp_licence import NullWhatsappLicence
+
+    app = FastAPI()
+
+    class _Container:
+        base_licence = NullBaseLicence(True)
+        whatsapp_licence = NullWhatsappLicence(False)
+
+    app.state.container = _Container()
+
+    @app.post("/whatsapp/connect", dependencies=[Depends(subscribed_write_or_whatsapp)])
+    async def _connect() -> dict:
+        return {"ok": True}
+
+    from app.api.auth import Principal, require_user
+
+    app.dependency_overrides[require_user] = lambda: Principal(
+        subject="usr_1", tenant="t1", caps=frozenset({"billing.self"}))
+
+    resp = TestClient(app).post("/whatsapp/connect")
+    assert resp.status_code == 200, resp.text
+
+
+def test_connect_routes_use_the_widened_dependency_not_the_base_only_one():
+    from app.api.subscribed import subscribed_write_or_whatsapp
+    from app.api.v1.connect import router
+
+    def _deps(path: str, method: str) -> set:
+        for route in router.routes:
+            if route.path == path and method in route.methods:
+                return {d.call for d in route.dependant.dependencies}
+        raise AssertionError(f"{method} {path} is not on the router any more")
+
+    assert subscribed_write_or_whatsapp in _deps("/whatsapp/connect", "POST")
+    assert subscribed_write_or_whatsapp in _deps("/whatsapp/connect/register", "POST")
+
+
 def test_recording_a_visit_asks_the_subscription_and_erasing_a_customer_does_not():
     """THE TWO SIDES OF THE LINE, read off the real routes rather than from a description of them.
 

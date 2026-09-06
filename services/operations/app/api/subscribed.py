@@ -47,6 +47,41 @@ async def subscribed_write(request: Request,
     return principal
 
 
+async def subscribed_write_or_whatsapp(request: Request,
+                                       principal: Principal = Depends(require_user)) -> Principal:
+    """Refuse this write unless EITHER the base subscription OR a standalone `feature.whatsapp`
+    plan is live.
+
+    THE ONE DOOR TWO DIFFERENT BUYERS MUST BOTH OPEN. `subscribed_write` alone refuses "واتساب
+    الذكي (مستقل)"'s own subscriber — he holds no base at all, by design (plans.json's own note
+    on that row) — so the WhatsApp connect routes (api/v1/connect.py) use this instead of
+    `subscribed_write`, everywhere else on this file unchanged.
+
+    A shop holding NEITHER is still refused — this does not exempt WhatsApp from needing to be
+    bought, it only widens WHICH purchase counts.
+    """
+    if not principal.tenant:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+    base = getattr(request.app.state.container, "base_licence", None)
+    wa = getattr(request.app.state.container, "whatsapp_licence", None)
+    if base is None or wa is None:
+        return principal
+    base_answer = await base.allowed(principal.tenant)
+    if base_answer is True:
+        return principal
+    wa_answer = await wa.allowed(principal.tenant)
+    if wa_answer is True:
+        return principal
+    # NEITHER IS A CLEAR YES. Fail closed on an outage the same way subscribed_write does —
+    # "could not ask" from either check must not read as permission.
+    if base_answer is None or wa_answer is None:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            detail="تعذّر التحقق من اشتراكك الآن — حاول بعد قليل.")
+    raise HTTPException(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        detail="يحتاج ربط واتساب اشتراكاً فعّالاً — بالأساس، أو بتطبيق واتساب الذكي المستقل.")
+
+
 async def no_subscription_needed() -> None:
     """A route that works whether or not the month is paid, and says so.
 

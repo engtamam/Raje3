@@ -304,6 +304,12 @@ def build_container(settings: Settings) -> Container:
     from app.core.base_licence import build_base_licence
 
     container.base_licence = build_base_licence(settings)
+    # And `feature.whatsapp` — the one plan sold with no base underneath it. Asked ONLY by the
+    # WhatsApp connect routes, alongside base_licence, so a standalone buyer can open the one
+    # door he needs without holding a base at all (api/subscribed.py::subscribed_write_or_whatsapp).
+    from app.core.whatsapp_licence import build_whatsapp_licence
+
+    container.whatsapp_licence = build_whatsapp_licence(settings)
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
