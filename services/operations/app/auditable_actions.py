@@ -319,24 +319,10 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "else can show it",
     },
     # ── the operator surface, inherited from the template and emitted by app/api/v1/operator.py.
-    # Declared here because WHAT NOBODY DECLARES, NOBODY LOGS — and these three change credentials
-    # and runtime policy, which is the highest-privilege surface this service has.
-    {
-        "action": "operator.secret_set",
-        "source": "admin",
-        "critical": True,
-        "resource": "secret",
-        "why": "the previous value is overwritten by the action itself, so an unrecorded rotation "
-               "is unreconstructable",
-    },
-    {
-        "action": "operator.secret_cleared",
-        "source": "admin",
-        "critical": True,
-        "resource": "secret",
-        "why": "removing a credential can silently disable an integration; without a record there "
-               "is nothing to point at when it stops working",
-    },
+    # Declared here because WHAT NOBODY DECLARES, NOBODY LOGS — this changes runtime policy, which
+    # is the highest-privilege surface this service has. The credential-management pair
+    # (operator.secret_set/secret_cleared) was removed with the rest of the unused SecretStore —
+    # see git history for the incident (a free-text credential name box nothing here ever read).
     {
         "action": "operator.config_changed",
         "source": "admin",

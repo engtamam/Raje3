@@ -206,27 +206,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "الاعتراض يبقى بعد إعادة الحساب، لأنه سببُ إعادته.",
     },
     {
-        "id": "operations.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/operations/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
-        # The NAMES only — a route that returned a value would put a credential in a screenshot.
-        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
-    },
-    {
-        "id": "operations.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
-        "path": "/api/v1/operations/operator/secrets", "capability": "platform.secrets",
-        "confirm": True, "danger": True, "group": "المنصة",
-        # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
-        # reconstructed and an unattributable one is indistinguishable from an attacker's.
-        "help": "القيمة السابقة تختفي فوراً — لا رجعة ولا نسخة.",
-    },
-    {
-        "id": "operations.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
-        "path": "/api/v1/operations/operator/secrets/{name}", "capability": "platform.secrets",
-        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "danger": True, "group": "المنصة",
-        "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
-    },
-    {
         "id": "operations.operator_config", "label": "إعدادات التشغيل", "method": "GET",
         "path": "/api/v1/operations/operator/config", "capability": "platform.config", "group": "المنصة",
         "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
@@ -251,7 +230,11 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # the route existed and answered fine, but nothing ever put a button in front of it.
     {
         "id": "operations.whoami", "label": "من أنا", "method": "GET",
-        "path": "/api/v1/operations/whoami", "capability": "platform.secrets", "group": "المنصة",
+        # The route itself enforces no capability (any authenticated token may call it — see
+        # api/v1/__init__.py's own whoami). Grouped under platform.config here only so it shows up
+        # alongside the operator screens an admin already reaches, not because it is actually
+        # gated on it — was platform.secrets until that capability's own routes were removed.
+        "path": "/api/v1/operations/whoami", "capability": "platform.config", "group": "المنصة",
         "help": "المنشأة والصلاحيات التي يحملها رمزك الآن.",
     },
 ]

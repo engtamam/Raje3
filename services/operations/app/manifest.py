@@ -81,10 +81,13 @@ def build_manifest(
                          # needed either would mean no shop could buy or connect without us on the
                          # call, which is the opposite of a self-service product.
                          "billing.self",
-                         # WHAT THE OPERATOR ROUTES ACTUALLY ENFORCE. Advertised because they are
-                         # enforced here, not because we grant them to anyone: platform.* is ours,
-                         # and authz denies the whole prefix to every tenant.
-                         "platform.secrets", "platform.config"],
+                         # WHAT THE OPERATOR ROUTES ACTUALLY ENFORCE. Advertised because it is
+                         # enforced here, not because we grant it to anyone: platform.* is ours,
+                         # and authz denies the whole prefix to every tenant. platform.secrets was
+                         # here too until the credential-management routes it gated were removed
+                         # (dead SecretStore — see git history: nothing in this service ever
+                         # consumed a value written through it).
+                         "platform.config"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches
@@ -277,13 +280,9 @@ def build_manifest(
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},
-            # The operator surface: credentials and policy an operator changes after launch.
-            # Declared like anything else — a route table built from manifests that omits the
-            # place credentials are set is a route table that hides the highest-privilege
-            # surface the service has.
-            {"path": "/api/v1/operations/operator/secrets", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/operations/operator/secrets", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/operations/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            # The operator surface: policy an operator changes after launch. The credential-
+            # management routes that used to sit here (a dead SecretStore nothing ever consumed)
+            # were removed — see git history for the incident.
             {"path": "/api/v1/operations/operator/config", "tier": "user", "method": "GET"},
             {"path": "/api/v1/operations/operator/config", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/operations/operator/config/{}", "tier": "user", "method": "DELETE"},
