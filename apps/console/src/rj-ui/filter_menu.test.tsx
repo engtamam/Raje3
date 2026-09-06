@@ -10,29 +10,29 @@ const OPTIONS = [
 
 describe('FilterMenu', () => {
   it('shows no count badge and no chips with nothing selected', () => {
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={[]} onChange={vi.fn()} />);
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={[]} onChange={vi.fn()} />);
     expect(screen.queryByText('مسح الكل')).toBeFalsy();
   });
 
   it('opens the menu and selecting an option calls onChange with it added', () => {
     const onChange = vi.fn();
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={[]} onChange={onChange} />);
-    fireEvent.click(screen.getByText('القطاع'));
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByText('التصنيف'));
     fireEvent.click(screen.getByText('صالونات'));
     expect(onChange).toHaveBeenCalledWith(['a']);
   });
 
   it('supports selecting more than one value at once', () => {
     const onChange = vi.fn();
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={['a']} onChange={onChange} />);
-    fireEvent.click(screen.getByText('القطاع'));
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={['a']} onChange={onChange} />);
+    fireEvent.click(screen.getByText('التصنيف'));
     fireEvent.click(screen.getByText('عيادات'));
     expect(onChange).toHaveBeenCalledWith(['a', 'b']);
   });
 
   it('renders a removable chip per selection, and removing one keeps the rest', () => {
     const onChange = vi.fn();
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={['a', 'b']} onChange={onChange} />);
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={['a', 'b']} onChange={onChange} />);
     expect(screen.getByText('صالونات')).toBeTruthy();
     expect(screen.getByText('عيادات')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('إزالة صالونات'));
@@ -41,33 +41,33 @@ describe('FilterMenu', () => {
 
   it('"مسح الكل" clears every selection at once', () => {
     const onChange = vi.fn();
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={['a', 'b']} onChange={onChange} />);
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={['a', 'b']} onChange={onChange} />);
     fireEvent.click(screen.getByText('مسح الكل'));
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
   it('closes on Escape', () => {
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('القطاع'));
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('التصنيف'));
     expect(screen.getByRole('listbox')).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('listbox')).toBeFalsy();
   });
 
   it('shows the count badge matching the number selected', () => {
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={['a', 'b']} onChange={vi.fn()} />);
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={['a', 'b']} onChange={vi.fn()} />);
     expect(screen.getByText('2')).toBeTruthy();
   });
 
   it('only shows a search box once the option count crosses the threshold', () => {
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={[]} onChange={vi.fn()} searchThreshold={2} />);
-    fireEvent.click(screen.getByText('القطاع'));
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={[]} onChange={vi.fn()} searchThreshold={2} />);
+    fireEvent.click(screen.getByText('التصنيف'));
     expect(screen.getByPlaceholderText('ابحث...')).toBeTruthy();
   });
 
   it('hides the search box below the threshold', () => {
-    render(<FilterMenu label="القطاع" options={OPTIONS} selected={[]} onChange={vi.fn()} />);
-    fireEvent.click(screen.getByText('القطاع'));
+    render(<FilterMenu label="التصنيف" options={OPTIONS} selected={[]} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByText('التصنيف'));
     expect(screen.queryByPlaceholderText('ابحث...')).toBeFalsy();
   });
 });

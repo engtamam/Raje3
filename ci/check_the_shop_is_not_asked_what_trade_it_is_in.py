@@ -45,6 +45,41 @@ TREES = [
 #: republished, and it is a deliberate decision to make.
 LEGAL = ROOT / "deploy" / "seed" / "legal"
 
+#: A DIFFERENT WORD THAT HAPPENS TO SPELL THE SAME, and this is a scope narrowing with a reason
+#: too. `affiliate-service`'s own §6 is a MARKETER'S lead-prospecting taxonomy — an admin defines
+#: a managed list of industry sectors once, and a marketer picks one to scope a Google-Places
+#: search job for PROSPECTS he has not yet signed up (core/lead_sourcing.py, core/sectors.py).
+#: It never reaches a shop: no onboarding route, no Referral, no Affiliate field ever carries a
+#: `sector_code` (checked — grep for it in core/onboarding.py and core/referrals.py finds
+#: nothing), because the shop that eventually registers is never asked anything about it and the
+#: sector a marketer searched under decides nothing about that shop's own catalogue, rewards, or
+#: plate page. Silencing this gate on the WHOLE service rather than line-by-line, because the
+#: concept genuinely recurs across a dozen files there (core/sectors.py, core/lead_sourcing.py,
+#: api/v1/admin_sectors.py, admin_actions.py, …) and a path-scoped skip says why once instead of
+#: sprinkling an exemption comment through every one of them.
+#:
+#: NOT A BLIND SPOT ON THE TWO FILES THAT ACTUALLY DECIDE SOMETHING ABOUT A SHOP, though —
+#: `core/onboarding.py` (a shop's own referral/application) and `core/referrals.py` (a shop's own
+#: referral record) stay scanned even inside this service, because THOSE are exactly where a
+#: future «what does this shop do» field would land, and exempting them too would be the blind
+#: spot this gate's own docstring warns against.
+#: THE SAME EXEMPTION, ON THE CONSOLE'S OWN SIDE OF THE SAME FEATURE — `AffiliateTools.tsx` is
+#: where a marketer runs that lead search and reads its sector stats; nothing here is a shop's own
+#: signup. `AffiliateDoor.tsx` — the marketer's OWN application to become a marketer — stays
+#: scanned for the same reason `onboarding.py`/`referrals.py` do above: it is the one file in this
+#: directory where a real "what trade" question could plausibly land.
+AFFILIATE_SECTORS = (ROOT / "services" / "affiliate-service",
+                     ROOT / "apps" / "console" / "src" / "affiliates")
+AFFILIATE_SECTORS_STILL_SCANNED = {"onboarding.py", "referrals.py", "AffiliateDoor.tsx"}
+
+#: A ROUTING LINE THAT NAMES ITS OWN DESTINATION. `api-gateway.values.yaml` proxies routes for
+#: every service in one shared file, so it cannot be exempted by path without also hiding a real
+#: violation from every OTHER service's own routes in the same file. A line is safe to skip only
+#: when it is unambiguously routing to the sector feature's own backend — checked by requiring
+#: "affiliate-service" to appear on that SAME line, which a route for any other service's trade
+#: field never would.
+SECTOR_LINE_MARKER = "affiliate-service"
+
 #: A COMMENT DECIDES NOTHING, AND THIS IS THE SCOPE, NOT AN EXCEPTION. What this gate is for is a
 #: shop being ASKED — a field, a route, a seeded row, a control on a form, a sentence we SHIP. A
 #: comment is none of those: it is where the removal is explained, and every file that lost the
@@ -96,6 +131,9 @@ def main() -> int:
                 continue
             if LEGAL in path.parents:
                 continue
+            if (any(root in path.parents for root in AFFILIATE_SECTORS)
+                    and path.name not in AFFILIATE_SECTORS_STILL_SCANNED):
+                continue
             if path.resolve() == pathlib.Path(__file__).resolve():
                 continue
             try:
@@ -106,7 +144,7 @@ def main() -> int:
                 return 1
             scanned += 1
             for line_no, line in enumerate(strip_comments(text, path.suffix).splitlines(), start=1):
-                if WORD.search(line):
+                if WORD.search(line) and SECTOR_LINE_MARKER not in line:
                     hits.append(f"{path.relative_to(ROOT).as_posix()}:{line_no}: {line.strip()[:110]}")
 
     if not scanned:
