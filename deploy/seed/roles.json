@@ -143,8 +143,7 @@
         "loyalty.read",
         "insights.read",
         "compliance.self",
-        "identity.self",
-        "assistant.ask"
+        "identity.self"
       ]
     },
     {
@@ -181,8 +180,7 @@
         "loyalty.read",
         "loyalty.redeem",
         "compliance.self",
-        "identity.self",
-        "assistant.ask"
+        "identity.self"
       ]
     },
     {
