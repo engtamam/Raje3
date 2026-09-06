@@ -1,0 +1,114 @@
+# assistant-service — Raje3 deployment values.
+#
+# The help/customer-service assistant shared across all three consoles (shop, admin, marketer).
+# ONE shared instance, not three: api-gateway's route table is keyed by PATH ALONE
+# (app/core/gateway.py — `self._routes.match(path)`, no per-caller/per-platform dimension), so
+# three deployments each answering the identical "/api/v1/assistant/*" paths could not coexist
+# behind one gateway. Isolation between platforms is real anyway, enforced one layer down: every
+# KB entry carries `requires=<capability>` and retrieval/answer BOTH re-check it against the
+# caller's own JWT capabilities (app/core/retrieval.py's own docstring: "a retrieval bug should
+# not be sufficient to leak admin help") — a shop owner's token never holds an admin capability,
+# so admin-only entries are invisible to them independent of which console they are on. This is
+# Phase 2 of the rollout plan (bring the service up, unconfigured KB); Phase 3 wires
+# KB_SOURCE_DRIVER=catalog once a single merged catalog across the three platforms exists.
+service:
+  name: assistant-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/assistant-service
+  digest: "sha256:94aea0653eb63cc28973487d9c0b1923e8e2d79dcd62b13c89d04bf52df446a0"   # v0.18.30
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  # No pub/sub anywhere in this service's own code (app/core, app/api) — AUDIT_SINK_DRIVER is
+  # "http", not "eventbus", and nothing here publishes or subscribes to a topic. memory, not redis,
+  # to avoid a dependency this service does not use.
+  eventbus: memory
+  queue: memory
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 14m  # smart-cpu-sizing.py: cold tier — new service, no real traffic yet to measure against
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, RATELIMIT_URL, PII_SALT, SECRETS_KEK,
+# BACKUP_KEK — minted automatically by base-services' own gen-secrets.py (assistant-service lives
+# under platform/services/, the same tree that script already covers; see deploy/gen-secrets.py's
+# own docstring on why OUR gen-secrets.py deliberately never touches platform/services/).
+existingSecret: assistant-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  serviceMonitor: false   # flip on with the Prometheus Operator, same wave as every other service
+
+env:
+  # ── Token verification ─────────────────────────────────────────────────────────────────────
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Audit ──────────────────────────────────────────────────────────────────────────────────
+  # Required — assert_audit_config_ok refuses to boot in production with this at its "null"
+  # default (app/config.py). Backs assistant.retention_purged and assistant.message_attributed
+  # (both v0.18.30) plus the operator-secret/config admin actions.
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+
+  # ── Knowledge base — Phase 2 default: unconfigured, safe, answers nothing yet ────────────────
+  # `memory` with no entries — the assistant boots and abstains on every question rather than
+  # reaching for a catalog that does not exist yet in merged, cross-platform form. Phase 3 flips
+  # this to `catalog` (or `composite`) once that merge exists; see this file's header note above.
+  KB_SOURCE_DRIVER: "memory"
+
+  # ── Answering — extractive first ──────────────────────────────────────────────────────────
+  # Needs no API key, cannot hallucinate (quotes the retrieved KB passage verbatim). The
+  # sibling team's own recommendation, and the right first step regardless of KB size: prove
+  # retrieval and capability-gating are correct before adding a model in the loop at all.
+  MODEL_DRIVER: "extractive"
+
+  # ── Conversations — OFF until a real console actually calls /ask ──────────────────────────
+  # Storing nothing has nothing to leak or erase. Turned on deliberately in Phase 6 (the chat
+  # widget itself), together with MESSAGE_KEY — never flipped on ahead of a real caller existing.
+  CONVERSATIONS_ENABLED: "false"
+
+  # ── Widget ─────────────────────────────────────────────────────────────────────────────────
+  # Served regardless — nothing embeds it yet (Phase 5/6 wire the "?" icon / chat widget into the
+  # console UIs). A script nobody fetches is inert, not a risk.
+  WIDGET_ENABLED: "true"
+  DEFAULT_LANGUAGE: "ar"
+
+  BRAND_NAME: "راجِع"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# THE HEARTBEAT for CONVERSATION_RETENTION_DAYS. Without this the purge never runs and old
+# conversation rows (once Phase 6 turns CONVERSATIONS_ENABLED on) accumulate forever — the same
+# "declared but unenforced retention" gap audit-service's own file warns about, avoided here from
+# day one even while conversations stay off.
+cronJobs:
+  - name: retention
+    schedule: "43 3 * * *"
+    path: /internal/assistant/retention
+
+ingress:
+  enabled: false   # reached through api-gateway only, like every other internal-tier service
