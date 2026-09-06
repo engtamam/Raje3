@@ -886,5 +886,34 @@ export function recordVisit(session: Session, draft: VisitDraft): Promise<VisitA
   });
 }
 
+// ── the "?" icon — a direct, anchor-keyed lookup, no ranking and no model ──────────────────────
+//
+// assistant-service's `by_anchor()` (app/core/retrieval.py) matches an entry's `anchor` field
+// EXACTLY — never its `id`, and catalog-generated entries never set one (only hand-authored KB
+// entries do, KB_SOURCE_DRIVER=composite/file). So this 404s for every anchor until Phase 4 (the
+// shop platform's own hand-authored glossary) actually writes one with a matching `anchor`. That
+// is expected, not a bug: `fetchAssistantHelp` returns `null` on a 404 rather than throwing, and
+// AssistantHint.tsx treats "nothing yet" as its own quiet state, never an error banner.
+export interface AssistantHelpEntry {
+  id: string;
+  anchor: string;
+  title: string;
+  body: string;
+  kind: string;
+  related: string[];
+}
+
+export async function fetchAssistantHelp(
+  session: Session, anchor: string,
+): Promise<AssistantHelpEntry | null> {
+  try {
+    return await call<AssistantHelpEntry>(
+      session, `/api/v1/assistant/help?anchor=${encodeURIComponent(anchor)}`);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
 // ── before there is a session ──────────────────────────────────────────────────────────────────
 

@@ -14,6 +14,10 @@ interface ImportMetaEnv {
    *  must be the one the onboarding adapter speaks. Absent, the console falls back to the version
    *  named in `meta.ts`, which the gate holds equal to the deployment's. */
   readonly VITE_META_GRAPH_VERSION?: string;
+  /** Renders (or hides) the assistant-backed "?" icon (AssistantHint.tsx) — INDEPENDENT of any
+   *  future chat-widget switch (Phase 6). Absent or anything but the literal string "true" hides
+   *  it entirely, not just disables it: a switched-off feature should leave no trace on the screen. */
+  readonly VITE_ASSISTANT_HELP_ICON_ENABLED?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;
