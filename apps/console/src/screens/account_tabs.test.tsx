@@ -59,6 +59,8 @@ describe('«حسابي» — the tab that went, and where its parts landed', () 
 
   it('keeps the weekly-report switch reachable, and reads its state', async () => {
     render(<AccountScreen session={session} catalog={catalog} openOn="login" />);
+    // «منشأتي» itself is now split into sub-tabs; the switch lives under «الهوية والإعدادات».
+    fireEvent.click(await screen.findByText('الهوية والإعدادات'));
     const box = await screen.findByLabelText('تقريري الأسبوعي على واتساب');
     expect(box.getAttribute('aria-checked')).toBe('true');
     await waitFor(() => expect(calls.some((c) => c.id === 'insights.digest_state')).toBe(true));
@@ -66,6 +68,7 @@ describe('«حسابي» — the tab that went, and where its parts landed', () 
 
   it('still saves when he turns the report off', async () => {
     render(<AccountScreen session={session} catalog={catalog} openOn="login" />);
+    fireEvent.click(await screen.findByText('الهوية والإعدادات'));
     const box = await screen.findByLabelText('تقريري الأسبوعي على واتساب');
     fireEvent.click(box);
     await waitFor(() => {

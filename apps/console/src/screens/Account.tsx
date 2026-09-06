@@ -163,8 +163,33 @@ export function AccountScreen(
   const [pane, setPane] = useState<Pane>(() => resolvePane(openOn));
   const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
 
+  /** «منشأتي» ITSELF SPLIT INTO THREE, at the product owner's own direction: it had grown into
+   *  five sections stacked in one long scroll, which is the same "everything with no home"
+   *  problem this file's own header comment warns the WHOLE page against, just one level down. */
+  const [shopSub, setShopSub] = useState<'team' | 'whatsapp' | 'identity'>('team');
+  const SHOP_SUBTABS = [
+    { value: 'team' as const, label: 'الفروع والفريق' },
+    { value: 'whatsapp' as const, label: 'ربط واتساب' },
+    { value: 'identity' as const, label: 'الهوية والإعدادات' },
+  ];
+
   return (
     <div className="flex flex-col gap-4 p-4">
+      {/* ── who he is, and where he works — ALWAYS shown, regardless of tab. A field operator's
+          role often cannot reach «منشأتي» at all (it is gated on capabilities his role does not
+          hold), so this cannot live behind that tab, let alone a sub-tab of it. Depends on no
+          capability, only `session.operatorName` (never absent) and the branch read above. */}
+      <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
+        <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
+        {myBranch ? (
+          <span className="text-sm text-text-secondary">
+            {myBranch.name || myBranch.id}
+          </span>
+        ) : myBranchFailed ? (
+          <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
+        ) : null}
+      </div>
+
       <div className="flex flex-col gap-1">
         <Segmented
           // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
@@ -210,42 +235,46 @@ export function AccountScreen(
       {active === 'invoices' ? <InvoicesPane session={session} catalog={catalog} /> : null}
 
       {active === 'shop' ? (
-        <div className="flex flex-col gap-6">
-          {/* ── who he is, and where he works — moved here (was floating above every tab) at the
-              product owner's own direction: «منشأتي» is where an owner looks for anything about
-              his own identity within the shop, the same reasoning ShopPane's own weekly-digest
-              toggle already follows. Depends on no capability, only `session.operatorName` (never
-              absent) and the branch read above. */}
-          <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
-            <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
-            {myBranch ? (
-              <span className="text-sm text-text-secondary">
-                {myBranch.name || myBranch.id}
-              </span>
-            ) : myBranchFailed ? (
-              <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
-            ) : null}
-          </div>
+        <div className="flex flex-col gap-4">
+          {/* «منشأتي» split into three, at the product owner's own direction — it had grown into
+              five sections stacked in one long scroll. Same Segmented pattern as the top-level
+              tabs, one level down. */}
+          <Segmented
+            className="grid w-full grid-cols-3 gap-1 [&>button]:w-full [&>button]:truncate"
+            ariaLabel="أقسام منشأتي"
+            value={shopSub}
+            onChange={(v) => setShopSub(v as typeof shopSub)}
+            options={SHOP_SUBTABS}
+          />
 
-          {/* ── change my own password — moved here from floating above every tab, same reasoning:
-              «منشأتي» is where he looks, even though the capability behind it (identity.self) is
-              per-person rather than per-establishment (held by every human role). */}
-          {action(catalog, 'identity.change_password') ? (
-            <ChangePasswordCard session={session} catalog={catalog} />
+          {shopSub === 'team' ? (
+            <div className="flex flex-col gap-6">
+              <TeamScreen session={session} catalog={catalog} />
+            </div>
           ) : null}
 
-          {/* THE ORDER IS THE ORDER HE NEEDS THEM IN, not the order we built them: what the
-              customer sees, then where the shop is, then who works there, then what sends in its
-              name. Sections rather than nested tabs — a tab inside a tab hides half the page
-              behind two taps, and nobody remembers which one they were on. */}
-          <ShopPane session={session} catalog={catalog} />
-          <TeamScreen session={session} catalog={catalog} />
-          {/* PER_BRANCH SHOPS GET ONE CARD A BRANCH — `ConnectByBranch` itself decides between the
-              single establishment-wide card (every shop that never left `central` mode, the
-              overwhelming default) and a list, by reading `shop_mode`; nothing here needs to know
-              which one it is. */}
-          <ConnectByBranch session={session} catalog={catalog} />
-          <KeysPane session={session} catalog={catalog} />
+          {shopSub === 'whatsapp' ? (
+            <div className="flex flex-col gap-6">
+              {/* PER_BRANCH SHOPS GET ONE CARD A BRANCH — `ConnectByBranch` itself decides between
+                  the single establishment-wide card (every shop that never left `central` mode,
+                  the overwhelming default) and a list, by reading `shop_mode`; nothing here needs
+                  to know which one it is. */}
+              <ConnectByBranch session={session} catalog={catalog} />
+            </div>
+          ) : null}
+
+          {shopSub === 'identity' ? (
+            <div className="flex flex-col gap-6">
+              {/* ── change my own password — the capability behind it (identity.self) is
+                  per-person rather than per-establishment, held by every human role. */}
+              {action(catalog, 'identity.change_password') ? (
+                <ChangePasswordCard session={session} catalog={catalog} />
+              ) : null}
+
+              <ShopPane session={session} catalog={catalog} />
+              <KeysPane session={session} catalog={catalog} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
