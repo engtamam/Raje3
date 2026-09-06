@@ -3,7 +3,7 @@
 Every number here is config, sourced from deploy/services/whatsapp-assistant.values.yaml — the same
 convention as reminders' WAFA_TIER_* caps: a business number frozen into code is a rewrite waiting
 to happen, and this platform does not know yet which of the three shapes below is the right one for
-this product. What it DOES know is the real cost basis to price against: actual Gemini input/output
+this product. What it DOES know is the real cost basis to price against: actual model input/output
 token counts, persisted per conversation (see core/models.ConversationState.input_tokens/
 output_tokens and core/models.COST_LEDGER), never an estimate.
 

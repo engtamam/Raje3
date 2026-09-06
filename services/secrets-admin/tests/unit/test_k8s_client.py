@@ -103,15 +103,15 @@ def test_a_read_returns_annotations_and_discards_the_data_field(tmp_path):
     """THE ASSERTION THIS FILE EXISTS FOR. The API server has no field selector for this, so the
     real value DOES come back over the wire — and it is dropped one layer below every caller."""
     body = json.dumps({
-        "metadata": {"annotations": {"raje3.sa/secret-gemini-api-key-last4": "9xQ2"}},
-        "data": {"GEMINI_API_KEY": base64.b64encode(b"the-real-live-key").decode()},
+        "metadata": {"annotations": {"raje3.sa/secret-assistant-model-credential-last4": "9xQ2"}},
+        "data": {"ASSISTANT_MODEL_CREDENTIAL": base64.b64encode(b"the-real-live-key").decode()},
     }).encode()
     c, t = client([(200, body)], tmp_path=tmp_path)
     out = c.read_secret_annotations("base-services", "whatsapp-assistant-secrets")
-    assert out == {"raje3.sa/secret-gemini-api-key-last4": "9xQ2"}
+    assert out == {"raje3.sa/secret-assistant-model-credential-last4": "9xQ2"}
     assert t.last["method"] == "GET"
     assert t.last["body"] is None
-    assert "GEMINI_API_KEY" not in json.dumps(out)
+    assert "ASSISTANT_MODEL_CREDENTIAL" not in json.dumps(out)
 
 
 def test_a_secret_object_that_does_not_exist_yet_reads_as_nothing_configured(tmp_path):

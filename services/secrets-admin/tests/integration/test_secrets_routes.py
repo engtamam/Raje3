@@ -140,11 +140,11 @@ def test_an_unwritten_secret_reads_as_not_configured(built):
 
 def test_a_written_secret_shows_its_last_four_and_who_set_it(built):
     client, k8s, _ = built
-    client.post("/api/v1/secrets/GEMINI_API_KEY", json={"value": LIVE_VALUE},
+    client.post("/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL", json={"value": LIVE_VALUE},
                 headers=_auth(CAP))
     rows = {r["key"]: r for r in client.get("/api/v1/secrets",
                                             headers=_auth(CAP)).json()["secrets"]}
-    row = rows["GEMINI_API_KEY"]
+    row = rows["ASSISTANT_MODEL_CREDENTIAL"]
     assert row["configured"] is True
     assert row["last4"] == LIVE_VALUE[-4:]
     assert row["updated_by"] == "op-7"
@@ -173,7 +173,7 @@ def test_the_list_can_never_carry_a_value(built):
     have used: a row that grew a `value` field would break this even while holding an empty one.
     """
     client, _, _ = built
-    client.post("/api/v1/secrets/GEMINI_API_KEY", json={"value": LIVE_VALUE}, headers=_auth(CAP))
+    client.post("/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL", json={"value": LIVE_VALUE}, headers=_auth(CAP))
     resp = client.get("/api/v1/secrets", headers=_auth(CAP))
     raw = resp.text
     assert LIVE_VALUE not in raw
@@ -273,7 +273,7 @@ def test_a_saved_value_whose_restart_failed_says_saved_but_not_applied(built):
     fail to send; reporting a plain failure would have him paste it again, which fixes nothing."""
     client, k8s, _ = built
     k8s.fail_restart = True
-    r = client.post("/api/v1/secrets/GEMINI_API_KEY", json={"value": LIVE_VALUE},
+    r = client.post("/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL", json={"value": LIVE_VALUE},
                     headers=_auth(CAP))
     assert r.status_code == 400
     body = r.json()

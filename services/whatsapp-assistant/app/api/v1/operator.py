@@ -10,9 +10,10 @@ SECRETS ONLY, NO /operator/config — unlike reminders/loyalty, this service has
 override (see app/api/v1/__init__.py's own note, now half out of date — mirror this file's own
 note there the day a real tunable setting shows up and /operator/config is worth adding).
 
-WHY THIS EXISTS NOW: GEMINI_API_KEY was the one credential this service actually needs changeable
-at runtime — every wipe+reinstall regenerates the platform's shared secrets but has nothing that
-mints a third-party LLM key, so it silently reverted to empty and the assistant CrashLoopBackOff'd
+WHY THIS EXISTS NOW: an LLM backend credential is the one thing this service actually needs
+changeable at runtime — every wipe+reinstall regenerates the platform's shared secrets but has
+nothing that mints a third-party credential (ASSISTANT_MODEL_PROJECT/
+ASSISTANT_MODEL_CREDENTIAL), so it silently reverted to empty and the assistant CrashLoopBackOff'd
 until someone found the gap and repatched it by hand, off any audited path. This route is that
 path, mirroring services/reminders' operator.py exactly for the parts this service actually needs.
 """
@@ -62,13 +63,14 @@ def _refuse(reason: str, status_code: int = 400) -> JSONResponse:
 class SecretIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     value: str = Field(..., min_length=1, max_length=8192)
-    tenant: str = Field(default="", max_length=128)   # empty = platform-wide (GEMINI_API_KEY is)
+    tenant: str = Field(default="", max_length=128)   # empty = platform-wide (every LLM credential is)
 
 
 def _invalidate_llm(request: Request) -> None:
-    """Drop the container's cached LLM client so a rotated GEMINI_API_KEY takes effect on the next
-    conversation turn rather than waiting for a pod restart — see app/adapters/llm/gemini.py's own
-    note on why the client resolves its key fresh per call instead of caching it at construction."""
+    """Drop the container's cached LLM client's resolved credential so a rotated one takes effect
+    on the next conversation turn rather than waiting for a pod restart — see
+    app/adapters/llm/assistant_service.py's own note on why the client resolves its credential
+    fresh per call instead of caching it at construction."""
     container = getattr(request.app.state, "container", None)
     llm = getattr(container, "llm", None) if container is not None else None
     invalidate = getattr(llm, "invalidate_key_cache", None)

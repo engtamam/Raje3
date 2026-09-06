@@ -64,7 +64,7 @@ async def test_confirm_booking_is_not_a_declared_tool_anywhere():
     """Structural, not behavioural: the string 'confirm_booking' does not exist as a callable
     tool name in the LLM adapter's schema or the server-side validator — so even a model that
     perfectly obeys an injected instruction to call it has nothing to call."""
-    from app.adapters.llm.gemini import _TOOL_SCHEMAS
+    from app.adapters.llm.assistant_service import _TOOL_SCHEMAS
 
     assert "confirm_booking" not in _TOOL_SCHEMAS
 

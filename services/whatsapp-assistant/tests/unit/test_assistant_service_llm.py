@@ -36,8 +36,8 @@ def llm(allowed_tools=frozenset({"check_availability", "propose_booking"})):
         url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
         token="t", timeout=8)
     return AssistantServiceLlm(
-        connections=connections, model_url="http://model", model_name="m", model_auth="vertex",
-        model_credential="cred", allowed_tools=allowed_tools)
+        connections=connections, model_location="me-central2", model_name="m", model_auth="vertex",
+        env_project="proj", env_credential="cred", allowed_tools=allowed_tools)
 
 
 def _fake_transport(*, get_result=None, post_results=()):
@@ -86,7 +86,7 @@ def test_a_tool_call_reply_takes_only_the_first_of_several():
 
 def test_a_tool_call_outside_this_turns_allowed_tools_is_dropped_not_trusted():
     """Defence in depth — the connection's own declared tools should already make this
-    impossible, but a call outside what THIS turn allows is refused here too, same as GeminiLlm."""
+    impossible, but a call outside what THIS turn allows is refused here too."""
     transport = _fake_transport(
         post_results=[{"id": "conn_1"},
                      {"kind": "tool_call", "tokens_in": 5, "tokens_out": 2,
@@ -133,3 +133,49 @@ def test_an_unreachable_assistant_service_raises_llm_unavailable_not_a_bare_netw
         with pytest.raises(LlmUnavailable):
             run(llm().respond(system_prompt="sp", summary="", recent_messages=[],
                               user_message="hi", allowed_tools=frozenset(), tenant="t1"))
+
+
+def test_no_project_or_credential_configured_refuses_without_ever_calling_out():
+    """No GCP project/credential exists yet — refused as LlmUnavailable (the same debounce-and-
+    retry path a transient failure takes) rather than attempting a call that can only fail."""
+    connections = HttpAssistantConnections(
+        url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
+        token="t", timeout=8)
+    unconfigured = AssistantServiceLlm(
+        connections=connections, model_location="me-central2", model_name="m", model_auth="vertex",
+        env_project="", env_credential="", allowed_tools=frozenset())
+
+    def _urlopen(req, timeout=None):
+        raise AssertionError("must not touch the network with no project/credential configured")
+
+    with patch("urllib.request.urlopen", _urlopen):
+        with pytest.raises(LlmUnavailable):
+            run(unconfigured.respond(system_prompt="sp", summary="", recent_messages=[],
+                                     user_message="hi", allowed_tools=frozenset(), tenant="t1"))
+
+
+def test_a_rotated_credential_is_re_resolved_after_invalidate_key_cache():
+    """Mirrors GEMINI_API_KEY's own rotation contract: app/api/v1/operator.py calls
+    invalidate_key_cache() generically after a PUT, and the next turn must see the new value."""
+
+    class _FakeStore:
+        def __init__(self):
+            self.value = "first"
+
+        async def get(self, *, tenant, name, fallback):
+            return self.value
+
+    store = _FakeStore()
+    connections = HttpAssistantConnections(
+        url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
+        token="t", timeout=8)
+    adapter = AssistantServiceLlm(
+        connections=connections, model_location="me-central2", model_name="m", model_auth="vertex",
+        env_project="proj", env_credential="", allowed_tools=frozenset(), secret_store=store)
+
+    assert run(adapter._resolve_credential()) == "first"
+    store.value = "second"
+    # STILL CACHED — a rotation must not silently apply until invalidated.
+    assert run(adapter._resolve_credential()) == "first"
+    adapter.invalidate_key_cache()
+    assert run(adapter._resolve_credential()) == "second"

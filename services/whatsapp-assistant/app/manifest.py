@@ -49,8 +49,9 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
             {"path": "/internal/whatsapp_assistant/price", "tier": "internal", "method": "POST"},
-            # The operator credential surface (app/api/v1/operator.py) — GEMINI_API_KEY is the one
-            # runtime-tunable knob this service has: see that file's own note on why it exists now.
+            # The operator credential surface (app/api/v1/operator.py) — ASSISTANT_MODEL_PROJECT/
+            # ASSISTANT_MODEL_CREDENTIAL are the runtime-tunable knobs this service has: see that
+            # file's own note on why it exists now.
             {"path": "/api/v1/assistant/operator/secrets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/assistant/operator/secrets", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/assistant/operator/secrets/{}", "tier": "user", "method": "DELETE"},

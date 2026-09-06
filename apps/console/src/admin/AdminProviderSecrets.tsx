@@ -2,7 +2,7 @@
  * مفاتيح المزوّدين الخارجيين — secrets-admin's own screen. NOT `AdminSecrets.tsx` (that one is
  * every OURS service's own `platform.secrets` operator/secrets route — a shop's payment key, a
  * delivery driver's token). This is a DIFFERENT, unrelated capability
- * (`platform.secrets_manage`): rewriting the credential Meta/Gemini/etc. secrets that are sealed
+ * (`platform.secrets_manage`): rewriting the credential Meta/the AI backend/etc. secrets that are sealed
  * into OTHER services' own K8s Secret objects — see services/secrets-admin/app/admin_actions.py's
  * own header for why there is, and will never be, a third action of the obvious kind.
  *
@@ -56,7 +56,10 @@ const SECRET_HELP: Record<string, string> = {
   WHATSAPP_ACCESS_TOKEN: 'توكن دائم (Permanent) من System User بلوحة Meta Business Manager — Users ← System users ← أنشئ مستخدماً بصلاحية Admin وفعّل له صلاحية whatsapp_business_messaging، ثم ولّد توكناً. يُنسخ مرة واحدة فقط عند إنشائه.',
   WHATSAPP_PHONE_NUMBER_ID: 'من لوحة WhatsApp Manager بنفس حساب الأعمال — رقم هاتف المنصة نفسه (لا رقم محل) ← "معرّف رقم الهاتف" (Phone Number ID)، رقم وليس رقم الجوال نفسه.',
   WHATSAPP_BUSINESS_ACCOUNT_ID: 'من نفس WhatsApp Manager — معرّف حساب واتساب الأعمال (WABA ID) نفسه، يظهر أعلى لوحة الحساب. يلزم فقط لتسجيل القوالب، لا للإرسال نفسه.',
-  GEMINI_API_KEY: 'من Google AI Studio (aistudio.google.com/apikey) — الأسهل، بلا مشروع GCP. أو من GCP نفسه (console.cloud.google.com): فعّل "Generative Language API" وأنشئ مفتاحاً من Credentials، لو تبي تربطه بمشروع/فوترة محددة.',
+  // البوت يتصل بالذكاء الاصطناعي عبر Vertex AI (Google Cloud)، لا Google AI Studio مباشرة —
+  // يحتاج مشروع Google Cloud حقيقي (لا يوجد بعد) ومفتاح خدمة (Service Account) عليه.
+  ASSISTANT_MODEL_PROJECT: 'معرّف مشروع Google Cloud (project id) — من console.cloud.google.com، أعلى الصفحة بجانب اسم المشروع.',
+  ASSISTANT_MODEL_CREDENTIAL: 'مفتاح حساب خدمة (Service Account JSON) من نفس المشروع، بصلاحية Vertex AI User — IAM & Admin ← Service Accounts ← أنشئ مفتاحاً بصيغة JSON، والصق محتواه كاملاً هنا.',
   // خانة عامة يعيد استخدامها كل مزوّد دفع (Moyasar/Tap/HyperPay/PayTabs/Geidea/APS/TuwaiqPay) —
   // بلا اسم مزوّد مكتوب هنا بالكود عمداً، لأن أي مزوّد نشط اليوم قد لا يكون النشط غداً: أي مزوّد
   // بوابة الدفع المفعّل حالياً بإعدادات النشر (PAYMENT_GATEWAY_DRIVER) — راجع بيانات حسابك عنده.
@@ -82,12 +85,12 @@ function generateToken(): string {
 const PROVIDER_OF: Record<string, string> = {
   META_APP_ID: 'meta', META_APP_SECRET: 'meta', WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
-  GEMINI_API_KEY: 'gemini',
+  ASSISTANT_MODEL_PROJECT: 'assistant_ai', ASSISTANT_MODEL_CREDENTIAL: 'assistant_ai',
   PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
   meta: { label: 'Meta (واتساب)', icon: MessageCircle },
-  gemini: { label: 'Gemini', icon: Sparkles },
+  assistant_ai: { label: 'الذكاء الاصطناعي', icon: Sparkles },
   payment: { label: 'بوابة الدفع', icon: CreditCard },
   other: { label: 'أخرى', icon: CircleHelp },
 };

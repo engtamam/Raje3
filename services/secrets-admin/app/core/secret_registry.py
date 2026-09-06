@@ -2,8 +2,8 @@
 
 WHY THIS FILE EXISTS AT ALL, AND WHY IT IS A CLOSED LIST.
 
-Meta rotates an app secret, a webhook verify token leaks in a screenshot, a Gemini key hits its
-quota and is reissued. Every one of those is an ordinary Tuesday, and until now every one of them meant
+Meta rotates an app secret, a webhook verify token leaks in a screenshot, a third-party AI key hits
+its quota and is reissued. Every one of those is an ordinary Tuesday, and until now every one of them meant
 somebody with a kubeconfig running `kubectl create secret … --dry-run | kubectl apply` and then
 remembering to restart the right Deployment. That is a developer on call for a task with no
 engineering in it, performed by hand, at a keyboard where one wrong namespace edits the wrong
@@ -120,13 +120,20 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="notification-service",
         label="معرّف حساب واتساب الأعمال (WABA) للمنصة",
     ),
-    # ── The assistant's model ─────────────────────────────────────────────────────────────────
+    # ── The assistant's model (via assistant-service, Vertex AI) ──────────────────────────────
     SecretEntry(
-        key="GEMINI_API_KEY",
+        key="ASSISTANT_MODEL_PROJECT",
         secret="whatsapp-assistant-secrets",
         namespace="base-services",
         deployment="whatsapp-assistant",
-        label="مفتاح Gemini",
+        label="مشروع الذكاء الاصطناعي (Google Cloud)",
+    ),
+    SecretEntry(
+        key="ASSISTANT_MODEL_CREDENTIAL",
+        secret="whatsapp-assistant-secrets",
+        namespace="base-services",
+        deployment="whatsapp-assistant",
+        label="مفتاح خدمة الذكاء الاصطناعي (Google Cloud)",
     ),
     # ── The active payment gateway ────────────────────────────────────────────────────────────
     # GENERIC SLOT NAMES, DELIBERATELY NOT "TUWAIQPAY_*" — every gateway billing-service ships

@@ -143,7 +143,7 @@ def create_app() -> FastAPI:
     app.include_router(internal.router)
     # NEVER MOUNTED UNTIL NOW — /whoami and /admin/ping were live routes on paper (defined,
     # imported by nothing) since whichever commit added app/api/v1/__init__.py. Found while wiring
-    # operator.router in for GEMINI_API_KEY rotation: the operator route needed v1's own auth
+    # operator.router in for the LLM credential's live rotation: the operator route needed v1's own auth
     # dependencies to mean anything, and testing that path is what surfaced the missing include.
     app.include_router(v1_router)
     app.include_router(operator_router)

@@ -5,7 +5,7 @@
 
 ## What it is for
 
-Meta rotates an app secret. A webhook verify token ends up in a screenshot. A Gemini key is reissued.
+Meta rotates an app secret. A webhook verify token ends up in a screenshot. A third-party AI key is reissued.
 Every one of those is an ordinary Tuesday, and until this service each one meant somebody with
 cluster access running `kubectl create secret … --dry-run=client -o yaml | kubectl apply -f -` and
 then remembering to restart the right Deployment — by hand, under time pressure, at a keyboard

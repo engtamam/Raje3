@@ -74,17 +74,17 @@ describe('AdminProviderSecrets', () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({
-        secrets: [{ key: 'GEMINI_API_KEY', label: 'مفتاح Gemini', configured: false,
+        secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي', configured: false,
                    last4: null, updated_at: null, updated_by: null }],
       })
-      .mockResolvedValueOnce({ key: 'GEMINI_API_KEY', last4: 'zz99', updated_at: 'x' })
+      .mockResolvedValueOnce({ key: 'ASSISTANT_MODEL_CREDENTIAL', last4: 'zz99', updated_at: 'x' })
       .mockResolvedValueOnce({
-        secrets: [{ key: 'GEMINI_API_KEY', label: 'مفتاح Gemini', configured: true,
+        secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي', configured: true,
                    last4: 'zz99', updated_at: 'x', updated_by: 'op-1' }],
       });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('Gemini');
+    await openProvider('الذكاء الاصطناعي');
     await waitFor(() => expect(screen.getByText('غير مُعدّ')).toBeTruthy());
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
@@ -94,13 +94,13 @@ describe('AdminProviderSecrets', () => {
 
     // NOT CALLED YET — the confirm dialog must gate the actual write.
     expect(reqMock).not.toHaveBeenCalledWith(
-      '/api/v1/secrets/GEMINI_API_KEY', 'POST', expect.anything(), 'tok-1',
+      '/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL', 'POST', expect.anything(), 'tok-1',
     );
-    await waitFor(() => expect(screen.getByText(/تحديث "مفتاح Gemini"؟/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/تحديث "مفتاح الذكاء الاصطناعي"؟/)).toBeTruthy());
 
     fireEvent.click(screen.getByText('تأكيد'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
-      '/api/v1/secrets/GEMINI_API_KEY', 'POST', { value: 'AQ.new-real-key' }, 'tok-1',
+      '/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL', 'POST', { value: 'AQ.new-real-key' }, 'tok-1',
     ));
     // THE FIELD IS EMPTY AGAIN — nothing typed here survives past the request.
     await waitFor(() => expect((screen.getByLabelText('القيمة الجديدة') as HTMLInputElement).value).toBe(''));
@@ -112,13 +112,13 @@ describe('AdminProviderSecrets', () => {
       secrets: [
         { key: 'META_APP_ID', label: 'معرّف تطبيق ميتا', configured: true, last4: '1234', updated_at: null, updated_by: null },
         { key: 'META_APP_SECRET', label: 'سر تطبيق ميتا', configured: false, last4: null, updated_at: null, updated_by: null },
-        { key: 'GEMINI_API_KEY', label: 'مفتاح Gemini', configured: false, last4: null, updated_at: null, updated_by: null },
+        { key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي', configured: false, last4: null, updated_at: null, updated_by: null },
       ],
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
     await waitFor(() => expect(screen.getByText('Meta (واتساب)')).toBeTruthy());
-    expect(screen.getByText('Gemini')).toBeTruthy();
+    expect(screen.getByText('الذكاء الاصطناعي')).toBeTruthy();
     // collapsed: individual key labels are not in the DOM yet
     expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
     expect(screen.getByText('1 / 2 مُعدّ')).toBeTruthy();   // Meta's own tally, both its keys counted
@@ -126,11 +126,11 @@ describe('AdminProviderSecrets', () => {
     fireEvent.click(screen.getByText('Meta (واتساب)'));
     await waitFor(() => expect(screen.getByText('معرّف تطبيق ميتا')).toBeTruthy());
     expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy();
-    expect(screen.queryByText('مفتاح Gemini')).toBeNull();   // the OTHER provider stays collapsed
+    expect(screen.queryByText('مفتاح الذكاء الاصطناعي')).toBeNull();   // the OTHER provider stays collapsed
 
     // opening a second card closes the first — one open at a time
-    fireEvent.click(screen.getByText('Gemini'));
-    await waitFor(() => expect(screen.getByText('مفتاح Gemini')).toBeTruthy());
+    fireEvent.click(screen.getByText('الذكاء الاصطناعي'));
+    await waitFor(() => expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
   });
 
@@ -143,17 +143,17 @@ describe('AdminProviderSecrets', () => {
   it('shows the env var name under the label, and "؟" reveals where to get the value', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
-      secrets: [{ key: 'GEMINI_API_KEY', label: 'مفتاح Gemini', configured: false,
+      secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي', configured: false,
                  last4: null, updated_at: null, updated_by: null }],
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('Gemini');
-    await waitFor(() => expect(screen.getByText('GEMINI_API_KEY')).toBeTruthy());
+    await openProvider('الذكاء الاصطناعي');
+    await waitFor(() => expect(screen.getByText('ASSISTANT_MODEL_CREDENTIAL')).toBeTruthy());
 
-    expect(screen.queryByText(/aistudio\.google\.com/)).toBeNull();   // collapsed by default
+    expect(screen.queryByText(/Vertex AI/)).toBeNull();   // collapsed by default
     fireEvent.click(screen.getByLabelText(/ايش هذا؟/));
-    expect(screen.getByText(/aistudio\.google\.com/)).toBeTruthy();
+    expect(screen.getByText(/Vertex AI/)).toBeTruthy();
   });
 
   it('generating WHATSAPP_WEBHOOK_VERIFY_TOKEN fills a strong random value and reveals it to copy', async () => {

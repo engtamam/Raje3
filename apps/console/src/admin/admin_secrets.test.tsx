@@ -35,7 +35,7 @@ const CATALOG_WITH_CHOICES = {
       { id: 'operator.set_secret', label: 'x', method: 'PUT' as const,
        path: '/api/v1/operator/secrets', capability: 'platform.secrets', confirm: true,
        params: [{ name: 'name', in: 'body' as const, type: 'string', required: true,
-         choices: [{ value: 'GEMINI_API_KEY', label: 'مفتاح Gemini', impact: 'المساعد يتوقف مؤقتاً.' }] }] },
+         choices: [{ value: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي', impact: 'المساعد يتوقف مؤقتاً.' }] }] },
     ] },
   ],
   unreachable: [],
@@ -105,7 +105,7 @@ describe('AdminSecrets', () => {
     await waitFor(() => expect(screen.getByLabelText('الاعتماد')).toBeTruthy());
 
     // A <select>, not a free-text input — its only option is the declared label, not the raw name.
-    expect(screen.getByText('مفتاح Gemini')).toBeTruthy();
+    expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('القيمة الجديدة'), { target: { value: 'sk-real' } });
     fireEvent.click(screen.getByText('ضبط / تدوير'));
 

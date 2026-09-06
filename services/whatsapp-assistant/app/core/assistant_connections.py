@@ -37,8 +37,8 @@ _CONNECTION_NAME = "whatsapp-assistant"
 
 class AssistantConnectionsUnavailable(Exception):
     """Transient — assistant-service could not be reached or refused the request. The caller
-    (app/adapters/llm/assistant_service.py) surfaces this the same way GeminiLlm surfaces a
-    network failure: the debounce tick retries, no message is dropped."""
+    (app/adapters/llm/assistant_service.py) surfaces this as LlmUnavailable: the debounce tick
+    retries, no message is dropped."""
 
 
 class HttpAssistantConnections:

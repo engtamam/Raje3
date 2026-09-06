@@ -254,7 +254,7 @@ async def test_declining_history_never_also_swallows_a_genuine_upcoming_appointm
     tomorrow's appointment still on?") with history disabled must still be told about tomorrow —
     the decline is scoped to history alone, never to "everything in this reply", contradicting
     the documented contract ("current and upcoming bookings always show regardless of this
-    flag") that both config.py and the Gemini tool schema promise."""
+    flag") that both config.py and the LLM tool schema promise."""
     store = MemoryDataStore()
     provider = _FakeManagementProvider()
     now = int(time.time())

@@ -57,8 +57,9 @@ autoscaling:
   # replicas racing on the same customer's debounce window can each compose a reply.
 
 # secretRefs: INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
-# SECRETS_KEK, BACKUP_KEK, GEMINI_API_KEY (dev/test only — production seals it the same way, see
-# the LLM section below).
+# SECRETS_KEK, BACKUP_KEK. ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_CREDENTIAL have no value yet
+# (no real GCP project exists) and are sealed via SecretStore once one does — see the LLM section
+# below and app/api/v1/operator.py.
 #
 # PII_SALT is SHARED — the same value in every service (see reminders.values.yaml's note; not
 # repeated here). SECRETS_KEK seals any operator-managed credential this service holds through
@@ -78,11 +79,10 @@ networkPolicy:
   egress:
     dns: true
     datastore: true
-    # THE ONE SERVICE IN THIS CHART THAT NEEDS THE OPEN INTERNET, and it is a deliberate, narrow
-    # exception: Gemini's API is external. (Meta's Graph API is no longer called directly — since
-    # InteractiveNotifySender/platform v0.16.38, every WhatsApp send goes through notification-
-    # service instead.) EGRESS_ALLOWED_HOSTS below is the actual allowlist the CWE self-guard
-    # enforces — this flag only opens the door the chart's NetworkPolicy would otherwise close.
+    # STILL NEEDED — not for an external host anymore (the LLM call now goes to assistant-service,
+    # an in-cluster peer, which is the one that reaches Google Cloud), but this chart's
+    # NetworkPolicy has no separate "in-cluster peer" egress rule: any host in EGRESS_ALLOWED_HOSTS
+    # below, internal or not, requires this flag open (ci/check_deploy_wiring.py enforces the pair).
     internet: true
 
 metrics:
@@ -111,7 +111,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
 
   # ── the CWE self-guard's SSRF allowlist — THE actual egress control ───────────────────────────
-  EGRESS_ALLOWED_HOSTS: "generativelanguage.googleapis.com,notification-service,operations,loyalty"
+  EGRESS_ALLOWED_HOSTS: "notification-service,operations,loyalty,assistant-service"
 
   # ── peers ───────────────────────────────────────────────────────────────────────────────────
   NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
@@ -216,7 +216,7 @@ env:
   # ── consent (compliance-service) ───────────────────────────────────────────────────────────
   # THE FIRST REAL CALLER of ports/consent_gate.py anywhere on this platform — every other
   # service wired the port and never asked (see the port's own docstring). "http" here, not
-  # "null": unlike GEMINI_MODEL/pricing, this one has nothing left to decide before it can be
+  # "null": unlike ASSISTANT_MODEL_NAME/pricing, this one has nothing left to decide before it can be
   # turned on — compliance-service is already deployed and every peer reaches it at the same URL.
   CONSENT_GATE_DRIVER: "http"
   COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
@@ -227,16 +227,22 @@ env:
   # prompt) and records start accumulating.
   CONSENT_POLICY_ON_UNKNOWN: "fail_open"
 
-  # ── LLM ─────────────────────────────────────────────────────────────────────────────────────
-  LLM_DRIVER: "gemini"
+  # ── LLM (via assistant-service — no direct call to any model provider from this service) ─────
+  LLM_DRIVER: "assistant_service"
+  ASSISTANT_SERVICE_URL: "http://assistant-service:8000"
   # gemini-3.5-flash-lite, not the stronger/pricier 3.7-flash: this service's model calls are
   # intent classification, a handful of allowlisted tool calls, and short replies — none of it
-  # needs 3.7's extra capability. Same price as the old 2.5-flash default it replaces ($0.30/$2.50
-  # per million input/output tokens) but current-generation, since the whole 2.5 family (Flash and
+  # needs 3.7's extra capability. Current-generation, since the whole 2.5 family (Flash and
   # Flash-Lite) retires 2026-10-16 and building on it now would mean an unnecessary near-term
   # migration.
-  GEMINI_MODEL: "gemini-3.5-flash-lite"
-  GEMINI_TIMEOUT_SECONDS: "20"
+  ASSISTANT_MODEL_NAME: "gemini-3.5-flash-lite"
+  # NO VALUE YET — no real GCP project exists at the time this driver was wired in. Left empty on
+  # purpose: app/config.py::assert_llm_config_ok allows this ONLY because SECRETS_KEK is set (see
+  # secretRefs above), meaning an operator can supply both from «مفاتيح المزوّدين» once a project
+  # exists, with no redeploy — see app/api/v1/operator.py. Until then the bot answers nothing
+  # (LlmUnavailable every turn), the same quiet-not-crashing posture GEMINI_API_KEY's own gap used
+  # to leave this service in.
+  ASSISTANT_MODEL_PROJECT: ""
   # THE ALLOWLIST. `confirm_booking` is deliberately absent and always will be — confirmation is
   # button-only (app/core/conversation.py::handle_button_reply is the ONLY path that can fire a
   # state-changing action), never a name the model is even offered.

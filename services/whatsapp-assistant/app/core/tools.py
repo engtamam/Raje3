@@ -3,7 +3,8 @@
 This is the core safety property of the whole service (design point 5 / point 9's priority list).
 The sequence for every allowlisted tool is always:
 
-    1. GeminiLlm returns a ToolCall — a NAME and ARGS the model chose. Untrusted.
+    1. The LLM adapter (app/adapters/llm/assistant_service.py) returns a ToolCall — a NAME and
+       ARGS the model chose. Untrusted.
     2. `validate_and_render()` here re-checks it against REAL current state (real availability,
        real points balance) — never trusts anything the model claimed about that state.
     3. Only if validation passes is an interactive WhatsApp message built and a PendingProposal
@@ -14,8 +15,8 @@ The sequence for every allowlisted tool is always:
        never consulted again for that decision.
 
 `confirm_booking` DOES NOT EXIST as a tool anywhere in this file, the LLM schema (adapters/llm/
-gemini.py), or the allowlist (config.py::LLM_TOOL_ALLOWLIST). Confirmation is button-only by
-construction, not by convention.
+assistant_service.py), or the allowlist (config.py::LLM_TOOL_ALLOWLIST). Confirmation is
+button-only by construction, not by convention.
 """
 from __future__ import annotations
 
@@ -60,7 +61,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
     now = now if now is not None else int(time.time())
 
     if tool not in allowed_tools:
-        # DEFENCE IN DEPTH: gemini.py already filters this before it ever reaches here, but a tool
+        # DEFENCE IN DEPTH: the LLM adapter already filters this before it ever reaches here, but a tool
         # name reaching this function outside the allowlist must never be trusted to mean "someone
         # forgot to filter" — it is refused again, unconditionally, at the one place execution
         # could actually happen.

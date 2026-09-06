@@ -329,9 +329,7 @@ class Settings(BaseSettings):
 
     PEER_TIMEOUT_SECONDS: int = 8
 
-    # ── assistant-service (the migration target — see plans/stateless-wondering-fox.md) ───────
-    # Not selectable via LLM_DRIVER in production yet; built and tested ahead of the switch, per
-    # the approved plan's own "prove it live before deleting Gemini" order.
+    # ── assistant-service (the LLM backend) ───────────────────────────────────────────────────
     ASSISTANT_SERVICE_URL: str = ""
     ASSISTANT_SERVICE_CONNECTIONS_PATH: str = "/internal/assistant/connections"
     ASSISTANT_SERVICE_TIMEOUT_SECONDS: int = 20
@@ -339,31 +337,22 @@ class Settings(BaseSettings):
     # model/credential, not a per-tenant choice (see core/assistant_connections.py's own note on
     # why only system_prompt/tools vary per tenant). me-central2 (Dammam) per the sibling team's
     # own Saudi-residency guidance.
+    #
+    # PROJECT AND CREDENTIAL ARE THE ENV FALLBACK ONLY — no real GCP project exists yet at the
+    # time this driver was wired in, so both are read live via SecretStore first
+    # (app/adapters/llm/assistant_service.py's own _resolve_project/_resolve_credential), letting
+    # an operator supply them later from «مفاتيح المزوّدين» with no redeploy.
     ASSISTANT_MODEL_PROJECT: str = ""
     ASSISTANT_MODEL_LOCATION: str = "me-central2"
     ASSISTANT_MODEL_NAME: str = "gemini-2.5-flash"
     ASSISTANT_MODEL_AUTH: str = "vertex"          # api_key | vertex
-    # A GCP service-account key JSON — env for dev/test, sealed via SecretStore in production
-    # exactly like GEMINI_API_KEY below (the same rotation story, once wired).
-    ASSISTANT_MODEL_CREDENTIAL: str = ""
+    ASSISTANT_MODEL_CREDENTIAL: str = ""          # a GCP service-account key JSON
 
-    @property
-    def assistant_model_url(self) -> str:
-        """The real, resolved Vertex AI endpoint — built here rather than templated in a single
-        env var, so ASSISTANT_MODEL_PROJECT/LOCATION/NAME can each change independently without a
-        find-and-replace inside a URL string."""
-        loc = self.ASSISTANT_MODEL_LOCATION
-        return (f"https://{loc}-aiplatform.googleapis.com/v1/projects/{self.ASSISTANT_MODEL_PROJECT}"
-                f"/locations/{loc}/publishers/google/models/{self.ASSISTANT_MODEL_NAME}:generateContent")
-
-    # ── LLM (Gemini function calling) ────────────────────────────────────────
-    LLM_DRIVER: str = "null"                 # null | gemini | assistant_service
-    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
-    GEMINI_API_KEY: str = ""                 # sealed via SecretStore in production; env for dev/test
-    GEMINI_TIMEOUT_SECONDS: int = 20
-    # The ONLY functions the model may call. Enforced twice: once by what we declare to Gemini's
-    # function-calling API, once again server-side (core/tools.py) — a model that hallucinates a
-    # tool name outside this list is rejected before any tool body runs.
+    # ── LLM (function calling, via assistant-service) ─────────────────────────
+    LLM_DRIVER: str = "null"                 # null | assistant_service
+    # The ONLY functions the model may call. Enforced twice: once by what we declare to the
+    # provider's function-calling API, once again server-side (core/tools.py) — a model that
+    # hallucinates a tool name outside this list is rejected before any tool body runs.
     LLM_TOOL_ALLOWLIST: str = (
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
@@ -397,25 +386,24 @@ class Settings(BaseSettings):
             raise ValueError(
                 "LLM_DRIVER=null in production: the assistant would receive every message and "
                 "propose nothing — a receptionist that never answers.")
-        if self.LLM_DRIVER == "gemini" and not self.GEMINI_API_KEY and not self.SECRETS_KEK:
-            # SECRETS_KEK present means there IS a way to get a real key into this process without
-            # a redeploy — app/api/v1/operator.py's PUT /operator/secrets, once the pod is up. Only
-            # refuse to boot when NEITHER path can ever supply one: env is empty and there is
-            # nothing for an operator to write into either, which used to crash-loop the pod on
-            # every wipe+reinstall (this key is never part of the automated secret-minting set)
-            # with no way to recover it except a redeploy carrying the env value again.
-            raise ValueError(
-                "LLM_DRIVER=gemini but GEMINI_API_KEY is empty and SECRETS_KEK is also empty — "
-                "there is no way for an operator to supply the key at runtime either. Set "
-                "GEMINI_API_KEY, or set SECRETS_KEK and PUT the key to /api/v1/assistant/operator/secrets "
-                "once the service is up.")
-        if self.LLM_DRIVER == "assistant_service" and (
-                not self.ASSISTANT_SERVICE_URL or not self.ASSISTANT_MODEL_PROJECT
-                or not self.ASSISTANT_MODEL_CREDENTIAL):
-            raise ValueError(
-                "LLM_DRIVER=assistant_service but ASSISTANT_SERVICE_URL/ASSISTANT_MODEL_PROJECT/"
-                "ASSISTANT_MODEL_CREDENTIAL are not all set — the connection cannot be created "
-                "without every one of them.")
+        if self.LLM_DRIVER == "assistant_service":
+            # ASSISTANT_SERVICE_URL is the in-cluster address of a sibling service — always a real
+            # value at deploy time, never something an operator supplies later. PROJECT/CREDENTIAL
+            # are the ones with no value yet (no GCP project exists): SECRETS_KEK present means
+            # there IS a way to get real values into this process without a redeploy —
+            # app/api/v1/operator.py's PUT /operator/secrets, once the pod is up. Only refuse to
+            # boot when NEITHER path can ever supply them: env is empty and there is nothing for
+            # an operator to write into either, which used to crash-loop this pod on every
+            # wipe+reinstall (an LLM credential is never part of the automated secret-minting set)
+            # with no way to recover it except a redeploy carrying the env values again.
+            if not self.ASSISTANT_SERVICE_URL:
+                raise ValueError("LLM_DRIVER=assistant_service but ASSISTANT_SERVICE_URL is empty.")
+            if not self.SECRETS_KEK and not (self.ASSISTANT_MODEL_PROJECT and self.ASSISTANT_MODEL_CREDENTIAL):
+                raise ValueError(
+                    "LLM_DRIVER=assistant_service but ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_"
+                    "CREDENTIAL are not both set and SECRETS_KEK is also empty — there is no way "
+                    "for an operator to supply them at runtime either. Set both, or set SECRETS_KEK "
+                    "and PUT them to /api/v1/assistant/operator/secrets once the service is up.")
 
     # ── billing — feature.whatsapp, the AI assistant sold as its own app (core/licence.py) ────
     # An independent price-list row, same shape as campaigns'/loyalty's own licence gate (and the

@@ -184,7 +184,7 @@ def _requests_human(text: str) -> bool:
 # should not (claiming an action, discussing its own instructions, accepting a customer's claimed
 # authority) even though it could never actually DO any of those things.
 def build_system_prompt(shop_name: str, owner_notes: str = "") -> str:
-    """Compose the persona sent as `system_instruction` to the LLM (adapters/llm/gemini.py).
+    """Compose the persona sent as the system prompt to the LLM (adapters/llm/assistant_service.py).
 
     A FUNCTION, NOT A CONSTANT: the shop's name and its owner's notes are the two things that vary
     per tenant, and it is the caller's job (compose_reply, via `_shop_context`) to resolve them
@@ -947,7 +947,7 @@ class ConversationEngine:
 
         # A conversation already holding an unresolved proposal must not be offered a NEW
         # state-changing tool until the customer answers the one on the table — narrowing what
-        # this turn may propose, per adapters/llm/gemini.py's per-call intersection.
+        # this turn may propose, per adapters/llm/assistant_service.py's per-call intersection.
         #
         # EVERY TOOL BUT PLAIN CONVERSATION IS OPERATIONS/LOYALTY DATA, so a tenant with no base
         # gets none of them — the same "no base" data isolation `_context_block` enforces, applied
