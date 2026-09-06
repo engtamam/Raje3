@@ -73,6 +73,22 @@ describe('ServicesImportDrawer', () => {
     expect(screen.getByText('جديد')).toBeTruthy();
   });
 
+  it('parses a file whose own header row is Arabic — the template this drawer offers', async () => {
+    callMock = vi.fn().mockResolvedValue({ created: 1, updated: 0, reactivated: 0, deactivated: 0 });
+    render(<OperatorI18nProvider session={SESSION}>
+      <ServicesImportDrawer session={SESSION} catalog={CATALOG} existing={[]} open
+                            onClose={() => {}} onImported={() => {}} />
+    </OperatorI18nProvider>);
+    selectFile('الاسم,السعر,الوصف\nقص شعر,50,قص وتصفيف بالمقص');
+    await waitFor(() => expect(screen.getByText('قص شعر')).toBeTruthy());
+    expect(screen.getByText('جديد')).toBeTruthy();
+    fireEvent.click(screen.getByText(/استيراد 1 صف/));
+    await waitFor(() => expect(callMock).toHaveBeenCalled());
+    expect(callMock.mock.calls[0][2]).toMatchObject({
+      rows: [{ name: 'قص شعر', price_minor: 5000, description: 'قص وتصفيف بالمقص' }],
+    });
+  });
+
   it('a name that matches an existing active service shows تحديث, not جديد', async () => {
     render(<OperatorI18nProvider session={SESSION}>
       <ServicesImportDrawer session={SESSION} catalog={CATALOG}

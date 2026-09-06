@@ -57,12 +57,37 @@ interface ParsedRow {
   willBe: WillBe;
 }
 
+/** THE TEMPLATE'S OWN HEADERS ARE ARABIC WORDS, not `duration_minutes`/`cycle_days` — an owner who
+ *  cannot read English should never have to type into a column named in it. The parser below
+ *  still reads the plain English keys internally (`o.name`, `o.price`, …), so every column the
+ *  file could carry is aliased here to its canonical key BEFORE anything else touches the row —
+ *  one normalization, in one place, rather than every reader of `objs` learning both spellings.
+ *  The English headers stay recognized too: a shop that kept an older file, or built its own from
+ *  a memory of the old template, must not suddenly have every row read as empty. */
+const HEADER_ALIASES: Record<string, string> = {
+  name: 'name', 'الاسم': 'name',
+  price: 'price', 'السعر': 'price',
+  duration_minutes: 'duration_minutes', 'المدة (دقائق)': 'duration_minutes', 'المدة': 'duration_minutes',
+  cycle_days: 'cycle_days', 'دورة التكرار (أيام)': 'cycle_days', 'دورة التكرار': 'cycle_days',
+  external_id: 'external_id', 'معرّف خارجي': 'external_id', 'معرف خارجي': 'external_id',
+  description: 'description', 'الوصف': 'description',
+};
+
+function normalizeHeaders(objs: Record<string, string>[]): Record<string, string>[] {
+  return objs.map((o) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(o)) out[HEADER_ALIASES[k.trim()] ?? k] = v;
+    return out;
+  });
+}
+
 /** The shared core: a plain object per row (already extracted from EITHER a .csv's text or an
  *  .xlsx's cells — see `onFile` for which), plus whatever pictures an .xlsx anchored per row. */
 function parseRowObjects(
-  t: (key: string) => string, objs: Record<string, string>[],
+  t: (key: string) => string, rawObjs: Record<string, string>[],
   images: Map<number, { base64: string; contentType: string }>, existing: ExistingService[],
 ): ParsedRow[] {
+  const objs = normalizeHeaders(rawObjs);
   const byName = new Map(existing.map((s) => [s.name.trim().toLowerCase(), s]));
   const seenNames = new Set<string>();
   const dupeNames = new Set<string>();
