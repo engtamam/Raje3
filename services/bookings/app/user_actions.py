@@ -38,6 +38,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
                   {"name": "date", "in": "query", "type": "string", "required": True}],
         "group": "الحجوزات",
+        "help": "كل حجوزات فرع معيّن في يوم واحد.",
     },
     {
         "id": "bookings.no_show_risk", "label": "مؤشّر عدم الحضور", "method": "GET",
@@ -45,6 +46,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "customer_id", "in": "query", "type": "string", "required": True}],
         "group": "الحجوزات",
         # §2.6: a number beside her name at the moment the dialog opens, never a verdict.
+        "help": "من أصل آخر خمس مواعيد له، كم مرة لم يحضر — رقمٌ يُعرض بجانب اسمه ولا يمنع الحجز.",
     },
     {
         "id": "bookings.nearest", "label": "أقرب فتحة", "method": "GET",
@@ -54,11 +56,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
                   {"name": "service_ids", "in": "query", "type": "string", "required": True},
                   {"name": "after", "in": "query", "type": "integer", "required": True}],
         "group": "الحجوزات",
+        "help": "أقرب موعد فاضٍ لهذا العامل بعد وقت تحدّده. لا شيء إن لم توجد فتحة.",
     },
     {
         "id": "bookings.create", "label": "حجز جديد", "method": "POST",
         "path": "/api/v1/bookings", "capability": "bookings.write",
         "group": "الحجوزات",
+        "help": "يثبّت الموعد في الجدول، بخدمة واحدة أو أكثر أو باقة — لا الاثنين معاً.",
     },
     {
         "id": "bookings.reschedule", "label": "تعديل الموعد", "method": "PATCH",
@@ -66,24 +70,28 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "group": "الحجوزات",
         # THE DRAG-AND-DROP IS THIS CALL (§6.1.1 من مستند القرارات) — لا مسارٌ ثانٍ.
+        "help": "ينقل الحجز إلى وقت آخر، ويمكن لعامل آخر — نفس ما يفعله السحب والإفلات في الجدول.",
     },
     {
         "id": "bookings.edit_services", "label": "تعديل الخدمات", "method": "PATCH",
         "path": "/api/v1/bookings/{booking_id}/services", "capability": "bookings.write",
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "group": "الحجوزات",
+        "help": "يبدّل قائمة الخدمات المحجوزة لنفس الموعد.",
     },
     {
         "id": "bookings.edit_note", "label": "تعديل الملاحظة", "method": "PATCH",
         "path": "/api/v1/bookings/{booking_id}/note", "capability": "bookings.write",
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "group": "الحجوزات",
+        "help": "يغيّر ملاحظة الحجز فقط، بلا مساس بالوقت أو الخدمات.",
     },
     {
         "id": "bookings.cancel", "label": "إلغاء الحجز", "method": "PATCH",
         "path": "/api/v1/bookings/{booking_id}/cancel", "capability": "bookings.write",
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "الحجوزات",
+        "help": "يلغي الحجز ويحرّر الفتحة لغيره. لا رجوع عنه من هنا.",
     },
     {
         "id": "bookings.attend", "label": "تسجيل الحضور", "method": "PATCH",
@@ -92,11 +100,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "الحجوزات",
         # مسموحةٌ حتى على اشتراكٍ منتهٍ (app/core/licence.py) — إغلاق حجزٍ قائم ليس النصف
         # النامي أبداً.
+        "help": "يقفل الحجز بوصفه حضر فعلاً. متاح حتى لو انتهى الاشتراك.",
     },
     {
         "id": "bookings.no_show", "label": "تسجيل عدم الحضور", "method": "PATCH",
         "path": "/api/v1/bookings/{booking_id}/no-show", "capability": "bookings.write",
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "الحجوزات",
+        "help": "يقفل الحجز بوصفه لم يحضر، ويُحسب في مؤشّر عدم حضوره لاحقاً.",
     },
 ]
