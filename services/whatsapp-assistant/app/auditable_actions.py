@@ -123,6 +123,21 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "already provide — same reasoning as proposal_rejected, above",
     },
     {
+        "action": "whatsapp_assistant.message_attributed",
+        "source": "internal",
+        "critical": False,
+        "resource": "conversation",
+        "why": "attribution (tenant, this subject's own pseudonym, the wamid — never the message "
+               "text) for a real inbound message that WAS processed, written the moment "
+               "consent clears (app/core/inbound_ingest.py), so it survives past "
+               "CHAT_RETENTION_DAYS purging the message content itself: if the chat is gone by "
+               "the time anyone asks, this is what still proves a conversation happened, from "
+               "which customer, and when. Not critical: refusing every ordinary inbound message "
+               "because the audit log is briefly unreachable would take the whole assistant down "
+               "to protect a record — the same trade this file already makes for "
+               "consent_refused/proposal_rejected",
+    },
+    {
         "action": "operator.secret_set",
         "source": "admin",
         "critical": True,

@@ -207,6 +207,26 @@ def test_a_central_shops_plain_tenant_reaches_the_engine_with_an_empty_branch():
     assert (tenant, branch_id) == ("shop1", "")
 
 
+def test_an_allowed_message_records_attribution_never_the_text():
+    """A message that actually gets processed still writes an audit line — tenant, this
+    customer's own pseudonym, the wamid — so it can still be attributed after
+    CHAT_RETENTION_DAYS purges the message's own content. Never the text itself."""
+    gate = _ScriptedConsentGate(ALLOWED)
+    auditor = _RecordingAuditor()
+    c = _container(gate)
+    run(_ingest(c, _settings(), auditor=auditor))
+    assert len(auditor.calls) == 1
+    action, kwargs = auditor.calls[0]
+    assert action == "whatsapp_assistant.message_attributed"
+    assert kwargs["tenant"] == "shop1"
+    assert kwargs["resource"].startswith("wamid:")
+    # THE ACTOR IS THE PSEUDONYM, and it is the only identifying thing in the whole call —
+    # nowhere in the recorded kwargs does the raw phone number or the message text appear.
+    assert "actor" in kwargs and kwargs["actor"]
+    assert "+9665" not in str(kwargs)
+    assert "hi" not in str(kwargs.get("metadata", {}))
+
+
 def test_a_refusal_records_a_non_critical_audit_entry():
     gate = _ScriptedConsentGate(DENIED, reason="withdrawn")
     auditor = _RecordingAuditor()

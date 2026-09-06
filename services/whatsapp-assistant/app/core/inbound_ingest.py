@@ -99,6 +99,22 @@ async def ingest_inbound_message(
         # its whole conversation regardless.
         await container.inbound_store.attach_subject_ref(tenant, wamid, subject_ref)
 
+        # WHO, WHEN, NEVER WHAT — written to the audit chain BEFORE the message's own content can
+        # ever age out under CHAT_RETENTION_DAYS. The chat text stays exactly where it already
+        # lived (this service's own store, purged on schedule); this is a second, much smaller
+        # fact recorded separately — tenant, this subject's pseudonym, and the wamid — so a shop
+        # can still be told "a conversation happened, from this customer, at this time" for a
+        # message whose actual content is long gone. Never critical: refusing every ordinary
+        # inbound message because the audit log is briefly unreachable would take the whole
+        # assistant down to protect a record, the same trade this file already makes for
+        # consent_refused/proposal_rejected above and below.
+        try:
+            await auditor.record(
+                "whatsapp_assistant.message_attributed", actor=subject_ref,
+                resource=f"wamid:{wamid}", tenant=tenant)
+        except Exception:                                            # noqa: BLE001
+            pass
+
         if kind in ("button_reply", "list_reply"):
             if reply_id.startswith("triage:"):
                 # The mandatory first-message triage gate's own list-reply ids — resolved
