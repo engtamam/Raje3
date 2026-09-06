@@ -1,6 +1,9 @@
-<!-- Rendered by deploy/seed/legal/render_markdown.py — do not hand-edit. -->
+<!-- THIS FILE IS THE SOURCE OF TRUTH. Edit it directly — that is now the correct thing to do. -->
+<!-- terms.yaml (the clauses:/categories:/additions: template it used to be rendered from) is -->
+<!-- retired, same move as privacy-policy.md's own: seed-legal.sh now publishes straight from -->
+<!-- this .md, and the YAML was left behind as a stale, unread second copy. -->
 
-<!-- Source of truth: terms.yaml's own clauses:/categories:/additions:. -->
+<!-- publication: accept -->
 
 
 
@@ -119,6 +122,18 @@
 ### بقاء الالتزامات بعد الإنهاء
 
 لا ينتهي بانتهاء هذه الشروط أو الاشتراك، أياً كان سببه، ما يلي: حدّ المسؤولية (البند 7)، وميزات الذكاء الاصطناعي (البند 7.1) فيما يخص مطالبات نشأت أثناء سريان الاشتراك، وتعويض العميل للمزوّد (البند 8)، وتقديم الخدمة كما هي (البند 12) فيما يخص الفترة التي استُخدمت فيها، والملكية الفكرية (البند 9) فيما يخص الاستخدام أثناء سريان الاشتراك، والنظام الواجب التطبيق والاختصاص (البند 11)، وأحكام حفظ بيانات العميل بعد الإنهاء (البند 5). ويبقى كلٌّ منها نافذاً بالقدر اللازم لتحقيق الغرض منه.
+
+### الاسترجاع والاستبدال
+
+المقابل المدفوع عن أي مدة اشتراك غير قابل للاسترجاع ولا للاستبدال بأي حال، سواء لعدم استخدام العميل الخدمة، أو لتغيّر حاجته، أو لأي سبب راجع إليه — وينطبق الشيء ذاته على أي رصيد يشحنه العميل بمحفظته (البند التالي). ولا يُستثنى من ذلك إلا حالة واحدة محدَّدة: أن تتعطّل الخدمة تعطّلاً تاماً — بحيث يتعذّر على العميل استخدامها بالكامل، لا مجرّد انخفاض جزئي في الأداء أو بطء — لمدة تراكمية تبلغ 30% أو أكثر من إجمالي ساعات الشهر التقويمي محلّ الاشتراك (ويُحسب إجمالي الساعات بضرب عدد أيام ذلك الشهر في 24). ولا يُحتسَب ضمن هذه النسبة أي تعطّل مستثنى بموجب بند الإتاحة أو بند القوة القاهرة، ولا ما ينشأ عن خدمة طرف ثالث كواتساب أو مزوّدي خدمات الذكاء الاصطناعي أو مزوّد الاستضافة. وفي هذه الحالة القصوى وحدها، يقتصر حق العميل على استرداد مقابل ذلك الشهر تحديداً لا غير — دون أي مقابل عن أي شهرٍ آخر، ودون أي تعويضٍ إضافي أياً كان نوعه أو أساسه، ويبقى خاضعاً لحدّ المسؤولية العام (البند 7) كأي مطالبة أخرى. ولا يكون طلب الاسترداد نافذاً إلا بتقديمه كتابةً خلال ثلاثين يوماً من نهاية الشهر محلّ الطلب، مرفقاً بما يُثبت مدّة التعطّل.
+
+### رصيد المحفظة والشحن اليدوي
+
+للعميل أن يشحن رصيداً بمحفظته لدى المنصة لأغراض محدَّدة يُخصَّص لها (كرصيد ميزات الذكاء الاصطناعي أو تجديد الاشتراك، على النحو المبيَّن له في لوحته وقت الشحن). وهذا الشحن نهائي بمجرد إتمامه: لا يُسترد نقداً، ولا يُحوَّل إلى غرضٍ غير الذي خُصِّص له، سواء استهلك العميل رصيده كلّه أو بعضه أو لم يستهلك منه شيئاً. وعلى العميل ألّا يُقدم على الشحن إلا وهو على يقينٍ من نيّته استهلاك الرصيد فعلاً، إذ إن الشحن قرارٌ لا رجعة فيه بمجرّد صدوره — لا مجرّد وسيلة احتياطية يُعاد النظر فيها لاحقاً. ولا يلتزم المزوّد بردّ أي رصيدٍ متبقٍّ عند إنهاء الاشتراك أو إلغائه، أياً كان سبب ذلك ومن صدر عنه. ويسري على هذا البند الاستثناء الوارد في البند السابق (تعطّل الخدمة القصوى) بذات حدوده وشروطه، لا بأوسع منها.
+
+### استهلاك رصيد ميزات الذكاء الاصطناعي
+
+قد تُقاس ميزات الذكاء الاصطناعي المتاحة للعميل برصيدٍ يُترجم الاستخدام الفعلي إلى ما يقابله منه وفق معدّل تحويل يُقرّره المزوّد ويُتيحه للعميل، لا بعدد رسائل ولا بعدد توكينات يفهمها العميل بذاتها. وللمزوّد تعديل هذا المعدّل من حينٍ لآخر ليعكس تغيّر ما يتقاضاه مزوّدو خدمة الذكاء الاصطناعي أنفسهم، دون أن يُعدّ ذلك تعديلاً لسعر باقة العميل ولا مساساً به. والرصيد المضمَّن ضمن باقة العميل يتجدّد بتجدُّد كل مدّة اشتراك؛ وما لم يُستهلك منه في مدّته لا يُرحَّل إلى ما بعدها ولا يُسترد نقداً بأي حال. ومتى نفد رصيد العميل بشقّيه — المضمَّن وما شحنه يدوياً — توقّفت الميزة عن الرد حتى يتجدّد رصيده أو يشحن رصيداً جديداً، ولا يُعدّ هذا التوقّف عيباً في الخدمة ولا إخلالاً من المزوّد بأي حال، كونه أثراً مباشراً لاستهلاك العميل رصيده الخاص لا لخللٍ تقني من جهة المزوّد. وتسري على كل ما يتصل برصيد هذه الميزات قواعد البند السابق (رصيد المحفظة والشحن اليدوي) دون استثناء، وبخاصة عدم استرجاع أي مقابلٍ دُفع عن رصيدٍ لم يُستهلَك.
 
 
 ---
@@ -239,6 +254,18 @@ The Customer may not assign these Terms without the Provider's written consent. 
 ### Survival
 
 The following do not end on the expiry or termination of these Terms or the subscription, whatever the cause: the limitation of liability (clause 7); AI features (clause 7.1) as to claims arising while the subscription was in force; the Customer's indemnity of the Provider (clause 8); the service being provided as-is (clause 12) as to the period it was used; intellectual property (clause 9) as to use during the subscription; governing law and jurisdiction (clause 11); and the provisions on retaining the Customer's data after termination (clause 5). Each continues in force to the extent necessary to achieve its purpose.
+
+### Refunds and exchanges
+
+Fees paid for any subscription period are non-refundable and non-exchangeable under any circumstances, whether because the Customer did not use the service, its needs changed, or for any other reason attributable to it — and the same applies to any balance the Customer tops up in its wallet (the following clause). The sole exception is a single, defined case: the service suffers a TOTAL outage — rendering it entirely unusable, not merely a partial degradation in performance or slowness — for a cumulative period equal to or exceeding 30% of the total hours in the calendar month of the subscription concerned (total hours being that month's number of days multiplied by 24). Excluded from that percentage is any outage excepted under the Availability clause or the Force majeure clause, and any outage arising from a third-party service such as WhatsApp, AI service providers, or the hosting provider. In this extreme case alone, the Customer's right is limited to a refund of that specific month's fee only — no fee for any other month, and no further compensation of any kind or basis, remaining subject to the general limitation of liability (clause 7) like any other claim. A refund request is effective only if submitted in writing within thirty days of the end of the month concerned, accompanied by evidence of the outage's duration.
+
+### Wallet balance and manual top-up
+
+The Customer may add balance to its platform wallet for specific, designated purposes (such as AI-feature credit or subscription renewal, as shown to it in its console at the time of the top-up). Such a top-up is final the moment it is completed: it is not refunded in cash, and is not converted to a purpose other than the one it was designated for, whether the Customer consumes all, part, or none of it. The Customer must not proceed with a top-up unless certain of its intention actually to consume the balance — a top-up is an irrevocable decision the moment it is made, not a reserve to be reconsidered later. The Provider is under no obligation to refund any remaining balance on termination or cancellation of the subscription, whatever the reason and whoever initiated it. The exception in the preceding clause (extreme service outage) applies to this clause on the same terms and limits, and no wider.
+
+### Consumption of AI-feature credit
+
+The AI features made available to the Customer may be metered by a credit that translates actual usage into its equivalent at a conversion rate the Provider sets and makes available to the Customer — not by a number of messages nor a number of tokens the Customer itself need understand. The Provider may change that rate from time to time to reflect changes in what AI service providers themselves charge, without this being treated as, or affecting, a change in the Customer's plan price. The credit included in the Customer's plan renews with each subscription period; whatever remains unused within that period is not carried forward to the next and is not refunded in cash under any circumstances. Once the Customer's credit is exhausted — both the included portion and any manually topped-up portion — the feature stops responding until the credit renews or a new top-up is made; this pause is not a defect in the service nor a breach by the Provider under any circumstances, being the direct result of the Customer consuming its own credit rather than a technical fault on the Provider's part. Everything relating to this feature's credit is governed, without exception, by the rules of the preceding clause (wallet balance and manual top-up), in particular the non-refundability of any fee paid for credit that went unused.
 
 
 ---
