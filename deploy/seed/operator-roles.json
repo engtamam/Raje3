@@ -113,7 +113,8 @@
         "service_accounts:write",
         "tenant.manage",
         "tickets.manage",
-        "platform.tickets"
+        "platform.tickets",
+        "platform.assistant"
       ]
     },
     {

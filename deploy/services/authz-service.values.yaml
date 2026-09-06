@@ -138,7 +138,8 @@ env:
     tenant.read,identity.read,identity.manage,identity.self,compliance.self,compliance.manage,
     service_accounts:read,service_accounts:write,
     ticket.read,ticket.write,tickets.self,
-    analytics.read,wallet.read,notification.read
+    analytics.read,wallet.read,notification.read,
+    assistant.ask
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────
   AUDIT_SINK_DRIVER: "http"
