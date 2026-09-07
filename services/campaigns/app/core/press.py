@@ -16,10 +16,16 @@ window are one press. Nothing here is derived from the attempt — not the time,
 the attempt is exactly what is uncertain.
 
 CLAIMED BEFORE THE CAMPAIGN EXISTS. The claim is written first, so the second press finds it even
-while the first is still sending. That narrows the race from «the whole duration of the send» —
-seconds, and the actual window an owner presses in — to the gap between one read and one write.
-It does not eliminate it, and pretending otherwise would be the more dangerous claim: a datastore
-with a compare-and-set would, and this one does not have one.
+while the first is still sending.
+
+FIXED 2026-09-07 TO ACTUALLY BE ATOMIC — this used to read that claim with a plain `store.get()`
+and write it back with a plain `store.put()`, a real check-then-act race a QA audit caught (two
+genuinely simultaneous presses both read "unclaimed" before either wrote). The datastore port has
+ALWAYS exposed `store.claim()`, a real atomic take-if-unheld-or-expired primitive built for exactly
+this ("the one operation put cannot express" — see `ports/datastore.py`'s own docstring); this
+module simply never called it. Now it does, so the decision and the write are one statement at the
+store layer, not two round trips an attacker's timing (or an owner's own double-tap) can land
+between.
 
 THE WINDOW IS TEN MINUTES. Long enough to cover a slow send, an owner reloading the page, and a
 retry from a flaky connection; short enough that running the same campaign again tomorrow — which
@@ -63,17 +69,31 @@ def key_for(tenant: str, *, goal: str, owner_text: str, service_id: str, branch_
 
 
 async def claim(store: Any, tenant: str, key: str, *, now: int) -> Press:
-    """Take the press, or report who took it. Written BEFORE the campaign, deliberately."""
-    row = await store.get(PRESSES, key)
-    if row and int(row.get("at") or 0) > now - WINDOW_SECONDS:
-        cid = str(row.get("campaign_id") or "")
-        return Press(key, first=False, campaign_id=cid, in_flight=not cid)
+    """Take the press, or report who took it. Written BEFORE the campaign, deliberately.
 
-    await store.put(PRESSES, key, {"id": key, "tenant": tenant, "at": now, "campaign_id": ""})
-    return Press(key, first=True)
+    Routed through `store.claim()` (see the module docstring above) — `ttl_seconds=WINDOW_SECONDS`
+    reproduces the old "still within the window" test exactly, but as one atomic store operation:
+    unclaimed-or-expired takes it and returns `first=True`; held-and-fresh loses, and this then
+    reads the row to report what the winner is doing (`settle()` below keeps the claim alive with
+    its own fresh `expires`, so a second press within the window always finds it held, whether the
+    first press is still sending or already settled)."""
+    took = await store.claim(
+        PRESSES, key, {"id": key, "tenant": tenant, "at": now, "campaign_id": ""},
+        ttl_seconds=WINDOW_SECONDS, now=now)
+    if took:
+        return Press(key, first=True)
+
+    row = await store.get(PRESSES, key) or {}
+    cid = str(row.get("campaign_id") or "")
+    return Press(key, first=False, campaign_id=cid, in_flight=not cid)
 
 
 async def settle(store: Any, tenant: str, key: str, campaign_id: str, *, now: int) -> None:
-    """Name the campaign the claim produced, so a later press can return it rather than refuse."""
+    """Name the campaign the claim produced, so a later press can return it rather than refuse.
+
+    Carries its own fresh `expires` (mirroring `claim()`'s), NOT dropped — without it, the very
+    next press right after settling would find no `expires` field, read as an already-expired
+    claim, and win a brand-new claim of its own: the exact double-campaign bug this whole module
+    exists to prevent, just moved one step later."""
     await store.put(PRESSES, key, {"id": key, "tenant": tenant, "at": now,
-                                   "campaign_id": campaign_id})
+                                   "campaign_id": campaign_id, "expires": now + WINDOW_SECONDS})
