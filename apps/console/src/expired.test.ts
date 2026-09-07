@@ -6,7 +6,7 @@
  * caught its own error into a console nobody has open, and the person kept looking at a skeleton
  * that would never fill. He was signed out on the server and still holding an application.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_EXPIRED } from './expired';
 import { recentCustomers } from './api';
 import type { Session } from './session';
@@ -22,6 +22,13 @@ function heard(): { count: () => number; stop: () => void } {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+});
+
+// Without this, a stubbed fetch survives past this file's last test — invisible under the default
+// `isolate: true` (each file gets its own global scope), but a real leak into whichever test file
+// runs next in the same worker if isolation is ever turned off.
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('a refused token ends the session from wherever it was refused', () => {

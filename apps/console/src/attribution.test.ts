@@ -8,7 +8,7 @@
  *
  * These assert the WIRE, because the wire is what was missing.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisitQueue } from './queue';
 import { forget, proof, remember } from './operator';
 import type { Session } from './session';
@@ -27,6 +27,13 @@ beforeEach(() => {
   forget();
   vi.restoreAllMocks();
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 201 })));
+});
+
+// Without this, a stubbed fetch survives past this file's last test — invisible under the default
+// `isolate: true` (each file gets its own global scope), but a real leak into whichever test file
+// runs next in the same worker if isolation is ever turned off.
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('أ-3 · the moment of the save leaves the device', () => {

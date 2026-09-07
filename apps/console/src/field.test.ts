@@ -6,7 +6,7 @@
  * network, a retry does not become a second visit, and a failure that retrying cannot fix is held
  * rather than dropped.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisitQueue, newIdempotencyKey } from './queue';
 import type { Session } from './session';
 
@@ -21,6 +21,13 @@ function draft(key: string) {
 beforeEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
+});
+
+// Without this, a stubbed fetch survives past this file's last test — invisible under the default
+// `isolate: true` (each file gets its own global scope), but a real leak into whichever test file
+// runs next in the same worker if isolation is ever turned off.
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('the key that stops a double charge', () => {
