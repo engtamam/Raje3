@@ -130,7 +130,10 @@ cronJobs:
     # call. See affiliate-service.values.yaml's own note for the full history.
     jitterSeconds: 30
   - name: reclaim
-    schedule: "*/5 * * * *"
+    # OFFSET FROM :00 — this shared the exact 5-minute mark with four other services' own
+    # cron jobs, found live diagnosing a real slowdown on a 2-vCPU node. See compliance-
+    # service.values.yaml's dsar-sweep for the full note — each of the five now has its own minute.
+    schedule: "2-59/5 * * * *"
     path: /internal/jobs/reclaim
 
 ingress:

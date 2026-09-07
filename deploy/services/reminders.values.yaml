@@ -320,7 +320,10 @@ env:
 # every-minute crons across the fleet.
 cronJobs:
   - name: tick
-    schedule: "*/5 * * * *"
+    # OFFSET FROM :00 — this shared the exact 5-minute mark with four other services' own
+    # cron jobs, found live diagnosing a real slowdown on a 2-vCPU node. See compliance-
+    # service.values.yaml's dsar-sweep for the full note — each of the five now has its own minute.
+    schedule: "4-59/5 * * * *"
     path: /internal/reminders/tick
 
   # DID THEY ARRIVE. WhatsApp's status callbacks land on notification-service, which persists each

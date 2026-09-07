@@ -210,7 +210,12 @@ env:
 # nothing to sweep. Schedule it the day that changes.
 cronJobs:
   - name: dsar-sweep
-    schedule: "*/5 * * * *"
+    # OFFSET FROM :00, DELIBERATELY — this used to share the exact "*/5 * * * *" mark with four
+    # other services' own 5-minute jobs (job-service reclaim, operations wallet-topups-reconcile,
+    # reminders tick, webhook-service sweep), all landing on the same instant on a 2-vCPU node —
+    # found live via server_cpu_pressure while diagnosing a real slowdown report. Each of the five
+    # now carries its own minute so the pile-up cannot recur.
+    schedule: "1-59/5 * * * *"
     path: /internal/compliance/dsar/run
   - name: retention-purge
     schedule: "17 3 * * *"

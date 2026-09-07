@@ -388,7 +388,10 @@ cronJobs:
   # no cost to running it often, and every minute it is NOT run is a minute a paid top-up sits
   # uncredited for no reason the customer can see.
   - name: wallet-topups-reconcile
-    schedule: "*/5 * * * *"
+    # OFFSET FROM :00 — this shared the exact 5-minute mark with four other services' own
+    # cron jobs, found live diagnosing a real slowdown on a 2-vCPU node. See compliance-
+    # service.values.yaml's dsar-sweep for the full note — each of the five now has its own minute.
+    schedule: "3-59/5 * * * *"
     path: /internal/operations/wallet-topups/reconcile
 
   # THE SEAT AND BRANCH COUNTS, RECONCILED NIGHTLY — the other half of a deliberate fail-open.
