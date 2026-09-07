@@ -6,8 +6,14 @@
  * silently: they exercise `allActions`/`byGroup` against the REAL response shape, not a
  * convenient one.
  */
-import { describe, expect, it } from 'vitest';
-import { allActions, byGroup, type AdminCatalog } from './catalog';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { allActions, byGroup, fetchCatalog, invalidateCatalogCache, type AdminCatalog } from './catalog';
+
+let reqMock: ReturnType<typeof vi.fn>;
+vi.mock('./api', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./api')>();
+  return { ...real, req: (...args: unknown[]) => reqMock(...args) };
+});
 
 const CATALOG: AdminCatalog = {
   services: [
@@ -42,5 +48,49 @@ describe('byGroup', () => {
   it('an action with no group lands in "أخرى", never dropped', () => {
     const groups = byGroup(CATALOG);
     expect(groups.get('أخرى')?.map((a) => a.id)).toEqual(['tenant.list']);
+  });
+});
+
+describe('fetchCatalog caching', () => {
+  afterEach(() => { vi.clearAllMocks(); invalidateCatalogCache(); });
+
+  it('a second call for the same token, within the TTL, never hits the network again', async () => {
+    reqMock = vi.fn().mockResolvedValue(CATALOG);
+    const session = { access_token: 'tok-1' };
+
+    const first = await fetchCatalog(session);
+    const second = await fetchCatalog(session);
+
+    expect(first).toBe(second);   // THE SAME OBJECT, not just an equal one — one shared promise.
+    expect(reqMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a different token is never served the previous token\'s cached answer', async () => {
+    reqMock = vi.fn().mockResolvedValue(CATALOG);
+    await fetchCatalog({ access_token: 'tok-1' });
+    await fetchCatalog({ access_token: 'tok-2' });
+    expect(reqMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed fetch is never cached — the next call retries the network, not the same rejection', async () => {
+    reqMock = vi.fn().mockRejectedValueOnce(new Error('outage')).mockResolvedValueOnce(CATALOG);
+    const session = { access_token: 'tok-1' };
+
+    await expect(fetchCatalog(session)).rejects.toThrow('outage');
+    const second = await fetchCatalog(session);
+
+    expect(second).toEqual(CATALOG);
+    expect(reqMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidateCatalogCache forces the very next call back onto the network', async () => {
+    reqMock = vi.fn().mockResolvedValue(CATALOG);
+    const session = { access_token: 'tok-1' };
+
+    await fetchCatalog(session);
+    invalidateCatalogCache();
+    await fetchCatalog(session);
+
+    expect(reqMock).toHaveBeenCalledTimes(2);
   });
 });

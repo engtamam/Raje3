@@ -41,8 +41,37 @@ export interface AdminCatalog {
   unreachable: string[];
 }
 
+// CACHED, SHORT-LIVED, PER TOKEN. Every admin screen (see the ~20 call sites of fetchCatalog) is
+// its OWN component that unmounts on tab switch (AdminPortal.tsx has no keep-alive) and re-fetches
+// on remount — with no cache, that meant a fresh `/api/v1/admin/catalog` round trip, which fans
+// out to every service's own admin_actions on the BACKEND (this module's own header), on every
+// single tab switch. An operator bouncing between tabs paid that fan-out's full latency every
+// time, for data (which actions exist and what capability each needs) that does not change
+// mid-session. 30s is long enough to absorb a burst of tab switches, short enough that a real
+// capability change (a role edited elsewhere) is never stale for more than a moment — same order
+// of magnitude as this app's other short caches, not an attempt at "forever until refresh".
+const CACHE_TTL_MS = 30_000;
+let cached: { token: string; at: number; promise: Promise<AdminCatalog> } | null = null;
+
 export async function fetchCatalog(session: AdminSession): Promise<AdminCatalog> {
-  return req<AdminCatalog>('/api/v1/admin/catalog', 'GET', undefined, session.access_token);
+  const now = Date.now();
+  if (cached && cached.token === session.access_token && now - cached.at < CACHE_TTL_MS) {
+    return cached.promise;
+  }
+  const promise = req<AdminCatalog>('/api/v1/admin/catalog', 'GET', undefined, session.access_token);
+  cached = { token: session.access_token, at: now, promise };
+  // A FAILED FETCH IS NEVER CACHED — a transient 500 must not lock every screen into failing for
+  // the next 30s just because the first caller happened to hit it during an outage.
+  promise.catch(() => { if (cached?.promise === promise) cached = null; });
+  return promise;
+}
+
+/** Forces the next `fetchCatalog` to hit the network — for a screen that just changed something
+ *  the catalog itself reflects (a role's capabilities, say) and needs the very next read to be
+ *  fresh rather than waiting out the cache. Not currently called anywhere; here so a future screen
+ *  that needs it does not have to re-invent this module's own cache shape to get it. */
+export function invalidateCatalogCache(): void {
+  cached = null;
 }
 
 /** Every action across every service, flattened — the shape most screens actually want. Two
