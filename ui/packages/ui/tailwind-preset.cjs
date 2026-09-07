@@ -45,6 +45,16 @@ module.exports = {
           soft: v('--accent-soft'),
           'on-soft': v('--accent-on-soft'),
         },
+        // THE GOLD COMPANION — added 2026-09-07 alongside the Lumera rebrand. `bg-secondary`,
+        // `text-secondary-on-soft`, etc. — same shape as `accent`, deliberately (see
+        // theme.config.ts's own Palette docstring for why).
+        secondary: {
+          DEFAULT: v('--secondary'),
+          hover: v('--secondary-hover'),
+          contrast: v('--secondary-contrast'),
+          soft: v('--secondary-soft'),
+          'on-soft': v('--secondary-on-soft'),
+        },
         success: {
           DEFAULT: v('--success'),
           soft: v('--success-soft'),
@@ -105,6 +115,17 @@ module.exports = {
         lg: 'var(--shadow-lg)',
         pop: 'var(--shadow-pop)',
         glow: 'var(--shadow-glow)',
+        'glow-gold': 'var(--shadow-glow-gold)',
+      },
+      // REAL GRADIENT UTILITIES — `bg-gradient-accent`/`bg-gradient-gold`/`bg-gradient-hero`/
+      // `bg-gradient-ground`, added 2026-09-07 alongside the Lumera rebrand (theme.config.ts's own
+      // Palette docstring on `gradient-*`). Each resolves to a ready `linear-gradient(...)` /
+      // radial-gradient string from the theme, never hand-rolled colour stops at the call site.
+      backgroundImage: {
+        'gradient-accent': 'var(--gradient-accent)',
+        'gradient-gold': 'var(--gradient-gold)',
+        'gradient-hero': 'var(--gradient-hero)',
+        'gradient-ground': 'var(--gradient-ground)',
       },
       fontFamily: {
         sans: 'var(--font-sans)',

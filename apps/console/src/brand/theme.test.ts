@@ -13,18 +13,18 @@ import { describe, expect, it } from 'vitest';
 import { applyRaje3 } from './theme';
 
 describe('راجِع theme', () => {
-  it('applies the real product accent — violet, not a leftover gold', () => {
+  it('applies the real product accent — Royal Amethyst, per the Lumera rebrand (2026-09-07)', () => {
     applyRaje3();
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    expect(accent.toLowerCase()).toBe('#6a4cf5');
+    expect(accent.toLowerCase()).toBe('#5c1b7a');
   });
 
   it('forces the light appearance — the field screen must never render dark', () => {
     applyRaje3();
     const surface0 = getComputedStyle(document.documentElement).getPropertyValue('--surface-0').trim();
-    // The dark theme's ground is a near-black violet; light's is a near-white one. Cheap, reliable
+    // The dark theme's ground is a near-black amethyst; light's is a near-white one. Cheap, reliable
     // signal without importing the palette module directly into a test that should watch the DOM.
-    expect(surface0.toLowerCase()).toBe('#f4f5fa');
+    expect(surface0.toLowerCase()).toBe('#fdf8ff');
   });
 
   it('sets Arabic as the document direction', () => {
