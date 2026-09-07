@@ -21,7 +21,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { ShopPane } = await import('./AccountPanes');
+const { AiNotesCard } = await import('./AccountPanes');
 
 afterEach(() => { cleanup(); });
 
@@ -34,10 +34,10 @@ function withNotesActions(extra: string[] = []) {
 
 describe('AiNotesCard', () => {
   it('is absent entirely when operations.ai_notes is not in the catalogue (the kill switch)', async () => {
-    actionIds = new Set(['tenant.view_self']);
-    callImpl = async (_s, a) => (a.id === 'tenant.view_self' ? { id: 't1', name: 'محل الأناقة' } : {});
-    render(<ShopPane session={session} catalog={catalog} />);
-    await screen.findByText('محل الأناقة');
+    actionIds = new Set([]);
+    callImpl = async () => ({});
+    const { container } = render(<AiNotesCard session={session} catalog={catalog} />);
+    expect(container.firstChild).toBeNull();
     expect(screen.queryByText('ملاحظات المساعد الذكي عبر واتساب')).toBeFalsy();
   });
 
@@ -48,7 +48,7 @@ describe('AiNotesCard', () => {
       if (a.id === 'operations.ai_notes') return { text: 'نفتح من السبت للخميس' };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<AiNotesCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('ملاحظات المساعد الذكي عبر واتساب') as HTMLTextAreaElement;
     await waitFor(() => expect(box.value).toBe('نفتح من السبت للخميس'));
   });
@@ -60,7 +60,7 @@ describe('AiNotesCard', () => {
       if (a.id === 'operations.ai_notes') return { text: 'نص أصلي' };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<AiNotesCard session={session} catalog={catalog} />);
     await screen.findByDisplayValue('نص أصلي');
     const saveBtn = screen.getByText('حفظ').closest('button') as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
@@ -75,7 +75,7 @@ describe('AiNotesCard', () => {
       if (a.id === 'operations.set_ai_notes') { posted = body; return { text: 'نفتح من السبت للخميس', redacted: [] }; }
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<AiNotesCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('ملاحظات المساعد الذكي عبر واتساب');
     fireEvent.change(box, { target: { value: 'نفتح من السبت للخميس' } });
     fireEvent.click(screen.getByText('حفظ'));
@@ -92,7 +92,7 @@ describe('AiNotesCard', () => {
       if (a.id === 'operations.set_ai_notes') return { text: 'اتصل بنا [phone]', redacted: ['phone'] };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<AiNotesCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('ملاحظات المساعد الذكي عبر واتساب');
     fireEvent.change(box, { target: { value: 'اتصل بنا 0501234567' } });
     fireEvent.click(screen.getByText('حفظ'));
@@ -107,7 +107,7 @@ describe('AiNotesCard', () => {
       if (a.id === 'operations.ai_notes') return { text: '' };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<AiNotesCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('ملاحظات المساعد الذكي عبر واتساب');
     fireEvent.change(box, { target: { value: 'x'.repeat(2001) } });
 
@@ -123,7 +123,7 @@ describe('AiNotesCard', () => {
       if (a.id === 'operations.ai_notes') return { text: 'نص' };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<AiNotesCard session={session} catalog={catalog} />);
     await screen.findByText('ملاحظات المساعد الذكي عبر واتساب');
     await screen.findByText('لا تملك صلاحية تعديل هذه الملاحظات.');
     expect(screen.queryByText('حفظ')).toBeFalsy();

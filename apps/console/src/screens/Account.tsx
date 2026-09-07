@@ -29,7 +29,7 @@ import { Segmented } from '../rj-ui/Segmented';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
-import { DataPane, InvoicesPane, KeysPane, ShopPane } from './AccountPanes';
+import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { WalletPane } from './Wallet';
 import { TeamScreen } from './Team';
@@ -246,8 +246,10 @@ export function AccountScreen(
         <div className="flex flex-col gap-4">
           {/* «منشأتي» split into three, at the product owner's own direction — it had grown into
               five sections stacked in one long scroll. Same Segmented pattern as the top-level
-              tabs, one level down. */}
+              tabs, one level down — `size="sm"` now marks it as exactly that: nested, not a
+              second copy of the top-level row (Segmented's own module docstring). */}
           <Segmented
+            size="sm"
             className="grid w-full grid-cols-3 gap-1 [&>button]:w-full [&>button]:truncate"
             ariaLabel="أقسام منشأتي"
             value={shopSub}
@@ -268,6 +270,13 @@ export function AccountScreen(
                   the overwhelming default) and a list, by reading `shop_mode`; nothing here needs
                   to know which one it is. */}
               <ConnectByBranch session={session} catalog={catalog} />
+
+              {/* MOVED FROM «الهوية والإعدادات» 2026-09-07 — both configure the WhatsApp
+                  assistant's own behaviour (what it knows about this shop, how long a customer's
+                  message may be before it's refused), not the establishment's identity. A shop
+                  owner flagged the old placement directly. */}
+              <AiNotesCard session={session} catalog={catalog} />
+              <MsgWordLimitCard session={session} catalog={catalog} />
             </div>
           ) : null}
 

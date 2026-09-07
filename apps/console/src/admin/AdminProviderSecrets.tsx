@@ -223,19 +223,30 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
             options={groups.map(([provider, providerRows]) => {
               const meta = PROVIDER_META[provider] ?? PROVIDER_META.other;
               const configuredCount = providerRows.filter((r) => r.configured).length;
-              return { value: provider, label: `${meta.label} (${configuredCount}/${providerRows.length})` };
+              // A REAL COLOUR-CODED PILL NOW, NOT PLAIN TEXT BAKED INTO THE LABEL — the owner
+              // flagged "(2/6)" with zero colour directly; complete/partial/empty now actually
+              // reads as such at a glance.
+              const badgeTone: 'complete' | 'partial' | 'empty' =
+                configuredCount === 0 ? 'empty'
+                  : configuredCount === providerRows.length ? 'complete' : 'partial';
+              return {
+                value: provider, label: meta.label,
+                badge: `${configuredCount}/${providerRows.length}`, badgeTone,
+              };
             })}
           />
           {active === 'assistant_ai' ? (
             <div className="flex flex-col gap-4">
               {/* المسار — واحد فقط اليوم، لكن ظاهر ومُختار من الآن. مسار ثانٍ مستقبلاً (محرّك ذكاء
-                 ثانٍ، أو خدمة عملاء المنصة) يضاف هنا بلا إعادة تصميم — انظر تعليق `AI_PATHS` أعلاه. */}
+                 ثانٍ، أو خدمة عملاء المنصة) يضاف هنا بلا إعادة تصميم — انظر تعليق `AI_PATHS` أعلاه.
+                 `size="sm"` — NESTED under the provider row above, so it reads as a sub-choice,
+                 not a second copy of the same control (see Segmented's own module docstring). */}
               <div className="flex flex-col gap-1">
                 <span className="text-label font-medium text-text-secondary">المسار</span>
-                <Segmented value={aiPath} onChange={setAiPath}
+                <Segmented size="sm" value={aiPath} onChange={setAiPath}
                           options={AI_PATHS.map((p) => ({ value: p.value, label: p.label }))} />
               </div>
-              <Segmented value={aiTab} onChange={(v) => setAiTab(v as 'admin' | 'calc')}
+              <Segmented size="sm" value={aiTab} onChange={(v) => setAiTab(v as 'admin' | 'calc')}
                         options={[{ value: 'admin', label: 'الإدارة' }, { value: 'calc', label: 'المحاسبة' }]} />
               {aiTab === 'admin' ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

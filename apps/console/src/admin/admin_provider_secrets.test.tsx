@@ -151,8 +151,10 @@ describe('AdminProviderSecrets', () => {
 
     render(<AdminProviderSecrets session={SESSION} />);
     // Meta is first-to-appear in the response, so its tab is shown by default — its own tally
-    // (1/2 configured) rides inside the tab's own label AND inside the "الأسرار" card for it.
-    await waitFor(() => expect(screen.getByText(/^Meta \(1\/2\)/)).toBeTruthy());
+    // (1/2 configured) is now a colour-coded badge NEXT TO the tab's label (Segmented's own
+    // `badge` prop), not baked into one text node, so the label and count are asserted separately.
+    await waitFor(() => expect(screen.getByText('Meta')).toBeTruthy());
+    expect(screen.getByText('1/2')).toBeTruthy();
     await openSecrets();
     expect(screen.getByText('معرّف تطبيق ميتا')).toBeTruthy();
     expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy();

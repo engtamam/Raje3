@@ -145,18 +145,12 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           about the whole establishment, and no shop works on cars in one branch and not another. */}
       <VehiclesCard session={session} catalog={catalog} />
 
-      {/* WHAT THE OWNER WANTS THE WHATSAPP AI ASSISTANT TO KNOW ABOUT HIS OWN SHOP — hours,
-          policies, service details nothing else on the platform already carries. Absent entirely
-          (not shown, not disabled) whenever `operations.ai_notes` is missing from the catalogue —
-          same as every other action-gated card on this pane, and also how the feature's own kill
-          switch (AI_NOTES_ENABLED) hides it without a redeploy on this side. */}
-      <AiNotesCard session={session} catalog={catalog} />
-
-      {/* HOW LONG A CUSTOMER'S SINGLE MESSAGE MAY BE before the assistant refuses it outright and
-          asks for something shorter, without ever calling the model. Same absence discipline as
-          AiNotesCard above — `operations.msg_word_limit` missing from the catalogue hides the
-          card entirely, also how MSG_WORD_LIMIT_ENABLED hides it without a redeploy. */}
-      <MsgWordLimitCard session={session} catalog={catalog} />
+      {/* WHAT THE OWNER WANTS THE WHATSAPP AI ASSISTANT TO KNOW, AND HOW LONG A CUSTOMER'S MESSAGE
+          MAY BE — moved to «ربط واتساب» 2026-09-07 (a shop owner found them under «الهوية
+          والإعدادات», where neither belongs: both configure the WhatsApp assistant's own
+          behaviour, not the establishment's identity). Rendered from Account.tsx's own `whatsapp`
+          sub-tab now, alongside `ConnectByBranch` — see AiNotesCard/MsgWordLimitCard below, both
+          exported for that reason. */}
 
       {/* A PERSONAL PREFERENCE, LAST — not because it matters less, but because it is not a fact
           ABOUT the establishment the way everything above it is; it is one person's own inbox
@@ -207,7 +201,7 @@ const AI_NOTES_MAX = 2000;
  * ask for, firing because he tabbed away mid-thought, is a worse failure here than the extra tap
  * a real button costs.
  */
-function AiNotesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function AiNotesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
   const read = action(catalog, 'operations.ai_notes');
   const write = action(catalog, 'operations.set_ai_notes');
   const [text, setText] = useState<string | null | undefined>(undefined);
@@ -298,7 +292,7 @@ const MSG_WORD_LIMIT_DEFAULT = 100;
  * أطول رسالة يقبلها المساعد من العميل، بالكلمات، قبل أن يرفضها فوراً بأسلوب مؤدب ويطلب منه
  * اختصارها — بلا أي استدعاء للذكاء الاصطناعي.
  */
-function MsgWordLimitCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function MsgWordLimitCard({ session, catalog }: { session: Session; catalog: Catalog }) {
   const read = action(catalog, 'operations.msg_word_limit');
   const write = action(catalog, 'operations.set_msg_word_limit');
   const [limit, setLimit] = useState<number | null | undefined>(undefined);

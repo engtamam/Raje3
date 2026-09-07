@@ -20,7 +20,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { ShopPane } = await import('./AccountPanes');
+const { MsgWordLimitCard } = await import('./AccountPanes');
 
 afterEach(() => { cleanup(); });
 
@@ -34,10 +34,10 @@ function withLimitActions(extra: string[] = []) {
 
 describe('MsgWordLimitCard', () => {
   it('is absent entirely when operations.msg_word_limit is not in the catalogue (the kill switch)', async () => {
-    actionIds = new Set(['tenant.view_self']);
-    callImpl = async (_s, a) => (a.id === 'tenant.view_self' ? { id: 't1', name: 'محل الأناقة' } : {});
-    render(<ShopPane session={session} catalog={catalog} />);
-    await screen.findByText('محل الأناقة');
+    actionIds = new Set([]);
+    callImpl = async () => ({});
+    const { container } = render(<MsgWordLimitCard session={session} catalog={catalog} />);
+    expect(container.firstChild).toBeNull();
     expect(screen.queryByText('حد كلمات رسالة العميل')).toBeFalsy();
   });
 
@@ -48,7 +48,7 @@ describe('MsgWordLimitCard', () => {
       if (a.id === 'operations.msg_word_limit') return { limit: 60 };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<MsgWordLimitCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('حد كلمات رسالة العميل') as HTMLInputElement;
     await waitFor(() => expect(box.value).toBe('60'));
   });
@@ -60,7 +60,7 @@ describe('MsgWordLimitCard', () => {
       if (a.id === 'operations.msg_word_limit') return { limit: 100 };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<MsgWordLimitCard session={session} catalog={catalog} />);
     await screen.findByLabelText('حد كلمات رسالة العميل');
     const saveBtn = screen.getByText('حفظ').closest('button') as HTMLButtonElement;
     expect(saveBtn.disabled).toBe(true);
@@ -75,7 +75,7 @@ describe('MsgWordLimitCard', () => {
       if (a.id === 'operations.set_msg_word_limit') { posted = body; return { limit: 60 }; }
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<MsgWordLimitCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('حد كلمات رسالة العميل');
     fireEvent.change(box, { target: { value: '60' } });
     fireEvent.click(screen.getByText('حفظ'));
@@ -91,7 +91,7 @@ describe('MsgWordLimitCard', () => {
       if (a.id === 'operations.msg_word_limit') return { limit: 100 };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<MsgWordLimitCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('حد كلمات رسالة العميل');
     fireEvent.change(box, { target: { value: '5' } });
 
@@ -107,7 +107,7 @@ describe('MsgWordLimitCard', () => {
       if (a.id === 'operations.msg_word_limit') return { limit: 100 };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<MsgWordLimitCard session={session} catalog={catalog} />);
     const box = await screen.findByLabelText('حد كلمات رسالة العميل');
     fireEvent.change(box, { target: { value: '5000' } });
 
@@ -123,7 +123,7 @@ describe('MsgWordLimitCard', () => {
       if (a.id === 'operations.msg_word_limit') return { limit: 100 };
       return {};
     };
-    render(<ShopPane session={session} catalog={catalog} />);
+    render(<MsgWordLimitCard session={session} catalog={catalog} />);
     await screen.findByText('حد كلمات رسالة العميل');
     await screen.findByText('لا تملك صلاحية تعديل هذا الحد.');
     expect(screen.queryByText('حفظ')).toBeFalsy();

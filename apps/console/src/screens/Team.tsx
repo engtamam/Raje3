@@ -198,6 +198,9 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
         // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
         // ragged block half the screen wide. It takes a className and merges with
         // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
+        // `size="sm"` — this screen is itself reached via منشأتي's own SHOP_SUBTABS row, so this
+        // is a THIRD nesting level; marking it small keeps the hierarchy readable.
+        size="sm"
         className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
         options={[
           { value: 'people', label: 'العاملون' },
