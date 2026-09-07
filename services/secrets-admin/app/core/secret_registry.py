@@ -126,14 +126,14 @@ SECRETS: tuple[SecretEntry, ...] = (
         secret="whatsapp-assistant-secrets",
         namespace="base-services",
         deployment="whatsapp-assistant",
-        label="مشروع الذكاء الاصطناعي (Google Cloud)",
+        label="مشروع ذكاء واتساب المحلات (Google Cloud)",
     ),
     SecretEntry(
         key="ASSISTANT_MODEL_CREDENTIAL",
         secret="whatsapp-assistant-secrets",
         namespace="base-services",
         deployment="whatsapp-assistant",
-        label="مفتاح خدمة الذكاء الاصطناعي (Google Cloud)",
+        label="مفتاح ذكاء واتساب المحلات (Google Cloud)",
     ),
     # ── The active payment gateway ────────────────────────────────────────────────────────────
     # GENERIC SLOT NAMES, DELIBERATELY NOT "TUWAIQPAY_*" — every gateway billing-service ships

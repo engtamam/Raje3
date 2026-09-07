@@ -58,8 +58,10 @@ const SECRET_HELP: Record<string, string> = {
   WHATSAPP_BUSINESS_ACCOUNT_ID: 'من نفس WhatsApp Manager — معرّف حساب واتساب الأعمال (WABA ID) نفسه، يظهر أعلى لوحة الحساب. يلزم فقط لتسجيل القوالب، لا للإرسال نفسه.',
   // البوت يتصل بالذكاء الاصطناعي عبر Vertex AI (Google Cloud)، لا Google AI Studio مباشرة —
   // يحتاج مشروع Google Cloud حقيقي (لا يوجد بعد) ومفتاح خدمة (Service Account) عليه.
-  ASSISTANT_MODEL_PROJECT: 'معرّف مشروع Google Cloud (project id) — من console.cloud.google.com، أعلى الصفحة بجانب اسم المشروع.',
-  ASSISTANT_MODEL_CREDENTIAL: 'مفتاح حساب خدمة (Service Account JSON) من نفس المشروع، بصلاحية Vertex AI User — IAM & Admin ← Service Accounts ← أنشئ مفتاحاً بصيغة JSON، والصق محتواه كاملاً هنا.',
+  // القيمتان تخصّان مشروع Google Cloud اللي بوت واتساب المحلات (لا خدمة عملاء المنصة) يتصل به
+  // ليفكّر ويرد — لازم مشروع حقيقي جاهز أول، لا تُكتبان قبله.
+  ASSISTANT_MODEL_PROJECT: 'اسم مشروعنا داخل Google Cloud. تلقاه أول ما تفتح console.cloud.google.com — مكتوب أعلى الصفحة تحت "Project ID" بالضبط (ليس اسم المشروع العادي، الرقم/الرمز المميز الظاهر تحته).',
+  ASSISTANT_MODEL_CREDENTIAL: 'ملف صغير يُثبت لجوجل إن الطلب فعلاً من مشروعنا. بنفس الموقع: اكتب "Service Accounts" بالبحث الأعلى ← أنشئ واحداً جديداً ← افتحه ← تبويب "Keys" ← "Add Key" ← "JSON". بينزل ملف — افتحه بأي محرر نصوص، انسخ كل محتواه من أول { لآخر }، والصقه هنا كاملاً.',
   // خانة عامة يعيد استخدامها كل مزوّد دفع (Moyasar/Tap/HyperPay/PayTabs/Geidea/APS/TuwaiqPay) —
   // بلا اسم مزوّد مكتوب هنا بالكود عمداً، لأن أي مزوّد نشط اليوم قد لا يكون النشط غداً: أي مزوّد
   // بوابة الدفع المفعّل حالياً بإعدادات النشر (PAYMENT_GATEWAY_DRIVER) — راجع بيانات حسابك عنده.
@@ -94,7 +96,10 @@ const PROVIDER_OF: Record<string, string> = {
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
   meta: { label: 'Meta (واتساب)', icon: MessageCircle },
-  assistant_ai: { label: 'الذكاء الاصطناعي', icon: Sparkles },
+  // اسم مقصود التحديد لا التعميم — "ذكاء واتساب المحلات" لا "الذكاء الاصطناعي" وحدها، عشان لو
+  // انضاف ذكاء اصطناعي ثاني لغرض مختلف مستقبلاً (خدمة عملاء المنصة مثلاً) يكون له بطاقته الخاصة
+  // بلا لبس مع هذا.
+  assistant_ai: { label: 'ذكاء واتساب المحلات', icon: Sparkles },
   payment: { label: 'بوابة الدفع', icon: CreditCard },
   other: { label: 'أخرى', icon: CircleHelp },
 };

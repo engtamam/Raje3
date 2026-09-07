@@ -84,7 +84,7 @@ describe('AdminProviderSecrets', () => {
       });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('الذكاء الاصطناعي');
+    await openProvider('ذكاء واتساب المحلات');
     await waitFor(() => expect(screen.getByText('غير مُعدّ')).toBeTruthy());
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
@@ -118,7 +118,7 @@ describe('AdminProviderSecrets', () => {
 
     render(<AdminProviderSecrets session={SESSION} />);
     await waitFor(() => expect(screen.getByText('Meta (واتساب)')).toBeTruthy());
-    expect(screen.getByText('الذكاء الاصطناعي')).toBeTruthy();
+    expect(screen.getByText('ذكاء واتساب المحلات')).toBeTruthy();
     // collapsed: individual key labels are not in the DOM yet
     expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
     expect(screen.getByText('1 / 2 مُعدّ')).toBeTruthy();   // Meta's own tally, both its keys counted
@@ -129,7 +129,7 @@ describe('AdminProviderSecrets', () => {
     expect(screen.queryByText('مفتاح الذكاء الاصطناعي')).toBeNull();   // the OTHER provider stays collapsed
 
     // opening a second card closes the first — one open at a time
-    fireEvent.click(screen.getByText('الذكاء الاصطناعي'));
+    fireEvent.click(screen.getByText('ذكاء واتساب المحلات'));
     await waitFor(() => expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
   });
@@ -148,12 +148,12 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('الذكاء الاصطناعي');
+    await openProvider('ذكاء واتساب المحلات');
     await waitFor(() => expect(screen.getByText('ASSISTANT_MODEL_CREDENTIAL')).toBeTruthy());
 
-    expect(screen.queryByText(/Vertex AI/)).toBeNull();   // collapsed by default
+    expect(screen.queryByText(/Service Accounts/)).toBeNull();   // collapsed by default
     fireEvent.click(screen.getByLabelText(/ايش هذا؟/));
-    expect(screen.getByText(/Vertex AI/)).toBeTruthy();
+    expect(screen.getByText(/Service Accounts/)).toBeTruthy();
   });
 
   it('generating WHATSAPP_WEBHOOK_VERIFY_TOKEN fills a strong random value and reveals it to copy', async () => {
