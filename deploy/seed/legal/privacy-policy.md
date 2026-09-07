@@ -112,7 +112,7 @@
 
 ### الإتاحة والإشعار والتحديث
 
-- تتاح هذه السياسة قبل الجمع عبر raje3.sa، ومكتوبة بلغة واضحة سهلة القراءة تناسب جميع أصحاب البيانات.
+- تتاح هذه السياسة قبل الجمع عبر منصة راجِع نفسها، ومكتوبة بلغة واضحة سهلة القراءة تناسب جميع أصحاب البيانات.
 - نُشعر أصحاب البيانات عبر إشعارات التطبيق أو الرسائل النصية أو البريد الإلكتروني أو نموذج مستقل قبل الجمع أو أثناءه.
 - نراجع هذه السياسة دورياً، وأي تعديل عليها يُنشر هنا بمجرد اعتماده.
 - روابط ذات صلة: الشروط والأحكام، وسياسة ملفات الارتباط.
@@ -242,7 +242,7 @@ If you cannot exercise a right within the stated period, or you object to proces
 
 ### Availability, Notification and Updates
 
-- This policy is available before collection via raje3.sa, written in clear, easy-to-read language suitable for all Data Subjects.
+- This policy is available before collection through the Raje3 platform itself, written in clear, easy-to-read language suitable for all Data Subjects.
 - We notify Data Subjects via app notifications, SMS, email, or a standalone form before or during collection.
 - We review this policy periodically, and any amendment is published here as soon as it is approved.
 - Related links: Terms & Conditions, Cookie Policy.
