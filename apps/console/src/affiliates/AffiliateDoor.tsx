@@ -26,7 +26,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { Segmented } from '../rj-ui/Segmented';
 import { DoorLayout } from '../screens/DoorLayout';
 import { western } from '../digits';
 import { legalUrl } from '../legal/url';

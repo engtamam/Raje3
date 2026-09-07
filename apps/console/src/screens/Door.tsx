@@ -35,7 +35,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from '
 import { OtpVerify } from '@base-ui/auth/OtpVerify';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { Segmented } from '../rj-ui/Segmented';
 import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check, Eye, EyeOff } from 'lucide-react';

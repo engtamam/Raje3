@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, ChevronRight, Phone, Copy, Check, MessageCircle } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { Segmented } from '../rj-ui/Segmented';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
