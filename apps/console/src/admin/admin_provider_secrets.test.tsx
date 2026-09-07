@@ -253,6 +253,14 @@ describe('AdminProviderSecrets', () => {
            path: '/api/v1/assistant/operator/config/{key}', capability: 'platform.config', confirm: true },
           { id: 'whatsapp_assistant.persona_preview', label: 'x', method: 'GET' as const,
            path: '/api/v1/assistant/operator/persona-preview', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.schedule_pricing', label: 'x', method: 'POST' as const,
+           path: '/api/v1/assistant/operator/pricing/schedule', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.cancel_pending_pricing', label: 'x', method: 'DELETE' as const,
+           path: '/api/v1/assistant/operator/pricing/pending/{key}', capability: 'platform.config', confirm: true },
         ] },
       ],
       unreachable: [],
@@ -270,6 +278,16 @@ describe('AdminProviderSecrets', () => {
       }
       if (path.startsWith('/api/v1/assistant/operator/persona-preview')) {
         return Promise.resolve({ prompt: 'أنت المساعد الرقمي...' });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
+        return Promise.resolve({
+          days: 30, calls: 300, conversations: 100, input_tokens: 90_000, output_tokens: 45_000,
+          avg_input_tokens_per_call: 300, avg_output_tokens_per_call: 150,
+          avg_calls_per_conversation: 3, truncated: false,
+        });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') {
+        return Promise.resolve({ pending: [] });
       }
       throw new Error(`unexpected path ${path}`);
     });
@@ -315,10 +333,124 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText(/أنت المساعد الرقمي/)).toBeTruthy());
     fireEvent.click(screen.getByLabelText('إغلاق'));
 
-    // "المحاسبة" مكانها محجوز، ما فيه شي مبني بعد — نص واضح لا شاشة فارغة تبدو معطّلة.
+    // "المحاسبة" تفتح الحاسبة الحقيقية، لا نص "قريباً" — وتقرأ الاستهلاك الحقيقي فوراً.
     fireEvent.click(screen.getByText('المحاسبة'));
-    expect(screen.getByText(/الحاسبة المالية للذكاء الاصطناعي — قريباً/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/300 دخل \+ 150 خرج/)).toBeTruthy());
     expect(screen.queryByText('الأسرار')).toBeNull();
+  });
+
+  it('المحاسبة computes a suggested price from real usage and google\'s reference rates, and schedules BOTH the strategy and the rate together on "جدولة التعديل"', async () => {
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.schedule_pricing', label: 'x', method: 'POST' as const,
+           path: '/api/v1/assistant/operator/pricing/schedule', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.cancel_pending_pricing', label: 'x', method: 'DELETE' as const,
+           path: '/api/v1/assistant/operator/pricing/pending/{key}', capability: 'platform.config', confirm: true },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string, method?: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
+        return Promise.resolve({
+          days: 30, calls: 300, conversations: 100, input_tokens: 90_000, output_tokens: 45_000,
+          avg_input_tokens_per_call: 300, avg_output_tokens_per_call: 150,
+          avg_calls_per_conversation: 3, truncated: false,
+        });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
+      if (path === '/api/v1/assistant/operator/pricing/schedule' && method === 'POST') {
+        return Promise.resolve({ key: 'x', value: 'x', effective_at: 0 });
+      }
+      throw new Error(`unexpected ${method} ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    // فئة الذكاء الاصطناعي هي الوحيدة، والحاسبة ليست التبويب الافتراضي — نفتحها.
+    await waitFor(() => expect(screen.getByText('المحاسبة')).toBeTruthy());
+    fireEvent.click(screen.getByText('المحاسبة'));
+    // القيم الافتراضية (0.30$/0.30 دخل، 2.50$ خرج لكل مليون، صرف 3.75، مضاعف 3) على متوسط حقيقي
+    // 300 دخل + 150 خرج تعطي حوالي 1.16 هللة لكل 1000 توكن — يُقرَّب لـ1 عند الجدولة.
+    await waitFor(() => expect(screen.getByText(/300 دخل \+ 150 خرج/)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'جدولة التعديل' }));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/assistant/operator/pricing/schedule', 'POST',
+      { key: 'PRICING_STRATEGY', value: 'usage_based', effective_in_days: 15 }, 'tok-1',
+    ));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/assistant/operator/pricing/schedule', 'POST',
+      { key: 'PRICING_USAGE_HALALAS_PER_1K_TOKENS', value: 1, effective_in_days: 15 }, 'tok-1',
+    ));
+    await waitFor(() => expect(screen.getByText('تمّت الجدولة.')).toBeTruthy());
+  });
+
+  it('المحاسبة lists a scheduled change with its real effective date, and "إلغاء" cancels the right key', async () => {
+    const EFFECTIVE_AT = Math.floor(Date.now() / 1000) + 15 * 86_400;
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.cancel_pending_pricing', label: 'x', method: 'DELETE' as const,
+           path: '/api/v1/assistant/operator/pricing/pending/{key}', capability: 'platform.config', confirm: true },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string, method?: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
+        return Promise.resolve({
+          days: 30, calls: 0, conversations: 0, input_tokens: 0, output_tokens: 0,
+          avg_input_tokens_per_call: 0, avg_output_tokens_per_call: 0,
+          avg_calls_per_conversation: 0, truncated: false,
+        });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') {
+        return Promise.resolve({
+          pending: [{ key: 'PRICING_USAGE_HALALAS_PER_1K_TOKENS', value: 5,
+                     effective_at: EFFECTIVE_AT, scheduled_by: 'op1', scheduled_at: 0 }],
+        });
+      }
+      if (method === 'DELETE') return Promise.resolve({ cancelled: true });
+      throw new Error(`unexpected ${method} ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('المحاسبة')).toBeTruthy());
+    fireEvent.click(screen.getByText('المحاسبة'));
+
+    await waitFor(() => expect(screen.getByText('هللات لكل 1000 توكن')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'إلغاء' }));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/assistant/operator/pricing/pending/PRICING_USAGE_HALALAS_PER_1K_TOKENS',
+      'DELETE', undefined, 'tok-1',
+    ));
   });
 
   it('never renders any "reveal" or "show" control', async () => {

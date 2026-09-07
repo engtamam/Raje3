@@ -22,7 +22,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronLeft, CircleHelp, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
-import { Input } from '../rj-ui/Field';
+import { Field, Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { Modal } from '../rj-ui/Modal';
@@ -144,6 +144,12 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   const configSetAction = findAction('whatsapp_assistant.set_operator_config');
   const configClearAction = findAction('whatsapp_assistant.clear_operator_config');
   const personaPreviewAction = findAction('whatsapp_assistant.persona_preview');
+  // "المحاسبة" — القراءات/الجدولة عبر مسار تسعير مستقل عمداً (POST /pricing/schedule)، لا
+  // set_operator_config: تعديل سعر لا يسري فوراً أبداً — انظر operator.py's own note.
+  const pricingReportAction = findAction('whatsapp_assistant.pricing_report');
+  const pricingPendingAction = findAction('whatsapp_assistant.pricing_pending');
+  const pricingScheduleAction = findAction('whatsapp_assistant.schedule_pricing');
+  const pricingCancelAction = findAction('whatsapp_assistant.cancel_pending_pricing');
   // "الإدارة"/"المحاسبة" — فقط داخل فئة الذكاء الاصطناعي؛ ما فيه سبب يتكرر بأي فئة ثانية اليوم.
   const [aiTab, setAiTab] = useState<'admin' | 'calc'>('admin');
   // المسار — أي محرّك/خدمة ذكاء اصطناعي داخل الفئة نفسها تتحكّم فيه هذه الشاشة. واحد فقط اليوم
@@ -244,11 +250,15 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
                     <AIPersonaCard session={session} previewAction={personaPreviewAction} />
                   ) : null}
                 </div>
+              ) : pricingReportAction && pricingPendingAction ? (
+                <AIPricingCalculator session={session}
+                                     reportAction={pricingReportAction}
+                                     pendingAction={pricingPendingAction}
+                                     scheduleAction={pricingScheduleAction}
+                                     cancelAction={pricingCancelAction} />
               ) : (
-                // مساحة الحاسبة (تسعير الذكاء الاصطناعي، هامش الربح، التوقعات المالية) — مشروع لاحق،
-                // تصميمه نوقش لكن ما بُني بعد. مكانها هنا محجوز عمداً بدل ما تُقحَم مستقبلاً.
                 <p className="rounded-card border border-dashed border-border-subtle p-6 text-sm text-text-secondary">
-                  الحاسبة المالية للذكاء الاصطناعي — قريباً.
+                  تعذّر الوصول لمسارات المحاسبة — راجع صلاحياتك.
                 </p>
               )}
             </div>
@@ -311,7 +321,13 @@ function AIConfigCard({ session, getAction, setAction, clearAction }: {
 
   useEffect(reload, [getAction.path, session.access_token]);
 
-  const count = typeof config === 'object' ? Object.keys(config).length : 0;
+  // PRICING_* IS EXCLUDED HERE, DELIBERATELY — the backend refuses them on this instant-apply
+  // route (see operator.py's own guard: "cannot be changed at runtime... only via POST /pricing/
+  // schedule"), so listing them here would show a "تحديث" button that always fails. They live in
+  // "المحاسبة" instead, through the scheduled path only.
+  const entries = typeof config === 'object'
+    ? Object.entries(config).filter(([k]) => !k.startsWith('PRICING_')) : [];
+  const count = entries.length;
 
   return (
     <>
@@ -327,7 +343,7 @@ function AIConfigCard({ session, getAction, setAction, clearAction }: {
           <p role="alert" className="text-danger text-sm">تعذّرت قراءة الإعدادات الحالية.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            {Object.entries(config).map(([key, value]) => (
+            {entries.map(([key, value]) => (
               <ConfigRow key={key} session={session} k={key} currentValue={value}
                         setAction={setAction} clearAction={clearAction} onSaved={reload} />
             ))}
@@ -416,6 +432,301 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
         ) : null}
       </div>
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+    </div>
+  );
+}
+
+// ── "المحاسبة" — حاسبة تسعير الذكاء الاصطناعي: سعر جوجل الحقيقي + هامش = سعرنا، على استهلاك
+// حقيقي (COST_LEDGER عبر pricing/report) أو افتراض يدوي، وتطبيق يمرّ دائماً عبر جدولة مؤجَّلة —
+// انظر core/pricing_schedule.py's own docstring: تعديل سعر لا يسري فوراً أبداً. ──────────────────
+interface UsageReport {
+  days: number; calls: number; conversations: number; input_tokens: number; output_tokens: number;
+  avg_input_tokens_per_call: number; avg_output_tokens_per_call: number;
+  avg_calls_per_conversation: number; truncated: boolean;
+}
+interface PendingChange { key: string; value: string | number | boolean; effective_at: number; scheduled_by: string; scheduled_at: number; }
+
+const PRICING_KEY_LABEL: Record<string, string> = {
+  PRICING_STRATEGY: 'طريقة التسعير',
+  PRICING_USAGE_HALALAS_PER_1K_TOKENS: 'هللات لكل 1000 توكن',
+  PRICING_USAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة',
+  PRICING_TIER_BASE_HALALAS: 'سعر الباقة الأساسي',
+  PRICING_TIER_INCLUDED_CONVERSATIONS: 'محادثات مشمولة بالباقة',
+  PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة زيادة',
+  PRICING_ADDON_FLAT_HALALAS: 'سعر إضافة ثابتة',
+};
+
+function fmtDate(epoch: number): string {
+  return new Date(epoch * 1000).toLocaleDateString('ar-SA-u-nu-latn', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+
+function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAction, cancelAction }: {
+  session: AdminSession; reportAction: AdminAction; pendingAction: AdminAction;
+  scheduleAction?: AdminAction; cancelAction?: AdminAction;
+}) {
+  const [report, setReport] = useState<UsageReport | 'loading' | 'failed'>('loading');
+  const [pending, setPending] = useState<PendingChange[] | 'loading' | 'failed'>('loading');
+  const [days, setDays] = useState(30);
+
+  // ── الأسعار المرجعية (جوجل) — ندخلها نحن يدوياً ونحدّثها وقت ما تتغيّر، جوجل ما توفر API
+  // لأسعارها. الوحدة قابلة للتبديل (لكل 1000 / لكل مليون) لراحة المقارنة مع صفحة تسعير جوجل نفسها.
+  const [unit, setUnit] = useState<'1k' | '1m'>('1m');
+  const [googleInputUsd, setGoogleInputUsd] = useState('0.30');
+  const [googleOutputUsd, setGoogleOutputUsd] = useState('2.50');
+  const [usdToSar, setUsdToSar] = useState('3.75');
+
+  // ── متوسط التوكنات — يدوي أو من استهلاك حقيقي (report). ──────────────────────────────────────
+  const [tokenSource, setTokenSource] = useState<'system' | 'manual'>('system');
+  const [manualAvgInput, setManualAvgInput] = useState('300');
+  const [manualAvgOutput, setManualAvgOutput] = useState('150');
+
+  const [multiplier, setMultiplier] = useState('3');
+  const [effectiveInDays, setEffectiveInDays] = useState('15');
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduleDone, setScheduleDone] = useState(false);
+
+  function reload() {
+    setReport('loading');
+    req<UsageReport>(`${reportAction.path}?days=${days}`, 'GET', undefined, session.access_token)
+      .then(setReport).catch(() => setReport('failed'));
+    setPending('loading');
+    req<{ pending: PendingChange[] }>(pendingAction.path, 'GET', undefined, session.access_token)
+      .then((body) => setPending(body.pending)).catch(() => setPending('failed'));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- reload يُستدعى صراحة عند تغيّر days أيضاً
+  useEffect(reload, [reportAction.path, pendingAction.path, session.access_token, days]);
+
+  const hasReport = typeof report === 'object';
+  const avgInput = tokenSource === 'system' && hasReport
+    ? report.avg_input_tokens_per_call : Number(manualAvgInput) || 0;
+  const avgOutput = tokenSource === 'system' && hasReport
+    ? report.avg_output_tokens_per_call : Number(manualAvgOutput) || 0;
+  const divisor = unit === '1m' ? 1_000_000 : 1_000;
+  const costPerCallUsd = (avgInput / divisor) * (Number(googleInputUsd) || 0)
+    + (avgOutput / divisor) * (Number(googleOutputUsd) || 0);
+  const costPerCallSar = costPerCallUsd * (Number(usdToSar) || 0);
+  const m = Number(multiplier) || 0;
+  const suggestedPriceSar = costPerCallSar * m;
+  const suggestedHalalas = suggestedPriceSar * 100;
+  const totalTokens = avgInput + avgOutput;
+  const suggestedHalalasPer1k = totalTokens > 0 ? (suggestedHalalas / totalTokens) * 1000 : 0;
+  const marginPercent = m > 0 ? (1 - 1 / m) * 100 : 0;
+
+  // ── التوقع الشهري — يستخدم الاستهلاك الحقيقي (report.calls) مُقاساً لشهر كامل، بغض النظر عن
+  // نافذة القراءة الفعلية (`days`) — لا يفترض حجماً، يمدّد الحجم المُلاحَظ فعلياً. ─────────────────
+  const monthlyScale = hasReport && report.days > 0 ? 30 / report.days : 0;
+  const monthlyCalls = hasReport ? Math.round(report.calls * monthlyScale) : 0;
+  const monthlyRevenueSar = (monthlyCalls * suggestedHalalas) / 100;
+  const monthlyGoogleCostSar = monthlyCalls * costPerCallSar;
+
+  async function doSchedule() {
+    if (!scheduleAction) return;
+    setScheduling(true); setScheduleError(''); setScheduleDone(false);
+    const days_ = Number(effectiveInDays) || 0;
+    try {
+      // اثنان لا واحد — الطريقة (usage_based) والمعدّل نفسه، بنفس تاريخ السريان، عشان تبقى
+      // متّسقتين لحظة ما تُطبَّقان معاً بالتِك (لا يصير معدّل جديد على طريقة قديمة أو العكس).
+      await req(scheduleAction.path, 'POST',
+        { key: 'PRICING_STRATEGY', value: 'usage_based', effective_in_days: days_ },
+        session.access_token);
+      await req(scheduleAction.path, 'POST',
+        { key: 'PRICING_USAGE_HALALAS_PER_1K_TOKENS', value: Math.round(suggestedHalalasPer1k),
+         effective_in_days: days_ },
+        session.access_token);
+      setScheduleDone(true);
+      reload();
+    } catch (err) {
+      setScheduleError(sentenceFor(err, 'تعذّرت جدولة التعديل.'));
+    } finally { setScheduling(false); }
+  }
+
+  async function doCancel(key: string) {
+    if (!cancelAction) return;
+    await req(cancelAction.path.replace('{key}', encodeURIComponent(key)), 'DELETE',
+      undefined, session.access_token).catch(() => {});
+    reload();
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* ── المدخلات ─────────────────────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
+        <h3 className="font-medium">المدخلات</h3>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-label font-medium text-text-secondary">سعر جوجل (دولار)</span>
+            <Segmented value={unit} onChange={(v) => setUnit(v as '1k' | '1m')}
+                      options={[{ value: '1k', label: 'لكل 1000 توكن' }, { value: '1m', label: 'لكل مليون توكن' }]} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="سعر الدخل (Input)" htmlFor="calc-google-in">
+              <Input id="calc-google-in" dir="ltr" type="number" step="0.01" value={googleInputUsd}
+                    onChange={(e) => setGoogleInputUsd(e.target.value)} />
+            </Field>
+            <Field label="سعر الخرج (Output)" htmlFor="calc-google-out">
+              <Input id="calc-google-out" dir="ltr" type="number" step="0.01" value={googleOutputUsd}
+                    onChange={(e) => setGoogleOutputUsd(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="سعر صرف الدولار (بالريال)" htmlFor="calc-fx">
+            <Input id="calc-fx" dir="ltr" type="number" step="0.01" value={usdToSar}
+                  onChange={(e) => setUsdToSar(e.target.value)} className="max-w-[10rem]" />
+          </Field>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+          <span className="text-label font-medium text-text-secondary">متوسط التوكنات لكل رسالة</span>
+          <Segmented value={tokenSource} onChange={(v) => setTokenSource(v as 'system' | 'manual')}
+                    options={[{ value: 'system', label: 'من قيمة النظام' }, { value: 'manual', label: 'يدوي' }]} />
+          {tokenSource === 'manual' ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="دخل (Input)" htmlFor="calc-avg-in">
+                <Input id="calc-avg-in" dir="ltr" type="number" value={manualAvgInput}
+                      onChange={(e) => setManualAvgInput(e.target.value)} />
+              </Field>
+              <Field label="خرج (Output)" htmlFor="calc-avg-out">
+                <Input id="calc-avg-out" dir="ltr" type="number" value={manualAvgOutput}
+                      onChange={(e) => setManualAvgOutput(e.target.value)} />
+              </Field>
+            </div>
+          ) : report === 'loading' ? (
+            <p className="text-label text-text-secondary">جارٍ التحميل…</p>
+          ) : report === 'failed' ? (
+            <p role="alert" className="text-label text-danger">تعذّرت قراءة الاستهلاك الحقيقي.</p>
+          ) : (
+            <p className="text-label text-text-secondary">
+              {avgInput} دخل + {avgOutput} خرج (متوسط آخر {report.days} يوم، {report.calls} رسالة فعلية)
+            </p>
+          )}
+        </div>
+
+        <Field label="المضاعف (هامش الربح)" htmlFor="calc-multiplier">
+          <Input id="calc-multiplier" dir="ltr" type="number" step="0.1" value={multiplier}
+                onChange={(e) => setMultiplier(e.target.value)} className="max-w-[8rem]" />
+        </Field>
+      </section>
+
+      {/* ── النتيجة والتطبيق ─────────────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
+        <h3 className="font-medium">النتيجة المقترحة</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-card bg-surface-2 p-3">
+            <p className="text-label text-text-secondary">السعر المقترح لكل 1000 توكن</p>
+            <p className="text-lg font-semibold tabular-nums">{suggestedHalalasPer1k.toFixed(1)} هللة</p>
+          </div>
+          <div className="rounded-card bg-surface-2 p-3">
+            <p className="text-label text-text-secondary">تكلفتنا الحقيقية عند جوجل / رسالة</p>
+            <p className="text-lg font-semibold tabular-nums">{(costPerCallSar * 100).toFixed(2)} هللة</p>
+          </div>
+          <div className="rounded-card bg-surface-2 p-3">
+            <p className="text-label text-text-secondary">سعرنا المقترح / رسالة</p>
+            <p className="text-lg font-semibold tabular-nums">{suggestedHalalas.toFixed(2)} هللة</p>
+          </div>
+          <div className="rounded-card bg-surface-2 p-3">
+            <p className="text-label text-text-secondary">هامش الربح</p>
+            <p className="text-lg font-semibold tabular-nums">{marginPercent.toFixed(0)}٪</p>
+          </div>
+        </div>
+
+        <div className="rounded-card border border-dashed border-border-subtle p-3">
+          <p className="text-label font-medium text-text-secondary">
+            توقع شهري (على استهلاك حقيقي، مُمدَّد لشهر كامل)
+          </p>
+          {hasReport ? (
+            <div className="mt-1 flex flex-col gap-1 text-sm">
+              <p>عدد الرسائل المتوقع: <span className="font-semibold tabular-nums">{monthlyCalls.toLocaleString('en-US')}</span></p>
+              <p>الإيراد المتوقع: <span className="font-semibold tabular-nums">{monthlyRevenueSar.toFixed(0)} ﷼</span></p>
+              <p>تكلفة جوجل الحقيقية المتوقعة: <span className="font-semibold tabular-nums">{monthlyGoogleCostSar.toFixed(0)} ﷼</span></p>
+              <p>الربح المتوقع: <span className="font-semibold tabular-nums">{(monthlyRevenueSar - monthlyGoogleCostSar).toFixed(0)} ﷼</span></p>
+              {/* التذكير اللي يفسّر لماذا "عدد الرسائل" رقم قرار لا رقم معلومة فقط — نموذج أغلى
+                 يقلّل الرسائل المتوقعة عند نفس الهامش، فيحتاج تعديل الهامش لا تجاهل الأثر. */}
+              <p className="text-label text-text-secondary">
+                نموذج أغلى بنفس الهامش يعني سعراً أعلى للعميل، وغالباً رسائل أقل — إن قلّ الهامش
+                المطلوب، عدّله بدل ما تتجاهل التأثير على العدد.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-text-secondary">بانتظار الاستهلاك الحقيقي…</p>
+          )}
+        </div>
+
+        {scheduleAction ? (
+          <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="يسري بعد (أيام)" htmlFor="calc-effective-days">
+                <Input id="calc-effective-days" dir="ltr" type="number" min={1} value={effectiveInDays}
+                      onChange={(e) => setEffectiveInDays(e.target.value)} className="max-w-[8rem]" />
+              </Field>
+              <Button onClick={doSchedule} disabled={scheduling || !multiplier}>
+                {scheduling ? 'جارٍ الجدولة…' : 'جدولة التعديل'}
+              </Button>
+            </div>
+            <p className="text-label text-text-secondary">
+              لا يسري فوراً — بعد {effectiveInDays || '؟'} يوم من الآن، عشان تقدر تُعلم المحلات قبلها.
+            </p>
+            {scheduleError ? <p role="alert" className="text-danger text-sm">{scheduleError}</p> : null}
+            {scheduleDone ? <p className="text-success text-sm">تمّت الجدولة.</p> : null}
+          </div>
+        ) : null}
+      </section>
+
+      {/* ── الاستهلاك الحقيقي ────────────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-medium">الاستهلاك الحقيقي</h3>
+          <Segmented value={String(days)} onChange={(v) => setDays(Number(v))}
+                    options={[{ value: '7', label: '7 أيام' }, { value: '30', label: '30 يوم' }, { value: '90', label: '90 يوم' }]} />
+        </div>
+        {report === 'loading' ? (
+          <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+        ) : report === 'failed' ? (
+          <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+            <p>الرسائل: <span className="font-semibold tabular-nums">{report.calls.toLocaleString('en-US')}</span></p>
+            <p>المحادثات: <span className="font-semibold tabular-nums">{report.conversations.toLocaleString('en-US')}</span></p>
+            <p>رسالة/محادثة: <span className="font-semibold tabular-nums">{report.avg_calls_per_conversation}</span></p>
+            <p>متوسط دخل: <span className="font-semibold tabular-nums">{report.avg_input_tokens_per_call}</span></p>
+            <p>متوسط خرج: <span className="font-semibold tabular-nums">{report.avg_output_tokens_per_call}</span></p>
+            {report.truncated ? (
+              <p className="text-label text-danger">الأرقام حد أدنى — الاستهلاك الفعلي أعلى.</p>
+            ) : null}
+          </div>
+        )}
+      </section>
+
+      {/* ── تعديلات مجدولة قادمة ─────────────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+        <h3 className="font-medium">تعديلات مجدولة قادمة</h3>
+        {pending === 'loading' ? (
+          <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+        ) : pending === 'failed' ? (
+          <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
+        ) : pending.length === 0 ? (
+          <p className="text-sm text-text-secondary">لا شي مجدوَل حالياً.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {pending.map((c) => (
+              <div key={c.key} className="flex items-center justify-between gap-2 rounded-card bg-surface-2 p-3 text-sm">
+                <div>
+                  <p className="font-medium">{PRICING_KEY_LABEL[c.key] ?? c.key}</p>
+                  <p className="text-label text-text-secondary">
+                    القيمة الجديدة: {String(c.value)} — يسري {fmtDate(c.effective_at)}
+                  </p>
+                </div>
+                {cancelAction ? (
+                  <Button variant="ghost" size="sm" onClick={() => doCancel(c.key)}>إلغاء</Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
