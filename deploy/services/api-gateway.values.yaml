@@ -260,6 +260,7 @@ env:
       {"prefix":"/api/v1/secrets","upstream":"http://secrets-admin:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/assistant/operator","upstream":"http://whatsapp-assistant:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/assistant/pricing","upstream":"http://whatsapp-assistant:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/assistant/growth","upstream":"http://whatsapp-assistant:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/assistant","upstream":"http://assistant-service:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"

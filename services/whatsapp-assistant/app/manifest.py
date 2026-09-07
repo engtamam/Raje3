@@ -87,6 +87,11 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             # THE SHOP'S OWN READ — see this file's own note on "whatsapp_assistant.pricing_read"
             # above and app/api/v1/__init__.py's route docstring.
             {"path": "/api/v1/assistant/pricing/current", "tier": "user", "method": "GET"},
+            # محلّي's own "أثر الذكاء الاصطناعي" card, joined 2026-09-07 — reuses the same
+            # capability as the price read above (same "owner/manager reading their own AI
+            # feature" family); ALWAYS tenant-scoped to the caller's own session, structurally —
+            # see core/shop_impact_report.py's own module docstring for why.
+            {"path": "/api/v1/assistant/growth/my-impact", "tier": "user", "method": "GET"},
             # المحاسبة's growth analytics half — real package-upsell offer/accept/decline off
             # wa_upsell_ledger (core/upsell_report.py), per branch. Operator-only, same
             # platform.config gate as the pricing routes above; not gateway-routed yet (no console

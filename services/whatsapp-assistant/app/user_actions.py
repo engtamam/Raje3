@@ -21,4 +21,11 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "التطبيقات",
         "help": "السعر الحالي، وأي تعديل مجدوَل مع تاريخ سريانه — لا يتغيّر عليك بلا إشعار مسبق.",
     },
+    {
+        "id": "whatsapp_assistant.my_impact", "label": "أثر الذكاء الاصطناعي", "method": "GET",
+        "path": "/api/v1/assistant/growth/my-impact", "capability": "whatsapp_assistant.pricing_read",
+        "group": "التطبيقات",
+        "help": "كم محادثة تحوّلت لحجز، ومتوسط قيمة الفاتورة — محلّك أنت فقط، لا تجميع مع محلات ثانية.",
+        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+    },
 ]

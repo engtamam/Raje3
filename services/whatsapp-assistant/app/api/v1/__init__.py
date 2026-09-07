@@ -22,14 +22,18 @@
 # =============================================================================
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
 from app.api.deps import get_guard
 from app.api.ratelimit import rate_limit
+from app.core.booking_assignment import ACTOR as ACTOR_CREATED_BY
 from app.core.pricing import PricingConfig
 from app.core.pricing_schedule import pending as pending_pricing_changes
+from app.core.shop_impact_report import report as shop_impact_report
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -82,3 +86,30 @@ async def pricing_current(request: Request,
         "addon_flat_halalas": current.addon_flat_halalas,
         "pending_changes": upcoming,
     }
+
+
+@router.get("/assistant/growth/my-impact", dependencies=[Depends(rate_limit)])
+async def my_impact(request: Request, days: int = 30,
+                    principal: Principal = Depends(_PRICING_READ)) -> dict:
+    """محلّي's own "أثر الذكاء الاصطناعي" card — THIS SHOP'S OWN numbers only, never a platform
+    aggregate (see core/shop_impact_report.py's own module docstring for why that isolation is
+    structural here, not a per-route promise). `tenant` is ALWAYS `principal.tenant` — a real shop
+    session, unlike the platform-operator routes this reuses under the hood, genuinely carries one.
+
+    Reuses `whatsapp_assistant.pricing_read` rather than minting a narrower capability: both are
+    the same family ("an owner/manager reading a fact about their own AI feature"), already granted
+    to exactly the two roles (owner, manager) this card is for — see that capability's own note in
+    app/manifest.py."""
+    days = max(1, min(days, 365))
+    if not principal.tenant:
+        # A platform-operator token has no tenant claim at all (see whatsapp-assistant's own
+        # operator.py note on this exact class of bug) — this route only ever answers for a real
+        # shop session, so refuse cleanly rather than compute a meaningless empty report.
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            detail="no tenant on this session — this route is shop-facing only")
+    container = request.app.state.container
+    rep = await shop_impact_report(
+        datastore=container.datastore, actor_report=container.booking_actor_report,
+        service_catalog=container.service_catalog, package_catalog=container.package_catalog,
+        tenant=principal.tenant, created_by=ACTOR_CREATED_BY, days=days, now=int(time.time()))
+    return rep.as_dict()
