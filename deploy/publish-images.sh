@@ -50,7 +50,8 @@ ROOT="$(cd "$HERE/.." && pwd)"
 # application credentials. Absent is a valid state — the button then says so honestly.
 [ -f "$ROOT/deploy/target.env" ] && . "$ROOT/deploy/target.env"
 META_ARGS=()
-for v in VITE_META_APP_ID VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION VITE_MOYASAR_PUBLISHABLE_KEY; do
+for v in VITE_META_APP_ID VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION VITE_MOYASAR_PUBLISHABLE_KEY \
+        VITE_ASSISTANT_HELP_ICON_ENABLED VITE_ASSISTANT_CHAT_ENABLED; do
   [ -n "${!v:-}" ] && META_ARGS+=(--build-arg "$v=${!v}")
 done
 OWNER="${GHCR_OWNER:-engtamam}"

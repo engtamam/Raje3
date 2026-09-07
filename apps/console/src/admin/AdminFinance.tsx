@@ -104,6 +104,26 @@ export function AdminFinance({ session, onOpenProviderSecrets }: {
   );
 }
 
+// THE VALID DRIVER *KEYS* — read directly from billing-service's own registry
+// (platform/services/billing-service/app/container.py::_PAYMENT), not invented here. This is NOT
+// the "لا تسوي هارد كود لاسم المزود" rule broken: that rule is about never ASSERTING which one is
+// ACTIVE in help text — GatewayPanel below still reads the active driver live, always. Enumerating
+// which values a picker MAY select is a different, necessary thing a <select> cannot do without.
+const GATEWAY_DRIVER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'null', label: 'بلا بوابة (تعطيل الدفع الإلكتروني)' },
+  { value: 'recording', label: 'تسجيل فقط (اختبار داخلي، لا شحن حقيقي)' },
+  { value: 'tuwaiqpay', label: 'TuwaiqPay' },
+  { value: 'moyasar', label: 'Moyasar' },
+  { value: 'tap', label: 'Tap' },
+  { value: 'hyperpay', label: 'HyperPay' },
+  { value: 'paytabs', label: 'PayTabs' },
+  { value: 'geidea', label: 'Geidea' },
+  { value: 'aps', label: 'APS' },
+  { value: 'stripe', label: 'Stripe' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'checkout', label: 'Checkout.com' },
+];
+
 interface Invoice {
   id: string; tenant: string; number: string; subscription_id: string; status: string;
   subtotal_minor: number; tax_minor: number; total_minor: number; refunded_minor: number;
@@ -793,7 +813,13 @@ function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, acti
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1">
               <span className="text-label font-medium text-text-secondary">معرّف البوابة</span>
-              <Input dir="ltr" value={driver} onChange={(e) => { setDriver(e.target.value); setPreview(null); }} />
+              <Select dir="ltr" value={driver}
+                     onChange={(e) => { setDriver(e.target.value); setPreview(null); }}>
+                <option value="">— اختر —</option>
+                {GATEWAY_DRIVER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </Select>
             </label>
             {activationPreviewAction ? (
               <Button type="button" variant="outline" disabled={!isSwitching}

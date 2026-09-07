@@ -60,6 +60,15 @@ ENV VITE_META_APP_ID=$VITE_META_APP_ID VITE_META_CONFIG_ID=$VITE_META_CONFIG_ID 
 # itself unavailable rather than pretending to work with no key behind it.
 ARG VITE_MOYASAR_PUBLISHABLE_KEY=""
 ENV VITE_MOYASAR_PUBLISHABLE_KEY=$VITE_MOYASAR_PUBLISHABLE_KEY
+# UNLIKE META/MOYASAR ABOVE, NOT AN OPERATOR CREDENTIAL — a pure feature switch with no secret
+# behind it, so it defaults ON here rather than requiring deploy/target.env to supply anything.
+# AssistantHint.tsx's own "؟" icon (per-screen help, assistant-service's by_anchor()) and
+# Support.tsx's "خدمة العملاء" chat tab — both built and tested, left dark until now because
+# nothing ever set either flag. Still overridable via VITE_ASSISTANT_*_ENABLED in
+# deploy/target.env if a build ever needs either off.
+ARG VITE_ASSISTANT_HELP_ICON_ENABLED="true"
+ARG VITE_ASSISTANT_CHAT_ENABLED="true"
+ENV VITE_ASSISTANT_HELP_ICON_ENABLED=$VITE_ASSISTANT_HELP_ICON_ENABLED VITE_ASSISTANT_CHAT_ENABLED=$VITE_ASSISTANT_CHAT_ENABLED
 RUN npm run build
 
 # ── runtime ──────────────────────────────────────────────────────────────────
