@@ -87,6 +87,12 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             # THE SHOP'S OWN READ — see this file's own note on "whatsapp_assistant.pricing_read"
             # above and app/api/v1/__init__.py's route docstring.
             {"path": "/api/v1/assistant/pricing/current", "tier": "user", "method": "GET"},
+            # المحاسبة's growth analytics half — real package-upsell offer/accept/decline off
+            # wa_upsell_ledger (core/upsell_report.py), per branch. Operator-only, same
+            # platform.config gate as the pricing routes above; not gateway-routed yet (no console
+            # UI in this phase) — listed here anyway so /internal/manifest never silently omits a
+            # route that already works, the exact gap docs/adding-a-new-app.md §3b warns about.
+            {"path": "/api/v1/assistant/operator/growth/upsell-report", "tier": "user", "method": "GET"},
         ],
         "ports": ports or [],
         "events": {"emitted": [], "consumed": ["whatsapp.message", "whatsapp.status"]},

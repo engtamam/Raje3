@@ -136,4 +136,11 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "group": "المنصة",
         "help": "يلغي تعديل السعر قبل ما يسري — يبقى السعر الحالي كما هو.",
     },
+    {
+        "id": "whatsapp_assistant.upsell_report", "label": "تقرير الترقيات (Upsell)", "method": "GET",
+        "path": "/api/v1/assistant/operator/growth/upsell-report", "capability": "platform.config",
+        "group": "المنصة",
+        "help": "كم مرة اقترح المساعد باقة، وكم وافق العميل — لكل فرع، هذا الأسبوع مقابل اللي قبله.",
+        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+    },
 ]
