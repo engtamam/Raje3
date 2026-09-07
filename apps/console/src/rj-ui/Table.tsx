@@ -94,8 +94,8 @@ export function Table<T>({
               <tr
                 key={getRowId(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-border-subtle last:border-0 ${
-                  onRowClick ? 'cursor-pointer hover:bg-surface-1' : ''
+                className={`border-b border-border-subtle last:border-0 transition-colors duration-150 ${
+                  onRowClick ? 'cursor-pointer hover:bg-surface-2' : ''
                 }`}
               >
                 {columns.map((col) => (
@@ -129,7 +129,7 @@ export function Table<T>({
             <li key={getRowId(row)}>
               {onRowClick ? (
                 <button type="button" onClick={() => onRowClick(row)}
-                       className={`${cardClass} cursor-pointer active:bg-surface-2`}>
+                       className={`${cardClass} cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:bg-surface-2`}>
                   {body}
                 </button>
               ) : (

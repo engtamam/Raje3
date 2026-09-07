@@ -25,6 +25,18 @@ const TONE_ICON_BG: Record<RjKpiTone, string> = {
   warning: 'bg-warning-soft text-warning-on-soft',
   danger: 'bg-danger-soft text-danger-on-soft',
 };
+// THE WHOLE CARD TINTED BY TONE, NOT JUST THE ICON CHIP — added 2026-09-07, a design audit's own
+// top recommendation: a flat `bg-surface-1` card with colour confined to a 32px icon read as
+// "the same card everywhere" regardless of what it meant. `neutral` keeps the plain surface (nothing
+// to signal); every other tone now carries its own soft background across the whole shape, same
+// idea Shop.tsx's own `Tile` already proved.
+const TONE_CARD_BG: Record<RjKpiTone, string> = {
+  neutral: 'bg-surface-1 border border-border-subtle',
+  accent: 'bg-accent-soft',
+  success: 'bg-success-soft',
+  warning: 'bg-warning-soft',
+  danger: 'bg-danger-soft',
+};
 
 export interface RjKpiCardProps {
   icon: ReactNode;
@@ -38,10 +50,16 @@ export interface RjKpiCardProps {
 export function KpiCard({ icon, label, value, hint, tone = 'neutral', testId }: RjKpiCardProps) {
   return (
     <div
-      className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm"
+      className={cn('flex flex-col gap-3 rounded-card p-5 shadow-sm', TONE_CARD_BG[tone])}
       data-testid={testId}
     >
-      <span className={cn('inline-flex w-fit rounded-lg p-2', TONE_ICON_BG[tone])}>{icon}</span>
+      {/* ON A TINTED CARD, the icon chip is a translucent white overlay rather than the SAME soft
+          tone the card itself now carries — two identical fills stacked would erase the chip
+          entirely. Neutral cards keep their own distinct chip background, unchanged. */}
+      <span className={cn(
+        'inline-flex w-fit rounded-lg p-2',
+        tone === 'neutral' ? TONE_ICON_BG.neutral : cn('bg-white/55', TONE_TEXT[tone]),
+      )}>{icon}</span>
       <div>
         <div className={cn('text-3xl font-semibold tabular-nums tracking-tight', TONE_TEXT[tone])}>
           {value}
