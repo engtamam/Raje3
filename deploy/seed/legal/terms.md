@@ -12,7 +12,7 @@
 
 ### الأطراف والقبول
 
-تُبرَم هذه الشروط بين راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) ("المزوّد") وبين المنشأة التي قبِلتها عبر حسابها على المنصة ("العميل"). ويقوم سجلّ القبول لدى المزوّد مقام التوقيع، ويتضمّن مُعرِّف المنشأة وهوية من قبِل نيابةً عنها وتاريخ القبول وساعته ورقم النسخة المقبولة، ويُتاح للعميل عند طلبه. ويُقرّ من يقبل بأنه مفوَّض بإلزام المنشأة. واتفاقية معالجة البيانات ملحقٌ بهذه الشروط، وقبولها يقع بقبولها.
+تُبرَم هذه الشروط بين راجِع ("المزوّد") وبين المنشأة التي قبِلتها عبر حسابها على المنصة ("العميل"). ويقوم سجلّ القبول لدى المزوّد مقام التوقيع، ويتضمّن مُعرِّف المنشأة وهوية من قبِل نيابةً عنها وتاريخ القبول وساعته ورقم النسخة المقبولة، ويُتاح للعميل عند طلبه. ويُقرّ من يقبل بأنه مفوَّض بإلزام المنشأة. واتفاقية معالجة البيانات ملحقٌ بهذه الشروط، وقبولها يقع بقبولها.
 
 ### الخدمة
 
@@ -144,7 +144,7 @@
 
 ### Parties and acceptance
 
-These Terms are made between راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) ("the Provider") and the establishment that accepted them through its account on the platform ("the Customer"). The Provider's acceptance record stands in place of signature and contains the establishment's identifier, the identity of the person who accepted on its behalf, the date and time of acceptance and the version accepted; it is made available to the Customer on request. Whoever accepts represents that he is authorised to bind the establishment. The data processing agreement is an annex to these Terms and is accepted by accepting them.
+These Terms are made between Raje3 ("the Provider") and the establishment that accepted them through its account on the platform ("the Customer"). The Provider's acceptance record stands in place of signature and contains the establishment's identifier, the identity of the person who accepted on its behalf, the date and time of acceptance and the version accepted; it is made available to the Customer on request. Whoever accepts represents that he is authorised to bind the establishment. The data processing agreement is an annex to these Terms and is accepted by accepting them.
 
 ### The service
 
