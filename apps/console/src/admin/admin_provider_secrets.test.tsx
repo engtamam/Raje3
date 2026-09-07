@@ -186,6 +186,8 @@ describe('AdminProviderSecrets', () => {
       secrets: [
         { key: 'PAYMENT_API_KEY', label: 'اسم مستخدم بوابة الدفع', configured: false,
          last4: null, updated_at: null, updated_by: null },
+        { key: 'PAYMENT_EXTRA_ID', label: 'معرّف إضافي لبوابة الدفع', configured: false,
+         last4: null, updated_at: null, updated_by: null },
         { key: 'PAYMENT_EXTRA_SECRET', label: 'كلمة مرور بوابة الدفع', configured: false,
          last4: null, updated_at: null, updated_by: null },
       ],
@@ -194,6 +196,7 @@ describe('AdminProviderSecrets', () => {
     render(<AdminProviderSecrets session={SESSION} />);
     await openProvider('بوابة الدفع');
     await waitFor(() => expect(screen.getByText('اسم مستخدم بوابة الدفع')).toBeTruthy());
+    expect(screen.getByText('معرّف إضافي لبوابة الدفع')).toBeTruthy();
     expect(screen.getByText('كلمة مرور بوابة الدفع')).toBeTruthy();
     // NO SPECIFIC GATEWAY NAME ANYWHERE ON SCREEN — the slot is generic because
     // PAYMENT_GATEWAY_DRIVER can change, and a label naming today's gateway would silently

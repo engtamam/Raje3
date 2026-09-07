@@ -66,6 +66,11 @@ const SECRET_HELP: Record<string, string> = {
   // بلا اسم مزوّد مكتوب هنا بالكود عمداً، لأن أي مزوّد نشط اليوم قد لا يكون النشط غداً: أي مزوّد
   // بوابة الدفع المفعّل حالياً بإعدادات النشر (PAYMENT_GATEWAY_DRIVER) — راجع بيانات حسابك عنده.
   PAYMENT_API_KEY: 'اسم المستخدم لحساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً بإعدادات النشر.',
+  // ثالث خانة عامة، وُجدت ناقصة 2026-09-07 — بعض المزوّدين يحتاجونها وبعضهم لا، حسب أي واحد مفعّل:
+  // معرّف حساب التاجر عند HyperPay (entityId)/PayTabs (profile_id)/APS (merchant_identifier)، أو
+  // معرّف ثانٍ عند PayPal/Stripe (client_secret). راجع لوحة تحكّم المزوّد المفعّل حالياً لتعرف
+  // بالضبط أي حقل هو عندهم — الاسم يختلف من مزوّد لآخر رغم إنه نفس الخانة هنا.
+  PAYMENT_EXTRA_ID: 'معرّف إضافي لحساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً (اسمه يختلف حسب المزوّد — راجع لوحة تحكّمه).',
   PAYMENT_EXTRA_SECRET: 'كلمة مرور نفس حساب التاجر لدى مزوّد بوابة الدفع المفعّل حالياً.',
   // يظهر لمتصفح العميل مباشرة (شاشة الاشتراك) — ليس سرّاً بنفس معنى الاثنين أعلاه، لكنه بلا مكان
   // آمن يُكتب فيه غير هنا حتى الآن.
@@ -91,7 +96,7 @@ const PROVIDER_OF: Record<string, string> = {
   META_APP_ID: 'meta', META_APP_SECRET: 'meta', WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
   ASSISTANT_MODEL_PROJECT: 'assistant_ai', ASSISTANT_MODEL_CREDENTIAL: 'assistant_ai',
-  PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
+  PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_ID: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
   PAYMENT_PUBLISHABLE_KEY: 'payment',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {

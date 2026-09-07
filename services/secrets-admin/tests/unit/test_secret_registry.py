@@ -33,8 +33,10 @@ def test_the_registry_is_the_ones_we_decided_on():
         "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID",
         # the active payment gateway's credential — generic slot names, added 2026-09-06 alongside
         # TuwaiqPay's activation (see the registry's own comment on why the label never names a
-        # specific gateway even though today's is TuwaiqPay).
-        "PAYMENT_API_KEY", "PAYMENT_EXTRA_SECRET",
+        # specific gateway even though today's is TuwaiqPay). PAYMENT_EXTRA_ID joined 2026-09-07,
+        # found missing — config.py's third slot (HyperPay entityId / PayTabs profile_id / APS
+        # merchant_identifier / PayPal-Stripe's second id), had no entry alongside the other two.
+        "PAYMENT_API_KEY", "PAYMENT_EXTRA_ID", "PAYMENT_EXTRA_SECRET",
         # the ONE payment credential a browser is meant to read (operations' own
         # /subscription/status route) — a different service holding a slice of the same answer.
         "PAYMENT_PUBLISHABLE_KEY",

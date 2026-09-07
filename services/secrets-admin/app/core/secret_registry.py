@@ -155,6 +155,20 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="billing-service",
         label="اسم مستخدم بوابة الدفع",
     ),
+    # A THIRD SLOT, FOUND MISSING 2026-09-07 — config.py declares PAYMENT_API_KEY/PAYMENT_EXTRA_ID/
+    # PAYMENT_EXTRA_SECRET as ONE set of three, and only two of the three had an entry here. Some
+    # drivers use all three (APS: access_code + merchant_identifier + SHA phrase), some use two of
+    # the three but not this pair (HyperPay: PAYMENT_API_KEY + entityId — no PAYMENT_EXTRA_SECRET;
+    # PayPal/Stripe: PAYMENT_API_KEY + a second id — same shape). Leaving it out did not break
+    # TuwaiqPay (it never reads this key) but silently capped every OTHER driver at "cannot be
+    # fully configured from this screen" — the same shape of gap PAYMENT_PUBLISHABLE_KEY was.
+    SecretEntry(
+        key="PAYMENT_EXTRA_ID",
+        secret="billing-service-secrets",
+        namespace="base-services",
+        deployment="billing-service",
+        label="معرّف إضافي لبوابة الدفع (entityId / merchant_identifier / profile_id / client_secret)",
+    ),
     SecretEntry(
         key="PAYMENT_EXTRA_SECRET",
         secret="billing-service-secrets",
