@@ -50,6 +50,7 @@
 from __future__ import annotations
 
 import ast
+import concurrent.futures
 import os
 import re
 import sys
@@ -349,6 +350,15 @@ for svc_dir in sorted((ROOT / "services").iterdir()):
 # prose. The check is on codepoints, not a regex: a byte-range grep gives false matches on other
 # Arabic characters, which is how a first attempt reported clean English shell scripts as failures.
 _ARABIC_INDIC = [(0x0660, 0x0669), (0x06F0, 0x06F9)]
+# THE REAL REMAINING COST, FOUND BY PROFILING (cProfile) AFTER THE WALK/THREADING FIXES ABOVE
+# BARELY MOVED THE NUMBER: not I/O at all, but a per-CHARACTER pure-Python loop —
+# `{c for c in text if any(...)}` — run against the full text of every candidate file. On this
+# repo that is 137 MILLION `ord()` calls, and it holds the GIL throughout, which is exactly why
+# threading the read step (above) helped only a little: the bottleneck was never the syscall.
+# A compiled regex character class does the identical scan inside the `re` module's C
+# implementation instead of a Python-level loop — same two Unicode ranges, `finditer` in place of
+# the comprehension, no other change to what counts as a hit.
+_ARABIC_INDIC_RE = re.compile("[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in _ARABIC_INDIC) + "]")
 # PRUNED DURING THE WALK, NOT FILTERED AFTER IT — found live chasing this gate's own ~42s runtime
 # on Windows, where each filesystem call is expensive: `Path.rglob("*")` has no way to skip a
 # directory before descending into it, so the old version fully walked every `.venv`
@@ -361,30 +371,50 @@ _ARABIC_INDIC = [(0x0660, 0x0669), (0x06F0, 0x06F9)]
 # before (node_modules/platform/.venv/__pycache__/dist at ANY depth, .git and .claude at the root),
 # same body below — only how the file list is produced changed.
 _SKIP_DIR_NAMES = {"node_modules", "platform", ".venv", "__pycache__", "dist"}
+
+
+def _arabic_indic_hits(p: Path) -> tuple[Path, str] | None:
+    """Read + check ONE file — the unit of work handed to the thread pool below. Reading is what
+    actually blocks (a syscall per file, and there can be tens of thousands of candidates even
+    after pruning); CPython releases the GIL for the duration of that syscall, so threads here
+    genuinely overlap I/O wait instead of only trading off against each other."""
+    try:
+        text = p.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return None                                   # binary, or unreadable: not prose
+    # ── the one legitimate reason to WRITE these characters ──────────────────────────────────
+    # Code that REFUSES or CONVERTS Arabic-Indic digits has to name them: the plate normaliser
+    # maps them to 0-9, the renderer refuses «٢٠%» as a discount, and their tests feed exactly
+    # those strings in. This gate flagged all five, so it failed on every run — and a gate that
+    # is always red is a gate nobody reads, which is worse than not having one. A file opts out
+    # by SAYING SO, once, in a comment; no path list here to drift.
+    if "arabic-indic-digits: intentional" in text:
+        return None
+    hits = sorted(set(_ARABIC_INDIC_RE.findall(text)))
+    return (p, "".join(hits)) if hits else None
+
+
+_candidates: list[Path] = []
 for _dirpath, _dirnames, _filenames in os.walk(ROOT):
     _dirnames[:] = [d for d in _dirnames if d not in _SKIP_DIR_NAMES]
     _rel_parts = Path(_dirpath).relative_to(ROOT).parts
     if _rel_parts and _rel_parts[0] in (".git", ".claude"):
         _dirnames[:] = []
         continue
-    for _fname in _filenames:
-        p = Path(_dirpath) / _fname
-        try:
-            text = p.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue                                  # binary, or unreadable: not prose
-        # ── the one legitimate reason to WRITE these characters ──────────────────────────────
-        # Code that REFUSES or CONVERTS Arabic-Indic digits has to name them: the plate
-        # normaliser maps them to 0-9, the renderer refuses «٢٠%» as a discount, and their tests
-        # feed exactly those strings in. This gate flagged all five, so it failed on every run —
-        # and a gate that is always red is a gate nobody reads, which is worse than not having
-        # one. A file opts out by SAYING SO, once, in a comment; no path list here to drift.
-        if "arabic-indic-digits: intentional" in text:
-            continue
-        hits = sorted({c for c in text if any(lo <= ord(c) <= hi for lo, hi in _ARABIC_INDIC)})
-        if hits:
-            fail(str(p.relative_to(ROOT)),
-                 f"Arabic-Indic digits {''.join(hits)} — every number in this product is 0-9, "
+    _candidates.extend(Path(_dirpath) / _fname for _fname in _filenames)
+
+# THE WALK ITSELF STAYS SEQUENTIAL (it is fast now — see the pruning note above); only the part
+# that was still slow — opening and scanning tens of thousands of individual files — is threaded.
+# Results are collected into a plain list from the pool's own `map`, in the SAME order `_candidates`
+# was built, and `fail()` is called back on the main thread afterward — `problems`/`notes` are
+# never appended to from more than one thread, so the ordering and thread-safety this gate's
+# output has always had are both unchanged, only how the reading is scheduled is different.
+with concurrent.futures.ThreadPoolExecutor(max_workers=32) as _pool:
+    for _result in _pool.map(_arabic_indic_hits, _candidates):
+        if _result is not None:
+            _p, _hits = _result
+            fail(str(_p.relative_to(ROOT)),
+                 f"Arabic-Indic digits {_hits} — every number in this product is 0-9, "
                  f"including in Arabic text")
 
 # ── 10. every advertised capability is actually enforced by a route ──────────────────────────
