@@ -20,12 +20,17 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.lock import SlotClaimBusy, claiming
-from app.core.models import (PAYMENT_DEPOSIT, PAYMENT_NONE, PAYMENT_STATES, STATUS_ATTENDED,
-                             STATUS_BOOKED, STATUS_CANCELLED, STATUS_NO_SHOW, TERMINAL, Booking)
+from app.core.models import (IDEMPOTENCY_CLAIMS, PAYMENT_DEPOSIT, PAYMENT_NONE, PAYMENT_STATES,
+                             STATUS_ATTENDED, STATUS_BOOKED, STATUS_CANCELLED, STATUS_NO_SHOW,
+                             TERMINAL, Booking)
 from app.core.stores import BookingStore, day_bucket, new_id
 
 
 WEEKDAY_NAMES = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+
+# Short — this whole claim only needs to outlive ONE create() call (a few awaited store/peer
+# reads and one write); see the claim's own comment above for the retry behaviour this bounds.
+_IDEMPOTENCY_CLAIM_TTL_SECONDS = 10
 
 
 class OperationError(Exception):
@@ -336,10 +341,32 @@ class BookingOperations:
         # The double-tap guard, before the licence check and before the lock — a retry of an
         # already-created booking must never be told "ليس في اشتراكك" or contend for a lane it
         # already won.
+        #
+        # THE READ ABOVE IS NOT ATOMIC BY ITSELF — fixed 2026-09-07, a QA audit found this was a
+        # real check-then-act race: `by_idempotency_key` is a `find()` read, so two concurrent
+        # creates carrying the SAME key could both see "not found" before either had written a
+        # booking, and both proceed to create one. `store.claim()` (used elsewhere in this file
+        # for the slot lock) cannot serialise this directly — it claims one fixed key, and
+        # `idempotency_key` is a secondary field, not the booking's own id — so a small dedicated
+        # lock keyed on `f"{tenant}|{idempotency_key}"` (IDEMPOTENCY_CLAIMS) exists purely to give
+        # this check something real to claim before the create path below runs.
         if idempotency_key:
             existing = await self._bookings.by_idempotency_key(tenant, idempotency_key)
             if existing is not None:
                 return existing
+            took = await self._store.claim(
+                IDEMPOTENCY_CLAIMS, f"{tenant}|{idempotency_key}",
+                {"tenant": tenant, "idempotency_key": idempotency_key},
+                ttl_seconds=_IDEMPOTENCY_CLAIM_TTL_SECONDS, now=time.time())
+            if not took:
+                # Somebody else is creating this exact booking right now. By the time this
+                # request retries, the real one is very likely already written — but if it is
+                # not (a genuine, rare contention), refuse loudly rather than risk a second
+                # booking; the caller retries, same as any other "busy" refusal in this codebase.
+                existing = await self._bookings.by_idempotency_key(tenant, idempotency_key)
+                if existing is not None:
+                    return existing
+                raise OperationError("طلب مماثل قيد التنفيذ الآن — أعد المحاولة بعد لحظة")
 
         # REFUSED ON THE GROWING HALF (app/core/licence.py's own line). A lapsed subscription
         # never strands an existing booking, but it stops a new one being made.

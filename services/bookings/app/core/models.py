@@ -14,6 +14,12 @@ from typing import Any
 
 BOOKINGS = "bookings"
 BOOKING_SLOTS = "booking_slots"
+# THE DOUBLE-TAP GUARD'S OWN LOCK — added 2026-09-07. `by_idempotency_key()` (stores.py) is a
+# `find()` over `bookings`, not a primary-key lookup, so it cannot itself be made atomic via
+# `store.claim()` (a fixed-key primitive). This is a small, separate collection keyed on
+# `f"{tenant}|{idempotency_key}"` purely to give the check a real lock to claim before the create
+# path — see `BookingOperations.create()`'s own note on the race this closes.
+IDEMPOTENCY_CLAIMS = "booking_idempotency_claims"
 # ONE DOCUMENT PER TENANT, NOT PER BRANCH ("كل الفروع تاخذ نفس النظام") — a
 # shop's working hours are one policy, not a per-branch setting; see WorkingHoursStore.
 WORKING_HOURS = "working_hours"
