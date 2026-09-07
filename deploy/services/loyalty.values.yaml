@@ -99,6 +99,9 @@ env:
   # reminded to come in for the wash he just received. By PSEUDONYM: this service holds no phone.
   OPERATIONS_VISIT_PATH: "/internal/operations/visits/by-ref"
   OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+  # Whether every active service is priced — asked live at the moment «invoice» earning is
+  # requested (spec §9.3, till-integration gate retired 2026-09-08).
+  OPERATIONS_SERVICES_PRICED_PATH: "/internal/operations/services-priced"
   TENANT_SERVICE_URL: "http://tenant-service:8000"
   TENANT_LOOKUP_PATH: "/internal/tenants/{id}"
   PEER_TIMEOUT_SECONDS: "8"

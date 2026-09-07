@@ -243,13 +243,42 @@ def test_a_negative_package_points_value_is_refused_through_the_route(client, ow
     assert r.status_code == 422
 
 
-def test_invoice_mode_is_refused_for_a_shop_with_no_till_with_the_reason(client, owner):
+def test_invoice_mode_is_allowed_by_default_no_till_needed(client, owner):
+    """The default (null) peer answers `services_priced=True` — permissive, same posture every
+    other Null* peer takes with nothing real wired. Retired 2026-09-08: this used to be refused
+    for a shop with no till; operations now computes the invoice amount from priced services
+    itself, so a till is no longer the requirement at all."""
+    r = client.put("/api/v1/loyalty/settings/mode",
+                   json={"mode": "invoice", "points_per_riyal": 1}, headers=owner)
+    assert r.status_code == 200, r.text
+    assert r.json()["config"]["mode"] == "invoice"
+
+
+def test_invoice_mode_is_refused_when_a_service_is_not_priced(client, owner):
+    class _Unpriced:
+        async def __call__(self, tenant):
+            return False
+
+    client.app.state.container.services_pricing = _Unpriced()
     r = client.put("/api/v1/loyalty/settings/mode",
                    json={"mode": "invoice", "points_per_riyal": 1}, headers=owner)
     assert r.status_code == 400
     # ARABIC, and the reason NAMED — this reaches the owner's screen, and the platform is
     # Arabic-only today. An English sentence here is the same bug as no sentence.
-    assert "الكاشير" in r.json()["reason"]
+    assert "مسعّرة" in r.json()["reason"]
+
+
+def test_switching_back_to_services_mode_never_asks_operations(client, owner):
+    """The pricing check costs a network call; a switch that does not need the answer must not
+    pay for it."""
+    class _Explodes:
+        async def __call__(self, tenant):
+            raise AssertionError("services_pricing must not be asked for a non-invoice switch")
+
+    client.app.state.container.services_pricing = _Explodes()
+    r = client.put("/api/v1/loyalty/settings/mode",
+                   json={"mode": "services", "points_per_riyal": 1}, headers=owner)
+    assert r.status_code == 200, r.text
 
 
 # ── the till and the tick ──────────────────────────────────────────────────────────────────────

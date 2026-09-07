@@ -58,31 +58,38 @@ class EarnConfig:
     it surfaces at month end as an obligation twice the size the owner planned for. Making it
     unrepresentable is cheaper than validating it in the one place somebody remembers to.
 
-    `invoice` mode is available to the INTEGRATED establishment alone. The manual field screen
-    records no money at all (spec §10 governing principle), so asking for an amount there would add
-    a field to the five-second journey in exchange for a figure the operator would be estimating.
+    `invoice` mode NO LONGER NEEDS A TILL (retired 2026-09-08, spec §9.3/§16.6). It used to be
+    available to the integrated establishment alone — the manual field screen records no money at
+    all, so an amount there would either need a till or the operator estimating one. `operations`
+    now computes the invoice amount ITSELF, from the catalogue's own priced services, so the real
+    requirement is simpler and does not need a till at all: every active service must actually
+    carry a price. `services_priced` is that fact, asked LIVE of `operations` at the exact moment
+    an owner requests `invoice` mode (see `/settings/mode`'s own route) — never a value this
+    service invents or a client is trusted to assert about its own catalogue.
     """
     mode: str = "services"
     # Points per riyal, for `invoice` mode. An integer multiplier over whole riyals — no float
     # ever touches this, and the rounding is stated rather than inherited from a language.
     points_per_riyal: int = 1
-    integrated: bool = False        # is this establishment wired to a till? (spec §16.6)
+    # Whether operations answered "every active service is priced" the last time this was set —
+    # not a fact this service tracks on its own; see the route that fills it in.
+    services_priced: bool = False
 
     def validate(self) -> None:
         if self.mode not in EARN_MODES:
             raise LoyaltyError("طريقة الاحتساب إما بالخدمات أو بقيمة الفاتورة")
-        if self.mode == "invoice" and not self.integrated:
+        if self.mode == "invoice" and not self.services_priced:
             # ARABIC, because this reaches the owner's screen. The platform is Arabic-only
             # today (and structured so English can be added later) — an English sentence here is
             # not a smaller bug than no sentence at all, it is the same one.
             raise LoyaltyError(
-                "الاحتساب بقيمة الفاتورة يحتاج ربطاً بالكاشير — الشاشة الميدانية لا تسجّل مبالغ")
+                "الاحتساب بقيمة الفاتورة يحتاج كل خدماتك مسعّرة أولاً — سعّر ما تبقّى في «خدماتي» ثم عد لتفعيله")
         if self.points_per_riyal < 0:
             raise LoyaltyError("النقاط لكل ريال لا تكون سالبة")
 
     def to_dict(self) -> dict[str, Any]:
         return {"mode": self.mode, "points_per_riyal": self.points_per_riyal,
-                "integrated": self.integrated}
+                "services_priced": self.services_priced}
 
 
 @dataclass
@@ -183,7 +190,7 @@ class EarnStore:
             defaults=dict(self._defaults),
             config=EarnConfig(mode=cfg.get("mode", "services"),
                               points_per_riyal=int(cfg.get("points_per_riyal") or 1),
-                              integrated=bool(cfg.get("integrated"))))
+                              services_priced=bool(cfg.get("services_priced"))))
 
     async def _save(self, tree: EarnTree) -> None:
         await self._s.put(SETTINGS, f"{tree.tenant}|earning", {
@@ -260,8 +267,8 @@ class EarnStore:
             cfg.mode = str(kw["mode"])
         if "points_per_riyal" in kw:
             cfg.points_per_riyal = int(kw["points_per_riyal"])
-        if "integrated" in kw:
-            cfg.integrated = bool(kw["integrated"])
+        if "services_priced" in kw:
+            cfg.services_priced = bool(kw["services_priced"])
         cfg.validate()
         tree.config = cfg
         await self._save(tree)

@@ -40,9 +40,12 @@ class Earner:
                          package_id: str = "", tree: EarnTree | None = None) -> dict:
         """Award points for one visit. Returns what happened, and never raises for a redelivery.
 
-        `amount_halalas` is used ONLY in invoice mode and ONLY when the establishment is integrated
-        — the mode itself refuses to be set otherwise (`EarnConfig.validate`), so this function
-        does not need to re-check the combination, and having one owner of that rule is the point.
+        `amount_halalas` is used ONLY in invoice mode — the mode itself refuses to be set unless
+        every service was priced at the moment it was switched on (`EarnConfig.validate`), so this
+        function does not need to re-check that, and having one owner of that rule is the point.
+        `operations` now computes `amount_halalas` from its own priced catalogue for every visit
+        (no till required any more, retired 2026-09-08) — this function just multiplies whatever
+        it was handed.
 
         `package_id`, WHEN SET, TAKES OVER FROM THE SERVICES SUM ENTIRELY (still skipped in
         `invoice` mode, same as `services` mode is) — a package earns its OWN explicit points

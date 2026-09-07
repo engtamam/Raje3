@@ -251,9 +251,11 @@ class Operations:
                            # screen does not, so empty is the ordinary case and not a gap. It is
                            # read by exactly one thing: the group-basket test (§10.6.2).
                            quantities: dict[str, int] | None = None,
-                           # WHAT THE RECEIPT CAME TO, in halalas. Same shape as `quantities`: an
-                           # integrated till knows it, the field screen does not, and 0 means «not
-                           # known» rather than «free». It is what loyalty's earn rule multiplies.
+                           # WHAT THE RECEIPT CAME TO, in halalas. An integrated till passes the
+                           # REAL amount paid here; the field screen passes nothing (0), and 0 is
+                           # then computed below from the catalogue's own priced services — never
+                           # «free», and no longer «unknowable». It is what loyalty's earn rule
+                           # multiplies.
                            total_minor: int = 0,
                            occurred_at: int = 0,
                            # Bought with points rather than money (ب-6). Recorded on the visit so
@@ -340,6 +342,21 @@ class Operations:
         asset_id = ""
         if plate.strip():
             asset_id = await self._resolve_asset(tenant, customer.id, plate.strip())
+
+        # NO TILL TOLD US THE TOTAL, SO WE COMPUTE IT OURSELVES — from the catalogue's own priced
+        # services, retiring the old rule that invoice-value earning needed a till at all (spec
+        # §9.3, till-integration gate retired 2026-09-08). `quantities` absent for a service means
+        # ONE of it, the same reading `is_group_basket` and the seams event already give that dict
+        # everywhere else. A service worth 0 (unpriced, or a legitimate freebie) contributes
+        # nothing to the sum — not an error, same as loyalty's own "no points configured" isn't
+        # one (earn.py). An integrated till's own total (`total_minor` already positive) is never
+        # overridden — it is the real amount paid, which can legitimately differ from the
+        # catalogue's list prices (a discount, a tip, a tax line the till itself applies).
+        if total_minor <= 0:
+            priced = {s.id: s.price_minor for s in await self._services.list(tenant, active_only=False)}
+            total_minor = sum(
+                priced.get(sid, 0) * max(1, int((quantities or {}).get(sid, 1)))
+                for sid in service_ids)
 
         visit = Visit(id=new_id("vis"), tenant=tenant, customer_id=customer.id,
                       service_ids=list(service_ids), asset_id=asset_id, operator_id=operator_id,

@@ -242,6 +242,7 @@ def build_container(settings: Settings) -> Container:
     container.sender = peers["sender"]
     container.identity = peers["identity"]
     container.visits = peers["visits"]
+    container.services_pricing = peers["services_pricing"]
 
     container.ledger = Ledger(container.datastore)
     container.earn_settings = EarnStore(

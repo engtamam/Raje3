@@ -78,7 +78,7 @@ registerOperatorStrings({
     'points.mode.ariaLabel': 'طريقة احتساب النقاط',
     'points.mode.services': 'بالخدمات',
     'points.mode.invoice': 'بقيمة الفاتورة',
-    'points.mode.needsIntegration': 'الاحتساب بقيمة الفاتورة يحتاج ربطاً بالكاشير — الشاشة الميدانية تسجّل زيارة، لا مبلغاً.',
+    'points.mode.needsPricedServices': 'الاحتساب بقيمة الفاتورة يحتاج كل خدماتك مسعّرة أولاً — سعّرها كلها في «خدماتي» ثم فعّله.',
 
     'points.general.label': 'نقاط لكل زيارة (عام)',
     'points.general.hint': 'كل خدمة بلا رقم خاص تأخذ هذا الرقم.',
@@ -162,7 +162,7 @@ registerOperatorStrings({
     'points.mode.ariaLabel': 'Points earning method',
     'points.mode.services': 'By service',
     'points.mode.invoice': 'By invoice value',
-    'points.mode.needsIntegration': 'Earning by invoice value needs a connected till — the field screen records a visit, not an amount.',
+    'points.mode.needsPricedServices': 'Earning by invoice value needs every service priced first — price them all in «Services», then turn it on.',
 
     'points.general.label': 'Points per visit (general)',
     'points.general.hint': 'Every service with no number of its own takes this one.',
@@ -246,7 +246,7 @@ registerOperatorStrings({
     'points.mode.ariaLabel': 'پوائنٹس کے احتساب کا طریقہ',
     'points.mode.services': 'خدمات کے حساب سے',
     'points.mode.invoice': 'فاتورہ کی قیمت کے حساب سے',
-    'points.mode.needsIntegration': 'فاتورہ کی قیمت کے حساب سے احتساب کے لیے کیشیئر سے ربط چاہیے — فیلڈ اسکرین وزٹ درج کرتی ہے، رقم نہیں۔',
+    'points.mode.needsPricedServices': 'فاتورے کی قیمت کے حساب سے احتساب کے لیے پہلے ہر سروس کی قیمت مقرر ہونی چاہیے — سب کی قیمت «میری سروسز» میں مقرر کریں، پھر اسے فعال کریں۔',
 
     'points.general.label': 'ہر وزٹ پر پوائنٹس (عمومی)',
     'points.general.hint': 'ہر وہ خدمت جس کا اپنا نمبر نہیں یہی نمبر لیتی ہے۔',
@@ -330,7 +330,7 @@ registerOperatorStrings({
     'points.mode.ariaLabel': 'Hanyar ƙidayar maki',
     'points.mode.services': 'Ta sabis',
     'points.mode.invoice': 'Ta darajar sigina',
-    'points.mode.needsIntegration': 'Ƙidayawa ta darajar sigina tana buƙatar haɗi da kaso — shafin fili yana rubuta ziyara, ba adadi ba.',
+    'points.mode.needsPricedServices': 'Ƙidayawa ta darajar sigina tana buƙatar an sanya farashin kowace sabis tukuna — sanya farashin duka a «Ayyuka», sannan a kunna shi.',
 
     'points.general.label': 'Maki na kowace ziyara (na gama gari)',
     'points.general.hint': 'Kowace sabis da ba ta da lambar kanta tana ɗaukar wannan lambar.',
@@ -414,7 +414,7 @@ registerOperatorStrings({
     'points.mode.ariaLabel': 'Paraan ng pagkalkula ng puntos',
     'points.mode.services': 'Ayon sa serbisyo',
     'points.mode.invoice': 'Ayon sa halaga ng invoice',
-    'points.mode.needsIntegration': 'Ang pagkalkula ayon sa halaga ng invoice ay nangangailangan ng koneksyon sa cashier — ang field screen ay nagre-record ng visit, hindi ng halaga.',
+    'points.mode.needsPricedServices': 'Ang pagkalkula ayon sa halaga ng invoice ay nangangailangan munang mapresyuhan ang bawat serbisyo — presyuhan lahat sa «Mga Serbisyo», pagkatapos i-on.',
 
     'points.general.label': 'Puntos kada visit (general)',
     'points.general.hint': 'Kukunin ng bawat serbisyong walang sariling numero ang numerong ito.',

@@ -863,6 +863,27 @@ async def internal_service_eligibility(request: Request, body: ServiceEligibilit
     return {"eligible_staff_ids": out}
 
 
+class ServicesPricedIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/services-priced", dependencies=[Depends(require_internal_token)])
+async def internal_services_priced(request: Request, body: ServicesPricedIn) -> dict:
+    """Whether every one of this establishment's ACTIVE services carries a real price
+    (`price_minor > 0`) — loyalty's own question, asked live at the moment an owner tries to
+    switch to «invoice» earning (spec §9.3, the till-integration gate it replaces — an owner
+    without a till can now earn by invoice, since `record_visit` computes the amount itself from
+    these same priced services rather than needing a till to report one).
+
+    An establishment with ZERO active services answers `True` — vacuously, and harmlessly: it has
+    nothing to sell yet, so the mode switch is moot either way, and refusing it would be a rule
+    about a shop that has not started, not one that priced something at zero.
+    """
+    c = request.app.state.container
+    services = await ServiceStore(c.datastore).list(body.tenant, active_only=True)
+    return {"all_priced": all(s.price_minor > 0 for s in services)}
+
+
 class PackageServicesIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     package_id: str = Field(min_length=1, max_length=64)

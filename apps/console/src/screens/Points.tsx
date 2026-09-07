@@ -29,6 +29,7 @@ import { AlertTriangle, Coins, Gift, Power, Users } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
+import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
 import { isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
@@ -75,8 +76,12 @@ interface EarnSettings {
   services: Record<string, EarnLevel>;
   groups: Record<string, EarnLevel>;
   service_group: Record<string, string>;
-  /** `integrated` is whether a till is connected — the one thing invoice earning depends on. */
-  config: { mode?: string; points_per_riyal?: number; integrated?: boolean };
+  /** `services_priced` — the LAST time this was checked (at the mode switch itself; see the
+   *  `points.mode.services` Segmented's own `onChange` below), whether every active service
+   *  carried a real price. Not read pre-emptively here: it can go stale the moment a service is
+   *  re-priced, so the honest answer is asked live, at the press — this field is read back only
+   *  to show the mode that is actually in effect, never to pre-judge a press before it happens. */
+  config: { mode?: string; points_per_riyal?: number; services_priced?: boolean };
 }
 
 /**
@@ -249,6 +254,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
   return (
     <div className="flex flex-col gap-5 p-4">
+      <PageHeader icon={Gift} title="نقاطي" />
+
       {/* ── what the programme is costing him ────────────────────────────────────────────────
           FOUR NUMBERS NOW, AND TWO OF THEM CARRY COLOUR ON PURPOSE. Points outstanding are a debt
           the shop has already promised and not yet paid (§9.1) — an owner who cannot see its size
@@ -523,14 +530,16 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   { value: 'invoice', label: t('points.mode.invoice') },
                 ]}
               />
-              {/* SAID BEFORE THE PRESS, NOT AFTER IT. The service refuses invoice earning without a
-                  till and says why, and that refusal now reaches the screen — but a rule the owner
-                  only meets by tripping over it is a rule the screen kept from him. The option
-                  stays visible and pressable: it is a capability he can buy by connecting a till,
-                  and a choice that vanishes reads as a fault (§ui 11). */}
-              {earn?.config?.integrated === false ? (
+              {/* SAID BEFORE THE PRESS, NOT AFTER IT — a constant sentence stating the rule,
+                  never a conditional read of `earn.config.services_priced`. That field is only
+                  ever as fresh as the last time this switch was actually pressed (the real,
+                  live check happens server-side, at the press itself — see the `onChange`
+                  above), so judging whether to SHOW this hint from it would be showing a
+                  possibly-stale verdict as if it were current. Hidden once he is already in
+                  invoice mode, where the rule is no longer something he is about to trip over. */}
+              {earn?.config?.mode !== 'invoice' ? (
                 <p className="mt-3 text-sm text-text-secondary">
-                  {t('points.mode.needsIntegration')}
+                  {t('points.mode.needsPricedServices')}
                 </p>
               ) : null}
             </div>

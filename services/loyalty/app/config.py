@@ -254,6 +254,9 @@ class Settings(BaseSettings):
     OPERATIONS_VISIT_PATH: str = "/internal/operations/visits/by-ref"
     # THEIRS. Visits since a watermark, for the catch-up the at-most-once bus makes mandatory.
     OPERATIONS_VISITS_SINCE_PATH: str = "/internal/operations/visits/since"
+    # THEIRS. Whether every active service is priced — asked live at the moment `invoice` mode is
+    # requested (`EarnConfig.services_priced`, spec §9.3, till-integration gate retired 2026-09-08).
+    OPERATIONS_SERVICES_PRICED_PATH: str = "/internal/operations/services-priced"
     TENANT_SERVICE_URL: str = ""
     TENANT_LOOKUP_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8

@@ -343,8 +343,8 @@ class EarnIn(BaseModel):
     visit_id: str
     subject_ref: str
     service_ids: list[str] = []
-    # Invoice mode only, and only for an integrated establishment. Halalas, so no float ever
-    # touches money.
+    # Invoice mode only — computed by operations from its own priced catalogue now, no till
+    # required (spec §9.3, retired 2026-09-08). Halalas, so no float ever touches money.
     amount_halalas: int = 0
     # THE VISIT WAS A REDEMPTION, NOT A SALE (ب-6). Declared here as well as on the visit door,
     # because this is where the event arrives and a field the model does not declare is a field

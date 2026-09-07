@@ -128,8 +128,8 @@ def test_a_visit_worth_nothing_writes_nothing():
 
 
 # ── the switch (spec §9.3) ─────────────────────────────────────────────────────────────────────
-def test_invoice_mode_needs_a_till():
-    """The manual screen records no amounts, so the mode would silently earn nothing."""
+def test_invoice_mode_needs_every_service_priced():
+    """Operations computes the invoice amount from priced services now; unpriced ones must be fixed first."""
     _, settings, _ = build()
     with pytest.raises(LoyaltyError):
         run(settings.set_config(T, mode="invoice"))
@@ -137,7 +137,7 @@ def test_invoice_mode_needs_a_till():
 
 def test_invoice_mode_earns_from_the_amount_in_whole_riyals():
     _, settings, earner = build()
-    run(settings.set_config(T, integrated=True))
+    run(settings.set_config(T, services_priced=True))
     run(settings.set_config(T, mode="invoice", points_per_riyal=2))
     res = run(earner.from_visit(T, visit_id="v1", subject_ref=S, service_ids=["wash"],
                                amount_halalas=4760))
@@ -148,7 +148,7 @@ def test_invoice_mode_earns_from_the_amount_in_whole_riyals():
 def test_the_two_modes_can_never_both_apply():
     """One transaction paid twice is invisible on screen and doubles the obligation at month end."""
     _, settings, earner = build()
-    run(settings.set_config(T, integrated=True))
+    run(settings.set_config(T, services_priced=True))
     run(settings.set_config(T, mode="invoice", points_per_riyal=1))
     run(settings.set_general(T, {"points": 100}))     # a service value that must NOT be added
     res = run(earner.from_visit(T, visit_id="v1", subject_ref=S, service_ids=["wash"],
@@ -269,7 +269,7 @@ def test_package_points_take_priority_over_invoice_mode():
     would silently compute (0 // 100) * rate == 0 for every package sold, forever, with nothing
     anywhere to notice it by."""
     _, settings, earner = build()
-    run(settings.set_config(T, mode="invoice", points_per_riyal=2, integrated=True))
+    run(settings.set_config(T, mode="invoice", points_per_riyal=2, services_priced=True))
     run(settings.set_package(T, "pkg1", 77))
     res = run(earner.from_visit(T, visit_id="v_inv_pkg", subject_ref=S,
                                 service_ids=["oil", "filter"], amount_halalas=0,
@@ -280,7 +280,7 @@ def test_package_points_take_priority_over_invoice_mode():
 
 def test_an_ordinary_service_visit_still_uses_invoice_mode_when_no_package_id():
     _, settings, earner = build()
-    run(settings.set_config(T, mode="invoice", points_per_riyal=2, integrated=True))
+    run(settings.set_config(T, mode="invoice", points_per_riyal=2, services_priced=True))
     res = run(earner.from_visit(T, visit_id="v_inv_plain", subject_ref=S,
                                 service_ids=["wash"], amount_halalas=5000))
     assert res["earned"] == 100          # (5000 // 100) * 2

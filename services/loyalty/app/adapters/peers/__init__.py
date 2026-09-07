@@ -153,6 +153,42 @@ class NullVisits:
         return {"ok": True}
 
 
+class NullServicesPricing:
+    """Local/test placeholder — answers `True` (permissive), same posture every other `Null*`
+    peer here takes when nothing real is wired. A test that needs the refusal path constructs its
+    own fake with an explicit answer rather than relying on this default."""
+    driver = "null"
+
+    async def __call__(self, tenant: str) -> bool:
+        return True
+
+
+class HttpServicesPricing:
+    """Asks operations whether every one of a tenant's ACTIVE services is priced — the live check
+    behind `invoice` mode (spec §9.3, `/settings/mode`'s own route), retiring the old till-only
+    gate. Same shape as `HttpStaffEligibility` (bookings' own client for the same peer).
+
+    FAILS CLOSED. Unlike most peer reads here (`{}`/`[]` on failure, "we don't know, proceed as if
+    there is nothing to add"), this one gates whether points get calculated CORRECTLY going
+    forward — an owner switching to `invoice` mode during a brief operations outage would otherwise
+    silently enable a mode that then undercounts every visit with no error anywhere to notice it
+    by. Refusing the switch and asking him to try again is the safer of the two wrong answers.
+    """
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 8) -> None:
+        self._url = url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+
+    async def __call__(self, tenant: str) -> bool:
+        try:
+            out = _post(self._url, {"tenant": tenant}, self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return False
+        return bool(out.get("all_priced"))
+
+
 class HttpVisits:
     """Tells operations that a free service was performed (spec §9.4, reward type `service`).
 
@@ -258,7 +294,7 @@ def build_peers(settings) -> dict[str, Any]:
     driver = (getattr(settings, "PEERS_DRIVER", "") or "null").lower()
     if driver == "null":
         return {"sender": NullSender(), "identity": NullIdentity(), "visits": NullVisits(),
-                "visit_feed": NullVisitFeed()}
+                "visit_feed": NullVisitFeed(), "services_pricing": NullServicesPricing()}
     return {
         "sender": HttpSender(url=settings.REMINDERS_SERVICE_URL,
                              path=settings.REMINDERS_SEND_PATH,
@@ -279,4 +315,8 @@ def build_peers(settings) -> dict[str, Any]:
                                     path=settings.OPERATIONS_VISITS_SINCE_PATH,
                                     token=settings.INTERNAL_SERVICE_TOKEN,
                                     timeout=settings.PEER_TIMEOUT_SECONDS),
+        "services_pricing": HttpServicesPricing(url=settings.OPERATIONS_SERVICE_URL,
+                                               path=settings.OPERATIONS_SERVICES_PRICED_PATH,
+                                               token=settings.INTERNAL_SERVICE_TOKEN,
+                                               timeout=settings.PEER_TIMEOUT_SECONDS),
     }

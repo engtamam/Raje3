@@ -518,17 +518,25 @@ async def set_mode(request: Request, body: ConfigIn,
                    principal: Principal = Depends(_MANAGE)) -> dict:
     """The earning switch (spec §9.3). Two states, never both.
 
-    Refused with the reason when `invoice` is asked for by an establishment with no till: the
-    manual screen records no amounts, so the mode would silently earn nothing.
+    Refused with the reason when `invoice` is asked for by an establishment with a service that
+    is not yet priced: `operations` computes the invoice amount from the catalogue's own prices
+    now (no till required, retired 2026-09-08), so an unpriced service is the one thing that would
+    make the mode silently undercount.
     """
     # SWITCHES THE PROGRAMME'S MODE — visits or invoices (§9.3).
     refusal = await _may_grow(request, principal)
     if refusal is not None:
         return refusal
     c = request.app.state.container
+    # ASKED LIVE, ONLY WHEN IT MATTERS — a switch back to `services` mode, or one that stays on
+    # it, has no business paying for a network call whose answer it will not use.
+    services_priced = True
+    if body.mode == "invoice":
+        services_priced = await c.services_pricing(_tenant(principal))
     try:
         tree = await c.earn_settings.set_config(_tenant(principal), mode=body.mode,
-                                                points_per_riyal=body.points_per_riyal)
+                                                points_per_riyal=body.points_per_riyal,
+                                                services_priced=services_priced)
     except LoyaltyError as exc:
         return _refuse(str(exc))
     return {"config": tree.config.to_dict()}
