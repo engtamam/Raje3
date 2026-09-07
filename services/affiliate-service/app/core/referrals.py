@@ -69,14 +69,20 @@ class ReferralRegistry:
         # SELF-REFERRAL, spec §2: "يُتحقق أن رقم جوال صاحب المحل ≠ رقم جوال المسوّق نفسه" — a
         # marketer opening a shop on his own number and crediting himself is a fabricated
         # commission, not a real referral. Both numbers folded the SAME way (app/core/phone.py)
-        # before comparing, or two spellings of one number pass this check by accident. An empty
-        # `shop_owner_phone` (an old caller that predates this field) is NOT a match — it cannot
-        # prove self-referral, so it must not manufacture a false refusal either.
-        if shop_owner_phone:
-            owner = canonical_phone(shop_owner_phone, default_cc=self._cc)
-            marketer = canonical_phone(affiliate.phone, default_cc=self._cc)
-            if owner and marketer and owner == marketer:
-                raise ReferralError("an affiliate cannot refer their own establishment")
+        # before comparing, or two spellings of one number pass this check by accident.
+        #
+        # UNCONDITIONAL NOW — fixed 2026-09-07. This used to run only `if shop_owner_phone:`, an
+        # outer gate a QA audit found was a real, if narrow, gap: it made the whole check silently
+        # optional rather than something the inner comparison already handles correctly on its
+        # own. `canonical_phone("")` (or any un-canonicalizable value) is falsy, so `if owner and
+        # marketer` below already refuses to compare when either side cannot be resolved — the
+        # exact "must not manufacture a false refusal for an unprovable case" property the outer
+        # gate existed for, kept, without ALSO silently skipping the real check whenever a future
+        # caller (or a bug in today's one) forgets to populate the field.
+        owner = canonical_phone(shop_owner_phone, default_cc=self._cc)
+        marketer = canonical_phone(affiliate.phone, default_cc=self._cc)
+        if owner and marketer and owner == marketer:
+            raise ReferralError("an affiliate cannot refer their own establishment")
 
         now = int(time.time())
         referral = Referral(
