@@ -827,12 +827,23 @@ function GatewayPanel({ session, catalog, getConfigAction, setConfigAction, acti
                 معاينة
               </Button>
             ) : null}
-            <Button type="button" disabled={!isSwitching || preview === 'loading'}
+            {/* THE INCIDENT THIS GUARDS AGAINST: "tuwaiqpay" was activated here with no real keys
+               behind it — the preview route (activation-preview) already builds the adapter
+               server-side and would have said "غير قابلة للتفعيل" honestly, but nothing REQUIRED
+               running it first, so the click went straight to a driver that crash-looped the
+               whole service for 7+ hours. Now تفعيل is unreachable until a fresh preview says
+               activatable — not merely offered. */}
+            <Button type="button"
+                   disabled={!isSwitching || preview === 'loading'
+                     || (!!activationPreviewAction && (!preview || preview === 'failed' || !preview.activatable))}
                    onClick={() => setArmSwitch(true)}>
               تفعيل
             </Button>
           </div>
 
+          {activationPreviewAction && isSwitching && !preview ? (
+            <p className="mt-2 text-sm text-text-secondary">اضغط «معاينة» أولاً — يتأكد إن مفاتيح هذي البوابة موجودة فعلاً قبل ما تفعّلها.</p>
+          ) : null}
           {preview === 'loading' ? <p className="mt-2 text-sm text-text-secondary">جارٍ المعاينة…</p> : null}
           {preview === 'failed' ? <p role="alert" className="mt-2 text-danger text-sm">تعذّرت المعاينة.</p> : null}
           {preview && preview !== 'loading' && preview !== 'failed' ? (

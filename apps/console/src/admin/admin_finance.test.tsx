@@ -319,12 +319,32 @@ describe('AdminFinance — payment gateway', () => {
     await waitFor(() => expect(screen.getByText('غير قابلة للتفعيل')).toBeTruthy());
     expect(screen.getByText('بيانات الاعتماد غير مكتملة')).toBeTruthy();
     expect(screen.getByText(/اشتراكات مرتبطة بالبوابة الحالية ستتأثر بالتبديل: 3/)).toBeTruthy();
+    // THE FIX FOR ب-1: a preview that came back "غير قابلة للتفعيل" (missing credentials, the
+    // exact tuwaiqpay incident) must leave تفعيل unreachable — not merely discouraged.
+    expect((screen.getByText('تفعيل') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('تفعيل stays disabled for a driver switch nobody previewed yet', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay' } });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('بوابة الدفع'));
+    await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('معرّف البوابة'), { target: { value: 'moyasar' } });
+    expect((screen.getByText('تفعيل') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/اضغط «معاينة» أولاً/)).toBeTruthy();
   });
 
   it('switching the driver is gated by a confirm dialog, armed by typing the new driver id', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'tuwaiqpay' } })
+      .mockResolvedValueOnce({
+        driver: 'moyasar', current_driver: 'tuwaiqpay', switching: true,
+        activatable: true, reason: '', affected_subscribers: 0,
+      })
       .mockResolvedValueOnce({ key: 'PAYMENT_GATEWAY_DRIVER', value: 'moyasar' })
       .mockResolvedValueOnce({ config: { PAYMENT_GATEWAY_DRIVER: 'moyasar' } });
 
@@ -333,6 +353,10 @@ describe('AdminFinance — payment gateway', () => {
     await waitFor(() => expect(screen.getByText('tuwaiqpay')).toBeTruthy());
 
     fireEvent.change(screen.getByLabelText('معرّف البوابة'), { target: { value: 'moyasar' } });
+    // تفعيل is gated on a fresh, activatable preview now — the crash-loop this guards against was
+    // exactly this test's driver switch with تفعيل clicked before any preview ever ran.
+    fireEvent.click(screen.getByText('معاينة'));
+    await waitFor(() => expect(screen.getByText('قابلة للتفعيل')).toBeTruthy());
     fireEvent.click(screen.getByText('تفعيل'));
 
     await screen.findByText(/تفعيل بوابة "moyasar" بدل "tuwaiqpay"؟/);
