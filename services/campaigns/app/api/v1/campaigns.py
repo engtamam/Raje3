@@ -108,21 +108,33 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     Carries each card's LOCK and its reason, because the screen renders exactly what this returns —
     a console that computed its own availability would disagree with the server the first time
     either changed.
+
+    A CARD MUST NEVER BE SHOWN AVAILABLE AND THEN REFUSED — a shop owner opened «رجّع اللي غابوا»,
+    it looked pressable, and `/preview` answered "لا يوجد قالب مفعّل لهذا الهدف" the moment he
+    asked for a number. `enabled_types()` and `pick()` used to be two SEPARATE peer calls, each
+    capable of its own cache/timing, answering the same underlying question ("does a template
+    exist for this type") through two different paths that could disagree for a moment neither
+    call could see. `enabled` is now derived from the EXACT SAME `pick()` reads `fills` already
+    needs below — one read per template type, one truth, so a card cannot be unlocked here by a
+    fact `preview` itself would refuse a breath later.
     """
     c = request.app.state.container
     locks = await _locks(c, _tenant(principal))
-    enabled = await c.templates.enabled_types(_tenant(principal))
     # reminders' OWN reason a type is not sendable — «قيد مراجعة واتساب» is patience, «لا يوجد
     # قالب فعّال» is ours to fix — never guessed here, and never the one hardcoded sentence that
     # used to stand in for both.
     blocked = await c.templates.blocked_reasons(_tenant(principal))
-    # AND WHAT EACH GOAL WILL ASK HIM TO FILL (ط-4). Read from the template this shop would
+    # AND WHAT EACH GOAL WILL ASK HIM TO FILL (ط-4), read from the template this shop would
     # actually send — including one he rewrote himself — so the screen draws the blanks that
-    # exist rather than one free box for every goal, four of which had nowhere to put it.
+    # exist rather than one free box for every goal, four of which had nowhere to put it. THE
+    # SAME LOOP now also decides `enabled` — see the docstring above for why that used to be a
+    # second, independently-timed call.
+    enabled: set[str] = set()
     fills: dict[str, list[str]] = {}
     for template_type, _cls in GOAL_TEMPLATE.values():
         row = await c.templates.pick(_tenant(principal), template_type)
         if row:
+            enabled.add(template_type)
             fills[template_type] = list(row.get("fills") or [])
     return {"goals": [vars(card) for card in
                       cards(now=_now(), fills_by_type=fills, locks=locks,
