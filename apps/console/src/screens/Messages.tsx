@@ -658,24 +658,36 @@ export function MessagesScreen(
 
                   ON THE ROW'S OWN FACTS, NEVER ON A SECOND LIST. Both filters read `cls` and `on`
                   from the rows the server sent; nothing here invents a category or remembers one. */}
+              {/* THE TWO FILTERS STAY ON ONE ROW, ALWAYS. `flex-wrap` on this row used to drop
+                  the state Segmented onto its own line the moment it ran tight, reading as two
+                  unrelated controls instead of one filter bar. The inner group is `flex-nowrap`
+                  + `overflow-x-auto` — both filters stay side by side and the group scrolls
+                  sideways on a narrow screen instead of breaking, the same pattern a phone's own
+                  filter-chip row uses. The OUTER row keeps `flex-wrap` so `AssistantHint`'s own
+                  answer (`basis-full`, see AssistantHint.tsx) can still drop to a fresh line
+                  when the "؟" is opened, instead of being forced into that same scroller. */}
               <div className="flex flex-wrap items-center gap-2 px-1">
-                <FilterMenu
-                  label="النوع"
-                  options={CLASS_ORDER.map((c) => ({ value: c, label: CLASS_LABEL[c] }))}
-                  selected={clsFilter}
-                  onChange={setClsFilter}
-                />
+                <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+                  <FilterMenu
+                    className="shrink-0"
+                    label="النوع"
+                    options={CLASS_ORDER.map((c) => ({ value: c, label: CLASS_LABEL[c] }))}
+                    selected={clsFilter}
+                    onChange={setClsFilter}
+                  />
+                  <Segmented
+                    className="shrink-0"
+                    ariaLabel="تصفية بالحالة"
+                    value={stateFilter}
+                    onChange={setStateFilter}
+                    options={[
+                      { value: '', label: 'الكل' },
+                      { value: 'on', label: 'مفعّلة' },
+                      { value: 'off', label: 'موقوفة' },
+                    ]}
+                  />
+                </div>
                 <AssistantHint session={session} anchor="messages.class" />
-                <Segmented
-                  ariaLabel="تصفية بالحالة"
-                  value={stateFilter}
-                  onChange={setStateFilter}
-                  options={[
-                    { value: '', label: 'الكل' },
-                    { value: 'on', label: 'مفعّلة' },
-                    { value: 'off', label: 'موقوفة' },
-                  ]}
-                />
               </div>
 
               {/* A FILTER THAT MATCHES NOTHING SAYS SO. An empty table under two pressed pills

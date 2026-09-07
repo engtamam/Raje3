@@ -64,7 +64,16 @@ export function Segmented<T extends string>({
       aria-disabled={disabled || undefined}
       data-testid={testId}
       className={cn(
-        'inline-flex flex-wrap gap-1 rounded-full p-1',
+        // `self-start` — WITHOUT IT, a bare `<Segmented />` dropped into any plain
+        // `flex flex-col` parent (no `items-start` set on that parent — most of the console
+        // never sets it) gets STRETCHED to the parent's full cross-axis width by the flex
+        // default (`align-items: stretch`), even though the track itself is `inline-flex`.
+        // The buttons stay their natural size and hug one side, so the track balloons into a
+        // long empty pill with two cramped buttons at one end — exactly the "شريط فاضي" bug.
+        // A caller that explicitly wants full width (e.g. Messages.tsx's own top-level tabs,
+        // `className="flex w-full ..."`) still gets it — an explicit `w-full` wins regardless
+        // of `self-start`, they are not the same CSS property.
+        'inline-flex flex-wrap gap-1 self-start rounded-full p-1',
         // THE TRACK ITSELF IS A STEP DARKER THAN THE PAGE, WITH AN INSET SHADOW — a real recess,
         // not a flat rectangle the same colour as everything around it. `sm` sits one notch
         // closer to the page background so a nested row reads as "inside" its parent, not a

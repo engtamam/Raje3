@@ -16,6 +16,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
+    'services.title': 'الخدمات',
     'services.summary.interval': 'كل {n} يوماً',
     'services.summary.followUp': 'واطمئنان بعد {n}',
     'services.summary.none': 'بلا دورة',
@@ -175,6 +176,7 @@ registerOperatorStrings({
     'services.import.deactivateAria': 'أوقف الخدمات الغائبة عن الملف',
   },
   en: {
+    'services.title': 'Services',
     'services.summary.interval': 'Every {n} days',
     'services.summary.followUp': 'and a check-in after {n}',
     'services.summary.none': 'No cycle',
@@ -334,6 +336,7 @@ registerOperatorStrings({
     'services.import.deactivateAria': 'Deactivate services missing from the file',
   },
   ur: {
+    'services.title': 'خدمات',
     'services.summary.interval': 'ہر {n} دن',
     'services.summary.followUp': 'اور {n} کے بعد اطمینان',
     'services.summary.none': 'کوئی دورانیہ نہیں',
@@ -493,6 +496,7 @@ registerOperatorStrings({
     'services.import.deactivateAria': 'فائل میں غائب خدمات کو بند کریں',
   },
   ha: {
+    'services.title': 'Ayyuka',
     'services.summary.interval': 'Kowace kwana {n}',
     'services.summary.followUp': 'da tabbatarwa bayan {n}',
     'services.summary.none': 'Babu zagayowa',
@@ -652,6 +656,7 @@ registerOperatorStrings({
     'services.import.deactivateAria': 'Dakatar da sabis da suka ɓace daga fayil',
   },
   fil: {
+    'services.title': 'Mga Serbisyo',
     'services.summary.interval': 'Bawat {n} araw',
     'services.summary.followUp': 'at check-in pagkatapos ng {n}',
     'services.summary.none': 'Walang cycle',
