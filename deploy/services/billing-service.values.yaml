@@ -212,7 +212,15 @@ env:
   # whoever holds the TuwaiqPay account, the same way every other per-service secret on this
   # cluster is set — this values file only turns the driver on and opens the one egress host it
   # needs. Nothing charges until those two keys are actually present.
-  PAYMENT_GATEWAY_DRIVER: "tuwaiqpay"
+  #
+  # SET TO "null" BELOW, back from "tuwaiqpay", because it was turned on here with neither key ever
+  # entered: the adapter's own constructor refuses to build without them (billing-service/app/
+  # adapters/payment/tuwaiqpay.py), which is a container that never finishes starting — a
+  # CrashLoopBackOff, not a service quietly declining card payments. And because operations reads
+  # billing-service synchronously for entitlement checks, that crash loop cascaded into 504s on
+  # unrelated pages platform-wide. Restore "tuwaiqpay" only once both keys are actually in
+  # billing-service-secrets — never flip the driver and the keys in two separate steps.
+  PAYMENT_GATEWAY_DRIVER: "null"
   # EINVOICER: null, and no longer urgent. ZATCA e-invoicing obliges VAT-REGISTERED persons; an
   # unregistered seller issuing receipts has nothing to report. This stops being a gap and
   # becomes a prerequisite the day we register — see the VAT block above. zatca-service moves
