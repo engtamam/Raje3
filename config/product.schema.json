@@ -83,16 +83,6 @@
             "dark":  { "$ref": "#/$defs/hexColor" }
           }
         },
-        "_secondaryNote": { "type": "string", "description": "Prose note about secondaryAccent. Underscore-prefixed: documentation for a human editor, not consumed by code." },
-        "secondaryAccent": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["light", "dark"],
-          "properties": {
-            "light": { "$ref": "#/$defs/hexColor" },
-            "dark":  { "$ref": "#/$defs/hexColor" }
-          }
-        },
         "documentFooter": { "$ref": "#/$defs/bilingual" }
       }
     },

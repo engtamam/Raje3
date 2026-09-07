@@ -169,11 +169,11 @@ function WafaCard({ session }: { session: AffiliateSession }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-secondary/40 bg-gradient-gold p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-medium text-secondary-contrast">
+    <div className="flex flex-col gap-3 rounded-card border border-accent/30 bg-accent-soft/40 p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-medium text-accent-on-soft">
         <TrendingUp size={16} /> برنامج دعم الوفاء
       </div>
-      <div className="flex justify-between text-xs text-secondary-contrast/80">
+      <div className="flex justify-between text-xs text-text-secondary">
         <span>محلات نشِطة</span>
         <span className="tabular-nums">{elig.active_shops} / {elig.tier_shops}</span>
       </div>

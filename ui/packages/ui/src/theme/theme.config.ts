@@ -28,29 +28,6 @@ export interface Palette {
   'accent-contrast': string;
   'accent-soft': string;
   'accent-on-soft': string;
-  /** THE GOLD COMPANION — added 2026-09-07 alongside the Lumera rebrand (config/product.json's own
-   *  `brand.secondaryAccent`: personal-care-company/hair-analysis-platform's "Lumera — Majestic
-   *  Design System", adopted as Raje3's own reference for a premium feel). Same five-token ramp
-   *  shape as `accent`, deliberately: a component that already knows how to render an accent-toned
-   *  surface (soft bg + on-soft text + a solid fill with real contrast ink) renders a gold one with
-   *  zero new logic, just a different token family. NEVER the default emphasis colour — gold is for
-   *  a component that explicitly asks for the premium/gift treatment; the everyday primary action
-   *  stays `accent`. */
-  secondary: string;
-  'secondary-hover': string;
-  'secondary-contrast': string;
-  'secondary-soft': string;
-  'secondary-on-soft': string;
-  /** REAL GRADIENT STRINGS, not derived at the call site — the other half of the Lumera rebrand: a
-   *  flat single-hue fill was the single biggest visual gap next to محلّي's own hero cards
-   *  (Shop.tsx's RetentionHero) and the sister mobile app's gradient-everywhere surfaces.
-   *  Appearance-aware (dark needs different stops than light, not just darker ones), so a component
-   *  reaches for ONE token instead of hand-rolling colour stops that drift from the palette.
-   *  `gradient-hero` mirrors RetentionHero's own background exactly. */
-  'gradient-accent': string;
-  'gradient-gold': string;
-  'gradient-hero': string;
-  'gradient-ground': string;
   success: string;
   'success-soft': string;
   'success-on-soft': string;
@@ -83,10 +60,8 @@ export interface Scale {
   rootFontPct: number;
   /** Corner radii. `card` is the signature large radius for panels. */
   radius: { sm: string; md: string; lg: string; card: string; pill: string };
-  /** Elevation shadows (control-room: soft, low-spread). `glow` is accent-tinted; `glow-gold` is the
-   *  same treatment tinted by `--secondary` instead — for a component that wants the premium-gold
-   *  hover lift specifically (a gift/upgrade card, never the everyday interactive one). */
-  shadow: { sm: string; md: string; lg: string; pop: string; glow: string; 'glow-gold': string };
+  /** Elevation shadows (control-room: soft, low-spread). */
+  shadow: { sm: string; md: string; lg: string; pop: string; glow: string };
   /** Motion durations + easing for the consistent, calm feel. */
   motion: { fast: string; base: string; slow: string; ease: string };
   /** Font families (Arabic-aware face swapped at dir=rtl in index.css). */
@@ -104,14 +79,6 @@ declare const __PRODUCT_ACCENT__: { light: string; dark: string };
 const BRAND = typeof __PRODUCT_ACCENT__ !== 'undefined'
   ? __PRODUCT_ACCENT__
   : { light: '#B8862B', dark: '#D8B876' };
-
-// THE GOLD COMPANION, injected the SAME way — config/product.json's own `brand.secondaryAccent`, via
-// vite.config.ts's __PRODUCT_SECONDARY_ACCENT__ define (mirrors __PRODUCT_ACCENT__'s own wiring).
-// Fallback matches Lumera's own metallic-gold secondary, for a context with no define.
-declare const __PRODUCT_SECONDARY_ACCENT__: { light: string; dark: string };
-const BRAND_SECONDARY = typeof __PRODUCT_SECONDARY_ACCENT__ !== 'undefined'
-  ? __PRODUCT_SECONDARY_ACCENT__
-  : { light: '#D4AF37', dark: '#E8C547' };
 
 /** Mix two hex colours by `amount` (0..1 toward `to`). Lets us derive a hover, a soft tint and on-soft
  *  text from a single brand hex, so the ramp is computed rather than hand-picked in a second place. */
@@ -141,129 +108,95 @@ const ACCENT_DARK = {
   onSoft: mix(BRAND.dark, '#ffffff', 0.40),
 };
 
-// GOLD ramp, same shape — gold is a mid-tone either way, so BOTH light and dark take dark ink on
-// the solid fill (mirrors Lumera's own accent-contrast choice for its gold secondary).
-const SECONDARY_LIGHT = {
-  base: BRAND_SECONDARY.light,
-  hover: mix(BRAND_SECONDARY.light, '#000000', 0.18),
-  soft: mix(BRAND_SECONDARY.light, '#ffffff', 0.85),
-  onSoft: mix(BRAND_SECONDARY.light, '#000000', 0.45),
-};
-const SECONDARY_DARK = {
-  base: BRAND_SECONDARY.dark,
-  hover: mix(BRAND_SECONDARY.dark, '#ffffff', 0.22),
-  soft: mix(BRAND_SECONDARY.dark, '#0a0e1a', 0.78),
-  onSoft: mix(BRAND_SECONDARY.dark, '#ffffff', 0.35),
-};
-
 const light: Palette = {
-  // REBRANDED 2026-09-07 — "Lumera — Majestic Design System", the sister mobile app's own theme
-  // (personal-care-company/hair-analysis-platform), adopted as Raje3's own PRIMARY design reference
-  // ("مصدرنا الأساسي تطبيق الجوال"). Replaces the violet/teal/coral identity built for محلّي, itself
-  // a rebrand of an earlier gold/ivory theme — this is a return to gold, now paired with a deeper
-  // Royal Amethyst rather than standing alone against a cool-white ground. Every hex below is taken
-  // directly from Lumera's own `AppColors`, not re-derived or approximated.
-  'surface-0': '#fdf8ff',
+  // REBRANDED, FROM THE SHOP CONSOLE'S OWN "محلّي" SCREEN, NOT INVENTED HERE. The old
+  // warm-cream/gold "sealed document" identity was rejected outright, and a
+  // violet/teal/coral direction built for محلّي was approved; this is that same
+  // palette promoted from one screen's local `--sh-*` tokens to the platform's own theme, so
+  // every screen gets it rather than one screen carrying a different identity than its shell.
+  // A near-white cool violet ground (not warm cream), white cards, violet accent, teal
+  // secondary, coral for danger/attention.
+  'surface-0': '#f4f5fa',
   'surface-1': '#ffffff',
-  'surface-2': '#f3eafa',
-  'surface-3': '#e5d3f5',
-  'text-primary': '#1a0a2e',
-  'text-secondary': '#6b5880',
-  'text-muted': '#a993bb',
-  'border-subtle': '#e5d3f5',
-  'border-strong': '#d3a9ef',
+  'surface-2': '#eceefa',
+  'surface-3': '#dfe1f2',
+  'text-primary': '#131226',
+  'text-secondary': '#47466a',
+  'text-muted': '#8d8ca8',
+  'border-subtle': '#e5e6f2',
+  'border-strong': '#cfd1e8',
   accent: ACCENT_LIGHT.base,
   'accent-hover': ACCENT_LIGHT.hover,
-  // Royal Amethyst is dark enough that WHITE ink reads clearly on a filled button.
+  // Violet is dark enough at this saturation that WHITE ink reads clearly on a filled button —
+  // unlike the old gold, which needed dark ink to clear contrast.
   'accent-contrast': '#ffffff',
   'accent-soft': ACCENT_LIGHT.soft,
   'accent-on-soft': ACCENT_LIGHT.onSoft,
-  secondary: SECONDARY_LIGHT.base,
-  'secondary-hover': SECONDARY_LIGHT.hover,
-  // Gold is a mid-tone: dark ink reads far higher contrast on it than white does.
-  'secondary-contrast': '#1a0a2e',
-  'secondary-soft': SECONDARY_LIGHT.soft,
-  'secondary-on-soft': SECONDARY_LIGHT.onSoft,
-  'gradient-accent': 'linear-gradient(135deg, #5c1b7a 0%, #9348cc 100%)',
-  'gradient-gold': 'linear-gradient(90deg, #d4af37 0%, #f5ce3f 100%)',
-  // Mirrors Shop.tsx's RetentionHero background exactly — a violet-to-teal-ish radial pair over a
-  // deep royal linear base, the one hero treatment already built, shipped, and approved.
-  'gradient-hero': 'radial-gradient(120% 90% at 15% 0%, #8f6bff 0%, transparent 55%),'
-    + 'radial-gradient(110% 100% at 100% 100%, #0fb897 0%, transparent 50%),'
-    + 'linear-gradient(160deg,#4c34c4,#2a1f7a)',
-  'gradient-ground': 'linear-gradient(180deg, #fdf8ff 0%, #f3eafa 100%)',
-  success: '#2e9b58',
-  'success-soft': '#d4f5e3',
-  'success-on-soft': '#1f7a44',
-  warning: '#d97706',
-  'warning-soft': '#fef3c7',
-  'warning-on-soft': '#92400e',
-  danger: '#dc2626',
-  'danger-soft': '#ffe4e6',
-  'danger-on-soft': '#b91c1c',
+  success: '#0f7a54',
+  'success-soft': '#dcefe4',
+  'success-on-soft': '#0a5c3f',
+  warning: '#b7791f',
+  'warning-soft': '#f7ecd2',
+  'warning-on-soft': '#8a5a12',
+  // DANGER = coral, the same hue محلّي already uses for churn/at-risk attention — so a red flag
+  // reads as the same colour language everywhere, not a leftover brick-red from the old theme.
+  danger: '#d9472f',
+  'danger-soft': '#ffe4dd',
+  'danger-on-soft': '#b23a24',
   'danger-contrast': '#ffffff',
-  info: '#1d6fa4',
-  'info-soft': '#dbeafa',
-  'info-on-soft': '#155d8a',
-  // The gift accent (a free standard) stays distinct from BOTH brand hues — Lumera's own
-  // `mintFresh`, never the violet accent (means "act on this") or the gold secondary (means
-  // "premium/gift" in a DIFFERENT, more deliberate sense — an upgrade CTA, not a free perk).
-  gift: '#4caf50',
-  'gift-soft': '#e3f4e4',
-  'gift-on-soft': '#2e7d32',
+  // SECONDARY = teal. Also used for the info role.
+  info: '#0a8871',
+  'info-soft': '#dcf7f1',
+  'info-on-soft': '#086e5c',
+  // The gift accent (a free standard) must stay DISTINCT from the violet accent — so it is teal
+  // here, the calm secondary, never the hue that now carries the brand.
+  gift: '#0a8871',
+  'gift-soft': '#dcf7f1',
+  'gift-on-soft': '#086e5c',
   'gift-contrast': '#ffffff',
   'focus-ring': ACCENT_LIGHT.base,
-  overlay: 'rgb(26 10 46 / 0.45)',
+  overlay: 'rgb(19 18 38 / 0.45)',
 };
 
 const dark: Palette = {
-  // Lumera's own `AppDarkColors` — a rich near-black with a violet undertone ("night control
-  // room"), not flat charcoal. Same rebrand as `light` above.
-  'surface-0': '#080412',
-  'surface-1': '#180b30',
-  'surface-2': '#221240',
-  'surface-3': '#2c1850',
-  // Measured to stay ≥ 4.5:1 on surface-0/1 (Lumera's own bar, carried over).
-  'text-primary': '#f0e6ff',
-  'text-secondary': '#c4a8e0',
-  'text-muted': '#8b6fa8',
-  'border-subtle': '#3d2260',
-  'border-strong': '#3d2260',
+  // REBRANDED 2026-08-22, alongside `light` above — the same violet/teal/coral identity, re-hued
+  // for a deep violet-black ground instead of the old navy. Structure (how far each step lifts,
+  // where contrast is measured) carries over from the previous dark theme; only the hue changed.
+  'surface-0': '#100f24',
+  'surface-1': '#17162f',
+  'surface-2': '#201f3d',
+  'surface-3': '#2b2a4d',
+  // Measured to stay ≥ 4.5:1 on surface-0/1, same bar as before.
+  'text-primary': '#f1f0fb',
+  'text-secondary': '#cfcee6',
+  'text-muted': '#9c9bbe',
+  'border-subtle': '#2c2b4c',
+  'border-strong': '#423f6b',
   accent: ACCENT_DARK.base,
   'accent-hover': ACCENT_DARK.hover,
-  'accent-contrast': '#1a0a2e',
+  'accent-contrast': '#17162f',
   'accent-soft': ACCENT_DARK.soft,
   'accent-on-soft': ACCENT_DARK.onSoft,
-  secondary: SECONDARY_DARK.base,
-  'secondary-hover': SECONDARY_DARK.hover,
-  'secondary-contrast': '#1a0a2e',
-  'secondary-soft': SECONDARY_DARK.soft,
-  'secondary-on-soft': SECONDARY_DARK.onSoft,
-  'gradient-accent': 'linear-gradient(135deg, #9348cc 0%, #bf7fe0 100%)',
-  'gradient-gold': 'linear-gradient(180deg, #e8c547 0%, #d4af37 50%, #b8960f 100%)',
-  'gradient-hero': 'radial-gradient(120% 90% at 15% 0%, #9348cc 0%, transparent 55%),'
-    + 'radial-gradient(110% 100% at 100% 100%, #4fd9bd 0%, transparent 50%),'
-    + 'linear-gradient(160deg,#221240,#080412)',
-  'gradient-ground': 'linear-gradient(180deg, #080412 0%, #0f0820 100%)',
   success: '#34d399',
   'success-soft': '#0c2f26',
   'success-on-soft': '#6ee7b7',
   warning: '#e8c469',
   'warning-soft': '#3a2d0e',
   'warning-on-soft': '#f5d98d',
-  danger: '#f0836a',
-  'danger-soft': '#3a1a12',
-  'danger-on-soft': '#f7b3a1',
-  'danger-contrast': '#080412',
-  info: '#5eccc0',
-  'info-soft': '#0c322e',
-  'info-on-soft': '#9be3d9',
-  gift: '#6ee7b7',
-  'gift-soft': '#0c2f26',
-  'gift-on-soft': '#a7f3d0',
-  'gift-contrast': '#080412',
+  danger: '#ff8a70',
+  'danger-soft': '#3a1f16',
+  'danger-on-soft': '#ffb49f',
+  'danger-contrast': '#17162f',
+  info: '#4fd9bd',
+  'info-soft': '#123a32',
+  'info-on-soft': '#9be9da',
+  // Gift stays teal (distinct from the violet brand accent) on the dark ground.
+  gift: '#4fd9bd',
+  'gift-soft': '#123a32',
+  'gift-on-soft': '#9be9da',
+  'gift-contrast': '#0f0f24',
   'focus-ring': ACCENT_DARK.hover,
-  overlay: 'rgb(5 2 9 / 0.62)',
+  overlay: 'rgb(8 7 20 / 0.62)',
 };
 
 const scale: Scale = {
@@ -273,26 +206,20 @@ const scale: Scale = {
   rootFontPct: 100,
   // A touch more generous — a larger card radius reads as premium, not utilitarian.
   radius: { sm: '0.5rem', md: '0.625rem', lg: '0.875rem', card: '1.25rem', pill: '9999px' },
-  // BRAND-TINTED, LAYERED, "DEEPER / MORE DRAMATIC FOR A MAJESTIC FEEL" — Lumera's own AppShadows
-  // docstring, adopted verbatim as the goal here. Each step pairs a tight contact shadow with a
-  // large diffuse one, BOTH tinted by the accent colour itself (`color-mix` against `--accent`)
-  // rather than neutral ink — this is what makes a white card lift off the ground looking like it
-  // belongs to a coloured, considered surface instead of a generic grey elevation system. Alpha
-  // rises with each step, mirroring Lumera's own escalating 0.14 → 0.50 ramp.
+  // Layered elevation, SOFTENED. A tight contact shadow plus a large diffuse one at low opacity, so a
+  // panel lifts off the ground without a heavy grey halo — the airy premium feel comes from big blur at
+  // low opacity, not from a darker shadow. `glow` is the accent-tinted hover lift, the gift-card glow
+  // generalised: any interactive card can wear it on hover and it picks up whatever the accent is.
+  // Softly tinted toward the brand (royal-blue ink, not neutral black) so white cards lift off the airy
+  // near-white canvas without a heavy grey halo — the premium feel comes from big blur at low opacity.
+  // Tinted toward the NAVY ink (not neutral black) so white cards lift off the warm cream canvas with a
+  // soft, premium halo — big blur at low opacity, never a heavy grey shadow.
   shadow: {
-    sm: '0 1px 3px -1px color-mix(in srgb, var(--accent) 14%, transparent), '
-      + '0 1px 2px color-mix(in srgb, var(--accent) 6%, transparent)',
-    md: '0 4px 10px -3px color-mix(in srgb, var(--accent) 16%, transparent), '
-      + '0 2px 6px -2px color-mix(in srgb, var(--accent) 8%, transparent)',
-    lg: '0 10px 22px -8px color-mix(in srgb, var(--accent) 22%, transparent), '
-      + '0 4px 12px -4px color-mix(in srgb, var(--accent) 10%, transparent)',
-    pop: '0 18px 38px -12px color-mix(in srgb, var(--accent) 30%, transparent), '
-      + '0 8px 20px -6px color-mix(in srgb, var(--accent) 12%, transparent)',
+    sm: '0 1px 2px -1px rgb(21 29 51 / 0.10), 0 1px 1px rgb(21 29 51 / 0.05)',
+    md: '0 2px 8px -3px rgb(21 29 51 / 0.12), 0 10px 26px -8px rgb(21 29 51 / 0.14)',
+    lg: '0 8px 18px -8px rgb(21 29 51 / 0.14), 0 24px 52px -16px rgb(21 29 51 / 0.20)',
+    pop: '0 12px 26px -12px rgb(21 29 51 / 0.18), 0 34px 72px -20px rgb(21 29 51 / 0.28)',
     glow: '0 10px 34px -8px color-mix(in srgb, var(--accent) 42%, transparent)',
-    // GOLD GLOW — same shape, tinted by `--secondary` instead, for a component that wants the
-    // premium-gold hover lift specifically (mirrors Lumera's own AppShadows.gold).
-    'glow-gold': '0 10px 34px -8px color-mix(in srgb, var(--secondary) 45%, transparent), '
-      + '0 3px 10px -2px color-mix(in srgb, var(--secondary) 15%, transparent)',
   },
   motion: { fast: '120ms', base: '200ms', slow: '360ms', ease: 'cubic-bezier(0.22, 1, 0.36, 1)' },
   font: {

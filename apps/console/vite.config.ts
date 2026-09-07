@@ -18,7 +18,7 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // theme.config.ts's OWN hardcoded gold every build, and a change to product.json did nothing. Read
 // straight from the file the doc comment already points at, so the promise is finally true.
 const product = JSON.parse(readFileSync(here('../../config/product.json'), 'utf8')) as
-  { brand: { accent: { light: string; dark: string }; secondaryAccent: { light: string; dark: string } } };
+  { brand: { accent: { light: string; dark: string } } };
 
 export default defineConfig({
   // THE CONSOLE LIVES AT /app/, AND THE BUNDLE HAS TO KNOW. Without this every asset is written as
@@ -28,9 +28,6 @@ export default defineConfig({
   base: '/app/',
   define: {
     __PRODUCT_ACCENT__: JSON.stringify(product.brand.accent),
-    // THE GOLD COMPANION — same wiring, same reasoning, added 2026-09-07 alongside theme.config.ts's
-    // own `secondary` ramp (config/product.json's `brand.secondaryAccent`).
-    __PRODUCT_SECONDARY_ACCENT__: JSON.stringify(product.brand.secondaryAccent),
   },
   plugins: [react(), legalDocsPlugin()],
   resolve: {

@@ -418,12 +418,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                             patchReward(r.id, { cost: Number(raw) });
                           }
                         }}
-                        className="h-11 w-20 rounded-xl bg-secondary-soft px-1 text-center text-lg font-semibold tabular-nums text-secondary-on-soft"
+                        className="h-11 w-20 rounded-xl bg-accent-soft px-1 text-center text-lg font-semibold tabular-nums text-accent-on-soft"
                       />
                       <span className="text-[0.65rem] text-text-secondary">{t('points.pointUnit')}</span>
                     </label>
                   ) : (
-                    <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-secondary-soft text-lg font-semibold tabular-nums text-secondary-on-soft">
+                    <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-accent-soft text-lg font-semibold tabular-nums text-accent-on-soft">
                       {r.cost}
                     </span>
                   )}

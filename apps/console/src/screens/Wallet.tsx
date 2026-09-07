@@ -106,21 +106,19 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
   return (
     <div className="flex flex-col gap-5">
       {/* ── the hero: one number, the whole point of opening this tab ─────────────────────── */}
-      {/* THE SAME HERO TREATMENT AS Shop.tsx's RetentionHero — the screen's own single headline
-          number deserves the same real gradient/depth, not a flat two-tone accent fill. */}
-      <section className="relative overflow-hidden rounded-card bg-gradient-hero p-6 text-white shadow-pop">
+      <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-accent to-accent/70 p-6 text-accent-contrast shadow-sm">
         <span aria-hidden
              className="pointer-events-none absolute -end-8 -top-8 size-40 rounded-full bg-white/10" />
         <span aria-hidden
              className="pointer-events-none absolute -bottom-10 -start-4 size-32 rounded-full bg-white/10" />
         <div className="relative flex flex-col gap-1">
-          <span className="flex items-center gap-2 text-sm font-medium text-white/85">
+          <span className="flex items-center gap-2 text-sm font-medium text-accent-contrast/85">
             <WalletIcon size={16} aria-hidden /> إجمالي رصيدك
           </span>
           <span className="text-4xl font-bold tabular-nums tracking-tight">
             {riyalsLabel(wallet.available_total ?? wallet.balance)}
           </span>
-          <span className="text-sm text-white/85">
+          <span className="text-sm text-accent-contrast/85">
             رصيدك مقسّم حسب الغرض — بالتفصيل تحت، كل غرض له بطاقته الخاصة.
           </span>
         </div>

@@ -89,7 +89,6 @@ export function applyTheme(
   root.style.setProperty('--shadow-lg', s.shadow.lg);
   root.style.setProperty('--shadow-pop', s.shadow.pop);
   root.style.setProperty('--shadow-glow', s.shadow.glow);
-  root.style.setProperty('--shadow-glow-gold', s.shadow['glow-gold']);
   root.style.setProperty('--motion-fast', s.motion.fast);
   root.style.setProperty('--motion-base', s.motion.base);
   root.style.setProperty('--motion-slow', s.motion.slow);

@@ -54,15 +54,10 @@
       "favicon": "brand/logo/favicon.svg"
     },
     "wordmark": "راجِع",
-    "_colorNote": "The brand accent — the ONE colour that carries Raje3's identity. Light and dark are the same hue at different lightness so it reads on both grounds. The full palette (surfaces, borders, semantic colours) lives in the UI theme; only the accent is brand-owned and lives here so a rebrand is one edit. A tenant may still override it (white-label). REBRANDED 2026-09-07 to Royal Amethyst + Metallic Gold — the sister mobile app's own 'Lumera — Majestic Design System' (personal-care-company/hair-analysis-platform), adopted as Raje3's own primary reference for a premium feel, after the console's flat single-hue violet read as generic next to it. The plain violet accent (#6a4cf5) it replaces was itself a deliberate rebrand from an earlier gold/ivory identity — this is a return to gold, now paired with the deeper amethyst rather than standing alone.",
+    "_colorNote": "The brand accent — the ONE colour that carries Raje3's identity. Light and dark are the same hue at different lightness so it reads on both grounds. The full palette (surfaces, borders, semantic colours) lives in the UI theme; only the accent is brand-owned and lives here so a rebrand is one edit. A tenant may still override it (white-label). REBRANDED from the old gold/ivory identity to violet — the colour the shop-console's own 'محلّي' screen was already redesigned around ('الوان شاشة محلي كويسه — نعتمد الالوان الجديدة حتى للشعار').",
     "accent": {
-      "light": "#5C1B7A",
-      "dark": "#BF7FE0"
-    },
-    "_secondaryNote": "The metallic-gold companion accent — Lumera's own 'secondary', used the same way there: buttons/badges that want the premium gold treatment specifically (never the everyday primary action, which stays the amethyst accent above).",
-    "secondaryAccent": {
-      "light": "#D4AF37",
-      "dark": "#E8C547"
+      "light": "#6a4cf5",
+      "dark": "#8f74ff"
     },
     "documentFooter": {
       "ar": "أُرسلت هذه الرسالة عبر منصة راجِع باسم المنشأة.",
