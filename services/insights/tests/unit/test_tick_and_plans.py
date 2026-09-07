@@ -223,7 +223,8 @@ def test_an_unreachable_billing_denies_rather_than_grants():
 
 def test_billing_is_asked_once_per_key_not_once_per_indicator():
     """Three indicators hang off the engine; asking billing three times would put its latency on
-    our hot path threefold."""
+    our hot path threefold. WHATSAPP_AI joined 2026-09-07 (next_step.py's own teaser rule needs
+    it) — still one ask per KEY, never per indicator/rule."""
     class Counting:
         def __init__(self):
             self.calls = []
@@ -234,7 +235,7 @@ def test_billing_is_asked_once_per_key_not_once_per_indicator():
 
     peer = Counting()
     run(plans.allowed_keys(peer, T))
-    assert peer.calls == [ENGINE]
+    assert peer.calls == [ENGINE, plans.WHATSAPP_AI]
 
 
 def test_the_teaser_uses_his_own_real_number():

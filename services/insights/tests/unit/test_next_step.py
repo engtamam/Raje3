@@ -11,10 +11,20 @@ def ctx(**values) -> ns.NextStepCtx:
     # DEFAULTS TO "PLENTY OF REAL HISTORY" — most tests below are about a specific signal firing
     # correctly, not about the evidence floor itself; the floor gets its own tests below with an
     # explicit `__total_visits__=0`.
-    return ns.NextStepCtx(values=values, entitlements=set(), audience=None, teaser=None,
-                          multi_branch=values.pop("__multi_branch__", False),
-                          staff_coverage=values.pop("__staff_coverage__", {}),
-                          total_visits=values.pop("__total_visits__", 50))
+    #
+    # ENTITLEMENTS DEFAULT TO "ALREADY SUBSCRIBED TO EVERYTHING" — a shop with no WhatsApp AI
+    # subscription is the SIGNAL `_whatsapp_ai_teaser` fires on; defaulting to `set()` (no
+    # subscription) would make that unrelated rule fire in every other test in this file that
+    # never mentions it, exactly as it did before this default existed. `whatsapp_ai_teaser`'s own
+    # test below explicitly passes `__entitlements__=set()` to test the real "not subscribed" case.
+    from app.core.plans import ENGINE, WHATSAPP_AI
+
+    return ns.NextStepCtx(
+        values=values, entitlements=values.pop("__entitlements__", {ENGINE, WHATSAPP_AI}),
+        audience=None, teaser=None,
+        multi_branch=values.pop("__multi_branch__", False),
+        staff_coverage=values.pop("__staff_coverage__", {}),
+        total_visits=values.pop("__total_visits__", 50))
 
 
 # ── the guarantee: something always shows ────────────────────────────────────────────────────────
@@ -275,3 +285,23 @@ def test_next_first_seen_never_overwrites_an_existing_timestamp():
     out = ns.next_first_seen(original, {"visits_zero", "opt_out_high"}, now=NOW)
     assert out["visits_zero"] == NOW - 3 * DAY      # kept
     assert out["opt_out_high"] == NOW               # newly stamped
+
+
+# ── whatsapp AI teaser — the console's own "luxury" special-case, keyed on this id ────────────────
+def test_whatsapp_ai_teaser_fires_only_when_not_subscribed():
+    subscribed = ctx()   # default entitlements include WHATSAPP_AI — see ctx()'s own note
+    out = ns.pick(subscribed, {}, now=NOW)
+    assert out["primary"]["id"] != "whatsapp_ai_teaser"
+
+    not_subscribed = ctx(__entitlements__=set())
+    out2 = ns.pick(not_subscribed, {}, now=NOW)
+    assert out2["primary"]["id"] == "whatsapp_ai_teaser"
+    assert out2["primary"]["category"] == ns.CATEGORY_PLAN
+    assert out2["primary"]["cta_link"] == "/plans?highlight=whatsapp"
+
+
+def test_whatsapp_ai_teaser_never_outranks_a_real_urgent_signal():
+    """Marketing must lose to an actual operational problem — visits_zero (priority 90) still
+    leads even for a shop that also happens to be un-subscribed."""
+    out = ns.pick(ctx(visits_week={"visits": 0, "previous": 4}, __entitlements__=set()), {}, now=NOW)
+    assert out["primary"]["id"] == "visits_zero"

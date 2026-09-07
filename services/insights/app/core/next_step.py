@@ -49,6 +49,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from app.core.plans import WHATSAPP_AI
+
 # ── the ten categories, named once ───────────────────────────────────────────────────────────────
 CATEGORY_VISITS = "visits"
 CATEGORY_MESSAGES = "messages"
@@ -349,6 +351,22 @@ def _audience_ready(ctx: NextStepCtx) -> NextStepResult | None:
     return None
 
 
+def _whatsapp_ai_teaser(ctx: NextStepCtx) -> NextStepResult | None:
+    """The ONE rule the console special-cases for a "luxury" render (Shop.tsx's own NextStepView,
+    keyed on `id == "whatsapp_ai_teaser"`) — not because this rule is structurally different from
+    the others (it is an ordinary NextStepResult, same shape, same cooldown), but because the
+    thing being marketed deserves to visually stand out from an ordinary tip the way the console's
+    own design pass decided, and that decision lives in the view layer, not here.
+
+    `"feature.whatsapp" not in ctx.entitlements` is the ONLY gate — see plans.py's own
+    `WHATSAPP_AI` constant for why this key is asked at all despite gating no indicator."""
+    if WHATSAPP_AI in ctx.entitlements:
+        return None
+    return NextStepResult(
+        "بوت واتساب يردّ على عملائك ويحجز لهم تلقائياً حتى وأنت نايم — جرّبه على محلك.",
+        cta_label="جرّب بوت واتساب", cta_link="/plans?highlight=whatsapp", tone="info")
+
+
 def _bundles_locked(ctx: NextStepCtx) -> NextStepResult | None:
     # THE SPECIFIC 402 THIS SERVICE SEES ON `insights.bundles` LIVES ON THE CONSOLE SIDE
     # (Shop.tsx's own `locked.bundles`, caught from that separate route's own response) — this
@@ -411,6 +429,7 @@ RULES: tuple[NextStepRule, ...] = (
     NextStepRule("associations_teaser", CATEGORY_PLAN, 30, _associations_teaser),
     NextStepRule("audience_ready", CATEGORY_PLAN, 50, _audience_ready),
     NextStepRule("bundles_locked", CATEGORY_PLAN, 30, _bundles_locked),
+    NextStepRule("whatsapp_ai_teaser", CATEGORY_PLAN, 35, _whatsapp_ai_teaser),
 
     # THE ONLY RULE THAT ALWAYS MATCHES — priority far below every real rule's worst-case cooled
     # score (`priority - _COOLDOWN_PENALTY`), so it never outranks a real, if stale, issue; it

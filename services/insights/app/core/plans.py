@@ -29,6 +29,11 @@ from typing import Any
 # Named here, in one place, so the routes and the dashboard filter cannot disagree about which
 # string to ask for — a typo'd key fails closed and looks exactly like "not bought".
 ENGINE = "feature.insights.engine"          # the association engine and everything built on it
+# THE WHATSAPP AI SUBSCRIPTION — asked here ONLY so `next_step.py`'s own teaser rule
+# (`_whatsapp_ai_teaser`) can tell "subscribed" from "not yet" without a route of its own; nothing
+# in `REQUIRES`/`can_see` gates on it (this key controls no INDICATOR — see whatsapp-assistant's
+# own manifest.py for where the feature itself is actually gated and billed).
+WHATSAPP_AI = "feature.whatsapp"
 
 # THERE IS NO KEY FOR BRANCHES, and that is a decision rather than an omission.
 #
@@ -67,7 +72,7 @@ async def allowed_keys(peers: Any, tenant: str) -> set[str]:
     costs a line rather than a refactor.
     """
     out: set[str] = set()
-    for key in (ENGINE,):
+    for key in (ENGINE, WHATSAPP_AI):
         if await peers.entitled(tenant, key):
             out.add(key)
     return out
