@@ -153,6 +153,15 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
     batch = settings.CONVERSATION_TICK_BATCH_SIZE
     tenants = [tenant] if tenant else await _active_tenants(c, limit=2000)
 
+    # ── scheduled pricing changes — once per tick, never per-tenant (pricing is platform-wide,
+    # same as every other RUNTIME_POLICY knob this service has) ──────────────────────────────────
+    # See core/pricing_schedule.py's own docstring for why a pricing change is scheduled rather
+    # than instant. Runs even on a tenant-scoped manual tick (an operator unsticking one shop by
+    # hand should not also silently suppress a due platform-wide price change from ever landing).
+    from app.core.pricing_schedule import apply_due as _apply_due_pricing
+
+    pricing_applied = await _apply_due_pricing(c.datastore, c.runtime_config, now=now)
+
     replied = closed = scanned = 0
     retention_purged_conversations = retention_purged_messages = 0
     retention_truncated = False
@@ -322,15 +331,20 @@ class PriceIn(BaseModel):
 
 
 @router.post("/whatsapp_assistant/price", dependencies=[Depends(require_internal_token)])
-async def price(body: PriceIn, settings: Settings = Depends(get_settings)) -> dict:
+async def price(body: PriceIn, request: Request, settings: Settings = Depends(get_settings)) -> dict:
     """What ONE conversation would cost under the configured PRICING_STRATEGY.
 
     Every constant behind this is zero in config today (see core/pricing.py's module docstring) —
-    this computes the SHAPE, not a real charge, until the business sets real numbers.
+    this computes the SHAPE, not a real charge, until the business sets real numbers. Resolved
+    through RuntimeConfig (`from_runtime`, not `from_settings`) — a scheduled pricing change that
+    has landed (core/pricing_schedule.py) must be reflected here on the very next call, the same
+    "no redeploy" contract every other RUNTIME_POLICY knob already has.
     """
     from app.core.pricing import ConversationCost, PricingConfig, price_conversation
 
-    cfg = PricingConfig.from_settings(settings)
+    container = getattr(request.app.state, "container", None)
+    runtime_config = getattr(container, "runtime_config", None) if container is not None else None
+    cfg = await PricingConfig.from_runtime(runtime_config, settings)
     cost = ConversationCost(input_tokens=body.input_tokens, output_tokens=body.output_tokens)
     try:
         halalas = price_conversation(

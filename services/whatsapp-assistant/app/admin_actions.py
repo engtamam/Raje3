@@ -92,4 +92,48 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
             {"name": "owner_notes", "in": "query", "type": "string", "required": False},
         ],
     },
+    {
+        "id": "whatsapp_assistant.pricing_report", "label": "استهلاك حقيقي", "method": "GET",
+        "path": "/api/v1/assistant/operator/pricing/report", "capability": "platform.config",
+        "group": "المنصة",
+        "help": "متوسط التوكنات وعدد المحادثات الحقيقي آخر عدة أيام — الأساس اللي تُبنى عليه الحاسبة.",
+        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+    },
+    {
+        "id": "whatsapp_assistant.pricing_pending", "label": "تغييرات تسعير قادمة", "method": "GET",
+        "path": "/api/v1/assistant/operator/pricing/pending", "capability": "platform.config",
+        "group": "المنصة",
+        "help": "كل تعديل سعر جُدوِل ولسا ما سرى.",
+    },
+    {
+        "id": "whatsapp_assistant.schedule_pricing", "label": "جدولة تعديل سعر", "method": "POST",
+        "path": "/api/v1/assistant/operator/pricing/schedule", "capability": "platform.config",
+        "confirm": True, "group": "المنصة",
+        # NEVER "تفعيل" LANGUAGE — see operator.py's own note: this is scheduled, never instant,
+        # and the label/help text must not imply otherwise.
+        "help": "يسري بعد المدة المحدَّدة، لا فوراً — عشان يُعلَم المحلات قبل ما يتغيّر السعر عليها.",
+        "params": [
+            {"name": "key", "in": "body", "type": "string", "required": True,
+             "choices": [
+                 {"value": "PRICING_STRATEGY", "label": "طريقة التسعير"},
+                 {"value": "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "label": "هللات لكل 1000 توكن"},
+                 {"value": "PRICING_USAGE_HALALAS_PER_CONVERSATION", "label": "هللات لكل محادثة"},
+                 {"value": "PRICING_TIER_BASE_HALALAS", "label": "سعر الباقة الأساسي"},
+                 {"value": "PRICING_TIER_INCLUDED_CONVERSATIONS", "label": "محادثات مشمولة بالباقة"},
+                 {"value": "PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION",
+                  "label": "هللات لكل محادثة زيادة عن الباقة"},
+                 {"value": "PRICING_ADDON_FLAT_HALALAS", "label": "سعر إضافة ثابتة"},
+             ]},
+            {"name": "value", "in": "body", "type": "string", "required": True},
+            {"name": "effective_in_days", "in": "body", "type": "number", "required": True},
+        ],
+    },
+    {
+        "id": "whatsapp_assistant.cancel_pending_pricing", "label": "إلغاء تعديل سعر مجدوَل",
+        "method": "DELETE", "path": "/api/v1/assistant/operator/pricing/pending/{key}",
+        "capability": "platform.config",
+        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "المنصة",
+        "help": "يلغي تعديل السعر قبل ما يسري — يبقى السعر الحالي كما هو.",
+    },
 ]

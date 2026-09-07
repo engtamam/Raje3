@@ -15,7 +15,8 @@ INBOUND_MESSAGES = "wa_inbound_messages"     # wamid-keyed dedup store — see p
 CONVERSATIONS = "wa_conversations"
 PENDING_PROPOSALS = "wa_pending_proposals"   # a model's tool call, awaiting server-side validation
 BOOKINGS = "wa_bookings"
-COST_LEDGER = "wa_cost_ledger"               # per-conversation token counts, real cost basis
+COST_LEDGER = "wa_cost_ledger"               # one row per real LLM call — the pricing calculator's
+                                              # real cost basis (core/conversation.py's own write site)
 
 
 def as_row(obj: Any) -> dict[str, Any]:

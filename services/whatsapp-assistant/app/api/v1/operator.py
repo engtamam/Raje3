@@ -21,6 +21,8 @@ until someone found the gap and repatched it by hand, off any audited path.
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -31,6 +33,11 @@ from app.api.ratelimit import rate_limit
 from app.config import Settings, get_settings
 from app.core.conversation import build_system_prompt
 from app.core.pii import subject_ref
+from app.core.pricing_report import report as pricing_report
+from app.core.pricing_schedule import cancel as cancel_pricing_change
+from app.core.pricing_schedule import is_a_pricing_key
+from app.core.pricing_schedule import pending as pending_pricing_changes
+from app.core.pricing_schedule import schedule as schedule_pricing_change
 from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
 from app.runtime_policy import RUNTIME_POLICY
@@ -115,6 +122,14 @@ async def effective_config(request: Request, tenant: str = "",
 async def set_config(request: Request, body: ConfigIn,
                      principal: Principal = Depends(require_user)) -> dict:
     """Override one policy value. Refused if the boot guard would refuse it."""
+    # A PRICING KEY NEVER TAKES THIS PATH — see core/pricing_schedule.py's own docstring for why
+    # a pricing change is scheduled with a mandatory delay, never instant. Refusing it here rather
+    # than only failing to offer it in the console means a raw API call cannot bypass the delay
+    # either; POST /pricing/schedule below is the ONLY door a pricing key can change through.
+    if is_a_pricing_key(body.key):
+        return _refuse(
+            f"{body.key} is a pricing key — it can only be changed via POST /pricing/schedule, "
+            f"which applies after a delay so shops are never billed a new rate with no notice.")
     await request.app.state.auditor.record(
         "operator.config_changed", actor=_actor(principal), tenant=body.tenant or "",
         resource=f"config:{body.key}", ip=request.client.host if request.client else "",
@@ -133,11 +148,96 @@ async def set_config(request: Request, body: ConfigIn,
 async def clear_config(request: Request, key: str, tenant: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """Drop an override so the configured default applies again."""
+    # SAME GUARD AS set_config ABOVE — reverting to the configured default is itself an instant
+    # pricing change (whatever that default is may differ from the current effective rate), so it
+    # is refused here too. DELETE /pricing/pending/{key} is how a SCHEDULED-BUT-NOT-YET-APPLIED
+    # change is cancelled instead.
+    if is_a_pricing_key(key):
+        return _refuse(
+            f"{key} is a pricing key — it cannot be cleared instantly. Schedule a change back to "
+            f"the desired value via POST /pricing/schedule instead.")
     await request.app.state.auditor.record(
         "operator.config_changed", actor=_actor(principal), tenant=tenant,
         resource=f"config:{key}", ip=request.client.host if request.client else "",
         metadata={"key": key, "cleared": True})
     return {"cleared": await _runtime_config(request).clear(tenant=tenant, key=key)}
+
+
+# ── pricing (المحاسبة) — real usage, and changes that always wait before landing ─────────────────
+_MIN_SCHEDULE_DELAY_DAYS = 1   # STRUCTURAL, NOT A SUGGESTION — see PricingScheduleIn's own note.
+
+
+class PricingScheduleIn(BaseModel):
+    key: str = Field(..., min_length=1, max_length=128)
+    value: str | int | float | bool
+    # DAYS, NOT AN EPOCH — the console's own calculator screen is the only caller, and it never
+    # has a reason to compute a timestamp itself when "15 يوم من الآن" is both what the operator
+    # typed and what this body should say. `effective_in_days` must be >= _MIN_SCHEDULE_DELAY_DAYS
+    # (1) — a pricing change scheduled for "today" would be indistinguishable from the instant
+    # apply this whole module exists to prevent; the console may default its own input to 15, but
+    # the floor here is what actually stops a 0-day request from landing immediately.
+    effective_in_days: int = Field(..., ge=_MIN_SCHEDULE_DELAY_DAYS, le=365)
+
+
+@router.get("/pricing/report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def get_pricing_report(request: Request, days: int = 30,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """Real usage over the trailing `days` — calls, distinct conversations, and token totals,
+    straight off COST_LEDGER (core/pricing_report.py). What the calculator screen shows instead of
+    a guessed average when the operator picks "من قيمة النظام" for the assumption."""
+    days = max(1, min(days, 365))
+    container = request.app.state.container
+    rep = await pricing_report(container.datastore, days=days, now=int(time.time()))
+    return rep.as_dict()
+
+
+@router.get("/pricing/pending", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def list_pending_pricing(request: Request,
+                               principal: Principal = Depends(require_user)) -> dict:
+    """Every scheduled-but-not-yet-applied pricing change — what "قادم" shows on the calculator."""
+    container = request.app.state.container
+    changes = await pending_pricing_changes(container.datastore)
+    return {"pending": [
+        {"key": c.key, "value": c.value, "effective_at": c.effective_at,
+         "scheduled_by": c.scheduled_by, "scheduled_at": c.scheduled_at} for c in changes]}
+
+
+@router.post("/pricing/schedule", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def schedule_pricing(request: Request, body: PricingScheduleIn,
+                           principal: Principal = Depends(require_user)) -> dict:
+    """Schedule a pricing key to change after a mandatory delay — never instant. See
+    core/pricing_schedule.py's own docstring for why, and PricingScheduleIn's own note for why the
+    delay is enforced here (>= 1 day) rather than trusted from the caller."""
+    if not is_a_pricing_key(body.key):
+        return _refuse(f"{body.key} is not a pricing key — see app/runtime_policy.py for the "
+                       f"seven that are.")
+    if body.key not in RUNTIME_POLICY:
+        # DEFENSE IN DEPTH, NOT REDUNDANT — is_a_pricing_key's own list is hand-kept in sync with
+        # RUNTIME_POLICY's pricing subset; this catches the day they drift instead of scheduling
+        # a change for a key RuntimeConfig.set() would refuse anyway once the tick tries to apply it.
+        return _refuse(f"{body.key} is not declared settable.")
+    now = int(time.time())
+    effective_at = now + body.effective_in_days * 86_400
+    container = request.app.state.container
+    await request.app.state.auditor.record(
+        "operator.pricing_scheduled", actor=_actor(principal), tenant="",
+        resource=f"config:{body.key}", ip=request.client.host if request.client else "",
+        metadata={"key": body.key, "effective_in_days": body.effective_in_days})
+    change = await schedule_pricing_change(
+        container.datastore, key=body.key, value=body.value, effective_at=effective_at,
+        actor=_actor(principal), now=now)
+    return {"key": change.key, "value": change.value, "effective_at": change.effective_at}
+
+
+@router.delete("/pricing/pending/{key}", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def cancel_pending_pricing(request: Request, key: str,
+                                 principal: Principal = Depends(require_user)) -> dict:
+    """Cancel a scheduled change before it lands — the operator changed their mind."""
+    container = request.app.state.container
+    await request.app.state.auditor.record(
+        "operator.pricing_schedule_cancelled", actor=_actor(principal), tenant="",
+        resource=f"config:{key}", ip=request.client.host if request.client else "")
+    return {"cancelled": await cancel_pricing_change(container.datastore, key=key)}
 
 
 @router.get("/persona-preview", dependencies=[Depends(_CONFIG), Depends(rate_limit)])

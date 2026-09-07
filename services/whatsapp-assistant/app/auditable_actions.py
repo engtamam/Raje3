@@ -163,4 +163,23 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "which model replies, when soft-decline suppresses a pitch — with no redeploy and "
                "no other trace of who changed it or when",
     },
+    {
+        "action": "operator.pricing_scheduled",
+        "source": "admin",
+        "critical": True,
+        "resource": "config",
+        "why": "a shop's real bill changes the day this lands (core/pricing_schedule.py) — "
+               "critical, unlike an ordinary config_changed above, because a shop later disputing "
+               "a charge needs this provable: who scheduled which rate, and when it was told it "
+               "would take effect, not just that it eventually did",
+    },
+    {
+        "action": "operator.pricing_schedule_cancelled",
+        "source": "admin",
+        "critical": False,
+        "resource": "config",
+        "why": "a scheduled pricing change was withdrawn before it ever took effect — nothing a "
+               "shop was ever billed under, so losing the record on an audit-sink outage costs no "
+               "protection the cancellation itself did not already provide",
+    },
 ]

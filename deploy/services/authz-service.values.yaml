@@ -139,7 +139,7 @@ env:
     service_accounts:read,service_accounts:write,
     ticket.read,ticket.write,tickets.self,
     analytics.read,wallet.read,notification.read,
-    assistant.ask
+    assistant.ask,whatsapp_assistant.pricing_read
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────
   AUDIT_SINK_DRIVER: "http"

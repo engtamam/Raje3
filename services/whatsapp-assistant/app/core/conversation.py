@@ -67,7 +67,8 @@ from typing import Any
 from app.core.context_builder import build_context_block
 from app.core.frustration import detect_frustration
 from app.core.soft_decline import is_decline
-from app.core.models import CONVERSATIONS, ConversationState, PendingProposal, PENDING_PROPOSALS, as_row
+from app.core.models import (
+    CONVERSATIONS, COST_LEDGER, ConversationState, PendingProposal, PENDING_PROPOSALS, as_row)
 from app.core.redaction import redact
 from app.core.shop_identity import GENERIC_SHOP_LABEL, ShopContext
 from app.core import tools as T
@@ -1106,6 +1107,22 @@ class ConversationEngine:
             tenant=tenant)
         conv.input_tokens += reply.input_tokens
         conv.output_tokens += reply.output_tokens
+        # ONE ROW PER REAL LLM CALL, APPENDED — the actual cost basis pricing.py's own docstring
+        # already promises ("persisted per conversation... never an estimate"), which was true of
+        # the accumulated counts on `conv` itself (still live-conversation-scoped, so it ages out
+        # with the conversation) but NOT of this collection: COST_LEDGER was declared as a name in
+        # core/models.py and never once written. A tenant-scoped, timestamped, append-only row here
+        # is what lets an aggregate read (the AI admin panel's own pricing calculator) answer "what
+        # do our real conversations actually cost" from real numbers instead of a guessed average —
+        # the two token counts are already known at this exact point, nothing else to compute.
+        # `subject_ref` RIDES ALONG — already a pseudonym everywhere else this service uses it
+        # (never a phone number), and it is the one thing that turns "how many LLM calls" into
+        # "how many DISTINCT CONVERSATIONS", which the calculator needs to answer "متوقع كم محادثة
+        # هذا الشهر" rather than only "متوقع كم رسالة".
+        await self._store.put(COST_LEDGER, f"{tenant}:{now}:{uuid.uuid4().hex[:12]}", {
+            "tenant": tenant, "subject_ref": subject_ref, "at": now,
+            "input_tokens": reply.input_tokens, "output_tokens": reply.output_tokens,
+        })
 
         if hold_id is not None:
             # CONFIRM CHARGES THE FULL RESERVED CEILING, not the real (usually smaller) token

@@ -18,6 +18,17 @@ def _admin_actions() -> list[dict[str, Any]]:
     return list(ADMIN_ACTIONS)
 
 
+def _user_actions() -> list[dict[str, Any]]:
+    """This service's declared END-USER (shop) actions — the twin of `_admin_actions()`, read by
+    api-gateway's own app_catalog.py to build a shop owner's console. Empty until 2026-09-07's
+    pricing-card route was this service's first genuinely customer-facing endpoint."""
+    try:
+        from app.user_actions import USER_ACTIONS
+    except Exception:
+        return []
+    return list(USER_ACTIONS)
+
+
 def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None) -> dict[str, Any]:
     return {
         "name": settings.SERVICE_NAME,
@@ -29,7 +40,11 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
         # (undeclared in loyalty/reminders' manifests too, per ci/check_deploy_wiring.py step 10's
         # own rule: only a capability a route enforces belongs here — /admin/ping's "admin" cap is
         # a platform-wide convention every sibling repeats undeclared, not this service's own).
-        "capabilities": ["platform.secrets", "platform.config"],
+        # "whatsapp_assistant.pricing_read" joined 2026-09-07 — the FIRST real shop-facing
+        # capability this service enforces (GET /api/v1/assistant/pricing/current, below);
+        # granted to owner/manager in deploy/seed/roles.json + services/operations/data/
+        # roles.seed.json, the same two roles that hold "billing.self".
+        "capabilities": ["platform.secrets", "platform.config", "whatsapp_assistant.pricing_read"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -62,9 +77,19 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             {"path": "/api/v1/assistant/operator/config", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/assistant/operator/config/{}", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/assistant/operator/persona-preview", "tier": "user", "method": "GET"},
+            # المحاسبة (the console's AI pricing calculator) — joined 2026-09-07. A pricing key
+            # never applies instantly (core/pricing_schedule.py): /pricing/schedule is the only
+            # door one can change through, always after a delay the caller sets.
+            {"path": "/api/v1/assistant/operator/pricing/report", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/assistant/operator/pricing/pending", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/assistant/operator/pricing/schedule", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/assistant/operator/pricing/pending/{}", "tier": "user", "method": "DELETE"},
+            # THE SHOP'S OWN READ — see this file's own note on "whatsapp_assistant.pricing_read"
+            # above and app/api/v1/__init__.py's route docstring.
+            {"path": "/api/v1/assistant/pricing/current", "tier": "user", "method": "GET"},
         ],
         "ports": ports or [],
         "events": {"emitted": [], "consumed": ["whatsapp.message", "whatsapp.status"]},
         "admin_actions": _admin_actions(),
-        "user_actions": [],
+        "user_actions": _user_actions(),
     }

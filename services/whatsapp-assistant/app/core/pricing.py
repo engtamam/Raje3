@@ -40,6 +40,9 @@ class PricingConfig:
 
     @classmethod
     def from_settings(cls, settings: Any) -> "PricingConfig":
+        """The deploy-time answer only — never what a live request should price against once
+        `from_runtime` below is wired at the call site. Kept for anything that genuinely has no
+        `RuntimeConfig` to hand (a script, a one-off check)."""
         return cls(
             strategy=settings.PRICING_STRATEGY,
             tier_base_halalas=settings.PRICING_TIER_BASE_HALALAS,
@@ -49,6 +52,34 @@ class PricingConfig:
             addon_flat_halalas=settings.PRICING_ADDON_FLAT_HALALAS,
             usage_halalas_per_1k_tokens=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
             usage_halalas_per_conversation=settings.PRICING_USAGE_HALALAS_PER_CONVERSATION)
+
+    @classmethod
+    async def from_runtime(cls, runtime_config: Any, settings: Any, *, tenant: str = "") -> "PricingConfig":
+        """THE LIVE ANSWER — every field resolved through `RuntimeConfig.get()` (an override if the
+        console's calculator scheduled and it has since landed, the configured default otherwise),
+        never read as a frozen `settings.PRICING_*` snapshot. This is what makes app/runtime_policy.py's
+        own promise true for these seven keys: declaring them settable means nothing unless the real
+        call site (api/internal.py::price()) actually resolves through here, not `from_settings`.
+
+        `runtime_config=None` (no container wired — a bare unit-test construction) falls back to the
+        deploy-time settings, same shape every other optional-runtime-config peer in this service
+        already follows.
+        """
+        if runtime_config is None:
+            return cls.from_settings(settings)
+
+        async def _get(key: str) -> Any:
+            return await runtime_config.get(tenant=tenant, key=key, default=getattr(settings, key))
+
+        return cls(
+            strategy=await _get("PRICING_STRATEGY"),
+            tier_base_halalas=await _get("PRICING_TIER_BASE_HALALAS"),
+            tier_included_conversations=await _get("PRICING_TIER_INCLUDED_CONVERSATIONS"),
+            tier_overage_halalas_per_conversation=(
+                await _get("PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION")),
+            addon_flat_halalas=await _get("PRICING_ADDON_FLAT_HALALAS"),
+            usage_halalas_per_1k_tokens=await _get("PRICING_USAGE_HALALAS_PER_1K_TOKENS"),
+            usage_halalas_per_conversation=await _get("PRICING_USAGE_HALALAS_PER_CONVERSATION"))
 
 
 @dataclass(frozen=True)

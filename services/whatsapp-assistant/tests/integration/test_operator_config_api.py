@@ -101,13 +101,37 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
         assert banned not in view
 
 
-def test_the_three_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
+def test_the_ten_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
     view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
     assert view == {
         "ASSISTANT_MODEL_NAME": "gemini-2.5-flash",
         "MAX_CAROUSEL_CARDS": 5,
         "SOFT_DECLINE_THRESHOLD": 2,
+        "PRICING_STRATEGY": "tier_plus_cap",
+        "PRICING_TIER_BASE_HALALAS": 0,
+        "PRICING_TIER_INCLUDED_CONVERSATIONS": 0,
+        "PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION": 0,
+        "PRICING_ADDON_FLAT_HALALAS": 0,
+        "PRICING_USAGE_HALALAS_PER_1K_TOKENS": 0,
+        "PRICING_USAGE_HALALAS_PER_CONVERSATION": 0,
     }
+
+
+def test_a_pricing_key_cannot_take_the_instant_config_route_even_though_it_is_settable(
+    client, operator_auth,
+):
+    """PRICING_* keys ARE in RUNTIME_POLICY (effective_config lists them, above) but must never be
+    settable through PUT/DELETE /config — only through the scheduled /pricing/schedule route
+    below. Settable-but-refused-here is a real, deliberate state this gate must hold."""
+    r = client.put(f"{PREFIX}/config",
+                   json={"key": "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "value": 50},
+                   headers=operator_auth)
+    assert r.status_code == 400
+    assert "pricing/schedule" in r.json()["reason"]
+
+    r = client.delete(f"{PREFIX}/config/PRICING_STRATEGY", headers=operator_auth)
+    assert r.status_code == 400
+    assert "pricing/schedule" in r.json()["reason"]
 
 
 def test_setting_and_reading_back_an_override(client, operator_auth):

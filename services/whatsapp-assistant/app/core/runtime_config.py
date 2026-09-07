@@ -57,11 +57,17 @@ _DENY_PREFIXES = (
 _DENY_SUFFIXES = ("_KEY", "_KEYS", "_SECRET", "_SECRETS", "_TOKEN", "_TOKENS",
                   "_PASSWORD", "_PASSWORDS", "_DSN", "_URL", "_SALT")
 
-# Explicit exceptions: values that LOOK like wiring by name but are ordinary policy. None needed
-# yet for this service — reminders' own copy of this file lists two of its own; this stays empty
-# until a real field here needs one, same "declare it in the change that needs it" discipline as
-# RUNTIME_POLICY itself.
-_ALLOW: frozenset[str] = frozenset()
+# Explicit exceptions: values that LOOK like wiring/secrets by name but are ordinary policy — same
+# "declare it in the change that needs it" discipline as RUNTIME_POLICY itself. Overrides BOTH
+# halves of the name-pattern heuristic below (the missing-Settings-field check AND the deny-
+# prefix/suffix check) — a key this specific was put here deliberately, by a human reading this
+# exact list, which is a stronger guarantee than a generic pattern match either way.
+_ALLOW: frozenset[str] = frozenset({
+    # Ends in "_TOKENS" (the LLM-token-count kind, plural), which _DENY_SUFFIXES' "_TOKEN"/
+    # "_TOKENS" entries exist to catch for the OTHER kind — an API/session credential. This is a
+    # count, never a secret; app/core/pricing.py::PricingConfig is what actually reads it.
+    "PRICING_USAGE_HALALAS_PER_1K_TOKENS",
+})
 
 
 class RuntimeConfigError(ValueError):
@@ -88,7 +94,9 @@ def settable(key: str, settings_cls, policy: frozenset[str] | None = None) -> bo
     allowed = policy if policy is not None else frozenset()
     if key not in allowed:
         return False
-    if key not in getattr(settings_cls, "model_fields", {}) and key not in _ALLOW:
+    if key in _ALLOW:
+        return True
+    if key not in getattr(settings_cls, "model_fields", {}):
         return False
     if any(key.startswith(p) for p in _DENY_PREFIXES):
         return False

@@ -11,6 +11,13 @@ needs live control over the model and a couple of behavioural knobs without a re
 are read through RuntimeConfig at the exact points named below, in the same change that added them
 here. Everything else this service tunes (thresholds, session timing, feature toggles) stays
 deploy-time env until a later slice wires its own read the same way — never declared ahead of that.
+
+SECOND SLICE, SAME DAY — the seven PRICING_* keys (المحاسبة, the calculator tab). These do NOT
+apply instantly like the three above: see core/pricing_schedule.py's own docstring for why a
+pricing change is scheduled with a delay rather than set live the moment an operator confirms it.
+They still belong in THIS policy (the promise this file's docstring makes) because the same
+`RuntimeConfig.set()` is what a due scheduled change is ultimately applied through, once the tick
+finds it due — core/pricing.py::PricingConfig.from_runtime() is the real per-request read.
 """
 from __future__ import annotations
 
@@ -24,4 +31,12 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # suggest_services_carousel call, via the value ConversationEngine now resolves live rather
     # than freezing at construction (see core/conversation.py's own note on this field).
     "MAX_CAROUSEL_CARDS",
+    # ── pricing (core/pricing.py::PricingConfig.from_runtime, read by api/internal.py::price()) ──
+    "PRICING_STRATEGY",
+    "PRICING_TIER_BASE_HALALAS",
+    "PRICING_TIER_INCLUDED_CONVERSATIONS",
+    "PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION",
+    "PRICING_ADDON_FLAT_HALALAS",
+    "PRICING_USAGE_HALALAS_PER_1K_TOKENS",
+    "PRICING_USAGE_HALALAS_PER_CONVERSATION",
 })
