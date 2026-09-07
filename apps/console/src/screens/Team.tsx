@@ -101,8 +101,27 @@ interface Mode { mode: string; available?: boolean }
  *  cannot be closed — it is where an unrecognised branch lands (services/operations/core/branches.py). */
 const MAIN_BRANCH = 'brn-main';
 
-export function TeamScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [tab, setTab] = useState<'people' | 'branches'>('people');
+export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, onBranchGateChange }: {
+  session: Session;
+  catalog: Catalog;
+  /** CONTROLLED MODE — for a parent that has already folded «العاملون»/«الفروع» into its OWN
+   *  single-level tab switcher (Account.tsx's SHOP_SUBTABS) rather than nesting a second one
+   *  under a "الفروع والفريق" wrapper tab. When given, this screen renders NO switcher of its
+   *  own — the "never two tab strips stacked" rule (see the owner's own instruction and
+   *  ci/check_no_two_tab_strips_stack_in_one_view.py). Omit both for the standalone `/team`
+   *  route (TeamRoute.tsx), which has no switcher above it and needs this screen's own. */
+  tab?: 'people' | 'branches';
+  onChangeTab?: (tab: 'people' | 'branches') => void;
+  /** Reports the branch tab's own lock state (`branchGate`, هـ-3) as soon as it is known, so a
+   *  parent rendering the label itself (Account.tsx, controlled mode) can put the same 🔒 on it
+   *  this screen would otherwise draw on its own internal tab. Fires with `'open'` before the
+   *  branches read resolves — the exact same "never lock on an unknown" default `branchGate`
+   *  itself already returns for an unresolved limit. */
+  onBranchGateChange?: (gate: ReturnType<typeof branchGate>) => void;
+}) {
+  const [internalTab, setInternalTab] = useState<'people' | 'branches'>('people');
+  const tab = controlledTab ?? internalTab;
+  const setTab = onChangeTab ?? setInternalTab;
   const [operators, setOperators] = useState<Operator[] | null | undefined>(undefined);
   const [branches, setBranches] = useState<Branch[] | null | undefined>(undefined);
   /**
@@ -191,29 +210,42 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
 
   useEffect(load, [session, catalog]);
 
+  // REPORT THE LOCK STATE AS SOON AS IT'S KNOWN, controlled mode or not — a parent rendering the
+  // label itself needs the exact same answer this screen's own (uncontrolled) label below draws
+  // from, not a second, possibly-stale copy of the same computation.
+  useEffect(() => {
+    onBranchGateChange?.(branchGate(Boolean(listBranches), branchLimit));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onBranchGateChange is a per-render
+    // callback the parent owns; it is not a dependency of "did the gate itself change".
+  }, [Boolean(listBranches), branchLimit]);
+
   return (
     <div className="flex flex-col gap-4 p-4">
-      <Segmented
-        // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
-        // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
-        // ragged block half the screen wide. It takes a className and merges with
-        // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
-        // `size="sm"` — this screen is itself reached via منشأتي's own SHOP_SUBTABS row, so this
-        // is a THIRD nesting level; marking it small keeps the hierarchy readable.
-        size="sm"
-        className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-        options={[
-          { value: 'people', label: 'العاملون' },
-          // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after. A tab that
-          // looks pressable and then refuses is worse than one that says so. It marks BOTH kinds
-          // of closed door — «not yours» and «not in your enabled apps» — and the panel says which.
-          { value: 'branches',
-            label: branchGate(Boolean(listBranches), branchLimit) === 'open'
-              ? 'الفروع' : 'الفروع 🔒' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
+      {/* NO SWITCHER OF ITS OWN IN CONTROLLED MODE — Account.tsx already renders one strip
+          (SHOP_SUBTABS) that includes «العاملون»/«الفروع» directly as two of its own options, so
+          a second strip here would stack right under it (the "شريطين تحت بعض" the owner ruled
+          out entirely, whichever level it's at). The standalone `/team` route has no switcher
+          above it at all, so it still gets this one. */}
+      {controlledTab === undefined ? (
+        <Segmented
+          // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
+          // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
+          // ragged block half the screen wide. It takes a className and merges with
+          // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
+          className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+          options={[
+            { value: 'people', label: 'العاملون' },
+            // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after. A tab that
+            // looks pressable and then refuses is worse than one that says so. It marks BOTH kinds
+            // of closed door — «not yours» and «not in your enabled apps» — and the panel says which.
+            { value: 'branches',
+              label: branchGate(Boolean(listBranches), branchLimit) === 'open'
+                ? 'الفروع' : 'الفروع 🔒' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      ) : null}
 
       {tab === 'people'
         ? <People

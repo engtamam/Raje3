@@ -33,6 +33,7 @@ import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPa
 import { PlansPane } from './Plans';
 import { WalletPane } from './Wallet';
 import { TeamScreen } from './Team';
+import { type BranchGate } from '../branches';
 import { type Loading } from '../loading';
 import type { Owned } from '../apps';
 
@@ -169,12 +170,25 @@ export function AccountScreen(
   const [pane, setPane] = useState<Pane>(() => resolvePane(openOn));
   const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
 
-  /** «منشأتي» ITSELF SPLIT INTO THREE, at the product owner's own direction: it had grown into
-   *  five sections stacked in one long scroll, which is the same "everything with no home"
-   *  problem this file's own header comment warns the WHOLE page against, just one level down. */
-  const [shopSub, setShopSub] = useState<'team' | 'whatsapp' | 'identity'>('team');
+  /** «منشأتي» ITSELF SPLIT, at the product owner's own direction: it had grown into five sections
+   *  stacked in one long scroll, which is the same "everything with no home" problem this file's
+   *  own header comment warns the WHOLE page against, just one level down.
+   *
+   *  «العاملون»/«الفروع» ARE TWO OF THESE OPTIONS DIRECTLY, not a "الفروع والفريق" tab that then
+   *  nests `TeamScreen`'s own switcher under it — that nested a second tab strip directly under
+   *  this one, which the owner ruled out entirely regardless of level ("ممنوع اطلاقاً يطلع
+   *  شريطين تحت بعض"). `TeamScreen` renders in CONTROLLED mode here (a `tab`/`onChangeTab` pair)
+   *  so it draws no switcher of its own — see its own comment. */
+  const [shopSub, setShopSub] = useState<'people' | 'branches' | 'whatsapp' | 'identity'>('people');
+  // THE BRANCH TAB'S OWN LOCK (هـ-3, branchGate) — reported by `TeamScreen` once the branches
+  // read resolves, since this file has no read of its own to compute it from. `'open'` is the
+  // exact same "never lock on an unknown" default `branchGate` itself returns before that.
+  const [branchGateState, setBranchGateState] = useState<BranchGate>('open');
   const SHOP_SUBTABS = [
-    { value: 'team' as const, label: 'الفروع والفريق' },
+    { value: 'people' as const, label: 'العاملون' },
+    // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after — same reasoning
+    // `TeamScreen`'s own (uncontrolled-mode) label always used.
+    { value: 'branches' as const, label: branchGateState === 'open' ? 'الفروع' : 'الفروع 🔒' },
     { value: 'whatsapp' as const, label: 'ربط واتساب' },
     { value: 'identity' as const, label: 'الهوية والإعدادات' },
   ];
@@ -244,22 +258,25 @@ export function AccountScreen(
 
       {active === 'shop' ? (
         <div className="flex flex-col gap-4">
-          {/* «منشأتي» split into three, at the product owner's own direction — it had grown into
+          {/* «منشأتي» split into four, at the product owner's own direction — it had grown into
               five sections stacked in one long scroll. Same Segmented pattern as the top-level
               tabs, one level down — `size="sm"` now marks it as exactly that: nested, not a
-              second copy of the top-level row (Segmented's own module docstring). */}
+              second copy of the top-level row (Segmented's own module docstring). FOUR options
+              now (was three): «العاملون»/«الفروع» joined directly instead of sitting behind one
+              "الفروع والفريق" tab — see the `shopSub` state's own comment above. */}
           <Segmented
             size="sm"
-            className="grid w-full grid-cols-3 gap-1 [&>button]:w-full [&>button]:truncate"
+            className="grid w-full grid-cols-2 gap-1 sm:flex sm:flex-nowrap [&>button]:w-full [&>button]:truncate sm:[&>button]:flex-1"
             ariaLabel="أقسام منشأتي"
             value={shopSub}
             onChange={(v) => setShopSub(v as typeof shopSub)}
             options={SHOP_SUBTABS}
           />
 
-          {shopSub === 'team' ? (
+          {shopSub === 'people' || shopSub === 'branches' ? (
             <div className="flex flex-col gap-6">
-              <TeamScreen session={session} catalog={catalog} />
+              <TeamScreen session={session} catalog={catalog} tab={shopSub}
+                        onChangeTab={setShopSub} onBranchGateChange={setBranchGateState} />
             </div>
           ) : null}
 
