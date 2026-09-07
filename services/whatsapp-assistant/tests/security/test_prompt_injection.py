@@ -76,6 +76,31 @@ async def test_output_filter_rejects_a_claimed_action_the_model_never_performed(
     assert sanitized != text
 
 
+async def test_persona_instructs_personalization_by_effect_never_by_stated_history():
+    prompt = build_system_prompt("محل الأناقة")
+    assert "لاحظنا" in prompt          # the forbidden phrase, quoted as an example of what NOT to say
+    assert "أبدًا بتبرير سببه" in prompt or "بلا أي إشارة" in prompt or "الأثر يظهر" in prompt
+
+
+async def test_output_filter_strips_a_reply_that_names_the_customers_own_pattern():
+    for text in (
+        "لاحظنا إنك تحجز قص شعر كل شهر، تحب نفس الموعد هالمرة؟",
+        "عادة تطلب نفس الخدمة، أضيفها؟",
+        "من فترة ما جربت الحلاقة، تحب تجربها؟",
+        "زرتنا قبل واخترت نفس الباقة، أكررها؟",
+        "We noticed you usually book on Fridays.",
+    ):
+        sanitized = _sanitize_reply(text)
+        assert sanitized == "تحب تجرب لك شي اليوم؟", text
+
+
+async def test_output_filter_leaves_an_ordinary_personalized_suggestion_untouched():
+    """The rule forbids STATING the reason, never the suggestion itself — a suggestion with no
+    history-shaped phrase must pass through unmodified."""
+    text = "تحب تجرب باقة العناية الكاملة هالمرة؟ تجمع لك أكثر من خدمة بسعر واحد."
+    assert _sanitize_reply(text) == text
+
+
 async def test_output_filter_masks_phone_shaped_digit_runs():
     leaked = "رقم العميل الآخر هو 0501234567 إن أردت التواصل"
     sanitized = _sanitize_reply(leaked)
