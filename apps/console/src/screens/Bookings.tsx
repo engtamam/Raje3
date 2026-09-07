@@ -649,13 +649,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </div>
           </div>
 
-          {/* اليوم/الأسبوع وزر الإعدادات على نفس خط الفلاتر — صف تحكّم
-              واحد بدل صفّين، بدل ما يتفرّق التحكّم بالعرض عن التحكّم بالمحتوى. */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* صفّان لا صف واحد — "كيف نعرض" (يوم/أسبوع، شبكة/قائمة، الإعدادات، الفرع، الموظف)
+              منفصل بصرياً عن "أي جزء من البيانات" (الفلاتر). خلطهما بصف واحد طويل هو بالضبط ما
+              كان يضغط عنصر التصفية بالدفع حتى يُقصّ نصّه ("عرب" بدل "عربون") — كل مجموعة الآن
+              بصفّها الخاص، فلا تتزاحم على نفس المساحة الأفقية أبداً. */}
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
               {(['day', 'week', 'month', 'year'] as const).map((v) => (
                 <button key={v} type="button" onClick={() => setView(v)}
-                       className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+                       className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
                        style={v === view
                          ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                          : { color: 'var(--rj-ink-soft)' }}>
@@ -679,7 +681,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               ]).map(({ id, icon: Icon, label }) => (
                 <button key={id} type="button" onClick={() => setLayout(id)}
                        aria-label={label} title={label}
-                       className="grid h-7 w-9 place-items-center rounded-full transition-colors"
+                       className="grid h-7 w-9 shrink-0 place-items-center rounded-full transition-colors"
                        style={id === layout
                          ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                          : { color: 'var(--rj-ink-soft)' }}>
@@ -691,7 +693,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
             <button type="button" onClick={() => setHoursDialogOpen(true)}
                    aria-label={t('bookings.workingHours')} title={t('bookings.workingHours')}
-                   className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
+                   className="grid h-9 w-9 shrink-0 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                    style={{ background: 'var(--rj-surface)' }}>
               <Settings size={16} aria-hidden />
             </button>
@@ -700,7 +702,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               <div className="flex flex-wrap items-center gap-1.5">
                 {branches.map((b) => (
                   <button key={b.id} type="button" onClick={() => onBranch(b.id)}
-                         className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                         className="whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors"
                          style={b.id === activeBranch
                            ? { background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
                            : { color: 'var(--rj-ink-soft)' }}>
@@ -717,30 +719,36 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 {staffHere.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             ) : null}
+          </div>
 
-            {/* FILTERS, NOT A SEARCH BOX — narrowing the grid is a tap on what it already shows
-                (a service, a deposit state), never typing a query for something read a hundred
-                times a day.
+          {/* FILTERS, NOT A SEARCH BOX — narrowing the grid is a tap on what it already shows
+              (a service, a deposit state), never typing a query for something read a hundred
+              times a day. صفّها الخاص دائماً (لا يشارك عرض/تبويب) — العرض المتاح لعناصر التصفية
+              الأربعة (بحث، خدمة، أربع حالات دفع، مسح) لا يتغيّر بوجود فرع أو موظف بجانبه.
 
-                TWO LAYOUTS, ONE STATE. On a phone the header is already three rows deep before
-                the grid starts, so the controls fold into one chip — a tap most of the time, two
-                on the day filtering actually touches. On anything wider there is room to just
-                SHOW the two controls inline, which is the one-tap version this was always meant
-                to be; the chip below only exists for the width that cannot afford it. */}
-            {/* FILTERS NARROW `rows`/`visible` — MEANINGLESS FOR MONTH/YEAR, which never load
-                `rows` at all (see `daysToLoad`'s own guard above). Hidden for those two views
-                rather than shown and silently inert. */}
-            {(view === 'day' || view === 'week') ? (
-            <>
-            <div className="hidden items-center gap-2 sm:flex">
+              TWO LAYOUTS, ONE STATE. On a phone the header is already three rows deep before
+              the grid starts, so the controls fold into one chip — a tap most of the time, two
+              on the day filtering actually touches. On anything wider there is room to just
+              SHOW the two controls inline, which is the one-tap version this was always meant
+              to be; the chip below only exists for the width that cannot afford it. */}
+          {/* FILTERS NARROW `rows`/`visible` — MEANINGLESS FOR MONTH/YEAR, which never load
+              `rows` at all (see `daysToLoad`'s own guard above). Hidden for those two views
+              rather than shown and silently inert. */}
+          {(view === 'day' || view === 'week') ? (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
                           phoneMatches={phoneMatches} filterCustomer={filterCustomer}
                           setFilterCustomer={setFilterCustomer} />
               <FilterMenu label={t('bookings.service')} options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
                          selected={filterServices} onChange={setFilterServices} />
-              <div className="flex overflow-hidden rounded-full shadow-sm" style={{ border: '1px solid var(--rj-line)' }}>
+              {/* PAYMENT TOGGLE — كل زر `whitespace-nowrap shrink-0` عمداً، فلا "عربون" ينكسر
+                  سطرين ويُقصّ داخل الحاوية `overflow-hidden` (هذا بالضبط ما كان يُظهرها "عرب"
+                  مقصوصة). العنصر كله يلف لسطر جديد كوحدة واحدة عند ضيق المساحة، لا يتقطّع من
+                  المنتصف أبداً. */}
+              <div className="flex shrink-0 flex-wrap overflow-hidden rounded-full shadow-sm" style={{ border: '1px solid var(--rj-line)' }}>
                 <button type="button" onClick={() => setFilterPayment('any')}
-                       className="h-9 px-3 text-xs font-medium"
+                       className="h-9 shrink-0 whitespace-nowrap px-3 text-xs font-medium"
                        style={filterPayment === 'any'
                          ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
                          : { background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
@@ -748,7 +756,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </button>
                 {PAYMENT_ORDER.map((v) => (
                   <button key={v} type="button" onClick={() => setFilterPayment(v)}
-                         className="h-9 px-3 text-xs font-medium"
+                         className="h-9 shrink-0 whitespace-nowrap px-3 text-xs font-medium"
                          style={v === filterPayment
                            ? { background: PAYMENT_COLOR[v].fg, color: 'var(--rj-bg)' }
                            : { background: PAYMENT_COLOR[v].bg, color: PAYMENT_COLOR[v].fg }}>
@@ -759,7 +767,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               {activeFilterCount ? (
                 <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
                        aria-label={t('bookings.clearFilters')}
-                       className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
+                       className="grid h-9 w-9 shrink-0 place-items-center rounded-full shadow-sm"
                        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
                   <X size={14} aria-hidden />
                 </button>
@@ -842,9 +850,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </>
               ) : null}
             </div>
-            </>
-            ) : null}
           </div>
+          ) : null}
         </div>
       </header>
 
