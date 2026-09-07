@@ -1167,6 +1167,19 @@ jobs:
       - name: every deployed service has a Dockerfile and is in the publish list
         run: python3 ci/check_a_deployed_service_has_a_buildable_image.py
 
+      # FOUR GATES FOUND WRITTEN, COMMITTED, AND NEVER ADDED HERE — check_every_gate_is_wired_
+      # into_ci.py caught all four the day it was pointed at this file. Each protects something
+      # real that had already gone unchecked since the gate's own commit date; adding them here IS
+      # the fix, not a follow-up to one.
+      - name: every AssistantHint anchor has a real KB entry, and every KB entry is used
+        run: python3 ci/check_assistant_hint_anchors_exist.py
+      - name: every action in every catalog carries real help text
+        run: python3 ci/check_every_action_has_help.py
+      - name: every operator-facing translation key exists in every locale
+        run: python3 ci/check_operator_translations_are_complete.py
+      - name: every shop KB file has the shape by_anchor() assumes
+        run: python3 ci/check_shop_kb_is_valid.py
+
       # The same service's values file also never set AUDIT_SINK_DRIVER at all — every sibling
       # service's values file had the same two lines, this one never did — so its first production
       # boot would have crash-looped on its own fail-closed audit guard.
