@@ -643,6 +643,17 @@ class BookingOperations:
         rows = await self._bookings.for_subject(tenant, subject_ref, limit=limit)
         return sorted(rows, key=lambda b: b.starts_at, reverse=True)
 
+    async def bookings_by_actor(self, tenant: str, created_by: str, *, branch_id: str = "",
+                                since: int | None = None, until: int | None = None,
+                                limit: int = 2000) -> tuple[list[Booking], bool]:
+        """Every booking a given ACTOR made — whatsapp-assistant's own attribution stamp
+        (`created_by`, see api/internal.py's `InternalCreateBookingIn`) — not a customer's history.
+        The read `upsell_report.py` names as its own documented follow-up: a cross-service report
+        needs bookings filtered by who made them, not by whose they are. Returns (rows, truncated);
+        see `BookingStore.by_actor`'s own note on why the scan is bounded rather than exhaustive."""
+        return await self._bookings.by_actor(tenant, created_by, branch_id=branch_id, since=since,
+                                             until=until, limit=limit)
+
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
                            search_days: int = 14,

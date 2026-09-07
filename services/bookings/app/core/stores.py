@@ -169,6 +169,50 @@ class BookingStore:
                 break
         return counts
 
+    async def by_actor(self, tenant: str, created_by: str, *, branch_id: str = "",
+                       since: int | None = None, until: int | None = None,
+                       limit: int = 2000) -> tuple[list[Booking], bool]:
+        """Every booking THIS actor made (`created_by` — whatsapp-assistant's own attribution
+        stamp, see `InternalCreateBookingIn`'s note in api/internal.py), optionally narrowed to one
+        branch and a `created` window. Returns (rows, truncated) — `truncated` is honest the same
+        way `counts_between`'s own paging loop is: a real cap was hit, the caller must not present
+        the result as complete.
+
+        `where` is equality-only (see the port's own docstring), so `since`/`until` are applied in
+        Python after each page — sorted `created` DESC means the first row past `since` is where
+        every later page would only get older, so the scan stops there rather than reading the
+        actor's entire history to answer a bounded report window (mirrors `slots_between`'s own
+        "one batched read, not an unbounded scan" discipline).
+        """
+        where: dict[str, Any] = {"tenant": tenant, "created_by": created_by}
+        if branch_id:
+            where["branch_id"] = branch_id
+        out: list[Booking] = []
+        after: str | None = None
+        pages = 0
+        while pages < 20:  # 20 * 500 = 10,000 rows per actor per report call — a real ceiling
+            pages += 1
+            rows, after = await self._s.find(self.collection, where, limit=500, after=after,
+                                             sort=("created", "desc"))
+            stop = False
+            hit_limit = False
+            for row in rows:
+                created = int(row.get("created") or 0)
+                if until is not None and created > until:
+                    continue
+                if since is not None and created < since:
+                    stop = True
+                    break
+                out.append(_from_row(row))
+                if len(out) >= limit:
+                    stop = hit_limit = True
+                    break
+            if stop:
+                return out, hit_limit
+            if not after or not rows:
+                return out, False
+        return out, True
+
     async def save(self, b: Booking) -> Booking:
         # A RESCHEDULE MOVES THE BUCKET. `starts_at` is mutable (it IS the reschedule act), and
         # `branch_id` is fixed but read here for symmetry — either changing means the OLD slot key

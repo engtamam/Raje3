@@ -19,6 +19,7 @@ from app.core.availability import (Busy, DayException, DurationNotConfigured, Sc
                                    free_slots, nearest_slot)
 from app.core.lock import SlotClaimBusy
 from app.core.licence import LicenceError
+from app.core.models import Booking
 from app.core.operations import OperationError
 from app.core.stores import ConcurrentEditError
 from app.backup_manifest import BACKUP
@@ -451,6 +452,52 @@ async def internal_bookings_for_subject(request: Request, body: InternalForSubje
     c = request.app.state.container
     rows = await c.booking_ops.bookings_for_subject(body.tenant, body.subject_ref)
     return {"bookings": [b.public() for b in rows]}
+
+
+class InternalByActorIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # REQUIRED, NEVER A WILDCARD — this route answers "bookings made by THIS actor", not "all
+    # bookings this tenant has". A caller building a cross-service report (whatsapp-assistant's own
+    # `upsell_report.py`, which named this exact gap as a documented follow-up) always knows its own
+    # actor constant ("whatsapp-assistant"); there is no legitimate caller of this route that does
+    # not, so an empty value is refused rather than silently read as "everyone".
+    created_by: str = Field(min_length=1, max_length=64)
+    branch_id: str = Field(default="", max_length=64)
+    since: int | None = Field(default=None, ge=0)
+    until: int | None = Field(default=None, ge=0)
+    limit: int = Field(default=2000, ge=1, le=2000)
+
+
+def _actor_public(b: Booking) -> dict:
+    """A NARROWER PROJECTION than `Booking.public()` on purpose — this route serves a
+    cross-service revenue report (whatsapp-assistant's own upsell/pricing stats), not a screen the
+    booking's own customer or staff are looking at, and `.public()` carries `customer_id`, `note`,
+    `idempotency_key` and other fields that report has no business seeing. Only what a price-and-
+    volume aggregation actually needs."""
+    return {
+        "id": b.id, "branch_id": b.branch_id, "operator_id": b.operator_id,
+        "service_ids": list(b.service_ids), "package_id": b.package_id,
+        "starts_at": b.starts_at, "status": b.status,
+        "price_override_minor": b.price_override_minor,
+        "created": b.created, "created_by": b.created_by,
+    }
+
+
+@router.post("/bookings/by-actor", dependencies=[Depends(require_internal_token)])
+async def internal_bookings_by_actor(request: Request, body: InternalByActorIn) -> dict:
+    """Every booking a given ACTOR made — bookings-service's answer to the gap `upsell_report.py`
+    (whatsapp-assistant) documented explicitly: no route existed to list bookings by who made them,
+    only by whose customer they belong to (`for-customer`/`for-subject` above). `created_by` is
+    required, never inferred or wildcarded (see `InternalByActorIn`'s own note) — this is
+    "whatsapp-assistant's own bookings", never "this tenant's bookings". `since`/`until` (unix
+    seconds, against `created` — when the AI made the booking, not the appointment time it booked)
+    bound a real report window rather than an unbounded scan; `truncated` says honestly when the
+    real cap (`BookingStore.by_actor`) was hit."""
+    c = request.app.state.container
+    rows, truncated = await c.booking_ops.bookings_by_actor(
+        body.tenant, body.created_by, branch_id=body.branch_id, since=body.since,
+        until=body.until, limit=body.limit)
+    return {"bookings": [_actor_public(b) for b in rows], "truncated": truncated}
 
 
 class InternalCancelIn(BaseModel):

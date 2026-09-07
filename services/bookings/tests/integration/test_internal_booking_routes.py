@@ -583,3 +583,83 @@ def test_for_customer_is_isolated_per_tenant(env_guard):
     r = client.post("/internal/bookings/for-customer",
                     json={"tenant": "tnt_fc_a", "customer_id": "same-id"}, headers=_h())
     assert len(r.json()["bookings"]) == 1
+
+
+# ── by-actor: bookings-service's answer to upsell_report.py's own documented follow-up ──────────
+
+def test_by_actor_refuses_without_the_internal_token(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/by-actor",
+                    json={"tenant": "t1", "created_by": "whatsapp-assistant"})
+    assert r.status_code == 401
+
+
+def test_by_actor_requires_created_by_never_a_wildcard(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/by-actor", json={"tenant": "t1"}, headers=_h())
+    assert r.status_code == 422
+
+
+def test_by_actor_returns_only_that_actors_own_bookings(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    ai = _book(client, customer_id="c1", idempotency_key="k-actor-ai", created_by="whatsapp-assistant")
+    _book(client, customer_id="c2", idempotency_key="k-actor-staff")   # created_by="" (staff)
+    r = client.post("/internal/bookings/by-actor",
+                    json={"tenant": "t1", "created_by": "whatsapp-assistant"}, headers=_h())
+    assert r.status_code == 200
+    ids = [b["id"] for b in r.json()["bookings"]]
+    assert ids == [ai["id"]]
+    assert r.json()["truncated"] is False
+
+
+def test_by_actor_projection_never_leaks_customer_id_or_note(env_guard):
+    """A cross-service revenue report has no business seeing who the customer is or what note was
+    left — proves this route serves `_actor_public`'s narrower shape, not `Booking.public()`."""
+    client = _make_app()
+    _stub_ops(client)
+    _book(client, customer_id="c1", idempotency_key="k-actor-proj", created_by="whatsapp-assistant",
+         note="ملاحظة خاصة")
+    r = client.post("/internal/bookings/by-actor",
+                    json={"tenant": "t1", "created_by": "whatsapp-assistant"}, headers=_h())
+    row = r.json()["bookings"][0]
+    assert "customer_id" not in row and "note" not in row and "idempotency_key" not in row
+    assert row["status"] == "booked" and row["created_by"] == "whatsapp-assistant"
+
+
+def test_by_actor_filters_by_branch_id(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    a = _book(client, branch_id="branch-a", idempotency_key="k-actor-branch-a",
+             created_by="whatsapp-assistant")
+    _book(client, branch_id="branch-b", idempotency_key="k-actor-branch-b",
+         created_by="whatsapp-assistant")
+    r = client.post("/internal/bookings/by-actor",
+                    json={"tenant": "t1", "created_by": "whatsapp-assistant",
+                         "branch_id": "branch-a"}, headers=_h())
+    ids = [b["id"] for b in r.json()["bookings"]]
+    assert ids == [a["id"]]
+
+
+def test_by_actor_is_isolated_per_tenant(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    _book(client, tenant="tnt_actor_a", customer_id="c1", idempotency_key="k-actor-tnt-a",
+         created_by="whatsapp-assistant")
+    _book(client, tenant="tnt_actor_b", customer_id="c1", idempotency_key="k-actor-tnt-b",
+         created_by="whatsapp-assistant")
+    r = client.post("/internal/bookings/by-actor",
+                    json={"tenant": "tnt_actor_a", "created_by": "whatsapp-assistant"},
+                    headers=_h())
+    assert len(r.json()["bookings"]) == 1
+
+
+def test_by_actor_returns_empty_never_an_error_for_an_actor_with_no_bookings(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/by-actor",
+                    json={"tenant": "t1", "created_by": "never-booked-anything"}, headers=_h())
+    assert r.status_code == 200
+    assert r.json() == {"bookings": [], "truncated": False}
