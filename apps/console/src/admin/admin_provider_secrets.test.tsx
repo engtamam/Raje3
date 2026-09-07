@@ -1,6 +1,9 @@
 /**
  * مفاتيح المزوّدين الخارجيين — الاختبارات تتأكد أن الشاشة لا تعرض قيمة أبداً (آخر أربعة أحرف
  * فقط)، وأن التحديث يمرّ عبر تأكيد قبل استدعاء secrets.update، وأن غياب الصلاحية يُقال صراحة.
+ *
+ * البطاقات القابلة للنقر (2026-09-07): كل سر/إعداد بطاقة مصغّرة، والنموذج الكامل بنافذة تُفتح
+ * بالنقر بدل تمرير طويل — `openCard` أدناه تفتح بطاقة باسمها قبل أي تفاعل مع حقولها.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -43,8 +46,15 @@ async function openProvider(label: string | RegExp) {
   fireEvent.click(screen.getByText(label));
 }
 
+/** تفتح بطاقة مصغّرة (سر أو إعداد) باسمها — النافذة تحمل نفس النموذج القديم بالضبط. */
+async function openCard(label: string | RegExp) {
+  await waitFor(() => expect(screen.getByText(label)).toBeTruthy());
+  fireEvent.click(screen.getByText(label));
+  await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+}
+
 describe('AdminProviderSecrets', () => {
-  it('shows only the last four characters, never a value, for a configured key', async () => {
+  it('shows only the last four characters, never a value, right on the card before it is even opened', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
       secrets: [{ key: 'META_APP_SECRET', label: 'سر تطبيق ميتا', configured: true,
@@ -57,9 +67,11 @@ describe('AdminProviderSecrets', () => {
     expect(screen.getByText('····ab12')).toBeTruthy();
     // NEVER THE RAW VALUE, NOT EVEN AS A KEY NAME IN A DATA ATTRIBUTE THE DOM WOULD EXPOSE.
     expect(screen.queryByText(/value/i)).toBeNull();
+    // NO DIALOG YET — the hint is glanceable on the card itself, the form is not open.
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('an unreadable row says so, never a false "غير مُعدّ"', async () => {
+  it('an unreadable row says so on its own card, never a false "غير مُعدّ"', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
       secrets: [{ key: 'META_APP_SECRET', label: 'سر تطبيق ميتا', configured: null,
@@ -71,7 +83,7 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText(/تعذّر الاتصال بالعنقود/)).toBeTruthy());
   });
 
-  it('updating a key arms a confirm dialog before calling secrets.update, and clears the field', async () => {
+  it('opening a card shows its form in a dialog; updating arms an inline confirm step before calling secrets.update, and clears the field', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
       .mockResolvedValueOnce({
@@ -87,17 +99,23 @@ describe('AdminProviderSecrets', () => {
     render(<AdminProviderSecrets session={SESSION} />);
     await openProvider(/^الذكاء الاصطناعي/);
     await waitFor(() => expect(screen.getByText('غير مُعدّ')).toBeTruthy());
+    // NO DIALOG UNTIL THE CARD IS CLICKED — the long inline form is gone from the page itself.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await openCard('مفتاح الذكاء الاصطناعي');
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
     expect(input.type).toBe('password');
     fireEvent.change(input, { target: { value: 'AQ.new-real-key' } });
     fireEvent.click(screen.getByText('تحديث'));
 
-    // NOT CALLED YET — the confirm dialog must gate the actual write.
+    // NOT CALLED YET — the confirm step (inline, inside the same dialog) must gate the write.
     expect(reqMock).not.toHaveBeenCalledWith(
       '/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL', 'POST', expect.anything(), 'tok-1',
     );
     await waitFor(() => expect(screen.getByText(/تحديث "مفتاح الذكاء الاصطناعي"؟/)).toBeTruthy());
+    // STILL ONE DIALOG, NOT TWO — the confirm step replaces the form's own content rather than
+    // stacking a second Modal on top of it (this app's shared Modal does not support stacking).
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
 
     fireEvent.click(screen.getByText('تأكيد'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
@@ -138,7 +156,7 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('هذه الشاشة ليست ضمن صلاحياتك')).toBeTruthy());
   });
 
-  it('shows the env var name under the label, and "؟" reveals where to get the value', async () => {
+  it('shows the env var name on the card itself, and "؟" inside the dialog reveals where to get the value', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
       secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي', configured: false,
@@ -147,7 +165,9 @@ describe('AdminProviderSecrets', () => {
 
     render(<AdminProviderSecrets session={SESSION} />);
     await openProvider(/^الذكاء الاصطناعي/);
+    // العنصر بالمفتاح البرمجي يظهر على البطاقة قبل أي فتح.
     await waitFor(() => expect(screen.getByText('ASSISTANT_MODEL_CREDENTIAL')).toBeTruthy());
+    await openCard('مفتاح الذكاء الاصطناعي');
 
     expect(screen.queryByText(/Service Accounts/)).toBeNull();   // collapsed by default
     fireEvent.click(screen.getByLabelText(/ايش هذا؟/));
@@ -163,6 +183,7 @@ describe('AdminProviderSecrets', () => {
 
     render(<AdminProviderSecrets session={SESSION} />);
     await openProvider(/^Meta\b/);
+    await openCard('توكن تحقق الـwebhook');
     await waitFor(() => expect(screen.getByText('توليد')).toBeTruthy());
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
@@ -242,23 +263,30 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('الإدارة')).toBeTruthy());
     expect(screen.getByText('المحاسبة')).toBeTruthy();
 
-    // الأسرار (نفس البطاقة القديمة)، ولوحة النموذج/السلوك، ومعاينة الشخصية — الثلاثة معاً.
+    // الثلاث بطاقات (سر، النموذج والسلوك، الشخصية والسلوك) — بلا أي نافذة مفتوحة بعد.
     await waitFor(() => expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy());
-    await waitFor(() => expect(screen.getByDisplayValue('gemini-2.5-flash')).toBeTruthy());
-    await waitFor(() => expect(screen.getByText(/أنت المساعد الرقمي/)).toBeTruthy());
+    expect(screen.getByText('النموذج والسلوك')).toBeTruthy();
+    expect(screen.getByText('الشخصية والسلوك')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
 
-    // تعديل قيمة نموذج يمر عبر تأكيد قبل PUT — نفس انضباط الأسرار.
+    // تعديل قيمة نموذج يمر عبر تأكيد قبل PUT — نفس انضباط الأسرار، داخل نافذة البطاقة.
+    await openCard('النموذج والسلوك');
+    await waitFor(() => expect(screen.getByDisplayValue('gemini-2.5-flash')).toBeTruthy());
     const modelInput = screen.getByDisplayValue('gemini-2.5-flash') as HTMLInputElement;
     fireEvent.change(modelInput, { target: { value: 'gemini-3.0-flash' } });
-    // زران بعنوان "تحديث" على الشاشة (بطاقة السر، وصف الإعداد) — هذا الثاني، صاحب مدخل النموذج.
-    const updateButtons = screen.getAllByRole('button', { name: 'تحديث' });
-    fireEvent.click(updateButtons[updateButtons.length - 1]);
+    fireEvent.click(screen.getByRole('button', { name: 'تحديث' }));
     await waitFor(() => expect(screen.getByText(/تعديل "اسم النموذج"؟/)).toBeTruthy());
     fireEvent.click(screen.getByText('تأكيد'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/assistant/operator/config', 'PUT',
       { key: 'ASSISTANT_MODEL_NAME', value: 'gemini-3.0-flash' }, 'tok-1',
     ));
+    fireEvent.click(screen.getByLabelText('إغلاق'));
+
+    // معاينة الشخصية بنافذتها الخاصة.
+    await openCard('الشخصية والسلوك');
+    await waitFor(() => expect(screen.getByText(/أنت المساعد الرقمي/)).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('إغلاق'));
 
     // "المحاسبة" مكانها محجوز، ما فيه شي مبني بعد — نص واضح لا شاشة فارغة تبدو معطّلة.
     fireEvent.click(screen.getByText('المحاسبة'));

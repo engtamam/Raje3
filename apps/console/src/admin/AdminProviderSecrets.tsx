@@ -19,13 +19,13 @@
  * config, the one other place it has to match — this is showing a brand-new local value, not
  * the write-only guarantee above, which is about a value already saved.
  */
-import { useEffect, useState } from 'react';
-import { CircleHelp, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ChevronLeft, CircleHelp, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
-import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
+import { Modal } from '../rj-ui/Modal';
 import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
@@ -219,18 +219,18 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
               <Segmented value={aiTab} onChange={(v) => setAiTab(v as 'admin' | 'calc')}
                         options={[{ value: 'admin', label: 'الإدارة' }, { value: 'calc', label: 'المحاسبة' }]} />
               {aiTab === 'admin' ? (
-                <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {activeRows.map((row) => (
-                    <SecretRowCard key={row.key} row={row} session={session}
-                                   updateAction={updateAction}
-                                   onSaved={() => listAction && reload(listAction)} />
+                    <SecretCard key={row.key} row={row} session={session}
+                               updateAction={updateAction}
+                               onSaved={() => listAction && reload(listAction)} />
                   ))}
                   {configGetAction ? (
-                    <AIConfigPanel session={session} getAction={configGetAction}
-                                  setAction={configSetAction} clearAction={configClearAction} />
+                    <AIConfigCard session={session} getAction={configGetAction}
+                                 setAction={configSetAction} clearAction={configClearAction} />
                   ) : null}
                   {personaPreviewAction ? (
-                    <AIPersonaPreview session={session} previewAction={personaPreviewAction} />
+                    <AIPersonaCard session={session} previewAction={personaPreviewAction} />
                   ) : null}
                 </div>
               ) : (
@@ -242,17 +242,38 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
               )}
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {activeRows.map((row) => (
-                <SecretRowCard key={row.key} row={row} session={session}
-                               updateAction={updateAction}
-                               onSaved={() => listAction && reload(listAction)} />
+                <SecretCard key={row.key} row={row} session={session}
+                           updateAction={updateAction}
+                           onSaved={() => listAction && reload(listAction)} />
               ))}
             </div>
           )}
         </>
       )}
     </div>
+  );
+}
+
+// ── البطاقة المصغّرة المشتركة — نفس شكل الزر لكل أنواع الإعدادات (سر، إعداد تشغيل، معاينة)، والنقر
+// عليها يفتح التفاصيل بنافذة بدل تمرير طويل. حالة "بلا صلاحية تعديل" (updateAction غير موجود) ما
+// زالت تُفتح — الشاشة تُقال، لا تُخفى (نفس مبدأ NoActionAvailable أعلاه). ──────────────────────────
+function CardTrigger({ onClick, title, subtitle, trailing }: {
+  onClick: () => void; title: ReactNode; subtitle?: ReactNode; trailing?: ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick}
+           className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4 text-right transition hover:border-accent/50 hover:bg-surface-2 focus-ring">
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-medium">{title}</span>
+        {trailing}
+      </div>
+      {subtitle}
+      <span className="mt-auto flex items-center gap-1 self-start text-label text-text-muted">
+        <ChevronLeft size={13} /> فتح الإعدادات
+      </span>
+    </button>
   );
 }
 
@@ -266,9 +287,10 @@ const CONFIG_KEY_META: Record<string, { label: string; help: string }> = {
     help: 'أقصى عدد بطاقات خدمات/باقات يعرضها المساعد بردّ واحد.' },
 };
 
-function AIConfigPanel({ session, getAction, setAction, clearAction }: {
+function AIConfigCard({ session, getAction, setAction, clearAction }: {
   session: AdminSession; getAction: AdminAction; setAction?: AdminAction; clearAction?: AdminAction;
 }) {
+  const [open, setOpen] = useState(false);
   const [config, setConfig] = useState<Record<string, unknown> | 'loading' | 'failed'>('loading');
 
   function reload() {
@@ -280,22 +302,30 @@ function AIConfigPanel({ session, getAction, setAction, clearAction }: {
 
   useEffect(reload, [getAction.path, session.access_token]);
 
+  const count = typeof config === 'object' ? Object.keys(config).length : 0;
+
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-      <h3 className="font-medium">النموذج والسلوك</h3>
-      {config === 'loading' ? (
-        <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-      ) : config === 'failed' ? (
-        <p role="alert" className="text-danger text-sm">تعذّرت قراءة الإعدادات الحالية.</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {Object.entries(config).map(([key, value]) => (
-            <ConfigRow key={key} session={session} k={key} currentValue={value}
-                      setAction={setAction} clearAction={clearAction} onSaved={reload} />
-          ))}
-        </div>
-      )}
-    </section>
+    <>
+      <CardTrigger onClick={() => setOpen(true)} title="النموذج والسلوك"
+                   subtitle={<span className="text-label text-text-secondary">
+                     {count ? `${count} إعداد قابل للتعديل الآن` : 'إعدادات النموذج الحيّة'}
+                   </span>} />
+      <Modal open={open} onClose={() => setOpen(false)} title="النموذج والسلوك"
+            subtitle="تعديل يسري على المحادثة التالية فوراً — بلا إعادة تشغيل.">
+        {config === 'loading' ? (
+          <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+        ) : config === 'failed' ? (
+          <p role="alert" className="text-danger text-sm">تعذّرت قراءة الإعدادات الحالية.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {Object.entries(config).map(([key, value]) => (
+              <ConfigRow key={key} session={session} k={key} currentValue={value}
+                        setAction={setAction} clearAction={clearAction} onSaved={reload} />
+            ))}
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }
 
@@ -304,7 +334,9 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
   setAction?: AdminAction; clearAction?: AdminAction; onSaved: () => void;
 }) {
   const [value, setValue] = useState(String(currentValue ?? ''));
-  const [arm, setArm] = useState<'set' | 'clear' | null>(null);
+  // خطوة تأكيد داخل نفس النافذة — لا نافذة ثانية فوق الأولى. `Modal` هنا (بخلاف ConfirmDialog) لا
+  // يدعم التكديس (انظر تعليقه الخاص)، فأي تأكيد يصير محتوى بديل داخل نفس النافذة المفتوحة أصلاً.
+  const [step, setStep] = useState<'edit' | 'confirm-set' | 'confirm-clear'>('edit');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const meta = CONFIG_KEY_META[k];
@@ -315,9 +347,10 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
     try {
       await req(setAction.path, 'PUT', { key: k, value }, session.access_token);
       onSaved();
+      setStep('edit');
     } catch (err) {
       setError(sentenceFor(err, 'تعذّر حفظ القيمة.'));
-    } finally { setBusy(false); setArm(null); }
+    } finally { setBusy(false); }
   }
 
   async function doClear() {
@@ -326,9 +359,32 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
     try {
       await req(clearAction.path.replace('{key}', encodeURIComponent(k)), 'DELETE', undefined, session.access_token);
       onSaved();
+      setStep('edit');
     } catch (err) {
       setError(sentenceFor(err, 'تعذّر حذف الإعداد.'));
-    } finally { setBusy(false); setArm(null); }
+    } finally { setBusy(false); }
+  }
+
+  if (step !== 'edit') {
+    const clearing = step === 'confirm-clear';
+    return (
+      <div className="flex flex-col gap-3 rounded-card border border-border-subtle p-3">
+        <p className="font-medium">
+          {clearing ? `استرجاع افتراضي "${meta?.label ?? k}"؟` : `تعديل "${meta?.label ?? k}"؟`}
+        </p>
+        <p className="text-label text-text-secondary">
+          {clearing ? 'يعود للقيمة المبنيّة في الخدمة بدل القيمة المعدَّلة يدوياً.'
+                    : 'يسري على المحادثة التالية فوراً — بلا إعادة تشغيل.'}
+        </p>
+        {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setStep('edit')} disabled={busy}>رجوع</Button>
+          <Button variant={clearing ? 'solid' : 'danger'} onClick={clearing ? doClear : doSet} disabled={busy}>
+            تأكيد
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -342,28 +398,23 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
         <Input id={`config-${k}`} dir="ltr" value={value} onChange={(e) => setValue(e.target.value)}
               className="max-w-xs" />
         {setAction ? (
-          <Button size="sm" disabled={!value || busy} onClick={() => setArm('set')}>تحديث</Button>
+          <Button size="sm" disabled={!value} onClick={() => setStep('confirm-set')}>تحديث</Button>
         ) : null}
         {clearAction ? (
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => setArm('clear')}>
+          <Button size="sm" variant="outline" onClick={() => setStep('confirm-clear')}>
             استرجاع الافتراضي
           </Button>
         ) : null}
       </div>
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
-      <ConfirmDialog open={arm === 'set'} onClose={() => setArm(null)} onConfirm={doSet} busy={busy}
-                    title={`تعديل "${meta?.label ?? k}"؟`}
-                    body="يسري على المحادثة التالية فوراً — بلا إعادة تشغيل." />
-      <ConfirmDialog open={arm === 'clear'} onClose={() => setArm(null)} onConfirm={doClear} busy={busy}
-                    title={`استرجاع افتراضي "${meta?.label ?? k}"؟`}
-                    body="يعود للقيمة المبنيّة في الخدمة بدل القيمة المعدَّلة يدوياً." />
     </div>
   );
 }
 
 // ── "الشخصية والسلوك" — نفس نمط معاينة AdminLegal (BlockView)، للاطّلاع فقط اليوم: build_system_
 // prompt نص ثابت بالكود لا قالب مخزَّن، فما فيه شي يُحفظ من هنا بعد — انظر operator.py's own note. ──
-function AIPersonaPreview({ session, previewAction }: { session: AdminSession; previewAction: AdminAction }) {
+function AIPersonaCard({ session, previewAction }: { session: AdminSession; previewAction: AdminAction }) {
+  const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState<string | 'loading' | 'failed'>('loading');
   const [ownerNotes, setOwnerNotes] = useState('');
 
@@ -381,30 +432,33 @@ function AIPersonaPreview({ session, previewAction }: { session: AdminSession; p
   const block: Block = { type: 'text', data: { md_ar: typeof prompt === 'string' ? prompt : '', md_en: '' } };
 
   return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-      <h3 className="font-medium">الشخصية والسلوك</h3>
-      <p className="text-label text-text-secondary">
-        هذا النص بالضبط يُرسَل للنموذج كشخصية المساعد — للاطّلاع فقط، لا يُعدَّل من هنا بعد.
-      </p>
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="flex-1">
-          <label className="text-label font-medium text-text-secondary" htmlFor="persona-owner-notes">
-            جرّب بملاحظات محل حقيقية (اختياري)
-          </label>
-          <Input id="persona-owner-notes" value={ownerNotes} onChange={(e) => setOwnerNotes(e.target.value)} />
+    <>
+      <CardTrigger onClick={() => setOpen(true)} title="الشخصية والسلوك"
+                   subtitle={<span className="text-label text-text-secondary">النص المرسَل للنموذج — للاطّلاع</span>} />
+      <Modal open={open} onClose={() => setOpen(false)} title="الشخصية والسلوك" size="lg"
+            subtitle="هذا النص بالضبط يُرسَل للنموذج كشخصية المساعد — للاطّلاع فقط، لا يُعدَّل من هنا بعد.">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex-1">
+              <label className="text-label font-medium text-text-secondary" htmlFor="persona-owner-notes">
+                جرّب بملاحظات محل حقيقية (اختياري)
+              </label>
+              <Input id="persona-owner-notes" value={ownerNotes} onChange={(e) => setOwnerNotes(e.target.value)} />
+            </div>
+            <Button size="sm" variant="outline" onClick={load}>معاينة</Button>
+          </div>
+          {prompt === 'loading' ? (
+            <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+          ) : prompt === 'failed' ? (
+            <p role="alert" className="text-danger text-sm">تعذّرت قراءة النص.</p>
+          ) : (
+            <div className="rounded-card border border-border-subtle bg-surface-0 p-4">
+              <BlockView block={block} locale="ar" />
+            </div>
+          )}
         </div>
-        <Button size="sm" variant="outline" onClick={load}>معاينة</Button>
-      </div>
-      {prompt === 'loading' ? (
-        <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-      ) : prompt === 'failed' ? (
-        <p role="alert" className="text-danger text-sm">تعذّرت قراءة النص.</p>
-      ) : (
-        <div className="rounded-card border border-border-subtle bg-surface-0 p-4">
-          <BlockView block={block} locale="ar" />
-        </div>
-      )}
-    </section>
+      </Modal>
+    </>
   );
 }
 
@@ -420,11 +474,43 @@ function groupByProvider(rows: SecretRow[]): [string, SecretRow[]][] {
   return order.map((p) => [p, byProvider.get(p)!]);
 }
 
-function SecretRowCard({ row, session, updateAction, onSaved }: {
+// البطاقة المصغّرة (المُشغِّل) — تُفتح نافذة فيها النموذج الكامل بدل عرضه مفرودًا بالصفحة.
+function SecretCard({ row, session, updateAction, onSaved }: {
   row: SecretRow; session: AdminSession; updateAction?: AdminAction; onSaved: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <CardTrigger onClick={() => setOpen(true)} title={row.label}
+                   subtitle={<span className="flex flex-col gap-0.5">
+                     <span dir="ltr" className="text-label font-mono text-text-muted">{row.key}</span>
+                     {row.unreadable ? (
+                       <span className="text-label text-danger">تعذّر الاتصال بالعنقود</span>
+                     ) : row.configured ? (
+                       <span dir="ltr" className="text-label text-text-secondary">····{row.last4}</span>
+                     ) : null}
+                   </span>}
+                   trailing={!row.unreadable ? (
+                     <Badge tone={row.configured ? 'success' : 'neutral'}>
+                       {row.configured ? 'مُعدّ' : 'غير مُعدّ'}
+                     </Badge>
+                   ) : null} />
+      <Modal open={open} onClose={() => setOpen(false)} title={row.label}
+            subtitle={<span dir="ltr" className="font-mono">{row.key}</span>}>
+        <SecretForm row={row} session={session} updateAction={updateAction}
+                   onSaved={onSaved} onClose={() => setOpen(false)} />
+      </Modal>
+    </>
+  );
+}
+
+function SecretForm({ row, session, updateAction, onSaved, onClose }: {
+  row: SecretRow; session: AdminSession; updateAction?: AdminAction; onSaved: () => void; onClose: () => void;
+}) {
   const [value, setValue] = useState('');
-  const [arm, setArm] = useState(false);
+  // خطوة تأكيد داخل نفس النافذة — لا نافذة ثانية فوقها (انظر `Modal`'s own scope note: لا يدعم
+  // التكديس، فأي "تأكيد" هنا محتوى بديل داخل النافذة المفتوحة أصلاً، لا ConfirmDialog منفصل).
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [savedLast4, setSavedLast4] = useState<string | null>(null);
@@ -464,41 +550,39 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
       setValue('');
       setRevealed(false);
       setBusy(false);
-      setArm(false);
+      setStep('edit');
     }
   }
 
-  return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5">
-            <span className="font-medium">{row.label}</span>
-            {help ? (
-              <button type="button" onClick={() => setShowHelp((v) => !v)}
-                     aria-expanded={showHelp} aria-label={`ايش هذا؟ ومن وين آخذه — ${row.label}`}
-                     className="text-text-secondary hover:text-accent">
-                <CircleHelp size={15} />
-              </button>
-            ) : null}
-          </div>
-          {/* اسم المتغيّر البرمجي تحت الاسم — يفيد لو احتجت تراجعه بمكان ثانٍ (لوحة Meta، ملف env محلي...) */}
-          <span dir="ltr" className="text-label font-mono text-text-muted">{row.key}</span>
-          {showHelp && help ? (
-            <p className="mt-1 max-w-md text-label text-text-secondary">{help}</p>
-          ) : null}
-          {row.unreadable ? (
-            <span className="text-label text-danger">تعذّر الاتصال بالعنقود — الحالة غير معروفة حالياً</span>
-          ) : row.configured ? (
-            <span dir="ltr" className="text-label text-text-secondary">····{row.last4}</span>
-          ) : null}
+  if (step === 'confirm') {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="font-medium">تحديث "{row.label}"؟</p>
+        <p className="text-label text-text-secondary">
+          سيُستبدل المفتاح فوراً وتُعاد تشغيل الخدمة التي تقرأه — انقطاع ثوانٍ. القيمة لا يمكن استرجاعها بعد الحفظ.
+        </p>
+        {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setStep('edit')} disabled={busy}>رجوع</Button>
+          <Button variant="danger" onClick={doSave} disabled={busy}>تأكيد</Button>
         </div>
-        {!row.unreadable ? (
-          <Badge tone={row.configured ? 'success' : 'neutral'}>
-            {row.configured ? 'مُعدّ' : 'غير مُعدّ'}
-          </Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-1.5">
+        {help ? (
+          <button type="button" onClick={() => setShowHelp((v) => !v)}
+                 aria-expanded={showHelp} aria-label={`ايش هذا؟ ومن وين آخذه — ${row.label}`}
+                 className="flex items-center gap-1 text-label text-text-secondary hover:text-accent">
+            <CircleHelp size={15} /> ايش هذا؟
+          </button>
         ) : null}
       </div>
+      {showHelp && help ? <p className="text-label text-text-secondary">{help}</p> : null}
+      {/* الحالة (····{last4}/تعذّر الاتصال) تظهر على البطاقة نفسها قبل الفتح — لا تُكرَّر هنا. */}
       {row.updated_at ? (
         <p className="text-label text-text-secondary">
           آخر تحديث: {row.updated_at}{row.updated_by ? ` — ${row.updated_by}` : ''}
@@ -510,7 +594,7 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
 
       {updateAction ? (
         <form className="flex flex-col gap-1.5 border-t border-border-subtle pt-3 sm:flex-row sm:items-end sm:gap-2"
-              onSubmit={(e) => { e.preventDefault(); setArm(true); }}>
+              onSubmit={(e) => { e.preventDefault(); setStep('confirm'); }}>
           <div className="flex-1">
             <label className="text-label font-medium text-text-secondary" htmlFor={inputId}>القيمة الجديدة</label>
             <div className="flex items-center gap-1.5">
@@ -537,10 +621,7 @@ function SecretRowCard({ row, session, updateAction, onSaved }: {
       ) : null}
 
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
-
-      <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSave} busy={busy}
-                    danger title={`تحديث "${row.label}"؟`}
-                    body="سيُستبدل المفتاح فوراً وتُعاد تشغيل الخدمة التي تقرأه — انقطاع ثوانٍ. القيمة لا يمكن استرجاعها بعد الحفظ." />
-    </section>
+      {savedLast4 ? <Button variant="ghost" onClick={onClose}>إغلاق</Button> : null}
+    </div>
   );
 }
