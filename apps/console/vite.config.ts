@@ -57,7 +57,9 @@ export default defineConfig({
   // reach it. Proxying keeps the browser on one origin, so no preflight is involved at all and the
   // deployed configuration stays exactly as strict as it should be.
   //
-  // `CLUSTER` is the tunnel: ssh -N -p 2224 -L 127.0.0.1:8090:127.0.0.1:30080 tamam@127.0.0.1
+  // `CLUSTER` is the tunnel: ssh -N -p 22 -L 127.0.0.1:8090:127.0.0.1:30080 tamam@13.53.200.173
+  // (found stale 2026-09-07 — the old line named a local port-forward alias, 127.0.0.1:2224, that
+  // no longer resolves; the real host is the one ops-mcp's own config.toml connects to)
   //
   // 8090 AND 127.0.0.1, BOTH DELIBERATE. VirtualBox already publishes a forward on 127.0.0.1:8080,
   // so a tunnel asking for 8080 silently lands on ::1 instead — and then which of the two answers

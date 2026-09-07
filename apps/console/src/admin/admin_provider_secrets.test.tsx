@@ -36,8 +36,9 @@ vi.mock('./api', async (importOriginal) => {
 
 afterEach(() => vi.clearAllMocks());
 
-// شاشة البطاقات: كل مزوّد يفتح بضغطة قبل ما تشوف مفاتيحه. الاختبارات تفتح البطاقة أول شي.
-async function openProvider(label: string) {
+// شاشة التبويبات: كل مزوّد فئته الخاصة، والتسمية تحمل عدّاده كذلك ("Meta (1/2)") — لذا مطابقة
+// جزئية (RegExp) لا نص حرفي كامل. الاختبارات تفتح فئة المزوّد أول شي.
+async function openProvider(label: string | RegExp) {
   await waitFor(() => expect(screen.getByText(label)).toBeTruthy());
   fireEvent.click(screen.getByText(label));
 }
@@ -51,7 +52,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('Meta (واتساب)');
+    await openProvider(/^Meta\b/);
     await waitFor(() => expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy());
     expect(screen.getByText('····ab12')).toBeTruthy();
     // NEVER THE RAW VALUE, NOT EVEN AS A KEY NAME IN A DATA ATTRIBUTE THE DOM WOULD EXPOSE.
@@ -66,7 +67,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('Meta (واتساب)');
+    await openProvider(/^Meta\b/);
     await waitFor(() => expect(screen.getByText(/تعذّر الاتصال بالعنقود/)).toBeTruthy());
   });
 
@@ -84,7 +85,7 @@ describe('AdminProviderSecrets', () => {
       });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('ذكاء واتساب المحلات');
+    await openProvider(/^الذكاء الاصطناعي/);
     await waitFor(() => expect(screen.getByText('غير مُعدّ')).toBeTruthy());
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
@@ -106,7 +107,7 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect((screen.getByLabelText('القيمة الجديدة') as HTMLInputElement).value).toBe(''));
   });
 
-  it('groups keys into one card per provider, collapsed until opened, one open at a time', async () => {
+  it('groups keys into one tab per provider, first tab shown by default, one shown at a time', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
       secrets: [
@@ -117,19 +118,16 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('Meta (واتساب)')).toBeTruthy());
-    expect(screen.getByText('ذكاء واتساب المحلات')).toBeTruthy();
-    // collapsed: individual key labels are not in the DOM yet
-    expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
-    expect(screen.getByText('1 / 2 مُعدّ')).toBeTruthy();   // Meta's own tally, both its keys counted
-
-    fireEvent.click(screen.getByText('Meta (واتساب)'));
+    // Meta is first-to-appear in the response, so its tab is shown by default — its own tally
+    // (1/2 configured) rides inside the tab's own label.
     await waitFor(() => expect(screen.getByText('معرّف تطبيق ميتا')).toBeTruthy());
     expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy();
-    expect(screen.queryByText('مفتاح الذكاء الاصطناعي')).toBeNull();   // the OTHER provider stays collapsed
+    expect(screen.getByText(/^Meta \(1\/2\)/)).toBeTruthy();
+    // the OTHER provider's tab exists but its rows are not shown yet
+    expect(screen.queryByText('مفتاح الذكاء الاصطناعي')).toBeNull();
 
-    // opening a second card closes the first — one open at a time
-    fireEvent.click(screen.getByText('ذكاء واتساب المحلات'));
+    // switching tabs shows the second provider's rows and hides the first's — one at a time
+    fireEvent.click(screen.getByText(/^الذكاء الاصطناعي/));
     await waitFor(() => expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('معرّف تطبيق ميتا')).toBeNull();
   });
@@ -148,7 +146,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('ذكاء واتساب المحلات');
+    await openProvider(/^الذكاء الاصطناعي/);
     await waitFor(() => expect(screen.getByText('ASSISTANT_MODEL_CREDENTIAL')).toBeTruthy());
 
     expect(screen.queryByText(/Service Accounts/)).toBeNull();   // collapsed by default
@@ -164,7 +162,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('Meta (واتساب)');
+    await openProvider(/^Meta\b/);
     await waitFor(() => expect(screen.getByText('توليد')).toBeTruthy());
 
     const input = screen.getByLabelText('القيمة الجديدة') as HTMLInputElement;
@@ -194,7 +192,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('بوابة الدفع');
+    await openProvider(/^بوابة الدفع/);
     await waitFor(() => expect(screen.getByText('اسم مستخدم بوابة الدفع')).toBeTruthy());
     expect(screen.getByText('معرّف إضافي لبوابة الدفع')).toBeTruthy();
     expect(screen.getByText('كلمة مرور بوابة الدفع')).toBeTruthy();
@@ -212,7 +210,7 @@ describe('AdminProviderSecrets', () => {
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    await openProvider('Meta (واتساب)');
+    await openProvider(/^Meta\b/);
     await waitFor(() => expect(screen.getByText('سر تطبيق ميتا')).toBeTruthy());
     // «تُعرض» legitimately appears in this screen's own reassurance copy ("القيمة لا تُعرض هنا
     // أبداً") — the real assertion is that no CONTROL offers to reveal one.

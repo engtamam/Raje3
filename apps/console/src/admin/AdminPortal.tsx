@@ -13,31 +13,33 @@ import { AdminDoor } from './AdminDoor';
 import { AdminFinance } from './AdminFinance';
 import { AdminHome } from './AdminHome';
 import { AdminPlatform } from './AdminPlatform';
+import { AdminProviderSecrets } from './AdminProviderSecrets';
 import { AdminTickets } from './AdminTickets';
 import { useAdminSession } from './session';
 
 export function AdminPortal() {
   const { session, signedIn, signIn, signOut } = useAdminSession();
   const [tab, setTab] = useState<Tab>('home');
-  // رابط تحويل مباشر: تبويب "بوابة الدفع" بالمالية يفتح على "مفاتيح المزوّدين" مباشرة، ببطاقة
+  // رابط تحويل مباشر: تبويب "بوابة الدفع" بالمالية يفتح على "المزوّدين الخارجيين" مباشرة، بفئة
   // بوابة الدفع مفتوحة — بلا موجّه (router) بهذا التطبيق أصلاً، فالحالة تُرفع لهذا المستوى وتُمرَّر
   // كخاصية أولية مرة واحدة، لا كحالة مشتركة مستمرة.
-  const [platformDeepLink, setPlatformDeepLink] = useState<{ sub: 'provider_secrets'; openProvider: string } | null>(null);
+  const [openProvider, setOpenProvider] = useState<string | null>(null);
 
   if (!signedIn) {
     return <AdminDoor onSignedIn={signIn} />;
   }
 
   function openProviderSecrets(provider: string) {
-    setPlatformDeepLink({ sub: 'provider_secrets', openProvider: provider });
-    setTab('platform');
+    setOpenProvider(provider);
+    setTab('providers');
   }
 
   // A manual tab click (sidebar/bottom-nav) is a fresh visit, not a continuation of the deep link —
-  // otherwise "بوابة الدفع" would keep reopening every time the owner returns to "المنصّة" on their
-  // own, since AdminPlatform remounts (and re-reads its `initial*` props) on every tab switch.
+  // otherwise "بوابة الدفع" would keep reopening every time the owner returns to "المزوّدين" on
+  // their own, since AdminProviderSecrets remounts (and re-reads its `initial*` prop) on every tab
+  // switch.
   function changeTab(next: Tab) {
-    setPlatformDeepLink(null);
+    setOpenProvider(null);
     setTab(next);
   }
 
@@ -53,10 +55,10 @@ export function AdminPortal() {
           {tab === 'billing' ? (
             <AdminFinance session={session} onOpenProviderSecrets={() => openProviderSecrets('payment')} />
           ) : null}
-          {tab === 'platform' ? (
-            <AdminPlatform session={session} initialSub={platformDeepLink?.sub}
-                           initialOpenProvider={platformDeepLink?.openProvider} />
+          {tab === 'providers' ? (
+            <AdminProviderSecrets session={session} initialOpenProvider={openProvider ?? undefined} />
           ) : null}
+          {tab === 'platform' ? <AdminPlatform session={session} /> : null}
           {tab === 'account' ? <AdminAccount onSignOut={signOut} /> : null}
         </div>
         <AdminBottomNav active={tab} onChange={changeTab} />

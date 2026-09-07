@@ -1,26 +1,34 @@
 /**
  * لوحة الإدارة's own nav — كان القيد الأصلي "5 إلى 6 أقسام فقط بالشريط الجانبي"؛ رُفع عمداً
  * لستة تشغيلية (+ حسابي = سبعة إجمالاً) بإضافة "تذاكر" كصفحة مستقلة — قرار المستخدم صراحة
- * (فصلها عن "العملاء والدعم" أوضح من دمجها بمودال عميل واحد)، لا انزلاق غير مقصود بالعدد. نفس
- * dual-layout idiom الأصلي: one tab list, two renderings picked by CSS (`md:hidden`/
+ * (فصلها عن "العملاء والدعم" أوضح من دمجها بمودال عميل واحد)، لا انزلاق غير مقصود بالعدد.
+ *
+ * ثامن الآن، بنفس القرار الصريح — "المزوّدين الخارجيين" (2026-09-07): «المنصّة والفريق» صار طويلاً
+ * ومزوّدين الخارجيين (Meta، الذكاء الاصطناعي، بوابات الدفع) موضوع قائم بذاته يستاهل قسمه — لا مطموراً
+ * تبويباً فرعياً وسط تسعة تبويبات أخرى (سجل التدقيق، الامتثال...). كل مزوّد عالمه الكامل هناك:
+ * إعداداته وأسراره معاً، لا شاشتين منفصلتين لمزوّد واحد.
+ *
+ * نفس dual-layout idiom الأصلي: one tab list, two renderings picked by CSS (`md:hidden`/
  * `hidden md:flex`), never `matchMedia`. Sidebar on desktop; bottom bar on the phone,
  * thumb-reachable — the SAME behaviour from day one, never "mobile support added later".
  */
 import type { ReactNode } from 'react';
 import {
-  LayoutDashboard, Package, Users, Ticket, Wallet, Settings2, CircleUserRound,
+  LayoutDashboard, Package, Users, Ticket, Wallet, Plug, Settings2, CircleUserRound,
 } from 'lucide-react';
 
-export type Tab = 'home' | 'apps' | 'customers' | 'tickets' | 'billing' | 'platform' | 'account';
+export type Tab =
+  | 'home' | 'apps' | 'customers' | 'tickets' | 'billing' | 'providers' | 'platform' | 'account';
 
-// ستة أقسام تشغيلية + سابع مخصّص لحساب المشغّل نفسه — كلمة مروره
-// وبياناته الشخصية، لا وظيفة تشغيلية زيادة على الستة.
+// سبعة أقسام تشغيلية + ثامن مخصّص لحساب المشغّل نفسه — كلمة مروره
+// وبياناته الشخصية، لا وظيفة تشغيلية زيادة على السبعة.
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: 'home', label: 'الرئيسية', icon: <LayoutDashboard size={20} /> },
   { id: 'apps', label: 'التطبيقات والأسعار', icon: <Package size={20} /> },
   { id: 'customers', label: 'العملاء والدعم', icon: <Users size={20} /> },
   { id: 'tickets', label: 'تذاكر', icon: <Ticket size={20} /> },
   { id: 'billing', label: 'المالية', icon: <Wallet size={20} /> },
+  { id: 'providers', label: 'المزوّدين الخارجيين', icon: <Plug size={20} /> },
   { id: 'platform', label: 'المنصّة والفريق', icon: <Settings2 size={20} /> },
 ];
 

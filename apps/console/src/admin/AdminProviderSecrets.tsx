@@ -20,11 +20,11 @@
  * the write-only guarantee above, which is about a value already saved.
  */
 import { useEffect, useState } from 'react';
-import { CircleHelp, ChevronDown, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
+import { CircleHelp, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
-import { EmptyState } from '../rj-ui/EmptyState';
+import { Segmented } from '../rj-ui/Segmented';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
@@ -100,24 +100,29 @@ const PROVIDER_OF: Record<string, string> = {
   PAYMENT_PUBLISHABLE_KEY: 'payment',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
-  meta: { label: 'Meta (واتساب)', icon: MessageCircle },
-  // اسم مقصود التحديد لا التعميم — "ذكاء واتساب المحلات" لا "الذكاء الاصطناعي" وحدها، عشان لو
-  // انضاف ذكاء اصطناعي ثاني لغرض مختلف مستقبلاً (خدمة عملاء المنصة مثلاً) يكون له بطاقته الخاصة
-  // بلا لبس مع هذا.
-  assistant_ai: { label: 'ذكاء واتساب المحلات', icon: Sparkles },
+  // الاسم التقني الدقيق كما هو — هذي لوحة إدارة داخلية (تمام وفريقه)، لا شاشة يقرأها صاحب محل،
+  // فلا حاجة لتلطيف الاسم أو تبسيطه (قرار 2026-09-07، يلغي التسمية الأطول السابقة).
+  meta: { label: 'Meta', icon: MessageCircle },
+  // "الذكاء الاصطناعي" عام عمداً الآن — بس فيه فئة واحدة اليوم فقط. لو انضاف ذكاء اصطناعي ثانٍ
+  // لغرض مختلف مستقبلاً (خدمة عملاء المنصة مثلاً)، هذا الاسم يحتاج توضيحاً وقتها (مثلاً "ذكاء
+  // واتساب المحلات" مقابل الاسم الثاني) — ليس اليوم، وفيه فئة واحدة بس.
+  assistant_ai: { label: 'الذكاء الاصطناعي', icon: Sparkles },
   payment: { label: 'بوابة الدفع', icon: CreditCard },
   other: { label: 'أخرى', icon: CircleHelp },
 };
 
 export function AdminProviderSecrets({ session, initialOpenProvider }: {
   session: AdminSession;
-  /** رابط تحويل مباشر من شاشة ثانية (مثل "بوابات الدفع" بالمالية) — يفتح بطاقة هذا المزوّد فور
-   *  الوصول، بدل ما يوصل الشخص شاشة مطوية عليه يفتحها بنفسه من جديد. */
+  /** رابط تحويل مباشر من شاشة ثانية (مثل "بوابات الدفع" بالمالية) — يفتح فئة هذا المزوّد فور
+   *  الوصول، بدل ما يوصل الشخص الفئة الافتراضية (أول واحدة) ويبحث بنفسه. */
   initialOpenProvider?: string;
 }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
   const [rows, setRows] = useState<SecretRow[] | 'loading' | 'failed'>('loading');
-  // بطاقة مفتوحة واحدة كحد أقصى — نفس منطق أي قائمة قابلة للطي، أوضح من فتح الكل دفعة واحدة.
+  // فئة واحدة معروضة كحد أقصى، بتبويبات مثل بقية الشاشات (المالية...) — لا قائمة قابلة للطي، كل
+  // مزوّد عالمه الكامل (إعداداته وأسراره معاً) بمكان واحد بلا تنقّل بين شاشتين. `null` يعني
+  // "أول فئة موجودة فعلياً بالاستجابة" — يُحسم أول ما تصل الصفوف (انظر أدناه)، لا فئة مجمّدة
+  // بالكود قد لا تكون موجودة أصلاً لهذا الحساب.
   const [openProvider, setOpenProvider] = useState<string | null>(initialOpenProvider ?? null);
 
   useEffect(() => {
@@ -158,54 +163,57 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
     return <NoActionAvailable catalog={catalog} permissionTitle="هذه الشاشة ليست ضمن صلاحياتك" />;
   }
 
+  if (rows === 'loading' || rows === 'failed') {
+    return (
+      <div className="flex flex-col gap-6 p-6">
+        <h1 className="text-2xl leading-tight tracking-tight">المزوّدين الخارجيين</h1>
+        {rows === 'loading' ? (
+          <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+        ) : (
+          <p role="alert" className="text-danger text-sm">تعذّرت قراءة قائمة المفاتيح.</p>
+        )}
+      </div>
+    );
+  }
+
+  const groups = groupByProvider(rows);
+  // أول فئة فعلياً موجودة بالاستجابة، لا فئة مجمّدة بالكود قد لا تظهر لهذا الحساب (رأسه بلا صلاحية
+  // عليها أصلاً) — ونفس المنطق لو رابط التحويل المباشر سمّى فئة غير موجودة هنا.
+  const active = (openProvider && groups.some(([p]) => p === openProvider))
+    ? openProvider : (groups[0]?.[0] ?? null);
+  const activeRows = groups.find(([p]) => p === active)?.[1] ?? [];
+
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h1 className="text-2xl leading-tight tracking-tight">مفاتيح المزوّدين الخارجيين</h1>
-      <p className="text-sm text-text-secondary">
-        تحديث مفتاح يعيد تشغيل الخدمة التي تقرأه — انقطاع ثوانٍ. القيمة لا تُعرض هنا أبداً، لا
-        عند الحفظ ولا بعده — آخر أربعة أحرف فقط، كتأكيد أنك حفظت المفتاح الصحيح.
-      </p>
-      {rows === 'loading' ? (
-        <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-      ) : rows === 'failed' ? (
-        <p role="alert" className="text-danger text-sm">تعذّرت قراءة قائمة المفاتيح.</p>
+      <div>
+        <h1 className="text-2xl leading-tight tracking-tight">المزوّدين الخارجيين</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          كل مزوّد بفئته الخاصة — إعداداته وأسراره معاً بمكان واحد. تحديث مفتاح يعيد تشغيل الخدمة
+          التي تقرأه — انقطاع ثوانٍ. القيمة لا تُعرض هنا أبداً، لا عند الحفظ ولا بعده — آخر أربعة
+          أحرف فقط، كتأكيد أنك حفظت المفتاح الصحيح.
+        </p>
+      </div>
+      {groups.length === 0 ? (
+        <p className="text-sm text-text-secondary">لا مفاتيح مُعرَّفة بعد.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {groupByProvider(rows).map(([provider, providerRows]) => {
-            const meta = PROVIDER_META[provider] ?? PROVIDER_META.other;
-            const Icon = meta.icon;
-            const open = openProvider === provider;
-            const configuredCount = providerRows.filter((r) => r.configured).length;
-            return (
-              <section key={provider} className="rounded-card border border-border-subtle bg-surface-1">
-                <button type="button" onClick={() => setOpenProvider(open ? null : provider)}
-                       aria-expanded={open}
-                       className="flex w-full items-center gap-3 p-4 text-start">
-                  <span className="inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
-                    <Icon size={18} />
-                  </span>
-                  <span className="flex-1">
-                    <span className="block font-medium">{meta.label}</span>
-                    <span className="text-label text-text-secondary">
-                      {configuredCount} / {providerRows.length} مُعدّ
-                    </span>
-                  </span>
-                  <ChevronDown size={18}
-                              className={`text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
-                </button>
-                {open ? (
-                  <div className="flex flex-col gap-3 border-t border-border-subtle p-4 pt-3">
-                    {providerRows.map((row) => (
-                      <SecretRowCard key={row.key} row={row} session={session}
-                                     updateAction={updateAction}
-                                     onSaved={() => listAction && reload(listAction)} />
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-            );
-          })}
-        </div>
+        <>
+          <Segmented
+            value={active ?? ''}
+            onChange={(v) => setOpenProvider(v)}
+            options={groups.map(([provider, providerRows]) => {
+              const meta = PROVIDER_META[provider] ?? PROVIDER_META.other;
+              const configuredCount = providerRows.filter((r) => r.configured).length;
+              return { value: provider, label: `${meta.label} (${configuredCount}/${providerRows.length})` };
+            })}
+          />
+          <div className="flex flex-col gap-3">
+            {activeRows.map((row) => (
+              <SecretRowCard key={row.key} row={row} session={session}
+                             updateAction={updateAction}
+                             onSaved={() => listAction && reload(listAction)} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
