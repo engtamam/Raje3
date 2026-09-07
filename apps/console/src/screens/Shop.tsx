@@ -463,16 +463,26 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         />
       ) : muted('نسبة عودة عملائك', 'ما نقدر نحسبها بعد — تحتاج زيارات حقيقية أولاً.')}
 
-      {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} />
-        // A REAL EMPTY LIST HERE IS GOOD NEWS, NOT "NOT ACTIVE YET" — the muted/stamped language
-        // means "pending", and applying it to «ولا عميل متأخر» would tell an owner in great shape
-        // that something on his own screen is still forming. A plain, undecorated reassurance line
-        // instead — still always shown, never a silently missing card.
-        : atRisk ? (
-          <div className="rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)', color: 'var(--sh-teal-deep)' }}>
-            <p className="text-[12.5px] font-medium">ولا عميل متأخر عن دورته المعتادة الآن — وضعك جيد.</p>
-          </div>
-        ) : null}
+      {/* THE SECOND-TIER LEAD ROW — side by side on a wide screen, never a THIRD full-width card
+          stacked under the hero above (direct feedback: "سرد بطاقات بطل تحت بعض مو كويس"). Only
+          `RetentionHero` stays alone at full width as the one true headline; everything at this
+          tier is sized to sit next to a sibling. `lg:col-span-2` on a slot's OWN wrapper is how a
+          card opts into staying full-width for now (see AtRiskCard below) — no restructuring
+          needed later when the AI-impact card fills the second column. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+        <div className="lg:col-span-2">
+          {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} />
+            // A REAL EMPTY LIST HERE IS GOOD NEWS, NOT "NOT ACTIVE YET" — the muted/stamped language
+            // means "pending", and applying it to «ولا عميل متأخر» would tell an owner in great shape
+            // that something on his own screen is still forming. A plain, undecorated reassurance line
+            // instead — still always shown, never a silently missing card.
+            : atRisk ? (
+              <div className="rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)', color: 'var(--sh-teal-deep)' }}>
+                <p className="text-[12.5px] font-medium">ولا عميل متأخر عن دورته المعتادة الآن — وضعك جيد.</p>
+              </div>
+            ) : null}
+        </div>
+      </div>
 
       {/* EVERYTHING BELOW THE TWO LEAD CARDS FLOWS INTO TWO COLUMNS PAST `lg` — a `flex-col` stack
           here was still one long vertical scroll no matter how wide محلّي's own outer column got;
