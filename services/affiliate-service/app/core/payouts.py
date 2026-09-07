@@ -298,11 +298,20 @@ class PayoutService:
 
         # RELEASE THE CLAIM — every commission this request locked goes back to available, so
         # rejecting a request (a bad IBAN, a typo) never stalls real money in limbo.
-        for cid in request.commission_ids:
-            crow = await self._s.get(COMMISSIONS, cid)
-            if crow and crow.get("withdrawal_id") == request.id:
-                crow["withdrawal_id"] = ""
-                await self._s.put(COMMISSIONS, cid, crow)
+        #
+        # ONE BATCHED READ, NOT ONE `get()` PER COMMISSION. `commission_ids` is this affiliate's
+        # whole set of confirmed, unclaimed commissions at request time — dozens to hundreds of
+        # rows for an active promoter — and reading them one at a time was that many sequential
+        # round trips just to release a rejected withdrawal. `find`'s own membership-filter shape
+        # (`{field: [v1, v2, ...]}`) does the read side in one query; there is no batched `put`,
+        # so the write loop below is unavoidable.
+        if request.commission_ids:
+            rows, _ = await self._s.find(COMMISSIONS, {"id": request.commission_ids},
+                                         limit=len(request.commission_ids))
+            for crow in rows:
+                if crow.get("withdrawal_id") == request.id:
+                    crow["withdrawal_id"] = ""
+                    await self._s.put(COMMISSIONS, crow["id"], crow)
 
         request.status = WITHDRAWAL_REJECTED
         request.decided_at = int(time.time())

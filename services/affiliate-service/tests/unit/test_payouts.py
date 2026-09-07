@@ -280,6 +280,44 @@ async def test_rejecting_releases_the_locked_commissions_back_to_available():
 
 
 @pytest.mark.anyio
+async def test_rejecting_releases_many_commissions_with_one_batched_read():
+    """THE N+1 THIS CLOSES. `reject()` used to call `store.get()` once per locked commission —
+    dozens to hundreds of sequential round trips for an active promoter. Proved by counting real
+    `get`/`find` calls against the store, not just that the balance comes back right: a fix that
+    still read one commission at a time would still pass a value-only assertion."""
+    svc, store = build()
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    ids = [f"c{i}" for i in range(5)]
+    for cid in ids:
+        await _seed_commission(store, id=cid, amount=1000)
+    out = await svc.request_withdrawal(AFF)
+    assert sorted(out["commission_ids"]) == ids
+
+    calls = {"get": 0, "find": 0}
+    real_get, real_find = store.get, store.find
+
+    async def counting_get(collection, key):
+        if collection == COMMISSIONS:
+            calls["get"] += 1
+        return await real_get(collection, key)
+
+    async def counting_find(collection, where, **kw):
+        if collection == COMMISSIONS:
+            calls["find"] += 1
+        return await real_find(collection, where, **kw)
+
+    store.get = counting_get
+    store.find = counting_find
+
+    await svc.reject(out["id"], decided_by="admin1", reason="آيبان غير صحيح")
+
+    assert calls == {"get": 0, "find": 1}, f"expected one batched find, got {calls}"
+    balance = await svc.balance(AFF)
+    assert balance["confirmed_available_halalas"] == 5000
+
+
+@pytest.mark.anyio
 async def test_rejecting_lets_a_new_request_be_made_afterward():
     svc, store = build()
     await _seed_affiliate(store)

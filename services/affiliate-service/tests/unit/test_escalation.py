@@ -208,3 +208,41 @@ async def test_one_referrals_hiccup_never_aborts_the_whole_sweep():
     out = await svc.sweep()
     assert out["swept"] is True
     assert out["tickets_escalated"] == 0   # never raised past the sweep
+
+
+@pytest.mark.anyio
+async def test_sweep_reads_a_repeat_affiliates_row_only_once():
+    """THE DEDUP THIS CLOSES. `sweep()` used to call `store.get(AFFILIATES, ...)` once per
+    referral with no memoization — a manager referred by five shops had his own row fetched five
+    separate times in one sweep pass. Proved by counting real `get` calls against the store, not
+    just the escalation outcome: a fix that still re-fetched per referral would still pass a
+    value-only assertion."""
+    store = MemoryDataStore()
+    referrals = await _seed(store, affiliate_id="prm-9", parent_id="mgr-9", tenant="t-9a")
+    # THE SAME PROMOTER, TWO MORE SHOPS. Three referrals, one affiliate row.
+    await referrals.stamp(tenant="t-9b", affiliate_id="prm-9")
+    await referrals.stamp(tenant="t-9c", affiliate_id="prm-9")
+
+    now = time.time()
+    tickets = FakeTickets({
+        "t-9a": [({"id": "tk-a", "status": "new"}, {"created_at": _iso(now), "escalated": False})],
+        "t-9b": [({"id": "tk-b", "status": "new"}, {"created_at": _iso(now), "escalated": False})],
+        "t-9c": [({"id": "tk-c", "status": "new"}, {"created_at": _iso(now), "escalated": False})],
+    })
+
+    calls = {"n": 0}
+    real_get = store.get
+
+    async def counting_get(collection, key):
+        if collection == AFFILIATES and key == "prm-9":
+            calls["n"] += 1
+        return await real_get(collection, key)
+
+    store.get = counting_get
+
+    svc = TicketEscalationService(store=store, referrals=referrals, tickets=tickets,
+                                  timeout_hours=24)
+    out = await svc.sweep()
+
+    assert out["referrals_checked"] == 3
+    assert calls["n"] == 1, f"expected one memoized read of prm-9, got {calls['n']}"

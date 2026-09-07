@@ -54,8 +54,17 @@ class TicketEscalationService:
         escalated = 0
         errors: list[str] = []
 
+        # MEMOIZED PER SWEEP, NOT PER REFERRAL. A manager with five referred shops used to cost
+        # five identical `store.get(AFFILIATES, ...)` round trips for the same row — nothing here
+        # cached `_affiliate()` within a pass. Referrals are read in whatever order `all_ever`
+        # gives them, so a repeat affiliate_id is common (one manager, several shops), and a local
+        # dict turns a manager's Nth referral into a dict lookup instead of a datastore round trip.
+        affiliates: dict[str, Affiliate | None] = {}
+
         for ref in referrals:
-            affiliate = await self._affiliate(ref.affiliate_id)
+            if ref.affiliate_id not in affiliates:
+                affiliates[ref.affiliate_id] = await self._affiliate(ref.affiliate_id)
+            affiliate = affiliates[ref.affiliate_id]
             if affiliate is None or not affiliate.parent_id:
                 continue   # nobody above him — nothing this mechanism can move it to
             checked += 1
