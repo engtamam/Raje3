@@ -18,6 +18,15 @@
  *
  * IT IS HIDDEN ENTIRELY UNDER lg. On a phone the hero would be a screen of decoration between the
  * owner and the form he came for, and he would scroll past it every single time.
+ *
+ * THE FOOTER IS A ROW OF ITS OWN, BELOW THE HERO/FORM SPLIT — not tucked under the form card. A
+ * footer squeezed inside the form's own `max-w-sm` column reads as part of the form, not as the
+ * page's own footer, and never spans full width the way marketing/index.html's footer does. Here
+ * the split (`<div className="grid flex-1 ...">`) and the footer are SIBLINGS inside one
+ * `flex-col` page — the split takes all the room it needs (`flex-1`), and the footer sits at the
+ * true bottom of the page, full width, pushing the page into a scroll on a short viewport exactly
+ * like marketing's own footer does. Same content as before (copyright + legal links); only the
+ * placement changed.
  */
 import type { ReactNode } from 'react';
 import { Mark, Wordmark } from '../brand/Mark';
@@ -45,68 +54,72 @@ export function DoorLayout({ children, title, subtitle }: {
   subtitle?: ReactNode;
 }) {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
-      <aside
-        className="relative hidden overflow-hidden p-12 lg:flex lg:flex-col lg:justify-between"
-        style={HERO}
-      >
-        {/* THE MARK IS THE WAY OUT. This screen has no navigation at all — a person who opens it
-            and changes his mind, or wants to read the page once more before committing, has
-            nothing to press but the browser's back button, and on a link opened from WhatsApp
-            there is no page behind it. So the mark leaves, which is where every site on earth
-            puts that door. It is a plain <a> to '/' and not a router link: the landing page is
-            served outside this bundle. */}
-        <a href="/" className="flex items-center gap-3 text-[#f4efe2]" aria-label="العودة إلى الصفحة الرئيسية">
-          <Mark size={40} />
-          <Wordmark className="text-lg" />
-        </a>
-
-        <div className="max-w-md">
-          {/* ONE SENTENCE, AND IT IS THE PRODUCT. Not a feature list — a person deciding whether to
-              sign up is deciding whether the idea is worth ten minutes, not comparing specs. */}
-          <h1 className="text-4xl leading-tight tracking-tight text-[#f4efe2]">
-            {title ?? 'عملاؤك يرجعون، من نفسهم.'}
-          </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-[#c9c2b3]">
-            {subtitle ?? (
-              'راجِع يتذكّر متى يحتاج كل عميل خدمته القادمة، ويذكّره على واتساب باسم محلك — بلا أن '
-              + 'تفتح التطبيق.'
-            )}
-          </p>
-        </div>
-
-        <p className="text-xs text-[#8d8778]">راجِع · السعودية</p>
-      </aside>
-
-      <main className="flex items-center justify-center bg-surface-0 p-6">
-        <div className="w-full max-w-sm">
-          {/* The mark again, for the phone — where the hero does not exist and the page would
-              otherwise open on a segmented control with no idea what product it belongs to. */}
-          {/* And on the phone, where the hero panel does not exist, this is the ONLY mark on the
-              screen — so it carries the whole burden of saying both what this is and how to leave.
-              A dead logo on a page with no other exit is a page people abandon. */}
-          <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label="العودة إلى الصفحة الرئيسية">
-            <Mark size={32} />
-            <Wordmark className="text-base" />
+    <div className="flex min-h-dvh flex-col">
+      <div className="grid flex-1 lg:grid-cols-2">
+        <aside
+          className="relative hidden overflow-hidden p-12 lg:flex lg:flex-col lg:justify-between"
+          style={HERO}
+        >
+          {/* THE MARK IS THE WAY OUT. This screen has no navigation at all — a person who opens it
+              and changes his mind, or wants to read the page once more before committing, has
+              nothing to press but the browser's back button, and on a link opened from WhatsApp
+              there is no page behind it. So the mark leaves, which is where every site on earth
+              puts that door. It is a plain <a> to '/' and not a router link: the landing page is
+              served outside this bundle. */}
+          <a href="/" className="flex items-center gap-3 text-[#f4efe2]" aria-label="العودة إلى الصفحة الرئيسية">
+            <Mark size={40} />
+            <Wordmark className="text-lg" />
           </a>
-          {children}
 
-          {/* MARKETING'S FOOTER, MINIATURE — this screen is the one place a signed-out visitor may
-              land with NO landing page behind it at all (a direct link, or a future "skip the
-              landing page" mode). The legal links must be reachable from here on their own, not
-              only from marketing/index.html's footer. */}
-          <p className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-text-muted">
-            <span>© راجِع — جميع الحقوق محفوظة</span>
-            <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
-              الشروط
+          <div className="max-w-md">
+            {/* ONE SENTENCE, AND IT IS THE PRODUCT. Not a feature list — a person deciding whether
+                to sign up is deciding whether the idea is worth ten minutes, not comparing specs. */}
+            <h1 className="text-4xl leading-tight tracking-tight text-[#f4efe2]">
+              {title ?? 'عملاؤك يرجعون، من نفسهم.'}
+            </h1>
+            <p className="mt-4 text-[15px] leading-relaxed text-[#c9c2b3]">
+              {subtitle ?? (
+                'راجِع يتذكّر متى يحتاج كل عميل خدمته القادمة، ويذكّره على واتساب باسم محلك — بلا '
+                + 'أن تفتح التطبيق.'
+              )}
+            </p>
+          </div>
+
+          <p className="text-xs text-[#8d8778]">راجِع · السعودية</p>
+        </aside>
+
+        <main className="flex items-center justify-center bg-surface-0 p-6">
+          <div className="w-full max-w-sm">
+            {/* The mark again, for the phone — where the hero does not exist and the page would
+                otherwise open on a segmented control with no idea what product it belongs to. */}
+            {/* And on the phone, where the hero panel does not exist, this is the ONLY mark on the
+                screen — so it carries the whole burden of saying both what this is and how to
+                leave. A dead logo on a page with no other exit is a page people abandon. */}
+            <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label="العودة إلى الصفحة الرئيسية">
+              <Mark size={32} />
+              <Wordmark className="text-base" />
             </a>
-            <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
-              الخصوصية
-            </a>
-            {/* TODO: badge/link للسجل التجاري — بانتظار الرابط/الرقم الحقيقي من تمام، لا تُخترع قيمة هنا */}
-          </p>
-        </div>
-      </main>
+            {children}
+          </div>
+        </main>
+      </div>
+
+      {/* MARKETING'S FOOTER, MIRRORED — this screen is the one place a signed-out visitor may land
+          with NO landing page behind it at all (a direct link, or a future "skip the landing page"
+          mode). Full width, own border-top, at the true bottom of the page — see this file's own
+          header comment for why it lives here rather than inside the form card. */}
+      <footer className="border-t border-border-subtle bg-surface-0 px-6 py-4">
+        <p className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-text-muted">
+          <span>© راجِع — جميع الحقوق محفوظة</span>
+          <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
+            الشروط
+          </a>
+          <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
+            الخصوصية
+          </a>
+          {/* TODO: badge/link للسجل التجاري — بانتظار الرابط/الرقم الحقيقي من تمام، لا تُخترع قيمة هنا */}
+        </p>
+      </footer>
     </div>
   );
 }
