@@ -25,12 +25,14 @@ from typing import Any
 
 from app.core.earning import EarnStore, EarnTree
 from app.core.ledger import Ledger
+from app.core.spend_lock import SpendBusy, SpendLock
 
 
 class Earner:
-    def __init__(self, ledger: Ledger, settings: EarnStore) -> None:
+    def __init__(self, ledger: Ledger, settings: EarnStore, cache: Any = None) -> None:
         self.ledger = ledger
         self.settings = settings
+        self.cache = cache
 
     async def from_visit(self, tenant: str, *, visit_id: str, subject_ref: str,
                          service_ids: list[str], amount_halalas: int = 0,
@@ -86,9 +88,16 @@ class Earner:
             # restart the expiry clock for a customer who earned nothing.
             return {"earned": 0, "reason": "no points configured", "rule_level": level}
 
-        entry = await self.ledger.post(
-            tenant=tenant, subject_ref=subject_ref, delta=points, reason="earn",
-            source=visit_id, actor=actor, rule_level=level, branch_id=branch_id)
+        # SERIALISED PER (tenant, subject_ref) — same `SpendLock` redemption already uses, and the
+        # same reason: `Ledger.post`'s idempotency check (`already_posted`) is a plain read, true
+        # atomicity only exists at this lock, not at the store. The event bus that drives earning
+        # is at-most-once BY CONTRACT (this module's own docstring), so two deliveries of the SAME
+        # visit_id racing each other is a real, expected occurrence — fixed 2026-09-07, a QA audit
+        # found this path had no lock at all, unlike redemption right next to it.
+        async with SpendLock(self.cache, tenant, subject_ref):
+            entry = await self.ledger.post(
+                tenant=tenant, subject_ref=subject_ref, delta=points, reason="earn",
+                source=visit_id, actor=actor, rule_level=level, branch_id=branch_id)
         if entry is None:
             return {"earned": 0, "duplicate": True, "reason": "already awarded for this visit"}
         return {"earned": points, "rule_level": level, "balance": entry.balance_after,
@@ -105,16 +114,24 @@ class Earner:
         t = tree if tree is not None else await self.settings.load(tenant)
         awarded = skipped = 0
         for v in visits:
-            res = await self.from_visit(
-                tenant, visit_id=str(v.get("id") or v.get("visit_id") or ""),
-                subject_ref=str(v.get("subject_ref") or ""),
-                service_ids=list(v.get("service_ids") or []),
-                amount_halalas=int(v.get("amount_halalas") or 0),
-                actor=str(v.get("operator_id") or ""),
-                branch_id=str(v.get("branch_id") or ""),
-                # SAME RULE ON THE REPAIRED PATH. A free visit that earned nothing live must not
-                # earn when the catch-up replays it.
-                free=bool(v.get("free")), package_id=str(v.get("package_id") or ""), tree=t)
+            try:
+                res = await self.from_visit(
+                    tenant, visit_id=str(v.get("id") or v.get("visit_id") or ""),
+                    subject_ref=str(v.get("subject_ref") or ""),
+                    service_ids=list(v.get("service_ids") or []),
+                    amount_halalas=int(v.get("amount_halalas") or 0),
+                    actor=str(v.get("operator_id") or ""),
+                    branch_id=str(v.get("branch_id") or ""),
+                    # SAME RULE ON THE REPAIRED PATH. A free visit that earned nothing live must not
+                    # earn when the catch-up replays it.
+                    free=bool(v.get("free")), package_id=str(v.get("package_id") or ""), tree=t)
+            except SpendBusy:
+                # A lock held by a genuinely concurrent live event for the SAME subject must not
+                # abort the WHOLE batch — every OTHER visit here is for a different subject and has
+                # nothing to do with this one's contention. Counted as skipped: this exact visit is
+                # picked up again by the NEXT catch-up tick (it reads "since a watermark", never
+                # "since the last success"), so nothing is lost, only delayed.
+                res = {"earned": 0}
             if res.get("earned"):
                 awarded += 1
             else:

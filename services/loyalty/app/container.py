@@ -249,7 +249,10 @@ def build_container(settings: Settings) -> Container:
         # The platform fallback, so a shop that switched loyalty on and touched nothing still
         # earns. A first visit awarding zero is a programme the owner assumes is broken.
         defaults={"points": settings.DEFAULT_POINTS_PER_VISIT})
-    container.earner = Earner(container.ledger, container.earn_settings)
+    # cache=container.cache — SAME REASON `redeemer` below takes it (see that comment): earning
+    # is a read-modify-write over the same non-atomic ledger, and the event bus that drives it is
+    # at-most-once by contract, so two deliveries of the same visit racing each other is real.
+    container.earner = Earner(container.ledger, container.earn_settings, cache=container.cache)
     # THE RELIABLE PATH FROM A VISIT TO POINTS, alongside the bus subscription which is the fast
     # one. See core/recovery.py for why a service that has only the fast path has none at all.
     from app.core.recovery import Recovery
