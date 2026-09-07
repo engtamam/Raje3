@@ -33,6 +33,7 @@ declare a knob makes it unavailable rather than silently inert.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import Any
@@ -187,13 +188,22 @@ class RuntimeConfig:
 
         Never includes a denied key, so a credential or a DSN cannot appear in a config read even
         by accident.
+
+        THE READS RUN CONCURRENTLY, NOT SEQUENTIALLY. `RUNTIME_POLICY` is small (single digits to
+        low tens of keys per service), so this was never an algorithmic problem — but each
+        `self.get()` is a network round trip (up to two: tenant scope, then platform scope), and
+        awaiting them one at a time on the admin runtime-config screen pays every round trip's
+        latency in series for no reason: none of these reads depends on another's answer. There is
+        no multi-key batched read to fall back to here (the store's `find(where=...)` shape is a
+        membership filter over one field's VALUES, not a fetch of a set of unrelated KEYS — see
+        `get()` above), so `asyncio.gather` is what buys back the latency without inventing a new
+        datastore primitive several services would have to grow in step.
         """
-        out: dict[str, Any] = {}
-        for key in sorted(self._policy):
-            if not settable(key, self._cls, self._policy):
-                continue
-            out[key] = await self.get(tenant=tenant, key=key, default=getattr(settings, key, None))
-        return out
+        keys = [key for key in sorted(self._policy) if settable(key, self._cls, self._policy)]
+        values = await asyncio.gather(*(
+            self.get(tenant=tenant, key=key, default=getattr(settings, key, None))
+            for key in keys))
+        return dict(zip(keys, values))
 
     async def overrides(self, *, tenant: str) -> list[Override]:
         rows, _ = await self._s.find(_COLL, {"tenant": tenant}, limit=500, sort=("key", "asc"))

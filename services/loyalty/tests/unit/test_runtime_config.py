@@ -204,3 +204,28 @@ def test_overrides_are_listed_with_who_set_them():
     run(rc.set(tenant="acme", key="RATELIMIT_MAX", value=42, actor_ref="sub_abc"))
     got = run(rc.overrides(tenant="acme"))
     assert got[0].key == "RATELIMIT_MAX" and got[0].set_by == "sub_abc"
+
+
+def test_effective_reads_every_key_concurrently_not_one_at_a_time():
+    """THE LATENCY THIS CLOSES. `effective()` used to `await self.get()` sequentially, one policy
+    key at a time — each a network round trip. Proved with a store whose `get()` takes real time:
+    if the reads ran in series, N keys would cost N times that delay; concurrent reads cost about
+    one delay's worth regardless of N."""
+    import time
+
+    class SlowStore(MemoryDataStore):
+        async def get(self, collection, key):
+            await asyncio.sleep(0.05)
+            return await super().get(collection, key)
+
+    # Six real, ordinary settable fields — no need to invent knobs the Settings class doesn't have.
+    policy = frozenset({"REQUEST_TIMEOUT_MS", "BODY_LIMIT_BYTES", "CORS_ALLOW_CREDENTIALS",
+                        "CORS_MAX_AGE_SECONDS", "AUDIT_TIMEOUT_SECONDS", "CONSENT_TIMEOUT_SECONDS"})
+    rc = RuntimeConfig(SlowStore(), Settings, now=lambda: "2026-01-01T00:00:00Z", policy=policy)
+    start = time.monotonic()
+    view = run(rc.effective(tenant="acme", settings=_settings()))
+    elapsed = time.monotonic() - start
+
+    assert set(view) == policy
+    # Six keys, sequential would be ~0.3s (6 * 0.05s); concurrent stays close to one round trip.
+    assert elapsed < 0.2, f"reads ran sequentially ({elapsed:.3f}s for 6 keys)"

@@ -25,10 +25,23 @@ async def build(store: Any, tenant: str, *, limit: int = 100000) -> dict:
                                   sort=("created_at", "asc"))
     rows = list(entries or [])
 
-    granted = sum(int(r["delta"]) for r in rows if r.get("reason") == "earn")
-    consumed = -sum(int(r["delta"]) for r in rows if r.get("reason") == "redeem")
-    expired = -sum(int(r["delta"]) for r in rows if r.get("reason") == "expire")
-    adjusted = sum(int(r["delta"]) for r in rows if r.get("reason") == "adjust")
+    # ONE PASS, NOT FIVE. `rows` can be up to `limit` (100000) entries, and the four sums plus the
+    # `customers` set below used to each walk the whole list separately — five full passes over
+    # the same data for numbers a single running accumulation gives just as well.
+    granted = consumed = expired = adjusted = 0
+    customers: set[Any] = set()
+    for r in rows:
+        delta = int(r["delta"])
+        reason = r.get("reason")
+        if reason == "earn":
+            granted += delta
+        elif reason == "redeem":
+            consumed -= delta
+        elif reason == "expire":
+            expired -= delta
+        elif reason == "adjust":
+            adjusted += delta
+        customers.add(r.get("subject_ref"))
 
     red_rows, _ = await store.find(REDEMPTIONS, {"tenant": tenant}, limit=limit,
                                    sort=("created_at", "asc"))
@@ -55,5 +68,5 @@ async def build(store: Any, tenant: str, *, limit: int = 100000) -> dict:
         "redemptions": len(reds),
         "by_type": by_type,
         "top_rewards": sorted(by_reward.items(), key=lambda kv: -kv[1])[:5],
-        "customers": len({r.get("subject_ref") for r in rows}),
+        "customers": len(customers),
     }
