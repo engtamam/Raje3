@@ -254,6 +254,19 @@ class Tick:
         self._batch = batch
         self._t = telemetry
 
+    async def prune_reach(self, *, now: int) -> int:
+        """Drop reach rows that have aged out of the 24h window. GLOBAL, not per-tenant.
+
+        USED TO BE CALLED FROM `run()`, ONCE PER TENANT IN THE LOOP — but `Reach.prune()` scans the
+        *entire* `reached_24h` collection with no tenant filter (unlike every other reach read,
+        which is tenant-scoped); it is housekeeping for one shared table, not a per-shop answer.
+        Calling it from inside the per-tenant loop in `api/internal.py::tick()` re-ran that same
+        unscoped scan once per tenant with due work — up to `TICK_MAX_TENANTS` (200) times in a
+        single tick, each one a fresh up-to-5000-row read of every tenant's rows, for a job that
+        only needs to happen once per tick. Hoisted out here so the caller runs it exactly once.
+        """
+        return await self._reach.prune(now=now)
+
     async def run(self, tenant: str, *, now: int, library: list[dict[str, Any]],
                   service_names: dict[str, str], establishment: str,
                   customer_names: dict[str, str] | None = None,
@@ -273,10 +286,6 @@ class Tick:
         # reminders would otherwise ask notification-service 300 times for an answer that cannot
         # change while this loop runs. None means NOT KNOWN — see ApprovedTemplates.
         approved = await self._approved.names(tenant) if due else None
-        # The reach window is only meaningful for a day, and a table nobody prunes turns a bounded
-        # read into an unbounded one — the exact failure the read exists to avoid.
-        if due:
-            await self._reach.prune(now=now)
 
         # HOW MANY NEW PEOPLE MAY STILL BE STARTED WITH TODAY. Read once per tenant, like the
         # library and the approved set — it cannot change meaningfully while this loop runs, and

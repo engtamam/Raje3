@@ -1347,3 +1347,55 @@ def test_somebody_who_stopped_the_offers_is_never_invited_back(st):
     assert "/allow" not in last, f"a customer who refused was invited again: {last}"
     assert "http" not in last
     assert last.strip(), "Meta refuses an empty variable"
+
+
+# ── reach pruning is global, not per-tenant (perf) ─────────────────────────────────────────────
+def test_run_no_longer_prunes_reach_itself(st):
+    """`Tick.run()` used to call `Reach.prune()` (a full, unscoped `reached_24h` scan) once per
+    tenant with due work. That is now `Tick.prune_reach()`, called once per tick invocation by the
+    caller — never from inside `run()`. Proved by counting `scan_all` calls against the reach
+    collection across several tenants' `run()` calls: it must stay at zero."""
+    calls = {"n": 0}
+    real_scan_all = st.scan_all
+
+    async def counting_scan_all(collection, limit, **kw):
+        if collection == "reached_24h":
+            calls["n"] += 1
+        return await real_scan_all(collection, limit, **kw)
+
+    st.scan_all = counting_scan_all
+
+    t = tick(st, FakeSender())
+    for tenant in ("t1", "t2", "t3"):
+        sched(st, tenant=tenant)
+        run(t.run(tenant, now=at(10), library=LIB, service_names=NAMES,
+                  establishment="ورشة النخبة", customer_names={}))
+
+    assert calls["n"] == 0, "run() re-introduced a per-tenant reach scan"
+
+
+def test_prune_reach_does_the_one_global_scan(st):
+    """`Tick.prune_reach()` is the one place that still scans `reached_24h` — proved by calling it
+    once and observing exactly one `scan_all` against that collection, regardless of how many
+    tenants' rows are in it."""
+    from app.core.reach import Reach
+
+    calls = {"n": 0}
+    real_scan_all = st.scan_all
+
+    async def counting_scan_all(collection, limit, **kw):
+        if collection == "reached_24h":
+            calls["n"] += 1
+        return await real_scan_all(collection, limit, **kw)
+
+    st.scan_all = counting_scan_all
+
+    reach = Reach(st)
+    for tenant in ("t1", "t2", "t3"):
+        run(reach.record(tenant, "sub_a", now=at(9)))
+
+    t = tick(st, FakeSender())
+    gone = run(t.prune_reach(now=at(9) + 25 * 3600))
+
+    assert calls["n"] == 1
+    assert gone == 3

@@ -164,6 +164,13 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
     sent = suppressed = deferred = failed = 0
     reasons: dict[str, int] = {}
 
+    # ONCE PER TICK, NOT ONCE PER TENANT. `Reach.prune()` scans the whole `reached_24h` table —
+    # there is no tenant filter to scope it by, because it is housekeeping for one shared table,
+    # not a per-shop answer. `Tick.run()` used to call it from inside the per-tenant loop below,
+    # which re-ran that same unscoped up-to-5000-row scan once per tenant with due work — up to
+    # `TICK_MAX_TENANTS` times per tick for a job that only needs to happen once.
+    await c.tick.prune_reach(now=now)
+
     for tenant in tenants[:s.TICK_MAX_TENANTS]:
         cfg = await _service_config(c, tenant)
         try:
