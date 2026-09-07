@@ -31,9 +31,9 @@ interface Ticket {
   created_at?: number;
 }
 
-const STATUS_TONE: Record<string, 'danger' | 'warning' | 'accent' | 'neutral'> = {
+const STATUS_TONE: Record<string, 'danger' | 'warning' | 'info' | 'neutral'> = {
   new: 'danger', open: 'danger', pending: 'warning', triaged: 'warning',
-  in_progress: 'accent', waiting_customer: 'warning',
+  in_progress: 'info', waiting_customer: 'warning',
 };
 
 export function SupportScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
@@ -58,7 +58,7 @@ export function SupportScreen({ session, catalog }: { session: Session; catalog:
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-2">
-        <LifeBuoy size={22} className="text-accent" aria-hidden />
+        <LifeBuoy size={22} className="text-text-secondary" aria-hidden />
         <h1 className="text-2xl leading-tight tracking-tight">الدعم الفني</h1>
       </div>
 

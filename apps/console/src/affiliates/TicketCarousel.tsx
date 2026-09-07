@@ -30,7 +30,7 @@ const STATUS_TONE: Record<string, string> = {
   new: 'bg-danger-soft text-danger',
   pending: 'bg-warning-soft text-warning',
   triaged: 'bg-warning-soft text-warning',
-  in_progress: 'bg-accent-soft text-accent',
+  in_progress: 'bg-info-soft text-info',
 };
 
 function statusTone(status: string): string {
@@ -79,9 +79,9 @@ export function TicketCarousel({ tickets, onOpen }: {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-gradient-to-br from-accent-soft to-surface-1 p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-card bg-gradient-to-br from-warning-soft to-surface-1 p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-accent">
+        <div className="flex items-center gap-2 text-warning">
           <LifeBuoy size={18} aria-hidden />
           <span className="font-medium">
             {tickets.length === 1 ? 'تذكرة تحتاج ردك' : `${tickets.length} تذاكر تحتاج ردك`}

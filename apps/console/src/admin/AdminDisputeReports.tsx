@@ -144,7 +144,7 @@ export function AdminDisputeReports({ session }: { session: AdminSession }) {
                   : 'border-border-subtle bg-surface-1 hover:border-border-strong'
               }`}
             >
-              <div className={`rounded-xl p-2 ${on ? 'bg-accent text-white' : 'bg-surface-2 text-text-secondary'}`}>
+              <div className="rounded-xl bg-surface-2 p-2 text-text-secondary">
                 <Icon size={22} />
               </div>
               <span className="font-semibold">{s.label}</span>

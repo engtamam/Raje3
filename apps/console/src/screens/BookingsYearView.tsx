@@ -62,9 +62,7 @@ export function BookingsYearView({
         return (
           <div key={monthStart}
               className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1 p-3
-                        transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-accent/5">
-            <span aria-hidden
-                 className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-accent/[0.06] to-transparent" />
+                        transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5">
             <button type="button" onClick={() => onSelectMonth(monthStart)}
                    data-testid={`rj-year-month-${monthStart}`}
                    className="relative text-start text-sm font-semibold hover:underline"
@@ -85,12 +83,12 @@ export function BookingsYearView({
                          data-testid={`rj-year-day-${cell.date}`}
                          className={[
                            'relative flex h-6 flex-col items-center justify-center rounded-md text-[9px] transition-colors',
-                           cell.inMonth ? 'hover:bg-accent/10' : 'opacity-30',
+                           cell.inMonth ? 'hover:bg-surface-2' : 'opacity-30',
                          ].join(' ')}
-                         style={isToday ? { background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)', fontWeight: 700 } : undefined}>
+                         style={isToday ? { background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)', fontWeight: 700 } : undefined}>
                     {cell.day}
                     {count > 0 ? (
-                      <span aria-hidden className="absolute bottom-0.5 h-1 w-1 rounded-full bg-gradient-to-r from-accent to-accent/60" />
+                      <span aria-hidden className="absolute bottom-0.5 h-1 w-1 rounded-full bg-surface-3" />
                     ) : null}
                   </button>
                 );

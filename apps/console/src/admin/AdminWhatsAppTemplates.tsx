@@ -236,7 +236,7 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
     <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5">
-          <span className="mt-0.5 inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+          <span className="mt-0.5 inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
             <FileText size={16} />
           </span>
           <div>
@@ -376,7 +376,7 @@ function TestSendPanel({ session, action, templates }: {
     <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
              className="flex w-full items-center gap-2.5 text-start">
-        <span className="inline-flex rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+        <span className="inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
           <FlaskConical size={16} />
         </span>
         <span className="flex-1">

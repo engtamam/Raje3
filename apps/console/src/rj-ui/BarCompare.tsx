@@ -28,7 +28,7 @@ export function BarCompare({ items, formatValue = String }: {
               <span className="tabular-nums font-medium text-text-secondary">{formatValue(item.value)}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-info" style={{ width: `${pct}%` }} />
             </div>
           </li>
         );

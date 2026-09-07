@@ -104,23 +104,23 @@ function UrgentLeadsCard({ data }: { data: Home }) {
 function EarningsCard({ data }: { data: Home }) {
   const { balance } = data;
   return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-5 shadow-sm">
-      <span className="text-label font-medium text-text-secondary">رصيدك الجاهز للسحب</span>
+    <div className="flex flex-col gap-3 rounded-card bg-gradient-hero p-5 text-accent-contrast shadow-sm">
+      <span className="text-label font-medium text-accent-contrast/80">رصيدك الجاهز للسحب</span>
       <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums">
         {riyalsLabel(balance.confirmed_available_halalas)}
       </span>
       {balance.min_withdrawal_halalas > 0 ? (
-        <span className="text-xs text-text-secondary">
+        <span className="text-xs text-accent-contrast/80">
           الحد الأدنى للسحب {riyalsLabel(balance.min_withdrawal_halalas)}
         </span>
       ) : null}
       <div className="flex gap-2">
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">معلَّق</span>
+        <div className="flex-1 rounded-md bg-black/10 p-2.5">
+          <span className="block text-xs text-accent-contrast/80">معلَّق</span>
           <span className="tabular-nums font-medium">{riyalsLabel(balance.pending_halalas)}</span>
         </div>
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">مسحوب سابقًا</span>
+        <div className="flex-1 rounded-md bg-black/10 p-2.5">
+          <span className="block text-xs text-accent-contrast/80">مسحوب سابقًا</span>
           <span className="tabular-nums font-medium">{riyalsLabel(balance.withdrawn_halalas)}</span>
         </div>
       </div>
@@ -130,7 +130,7 @@ function EarningsCard({ data }: { data: Home }) {
       {!data.payout_method_set ? (
         <p className="text-xs text-warning">أضف طريقة استلام أرباحك من صفحة حسابك قبل أول سحب.</p>
       ) : data.pending_withdrawal ? (
-        <p className="text-xs text-text-secondary">طلب سحبك الحالي قيد المراجعة.</p>
+        <p className="text-xs text-accent-contrast/80">طلب سحبك الحالي قيد المراجعة.</p>
       ) : null}
     </div>
   );
@@ -172,7 +172,7 @@ function Meter({ label, value, pct, note }: { label: string; value: string; pct:
         <span className="tabular-nums">{value}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-0">
-        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-info" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs text-text-secondary">{note}</span>
     </div>

@@ -43,7 +43,7 @@ export function Heatmap({ rows, cols, cells, formatValue = String }: {
                 const opacity = v === 0 ? 0.06 : 0.15 + (v / max) * 0.85;
                 return (
                   <td key={c} title={`${r} · ${c}: ${formatValue(v)}`}>
-                    <div className="h-5 w-5 rounded-sm bg-accent" style={{ opacity }} />
+                    <div className="h-5 w-5 rounded-sm bg-info" style={{ opacity }} />
                   </td>
                 );
               })}

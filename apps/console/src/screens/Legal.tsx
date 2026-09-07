@@ -42,7 +42,7 @@ export function Legal() {
   return (
     <main dir="rtl" className="mx-auto max-w-3xl px-6 py-10 bg-surface-0 min-h-dvh">
       <div className="flex items-center justify-between">
-        <Link to="../.." relative="path" className="text-sm text-accent underline">
+        <Link to="../.." relative="path" className="text-sm text-text-secondary underline">
           رجوع
         </Link>
         {doc && (

@@ -397,13 +397,13 @@ function AppCard({
         has
           // OWNED READS AS SETTLED, NOT AS SOLD. A ring rather than a fill: a card he already owns
           // must not compete for attention with the ones he might buy.
-          ? 'bg-surface-1 shadow-sm ring-1 ring-accent-soft'
+          ? 'bg-surface-1 shadow-sm ring-1 ring-success-soft'
           : 'bg-surface-1 shadow-sm hover:-translate-y-0.5 hover:shadow-md',
       ].join(' ')}
     >
       {/* A HAIRLINE OF ACCENT ALONG THE TOP of what he owns - the whole decoration budget of this
           screen. Anything louder turns a shop into an advertisement. */}
-      {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent" /> : null}
+      {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-success" /> : null}
 
       <header className="flex items-start justify-between gap-2">
         <div className={compact ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
@@ -417,7 +417,7 @@ function AppCard({
               aria-hidden
               className={[
                 'grid h-10 w-10 shrink-0 place-items-center rounded-full',
-                has ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
+                has ? 'bg-success-soft text-success-on-soft' : 'bg-surface-2 text-text-secondary',
               ].join(' ')}
             >
               <Icon size={18} />
@@ -469,7 +469,7 @@ function AppCard({
           : 'flex flex-col gap-1 border-t border-border-subtle pt-3 text-sm'}>
           {lines.map((line) => (
             <li key={line} className="flex items-start gap-2 text-text-secondary">
-              <Check size={compact ? 12 : 15} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+              <Check size={compact ? 12 : 15} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
               <span>{line}</span>
             </li>
           ))}
@@ -1208,7 +1208,7 @@ export function PlansPane({
       </Modal>
 
       {changeNotice ? (
-        <div className="rounded-card border border-accent-soft bg-accent-soft/40 p-5 shadow-sm">
+        <div className="rounded-card border border-success-soft bg-success-soft/40 p-5 shadow-sm">
           <p className="mb-1 font-medium">تم التبديل ✓</p>
           <p className="mb-4 text-sm text-text-secondary">{changeNotice}</p>
           <Button type="button" variant="ghost" onClick={() => setChangeNotice('')}>تمام</Button>
@@ -1236,7 +1236,7 @@ export function PlansPane({
       ) : null}
 
       {notice ? (
-        <div className="rounded-card border border-accent-soft bg-accent-soft/40 p-5 shadow-sm">
+        <div className="rounded-card border border-success-soft bg-success-soft/40 p-5 shadow-sm">
           <p className="mb-1 font-medium">تم الاشتراك ✓</p>
           <p className="mb-4 text-sm text-text-secondary">{notice}</p>
           <div className="flex gap-2">

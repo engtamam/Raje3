@@ -111,13 +111,13 @@ export function FilterMenu({
         aria-controls={listId}
         className={`flex min-h-11 w-fit items-center gap-2 self-start rounded-lg border px-3 text-sm font-medium transition-colors focus-ring ${
           selected.length > 0
-            ? 'border-accent bg-accent-soft text-accent-on-soft'
+            ? 'border-info bg-info-soft text-info-on-soft'
             : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'
         }`}
       >
         <span>{label}</span>
         {selected.length > 0 ? (
-          <span className="grid size-5 place-items-center rounded-full bg-accent text-xs text-accent-contrast tabular-nums">
+          <span className="grid size-5 place-items-center rounded-full bg-info text-xs text-white tabular-nums">
             {selected.length}
           </span>
         ) : null}
@@ -178,11 +178,11 @@ export function FilterMenu({
                     aria-selected={checked}
                     onClick={() => toggle(o.value)}
                     className={`flex min-h-11 items-center gap-2 rounded-md px-2.5 text-sm transition-colors focus-ring ${
-                      checked ? 'bg-accent-soft text-accent-on-soft' : 'text-text-primary hover:bg-surface-2'
+                      checked ? 'bg-surface-2 text-text-primary' : 'text-text-primary hover:bg-surface-2'
                     }`}
                   >
                     <span className={`grid size-4 shrink-0 place-items-center rounded border ${
-                      checked ? 'border-accent bg-accent text-accent-contrast' : 'border-border-strong'
+                      checked ? 'border-text-primary bg-text-primary text-surface-1' : 'border-border-strong'
                     }`}>
                       {checked ? <Check size={11} /> : null}
                     </span>

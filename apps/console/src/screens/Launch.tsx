@@ -506,7 +506,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             {preview.spread?.refused ? (
               <p className="text-sm text-danger">{preview.spread.refused}</p>
             ) : preview.spread_says ? (
-              <p className="text-sm text-accent-on-soft">{preview.spread_says}</p>
+              <p className="text-sm text-success">{preview.spread_says}</p>
             ) : null}
             {/* WHY THIS AUDIENCE AND NOT ANOTHER — the server's own reasons, and the screen
                 declared this field for months without ever rendering it. An owner who cannot see

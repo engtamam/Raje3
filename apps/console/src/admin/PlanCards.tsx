@@ -122,7 +122,7 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
       plan.active ? 'border-border-subtle bg-surface-1' : 'border-border-subtle bg-surface-1 opacity-70',
     ].join(' ')}>
       <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex w-fit rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+        <span className="inline-flex w-fit rounded-lg bg-surface-2 p-2 text-text-secondary">
           <Package size={20} />
         </span>
         <div className="flex flex-col items-end gap-1">

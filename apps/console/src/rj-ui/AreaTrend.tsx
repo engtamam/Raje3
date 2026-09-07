@@ -59,7 +59,7 @@ export function AreaTrend({ points, formatValue = String }: {
   return (
     <div className="flex flex-col gap-1">
       <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
-           className="text-accent" aria-label={`اتجاه: ينتهي عند ${formatValue(lastValue)}`}>
+           className="text-info" aria-label={`اتجاه: ينتهي عند ${formatValue(lastValue)}`}>
         <defs>
           <linearGradient id="rj-area-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />

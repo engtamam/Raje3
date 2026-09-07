@@ -129,7 +129,7 @@ function BalanceSection({ session }: { session: AffiliateSession }) {
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
 
       {openRequest ? (
-        <div className="flex items-center justify-between rounded-md bg-accent-soft px-3 py-2.5 text-sm text-accent-on-soft">
+        <div className="flex items-center justify-between rounded-md bg-info-soft px-3 py-2.5 text-sm text-info-on-soft">
           <span>طلب سحبك بقيمة {riyalsLabel(openRequest.amount_halalas)} قيد المعالجة</span>
         </div>
       ) : (
@@ -169,16 +169,16 @@ function WafaCard({ session }: { session: AffiliateSession }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-accent/30 bg-accent-soft/40 p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-medium text-accent-on-soft">
+    <div className="flex flex-col gap-3 rounded-card border border-secondary/40 bg-gradient-gold p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-medium text-secondary-contrast">
         <TrendingUp size={16} /> برنامج دعم الوفاء
       </div>
-      <div className="flex justify-between text-xs text-text-secondary">
+      <div className="flex justify-between text-xs text-secondary-contrast/80">
         <span>محلات نشِطة</span>
         <span className="tabular-nums">{elig.active_shops} / {elig.tier_shops}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-0">
-        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-info" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-sm">
         {elig.eligible
@@ -203,7 +203,7 @@ function WafaCard({ session }: { session: AffiliateSession }) {
       {/* أدائك أنت — نفس الأرقام اللي القرار الملزم يُبنى عليها (retention/refund)، ونفس مؤشرات
           الدعم اللي مديرك يشوفها عنك من «فريقي». "مدير التسويق يعتبر مسوّي،
           عنده نفس المؤشرات لنفسه" — هذي البطاقة تصير صحيحة لأي مسوّق، لا المدير فقط. */}
-      <div className="mt-1 border-t border-accent/20 pt-3">
+      <div className="mt-1 border-t border-border-subtle pt-3">
         <PerformanceStats retentionRate={elig.retention_rate} refundRate={elig.refund_rate}
                          supportKpis={elig.support_kpis} totalReferrals={elig.total_referrals}
                          totalCommissions={elig.total_commissions} />

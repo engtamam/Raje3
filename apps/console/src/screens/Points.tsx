@@ -252,9 +252,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       {/* ── what the programme is costing him ────────────────────────────────────────────────
           FOUR NUMBERS NOW, AND TWO OF THEM CARRY COLOUR ON PURPOSE. Points outstanding are a debt
           the shop has already promised and not yet paid (§9.1) — an owner who cannot see its size
-          cannot price the programme — so it carries the accent tone, which the card was never
-          actually given despite the comment here always having said so (a documented intent the
-          code itself never matched).
+          cannot price the programme — so it carries the WARNING tone (a real liability, not the
+          brand's own "act on this" accent — corrected 2026-09-07 alongside the theme rebrand's own
+          accent-overuse audit).
 
           THE FOURTH IS THE WARNING THE REPORT WAS BUILT AROUND. `report.py`'s own docstring calls
           `expired_share` "the one indicator that is a warning": a high share means his thresholds
@@ -272,7 +272,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                    value={String(report.customers ?? 0)} />
           <KpiCard icon={<Gift size={18} />} label={t('points.kpi.redemptions')}
                    value={String(report.redemptions ?? 0)} />
-          <KpiCard icon={<Coins size={18} />} label={t('points.kpi.outstanding')} tone="accent"
+          <KpiCard icon={<Coins size={18} />} label={t('points.kpi.outstanding')} tone="warning"
                    value={String(report.outstanding ?? 0)}
                    hint={t('points.kpi.outstanding.hint')} />
           <KpiCard icon={<AlertTriangle size={18} />} label={t('points.kpi.expiredShare')}
@@ -397,7 +397,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                     ].join(' ')}>
                   {/* THE COST AS A COIN, NOT AS A NUMBER IN A ROW OF NUMBERS. It is the one thing
                       the owner compares between rewards and the one thing his customer counts
-                      towards, so it is the shape the eye lands on first. */}
+                      towards, so it is the shape the eye lands on first. GOLD, not accent — this
+                      screen has no single aggregate "points total" headline worth a hero gradient
+                      (it is a rewards table, not a balance display), so the reward-cost coin is its
+                      own genuine premium/reward moment, added 2026-09-07 alongside the theme's own
+                      secondary-gold ramp. */}
                   {canEdit ? (
                     <label className="flex shrink-0 flex-col items-center gap-0.5">
                       <input
@@ -414,12 +418,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                             patchReward(r.id, { cost: Number(raw) });
                           }
                         }}
-                        className="h-11 w-20 rounded-xl bg-accent-soft px-1 text-center text-lg font-semibold tabular-nums text-accent-on-soft"
+                        className="h-11 w-20 rounded-xl bg-secondary-soft px-1 text-center text-lg font-semibold tabular-nums text-secondary-on-soft"
                       />
                       <span className="text-[0.65rem] text-text-secondary">{t('points.pointUnit')}</span>
                     </label>
                   ) : (
-                    <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-accent-soft text-lg font-semibold tabular-nums text-accent-on-soft">
+                    <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-secondary-soft text-lg font-semibold tabular-nums text-secondary-on-soft">
                       {r.cost}
                     </span>
                   )}
@@ -687,7 +691,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                         <span>{s.name}</span>
                         {/* SHOWN WHERE IT HAPPENED (§10.8.1), never in a distant settings screen
                             he would have to find. */}
-                        {own ? <Badge tone="accent">{t('points.customSetting')}</Badge> : null}
+                        {own ? <Badge tone="neutral">{t('points.customSetting')}</Badge> : null}
                       </span>
                       <span className="flex items-center gap-2">
                         <input

@@ -51,8 +51,8 @@ const STATUS_LABEL: Record<string, string> = {
   new: 'جديد', assigned: 'مُسنَد', contacted: 'تم التواصل', interested: 'مهتم',
   not_interested: 'غير مهتم', follow_up: 'متابعة لاحقة', registered: 'مسجَّل',
 };
-const STATUS_TONE: Record<string, 'neutral' | 'accent' | 'success' | 'warning' | 'danger'> = {
-  new: 'neutral', assigned: 'accent', contacted: 'accent', interested: 'success',
+const STATUS_TONE: Record<string, 'neutral' | 'info' | 'success' | 'warning' | 'danger'> = {
+  new: 'neutral', assigned: 'info', contacted: 'info', interested: 'success',
   not_interested: 'danger', follow_up: 'warning', registered: 'success',
 };
 
@@ -272,7 +272,7 @@ function LeadDetail({ session, leadId, onBack }: {
               </a>
             ) : null}
             <a href={`tel:${lead.phone}`} dir="ltr"
-               className="flex items-center gap-1.5 text-sm text-accent">
+               className="flex items-center gap-1.5 text-sm text-text-secondary">
               <Phone size={14} /> {lead.phone}
             </a>
           </div>

@@ -635,7 +635,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </h1>
                 {date !== todayLocal() ? (
                   <button type="button" onClick={() => setDate(todayLocal())}
-                         className="text-xs font-medium" style={{ color: 'var(--rj-accent-deep)' }}>
+                         className="text-xs font-medium" style={{ color: 'var(--rj-ink-soft)' }}>
                     {t('bookings.backToToday')}
                   </button>
                 ) : null}
@@ -780,14 +780,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                      aria-expanded={filtersOpen}
                      className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium shadow-sm"
                      style={{
-                       background: activeFilterCount ? 'var(--rj-accent-soft)' : 'var(--rj-surface)',
-                       color: activeFilterCount ? 'var(--rj-accent-deep)' : 'var(--rj-ink)',
+                       background: activeFilterCount ? 'var(--rj-info-soft)' : 'var(--rj-surface)',
+                       color: activeFilterCount ? 'var(--rj-info-deep)' : 'var(--rj-ink)',
                      }}>
                 <Filter size={14} aria-hidden />
                 {t('bookings.filters')}
                 {activeFilterCount ? (
                   <span className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold"
-                       style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}>
+                       style={{ background: 'var(--rj-info)', color: '#ffffff' }}>
                     {activeFilterCount}
                   </span>
                 ) : null}
@@ -842,7 +842,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   </div>
                   {activeFilterCount ? (
                     <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
-                           className="text-xs font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
+                           className="text-xs font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
                       {t('bookings.clearFilters')}
                     </button>
                   ) : null}
@@ -907,7 +907,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           <div className="grid place-items-center gap-2 py-24 text-center">
             <p className="text-base font-medium">{t('bookings.error.loadFailed')}</p>
             <button type="button" onClick={load} className="text-sm font-medium underline"
-                   style={{ color: 'var(--rj-accent-deep)' }}>{t('bookings.retry')}</button>
+                   style={{ color: 'var(--rj-ink-soft)' }}>{t('bookings.retry')}</button>
           </div>
         ) : layout === 'list' && filterCustomer ? (
           // A CUSTOMER PICKED BY PHONE ANSWERS "متى موعده الجاي؟" — every booked appointment
@@ -922,7 +922,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             <div className="grid place-items-center gap-2 py-24 text-center">
               <p className="text-base font-medium">{t('bookings.error.customerBookingsFailed')}</p>
               <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
-                     className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
+                     className="text-sm font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
                 {t('bookings.retry')}
               </button>
             </div>
@@ -957,7 +957,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 <div className="grid place-items-center gap-2 py-24 text-center">
                   <p className="text-base font-medium">{t('bookings.error.fullHistoryFailed')}</p>
                   <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
-                         className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
+                         className="text-sm font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
                     {t('bookings.retry')}
                   </button>
                 </div>
@@ -979,7 +979,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           <div className="grid place-items-center gap-2 py-24 text-center">
             <p className="text-base font-medium">{t('bookings.error.staffFailed')}</p>
             <button type="button" onClick={() => listBookingStaff(session).then(setStaff).catch(() => setStaff(null))}
-                   className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
+                   className="text-sm font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
               {t('bookings.retry')}
             </button>
           </div>
@@ -1092,8 +1092,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       <div data-testid="now-line" className="pointer-events-none absolute inset-x-0 z-10"
                           style={{ top: (minutesOf(now) - WINDOW_START) * PX_PER_MIN }}>
                         <div className="absolute inset-inline-start-0 -top-[3px] h-[7px] w-[7px] rounded-full"
-                            style={{ background: 'var(--rj-accent-deep)' }} />
-                        <div className="h-px w-full" style={{ background: 'var(--rj-accent-deep)' }} />
+                            style={{ background: 'var(--rj-info)' }} />
+                        <div className="h-px w-full" style={{ background: 'var(--rj-info)' }} />
                       </div>
                     ) : null}
                     {/* REAL CELLS NOW, NOT JUST LINES — each quarter-hour used to be a zero-height
@@ -1110,7 +1110,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                         key={m}
                         type="button"
                         tabIndex={-1}
-                        className="group absolute inset-x-0 cursor-pointer border-t text-start transition-colors duration-100 hover:bg-[var(--rj-accent-soft)]"
+                        className="group absolute inset-x-0 cursor-pointer border-t text-start transition-colors duration-100 hover:bg-[var(--rj-line)]"
                         style={{
                           top: (m - WINDOW_START) * PX_PER_MIN,
                           height: 15 * PX_PER_MIN,
@@ -1126,7 +1126,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       >
                         <span
                           className="pointer-events-none absolute inset-inline-end-1.5 top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-sm group-hover:block"
-                          style={{ background: 'var(--rj-accent-deep)', color: '#ffffff' }}>
+                          style={{ background: 'var(--rj-ink)', color: '#ffffff' }}>
                           {timeLabel(t, m)}
                         </span>
                       </button>
@@ -1361,15 +1361,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         <div className="fixed inset-x-0 bottom-24 z-30 mx-auto flex w-fit items-center gap-3 rounded-full px-4 py-2.5 shadow-lg sm:bottom-6 sm:inset-inline-end-6 sm:inset-inline-start-auto"
             style={{ background: 'var(--rj-ink)', color: 'var(--rj-bg)' }}>
           <span className="text-sm">{t('bookings.moved')}</span>
-          <button type="button" onClick={undoMove} className="text-sm font-semibold"
-                 style={{ color: 'var(--rj-accent)' }}>{t('bookings.undo')}</button>
+          <button type="button" onClick={undoMove} className="text-sm font-semibold underline underline-offset-2"
+                 style={{ color: 'var(--rj-bg)' }}>{t('bookings.undo')}</button>
         </div>
       ) : null}
 
       {/* touch "move" mode — cancelled by tapping outside any card */}
       {moving ? (
         <div className="fixed inset-x-0 top-20 z-30 mx-auto flex w-fit items-center gap-3 rounded-full px-4 py-2 shadow-lg"
-            style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}>
+            style={{ background: 'var(--rj-ink)', color: 'var(--rj-bg)' }}>
           <span className="text-sm font-medium">{t('bookings.tapNewSlot')}</span>
           <button type="button" onClick={() => setMoving(null)} aria-label={t('bookings.cancelMove')}>
             <X size={16} aria-hidden />
@@ -1386,8 +1386,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         onClick={() => setDialog({})}
         aria-label={t('bookings.newBooking')}
         title={t('bookings.newBooking')}
-        className="fixed bottom-6 inset-inline-end-6 z-20 grid h-14 w-14 place-items-center rounded-full shadow-lg transition-transform active:scale-95"
-        style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}
+        className="fixed bottom-6 inset-inline-end-6 z-20 grid h-14 w-14 place-items-center rounded-full shadow-glow transition-transform active:scale-95"
+        style={{ background: 'var(--rj-accent)', color: '#ffffff' }}
       >
         <Plus size={24} aria-hidden />
       </button>
@@ -1488,7 +1488,7 @@ function PhoneLookup({
   if (filterCustomer) {
     return (
       <div className="flex h-9 items-center gap-1.5 rounded-full ps-3 pe-1 text-xs font-medium shadow-sm"
-          style={{ background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }}>
+          style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
         <Phone size={12} aria-hidden />
         <span className="truncate">{filterCustomer.name || asLocal(filterCustomer.phone)}</span>
         {typeof filterCustomer.visits === 'number' ? (
@@ -1496,7 +1496,7 @@ function PhoneLookup({
         ) : null}
         <button type="button" aria-label={t('bookings.cancel')} onClick={() => { setFilterCustomer(null); setPhoneQuery(''); }}
                className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
-               style={{ color: 'var(--rj-accent-deep)' }}>
+               style={{ color: 'var(--rj-ink-soft)' }}>
           <X size={12} aria-hidden />
         </button>
       </div>
@@ -1617,7 +1617,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                       <td colSpan={6}
                           className="border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
                           style={isToday
-                            ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
+                            ? { borderColor: 'var(--rj-info-soft)', background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)' }
                             : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
                         {isToday ? tf(t, 'bookings.todayHeader', { date: humanDate(t, dateKey) }) : humanDate(t, dateKey)}
                       </td>
@@ -1634,10 +1634,10 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                      className="cursor-pointer border-b transition-colors last:border-b-0 hover:brightness-[0.98] focus-visible:outline-2"
                      style={{
                        borderColor: 'var(--rj-line)',
-                       background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined,
+                       background: isToday ? 'color-mix(in srgb, var(--rj-info-soft) 45%, transparent)' : undefined,
                      }}>
                     <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold"
-                       style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                       style={{ color: isToday ? 'var(--rj-info-deep)' : 'var(--rj-ink-soft)' }}>
                       {isToday ? t('bookings.today') : shortDate(t, dateKey)}
                     </td>
                     <td dir="ltr" className="whitespace-nowrap px-4 py-3 text-sm font-semibold tabular-nums">
@@ -1715,7 +1715,7 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
               {showDateHeader ? (
                 <div className="sticky top-0 border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
                     style={isToday
-                      ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
+                      ? { borderColor: 'var(--rj-info-soft)', background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)' }
                       : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
                   {isToday ? tf(t, 'bookings.todayHeader', { date: humanDate(t, dateKey) }) : humanDate(t, dateKey)}
                 </div>
@@ -1723,8 +1723,8 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
               {e.kind === 'visit' ? (
                 // NOT A BUTTON — there is no action sheet behind a walk-in, on purpose.
                 <div className="flex w-full items-center gap-3 border-b px-4 py-3 last:border-b-0"
-                    style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined }}>
-                  <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                    style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-info-soft) 45%, transparent)' : undefined }}>
+                  <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-info-deep)' : 'var(--rj-ink-soft)' }}>
                     {isToday ? t('bookings.today') : shortDate(t, dateKey)}
                   </span>
                   <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(t, minutesOf(e.time))}</span>
@@ -1746,8 +1746,8 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                 return (
                   <button type="button" onClick={() => onOpenBooking(b)}
                          className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
-                         style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined }}>
-                    <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                         style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-info-soft) 45%, transparent)' : undefined }}>
+                    <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-info-deep)' : 'var(--rj-ink-soft)' }}>
                       {isToday ? t('bookings.today') : shortDate(t, dateKey)}
                     </span>
                     <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(t, minutesOf(b.starts_at))}</span>
@@ -1824,7 +1824,7 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
           {cycleDays > 0 ? (
             <button type="button" onClick={() => onBookNext(attended)}
                    className="w-full rounded-2xl py-3 text-sm font-semibold"
-                   style={{ background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }}>
+                   style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
               {tf(t, 'bookings.bookNext', { days: cycleDays })}
             </button>
           ) : null}

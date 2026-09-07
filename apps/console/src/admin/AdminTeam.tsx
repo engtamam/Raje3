@@ -94,7 +94,7 @@ function TeamRoster({ session, listAction, addAction, updateAction, statusAction
     { key: 'roles', header: 'الأدوار', render: (m) => (
       <div className="flex flex-wrap gap-1">
         {m.roles.length === 0 ? <span className="text-text-muted">—</span> : m.roles.map((r) => (
-          <Badge key={r} tone="accent">{PLATFORM_ROLES.find((p) => p.id === r)?.label ?? r}</Badge>
+          <Badge key={r} tone="neutral">{PLATFORM_ROLES.find((p) => p.id === r)?.label ?? r}</Badge>
         ))}
       </div>
     ) },
@@ -239,7 +239,7 @@ function AddMemberDialog({ session, action, open, onClose, onAdded }: {
           <div className="flex flex-col gap-2">
             {PLATFORM_ROLES.map((r) => (
               <label key={r.id} className="flex items-center gap-2">
-                <input type="checkbox" checked={roles.has(r.id)} className="h-5 w-5 accent-accent"
+                <input type="checkbox" checked={roles.has(r.id)} className="h-5 w-5 accent-text-secondary"
                       onChange={() => setRoles((prev) => {
                         const next = new Set(prev);
                         if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
@@ -288,7 +288,7 @@ function EditRolesDialog({ session, action, member, onClose, onSaved }: {
       <div className="flex flex-col gap-2">
         {PLATFORM_ROLES.map((r) => (
           <label key={r.id} className="flex items-center gap-2">
-            <input type="checkbox" checked={roles.has(r.id)} className="h-5 w-5 accent-accent"
+            <input type="checkbox" checked={roles.has(r.id)} className="h-5 w-5 accent-text-secondary"
                   onChange={() => setRoles((prev) => {
                     const next = new Set(prev);
                     if (next.has(r.id)) next.delete(r.id); else next.add(r.id);

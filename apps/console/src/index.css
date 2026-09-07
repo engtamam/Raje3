@@ -63,16 +63,26 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  * reason it was ever split out — without diverging in colour language too.
  *
  * `--rj-gold*` is renamed to `--rj-accent*` throughout this file and every consumer in
- * Bookings.tsx — the old name was already wrong the moment the value stopped being gold. */
+ * Bookings.tsx — the old name was already wrong the moment the value stopped being gold.
+ *
+ * RE-HUED AGAIN 2026-09-07 — the console's own rebrand to Royal Amethyst + Metallic Gold
+ * ("Lumera", sourced from the sister mobile app). `--rj-accent*` follows the new accent exactly;
+ * `--rj-info*` is NEW here — this scoped mini design-system had no semantic-info token of its own,
+ * and the same audit that drove the rebrand found several "اليوم"/active-filter states on this
+ * screen wrongly wearing the brand accent instead of an informational colour. `--rj-booked` etc.
+ * (real booking-status colours) are UNCHANGED — those were never the brand accent. */
 .rj-grid {
   --rj-bg: #f4f5fa;
   --rj-surface: #ffffff;
   --rj-ink: #131226;
   --rj-ink-soft: #5a5a78;
   --rj-line: #e5e6f2;
-  --rj-accent: #6a4cf5;
-  --rj-accent-soft: #ece7fe;
-  --rj-accent-deep: #4c34c4;
+  --rj-accent: #5c1b7a;
+  --rj-accent-soft: #f1e4f8;
+  --rj-accent-deep: #3d0f54;
+  --rj-info: #1d6fa4;
+  --rj-info-soft: #dbeafa;
+  --rj-info-deep: #155d8a;
   --rj-booked: #6a4cf5;
   --rj-booked-soft: #ece7fe;
   --rj-attended: #0fb897;

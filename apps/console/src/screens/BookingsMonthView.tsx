@@ -7,8 +7,8 @@
  *
  * VISUAL LANGUAGE MATCHES THIS SESSION'S OWN PREMIUM CARD (`PackagesTab.tsx`, `Services.tsx`'s
  * grid): `rounded-2xl`, a real hover lift (`hover:-translate-y-0.5` + a deeper shadow) on a
- * clickable day, and a leading accent-gradient strip on today's own cell — the same "this one is
- * live" tell those two screens already use, read here as "this is today" instead.
+ * clickable day, and a leading info-gradient strip on today's own cell — informational (which day
+ * is today), not a call to action, so it stays on the `info` semantic token, never `accent`.
  *
  * Does NOT touch day/week's own grid, state, or visual identity — a sibling component, not a
  * variant of it.
@@ -67,18 +67,18 @@ export function BookingsMonthView({ session, branchId, date, today, t, onSelectD
                    data-testid={`rj-month-day-${cell.date}`}
                    className={[
                      'group relative flex h-16 flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl',
-                     'border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-accent/10',
-                     cell.inMonth ? 'border-border-subtle bg-surface-1' : 'border-transparent opacity-40',
+                     'border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5',
+                     cell.inMonth ? 'border-border-subtle bg-surface-1 hover:bg-surface-2' : 'border-transparent opacity-40',
                    ].join(' ')}>
               {isToday ? (
                 <span aria-hidden
-                     className="pointer-events-none absolute inset-x-0 top-0 h-full bg-gradient-to-b from-accent/[0.14] to-transparent" />
+                     className="pointer-events-none absolute inset-x-0 top-0 h-full bg-gradient-to-b from-info/[0.14] to-transparent" />
               ) : null}
-              <span className="relative text-sm font-semibold" style={isToday ? { color: 'var(--rj-accent-deep)' } : undefined}>
+              <span className="relative text-sm font-semibold" style={isToday ? { color: 'var(--rj-info-deep)' } : undefined}>
                 {cell.day}
               </span>
               {count === null ? null : count > 0 ? (
-                <span className="relative rounded-full bg-gradient-to-r from-accent to-accent/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="relative rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-text-primary">
                   {count}
                 </span>
               ) : (

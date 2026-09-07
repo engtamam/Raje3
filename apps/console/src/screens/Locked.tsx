@@ -39,7 +39,7 @@ export function LockedCard({ appId }: { appId: string }) {
             that a paid subscription needs WhatsApp connected first. */}
         <Link
           to={STORE_PATH}
-          className="rounded-control bg-accent px-3 py-1.5 text-sm text-accent-foreground"
+          className="rounded-control bg-accent px-3 py-1.5 text-sm text-accent-contrast shadow-glow"
         >
           أضِفه من متجر التطبيقات
         </Link>

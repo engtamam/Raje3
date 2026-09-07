@@ -118,7 +118,7 @@ function InsightsSection({ insights }: {
       <h3 className="font-semibold">صحة المنصّة والاحتفاظ (عبر {data.tenantsWithSnapshot} محلاً)</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {data.returnRate != null ? (
-          <KpiCard icon={<TrendingUp size={18} />} tone="accent" label="متوسط معدل الاحتفاظ"
+          <KpiCard icon={<TrendingUp size={18} />} tone="info" label="متوسط معدل الاحتفاظ"
                   value={`${Math.round(data.returnRate * 100)}٪`} />
         ) : null}
         {data.atRiskTenantCount != null ? (
@@ -150,7 +150,7 @@ function AffiliatesSection({ stats, leaderboard }: {
       <h3 className="font-semibold">المسوّقين والتسويق</h3>
       {stats ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <KpiCard icon={<Users size={18} />} tone="accent" label="مسوّقون نشطون" value={String(stats.activeAffiliates)}
+          <KpiCard icon={<Users size={18} />} tone="info" label="مسوّقون نشطون" value={String(stats.activeAffiliates)}
                   hint={`من أصل ${stats.totalAffiliates}`} />
           <KpiCard icon={<DollarSign size={18} />} tone="success" label="الإيراد المُحال عبر القناة"
                   value={riyalsLabel(stats.totalNetRevenueMinor)}

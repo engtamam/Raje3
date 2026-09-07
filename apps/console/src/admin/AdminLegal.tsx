@@ -302,11 +302,11 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                             {new Date(v.published_at * 1000).toLocaleDateString('ar-SA')}
                           </span>
                         ) : null}
-                        <button type="button" className="ms-auto text-xs text-accent hover:underline"
+                        <button type="button" className="ms-auto text-xs text-text-secondary hover:underline"
                                 onClick={() => loadVersion(selected, v.version)}>
                           فتح
                         </button>
-                        <button type="button" className="text-xs text-accent hover:underline"
+                        <button type="button" className="text-xs text-text-secondary hover:underline"
                                 onClick={() => setVersion(`${(Number(v.version) || 0) + 0.1 || '2.0'}`)}>
                           إصدار نسخة تالية
                         </button>

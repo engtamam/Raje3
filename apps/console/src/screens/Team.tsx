@@ -474,10 +474,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
                       type="radio" name="op-role" value={r.value} checked={selected}
                       onChange={() => setRole(r.value)} className="sr-only"
                     />
-                    <span className={[
-                      'grid h-9 w-9 shrink-0 place-items-center rounded-full',
-                      selected ? 'bg-accent text-white' : 'bg-surface-2 text-text-secondary',
-                    ].join(' ')}>
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-text-primary">
                       <Icon size={18} aria-hidden />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
@@ -974,7 +971,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
             the store became a place. */}
         <Link
           to={STORE_PATH}
-          className="mt-3 inline-block rounded-control bg-accent px-3 py-1.5 text-sm text-accent-foreground"
+          className="mt-3 inline-block rounded-control bg-surface-3 px-3 py-1.5 text-sm text-text-primary"
         >
           افتح متجر التطبيقات
         </Link>
@@ -1078,7 +1075,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
           <div className="flex items-center gap-2">
             <Link
               to={STORE_PATH}
-              className="rounded-control bg-accent px-3 py-1.5 text-sm text-accent-foreground"
+              className="rounded-control bg-surface-3 px-3 py-1.5 text-sm text-text-primary"
             >
               افتح متجر التطبيقات
             </Link>

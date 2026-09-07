@@ -46,8 +46,8 @@ export const TENANT_STATUS_META: Record<Tenant['status'], { label: string; tone:
   deleted: { label: 'محذوفة', tone: 'neutral' },
 };
 
-export const SUB_STATUS_META: Record<Subscription['status'], { label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' | 'accent' }> = {
-  trialing: { label: 'تجريبي', tone: 'accent' },
+export const SUB_STATUS_META: Record<Subscription['status'], { label: string; tone: 'neutral' | 'success' | 'danger' | 'warning' | 'info' }> = {
+  trialing: { label: 'تجريبي', tone: 'info' },
   active: { label: 'نشط', tone: 'success' },
   past_due: { label: 'متأخر الدفع', tone: 'danger' },
   paused: { label: 'متوقف', tone: 'warning' },
@@ -140,7 +140,7 @@ export function CustomerList({ session }: { session: AdminSession }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <KpiCard icon={<Users size={18} />} label="إجمالي العملاء" value={kpis.total} tone="neutral" />
         <KpiCard icon={<Sparkles size={18} />} label="نشطة الآن" value={kpis.active} tone="success" />
-        <KpiCard icon={<Sparkles size={18} />} label="تجريبي" value={kpis.trialing} tone="accent" />
+        <KpiCard icon={<Sparkles size={18} />} label="تجريبي" value={kpis.trialing} tone="info" />
         <KpiCard icon={<AlertTriangle size={18} />} label="متأخر الدفع" value={kpis.pastDue} tone="danger" />
         <KpiCard icon={<Ban size={18} />} label="معلَّقة" value={kpis.suspended} tone="warning" />
       </div>

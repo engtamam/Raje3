@@ -1157,12 +1157,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     'group relative flex flex-col gap-2 overflow-hidden rounded-2xl border p-3',
                     'transition-all duration-200 hover:-translate-y-0.5',
                     live
-                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg hover:shadow-accent/5'
+                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg hover:shadow-success/5'
                       : 'border-border-subtle bg-surface-1 opacity-70',
                   ].join(' ')}>
                 {live ? (
                   <span aria-hidden
-                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-accent to-accent/40" />
+                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-success to-success/40" />
                 ) : null}
                 {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — never a blank box. The absence
                     of a photo is a fact worth seeing at a glance (an owner missing photos across
@@ -1314,7 +1314,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     />
                     {action(catalog, 'operations.upload_service_image') ? (
                       <div className="flex items-center gap-1">
-                        <label className="flex cursor-pointer items-center gap-1 text-xs text-accent-on-soft">
+                        <label className="flex cursor-pointer items-center gap-1 text-xs text-text-secondary">
                           <Upload size={12} aria-hidden /> صورة
                           <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                                 onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
@@ -1720,7 +1720,7 @@ function IconButton({ children, title, onClick, disabled, danger, active }: {
         'grid h-10 w-9 shrink-0 place-items-center rounded-lg text-base transition-colors md:w-10',
         'disabled:opacity-40',
         active
-          ? 'bg-accent-soft text-accent-on-soft'
+          ? 'bg-surface-2 text-text-primary'
           : danger
             ? 'text-danger hover:bg-danger/10'
             : 'text-text-secondary hover:bg-surface-2',
@@ -1816,7 +1816,7 @@ function Setting({
           className="ms-auto h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
         />
       </div>
-      <span className="text-sm text-accent-on-soft">{n > 0 ? preview(n) : zero}</span>
+      <span className="text-sm text-text-secondary">{n > 0 ? preview(n) : zero}</span>
     </div>
   );
 }

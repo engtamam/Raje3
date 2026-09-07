@@ -9,11 +9,12 @@
 import type { ReactNode } from 'react';
 import { cn } from '@base-ui/lib/cn';
 
-export type RjKpiTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
+export type RjKpiTone = 'neutral' | 'accent' | 'info' | 'success' | 'warning' | 'danger';
 
 const TONE_TEXT: Record<RjKpiTone, string> = {
   neutral: 'text-text-primary',
   accent: 'text-accent-on-soft',
+  info: 'text-info-on-soft',
   success: 'text-success-on-soft',
   warning: 'text-warning-on-soft',
   danger: 'text-danger-on-soft',
@@ -21,6 +22,7 @@ const TONE_TEXT: Record<RjKpiTone, string> = {
 const TONE_ICON_BG: Record<RjKpiTone, string> = {
   neutral: 'bg-surface-2 text-text-secondary',
   accent: 'bg-accent-soft text-accent-on-soft',
+  info: 'bg-info-soft text-info-on-soft',
   success: 'bg-success-soft text-success-on-soft',
   warning: 'bg-warning-soft text-warning-on-soft',
   danger: 'bg-danger-soft text-danger-on-soft',
@@ -33,6 +35,7 @@ const TONE_ICON_BG: Record<RjKpiTone, string> = {
 const TONE_CARD_BG: Record<RjKpiTone, string> = {
   neutral: 'bg-surface-1 border border-border-subtle',
   accent: 'bg-accent-soft',
+  info: 'bg-info-soft',
   success: 'bg-success-soft',
   warning: 'bg-warning-soft',
   danger: 'bg-danger-soft',

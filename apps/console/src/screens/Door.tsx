@@ -647,11 +647,11 @@ function Terms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => 
       />
       <span>
         أوافق على{' '}
-        <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="text-accent underline">
+        <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="text-text-secondary underline">
           شروط الاستخدام
         </a>{' '}
         و{' '}
-        <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="text-accent underline">
+        <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="text-text-secondary underline">
           سياسة الخصوصية
         </a>
         .

@@ -124,7 +124,7 @@ function ToolCard({ icon, title, subtitle, onClick }: {
   return (
     <button type="button" onClick={onClick}
            className="flex items-center gap-3 rounded-card bg-surface-1 p-4 text-start shadow-sm active:scale-[0.99]">
-      <div className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
+      <div className="grid size-11 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary">
         {icon}
       </div>
       <div className="flex min-w-0 flex-col">
@@ -417,7 +417,7 @@ function CitationLibrary({ session, isManager, onBack }: {
                       report to point at) shows as plain text instead of a fake link. */}
                   {c.source_url ? (
                     <a href={c.source_url} target="_blank" rel="noreferrer"
-                       className="text-xs text-accent underline">المصدر: {c.source_label}</a>
+                       className="text-xs text-text-secondary underline">المصدر: {c.source_label}</a>
                   ) : (
                     <span className="text-xs text-text-secondary">المصدر: {c.source_label}</span>
                   )}
@@ -582,13 +582,13 @@ function JobRow({ job }: { job: LeadSearchJob }) {
       <div className="flex items-center justify-between">
         <span className="text-sm">{job.sector_code} — {job.keywords.join('، ')}</span>
         <Badge tone={job.status === 'completed' ? 'success' : job.status === 'failed' ? 'danger'
-                    : job.status === 'running' ? 'accent' : 'neutral'}>
+                    : job.status === 'running' ? 'info' : 'neutral'}>
           {JOB_STATUS_LABEL[job.status] ?? job.status}
         </Badge>
       </div>
       {job.status === 'running' || job.status === 'queued' ? (
         <div className="h-1.5 overflow-hidden rounded-full bg-surface-0">
-          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-info transition-all" style={{ width: `${pct}%` }} />
         </div>
       ) : null}
       <div className="flex gap-4 text-xs text-text-secondary">

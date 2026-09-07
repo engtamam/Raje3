@@ -110,7 +110,7 @@ export function RatingsTab(
           <button key={o.value} type="button" onClick={() => setStars(o.value)}
                  className={
                    'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
-                   (stars === o.value ? 'bg-accent text-accent-contrast'
+                   (stars === o.value ? 'bg-info-soft text-info-on-soft'
                                      : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
                  }>
             {o.label}
@@ -122,7 +122,7 @@ export function RatingsTab(
           <button key={o.value} type="button" onClick={() => setHandled(o.value)}
                  className={
                    'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
-                   (handled === o.value ? 'bg-accent-soft text-accent-on-soft'
+                   (handled === o.value ? 'bg-info-soft text-info-on-soft'
                                        : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
                  }>
             {o.label}

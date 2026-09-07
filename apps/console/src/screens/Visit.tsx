@@ -536,7 +536,7 @@ export function Visit() {
                 belong to. Loud on purpose — this is the sentence the customer is about to ask about,
                 and a worker who misses it has taken money for something already paid for. */}
             {offer?.text ? (
-              <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
+              <div className="rounded-xl bg-info-soft p-3 text-info-on-soft shadow-sm">
                 <div className="mb-1 flex items-center gap-1 text-sm font-semibold">
                   {t('visit.offer.title')}
                   <AssistantHint session={session} anchor="visit.offer" />
@@ -591,7 +591,7 @@ export function Visit() {
                 </div>
 
                 {redeemed ? (
-                  <p className="mt-2 rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+                  <p className="mt-2 rounded-lg bg-success-soft p-2 text-success-on-soft">
                     {tf(t, 'visit.points.redeemed', { name: redeemed })}
                   </p>
                 ) : null}
@@ -877,8 +877,8 @@ export function Visit() {
         );
         if (!markedOffer && spendable.length === 0) return null;
         return (
-          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-accent-soft px-3 py-2">
-            <span className="text-sm text-accent-on-soft">{t('visit.chosen.appliesTo')}</span>
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-info-soft px-3 py-2">
+            <span className="text-sm text-info-on-soft">{t('visit.chosen.appliesTo')}</span>
             {markedOffer ? (
               <Button
                 onClick={() => setApplying(true)}
@@ -1031,12 +1031,12 @@ export function Visit() {
               <AssistantHint session={session} anchor="visit.stuck_queue" />
             </span>
           ) : null}
-          {note ? <span className="shrink-0 text-sm text-accent">{note}</span> : null}
+          {note ? <span className="shrink-0 text-sm text-text-secondary">{note}</span> : null}
           <button
             type="button"
             onClick={save}
             disabled={!ready}
-            className="h-11 flex-1 rounded-xl bg-accent text-base font-bold text-white transition-transform active:scale-[0.98] disabled:opacity-40"
+            className="h-11 flex-1 rounded-xl bg-accent text-base font-bold text-white shadow-glow transition-transform active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             {t('visit.save')}
           </button>

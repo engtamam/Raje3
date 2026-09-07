@@ -422,12 +422,13 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
           ) : null}
           {/* REDESIGNED CARD (this session): the flat bordered box read as an afterthought next
               to the rest of the console's own premium chip/gradient language (see AppShell's own
-              nav-icon redesign) — no depth, no accent, every card visually identical whether
-              active, stopped, or unusually scheduled. Now: a leading accent bar on an ACTIVE card
-              (same "this one is live" tell the nav rail uses), a soft gradient header strip behind
+              nav-icon redesign) — no depth, no colour, every card visually identical whether
+              active, stopped, or unusually scheduled. Now: a leading SUCCESS bar on an ACTIVE card
+              (a status marker — "this one is live" — not the brand accent, corrected 2026-09-07
+              alongside the theme's own accent-overuse audit), a soft gradient header strip behind
               the name/price so the card reads as a unit rather than a stack of lines, and a real
               hover lift (`hover:-translate-y-0.5` + a deeper shadow) so the grid feels alive under
-              a cursor instead of static like a table row. A stopped card drops the accent bar and
+              a cursor instead of static like a table row. A stopped card drops the bar and
               gradient entirely — visually "off" at a glance, not just a badge you have to read. */}
           <div className="grid gap-3 sm:grid-cols-2">
             {(packages ?? []).map((p) => {
@@ -438,16 +439,16 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                     'group relative flex flex-col gap-2 overflow-hidden rounded-2xl border p-4',
                     'transition-all duration-200 hover:-translate-y-0.5',
                     live
-                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg hover:shadow-accent/5'
+                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg'
                       : 'border-border-subtle bg-surface-1 opacity-70',
                   ].join(' ')}>
                 {live ? (
                   <span aria-hidden
-                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-accent to-accent/40" />
+                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-success to-success/40" />
                 ) : null}
                 {live ? (
                   <span aria-hidden
-                       className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-accent/[0.06] to-transparent" />
+                       className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-success/[0.06] to-transparent" />
                 ) : null}
 
                 {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — same "absence is a visible fact,
@@ -473,7 +474,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   <div className="flex flex-col items-end gap-1">
                     {p.source === 'suggested' ? (
                       <span className="flex items-center gap-1">
-                        <Badge tone="accent">من اقتراح محلّي</Badge>
+                        <Badge tone="info">من اقتراح محلّي</Badge>
                         <AssistantHint session={session} anchor="services.packageSuggested" />
                       </span>
                     ) : null}
@@ -548,7 +549,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                       <img src={images[draft.id]} alt="" className="h-full w-full object-cover" />
                     ) : <ImageOff size={20} aria-hidden />}
                   </span>
-                  <label className="flex cursor-pointer items-center gap-1 text-sm text-accent-on-soft">
+                  <label className="flex cursor-pointer items-center gap-1 text-sm text-text-secondary">
                     <Upload size={14} aria-hidden /> رفع صورة
                     <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                           onChange={(e) => {
@@ -581,12 +582,12 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                       key={s.id} type="button" onClick={() => toggleService(s.id)}
                       className={
                         'flex items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm transition-colors ' +
-                        (checked ? 'bg-accent-soft text-accent-on-soft' : 'hover:bg-surface-2')
+                        (checked ? 'bg-surface-2 text-text-primary' : 'hover:bg-surface-2')
                       }
                     >
                       <span className={
                         'grid h-4 w-4 shrink-0 place-items-center rounded border ' +
-                        (checked ? 'border-accent bg-accent text-accent-contrast' : 'border-border-strong')
+                        (checked ? 'border-text-primary bg-text-primary text-surface-1' : 'border-border-strong')
                       }>
                         {checked ? '✓' : ''}
                       </span>
@@ -615,7 +616,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                   className="h-10 rounded-lg bg-surface-2 px-3"
                 />
                 {draft.serviceIds.length >= 2 && Number(draft.pointsText) !== suggestedPoints ? (
-                  <button type="button" className="text-start text-xs text-accent underline"
+                  <button type="button" className="text-start text-xs text-text-secondary underline"
                          onClick={() => setDraft({ ...draft, pointsText: String(suggestedPoints) })}>
                     استخدم مجموع نقاط الخدمات ({suggestedPoints})
                   </button>
@@ -663,7 +664,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                          className={
                            'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
                            (draft.recurrence === r.value
-                             ? 'bg-accent text-accent-contrast'
+                             ? 'bg-text-primary text-surface-1'
                              : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
                          }>
                     {r.label}
@@ -684,7 +685,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                              })}
                              className={
                                'rounded-full px-3 py-1 text-xs transition-colors ' +
-                               (checked ? 'bg-accent-soft text-accent-on-soft'
+                               (checked ? 'bg-surface-3 text-text-primary'
                                        : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
                              }>
                         {w.label}
@@ -707,7 +708,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                              })}
                              className={
                                'h-8 rounded-md text-xs transition-colors ' +
-                               (checked ? 'bg-accent-soft text-accent-on-soft'
+                               (checked ? 'bg-surface-3 text-text-primary'
                                        : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
                              }>
                         {day}

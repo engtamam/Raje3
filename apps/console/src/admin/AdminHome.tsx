@@ -96,7 +96,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {state.revenueThisMonth != null ? (
-              <KpiCard icon={<DollarSign size={18} />} tone="accent" label="الإيراد الكلي هالشهر"
+              <KpiCard icon={<DollarSign size={18} />} tone="success" label="الإيراد الكلي هالشهر"
                       value={riyalsLabel(state.revenueThisMonth)}
                       hint={revenueDelta(state.revenueThisMonth, state.revenueLastMonth)} />
             ) : null}
@@ -109,7 +109,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
               </>
             ) : null}
             {state.pendingApplications != null ? (
-              <KpiCard icon={<TrendingUp size={18} />} tone="accent" label="طلبات مسوّقين معلّقة"
+              <KpiCard icon={<TrendingUp size={18} />} tone="warning" label="طلبات مسوّقين معلّقة"
                       value={String(state.pendingApplications)} />
             ) : null}
             {state.openTickets != null ? (

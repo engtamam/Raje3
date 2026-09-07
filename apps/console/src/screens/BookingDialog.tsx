@@ -801,7 +801,7 @@ export function BookingDialog(
 
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
           <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-          <Button disabled={saving} onClick={save}>
+          <Button disabled={saving} onClick={save} className="shadow-glow">
             {saving ? 'جارٍ الحفظ…' : editing ? 'حفظ التعديل' : 'احجز'}
           </Button>
         </div>

@@ -290,7 +290,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
       </section>
 
       {overdue ? (
-        <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent-on-soft">
+        <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning-on-soft">
           تأخّر عن دورته المعتادة — يزور كل {everyDays} يوماً، وآخر زيارة قبل {sinceDays}.
         </p>
       ) : null}
@@ -364,7 +364,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   {o.services.length > 0 ? `على: ${o.services.join('، ')}` : 'على كل الخدمات'}
                 </p>
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                  <Badge tone="accent">ساري</Badge>
+                  <Badge tone="success">ساري</Badge>
                   <span className="text-text-secondary">{remaining(o.expires_at)}</span>
                   <span className="text-text-secondary">· وصله {when(o.sent_at)}</span>
                   {/* THE SAME STRING HE IS HOLDING. The owner is often the one who answers when a
@@ -628,7 +628,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                           type="button"
                           onClick={() => { setAdjustNote(r); setPickingReason(false); }}
                           className={`min-h-11 w-full rounded-xl px-3 text-start text-sm ${
-                            adjustNote === r ? 'bg-accent text-white' : 'bg-surface-2'
+                            adjustNote === r ? 'bg-info-soft text-info-on-soft' : 'bg-surface-2'
                           }`}
                         >
                           {r}

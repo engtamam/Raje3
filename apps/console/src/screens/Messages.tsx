@@ -148,15 +148,17 @@ const CLASS_LABEL: Record<string, string> = {
 
 // «شخصية» WAS «neutral», AND UNDER THE VIOLET REBRAND THAT READ AS «تسويقية» IN DISGUISE. Neutral
 // draws from `surface-2` — a pale violet-tinted grey on this theme — which sits close enough to
-// `accent-soft` (marketing's own tone) that the two badges an owner is meant to tell apart by
-// colour at a glance stopped being tellable apart. `success` is a real third hue, not a third
-// shade of the same one.
-const CLASS_TONE: Record<string, 'neutral' | 'accent' | 'success' | 'info' | 'warning' | 'danger'> = {
+// `accent-soft` to be confused with it, and `accent` itself is reserved for the product's one
+// primary action / active-nav colour under the 60-30-10 rule — not for a message-class label.
+// `marketing` is the class an owner is legally answerable for (consent, billing, the quiet
+// window), so it earns `warning` — a real "pay attention to this one" tone — while `success` gives
+// «شخصية» its own third hue rather than a third shade of the same one.
+const CLASS_TONE: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'danger'> = {
   service: 'info',
   personal: 'success',
   awareness: 'neutral',
   warning: 'warning',
-  marketing: 'accent',
+  marketing: 'warning',
 };
 
 interface Schedule {
@@ -1049,7 +1051,7 @@ export function MessagesScreen(
                       ) : null}
                     </span>
                     {c.state ? (
-                      <Badge tone={c.state === 'active' ? 'accent' : 'neutral'}>
+                      <Badge tone={c.state === 'active' ? 'info' : 'neutral'}>
                         {STATE[c.state] ?? c.state}
                       </Badge>
                     ) : null}

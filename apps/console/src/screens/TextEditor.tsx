@@ -50,8 +50,8 @@ export interface Mandatory { id: string; label: string; sample?: string; note?: 
 interface Draft { html: string }
 
 const CHIP =
-  'rich-chip mx-0.5 inline-block rounded-md bg-accent-soft px-1.5 py-0.5 text-xs ' +
-  'font-medium text-accent-on-soft align-baseline';
+  'rich-chip mx-0.5 inline-block rounded-md bg-surface-2 px-1.5 py-0.5 text-xs ' +
+  'font-medium text-text-secondary align-baseline';
 
 function chipHtml(slot: Slot): string {
   // `data-kind` is the whole contract with the serialiser below: the DOM is the model, and this
@@ -222,7 +222,7 @@ export function TextEditor({
               key={s.id}
               type="button"
               onClick={() => insert(s)}
-              className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs hover:bg-accent-soft"
+              className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs hover:bg-surface-3"
             >
               <Plus size={12} aria-hidden />
               {s.label}
@@ -260,7 +260,7 @@ export function TextEditor({
         {/* ── what the customer reads ──────────────────────────────────────────────────── */}
         <section className="flex flex-col gap-2">
           <h3 className="text-xs text-text-secondary">كما تصل عميلك</h3>
-          <div className="rounded-2xl rounded-ss-sm bg-accent-soft p-3 text-sm leading-relaxed shadow-sm">
+          <div className="rounded-2xl rounded-ss-sm bg-surface-2 p-3 text-sm leading-relaxed shadow-sm">
             {sample || '…'}
           </div>
         </section>

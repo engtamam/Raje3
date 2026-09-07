@@ -322,7 +322,7 @@ export function MessagePreview({
                             lines is not a row, and the full text is one press away. */}
                         <span className="min-w-0 flex-1 truncate text-sm">{o.text}</span>
                         {sending ? (
-                          <Badge tone="accent">
+                          <Badge tone="info">
                             <Check size={12} aria-hidden className="me-1" />
                             تُرسَل الآن
                           </Badge>
@@ -399,7 +399,7 @@ export function MessagePreview({
                                 a support channel is one he cannot find the day he sits down to fix
                                 the text. */}
                             {(help ?? []).find((h) => h.name === o.name)?.answer ? (
-                              <span className="text-xs text-accent-on-soft">
+                              <span className="text-xs text-text-secondary">
                                 {(help ?? []).find((h) => h.name === o.name)?.answer}
                               </span>
                             ) : (help ?? []).some((h) => h.name === o.name && h.status === 'open') ? (
@@ -497,7 +497,7 @@ function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: ac
         disabled={onChoose ? busy : undefined}
         aria-pressed={onChoose ? false : undefined}
         className={[
-          'relative w-full rounded-2xl rounded-ss-sm bg-accent-soft p-3 text-sm leading-relaxed',
+          'relative w-full rounded-2xl rounded-ss-sm bg-surface-2 p-3 text-sm leading-relaxed',
           'text-start shadow-sm ring-1 transition',
           active
             ? 'ring-accent shadow'
@@ -511,7 +511,7 @@ function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: ac
       </Tag>
       <figcaption className="flex items-center justify-between gap-2 px-1">
         <span className="flex items-center gap-1 text-xs text-text-secondary">
-          {active ? <Check size={14} className="text-accent-on-soft" aria-hidden /> : null}
+          {active ? <Check size={14} className="text-accent" aria-hidden /> : null}
           {/* THE VOICE IS ALWAYS NAMED. The chosen one used to REPLACE its name with the label,
               so the one bubble he most wanted to identify was the one that stopped saying
               which voice it was. */}
