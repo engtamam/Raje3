@@ -124,23 +124,31 @@ function renderNavItem(
   // actually carries — the chip alone read as "a slightly darker button", the bar is what makes the
   // whole row read as "this is where you are". It survives collapse unchanged since it never depends
   // on the label being visible.
+  // ACTIVE'S OWN COLOUR IS DELIBERATELY NOT THE BRAND ACCENT — a nav rail that paints "you are
+  // here" in the same purple as every primary button/link in the product reads as one more
+  // instance of the brand colour, not as its own distinct signal. A warm amber ("اصفر شاذ شوية")
+  // stands apart from the accent family on purpose, so the active row is legible at a glance
+  // without adding to the accent's own footprint (see the 60-30-10 audit this session).
   const active =
     'bg-surface-2 text-text-primary font-semibold ' +
-    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-accent before:content-['']";
-  const inactive = 'text-text-secondary hover:bg-surface-2 hover:text-text-primary';
+    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[#f0a020] before:content-['']";
+  // A TRUE NEUTRAL HOVER, NOT `surface-2` — `surface-2` carries a faint lavender cast (it is a
+  // step off the accent hue, by design, elsewhere in the theme), so a plain "you're hovering
+  // this row" state read as a second brand-purple tint rather than a neutral highlight. A flat
+  // black/white overlay never carries any hue at all.
+  const inactive = 'text-text-secondary hover:bg-black/[0.04] hover:text-text-primary dark:hover:bg-white/[0.06]';
   // EVERY ICON GETS A CHIP, ACTIVE OR NOT — a plain glyph floating with no background read as an
   // afterthought next to the active row's filled square, so the list looked "half-finished" rather
   // than one consistent design. AT REST the chip is a tinted surface with a hairline ring (depth
-  // without weight); ON HOVER it warms toward the accent instead of just going one shade darker, so
-  // the row feels like it is responding to the cursor, not just re-painting; ACTIVE is a soft
-  // accent-tinted gradient with its own ring and shadow, one step up from "flat filled square" —
-  // still fully legible in bare accent-on-white, just less generic.
+  // without weight); ON HOVER it darkens neutrally instead of tinting toward the accent, same
+  // reasoning as `inactive` above; ACTIVE is the same warm amber as the leading bar, not the
+  // brand accent — still fully legible, just its own colour rather than a purple repeat.
   const iconWrap = (isActive: boolean) => cn(
     'grid size-7 shrink-0 place-items-center rounded-md transition-all duration-150',
     'group-hover:scale-105',
     isActive
-      ? 'bg-gradient-to-br from-accent to-accent/85 text-accent-contrast shadow-sm ring-1 ring-accent/40'
-      : 'bg-surface-2 text-text-muted ring-1 ring-border-subtle/60 group-hover:bg-accent/10 group-hover:text-accent-on-soft group-hover:ring-accent/20',
+      ? 'bg-gradient-to-br from-[#f0a020] to-[#f0a020]/85 text-white shadow-sm ring-1 ring-[#f0a020]/40'
+      : 'bg-surface-2 text-text-muted ring-1 ring-border-subtle/60 group-hover:bg-black/[0.06] group-hover:text-text-primary group-hover:ring-border-strong/40 dark:group-hover:bg-white/10',
   );
   // COLLAPSED ACCESSIBLE NAME WAS `title=` ALONE — a hover tooltip, invisible to a screen reader that
   // never receives a synthetic hover. `aria-label` (paired with `aria-hidden` on the visual glyphs
@@ -335,10 +343,17 @@ export function AppShell({
           <div className="border-t border-border-subtle px-3 py-3" data-testid="rail-slot">{railSlot}</div>
         )}
 
-        {/* logged-in user + role */}
+        {/* logged-in user + role. REDESIGNED — the account/sign-out pair used to be two bare
+            ghost buttons floating in empty space (no visible boundary of their own), and both
+            shared the exact same neutral hover, so "leaving the account" and "opening it" read
+            as the same kind of action. Now: one bounded pill-row (a real edge, not an implied
+            one), a divider between the two actions, and sign-out gets its own DANGER-tinted
+            hover — a real semantic colour for "you are about to leave", never the brand accent —
+            while account keeps a plain neutral hover. Also drops `Badge tone="accent"` on the
+            role chip for `neutral`: one more brand-purple instance this rail did not need. */}
         <div className="border-t border-border-subtle px-3 py-2.5" data-testid="current-user">
           {collapsed ? (
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-2/50">
               {onAccount && (
                 <Button
                   variant="ghost"
@@ -347,6 +362,7 @@ export function AppShell({
                   aria-label={user?.name || labels.account}
                   title={user?.name || labels.account}
                   data-testid="account-link"
+                  className="rounded-none hover:bg-black/[0.06] dark:hover:bg-white/10"
                 >
                   <UserCog size={18} />
                 </Button>
@@ -358,19 +374,23 @@ export function AppShell({
                 aria-label={labels.signOut}
                 title={labels.signOut}
                 data-testid="logout"
+                className={cn(
+                  'rounded-none text-text-secondary hover:bg-danger-soft hover:text-danger-on-soft',
+                  onAccount && 'border-t border-border-subtle',
+                )}
               >
                 <LogOut size={18} />
               </Button>
             </div>
           ) : (
-            <div className="rounded-md bg-surface-2 px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-2/50">
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium" data-testid="current-username">
                     {user?.name}
                   </div>
                   {user?.roleLabel && (
-                    <Badge tone="accent" className="mt-1" data-testid="current-role">
+                    <Badge tone="neutral" className="mt-1" data-testid="current-role">
                       {user.roleLabel}
                     </Badge>
                   )}
@@ -382,20 +402,21 @@ export function AppShell({
                     onClick={onAccount}
                     aria-label={labels.account}
                     data-testid="account-link"
+                    className="shrink-0 hover:bg-black/[0.06] dark:hover:bg-white/10"
                   >
                     <UserCog size={18} />
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onSignOut}
-                  aria-label={labels.signOut}
-                  data-testid="logout"
-                >
-                  <LogOut size={18} />
-                </Button>
               </div>
+              <Button
+                variant="ghost"
+                onClick={onSignOut}
+                aria-label={labels.signOut}
+                data-testid="logout"
+                className="justify-start gap-2 rounded-none border-t border-border-subtle px-3 text-sm text-text-secondary hover:bg-danger-soft hover:text-danger-on-soft"
+              >
+                <LogOut size={16} /> {labels.signOut}
+              </Button>
             </div>
           )}
         </div>
