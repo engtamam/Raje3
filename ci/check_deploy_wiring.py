@@ -50,6 +50,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
 import sys
 from pathlib import Path
@@ -348,47 +349,43 @@ for svc_dir in sorted((ROOT / "services").iterdir()):
 # prose. The check is on codepoints, not a regex: a byte-range grep gives false matches on other
 # Arabic characters, which is how a first attempt reported clean English shell scripts as failures.
 _ARABIC_INDIC = [(0x0660, 0x0669), (0x06F0, 0x06F9)]
-for p in sorted(ROOT.rglob("*")):
-    if not p.is_file():
+# PRUNED DURING THE WALK, NOT FILTERED AFTER IT — found live chasing this gate's own ~42s runtime
+# on Windows, where each filesystem call is expensive: `Path.rglob("*")` has no way to skip a
+# directory before descending into it, so the old version fully walked every `.venv`
+# (thousands of files each, times ~15 Python services), every `node_modules`, the whole `platform`
+# submodule (possibly duplicated again under a parallel worker's `.claude/worktrees/<id>/`), and
+# `.git`'s own object store — before ever checking whether a given file belonged to any of those.
+# `os.walk`'s own `topdown=True` contract (the default) makes `dirnames[:] = ...` actually prune:
+# mutating the list in place before the loop yields those subdirectories tells the walk never to
+# descend into them at all, not merely to skip acting on what it finds there. Same skip set as
+# before (node_modules/platform/.venv/__pycache__/dist at ANY depth, .git and .claude at the root),
+# same body below — only how the file list is produced changed.
+_SKIP_DIR_NAMES = {"node_modules", "platform", ".venv", "__pycache__", "dist"}
+for _dirpath, _dirnames, _filenames in os.walk(ROOT):
+    _dirnames[:] = [d for d in _dirnames if d not in _SKIP_DIR_NAMES]
+    _rel_parts = Path(_dirpath).relative_to(ROOT).parts
+    if _rel_parts and _rel_parts[0] in (".git", ".claude"):
+        _dirnames[:] = []
         continue
-    parts = p.relative_to(ROOT).parts
-    # node_modules AT ANY DEPTH, not only at the root. The rule was written when every directory
-    # here was ours; an app that installs dependencies puts them under apps/<name>/node_modules,
-    # and a scanner that reads those reports a character-encoding table inside iconv-lite as if it
-    # were a number on one of our screens. Vendored code is not ours to hold to our house style.
-    # AND `platform` AT ANY DEPTH, not only at the root, for the same reason. A parallel worker
-    # runs in a git worktree under `.claude/worktrees/<id>/`, and that worktree carries its OWN copy
-    # of the submodule — so this gate walked upstream's files by a longer path and reported their
-    # house style as ours. A skip rule anchored at the root is a skip rule that a nested checkout
-    # walks straight past.
-    # `.venv`/`__pycache__` AT ANY DEPTH — found live while answering "why does this take over two
-    # minutes": every one of our ~15 Python services carries its own `.venv`, thousands of installed
-    # package files each, and this loop was `read_text()`-ing all of them (most fail fast on
-    # UnicodeDecodeError for a compiled `.pyc`, but a wheel's `.py` sources decode fine and get
-    # scanned in full) — vendored dependency code, exactly the same class of "not ours to hold to
-    # our house style" the node_modules/platform skips already exist for, just missing for Python's
-    # own vendoring directory.
-    if parts and (parts[0] in (".git", ".claude") or "platform" in parts
-                  or "node_modules" in parts or "dist" in parts
-                  or ".venv" in parts or "__pycache__" in parts):
-        continue
-    try:
-        text = p.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        continue                                  # binary, or unreadable: not prose
-    # ── the one legitimate reason to WRITE these characters ──────────────────────────────────
-    # Code that REFUSES or CONVERTS Arabic-Indic digits has to name them: the plate normaliser
-    # maps them to 0-9, the renderer refuses «٢٠%» as a discount, and their tests feed
-    # exactly those strings in. This gate flagged all five, so it failed on every run — and a gate
-    # that is always red is a gate nobody reads, which is worse than not having it. A file opts out
-    # by SAYING SO, once, in a comment; there is no path list here to drift out of date.
-    if "arabic-indic-digits: intentional" in text:
-        continue
-    hits = sorted({c for c in text if any(lo <= ord(c) <= hi for lo, hi in _ARABIC_INDIC)})
-    if hits:
-        fail(str(p.relative_to(ROOT)),
-             f"Arabic-Indic digits {''.join(hits)} — every number in this product is 0-9, including "
-             f"in Arabic text")
+    for _fname in _filenames:
+        p = Path(_dirpath) / _fname
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue                                  # binary, or unreadable: not prose
+        # ── the one legitimate reason to WRITE these characters ──────────────────────────────
+        # Code that REFUSES or CONVERTS Arabic-Indic digits has to name them: the plate
+        # normaliser maps them to 0-9, the renderer refuses «٢٠%» as a discount, and their tests
+        # feed exactly those strings in. This gate flagged all five, so it failed on every run —
+        # and a gate that is always red is a gate nobody reads, which is worse than not having
+        # one. A file opts out by SAYING SO, once, in a comment; no path list here to drift.
+        if "arabic-indic-digits: intentional" in text:
+            continue
+        hits = sorted({c for c in text if any(lo <= ord(c) <= hi for lo, hi in _ARABIC_INDIC)})
+        if hits:
+            fail(str(p.relative_to(ROOT)),
+                 f"Arabic-Indic digits {''.join(hits)} — every number in this product is 0-9, "
+                 f"including in Arabic text")
 
 # ── 10. every advertised capability is actually enforced by a route ──────────────────────────
 for f in values_files():
