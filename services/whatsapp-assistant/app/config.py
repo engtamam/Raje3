@@ -461,7 +461,7 @@ class Settings(BaseSettings):
     CONVERSATION_SESSION_TIMEOUT_SECONDS: int = 2400
     # How many raw messages are kept verbatim before being folded into the rolling summary. Bounds
     # LLM context/cost — the transcript is never sent whole, only this window plus the summary.
-    CONVERSATION_RAW_WINDOW_MESSAGES: int = 12
+    CONVERSATION_RAW_WINDOW_MESSAGES: int = 25
     # NOT DECLARED: a "tick cadence in seconds" setting was published here once, but nothing ever
     # read it — the tick's real cadence is the CronJob's `schedule` string in this service's own
     # values file (deploy/services/whatsapp-assistant.values.yaml's `cronJobs:`), which is
