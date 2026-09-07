@@ -494,8 +494,15 @@ class Settings(BaseSettings):
     # in the raw window reads as "the bot did not understand me the first time".
     FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD: int = 3
 
+    # ── soft-decline (core/soft_decline.py) — NOT frustration, a quieter signal ────────────────
+    # This many real promotional suggestions waved off (core/tools.py::PROMO_TOOLS), THIS SESSION,
+    # and every PROMO_TOOLS member drops out of `allowed` for the rest of it — no escalation, the
+    # conversation continues completely normally, it simply stops being pitched anything. One
+    # decline is normal conversation; two is a pattern worth respecting.
+    SOFT_DECLINE_THRESHOLD: int = 2
+
     @field_validator("FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD",
-                     "FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD")
+                     "FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD", "SOFT_DECLINE_THRESHOLD")
     @classmethod
     def _reject_nonpositive_escalation_thresholds(cls, v: int) -> int:
         if v <= 0:

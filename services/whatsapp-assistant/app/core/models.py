@@ -116,6 +116,19 @@ class ConversationState:
     # The pending model tool-call this conversation is waiting on a button reply for, if any — see
     # PendingProposal. Never a state-changing action itself; see core/tools.py.
     pending_proposal_id: str = ""
+    # Soft-decline (core/soft_decline.py) — set True the turn a PROMO_TOOLS result was a REAL
+    # suggestion (core/tools.py::is_declinable_promo_result), so the NEXT compose_reply knows the
+    # customer's incoming message is a reply to a pitch worth checking for a decline. Consumed
+    # (reset False) every turn regardless of the outcome — it only ever means "the LAST turn".
+    awaiting_promo_response: bool = False
+    # How many times THIS SESSION the customer has waved off a real promotional suggestion. Reset
+    # on a fresh session, same as the frustration counters above.
+    promo_declines: int = 0
+    # Sticky once tripped (promo_declines reaches the threshold) — PROMO_TOOLS drop out of
+    # `allowed` for the rest of THIS session, same mechanism a pending proposal already narrows
+    # `allowed` with. Never unset mid-session: two declines mean two declines, not "the last one
+    # was a while ago".
+    promo_suppressed: bool = False
     input_tokens: int = 0
     output_tokens: int = 0
     updated: int = field(default_factory=lambda: int(time.time()))

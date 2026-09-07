@@ -306,6 +306,7 @@ def build_container(settings: Settings) -> Container:
         allowed_tools=settings.llm_tool_allowlist,
         frustration_unconfirmed_proposals_threshold=settings.FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD,
         frustration_duplicate_messages_threshold=settings.FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD,
+        soft_decline_threshold=settings.SOFT_DECLINE_THRESHOLD,
         booking_history_visible=settings.BOOKING_HISTORY_VISIBLE,
         booking_management_enabled=settings.BOOKING_MANAGEMENT_ENABLED,
         shop_notes_enabled=settings.SHOP_NOTES_ENABLED,

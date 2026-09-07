@@ -66,6 +66,7 @@ from typing import Any
 
 from app.core.context_builder import build_context_block
 from app.core.frustration import detect_frustration
+from app.core.soft_decline import is_decline
 from app.core.models import CONVERSATIONS, ConversationState, PendingProposal, PENDING_PROPOSALS, as_row
 from app.core.redaction import redact
 from app.core.shop_identity import GENERIC_SHOP_LABEL, ShopContext
@@ -400,6 +401,7 @@ class ConversationEngine:
                 proposal_ttl_seconds: int = 1800, auditor: Any = None,
                 frustration_unconfirmed_proposals_threshold: int = 2,
                 frustration_duplicate_messages_threshold: int = 3,
+                soft_decline_threshold: int = 2,
                 shop_identity: Any = None, service_catalog: Any = None,
                 package_catalog: Any = None,
                 customer_lookup: Any = None, related_services: Any = None,
@@ -501,6 +503,7 @@ class ConversationEngine:
         self._auditor = auditor
         self._frustration_unconfirmed_threshold = max(1, int(frustration_unconfirmed_proposals_threshold))
         self._frustration_duplicate_threshold = max(1, int(frustration_duplicate_messages_threshold))
+        self._soft_decline_threshold = max(1, int(soft_decline_threshold))
 
     def set_auditor(self, auditor: Any) -> None:
         self._auditor = auditor
@@ -732,6 +735,12 @@ class ConversationEngine:
             conv.escalated = False
             conv.wallet_stopped = False
             conv.licence_stopped = False
+            # Soft-decline (core/soft_decline.py) is per-session, same as the frustration
+            # counters above — a customer who declined twice last visit gets a normal, unpitched
+            # slate again on a brand-new conversation.
+            conv.awaiting_promo_response = False
+            conv.promo_declines = 0
+            conv.promo_suppressed = False
             await self._save(conv)
             return await self._triage_list_plan(tenant)
 
@@ -965,12 +974,25 @@ class ConversationEngine:
         if conv.pending_proposal_id:
             conv.unconfirmed_proposal_attempts += 1
 
+        # THE CUSTOMER'S OWN WORDS, RESOLVED ONCE — used by both the soft-decline check right
+        # below and the human-request check further down.
+        latest_user_text = next(
+            (m["text"] for m in reversed(conv.raw_window) if m.get("role") == "user"), "")
+
+        # SOFT-DECLINE (core/soft_decline.py) — CONSUMED EVERY TURN REGARDLESS, escalated or not:
+        # `awaiting_promo_response` only ever means "the immediately preceding turn was a real
+        # promotional suggestion", and it must not linger true past the turn it was set for.
+        if conv.awaiting_promo_response:
+            conv.awaiting_promo_response = False
+            if not conv.promo_suppressed and is_decline(latest_user_text):
+                conv.promo_declines += 1
+                if conv.promo_declines >= self._soft_decline_threshold:
+                    conv.promo_suppressed = True
+
         if not conv.escalated:
             # THE CUSTOMER'S OWN WORDS, CHECKED FIRST — a direct request for a human overrides the
             # frustration heuristic below rather than waiting on it; someone who asks plainly
             # should not have to also trip a repetition pattern first.
-            latest_user_text = next(
-                (m["text"] for m in reversed(conv.raw_window) if m.get("role") == "user"), "")
             should_human_request = _requests_human(latest_user_text)
             should_frustration = not should_human_request and detect_frustration(
                 unconfirmed_proposal_attempts=conv.unconfirmed_proposal_attempts,
@@ -1009,6 +1031,11 @@ class ConversationEngine:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer",
                                             "propose_cancel_booking", "propose_reschedule_booking"))
+        # SOFT-DECLINE (core/soft_decline.py): two waved-off pitches this session and every
+        # PROMO_TOOLS member goes quiet for the rest of it — withheld the same way a pending
+        # proposal above narrows `allowed`, never a persona instruction the model could ignore.
+        if conv.promo_suppressed:
+            allowed = frozenset(t for t in allowed if t not in T.PROMO_TOOLS)
 
         # THE SECOND ASK, RIGHT BEFORE THE ONE ACTION THAT DELIVERS THE PAID FEATURE — a session
         # already past `handle_inbound_text`'s own gate may have sat batching for up to
@@ -1076,6 +1103,12 @@ class ConversationEngine:
                 conv.batch_deadline = 0
                 await self._save(conv)
                 return ReplyPlan(kind="text", text=f"تعذّر تنفيذ ذلك الآن: {exc}"[:200])
+
+            # SOFT-DECLINE (core/soft_decline.py): a REAL promotional suggestion just went out —
+            # arm the flag so NEXT turn's opening check (top of this method) knows to look for a
+            # decline in the customer's reply. False for every non-promo tool and every "nothing
+            # to offer" result — see is_declinable_promo_result's own docstring.
+            conv.awaiting_promo_response = T.is_declinable_promo_result(reply.tool_call.name, result)
 
             if isinstance(result, T.RenderedProposal):
                 conv.pending_proposal_id = result.proposal_id

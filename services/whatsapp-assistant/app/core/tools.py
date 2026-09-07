@@ -40,6 +40,43 @@ _logger = get_logger("app.tools")
 _DUE_SOON_RATIO_MIN = 0.8
 _LAPSED_RATIO_MIN = 2.5
 
+# ── soft-decline (core/soft_decline.py) — which tools are a PITCH, and how to tell a real one
+# from "nothing to offer" ────────────────────────────────────────────────────────────────────────
+#
+# PROMO_TOOLS are every read-only SUGGESTION — never propose_booking/cancel/reschedule (those are
+# the customer's own direct request, gated by their own confirm/cancel buttons already, not an
+# unprompted pitch) and never check_availability/get_customer_points_summary/list_my_bookings
+# (informational, answering a question the customer asked, not offering something extra).
+PROMO_TOOLS = frozenset({
+    "suggest_related_service", "suggest_redeemable_offer", "list_packages",
+    "suggest_services_carousel", "list_due_services", "list_lapsed_services",
+})
+
+# THE EXACT "NOTHING TO OFFER" STRING EACH PROMO TOOL RETURNS — named here, once, so
+# core/conversation.py never re-types (and risks drifting from) the literal a tool above already
+# returns. A "nothing" answer is not a pitch a customer could decline; only a REAL suggestion
+# counts toward the soft-decline signal.
+_EMPTY_PROMO_RESULTS = frozenset({
+    "لا توجد مكافأة متاحة برصيدك الحالي بعد.",
+    "لا تتوفر باقات لهذا المحل حاليًا.", "لا توجد باقات متاحة للحجز حاليًا.",
+    "لا تتوفر بيانات كافية الآن.", "لا يوجد شيء هنا الآن.",
+    "لا توجد خدمة أخرى تُطلب عادةً مع هذه الخدمة.",
+    "لا تتوفر صور للخدمات حالياً.",
+    "ما عندي صور كافية حالياً أعرضها لك — بس أقدر أخبرك عن خدماتنا بالتفصيل.",
+})
+
+
+def is_declinable_promo_result(tool: str, result: Any) -> bool:
+    """True only when `tool` is a PROMO_TOOLS member AND its result is a REAL suggestion the
+    customer could plausibly decline — a RenderedCarousel, or any text result other than that
+    tool's own "nothing to offer" line. Used by core/conversation.py right after a tool call to
+    decide whether the CUSTOMER'S NEXT message should even be checked for a soft decline."""
+    if tool not in PROMO_TOOLS:
+        return False
+    if isinstance(result, RenderedCarousel):
+        return True
+    return isinstance(result, str) and result not in _EMPTY_PROMO_RESULTS
+
 
 @dataclass(frozen=True)
 class RenderedProposal:
