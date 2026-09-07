@@ -34,6 +34,7 @@ import type { Session } from '../session';
 import { asLocal } from '../phone';
 import { outsideVisits } from '../branch-scope';
 import { AssistantHint } from '../AssistantHint';
+import { riyalsLabel } from '../money';
 
 export { outsideVisits };
 
@@ -120,6 +121,13 @@ interface WeekWindow { visits: number; previous: number | null; window_days: num
 interface AtRiskRow { subject_ref: string; days_overdue: number; own_cycle_days: number; visits: number }
 interface MissedOpp { subject_ref: string; has: string; missing: string; verdict: 'real' | 'temporal' | string }
 interface CustomerHitLite { id: string; phone: string; name?: string; subject_ref?: string }
+/** services/whatsapp-assistant/app/core/shop_impact_report.py::ShopImpactReport.as_dict() —
+ *  THIS SHOP'S OWN numbers only, never a platform aggregate (see that module's own docstring). */
+interface ShopImpact {
+  days: number; conversations: number; ai_bookings: number; conversion_rate: number | null;
+  avg_invoice_value_minor: number | null; upsell_offered: number; upsell_accepted: number;
+  upsell_acceptance_rate: number | null; truncated: boolean;
+}
 
 export function blockedSentence(b: Blocked): string {
   const why = (b.why ?? '').trim();
@@ -425,6 +433,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const flow = data.values['expected_flow'];
   const cycleCompletion = data.values['cycle_completion'];
   const atRisk = data.values['at_risk'] as AtRiskRow[] | undefined;
+  const aiEntitled = (data.entitlements ?? []).includes('feature.whatsapp');
   const serviceNames = (data.values['service_names'] as Record<string, string> | undefined) ?? {};
   const popularity = data.values['service_popularity'] as { service_id: string; count: number; share: number }[] | undefined;
   const weak = data.values['weak_services'] as string[] | undefined;
@@ -465,12 +474,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
 
       {/* THE SECOND-TIER LEAD ROW — side by side on a wide screen, never a THIRD full-width card
           stacked under the hero above (direct feedback: "سرد بطاقات بطل تحت بعض مو كويس"). Only
-          `RetentionHero` stays alone at full width as the one true headline; everything at this
-          tier is sized to sit next to a sibling. `lg:col-span-2` on a slot's OWN wrapper is how a
-          card opts into staying full-width for now (see AtRiskCard below) — no restructuring
-          needed later when the AI-impact card fills the second column. */}
+          `RetentionHero` stays alone at full width as the one true headline. AtRiskCard shares the
+          row with AIImpactCard when the shop actually has the AI feature to show; otherwise it
+          keeps the whole row via `lg:col-span-2` — the non-subscriber case gets its own marketing
+          through «الخطوة التالية» instead (NextStepView's `whatsapp_ai_teaser`), not a second card
+          here that would have nothing real to show. */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-        <div className="lg:col-span-2">
+        <div className={aiEntitled ? '' : 'lg:col-span-2'}>
           {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} />
             // A REAL EMPTY LIST HERE IS GOOD NEWS, NOT "NOT ACTIVE YET" — the muted/stamped language
             // means "pending", and applying it to «ولا عميل متأخر» would tell an owner in great shape
@@ -482,6 +492,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               </div>
             ) : null}
         </div>
+        {aiEntitled ? <div><AIImpactCard session={session} catalog={catalog} /></div> : null}
       </div>
 
       {/* EVERYTHING BELOW THE TWO LEAD CARDS FLOWS INTO TWO COLUMNS PAST `lg` — a `flex-col` stack
@@ -1131,6 +1142,55 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
   );
 }
 
+/** محلّي's own "أثر الذكاء الاصطناعي" — ONLY rendered when the dashboard's own entitlements
+ *  already say this shop bought the WhatsApp AI feature (see IndicatorsPanel's own `aiEntitled`);
+ *  a shop that has NOT bought it gets no card here at all — the marketing for that case lives in
+ *  «الخطوة التالية» instead (NextStepView's own `whatsapp_ai_teaser` special-case below), shown
+ *  as a suggestion, not a permanent fixture. Self-fetches, same pattern as `AtRiskCard`. */
+function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [data, setData] = useState<ShopImpact | null | undefined>(undefined);
+
+  useEffect(() => {
+    const a = action(catalog, 'whatsapp_assistant.my_impact');
+    if (!a) { setData(null); return; }
+    call<ShopImpact>(session, a).then(setData).catch(() => setData(null));
+  }, [session, catalog]);
+
+  if (data === undefined) return <Skeleton height={140} />;
+  if (data === null) return null;   // no capability on this session — nothing to show, quietly
+
+  const pct = data.conversion_rate !== null ? Math.round(data.conversion_rate * 100) : null;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)' }}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1 text-[13px] font-bold" style={{ color: 'var(--sh-teal-deep)' }}>
+          أثر الذكاء الاصطناعي — آخر {data.days} يوماً
+          <AssistantHint session={session} anchor="shop.ai_impact" />
+        </h3>
+      </div>
+      {pct === null ? (
+        <p className="text-[12.5px]" style={{ color: 'var(--sh-teal-deep)' }}>
+          ما بدأت محادثات كافية بعد لنحسب معدل التحويل — يبدأ يتكوّن مع أول رسائل عملائك.
+        </p>
+      ) : (
+        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--sh-teal-deep)' }}>
+          من كل 10 محادثات مع البوت، <b dir="ltr" className="mx-0.5 inline-block text-[26px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round((data.conversion_rate as number) * 10)}</b> تنتهي بحجز حقيقي.
+        </p>
+      )}
+      <div className="grid grid-cols-3 gap-2">
+        <Tile label="محادثات" value={String(data.conversations)} tone="teal" session={session} />
+        <Tile label="متوسط الفاتورة" value={data.avg_invoice_value_minor !== null ? riyalsLabel(data.avg_invoice_value_minor) : '—'} tone="teal"
+             empty={data.avg_invoice_value_minor === null} hint={data.avg_invoice_value_minor === null ? 'يحتاج حجوزات حضرها العميل' : undefined} />
+        <Tile label="قبول الباقات المقترحة"
+             value={data.upsell_acceptance_rate !== null ? `${Math.round(data.upsell_acceptance_rate * 100)}%` : '—'}
+             tone="teal" empty={data.upsell_acceptance_rate === null}
+             hint={data.upsell_acceptance_rate === null ? 'يحتاج اقتراح باقة أولاً' : undefined} />
+      </div>
+    </div>
+  );
+}
+
 /** THE INVERSE OF «ما يُطلب معًا» — a relationship the engine already trusts (`real` or
  *  `temporal`, never a raw co-occurrence), and the specific customers standing on one side of it
  *  without the other. Resolved the same way `AtRiskCard` resolves its own pseudonyms — a customer
@@ -1386,20 +1446,50 @@ function NextStepView({ step, onDismiss, busy }: {
   const p = step.primary;
   const bg = TONE_BG[p.tone ?? 'info'] ?? TONE_BG.info;
   const fg = TONE_FG[p.tone ?? 'info'] ?? TONE_FG.info;
+  // THE ONE RULE THIS VIEW SPECIAL-CASES — a "ملكي فاخر" treatment for the WhatsApp-AI teaser
+  // specifically, so it visually stands apart from an ordinary tip the moment it wins the slot
+  // (agreed design: "لما يظهر بوت الواتساب كاقتراح ابغاه يكون بتصميم ملكي فاخر عشان يلفتهم مو
+  // مثل العادة"). Keyed on the rule's own `id` — the message/cta text still travels from
+  // next_step.py unchanged, never invented client-side; only the frame around it differs.
+  const luxury = p.id === 'whatsapp_ai_teaser';
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: bg, boxShadow: cardShadow }}>
-        <p className="text-[13px]" style={{ color: fg }}>{p.message}</p>
-        {p.cta_label && p.cta_link ? (
-          <Link
-            to={p.cta_link}
-            className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
-            style={{ background: fg, color: '#ffffff' }}
-          >
-            {p.cta_label}
-          </Link>
-        ) : null}
-      </div>
+      {luxury ? (
+        <div className="relative overflow-hidden rounded-2xl p-4" style={{
+          background: 'radial-gradient(120% 140% at 100% 0%, rgba(212,175,55,.35) 0%, transparent 45%),'
+            + 'linear-gradient(135deg,#1a1030,#2d1b4e 55%,#3a1f52)',
+          boxShadow: '0 6px 14px rgba(19,18,38,.12), 0 20px 40px -16px rgba(58,31,82,.45)',
+        }}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full text-[15px]" style={{ background: 'rgba(212,175,55,.22)' }}>✨</span>
+              <p className="text-[13px] font-medium leading-relaxed text-white">{p.message}</p>
+            </div>
+            {p.cta_label && p.cta_link ? (
+              <Link
+                to={p.cta_link}
+                className="shrink-0 rounded-full px-3.5 py-1.5 text-[11.5px] font-bold"
+                style={{ background: 'linear-gradient(135deg,#e8c766,#c9a13a)', color: '#241608' }}
+              >
+                {p.cta_label}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: bg, boxShadow: cardShadow }}>
+          <p className="text-[13px]" style={{ color: fg }}>{p.message}</p>
+          {p.cta_label && p.cta_link ? (
+            <Link
+              to={p.cta_link}
+              className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
+              style={{ background: fg, color: '#ffffff' }}
+            >
+              {p.cta_label}
+            </Link>
+          ) : null}
+        </div>
+      )}
       {/* «ليس الآن» — لا زر بارز، سطر خفيف: هذا ليس تجاهل معلومة، هو طلب يظهر شي آخر بدلها الآن،
           وترجع هي بنفسها لو ظلّت صحيحة بعد فترة (تبريد، لا حذف — core/next_step.py). */}
       <button

@@ -16,12 +16,34 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SECTIONS } from '../nav';
 
+// MUTABLE, PER-TEST STATE — `vi.mock` runs once at module scope, so the AI-impact/next_step tests
+// below adjust these refs before rendering rather than needing a second mock module entirely.
+const mockState = vi.hoisted(() => ({
+  entitlements: ['feature.insights.engine'] as string[],
+  nextStep: {
+    primary: {
+      id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
+      message: 'وضعك ثابت ولا شي يستحق تنبيهاً الآن — جرّب تكافئ عملاءك الدائمين.',
+      cta_label: 'كافئهم', cta_link: '/messages?tab=campaigns&launch=reward_loyal',
+      tone: 'success',
+    },
+    secondary: null as unknown,
+  },
+}));
+
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
   return {
     ...real,
     action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
     call: async (_s: unknown, a: { id: string }) => {
+      if (a.id === 'whatsapp_assistant.my_impact') {
+        return {
+          days: 30, conversations: 20, ai_bookings: 8, conversion_rate: 0.4,
+          avg_invoice_value_minor: 15000, upsell_offered: 5, upsell_accepted: 3,
+          upsell_acceptance_rate: 0.6, truncated: false,
+        };
+      }
       if (a.id === 'insights.bundles') {
         return {
           bundles: [
@@ -46,18 +68,10 @@ vi.mock('../catalog', async (importOriginal) => {
           // 'feature.insights.engine' IS REQUIRED for the bundles/associations reads to even fire
           // (Shop.tsx's own gate) — without it `setBundles(null)` short-circuits before either of
           // the two new packages-feature tests below ever see a bundle card.
-          entitlements: ['feature.insights.engine'],
+          entitlements: mockState.entitlements,
           // THE ENGINE'S OWN CATCH-ALL (services/insights/app/core/next_step.py's `all_is_well`)
           // — a shop with nothing else matching always gets this, never silence.
-          next_step: {
-            primary: {
-              id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
-              message: 'وضعك ثابت ولا شي يستحق تنبيهاً الآن — جرّب تكافئ عملاءك الدائمين.',
-              cta_label: 'كافئهم', cta_link: '/messages?tab=campaigns&launch=reward_loyal',
-              tone: 'success',
-            },
-            secondary: null,
-          },
+          next_step: mockState.nextStep,
         };
       }
       return {};
@@ -67,7 +81,19 @@ vi.mock('../catalog', async (importOriginal) => {
 
 const { IndicatorsPanel: LocalScreen } = await import('./Shop');
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mockState.entitlements = ['feature.insights.engine'];
+  mockState.nextStep = {
+    primary: {
+      id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
+      message: 'وضعك ثابت ولا شي يستحق تنبيهاً الآن — جرّب تكافئ عملاءك الدائمين.',
+      cta_label: 'كافئهم', cta_link: '/messages?tab=campaigns&launch=reward_loyal',
+      tone: 'success',
+    },
+    secondary: null,
+  };
+});
 
 const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
@@ -151,5 +177,48 @@ describe('«محلّي» — one page, and the number first', () => {
     // should ever appear here — a real absence-of-regression check for the branch that renders
     // plain (non-link) text when a card has no action_label at all.
     expect(screen.queryByText('ذكّر بها في الزيارة القادمة')).toBeNull();
+  });
+
+  // ── AI-impact card — the second-tier grid slot ────────────────────────────────────────────────
+  it('a subscribed shop sees its own real AI-impact numbers, side by side with AtRiskCard', async () => {
+    mockState.entitlements = ['feature.insights.engine', 'feature.whatsapp'];
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/أثر الذكاء الاصطناعي/)).toBeTruthy());
+    // The real numbers from the mocked route, never invented client-side.
+    expect(screen.getByText('20')).toBeTruthy();          // conversations tile
+    expect(screen.getByText('150 ريال')).toBeTruthy();     // avg_invoice_value_minor 15000 halalas
+    expect(screen.getByText('60%')).toBeTruthy();          // upsell_acceptance_rate 0.6
+  });
+
+  it('an un-subscribed shop gets no AI-impact card at all — no card with nothing real to show', async () => {
+    // Default mockState.entitlements has no 'feature.whatsapp' — the marketing for this case
+    // lives in «الخطوة التالية» instead (the luxury-teaser test below), never a second, empty card.
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
+    expect(screen.queryByText(/أثر الذكاء الاصطناعي/)).toBeNull();
+  });
+
+  // ── «الخطوة التالية» — the whatsapp_ai_teaser luxury special-case ─────────────────────────────
+  it('the whatsapp_ai_teaser rule renders the luxury frame, not the ordinary tone box', async () => {
+    mockState.nextStep = {
+      primary: {
+        id: 'whatsapp_ai_teaser', category: 'plan', category_label: 'الاشتراك والميزات',
+        message: 'بوت واتساب يردّ على عملائك ويحجز لهم تلقائياً حتى وأنت نايم — جرّبه على محلك.',
+        cta_label: 'جرّب بوت واتساب', cta_link: '/plans?highlight=whatsapp', tone: 'info',
+      },
+      secondary: null,
+    };
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/بوت واتساب يردّ/)).toBeTruthy());
+    const link = screen.getByRole('link', { name: 'جرّب بوت واتساب' });
+    expect(link.getAttribute('href')).toBe('/plans?highlight=whatsapp');
+    // THE LUXURY MARKER — never present for the ordinary all_is_well render in the earlier test.
+    expect(screen.getByText('✨')).toBeTruthy();
+  });
+
+  it('an ordinary next_step rule never gets the luxury frame', async () => {
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/وضعك ثابت/)).toBeTruthy());
+    expect(screen.queryByText('✨')).toBeNull();
   });
 });
