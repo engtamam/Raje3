@@ -66,6 +66,13 @@ class EmploymentError(Exception):
         self.reason = reason
 
 
+# Serialises `request()` per-affiliate — same fix, same reasoning as payouts.py's own
+# `_PAYOUT_LOCKS` (2026-09-07): two simultaneous requests could otherwise both pass the
+# "no open request" check and both create their own EMPLOYMENT_REQUESTED row.
+_EMPLOYMENT_LOCKS = "affiliate_employment_locks"
+_LOCK_TTL_SECONDS = 20
+
+
 class EmploymentService:
     def __init__(self, *, store, commissions, threshold_customers: int = 500) -> None:
         self._s = store
@@ -90,27 +97,37 @@ class EmploymentService:
                "customers_until_eligible": max(0, self._threshold - count)}
 
     async def request(self, affiliate_id: str) -> dict[str, Any]:
-        row = await self._s.get(AFFILIATES, affiliate_id)
-        affiliate = Affiliate.from_dict(row) if row else None
-        if affiliate is None:
-            raise EmploymentError("المسوّق غير موجود.", reason="not_found")
+        now0 = int(time.time())
+        took = await self._s.claim(
+            _EMPLOYMENT_LOCKS, affiliate_id, {"affiliate_id": affiliate_id, "at": now0},
+            ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise EmploymentError("عندك طلب توظيف قيد المعالجة الآن، حاول بعد لحظات.",
+                                  reason="already_pending")
+        try:
+            row = await self._s.get(AFFILIATES, affiliate_id)
+            affiliate = Affiliate.from_dict(row) if row else None
+            if affiliate is None:
+                raise EmploymentError("المسوّق غير موجود.", reason="not_found")
 
-        if await self._open_request_for(affiliate_id) is not None:
-            raise EmploymentError("عندك طلب توظيف قائم بالفعل.", reason="already_pending")
-        if await self._approved_request_for(affiliate_id) is not None:
-            return {"already_approved": True}
+            if await self._open_request_for(affiliate_id) is not None:
+                raise EmploymentError("عندك طلب توظيف قائم بالفعل.", reason="already_pending")
+            if await self._approved_request_for(affiliate_id) is not None:
+                return {"already_approved": True}
 
-        count = await self.converted_customers(affiliate_id)
-        if count < self._threshold:
-            raise EmploymentError(f"تحتاج {self._threshold} عميل مشترك على الأقل.",
-                                  reason="below_threshold")
+            count = await self.converted_customers(affiliate_id)
+            if count < self._threshold:
+                raise EmploymentError(f"تحتاج {self._threshold} عميل مشترك على الأقل.",
+                                      reason="below_threshold")
 
-        req = EmploymentRequest(
-            id=new_id(), affiliate_id=affiliate_id, converted_customers=count,
-            status=EMPLOYMENT_REQUESTED, requested_at=int(time.time()),
-        )
-        await self._s.put(EMPLOYMENT_REQUESTS, req.id, req.to_dict())
-        return {"already_approved": False, **req.to_dict()}
+            req = EmploymentRequest(
+                id=new_id(), affiliate_id=affiliate_id, converted_customers=count,
+                status=EMPLOYMENT_REQUESTED, requested_at=int(time.time()),
+            )
+            await self._s.put(EMPLOYMENT_REQUESTS, req.id, req.to_dict())
+            return {"already_approved": False, **req.to_dict()}
+        finally:
+            await self._s.delete(_EMPLOYMENT_LOCKS, affiliate_id)
 
     async def _open_request_for(self, affiliate_id: str) -> EmploymentRequest | None:
         rows, _ = await self._s.find(

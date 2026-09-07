@@ -100,6 +100,12 @@ class WafaError(Exception):
         self.reason = reason
 
 
+# Serialises `request()` per-affiliate — same fix, same reasoning as payouts.py's own
+# `_PAYOUT_LOCKS` (2026-09-07).
+_WAFA_LOCKS = "affiliate_wafa_locks"
+_LOCK_TTL_SECONDS = 20
+
+
 class WafaService:
     def __init__(self, *, store, referrals, tier_shops: int = 50,
                  tier_amount_halalas: int = 50000, cooldown_days: int = 30,
@@ -244,6 +250,19 @@ class WafaService:
 
     # ── the marketer's own request ────────────────────────────────────────────────────────────
     async def request(self, affiliate_id: str) -> dict[str, Any]:
+        now0 = int(time.time())
+        took = await self._s.claim(
+            _WAFA_LOCKS, affiliate_id, {"affiliate_id": affiliate_id, "at": now0},
+            ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise WafaError("عندك طلب دعم وفاء قيد المعالجة الآن، حاول بعد لحظات.",
+                            reason="already_pending")
+        try:
+            return await self._request_locked(affiliate_id)
+        finally:
+            await self._s.delete(_WAFA_LOCKS, affiliate_id)
+
+    async def _request_locked(self, affiliate_id: str) -> dict[str, Any]:
         row = await self._s.get(AFFILIATES, affiliate_id)
         affiliate = Affiliate.from_dict(row) if row else None
         if affiliate is None:

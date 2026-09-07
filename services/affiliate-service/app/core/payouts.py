@@ -59,6 +59,15 @@ class PayoutError(Exception):
 # reasoning, same page size, as backup.py's own _PAGE.
 _COMMISSION_PAGE = 500
 
+# Serialises `request_withdrawal` per-affiliate — added 2026-09-07, a real gap a QA audit found:
+# the "any open request?" check and the commission-claiming write were two separate round trips
+# with nothing between them, so two genuinely simultaneous requests could both pass the check and
+# both claim the same confirmed commissions into two separate withdrawal requests. The whole
+# method's own work (a few in-memory reads/writes) finishes well inside this window; it exists
+# only to cover the request, not to be a human-facing wait.
+_PAYOUT_LOCKS = "affiliate_payout_locks"
+_LOCK_TTL_SECONDS = 20
+
 
 async def _all_commissions(store, where: dict[str, Any]) -> list[dict[str, Any]]:
     """Every commission matching `where` — balance() and request_withdrawal() both mean
@@ -194,39 +203,55 @@ class PayoutService:
         request-scoped RuntimeConfig always passes the resolved value; this default only covers a
         caller with no such context (a test, a script)."""
         threshold = self._min if min_halalas is None else min_halalas
-        row = await self._s.get(AFFILIATES, affiliate_id)
-        affiliate = Affiliate.from_dict(row) if row else None
-        if affiliate is None:
-            raise PayoutError("المسوّق غير موجود.", reason="not_found")
-        if not affiliate.payout_channel:
-            raise PayoutError("أضِف طريقة استلام أولاً.", reason="no_payout_method")
+        now0 = int(time.time())
+        # THE LOCK, BEFORE ANYTHING ELSE IS EVEN READ — see `_PAYOUT_LOCKS`'s own comment above.
+        # A second concurrent request for the SAME affiliate finds this held and is refused
+        # immediately, rather than racing the read-then-write below.
+        took = await self._s.claim(
+            _PAYOUT_LOCKS, affiliate_id, {"affiliate_id": affiliate_id, "at": now0},
+            ttl_seconds=_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            raise PayoutError("عندك طلب سحب قيد المعالجة الآن، حاول بعد لحظات.", reason="already_pending")
 
-        existing_open = await self._open_request_for(affiliate_id)
-        if existing_open is not None:
-            raise PayoutError("عندك طلب سحب قائم بالفعل.", reason="already_pending")
+        # RELEASED IN `finally`, NOT LEFT TO THE TTL — the TTL above is only a crash safety net;
+        # a legitimate next request (after this one is refused, or right after an admin rejects
+        # the one it created) must not have to wait out `_LOCK_TTL_SECONDS` for no reason.
+        try:
+            row = await self._s.get(AFFILIATES, affiliate_id)
+            affiliate = Affiliate.from_dict(row) if row else None
+            if affiliate is None:
+                raise PayoutError("المسوّق غير موجود.", reason="not_found")
+            if not affiliate.payout_channel:
+                raise PayoutError("أضِف طريقة استلام أولاً.", reason="no_payout_method")
 
-        available_rows = await _all_commissions(
-            self._s, {"affiliate_id": affiliate_id, "status": CONFIRMED})
-        claimable = [Commission.from_dict(r) for r in available_rows if not r.get("withdrawal_id")]
-        total = sum(c.amount_halalas for c in claimable)
-        if total < threshold:
-            raise PayoutError(
-                f"الحد الأدنى للسحب {threshold / 100:.2f} ريال — رصيدك المؤكد أقل من ذلك.",
-                reason="below_minimum")
+            existing_open = await self._open_request_for(affiliate_id)
+            if existing_open is not None:
+                raise PayoutError("عندك طلب سحب قائم بالفعل.", reason="already_pending")
 
-        now = int(time.time())
-        request = WithdrawalRequest(
-            id=new_id(), affiliate_id=affiliate_id, amount_halalas=total,
-            commission_ids=[c.id for c in claimable], status=REQUESTED,
-            payout_channel=affiliate.payout_channel,
-            payout_channel_name=affiliate.payout_channel_name,
-            payout_account_ref=affiliate.payout_account_ref, requested_at=now,
-        )
-        await self._s.put(WITHDRAWALS, request.id, request.to_dict())
-        for c in claimable:
-            c.withdrawal_id = request.id
-            await self._s.put(COMMISSIONS, c.id, c.to_dict())
-        return request.to_dict()
+            available_rows = await _all_commissions(
+                self._s, {"affiliate_id": affiliate_id, "status": CONFIRMED})
+            claimable = [Commission.from_dict(r) for r in available_rows if not r.get("withdrawal_id")]
+            total = sum(c.amount_halalas for c in claimable)
+            if total < threshold:
+                raise PayoutError(
+                    f"الحد الأدنى للسحب {threshold / 100:.2f} ريال — رصيدك المؤكد أقل من ذلك.",
+                    reason="below_minimum")
+
+            now = int(time.time())
+            request = WithdrawalRequest(
+                id=new_id(), affiliate_id=affiliate_id, amount_halalas=total,
+                commission_ids=[c.id for c in claimable], status=REQUESTED,
+                payout_channel=affiliate.payout_channel,
+                payout_channel_name=affiliate.payout_channel_name,
+                payout_account_ref=affiliate.payout_account_ref, requested_at=now,
+            )
+            await self._s.put(WITHDRAWALS, request.id, request.to_dict())
+            for c in claimable:
+                c.withdrawal_id = request.id
+                await self._s.put(COMMISSIONS, c.id, c.to_dict())
+            return request.to_dict()
+        finally:
+            await self._s.delete(_PAYOUT_LOCKS, affiliate_id)
 
     async def _open_request_for(self, affiliate_id: str) -> WithdrawalRequest | None:
         rows, _ = await self._s.find(

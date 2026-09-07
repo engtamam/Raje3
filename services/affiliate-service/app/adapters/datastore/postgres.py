@@ -133,6 +133,36 @@ class PostgresDataStore:
             )
         return res.endswith("1")
 
+    async def claim(self, collection: str, key: str, value: dict[str, Any],
+                    *, ttl_seconds: float, now: float) -> bool:
+        """See the port. Two statements, each atomic on its own, and that is enough.
+
+        The INSERT wins the uncontended case: `ON CONFLICT DO NOTHING` means the loser of a race
+        writes nothing and is told so by the row count, rather than overwriting the winner.
+
+        The UPDATE is the takeover of an EXPIRED claim, and its `WHERE` carries the expiry test —
+        so the test and the write are one statement under one row lock. Reading the row first and
+        then updating it would put the race back exactly where this method exists to remove it.
+        """
+        row = dict(value)
+        row["expires"] = float(now) + float(ttl_seconds)
+        payload = json.dumps(row)
+        pool = await self._ensure()
+        async with pool.acquire() as con:
+            res = await con.execute(
+                f"INSERT INTO {_TABLE} (collection, key, value) VALUES ($1,$2,$3) "  # nosec B608 - _TABLE is a trusted constant; all values are parameterized
+                "ON CONFLICT (collection, key) DO NOTHING",
+                collection, key, payload,
+            )
+            if res.endswith("1"):
+                return True
+            res = await con.execute(
+                f"UPDATE {_TABLE} SET value=$3 WHERE collection=$1 AND key=$2 "  # nosec B608 - _TABLE is a trusted constant; all values are parameterized
+                "AND COALESCE((value->>'expires')::float8, 0) <= $4",
+                collection, key, payload, float(now),
+            )
+        return res.endswith("1")
+
     async def find(
         self,
         collection: str,
