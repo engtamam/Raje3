@@ -470,12 +470,12 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const [pending, setPending] = useState<PendingChange[] | 'loading' | 'failed'>('loading');
   const [days, setDays] = useState(30);
 
-  // ── الأسعار المرجعية (جوجل) — ندخلها نحن يدوياً ونحدّثها وقت ما تتغيّر، جوجل ما توفر API
-  // لأسعارها. الوحدة قابلة للتبديل (لكل 1000 / لكل مليون) لراحة المقارنة مع صفحة تسعير جوجل نفسها.
+  // ── الأسعار المرجعية (جوجل) — بالريال مباشرة، لا عملة ثانية بالنظام أصلاً. ندخلها نحن يدوياً
+  // ونحدّثها وقت ما تتغيّر (جوجل ما توفر API لأسعارها) — مين يحدّثها يحوّلها بنفسه وقتها. الوحدة
+  // قابلة للتبديل (لكل 1000 / لكل مليون) لراحة المقارنة مع صفحة تسعير جوجل نفسها.
   const [unit, setUnit] = useState<'1k' | '1m'>('1m');
-  const [googleInputUsd, setGoogleInputUsd] = useState('0.30');
-  const [googleOutputUsd, setGoogleOutputUsd] = useState('2.50');
-  const [usdToSar, setUsdToSar] = useState('3.75');
+  const [googleInputSar, setGoogleInputSar] = useState('1.13');
+  const [googleOutputSar, setGoogleOutputSar] = useState('9.38');
 
   // ── متوسط التوكنات — يدوي أو من استهلاك حقيقي (report). ──────────────────────────────────────
   const [tokenSource, setTokenSource] = useState<'system' | 'manual'>('system');
@@ -506,9 +506,8 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const avgOutput = tokenSource === 'system' && hasReport
     ? report.avg_output_tokens_per_call : Number(manualAvgOutput) || 0;
   const divisor = unit === '1m' ? 1_000_000 : 1_000;
-  const costPerCallUsd = (avgInput / divisor) * (Number(googleInputUsd) || 0)
-    + (avgOutput / divisor) * (Number(googleOutputUsd) || 0);
-  const costPerCallSar = costPerCallUsd * (Number(usdToSar) || 0);
+  const costPerCallSar = (avgInput / divisor) * (Number(googleInputSar) || 0)
+    + (avgOutput / divisor) * (Number(googleOutputSar) || 0);
   const m = Number(multiplier) || 0;
   const suggestedPriceSar = costPerCallSar * m;
   const suggestedHalalas = suggestedPriceSar * 100;
@@ -559,24 +558,23 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-label font-medium text-text-secondary">سعر جوجل (دولار)</span>
+            <span className="text-label font-medium text-text-secondary">سعر جوجل (ريال)</span>
             <Segmented value={unit} onChange={(v) => setUnit(v as '1k' | '1m')}
                       options={[{ value: '1k', label: 'لكل 1000 توكن' }, { value: '1m', label: 'لكل مليون توكن' }]} />
           </div>
+          <p className="text-label text-text-secondary">
+            جوجل يسعّر بالدولار — حوّلها بنفسك للريال وقت ما تحدّث الرقم من صفحة تسعيرهم.
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <Field label="سعر الدخل (Input)" htmlFor="calc-google-in">
-              <Input id="calc-google-in" dir="ltr" type="number" step="0.01" value={googleInputUsd}
-                    onChange={(e) => setGoogleInputUsd(e.target.value)} />
+              <Input id="calc-google-in" dir="ltr" type="number" step="0.01" value={googleInputSar}
+                    onChange={(e) => setGoogleInputSar(e.target.value)} />
             </Field>
             <Field label="سعر الخرج (Output)" htmlFor="calc-google-out">
-              <Input id="calc-google-out" dir="ltr" type="number" step="0.01" value={googleOutputUsd}
-                    onChange={(e) => setGoogleOutputUsd(e.target.value)} />
+              <Input id="calc-google-out" dir="ltr" type="number" step="0.01" value={googleOutputSar}
+                    onChange={(e) => setGoogleOutputSar(e.target.value)} />
             </Field>
           </div>
-          <Field label="سعر صرف الدولار (بالريال)" htmlFor="calc-fx">
-            <Input id="calc-fx" dir="ltr" type="number" step="0.01" value={usdToSar}
-                  onChange={(e) => setUsdToSar(e.target.value)} className="max-w-[10rem]" />
-          </Field>
         </div>
 
         <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
