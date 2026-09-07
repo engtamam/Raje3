@@ -10,7 +10,7 @@ import hmac
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.backup_manifest import BACKUP
 from app.config import Settings, get_settings
@@ -321,8 +321,10 @@ async def backup_import(request: Request, body: BackupImportIn,
 # route a future billing/insights peer calls once one exists. Nothing about price_conversation's
 # own signature changes later; only where its inputs come from does.
 class PriceIn(BaseModel):
-    input_tokens: int = 0
-    output_tokens: int = 0
+    # ge=0 ADDED 2026-09-07 — a QA audit found this had no floor: a negative value reached
+    # pricing.usage_based() and could produce a negative halalas result with nothing clamping it.
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
     # THIS PERIOD'S conversation count / first-of-period flag — the caller's to track (it is the
     # one that knows the billing period), not this service's; see core/pricing.py's own docstring
     # for why: a business number frozen into this service would be a rewrite waiting to happen.

@@ -12,9 +12,16 @@ though wamid alone is already globally unique to Meta.
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from app.core.models import INBOUND_MESSAGES
+
+# EFFECTIVELY PERMANENT, NOT A REAL EXPIRY — `claim()` requires a bound, and this dedup row must
+# outlive any realistic redelivery window (the live bus AND the tick-driven catch-up poller can
+# both reach the SAME wamid, independently, at any time apart) while still going away on a genuine
+# privacy erasure (`purge_for_subject` deletes the row outright, which is unaffected by this TTL).
+_DEDUP_TTL_SECONDS = 10 * 365 * 86_400
 
 
 class DataStoreInboundMessageStore:
@@ -27,17 +34,21 @@ class DataStoreInboundMessageStore:
         return f"{tenant}|{wamid}"
 
     async def record_if_new(self, tenant: str, wamid: str, message: dict[str, Any]) -> bool:
+        """Fixed 2026-09-07 — this used to be `get()` then `put()`, a real check-then-act race a
+        QA audit found: the live bus subscription and the tick-driven catch-up poller are two
+        independent paths that can both reach the SAME wamid at once (that's the whole reason the
+        catch-up path exists), and both used to see "not yet seen" before either had written
+        anything — contradicting this module's own docstring claim that whichever path sees a
+        wamid first wins. Routed through `store.claim()` (see its own port docstring) instead: the
+        decision and the write are one statement at the store layer now, not two round trips a
+        race can land between."""
         key = self._key(tenant, wamid)
-        existing = await self._store.get(INBOUND_MESSAGES, key)
-        if existing is not None:
-            # ALREADY SEEN — a redelivery of the same wamid. This is the dedup itself.
-            return False
         row = dict(message)
         row["tenant"] = tenant
         row["wamid"] = wamid
         row.setdefault("processed", False)
-        await self._store.put(INBOUND_MESSAGES, key, row)
-        return True
+        return await self._store.claim(
+            INBOUND_MESSAGES, key, row, ttl_seconds=_DEDUP_TTL_SECONDS, now=time.time())
 
     async def mark_processed(self, tenant: str, wamid: str) -> None:
         key = self._key(tenant, wamid)

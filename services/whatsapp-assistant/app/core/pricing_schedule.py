@@ -100,6 +100,19 @@ async def apply_due(store: Any, runtime_config: Any, *, now: int) -> list[str]:
             continue
         await runtime_config.set(tenant="", key=change.key, value=change.value,
                                  actor_ref="system:pricing_schedule")
-        await store.delete(PRICING_PENDING, _doc_id(change.key))
+        # RE-READ BEFORE DELETING, THEN DELETE ONLY IF STILL THE SAME CHANGE — fixed 2026-09-07.
+        # An unconditional delete-by-key here was a real TOCTOU: an operator re-scheduling the SAME
+        # key (schedule()'s own "replace whatever was pending" contract) in the small window
+        # between this tick's own `pending()` read above and this delete would have its brand-new
+        # future-dated row silently wiped by this tick, before it was ever due — no error, no
+        # audit trace of the loss. Comparing every field this row is keyed/valued by narrows that
+        # to the read-compare-delete gap itself (this port has no real CAS/conditional-delete
+        # primitive), which is a small, safe over-caution: at worst a rare stray row lingers one
+        # extra tick, never a silently dropped reschedule.
+        current = await store.get(PRICING_PENDING, _doc_id(change.key))
+        if (current is not None and current.get("value") == change.value
+                and current.get("effective_at") == change.effective_at
+                and current.get("scheduled_at") == change.scheduled_at):
+            await store.delete(PRICING_PENDING, _doc_id(change.key))
         applied.append(change.key)
     return applied

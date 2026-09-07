@@ -34,6 +34,20 @@ from app.ports.catalog_provider import CatalogCard
 
 _logger = get_logger("app.tools")
 
+# Serialises `execute_confirmed_proposal` per proposal_id — added 2026-09-07, a QA audit found the
+# "consumed" guard below is itself a read-then-write TOCTOU: two concurrent calls for the SAME
+# proposal_id (a redelivered wamid before its own dedup settled, or WhatsApp itself replaying a
+# button tap) both read `consumed=False` before either writes it, and both proceed into a REAL
+# booking-provider write. This lock is deliberately SEPARATE from the proposal row's own
+# `consumed` field (never merged into it) — the row is only marked consumed AFTER the real write
+# genuinely succeeds (see `_mark_consumed` below), so a real failure (a network hiccup calling
+# bookings-service) still lets a customer's retry through once this short lock naturally expires,
+# exactly as before this fix. Short TTL, same value SpendLock uses in services/loyalty for the
+# identical reasoning: long enough to cover one real peer round trip, short enough that a genuine
+# retry after a real failure is not made to wait.
+_EXECUTE_LOCKS = "wa_proposal_execute_locks"
+_EXECUTE_LOCK_TTL_SECONDS = 15
+
 # list_due_services / list_lapsed_services' own bands over (days since last visit) / interval_days.
 # Below 0.8 the customer is not due yet by his own learned rhythm; at/above 2.5x his usual interval
 # "hasn't come back this week" has become a real, meaningfully stopped pattern rather than normal
@@ -560,10 +574,51 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
                                      branch_id: str = "", from_number: str = "",
                                      booking_management_enabled: bool = True
                                      ) -> dict[str, Any]:
-    """The ONLY path that turns a proposal into a real write — reached exclusively from a matching
-    button_reply id (core/conversation.py::handle_button_reply). Re-validates AGAIN: a proposal
-    confirmed minutes after it was rendered must still hold against current state, not the state
-    at proposal time.
+    """The ONLY path that turns a proposal into a real write — see `_execute_confirmed_proposal`'s
+    own docstring for the full reasoning; this wrapper only owns the concurrency lock.
+
+    THE LOCK IS RELEASED HERE, IN `finally`, REGARDLESS OF OUTCOME — not left to its own TTL. A
+    refusal (the management flag was off, the proposal was already consumed) or a genuine failure
+    (a store hiccup mid-write — see `_mark_consumed`'s own docstring) must let an immediate retry
+    through, exactly as it could before this lock existed; only a SECOND call GENUINELY
+    CONCURRENT with this one (still running when the second arrives) is what the lock exists to
+    refuse."""
+    now = now if now is not None else int(time.time())
+    row = await store.get(PENDING_PROPOSALS, proposal_id)
+    if row is None or row.get("tenant") != tenant:
+        raise ToolValidationError("no such pending proposal for this tenant")
+    if row.get("consumed"):
+        raise ToolValidationError("proposal already consumed")
+    if int(row.get("expires_at") or 0) < now:
+        raise ToolValidationError("proposal expired")
+
+    # THE ACTUAL RACE GUARD — added 2026-09-07 (a QA audit found this whole function had none,
+    # despite `_mark_consumed`'s own read-then-write below being exactly the shape every other
+    # lock in this codebase exists for). A separate short-lived lock, deliberately not folded into
+    # the row's own `consumed` field — see this function's own docstring for why.
+    took = await store.claim(
+        _EXECUTE_LOCKS, proposal_id, {"proposal_id": proposal_id, "tenant": tenant, "at": now},
+        ttl_seconds=_EXECUTE_LOCK_TTL_SECONDS, now=now)
+    if not took:
+        raise ToolValidationError("another confirmation for this proposal is already in progress")
+    try:
+        return await _execute_confirmed_proposal(
+            tenant=tenant, proposal_id=proposal_id, store=store, row=row,
+            booking_provider=booking_provider, auditor=auditor, idempotency_key=idempotency_key,
+            now=now, branch_id=branch_id, from_number=from_number,
+            booking_management_enabled=booking_management_enabled)
+    finally:
+        await store.delete(_EXECUTE_LOCKS, proposal_id)
+
+
+async def _execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: Any, row: dict,
+                                      booking_provider: Any, auditor: Any,
+                                      idempotency_key: str, now: int,
+                                      branch_id: str = "", from_number: str = "",
+                                      booking_management_enabled: bool = True
+                                      ) -> dict[str, Any]:
+    """Re-validates AGAIN: a proposal confirmed minutes after it was rendered must still hold
+    against current state, not the state at proposal time.
 
     `booking_management_enabled` CLOSES A REAL GAP `validate_and_render`'s own allowlist check
     does not: BOOKING_MANAGEMENT_ENABLED gates whether a NEW propose_cancel_booking/
@@ -578,15 +633,6 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
     (cancel/reschedule) outright, including whatever was already proposed and not yet tapped. See
     the two branches below for where this is actually enforced.
     """
-    now = now if now is not None else int(time.time())
-    row = await store.get(PENDING_PROPOSALS, proposal_id)
-    if row is None or row.get("tenant") != tenant:
-        raise ToolValidationError("no such pending proposal for this tenant")
-    if row.get("consumed"):
-        raise ToolValidationError("proposal already consumed")
-    if int(row.get("expires_at") or 0) < now:
-        raise ToolValidationError("proposal expired")
-
     tool = row.get("tool")
     args = row.get("args") or {}
     subject_ref = row.get("subject_ref", "")

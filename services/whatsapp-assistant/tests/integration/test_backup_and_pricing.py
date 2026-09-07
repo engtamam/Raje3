@@ -123,6 +123,20 @@ def test_price_is_zero_when_every_pricing_constant_is_zero(client):
     assert body["strategy"] == "tier_plus_cap"
 
 
+def test_price_rejects_negative_token_counts(client):
+    """A QA audit found `PriceIn.input_tokens`/`output_tokens` had no `Field(ge=0)` — a negative
+    value reaches `pricing.usage_based()` and can produce a negative halalas result with nothing
+    clamping it. This route is internal-token-gated, not attacker-reachable directly, but a
+    misbehaving internal caller (or a future billing peer's own bug) should never be able to make
+    this compute a negative charge — refused at the door, same as any other malformed input."""
+    resp = client.post("/internal/whatsapp_assistant/price",
+                       json={"input_tokens": -1, "output_tokens": 200}, headers=_headers())
+    assert resp.status_code == 422
+    resp = client.post("/internal/whatsapp_assistant/price",
+                       json={"input_tokens": 200, "output_tokens": -1}, headers=_headers())
+    assert resp.status_code == 422
+
+
 def test_price_rejects_an_unknown_strategy_cleanly_not_with_a_500(client, monkeypatch):
     monkeypatch.setenv("PRICING_STRATEGY", "not_a_real_strategy")
     from app.config import get_settings

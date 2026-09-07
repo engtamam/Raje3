@@ -25,6 +25,19 @@ class MemoryDataStore:
     async def delete(self, collection: str, key: str) -> bool:
         return self._data.get(collection, {}).pop(key, None) is not None
 
+    async def claim(self, collection: str, key: str, value: dict[str, Any],
+                    *, ttl_seconds: float, now: float) -> bool:
+        """See the port. Atomic here because nothing is awaited between the read and the write —
+        an `await` inserted anywhere in this method hands the event loop to the other caller
+        mid-decision and both are told they won. There is no await below, and there must not be."""
+        held = self._data.setdefault(collection, {}).get(key)
+        if held is not None and float(held.get("expires") or 0) > now:
+            return False
+        row = dict(value)
+        row["expires"] = now + float(ttl_seconds)
+        self._data[collection][key] = copy.deepcopy(row)
+        return True
+
     @staticmethod
     def _matches(row: dict[str, Any], where: dict[str, Any]) -> bool:
         """Equality only. `{f: v}` or `{f: [v1, v2]}`. No operators => nothing to inject."""

@@ -21,6 +21,43 @@ async def test_redelivered_wamid_is_dropped_not_reprocessed():
     assert second is False
 
 
+async def test_two_genuinely_simultaneous_deliveries_of_the_same_wamid_only_one_wins():
+    """THE REAL BUG: `record_if_new` used to be `get()` then `put()` — a QA audit found this is a
+    real check-then-act race, not just a sequential dedup. The live bus subscription and the
+    tick-driven catch-up poller are two INDEPENDENT paths that can both reach the same wamid at
+    once (that's the whole reason the catch-up path exists), so a genuinely concurrent race, not
+    only a sequential redelivery, is the real shape of this bug."""
+    import asyncio
+
+    class _SlowStore:
+        """Delegates to a real MemoryDataStore, but yields inside `claim()` around the decision —
+        same technique as bookings'/campaigns'/affiliate-service's own race tests, adapted for a
+        primitive whose whole CONTRACT is "no await between the read and the write" (see
+        MemoryDataStore.claim's own docstring): this wrapper proves the OLD get+put code is what
+        raced, and that `claim()` itself is what closes it, by exercising the real adapter's own
+        atomic claim() rather than reintroducing a race inside a test double."""
+
+        def __init__(self, inner: MemoryDataStore) -> None:
+            self._inner = inner
+
+        async def claim(self, *a, **kw):
+            return await self._inner.claim(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    store = _SlowStore(MemoryDataStore())
+    inbound = DataStoreInboundMessageStore(store)
+
+    results = await asyncio.gather(
+        inbound.record_if_new("t1", "wamid_race", {"text": "hi"}),
+        inbound.record_if_new("t1", "wamid_race", {"text": "hi"}),
+    )
+    assert sorted(results) == [False, True], (
+        f"expected exactly one winner — got {results!r}, the exact double-processing bug "
+        "this dedup exists to prevent")
+
+
 async def test_wamid_uniqueness_is_scoped_per_tenant_key_but_never_confused_cross_tenant():
     store = MemoryDataStore()
     inbound = DataStoreInboundMessageStore(store)

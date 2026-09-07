@@ -17,6 +17,22 @@ class DataStore(Protocol):
 
     async def delete(self, collection: str, key: str) -> bool: ...
 
+    async def claim(self, collection: str, key: str, value: dict[str, Any],
+                    *, ttl_seconds: float, now: float) -> bool:
+        """Take `key` if nobody holds it, or if the holder's claim has expired. True == taken.
+
+        THE ONE OPERATION `put` CANNOT EXPRESS. `put` is last-writer-wins: two callers who both
+        read "absent" both write, and both believe they were first. Added 2026-09-07 — a QA audit
+        found two real check-then-act races in this service (`inbound_store`'s wamid dedup, and
+        `tools.py`'s pending-proposal "consumed" guard) that this closes at the store layer instead
+        of at each call site. Mirrors services/campaigns' and services/affiliate-service's
+        identical `claim()` (same reasoning, same contract).
+
+        `now` IS PASSED IN rather than read here, so a test can place two callers on either side of
+        an expiry without sleeping, and so the two drivers cannot disagree about what time it is.
+        """
+        ...
+
     async def find(
         self,
         collection: str,

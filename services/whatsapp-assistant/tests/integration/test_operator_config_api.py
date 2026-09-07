@@ -76,6 +76,11 @@ def reader_auth() -> dict:
     return _auth("reports.read")
 
 
+@pytest.fixture
+def secrets_auth() -> dict:
+    return _auth("platform.secrets")
+
+
 # ── authorisation ─────────────────────────────────────────────────────────────
 def test_config_needs_its_own_capability(client, reader_auth):
     assert client.get(f"{PREFIX}/config", headers=reader_auth).status_code == 403
@@ -170,6 +175,25 @@ def test_a_wrong_typed_value_is_refused_not_silently_stored(client, operator_aut
     r = client.put(f"{PREFIX}/config", json={"key": "MAX_CAROUSEL_CARDS", "value": "not-a-number"},
                    headers=operator_auth)
     assert r.status_code == 400
+
+
+# ── secrets — audit-ordering fix (2026-09-07) ──────────────────────────────────────────────────
+def test_setting_an_empty_secret_is_refused_not_logged_as_a_completed_rotation(client, secrets_auth):
+    """THE REAL BUG: this route used to audit "operator.secret_set" BEFORE calling `.set()`, so a
+    refused write (an empty value here) was still permanently logged as a completed rotation.
+    Proves the fix cleanly returns 400 — a regression here (the new "operator.secret_set_refused"
+    event undeclared in auditable_actions.py) would surface as a 500 (DeclarationError), not a 400."""
+    r = client.put(f"{PREFIX}/secrets", json={"name": "ASSISTANT_MODEL_PROJECT", "value": " "},
+                   headers=secrets_auth)
+    assert r.status_code == 400
+
+
+def test_setting_a_real_secret_still_succeeds(client, secrets_auth):
+    r = client.put(f"{PREFIX}/secrets",
+                   json={"name": "ASSISTANT_MODEL_PROJECT", "value": "proj-123"},
+                   headers=secrets_auth)
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "ASSISTANT_MODEL_PROJECT"
 
 
 # ── persona preview (read-only — see operator.py's own note) ──────────────────────────────────

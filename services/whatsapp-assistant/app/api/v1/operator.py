@@ -133,15 +133,24 @@ async def set_config(request: Request, body: ConfigIn,
         return _refuse(
             f"{body.key} is a pricing key — it can only be changed via POST /pricing/schedule, "
             f"which applies after a delay so shops are never billed a new rate with no notice.")
-    await request.app.state.auditor.record(
-        "operator.config_changed", actor=_actor(principal), tenant=body.tenant or "",
-        resource=f"config:{body.key}", ip=request.client.host if request.client else "",
-        metadata={"key": body.key})     # the KEY is not a secret; settable knobs never are
+    # AUDITED AFTER THE WRITE SUCCEEDS, NOT BEFORE — fixed 2026-09-07. This used to record BEFORE
+    # calling `.set()`, so a value `RuntimeConfigError` refused (a bad key/value — the ordinary
+    # case, not a crash) was still permanently logged as "operator.config_changed", a change that
+    # never actually happened. A refusal gets its own distinctly-named event instead, so the audit
+    # trail stays a true account of what happened rather than what was attempted.
     try:
         o = await _runtime_config(request).set(
             tenant=body.tenant, key=body.key, value=body.value, actor_ref=_actor(principal))
     except RuntimeConfigError as exc:
+        await request.app.state.auditor.record(
+            "operator.config_change_refused", actor=_actor(principal), tenant=body.tenant or "",
+            resource=f"config:{body.key}", ip=request.client.host if request.client else "",
+            metadata={"key": body.key, "reason": str(exc)[:200]})
         return _refuse(str(exc))
+    await request.app.state.auditor.record(
+        "operator.config_changed", actor=_actor(principal), tenant=body.tenant or "",
+        resource=f"config:{body.key}", ip=request.client.host if request.client else "",
+        metadata={"key": body.key})     # the KEY is not a secret; settable knobs never are
     # ASSISTANT_MODEL_NAME is read fresh every LLM call already (see assistant_service.py's own
     # `_resolve_model_name`) — no cache to invalidate here the way the secrets routes need to.
     return {"key": o.key, "value": o.value}
@@ -338,18 +347,29 @@ async def list_secrets(request: Request, tenant: str = "",
 @router.put("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
 async def set_secret(request: Request, body: SecretIn,
                      principal: Principal = Depends(require_user)) -> dict:
-    """Set or rotate a credential. Audited BEFORE the write: a change the log cannot take must not
-    happen, and here the old value is overwritten by the action itself, so an unrecorded rotation
-    is unreconstructable."""
-    await request.app.state.auditor.record(
-        "operator.secret_set", actor=_actor(principal), tenant=body.tenant or "",
-        resource=f"secret:{body.name}",          # the NAME, never the value or the hint
-        ip=request.client.host if request.client else "")
+    """Set or rotate a credential.
+
+    AUDITED AFTER THE WRITE SUCCEEDS, NOT BEFORE — fixed 2026-09-07. The original reasoning here
+    ("audited before: the old value is overwritten by the action itself, so an unrecorded rotation
+    is unreconstructable") does not survive contact with `SecretError`: a bad value refused by
+    `.set()` never touches the old value at all, yet used to be logged as "operator.secret_set"
+    regardless — a QA audit found the audit trail could record a rotation that never happened. A
+    refusal now gets its own distinctly-named event; a genuine crash between the write and this
+    line (the one narrow case the old ordering guarded against) is a real but much rarer risk than
+    mislabeling every ordinary validation failure as a completed change."""
     try:
         info = await _secret_store(request).set(
             tenant=body.tenant, name=body.name, value=body.value, actor_ref=_actor(principal))
     except SecretError as exc:
+        await request.app.state.auditor.record(
+            "operator.secret_set_refused", actor=_actor(principal), tenant=body.tenant or "",
+            resource=f"secret:{body.name}", ip=request.client.host if request.client else "",
+            metadata={"reason": str(exc)[:200]})
         return _refuse(str(exc))
+    await request.app.state.auditor.record(
+        "operator.secret_set", actor=_actor(principal), tenant=body.tenant or "",
+        resource=f"secret:{body.name}",          # the NAME, never the value or the hint
+        ip=request.client.host if request.client else "")
     _invalidate_llm(request)
     return {"name": info.name, "hint": info.hint, "rotating": info.rotating}
 

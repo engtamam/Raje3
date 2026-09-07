@@ -147,6 +147,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "and an unattributable one is indistinguishable from an attacker's",
     },
     {
+        "action": "operator.secret_set_refused",
+        "source": "admin",
+        "critical": False,
+        "resource": "secret",
+        # Added 2026-09-07 alongside the fix that made operator.secret_set fire only AFTER a
+        # successful write — a refused attempt (a bad value SecretError caught) is a distinct,
+        # honest event now, never folded into secret_set as if the rotation had actually happened.
+        "why": "a refused credential change is worth its own trail — who tried, and why it was "
+               "refused — without ever implying the old value was touched (nothing here is "
+               "unrecoverable, unlike a real rotation, so this is not critical)",
+    },
+    {
         "action": "operator.secret_cleared",
         "source": "admin",
         "critical": True,
@@ -162,6 +174,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "a live-overridden policy value (app/runtime_policy.py) changes real behaviour — "
                "which model replies, when soft-decline suppresses a pitch — with no redeploy and "
                "no other trace of who changed it or when",
+    },
+    {
+        "action": "operator.config_change_refused",
+        "source": "admin",
+        "critical": False,
+        "resource": "config",
+        # Same reasoning as operator.secret_set_refused above — added 2026-09-07 alongside the fix
+        # that made operator.config_changed fire only after a successful write.
+        "why": "a refused config change is worth its own trail without implying the value actually "
+               "moved; not critical for the same reason config_changed itself is not",
     },
     {
         "action": "operator.pricing_scheduled",
