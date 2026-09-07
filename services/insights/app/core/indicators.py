@@ -91,13 +91,20 @@ def active_customers(visits: list[dict], *, now: int, window_days: int = 90) -> 
                 and v.get("subject_ref")})
 
 
-def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5) -> float:
+def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5) -> float | None:
     """Who is overdue against THEIR OWN cycle, not against a number we picked.
 
     A COFFEE CUSTOMER MISSING A WEEK IS A WORRY; AN OIL CUSTOMER MISSING EIGHTY DAYS IS PUNCTUAL.
     A fixed "no visit in 60 days" would call the first one healthy and the second one lost, and it
     would be wrong about both in the same shop. So absence is measured in multiples of the person's
     own interval — the same rule `campaigns` already uses for win-back, deliberately.
+
+    None, NEVER 0.0, WHEN THERE IS NO ELIGIBLE CUSTOMER — fixed 2026-09-07, a QA audit found this
+    used to return a bare 0.0 for "nobody had two visits yet to measure a rhythm from", the exact
+    same value a real "measured, genuinely zero churn" would produce. `return_cycle_days` and
+    `retention_series` already draw this distinction (None means "not ready", never a fabricated
+    number) — this now matches them, so a brand-new shop's dashboard shows nothing rather than a
+    misleadingly reassuring "0%" on day one.
     """
     per = _by_customer(visits)
     lapsed = eligible = 0
@@ -114,7 +121,7 @@ def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5) -> float:
         eligible += 1
         if (now - times[-1]) / DAY > own * slack:
             lapsed += 1
-    return round(lapsed / eligible, 3) if eligible else 0.0
+    return round(lapsed / eligible, 3) if eligible else None
 
 
 def active_customers_trend(visits: list[dict], *, now: int, window_days: int = 90,
@@ -380,16 +387,21 @@ def visits_in_window(visits: list[dict], *, now: int, window_days: int = 7) -> d
             "window_days": window_days}
 
 
-def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) -> float:
+def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) -> float | None:
     """Of the customers who ever took a periodic service, how many are still current on it.
 
     FREE, because `cycle_days` is already in the catalogue — `reminders` cannot schedule without
     it. This was written down as needing configuration in a first draft, and it did not: the
     information had been there since the owner set up his services.
+
+    None, NEVER 0.0, WHEN THERE IS NOTHING TO MEASURE — fixed 2026-09-07, a QA audit found the two
+    early returns here (no periodic service configured; periodic services configured but none
+    ever taken) both collapsed to the same 0.0 a real "0% on-time" would produce — ambiguous at
+    exactly the state most shops start in. Same fix as `churn_rate` right above.
     """
     periodic = {s: d for s, d in (cycles or {}).items() if d > 0}
     if not periodic:
-        return 0.0
+        return None
     on_time = total = 0
     for rows in _by_customer(visits).values():
         last: dict[str, int] = {}
@@ -402,7 +414,7 @@ def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) ->
             total += 1
             if (now - ts) <= periodic[s] * DAY:
                 on_time += 1
-    return round(on_time / total, 3) if total else 0.0
+    return round(on_time / total, 3) if total else None
 
 
 def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,

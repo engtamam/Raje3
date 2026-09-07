@@ -90,8 +90,10 @@ def test_churn_is_measured_against_the_customers_own_cycle():
 
 def test_a_first_time_customer_is_not_counted_as_churn():
     """One visit says nothing about their rhythm; counting them would make every new customer look
-    like a loss, which is the opposite of the truth."""
-    assert ind.churn_rate([visit("new", 400)], now=NOW) == 0.0
+    like a loss, which is the opposite of the truth. None, not 0.0 — fixed 2026-09-07: a QA audit
+    found 0.0 here was indistinguishable from a real, measured "zero churn" (ي-8's own reasoning,
+    applied to churn_rate too)."""
+    assert ind.churn_rate([visit("new", 400)], now=NOW) is None
 
 
 def test_active_customers_trend_reads_the_same_window_one_step_earlier():
@@ -170,8 +172,16 @@ def test_cycle_completion_is_free_because_the_catalogue_already_has_the_cycle():
     assert ind.cycle_completion(v, cycles={"oil": 90}, now=NOW) == 0.5
 
 
-def test_a_shop_with_no_periodic_services_gets_zero_rather_than_an_error():
-    assert ind.cycle_completion([visit("a", 1, "wash")], cycles={"wash": 0}, now=NOW) == 0.0
+def test_a_shop_with_no_periodic_services_gets_none_rather_than_an_error():
+    """None, not 0.0 — fixed 2026-09-07: a QA audit found 0.0 here was indistinguishable from a
+    real "0% on-time" measurement, the exact ambiguity ي-8 already rules out for return_cycle_days."""
+    assert ind.cycle_completion([visit("a", 1, "wash")], cycles={"wash": 0}, now=NOW) is None
+
+
+def test_a_periodic_service_nobody_ever_took_also_gets_none():
+    """The OTHER early-return this function has — cycles ARE configured, but no visit in the
+    window ever took one. Same ambiguity as the "no periodic service configured" case, same fix."""
+    assert ind.cycle_completion([visit("a", 1, "wash")], cycles={"oil": 90}, now=NOW) is None
 
 
 def test_the_peak_map_is_in_riyadh_time():
@@ -216,10 +226,12 @@ def test_an_empty_shop_produces_zeros_and_never_an_exception():
     assert ind.return_rate([]) == 0.0
     # None, not 0 — an empty shop has no return cycle, and 0 is a claim about one (ي-8).
     assert ind.return_cycle_days([]) is None
-    assert ind.churn_rate([], now=NOW) == 0.0
+    # None, not 0 — same reasoning, fixed 2026-09-07 (ي-8's rule now applied to churn_rate too).
+    assert ind.churn_rate([], now=NOW) is None
     assert ind.at_risk([], now=NOW) == []
     assert ind.services_per_visit([]) == 0.0
     assert ind.expected_flow([], now=NOW) == 0
+    # cycle_completion([]) can't be checked here without a `cycles` catalogue — see its own test.
 
 
 # ── coverage ───────────────────────────────────────────────────────────────────────────────────
