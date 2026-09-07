@@ -73,6 +73,7 @@ from app.core.redaction import redact
 from app.core.shop_identity import GENERIC_SHOP_LABEL, ShopContext
 from app.core import tools as T
 from app.core import wallet_balance as WB
+from app.core.upsell_ledger import record_outcome as record_upsell_outcome
 from app.ports.llm import LlmReply
 
 #: The SAME bound `operations/app/core/ai_notes.py` enforces at write time — enforced again here,
@@ -1312,6 +1313,13 @@ class ConversationEngine:
             return ReplyPlan(kind="text", text="هذا الطلب لم يعد صالحًا.")
 
         if action == "cancel":
+            # THE UPSELL LEDGER'S OWN DECLINE MOMENT — a real, explicit "لا" via the SAME button
+            # discipline every state-changing action here requires (never inferred from silence,
+            # see upsell_ledger.py's own module note). A no-op for any proposal this ledger was
+            # never asked to track (an ordinary service booking, a cancel/reschedule proposal) —
+            # `record_outcome` only ever touches a row that `record_offer` actually wrote.
+            await record_upsell_outcome(self._store, proposal_id=proposal_id,
+                                        outcome="declined", now=now)
             conv.pending_proposal_id = ""
             conv.state = "idle"
             conv.session_closed_at = now

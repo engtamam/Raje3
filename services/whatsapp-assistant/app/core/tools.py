@@ -27,6 +27,8 @@ from typing import Any
 
 from app.core.audit import AuditUnavailable
 from app.core.models import PENDING_PROPOSALS, PendingProposal, as_row
+from app.core.upsell_ledger import record_offer as record_upsell_offer
+from app.core.upsell_ledger import record_outcome as record_upsell_outcome
 from app.observability.logging import get_logger
 from app.ports.catalog_provider import CatalogCard
 
@@ -213,6 +215,22 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
             validated_snapshot={"validated_at": now},
             created_at=now, expires_at=now + proposal_ttl_seconds)
         await store.put(PENDING_PROPOSALS, proposal_id, as_row(proposal))
+        if package_id:
+            # THE UPSELL LEDGER'S OWN OFFER MOMENT — see upsell_ledger.py's module docstring for
+            # why a package proposal specifically, and why written here rather than inferred later.
+            # Price comes from the SAME real catalogue read `list_packages`/context_builder.py's
+            # upsell section already trust — never invented, and left `None` (never 0) if the
+            # package cannot be found (a race with it being retired/deactivated between the
+            # earlier availability check and here).
+            pkg_price: int | None = None
+            if package_catalog is not None:
+                for p in await package_catalog.list_active(tenant):
+                    if str(p.get("id")) == package_id:
+                        pkg_price = int(p.get("price_minor") or 0)
+                        break
+            await record_upsell_offer(
+                store, proposal_id=proposal_id, tenant=tenant, branch_id=branch_id,
+                subject_ref=subject_ref, package_id=package_id, price_minor=pkg_price, now=now)
         body = f"هل تؤكد الموعد الساعة {_fmt_slot(starts_at)}؟"
         if reward_id:
             body += " سيتم استخدام مكافأتك عند حضورك للموعد."
@@ -615,6 +633,12 @@ async def execute_confirmed_proposal(*, tenant: str, proposal_id: str, store: An
         # audit call.
         store_ok = await _mark_consumed(store=store, proposal_id=proposal_id, row=row,
                                         tenant=tenant, booking_id="", action="booking_confirmed")
+        if package_id:
+            # THE UPSELL LEDGER'S OWN ACCEPT MOMENT — a real booking now exists; see
+            # upsell_ledger.py's module docstring for why this, not silence or a heuristic, is what
+            # "accepted" means here.
+            await record_upsell_outcome(store, proposal_id=proposal_id, outcome="accepted",
+                                        now=now, booking_id=str(booking.get("id") or ""))
 
         # CRITICAL: a booking confirmed by this assistant on a customer's behalf must be
         # witnessed. Fail-closed per app/core/audit.py — see auditable_actions.py. BUT the write
