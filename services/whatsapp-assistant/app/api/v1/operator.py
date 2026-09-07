@@ -34,6 +34,7 @@ from app.config import Settings, get_settings
 from app.core.conversation import build_system_prompt
 from app.core.pii import subject_ref
 from app.core.pricing_report import report as pricing_report
+from app.core.upsell_report import report as upsell_report
 from app.core.pricing_schedule import cancel as cancel_pricing_change
 from app.core.pricing_schedule import is_a_pricing_key
 from app.core.pricing_schedule import pending as pending_pricing_changes
@@ -189,6 +190,28 @@ async def get_pricing_report(request: Request, days: int = 30,
     container = request.app.state.container
     rep = await pricing_report(container.datastore, days=days, now=int(time.time()))
     return rep.as_dict()
+
+
+@router.get("/growth/upsell-report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def get_upsell_report(request: Request, days: int = 30,
+                            principal: Principal = Depends(require_user)) -> dict:
+    """Real package-upsell offer/accept/decline counts and rate, per branch, current-window vs the
+    equal window before it — straight off `wa_upsell_ledger` (core/upsell_report.py). SCOPE NOTE,
+    stated in the response itself so a shop owner is never told less than the whole truth by
+    omission: this covers only the upsell ledger's own two stats (offer/accept/decline rate,
+    average ticket increase from a priced accepted upsell) — session/conversion counts, which
+    services got booked, and AI-booking attendance/ROI all need a bookings-service query surface
+    that does not exist yet (see upsell_report.py's own module docstring) and are not answered
+    here."""
+    days = max(1, min(days, 365))
+    container = request.app.state.container
+    rep = await upsell_report(container.datastore, days=days, now=int(time.time()))
+    body = rep.as_dict()
+    body["scope_note"] = ("upsell offer/accept/decline + average ticket increase only — "
+                          "session/conversion, services-booked, and AI-booking attendance/ROI "
+                          "are not yet computed here (need a bookings-service query by "
+                          "created_by/branch that does not exist yet)")
+    return body
 
 
 @router.get("/pricing/pending", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
