@@ -26,6 +26,7 @@ import { Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
+import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
@@ -132,12 +133,19 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
     return () => { cancelled = true; };
   }, [session]);
 
-  const listAction = catalog !== 'loading' && catalog !== 'failed'
-    ? catalog.services.flatMap((s) => s.actions).find((a) => a.id === 'secrets.list')
-    : undefined;
-  const updateAction = catalog !== 'loading' && catalog !== 'failed'
-    ? catalog.services.flatMap((s) => s.actions).find((a) => a.id === 'secrets.update')
-    : undefined;
+  const allActions = catalog !== 'loading' && catalog !== 'failed'
+    ? catalog.services.flatMap((s) => s.actions) : [];
+  const findAction = (id: string) => allActions.find((a) => a.id === id);
+  const listAction = findAction('secrets.list');
+  const updateAction = findAction('secrets.update');
+  // "الإدارة" — النموذج والسلوك، عبر خدمة الذكاء الاصطناعي مباشرة (platform.config)، لا عبر
+  // secrets-admin: هذي قيم سياسة تُقرأ صراحة (RuntimeConfig)، لا أسرار مختومة بمفتاح.
+  const configGetAction = findAction('whatsapp_assistant.operator_config');
+  const configSetAction = findAction('whatsapp_assistant.set_operator_config');
+  const configClearAction = findAction('whatsapp_assistant.clear_operator_config');
+  const personaPreviewAction = findAction('whatsapp_assistant.persona_preview');
+  // "الإدارة"/"المحاسبة" — فقط داخل فئة الذكاء الاصطناعي؛ ما فيه سبب يتكرر بأي فئة ثانية اليوم.
+  const [aiTab, setAiTab] = useState<'admin' | 'calc'>('admin');
 
   const reload = (action: AdminAction) => {
     setRows('loading');
@@ -206,16 +214,197 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
               return { value: provider, label: `${meta.label} (${configuredCount}/${providerRows.length})` };
             })}
           />
-          <div className="flex flex-col gap-3">
-            {activeRows.map((row) => (
-              <SecretRowCard key={row.key} row={row} session={session}
-                             updateAction={updateAction}
-                             onSaved={() => listAction && reload(listAction)} />
-            ))}
-          </div>
+          {active === 'assistant_ai' ? (
+            <div className="flex flex-col gap-4">
+              <Segmented value={aiTab} onChange={(v) => setAiTab(v as 'admin' | 'calc')}
+                        options={[{ value: 'admin', label: 'الإدارة' }, { value: 'calc', label: 'المحاسبة' }]} />
+              {aiTab === 'admin' ? (
+                <div className="flex flex-col gap-3">
+                  {activeRows.map((row) => (
+                    <SecretRowCard key={row.key} row={row} session={session}
+                                   updateAction={updateAction}
+                                   onSaved={() => listAction && reload(listAction)} />
+                  ))}
+                  {configGetAction ? (
+                    <AIConfigPanel session={session} getAction={configGetAction}
+                                  setAction={configSetAction} clearAction={configClearAction} />
+                  ) : null}
+                  {personaPreviewAction ? (
+                    <AIPersonaPreview session={session} previewAction={personaPreviewAction} />
+                  ) : null}
+                </div>
+              ) : (
+                // مساحة الحاسبة (تسعير الذكاء الاصطناعي، هامش الربح، التوقعات المالية) — مشروع لاحق،
+                // تصميمه نوقش لكن ما بُني بعد. مكانها هنا محجوز عمداً بدل ما تُقحَم مستقبلاً.
+                <p className="rounded-card border border-dashed border-border-subtle p-6 text-sm text-text-secondary">
+                  الحاسبة المالية للذكاء الاصطناعي — قريباً.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {activeRows.map((row) => (
+                <SecretRowCard key={row.key} row={row} session={session}
+                               updateAction={updateAction}
+                               onSaved={() => listAction && reload(listAction)} />
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+// ── "الإدارة" — نموذج الذكاء الاصطناعي وسلوكه (app/runtime_policy.py، حيّ بلا إعادة نشر) ──────────
+const CONFIG_KEY_META: Record<string, { label: string; help: string }> = {
+  ASSISTANT_MODEL_NAME: { label: 'اسم النموذج',
+    help: 'اسم نموذج Vertex AI بالضبط (مثال: gemini-2.5-flash) — تغييره يسري على المحادثة التالية فوراً.' },
+  SOFT_DECLINE_THRESHOLD: { label: 'عتبة التوقف عن الاقتراح',
+    help: 'عدد مرات رفض العميل لاقتراح قبل ما يتوقف المساعد عن اقتراح أي شي عليه (بلا تصعيد لموظف).' },
+  MAX_CAROUSEL_CARDS: { label: 'أقصى بطاقات بالعرض',
+    help: 'أقصى عدد بطاقات خدمات/باقات يعرضها المساعد بردّ واحد.' },
+};
+
+function AIConfigPanel({ session, getAction, setAction, clearAction }: {
+  session: AdminSession; getAction: AdminAction; setAction?: AdminAction; clearAction?: AdminAction;
+}) {
+  const [config, setConfig] = useState<Record<string, unknown> | 'loading' | 'failed'>('loading');
+
+  function reload() {
+    setConfig('loading');
+    req<{ config: Record<string, unknown> }>(getAction.path, 'GET', undefined, session.access_token)
+      .then((body) => setConfig(body.config))
+      .catch(() => setConfig('failed'));
+  }
+
+  useEffect(reload, [getAction.path, session.access_token]);
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+      <h3 className="font-medium">النموذج والسلوك</h3>
+      {config === 'loading' ? (
+        <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+      ) : config === 'failed' ? (
+        <p role="alert" className="text-danger text-sm">تعذّرت قراءة الإعدادات الحالية.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {Object.entries(config).map(([key, value]) => (
+            <ConfigRow key={key} session={session} k={key} currentValue={value}
+                      setAction={setAction} clearAction={clearAction} onSaved={reload} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }: {
+  session: AdminSession; k: string; currentValue: unknown;
+  setAction?: AdminAction; clearAction?: AdminAction; onSaved: () => void;
+}) {
+  const [value, setValue] = useState(String(currentValue ?? ''));
+  const [arm, setArm] = useState<'set' | 'clear' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const meta = CONFIG_KEY_META[k];
+
+  async function doSet() {
+    if (!setAction || !value) return;
+    setBusy(true); setError('');
+    try {
+      await req(setAction.path, 'PUT', { key: k, value }, session.access_token);
+      onSaved();
+    } catch (err) {
+      setError(sentenceFor(err, 'تعذّر حفظ القيمة.'));
+    } finally { setBusy(false); setArm(null); }
+  }
+
+  async function doClear() {
+    if (!clearAction) return;
+    setBusy(true); setError('');
+    try {
+      await req(clearAction.path.replace('{key}', encodeURIComponent(k)), 'DELETE', undefined, session.access_token);
+      onSaved();
+    } catch (err) {
+      setError(sentenceFor(err, 'تعذّر حذف الإعداد.'));
+    } finally { setBusy(false); setArm(null); }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-border-subtle pt-3 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-sm font-medium" htmlFor={`config-${k}`}>{meta?.label ?? k}</label>
+        <span dir="ltr" className="text-label font-mono text-text-muted">{k}</span>
+      </div>
+      {meta?.help ? <p className="text-label text-text-secondary">{meta.help}</p> : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input id={`config-${k}`} dir="ltr" value={value} onChange={(e) => setValue(e.target.value)}
+              className="max-w-xs" />
+        {setAction ? (
+          <Button size="sm" disabled={!value || busy} onClick={() => setArm('set')}>تحديث</Button>
+        ) : null}
+        {clearAction ? (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setArm('clear')}>
+            استرجاع الافتراضي
+          </Button>
+        ) : null}
+      </div>
+      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+      <ConfirmDialog open={arm === 'set'} onClose={() => setArm(null)} onConfirm={doSet} busy={busy}
+                    title={`تعديل "${meta?.label ?? k}"؟`}
+                    body="يسري على المحادثة التالية فوراً — بلا إعادة تشغيل." />
+      <ConfirmDialog open={arm === 'clear'} onClose={() => setArm(null)} onConfirm={doClear} busy={busy}
+                    title={`استرجاع افتراضي "${meta?.label ?? k}"؟`}
+                    body="يعود للقيمة المبنيّة في الخدمة بدل القيمة المعدَّلة يدوياً." />
+    </div>
+  );
+}
+
+// ── "الشخصية والسلوك" — نفس نمط معاينة AdminLegal (BlockView)، للاطّلاع فقط اليوم: build_system_
+// prompt نص ثابت بالكود لا قالب مخزَّن، فما فيه شي يُحفظ من هنا بعد — انظر operator.py's own note. ──
+function AIPersonaPreview({ session, previewAction }: { session: AdminSession; previewAction: AdminAction }) {
+  const [prompt, setPrompt] = useState<string | 'loading' | 'failed'>('loading');
+  const [ownerNotes, setOwnerNotes] = useState('');
+
+  function load() {
+    setPrompt('loading');
+    const qs = ownerNotes ? `?owner_notes=${encodeURIComponent(ownerNotes)}` : '';
+    req<{ prompt: string }>(`${previewAction.path}${qs}`, 'GET', undefined, session.access_token)
+      .then((body) => setPrompt(body.prompt))
+      .catch(() => setPrompt('failed'));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- يُحمَّل مرة عند الفتح، وبزر "معاينة" بعدها
+  useEffect(load, [previewAction.path]);
+
+  const block: Block = { type: 'text', data: { md_ar: typeof prompt === 'string' ? prompt : '', md_en: '' } };
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+      <h3 className="font-medium">الشخصية والسلوك</h3>
+      <p className="text-label text-text-secondary">
+        هذا النص بالضبط يُرسَل للنموذج كشخصية المساعد — للاطّلاع فقط، لا يُعدَّل من هنا بعد.
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex-1">
+          <label className="text-label font-medium text-text-secondary" htmlFor="persona-owner-notes">
+            جرّب بملاحظات محل حقيقية (اختياري)
+          </label>
+          <Input id="persona-owner-notes" value={ownerNotes} onChange={(e) => setOwnerNotes(e.target.value)} />
+        </div>
+        <Button size="sm" variant="outline" onClick={load}>معاينة</Button>
+      </div>
+      {prompt === 'loading' ? (
+        <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
+      ) : prompt === 'failed' ? (
+        <p role="alert" className="text-danger text-sm">تعذّرت قراءة النص.</p>
+      ) : (
+        <div className="rounded-card border border-border-subtle bg-surface-0 p-4">
+          <BlockView block={block} locale="ar" />
+        </div>
+      )}
+    </section>
   );
 }
 

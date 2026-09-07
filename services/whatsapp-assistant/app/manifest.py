@@ -23,13 +23,13 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
         "name": settings.SERVICE_NAME,
         "version": settings.SERVICE_VERSION,
         "env": settings.ENV,
-        # "platform.secrets" is real now — app/api/v1/operator.py's /operator/secrets routes
-        # enforce it (Depends(require_capability("platform.secrets"))). Still no "admin" here for
-        # the same reason as before (undeclared in loyalty/reminders' manifests too, per
-        # ci/check_deploy_wiring.py step 10's own rule: only a capability a route enforces belongs
-        # here — /admin/ping's "admin" cap is a platform-wide convention every sibling repeats
-        # undeclared, not this service's own).
-        "capabilities": ["platform.secrets"],
+        # "platform.secrets" and "platform.config" are both real — app/api/v1/operator.py's
+        # /operator/secrets AND /operator/config routes each enforce one
+        # (Depends(require_capability(...))). Still no "admin" here for the same reason as before
+        # (undeclared in loyalty/reminders' manifests too, per ci/check_deploy_wiring.py step 10's
+        # own rule: only a capability a route enforces belongs here — /admin/ping's "admin" cap is
+        # a platform-wide convention every sibling repeats undeclared, not this service's own).
+        "capabilities": ["platform.secrets", "platform.config"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -55,6 +55,13 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             {"path": "/api/v1/assistant/operator/secrets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/assistant/operator/secrets", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/assistant/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            # /operator/config joined 2026-09-07 — app/runtime_policy.py's live-overridable knobs
+            # (ASSISTANT_MODEL_NAME/SOFT_DECLINE_THRESHOLD/MAX_CAROUSEL_CARDS), same three-route
+            # shape as reminders'/operations' own copy. persona-preview is read-only, no policy key.
+            {"path": "/api/v1/assistant/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/assistant/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/assistant/operator/config/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/assistant/operator/persona-preview", "tier": "user", "method": "GET"},
         ],
         "ports": ports or [],
         "events": {"emitted": [], "consumed": ["whatsapp.message", "whatsapp.status"]},

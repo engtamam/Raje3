@@ -202,6 +202,70 @@ describe('AdminProviderSecrets', () => {
     expect(screen.queryByText(/تويق باي|tuwaiqpay|moyasar|stripe/i)).toBeNull();
   });
 
+  it('the AI category alone splits into "الإدارة"/"المحاسبة", with a live model/behaviour panel and a read-only persona preview', async () => {
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.operator_config', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/config', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.set_operator_config', label: 'x', method: 'PUT' as const,
+           path: '/api/v1/assistant/operator/config', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.clear_operator_config', label: 'x', method: 'DELETE' as const,
+           path: '/api/v1/assistant/operator/config/{key}', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.persona_preview', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/persona-preview', capability: 'platform.config' },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      if (path === '/api/v1/assistant/operator/config') {
+        return Promise.resolve({ config: { ASSISTANT_MODEL_NAME: 'gemini-2.5-flash' } });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/persona-preview')) {
+        return Promise.resolve({ prompt: 'أنت المساعد الرقمي...' });
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    // فئة الذكاء الاصطناعي هي الوحيدة الموجودة بهذه الاستجابة، فهي المفتوحة افتراضياً — وتبويب
+    // "الإدارة" هو الافتراضي داخلها.
+    await waitFor(() => expect(screen.getByText('الإدارة')).toBeTruthy());
+    expect(screen.getByText('المحاسبة')).toBeTruthy();
+
+    // الأسرار (نفس البطاقة القديمة)، ولوحة النموذج/السلوك، ومعاينة الشخصية — الثلاثة معاً.
+    await waitFor(() => expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy());
+    await waitFor(() => expect(screen.getByDisplayValue('gemini-2.5-flash')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/أنت المساعد الرقمي/)).toBeTruthy());
+
+    // تعديل قيمة نموذج يمر عبر تأكيد قبل PUT — نفس انضباط الأسرار.
+    const modelInput = screen.getByDisplayValue('gemini-2.5-flash') as HTMLInputElement;
+    fireEvent.change(modelInput, { target: { value: 'gemini-3.0-flash' } });
+    // زران بعنوان "تحديث" على الشاشة (بطاقة السر، وصف الإعداد) — هذا الثاني، صاحب مدخل النموذج.
+    const updateButtons = screen.getAllByRole('button', { name: 'تحديث' });
+    fireEvent.click(updateButtons[updateButtons.length - 1]);
+    await waitFor(() => expect(screen.getByText(/تعديل "اسم النموذج"؟/)).toBeTruthy());
+    fireEvent.click(screen.getByText('تأكيد'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/assistant/operator/config', 'PUT',
+      { key: 'ASSISTANT_MODEL_NAME', value: 'gemini-3.0-flash' }, 'tok-1',
+    ));
+
+    // "المحاسبة" مكانها محجوز، ما فيه شي مبني بعد — نص واضح لا شاشة فارغة تبدو معطّلة.
+    fireEvent.click(screen.getByText('المحاسبة'));
+    expect(screen.getByText(/الحاسبة المالية للذكاء الاصطناعي — قريباً/)).toBeTruthy();
+    expect(screen.queryByText('مفتاح الذكاء الاصطناعي')).toBeNull();
+  });
+
   it('never renders any "reveal" or "show" control', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({

@@ -2,9 +2,14 @@
 
 The panel aggregates what every service declares HERE (it is served on /internal/manifest, so the
 code is the source and the panel can never drift). See services/reminders/app/admin_actions.py for
-the full shape contract (docs/contracts/admin-actions.schema.json) — this file only ever needed
-the credential subset of it, because ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_CREDENTIAL are the
-runtime-tunable things this service has (see app/api/v1/assistant/operator.py's own note on why).
+the full shape contract (docs/contracts/admin-actions.schema.json).
+
+/operator/config JOINED THIS FILE 2026-09-07 alongside the pre-existing credential routes below —
+this used to only need the credential subset because ASSISTANT_MODEL_PROJECT/
+ASSISTANT_MODEL_CREDENTIAL were the only runtime-tunable things this service had; app/runtime_policy.py
+now also exists (ASSISTANT_MODEL_NAME/SOFT_DECLINE_THRESHOLD/MAX_CAROUSEL_CARDS), reached from the
+console's المزوّدين الخارجيين ← الذكاء الاصطناعي ← الإدارة screen. See app/api/v1/operator.py's own
+header for why both live in one file.
 
 Each action is a PURE literal dict — safety:admin's CI gate reads it with ast.literal_eval, no
 variables, no f-strings.
@@ -47,5 +52,44 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
         "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة (إن وُجد) — مسح مفتاح الذكاء الاصطناعي يوقف البوت.",
+    },
+    {
+        "id": "whatsapp_assistant.operator_config", "label": "إعدادات التشغيل", "method": "GET",
+        "path": "/api/v1/assistant/operator/config", "capability": "platform.config", "group": "المنصة",
+        "help": "القيم الفعّالة الآن للنموذج وسلوك المساعد — كل واحدة إما افتراضية أو مُعدَّلة يدوياً.",
+    },
+    {
+        "id": "whatsapp_assistant.set_operator_config", "label": "تعديل إعداد تشغيل", "method": "PUT",
+        "path": "/api/v1/assistant/operator/config", "capability": "platform.config",
+        "confirm": True, "group": "المنصة",
+        "help": "يغيّر سلوك المساعد من المحادثة التالية فوراً — بلا إعادة تشغيل.",
+        "params": [
+            {"name": "key", "in": "body", "type": "string", "required": True,
+             "choices": [
+                 {"value": "ASSISTANT_MODEL_NAME", "label": "اسم النموذج"},
+                 {"value": "SOFT_DECLINE_THRESHOLD", "label": "عتبة التوقف عن الاقتراح بعد الرفض"},
+                 {"value": "MAX_CAROUSEL_CARDS", "label": "أقصى عدد بطاقات بالعرض التفاعلي"},
+             ]},
+            {"name": "value", "in": "body", "type": "string", "required": True},
+        ],
+    },
+    {
+        "id": "whatsapp_assistant.clear_operator_config", "label": "حذف إعداد تشغيل", "method": "DELETE",
+        "path": "/api/v1/assistant/operator/config/{key}", "capability": "platform.config",
+        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "المنصة",
+        "help": "يعود للقيمة الافتراضية المبنيّة في الخدمة.",
+    },
+    {
+        "id": "whatsapp_assistant.persona_preview", "label": "معاينة شخصية المساعد", "method": "GET",
+        "path": "/api/v1/assistant/operator/persona-preview", "capability": "platform.config",
+        "group": "المنصة",
+        # READ-ONLY on purpose — see operator.py's own note on this route: fixed house prose today,
+        # nothing stored here yet for an operator to change.
+        "help": "النص الكامل المُرسَل للنموذج كشخصية — للاطّلاع فقط، لا يُعدَّل من هنا بعد.",
+        "params": [
+            {"name": "shop_name", "in": "query", "type": "string", "required": False},
+            {"name": "owner_notes", "in": "query", "type": "string", "required": False},
+        ],
     },
 ]

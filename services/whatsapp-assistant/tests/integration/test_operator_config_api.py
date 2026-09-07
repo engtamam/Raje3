@@ -146,3 +146,24 @@ def test_a_wrong_typed_value_is_refused_not_silently_stored(client, operator_aut
     r = client.put(f"{PREFIX}/config", json={"key": "MAX_CAROUSEL_CARDS", "value": "not-a-number"},
                    headers=operator_auth)
     assert r.status_code == 400
+
+
+# ── persona preview (read-only — see operator.py's own note) ──────────────────────────────────
+def test_persona_preview_needs_the_same_capability_as_config(client, reader_auth):
+    assert client.get(f"{PREFIX}/persona-preview", headers=reader_auth).status_code == 403
+
+
+def test_persona_preview_carries_the_real_house_rules_with_a_generic_shop_label_by_default(
+    client, operator_auth,
+):
+    text = client.get(f"{PREFIX}/persona-preview", headers=operator_auth).json()["prompt"]
+    assert "لا تدّعِ أبدًا أنك أتممت حجزًا" in text
+    from app.core.shop_identity import GENERIC_SHOP_LABEL
+    assert GENERIC_SHOP_LABEL in text
+
+
+def test_persona_preview_reflects_a_real_shop_name_and_owner_notes_when_given(client, operator_auth):
+    text = client.get(f"{PREFIX}/persona-preview", headers=operator_auth,
+                      params={"shop_name": "صالون لمسة", "owner_notes": "نغلق الجمعة"}).json()["prompt"]
+    assert "صالون لمسة" in text
+    assert "نغلق الجمعة" in text

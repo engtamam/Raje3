@@ -29,6 +29,7 @@ from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.config import Settings, get_settings
+from app.core.conversation import build_system_prompt
 from app.core.pii import subject_ref
 from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
@@ -137,6 +138,19 @@ async def clear_config(request: Request, key: str, tenant: str = "",
         resource=f"config:{key}", ip=request.client.host if request.client else "",
         metadata={"key": key, "cleared": True})
     return {"cleared": await _runtime_config(request).clear(tenant=tenant, key=key)}
+
+
+@router.get("/persona-preview", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def persona_preview(shop_name: str = "", owner_notes: str = "",
+                          principal: Principal = Depends(require_user)) -> dict:
+    """The exact text sent as the system prompt — READ-ONLY. build_system_prompt (core/conversation.py)
+    is fixed house prose today, not a stored template; there is nothing here yet for an operator to
+    save. This exists so "الشخصية والسلوك" can show what actually ships rather than making someone
+    read Python to find out — shop_name/owner_notes are optional so a specific shop's real owner_notes
+    can be previewed exactly as the model would see them, same rules-first ordering and redaction
+    included (see build_system_prompt's own docstring on why owner_notes is treated as data, not
+    instructions)."""
+    return {"prompt": build_system_prompt(shop_name, owner_notes)}
 
 
 @router.get("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
