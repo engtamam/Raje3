@@ -1080,6 +1080,22 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                         </>
                       );
                     })() : null}
+
+                    {/* خط "الآن" — لا شي بالشبكة كان يقول "هذه هذي اللحظة" غير عدّ الساعات بالعين.
+                        يظهر فقط بعمود اليوم الحقيقي (بكل أعمدته إن كان عرض يوم — نفس اللحظة تصح
+                        لكل موظف — أو بعمود اليوم وحده إن كان عرض أسبوع) وداخل نافذة الدوام
+                        المرئية فقط — خارجها يعني الوقت غير مرئي بهذا التمرير أصلاً، فلا داعٍ لخط
+                        عائم بلا سياق. `now` نفسه يتحدّث كل دقيقة (أعلى الملف)، فالخط يتحرّك وحده
+                        بلا أي حالة إضافية تُدار هنا. */}
+                    {col.date === todayLocal()
+                        && minutesOf(now) >= WINDOW_START && minutesOf(now) <= WINDOW_END ? (
+                      <div data-testid="now-line" className="pointer-events-none absolute inset-x-0 z-10"
+                          style={{ top: (minutesOf(now) - WINDOW_START) * PX_PER_MIN }}>
+                        <div className="absolute inset-inline-start-0 -top-[3px] h-[7px] w-[7px] rounded-full"
+                            style={{ background: 'var(--rj-accent-deep)' }} />
+                        <div className="h-px w-full" style={{ background: 'var(--rj-accent-deep)' }} />
+                      </div>
+                    ) : null}
                     {/* REAL CELLS NOW, NOT JUST LINES — each quarter-hour used to be a zero-height
                         border with no way to tell it was clickable except by clicking it. A cell
                         that only reveals itself on contact is not an affordance; it is a guess

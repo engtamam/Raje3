@@ -456,6 +456,45 @@ describe('السحب والإفلات', () => {
   });
 });
 
+describe('خط "الآن"', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('draws a now-line, exactly one, when the current moment falls inside the visible window', async () => {
+    // 12:00 — well inside the default 08:00-22:00 working hours every fixture above assumes.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const today = new Date();
+    vi.setSystemTime(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0));
+
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => expect(screen.getByTestId('now-line')).toBeTruthy());
+    expect(screen.getAllByTestId('now-line')).toHaveLength(1);
+  });
+
+  it('draws nothing when the current moment is outside the visible working-hours window', async () => {
+    // 3 AM — well before the 08:00 window start, so "الآن" is not on screen at all today.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const today = new Date();
+    vi.setSystemTime(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 3, 0, 0));
+
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());   // the grid itself rendered — just with no now-line on it
+    expect(screen.queryByTestId('now-line')).toBeNull();
+  });
+
+  it('draws nothing on a week that is not the current one — "الآن" only ever means today', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const today = new Date();
+    vi.setSystemTime(new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0));
+
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    // Jump to next week's view — same component, same fake "now", a different week on screen.
+    fireEvent.click(screen.getByText('الأسبوع'));
+    fireEvent.click(screen.getByLabelText('التالي'));
+    await waitFor(() => expect(screen.queryByTestId('now-line')).toBeNull());
+  });
+});
+
 describe('احجز الجلسة القادمة', () => {
   it('offers the next session after marking attendance, when the service has a real cycle', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
