@@ -60,20 +60,31 @@ async def issue(*, store, settlements_source, period: tuple[int, int] | None = N
     # A VENDOR'S TEST SHOP EARNS NOBODY ANYTHING. It exists so an integration can be proved
     # against the real routes, and its invoices are fictional — paying commission on them would
     # turn a demo into a payout, and the first person to notice would be an accountant.
-    from app.core.integration import is_sandbox as _is_sandbox
+    from app.core.integration import sandbox_tenants as _sandbox_tenants
 
     reg = PartnerRegistry(store, salt="")
     statements = _commission.StatementStore(store)
     issued: list[dict[str, Any]] = []
-    for partner in await reg.list():
+
+    partners = await reg.list()
+    # ONE STAMPS READ PER PARTNER (unavoidable — the registry has no batched multi-partner read),
+    # but the SANDBOX CHECK batches: it used to be `is_sandbox` awaited once per stamp, an N×M
+    # (partners × shops-per-partner) sequential scan inside this monthly job. Collecting every
+    # stamp's tenant up front and asking once turns that into one query regardless of fleet size.
+    all_stamps = {partner.get("id") or "": await reg.stamps_of(partner.get("id") or "")
+                 for partner in partners if partner.get("id")}
+    every_tenant = [st.get("tenant", "") for stamps in all_stamps.values() for st in stamps]
+    sandboxed = await _sandbox_tenants(store, every_tenant)
+
+    for partner in partners:
         pid = partner.get("id") or ""
         # AN INACTIVE PARTNER STILL EARNS ON THE SHOPS HE ALREADY BROUGHT. Deactivating a key
         # stops new attributions; it does not cancel a commission agreed on a shop that is paying
         # us this month. Skipping them here would be a silent renegotiation.
         if not pid:
             continue
-        stamps = [st for st in await reg.stamps_of(pid)
-                  if not await _is_sandbox(store, st.get("tenant", ""))]
+        stamps = [st for st in all_stamps.get(pid, [])
+                  if st.get("tenant", "") not in sandboxed]
         if not stamps:
             continue
         st = _commission.build(partner_id=pid, period_start=period_start, period_end=period_end,

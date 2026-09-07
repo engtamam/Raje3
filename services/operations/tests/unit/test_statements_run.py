@@ -31,9 +31,14 @@ class _Store:
         return self.rows.get((collection, key))
 
     async def find(self, collection, filt=None, *, limit=100, after=None, sort=None):
+        def _match(r, k, v):
+            # Same equality-or-membership contract the real stores implement: a list value in
+            # `filt` means "any of these", a scalar means "exactly this".
+            return r.get(k) in v if isinstance(v, (list, tuple, set)) else r.get(k) == v
+
         out = [r for r in (v for (c, _), v in self.rows.items() if c == collection)
-               if all(r.get(k) == v for k, v in (filt or {}).items())]
-        return out, None
+               if all(_match(r, k, v) for k, v in (filt or {}).items())]
+        return out[:limit], None
 
 
 class _Money:
@@ -287,3 +292,43 @@ def test_a_payment_at_one_in_the_morning_on_the_first_belongs_to_the_new_month(
         "the closed month does not start at Riyadh midnight — a UTC boundary opens it at 03:00")
     assert dt.datetime.fromtimestamp(end, riyadh) == dt.datetime(2026, 9, 1, tzinfo=riyadh), (
         "a payment taken at 01:00 on the first is being billed to the month that already closed")
+
+
+# ── the sandbox check batches instead of one read per (partner, shop) pair (perf) ──────────────
+
+
+def test_sandboxed_shops_are_excluded_and_the_check_batches_not_per_stamp():
+    """THE N×M THIS CLOSES. `issue()` used to call `is_sandbox` once per stamp across every
+    partner — partners × shops-per-partner sequential reads in a monthly job. Proved by counting
+    real `find`/`get` calls against STANDING, not just the resulting totals: a fix that still
+    checked one tenant at a time would still pass a value-only assertion."""
+    store = _Store()
+    _seed(store, tenants=("t_a", "t_b"))
+    store.rows[("tenant_standing", "t_b")] = {"tenant": "t_b", "sandbox": True}
+
+    calls = {"get": 0, "find": 0}
+    real_get, real_find = store.get, store.find
+
+    async def counting_get(collection, key):
+        if collection == "tenant_standing":
+            calls["get"] += 1
+        return await real_get(collection, key)
+
+    async def counting_find(collection, filt=None, **kw):
+        if collection == "tenant_standing":
+            calls["find"] += 1
+        return await real_find(collection, filt, **kw)
+
+    store.get = counting_get
+    store.find = counting_find
+
+    money = _Money({"t_a": {"settled_minor": 40_000, "refunded_minor": 0},
+                    "t_b": {"settled_minor": 20_000, "refunded_minor": 0}})
+    asyncio.run(statements_run.issue(store=store, settlements_source=money,
+                                     now=calendar.timegm((2026, 8, 2, 0, 0, 0, 0, 0, 0))))
+
+    assert calls == {"get": 0, "find": 1}, f"expected one batched find, got {calls}"
+    row = [v for (c, _), v in store.rows.items() if c == STATEMENTS][0]
+    # t_b is a sandbox — its line must not appear, and its money must not be counted.
+    assert {line["tenant"] for line in row["lines"]} == {"t_a"}
+    assert row["total_minor"] == 10_000

@@ -23,6 +23,14 @@ class _Store:
     async def get(self, collection, key):
         return self.rows.get((collection, key))
 
+    async def find(self, collection, where, *, limit=100, after=None, sort=("created", "desc")):
+        # Only what `TillHealth.for_tenants` needs: a `{"tenant": [...]}` membership filter over
+        # one collection. Not a general fake — the real contract lives in tests/contracts.
+        wanted = set(where.get("tenant") or [])
+        rows = [r for (c, _k), r in self.rows.items() if c == collection
+               and r.get("tenant") in wanted]
+        return rows[:limit], None
+
 
 DAY = 86_400
 
@@ -96,3 +104,36 @@ def test_a_batch_with_no_tenant_writes_nothing():
     store = _Store()
     asyncio.run(TillHealth(store).record("", accepted=1, rejected=0))
     assert not [k for k in store.rows if k[0] == TILL_HEALTH]
+
+
+def test_for_tenants_reads_with_one_batched_find_not_one_get_per_tenant():
+    """THE N+1 THIS CLOSES. `for_tenants` used to call `store.get()` once per tenant, and the panel
+    it backs lists a fleet "in the hundreds" (core/connect.py's own phrase) — hundreds of
+    sequential round trips on every panel refresh. Proved by counting real `get`/`find` calls
+    against the store, not just the rows returned: a fix that still read one tenant at a time would
+    still pass a value-only assertion."""
+    store = _Store()
+    health = TillHealth(store)
+    for t in ("t_a", "t_b", "t_c"):
+        asyncio.run(health.record(t, accepted=1, rejected=0, now=1_000))
+
+    calls = {"get": 0, "find": 0}
+    real_get, real_find = store.get, store.find
+
+    async def counting_get(collection, key):
+        calls["get"] += 1
+        return await real_get(collection, key)
+
+    async def counting_find(collection, where, **kw):
+        calls["find"] += 1
+        return await real_find(collection, where, **kw)
+
+    store.get = counting_get
+    store.find = counting_find
+
+    rows = asyncio.run(health.for_tenants(["t_a", "t_b", "t_c", "t_missing"], now=2_000))
+
+    assert calls == {"get": 0, "find": 1}, f"expected one batched find, got {calls}"
+    by_tenant = {r["tenant"]: r for r in rows}
+    assert by_tenant["t_missing"]["state"] == "never"
+    assert by_tenant["t_a"]["state"] == "sending"

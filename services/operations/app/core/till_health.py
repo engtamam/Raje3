@@ -63,9 +63,16 @@ class TillHealth:
         """
         ts = int(now if now is not None else time.time())
         quiet_before = ts - quiet_days * 86_400
+        # ONE BATCHED READ, NOT ONE `get()` PER TENANT. The panel this backs lists health across a
+        # fleet "in the hundreds" (core/connect.py's own phrase), so a sequential `get` per tenant
+        # was hundreds of round trips where the store's own membership-filter `find()` — already
+        # used this same way in `live_connections`/`live_tenants` above — does it in one.
+        rows, _ = await self._s.find(TILL_HEALTH, {"tenant": tenants},
+                                     limit=max(1, len(tenants)))
+        by_tenant = {str(r.get("tenant") or ""): r for r in rows}
         out: list[dict[str, Any]] = []
         for tenant in tenants:
-            row = await self._s.get(TILL_HEALTH, tenant)
+            row = by_tenant.get(tenant)
             if row is None:
                 out.append({"tenant": tenant, "state": "never", "last_at": 0,
                             "accepted": 0, "rejected": 0})

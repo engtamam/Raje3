@@ -72,6 +72,31 @@ async def is_sandbox(store, tenant: str) -> bool:
     return bool((row or {}).get("sandbox"))
 
 
+async def sandbox_tenants(store, tenants: list[str]) -> set[str]:
+    """`is_sandbox`, batched: which of these tenants are labelled sandbox — one read, not one per.
+
+    THE STATEMENTS RUN'S OWN N×M. `statements_run.issue()` used to call `is_sandbox` once per
+    (partner, shop) pair — every stamp of every partner, sequentially awaited — which scales as
+    partners × shops-per-partner in a single monthly job. `STANDING` rows are keyed by tenant, so
+    the same membership-filter `find()` every other batched read in this service uses collapses
+    that into one query; the caller then looks sandbox status up from the returned set instead of
+    awaiting per stamp.
+
+    SAME FAIL-OPEN POSTURE AS `is_sandbox`: an unreadable STANDING collection is answered as "no
+    sandboxes" rather than raising, because treating a real, paying shop as a sandbox silently
+    stops billing it, which nobody notices for months — the worse of the two mistakes `is_sandbox`
+    already reasons about above.
+    """
+    distinct = sorted({t for t in tenants if t})
+    if not distinct:
+        return set()
+    try:
+        rows, _ = await store.find(STANDING, {"tenant": distinct}, limit=len(distinct))
+    except Exception:                                                        # noqa: BLE001
+        return set()
+    return {str(r.get("tenant") or "") for r in (rows or []) if r.get("sandbox")}
+
+
 async def mark_sandbox(store, tenant: str, *, expires_at: int = 0) -> bool:
     """Label a shop as a vendor's test shop, with a date it stops being one.
 
