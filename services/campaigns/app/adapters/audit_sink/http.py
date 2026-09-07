@@ -39,7 +39,7 @@ class HttpAuditSink:
             # The token header is attached in adapters/internal_http.py, the one place this service
             # builds an internally authenticated request. `omit_blank_token` keeps the behaviour
             # this sink already had: with no token configured the header is not sent at all.
-            status, raw = internal_http.send(
+            status, raw = await internal_http.send(
                 self._url, timeout=self._timeout, method="POST", body=body,
                 content_type=internal_http.JSON, token=self._token, omit_blank_token=True)
         except urllib.error.HTTPError as exc:

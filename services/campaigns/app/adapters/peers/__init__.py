@@ -77,7 +77,7 @@ class HttpTemplates:
         self._ttl = ttl_seconds
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
-    def _raw(self, tenant: str) -> dict[str, Any]:
+    async def _raw(self, tenant: str) -> dict[str, Any]:
         """The FULL answer — `templates` and `blocked` together, cached as one unit.
 
         THEY USED TO BE CACHED APART: this method kept only `rows`, so `blocked` — reminders' own
@@ -94,7 +94,7 @@ class HttpTemplates:
         if hit and now - hit[0] < self._ttl:
             return hit[1]
         q = urllib.parse.urlencode({"tenant": tenant})
-        data = _get(f"{self._url}?{q}", self._token, self._timeout)
+        data = await _get(f"{self._url}?{q}", self._token, self._timeout)
         self._cache[tenant] = (now, data)
         return data
 
@@ -103,14 +103,14 @@ class HttpTemplates:
 
         None is what makes «لا يوجد قالب مفعّل لهذا الهدف» true rather than decorative.
         """
-        return dict(self._raw(tenant).get("templates") or {}).get(template_type)
+        return dict((await self._raw(tenant)).get("templates") or {}).get(template_type)
 
     async def enabled_types(self, tenant: str) -> set[str]:
-        return set(dict(self._raw(tenant).get("templates") or {}))
+        return set(dict((await self._raw(tenant)).get("templates") or {}))
 
     async def blocked_reasons(self, tenant: str) -> dict[str, str]:
         """reminders' OWN sentence for why a type is not sendable — never guessed here."""
-        return dict(self._raw(tenant).get("blocked") or {})
+        return dict((await self._raw(tenant)).get("blocked") or {})
 
 
 # ── the audience: built from operations' customers and reminders' learned intervals ────────────
@@ -174,8 +174,8 @@ class HttpRoom:
     async def read(self, tenant: str) -> Any:
         """The ceiling, in notification-service's own shape: -1 unlimited, 0 unknown."""
         try:
-            data = _get(f"{self._room}?tenant={urllib.parse.quote(tenant)}",
-                        self._token, self._timeout)
+            data = await _get(f"{self._room}?tenant={urllib.parse.quote(tenant)}",
+                              self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return _RoomRead()
         return _RoomRead(limit=int(data.get("limit") or 0), tier=str(data.get("tier") or ""),
@@ -186,8 +186,8 @@ class HttpRoom:
         reserved = 0
         if self._reserve:
             try:
-                reserved = int((_get(f"{self._reserve}?tenant={urllib.parse.quote(tenant)}",
-                                     self._token, self._timeout)).get("reserved") or 0)
+                reserved = int((await _get(f"{self._reserve}?tenant={urllib.parse.quote(tenant)}",
+                                           self._token, self._timeout)).get("reserved") or 0)
             except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
                 reserved = 0
         used = (await self.read(tenant)).used
@@ -234,9 +234,9 @@ class HttpAudience:
         """
         # THE BRANCH IS SENT, NOT APPLIED HERE. operations filters before its own 5000 cap; a
         # narrowing done on this side would silently drop the branch's older customers.
-        data = _post(self._customers,
-                     {"tenant": tenant, "limit": 5000, "branch_id": branch_id},
-                     self._token, self._timeout)
+        data = await _post(self._customers,
+                           {"tenant": tenant, "limit": 5000, "branch_id": branch_id},
+                           self._token, self._timeout)
         # A LIST THAT CARRIES WHETHER IT IS THE WHOLE LIST. operations now says whether its own
         # read stopped early, and that fact has to survive the trip to `audience.resolve` or the
         # preview goes on reporting «reaches 4,300» for a shop whose book it only half saw. A
@@ -247,9 +247,9 @@ class HttpAudience:
         if not rows or not self._rhythms:
             return rows
         try:
-            learned = (_post(self._rhythms,
-                             {"tenant": tenant, "service_id": service_id, "limit": 5000},
-                             self._token, self._timeout)).get("rhythms") or {}
+            learned = (await _post(self._rhythms,
+                                   {"tenant": tenant, "service_id": service_id, "limit": 5000},
+                                   self._token, self._timeout)).get("rhythms") or {}
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return rows
         for r in rows:
@@ -273,9 +273,9 @@ class HttpAudience:
         because a peer blinked would silently shrink an audience with no reason the owner can see.
         """
         try:
-            data = _post(self._eligibility,
-                         {"tenant": tenant, "subject_ref": subject_ref, "class": cls},
-                         self._token, self._timeout)
+            data = await _post(self._eligibility,
+                               {"tenant": tenant, "subject_ref": subject_ref, "class": cls},
+                               self._token, self._timeout)
             if "allowed" not in data:
                 # THE SAME CALL AS THE TRANSPORT FAILURE BELOW, SAID OUT LOUD. An answer with no
                 # verdict in it is a contract break rather than a refusal, and this is a PREVIEW —
@@ -308,8 +308,8 @@ class HttpAudience:
         if not reached or not self._redeemed:
             return 0
         try:
-            data = _post(self._redeemed, {"tenant": tenant, "reached": reached},
-                        self._token, self._timeout)
+            data = await _post(self._redeemed, {"tenant": tenant, "reached": reached},
+                               self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return 0
         return int(data.get("redeemed") or 0)
@@ -349,7 +349,7 @@ class HttpSender:
         are two problems.
         """
         try:
-            return _post(self._url, {
+            return await _post(self._url, {
                 "tenant": tenant, "subject_ref": subject_ref,
                 "template_type": template_type, "class": cls,
                 # WHICH NUMBER IT LEAVES FROM, and which branch the send log records. A chain with
@@ -400,8 +400,8 @@ class HttpPackageOfferable:
         """`False` on ANY failure — an unreachable peer or an unknown package both mean "do not
         advertise it", the same fail-closed posture as every other paid-surface gate here."""
         try:
-            out = _post(self._url, {"tenant": tenant, "package_id": package_id, "at": int(at)},
-                       self._token, self._timeout)
+            out = await _post(self._url, {"tenant": tenant, "package_id": package_id, "at": int(at)},
+                              self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
         return bool(out.get("offerable"))
@@ -433,7 +433,7 @@ class HttpIdentity:
         if hit and now - hit[0] < self._ttl:
             return hit[1]
         path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
-        data = _get(f"{self._url}{path}", self._token, self._timeout)
+        data = await _get(f"{self._url}{path}", self._token, self._timeout)
         branding = data.get("branding") or {}
         name = str(data.get("name") or "")
         self._cache[tenant] = (now, name)

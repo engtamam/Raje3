@@ -93,7 +93,7 @@ class HttpLicence:
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out: dict[str, Any] = internal_http.get_json(
+            out: dict[str, Any] = await internal_http.get_json(
                 f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return False

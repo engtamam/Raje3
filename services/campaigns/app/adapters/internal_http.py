@@ -18,9 +18,19 @@ the exception included, for the caller to answer in its own terms.
 `urlopen` is called on a URL assembled from CONFIG, never from a request body, which is what makes
 the `# nosec B310` below true rather than merely asserted: no caller can point an internally
 authenticated call at a host of their choosing.
+
+`urlopen` ITSELF IS SYNCHRONOUS, AND EVERY CALLER HERE IS `async def`. `send`/`read` below run the
+blocking socket call inside `asyncio.to_thread`, the same offload `adapters/object_store/local.py`
+already uses for its own blocking filesystem calls — a pod running this service is single-worker,
+so a peer call left un-offloaded doesn't just slow its own request, it freezes every other
+in-flight request on the pod, `/healthz`/`/readyz` included, for the full round trip. That exact
+failure mode is already documented as a production incident for the JWKS verifier
+(`adapters/token_verifier/jwks.py`) — this file is what every OTHER peer call goes through, so the
+same fix belongs here, once, rather than repeated at each call site.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.request
 from typing import Any
@@ -48,38 +58,52 @@ def request(url: str, *, method: str | None = None, body: bytes | None = None,
     return urllib.request.Request(url, data=body, method=method, headers=headers)
 
 
-def send(url: str, *, timeout: float, **kw: Any) -> tuple[int, bytes]:
-    """Send, and return `(status, raw body)` for callers that judge the status themselves."""
+def _send_sync(url: str, *, timeout: float, **kw: Any) -> tuple[int, bytes]:
     with urllib.request.urlopen(request(url, **kw),
                                 timeout=timeout) as resp:          # nosec B310 - config-only host
         return resp.status, resp.read()
 
 
-def read(url: str, timeout: float, **kw: Any) -> bytes:
+async def send(url: str, *, timeout: float, **kw: Any) -> tuple[int, bytes]:
+    """Send, and return `(status, raw body)` for callers that judge the status themselves.
+
+    Offloaded to a worker thread — see the module docstring — so a slow peer blocks only the
+    awaiting caller, not the whole pod's event loop.
+    """
+    return await asyncio.to_thread(_send_sync, url, timeout=timeout, **kw)
+
+
+def _read_sync(url: str, timeout: float, **kw: Any) -> bytes:
+    with urllib.request.urlopen(request(url, **kw),
+                                timeout=timeout) as resp:          # nosec B310 - config-only host
+        return resp.read()
+
+
+async def read(url: str, timeout: float, **kw: Any) -> bytes:
     """Send, and read ONLY the body.
 
     Deliberately does not touch `resp.status`: the peer clients never did, `urlopen` has already
     raised on 4xx/5xx by the time this returns, and the fakes those clients are tested against
     implement `read()` and nothing else. Reading a status here would be a new demand on every
     response object in the suite for a value no caller ever asked for.
+
+    Offloaded to a worker thread — see the module docstring — same as `send`.
     """
-    with urllib.request.urlopen(request(url, **kw),
-                                timeout=timeout) as resp:          # nosec B310 - config-only host
-        return resp.read()
+    return await asyncio.to_thread(_read_sync, url, timeout, **kw)
 
 
-def get_json(url: str, token: str, timeout: float) -> dict[str, Any]:
+async def get_json(url: str, token: str, timeout: float) -> dict[str, Any]:
     """A GET whose answer is JSON. The failure stays the caller's to answer."""
-    return json.loads(read(url, timeout, token=token) or b"{}")
+    return json.loads(await read(url, timeout, token=token) or b"{}")
 
 
-def post_json(url: str, body: dict[str, Any], token: str, timeout: float, *,
-              method: str = "POST") -> dict[str, Any]:
+async def post_json(url: str, body: dict[str, Any], token: str, timeout: float, *,
+                    method: str = "POST") -> dict[str, Any]:
     """A JSON body sent under the internal token, same contract as `get_json`.
 
     `method` is POST unless the peer's contract says otherwise — portal saves a customer's message
     preferences with a PUT, which is the same request in every other respect and has no business
     being a second hand-rolled one.
     """
-    return json.loads(read(url, timeout, method=method, body=json.dumps(body).encode(),
-                           content_type=JSON, token=token) or b"{}")
+    return json.loads(await read(url, timeout, method=method, body=json.dumps(body).encode(),
+                                 content_type=JSON, token=token) or b"{}")

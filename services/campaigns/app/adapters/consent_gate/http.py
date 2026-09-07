@@ -37,7 +37,7 @@ class HttpConsentGate:
             # One static header, attached in adapters/internal_http.py — the only place this service
             # builds an internally authenticated request. `omit_blank_token` preserves what this
             # gate already did: no configured token means no header, not an empty one.
-            status, raw = internal_http.send(
+            status, raw = await internal_http.send(
                 f"{self._url}?{query}", timeout=self._timeout, method="GET",
                 token=self._token, omit_blank_token=True)
         except urllib.error.HTTPError as exc:

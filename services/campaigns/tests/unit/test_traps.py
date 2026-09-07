@@ -322,7 +322,7 @@ def test_the_audience_row_carries_the_learned_rhythm():
 
     from app.adapters.peers import HttpAudience
 
-    def fake_post(url, body, token, timeout):
+    async def fake_post(url, body, token, timeout):
         if url.endswith("/customers"):
             return {"customers": [{"subject_ref": "sub_a", "last_visit": 100, "visit_count": 3},
                                   {"subject_ref": "sub_b", "last_visit": 200, "visit_count": 1}]}
@@ -351,7 +351,7 @@ def test_an_unreachable_rhythm_read_costs_precision_not_the_campaign():
 
     from app.adapters.peers import HttpAudience
 
-    def fake_post(url, body, token, timeout):
+    async def fake_post(url, body, token, timeout):
         if url.endswith("/customers"):
             return {"customers": [{"subject_ref": "sub_a", "last_visit": 100}]}
         raise OSError("reminders is restarting")
@@ -389,7 +389,7 @@ def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
         "t-new": {"templates": {}, "blocked": {"mkt_winback": "قيد مراجعة واتساب"}},
     }
 
-    def fake_get(url, token, timeout):
+    async def fake_get(url, token, timeout):
         asked.append(url)
         tenant = url.split("tenant=", 1)[1]
         return json.loads(json.dumps(library[tenant]))
@@ -466,7 +466,7 @@ def test_a_stale_template_answer_refreshes_once_the_ttl_elapses():
     calls = {"n": 0}
     answer = {"templates": {}}                      # nothing enabled yet
 
-    def fake_get(url, token, timeout):
+    async def fake_get(url, token, timeout):
         calls["n"] += 1
         return json.loads(json.dumps(answer))
 
