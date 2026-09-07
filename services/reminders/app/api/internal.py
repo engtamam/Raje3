@@ -1269,8 +1269,14 @@ async def rhythms(request: Request, body: RhythmsIn) -> dict:
     measurement.
 
     PSEUDONYMS ONLY, like every other cross-service read here.
+
+    FOUND BROKEN 2026-09-07, building `/reminders/rhythm-for-subject` right beside it: this route
+    imported `RULES` from `app.core.models` (never defined there — it lives in `app.core.stores`),
+    an ImportError on every single call, zero test coverage anywhere in this service to have ever
+    caught it. Every campaign audience join this route was meant to serve has failed at this line
+    since the day it was written. Fixed here, alongside its sibling below.
     """
-    from app.core.models import RULES
+    from app.core.stores import RULES
 
     c = request.app.state.container
     where = {"tenant": body.tenant}
@@ -1288,6 +1294,43 @@ async def rhythms(request: Request, body: RhythmsIn) -> dict:
         out[ref] = {"interval_days": float(r.get("interval_days") or 0.0),
                     "last_visit": int(r.get("last_visit_at") or 0),
                     "observations": int(r.get("observations") or 0)}
+    return {"rhythms": out, "count": len(out)}
+
+
+@router.get("/reminders/rhythm-for-subject", dependencies=[Depends(require_internal_token)])
+async def rhythm_for_subject(request: Request, tenant: str, subject_ref: str) -> dict:
+    """The SAME learned rhythm `rhythms` above already computes — POST /reminders/rhythms exists
+    for campaigns' bulk audience join (one tenant, thousands of customers, filtered by service_id
+    at most); this route is the OTHER shape a caller needs: one specific customer, every service he
+    has a rhythm for at once, no tenant-wide scan. whatsapp-assistant's own personalization tool
+    (spec: "خدمات مستحقة قريباً"/"خدمات توقف عنها") is exactly that caller — a mid-conversation
+    lookup for ONE customer must not pay the cost of a 5000-row tenant scan to answer it.
+
+    Same GET-with-query-params shape as `sends-for-subject` right above, for the same reason: this
+    is a read keyed by (tenant, subject_ref), not a body worth a POST.
+
+    `is_learned` TRAVELS WITH EACH ROW, not left for the caller to recompute — see `rhythms`'s own
+    docstring on why presenting a defaulted estimate as learned is a lie a caller two services away
+    should never have to know to avoid. Uses AdaptiveConfig's own default warmup (2 observations);
+    this route carries no per-tenant tuning today because nothing has needed it yet.
+    """
+    from app.core.adaptive import AdaptiveConfig, is_learned
+    from app.core.stores import RULES
+
+    c = request.app.state.container
+    rows, _ = await c.datastore.find(
+        RULES, {"tenant": tenant, "subject_ref": subject_ref}, limit=200, sort=("updated", "desc"))
+    cfg = AdaptiveConfig()
+    out = []
+    for r in rows or []:
+        observations = int(r.get("observations") or 0)
+        out.append({
+            "service_id": str(r.get("service_id") or ""),
+            "interval_days": float(r.get("interval_days") or 0.0),
+            "last_visit_at": int(r.get("last_visit_at") or 0),
+            "observations": observations,
+            "is_learned": is_learned(observations, cfg),
+        })
     return {"rhythms": out, "count": len(out)}
 
 
