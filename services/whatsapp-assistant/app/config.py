@@ -366,7 +366,7 @@ class Settings(BaseSettings):
     LLM_TOOL_ALLOWLIST: str = (
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
-        "propose_reschedule_booking,suggest_services_carousel")
+        "propose_reschedule_booking,suggest_services_carousel,list_packages")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.

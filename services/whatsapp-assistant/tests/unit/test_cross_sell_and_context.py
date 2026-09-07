@@ -493,6 +493,86 @@ async def test_package_catalog_peer_failure_degrades_to_an_empty_packages_sectio
     assert plan.kind == "text"          # the conversation still proceeds normally
 
 
+# ── list_packages: answers "do you have packages?" directly — not the upsell-only filter ────────
+
+async def test_list_packages_answers_directly_even_below_the_upsell_price_floor():
+    """A genuine discount bundle (priced BELOW its parts) is exactly what a customer asking about
+    packages wants to hear — the upsell section's price_minor >= component_sum floor must NOT
+    apply here, unlike test_an_eligible_package_reaches_the_models_own_context_block above."""
+    store = MemoryDataStore()
+    packages = _FakePackageCatalog({"t1": [
+        {"id": "pkg1", "name": "باقة العناية الكاملة", "price_minor": 15000, "active": True,
+         "service_ids": ["svc_a", "svc_b"], "next_offerable_dates": ["2026-09-10"]},
+    ]})
+    catalog = _FakeCatalog({"t1": [
+        {"id": "svc_a", "name": "قص شعر", "price_minor": 0},
+        {"id": "svc_b", "name": "حلاقة ذقن", "price_minor": 0}]})
+    llm = StubLlm()
+    llm.queue_tool_call("list_packages")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=frozenset({"list_packages"}),
+        service_catalog=catalog, package_catalog=packages)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="عندكم باقات؟", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert plan.kind == "text"
+    assert "باقة العناية الكاملة" in plan.text
+    assert "قص شعر" in plan.text and "حلاقة ذقن" in plan.text
+    assert "150" in plan.text   # 15000 minor -> 150 riyals
+    # NO PendingProposal, no button — presentational, same posture as suggest_related_service.
+    conv = await engine._get(TENANT, SUBJECT)
+    assert conv.pending_proposal_id == ""
+
+
+async def test_list_packages_excludes_inactive_and_unbookable_packages():
+    store = MemoryDataStore()
+    packages = _FakePackageCatalog({"t1": [
+        {"id": "pkg1", "name": "باقة منتهية", "price_minor": 100, "active": False,
+         "service_ids": [], "next_offerable_dates": ["2026-09-10"]},
+        {"id": "pkg2", "name": "باقة بلا مواعيد", "price_minor": 100, "active": True,
+         "service_ids": [], "next_offerable_dates": []},
+    ]})
+    llm = StubLlm()
+    llm.queue_tool_call("list_packages")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=frozenset({"list_packages"}),
+        service_catalog=_FakeCatalog({}), package_catalog=packages)
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="عندكم باقات؟", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert "لا توجد باقات متاحة" in plan.text
+
+
+async def test_list_packages_with_no_package_catalog_wired_says_so_plainly():
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_tool_call("list_packages")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=frozenset({"list_packages"}))
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="عندكم باقات؟", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert "لا تتوفر باقات" in plan.text
+
+
 async def test_no_package_catalog_wired_at_all_degrades_the_same_way():
     """Pre-existing test constructors (package_catalog=None, the default) must keep working
     unmodified — the same None-safe shape as every other optional peer in this engine."""

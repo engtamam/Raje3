@@ -157,6 +157,17 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "currently have a real photo."),
         "parameters": {"type": "object", "properties": {}},
     },
+    "list_packages": {
+        "name": "list_packages",
+        "description": (
+            "Read-only: list the shop's REAL bundled packages available to book soon, with their "
+            "real prices — use this when the customer directly asks about packages/bundles/deals "
+            "(e.g. 'do you have packages?', 'أبغى عرض/باقة'). Unlike suggest_related_service, this "
+            "is not filtered to only-upsells — a genuine discount bundle is exactly the right "
+            "answer here. Never invent a package or a price beyond what the result names; booking "
+            "one still goes through propose_booking(package_id=...) like any other item."),
+        "parameters": {"type": "object", "properties": {}},
+    },
 }
 
 

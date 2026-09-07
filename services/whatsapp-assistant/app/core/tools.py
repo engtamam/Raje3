@@ -195,6 +195,42 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         return (f"يمكنك استخدام «{offer['reward_name']}» بنقاطك الحالية — فقط اذكرها عند حجز "
                f"موعدك وسأرفقها به.")
 
+    if tool == "list_packages":
+        # READ-ONLY, same posture as suggest_related_service/list_my_bookings below — no
+        # proposal, no button. Booking one still goes through propose_booking(package_id=...)
+        # like any other item.
+        #
+        # DELIBERATELY NOT THE SAME FILTER context_builder.py's upsell section uses — that one
+        # additionally requires price_minor >= component_price_minor_sum, because it exists to
+        # protect an UNPROMPTED suggestion from ever looking like a downsell. A customer who asks
+        # "do you have packages/deals?" is asking a direct question a genuine discount bundle (the
+        # normal shape of a package — priced BELOW its parts) is exactly the right answer to; that
+        # restriction would silently hide the shop's actual deals from its own customers. Only
+        # "does this package genuinely exist and can it be booked soon" gates a package here.
+        if package_catalog is None:
+            return "لا تتوفر باقات لهذا المحل حاليًا."
+        packages = [p for p in await package_catalog.list_active(tenant)
+                   if p.get("active") and (p.get("next_offerable_dates") or [])]
+        if not packages:
+            return "لا توجد باقات متاحة للحجز حاليًا."
+        names_by_id: dict[str, str] = {}
+        if service_catalog is not None:
+            for s in await service_catalog.list_active(tenant):
+                names_by_id[str(s.get("id"))] = str(s.get("name") or s.get("id"))
+        lines = ["باقاتنا المتاحة الآن:"]
+        for p in packages:
+            included = "، ".join(names_by_id.get(sid, sid) for sid in p.get("service_ids") or [])
+            riyals = int(p.get("price_minor") or 0) / 100
+            line = f"- {p.get('name')} (id: {p.get('id')}): تشمل {included} — بسعر {riyals:g} ريال"
+            person_count = int(p.get("person_count") or 1)
+            if person_count > 1:
+                line += f"، تكفي {person_count} أشخاص"
+            out = p.get("next_offerable_dates") or []
+            if out:
+                line += f" — الأيام المتاحة قريبًا: {'، '.join(out)}"
+            lines.append(line)
+        return "\n".join(lines)
+
     if tool == "suggest_related_service":
         service_id = str(args.get("service_id") or "")
         if not service_id:
