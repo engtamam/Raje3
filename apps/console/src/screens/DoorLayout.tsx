@@ -103,6 +103,7 @@ export function DoorLayout({ children, title, subtitle }: {
             <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
               الخصوصية
             </a>
+            {/* TODO: badge/link للسجل التجاري — بانتظار الرابط/الرقم الحقيقي من تمام، لا تُخترع قيمة هنا */}
           </p>
         </div>
       </main>
