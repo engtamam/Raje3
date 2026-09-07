@@ -241,6 +241,21 @@ class BookingOperations:
             if allowed and operator_id not in allowed:
                 raise OperationError("هذا الموظف لا يقدر يسوّي إحدى الخدمات المختارة")
 
+    async def _refuse_if_ineligible_for_booking(self, tenant: str, operator_id: str,
+                                                service_ids: tuple, package_id: str) -> None:
+        """Same eligibility rule `create()` enforces above, factored out for reuse — fixed
+        2026-09-07: `reschedule()` and `edit_services()` used to skip this entirely, so
+        reassigning a booking to a new operator (or swapping in a different service) never
+        re-checked whether that operator can actually perform what the booking now holds. A QA
+        audit found this real gap; this is the one place both call sites now route through."""
+        if package_id:
+            if self._package_eligibility is not None:
+                allowed = await self._package_eligibility.eligible_for(tenant, package_id)
+                if allowed and operator_id not in allowed:
+                    raise OperationError("هذا الموظف لا يقدر يسوّي هذه الباقة")
+        else:
+            await self._refuse_if_ineligible(tenant, operator_id, list(service_ids))
+
     async def _effective_schedule(self, tenant: str, operator_id: str) -> "Any":
         """The shop's own weekly hours, narrowed to THIS operator's own override when he has
         one — never wider than the shop's, by construction: `operations` refuses to save an
@@ -387,6 +402,11 @@ class BookingOperations:
         booking.starts_at = int(starts_at)
         if operator_id:
             booking.operator_id = operator_id
+        # THE WRITE ITSELF REFUSES, NOT ONLY create()'S OWN SUGGESTION FLOW — same reasoning as
+        # `_refuse_if_ineligible`'s own docstring, fixed 2026-09-07: reassigning the operator here
+        # used to skip this entirely.
+        await self._refuse_if_ineligible_for_booking(
+            tenant, booking.operator_id, booking.service_ids, booking.package_id)
         booking.updated = int(now)
         saved = await self._claim_and_save(booking, now=now)
         await self._events.emit(kind="rescheduled", booking=saved)
@@ -402,6 +422,10 @@ class BookingOperations:
         duration = await self._durations.minutes(tenant, tuple(service_ids))
         if not duration:
             raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+        # Fixed 2026-09-07 — same gap as reschedule()'s own fix: swapping in a service the
+        # CURRENT operator can't do used to go through unrefused.
+        await self._refuse_if_ineligible_for_booking(
+            tenant, booking.operator_id, tuple(service_ids), booking.package_id)
         now = time.time()
         booking.service_ids = tuple(service_ids)
         booking.duration_minutes = duration
@@ -760,11 +784,22 @@ class BookingOperations:
 
     async def _refuse_if_conflicting(self, booking: Booking) -> None:
         """The AUTHORITATIVE re-check, inside the lock — the advisory grid read before the lock
-        is never trusted for the actual write (§2)."""
+        is never trusted for the actual write (§2).
+
+        SCANS THE ADJACENT DAY-BUCKETS TOO — fixed 2026-09-07, a real bug found by a QA audit: a
+        booking is stored under the bucket of its OWN start time, but a service long enough to push
+        a late booking past midnight (e.g. 23:50 + 60min) OCCUPIES the next day's early slots too.
+        Querying only `booking`'s own bucket missed a same-operator conflict stored under the
+        PREVIOUS day's bucket (a late booking already there) as well as one that would be missed
+        under the NEXT day's bucket if `booking` itself is the one spilling over — this scans one
+        day either side, a cheap, safe over-read (`slots_between` is one indexed query, not a full
+        scan) rather than trusting the "no shop is open at midnight" assumption to hold everywhere
+        a booking can be created (nothing in `create()`/`reschedule()` actually enforces it)."""
         end = booking.starts_at + booking.duration_minutes * 60
-        bucket = day_bucket(booking.starts_at)
+        start_bucket = day_bucket(booking.starts_at - 86_400)
+        end_bucket = day_bucket(max(end - 1, booking.starts_at) + 86_400)
         candidates = await self._bookings.slots_between(
-            booking.tenant, booking.branch_id, start_bucket=bucket, end_bucket=bucket)
+            booking.tenant, booking.branch_id, start_bucket=start_bucket, end_bucket=end_bucket)
         for other in candidates:
             if other.id == booking.id or other.operator_id != booking.operator_id:
                 continue
