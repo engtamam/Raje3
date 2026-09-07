@@ -22,7 +22,8 @@ import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
-import { Check, ImageOff, LayoutGrid, List, Pencil, Power, RotateCcw, Upload, X } from 'lucide-react';
+import { PageHeader } from '../rj-ui/PageHeader';
+import { Check, ImageOff, LayoutGrid, List, Pencil, Power, RotateCcw, Upload, Wrench, X } from 'lucide-react';
 import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
@@ -681,21 +682,31 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     }
   };
 
-  // THE TAB SWITCHER — shown above every state below it (loading, failed, empty, and the full
-  // page), so switching to «الباقات» never depends on «الخدمات» having finished loading first.
-  // Hidden entirely for a role that cannot see packages at all, same "don't show a control that
-  // does nothing" rule the whole console follows.
-  const switcher = packagesEnabled ? (
-    <Segmented
-      ariaLabel={t('services.tabSwitcherAriaLabel')}
-      value={tab}
-      onChange={(v) => setTab(v as ServicesPageTab)}
-      options={[
-        { value: 'services', label: t('services.title') },
-        { value: 'packages', label: t('services.packagesTab') },
-      ]}
-    />
-  ) : null;
+  // THE TITLE, AND THE TAB SWITCHER — shown above every state below it (loading, failed, empty,
+  // and the full page), so switching to «الباقات» never depends on «الخدمات» having finished
+  // loading first. The switcher itself is hidden entirely for a role that cannot see packages at
+  // all, same "don't show a control that does nothing" rule the whole console follows — the
+  // title stays regardless, same as every other screen's own PageHeader.
+  const switcher = (
+    <>
+      <PageHeader icon={Wrench} title={t('services.title')} />
+      {packagesEnabled ? (
+        <Segmented
+          // FULL WIDTH, SPLIT EVENLY — same top-level-switcher convention as Points.tsx/Messages.tsx's
+          // own tab bars, not the default hug-content sizing (that default is for a nested filter row,
+          // never for the two primary sections of this whole screen).
+          className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+          ariaLabel={t('services.tabSwitcherAriaLabel')}
+          value={tab}
+          onChange={(v) => setTab(v as ServicesPageTab)}
+          options={[
+            { value: 'services', label: t('services.title') },
+            { value: 'packages', label: t('services.packagesTab') },
+          ]}
+        />
+      ) : null}
+    </>
+  );
 
   // «الباقات» IS ITS OWN SELF-CONTAINED SUB-COMPONENT — it does not depend on `services`/
   // `settings` having loaded here at all, so it renders regardless of this screen's own guards

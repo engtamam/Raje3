@@ -20,9 +20,10 @@
  * platform-wide palette, which stays a separate decision for a separate day.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, TrendingUp } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
+import { PageHeader } from '../rj-ui/PageHeader';
 import { Skeleton } from '../rj-ui/Skeleton';
 import type { ShellContext } from '../shell-context';
 import { Link, useOutletContext } from 'react-router-dom';
@@ -157,6 +158,12 @@ export function ShopScreen() {
     // every side — the seam that made a screen with a brand-new identity read as pasted onto an
     // unchanged shell rather than actually redesigned.
     <div style={TOKENS} className="-m-4 flex flex-col gap-3 p-4 sm:-m-6 sm:p-6 md:-m-8 md:p-8">
+      {/* THE SAME ICON نav.ts ALREADY MARKS THIS ROW WITH IN THE RAIL (TrendingUp, «محلّي») — a
+          page every other rail destination now opens with its own title; this one had none at
+          all, going straight into TodayPulse. Colour is left to inherit `--sh-ink` from `TOKENS`
+          above rather than the generic `text-text-secondary` PageHeader defaults to elsewhere —
+          this screen's own bespoke palette, not the plain one every other screen uses. */}
+      <PageHeader icon={TrendingUp} title="محلّي" />
       <TodayPulse session={session} catalog={catalog} />
       <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
     </div>

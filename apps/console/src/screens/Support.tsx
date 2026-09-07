@@ -16,6 +16,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Textarea } from '../rj-ui/Field';
+import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
 import { Waiting } from '../Waiting';
 import { AssistantHint } from '../AssistantHint';
@@ -57,10 +58,7 @@ export function SupportScreen({ session, catalog }: { session: Session; catalog:
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center gap-2">
-        <LifeBuoy size={22} className="text-text-secondary" aria-hidden />
-        <h1 className="text-2xl leading-tight tracking-tight">الدعم الفني</h1>
-      </div>
+      <PageHeader icon={LifeBuoy} title="الدعم الفني" />
 
       {CHAT_ENABLED() ? (
         <Segmented

@@ -27,8 +27,10 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { MessageSquare } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
+import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
@@ -569,6 +571,8 @@ export function MessagesScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      <PageHeader icon={MessageSquare} title="رسائلي" />
+
       {isLoading(today) ? (
         <Skeleton height={76} radius="card" />
       ) : isReady(today) ? (

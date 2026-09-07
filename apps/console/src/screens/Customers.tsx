@@ -18,8 +18,9 @@
 import { hasFailed, isDenied, isLoading, isReady, DENIED, type Loading } from '../loading';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search } from 'lucide-react';
+import { ChevronLeft, Search, Users } from 'lucide-react';
 import { EmptyState } from '../rj-ui/EmptyState';
+import { PageHeader } from '../rj-ui/PageHeader';
 import { Button } from '../rj-ui/Button';
 import { Segmented } from '../rj-ui/Segmented';
 import { Skeleton } from '../rj-ui/Skeleton';
@@ -204,6 +205,8 @@ export function CustomersScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      <PageHeader icon={Users} title="عملائي" />
+
       {/* ── what his customers asked him for ────────────────────────────────────────────────
           FIRST, AND ONLY WHEN THERE IS ONE. A customer tapped «اطلب حذف بياناتي» on his own page;
           under the PDPL the establishment is the controller and owes him an answer within thirty

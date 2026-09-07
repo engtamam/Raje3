@@ -22,9 +22,10 @@
  * opening this page gets a short page, never a broken one.
  */
 import { useEffect, useState } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, UserCog } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
+import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -195,6 +196,8 @@ export function AccountScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      <PageHeader icon={UserCog} title="حسابي" />
+
       {/* ── who he is, and where he works — ALWAYS shown, regardless of tab. A field operator's
           role often cannot reach «منشأتي» at all (it is gated on capabilities his role does not
           hold), so this cannot live behind that tab, let alone a sub-tab of it. Depends on no
