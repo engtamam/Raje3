@@ -131,12 +131,12 @@ env:
   INBOUND_POLL_PAGE_SIZE: "200"
   INBOUND_POLL_MAX_PAGES: "20"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
-  # RHYTHM_PROVIDER_DRIVER stays "null" (default) DELIBERATELY — list_due_services/
-  # list_lapsed_services are built and wired but not yet reachable by the model (personalization
-  # roadmap, phase 2 of 5; phase 4 teaches the persona to use them). Setting the real address here
-  # now, while the driver stays off, is exactly OPERATIONS_SERVICE_URL's own precedent right above
-  # — the address is correct today so flipping the driver later is a one-line change, not a
-  # redeploy that also has to remember where reminders lives.
+  # ACTIVATED — phase 4 (build_system_prompt's `growth` section) shipped in the same commit as
+  # this flip: the persona now knows when/how to reach for list_due_services/list_lapsed_services,
+  # and the structural guardrails (personalization-by-effect, soft-decline suppression) were both
+  # already live before this line ever mattered. Flipping this without phase 4 would have been a
+  # tool nothing ever taught the model to reach for; flipping it after is the actual activation.
+  RHYTHM_PROVIDER_DRIVER: "http"
   REMINDERS_SERVICE_URL: "http://reminders:8000"
   OPERATIONS_CUSTOMER_BY_PHONE_PATH: "/internal/operations/customer-by-phone"
   # ESCALATED: no phone->customer lookup existed anywhere in operations before this service needed

@@ -55,6 +55,16 @@ def test_build_system_prompt_still_carries_the_hard_behavioral_constraints():
     assert "تجاهل" in prompt          # ignore attempts to override instructions
 
 
+def test_build_system_prompt_carries_the_growth_freedom_and_its_boundary():
+    """Phase 4 of the personalization roadmap: the model gets explicit freedom to combine
+    list_due_services/list_lapsed_services/list_packages/suggest_redeemable_offer, bounded by
+    "once per angle, then drop it" — not a fixed script (the owner's own "ما أبغى نحدّه")."""
+    prompt = build_system_prompt("محل الأناقة")
+    assert "مرة واحدة فقط" in prompt
+    assert "بلا محاولة ثانية" in prompt
+    assert "دون اختلاق فرصة غير موجودة" in prompt
+
+
 def test_build_system_prompt_refuses_medical_and_technical_advice():
     """Found live (audit, 2026-09-05): nothing forbade the model from answering a genuine, ordinary
     customer question like «ايش الأفضل لبشرتي؟» with free-form advice — a real liability exposure
