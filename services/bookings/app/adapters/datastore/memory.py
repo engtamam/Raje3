@@ -19,6 +19,12 @@ class MemoryDataStore:
         row = self._data.get(collection, {}).get(key)
         return copy.deepcopy(row) if row is not None else None
 
+    async def get_many(self, collection: str, keys: list[str]) -> dict[str, dict[str, Any]]:
+        """See the port. No round trip to save here — this is a dict lookup loop either way — but
+        the SHAPE matches Postgres so a caller writes one code path against both drivers."""
+        bucket = self._data.get(collection, {})
+        return {k: copy.deepcopy(bucket[k]) for k in keys if k in bucket}
+
     async def put(self, collection: str, key: str, value: dict[str, Any]) -> None:
         self._data.setdefault(collection, {})[key] = copy.deepcopy(value)
 

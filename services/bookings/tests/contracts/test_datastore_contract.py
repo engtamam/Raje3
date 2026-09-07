@@ -88,6 +88,34 @@ def test_health(store):
     assert run(store.health()) is True
 
 
+# ── get_many(): the batched read that replaced BookingStore.slots_between's N+1 ─────────────────
+# Same "must hold identically on both adapters" rule as find() above.
+
+
+def test_get_many_returns_only_the_keys_that_exist(store):
+    run(store.put("things", "a", {"n": 1}))
+    run(store.put("things", "b", {"n": 2}))
+    got = run(store.get_many("things", ["a", "b", "missing"]))
+    assert got == {"a": {"n": 1}, "b": {"n": 2}}
+
+
+def test_get_many_of_an_empty_key_list_is_an_empty_dict_no_round_trip(store):
+    assert run(store.get_many("things", [])) == {}
+
+
+def test_get_many_is_scoped_to_its_own_collection(store):
+    run(store.put("c1", "a", {"n": 1}))
+    run(store.put("c2", "a", {"n": 9}))
+    assert run(store.get_many("c1", ["a"])) == {"a": {"n": 1}}
+
+
+def test_get_many_returns_isolated_copies(store):
+    run(store.put("things", "a", {"n": 1}))
+    got = run(store.get_many("things", ["a"]))
+    got["a"]["n"] = 999
+    assert run(store.get("things", "a")) == {"n": 1}
+
+
 # ── find(): the primitive that replaced the full-collection scan ─────────────
 # These must hold IDENTICALLY on both adapters. Where they do not, a repository that passes its
 # unit tests against the memory store is wrong in production and nothing says so.

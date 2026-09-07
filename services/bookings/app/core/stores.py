@@ -127,11 +127,19 @@ class BookingStore:
             BOOKING_SLOTS, {"tenant": tenant, "branch_id": branch_id}, limit=limit,
             sort=("bucket", "asc"))
         wanted = [r for r in rows if start_bucket <= str(r.get("bucket") or "") <= end_bucket]
+        # ONE BATCHED READ, NOT ONE `get()` PER SLOT. `nearest_slot` calls this with `limit=500`
+        # over up to a 14-day window, and a sequential `get()` per row meant up to 500 awaited
+        # Postgres round trips to answer one "أقرب موعد" click. `get_many` keeps the ids in the
+        # order the index gave them (it is a dict lookup on the result, not a second query), so
+        # the bucket ordering `find()` already sorted by survives the swap unchanged.
+        booking_ids = [str(r.get("booking_id") or "") for r in wanted]
+        hydrated = await self._s.get_many(
+            self.collection, [_key(tenant, bid) for bid in booking_ids if bid])
         out: list[Booking] = []
-        for row in wanted:
-            b = await self.get(tenant, str(row.get("booking_id") or ""))
-            if b is not None:
-                out.append(b)
+        for bid in booking_ids:
+            row = hydrated.get(_key(tenant, bid))
+            if row is not None:
+                out.append(_from_row(row))
         return out
 
     async def counts_between(self, tenant: str, branch_id: str, *,

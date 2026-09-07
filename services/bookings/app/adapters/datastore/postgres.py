@@ -116,6 +116,22 @@ class PostgresDataStore:
             )
         return json.loads(row) if row is not None else None
 
+    async def get_many(self, collection: str, keys: list[str]) -> dict[str, dict[str, Any]]:
+        """One `= ANY($2)` query instead of `len(keys)` separate `get()` round trips.
+
+        Still served by the primary key `(collection, key)` — no new index needed, this is the
+        same lookup `get` does, just for a set of keys instead of one.
+        """
+        if not keys:
+            return {}
+        pool = await self._ensure()
+        async with pool.acquire() as con:
+            rows = await con.fetch(
+                f"SELECT key, value FROM {_TABLE} WHERE collection=$1 AND key = ANY($2)",  # nosec B608 - _TABLE is a trusted constant; all values are parameterized
+                collection, list(keys),
+            )
+        return {r["key"]: json.loads(r["value"]) for r in rows}
+
     async def put(self, collection: str, key: str, value: dict[str, Any]) -> None:
         pool = await self._ensure()
         async with pool.acquire() as con:

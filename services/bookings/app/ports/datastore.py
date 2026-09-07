@@ -13,6 +13,21 @@ class DataStore(Protocol):
 
     async def get(self, collection: str, key: str) -> dict[str, Any] | None: ...
 
+    async def get_many(self, collection: str, keys: list[str]) -> dict[str, dict[str, Any]]:
+        """`get`, batched: one round trip for many keys instead of one round trip per key.
+
+        THE N+1 THIS EXISTS TO REMOVE. `BookingStore.slots_between` reads a page of index rows with
+        one `find()`, then hydrated each into a full `Booking` with a separate awaited `get()` per
+        row — `nearest_slot`'s own `limit=500` call meant up to 500 sequential Postgres round trips
+        (each its own `pool.acquire()`) to answer one "nearest slot" click.
+
+        Returns `{key: value}` for the keys that exist — a MISSING key is simply absent from the
+        result, the same silent-omission contract `find()` already has for a `where` match with no
+        row, rather than a `None` a caller has to filter back out. Callers that need to know which
+        of THEIR keys were absent do `set(keys) - result.keys()`, not the store.
+        """
+        ...
+
     async def put(self, collection: str, key: str, value: dict[str, Any]) -> None: ...
 
     async def delete(self, collection: str, key: str) -> bool: ...

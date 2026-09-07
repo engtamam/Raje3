@@ -55,3 +55,41 @@ def test_a_reschedule_leaves_no_stale_slot_row_behind():
 
     keys = asyncio.run(run())
     assert len(keys) == 1, f"expected exactly one slot row after the reschedule, got {keys}"
+
+
+def test_slots_between_hydrates_with_one_batched_read_not_one_per_row():
+    """THE N+1 THIS CLOSES. `slots_between` used to call `self.get()` once per matching slot row —
+    `nearest_slot`'s own `limit=500` call meant up to 500 sequential round trips to answer one
+    click. Proved by counting real `get_many`/`get` calls against the store, not just the returned
+    rows: a fix that still hydrated one row at a time would pass a value-only assertion."""
+    async def run():
+        store = MemoryDataStore()
+        bookings = BookingStore(store)
+        for i in range(5):
+            await bookings.save(_booking(id=f"bkg_{i}", starts_at=1786860000 + i * 1800))
+
+        calls = {"get": 0, "get_many": 0}
+        real_get, real_get_many = store.get, store.get_many
+
+        async def counting_get(collection, key):
+            calls["get"] += 1
+            return await real_get(collection, key)
+
+        async def counting_get_many(collection, keys):
+            calls["get_many"] += 1
+            return await real_get_many(collection, keys)
+
+        store.get = counting_get
+        store.get_many = counting_get_many
+
+        rows = await bookings.slots_between("t1", "b1", start_bucket="2026-08-16",
+                                            end_bucket="2026-08-16")
+        return rows, calls
+
+    rows, calls = asyncio.run(run())
+    assert len(rows) == 5
+    assert calls == {"get": 0, "get_many": 1}, (
+        f"expected one batched get_many, got {calls}")
+    # AND THE ORDER SURVIVES THE BATCH — the index's own bucket/created ordering, not whatever
+    # order a dict happens to iterate keys in.
+    assert [b.id for b in rows] == [f"bkg_{i}" for i in range(5)]
