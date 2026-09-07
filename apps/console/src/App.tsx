@@ -25,7 +25,7 @@ import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
 import { WelcomeTrial } from './screens/WelcomeTrial';
 import { action, call, fetchCatalog, SessionExpired, type Catalog } from './catalog';
-import { ACCOUNT_PATH, isOutage, visibleSections } from './nav';
+import { ACCOUNT_PATH, isOutage, SUPPORT_PATH, visibleSections } from './nav';
 import { BranchSwitch } from './BranchSwitch';
 import { currentBranch, loadBranch, saveBranch, type ScopeBranch } from './branch-scope';
 import type { Owned } from './apps';
@@ -239,17 +239,22 @@ export function App() {
       // alone, and the shell PERSISTS the collapsed choice per browser — so an owner who once
       // folded the rail was left with seven blank rows: sized, clickable, and mute. He had lost
       // his navigation with nothing on screen to say what had happened or how to undo it.
-      navItems={sections.map((s) => ({
+      // «الدعم الفني» IS FILTERED OUT HERE, not deleted from `SECTIONS` — see nav.ts's own note
+      // beside that entry. It still gates on `tickets.open` exactly as before; this only decides
+      // where it renders (the icon row below, beside «حسابي», rather than a ninth rail row).
+      navItems={sections.filter((s) => s.id !== 'support').map((s) => ({
         to: s.path,
         label: s.unavailable ? `${s.label} · متعذّر الآن` : s.label,
         icon: s.icon,
       }))}
       user={{ name: session.operatorName || session.operator }}
       labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج',
-                account: 'حسابي' }}
+                account: 'حسابي', support: 'الدعم الفني' }}
       // «حسابي» AS AN ICON BESIDE SIGN-OUT, not as a ninth row in the rail. Both controls are
       // about the PERSON rather than about the shop, and the shell already groups them in one
       // block — so this costs no rail height and reads where a person already looks for himself.
+      // «الدعم الفني» JOINS IT for the same reason, right beside it — moved out of the rail's
+      // eight shop-work rows.
       // THE SCOPE ABOVE THE NAV, which is where a scope belongs: everything below this line is
       // about what it says. The shell keeps this slot for exactly that and hides it on the
       // collapsed rail, where there is no room for a control with a label.
@@ -270,6 +275,10 @@ export function App() {
         />
       }
       onAccount={() => navigate(ACCOUNT_PATH)}
+      // UNDEFINED, NOT A HANDLER THAT REFUSES — `sections` is already `visibleSections(catalog)`,
+      // so an operator without `tickets.open` never gets the entry in the first place; the icon
+      // simply does not render for him, same as every other role-gated control in this shell.
+      onSupport={sections.some((s) => s.id === 'support') ? () => navigate(SUPPORT_PATH) : undefined}
       onSignOut={() => { signOut(); navigate('/'); }}
       // THE LANGUAGE SWITCH ITSELF, IN THE RAIL — not per-screen any more. It used to live inside
       // Visit.tsx alone, when Visit was the only screen that read useOperatorI18n(); Bookings,

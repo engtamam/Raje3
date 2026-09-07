@@ -9,6 +9,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import {
   Command,
   Languages,
+  LifeBuoy,
   LogOut,
   Menu,
   Moon,
@@ -68,6 +69,8 @@ export interface AppShellLabels {
   toggleLang?: string;
   /** Aria/title for the account link (only rendered when `onAccount` is given). */
   account?: string;
+  /** Aria/title for the support link (only rendered when `onSupport` is given). */
+  support?: string;
 }
 
 export interface AppShellProps {
@@ -95,6 +98,10 @@ export interface AppShellProps {
   onToggleLang?: () => void;
   /** Account link — renders only when provided (e.g. on-prem has an /account page; cloud does not). */
   onAccount?: () => void;
+  /** Support link, in the same user-block icon row as `onAccount` — a channel with its own support
+   *  section (e.g. a ticket route) passes this instead of giving it a full rail row of its own, the
+   *  same "about the person, not about the shop's own work" grouping `onAccount` already earned. */
+  onSupport?: () => void;
   /** Show the "⌘K" command-palette hint in the footer (channels with a palette). */
   showPaletteHint?: boolean;
   /** App-only extras mounted once alongside the shell (e.g. the command palette). */
@@ -204,6 +211,7 @@ export function AppShell({
   onToggleTheme,
   onToggleLang,
   onAccount,
+  onSupport,
   showPaletteHint,
   slots,
   footer,
@@ -354,6 +362,19 @@ export function AppShell({
         <div className="border-t border-border-subtle px-3 py-2.5" data-testid="current-user">
           {collapsed ? (
             <div className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-2/50">
+              {onSupport && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onSupport}
+                  aria-label={labels.support}
+                  title={labels.support}
+                  data-testid="support-link"
+                  className="rounded-none hover:bg-black/[0.06] dark:hover:bg-white/10"
+                >
+                  <LifeBuoy size={18} />
+                </Button>
+              )}
               {onAccount && (
                 <Button
                   variant="ghost"
@@ -362,7 +383,10 @@ export function AppShell({
                   aria-label={user?.name || labels.account}
                   title={user?.name || labels.account}
                   data-testid="account-link"
-                  className="rounded-none hover:bg-black/[0.06] dark:hover:bg-white/10"
+                  className={cn(
+                    'rounded-none hover:bg-black/[0.06] dark:hover:bg-white/10',
+                    onSupport && 'border-t border-border-subtle',
+                  )}
                 >
                   <UserCog size={18} />
                 </Button>
@@ -376,7 +400,7 @@ export function AppShell({
                 data-testid="logout"
                 className={cn(
                   'rounded-none text-text-secondary hover:bg-danger-soft hover:text-danger-on-soft',
-                  onAccount && 'border-t border-border-subtle',
+                  (onAccount || onSupport) && 'border-t border-border-subtle',
                 )}
               >
                 <LogOut size={18} />
@@ -395,6 +419,19 @@ export function AppShell({
                     </Badge>
                   )}
                 </div>
+                {onSupport && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onSupport}
+                    aria-label={labels.support}
+                    title={labels.support}
+                    data-testid="support-link"
+                    className="shrink-0 hover:bg-black/[0.06] dark:hover:bg-white/10"
+                  >
+                    <LifeBuoy size={18} />
+                  </Button>
+                )}
                 {onAccount && (
                   <Button
                     variant="ghost"

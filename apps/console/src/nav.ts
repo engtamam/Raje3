@@ -131,11 +131,18 @@ export const SECTIONS: Section[] = [
   // ONE NAME, IN THE RAIL, WHERE A SHOP GOES TO BUY. Not a ninth errand: it is the only row
   // that takes money, and a product that hides its own till is a product that does not sell.
   { service: 'billing', id: 'store', path: '/store', label: 'متجر التطبيقات', icon: Store, requires: ['billing.plans'] },
-  // «الدعم الفني» — راجع، 2026-08-23: the shop's own half of the support loop, the affiliate
-  // portal's TicketCarousel being the other. `tickets.open` is ticket-service's own user action
+  // «الدعم الفني» — the shop's own half of the support loop, the affiliate portal's
+  // TicketCarousel being the other. `tickets.open` is ticket-service's own user action
   // (platform/services/ticket-service/app/user_actions.py) — `tickets.self`, granted to owner and
   // manager alike, same reasoning as every other row here: anyone who runs the shop day to day
   // may raise a problem, not the owner alone.
+  //
+  // NO LONGER A RAIL ROW OF ITS OWN — App.tsx filters this entry out of `navItems` and renders it
+  // as a second icon beside «حسابي» in the shell's user block instead (SUPPORT_PATH above), same
+  // move «حسابي» itself made and for the same reason: raising a problem is about the person
+  // asking, not about the shop's own work the rest of the rail lists. The entry stays HERE,
+  // unfiltered, so `tickets.open`'s gating and `check_roles.py`'s reachability check are both
+  // still driven by one row, not two definitions of what "can this person reach support" means.
   { service: 'ticket-service', id: 'support', path: '/support', label: 'الدعم الفني', icon: LifeBuoy, requires: ['tickets.open'] },
   // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
   // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
@@ -156,6 +163,14 @@ export const SECTIONS: Section[] = [
 
 /** Where the account icon in the shell's user block leads. Not a Section: it is never filtered. */
 export const ACCOUNT_PATH = '/account';
+
+/** «الدعم الفني»'s own path, IN ADDITION TO its `SECTIONS` entry above — App.tsx still filters
+ *  the row out of the rail itself and renders it as a second icon beside «حسابي» instead (same
+ *  "about the person, not about the shop's own work" grouping the account icon already earned),
+ *  but the entry stays in `SECTIONS` so `tickets.open`'s gating and `check_roles.py`'s own
+ *  reachability check both still see it. This constant is only the route the icon navigates to,
+ *  named once rather than re-typed at the one call site that needs it. */
+export const SUPPORT_PATH = '/support';
 
 /**
  * «فريقي», which left the rail and stayed a screen — and was named in a COMMENT alone.
