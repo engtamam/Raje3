@@ -102,7 +102,7 @@ export function FilterMenu({
   }
 
   return (
-    <div ref={rootRef} className={`relative flex w-full flex-col gap-2 ${className ?? ''}`}>
+    <div ref={rootRef} className={`relative flex flex-col gap-2 ${className ?? ''}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
