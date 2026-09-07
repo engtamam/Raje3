@@ -146,6 +146,12 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   const personaPreviewAction = findAction('whatsapp_assistant.persona_preview');
   // "الإدارة"/"المحاسبة" — فقط داخل فئة الذكاء الاصطناعي؛ ما فيه سبب يتكرر بأي فئة ثانية اليوم.
   const [aiTab, setAiTab] = useState<'admin' | 'calc'>('admin');
+  // المسار — أي محرّك/خدمة ذكاء اصطناعي داخل الفئة نفسها تتحكّم فيه هذه الشاشة. واحد فقط اليوم
+  // (مساعد واتساب المحلات)، لكن المُختار موجود ومرئي من الآن — لو انضاف مسار ثانٍ مستقبلاً (خدمة
+  // عملاء المنصة مثلاً، أو محرّك ذكاء ثانٍ لواتساب نفسه) يظهر هنا مباشرة بلا إعادة تصميم، وaiTab/
+  // بطاقات "الإدارة" أدناه تتحوّل حسب `aiPath` بدل ما تفترض مساعد واتساب دائماً.
+  const AI_PATHS = [{ value: 'whatsapp_assistant', label: 'مساعد واتساب المحلات' }] as const;
+  const [aiPath, setAiPath] = useState<string>(AI_PATHS[0].value);
 
   const reload = (action: AdminAction) => {
     setRows('loading');
@@ -216,15 +222,20 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
           />
           {active === 'assistant_ai' ? (
             <div className="flex flex-col gap-4">
+              {/* المسار — واحد فقط اليوم، لكن ظاهر ومُختار من الآن. مسار ثانٍ مستقبلاً (محرّك ذكاء
+                 ثانٍ، أو خدمة عملاء المنصة) يضاف هنا بلا إعادة تصميم — انظر تعليق `AI_PATHS` أعلاه. */}
+              <div className="flex flex-col gap-1">
+                <span className="text-label font-medium text-text-secondary">المسار</span>
+                <Segmented value={aiPath} onChange={setAiPath}
+                          options={AI_PATHS.map((p) => ({ value: p.value, label: p.label }))} />
+              </div>
               <Segmented value={aiTab} onChange={(v) => setAiTab(v as 'admin' | 'calc')}
                         options={[{ value: 'admin', label: 'الإدارة' }, { value: 'calc', label: 'المحاسبة' }]} />
               {aiTab === 'admin' ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeRows.map((row) => (
-                    <SecretCard key={row.key} row={row} session={session}
-                               updateAction={updateAction}
-                               onSaved={() => listAction && reload(listAction)} />
-                  ))}
+                  <SecretsCard providerLabel="الذكاء الاصطناعي" rows={activeRows} session={session}
+                              updateAction={updateAction}
+                              onSaved={() => listAction && reload(listAction)} />
                   {configGetAction ? (
                     <AIConfigCard session={session} getAction={configGetAction}
                                  setAction={configSetAction} clearAction={configClearAction} />
@@ -243,11 +254,9 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {activeRows.map((row) => (
-                <SecretCard key={row.key} row={row} session={session}
-                           updateAction={updateAction}
-                           onSaved={() => listAction && reload(listAction)} />
-              ))}
+              <SecretsCard providerLabel={(PROVIDER_META[active ?? ''] ?? PROVIDER_META.other).label}
+                          rows={activeRows} session={session} updateAction={updateAction}
+                          onSaved={() => listAction && reload(listAction)} />
             </div>
           )}
         </>
@@ -475,30 +484,50 @@ function groupByProvider(rows: SecretRow[]): [string, SecretRow[]][] {
 }
 
 // البطاقة المصغّرة (المُشغِّل) — تُفتح نافذة فيها النموذج الكامل بدل عرضه مفرودًا بالصفحة.
-function SecretCard({ row, session, updateAction, onSaved }: {
-  row: SecretRow; session: AdminSession; updateAction?: AdminAction; onSaved: () => void;
+// بطاقة واحدة لكل الأسرار داخل الفئة الحالية معاً — لا بطاقة منفصلة لكل مفتاح (قرار 2026-09-07):
+// كلها "بيانات اتصال" لنفس المزوّد، وفتحها منفصلة كان يُرجع نفس التمرير الطويل بشكل آخر.
+function SecretsCard({ providerLabel, rows, session, updateAction, onSaved }: {
+  providerLabel: string; rows: SecretRow[]; session: AdminSession; updateAction?: AdminAction;
+  onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const configuredCount = rows.filter((r) => r.configured).length;
+  if (rows.length === 0) return null;
   return (
     <>
-      <CardTrigger onClick={() => setOpen(true)} title={row.label}
-                   subtitle={<span className="flex flex-col gap-0.5">
-                     <span dir="ltr" className="text-label font-mono text-text-muted">{row.key}</span>
-                     {row.unreadable ? (
-                       <span className="text-label text-danger">تعذّر الاتصال بالعنقود</span>
-                     ) : row.configured ? (
-                       <span dir="ltr" className="text-label text-text-secondary">····{row.last4}</span>
-                     ) : null}
+      <CardTrigger onClick={() => setOpen(true)} title="الأسرار"
+                   subtitle={<span className="text-label text-text-secondary">
+                     {configuredCount}/{rows.length} مُعدّ
                    </span>}
-                   trailing={!row.unreadable ? (
-                     <Badge tone={row.configured ? 'success' : 'neutral'}>
-                       {row.configured ? 'مُعدّ' : 'غير مُعدّ'}
-                     </Badge>
-                   ) : null} />
-      <Modal open={open} onClose={() => setOpen(false)} title={row.label}
-            subtitle={<span dir="ltr" className="font-mono">{row.key}</span>}>
-        <SecretForm row={row} session={session} updateAction={updateAction}
-                   onSaved={onSaved} onClose={() => setOpen(false)} />
+                   trailing={<Badge tone={configuredCount === rows.length ? 'success' : 'neutral'}>
+                     {rows.length} {rows.length === 1 ? 'مفتاح' : 'مفاتيح'}
+                   </Badge>} />
+      <Modal open={open} onClose={() => setOpen(false)} title={`أسرار ${providerLabel}`} size="lg">
+        <div className="flex flex-col gap-5">
+          {rows.map((row, i) => (
+            <div key={row.key}
+                className={i > 0 ? 'flex flex-col gap-3 border-t border-border-subtle pt-5' : 'flex flex-col gap-3'}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="font-medium">{row.label}</span>
+                  <span dir="ltr" className="text-label font-mono text-text-muted">{row.key}</span>
+                  {row.unreadable ? (
+                    <span className="text-label text-danger">تعذّر الاتصال بالعنقود — الحالة غير معروفة حالياً</span>
+                  ) : row.configured ? (
+                    <span dir="ltr" className="text-label text-text-secondary">····{row.last4}</span>
+                  ) : null}
+                </div>
+                {!row.unreadable ? (
+                  <Badge tone={row.configured ? 'success' : 'neutral'}>
+                    {row.configured ? 'مُعدّ' : 'غير مُعدّ'}
+                  </Badge>
+                ) : null}
+              </div>
+              <SecretForm row={row} session={session} updateAction={updateAction}
+                         onSaved={onSaved} onClose={() => setOpen(false)} />
+            </div>
+          ))}
+        </div>
       </Modal>
     </>
   );
