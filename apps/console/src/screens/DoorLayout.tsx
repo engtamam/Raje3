@@ -21,6 +21,7 @@
  */
 import type { ReactNode } from 'react';
 import { Mark, Wordmark } from '../brand/Mark';
+import { legalUrl } from '../legal/url';
 
 /**
  * Depth from LIGHT, not from boxes. Two soft pools of the brand gold over deep navy — the near one
@@ -89,6 +90,20 @@ export function DoorLayout({ children, title, subtitle }: {
             <Wordmark className="text-base" />
           </a>
           {children}
+
+          {/* MARKETING'S FOOTER, MINIATURE — this screen is the one place a signed-out visitor may
+              land with NO landing page behind it at all (a direct link, or a future "skip the
+              landing page" mode). The legal links must be reachable from here on their own, not
+              only from marketing/index.html's footer. */}
+          <p className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-text-muted">
+            <span>© راجِع — جميع الحقوق محفوظة</span>
+            <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
+              الشروط
+            </a>
+            <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
+              الخصوصية
+            </a>
+          </p>
         </div>
       </main>
     </div>
