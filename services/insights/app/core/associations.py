@@ -258,6 +258,17 @@ def missed_opportunities(pairs: list[Pair], sequences: dict[str, list[str]],
     `temporal` pairs count here as much as `real` ones: a customer who takes the oil and never the
     filter is a missed opportunity whether the two belong in one bundle or one is due later.
     """
+    # NOT TIGHTENED FURTHER, DELIBERATELY. This is O(customers × actionable pairs), which reads as
+    # the nested-loop shape a perf pass should flatten — but `actionable` is bounded by the
+    # association engine's own catalogue-sized pair count (tens: a shop's catalogue is "ten to
+    # forty services" per this module's own docstring, line 67), never by anything that scales
+    # with the customer base. `sequences` can be thousands of rows, but each is multiplied by a
+    # small constant, not by another collection of the same order — O(customers × small-constant),
+    # not O(n²) in anything large. The `limit` (500) break below only ends the OUTER loop early
+    # (a customer already in progress finishes their own inner pass, which the audit that flagged
+    # this also noted) — tightening that to break out of the pair loop too would save at most
+    # `len(actionable)` extra iterations on the one customer that crosses the limit, which is not
+    # worth the extra branch for a limit this cheap to reach.
     actionable = [p for p in pairs if p.verdict in ("real", "temporal")]
     out: list[dict[str, Any]] = []
     for ref, services in sequences.items():

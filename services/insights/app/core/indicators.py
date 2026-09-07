@@ -32,17 +32,28 @@ def _by_customer(visits: Iterable[dict]) -> dict[str, list[dict]]:
     return out
 
 
+def _return_rate_of(per: dict[str, list[dict]]) -> float:
+    """`return_rate`'s own arithmetic, over an index the caller already built.
+
+    SPLIT OUT SO `retention_series` NEVER BUILDS THE SAME INDEX TWICE. It used to call
+    `_by_customer(slice_)` for `people` and then `return_rate(slice_)`, which called
+    `_by_customer(slice_)` again on the identical slice — two dict-builds-and-sorts per trailing
+    window instead of one. `return_rate` below is unchanged for every other caller; only the
+    duplicate build inside `retention_series` goes away.
+    """
+    if not per:
+        return 0.0
+    repeat = sum(1 for rows in per.values() if len(rows) > 1)
+    return round(repeat / len(per), 3)
+
+
 def return_rate(visits: list[dict]) -> float:
     """Of the people who came at all, how many came more than once.
 
     THE FIRST NUMBER AN OWNER SHOULD SEE, because a shop where nobody returns has one problem and
     it is not which service to bundle. Every other indicator here assumes returning customers.
     """
-    per = _by_customer(visits)
-    if not per:
-        return 0.0
-    repeat = sum(1 for rows in per.values() if len(rows) > 1)
-    return round(repeat / len(per), 3)
+    return _return_rate_of(_by_customer(visits))
 
 
 def return_cycle_days(visits: list[dict], *, min_gaps: int = 20) -> int | None:
@@ -538,12 +549,16 @@ def retention_series(visits: list[dict], *, now: int, points: int = 6,
         start = end - window
         slice_ = [v for v in visits
                   if start <= int(v.get("occurred_at") or v.get("created_at") or 0) <= end]
-        people = len(_by_customer(slice_))
+        # BUILT ONCE, REUSED FOR BOTH NUMBERS. `people` and the return rate used to each build
+        # their own `_by_customer` index over the same window slice — two builds-and-sorts where
+        # one does the job, across up to `points` (6) trailing windows.
+        per = _by_customer(slice_)
+        people = len(per)
         out.append({
             "at": end,
             "customers": people,
             # None, never 0.0 — see the docstring. The screen draws a gap.
-            "value": round(return_rate(slice_), 3) if people >= min_customers else None,
+            "value": _return_rate_of(per) if people >= min_customers else None,
         })
 
     drawn = [p for p in out if p["value"] is not None]

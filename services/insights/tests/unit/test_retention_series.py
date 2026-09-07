@@ -50,3 +50,24 @@ def test_the_measurement_does_not_change_shape_over_the_line():
 def test_an_empty_shop_is_learning_not_zero():
     r = indicators.retention_series([], now=NOW)
     assert r["learning"] is True and r["have"] == 0
+
+
+def test_the_per_customer_index_is_built_once_per_window_not_twice(monkeypatch):
+    """THE DUPLICATE WORK THIS CLOSES. `retention_series` used to call `_by_customer(slice_)` for
+    `people` and then `return_rate(slice_)`, which called `_by_customer` again on the identical
+    slice — two builds per window instead of one. Proved by counting real `_by_customer` calls,
+    not just that the numbers came out right: a fix that still built the index twice would still
+    pass a value-only test."""
+    calls = {"n": 0}
+    real = indicators._by_customer
+
+    def counting(visits):
+        calls["n"] += 1
+        return real(visits)
+
+    monkeypatch.setattr(indicators, "_by_customer", counting)
+
+    r = indicators.retention_series(_shop(early_repeat=8, late_repeat=30), now=NOW, points=6)
+
+    assert r["learning"] is False
+    assert calls["n"] == 6, f"expected exactly one build per window (6), got {calls['n']}"
