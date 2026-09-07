@@ -649,10 +649,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </div>
           </div>
 
-          {/* صفّان لا صف واحد — "كيف نعرض" (يوم/أسبوع، شبكة/قائمة، الإعدادات، الفرع، الموظف)
-              منفصل بصرياً عن "أي جزء من البيانات" (الفلاتر). خلطهما بصف واحد طويل هو بالضبط ما
-              كان يضغط عنصر التصفية بالدفع حتى يُقصّ نصّه ("عرب" بدل "عربون") — كل مجموعة الآن
-              بصفّها الخاص، فلا تتزاحم على نفس المساحة الأفقية أبداً. */}
+          {/* ONE ROW, NOT TWO — merged 2026-09-08 at the owner's own instruction. It USED to be
+              split ("كيف نعرض" — يوم/أسبوع، شبكة/قائمة، الإعدادات، الفرع، الموظف — apart from
+              "أي جزء من البيانات", the filters) because cramming both into one row was exactly
+              what clipped the payment filter's own text ("عرب" instead of "عربون"). That defence
+              is now on the payment toggle ITSELF (`shrink-0 whitespace-nowrap` per button, see
+              its own comment below) rather than on keeping two rows apart — so one wide row that
+              WRAPS (never clips, `flex-wrap`) is safe where it was not before. Order, right to
+              left: فلتر الزمن (يوم/أسبوع/الشهر/السنة) first, then طريقة العرض and أوقات الدوام
+              right after it, then الفرع/الموظف, then البحث/الخدمة/العربون. */}
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
               {(['day', 'week', 'month', 'year'] as const).map((v) => (
@@ -719,23 +724,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 {staffHere.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             ) : null}
-          </div>
 
-          {/* FILTERS, NOT A SEARCH BOX — narrowing the grid is a tap on what it already shows
-              (a service, a deposit state), never typing a query for something read a hundred
-              times a day. صفّها الخاص دائماً (لا يشارك عرض/تبويب) — العرض المتاح لعناصر التصفية
-              الأربعة (بحث، خدمة، أربع حالات دفع، مسح) لا يتغيّر بوجود فرع أو موظف بجانبه.
-
-              TWO LAYOUTS, ONE STATE. On a phone the header is already three rows deep before
-              the grid starts, so the controls fold into one chip — a tap most of the time, two
-              on the day filtering actually touches. On anything wider there is room to just
-              SHOW the two controls inline, which is the one-tap version this was always meant
-              to be; the chip below only exists for the width that cannot afford it. */}
-          {/* FILTERS NARROW `rows`/`visible` — MEANINGLESS FOR MONTH/YEAR, which never load
-              `rows` at all (see `daysToLoad`'s own guard above). Hidden for those two views
-              rather than shown and silently inert. */}
-          {(view === 'day' || view === 'week') ? (
-          <div className="flex flex-wrap items-center gap-2.5">
+            {/* FILTERS, NOT A SEARCH BOX — narrowing the grid is a tap on what it already shows
+                (a service, a deposit state), never typing a query for something read a hundred
+                times a day. MEANINGLESS FOR MONTH/YEAR — those two never load `rows` at all
+                (see `daysToLoad`'s own guard above), so this whole group is hidden rather than
+                shown inert for them. */}
+            {(view === 'day' || view === 'week') ? (
+            <>
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
                           phoneMatches={phoneMatches} filterCustomer={filterCustomer}
@@ -850,8 +846,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </>
               ) : null}
             </div>
+            </>
+            ) : null}
           </div>
-          ) : null}
         </div>
       </header>
 

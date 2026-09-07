@@ -136,9 +136,17 @@ function renderNavItem(
   // instance of the brand colour, not as its own distinct signal. A warm amber ("اصفر شاذ شوية")
   // stands apart from the accent family on purpose, so the active row is legible at a glance
   // without adding to the accent's own footprint (see the 60-30-10 audit this session).
-  const active =
-    'bg-surface-2 text-text-primary font-semibold ' +
-    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[#f0a020] before:content-['']";
+  // COLLAPSED DROPS THE ROW'S OWN `bg-surface-2` ENTIRELY — kept, it was a gray rounded-lg pill
+  // sitting behind the icon chip's own (smaller, amber, `rounded-md`) fill, and the two shapes'
+  // corners never lined up: a visible seam of grey peeking around the orange circle, reading as
+  // two composited layers rather than one native shape. Expanded, the row's own fill is real
+  // (it is what makes the WHOLE row read as active, not just the icon); collapsed, the icon chip
+  // alone already fills the visible space, so the row needs no fill of its own to repeat it.
+  const active = (isCollapsed: boolean) => cn(
+    'text-text-primary font-semibold',
+    !isCollapsed && 'bg-surface-2',
+    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[#f0a020] before:content-['']",
+  );
   // A TRUE NEUTRAL HOVER, NOT `surface-2` — `surface-2` carries a faint lavender cast (it is a
   // step off the accent hue, by design, elsewhere in the theme), so a plain "you're hovering
   // this row" state read as a second brand-purple tint rather than a neutral highlight. A flat
@@ -171,7 +179,7 @@ function renderNavItem(
         title={collapsed ? item.label : undefined}
         aria-label={collapsed ? item.label : undefined}
         aria-current={isActive ? 'page' : undefined}
-        className={cn(base, layout, 'w-full text-start', isActive ? active : inactive)}
+        className={cn(base, layout, 'w-full text-start', isActive ? active(collapsed) : inactive)}
       >
         {Icon && <span className={iconWrap(isActive)} aria-hidden><Icon size={16} /></span>}
         {!collapsed && <span className="truncate">{item.label}</span>}
@@ -185,7 +193,7 @@ function renderNavItem(
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
-      className={({ isActive }) => cn(base, layout, isActive ? active : inactive)}
+      className={({ isActive }) => cn(base, layout, isActive ? active(collapsed) : inactive)}
     >
       {({ isActive }) => (
         <>
