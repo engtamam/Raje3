@@ -337,6 +337,12 @@ class InternalCreateBookingIn(BaseModel):
     # never shows: nothing was ever spent to begin with. See
     # services/whatsapp-assistant/app/core/tools.py's `propose_booking` branch for the caller side.
     intended_reward_id: str | None = Field(default=None, max_length=128)
+    # THE ATTRIBUTION FIX — whatsapp-assistant now sends its own actor constant
+    # ("whatsapp-assistant", booking_assignment.py's `hold_and_confirm`/`hold_and_confirm_package`)
+    # instead of leaving this at "". Anything else (blank, or a caller not yet updated) still lands
+    # as "" — never guessed at — so an AI-made booking is honestly indistinguishable from a staff
+    # one only for callers that have not been wired, not silently mislabelled either way.
+    created_by: str = Field(default="", max_length=64)
 
 
 @router.post("/bookings", dependencies=[Depends(require_internal_token)])
@@ -345,8 +351,10 @@ async def internal_create_booking(request: Request, body: InternalCreateBookingI
     booking — `BookingOperations.create`, unchanged, over the internal token. Idempotent the same
     way the console's own create is (`idempotency_key`, checked first, before the licence check
     and before the lock): a redelivered `whatsapp.message` or a retried peer call must return the
-    SAME booking, never a second one. `created_by` is left at its default ("") — this booking was
-    not made by any staff member's own action, and inventing one would misattribute it.
+    SAME booking, never a second one. `created_by` is forwarded from the caller (whatsapp-assistant
+    stamps its own "whatsapp-assistant" actor constant here) so an AI-made booking can be told apart
+    from a staff-made one downstream (reporting, attendance rate) — see `InternalCreateBookingIn`'s
+    own note on why an unwired caller still lands at "" rather than a guessed value.
     """
     c = request.app.state.container
     try:
@@ -355,7 +363,7 @@ async def internal_create_booking(request: Request, body: InternalCreateBookingI
             customer_id=body.customer_id, service_ids=body.service_ids,
             package_id=body.package_id,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
-            intended_reward_id=body.intended_reward_id)
+            intended_reward_id=body.intended_reward_id, created_by=body.created_by)
     except (SlotClaimBusy, ConcurrentEditError) as exc:
         # ConcurrentEditError is unreachable here in practice (a brand-new id has no stored row
         # to conflict with — see _claim_and_save's own note) but caught anyway for the same

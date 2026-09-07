@@ -117,6 +117,34 @@ def test_create_stamps_an_intended_reward_id_as_intent_only(env_guard):
     assert r.json()["status"] == "booked", "stamping intent must never itself spend anything"
 
 
+def test_create_forwards_created_by_so_an_ai_made_booking_is_attributable(env_guard):
+    """whatsapp-assistant's own RealBookingProvider now sends `created_by="whatsapp-assistant"`
+    on every booking it makes (booking_assignment.py) — this proves the internal route actually
+    forwards it onto the real row instead of silently dropping it (the old behaviour, when
+    `created_by` was left at its "" default regardless of what the caller sent)."""
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings", json={
+        "tenant": "t1", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000, "idempotency_key": "wa-attr-k",
+        "created_by": "whatsapp-assistant"}, headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["created_by"] == "whatsapp-assistant"
+
+
+def test_create_without_created_by_still_defaults_to_blank_never_guessed(env_guard):
+    """A caller that has not been wired to send an actor (or a genuine staff-made booking through
+    a different route) must not be mislabelled as AI-made."""
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings", json={
+        "tenant": "t1", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000, "idempotency_key": "wa-noattr-k"},
+        headers=_h())
+    assert r.status_code == 200, r.text
+    assert r.json()["created_by"] == ""
+
+
 def test_create_is_idempotent_a_retried_call_returns_the_same_booking(env_guard):
     client = _make_app()
     _stub_ops(client)

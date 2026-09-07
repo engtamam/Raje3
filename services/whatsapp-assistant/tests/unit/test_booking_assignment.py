@@ -146,6 +146,20 @@ async def test_hold_and_confirm_resolves_a_real_customer_id_and_creates_the_book
     assert created.calls[0]["idempotency_key"] == "k1"
     # THE PHONE NUMBER ITSELF NEVER REACHES bookings-service — only the resolved customer_id.
     assert "from_number" not in created.calls[0] and "phone" not in created.calls[0]
+    # ATTRIBUTION — every AI-made booking is stamped with the service's own actor constant, never
+    # left blank (which would read, downstream, as indistinguishable from a staff-made booking).
+    assert created.calls[0]["created_by"] == "whatsapp-assistant"
+
+
+async def test_hold_and_confirm_package_stamps_the_ai_actor_as_created_by():
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    created = _FakePeer({"id": "bkg_1", "status": "booked"})
+    provider = _provider(branch_operators=ops, customer_id_by_phone=cust, create_booking=created)
+    await provider.hold_and_confirm_package(
+        tenant=TENANT, subject_ref="sub1", package_id="pkg1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+    assert created.calls[0]["created_by"] == "whatsapp-assistant"
 
 
 async def test_hold_and_confirm_refuses_when_the_phone_resolves_to_no_customer():

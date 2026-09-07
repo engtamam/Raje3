@@ -29,6 +29,13 @@ from typing import Any
 
 from app.ports.booking_provider import Slot
 
+# THE ATTRIBUTION CONSTANT — stamped as `created_by` on every booking this module makes, so a
+# report can later tell an AI-made booking apart from a staff-made one (see internal.py's own
+# `InternalCreateBookingIn.created_by`). Same naming family as this service's own audit `actor`
+# values elsewhere (conversation.py/tools.py's "whatsapp-assistant" on `auditor.record` calls) —
+# one honest constant, never a customer name or phone.
+ACTOR = "whatsapp-assistant"
+
 
 class BookingAssignmentError(Exception):
     """No eligible operator could be found for this branch/service — surfaced to
@@ -177,7 +184,7 @@ class RealBookingProvider:
         # core/tools.py's `propose_booking` branch for how `reward_id` gets here.
         body = {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
                 "customer_id": customer_id, "service_ids": [service_id], "starts_at": starts_at,
-                "idempotency_key": idempotency_key}
+                "idempotency_key": idempotency_key, "created_by": ACTOR}
         if intended_reward_id:
             body["intended_reward_id"] = intended_reward_id
         result = self._create_booking.call(body)
@@ -250,7 +257,7 @@ class RealBookingProvider:
 
         body = {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
                 "customer_id": customer_id, "package_id": package_id, "starts_at": starts_at,
-                "idempotency_key": idempotency_key}
+                "idempotency_key": idempotency_key, "created_by": ACTOR}
         if intended_reward_id:
             body["intended_reward_id"] = intended_reward_id
         result = self._create_booking.call(body)
