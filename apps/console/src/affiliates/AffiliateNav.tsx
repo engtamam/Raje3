@@ -60,9 +60,13 @@ export function AffiliateSidebar({ active, onChange, isManager }: NavProps) {
           type="button"
           onClick={() => onChange(t.id)}
           aria-current={active === t.id ? 'page' : undefined}
+          // NEUTRAL INK, NOT THE BRAND ACCENT — same move as the shop console's own AppShell
+          // rail and the admin nav (60-30-10 audit's category #2): "this is the section I'm
+          // on" is a different signal than "press this button", so it gets its own neutral
+          // fill, purple stays reserved for the one true primary action.
           className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
             active === t.id
-              ? 'bg-accent-soft text-accent-on-soft'
+              ? 'bg-surface-2 text-text-primary font-semibold'
               : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
           }`}
         >
@@ -88,8 +92,9 @@ export function AffiliateBottomNav({ active, onChange, isManager }: NavProps) {
           type="button"
           onClick={() => onChange(t.id)}
           aria-current={active === t.id ? 'page' : undefined}
+          // Same neutral-ink move as the sidebar above — bold + dark, not brand purple.
           className={`flex min-h-11 flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
-            active === t.id ? 'text-accent' : 'text-text-secondary'
+            active === t.id ? 'font-semibold text-text-primary' : 'text-text-secondary'
           }`}
         >
           {t.icon}

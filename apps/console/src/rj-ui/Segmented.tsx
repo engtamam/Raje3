@@ -103,10 +103,17 @@ export function Segmented<T extends string>({
               sm ? 'px-2.5 py-1 text-[12.5px]' : 'px-3.5 py-2 text-sm',
               disabled && 'cursor-not-allowed',
               active
-                // THE ONLY FILLED SHAPE ON THE TRACK — solid accent, a real shadow lifting it off
-                // the recessed track, and a hair of scale so it visibly "arrives" rather than just
-                // recolouring in place.
-                ? cn('scale-[1.03] bg-accent text-accent-contrast', sm ? 'shadow-sm' : 'shadow-md')
+                // THE ONLY FILLED SHAPE ON THE TRACK — a real shadow lifting it off the recessed
+                // track, and a hair of scale so it visibly "arrives" rather than just recolouring
+                // in place. DELIBERATELY NOT THE BRAND ACCENT — "this tab is selected" is not the
+                // same signal as "press this button", and painting both in the same purple is
+                // what made every filled shape on the page read as one repeated colour rather
+                // than a real hierarchy (the 60-30-10 audit's own category #2: "محدد/مفعّل" gets
+                // its own neutral ink fill everywhere, purple stays reserved for the one true
+                // primary action). `bg-text-primary`/`text-surface-1` is a plain themed INVERSION
+                // — near-black on white in light mode, near-white on near-black in dark mode —
+                // so it needs no separate dark-mode override.
+                ? cn('scale-[1.03] bg-text-primary text-surface-1', sm ? 'shadow-sm' : 'shadow-md')
                 // NO FILL AT ALL when inactive — the active/inactive read is a shape appearing,
                 // not two shades of the same colour block.
                 : 'text-text-secondary hover:text-text-primary',
@@ -117,7 +124,12 @@ export function Segmented<T extends string>({
               <span className={cn(
                 'ms-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
                 active
-                  ? 'bg-white/20'
+                  // `bg-surface-1/20` NOT `bg-white/20` — the active pill is now a themed
+                  // inversion (`bg-text-primary`), near-black in light mode but near-WHITE in
+                  // dark mode, so a hardcoded white overlay would sit invisibly on white-on-white
+                  // there. `surface-1` inverts the same way `text-primary` does, so the overlay
+                  // stays legible against whichever ink colour the pill resolves to.
+                  ? 'bg-surface-1/20'
                   : opt.badgeTone === 'complete' ? 'bg-success-soft text-success-on-soft'
                   : opt.badgeTone === 'partial' ? 'bg-warning-soft text-warning-on-soft'
                   : 'bg-surface-3 text-text-secondary',
