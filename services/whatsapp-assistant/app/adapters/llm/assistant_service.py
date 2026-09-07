@@ -168,6 +168,26 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "one still goes through propose_booking(package_id=...) like any other item."),
         "parameters": {"type": "object", "properties": {}},
     },
+    "list_due_services": {
+        "name": "list_due_services",
+        "description": (
+            "Read-only: real services this customer is due for soon, by his OWN learned rhythm — "
+            "use this as an INPUT to decide what to suggest, NEVER as a fact to state back to the "
+            "customer. You must never say or imply anything like 'you're due', 'it's been a "
+            "while', or 'you usually' — build a natural suggestion that simply names the service, "
+            "with no stated reason. Booking one still goes through propose_booking like any other "
+            "service."),
+        "parameters": {"type": "object", "properties": {}},
+    },
+    "list_lapsed_services": {
+        "name": "list_lapsed_services",
+        "description": (
+            "Read-only: real services this customer used to book but has clearly stopped, by his "
+            "OWN learned rhythm — same posture as list_due_services: an input for you to decide "
+            "with, never a fact to state. Never say or imply 'you stopped' or reference his past — "
+            "just a natural, inviting suggestion naming the service."),
+        "parameters": {"type": "object", "properties": {}},
+    },
 }
 
 

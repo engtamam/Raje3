@@ -140,6 +140,7 @@ class Container:
     service_catalog: Any = None
     package_catalog: Any = None
     catalog_provider: Any = None
+    rhythm_provider: Any = None
     related_services: Any = None
     wallet_balance: Any = None
     licence: Any = None
@@ -210,6 +211,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import points as P
     from app.core import service_catalog as SC
     from app.core import package_catalog as PC
+    from app.core import rhythm_provider as RP
     from app.core import related_services as RS
     from app.core import wallet_balance as WB
     from app.core.licence import build_licence
@@ -256,6 +258,13 @@ def build_container(settings: Settings) -> Container:
             package_catalog=container.package_catalog)
     else:
         raise ValueError(f"unknown CATALOG_PROVIDER_DRIVER {settings.CATALOG_PROVIDER_DRIVER!r}")
+    # Same explicit if/elif, same fail-fast on a typo'd value, as CATALOG_PROVIDER_DRIVER above.
+    if settings.RHYTHM_PROVIDER_DRIVER == "null":
+        container.rhythm_provider = RP.NullRhythmProvider()
+    elif settings.RHYTHM_PROVIDER_DRIVER == "http":
+        container.rhythm_provider = RP.build(settings)
+    else:
+        raise ValueError(f"unknown RHYTHM_PROVIDER_DRIVER {settings.RHYTHM_PROVIDER_DRIVER!r}")
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = build_licence(settings)
@@ -285,6 +294,7 @@ def build_container(settings: Settings) -> Container:
         licence=container.licence,
         base_entitlement=container.base_entitlement,
         catalog_provider=container.catalog_provider,
+        rhythm_provider=container.rhythm_provider,
         max_carousel_cards=settings.MAX_CAROUSEL_CARDS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,

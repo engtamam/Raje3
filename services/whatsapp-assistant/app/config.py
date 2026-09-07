@@ -205,6 +205,13 @@ class Settings(BaseSettings):
     # null (no provider wired) | platform (our own services/packages, images included). See
     # app/ports/catalog_provider.py's own docstring — infrastructure only, no consumer wired yet.
     CATALOG_PROVIDER_DRIVER: str = "null"
+
+    # reminders — the same real, learned per-(customer, service) rhythm reminders' own tick already
+    # schedules on (core/adaptive.py there), read here to feed list_due_services/list_lapsed_
+    # services (core/tools.py). null (no provider wired, both tools always answer "nothing") | http.
+    RHYTHM_PROVIDER_DRIVER: str = "null"
+    REMINDERS_SERVICE_URL: str = ""
+    REMINDERS_RHYTHM_PATH: str = "/internal/reminders/rhythm-for-subject"
     # Real booking assignment (core/booking_assignment.py, Phase 4) — the branch's own active
     # people, and which services a customer's picked one may perform. Neither invents an
     # assignment on its own; see booking_assignment.py's own module docstring for the full policy.
@@ -366,7 +373,8 @@ class Settings(BaseSettings):
     LLM_TOOL_ALLOWLIST: str = (
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
-        "propose_reschedule_booking,suggest_services_carousel,list_packages")
+        "propose_reschedule_booking,suggest_services_carousel,list_packages,"
+        "list_due_services,list_lapsed_services")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.
@@ -403,6 +411,11 @@ class Settings(BaseSettings):
         # the booking-management tools above.
         if self.CATALOG_PROVIDER_DRIVER != "platform":
             declared = declared - {"suggest_services_carousel"}
+        # SAME REASONING, FOR THE TWO RHYTHM TOOLS: NullRhythmProvider always returns [], so a
+        # model offered these with no real rhythm provider wired would try them every turn and
+        # always get "لا يوجد شيء هنا الآن." — withheld entirely rather than offered and refused.
+        if self.RHYTHM_PROVIDER_DRIVER != "http":
+            declared = declared - {"list_due_services", "list_lapsed_services"}
         return declared
 
     def assert_llm_config_ok(self) -> None:

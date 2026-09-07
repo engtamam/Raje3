@@ -410,6 +410,7 @@ class ConversationEngine:
                 booking_management_enabled: bool = True, licence: Any = None,
                 shop_notes_enabled: bool = True, msg_word_limit_enabled: bool = True,
                 base_entitlement: Any = None, catalog_provider: Any = None,
+                rhythm_provider: Any = None,
                 max_carousel_cards: int = 5) -> None:
         self._store = store
         self._llm = llm
@@ -425,6 +426,10 @@ class ConversationEngine:
         # None-safe the same way — see app/core/tools.py::validate_and_render's own
         # `catalog_provider is None` check for the "no photos to offer" degrade.
         self._catalog_provider = catalog_provider
+        # Same None-safe optional-peer shape — see app/ports/rhythm_provider.py's own
+        # NullRhythmProvider for the "nothing configured" default (both new tools then always
+        # answer "nothing due/lapsed" rather than failing the turn).
+        self._rhythm_provider = rhythm_provider
         self._max_carousel_cards = max_carousel_cards
         self._customer_lookup = customer_lookup
         self._related_services = related_services
@@ -1061,6 +1066,7 @@ class ConversationEngine:
                     branch_id=conv.branch_id, from_number=conv.from_number,
                     booking_history_visible=self._booking_history_visible,
                     catalog_provider=self._catalog_provider,
+                    rhythm_provider=self._rhythm_provider,
                     max_carousel_cards=self._max_carousel_cards)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",

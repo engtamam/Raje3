@@ -131,6 +131,13 @@ env:
   INBOUND_POLL_PAGE_SIZE: "200"
   INBOUND_POLL_MAX_PAGES: "20"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
+  # RHYTHM_PROVIDER_DRIVER stays "null" (default) DELIBERATELY — list_due_services/
+  # list_lapsed_services are built and wired but not yet reachable by the model (personalization
+  # roadmap, phase 2 of 5; phase 4 teaches the persona to use them). Setting the real address here
+  # now, while the driver stays off, is exactly OPERATIONS_SERVICE_URL's own precedent right above
+  # — the address is correct today so flipping the driver later is a one-line change, not a
+  # redeploy that also has to remember where reminders lives.
+  REMINDERS_SERVICE_URL: "http://reminders:8000"
   OPERATIONS_CUSTOMER_BY_PHONE_PATH: "/internal/operations/customer-by-phone"
   # ESCALATED: no phone->customer lookup existed anywhere in operations before this service needed
   # one — every existing internal caller already held a subject_ref (reminders, loyalty) or a raw

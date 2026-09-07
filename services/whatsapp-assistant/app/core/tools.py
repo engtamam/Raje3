@@ -32,6 +32,14 @@ from app.ports.catalog_provider import CatalogCard
 
 _logger = get_logger("app.tools")
 
+# list_due_services / list_lapsed_services' own bands over (days since last visit) / interval_days.
+# Below 0.8 the customer is not due yet by his own learned rhythm; at/above 2.5x his usual interval
+# "hasn't come back this week" has become a real, meaningfully stopped pattern rather than normal
+# variation — the same "wide on purpose" reasoning reminders/core/adaptive.py's own anomaly_factor
+# (2.5) uses, reused here rather than a second, unrelated number invented for this file.
+_DUE_SOON_RATIO_MIN = 0.8
+_LAPSED_RATIO_MIN = 2.5
+
 
 @dataclass(frozen=True)
 class RenderedProposal:
@@ -65,6 +73,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               branch_id: str = "", from_number: str = "",
                               booking_history_visible: bool = True,
                               catalog_provider: Any = None,
+                              rhythm_provider: Any = None,
                               max_carousel_cards: int = 5,
                               ) -> RenderedProposal | RenderedCarousel | str:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
@@ -230,6 +239,44 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                 line += f" — الأيام المتاحة قريبًا: {'، '.join(out)}"
             lines.append(line)
         return "\n".join(lines)
+
+    if tool in ("list_due_services", "list_lapsed_services"):
+        # READ-ONLY, same posture as list_packages/suggest_related_service — no proposal, no
+        # button. Booking one still goes through propose_booking(service_id=...) like any other.
+        #
+        # A DECISION INPUT, NEVER A SENTENCE ABOUT THE CUSTOMER — see core/conversation.py's
+        # `personalization` persona section and its `_FORBIDDEN_HISTORY_DISCLOSURE_PATTERNS`
+        # backstop: this tool's result names services, never "you usually" or "it's been a
+        # while" — the model must build its own suggestion without echoing why.
+        #
+        # ONLY is_learned ROWS COUNT — reminders' own /rhythm-for-subject already marks a
+        # defaulted (below-warmup) estimate as such; presenting one here as a real pattern would
+        # be exactly the "guess dressed as measurement" adaptive.py's own docstring warns against.
+        if rhythm_provider is None:
+            return "لا تتوفر بيانات كافية الآن."
+        rhythm = await rhythm_provider.for_subject(tenant=tenant, subject_ref=subject_ref)
+        names_by_id: dict[str, str] = {}
+        if service_catalog is not None:
+            for s in await service_catalog.list_active(tenant):
+                names_by_id[str(s.get("id"))] = str(s.get("name") or s.get("id"))
+        matches: list[str] = []
+        for r in rhythm:
+            if not r.is_learned or r.interval_days <= 0 or r.last_visit_at <= 0:
+                continue
+            days_since = (now - r.last_visit_at) / 86400
+            ratio = days_since / r.interval_days
+            name = names_by_id.get(r.service_id, r.service_id)
+            # DUE SOON: approaching or just past the customer's own learned interval, not yet the
+            # "hasn't been back in ages" case below — the two tools' bands never overlap.
+            if tool == "list_due_services" and _DUE_SOON_RATIO_MIN <= ratio < _LAPSED_RATIO_MIN:
+                matches.append(name)
+            # LAPSED: well past double the customer's own learned interval — a real, meaningfully
+            # stopped pattern, not merely "hasn't come back yet this week".
+            elif tool == "list_lapsed_services" and ratio >= _LAPSED_RATIO_MIN:
+                matches.append(name)
+        if not matches:
+            return "لا يوجد شيء هنا الآن."
+        return "، ".join(matches)
 
     if tool == "suggest_related_service":
         service_id = str(args.get("service_id") or "")
