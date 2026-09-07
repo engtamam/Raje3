@@ -8,15 +8,14 @@ stats already use for "vs last month" (confirmed against that service's real `ti
 `Tile` delta convention), not `retention_series`'s heavier multi-point shape — this phase ships no
 console UI, so the lighter, already-proven-reusable shape is the honest one to build against.
 
-SCOPE OF THIS PASS, STATED PLAINLY: only the two stats this ledger can honestly answer on its own —
-upsell offer/accept/decline counts+rate, and average ticket increase from an accepted upsell (only
-over rows with a REAL known price — see `_avg_ticket_increase`'s own note). Session/conversion
-counts, which services got booked, and attendance/no-show/ROI for AI-made bookings all need
-bookings-service's own rows filtered by `created_by` (layer #1) — bookings-service currently has NO
-internal route to LIST bookings by actor/branch/window at all (only by-customer/by-subject exist,
-each keyed to one known customer). Building that route, a peer client here, and the merge logic
-honestly needs its own pass with its own tests, not a rushed bolt-on to this one — left as a
-documented follow-up, not silently answered with a partial or misleading number.
+SCOPE OF THIS PASS, STATED PLAINLY: only the one stat this ledger can honestly answer on its own —
+upsell offer/accept/decline counts+rate. `avg_ticket_increase_minor` USED TO LIVE HERE and has been
+REMOVED: it only ever priced an ACCEPTED PACKAGE upsell (never a plain single-service booking) and
+was never actually an "increase" — no baseline was ever tracked, just the package's own raw price.
+The honest average-invoice-value stat now lives in `invoice_report.py`, computed across ALL AI-made
+bookings (package or plain service), fed by bookings-service's own `/internal/bookings/by-actor` —
+the exact gap this module's own docstring used to name as a documented follow-up. Session/conversion
+counts and which services got booked still need their own pass — not answered here.
 """
 from __future__ import annotations
 
@@ -40,12 +39,6 @@ class BranchUpsellStats:
     declined: int
     pending: int
 
-    # Priced vs unpriced accepted rows are counted SEPARATELY — see `_avg_ticket_increase`'s own
-    # note on why an average must never silently drop the unpriced ones into a false zero.
-    accepted_with_known_price: int
-    accepted_with_unknown_price: int
-    avg_ticket_increase_minor: int | None   # None = no priced accepted row exists yet in-window
-
     @property
     def decided(self) -> int:
         return self.accepted + self.declined
@@ -62,9 +55,6 @@ class BranchUpsellStats:
             "branch_id": self.branch_id, "offered": self.offered, "accepted": self.accepted,
             "declined": self.declined, "pending": self.pending, "decided": self.decided,
             "acceptance_rate": self.acceptance_rate,
-            "accepted_with_known_price": self.accepted_with_known_price,
-            "accepted_with_unknown_price": self.accepted_with_unknown_price,
-            "avg_ticket_increase_minor": self.avg_ticket_increase_minor,
         }
 
 
@@ -83,30 +73,14 @@ class UpsellReport:
         }
 
 
-def _avg_ticket_increase(rows: list[dict[str, Any]]) -> tuple[int, int, int | None]:
-    """Returns (accepted_with_known_price, accepted_with_unknown_price, avg_or_none).
-
-    NEVER AVERAGES OVER A MIX THAT SILENTLY DROPS THE UNPRICED ROWS AS IF THEY WERE ZERO — the same
-    honesty rule this whole feature was built around (see the module docstring, and this session's
-    own recent pricing work). Unpriced rows are counted, reported, and excluded from the average;
-    the average itself is `None`, not `0`, when there is nothing priced to average over.
-    """
-    priced = [int(r["price_minor"]) for r in rows if r.get("price_minor") is not None]
-    unpriced = len(rows) - len(priced)
-    avg = round(sum(priced) / len(priced)) if priced else None
-    return len(priced), unpriced, avg
-
-
 def _stats_for(branch_id: str, rows: list[dict[str, Any]]) -> BranchUpsellStats:
     offered = len(rows)
-    accepted_rows = [r for r in rows if r.get("outcome") == OUTCOME_ACCEPTED]
+    accepted = sum(1 for r in rows if r.get("outcome") == OUTCOME_ACCEPTED)
     declined = sum(1 for r in rows if r.get("outcome") == OUTCOME_DECLINED)
     pending = sum(1 for r in rows if r.get("outcome") == OUTCOME_PENDING)
-    known, unknown, avg = _avg_ticket_increase(accepted_rows)
     return BranchUpsellStats(
-        branch_id=branch_id, offered=offered, accepted=len(accepted_rows), declined=declined,
-        pending=pending, accepted_with_known_price=known, accepted_with_unknown_price=unknown,
-        avg_ticket_increase_minor=avg)
+        branch_id=branch_id, offered=offered, accepted=accepted, declined=declined,
+        pending=pending)
 
 
 def _by_branch(rows: list[dict[str, Any]]) -> dict[str, BranchUpsellStats]:

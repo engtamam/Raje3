@@ -93,6 +93,10 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             # UI in this phase) — listed here anyway so /internal/manifest never silently omits a
             # route that already works, the exact gap docs/adding-a-new-app.md §3b warns about.
             {"path": "/api/v1/assistant/operator/growth/upsell-report", "tier": "user", "method": "GET"},
+            # SAME growth/ family — average invoice value across every AI-made booking (package or
+            # plain service), replacing the old avg_ticket_increase_minor that used to live inside
+            # the upsell report above (core/invoice_report.py has the full reasoning).
+            {"path": "/api/v1/assistant/operator/growth/invoice-report", "tier": "user", "method": "GET"},
         ],
         "ports": ports or [],
         "events": {"emitted": [], "consumed": ["whatsapp.message", "whatsapp.status"]},

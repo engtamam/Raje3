@@ -235,6 +235,10 @@ class Settings(BaseSettings):
     BOOKINGS_FOR_CUSTOMER_PATH: str = "/internal/bookings/for-customer"
     BOOKINGS_CANCEL_PATH: str = "/internal/bookings/{booking_id}/cancel"
     BOOKINGS_RESCHEDULE_PATH: str = "/internal/bookings/{booking_id}/reschedule"
+    # Growth reporting's own read — every booking a given actor (this service's own ACTOR constant,
+    # "whatsapp-assistant") made, for invoice_report.py's average-invoice-value stat. See that
+    # module's own docstring and bookings-service's api/internal.py `InternalByActorIn`.
+    BOOKINGS_BY_ACTOR_PATH: str = "/internal/bookings/by-actor"
     # "config" (default): the zero-infra placeholder, ConfigDrivenAvailabilityProvider — writes
     # into THIS service's own store, never a real bookings/operations peer (see core/booking.py's
     # own docstring). "real": core/booking_assignment.py's RealBookingProvider — real branch

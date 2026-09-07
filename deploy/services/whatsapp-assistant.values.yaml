@@ -172,6 +172,10 @@ env:
   BOOKINGS_FOR_CUSTOMER_PATH: "/internal/bookings/for-customer"
   BOOKINGS_CANCEL_PATH: "/internal/bookings/{booking_id}/cancel"
   BOOKINGS_RESCHEDULE_PATH: "/internal/bookings/{booking_id}/reschedule"
+  # growth/invoice-report's own read — inert, same as the paths above, while BOOKING_PROVIDER_DRIVER
+  # stays "config" (core/booking_actor_report.py falls back to its Null driver with no
+  # BOOKINGS_SERVICE_URL set).
+  BOOKINGS_BY_ACTOR_PATH: "/internal/bookings/by-actor"
   # Booking-management-via-WhatsApp (view/cancel/reschedule an EXISTING booking) — see
   # app/config.py's own note on both flags. Inert regardless, while BOOKING_PROVIDER_DRIVER stays
   # "config" above (llm_tool_allowlist withholds these tools under any driver but "real" — see

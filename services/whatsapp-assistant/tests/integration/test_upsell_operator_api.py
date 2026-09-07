@@ -81,8 +81,7 @@ def test_report_on_an_empty_ledger_is_honestly_zero(client, operator_auth):
     body = client.get(f"{PREFIX}/growth/upsell-report", headers=operator_auth).json()
     assert body["current"]["_all"] == {
         "branch_id": "_all", "offered": 0, "accepted": 0, "declined": 0, "pending": 0,
-        "decided": 0, "acceptance_rate": None, "accepted_with_known_price": 0,
-        "accepted_with_unknown_price": 0, "avg_ticket_increase_minor": None,
+        "decided": 0, "acceptance_rate": None,
     }
     assert "scope_note" in body
 
@@ -115,7 +114,6 @@ def test_report_aggregates_real_ledger_rows_per_branch_and_computes_a_rate(clien
     assert all_stats["offered"] == 3
     assert all_stats["accepted"] == 1 and all_stats["declined"] == 1 and all_stats["pending"] == 1
     assert all_stats["acceptance_rate"] == 0.5   # 1 accepted / (1 accepted + 1 declined)
-    assert all_stats["avg_ticket_increase_minor"] == 10000
 
     a = body["current"]["brnA"]
     assert a["offered"] == 2 and a["accepted"] == 1 and a["declined"] == 1
@@ -123,7 +121,12 @@ def test_report_aggregates_real_ledger_rows_per_branch_and_computes_a_rate(clien
     assert b["offered"] == 1 and b["pending"] == 1 and b["acceptance_rate"] is None
 
 
-def test_report_never_averages_an_unpriced_accepted_row_as_zero(client, operator_auth):
+def test_report_counts_an_accepted_row_regardless_of_whether_its_price_was_ever_known(
+        client, operator_auth):
+    """`price_minor` no longer feeds any average HERE (that honesty rule now lives in
+    invoice_report.py's own average-invoice-value stat, over bookings-service's own rows) — this
+    ledger's report only ever counts offer/accept/decline, so an unpriced accepted row still counts
+    as accepted."""
     container = client.app.state.container
     now = int(time.time())
     import asyncio
@@ -134,7 +137,5 @@ def test_report_never_averages_an_unpriced_accepted_row_as_zero(client, operator
     body = client.get(f"{PREFIX}/growth/upsell-report", headers=operator_auth).json()
     stats = body["current"]["_all"]
     assert stats["accepted"] == 1
-    assert stats["accepted_with_unknown_price"] == 1
-    assert stats["accepted_with_known_price"] == 0
-    # THE HONESTY RULE — never a silent 0, never an average that drops the unpriced row.
-    assert stats["avg_ticket_increase_minor"] is None
+    assert "accepted_with_unknown_price" not in stats
+    assert "avg_ticket_increase_minor" not in stats

@@ -33,7 +33,9 @@ from app.api.ratelimit import rate_limit
 from app.config import Settings, get_settings
 from app.core.conversation import build_system_prompt
 from app.core.pii import subject_ref
+from app.core.booking_assignment import ACTOR as ACTOR_CREATED_BY
 from app.core.pricing_report import report as pricing_report
+from app.core.invoice_report import report as invoice_report
 from app.core.upsell_report import report as upsell_report
 from app.core.pricing_schedule import cancel as cancel_pricing_change
 from app.core.pricing_schedule import is_a_pricing_key
@@ -198,20 +200,40 @@ async def get_upsell_report(request: Request, days: int = 30,
     """Real package-upsell offer/accept/decline counts and rate, per branch, current-window vs the
     equal window before it — straight off `wa_upsell_ledger` (core/upsell_report.py). SCOPE NOTE,
     stated in the response itself so a shop owner is never told less than the whole truth by
-    omission: this covers only the upsell ledger's own two stats (offer/accept/decline rate,
-    average ticket increase from a priced accepted upsell) — session/conversion counts, which
-    services got booked, and AI-booking attendance/ROI all need a bookings-service query surface
-    that does not exist yet (see upsell_report.py's own module docstring) and are not answered
-    here."""
+    omission: this covers only offer/accept/decline + rate — average invoice value now lives at
+    GET .../growth/invoice-report instead (a real bookings-service query, not this local ledger);
+    session/conversion counts and which services got booked are still not answered here."""
     days = max(1, min(days, 365))
     container = request.app.state.container
     rep = await upsell_report(container.datastore, days=days, now=int(time.time()))
     body = rep.as_dict()
-    body["scope_note"] = ("upsell offer/accept/decline + average ticket increase only — "
-                          "session/conversion, services-booked, and AI-booking attendance/ROI "
-                          "are not yet computed here (need a bookings-service query by "
-                          "created_by/branch that does not exist yet)")
+    body["scope_note"] = ("upsell offer/accept/decline + rate only — average invoice value moved "
+                          "to GET .../growth/invoice-report; session/conversion and "
+                          "services-booked are not yet computed anywhere")
     return body
+
+
+@router.get("/growth/invoice-report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def get_invoice_report(request: Request, days: int = 30,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """Average invoice value across every AI-made booking (package OR plain service), per branch,
+    current-window vs the equal window before it — the replacement for the old
+    `avg_ticket_increase_minor` (core/invoice_report.py's own module docstring has the full
+    reasoning: that old stat only ever priced an accepted PACKAGE upsell, never a plain booking, and
+    was never actually an "increase"). Fed by bookings-service's own `/internal/bookings/by-actor`
+    (booking_actor_report.py) plus live catalogue price resolution — real peer calls, not a local
+    ledger, so this route can legitimately be slower than the others on this file.
+
+    ONLY `status == "attended"` BOOKINGS FEED THE AVERAGE (real, realized revenue) — see
+    invoice_report.py's own note on why, and `status_breakdown` for the full non-cancelled picture
+    alongside it."""
+    days = max(1, min(days, 365))
+    container = request.app.state.container
+    rep = await invoice_report(
+        container.booking_actor_report, container.service_catalog, container.package_catalog,
+        tenant=principal.tenant or "", created_by=ACTOR_CREATED_BY, days=days,
+        now=int(time.time()))
+    return rep.as_dict()
 
 
 @router.get("/pricing/pending", dependencies=[Depends(_CONFIG), Depends(rate_limit)])

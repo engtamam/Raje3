@@ -332,8 +332,11 @@ for svc_dir in sorted((ROOT / "services").iterdir()):
         # fail-fasts loudly if "real" is picked without BOOKINGS_SERVICE_URL set — the same
         # driver-gated, says-out-loud-what-it-needs shape the adapters/ exclusion above exists
         # for, just not under that directory name.
+        # core/booking_actor_report.py is the SAME shape — a Null driver when BOOKINGS_SERVICE_URL
+        # is unset (see its own build()), reached only from the growth/invoice-report route, which
+        # only ever matters once BOOKING_PROVIDER_DRIVER="real" is actually turned on.
         if (rel == "config.py" or rel == "container.py" or rel.startswith("adapters/")
-                or rel == "core/booking_assignment.py"):
+                or rel == "core/booking_assignment.py" or rel == "core/booking_actor_report.py"):
             continue
         for key in sorted(set(re.findall(r"\b([A-Z][A-Z0-9_]*_SERVICE_URL)\b", read(p)))):
             live.setdefault(key, rel)

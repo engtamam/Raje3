@@ -143,4 +143,12 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "كم مرة اقترح المساعد باقة، وكم وافق العميل — لكل فرع، هذا الأسبوع مقابل اللي قبله.",
         "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
     },
+    {
+        "id": "whatsapp_assistant.invoice_report", "label": "متوسط قيمة الفاتورة",
+        "method": "GET", "path": "/api/v1/assistant/operator/growth/invoice-report",
+        "capability": "platform.config", "group": "المنصة",
+        "help": "متوسط قيمة الفاتورة لكل حجز حضره العميل وحجزه المساعد — لكل فرع، "
+               "هذا الأسبوع مقابل اللي قبله.",
+        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+    },
 ]

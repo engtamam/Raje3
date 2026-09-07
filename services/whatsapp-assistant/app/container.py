@@ -140,6 +140,7 @@ class Container:
     shop_identity: Any = None
     service_catalog: Any = None
     package_catalog: Any = None
+    booking_actor_report: Any = None
     catalog_provider: Any = None
     rhythm_provider: Any = None
     related_services: Any = None
@@ -212,6 +213,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import points as P
     from app.core import service_catalog as SC
     from app.core import package_catalog as PC
+    from app.core import booking_actor_report as BAR
     from app.core import rhythm_provider as RP
     from app.core import related_services as RS
     from app.core import wallet_balance as WB
@@ -251,6 +253,9 @@ def build_container(settings: Settings) -> Container:
     container.shop_identity = SI.build(settings)
     container.service_catalog = SC.build(settings)
     container.package_catalog = PC.build(settings)
+    # growth/invoice-report's own read — every booking whatsapp-assistant made, for
+    # invoice_report.py's average-invoice-value stat. Same Null/Http split as SC/PC just above.
+    container.booking_actor_report = BAR.build(settings)
     # Infrastructure only — see app/ports/catalog_provider.py's own docstring. No caller depends
     # on this yet; an unknown driver still fails fast, same reasoning as BOOKING_PROVIDER_DRIVER
     # just above.
