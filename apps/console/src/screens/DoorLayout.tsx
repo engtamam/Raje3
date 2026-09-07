@@ -53,9 +53,17 @@ export function DoorLayout({ children, title, subtitle }: {
   title?: ReactNode;
   subtitle?: ReactNode;
 }) {
+  // `min-h-dvh` MOVED ONTO THE SPLIT ITSELF, not the outer column. With it on the outer wrapper
+  // and `flex-1` on the split, the split only ever grew to WHATEVER ROOM WAS LEFT after the
+  // footer — on any screen where the form's own content is shorter than the viewport, that meant
+  // the split shrank to fit ABOVE the footer instead, and the footer showed with no scroll at
+  // all: exactly the opposite of the "pushes the page into a scroll on a short viewport" this
+  // file's own docstring above describes. The split alone now always fills at least the full
+  // viewport height, so the footer is unconditionally BELOW it — a scroll is the only way to
+  // reach it, on any screen.
   return (
-    <div className="flex min-h-dvh flex-col">
-      <div className="grid flex-1 lg:grid-cols-2">
+    <div className="flex flex-col">
+      <div className="grid min-h-dvh lg:grid-cols-2">
         <aside
           className="relative hidden overflow-hidden p-12 lg:flex lg:flex-col lg:justify-between"
           style={HERO}
