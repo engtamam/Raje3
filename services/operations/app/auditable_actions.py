@@ -639,4 +639,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "has to explain later, and the till is the one surface where neither the owner nor "
                "the customer is looking at our screen",
     },
+    {
+        # FOUND UNDECLARED 2026-09-07 by ci/check_audit_actions.py, itself found unwired into any
+        # workflow the same day (see .github/workflows/guards.yml's own commit) — every call to
+        # this, scheduled sweep or the "فحص الآن" button in AdminFinance's GatewayPanel alike, had
+        # been 500ing on the auditor's own DeclarationError since the day it was written.
+        "action": "billing.wallet_topups_reconciled",
+        "source": "internal",
+        "critical": False,
+        "resource": "wallet-topups",
+        "why": "a batch of pending wallet top-ups was checked against billing-service's own "
+               "record — the number reconciled and failed is what an owner asking «where's my "
+               "top-up?» is actually answered from",
+    },
 ]
