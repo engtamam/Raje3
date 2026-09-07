@@ -15,29 +15,19 @@
 *نظام حماية البيانات الشخصية — المملكة العربية السعودية*
 
 
-- **جهة التحكم**: راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)
+- **جهة التحكم**: راجِع
 - **الإطار**: نظام حماية البيانات الشخصية (م/19) واللائحة التنفيذية
 - **الأساس النظامي لهذه الوثيقة**: المواد 4، 12، 13 · دليل سدايا لسياسة الخصوصية
-- **الإصدار / تاريخ النفاذ**: 1.1  ·  1446-01-01 (تاريخ مؤقت)
 
-توضّح سياسة الخصوصية هذه كيفية قيام راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) ("جهة التحكم") بجمع البيانات الشخصية واستخدامها ومشاركتها وتخزينها وإتلافها، والحقوق المتاحة لأصحاب البيانات. وقد نُشرت وفقاً للمادة (12) من نظام حماية البيانات الشخصية التي تُلزم جهة التحكم بإتاحة سياسة الخصوصية لأصحاب البيانات للاطلاع عليها قبل جمع بياناتهم الشخصية. وهي مكتوبة بلغة واضحة وغير مضللة.
+توضّح سياسة الخصوصية هذه كيفية قيام راجِع ("جهة التحكم") بجمع البيانات الشخصية واستخدامها ومشاركتها وتخزينها وإتلافها، والحقوق المتاحة لأصحاب البيانات. وقد نُشرت وفقاً للمادة (12) من نظام حماية البيانات الشخصية التي تُلزم جهة التحكم بإتاحة سياسة الخصوصية لأصحاب البيانات للاطلاع عليها قبل جمع بياناتهم الشخصية. وهي مكتوبة بلغة واضحة وغير مضللة.
 
 ## 1. جهة التحكم — الاسم والنشاط
 
-الاسم الرسمي: راجِع (اسم مؤقت — يُستبدل قبل الإطلاق). النشاط والخدمات والفئة المستهدفة: منصة سحابية تمكّن المنشآت الخدمية من متابعة عملائها وإعادتهم عبر رسائل واتساب.
+الاسم الرسمي: راجِع. النشاط والخدمات والفئة المستهدفة: منصة سحابية تمكّن المنشآت الخدمية من متابعة عملائها وإعادتهم عبر رسائل واتساب.
 
-## 2. معلومات التواصل ومسؤول حماية البيانات وسجل التحديث
+## 2. معلومات التواصل ومسؤول حماية البيانات
 
-العنوان: الرياض، المملكة العربية السعودية (عنوان مؤقت) · الهاتف: +966500000000 · الموقع الإلكتروني: raje3.sa.
-
-مسؤول حماية البيانات: mang.raje3@gmail.com · +966500000000. ويمكن لمسؤول حماية البيانات تقديم مزيد من التفاصيل حول معالجة البيانات الشخصية. ويُدوَّن اسم الموظف الذي يشغل هذا الدور حاليًا في ملحق بيانات التواصل المرفق بهذه السياسة.
-
-سجل التحديث — يُدوَّن كل تعديل على هذه السياسة أدناه (الإصدار، التاريخ، ملخص التغيير).
-
-| الإصدار | التاريخ | ملخص التغيير |
-| --- | --- | --- |
-| 1.1 | 1446-01-01 (تاريخ مؤقت) | النشر الأول. |
-| [VERSION] | [DATE] | [CHANGE] |
+الموقع الإلكتروني: raje3.sa. مسؤول حماية البيانات: mang.raje3@gmail.com — ويمكنه تقديم مزيد من التفاصيل حول معالجة البيانات الشخصية.
 
 
 ## 3. البيانات الشخصية التي نجمعها
@@ -122,10 +112,10 @@
 
 ### الإتاحة والإشعار والتحديث
 
-- **** تتاح هذه السياسة قبل الجمع عبر raje3.sa، ومكتوبة بلغة واضحة سهلة القراءة تناسب جميع أصحاب البيانات.
-- **** نُشعر أصحاب البيانات عبر إشعارات التطبيق أو الرسائل النصية أو البريد الإلكتروني أو نموذج مستقل قبل الجمع أو أثناءه.
-- **** نراجع السياسة دورياً ونُدوّن أي تغيير في سجل التحديث (البند 2).
-- **** روابط ذات صلة: الشروط والأحكام، وسياسة ملفات الارتباط، ونظام حماية البيانات الشخصية — اتفاقية معالجة البيانات · إشعار حقوق أصحاب البيانات · سياسة ملفات الارتباط.
+- تتاح هذه السياسة قبل الجمع عبر raje3.sa، ومكتوبة بلغة واضحة سهلة القراءة تناسب جميع أصحاب البيانات.
+- نُشعر أصحاب البيانات عبر إشعارات التطبيق أو الرسائل النصية أو البريد الإلكتروني أو نموذج مستقل قبل الجمع أو أثناءه.
+- نراجع هذه السياسة دورياً، وأي تعديل عليها يُنشر هنا بمجرد اعتماده.
+- روابط ذات صلة: الشروط والأحكام، وسياسة ملفات الارتباط.
 
 ### مطابقة ضوابط النظام
 
@@ -137,9 +127,6 @@
 | الجمع من غير صاحبها أو لغرض آخر؛ والإفصاح | النظام م.10، 15 | البندان 4، 6 |
 | تقليل البيانات | م.11 | البند 4 |
 
-
-- اعتمدها: ________________________
-- مسؤول حماية البيانات: ________________________
 
 ### المصادر الرسمية
 - نظام حماية البيانات الشخصية (م/19)، المواد 4، 5، 6، 7، 10، 11، 12، 13، 15، 18، 40 — sdaia.gov.sa
@@ -158,29 +145,19 @@
 *Personal Data Protection Law (PDPL) — Kingdom of Saudi Arabia*
 
 
-- **Controller**: راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)
+- **Controller**: Raje3
 - **Framework**: Saudi PDPL (Royal Decree M/19) + Implementing Regulations
 - **Legal basis for this document**: Articles 4, 12, 13 · SDAIA Privacy Policy Guideline
-- **Version / Effective date**: 1.1  ·  1446-01-01 (تاريخ مؤقت)
 
-This Privacy Policy explains how راجِع (اسم مؤقت — يُستبدل قبل الإطلاق) ("the Controller") collects, uses, shares, stores, and destroys Personal Data, and the rights available to Data Subjects. It is published in accordance with Article 12 of the Personal Data Protection Law, which requires the Controller to make a privacy policy available to Data Subjects for their information prior to collecting their Personal Data. It is written in clear, non-misleading language.
+This Privacy Policy explains how Raje3 ("the Controller") collects, uses, shares, stores, and destroys Personal Data, and the rights available to Data Subjects. It is published in accordance with Article 12 of the Personal Data Protection Law, which requires the Controller to make a privacy policy available to Data Subjects for their information prior to collecting their Personal Data. It is written in clear, non-misleading language.
 
 ## 1. Controller — Name and Activity
 
-Official name: راجِع (اسم مؤقت — يُستبدل قبل الإطلاق). Activity, services and target group: A cloud platform that lets service businesses follow up with their customers and bring them back over WhatsApp.
+Official name: Raje3. Activity, services and target group: A cloud platform that lets service businesses follow up with their customers and bring them back over WhatsApp.
 
-## 2. Contact Information, DPO and Update Record
+## 2. Contact Information and DPO
 
-Address: الرياض، المملكة العربية السعودية (عنوان مؤقت) · Phone: +966500000000 · Website: raje3.sa.
-
-Data Protection Officer: mang.raje3@gmail.com · +966500000000. The DPO can provide further details about the processing of Personal Data. The name of the officer currently holding this role is recorded in the contact annex to this policy.
-
-Update record — every amendment to this policy is logged below (version, date, summary).
-
-| Version | Date | Summary of change |
-| --- | --- | --- |
-| 1.1 | 1446-01-01 (تاريخ مؤقت) | Initial publication. |
-| [VERSION] | [DATE] | [CHANGE] |
+Website: raje3.sa. Data Protection Officer: mang.raje3@gmail.com — can provide further details about the processing of Personal Data.
 
 
 ## 3. Personal Data We Collect
@@ -265,10 +242,10 @@ If you cannot exercise a right within the stated period, or you object to proces
 
 ### Availability, Notification and Updates
 
-- **** This policy is available before collection via raje3.sa, written in clear, easy-to-read language suitable for all Data Subjects.
-- **** We notify Data Subjects via app notifications, SMS, email, or a standalone form before or during collection.
-- **** We review the policy periodically and log any change in the update record (Section 2).
-- **** Related links: Terms & Conditions, Cookie Policy, and the Personal Data Protection Law — The data processing agreement · The data-subject rights notice · The cookie policy.
+- This policy is available before collection via raje3.sa, written in clear, easy-to-read language suitable for all Data Subjects.
+- We notify Data Subjects via app notifications, SMS, email, or a standalone form before or during collection.
+- We review this policy periodically, and any amendment is published here as soon as it is approved.
+- Related links: Terms & Conditions, Cookie Policy.
 
 ### PDPL Control Mapping
 
@@ -280,9 +257,6 @@ If you cannot exercise a right within the stated period, or you object to proces
 | Collection from another source / other purpose; disclosure | Law Arts. 10, 15 | Sections 4, 6 |
 | Data minimization | Art. 11 | Section 4 |
 
-
-- Approved by: ________________________
-- Data Protection Officer: ________________________
 
 ### Official Sources
 - PDPL (Royal Decree M/19), Articles 4, 5, 6, 7, 10, 11, 12, 13, 15, 18, 40 — sdaia.gov.sa
