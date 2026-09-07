@@ -95,18 +95,26 @@ def _by_branch(rows: list[dict[str, Any]]) -> dict[str, BranchUpsellStats]:
     return out
 
 
-async def report(store: Any, *, days: int, now: int) -> UpsellReport:
+async def report(store: Any, *, days: int, now: int, tenant: str | None = None) -> UpsellReport:
     """Trailing `days` vs the equal-length window immediately before it — the "current vs previous"
     shape wired to the console's own `Tile` delta badge elsewhere in this platform (insights'
     `visits_week`-style stats), so a later console pass can plug this in the same way with no
-    reshaping needed."""
+    reshaping needed.
+
+    `tenant=None` keeps the platform-wide aggregate every row in `wa_upsell_ledger` today only ever
+    feeds (the internal admin panel). A real value filters to that one shop's own rows first —
+    added 2026-09-07 alongside pricing_report.py's identical addition, for the same reason: this
+    function must never be the thing a future shop-facing route reaches for without also getting
+    real isolation from it. See operator.py's own route for the platform-admin caller (still
+    `tenant=None`, unchanged) — nothing shop-facing calls this yet."""
     rows = await store.scan_all(UPSELL_LEDGER, limit=_MAX_ROWS)
+    scoped = rows if tenant is None else [r for r in (rows or []) if r.get("tenant") == tenant]
     window = days * 86_400
     cur_since = now - window
     prev_since = now - 2 * window
 
-    current_rows = [r for r in (rows or []) if cur_since <= int(r.get("proposed_at") or 0) <= now]
-    previous_rows = [r for r in (rows or [])
+    current_rows = [r for r in (scoped or []) if cur_since <= int(r.get("proposed_at") or 0) <= now]
+    previous_rows = [r for r in (scoped or [])
                      if prev_since <= int(r.get("proposed_at") or 0) < cur_since]
 
     return UpsellReport(

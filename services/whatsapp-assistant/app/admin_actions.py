@@ -96,8 +96,12 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "id": "whatsapp_assistant.pricing_report", "label": "استهلاك حقيقي", "method": "GET",
         "path": "/api/v1/assistant/operator/pricing/report", "capability": "platform.config",
         "group": "المنصة",
-        "help": "متوسط التوكنات وعدد المحادثات الحقيقي آخر عدة أيام — الأساس اللي تُبنى عليه الحاسبة.",
-        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+        "help": "متوسط التوكنات وعدد المحادثات الحقيقي آخر عدة أيام — كل المحلات مجتمعة إن ما "
+               "حُدِّد محل، أو محل واحد فقط إن حُدِّد.",
+        "params": [
+            {"name": "days", "in": "query", "type": "number", "required": False},
+            {"name": "tenant", "in": "query", "type": "string", "required": False},
+        ],
     },
     {
         "id": "whatsapp_assistant.pricing_pending", "label": "تغييرات تسعير قادمة", "method": "GET",
@@ -140,15 +144,22 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "id": "whatsapp_assistant.upsell_report", "label": "تقرير الترقيات (Upsell)", "method": "GET",
         "path": "/api/v1/assistant/operator/growth/upsell-report", "capability": "platform.config",
         "group": "المنصة",
-        "help": "كم مرة اقترح المساعد باقة، وكم وافق العميل — لكل فرع، هذا الأسبوع مقابل اللي قبله.",
-        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+        "help": "كم مرة اقترح المساعد باقة، وكم وافق العميل — لكل فرع، هذا الأسبوع مقابل اللي قبله، "
+               "كل المحلات مجتمعة إن ما حُدِّد محل.",
+        "params": [
+            {"name": "days", "in": "query", "type": "number", "required": False},
+            {"name": "tenant", "in": "query", "type": "string", "required": False},
+        ],
     },
     {
         "id": "whatsapp_assistant.invoice_report", "label": "متوسط قيمة الفاتورة",
         "method": "GET", "path": "/api/v1/assistant/operator/growth/invoice-report",
         "capability": "platform.config", "group": "المنصة",
         "help": "متوسط قيمة الفاتورة لكل حجز حضره العميل وحجزه المساعد — لكل فرع، "
-               "هذا الأسبوع مقابل اللي قبله.",
-        "params": [{"name": "days", "in": "query", "type": "number", "required": False}],
+               "هذا الأسبوع مقابل اللي قبله. لازم تحديد محل واحد، ما فيه تجميع لكل المحلات هنا بعد.",
+        "params": [
+            {"name": "days", "in": "query", "type": "number", "required": False},
+            {"name": "tenant", "in": "query", "type": "string", "required": True},
+        ],
     },
 ]

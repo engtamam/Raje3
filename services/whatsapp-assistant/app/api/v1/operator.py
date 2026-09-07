@@ -183,29 +183,42 @@ class PricingScheduleIn(BaseModel):
 
 
 @router.get("/pricing/report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
-async def get_pricing_report(request: Request, days: int = 30,
+async def get_pricing_report(request: Request, days: int = 30, tenant: str = "",
                              principal: Principal = Depends(require_user)) -> dict:
     """Real usage over the trailing `days` — calls, distinct conversations, and token totals,
     straight off COST_LEDGER (core/pricing_report.py). What the calculator screen shows instead of
-    a guessed average when the operator picks "من قيمة النظام" for the assumption."""
+    a guessed average when the operator picks "من قيمة النظام" for the assumption.
+
+    `tenant` is a platform-admin OPTION to inspect one shop, never a requirement — the console's
+    own calculator never sends it and gets the platform-wide number this route has always returned.
+    Deliberately an explicit query param, not read off `principal.tenant`: a platform-operator
+    token has no real tenant claim (see get_invoice_report's own note below on the bug this exact
+    mistake caused there), so the ONLY correct source for "which shop" on an operator-gated route
+    is the operator's own explicit choice, never their own identity."""
     days = max(1, min(days, 365))
     container = request.app.state.container
-    rep = await pricing_report(container.datastore, days=days, now=int(time.time()))
+    rep = await pricing_report(container.datastore, days=days, now=int(time.time()),
+                               tenant=(tenant or None))
     return rep.as_dict()
 
 
 @router.get("/growth/upsell-report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
-async def get_upsell_report(request: Request, days: int = 30,
+async def get_upsell_report(request: Request, days: int = 30, tenant: str = "",
                             principal: Principal = Depends(require_user)) -> dict:
     """Real package-upsell offer/accept/decline counts and rate, per branch, current-window vs the
     equal window before it — straight off `wa_upsell_ledger` (core/upsell_report.py). SCOPE NOTE,
     stated in the response itself so a shop owner is never told less than the whole truth by
     omission: this covers only offer/accept/decline + rate — average invoice value now lives at
     GET .../growth/invoice-report instead (a real bookings-service query, not this local ledger);
-    session/conversion counts and which services got booked are still not answered here."""
+    session/conversion counts and which services got booked are still not answered here.
+
+    `tenant` — same platform-admin-only option as get_pricing_report's own, same reasoning: never
+    sourced from the caller's own identity, only an explicit ask; empty means every shop combined,
+    exactly as before this param existed."""
     days = max(1, min(days, 365))
     container = request.app.state.container
-    rep = await upsell_report(container.datastore, days=days, now=int(time.time()))
+    rep = await upsell_report(container.datastore, days=days, now=int(time.time()),
+                              tenant=(tenant or None))
     body = rep.as_dict()
     body["scope_note"] = ("upsell offer/accept/decline + rate only — average invoice value moved "
                           "to GET .../growth/invoice-report; session/conversion and "
@@ -214,7 +227,7 @@ async def get_upsell_report(request: Request, days: int = 30,
 
 
 @router.get("/growth/invoice-report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
-async def get_invoice_report(request: Request, days: int = 30,
+async def get_invoice_report(request: Request, days: int = 30, tenant: str = "",
                              principal: Principal = Depends(require_user)) -> dict:
     """Average invoice value across every AI-made booking (package OR plain service), per branch,
     current-window vs the equal window before it — the replacement for the old
@@ -226,12 +239,26 @@ async def get_invoice_report(request: Request, days: int = 30,
 
     ONLY `status == "attended"` BOOKINGS FEED THE AVERAGE (real, realized revenue) — see
     invoice_report.py's own note on why, and `status_breakdown` for the full non-cancelled picture
-    alongside it."""
+    alongside it.
+
+    `tenant` USED TO BE READ FROM `principal.tenant or ""` — a real bug, fixed 2026-09-07:
+    `Principal.tenant` is `None` for every genuine platform-operator token (they aren't scoped to
+    one shop), so this route silently asked bookings-service's `/internal/bookings/by-actor` for
+    tenant `""`, which that route's own `min_length=1` validation rejects outright — the console's
+    own invoice-report card would have 422'd the moment a real operator opened it. Now an explicit
+    query param the console can genuinely leave empty ONLY once this route itself supports a real
+    "every shop combined" mode (core/invoice_report.py's own `report()` still requires a real
+    `tenant`, unlike its two siblings above — a shop-scoped stat this pass didn't extend that far;
+    for now this route requires the caller to actually name a shop)."""
+    days = max(1, min(days, 365))
+    if not tenant:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            detail="tenant is required — this report has no platform-wide mode yet")
     days = max(1, min(days, 365))
     container = request.app.state.container
     rep = await invoice_report(
         container.booking_actor_report, container.service_catalog, container.package_catalog,
-        tenant=principal.tenant or "", created_by=ACTOR_CREATED_BY, days=days,
+        tenant=tenant, created_by=ACTOR_CREATED_BY, days=days,
         now=int(time.time()))
     return rep.as_dict()
 

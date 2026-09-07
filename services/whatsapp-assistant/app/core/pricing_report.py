@@ -6,9 +6,14 @@ should not force this read to walk a year of rows to answer "what does last mont
 and a recent window is the honest basis for a FORWARD projection anyway (a rate from a year ago
 predicts nothing about next month's volume).
 
-PLATFORM-WIDE ON PURPOSE. Same reasoning as pricing_schedule.py and every PRICING_* knob itself:
-this is not a per-shop number, it is "how much does running this feature at all currently cost
-us across every shop that has it" — the number a pricing DECISION needs.
+PLATFORM-WIDE BY DEFAULT — `tenant=None` (the operator route's own default) aggregates every shop,
+which is the number a pricing DECISION needs (same reasoning as pricing_schedule.py and every
+PRICING_* knob itself: "how much does running this feature cost us across every shop"). A real
+`tenant` value scopes to just that one shop's own COST_LEDGER rows instead — added 2026-09-07 so a
+FUTURE shop-facing screen (e.g. "محلي"'s own AI-usage stat) can call this same function safely,
+without ever seeing another shop's numbers folded into its own. Never infer which mode a caller
+wanted from anything but an explicit argument — see operator.py's own route for the one
+platform-admin caller today, and never let a shop-scoped route omit `tenant`.
 """
 from __future__ import annotations
 
@@ -55,7 +60,7 @@ class UsageReport:
         }
 
 
-async def report(store: Any, *, days: int, now: int) -> UsageReport:
+async def report(store: Any, *, days: int, now: int, tenant: str | None = None) -> UsageReport:
     """Real calls/conversations/tokens over the trailing `days`, straight off COST_LEDGER.
 
     `find()` on this port needs a non-empty membership `where` (never a `>=`/`<=` range, and never
@@ -64,10 +69,15 @@ async def report(store: Any, *, days: int, now: int) -> UsageReport:
     call, not per message-character): a busy platform doing thousands of conversations a day is
     still a small fraction of `_MAX_ROWS` over 30 days; the day it is not, `truncated` says so
     rather than quietly answering with a stale-looking accurate number.
+
+    `tenant=None` keeps the platform-wide aggregate (this module's own docstring). A real value
+    filters to that one shop's own rows BEFORE the window/truncation math below, so `truncated`
+    still means what it says for whichever scope was actually asked for.
     """
     since = now - days * 86_400
     rows = await store.scan_all(COST_LEDGER, limit=_MAX_ROWS)
-    windowed = [r for r in (rows or []) if int(r.get("at") or 0) >= since]
+    scoped = rows if tenant is None else [r for r in (rows or []) if r.get("tenant") == tenant]
+    windowed = [r for r in (scoped or []) if int(r.get("at") or 0) >= since]
 
     calls = len(windowed)
     conversations = len({r.get("subject_ref") for r in windowed if r.get("subject_ref")})

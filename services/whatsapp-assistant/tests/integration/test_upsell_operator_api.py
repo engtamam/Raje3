@@ -121,6 +121,44 @@ def test_report_aggregates_real_ledger_rows_per_branch_and_computes_a_rate(clien
     assert b["offered"] == 1 and b["pending"] == 1 and b["acceptance_rate"] is None
 
 
+def test_report_tenant_none_stays_platform_wide_across_shops(client, operator_auth):
+    """The route's own default (`tenant=""` → `report(..., tenant=None)`) must keep mixing every
+    shop together — this is the internal admin panel's own correct behaviour, unchanged by adding
+    the tenant-scoping capability. Two DIFFERENT tenants' rows both land in `_all`."""
+    container = client.app.state.container
+    now = int(time.time())
+    import asyncio
+    asyncio.run(_seed(
+        container.datastore, proposal_id="p1", tenant="shop-a", branch_id="brnA",
+        outcome="accepted", price_minor=10000, proposed_at=now - 10))
+    asyncio.run(_seed(
+        container.datastore, proposal_id="p2", tenant="shop-b", branch_id="brnA",
+        outcome="declined", price_minor=None, proposed_at=now - 5))
+
+    body = client.get(f"{PREFIX}/growth/upsell-report", headers=operator_auth).json()
+    assert body["current"]["_all"]["offered"] == 2   # both shops combined, exactly as before
+
+
+def test_report_with_an_explicit_tenant_sees_only_that_shops_own_rows(client, operator_auth):
+    """The new isolation capability itself: passing `tenant=` must exclude every other shop's rows
+    entirely — never mix a second shop's data into the one being asked about."""
+    container = client.app.state.container
+    now = int(time.time())
+    import asyncio
+    asyncio.run(_seed(
+        container.datastore, proposal_id="p1", tenant="shop-a", branch_id="brnA",
+        outcome="accepted", price_minor=10000, proposed_at=now - 10))
+    asyncio.run(_seed(
+        container.datastore, proposal_id="p2", tenant="shop-b", branch_id="brnA",
+        outcome="declined", price_minor=None, proposed_at=now - 5))
+
+    body = client.get(f"{PREFIX}/growth/upsell-report?tenant=shop-a",
+                      headers=operator_auth).json()
+    assert body["current"]["_all"]["offered"] == 1
+    assert body["current"]["_all"]["accepted"] == 1
+    assert body["current"]["_all"]["declined"] == 0   # shop-b's row never counted here
+
+
 def test_report_counts_an_accepted_row_regardless_of_whether_its_price_was_ever_known(
         client, operator_auth):
     """`price_minor` no longer feeds any average HERE (that honesty rule now lives in

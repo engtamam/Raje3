@@ -106,6 +106,47 @@ def test_report_days_is_clamped_not_refused(client, operator_auth):
     assert r.status_code == 200 and r.json()["days"] == 1
 
 
+async def _seed_cost_row(store, *, tenant, subject_ref, input_tokens, output_tokens, at):
+    import uuid
+
+    from app.core.models import COST_LEDGER
+    await store.put(COST_LEDGER, f"{tenant}:{at}:{uuid.uuid4().hex[:8]}", {
+        "tenant": tenant, "subject_ref": subject_ref, "at": at,
+        "input_tokens": input_tokens, "output_tokens": output_tokens})
+
+
+def test_report_tenant_none_stays_platform_wide_across_shops(client, operator_auth):
+    """Default behaviour (no `tenant` query param) must keep aggregating every shop together —
+    the internal admin panel's own correct number, unchanged by adding tenant-scoping capability."""
+    container = client.app.state.container
+    now = int(__import__("time").time())
+    import asyncio
+    asyncio.run(_seed_cost_row(container.datastore, tenant="shop-a", subject_ref="s1",
+                               input_tokens=100, output_tokens=50, at=now - 10))
+    asyncio.run(_seed_cost_row(container.datastore, tenant="shop-b", subject_ref="s2",
+                               input_tokens=200, output_tokens=80, at=now - 5))
+
+    body = client.get(f"{PREFIX}/pricing/report", headers=operator_auth).json()
+    assert body["calls"] == 2 and body["input_tokens"] == 300   # both shops combined
+
+
+def test_report_with_an_explicit_tenant_sees_only_that_shops_own_rows(client, operator_auth):
+    """Real isolation: another shop's real LLM calls must never inflate the number a single shop's
+    own future usage screen would show."""
+    container = client.app.state.container
+    now = int(__import__("time").time())
+    import asyncio
+    asyncio.run(_seed_cost_row(container.datastore, tenant="shop-a", subject_ref="s1",
+                               input_tokens=100, output_tokens=50, at=now - 10))
+    asyncio.run(_seed_cost_row(container.datastore, tenant="shop-b", subject_ref="s2",
+                               input_tokens=200, output_tokens=80, at=now - 5))
+
+    body = client.get(f"{PREFIX}/pricing/report", params={"tenant": "shop-a"},
+                      headers=operator_auth).json()
+    assert body["calls"] == 1
+    assert body["input_tokens"] == 100 and body["output_tokens"] == 50   # shop-b never counted
+
+
 # ── schedule / pending / cancel ────────────────────────────────────────────────
 def test_scheduling_a_pricing_change_never_applies_it_instantly(client, operator_auth):
     before = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
