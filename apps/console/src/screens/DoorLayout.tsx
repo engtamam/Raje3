@@ -104,21 +104,25 @@ export function DoorLayout({ children, title, subtitle }: {
         </main>
       </div>
 
-      {/* MARKETING'S FOOTER, MIRRORED — this screen is the one place a signed-out visitor may land
-          with NO landing page behind it at all (a direct link, or a future "skip the landing page"
-          mode). Full width, own border-top, at the true bottom of the page — see this file's own
-          header comment for why it lives here rather than inside the form card. */}
-      <footer className="border-t border-border-subtle bg-surface-0 px-6 py-4">
-        <p className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-text-muted">
+      {/* MARKETING'S FOOTER, MIRRORED — same proportions as marketing/index.html's own footer CSS
+          (border-top, py-34px, .95rem text, space-between rather than centered — copyright and
+          links pulled to opposite edges, not huddled in the middle), not a smaller/plainer
+          reinvention of it. This screen is the one place a signed-out visitor may land with NO
+          landing page behind it at all (a direct link, or the "stealth" LANDING_PAGE_ENABLED mode
+          above) — the legal links must be reachable from here on their own. */}
+      <footer className="border-t border-border-subtle bg-surface-0 px-6 py-9">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 text-sm text-text-muted">
           <span>© راجِع — جميع الحقوق محفوظة</span>
-          <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
-            الشروط
-          </a>
-          <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-secondary">
-            الخصوصية
-          </a>
-          {/* TODO: badge/link للسجل التجاري — بانتظار الرابط/الرقم الحقيقي من تمام، لا تُخترع قيمة هنا */}
-        </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="hover:text-text-primary">
+              الشروط
+            </a>
+            <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-primary">
+              الخصوصية
+            </a>
+            {/* TODO: badge/link للسجل التجاري — بانتظار الرابط/الرقم الحقيقي من تمام، لا تُخترع قيمة هنا */}
+          </div>
+        </div>
       </footer>
     </div>
   );

@@ -93,6 +93,24 @@
 		file_server
 	}
 
+	# THE LANDING-PAGE OFF-SWITCH — "stealth" launch mode, requested so the root domain can be
+	# handed to a private cohort (invited by direct link, never able to reach sign-up on their own)
+	# without deleting the landing page: `LANDING_PAGE_ENABLED=false` on this Deployment (see
+	# deploy/edge/console.yaml's own env entry) sends `/` itself straight to the console door — the
+	# ONE bare path a person actually types or a bookmark points at. Every OTHER path on this
+	# domain is unaffected: the SPA's own real screens, `/app/*`, still work exactly as they always
+	# have, and a link straight into the marketing page (e.g. `/#pricing`) still 404s the same way
+	# it would with the flag off, since this only ever matches the bare root.
+	#
+	# `{$LANDING_PAGE_ENABLED:true}` is a Caddyfile TEXT SUBSTITUTION, resolved once when this
+	# config loads (container start), not per request — flipping it is a redeploy, never a
+	# runtime toggle a request header could influence.
+	@landing_off {
+		path /
+		expression `"{$LANDING_PAGE_ENABLED:true}" == "false"`
+	}
+	redir @landing_off /app permanent
+
 	# The landing page at the root, same origin as the console, so a link from one into the other is
 	# not a cross-site anything.
 	handle {

@@ -35,6 +35,12 @@ spec:
           image: ghcr.io/engtamam/raje3/console@sha256:0e304f856cda7ad2e2b27c62b10c019672e21f3b87fe0f08a9ca1a40774d0749   # bec9ab3b, published by publish-images.sh
           ports:
             - { containerPort: 8080 }
+          # "Stealth" launch mode — see apps/console/Caddyfile's own @landing_off matcher. "true"
+          # (the default the Caddyfile itself falls back to if this were ever removed) keeps the
+          # public marketing page at "/"; flip to "false" and re-apply to send "/" straight to the
+          # console door instead, for a private-cohort launch with no public sign-up page at all.
+          env:
+            - { name: LANDING_PAGE_ENABLED, value: "true" }
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
