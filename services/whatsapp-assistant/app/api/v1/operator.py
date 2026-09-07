@@ -1,21 +1,23 @@
-"""The operator surface — credentials, changeable after launch.
+"""The operator surface — credentials AND policy, changeable after launch.
 
-WRITE-ONLY IS ENFORCED HERE, and this file is where the guarantee lives. `SecretStore.get()`
-returns plaintext because an adapter cannot authenticate with a masked string; no route in this
-module returns it, and `safety:no-secret-reads` fails the build if one ever does. That split is
-deliberate: the store is a mechanism, the API boundary is the control.
+WRITE-ONLY IS ENFORCED HERE, and this file is where the guarantee lives, for the secrets half.
+`SecretStore.get()` returns plaintext because an adapter cannot authenticate with a masked string;
+no route in this module returns it, and `safety:no-secret-reads` fails the build if one ever does.
+That split is deliberate: the store is a mechanism, the API boundary is the control.
 
-SECRETS ONLY, NO /operator/config — unlike reminders/loyalty, this service has no
-`app/runtime_policy.py`: every knob it has today is deploy-time env, not a per-tenant/runtime
-override (see app/api/v1/__init__.py's own note, now half out of date — mirror this file's own
-note there the day a real tunable setting shows up and /operator/config is worth adding).
+/operator/config JOINED THE SECRETS ROUTES HERE 2026-09-07 — this file's own note used to say this
+service had no `app/runtime_policy.py` and no reason for one; the console's provider-management
+screen (المزوّدين الخارجيين ← الذكاء الاصطناعي ← الإدارة) needed live control over the model and a
+couple of behavioural knobs, which is exactly what reminders'/operations' identical machinery
+exists for. Mirrors reminders' own /operator/config three routes exactly — see
+app/core/runtime_config.py's own docstring for the whole doctrine (a key is advertised only if
+something reads it; wiring and secrets stay off this surface entirely).
 
-WHY THIS EXISTS NOW: an LLM backend credential is the one thing this service actually needs
-changeable at runtime — every wipe+reinstall regenerates the platform's shared secrets but has
-nothing that mints a third-party credential (ASSISTANT_MODEL_PROJECT/
+WHY THE SECRETS ROUTES EXIST: an LLM backend credential is the one thing this service actually
+needed changeable at runtime before today — every wipe+reinstall regenerates the platform's shared
+secrets but has nothing that mints a third-party credential (ASSISTANT_MODEL_PROJECT/
 ASSISTANT_MODEL_CREDENTIAL), so it silently reverted to empty and the assistant CrashLoopBackOff'd
-until someone found the gap and repatched it by hand, off any audited path. This route is that
-path, mirroring services/reminders' operator.py exactly for the parts this service actually needs.
+until someone found the gap and repatched it by hand, off any audited path.
 """
 from __future__ import annotations
 
@@ -26,13 +28,16 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.core.pii import subject_ref
+from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
+from app.runtime_policy import RUNTIME_POLICY
 
 router = APIRouter(prefix="/api/v1/assistant/operator", tags=["operator"])
 
 _SECRETS = require_capability("platform.secrets")
+_CONFIG = require_capability("platform.config")
 
 
 def _actor(principal: Principal) -> str:
@@ -76,6 +81,62 @@ def _invalidate_llm(request: Request) -> None:
     invalidate = getattr(llm, "invalidate_key_cache", None)
     if callable(invalidate):
         invalidate()
+
+
+def _runtime_config(request: Request) -> RuntimeConfig:
+    """The instance wired at boot (app/container.py), so the service's RUNTIME_POLICY applies.
+    Falls back to building a fresh one only if the container somehow has none yet — same shape as
+    reminders'/operations' own copy of this helper."""
+    container = getattr(request.app.state, "container", None)
+    rc = getattr(container, "runtime_config", None) if container is not None else None
+    if rc is not None:
+        return rc
+    return RuntimeConfig(request.app.state.container.datastore, Settings, policy=RUNTIME_POLICY)
+
+
+class ConfigIn(BaseModel):
+    key: str = Field(..., min_length=1, max_length=128)
+    value: str | int | float | bool
+    tenant: str = Field(default="", max_length=128)
+
+
+# ── policy (app/runtime_policy.py) ───────────────────────────────────────────────────────────────
+@router.get("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def effective_config(request: Request, tenant: str = "",
+                           principal: Principal = Depends(require_user)) -> dict:
+    """Every knob an operator may change, with its current effective value — built from the
+    settable set, so a credential or a frozen identifier cannot appear here even by accident."""
+    rc = _runtime_config(request)
+    return {"config": await rc.effective(tenant=tenant, settings=get_settings())}
+
+
+@router.put("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def set_config(request: Request, body: ConfigIn,
+                     principal: Principal = Depends(require_user)) -> dict:
+    """Override one policy value. Refused if the boot guard would refuse it."""
+    await request.app.state.auditor.record(
+        "operator.config_changed", actor=_actor(principal), tenant=body.tenant or "",
+        resource=f"config:{body.key}", ip=request.client.host if request.client else "",
+        metadata={"key": body.key})     # the KEY is not a secret; settable knobs never are
+    try:
+        o = await _runtime_config(request).set(
+            tenant=body.tenant, key=body.key, value=body.value, actor_ref=_actor(principal))
+    except RuntimeConfigError as exc:
+        return _refuse(str(exc))
+    # ASSISTANT_MODEL_NAME is read fresh every LLM call already (see assistant_service.py's own
+    # `_resolve_model_name`) — no cache to invalidate here the way the secrets routes need to.
+    return {"key": o.key, "value": o.value}
+
+
+@router.delete("/config/{key}", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+async def clear_config(request: Request, key: str, tenant: str = "",
+                       principal: Principal = Depends(require_user)) -> dict:
+    """Drop an override so the configured default applies again."""
+    await request.app.state.auditor.record(
+        "operator.config_changed", actor=_actor(principal), tenant=tenant,
+        resource=f"config:{key}", ip=request.client.host if request.client else "",
+        metadata={"key": key, "cleared": True})
+    return {"cleared": await _runtime_config(request).clear(tenant=tenant, key=key)}
 
 
 @router.get("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])

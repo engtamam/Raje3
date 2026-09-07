@@ -196,14 +196,23 @@ class AssistantServiceLlm:
 
     def __init__(self, *, connections: HttpAssistantConnections, model_location: str, model_name: str,
                 model_auth: str, env_project: str = "", env_credential: str = "",
-                allowed_tools: frozenset[str] = frozenset(), secret_store: Any = None) -> None:
+                allowed_tools: frozenset[str] = frozenset(), secret_store: Any = None,
+                runtime_config: Any = None) -> None:
         self._connections = connections
         self._model_location = model_location
+        # `model_name` STAYS THE DEPLOY-TIME DEFAULT — see `_resolve_model_name` below, which is
+        # what `respond()` actually calls. Kept here (not renamed) so a caller that never wires
+        # `runtime_config` (every existing test, `NullLlm`-adjacent call sites) sees identical
+        # behaviour to before this field existed.
         self._model_name = model_name
         self._model_auth = model_auth
         self._env_project = env_project
         self._env_credential = env_credential
         self._secret_store = secret_store
+        # ASSISTANT_MODEL_NAME's live override (app/runtime_policy.py) — read fresh every turn,
+        # not cached: a model switch must take effect on the very next reply, and this is one
+        # cheap datastore read alongside the project/credential resolution already happening here.
+        self._runtime_config = runtime_config
         self._cached_project: str | None = None
         self._cached_credential: str | None = None
         # config drives ALLOWLIST membership, not tool CAPABILITY — a name this file does not know
@@ -236,10 +245,16 @@ class AssistantServiceLlm:
         self._cached_credential = credential
         return credential
 
-    def _model_url(self, project: str) -> str:
+    async def _resolve_model_name(self) -> str:
+        if self._runtime_config is None:
+            return self._model_name
+        return await self._runtime_config.get(
+            tenant="", key="ASSISTANT_MODEL_NAME", default=self._model_name)
+
+    def _model_url(self, project: str, model_name: str) -> str:
         loc = self._model_location
         return (f"https://{loc}-aiplatform.googleapis.com/v1/projects/{project}"
-                f"/locations/{loc}/publishers/google/models/{self._model_name}:generateContent")
+                f"/locations/{loc}/publishers/google/models/{model_name}:generateContent")
 
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
@@ -263,10 +278,11 @@ class AssistantServiceLlm:
                 "ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_CREDENTIAL not yet configured — set them "
                 "via /api/v1/assistant/operator/secrets once a real GCP project exists")
 
+        model_name = await self._resolve_model_name()
         try:
             cid = ensure_connection(
-                self._connections, tenant=tenant, url=self._model_url(project), model=self._model_name,
-                auth=self._model_auth, credential=credential,
+                self._connections, tenant=tenant, url=self._model_url(project, model_name),
+                model=model_name, auth=self._model_auth, credential=credential,
                 system_prompt=full_prompt, tools=tool_schemas)
         except AssistantConnectionsUnavailable as exc:
             raise LlmUnavailable(f"assistant-service unreachable: {exc}") from exc

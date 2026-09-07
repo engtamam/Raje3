@@ -433,7 +433,7 @@ class ConversationEngine:
                 shop_notes_enabled: bool = True, msg_word_limit_enabled: bool = True,
                 base_entitlement: Any = None, catalog_provider: Any = None,
                 rhythm_provider: Any = None,
-                max_carousel_cards: int = 5) -> None:
+                max_carousel_cards: int = 5, runtime_config: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -453,6 +453,11 @@ class ConversationEngine:
         # answer "nothing due/lapsed" rather than failing the turn).
         self._rhythm_provider = rhythm_provider
         self._max_carousel_cards = max_carousel_cards
+        # app/runtime_policy.py's live-override path (SOFT_DECLINE_THRESHOLD, MAX_CAROUSEL_CARDS)
+        # — see `_runtime_int` below, which is what the two use sites actually call. `None` (no
+        # panel wired yet, or a test) means every existing constructor call behaves exactly as
+        # before this field existed.
+        self._runtime_config = runtime_config
         self._customer_lookup = customer_lookup
         self._related_services = related_services
         # None-safe, same reasoning as every other optional peer here: a conversation built
@@ -527,6 +532,14 @@ class ConversationEngine:
 
     def set_auditor(self, auditor: Any) -> None:
         self._auditor = auditor
+
+    async def _runtime_int(self, key: str, default: int) -> int:
+        """SOFT_DECLINE_THRESHOLD / MAX_CAROUSEL_CARDS's live-override read (app/runtime_policy.py)
+        — `default` is the constructor value, so a deployment with no override behaves exactly as
+        configured, and one with no `runtime_config` wired at all (every test) never calls out."""
+        if self._runtime_config is None:
+            return default
+        return int(await self._runtime_config.get(tenant="", key=key, default=default))
 
     def _key(self, tenant: str, subject_ref: str) -> str:
         return f"{tenant}|{subject_ref}"
@@ -1006,7 +1019,9 @@ class ConversationEngine:
             conv.awaiting_promo_response = False
             if not conv.promo_suppressed and is_decline(latest_user_text):
                 conv.promo_declines += 1
-                if conv.promo_declines >= self._soft_decline_threshold:
+                threshold = await self._runtime_int(
+                    "SOFT_DECLINE_THRESHOLD", self._soft_decline_threshold)
+                if conv.promo_declines >= threshold:
                     conv.promo_suppressed = True
 
         if not conv.escalated:
@@ -1102,6 +1117,8 @@ class ConversationEngine:
             await self._wallet.confirm(hold_id)
 
         if reply.tool_call is not None:
+            max_carousel_cards = await self._runtime_int(
+                "MAX_CAROUSEL_CARDS", self._max_carousel_cards)
             try:
                 result = await T.validate_and_render(
                     tenant=tenant, subject_ref=subject_ref, conversation_id=self._key(tenant, subject_ref),
@@ -1114,7 +1131,7 @@ class ConversationEngine:
                     booking_history_visible=self._booking_history_visible,
                     catalog_provider=self._catalog_provider,
                     rhythm_provider=self._rhythm_provider,
-                    max_carousel_cards=self._max_carousel_cards)
+                    max_carousel_cards=max_carousel_cards)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",
                                         "text": "تعذّر تنفيذ ذلك الآن.", "at": now})

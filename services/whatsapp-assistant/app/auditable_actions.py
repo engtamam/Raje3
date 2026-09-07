@@ -154,4 +154,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "clearing a credential silently reverts the service to whatever the environment "
                "holds, which is a behaviour change nobody would otherwise see",
     },
+    {
+        "action": "operator.config_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "config",
+        "why": "a live-overridden policy value (app/runtime_policy.py) changes real behaviour — "
+               "which model replies, when soft-decline suppresses a pitch — with no redeploy and "
+               "no other trace of who changed it or when",
+    },
 ]

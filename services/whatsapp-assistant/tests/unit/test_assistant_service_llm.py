@@ -154,6 +154,72 @@ def test_no_project_or_credential_configured_refuses_without_ever_calling_out():
                                      user_message="hi", allowed_tools=frozenset(), tenant="t1"))
 
 
+def test_the_model_name_is_read_live_from_runtime_config_when_wired():
+    """app/runtime_policy.py's ASSISTANT_MODEL_NAME override — read fresh every call (never
+    cached), so a switch from the console takes effect on the very next turn."""
+    class _FakeRuntimeConfig:
+        async def get(self, *, tenant: str, key: str, default):
+            assert key == "ASSISTANT_MODEL_NAME"
+            return "gemini-overridden-model"
+
+    connections = HttpAssistantConnections(
+        url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
+        token="t", timeout=8)
+    adapter = AssistantServiceLlm(
+        connections=connections, model_location="me-central2", model_name="the-constructor-default",
+        model_auth="vertex", env_project="proj", env_credential="cred",
+        allowed_tools=frozenset(), runtime_config=_FakeRuntimeConfig())
+
+    captured_urls = []
+
+    def _urlopen(req, timeout=None):
+        if req.get_method() == "GET":
+            return _Resp({"connections": []})
+        body = json.loads(req.data or b"{}")
+        if "url" in body:
+            captured_urls.append(body["url"])
+        if "messages" in body:
+            return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+        return _Resp({"id": "conn_1"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(adapter.respond(system_prompt="sp", summary="", recent_messages=[],
+                            user_message="hi", allowed_tools=frozenset(), tenant="t1"))
+
+    assert captured_urls, "the create/update call never carried a url to inspect"
+    assert "gemini-overridden-model" in captured_urls[0]
+    assert "the-constructor-default" not in captured_urls[0]
+
+
+def test_no_runtime_config_wired_uses_the_constructor_model_name():
+    """None (no panel wired, or an older call site) must behave exactly as before this field
+    existed — the same None-safe shape every other optional peer in this service follows."""
+    connections = HttpAssistantConnections(
+        url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
+        token="t", timeout=8)
+    adapter = AssistantServiceLlm(
+        connections=connections, model_location="me-central2", model_name="the-constructor-default",
+        model_auth="vertex", env_project="proj", env_credential="cred", allowed_tools=frozenset())
+
+    captured_urls = []
+
+    def _urlopen(req, timeout=None):
+        if req.get_method() == "GET":
+            return _Resp({"connections": []})
+        body = json.loads(req.data or b"{}")
+        if "url" in body:
+            captured_urls.append(body["url"])
+        if "messages" in body:
+            return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+        return _Resp({"id": "conn_1"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(adapter.respond(system_prompt="sp", summary="", recent_messages=[],
+                            user_message="hi", allowed_tools=frozenset(), tenant="t1"))
+
+    assert "the-constructor-default" in captured_urls[0]
+
+
 def test_a_rotated_credential_is_re_resolved_after_invalidate_key_cache():
     """Mirrors GEMINI_API_KEY's own rotation contract: app/api/v1/operator.py calls
     invalidate_key_cache() generically after a PUT, and the next turn must see the new value."""

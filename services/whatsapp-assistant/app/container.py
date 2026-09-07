@@ -132,6 +132,7 @@ class Container:
     # ── this service's own pieces ─────────────────────────────────────────
     inbound_store: Any = None
     llm: Any = None
+    runtime_config: Any = None
     booking_provider: Any = None
     points_summary: Any = None
     customer_lookup: Any = None
@@ -229,7 +230,11 @@ def build_container(settings: Settings) -> Container:
     # secret_store BEFORE llm, and passed in: an operator-rotated credential (app/api/v1/
     # operator.py) needs the same store instance the LLM adapter resolves it from, not a second
     # one that would never see the write.
-    container.llm = build_llm(settings, secret_store=container.secret_store)
+    from app.core.runtime_config import RuntimeConfig
+    from app.runtime_policy import RUNTIME_POLICY
+    container.runtime_config = RuntimeConfig(container.datastore, Settings, policy=RUNTIME_POLICY)
+    container.llm = build_llm(settings, secret_store=container.secret_store,
+                              runtime_config=container.runtime_config)
     # "config" (default) keeps the zero-infra placeholder; "real" (Phase 4) swaps in
     # RealBookingProvider — same port, see app/ports/booking_provider.py's own note. An unknown
     # driver value fails fast rather than silently falling back to the placeholder — a typo'd
@@ -295,6 +300,7 @@ def build_container(settings: Settings) -> Container:
         base_entitlement=container.base_entitlement,
         catalog_provider=container.catalog_provider,
         rhythm_provider=container.rhythm_provider,
+        runtime_config=container.runtime_config,
         max_carousel_cards=settings.MAX_CAROUSEL_CARDS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,

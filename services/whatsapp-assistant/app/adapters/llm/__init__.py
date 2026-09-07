@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def build(settings: Any, *, secret_store: Any = None) -> Any:
+def build(settings: Any, *, secret_store: Any = None, runtime_config: Any = None) -> Any:
     driver = (getattr(settings, "LLM_DRIVER", "") or "null").lower()
     if driver == "null":
         from app.adapters.llm.null import NullLlm
@@ -22,6 +22,7 @@ def build(settings: Any, *, secret_store: Any = None) -> Any:
             connections=connections, model_location=settings.ASSISTANT_MODEL_LOCATION,
             model_name=settings.ASSISTANT_MODEL_NAME, model_auth=settings.ASSISTANT_MODEL_AUTH,
             env_project=settings.ASSISTANT_MODEL_PROJECT, env_credential=settings.ASSISTANT_MODEL_CREDENTIAL,
-            allowed_tools=settings.llm_tool_allowlist, secret_store=secret_store)
+            allowed_tools=settings.llm_tool_allowlist, secret_store=secret_store,
+            runtime_config=runtime_config)
     from app.ports.errors import ConfigError
     raise ConfigError(f"unknown llm driver: {driver!r} — allowed: null, assistant_service")

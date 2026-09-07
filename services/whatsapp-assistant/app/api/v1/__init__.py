@@ -5,10 +5,10 @@
 # its own) — kept minimal: just the platform whoami probe every service exposes.
 #
 # operator.py NOW EXISTS (app/api/v1/operator.py, mounted separately in main.py, its own
-# /api/v1/assistant/operator prefix) — SECRETS ONLY, no /operator/config: the LLM backend's own
-# credential (ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_CREDENTIAL) turned out
-# to be exactly the runtime-tunable credential this file's old note said would justify adding one.
-# Every OTHER knob is still deploy-time env; do not add /operator/config until a real one exists.
+# /api/v1/assistant/operator prefix) — secrets (ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_CREDENTIAL)
+# AND, since 2026-09-07, /operator/config for app/runtime_policy.py's declared knobs
+# (ASSISTANT_MODEL_NAME, SOFT_DECLINE_THRESHOLD, MAX_CAROUSEL_CARDS). Every OTHER setting is still
+# deploy-time env — add a runtime_policy.py entry only in the same change that wires its own read.
 #
 # NOT ROUTED THROUGH api-gateway EITHER, for the same reason: deploy/services/api-gateway.
 # values.yaml's prefix list has no `/api/v1/whatsapp-assistant` entry, so /whoami and /admin/ping

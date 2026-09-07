@@ -1,0 +1,148 @@
+"""/api/v1/assistant/operator/config — app/runtime_policy.py's declared knobs, live-overridable
+without a redeploy. Same shape as services/reminders' own test_operator_api.py; unlike that
+template (which declares nothing), this service has three REAL keys, so the happy paths are worth
+covering here too, not just the negative/refusal ones.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import os
+
+import jwt
+import pytest
+from fastapi.testclient import TestClient
+
+TOKEN_SECRET = "h" * 40
+ISS, AUD = "iss", "aud"
+KEK = "unit-test-kek-not-a-real-key"
+
+PREFIX = "/api/v1/assistant/operator"
+
+
+def _make_app(**env_over) -> TestClient:
+    from app.config import get_settings
+
+    env = {
+        "ENV": "test",
+        "INTERNAL_SERVICE_TOKEN": "t" * 40,
+        "TOKEN_VERIFIER_DRIVER": "hs256",
+        "TOKEN_HS256_SECRET": TOKEN_SECRET,
+        "TOKEN_ISSUER": ISS,
+        "TOKEN_AUDIENCE": AUD,
+        "RATELIMIT_MAX": "1000",
+        "SECRETS_KEK": KEK,
+        "PII_SALT": "s" * 32,
+    }
+    env.update(env_over)
+    os.environ.update(env)
+    get_settings.cache_clear()
+    from app.main import create_app
+
+    return TestClient(create_app(), raise_server_exceptions=False)
+
+
+def _auth(*caps: str) -> dict:
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": "op1", "iss": ISS, "aud": AUD, "caps": list(caps),
+                      "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     TOKEN_SECRET, algorithm="HS256")
+    return {"Authorization": f"Bearer {tok}"}
+
+
+@pytest.fixture(scope="module")
+def env_guard():
+    saved = dict(os.environ)
+    yield
+    os.environ.clear()
+    os.environ.update(saved)
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+
+@pytest.fixture(scope="module")
+def client(env_guard) -> TestClient:
+    return _make_app()
+
+
+@pytest.fixture
+def operator_auth() -> dict:
+    return _auth("platform.config")
+
+
+@pytest.fixture
+def reader_auth() -> dict:
+    """Holds a capability, but not this one."""
+    return _auth("reports.read")
+
+
+# ── authorisation ─────────────────────────────────────────────────────────────
+def test_config_needs_its_own_capability(client, reader_auth):
+    assert client.get(f"{PREFIX}/config", headers=reader_auth).status_code == 403
+
+
+def test_unauthenticated_is_refused(client):
+    assert client.get(f"{PREFIX}/config").status_code == 401
+
+
+# ── policy ────────────────────────────────────────────────────────────────────
+def test_a_deploy_time_knob_is_refused(client, operator_auth):
+    """Wiring changed under a live request is a class of bug nobody can reproduce."""
+    for key in ("DATASTORE_DRIVER", "SECRETS_KEK", "PII_SALT", "INTERNAL_SERVICE_TOKEN",
+               "ASSISTANT_MODEL_PROJECT", "ASSISTANT_MODEL_CREDENTIAL"):
+        r = client.put(f"{PREFIX}/config", json={"key": key, "value": "anything"},
+                      headers=operator_auth)
+        assert r.status_code == 400, f"{key} was accepted at runtime"
+
+
+def test_the_config_view_never_carries_a_credential(client, operator_auth):
+    view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
+    for banned in ("SECRETS_KEK", "INTERNAL_SERVICE_TOKEN", "PII_SALT", "ASSISTANT_MODEL_CREDENTIAL"):
+        assert banned not in view
+
+
+def test_the_three_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
+    view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
+    assert view == {
+        "ASSISTANT_MODEL_NAME": "gemini-2.5-flash",
+        "MAX_CAROUSEL_CARDS": 5,
+        "SOFT_DECLINE_THRESHOLD": 2,
+    }
+
+
+def test_setting_and_reading_back_an_override(client, operator_auth):
+    r = client.put(f"{PREFIX}/config", json={"key": "MAX_CAROUSEL_CARDS", "value": 3},
+                   headers=operator_auth)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"key": "MAX_CAROUSEL_CARDS", "value": 3}
+
+    view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
+    assert view["MAX_CAROUSEL_CARDS"] == 3
+
+
+def test_clearing_an_override_restores_the_configured_default(client, operator_auth):
+    client.put(f"{PREFIX}/config", json={"key": "SOFT_DECLINE_THRESHOLD", "value": 5},
+              headers=operator_auth)
+    assert client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"][
+        "SOFT_DECLINE_THRESHOLD"] == 5
+
+    r = client.delete(f"{PREFIX}/config/SOFT_DECLINE_THRESHOLD", headers=operator_auth)
+    assert r.status_code == 200 and r.json()["cleared"] is True
+
+    assert client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"][
+        "SOFT_DECLINE_THRESHOLD"] == 2
+
+
+def test_an_undeclared_knob_is_refused_even_though_settings_has_the_field(client, operator_auth):
+    """RATELIMIT_MAX is a real Settings field this service has, but nothing declared it in
+    RUNTIME_POLICY — an advertised-but-unread knob is the exact defect this whole gate exists to
+    prevent (app/core/runtime_config.py's own docstring)."""
+    r = client.put(f"{PREFIX}/config", json={"key": "RATELIMIT_MAX", "value": 250},
+                   headers=operator_auth)
+    assert r.status_code == 400
+
+
+def test_a_wrong_typed_value_is_refused_not_silently_stored(client, operator_auth):
+    r = client.put(f"{PREFIX}/config", json={"key": "MAX_CAROUSEL_CARDS", "value": "not-a-number"},
+                   headers=operator_auth)
+    assert r.status_code == 400
