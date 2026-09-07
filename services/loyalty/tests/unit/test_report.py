@@ -64,15 +64,15 @@ def test_redemptions_are_tallied_by_type_and_by_the_rewards_own_name_at_the_time
     store, ledger = build()
     run(ledger.post(tenant=T, subject_ref="c1", delta=100, reason="earn", source="visit"))
     run(store.put(REDEMPTIONS, "r1", {"tenant": T, "reward_type": "discount",
-                                      "reward_name": "خصم ٢٠٪", "created_at": 1}))
+                                      "reward_name": "خصم 20٪", "created_at": 1}))
     run(store.put(REDEMPTIONS, "r2", {"tenant": T, "reward_type": "discount",
-                                      "reward_name": "خصم ٢٠٪", "created_at": 2}))
+                                      "reward_name": "خصم 20٪", "created_at": 2}))
     run(store.put(REDEMPTIONS, "r3", {"tenant": T, "reward_type": "gift",
                                       "reward_name": "هدية", "created_at": 3}))
     out = run(report.build(store, T))
     assert out["redemptions"] == 3
     assert out["by_type"] == {"discount": 2, "gift": 1}
-    assert out["top_rewards"][0] == ("خصم ٢٠٪", 2)
+    assert out["top_rewards"][0] == ("خصم 20٪", 2)
 
 
 def test_one_tenants_report_never_reads_another_tenants_entries():
