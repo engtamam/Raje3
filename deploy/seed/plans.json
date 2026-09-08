@@ -326,21 +326,26 @@
         "bundled with a tier, so a two-branch shop that wanted nothing else had to buy الذكية to",
         "get a second branch.",
         "",
-        "THESE TWO PRICES ARE THE ONLY ONES NOT DERIVED FROM THE OLD LADDER. They are a starting",
-        "point, set here so the shape is complete and reviewable, and they are meant to be argued",
-        "with — editing this file is the whole mechanism.",
+        "ONE SEAT PER UNIT, NOT A PACK OF TEN. This row used to grant 10 seats per purchase (named",
+        "«10 مقاعد إضافية») on the theory that a repeated purchase was the simpler story to tell an",
+        "owner. It was overtaken by the console's own capacity UI (Plans.tsx's CapacityAddonCard,",
+        "«السعة» section): a single +/- stepper that moves one subscription's own `quantity` up and",
+        "down, never a second row and never a repeated purchase — so the unit this file must grant",
+        "IS the unit the stepper adds one of at a time. Left at 10 the stepper's own «1» press",
+        "silently bought ten, and the live plan was hand-corrected on the server to grant 1 well",
+        "before this file caught up — which is exactly the drift seed-plans.sh exists to close,",
+        "and precisely the drift THIS row still carried until now.",
         "",
-        "THEY SUM, which is what makes them work at all: buy the seat pack twice and the answer is",
-        "the base's 5 plus 20. `quantity` on the subscription would do the same; a repeated",
-        "purchase is the simpler story to tell an owner."
+        "THE PRICE IS STILL THE ONLY ONE NOT DERIVED FROM THE OLD LADDER — a starting point, meant",
+        "to be argued with; editing this file is the whole mechanism."
       ],
-      "name": "10 مقاعد إضافية",
+      "name": "مقاعد إضافية",
       "amount": 5000,
       "trial_days": 0,
       "limits": {
         "staff.seats": {
           "kind": "gauge",
-          "limit": 10
+          "limit": 1
         }
       }
     },
