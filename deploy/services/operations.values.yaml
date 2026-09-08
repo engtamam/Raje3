@@ -326,6 +326,11 @@ env:
   # request 500'd with Meta's thirty-second code in it. Nothing logged it as a configuration
   # fault; it read as "WhatsApp connection is broken".
   NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  # PHASE 5's OWN CALLBACK ADDRESS — the booking Flow's per-tenant endpoint_uri (connect.py) is
+  # built from this. Same install-time overwrite mechanism as reminders' own PUBLIC_BASE_URL
+  # (bring-up.sh's "public address" step patches any values file declaring this key with the
+  # real DOMAIN) — the value here is only what a fresh install starts from before that runs.
+  PUBLIC_BASE_URL: "https://kobo-cloud.com"
   # Reconciling Meta's verdict: our list of connected shops, notification-service's read.
   NOTIFICATION_TEMPLATE_SYNC_PATH: "/internal/whatsapp/templates/sync"
   # The internal twins base-services v0.16.6 added in answer to our escalation: `register` is a

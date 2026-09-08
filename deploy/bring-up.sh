@@ -572,6 +572,27 @@ else
   ok "identity may now ask authz what a role means"
 fi
 
+# ── 4e ────────────────────────────────────────────────────────────────────────────────────────
+# WHATSAPP_BOOKING_PROVIDER_TOKEN — THE SAME SHAPE AS AUTHZ_INTERNAL_TOKEN JUST ABOVE, ONE
+# STEP DOWN. notification-service's booking-Flow adapter (adapters/booking/http.py) sends this
+# value as X-Internal-Token when it calls OUR whatsapp-assistant
+# (/internal/whatsapp-flow/booking) — a config key upstream's schema cannot know about, for a
+# peer relationship only WE created. Copied here rather than generated, for the identical reason
+# the comment above gives: a fresh random value would be a second secret that must match a first
+# one it never will.
+step "whatsapp booking provider token"
+NIST="$(kubectl -n "$NS" get secret notification-service-secrets -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null || true)"
+NCUR="$(kubectl -n "$NS" get secret notification-service-secrets -o jsonpath='{.data.WHATSAPP_BOOKING_PROVIDER_TOKEN}' 2>/dev/null || true)"
+if [[ -z "$NIST" ]]; then
+  warn "INTERNAL_SERVICE_TOKEN not in notification-service-secrets — cannot derive WHATSAPP_BOOKING_PROVIDER_TOKEN"
+elif [[ "$NIST" == "$NCUR" ]]; then
+  ok "already matches the shared internal token"
+else
+  kubectl -n "$NS" patch secret notification-service-secrets --type=merge \
+    -p "{\"data\":{\"WHATSAPP_BOOKING_PROVIDER_TOKEN\":\"$NIST\"}}" >/dev/null
+  ok "notification-service may now call whatsapp-assistant's booking Flow endpoint"
+fi
+
 # ── 5 & 6 ─────────────────────────────────────────────────────────────────────────────────────
 step "databases and buckets"
 bash "$HERE/hooks/pre-deploy.sh"
@@ -695,6 +716,14 @@ soft "rating flow" bash "$HERE/seed/bootstrap-rating-flow.sh"
 # THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b).
 # Same idempotency guarantees as the rating flow above; see bootstrap-report-flow.sh's own header.
 soft "report flow" bash "$HERE/seed/bootstrap-report-flow.sh"
+# THE SAME PATTERN, A THIRD FLOW — WhatsApp booking (assignment-mode redesign, Phase 5). Content
+# is GENERATED (notification-service's own JSON generator, not a hand-authored file — see the
+# script's own header), so this must run AFTER notification-service is up with a real
+# WHATSAPP_BOOKING_DEFINITION configured, same ordering constraint the two Flow scripts above
+# already satisfy by running here. Missing from this install chain until 2026-09-08 — found the
+# same day the display-row gap (ci/check_listed_apps_are_wired.py) was found, same root cause:
+# a feature finished in code with no install-chain step to make it real on a fresh cluster.
+soft "booking flow" bash "$HERE/seed/bootstrap-booking-flow.sh"
 
 # AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
 # operations seeds its 78 templates on the first boot that finds an empty table. On this install it

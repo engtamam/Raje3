@@ -177,15 +177,14 @@ env:
   # services/whatsapp-assistant's own /internal/whatsapp-flow/booking route (in-cluster DNS, same
   # pattern every other cross-service URL in this deployment uses).
   WHATSAPP_BOOKING_PROVIDER_URL: "http://whatsapp-assistant:8000/internal/whatsapp-flow/booking"
-  # TODO before this can send real traffic: WHATSAPP_BOOKING_PROVIDER_TOKEN must carry the SAME
-  # INTERNAL_SERVICE_TOKEN this pod already gets from its existingSecret above (every service
-  # holds the identical value — see this file's own top-of-file note) — left unset here rather
-  # than guessed, because this repo has no existing precedent for a values.yaml field
-  # cross-referencing another env var's value, and getting that wrong would fail silently
-  # (whatsapp-assistant's /internal/whatsapp-flow/booking route 401s with no X-Internal-Token
-  # header, and http.py's own `if self._token:` guard means an empty value here is simply never
-  # sent, not a crash). Confirm how this deployment's chart actually wires a shared secret into
-  # a plain config value before setting it — do not hardcode the token's plaintext here.
+  # WHATSAPP_BOOKING_PROVIDER_TOKEN IS DELIBERATELY NOT SET HERE — never as a plaintext value in
+  # this ConfigMap-backed `env:` block, which would silently WIN over the real secret (the
+  # chart's own deployment.yaml: "explicit env WINS over envFrom", and an empty string here is
+  # still an explicit value). It arrives instead through `envFrom` off this service's
+  # `existingSecret` — bring-up.sh's own "whatsapp booking provider token" step copies the SAME
+  # shared INTERNAL_SERVICE_TOKEN into this pod's secret under this exact key, the identical
+  # pattern AUTHZ_INTERNAL_TOKEN already uses for identity/authz. No values.yaml entry needed or
+  # wanted for it.
   # ON. Each shop's own Flow-encryption key is now sealed automatically at connect time
   # (operations' connect.py, base-services v0.18.55's flow-encryption/ensure route) — a shop
   # connected before this route existed just needs a reconnect (or a manual
