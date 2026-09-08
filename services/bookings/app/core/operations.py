@@ -835,6 +835,39 @@ class BookingOperations:
         return _merge(candidates, duration_minutes=duration, after=after,
                       window_end=window_end, max_slots=max_slots, search_days=search_days)
 
+    async def day_slots_any(self, *, tenant: str, branch_id: str, operator_ids: list[str],
+                            service_ids: list[str], day_start: int, day_end: int) -> list[int]:
+        """The WhatsApp Flow TIME screen's own question (Phase 5): every distinct time on ONE day
+        that at least one eligible operator is free for — never WHO, since the Flow customer picks
+        a time only (see `assignment.day_slots_any`'s own docstring for why picking an operator
+        this early would risk disagreeing with the shop's own algorithm at actual booking time).
+
+        Same eligibility/schedule assembly as `nearest_slots_any` above (this codebase's one
+        candidate-building routine, not a second copy) — just fed to a union instead of a merge,
+        and with no algorithm ordering applied (a union has no "who wins a tie" to reorder)."""
+        from app.core.assignment import Candidate, day_slots_any as _day_union
+        from app.core.availability import Busy
+
+        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        if not duration:
+            raise OperationError(
+                "مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+
+        bucket = day_bucket(day_start)
+        end_bucket = day_bucket(day_end)
+        rows = await self._bookings.slots_between(
+            tenant, branch_id, start_bucket=bucket, end_bucket=end_bucket, limit=500)
+
+        candidates: list[Candidate] = []
+        for operator_id in operator_ids:
+            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
+            schedule = await self._effective_schedule(tenant, operator_id)
+            own_rows = [b for b in rows if b.operator_id == operator_id and b.status != STATUS_CANCELLED]
+            busy = tuple(Busy(b.starts_at, b.starts_at + b.duration_minutes * 60) for b in own_rows)
+            candidates.append(Candidate(operator_id=operator_id, schedule=schedule, busy=busy))
+
+        return _day_union(candidates, duration_minutes=duration, day_start=day_start, day_end=day_end)
+
     async def _require(self, tenant: str, booking_id: str) -> Booking:
         booking = await self._bookings.get(tenant, booking_id)
         if booking is None:

@@ -30,7 +30,8 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from app.core.availability import (Busy, DEFAULT_GRANULARITY_MINUTES, DurationNotConfigured,
-                                   Schedule, nearest_slot as _nearest_for_one)
+                                   Schedule, free_slots as _free_slots,
+                                   nearest_slot as _nearest_for_one)
 from app.core.riyadh import RIYADH
 
 
@@ -127,6 +128,31 @@ def nearest_slots_any(candidates: list[Candidate], *, duration_minutes: int, aft
         found.append(best)
         cursor = best.starts_at + duration_minutes * 60
     return found
+
+
+def day_slots_any(candidates: list[Candidate], *, duration_minutes: int, day_start: int,
+                  day_end: int) -> list[int]:
+    """Every distinct start time, on ONE specific day, that AT LEAST ONE eligible candidate is free
+    for — the WhatsApp Flow TIME screen's own question. Different from `nearest_slots_any`: that
+    one asks "who wins each successive slot" (an ordered, tie-broken assignment); this one asks
+    "which times are even offerable today", with WHO gets it deliberately left for `reserve()`
+    time — the Flow customer picks a TIME, never a person, matching the console's own `auto` UX
+    (Phase 3: an `auto` service never shows a staff picker) and this codebase's decision that a
+    shop's own algorithm (AssignmentSettingsStore) breaks ties at BOOK time, not at browse time —
+    picking early here would let the Flow's own listing silently disagree with who actually gets
+    assigned a few screens later.
+
+    A plain UNION, not a merge-with-cursor: no candidate's slot is ever "taken" by another here (no
+    write happens yet), so there is nothing to advance past — every candidate's own free times for
+    the day are simply pooled and deduplicated by start time."""
+    if not candidates or day_end <= day_start:
+        return []
+    times: set[int] = set()
+    for c in candidates:
+        for slot in _free_slots(c.schedule, list(c.busy), duration_minutes=duration_minutes,
+                                window_start=day_start, window_end=day_end):
+            times.add(slot.starts_at)
+    return sorted(times)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════════

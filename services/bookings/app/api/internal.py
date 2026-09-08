@@ -356,6 +356,35 @@ async def internal_nearest_any_real_slot(request: Request, body: InternalNearest
     return {"slots": [{"operator_id": s.operator_id, "starts_at": s.starts_at} for s in found]}
 
 
+class InternalDaySlotsAnyIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    branch_id: str = Field(min_length=1, max_length=64)
+    operator_ids: list[str] = Field(min_length=1, max_length=64)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    day_start: int = Field(gt=0)
+    day_end: int = Field(gt=0)
+
+
+@router.post("/bookings/day-slots-real", dependencies=[Depends(require_internal_token)])
+async def internal_day_slots_any(request: Request, body: InternalDaySlotsAnyIn) -> dict:
+    """Phase 5 — the WhatsApp Flow TIME screen's own question, for the internal caller
+    (whatsapp-assistant's FlowBookingBackend): every distinct time on ONE day at least one
+    eligible operator is free for, never who — see `BookingOperations.day_slots_any`'s own
+    docstring for why picking an operator this early would risk the Flow's own listing
+    disagreeing with who actually gets assigned a few screens later at `reserve()` time.
+    """
+    c = request.app.state.container
+    if body.day_end <= body.day_start:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "day_end must be after day_start")
+    try:
+        times = await c.booking_ops.day_slots_any(
+            tenant=body.tenant, branch_id=body.branch_id, operator_ids=body.operator_ids,
+            service_ids=body.service_ids, day_start=body.day_start, day_end=body.day_end)
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return {"starts_at": times}
+
+
 class InternalCreateBookingIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     branch_id: str = Field(min_length=1, max_length=64)

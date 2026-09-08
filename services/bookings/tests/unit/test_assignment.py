@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import datetime as _dt
 
-from app.core.assignment import Candidate, nearest_slots_any, order_candidates
+from app.core.assignment import Candidate, day_slots_any, nearest_slots_any, order_candidates
 from app.core.availability import RIYADH, Busy, Schedule, Window
 
 
@@ -146,3 +146,28 @@ def test_reordering_only_breaks_ties_never_prefers_a_later_slot():
                               window_end=DAY_END, max_slots=1)
     assert found[0].operator_id == 'op_a'
     assert found[0].starts_at == AFTER
+
+
+# ── day_slots_any — the WhatsApp Flow TIME screen's own question (Phase 5) ─────────────────────
+
+def test_day_slots_any_unions_every_candidates_own_free_times():
+    """op1 is busy at AFTER; op2 is free the whole day — the union must still include AFTER,
+    since at least one candidate (op2) is free then, even though op1 alone would exclude it."""
+    op1 = Candidate(operator_id='op1', schedule=HOURS, busy=(Busy(AFTER, AFTER + 1800),))
+    op2 = Candidate(operator_id='op2', schedule=HOURS, busy=())
+    times = day_slots_any([op1, op2], duration_minutes=30, day_start=AFTER, day_end=DAY_END)
+    assert AFTER in times
+    assert times == sorted(set(times))   # deduplicated and sorted, never a repeat per candidate
+
+
+def test_day_slots_any_excludes_a_time_nobody_is_free_for():
+    op1 = Candidate(operator_id='op1', schedule=HOURS, busy=(Busy(AFTER, AFTER + 1800),))
+    op2 = Candidate(operator_id='op2', schedule=HOURS, busy=(Busy(AFTER, AFTER + 1800),))
+    times = day_slots_any([op1, op2], duration_minutes=30, day_start=AFTER, day_end=DAY_END)
+    assert AFTER not in times
+
+
+def test_day_slots_any_no_candidates_or_empty_window_is_an_empty_list():
+    op1 = Candidate(operator_id='op1', schedule=HOURS, busy=())
+    assert day_slots_any([], duration_minutes=30, day_start=AFTER, day_end=DAY_END) == []
+    assert day_slots_any([op1], duration_minutes=30, day_start=AFTER, day_end=AFTER) == []
