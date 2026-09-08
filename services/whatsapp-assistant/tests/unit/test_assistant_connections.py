@@ -143,3 +143,33 @@ def test_an_unreachable_service_raises_the_named_unavailable_error():
         with pytest.raises(AssistantConnectionsUnavailable):
             ensure_connection(client(), tenant="t1", url="u", model="m", auth="vertex",
                               credential="c", system_prompt="p", tools=[])
+
+
+def test_invoke_omits_max_tokens_when_zero_the_platform_wide_no_cap_default():
+    """`max_tokens=0` predates MAX_REPLY_TOKENS — a caller that never wires it must send exactly
+    what it always sent, not a new `max_tokens: 0` key assistant-service could read differently
+    from "absent"."""
+    captured = {}
+
+    def _urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data or b"{}")
+        return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        client().invoke("conn_1", tenant="t1", messages=[{"role": "user", "content": "hi"}])
+
+    assert "max_tokens" not in captured["body"]
+
+
+def test_invoke_sends_max_tokens_when_set():
+    captured = {}
+
+    def _urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data or b"{}")
+        return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        client().invoke("conn_1", tenant="t1", messages=[{"role": "user", "content": "hi"}],
+                        max_tokens=500)
+
+    assert captured["body"]["max_tokens"] == 500

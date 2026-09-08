@@ -315,6 +315,8 @@ const CONFIG_KEY_META: Record<string, { label: string; help: string }> = {
     help: 'عدد مرات رفض العميل لاقتراح قبل ما يتوقف المساعد عن اقتراح أي شي عليه (بلا تصعيد لموظف).' },
   MAX_CAROUSEL_CARDS: { label: 'أقصى بطاقات بالعرض',
     help: 'أقصى عدد بطاقات خدمات/باقات يعرضها المساعد بردّ واحد.' },
+  MAX_REPLY_TOKENS: { label: 'أقصى طول رد',
+    help: 'سقف حماية تقني (توكن) لطول رد النموذج نفسه — يمنع رداً غير طبيعي الطول من تكلفة أضعاف رد عادي. لا علاقة له بحد كلمات رسالة العميل (إعداد المحل الخاص به).' },
 };
 
 function AIConfigCard({ session, getAction, setAction, clearAction }: {
@@ -488,6 +490,28 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const [googleInputSar, setGoogleInputSar] = useState('1.13');
   const [googleOutputSar, setGoogleOutputSar] = useState('9.38');
 
+  // THE TOGGLE MUST RESCALE THE NUMBERS, NOT JUST RELABEL THEM. `unit` also picks `divisor` below
+  // for the actual cost math — so switching it while leaving googleInputSar/googleOutputSar
+  // untouched silently changes what the SAME typed number MEANS (1.13 "per 1000 tokens" is 1000×
+  // Google's real price if it was actually typed as "per million"), not just how it displays. A
+  // real bug, found 2026-09-08 from a screenshot: identical inputs, real cost off by ~1000× between
+  // the two tabs. Converting here keeps the number always meaning the same real price no matter
+  // which unit it is being viewed/typed in.
+  function changeUnit(next: '1k' | '1m') {
+    if (next === unit) return;
+    const factor = next === '1k' ? 1 / 1000 : 1000; // 1m→1k: ÷1000. 1k→1m: ×1000.
+    const rescale = (v: string) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return v;
+      // Rounded to 8 decimals and trailing zeros trimmed — plain `n * factor` leaves float noise
+      // like 0.009380000000000001 sitting in the field the owner is about to read and type over.
+      return String(Math.round(n * factor * 1e8) / 1e8);
+    };
+    setGoogleInputSar((v) => rescale(v));
+    setGoogleOutputSar((v) => rescale(v));
+    setUnit(next);
+  }
+
   // ── متوسط التوكنات — يدوي أو من استهلاك حقيقي (report). ──────────────────────────────────────
   const [tokenSource, setTokenSource] = useState<'system' | 'manual'>('system');
   const [manualAvgInput, setManualAvgInput] = useState('300');
@@ -570,7 +594,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-label font-medium text-text-secondary">سعر جوجل (ريال)</span>
-            <Segmented value={unit} onChange={(v) => setUnit(v as '1k' | '1m')}
+            <Segmented value={unit} onChange={(v) => changeUnit(v as '1k' | '1m')}
                       options={[{ value: '1k', label: 'لكل 1000 توكن' }, { value: '1m', label: 'لكل مليون توكن' }]} />
           </div>
           <p className="text-label text-text-secondary">

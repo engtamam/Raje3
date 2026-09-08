@@ -73,9 +73,15 @@ class HttpAssistantConnections:
     def update(self, cid: str, **body: Any) -> dict[str, Any]:
         return self._call("PUT", f"{self._path}/{cid}", body=body)
 
-    def invoke(self, cid: str, *, tenant: str, messages: list[dict[str, str]]) -> dict[str, Any]:
-        return self._call("POST", f"{self._path}/{cid}/invoke",
-                          body={"tenant": tenant, "messages": messages})
+    def invoke(self, cid: str, *, tenant: str, messages: list[dict[str, str]],
+              max_tokens: int = 0) -> dict[str, Any]:
+        # `max_tokens=0` means "no cap" on assistant-service's own route (api/internal.py's
+        # InvokeIn) — the platform-wide default before this cap existed here, so a caller that
+        # never wires MAX_REPLY_TOKENS behaves exactly as before.
+        body: dict[str, Any] = {"tenant": tenant, "messages": messages}
+        if max_tokens > 0:
+            body["max_tokens"] = max_tokens
+        return self._call("POST", f"{self._path}/{cid}/invoke", body=body)
 
 
 def ensure_connection(client: HttpAssistantConnections, *, tenant: str, url: str, model: str,

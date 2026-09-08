@@ -401,6 +401,61 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('تمّت الجدولة.')).toBeTruthy());
   });
 
+  it('المحاسبة: toggling the per-1000/per-million unit rescales the price fields so the real cost stays the same (2026-09-08 fix — it used to reinterpret the same typed number as 1000× the price)', async () => {
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
+        return Promise.resolve({
+          days: 30, calls: 300, conversations: 100, input_tokens: 90_000, output_tokens: 45_000,
+          avg_input_tokens_per_call: 300, avg_output_tokens_per_call: 150,
+          avg_calls_per_conversation: 3, truncated: false,
+        });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    fireEvent.click(await screen.findByText('المحاسبة'));
+    await waitFor(() => expect(screen.getByText(/300 دخل \+ 150 خرج/)).toBeTruthy());
+
+    // القيمة الحقيقية (تكلفتنا) على المضاعف الافتراضي، بوحدة "لكل مليون" (الافتراضية).
+    const realCostBefore = screen.getByText('تكلفتنا الحقيقية عند جوجل / رسالة')
+      .nextElementSibling!.textContent;
+
+    // التبديل لـ"لكل 1000" — القيمتان بالخانتين لازم يتحوّلا (÷1000: نفس السعر لكن لكمية أصغر
+    // بألف مرة)، وتبقى التكلفة الحقيقية كما هي (نفس السعر الواقعي، وحدة عرض مختلفة فقط).
+    fireEvent.click(screen.getByRole('radio', { name: 'لكل 1000 توكن' }));
+    expect((screen.getByLabelText('سعر الدخل (Input)') as HTMLInputElement).value).toBe('0.00113');
+    expect((screen.getByLabelText('سعر الخرج (Output)') as HTMLInputElement).value).toBe('0.00938');
+    const realCostAfter = screen.getByText('تكلفتنا الحقيقية عند جوجل / رسالة')
+      .nextElementSibling!.textContent;
+    expect(realCostAfter).toBe(realCostBefore);
+
+    // والرجوع لـ"لكل مليون" يعيد القيمتين الأصليتين بالضبط.
+    fireEvent.click(screen.getByRole('radio', { name: 'لكل مليون توكن' }));
+    expect((screen.getByLabelText('سعر الدخل (Input)') as HTMLInputElement).value).toBe('1.13');
+    expect((screen.getByLabelText('سعر الخرج (Output)') as HTMLInputElement).value).toBe('9.38');
+  });
+
   it('المحاسبة lists a scheduled change with its real effective date, and "إلغاء" cancels the right key', async () => {
     const EFFECTIVE_AT = Math.floor(Date.now() / 1000) + 15 * 86_400;
     const AI_CATALOG = {

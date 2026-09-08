@@ -125,6 +125,70 @@ def test_recent_messages_are_translated_into_role_content_turns():
         {"role": "user", "content": "three"}]
 
 
+def test_the_deploy_time_max_reply_tokens_is_sent_on_every_invoke():
+    """No runtime_config wired — MAX_REPLY_TOKENS falls back to whatever the adapter was built
+    with, same shape as model_name's own deploy-time default."""
+    captured = {}
+
+    def _urlopen(req, timeout=None):
+        if req.get_method() == "GET":
+            return _Resp({"connections": []})
+        body = json.loads(req.data or b"{}")
+        if "messages" in body:
+            captured["body"] = body
+            return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+        return _Resp({"id": "conn_1"})
+
+    connections = HttpAssistantConnections(
+        url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
+        token="t", timeout=8)
+    adapter = AssistantServiceLlm(
+        connections=connections, model_location="me-central2", model_name="m", model_auth="vertex",
+        env_project="proj", env_credential="cred", allowed_tools=frozenset(),
+        max_reply_tokens=250)
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(adapter.respond(system_prompt="sp", summary="", recent_messages=[],
+                            user_message="hi", allowed_tools=frozenset(), tenant="t1"))
+
+    assert captured["body"]["max_tokens"] == 250
+
+
+def test_max_reply_tokens_is_read_live_from_runtime_config_when_wired():
+    """A technical safety cap, not a shop setting — see config.py's own MAX_REPLY_TOKENS note.
+    Overridable live by an operator the same way ASSISTANT_MODEL_NAME already is."""
+    class _FakeRuntimeConfig:
+        async def get(self, *, tenant: str, key: str, default):
+            if key == "MAX_REPLY_TOKENS":
+                return 900
+            return default  # ASSISTANT_MODEL_NAME — not what this test is about
+
+    captured = {}
+
+    def _urlopen(req, timeout=None):
+        if req.get_method() == "GET":
+            return _Resp({"connections": []})
+        body = json.loads(req.data or b"{}")
+        if "messages" in body:
+            captured["body"] = body
+            return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+        return _Resp({"id": "conn_1"})
+
+    connections = HttpAssistantConnections(
+        url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
+        token="t", timeout=8)
+    adapter = AssistantServiceLlm(
+        connections=connections, model_location="me-central2", model_name="m", model_auth="vertex",
+        env_project="proj", env_credential="cred", allowed_tools=frozenset(),
+        runtime_config=_FakeRuntimeConfig(), max_reply_tokens=500)
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(adapter.respond(system_prompt="sp", summary="", recent_messages=[],
+                            user_message="hi", allowed_tools=frozenset(), tenant="t1"))
+
+    assert captured["body"]["max_tokens"] == 900
+
+
 def test_an_unreachable_assistant_service_raises_llm_unavailable_not_a_bare_network_error():
     def _urlopen(req, timeout=None):
         raise OSError("connection refused")
@@ -159,8 +223,9 @@ def test_the_model_name_is_read_live_from_runtime_config_when_wired():
     cached), so a switch from the console takes effect on the very next turn."""
     class _FakeRuntimeConfig:
         async def get(self, *, tenant: str, key: str, default):
-            assert key == "ASSISTANT_MODEL_NAME"
-            return "gemini-overridden-model"
+            if key == "ASSISTANT_MODEL_NAME":
+                return "gemini-overridden-model"
+            return default  # MAX_REPLY_TOKENS — not what this test is about
 
     connections = HttpAssistantConnections(
         url="http://assistant-service:8000", connections_path="/internal/assistant/connections",

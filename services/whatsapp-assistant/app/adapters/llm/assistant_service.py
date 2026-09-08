@@ -197,7 +197,7 @@ class AssistantServiceLlm:
     def __init__(self, *, connections: HttpAssistantConnections, model_location: str, model_name: str,
                 model_auth: str, env_project: str = "", env_credential: str = "",
                 allowed_tools: frozenset[str] = frozenset(), secret_store: Any = None,
-                runtime_config: Any = None) -> None:
+                runtime_config: Any = None, max_reply_tokens: int = 500) -> None:
         self._connections = connections
         self._model_location = model_location
         # `model_name` STAYS THE DEPLOY-TIME DEFAULT — see `_resolve_model_name` below, which is
@@ -213,6 +213,11 @@ class AssistantServiceLlm:
         # not cached: a model switch must take effect on the very next reply, and this is one
         # cheap datastore read alongside the project/credential resolution already happening here.
         self._runtime_config = runtime_config
+        # DEPLOY-TIME DEFAULT — see `_resolve_max_tokens` below, the twin of `_resolve_model_name`
+        # for MAX_REPLY_TOKENS (app/runtime_policy.py). Kept as a plain field for the same reason
+        # `model_name` is: any caller that never wires `runtime_config` still behaves exactly as
+        # configured.
+        self._max_reply_tokens = max_reply_tokens
         self._cached_project: str | None = None
         self._cached_credential: str | None = None
         # config drives ALLOWLIST membership, not tool CAPABILITY — a name this file does not know
@@ -250,6 +255,12 @@ class AssistantServiceLlm:
             return self._model_name
         return await self._runtime_config.get(
             tenant="", key="ASSISTANT_MODEL_NAME", default=self._model_name)
+
+    async def _resolve_max_tokens(self) -> int:
+        if self._runtime_config is None:
+            return self._max_reply_tokens
+        return int(await self._runtime_config.get(
+            tenant="", key="MAX_REPLY_TOKENS", default=self._max_reply_tokens))
 
     def _model_url(self, project: str, model_name: str) -> str:
         loc = self._model_location
@@ -293,8 +304,10 @@ class AssistantServiceLlm:
             messages.append({"role": role, "content": str(m.get("text", ""))})
         messages.append({"role": "user", "content": user_message})
 
+        max_tokens = await self._resolve_max_tokens()
         try:
-            result = self._connections.invoke(cid, tenant=tenant, messages=messages)
+            result = self._connections.invoke(cid, tenant=tenant, messages=messages,
+                                              max_tokens=max_tokens)
         except AssistantConnectionsUnavailable as exc:
             raise LlmUnavailable(f"assistant-service unreachable: {exc}") from exc
 

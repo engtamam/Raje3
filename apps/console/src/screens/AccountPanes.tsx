@@ -338,7 +338,7 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
         <span className="text-sm font-medium">حد كلمات رسالة العميل</span>
         <span className="text-xs text-text-secondary">
           رسالة أطول من هذا الحد تُرفض تلقائياً بأسلوب مؤدب يطلب من العميل اختصارها، بلا أي تكلفة
-          ذكاء اصطناعي. القيمة الافتراضية {MSG_WORD_LIMIT_DEFAULT} كلمة.
+          ذكاء اصطناعي.
         </span>
       </span>
 

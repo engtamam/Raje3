@@ -31,6 +31,10 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # suggest_services_carousel call, via the value ConversationEngine now resolves live rather
     # than freezing at construction (see core/conversation.py's own note on this field).
     "MAX_CAROUSEL_CARDS",
+    # The output-token cost ceiling (2026-09-08) — app/adapters/llm/assistant_service.py::respond()
+    # reads it per turn, same live-override shape as ASSISTANT_MODEL_NAME just above. A technical
+    # safety knob, never a shop-facing one — see MAX_REPLY_TOKENS's own config.py note.
+    "MAX_REPLY_TOKENS",
     # ── pricing (core/pricing.py::PricingConfig.from_runtime, read by api/internal.py::price()) ──
     "PRICING_STRATEGY",
     "PRICING_TIER_BASE_HALALAS",

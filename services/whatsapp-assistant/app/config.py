@@ -404,6 +404,15 @@ class Settings(BaseSettings):
     ASSISTANT_MODEL_NAME: str = "gemini-2.5-flash"
     ASSISTANT_MODEL_AUTH: str = "vertex"          # api_key | vertex
     ASSISTANT_MODEL_CREDENTIAL: str = ""          # a GCP service-account key JSON
+    # A TECHNICAL COST CEILING, NOT A BUSINESS SETTING — unlike operations' own msg_word_limit
+    # (per-shop, the owner's own choice about how long a CUSTOMER's message may be), this caps how
+    # long the model's OWN reply may run, so one unusually rambling generation cannot cost many
+    # times a normal reply's worth of output tokens (the pricier side — see the pricing calculator's
+    # own note on output being ~8x input per token). No shop ever sees or sets this — live-tunable
+    # by an operator only, through the same "النموذج والسلوك" runtime_config panel as
+    # ASSISTANT_MODEL_NAME (app/runtime_policy.py). A WhatsApp reply is a few sentences at most;
+    # 500 tokens is generous headroom, not a target.
+    MAX_REPLY_TOKENS: int = 500
 
     # ── LLM (function calling, via assistant-service) ─────────────────────────
     LLM_DRIVER: str = "null"                 # null | assistant_service

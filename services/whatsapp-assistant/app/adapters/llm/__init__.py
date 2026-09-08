@@ -23,6 +23,6 @@ def build(settings: Any, *, secret_store: Any = None, runtime_config: Any = None
             model_name=settings.ASSISTANT_MODEL_NAME, model_auth=settings.ASSISTANT_MODEL_AUTH,
             env_project=settings.ASSISTANT_MODEL_PROJECT, env_credential=settings.ASSISTANT_MODEL_CREDENTIAL,
             allowed_tools=settings.llm_tool_allowlist, secret_store=secret_store,
-            runtime_config=runtime_config)
+            runtime_config=runtime_config, max_reply_tokens=settings.MAX_REPLY_TOKENS)
     from app.ports.errors import ConfigError
     raise ConfigError(f"unknown llm driver: {driver!r} — allowed: null, assistant_service")
