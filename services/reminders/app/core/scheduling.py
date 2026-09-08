@@ -127,17 +127,24 @@ class Scheduler:
         # ما شفناك» followed by a discount — standing in the shop he had visited yesterday. The
         # shop paid a win-back discount to somebody who had already won himself back.
         LADDER_KINDS = ("ladder_1", "ladder_2")
+        # ONE READ FOR THE WHOLE VISIT, NOT ONE PER (service, kind) PAIR. `cancel_kind` used to
+        # call `pending_for_subject` itself — an unfiltered query that returns the SAME rows every
+        # time for this customer — so a visit with three services issued nine identical reads for
+        # one write path. The rows cannot change between these calls (nothing here awaits a store
+        # write to this subject's schedules until a cancel fires), so one read, filtered locally
+        # per call, is exactly equivalent.
+        pending = await self._sched.pending_for_subject(tenant, subject)
         for sid in services:
             dropped = await self._sched.cancel_kind(
                 tenant, subject, sid, "follow_up",
-                reason="عاد العميل قبل موعد المتابعة", now=now)
+                reason="عاد العميل قبل موعد المتابعة", now=now, pending=pending)
             outcome.cancelled += dropped
 
             rungs_dropped = 0
             for kind in LADDER_KINDS:
                 rungs_dropped += await self._sched.cancel_kind(
                     tenant, subject, sid, kind,
-                    reason="عاد العميل قبل رنّة المتابعة", now=now)
+                    reason="عاد العميل قبل رنّة المتابعة", now=now, pending=pending)
             outcome.cancelled += rungs_dropped
             # AND THIS IS WHERE THE MARGIN LOCK IS EARNED — the one place in the system that can
             # see it happen, and nothing was writing it down.

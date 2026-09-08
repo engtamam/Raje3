@@ -108,6 +108,57 @@ def test_a_follow_up_is_scheduled_only_where_it_is_configured(st, sch):
     assert kinds == {"reminder", "follow_up"}
 
 
+class _CountingStore:
+    """Wraps a real store and counts `find` calls, so a test can assert the N+1 in `on_visit`
+    stays fixed (one read per visit) rather than growing with the number of services on it."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.finds = 0
+
+    async def find(self, *a, **kw):
+        self.finds += 1
+        return await self._inner.find(*a, **kw)
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def test_pending_is_read_once_per_visit_not_once_per_service_and_kind(st):
+    """`cancel_kind` used to call `pending_for_subject` — a full unfiltered store read — once for
+    `follow_up` and once per ladder kind, PER SERVICE on the visit. A 3-service visit issued 9
+    identical reads for one write path; it must now issue exactly one, however many services and
+    ladder kinds are checked against it."""
+    counting = _CountingStore(st)
+    scheduler = Scheduler(store=counting, cfg=adaptive.AdaptiveConfig(),
+                          eng_cfg=engagement.EngagementConfig())
+    run(scheduler.on_visit(visit(service_ids=["oil", "tyres", "major"]),
+                           now=NOW, service_config=CFG))
+    counting.finds = 0
+    run(scheduler.on_visit(visit(visit_id="vis_2", service_ids=["oil", "tyres", "major"],
+                                 occurred_at=NOW + 3 * DAY), now=NOW + 3 * DAY,
+                           service_config=CFG))
+    # ONE read of pending rows for the whole visit — not 3 services x 3 kinds (follow_up +
+    # 2 ladder kinds) = 9, and not even 3 (one per service).
+    assert counting.finds == 1
+
+
+def test_a_return_visit_cancels_the_pending_follow_up_for_every_service(st, sch):
+    """The dedup must still cancel the RIGHT rows for each (service, kind) pair — sharing one
+    fetched list across services must not blur one service's follow-up into another's."""
+    run(sch.on_visit(visit(service_ids=["oil", "tyres", "major"]), now=NOW, service_config=CFG))
+    kinds_before = {(r["service_id"], r["kind"]) for r in stored(st)}
+    assert ("tyres", "follow_up") in kinds_before
+    assert ("major", "follow_up") in kinds_before
+
+    out = run(sch.on_visit(visit(visit_id="vis_2", service_ids=["oil", "tyres", "major"],
+                                 occurred_at=NOW + 3 * DAY), now=NOW + 3 * DAY,
+                           service_config=CFG))
+    # Both services with a configured follow-up had their pending row cancelled — none left
+    # dangling because it shared a fetch with a sibling service's cancel call.
+    assert out.cancelled == 2
+
+
 def test_a_return_visit_cancels_the_pending_follow_up(st, sch):
     """Asking how last month's service went while the customer stands at the counter."""
     run(sch.on_visit(visit(service_ids=["tyres"]), now=NOW, service_config=CFG))
