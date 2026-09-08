@@ -245,9 +245,10 @@ def build_container(settings: Settings) -> Container:
                                      PackageOfferableCheck, PackageServicesLookup, RewardGateway,
                                      StaffEligibilityLookup, StaffHoursLookup,
                                      SubjectRefLookup, VisitGateway)
-    from app.core.stores import BookingStore, WorkingHoursStore
+    from app.core.stores import AssignmentSettingsStore, BookingStore, WorkingHoursStore
     container.bookings = BookingStore(container.datastore)
     container.working_hours = WorkingHoursStore(container.datastore)
+    container.assignment_settings = AssignmentSettingsStore(container.datastore)
     container.durations = _build_duration_lookup(settings)
     container.visit_gateway = _build_visit_gateway(settings)
     container.subject_ref_lookup = _build_subject_ref_lookup(settings)
@@ -270,6 +271,7 @@ def build_container(settings: Settings) -> Container:
         risk_window=settings.NO_SHOW_RISK_WINDOW,
         risk_threshold_percent=settings.NO_SHOW_RISK_THRESHOLD_PERCENT,
         working_hours=container.working_hours,
+        assignment_settings=container.assignment_settings,
         staff_eligibility=StaffEligibilityLookup(lookup=container.staff_eligibility_lookup),
         staff_hours=StaffHoursLookup(lookup=container.staff_hours_lookup),
         package_durations=PackageDurationLookup(lookup=container.package_durations_lookup),

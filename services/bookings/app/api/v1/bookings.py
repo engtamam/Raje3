@@ -176,6 +176,36 @@ async def write_working_hours(request: Request, body: WorkingHoursIn,
     return {"weekly": weekly}
 
 
+@router.get("/assignment-settings", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def read_assignment_settings(request: Request,
+                                   principal: Principal = Depends(require_user)) -> dict:
+    """The shop's own auto-assign algorithm (assignment-mode redesign, phase 2) — one policy for
+    every branch, same reasoning `working-hours` above already gives. Anyone who can read the
+    grid may read this; only `bookings.manage` may change it."""
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    return await c.assignment_settings.get(tenant)
+
+
+class AssignmentSettingsIn(BaseModel):
+    algorithm: str = Field(min_length=1, max_length=32)
+    manual_order: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.patch("/assignment-settings", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def write_assignment_settings(request: Request, body: AssignmentSettingsIn,
+                                    principal: Principal = Depends(require_user)) -> dict:
+    from app.core.stores import ASSIGNMENT_ALGORITHMS
+
+    if body.algorithm not in ASSIGNMENT_ALGORITHMS:
+        return _refuse(f"algorithm must be one of {sorted(ASSIGNMENT_ALGORITHMS)}")
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    await c.assignment_settings.save(
+        tenant, algorithm=body.algorithm, manual_order=body.manual_order)
+    return await c.assignment_settings.get(tenant)
+
+
 @router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def nearest_slot(request: Request, branch_id: str, operator_id: str,
                        service_ids: str, after: int, exclude_booking_id: str = "",

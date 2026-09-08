@@ -842,24 +842,38 @@ async def internal_service_eligibility(request: Request, body: ServiceEligibilit
     SUM across a basket, eligibility is a set PER service, and folding a set into a summed-total
     response would make one field mean two different shapes depending which key you read.
 
-    AN EMPTY LIST MEANS EVERY ACTIVE OPERATOR — the safe, zero-configuration default (models.py's
-    own `Service.eligible_staff_ids` docstring): a shop that never restricted a service must not
-    see its booking flow refuse for a reason it never asked for. A service id that does not exist
-    is silently absent from the result rather than raising; the caller decides what an unknown
-    service means for its own flow.
+    AN EMPTY LIST MEANS EVERY ACTIVE OPERATOR **WITH THE FIELD ROLE** — the assignment-mode
+    redesign's own phase 2 rule (the owner's own words: a field operator is "عام تلقائياً... إلا
+    لو خُصِّص"; any other role starts OUTSIDE every service until explicitly added, either here or
+    to a specific one). Resolved to a REAL list here, never `None` — the two used to mean the same
+    thing to the callers below ("no restriction, take my own roster"), but that let a shop's
+    manager/supervisor/marketer rows fall into the default pool too, since neither bookings nor
+    whatsapp-assistant know a role exists. Centralising the resolution here, where the role lives,
+    is what makes the rule real everywhere at once rather than a filter each caller could forget.
+    A service id that does not exist is silently absent from the result rather than raising; the
+    caller decides what an unknown service means for its own flow.
     """
     c = request.app.state.container
     services = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
     by_id = {s.id: s for s in services}
+    wanted = [sid for sid in body.service_ids if sid in by_id]
+    if not wanted:
+        return {"eligible_staff_ids": {}}
+    # ONE ROSTER READ, SHARED — every unrestricted service in this call resolves against the same
+    # field-role roster, never a second query per service.
+    field_ops: list[str] | None = None
+    if any(not by_id[sid].eligible_staff_ids for sid in wanted):
+        operators = await OperatorStore(c.datastore).list(body.tenant)
+        field_ops = [o.id for o in operators if o.role == "operator" and o.active]
     out: dict[str, list[str] | None] = {}
-    for sid in body.service_ids:
-        svc = by_id.get(sid)
-        if svc is None:
-            continue
-        # `None`, NOT `[]`, WHEN UNRESTRICTED — bookings must be able to tell "any active operator
-        # qualifies" apart from "the owner restricted this to zero people" (a real, if unusual,
-        # state — a retired service nobody currently does). An empty stored list means the former.
-        out[sid] = list(svc.eligible_staff_ids) if svc.eligible_staff_ids else None
+    for sid in wanted:
+        svc = by_id[sid]
+        # A SHOP WITH NO FIELD-ROLE STAFF AT ALL (every hire is a manager/supervisor/marketer, a
+        # real if small-shop edge case) resolves this to `[]`, which the CALLERS below read as
+        # "unrestricted" (their own `if allowed and ...` check), same fail-open reading an
+        # unreachable peer already gets — booking still works rather than refusing every attempt
+        # for a rule this shop happens to have nobody left to satisfy.
+        out[sid] = list(svc.eligible_staff_ids) if svc.eligible_staff_ids else list(field_ops or [])
     return {"eligible_staff_ids": out}
 
 

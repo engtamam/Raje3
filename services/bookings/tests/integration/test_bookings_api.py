@@ -65,7 +65,7 @@ def env_guard():
 def _stub_ops(client) -> None:
     """A fixed duration + visit gateway + subject_ref, so create() succeeds without a real peer."""
     from app.core.operations import BookingEvents, BookingOperations, DurationLookup, SubjectRefLookup, VisitGateway
-    from app.core.stores import BookingStore, WorkingHoursStore
+    from app.core.stores import AssignmentSettingsStore, BookingStore, WorkingHoursStore
     from app.core.licence import NullLicence
 
     c = client.app.state.container
@@ -81,11 +81,13 @@ def _stub_ops(client) -> None:
 
     c.bookings = BookingStore(c.datastore)
     c.working_hours = WorkingHoursStore(c.datastore)
+    c.assignment_settings = AssignmentSettingsStore(c.datastore)
     c.booking_ops = BookingOperations(
         datastore=c.datastore, bookings=c.bookings,
         durations=DurationLookup(lookup=duration), licence=NullLicence(),
         visits=VisitGateway(create=visit), subject_refs=SubjectRefLookup(lookup=subject_ref),
-        events=BookingEvents(publish=None), working_hours=c.working_hours)
+        events=BookingEvents(publish=None), working_hours=c.working_hours,
+        assignment_settings=c.assignment_settings)
     c.branch_scope = None   # no scope resolver wired — the lenient local/dev default
 
 
@@ -270,6 +272,65 @@ def test_nearest_slot_respects_branch_scope(env_guard):
         "branch_id": "b1", "operator_id": "op1", "service_ids": "svc1", "after": 1786860000,
     }, headers=auth)
     assert r.status_code == 503
+
+
+def test_assignment_settings_default_before_anything_is_saved(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.get("/api/v1/bookings/assignment-settings", headers=_auth("bookings.read"))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"algorithm": "nearest", "manual_order": []}
+
+
+def test_assignment_settings_write_needs_manage_not_just_write(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.patch("/api/v1/bookings/assignment-settings",
+                     json={"algorithm": "least_loaded", "manual_order": []},
+                     headers=_auth("bookings.write"))
+    assert r.status_code == 403
+
+
+def test_assignment_settings_round_trip_through_real_http(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.manage")
+    r = client.patch("/api/v1/bookings/assignment-settings",
+                     json={"algorithm": "manual_order", "manual_order": ["op2", "op1"]},
+                     headers=auth)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"algorithm": "manual_order", "manual_order": ["op2", "op1"]}
+    r = client.get("/api/v1/bookings/assignment-settings", headers=_auth("bookings.read"))
+    assert r.json() == {"algorithm": "manual_order", "manual_order": ["op2", "op1"]}
+
+
+def test_assignment_settings_refuses_an_unknown_algorithm(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.patch("/api/v1/bookings/assignment-settings",
+                     json={"algorithm": "best_reviewed", "manual_order": []},
+                     headers=_auth("bookings.manage"))
+    assert r.status_code == 400
+
+
+def test_nearest_any_honours_the_shops_own_manual_order_on_a_tie(env_guard):
+    """Both operators are free at the very same instant (no busy bookings, identical hours) —
+    a genuine tie the shop's own ranking must break, not iteration order."""
+    client = _make_app()
+    _stub_ops(client)
+    r = client.patch("/api/v1/bookings/assignment-settings",
+                     json={"algorithm": "manual_order", "manual_order": ["op2", "op1"]},
+                     headers=_auth("bookings.manage"))
+    assert r.status_code == 200, r.text
+
+    r = client.get("/api/v1/bookings/nearest-any", params={
+        "branch_id": "b1", "operator_ids": "op1,op2", "service_ids": "svc1",
+        "after": 1786860000, "window_end": 1786860000 + 3600, "max_slots": 1,
+    }, headers=_auth("bookings.read"))
+    assert r.status_code == 200, r.text
+    slots = r.json()["slots"]
+    assert len(slots) == 1
+    assert slots[0]["operator_id"] == "op2"
 
 
 def test_nearest_any_merges_across_several_operators(env_guard):

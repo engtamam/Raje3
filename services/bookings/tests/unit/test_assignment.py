@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import datetime as _dt
 
-from app.core.assignment import Candidate, nearest_slots_any
+from app.core.assignment import Candidate, nearest_slots_any, order_candidates
 from app.core.availability import RIYADH, Busy, Schedule, Window
 
 
@@ -85,3 +85,64 @@ def test_nobody_free_in_the_window_is_an_empty_list():
     found = nearest_slots_any([op1], duration_minutes=30, after=AFTER,
                               window_end=DAY_END, max_slots=3)
     assert found == []
+
+
+# ── order_candidates (Phase 2 — the shop's own algorithm) ──────────────────────────────────────
+
+def test_nearest_algorithm_leaves_the_order_untouched():
+    """The default — no reordering at all, so a shop that never opens the setting keeps getting
+    exactly Phase 0's own merge order."""
+    a = Candidate(operator_id='op_a', schedule=HOURS, busy=())
+    b = Candidate(operator_id='op_b', schedule=HOURS, busy=())
+    assert order_candidates([a, b], algorithm='nearest') == [a, b]
+    assert order_candidates([b, a], algorithm='nearest') == [b, a]
+
+
+def test_least_loaded_ranks_fewer_bookings_first():
+    a = Candidate(operator_id='op_a', schedule=HOURS, busy=())
+    b = Candidate(operator_id='op_b', schedule=HOURS, busy=())
+    c = Candidate(operator_id='op_c', schedule=HOURS, busy=())
+    ordered = order_candidates(
+        [a, b, c], algorithm='least_loaded',
+        load_by_operator={'op_a': 5, 'op_b': 0, 'op_c': 2})
+    assert [cand.operator_id for cand in ordered] == ['op_b', 'op_c', 'op_a']
+
+
+def test_least_loaded_treats_a_missing_operator_as_zero_not_unranked():
+    a = Candidate(operator_id='op_a', schedule=HOURS, busy=())
+    b = Candidate(operator_id='op_b', schedule=HOURS, busy=())
+    # op_b never appears in the load map — must rank as if it had 0 bookings, first.
+    ordered = order_candidates([a, b], algorithm='least_loaded', load_by_operator={'op_a': 1})
+    assert [cand.operator_id for cand in ordered] == ['op_b', 'op_a']
+
+
+def test_manual_order_ranks_by_the_shops_own_lineup():
+    a = Candidate(operator_id='op_a', schedule=HOURS, busy=())
+    b = Candidate(operator_id='op_b', schedule=HOURS, busy=())
+    c = Candidate(operator_id='op_c', schedule=HOURS, busy=())
+    ordered = order_candidates(
+        [a, b, c], algorithm='manual_order', manual_order=['op_c', 'op_a', 'op_b'])
+    assert [cand.operator_id for cand in ordered] == ['op_c', 'op_a', 'op_b']
+
+
+def test_manual_order_never_drops_an_unranked_operator_it_falls_to_the_end():
+    """A newly-hired operator nobody has ranked yet must still be offered — last, never
+    excluded — same "never invent an exclusion" rule eligible_staff_ids already holds."""
+    a = Candidate(operator_id='op_a', schedule=HOURS, busy=())
+    new_hire = Candidate(operator_id='op_new', schedule=HOURS, busy=())
+    ordered = order_candidates(
+        [new_hire, a], algorithm='manual_order', manual_order=['op_a'])
+    assert [cand.operator_id for cand in ordered] == ['op_a', 'op_new']
+
+
+def test_reordering_only_breaks_ties_never_prefers_a_later_slot():
+    """op_b is ranked first by every algorithm here, but op_a has the genuinely earlier opening —
+    the earliest real slot must still win. Reordering only decides who gets credit for a TIE."""
+    op_a = Candidate(operator_id='op_a', schedule=HOURS, busy=())
+    op_b = Candidate(operator_id='op_b', schedule=HOURS, busy=(Busy(AFTER, AFTER + 1800),))
+    ordered = order_candidates(
+        [op_a, op_b], algorithm='manual_order', manual_order=['op_b', 'op_a'])
+    found = nearest_slots_any(ordered, duration_minutes=30, after=AFTER,
+                              window_end=DAY_END, max_slots=1)
+    assert found[0].operator_id == 'op_a'
+    assert found[0].starts_at == AFTER

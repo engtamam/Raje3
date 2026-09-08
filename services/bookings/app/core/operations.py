@@ -191,6 +191,7 @@ class BookingOperations:
                 events: BookingEvents, rewards: RewardGateway | None = None,
                 risk_window: int = 5, risk_threshold_percent: int = 60,
                 working_hours: Any = None,
+                assignment_settings: Any = None,
                 staff_eligibility: StaffEligibilityLookup | None = None,
                 staff_hours: StaffHoursLookup | None = None,
                 package_durations: PackageDurationLookup | None = None,
@@ -215,6 +216,11 @@ class BookingOperations:
         # OPTIONAL, LIKE `rewards` ABOVE — `working_hours()` below falls back to the honest
         # 08:00-22:00 default when this is `None`, never crashes a read over it.
         self._working_hours = working_hours
+        # OPTIONAL, LIKE `working_hours` — a shop with none wired (a test, a local run, or simply
+        # nothing ever saved) gets the same friction-free default `AssignmentSettingsStore.get`
+        # itself answers with when it IS wired: "nearest", no manual order. `nearest_slots_any`
+        # below is the only reader.
+        self._assignment_settings = assignment_settings
         # OPTIONAL, LIKE `rewards` ABOVE — a shop with no restriction on any service (or a test/
         # local run with no peer wired) sees NO refusal, ever, from either of these: an absent
         # port means "everyone is eligible" and "everyone inherits the shop's hours", the same
@@ -779,20 +785,24 @@ class BookingOperations:
                                 service_ids: list[str], after: int, window_end: int,
                                 max_slots: int, exclude_booking_id: str = "",
                                 search_days: int = 14) -> list:
-        """The «أي متاح» merge (app/core/assignment.py) — PHASE 0 of the assignment-mode work:
-        the exact search BookingDialog.tsx used to run itself, one HTTP call per candidate per
-        round, now one call total. `operator_ids` is the caller's OWN eligible set (the console
-        already computes this for display; recomputing it here would be a second, possibly-
-        drifting copy of the same intersection) — this method only refuses per-operator the same
-        way `nearest_slot` already does, so an id that slipped in from a stale client-side list is
-        still caught, never trusted blindly.
+        """The «أي متاح» merge (app/core/assignment.py). `operator_ids` is the caller's OWN
+        eligible set (the console already computes this for display; recomputing it here would be
+        a second, possibly-drifting copy of the same intersection) — this method only refuses
+        per-operator the same way `nearest_slot` already does, so an id that slipped in from a
+        stale client-side list is still caught, never trusted blindly.
 
         ONE `slots_between` READ FOR EVERYONE, not one per candidate — the busy set for a whole
         branch's window is fetched once and split by operator, same data `nearest_slot` fetches
         per call today, just shared across every candidate in this one request instead of
-        re-fetched per operator.
+        re-fetched per operator. PHASE 2 reuses the SAME read a second time, as each operator's
+        own booking COUNT for `least_loaded` — one query, two uses, never a second just to rank.
+
+        THE SHOP'S OWN ALGORITHM (AssignmentSettingsStore) ONLY EVER REORDERS CANDIDATES, never
+        changes which slot wins — see `assignment.order_candidates`'s own docstring for why that
+        keeps Phase 0's tested merge untouched. A shop with none wired (or one that never opened
+        the setting) gets "nearest": the exact, unranked order below, unchanged from Phase 0.
         """
-        from app.core.assignment import Candidate, nearest_slots_any as _merge
+        from app.core.assignment import Candidate, nearest_slots_any as _merge, order_candidates
         from app.core.availability import Busy
 
         duration = await self._durations.minutes(tenant, tuple(service_ids))
@@ -806,14 +816,21 @@ class BookingOperations:
             tenant, branch_id, start_bucket=bucket, end_bucket=end_bucket, limit=500)
 
         candidates: list[Candidate] = []
+        load_by_operator: dict[str, int] = {}
         for operator_id in operator_ids:
             await self._refuse_if_ineligible(tenant, operator_id, service_ids)
             schedule = await self._effective_schedule(tenant, operator_id)
-            busy = tuple(
-                Busy(b.starts_at, b.starts_at + b.duration_minutes * 60)
-                for b in rows if b.operator_id == operator_id and b.status != STATUS_CANCELLED
-                and b.id != exclude_booking_id)
+            own_rows = [b for b in rows if b.operator_id == operator_id
+                       and b.status != STATUS_CANCELLED and b.id != exclude_booking_id]
+            busy = tuple(Busy(b.starts_at, b.starts_at + b.duration_minutes * 60) for b in own_rows)
+            load_by_operator[operator_id] = len(own_rows)
             candidates.append(Candidate(operator_id=operator_id, schedule=schedule, busy=busy))
+
+        settings = (await self._assignment_settings.get(tenant) if self._assignment_settings
+                   else {"algorithm": "nearest", "manual_order": []})
+        candidates = order_candidates(
+            candidates, algorithm=settings["algorithm"], load_by_operator=load_by_operator,
+            manual_order=settings["manual_order"])
 
         return _merge(candidates, duration_minutes=duration, after=after,
                       window_end=window_end, max_slots=max_slots, search_days=search_days)

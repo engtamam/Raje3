@@ -45,6 +45,42 @@ class MergedSlot:
     starts_at: int
 
 
+def order_candidates(candidates: list[Candidate], *, algorithm: str,
+                     load_by_operator: dict[str, int] | None = None,
+                     manual_order: list[str] | None = None) -> list[Candidate]:
+    """PHASE 2 — turns the shop's own algorithm choice (AssignmentSettingsStore) into a candidate
+    ORDER, never a change to the merge itself. `nearest_slots_any` already breaks a same-instant
+    tie by picking whichever candidate comes first in the list handed to it — every algorithm
+    below is exactly "which order to hand it in", so the tested merge logic (Phase 0) is untouched
+    by this whole feature. A later slot is never offered to satisfy the algorithm — only ties at
+    the SAME instant are ever reordered; the earliest real opening always wins regardless of who
+    it belongs to.
+
+    "nearest" (the default): no reordering — the merge's own natural order, unchanged from Phase 0.
+
+    "least_loaded" (Vagaro's own "Most Open Schedule"): fewest existing bookings in the search
+    window first. `load_by_operator` is the caller's own count (bookings.py's `nearest_slots_any`
+    reuses the SAME `slots_between` read it already makes for busy intervals — one read, two
+    uses, never a second query just to rank). An operator missing from the map counts as 0 —
+    "no bookings found" is the same fact as "definitely zero", never treated as "unranked".
+
+    "manual_order" (Vagaro's own "Website Employee Lineup"): the shop's own explicit ranking,
+    most-preferred first. An operator not in the list is NOT dropped — falls to the end, in
+    whatever order Python's stable sort leaves the untouched remainder, so a newly-hired operator
+    nobody has ranked yet is still offered, last, rather than silently excluded from "auto" the
+    day they join (same "never invent an exclusion" rule `eligible_staff_ids` itself already
+    holds).
+    """
+    if algorithm == 'least_loaded':
+        load = load_by_operator or {}
+        return sorted(candidates, key=lambda c: load.get(c.operator_id, 0))
+    if algorithm == 'manual_order':
+        order = manual_order or []
+        rank = {op_id: i for i, op_id in enumerate(order)}
+        return sorted(candidates, key=lambda c: rank.get(c.operator_id, len(order)))
+    return list(candidates)
+
+
 def nearest_slots_any(candidates: list[Candidate], *, duration_minutes: int, after: int,
                       window_end: int, max_slots: int, search_days: int = 14) -> list[MergedSlot]:
     """The merged chip row. `window_end` bounds which candidates are OFFERED (typically the end of
