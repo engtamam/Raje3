@@ -32,13 +32,19 @@ and it produces the shop's access token, which can send in the shop's name. Neit
 this service: notification-service holds the secret store, does the exchange in its core, and never
 lets the token reach a route.
 
-BUT ITS ROUTE REQUIRES A PLATFORM CAPABILITY (platform.secrets), which a shop owner does not hold
-and must never hold. So the owner's browser cannot call it, and there is no internal, service-token
-variant of that route to call on his behalf. That gap is escalated.
+THE ORIGINAL USER-TIER ROUTE REQUIRES A PLATFORM CAPABILITY (platform.secrets), which a shop owner
+does not hold and must never hold — so the owner's browser could never call it directly. RESOLVED:
+the platform shipped the internal, service-token twin this needed (notification-service's own
+`POST /internal/whatsapp/embedded-signup`, WHATSAPP_ONBOARDING_DRIVER="http") — this deployment
+already runs it (see `deploy/services/operations.values.yaml`). `HttpExchange` is live; `NullExchange`
+below is now only what a driver flip to "null" (or a missing NOTIFICATION_SERVICE_URL) falls back
+to, same "refuse honestly, never fake success" posture as every other unconfigured peer in this
+product — not a gap waiting on anyone.
 
-Until it lands, `NullExchange` records the attempt and answers honestly that the exchange is not
-configured. Everything around it — the states, the storage, the reporting, the refusal sentences —
-is real and tested, so closing the gap is a configuration change rather than a project.
+WHAT STILL BLOCKS A REAL CONNECTION, and it is entirely external: META_APP_ID/META_APP_SECRET (our
+own Tech Provider identity, issued by Meta only after they verify this business) are not sealed on
+this deployment yet. Nothing here can substitute for that — it is Meta's own verification, not a
+configuration value we control.
 """
 from __future__ import annotations
 
@@ -488,10 +494,9 @@ class NullExchange:
 class HttpExchange:
     """Hand the code to notification-service, which holds the app secret and does the exchange.
 
-    THE PATH IS CONFIGURATION, and that is not the usual reason. The route that exists today
-    requires a platform capability an owner cannot hold, and the internal variant we need does not
-    exist yet — so the path this points at is the one that will land, and pointing at it is a
-    values change rather than a release. Until then the driver stays null and NullExchange answers.
+    LIVE — this deployment's own values already point at it (WHATSAPP_ONBOARDING_DRIVER="http",
+    see this module's own docstring). What still blocks a real connection is entirely external
+    (Meta's own Tech Provider verification), never this class or its route.
 
     IN-REQUEST AND NOTHING ELSE. No retry, no queue, no backoff: Meta's code is valid for about
     thirty seconds, so a retry would be an exchange of an expired code and a second failure that
