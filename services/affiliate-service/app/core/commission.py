@@ -28,8 +28,14 @@
 # =============================================================================
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
+
+# Bound on how many billing calls run at once inside `_net_revenue` — enough to turn N sequential
+# round trips into a handful of concurrent waves, without opening N sockets to billing-service at
+# once for a manager with a very large team/referral list.
+_REVENUE_FANOUT = 10
 
 from app.core.models import (
     CONFIRMED,
@@ -227,14 +233,18 @@ class CommissionEngine:
         of them actually brought and what those shops actually PAID (`revenue_for`), and the team
         sum of both. Reads each member's own commissions/revenue the same way his own dashboard
         would; nothing here is a second, driftable copy of that math."""
+        # Each member's totals_for/revenue_for are independent reads (no shared mutable state, no
+        # ordering requirement between members) — gathering them concurrently instead of awaiting
+        # one member at a time is purely a wait-time win, same result either way. `gather`
+        # preserves input order, so `results` lines up with `member_ids` exactly like the old
+        # sequential loop did.
+        results = await asyncio.gather(*(self._member_summary(m) for m in member_ids))
         members = []
         team_confirmed = 0
         team_pending = 0
         team_revenue = 0
         team_revenue_partial = False
-        for member_id in member_ids:
-            totals = await self.totals_for(member_id)
-            revenue = await self.revenue_for(member_id)
+        for member_id, totals, revenue in results:
             members.append({"affiliate_id": member_id, **totals, **revenue})
             team_confirmed += totals["confirmed_halalas"]
             team_pending += totals["pending_halalas"]
@@ -244,6 +254,12 @@ class CommissionEngine:
                 "team_pending_halalas": team_pending,
                 "team_net_revenue_minor": team_revenue,
                 "team_revenue_partial": team_revenue_partial}
+
+    async def _member_summary(self, member_id: str) -> tuple[str, dict[str, int], dict[str, Any]]:
+        """One member's totals + revenue, fetched concurrently — see `team_summary`."""
+        totals, revenue = await asyncio.gather(
+            self.totals_for(member_id), self.revenue_for(member_id))
+        return member_id, totals, revenue
 
     async def revenue_for(self, affiliate_id: str) -> dict[str, Any]:
         """spec §10's own words: "الإيراد الحقيقي... قيمة الاشتراك الفعلية اللي دفعتها، لا رقماً
@@ -270,19 +286,19 @@ class CommissionEngine:
         return await self._net_revenue(referrals)
 
     async def _net_revenue(self, referrals: list) -> dict[str, Any]:
+        # Each referral's billing lookup is an independent, side-effect-free read (a GET, no
+        # write) — fanning them out concurrently instead of awaiting one referral at a time is a
+        # pure wait-time win over `platform_revenue()`'s walk over EVERY referral ever stamped.
+        # `_http.call` is a blocking (urllib) call, not a coroutine, so the actual concurrency
+        # comes from running each one in its own thread (`asyncio.to_thread`) rather than from
+        # `await` alone; the semaphore caps how many of those threads/sockets run at once.
+        semaphore = asyncio.Semaphore(_REVENUE_FANOUT)
+        results = await asyncio.gather(*(self._referral_net(ref, semaphore) for ref in referrals))
+
         shops = []
         total = 0
         partial = False
-        for ref in referrals:
-            net = None
-            if self._billing:
-                status, body = self._http.call(
-                    f"{self._billing}/internal/billing/invoices?tenant={ref.tenant}&status=paid",
-                    method="GET", internal=True)
-                if status == 200:
-                    invoices = list((body or {}).get("invoices") or [])
-                    net = sum(int(inv.get("amount_minor", 0)) - int(inv.get("refunded_minor", 0))
-                             for inv in invoices)
+        for ref, net in results:
             shops.append({"tenant": ref.tenant, "shop_name": ref.shop_name,
                          "net_revenue_minor": net})
             if net is None:
@@ -290,6 +306,21 @@ class CommissionEngine:
             else:
                 total += net
         return {"shops": shops, "total_net_revenue_minor": total, "revenue_partial": partial}
+
+    async def _referral_net(self, ref, semaphore: asyncio.Semaphore) -> tuple[Any, int | None]:
+        """One referral's net revenue from billing — see `_net_revenue` for the fan-out."""
+        async with semaphore:
+            net = None
+            if self._billing:
+                status, body = await asyncio.to_thread(
+                    self._http.call,
+                    f"{self._billing}/internal/billing/invoices?tenant={ref.tenant}&status=paid",
+                    method="GET", internal=True)
+                if status == 200:
+                    invoices = list((body or {}).get("invoices") or [])
+                    net = sum(int(inv.get("amount_minor", 0)) - int(inv.get("refunded_minor", 0))
+                             for inv in invoices)
+            return ref, net
 
 
 def _parse_iso(value: str) -> int | None:
