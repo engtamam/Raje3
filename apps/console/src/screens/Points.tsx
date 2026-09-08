@@ -21,7 +21,7 @@
  * decides that from the catalogue, so this file never asks — it is only ever rendered for a shop
  * that has the programme.
  */
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Badge } from '../rj-ui/Badge';
 import { halalas } from '../money';
 import { KpiCard } from '../rj-ui/KpiCard';
@@ -124,6 +124,13 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   const [type, setType] = useState(TYPES[0].value);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // SET ONLY BY A FAILED SWITCH TO INVOICE MODE, never by the generic `error` path below — the
+  // server's refusal there is always the SAME fact the static hint under the card already states
+  // (validate() only ever fails a `mode: 'invoice'` write for one reason: unpriced services), so
+  // routing it into the shared top banner would put two differently-worded sentences about the
+  // same rule on screen at once. This flag colours the ONE existing hint instead of adding a
+  // second one — a real screenshot of exactly that duplication is what this was written to fix.
+  const [modeBlocked, setModeBlocked] = useState(false);
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact and the control is simply not rendered —
@@ -136,24 +143,43 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   const canFollow = action(catalog, 'loyalty.settings.follow');
   const canSetMode = action(catalog, 'loyalty.settings.mode');
 
+  // A GENERATION NUMBER, NOT JUST A FUNCTION — every setting on this screen calls `load()` again
+  // after its own write, so two edits close together fire two overlapping round-trips. Network
+  // order is not request order; without this, an OLDER response landing AFTER a newer one
+  // silently overwrites fresh state with stale state — which reads as the screen "reverting to an
+  // old update" for no visible reason. Each call captures its own generation and only applies
+  // what it fetched if it is still the latest one in flight when the response lands.
+  const loadGen = useRef(0);
+
   const load = () => {
+    const gen = ++loadGen.current;
+    const current = () => gen === loadGen.current;
+
     const r = action(catalog, 'loyalty.rewards.list');
     if (r) {
       // RETIRED ONES INCLUDED, on this screen only. The list defaults to active — right for the
       // redemption sheet, wrong here: without them «إيقاف» made the row vanish, which reads as a
       // delete and leaves «تفعيل» with nothing to act on.
       call<{ rewards: Reward[] }>(session, r, { include_retired: true })
-        .then((x) => setRewards(x.rewards ?? []))
-        .catch(() => setRewards(null));
+        .then((x) => { if (current()) setRewards(x.rewards ?? []); })
+        .catch(() => { if (current()) setRewards(null); });
     } else {
       setRewards([]);
     }
 
     const rep = action(catalog, 'loyalty.report');
-    if (rep) call<Report>(session, rep).then(setReport).catch(() => setReport(null));
+    if (rep) {
+      call<Report>(session, rep)
+        .then((x) => { if (current()) setReport(x); })
+        .catch(() => { if (current()) setReport(null); });
+    }
 
     const s = action(catalog, 'loyalty.settings.read');
-    if (s) call<EarnSettings>(session, s).then(setEarn).catch(() => setEarn(null));
+    if (s) {
+      call<EarnSettings>(session, s)
+        .then((x) => { if (current()) setEarn(x); })
+        .catch(() => { if (current()) setEarn(null); });
+    }
 
     // HIS OWN CATALOGUE, because a service reward must name one of HIS services and the earning
     // tab sets a number per service. Failure leaves the list empty, which removes the service
@@ -161,8 +187,8 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
     const list = action(catalog, 'operations.list_services');
     if (list) {
       call<{ services: Service[] }>(session, list)
-        .then((x) => setServices(x.services ?? []))
-        .catch(() => setServices(null));
+        .then((x) => { if (current()) setServices(x.services ?? []); })
+        .catch(() => { if (current()) setServices(null); });
     }
   };
 
@@ -510,6 +536,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                 onChange={async (mode) => {
                   setSaving(true);
                   setError('');
+                  setModeBlocked(false);
                   try {
                     await call(session, canSetMode, {
                       mode,
@@ -520,7 +547,19 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                     // A SHOP WITH NO TILL CANNOT EARN BY INVOICE — the field screen records no
                     // amounts (§9.3). The service refuses in a sentence the owner can read; the
                     // switch must show it, not swallow it, and must stay where it was.
-                    setError(e instanceof Error ? e.message : t('points.error.modeChangeFailed'));
+                    //
+                    // A SWITCH TO 'invoice' CAN ONLY EVER FAIL THIS ONE WAY — `validate()` accepts
+                    // any mode this control offers and any points_per_riyal already on file, so the
+                    // sole failing precondition is unpriced services. That is exactly what the
+                    // static hint below already says; showing the server's own wording of the same
+                    // fact in the banner above would be the same sentence twice. A switch TO
+                    // 'services' has no precondition to fail, so a real (unexpected) error there
+                    // still goes through the shared banner.
+                    if (mode === 'invoice') {
+                      setModeBlocked(true);
+                    } else {
+                      setError(e instanceof Error ? e.message : t('points.error.modeChangeFailed'));
+                    }
                   } finally {
                     setSaving(false);
                   }
@@ -538,7 +577,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   possibly-stale verdict as if it were current. Hidden once he is already in
                   invoice mode, where the rule is no longer something he is about to trip over. */}
               {earn?.config?.mode !== 'invoice' ? (
-                <p className="mt-3 text-sm text-text-secondary">
+                <p className={`mt-3 text-sm ${modeBlocked ? 'text-danger' : 'text-text-secondary'}`}>
                   {t('points.mode.needsPricedServices')}
                 </p>
               ) : null}
