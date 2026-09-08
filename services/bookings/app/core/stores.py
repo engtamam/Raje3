@@ -146,10 +146,6 @@ class BookingStore:
         rows, _ = await self._find(tenant, {"subject_ref": subject_ref}, limit=limit)
         return [_from_row(r) for r in rows]
 
-    async def for_series(self, tenant: str, series_id: str, limit: int = 50) -> list[Booking]:
-        rows, _ = await self._find(tenant, {"series_id": series_id}, limit=limit)
-        return sorted([_from_row(r) for r in rows], key=lambda b: b.series_seq or 0)
-
     async def _find(self, tenant: str, where: dict[str, Any] | None = None, *,
                     limit: int = 200) -> tuple[list[dict], str | None]:
         filt: dict[str, Any] = {"tenant": tenant}
@@ -305,6 +301,14 @@ def _from_row(row: dict[str, Any]) -> Booking:
     if "service_ids" in row and row["service_ids"] is not None:
         row["service_ids"] = tuple(row["service_ids"])
     row.pop("bucket", None)
+    # DROPPED, NOT MIGRATED (2026-09-08) — `series_id`/`series_seq` were dead fields: written on
+    # every row (dataclass defaults, both always None) but read by nothing, ever — `for_series`,
+    # the one method that would have used them, had no caller anywhere in this codebase. Every
+    # existing row on disk still carries both keys (both None), so they must still be POPPED here
+    # even though `Booking` no longer declares them — `Booking(**row)` below would otherwise raise
+    # on the very first read of a row written before this change.
+    row.pop("series_id", None)
+    row.pop("series_seq", None)
     # MIGRATED, NOT DROPPED (2026-08-19) — `deposit_taken: bool` became `payment_status: str`
     # (§ "بدون عربون بعربون او مدفوع"). Every row already on disk still carries the old key; read
     # it once here rather than requiring a backfill job before this deploy is safe to roll out.

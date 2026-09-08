@@ -66,8 +66,6 @@ class Booking:
                                           # booking time, recomputed only on an explicit
                                           # service_ids edit — never re-derived on a background read
     status: str = STATUS_BOOKED
-    series_id: str | None = None
-    series_seq: int | None = None
     visit_id: str | None = None          # set once, on attendance — the one link booking->visit
     payment_status: str = PAYMENT_NONE   # one of PAYMENT_STATES — see the constants above
     # THE PROOF OF "عربون", NOT A GUESS — required whenever payment_status is PAYMENT_DEPOSIT

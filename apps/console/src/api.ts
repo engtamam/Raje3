@@ -676,8 +676,6 @@ export interface Booking {
   starts_at: number;
   duration_minutes: number;
   status: 'booked' | 'attended' | 'no_show' | 'cancelled';
-  series_id: string | null;
-  series_seq: number | null;
   visit_id: string | null;
   /** "بدون عربون بعربون او مدفوع" — one field, three states, never inferred
    *  from `status`: an attended booking can still owe money, and a booked one can already be

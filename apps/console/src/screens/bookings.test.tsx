@@ -31,7 +31,7 @@ function todayAt(hour: number): number {
 const BOOKING: Booking = {
   id: 'bkg_1', branch_id: 'b1', operator_id: 'op1', customer_id: 'c1',
   service_ids: ['svc1'], starts_at: 1786860000, duration_minutes: 30,
-  status: 'booked', series_id: null, series_seq: null, visit_id: null,
+  status: 'booked', visit_id: null,
   payment_status: 'none', deposit_amount_minor: null, price_override_minor: null, intended_reward_id: null,
   note: '', reason_no_show: null, created: 1, created_by: '',
   updated: 1, cancelled_reason: null, thumb_up: null, rev: 1,

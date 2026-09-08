@@ -269,8 +269,6 @@ class CreateIn(BaseModel):
     starts_at: int = Field(gt=0)
     note: str = Field(default="", max_length=500)
     idempotency_key: str = Field(default="", max_length=128)
-    series_id: str | None = None
-    series_seq: int | None = None
     # "بدون عربون بعربون او مدفوع" — one of PAYMENT_STATES.
     payment_status: str = Field(default="none", pattern=r"^(none|deposit|paid)$")
     # Required by operations.py when payment_status is "deposit"; ignored otherwise.
@@ -294,7 +292,7 @@ async def create_booking(request: Request, body: CreateIn,
             customer_id=body.customer_id, service_ids=body.service_ids,
             package_id=body.package_id,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
-            created_by=principal.subject, series_id=body.series_id, series_seq=body.series_seq,
+            created_by=principal.subject,
             payment_status=body.payment_status, deposit_amount_minor=body.deposit_amount_minor,
             price_override_minor=body.price_override_minor,
             intended_reward_id=body.intended_reward_id)
