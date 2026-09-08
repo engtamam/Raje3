@@ -244,6 +244,11 @@ class Tick:
         # reminders would otherwise ask notification-service 300 times for an answer that cannot
         # change while this loop runs. None means NOT KNOWN — see ApprovedTemplates.
         approved = await self._approved.names(tenant) if due else None
+        # EACH TEMPLATE'S DEFERRAL POLICY, ONCE PER TENANT PER TICK — beside `approved`, for the
+        # same reason. `_one` used to scan `library` for a row's `template_type` up to twice per
+        # due row; the library cannot change while this loop runs, so a dict built once here
+        # answers every lookup below in O(1) instead of an O(len(library)) scan per row.
+        policy_by_type = {t.get("type"): str(t.get("deferral") or "defer") for t in library}
         # The reach window is only meaningful for a day, and a table nobody prunes turns a bounded
         # read into an unbounded one — the exact failure the read exists to avoid.
         if due:
@@ -278,7 +283,8 @@ class Tick:
                 await self._one(tenant, row, now=now, res=res, library=library,
                                 service_names=service_names, establishment=establishment,
                                 customer_name=names.get(row.get("subject_ref", ""), ""),
-                                tone=tone, approved=approved, room=room, choices=choices)
+                                tone=tone, approved=approved, room=room, choices=choices,
+                                policy_by_type=policy_by_type)
             except Unsendable as exc:
                 # PERMANENT, not transient. There is nobody to send to — erased, or never there.
                 # Retrying would ask operations about a forgotten customer on every tick forever,
@@ -520,7 +526,8 @@ class Tick:
                    library: list[dict[str, Any]], service_names: dict[str, str],
                    establishment: str, customer_name: str, tone: str,
                    approved: set[str] | None = None, room: Room | None = None,
-                   choices: Any = None) -> None:
+                   choices: Any = None,
+                   policy_by_type: dict[str, str] | None = None) -> None:
         subject = row.get("subject_ref", "")
         cls = row.get("cls", "service")
 
@@ -575,11 +582,9 @@ class Tick:
             # policy. This branch did not, so a quiet-hours or engagement deferral pushed exactly
             # those messages a full day into the future — the case the policy was written to
             # prevent, reached by the other door.
-            policy = ""
-            for t in library:
-                if t.get("type") == row.get("template_type"):
-                    policy = str(t.get("deferral") or "defer")
-                    break
+            policies = policy_by_type if policy_by_type is not None else {
+                t.get("type"): str(t.get("deferral") or "defer") for t in library}
+            policy = policies.get(row.get("template_type"), "")
 
             if decision.retry_at and policy != "drop":
                 # DEFERRED: the row goes back to pending with a new due date. Deliberately not a
@@ -613,11 +618,9 @@ class Tick:
         room = room or Room()
         if room.known() and await self._reach.would_be_new(tenant, subject, now=now):
             if not room.take():
-                policy = ""
-                for t in library:
-                    if t.get("type") == row.get("template_type"):
-                        policy = str(t.get("deferral") or "defer")
-                        break
+                policies = policy_by_type if policy_by_type is not None else {
+                    t.get("type"): str(t.get("deferral") or "defer") for t in library}
+                policy = policies.get(row.get("template_type"), "")
                 res.ceiling += 1
                 if policy == "drop":
                     await self._log.append(tenant, as_row(SendLog(
