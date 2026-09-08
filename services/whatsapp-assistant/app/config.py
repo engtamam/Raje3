@@ -228,6 +228,10 @@ class Settings(BaseSettings):
     # never reaches this peer at all — see BOOKING_PROVIDER_DRIVER's own note below.
     BOOKINGS_SERVICE_URL: str = ""
     BOOKINGS_NEAREST_REAL_SLOT_PATH: str = "/internal/bookings/nearest-real-slot"
+    # THE REAL ASSIGNMENT ENGINE (assignment-mode redesign, phase 4) — merges across every
+    # eligible operator and applies the shop's own algorithm (AssignmentSettingsStore), replacing
+    # the "sorted by id, first one" placeholder `_pick_operator` used before this existed.
+    BOOKINGS_NEAREST_ANY_REAL_SLOT_PATH: str = "/internal/bookings/nearest-any-real"
     BOOKINGS_CREATE_PATH: str = "/internal/bookings"
     # Booking-management-via-WhatsApp (view/cancel/reschedule an EXISTING booking) — the
     # customer-ownership counterparts to bookings-service's staff-only routes. See

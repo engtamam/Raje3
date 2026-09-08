@@ -319,6 +319,43 @@ async def internal_nearest_real_slot(request: Request, body: InternalNearestReal
     return {"starts_at": found}
 
 
+class InternalNearestAnyRealSlotIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    branch_id: str = Field(min_length=1, max_length=64)
+    # THE CALLER'S OWN ELIGIBLE POOL — same convention as the console's own GET .../nearest-any
+    # (app/api/v1/bookings.py): this route does not itself decide who is eligible, only refuses
+    # anyone in the list who turns out NOT to be (`_refuse_if_ineligible`, inside
+    # `nearest_slots_any`) — never trusted blindly.
+    operator_ids: list[str] = Field(min_length=1, max_length=64)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    after: int = Field(gt=0)
+    search_days: int = Field(default=14, ge=1, le=90)
+    max_slots: int = Field(default=1, ge=1, le=20)
+    exclude_booking_id: str = Field(default="", max_length=64)
+
+
+@router.post("/bookings/nearest-any-real", dependencies=[Depends(require_internal_token)])
+async def internal_nearest_any_real_slot(request: Request, body: InternalNearestAnyRealSlotIn) -> dict:
+    """The «تلقائي» pick, for an internal caller (whatsapp-assistant's own booking_assignment.py,
+    assignment-mode redesign phase 4) — the SAME merge + the shop's own algorithm the console's
+    `nearest-any` route already applies (`BookingOperations.nearest_slots_any`, AssignmentSettingsStore),
+    reached over the internal tier instead of a user JWT. One engine, three callers (console,
+    WhatsApp Flow adapter once phase 5 exists, and this) — never a second, drifting copy of "who
+    wins the slot" for the AI-led channel.
+    """
+    c = request.app.state.container
+    window_end = body.after + body.search_days * 86400
+    try:
+        found = await c.booking_ops.nearest_slots_any(
+            tenant=body.tenant, branch_id=body.branch_id, operator_ids=body.operator_ids,
+            service_ids=body.service_ids, after=body.after, window_end=window_end,
+            max_slots=body.max_slots, exclude_booking_id=body.exclude_booking_id,
+            search_days=body.search_days)
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return {"slots": [{"operator_id": s.operator_id, "starts_at": s.starts_at} for s in found]}
+
+
 class InternalCreateBookingIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     branch_id: str = Field(min_length=1, max_length=64)

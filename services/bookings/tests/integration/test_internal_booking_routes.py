@@ -215,6 +215,57 @@ def test_nearest_real_slot_with_exclude_booking_id_offers_the_bookings_own_curre
     assert r.json()["starts_at"] == booking["starts_at"]
 
 
+# ── /internal/bookings/nearest-any-real — whatsapp-assistant's own real algorithm, phase 4 ─────
+
+def test_nearest_any_real_refuses_without_the_internal_token(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/nearest-any-real", json={
+        "tenant": "t1", "branch_id": "b1", "operator_ids": ["op1"], "service_ids": ["svc1"],
+        "after": 1786860000})
+    assert r.status_code == 401
+
+
+def test_nearest_any_real_merges_across_the_whole_eligible_pool(env_guard):
+    """Two candidates, both free — the SAME merge engine the console's own nearest-any uses
+    (BookingOperations.nearest_slots_any), reached from the internal tier instead of a user JWT."""
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/nearest-any-real", json={
+        "tenant": "t1", "branch_id": "b1", "operator_ids": ["op1", "op2"],
+        "service_ids": ["svc1"], "after": 1786860000, "max_slots": 1}, headers=_h())
+    assert r.status_code == 200, r.text
+    slots = r.json()["slots"]
+    assert len(slots) == 1
+    assert slots[0]["operator_id"] in ("op1", "op2")
+    assert slots[0]["starts_at"] == 1786860000
+
+
+def test_nearest_any_real_skips_an_operator_already_booked_at_the_earliest_candidate(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    client.post("/internal/bookings", json={
+        "tenant": "t1", "branch_id": "b1", "operator_id": "op1", "customer_id": "c1",
+        "service_ids": ["svc1"], "starts_at": 1786860000}, headers=_h())
+    r = client.post("/internal/bookings/nearest-any-real", json={
+        "tenant": "t1", "branch_id": "b1", "operator_ids": ["op1", "op2"],
+        "service_ids": ["svc1"], "after": 1786860000, "max_slots": 1}, headers=_h())
+    assert r.status_code == 200, r.text
+    # op1 is busy at exactly this instant; op2 is free, so op2 wins the earliest slot.
+    assert r.json()["slots"][0]["operator_id"] == "op2"
+
+
+def test_nearest_any_real_respects_the_callers_own_eligible_pool(env_guard):
+    """`_stub_ops(eligible_operator=...)` refuses every OTHER operator server-side — proves this
+    route does not just trust the caller's `operator_ids` blindly."""
+    client = _make_app()
+    _stub_ops(client, eligible_operator="op-only-this-one")
+    r = client.post("/internal/bookings/nearest-any-real", json={
+        "tenant": "t1", "branch_id": "b1", "operator_ids": ["op-someone-else"],
+        "service_ids": ["svc1"], "after": 1786860000}, headers=_h())
+    assert r.status_code == 400
+
+
 def test_create_is_isolated_per_tenant_the_same_idempotency_key_never_collides_across_tenants(
         env_guard):
     """The double-tap guard (`by_idempotency_key`) is looked up WITHOUT a tenant filter unless

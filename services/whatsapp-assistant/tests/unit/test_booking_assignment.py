@@ -1,6 +1,10 @@
-"""RealBookingProvider (Phase 4) — operator assignment policy (first eligible, deterministic),
-and that a branch/phone is REQUIRED, never guessed, before a real slot search or a real booking
-write reaches its peers."""
+"""RealBookingProvider — the single-service path's operator pick now goes through the REAL merge
+engine (assignment-mode redesign, phase 4: `nearest_any_real_slot`, the internal counterpart of
+the console's own «أي متاح»), never the old "sorted by id, first eligible" placeholder. Packages
+(`_pick_operator_for_package`) still use that older, simpler policy — a deliberately separate,
+later pass — so its own tests below still exercise `nearest_real_slot` unchanged. Also verifies a
+branch/phone is REQUIRED, never guessed, before a real slot search or a real booking write reaches
+its peers."""
 from app.core.booking_assignment import BookingAssignmentError, RealBookingProvider
 
 TENANT = "t1"
@@ -24,14 +28,15 @@ class _FakePeer:
 
 
 def _provider(*, branch_operators=None, service_eligibility=None,
-             customer_id_by_phone=None, nearest_real_slot=None, create_booking=None,
-             bookings_for_customer=None, cancel_booking=None, reschedule_booking=None,
-             package_eligibility=None):
+             customer_id_by_phone=None, nearest_real_slot=None, nearest_any_real_slot=None,
+             create_booking=None, bookings_for_customer=None, cancel_booking=None,
+             reschedule_booking=None, package_eligibility=None):
     return RealBookingProvider(
         branch_operators=branch_operators or _FakePeer({"operators": []}),
         service_eligibility=service_eligibility or _FakePeer({"eligible_staff_ids": {}}),
         customer_id_by_phone=customer_id_by_phone or _FakePeer({"customer_id": ""}),
         nearest_real_slot=nearest_real_slot or _FakePeer({"starts_at": None}),
+        nearest_any_real_slot=nearest_any_real_slot or _FakePeer({"slots": []}),
         create_booking=create_booking or _FakePeer(None),
         bookings_for_customer=bookings_for_customer, cancel_booking=cancel_booking,
         reschedule_booking=reschedule_booking, package_eligibility=package_eligibility)
@@ -46,26 +51,40 @@ async def test_availability_with_no_branch_never_calls_any_peer():
     assert ops.calls == []
 
 
-async def test_availability_picks_the_first_eligible_operator_deterministically():
+async def test_availability_sends_the_whole_eligible_pool_to_the_real_engine():
+    """No more local sort/pick — the engine (assignment.py's own merge + the shop's algorithm,
+    over the internal tier) decides who wins; this module's only job is handing it the right
+    pool and trusting its answer, whichever operator that turns out to be."""
     ops = _FakePeer({"operators": [{"id": "op2"}, {"id": "op1"}]})
     elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})   # None = unrestricted, everyone eligible
-    slot = _FakePeer({"starts_at": 5000})
-    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_real_slot=slot)
+    merged = _FakePeer({"slots": [{"operator_id": "op2", "starts_at": 5000}]})
+    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_any_real_slot=merged)
     slots = await provider.availability(tenant=TENANT, service_id="svc1", earliest=1000,
                                         horizon_days=0, branch_id=BRANCH)
     assert [s.starts_at for s in slots] == [5000]
-    # "op1" sorts before "op2" — the deterministic tie-break.
-    assert slot.calls[0]["operator_id"] == "op1"
+    assert sorted(merged.calls[0]["operator_ids"]) == ["op1", "op2"]
+    assert merged.calls[0]["after"] == 1000
+    assert merged.calls[0]["max_slots"] == 1
 
 
 async def test_availability_narrows_to_the_restricted_eligible_set():
     ops = _FakePeer({"operators": [{"id": "op1"}, {"id": "op2"}]})
     elig = _FakePeer({"eligible_staff_ids": {"svc1": ["op2"]}})
-    slot = _FakePeer({"starts_at": 5000})
-    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_real_slot=slot)
+    merged = _FakePeer({"slots": [{"operator_id": "op2", "starts_at": 5000}]})
+    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_any_real_slot=merged)
     await provider.availability(tenant=TENANT, service_id="svc1", earliest=1000,
                                 horizon_days=0, branch_id=BRANCH)
-    assert slot.calls[0]["operator_id"] == "op2"
+    assert merged.calls[0]["operator_ids"] == ["op2"]
+
+
+async def test_availability_returns_empty_when_the_engine_finds_nothing():
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": []})
+    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_any_real_slot=merged)
+    slots = await provider.availability(tenant=TENANT, service_id="svc1", earliest=1000,
+                                        horizon_days=0, branch_id=BRANCH)
+    assert slots == []
 
 
 async def test_availability_forwards_exclude_booking_id_to_the_peer_payload_when_given():
@@ -76,11 +95,11 @@ async def test_availability_forwards_exclude_booking_id_to_the_peer_payload_when
     including the reschedule-to-own-time ones, would keep passing regardless."""
     ops = _FakePeer({"operators": [{"id": "op1"}]})
     elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
-    slot = _FakePeer({"starts_at": 5000})
-    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_real_slot=slot)
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_any_real_slot=merged)
     await provider.availability(tenant=TENANT, service_id="svc1", earliest=1000,
                                 horizon_days=0, branch_id=BRANCH, exclude_booking_id="bkg1")
-    assert slot.calls[0]["exclude_booking_id"] == "bkg1"
+    assert merged.calls[0]["exclude_booking_id"] == "bkg1"
 
 
 async def test_availability_omits_exclude_booking_id_from_the_payload_when_not_given():
@@ -91,11 +110,11 @@ async def test_availability_omits_exclude_booking_id_from_the_payload_when_not_g
     exclude_booking_id:` guard)."""
     ops = _FakePeer({"operators": [{"id": "op1"}]})
     elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
-    slot = _FakePeer({"starts_at": 5000})
-    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_real_slot=slot)
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    provider = _provider(branch_operators=ops, service_eligibility=elig, nearest_any_real_slot=merged)
     await provider.availability(tenant=TENANT, service_id="svc1", earliest=1000,
                                 horizon_days=0, branch_id=BRANCH)
-    assert "exclude_booking_id" not in slot.calls[0]
+    assert "exclude_booking_id" not in merged.calls[0]
 
 
 async def test_availability_with_zero_eligible_operators_returns_empty_not_an_error():
@@ -132,10 +151,12 @@ async def test_hold_and_confirm_refuses_without_a_phone():
 async def test_hold_and_confirm_resolves_a_real_customer_id_and_creates_the_booking():
     ops = _FakePeer({"operators": [{"id": "op1"}]})
     elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
     cust = _FakePeer({"customer_id": "cus_real1"})
     created = _FakePeer({"id": "bkg_1", "status": "booked"})
     provider = _provider(branch_operators=ops, service_eligibility=elig,
-                         customer_id_by_phone=cust, create_booking=created)
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
     booking = await provider.hold_and_confirm(
         tenant=TENANT, subject_ref="sub1", service_id="svc1", starts_at=5000,
         idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
@@ -144,6 +165,9 @@ async def test_hold_and_confirm_resolves_a_real_customer_id_and_creates_the_book
     assert created.calls[0]["operator_id"] == "op1"
     assert created.calls[0]["branch_id"] == BRANCH
     assert created.calls[0]["idempotency_key"] == "k1"
+    # THE ENGINE WAS ASKED "WHO'S FREE AT THIS EXACT CONFIRMED INSTANT" — the same `starts_at`
+    # the customer already agreed to, not some other floor.
+    assert merged.calls[0]["after"] == 5000
     # THE PHONE NUMBER ITSELF NEVER REACHES bookings-service — only the resolved customer_id.
     assert "from_number" not in created.calls[0] and "phone" not in created.calls[0]
     # ATTRIBUTION — every AI-made booking is stamped with the service's own actor constant, never
@@ -358,6 +382,7 @@ async def test_build_does_not_construct_management_peers_when_the_flag_is_off():
         OPERATIONS_PACKAGE_ELIGIBILITY_PATH = "/x"
         OPERATIONS_CUSTOMER_ID_BY_PHONE_PATH = "/x"
         BOOKINGS_NEAREST_REAL_SLOT_PATH = "/x"
+        BOOKINGS_NEAREST_ANY_REAL_SLOT_PATH = "/x"
         BOOKINGS_CREATE_PATH = "/x"
         BOOKINGS_FOR_CUSTOMER_PATH = "/x"
         BOOKINGS_CANCEL_PATH = "/x/{booking_id}"
@@ -377,10 +402,12 @@ async def test_build_does_not_construct_management_peers_when_the_flag_is_off():
 async def test_hold_and_confirm_surfaces_a_peer_refusal_rather_than_a_fake_success():
     ops = _FakePeer({"operators": [{"id": "op1"}]})
     elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
     cust = _FakePeer({"customer_id": "cus_real1"})
     refused = _FakePeer(None)   # peer unreachable, or bookings-service refused
     provider = _provider(branch_operators=ops, service_eligibility=elig,
-                         customer_id_by_phone=cust, create_booking=refused)
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=refused)
     try:
         await provider.hold_and_confirm(tenant=TENANT, subject_ref="sub1", service_id="svc1",
                                         starts_at=5000, idempotency_key="k1",

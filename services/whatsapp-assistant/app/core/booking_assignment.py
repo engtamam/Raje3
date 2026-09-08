@@ -5,15 +5,20 @@ deployed. Opt-in only: `BOOKING_PROVIDER_DRIVER=real` (see app/config.py's own n
 THE ONE POLICY QUESTION THIS MODULE ANSWERS: which operator does an AI-led WhatsApp booking get
 assigned to. There is no chat UI for a customer to browse staff photos and pick one — Tamam's own
 framing of this feature ("تحديد الموظفه مهم") asked that a real operator be assigned, not that a
-customer be made to choose. So the policy here is FIRST ELIGIBLE, DETERMINISTIC: among this
-branch's own active operators (Operator.branch_id — his home station, not a read-scope grant),
-the first one (sorted by id, so the same booking retried twice picks the same operator) who is
-BOTH allowed to perform this service (operations' service-eligibility) reduces to a single
-question bookings-service's own `create()`/`nearest_slot()` still re-asks and re-refuses on
-independently — this module never trusts its own pick as final. A customer naming a PREFERRED
-stylist is a real, later feature (a free-text name would need to be resolved against this same
-list, matched, and confirmed) — not built here; this is recorded as a documented limitation, not
-solved by guessing from an unstructured message.
+customer be made to choose. A customer naming a PREFERRED stylist is a real, later feature (a
+free-text name would need to be resolved against this same list, matched, and confirmed) — not
+built here; this is recorded as a documented limitation, not solved by guessing from an
+unstructured message.
+
+ASSIGNMENT-MODE REDESIGN, PHASE 4 — `_pick_operator` used to be a naive "sorted by id, first
+eligible" placeholder, entirely local to this module and blind to whatever algorithm a shop had
+actually chosen on the console (services/bookings/app/core/assignment.py,
+AssignmentSettingsStore). It now calls the SAME merge-and-rank engine the console's own «أي متاح»
+picker uses, over the internal tier (`/internal/bookings/nearest-any-real`, bookings-service's own
+`BookingOperations.nearest_slots_any`) — one engine, every channel, never a second policy that can
+silently disagree with what the shop configured. bookings-service's own `create()`/`nearest_slot()`
+still re-asks and re-refuses independently at write time regardless — this module never trusts its
+own pick as final, exactly as before.
 
 NOTHING HERE INVENTS A BRANCH. `availability()`/`hold_and_confirm()` both REQUIRE a real
 `branch_id` and return "not available"/refuse outright without one — exactly the same "ask,
@@ -79,7 +84,8 @@ class RealBookingProvider:
     driver = "real"
 
     def __init__(self, *, branch_operators: _Peer, service_eligibility: _Peer,
-                customer_id_by_phone: _Peer, nearest_real_slot: _Peer, create_booking: _Peer,
+                customer_id_by_phone: _Peer, nearest_real_slot: _Peer,
+                nearest_any_real_slot: _Peer, create_booking: _Peer,
                 bookings_for_customer: _Peer | None = None, cancel_booking: _Peer | None = None,
                 reschedule_booking: _Peer | None = None,
                 package_eligibility: _Peer | None = None) -> None:
@@ -87,6 +93,11 @@ class RealBookingProvider:
         self._service_eligibility = service_eligibility
         self._customer_id_by_phone = customer_id_by_phone
         self._nearest_real_slot = nearest_real_slot
+        # THE REAL ENGINE (phase 4) — see module docstring. `_pick_operator` below is the only
+        # caller; kept as its own peer (not folded into `nearest_real_slot`) because the two ask
+        # genuinely different questions: one operator's own diary vs. the shop's whole eligible
+        # pool ranked by its own algorithm.
+        self._nearest_any_real_slot = nearest_any_real_slot
         self._create_booking = create_booking
         # Optional — only set when BOOKING_MANAGEMENT_ENABLED is true at build() time (see below).
         # None-guarded at every call site so an old/half-configured deployment fails the same loud
@@ -103,10 +114,10 @@ class RealBookingProvider:
         # ordinary single-service path is completely unaffected either way.
         self._package_eligibility = package_eligibility
 
-    async def _pick_operator(self, tenant: str, branch_id: str, service_id: str) -> str:
-        """FIRST ELIGIBLE, DETERMINISTIC — see this module's own docstring for the policy. Raises
-        BookingAssignmentError rather than returning "" so every caller is forced to handle "no
-        eligible operator" explicitly instead of silently proceeding with an empty id."""
+    async def _eligible_pool(self, tenant: str, branch_id: str, service_id: str) -> list[str]:
+        """This branch's own active operators, narrowed to whoever is eligible for `service_id` —
+        the shared first half of `_pick_operator` below, factored out so the merge call can be
+        skipped entirely once the pool is already known empty."""
         ops = self._branch_operators.call({"tenant": tenant, "branch_id": branch_id})
         candidates = [str(o.get("id")) for o in (ops or {}).get("operators") or []]
         if not candidates:
@@ -122,7 +133,40 @@ class RealBookingProvider:
         if not eligible_pool:
             raise BookingAssignmentError(
                 f"no operator at branch {branch_id!r} is eligible for service {service_id!r}")
-        return sorted(eligible_pool)[0]
+        return eligible_pool
+
+    async def _pick_slot(self, tenant: str, branch_id: str, service_id: str, after: int,
+                         exclude_booking_id: str = "") -> tuple[str, int]:
+        """THE REAL ENGINE (phase 4) — see module docstring. Returns (operator_id, starts_at)
+        TOGETHER, from the SAME merge call — `availability()` used to discard the slot this same
+        pick already found and immediately re-ask a second peer (`nearest_real_slot`) for that
+        one operator's own next opening; that redundant round trip, and the small window for the
+        two answers to disagree under real concurrency, are both gone now that one call answers
+        both questions at once. `after` anchors the search: `availability()` passes `earliest`
+        (who is free soonest from right now); `hold_and_confirm()` passes the exact `starts_at`
+        the customer already confirmed (who is ACTUALLY free at that specific instant — the shop's
+        algorithm may have ranked things differently a moment earlier; each call trusts
+        bookings-service's own answer at ITS OWN moment, never a stale one from the other).
+        Raises BookingAssignmentError rather than returning an empty id so every caller is forced
+        to handle "nothing free" explicitly instead of silently proceeding with one."""
+        eligible_pool = await self._eligible_pool(tenant, branch_id, service_id)
+        payload: dict[str, Any] = {
+            "tenant": tenant, "branch_id": branch_id, "operator_ids": eligible_pool,
+            "service_ids": [service_id], "after": after, "max_slots": 1}
+        if exclude_booking_id:
+            payload["exclude_booking_id"] = exclude_booking_id
+        result = self._nearest_any_real_slot.call(payload)
+        slots = (result or {}).get("slots") or []
+        if not slots:
+            raise BookingAssignmentError(
+                f"no operator at branch {branch_id!r} is free for service {service_id!r} near {after}")
+        return str(slots[0]["operator_id"]), int(slots[0]["starts_at"])
+
+    async def _pick_operator(self, tenant: str, branch_id: str, service_id: str, after: int) -> str:
+        """Same engine as `_pick_slot`, for a caller (`hold_and_confirm`) that already knows WHEN
+        (the customer's own confirmed time) and only needs WHO."""
+        operator_id, _starts_at = await self._pick_slot(tenant, branch_id, service_id, after)
+        return operator_id
 
     async def _resolve_customer_id(self, tenant: str, from_number: str) -> str:
         result = self._customer_id_by_phone.call({"tenant": tenant, "phone": from_number})
@@ -132,8 +176,9 @@ class RealBookingProvider:
                            horizon_days: int, branch_id: str = "",
                            exclude_booking_id: str = "") -> list[Slot]:
         # NO BRANCH, NO ANSWER — see module docstring. `horizon_days` is accepted for Protocol
-        # compatibility but unused: `nearest_real_slot` always returns the single NEXT open
-        # candidate, not a set across a window (the "أقرب موعد" shape, not the grid's).
+        # compatibility but unused: the merge always returns the single NEXT open candidate
+        # across the whole eligible pool, not a set across a window (the "أقرب موعد" shape, not
+        # the grid's).
         #
         # `exclude_booking_id` (booking-management-via-WhatsApp's reschedule check) — the booking
         # being moved is not a conflict with itself; without this, asking "is my own current time,
@@ -143,17 +188,9 @@ class RealBookingProvider:
         if not branch_id:
             return []
         try:
-            operator_id = await self._pick_operator(tenant, branch_id, service_id)
+            _operator_id, starts_at = await self._pick_slot(
+                tenant, branch_id, service_id, earliest, exclude_booking_id=exclude_booking_id)
         except BookingAssignmentError:
-            return []
-        payload: dict[str, Any] = {
-            "tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
-            "service_ids": [service_id], "after": earliest}
-        if exclude_booking_id:
-            payload["exclude_booking_id"] = exclude_booking_id
-        result = self._nearest_real_slot.call(payload)
-        starts_at = (result or {}).get("starts_at")
-        if not starts_at:
             return []
         # DURATION IS 0 HERE, ON PURPOSE — bookings-service computes the real duration itself at
         # create() time from `operations`' own service-durations lookup (the single source of
@@ -175,7 +212,7 @@ class RealBookingProvider:
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
 
-        operator_id = await self._pick_operator(tenant, branch_id, service_id)
+        operator_id = await self._pick_operator(tenant, branch_id, service_id, starts_at)
 
         # INTENT ONLY, NEVER A SPEND — bookings-service's own `create()` only stamps this on the
         # row (see InternalCreateBookingIn.intended_reward_id's own docstring); the actual points
@@ -359,6 +396,12 @@ def build(settings: Any) -> Any:
         nearest_real_slot=_Peer(url=settings.BOOKINGS_SERVICE_URL,
                                 path=settings.BOOKINGS_NEAREST_REAL_SLOT_PATH,
                                 token=token, timeout=timeout),
+        # THE REAL ENGINE (phase 4) — `_pick_slot`/`_pick_operator`'s own peer, the single-service
+        # path only. `_pick_operator_for_package` below still uses `nearest_real_slot` above with
+        # its own simpler policy — packages are a separate, later pass, deliberately untouched here.
+        nearest_any_real_slot=_Peer(url=settings.BOOKINGS_SERVICE_URL,
+                                    path=settings.BOOKINGS_NEAREST_ANY_REAL_SLOT_PATH,
+                                    token=token, timeout=timeout),
         create_booking=_Peer(url=settings.BOOKINGS_SERVICE_URL,
                              path=settings.BOOKINGS_CREATE_PATH, token=token, timeout=timeout),
         package_eligibility=_Peer(url=settings.OPERATIONS_SERVICE_URL,
