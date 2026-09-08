@@ -265,17 +265,28 @@ export function BookingDialog(
   // whole basket (the server's own `_refuse_if_ineligible` refuses anybody else), so this is the
   // real set the dropdown may offer, not a hint layered on top of it.
   //
-  // A SERVICE WITH NO RESTRICTION (`eligible_staff_ids` empty/absent) EXCLUDES NOBODY from the
-  // intersection — that is what "every active operator" means. A shop that never restricted
-  // anything ends up with the exact same set it always had: every operator, unchanged.
+  // A SERVICE WITH NO RESTRICTION (`eligible_staff_ids` empty/absent) resolves to every FIELD-ROLE
+  // operator — NOT every active operator regardless of role any more (assignment-mode redesign
+  // phase 2, matched here to operations' own service-eligibility route: this used to return
+  // `staff` unfiltered, which let the dropdown OFFER a manager for an unrestricted service the
+  // server would then refuse at save time with a less specific sentence than this screen could
+  // have given up front).
+  const fieldStaffIds = useMemo(
+    () => new Set(staff.filter((o) => o.role === 'operator').map((o) => o.id)), [staff]);
   const eligibleStaff = useMemo(() => {
-    const restricting = chosen
-      .map((id) => services.find((s) => s.id === id)?.eligible_staff_ids)
-      .filter((ids): ids is string[] => Boolean(ids && ids.length > 0));
-    if (restricting.length === 0) return staff;
-    const common = restricting.reduce((a, b) => a.filter((id) => b.includes(id)));
-    return staff.filter((o) => common.includes(o.id));
-  }, [chosen, services, staff]);
+    const perService = chosen.map((id) => {
+      const ids = services.find((s) => s.id === id)?.eligible_staff_ids;
+      return ids && ids.length > 0 ? new Set(ids) : fieldStaffIds;
+    });
+    if (perService.length === 0) return staff;
+    return staff.filter((o) => perService.every((set) => set.has(o.id)));
+  }, [chosen, services, staff, fieldStaffIds]);
+  // ANY NAMED SERVICE KEEPS THE MANUAL PICKER — a basket mixing a "named" haircut with an "auto"
+  // express service still lets him choose explicitly, exactly as today; only a basket where EVERY
+  // chosen service is "auto" hides the dropdown, since there is then no service left that ever
+  // asks "which operator" on its own. No separate "mixed basket" refusal needed: the eligibility
+  // intersection above already narrows correctly either way.
+  const anyNamed = chosen.some((id) => services.find((s) => s.id === id)?.assignment_mode === 'named');
   // A CHOSEN OPERATOR WHO NO LONGER QUALIFIES (a service was added after he was picked) IS DROPPED
   // rather than silently kept — sending him would just be refused server-side a moment later, with
   // a less specific sentence than this one.
@@ -595,18 +606,25 @@ export function BookingDialog(
 
         {/* ── الموظف — قبل الوقت، لا بعده: «أي متاح» هو الخيار الأول والافتراضي ───────────
             القائمة نفسها بلا تغيير لمحل لم يخصّص شيئاً قط — تضيق فقط حين خدمة مختارة فعلاً
-            مقيّدة بموظفين بعينهم (§3 من خطة الحجوزات الذكية: بساطة افتراضية، عمق عند الحاجة). */}
-        <Field label="الموظف" required htmlFor="bkg-op"
-              error={attempted && (operatorMissing || operatorIneligible) ? 'اختر موظفاً' : undefined}>
-          <Select
-            id="bkg-op"
-            value={operatorIneligible ? '' : operatorId}
-            onChange={(e) => setOperatorId(e.target.value)}
-          >
-            <option value="">أي متاح</option>
-            {eligibleStaff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </Select>
-        </Field>
+            مقيّدة بموظفين بعينهم (§3 من خطة الحجوزات الذكية: بساطة افتراضية، عمق عند الحاجة).
+
+            مخفي تماماً حين كل الخدمات المختارة «تلقائي» (`assignment_mode`، المرحلة 3) — لا خدمة
+            متبقية تسأل «مع مين» أصلاً، فالسؤال نفسه يسقط بدل ما يُعرض بخيار وحيد لا معنى له.
+            `operatorId` يبقى فارغاً طوال الوقت (نفس سلوك «أي متاح» الحالي بالضبط)، ومنتقي الفتحات
+            تحته يعبّئه فعلياً لحظة اختيار رقاقة — العميل ما يسأل، بس التخصيص الفعلي يصير كالمعتاد. */}
+        {anyNamed ? (
+          <Field label="الموظف" required htmlFor="bkg-op"
+                error={attempted && (operatorMissing || operatorIneligible) ? 'اختر موظفاً' : undefined}>
+            <Select
+              id="bkg-op"
+              value={operatorIneligible ? '' : operatorId}
+              onChange={(e) => setOperatorId(e.target.value)}
+            >
+              <option value="">أي متاح</option>
+              {eligibleStaff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </Select>
+          </Field>
+        ) : null}
 
         {/* لا موظف واحد يغطي كل الخدمات المختارة معاً — حالة حقيقية، لا خطأ في البيانات. */}
         {noCommonOperator ? (

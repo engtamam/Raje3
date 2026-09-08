@@ -47,10 +47,21 @@ interface Service {
   // writable anywhere in the console — a service could only ever get a real duration by seed.
   duration_minutes?: number;
   catchall?: boolean; active?: boolean;
-  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active operator (the zero-config default — a
-   *  single-operator shop, or one where everybody does everything, never touches this). A real
-   *  list narrows it to those specific people. */
+  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active FIELD-ROLE operator (role === 'operator'
+   *  — «الموظف الميداني», the zero-config default: a single-operator shop, or one where every
+   *  field hire does everything, never touches this). Naming anyone explicitly — including a
+   *  manager/supervisor/marketer — still works; the role default only fills the gap when nobody
+   *  was chosen (server-enforced in operations' own service-eligibility route, assignment-mode
+   *  redesign phase 2 — this comment used to say "every active operator", which stopped being
+   *  true the day that shipped and had to be corrected here too). */
   eligible_staff_ids?: string[];
+  /** NAMED vs AUTO (assignment-mode redesign, phase 1/3) — does booking this service ask "which
+   *  operator" at all, or does the booking system pick among `eligible_staff_ids` itself with no
+   *  question asked. Default "auto" for a new service; independent of `eligible_staff_ids` being
+   *  empty or full — a service can be "auto" with a real restricted list (pick automatically, but
+   *  only among these three), same as it can be "named" with an empty one (ask by name, offering
+   *  everyone). */
+  assignment_mode?: 'named' | 'auto';
   /** A short owner-written line — the WhatsApp assistant's only source for "what does this
    *  service actually involve" (services-images-board.md phase 1). */
   description?: string;
@@ -60,8 +71,10 @@ interface Service {
   has_image?: boolean;
 }
 
-/** Just enough of an operator to list him as a candidate — same shape Team.tsx reads. */
-interface StaffMember { id: string; name: string; active?: boolean }
+/** Just enough of an operator to list him as a candidate — same shape Team.tsx reads. `role` is
+ *  what decides the field-role default set above (Team.tsx's own ROLES: 'operator' is «الموظف
+ *  الميداني» — the value this screen checks against, never a translated label). */
+interface StaffMember { id: string; name: string; active?: boolean; role?: string }
 
 /** One service's entry in the tree, and whether it is its own or inherited. */
 interface ServiceSetting { interval_days?: number; lead_days?: number; follow_up_days?: number; enabled?: boolean }
@@ -546,31 +559,41 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     }
   };
 
+  // THE PICKABLE UNIVERSE (any active staff, any role — an owner can still name a manager
+  // explicitly) IS NOT THE SAME SET AS THE UNRESTRICTED DEFAULT (field-role only, server-side —
+  // see Service.eligible_staff_ids's own docstring above). Two different questions: "who may I
+  // choose from" vs "who is chosen when I choose nobody".
+  const allActiveIds = (staff ?? []).filter((s) => s.active !== false).map((s) => s.id);
+  const fieldActiveIds = (staff ?? [])
+    .filter((s) => s.active !== false && s.role === 'operator').map((s) => s.id);
+
   /**
    * Toggle one operator's eligibility for one service.
    *
-   * NEVER STORES "EVERYONE, NAMED" — the moment the resulting set covers every active operator, it
-   * is written back as `[]` rather than the full list. `[]` and "everyone by name" read the same
-   * today, but only `[]` still means that the day a new operator is hired — a named list would
-   * silently exclude him from a service nobody meant to restrict.
+   * NEVER STORES "THE FIELD DEFAULT, NAMED" — the moment the resulting set is EXACTLY the
+   * field-role default, it is written back as `[]` rather than that same list spelled out. `[]`
+   * and "every field operator by name" read the same today, but only `[]` still means that the
+   * day a new field hire joins — a named list would silently exclude him from a service nobody
+   * meant to restrict.
    */
   const toggleEligible = async (svc: Service, operatorId: string) => {
-    const activeIds = (staff ?? []).filter((s) => s.active !== false).map((s) => s.id);
-    // «كل الموظفين» — لا قيد بعد
+    // «الافتراضي بلا قيد» — الموظفون الميدانيون فقط
     const current = svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
       ? new Set(svc.eligible_staff_ids)
-      : new Set(activeIds);
+      : new Set(fieldActiveIds);
     if (current.has(operatorId)) current.delete(operatorId); else current.add(operatorId);
-    const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
+    const isExactlyTheDefault = current.size === fieldActiveIds.length
+      && fieldActiveIds.every((id) => current.has(id));
+    const eligible_staff_ids = isExactlyTheDefault ? [] : [...current];
     await patchService(svc.id, { eligible_staff_ids });
   };
 
-  /** Which operator ids `svc` is currently eligible for — unrestricted reads as everyone active. */
+  /** Which operator ids `svc` is currently eligible for — unrestricted reads as every field-role
+   *  operator (the server's own default), never every active operator regardless of role. */
   const eligibleIdsFor = (svc: Service): string[] => {
-    const activeIds = (staff ?? []).filter((s) => s.active !== false).map((s) => s.id);
     return svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
-      ? svc.eligible_staff_ids.filter((id) => activeIds.includes(id))
-      : activeIds;
+      ? svc.eligible_staff_ids.filter((id) => allActiveIds.includes(id))
+      : fieldActiveIds;
   };
 
   /** FilterMenu only ever hands back "the new full selection" — the actual write is one
@@ -580,6 +603,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     const changedId = next.find((id) => !before.includes(id))
       ?? before.find((id) => !next.includes(id));
     if (changedId) toggleEligible(svc, changedId);
+  };
+
+  const setAssignmentMode = async (svc: Service, mode: 'named' | 'auto') => {
+    if (mode === svc.assignment_mode) return;
+    await patchService(svc.id, { assignment_mode: mode });
   };
 
   /** Take a service out of its group; it goes back to following the general setting. */
@@ -1691,7 +1719,27 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           {editing && (staff ?? []).filter((s) => s.active !== false).length > 1
               && action(catalog, 'operations.update_service') ? (
             <tr className="border-b border-border-subtle bg-surface-2/40">
-              <td colSpan={11} className="px-3 py-2">
+              <td colSpan={11} className="flex flex-col gap-2 px-3 py-2">
+                {/* بالاسم/تلقائي — سؤال منفصل تماماً عن «من يقدر يسوّيها» تحته: هذا يقرر هل
+                    نسأل العميل أصلاً، ذاك يقرر من ضمن مين. خدمة auto ما زالت تحتاج قائمة
+                    المؤهَّلين (تُقيّد الاختيار التلقائي)، فالصفّان يبقيان معاً دائماً. */}
+                <Segmented
+                  size="sm"
+                  ariaLabel={t('services.assignmentMode.ariaLabel')}
+                  value={svc.assignment_mode === 'named' ? 'named' : 'auto'}
+                  onChange={(v) => setAssignmentMode(svc, v as 'named' | 'auto')}
+                  options={[
+                    { value: 'auto', label: t('services.assignmentMode.auto'),
+                     hint: t('services.assignmentMode.auto.hint') },
+                    { value: 'named', label: t('services.assignmentMode.named'),
+                     hint: t('services.assignmentMode.named.hint') },
+                  ]}
+                />
+                <p className="text-xs text-text-secondary">
+                  {svc.assignment_mode === 'named'
+                    ? t('services.assignmentMode.named.hint')
+                    : t('services.assignmentMode.auto.hint')}
+                </p>
                 <FilterMenu
                   label={t('services.whoCanDoIt')}
                   options={(staff ?? []).filter((s) => s.active !== false)

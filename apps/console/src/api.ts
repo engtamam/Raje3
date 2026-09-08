@@ -159,10 +159,16 @@ export interface CatalogueService {
   /** Halalas. 0 or absent means no catalogue price is set — the booking dialog's own total then
    *  has nothing to suggest, which is an honest state and not an error. */
   price_minor?: number;
-  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active operator — the booking dialog reads this
-   *  to decide whether one merged operator step still covers every chosen service, or whether it
-   *  has to expand into one row per service (docs/خطة-تنفيذ-الحجوزات.md's smart-scheduling plan). */
+  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active FIELD-ROLE operator (role === 'operator'
+   *  — server-enforced, operations' own service-eligibility route, assignment-mode redesign phase
+   *  2) — the booking dialog reads this to decide whether one merged operator step still covers
+   *  every chosen service, or whether it has to expand into one row per service
+   *  (docs/خطة-تنفيذ-الحجوزات.md's smart-scheduling plan). */
   eligible_staff_ids?: string[];
+  /** NAMED vs AUTO (assignment-mode redesign, phase 1/3) — does the booking dialog ask "which
+   *  operator" for this service at all. See Services.tsx's own Service.assignment_mode docstring
+   *  for the full rule; this is the same field, read here rather than written. */
+  assignment_mode?: 'named' | 'auto';
 }
 
 /** An extra input the visit sheet renders — the full descriptor, so this app never carries its
@@ -611,6 +617,10 @@ export interface FieldOperator {
   /** Empty means unbranched — visible to every branch, the same rule operations' own staff route
    *  documents. Read by the booking dialog's staff picker (§6, docs/خطة-تنفيذ-الحجوزات.md). */
   branch_id?: string;
+  /** Team.tsx's own ROLES value ('operator'|'supervisor'|'marketer'|'manager') — 'operator' is
+   *  «الموظف الميداني», the one role the server auto-includes in an unrestricted service's
+   *  eligible set (assignment-mode redesign phase 2). */
+  role?: string;
 }
 
 export async function listOperators(session: Session): Promise<FieldOperator[]> {

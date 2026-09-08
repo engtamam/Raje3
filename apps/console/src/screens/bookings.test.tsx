@@ -65,8 +65,9 @@ vi.mock('../api', async (importOriginal) => {
     },
     fetchCatalogue: async () => ({
       services: [
-        { id: 'svc1', name: 'قص شعر', duration_minutes: 30, cycle_days: 21 },
-        { id: 'svc2', name: 'تلميع', duration_minutes: 0, cycle_days: 0 },
+        { id: 'svc1', name: 'قص شعر', duration_minutes: 30, cycle_days: 21, assignment_mode: 'auto' },
+        { id: 'svc2', name: 'تلميع', duration_minutes: 0, cycle_days: 0, assignment_mode: 'auto' },
+        { id: 'svc3', name: 'صبغة', duration_minutes: 45, cycle_days: 0, assignment_mode: 'named' },
       ],
       tracks_vehicle: false, fields: [],
     }),
@@ -86,7 +87,7 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'nearestSlotsAny', args });
       return { slots: [{ operator_id: 'op1', starts_at: 1786860000 }] };
     },
-    listBookingStaff: async () => ([{ id: 'op1', name: 'سارة', active: true, has_pin: false, branch_id: '' }]),
+    listBookingStaff: async () => ([{ id: 'op1', name: 'سارة', active: true, has_pin: false, branch_id: '', role: 'operator' }]),
     suggestByPrefix: async (...args: unknown[]) => {
       asked.push({ fn: 'suggestByPrefix', args });
       return [{ id: 'c1', phone: '966501234567', name: 'محمد' }];
@@ -556,6 +557,40 @@ describe('booking dialog — Stage 8', () => {
 
     dialog().getByText('قص شعر').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
+  });
+
+  // ── assignment-mode (phase 3) — the operator picker's own visibility ────────────────────────
+  it('hides the operator picker when every chosen service is "auto"', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = () => within(screen.getByRole('dialog'));
+
+    // svc1 ("قص شعر") is fixture-mocked assignment_mode: 'auto' — no service left in the basket
+    // ever asks "which operator", so the question itself must not render.
+    dialog().getByText('قص شعر').click();
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
+    expect(dialog().queryByLabelText(/الموظف/)).toBeNull();
+  });
+
+  it('shows the operator picker the moment a "named" service joins the basket', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = () => within(screen.getByRole('dialog'));
+
+    // svc3 ("صبغة") is fixture-mocked assignment_mode: 'named' — a basket carrying it always
+    // keeps the manual picker, even alongside an "auto" service (no basket-mixing refusal).
+    dialog().getByText('قص شعر').click();
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
+    asked.length = 0;
+    dialog().getByText('صبغة').click();
+    // «الموظف»، LABELLED WITH A TRAILING «*» (Field's own required marker, aria-hidden but still
+    // in the label's text content) — a regex, not an exact string, so this does not care whether
+    // that marker is there.
+    await waitFor(() => expect(dialog().getByLabelText(/الموظف/)).toBeTruthy());
   });
 });
 

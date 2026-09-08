@@ -146,6 +146,11 @@ registerOperatorStrings({
     'services.deactivate': 'إيقاف — تختفي من شاشة الزيارة وتسكت تذكيراتها',
 
     'services.whoCanDoIt': 'من يقدر يسوّيها',
+    'services.assignmentMode.ariaLabel': 'طريقة تعيين الموظف',
+    'services.assignmentMode.auto': 'تلقائي',
+    'services.assignmentMode.auto.hint': 'ما نسأل العميل مين يبي — نوزّع تلقائياً بين المؤهَّلين.',
+    'services.assignmentMode.named': 'بالاسم',
+    'services.assignmentMode.named.hint': 'العميل يختار موظفاً بعينه من القائمة عند الحجز.',
     'services.newGroupNameAriaLabel': 'اسم المجموعة الجديدة',
     'services.newGroupPlaceholder': 'مثال: خدمات المحرك',
 
@@ -311,6 +316,11 @@ registerOperatorStrings({
     'services.deactivate': 'Deactivate — disappears from the visit screen and its reminders go silent',
 
     'services.whoCanDoIt': 'Who can do it',
+    'services.assignmentMode.ariaLabel': 'Staff assignment mode',
+    'services.assignmentMode.auto': 'Auto',
+    'services.assignmentMode.auto.hint': "We don't ask the customer — assigned automatically among who's eligible.",
+    'services.assignmentMode.named': 'By name',
+    'services.assignmentMode.named.hint': 'The customer picks a specific operator from the list when booking.',
     'services.newGroupNameAriaLabel': 'New group name',
     'services.newGroupPlaceholder': 'Example: engine services',
 
@@ -476,6 +486,11 @@ registerOperatorStrings({
     'services.deactivate': 'بند کریں — وزٹ کی سکرین سے غائب ہو جاتی ہے اور اس کی یاد دہانیاں خاموش ہو جاتی ہیں',
 
     'services.whoCanDoIt': 'کون یہ کر سکتا ہے',
+    'services.assignmentMode.ariaLabel': 'عملے کی تفویض کا طریقہ',
+    'services.assignmentMode.auto': 'خودکار',
+    'services.assignmentMode.auto.hint': 'ہم گاہک سے نہیں پوچھتے — اہل عملے میں خودکار تفویض ہوتی ہے۔',
+    'services.assignmentMode.named': 'نام سے',
+    'services.assignmentMode.named.hint': 'بکنگ کے وقت گاہک فہرست سے مخصوص عملہ چنتا ہے۔',
     'services.newGroupNameAriaLabel': 'نئے گروپ کا نام',
     'services.newGroupPlaceholder': 'مثال: انجن کی خدمات',
 
@@ -641,6 +656,11 @@ registerOperatorStrings({
     'services.deactivate': 'Dakatar — za ta ɓace daga shafin ziyara kuma tunatarwarta za ta yi shiru',
 
     'services.whoCanDoIt': 'Wanda zai iya yin ta',
+    'services.assignmentMode.ariaLabel': 'Yadda ake ba wa ma\'aikaci aiki',
+    'services.assignmentMode.auto': 'Ta atomatik',
+    'services.assignmentMode.auto.hint': 'Ba ma tambayar abokin ciniki — ana ba da aiki ta atomatik ga wanda ya cancanta.',
+    'services.assignmentMode.named': 'Da suna',
+    'services.assignmentMode.named.hint': 'Abokin ciniki yana zaɓar ma\'aikaci takamaimai daga jerin lokacin yin ajiyar.',
     'services.newGroupNameAriaLabel': 'Sunan sabon rukuni',
     'services.newGroupPlaceholder': 'Misali: sabis na injin',
 
@@ -806,6 +826,11 @@ registerOperatorStrings({
     'services.deactivate': 'I-deactivate — mawawala sa visit screen at tatahimik ang mga paalala nito',
 
     'services.whoCanDoIt': 'Sino ang puwedeng gumawa nito',
+    'services.assignmentMode.ariaLabel': 'Paraan ng pagtalaga ng staff',
+    'services.assignmentMode.auto': 'Awtomatiko',
+    'services.assignmentMode.auto.hint': 'Hindi namin tinatanong ang kustomer — awtomatikong itatalaga sa kwalipikado.',
+    'services.assignmentMode.named': 'Sa pangalan',
+    'services.assignmentMode.named.hint': 'Pipili ang kustomer ng partikular na staff mula sa listahan kapag nag-book.',
     'services.newGroupNameAriaLabel': 'Pangalan ng bagong grupo',
     'services.newGroupPlaceholder': 'Halimbawa: mga serbisyo sa makina',
 
