@@ -87,8 +87,14 @@ export function BookingsYearView({
                          ].join(' ')}
                          style={isToday ? { background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)', fontWeight: 700 } : undefined}>
                     {cell.day}
+                    {/* THE SAME SIGNAL THE MONTH VIEW GIVES ITS OWN COUNT BADGE, AT DOT SCALE —
+                        a neutral `bg-surface-3` dot said nothing more than "not empty", the exact
+                        same tone the grid lines around it already carry; the accent dot ties this
+                        density map to the one other place in this feature that answers "did
+                        anything happen here", so the two screens read as one system rather than
+                        two different colour choices for the same fact. */}
                     {count > 0 ? (
-                      <span aria-hidden className="absolute bottom-0.5 h-1 w-1 rounded-full bg-surface-3" />
+                      <span aria-hidden className="absolute bottom-0.5 h-1 w-1 rounded-full bg-accent" />
                     ) : null}
                   </button>
                 );

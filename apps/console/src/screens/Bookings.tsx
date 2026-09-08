@@ -13,8 +13,9 @@
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, LayoutGrid, List,
-  Pencil, Phone, Plus, Settings, Trash2, User, X,
+  AlertTriangle, Calendar, CalendarOff, CalendarX, Check, ChevronLeft, ChevronRight, Clock,
+  Filter, GripVertical, LayoutGrid, List, MapPin, Pencil, Phone, Plus, Settings, Star, Trash2,
+  User, UserX, X,
 } from 'lucide-react';
 import {
   assignmentSettings, attendBooking, type AssignmentSettings, type Booking, bookingsForCustomer,
@@ -613,6 +614,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   if (!activeBranch) {
     return (
       <div className="rj-grid flex min-h-dvh flex-col items-center justify-center gap-4 p-6">
+        <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)' }}>
+          <MapPin size={20} aria-hidden />
+        </div>
         <p className="text-lg font-medium">
           {branches.length === 0 ? t('bookings.noBranchesYet') : t('bookings.chooseBranch')}
         </p>
@@ -919,6 +923,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           </div>
         ) : rows === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
+              <AlertTriangle size={20} aria-hidden />
+            </div>
             <p className="text-base font-medium">{t('bookings.error.loadFailed')}</p>
             <button type="button" onClick={load} className="text-sm font-medium underline"
                    style={{ color: 'var(--rj-ink-soft)' }}>{t('bookings.retry')}</button>
@@ -934,6 +941,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </div>
           ) : customerAll === null ? (
             <div className="grid place-items-center gap-2 py-24 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
+                <AlertTriangle size={20} aria-hidden />
+              </div>
               <p className="text-base font-medium">{t('bookings.error.customerBookingsFailed')}</p>
               <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
                      className="text-sm font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
@@ -969,6 +979,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </div>
               ) : pastEntries === null ? (
                 <div className="grid place-items-center gap-2 py-24 text-center">
+                  <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
+                    <AlertTriangle size={20} aria-hidden />
+                  </div>
                   <p className="text-base font-medium">{t('bookings.error.fullHistoryFailed')}</p>
                   <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
                          className="text-sm font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
@@ -991,6 +1004,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                        priceMinorOf={priceMinorOf} onOpen={setOpenBooking} />
         ) : view === 'day' && staff === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
+              <AlertTriangle size={20} aria-hidden />
+            </div>
             <p className="text-base font-medium">{t('bookings.error.staffFailed')}</p>
             <button type="button" onClick={() => listBookingStaff(session).then(setStaff).catch(() => setStaff(null))}
                    className="text-sm font-medium underline" style={{ color: 'var(--rj-ink-soft)' }}>
@@ -998,11 +1014,17 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </button>
           </div>
         ) : columns.length === 0 ? (
-          <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+          <div className="grid place-items-center gap-2 py-24 text-center text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+            <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-info-soft)', color: 'var(--rj-info-deep)' }}>
+              <UserX size={20} aria-hidden />
+            </div>
             {t('bookings.noActiveStaff')}
           </div>
         ) : isDayClosed ? (
           <div className="grid place-items-center gap-2 py-24 text-center text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+            <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-ink-soft)' }}>
+              <CalendarOff size={20} aria-hidden />
+            </div>
             <p className="text-base font-semibold" style={{ color: 'var(--rj-ink)' }}>{t('bookings.closedToday')}</p>
             <p>{t('bookings.closedHint')}</p>
           </div>
@@ -1271,9 +1293,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             // attended booking means the spend failed or needed an approval
                             // attend() could not give (see the field's own note) — the same
                             // glance now reads "still owed".
+                            // A LUCIDE ICON, NOT A RAW EMOJI — a "⭐" glyph renders as whatever
+                            // the OS/font happens to draw it as, off the same currentColor icon
+                            // system every other mark on this card uses (GripVertical, the payment
+                            // pills' own colour tokens); a real icon keeps size and colour under
+                            // this screen's own control across platforms and themes.
                             const rewardPill = b.intended_reward_id ? (
-                              <span aria-hidden title={t('bookings.rewardPending')}
-                                   className="text-[10px] leading-none">⭐</span>
+                              <span title={t('bookings.rewardPending')} className="inline-flex">
+                                <Star aria-hidden size={10} fill="currentColor" style={{ color: 'var(--rj-accent)' }} />
+                              </span>
                             ) : null;
                             // THE NUMBER ALONE, NOT THE LABEL — a week column is narrow at every
                             // lane count, and truncating "عربون 50" left "عربون…" with the
@@ -1539,9 +1567,16 @@ function PhoneLookup({
             style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
           {(phoneMatches ?? []).slice(0, 5).map((c) => (
             <button key={c.id} type="button" onClick={() => setFilterCustomer(c)}
-                   className="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-start text-sm hover:opacity-80">
+                   className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-start text-sm hover:opacity-80">
+              {/* A PERSON ICON PER ROW — every other list of matched people in this product
+                  (Customers.tsx) marks a row as "a person" before naming one; this dropdown was
+                  the one place a search result was bare digits with no such mark at all. */}
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
+                   style={{ background: 'var(--rj-accent-soft)', color: 'var(--rj-accent)' }}>
+                <User size={12} aria-hidden />
+              </span>
               <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
-              <span className="truncate ps-2 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{c.name || ''}</span>
+              <span className="min-w-0 flex-1 truncate ps-2 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{c.name || ''}</span>
             </button>
           ))}
         </div>
@@ -1581,7 +1616,10 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
 
   if (sorted.length === 0) {
     return (
-      <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+      <div className="grid place-items-center gap-3 py-24 text-sm text-center" style={{ color: 'var(--rj-ink-soft)' }}>
+        <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-ink-soft)' }}>
+          <CalendarX size={20} aria-hidden />
+        </div>
         {emptyMessage ?? t('bookings.noMatches')}
       </div>
     );
@@ -1712,7 +1750,10 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
   const { t } = useOperatorI18n();
   if (entries.length === 0) {
     return (
-      <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+      <div className="grid place-items-center gap-3 py-24 text-sm text-center" style={{ color: 'var(--rj-ink-soft)' }}>
+        <div className="grid h-12 w-12 place-items-center rounded-full" style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-ink-soft)' }}>
+          <CalendarX size={20} aria-hidden />
+        </div>
         {emptyMessage ?? t('bookings.nothingHere')}
       </div>
     );
@@ -1748,8 +1789,13 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
                   </span>
                   <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(t, minutesOf(e.time))}</span>
                   <span className="min-w-0 flex-1 truncate text-sm">{e.visit.services || e.visit.custom_service || '—'}</span>
+                  {/* ITS OWN NEUTRAL, NOT THE "CANCELLED" STATUS COLOUR — a walk-in visit is not a
+                      cancelled booking, and this tag can sit right beside a real cancelled-status
+                      pill on the same list; sharing that pill's own tint would make the two
+                      unrelated facts read as the same thing at a glance. `--rj-line` is this
+                      screen's own plain neutral, carrying no status meaning at all. */}
                   <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                       style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-ink-soft)' }}>
+                       style={{ background: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
                     {t('bookings.visit')}
                   </span>
                 </div>
@@ -1911,7 +1957,9 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
                                 anchor={pay === 'deposit' ? 'bookings.payment.deposit' : 'bookings.payment.paid'} />
                 ) : null}
                 {booking.intended_reward_id ? (
-                  <span className="text-sm" title={t('bookings.rewardPending')}>⭐</span>
+                  <span title={t('bookings.rewardPending')} className="inline-flex">
+                    <Star aria-hidden size={16} fill="currentColor" style={{ color: 'var(--rj-accent)' }} />
+                  </span>
                 ) : null}
                 {booking.intended_reward_id ? (
                   <AssistantHint session={session} anchor="bookings.rewardPending" />
@@ -1924,8 +1972,15 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
         </div>
         {booking.status === 'booked' ? (
           <>
-          <div className="mb-2 flex items-center justify-center gap-1 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>
-            <span>{statusLabel(t, booking.status)}</span>
+          <div className="mb-2 flex items-center justify-center gap-1 text-xs">
+            {/* THE SAME TINTED PILL THE GRID CARD AND THE LIST ROW ALREADY WEAR — this sheet used
+                to say the status in plain ink-soft text, the one place on the whole screen a
+                booking's status appeared with no colour at all, right below a header full of
+                colour-coded facts (payment, reward). */}
+            <span className="rounded-full px-2 py-0.5 font-bold"
+                 style={{ background: STATUS_VARS.booked.bg, color: STATUS_VARS.booked.fg }}>
+              {statusLabel(t, booking.status)}
+            </span>
             <AssistantHint session={session} anchor="bookings.status.booked" />
           </div>
           {/* أيقونات فقط، صف واحد — التفاصيل أعلاه هي ما يقرأه، هذا فقط ما يضغطه. */}
@@ -1958,7 +2013,13 @@ function BookingActions({ booking, operatorLabel, services, priceMinorOf, servic
           </div>
           </>
         ) : (
-          <p className="flex items-center justify-center gap-1 rounded-2xl py-3 text-center text-sm" style={{ background: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
+          // TINTED TO THE BOOKING'S OWN OUTCOME, NOT A FLAT GREY BOX — "no further actions" used
+          // to say the same neutral nothing whether the booking was attended (a good outcome),
+          // a no-show (a bad one) or simply cancelled, when the colour that already answers
+          // "what happened here" everywhere else on this screen (the card, the list row) was
+          // sitting right there in `STATUS_VARS`.
+          <p className="flex items-center justify-center gap-1 rounded-2xl py-3 text-center text-sm font-medium"
+             style={{ background: STATUS_VARS[booking.status].bg, color: STATUS_VARS[booking.status].fg }}>
             {tf(t, 'bookings.noFurtherActions', { status: statusLabel(t, booking.status) })}
             <AssistantHint session={session} anchor={
               booking.status === 'attended' ? 'bookings.status.attended'
