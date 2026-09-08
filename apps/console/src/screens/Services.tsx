@@ -1351,7 +1351,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   ) : <ImageOff size={14} aria-hidden />}
                 </span>
                 {editing && action(catalog, 'operations.update_service') ? (
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  // ONE BOX, NOT A BOX PLUS A LOOSE LINK BELOW IT. `صورة` used to sit outside this
+                  // border as plain text, reading like an unrelated caption under the row rather
+                  // than a third field of the same service — wrapping all three in the same
+                  // rounded border is what actually puts it "في المربع نفسه".
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border-subtle p-1.5">
                     <input
                       defaultValue={svc.name}
                       autoFocus
