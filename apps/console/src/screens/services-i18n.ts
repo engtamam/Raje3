@@ -83,6 +83,14 @@ registerOperatorStrings({
     'services.followUp.meaning': 'رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها.',
     'services.followUp.preview': 'سؤال بعد {n} يوماً من الزيارة',
     'services.followUp.zero': 'لا نسأل — إلا لخدمة خصّصتها',
+    // SAME SETTING «نقاطي» ALREADY OFFERS (loyalty.settings.general), added here too — one place
+    // for every service-wide default was the whole point of this card, and the owner had no
+    // reason to expect this particular number to live on a different screen than the other two.
+    'services.pointsPerVisit.label': 'نقاط لكل زيارة',
+    'services.pointsPerVisit.name': 'النقاط العامة',
+    'services.pointsPerVisit.meaning': 'كل خدمة بلا رقم نقاط خاص تأخذ هذا الرقم.',
+    'services.pointsPerVisit.preview': '{n} نقطة لكل خدمة بلا رقم خاص',
+    'services.pointsPerVisit.zero': 'لا نقاط — إلا لخدمة خصّصتها',
 
     'services.visitConfirmation': 'تأكيد الزيارة',
     'services.visitConfirmation.hint': 'رسالة تصل عميلك بعد تسجيل زيارته مباشرة. تناسب من يترك شيئاً عندك — ورشة أو مغسلة — وقد لا تناسب من يدفع ويمشي.',
@@ -243,6 +251,11 @@ registerOperatorStrings({
     'services.followUp.meaning': 'A short message after the visit asking if everything went well — cancelled automatically if he returns before it is due.',
     'services.followUp.preview': 'A question {n} days after the visit',
     'services.followUp.zero': 'We don’t ask — unless you customized a service',
+    'services.pointsPerVisit.label': 'Points per visit',
+    'services.pointsPerVisit.name': 'General points',
+    'services.pointsPerVisit.meaning': 'Every service with no points number of its own takes this one.',
+    'services.pointsPerVisit.preview': '{n} points per service with no number of its own',
+    'services.pointsPerVisit.zero': 'No points — unless you customized a service',
 
     'services.visitConfirmation': 'Visit confirmation',
     'services.visitConfirmation.hint': 'A message that reaches your customer right after his visit is recorded. Fits a shop where he leaves something with you — a garage or a laundry — and may not fit one where he pays and walks.',
@@ -403,6 +416,11 @@ registerOperatorStrings({
     'services.followUp.meaning': 'وزٹ کے بعد ایک مختصر پیغام جو پوچھتا ہے کہ سب کچھ ٹھیک تھا — اگر وہ وقت سے پہلے واپس آئے تو خودکار طور پر منسوخ ہو جاتا ہے۔',
     'services.followUp.preview': 'وزٹ کے {n} دن بعد سوال',
     'services.followUp.zero': 'ہم نہیں پوچھتے — سوائے اس خدمت کے جو آپ نے مخصوص کی',
+    'services.pointsPerVisit.label': 'ہر وزٹ پر پوائنٹس',
+    'services.pointsPerVisit.name': 'عمومی پوائنٹس',
+    'services.pointsPerVisit.meaning': 'ہر وہ خدمت جس کے اپنے پوائنٹس نہیں یہی نمبر لیتی ہے۔',
+    'services.pointsPerVisit.preview': 'ہر بغیر نمبر والی خدمت کے لیے {n} پوائنٹس',
+    'services.pointsPerVisit.zero': 'کوئی پوائنٹس نہیں — سوائے اس خدمت کے جو آپ نے مخصوص کی',
 
     'services.visitConfirmation': 'وزٹ کی تصدیق',
     'services.visitConfirmation.hint': 'ایک پیغام جو گاہک کی وزٹ درج ہونے کے فوراً بعد اسے پہنچتا ہے۔ اس دکان کے لیے مناسب ہے جہاں وہ کچھ چھوڑ جاتا ہے — گیراج یا لانڈری — اور شاید اس کے لیے مناسب نہ ہو جہاں وہ ادائیگی کرکے چلا جاتا ہے۔',
@@ -563,6 +581,11 @@ registerOperatorStrings({
     'services.followUp.meaning': 'Gajeren saƙo bayan ziyara yana tambaya ko duk abu ya yi kyau — yana soke kansa idan ya dawo kafin lokacinsa.',
     'services.followUp.preview': 'Tambaya bayan kwana {n} daga ziyara',
     'services.followUp.zero': 'Ba ma tambaya — sai dai sabis da ka keɓance',
+    'services.pointsPerVisit.label': 'Maki na kowace ziyara',
+    'services.pointsPerVisit.name': 'Maki na gama gari',
+    'services.pointsPerVisit.meaning': 'Kowace sabis da ba ta da lambar maki nata tana ɗaukar wannan lambar.',
+    'services.pointsPerVisit.preview': 'Maki {n} ga kowace sabis da ba ta da lambar kanta',
+    'services.pointsPerVisit.zero': 'Babu maki — sai dai sabis da ka keɓance',
 
     'services.visitConfirmation': 'Tabbatar da ziyara',
     'services.visitConfirmation.hint': 'Saƙon da ke kaiwa abokin cinikinka nan take bayan an rubuta ziyararsa. Ya dace da shago inda yake barin wani abu a wurinka — gareji ko wanki — kuma yana yiwuwa bai dace da wanda ke biya ya tafi ba.',
@@ -723,6 +746,11 @@ registerOperatorStrings({
     'services.followUp.meaning': 'Maikling mensahe pagkatapos ng visit na nagtatanong kung maayos ang lahat — awtomatikong kinakansela kung babalik siya bago pa ang oras nito.',
     'services.followUp.preview': 'Tanong {n} araw pagkatapos ng visit',
     'services.followUp.zero': 'Hindi kami nagtatanong — maliban kung na-customize mo ang isang serbisyo',
+    'services.pointsPerVisit.label': 'Puntos kada visit',
+    'services.pointsPerVisit.name': 'General na puntos',
+    'services.pointsPerVisit.meaning': 'Kukunin ng bawat serbisyong walang sariling numero ng puntos ang numerong ito.',
+    'services.pointsPerVisit.preview': '{n} puntos kada serbisyong walang sariling numero',
+    'services.pointsPerVisit.zero': 'Walang puntos — maliban kung na-customize mo ang isang serbisyo',
 
     'services.visitConfirmation': 'Kumpirmasyon ng visit',
     'services.visitConfirmation.hint': 'Mensaheng aabot sa kustomer mo kaagad pagkatapos ma-record ang kanyang visit. Bagay sa shop kung saan may iniiwan siya sa iyo — garahe o laundry — at maaaring hindi bagay sa isang nagbabayad lang at aalis.',
