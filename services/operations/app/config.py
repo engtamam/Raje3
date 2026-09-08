@@ -367,6 +367,18 @@ class Settings(BaseSettings):
     # minted once by deploy/seed/bootstrap-report-flow.sh. See MASTER_RATING_FLOW_ID's own comment
     # above for why this is read through RuntimeConfig at connect time rather than used directly.
     MASTER_REPORT_FLOW_ID: str = ""
+    # THE SAME PATTERN, A THIRD FLOW — the WhatsApp booking Flow (Phase 5), minted once by
+    # deploy/seed/bootstrap-booking-flow.sh. See MASTER_RATING_FLOW_ID's own comment above.
+    MASTER_BOOKING_FLOW_ID: str = ""
+    # WHERE META CALLS BACK — unlike rating_flow/report_flow (static, no server round-trip ever
+    # needed), the booking Flow is DYNAMIC and MUST tell Meta a real endpoint per shop's own clone
+    # (notification-service's `/webhooks/whatsapp/flow/{tenant}` resolves which shop's sealed key
+    # to decrypt with FROM this URL — a clone with no endpoint_uri, or the wrong tenant's, can
+    # never receive real traffic). Same "set from DOMAIN at install time, never guessed" posture
+    # as reminders' own PUBLIC_BASE_URL — empty here means booking-Flow provisioning simply omits
+    # endpoint_uri (Meta then refuses/ignores actual traffic, but the clone itself still succeeds,
+    # so a shop connecting before DOMAIN is set is not blocked, only inert until it is).
+    PUBLIC_BASE_URL: str = ""                # e.g. https://raje3.sa
     # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
     # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
     TEMPLATE_SYNC_MAX_TENANTS: int = 200

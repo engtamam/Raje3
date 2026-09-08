@@ -41,6 +41,18 @@ REPORT_FLOW_NAME = "report_flow"
 #: never SURVEY (this Flow asks nothing, unlike rating_flow).
 REPORT_FLOW_CATEGORIES = ["OTHER"]
 
+#: PHASE 5 — the WhatsApp booking Flow (structured screens), a THIRD Flow through the same
+#: clone-at-connect pattern. Unlike rating/report (static, read-only screens authored once as a
+#: fixed JSON file), the booking Flow is DYNAMIC (data_exchange, driven live by
+#: services/whatsapp-assistant's FlowBookingBackend) — but it is still ONE definition shared by
+#: every tenant on this deployment (WHATSAPP_BOOKING_DEFINITION, notification-service's own
+#: config), so the SAME clone-per-shop provisioning shape applies unchanged: author the JSON once
+#: (deploy/seed/bootstrap-booking-flow.sh, from notification-service's own generator endpoint,
+#: not a static file), mint the master under the platform's own WABA, clone it per shop here.
+BOOKING_FLOW_NAME = "booking_flow"
+#: The one category Meta's fixed set has for exactly this purpose.
+BOOKING_FLOW_CATEGORIES = ["APPOINTMENT_BOOKING"]
+
 
 class NullFlows:
     """No notification-service peer configured. Says so, provisions nothing.
@@ -57,7 +69,8 @@ class NullFlows:
 
     async def provision(self, tenant: str, *, clone_flow_id: str,
                        flow_name: str = RATING_FLOW_NAME,
-                       categories: list[str] | None = None) -> dict[str, Any]:
+                       categories: list[str] | None = None,
+                       endpoint_uri: str = "") -> dict[str, Any]:
         self.provisioned.append(tenant)
         return {"ok": False, "reason": "flow provisioning is not configured"}
 
@@ -89,13 +102,21 @@ class HttpFlows:
 
     async def provision(self, tenant: str, *, clone_flow_id: str,
                        flow_name: str = RATING_FLOW_NAME,
-                       categories: list[str] | None = None) -> dict[str, Any]:
+                       categories: list[str] | None = None,
+                       endpoint_uri: str = "") -> dict[str, Any]:
         """Ensure THIS shop's WABA has a published clone of a master Flow, named `flow_name`.
 
         GENERIC SINCE THE REPORT FLOW (rating-app-feature.md phase 6b) — this used to hardcode
         `RATING_FLOW_NAME`/`RATING_FLOW_CATEGORIES`; every existing caller keeps working
         unchanged (the defaults are exactly what it used to send), and a caller cloning a second
         Flow (e.g. `REPORT_FLOW_NAME`) passes its own name/categories instead.
+
+        `endpoint_uri` (Phase 5) — OMITTED (never sent) unless a caller passes one. rating_flow/
+        report_flow are static/read-only and never call back to us at all, so they have never
+        needed this; the booking Flow (dynamic, data_exchange) DOES — Meta calls THIS URL to
+        reach the shop's own clone, and it must resolve to that shop's own tenant on our side
+        (see PUBLIC_BASE_URL's own docstring in config.py). Sent only when non-empty so the two
+        existing static Flows' provisioning body is byte-for-byte unchanged.
 
         NO MASTER, NO CALL. `clone_flow_id` is resolved by the caller (connect.py) from the stored
         setting the bootstrap script writes once — see its module docstring. Calling Meta with an
@@ -104,11 +125,14 @@ class HttpFlows:
         """
         if not clone_flow_id:
             return {"ok": False, "reason": f"no master {flow_name.replace('_', ' ')} configured"}
-        status, out = self._post({
+        body: dict[str, Any] = {
             "tenant": tenant, "name": flow_name,
             "categories": categories or RATING_FLOW_CATEGORIES,
             "clone_flow_id": clone_flow_id, "publish": True,
-        })
+        }
+        if endpoint_uri:
+            body["endpoint_uri"] = endpoint_uri
+        status, out = self._post(body)
         if status >= 400:
             return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
         return {"ok": True, **(out if isinstance(out, dict) else {})}
@@ -126,13 +150,15 @@ def build_flows(settings: Any) -> Any:
 
 async def provision_shop_flow(flows: Any, tenant: str, master_flow_id: str, *,
                               flow_name: str = RATING_FLOW_NAME,
-                              categories: list[str] | None = None) -> dict[str, Any]:
+                              categories: list[str] | None = None,
+                              endpoint_uri: str = "") -> dict[str, Any]:
     """The one call connect.py's background task makes — mirrors `library.publish`'s free-function
     shape so the two background tasks read the same way at the call site. Defaults to the rating
     Flow so the existing call site (connect.py) needs no change; a second call with
-    `flow_name=REPORT_FLOW_NAME` clones the report Flow instead."""
+    `flow_name=REPORT_FLOW_NAME` clones the report Flow instead. `endpoint_uri` — see
+    `HttpFlows.provision`'s own docstring — only the booking Flow's call site sets one."""
     # NO GUESSED DEFAULT HERE — a caller naming a non-rating flow_name must name its own
     # categories too (connect.py does, for the report Flow); guessing RATING_FLOW_CATEGORIES for
     # an unrecognised flow_name would submit "SURVEY" for a Flow that asks nothing.
     return await flows.provision(tenant, clone_flow_id=master_flow_id, flow_name=flow_name,
-                                 categories=categories)
+                                 categories=categories, endpoint_uri=endpoint_uri)

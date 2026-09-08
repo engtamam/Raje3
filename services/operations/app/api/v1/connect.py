@@ -232,6 +232,26 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
             tenant="", key="MASTER_REPORT_FLOW_ID", default=s.MASTER_REPORT_FLOW_ID)
         background.add_task(provision_shop_flow, c.flows, tenant, master_report_flow_id,
                             flow_name=REPORT_FLOW_NAME, categories=REPORT_FLOW_CATEGORIES)
+        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, A THIRD FLOW — the WhatsApp booking Flow
+        # (Phase 5, deploy/seed/bootstrap-booking-flow.sh). Its own master id, minted from
+        # notification-service's own JSON generator (the definition is config-driven and shared
+        # by every tenant, unlike rating/report's static per-file content) — an install that has
+        # not run that script yet gets "no master booking_flow configured" from provision(), same
+        # harmless after-the-response failure as an unconfigured rating/report Flow. This
+        # provisions the Flow itself; the SEPARATE per-tenant encryption key it needs before it
+        # can actually receive traffic is not yet automated (escalated to the platform team,
+        # 2026-09-08) — provisioning here is still correct to run regardless, so a shop is ready
+        # the moment that piece lands too, no re-connect needed.
+        from app.core.flows import BOOKING_FLOW_CATEGORIES, BOOKING_FLOW_NAME
+        master_booking_flow_id = await rc.get(
+            tenant="", key="MASTER_BOOKING_FLOW_ID", default=s.MASTER_BOOKING_FLOW_ID)
+        # THIS SHOP'S OWN CALLBACK URL — see PUBLIC_BASE_URL's own docstring (config.py) on why
+        # only booking, among the three Flows here, needs one at all.
+        booking_endpoint_uri = (f"{s.PUBLIC_BASE_URL}/webhooks/whatsapp/flow/{tenant}"
+                                if s.PUBLIC_BASE_URL else "")
+        background.add_task(provision_shop_flow, c.flows, tenant, master_booking_flow_id,
+                            flow_name=BOOKING_FLOW_NAME, categories=BOOKING_FLOW_CATEGORIES,
+                            endpoint_uri=booking_endpoint_uri)
         background.add_task(publish, c.library, await c.templates.list(), tenant)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the

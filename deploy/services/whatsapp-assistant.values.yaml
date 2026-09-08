@@ -158,12 +158,12 @@ env:
   # answer "how much" honestly and never invent a price. Separate route from the one insights
   # calls, which deliberately carries no prices — see operations' own route docstring.
   OPERATIONS_CATALOGUE_WITH_PRICES_PATH: "/internal/operations/catalogue-with-prices"
-  # Phase 4 (real booking creation) — BOOKING_PROVIDER_DRIVER stays "config" here DELIBERATELY.
-  # bookings-service exists on the platform but this deployment has not yet been switched over;
-  # see app/core/booking_assignment.py's module docstring and app/config.py's own note on this
-  # flag before flipping it to "real" — it also requires BOOKINGS_SERVICE_URL below to be set.
-  BOOKING_PROVIDER_DRIVER: "config"
-  # BOOKINGS_SERVICE_URL: "http://bookings:8000"
+  # Phase 4/5 (real booking creation, and the WhatsApp Flow booking channel) — SWITCHED OVER
+  # (2026-09-08): bookings-service is our own internal service, already deployed, not an external
+  # dependency waiting on anyone — see app/core/booking_assignment.py's module docstring and
+  # app/config.py's own note on this flag for what "real" actually wires.
+  BOOKING_PROVIDER_DRIVER: "real"
+  BOOKINGS_SERVICE_URL: "http://bookings:8000"
   OPERATIONS_BRANCH_OPERATORS_PATH: "/internal/operations/branch-operators"
   OPERATIONS_SERVICE_ELIGIBILITY_PATH: "/internal/operations/service-eligibility"
   OPERATIONS_CUSTOMER_ID_BY_PHONE_PATH: "/internal/operations/customer-id-by-phone"
@@ -172,18 +172,26 @@ env:
   BOOKINGS_FOR_CUSTOMER_PATH: "/internal/bookings/for-customer"
   BOOKINGS_CANCEL_PATH: "/internal/bookings/{booking_id}/cancel"
   BOOKINGS_RESCHEDULE_PATH: "/internal/bookings/{booking_id}/reschedule"
-  # growth/invoice-report's own read — inert, same as the paths above, while BOOKING_PROVIDER_DRIVER
-  # stays "config" (core/booking_actor_report.py falls back to its Null driver with no
-  # BOOKINGS_SERVICE_URL set).
+  # growth/invoice-report's own read — now live, same as every path above (BOOKING_PROVIDER_DRIVER
+  # is "real" and BOOKINGS_SERVICE_URL is set above).
   BOOKINGS_BY_ACTOR_PATH: "/internal/bookings/by-actor"
   # Booking-management-via-WhatsApp (view/cancel/reschedule an EXISTING booking) — see
-  # app/config.py's own note on both flags. Inert regardless, while BOOKING_PROVIDER_DRIVER stays
-  # "config" above (llm_tool_allowlist withholds these tools under any driver but "real" — see
-  # that property's own note); listed explicitly here, defaults kept true, so an operator finds
-  # a ready single-value kill-switch the moment the real driver is turned on, rather than having
-  # to discover it does not exist in this file yet.
+  # app/config.py's own note on both flags. Live now that BOOKING_PROVIDER_DRIVER is "real"
+  # (llm_tool_allowlist only withholds these tools under any OTHER driver — see that property's
+  # own note); the AI channel itself still needs a real conversational model configured before a
+  # customer can reach any tool at all (separate, tracked concern — GCP project pending).
   BOOKING_MANAGEMENT_ENABLED: "true"
   BOOKING_HISTORY_VISIBLE: "true"
+  # Phase 5 (WhatsApp Flow booking, structured screens — distinct from the AI text channel just
+  # above, and NOT gated on it: the Flow needs no conversational model at all). This half — our
+  # own code and our own bookings-service peer — is fully wired and on. What still gates real
+  # traffic is entirely on the PLATFORM/Meta side: notification-service's
+  # WHATSAPP_FLOW_ENDPOINT_ENABLED, a real per-shop WhatsApp connection, and the per-tenant
+  # Flow-encryption key (not yet automated — escalated to the platform team, 2026-09-08) — none of
+  # which need another change here once they land.
+  WHATSAPP_FLOW_BOOKING_ENABLED: "true"
+  BOOKINGS_DAY_SLOTS_ANY_REAL_PATH: "/internal/bookings/day-slots-real"
+  BOOKINGS_WORKING_HOURS_PATH: "/internal/working-hours"
   # insights' association engine (services/insights/app/core/associations.py) — the SAME
   # "frequently requested together" logic staff already see, reused for the AI's cross-sell
   # suggestion tool rather than a new recommendation algorithm. Respects insights' own plan gate:
@@ -263,11 +271,10 @@ env:
   # goes through propose_booking/button-confirm — and it never carries a discount field (see
   # app/core/conversation.py's `_DISCOUNT_CLAIM_PATTERNS` backstop).
   # list_my_bookings/propose_cancel_booking/propose_reschedule_booking (booking-management-via-
-  # WhatsApp) are listed here too, on purpose, even while this deployment stays on
-  # BOOKING_PROVIDER_DRIVER="config" below: `llm_tool_allowlist` (app/config.py) ALREADY withholds
-  # them unless BOOKING_MANAGEMENT_ENABLED is true AND the driver is "real" — that gating is what
-  # keeps the feature inert today, not this string. Leaving them off THIS line would be a second,
-  # silent kill-switch nobody remembered to also flip back on the day the real driver ships: the
+  # WhatsApp) are listed here too — `llm_tool_allowlist` (app/config.py) withholds them unless
+  # BOOKING_MANAGEMENT_ENABLED is true AND the driver is "real"; both now hold, so these tools are
+  # live the moment a real conversational model is configured (separate, tracked concern). Leaving
+  # them off THIS line would be a second, silent kill-switch nobody remembered to flip: the
   # BOOKING_MANAGEMENT_ENABLED flag below would read "true" while the tools were still never
   # offered to the model at all. Found by review; see git history for the incident this line fixes.
   LLM_TOOL_ALLOWLIST: "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,suggest_related_service,list_my_bookings,propose_cancel_booking,propose_reschedule_booking"

@@ -149,6 +149,50 @@ env:
   WHATSAPP_GRAPH_BASE: "https://graph.facebook.com/v26.0"
   WHATSAPP_ONBOARDING_GRAPH_BASE: "https://graph.facebook.com/v26.0"
 
+  # ── WhatsApp Flow booking (assignment-mode redesign, Phase 5) ────────────────────────────
+  # ONE definition, shared by every tenant on this deployment (services/whatsapp-assistant's own
+  # FlowBookingBackend answers per-tenant behind it — the definition is the SCREEN SHAPE, never
+  # per-shop content). Steps match FlowBookingBackend's own dimension handling exactly: "staff"
+  # SKIPS ITSELF for an `auto`-mode service (v0.18.53's conditional-step contract) and is asked
+  # only for a `named` one — see that module's own docstring.
+  WHATSAPP_BOOKING_DEFINITION: |
+    {
+      "steps": [{"dimension":"service"},{"dimension":"staff"},{"dimension":"date"},
+               {"dimension":"confirm"}],
+      "mode": "single",
+      "horizon_days": 14,
+      "min_days": 1,
+      "max_days": 14,
+      "strings": {
+        "pick_service": "اختر الخدمة",
+        "pick_staff": "اختر الموظف",
+        "pick_date": "اختر التاريخ",
+        "pick_time": "اختر الوقت",
+        "continue": "متابعة",
+        "confirm": "تأكيد الحجز",
+        "required": "الرجاء الاختيار",
+        "backend_error": "عذرًا، تعذّر تحميل المواعيد المتاحة. حاول مرة أخرى."
+      }
+    }
+  # services/whatsapp-assistant's own /internal/whatsapp-flow/booking route (in-cluster DNS, same
+  # pattern every other cross-service URL in this deployment uses).
+  WHATSAPP_BOOKING_PROVIDER_URL: "http://whatsapp-assistant:8000/internal/whatsapp-flow/booking"
+  # TODO before this can send real traffic: WHATSAPP_BOOKING_PROVIDER_TOKEN must carry the SAME
+  # INTERNAL_SERVICE_TOKEN this pod already gets from its existingSecret above (every service
+  # holds the identical value — see this file's own top-of-file note) — left unset here rather
+  # than guessed, because this repo has no existing precedent for a values.yaml field
+  # cross-referencing another env var's value, and getting that wrong would fail silently
+  # (whatsapp-assistant's /internal/whatsapp-flow/booking route 401s with no X-Internal-Token
+  # header, and http.py's own `if self._token:` guard means an empty value here is simply never
+  # sent, not a crash). Confirm how this deployment's chart actually wires a shared secret into
+  # a plain config value before setting it — do not hardcode the token's plaintext here.
+  # ON — SAFE BEFORE ANY KEY IS SEALED. The route itself refuses cleanly per-tenant
+  # (503 FLOW_KEY_UNCONFIGURED) whenever no key is sealed for that tenant yet (see
+  # api/webhooks.py's own `_handle_flow`) — turning this on ahead of the per-tenant
+  # Flow-encryption-key automation (escalated to the platform team, 2026-09-08) costs nothing and
+  # means no second deploy is needed the moment that piece lands.
+  WHATSAPP_FLOW_ENDPOINT_ENABLED: "true"
+
   # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────
   # http, not null. The null gate answers UNKNOWN forever and the production boot guard REFUSES
   # to start on it for a service that declares consent-gated processing. That guard is why
