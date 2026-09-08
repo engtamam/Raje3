@@ -61,7 +61,7 @@ def client(env_guard) -> TestClient:
 
 
 def _two_services(client, tenant="t1"):
-    a = client.post("/api/v1/staff/services", json={"name": "غيار زيت"},
+    a = client.post("/api/v1/staff/services", json={"name": "قص شعر"},
                     headers=_auth("operations.manage_services", tenant=tenant)).json()
     b = client.post("/api/v1/staff/services", json={"name": "فحص فرامل"},
                     headers=_auth("operations.manage_services", tenant=tenant)).json()

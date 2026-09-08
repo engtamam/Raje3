@@ -78,7 +78,7 @@ def _seed(client, rows, catalogue=None):
     """Put visits into the null peer, then run the tick through its own route."""
     c = client.app.state.container
     c.peers._visits = rows
-    c.peers._catalogue = catalogue or [{"id": "oil", "name": "غيار زيت", "cycle_days": 90},
+    c.peers._catalogue = catalogue or [{"id": "oil", "name": "قص شعر", "cycle_days": 90},
                                        {"id": "filter", "name": "فلتر", "cycle_days": 0},
                                        {"id": "wash", "name": "غسيل", "cycle_days": 30}]
     r = client.post("/internal/insights/tick", json={"tenant": TENANT}, headers=INTERNAL)

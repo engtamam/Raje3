@@ -276,8 +276,8 @@ def test_a_real_pair_below_the_opportunity_size_is_not_suggested():
 
 def test_a_bundle_card_names_the_services_and_the_size_and_no_price():
     p = Pair(tenant=T, a="oil", b="filter", verdict="real", customers=340, lift_basket=2.4)
-    card = bundles.build([p], names={"oil": "غيار زيت", "filter": "فلتر"})[0]
-    assert card["a_name"] == "غيار زيت" and card["customers"] == 340
+    card = bundles.build([p], names={"oil": "قص شعر", "filter": "فلتر"})[0]
+    assert card["a_name"] == "قص شعر" and card["customers"] == 340
     assert card["action"] == "bundle"
     # NO PRICE ANYWHERE, and no arithmetic either.
     assert "ريال" not in str(card) and "lift" not in str(card)

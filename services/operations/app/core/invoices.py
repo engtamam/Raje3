@@ -192,7 +192,7 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
 
         found = by_ext.get(line.product_id)
 
-        # THE SHOP THAT WENT MANUAL FIRST. It has "غيار الزيت" in its catalogue, typed by the owner
+        # THE SHOP THAT WENT MANUAL FIRST. It has "قص شعر" in its catalogue, typed by the owner
         # months ago, and now its till sends that product with an id. Creating a second service
         # would leave the owner with two identical rows and a visit history split across them.
         # So an exact name match ADOPTS the id instead of forking.

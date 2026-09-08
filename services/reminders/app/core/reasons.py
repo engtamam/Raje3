@@ -371,7 +371,7 @@ def candidates(kind: str, template_type: str) -> tuple[str, ...]:
 # look like a real customer's are also the ones Meta's own review requires at submission.
 SAMPLE = {
     CUSTOMER: "محمد",
-    SERVICE: "غيار الزيت",
+    SERVICE: "قص شعر",
     REWARD: "غسيل مجاني",
     POINTS: "40",
     BALANCE: "60",
@@ -421,8 +421,16 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
                  "amount": SAMPLE[OFFER_VALUE], "code": SAMPLE[COUPON], "date": SAMPLE[ENDS_AT],
                  # BY SOURCE, NEVER BY POSITION. The address lands on slot 3 in a visit
                  # confirmation and on slot 6 in an offer, so the numbered fallback below
-                 # would have drawn «غيار الزيت» where the owner expects to see a link.
-                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK]}
+                 # would have drawn «قص شعر» where the owner expects to see a link.
+                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK],
+                 # EXPLICIT, FOR AN OWNER-ONLY TEMPLATE WHERE `by_number`'s "slot 1 is a
+                 # customer" convention is simply wrong (found live, 2026-09-08: the weekly
+                 # report's own preview showed a random sample customer name — «محمد» — where
+                 # the shop's own name belongs, because `per_weekly_digest` puts the
+                 # establishment at slot 1, not slot 2 like every customer-facing template does).
+                 # A template with no customer at all must never fall through to `by_number`'s
+                 # customer-shaped guess for ANY of its slots.
+                 "establishment": establishment}
     # Slot 3 of the library's own numbering is «الخدمة أو المحتوى», 4 «تفصيل», 5 «الرصيد» — the
     # positional meanings the texts were written against (deploy/seed/templates.json).
     by_number = {1: SAMPLE[CUSTOMER], 2: establishment, 3: SAMPLE[SERVICE],

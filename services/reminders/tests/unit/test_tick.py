@@ -41,7 +41,7 @@ LIB = [{"name": "svc_service_reminder_brief", "type": "svc_service_reminder", "t
        {"name": "mkt_offer_brief", "type": "mkt_offer", "tone": "brief", "class": "marketing",
         "variables": [1, 2, 3], "fills": ["system", "system", "catalogue"], "active": True}]
 
-NAMES = {"oil": "غيار الزيت", "tyres": "الإطارات", "filters": "الفلاتر"}
+NAMES = {"oil": "قص شعر", "tyres": "الإطارات", "filters": "الفلاتر"}
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ def test_a_due_reminder_is_sent_once(st):
     s = FakeSender()
     res = go(st, s)
     assert res.sent == 1 and len(s.calls) == 1
-    assert s.calls[0]["variables"] == ["أحمد", "ورشة النخبة", "غيار الزيت"]
+    assert s.calls[0]["variables"] == ["أحمد", "ورشة النخبة", "قص شعر"]
 
 
 def test_a_second_tick_does_not_send_again(st):
@@ -98,7 +98,7 @@ def test_a_merged_reminder_names_every_service_in_one_message(st):
     sched(st, also_services=["tyres", "filters"])
     s = FakeSender()
     go(st, s)
-    assert s.calls[0]["variables"][2] == "غيار الزيت، الإطارات والفلاتر"
+    assert s.calls[0]["variables"][2] == "قص شعر، الإطارات والفلاتر"
 
 
 def test_a_future_schedule_is_not_touched(st):
@@ -713,7 +713,7 @@ def test_two_visits_days_apart_arrive_as_one_message(st):
     res = go(st, s)
 
     assert len(s.calls) == 1, "two messages went out where one was due"
-    assert s.calls[0]["variables"][2] == "غيار الزيت والإطارات"
+    assert s.calls[0]["variables"][2] == "قص شعر والإطارات"
     assert res.sent == 1 and res.merged == 1
 
 
@@ -747,7 +747,7 @@ def test_a_reminder_a_week_out_is_left_for_its_own_day(st):
 
     res = go(st, s)
 
-    assert s.calls[0]["variables"][2] == "غيار الزيت"
+    assert s.calls[0]["variables"][2] == "قص شعر"
     assert res.merged == 0
 
 
@@ -925,7 +925,7 @@ def test_a_message_with_no_branch_behind_it_stays_empty(st):
 # ── أ-4 · the words travel with the offer, not only into the message ───────────────────────────
 def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
     """THE FIRST LINK. `send_one` is handed the names — the caller owns the catalogue and sends
-    the words — renders «خصم على غيار الزيت» with them, and used to drop them on the floor. The
+    the words — renders «خصم على قص شعر» with them, and used to drop them on the floor. The
     customer's page is read days later, when nobody holds that map any more, and it printed our
     identifiers to him: «على: oil».
     """
@@ -951,7 +951,7 @@ def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
 
     logged = run(SendLogStore(st).live_offers("t1", "sub_a", used_refs=set(), now=at(10)))
     assert logged, "the offer was sent, so it is on the log"
-    assert logged[0]["offer_service_names"] == ["غيار الزيت", "الإطارات"]
+    assert logged[0]["offer_service_names"] == ["قص شعر", "الإطارات"]
     assert logged[0]["offer_code"], "and the coupon it was rendered with is kept beside them"
 
 
@@ -1021,7 +1021,7 @@ def test_a_structured_offer_with_no_free_line_is_still_an_entitlement(st):
            # NO `owner_text` — which is the whole point: the three offer templates never ask for
            # one, so this is the ordinary case rather than an edge one.
            "owner_text": "", "idempotency_key": "idem_y", "id": "idem_y",
-           "offer_text": compose(value="20%", service_names=["غيار الزيت"], has_expiry=True),
+           "offer_text": compose(value="20%", service_names=["قص شعر"], has_expiry=True),
            "offer_expires_at": at(10, day=20), "offer_value": "20%",
            "offer_services": ["oil"]}
 
@@ -1031,7 +1031,7 @@ def test_a_structured_offer_with_no_free_line_is_still_an_entitlement(st):
 
     live = run(SendLogStore(st).live_offers("t1", "sub_a", used_refs=set(), now=at(10)))
     assert live, "a campaign that sent an offer and left nothing to honour is the defect"
-    assert live[0]["offer_text"] == "خصم 20% على غيار الزيت"
+    assert live[0]["offer_text"] == "خصم 20% على قص شعر"
 
 
 # ── د-11 · `drop` means drop at BOTH gates ─────────────────────────────────────────────────────

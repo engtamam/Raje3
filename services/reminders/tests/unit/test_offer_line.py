@@ -28,10 +28,10 @@ def test_the_offer_shown_is_the_one_that_was_SENT():
     """Not a field somebody retyped: what was not sent is not shown, and what was sent is shown in
     its own words."""
     store = MemoryDataStore()
-    _log(store, offer_text="20% على غيار الزيت", offer_expires_at=NOW + 3 * DAY)
+    _log(store, offer_text="20% على قص شعر", offer_expires_at=NOW + 3 * DAY)
 
     got = asyncio.run(SendLogStore(store).active_offer(T, REF, used_refs=set(), now=NOW + DAY))
-    assert got["offer_text"] == "20% على غيار الزيت"
+    assert got["offer_text"] == "20% على قص شعر"
 
 
 def test_an_expired_offer_is_not_returned_at_all():

@@ -133,7 +133,7 @@ def test_the_same_key_twice_spends_once():
 def test_a_reward_above_the_threshold_needs_a_manager():
     _, ledger, rewards, red = build()
     give(ledger, 900)
-    r = run(rewards.create(T, name="غيار زيت", cost=800, type="item"))
+    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
     with pytest.raises(LoyaltyError):
         run(red.redeem(T, S, r.id, idem_key="k1", manager_threshold=500))
     rec, _ = run(red.redeem(T, S, r.id, idem_key="k2", manager_threshold=500,
@@ -261,7 +261,7 @@ def test_a_manager_approval_cannot_be_granted_by_the_person_redeeming():
     """
     _, ledger, rewards, red = build()
     give(ledger, 900)
-    r = run(rewards.create(T, name="غيار زيت", cost=800, type="item"))
+    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
 
     with pytest.raises(LoyaltyError) as e:
         run(red.redeem(T, S, r.id, idem_key="k1", manager_threshold=500,
@@ -275,7 +275,7 @@ def test_the_same_name_in_a_different_case_is_still_the_same_person():
     control somebody will defeat with a space."""
     _, ledger, rewards, red = build()
     give(ledger, 900)
-    r = run(rewards.create(T, name="غيار زيت", cost=800, type="item"))
+    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
 
     with pytest.raises(LoyaltyError):
         run(red.redeem(T, S, r.id, idem_key="k2", manager_threshold=500,
@@ -286,7 +286,7 @@ def test_a_different_person_may_still_approve_it():
     """The control must not block the thing it exists to permit."""
     _, ledger, rewards, red = build()
     give(ledger, 900)
-    r = run(rewards.create(T, name="غيار زيت", cost=800, type="item"))
+    r = run(rewards.create(T, name="قص شعر", cost=800, type="item"))
 
     rec, _ = run(red.redeem(T, S, r.id, idem_key="k3", manager_threshold=500,
                             actor="سالم", approved_by="فهد"))

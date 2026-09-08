@@ -48,7 +48,7 @@ def test_a_bad_value_is_refused_not_silently_cleaned():
 
 
 def test_ordinary_arabic_text_passes():
-    assert sanitise_owner_text("  خصم 20% على غيار الزيت  ") == "خصم 20% على غيار الزيت"
+    assert sanitise_owner_text("  خصم 20% على قص شعر  ") == "خصم 20% على قص شعر"
 
 
 def test_an_overlong_field_is_refused():
@@ -96,14 +96,14 @@ def test_a_customer_with_no_name_still_gets_a_valid_message():
     """The name is optional in our model and a blank variable is a Meta rejection at send time —
     which arrives three days later blaming the wording."""
     r = render(template=t("svc_service_reminder_brief"),
-               system={"1": "", "2": "ورشة النخبة"}, catalogue={"3": "غيار الزيت"}, owner={})
+               system={"1": "", "2": "ورشة النخبة"}, catalogue={"3": "قص شعر"}, owner={})
     assert r.variables[0] == FALLBACK_NAME
 
 
 def test_a_missing_system_value_that_is_not_the_name_refuses():
     with pytest.raises(RenderError):
         render(template=t("svc_service_reminder_brief"), system={"1": "أحمد"},
-               catalogue={"3": "غيار الزيت"}, owner={})
+               catalogue={"3": "قص شعر"}, owner={})
 
 
 def test_a_numbering_gap_is_caught_here_too():
@@ -116,12 +116,12 @@ def test_a_numbering_gap_is_caught_here_too():
 
 # ── the merged phrase ──────────────────────────────────────────────────────────────────────────
 def test_three_services_read_as_one_arabic_phrase():
-    assert merged_service_text(["غيار الزيت", "الفلاتر", "الإطارات"]) == \
-        "غيار الزيت، الفلاتر والإطارات"
+    assert merged_service_text(["قص شعر", "الفلاتر", "الإطارات"]) == \
+        "قص شعر، الفلاتر والإطارات"
 
 
 def test_one_service_is_just_itself():
-    assert merged_service_text(["غيار الزيت"]) == "غيار الزيت"
+    assert merged_service_text(["قص شعر"]) == "قص شعر"
 
 
 def test_seven_services_are_summarised_not_listed():

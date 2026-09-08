@@ -65,7 +65,7 @@ CARDS = {
         "icon": "info",
     },
     # A SEASON IS NOT A SERVICE, WHICH IS WHY THIS IS NOT `awareness`. A care tip is tied to what
-    # the customer took — «مع غيار الزيت، افحص الفلتر» — and reaches the people who took it. A
+    # the customer took — «مع قص شعر، رطّب شعرك بعده» — and reaches the people who took it. A
     # seasonal one is tied to the calendar and reaches everyone: «مع الصيف، افحص المكيّف». Same
     # class, so neither is promotional and neither needs marketing consent; different audience,
     # so folding them into one card would ask the owner one question and answer another.

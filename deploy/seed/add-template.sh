@@ -105,7 +105,7 @@ H = "http://localhost:8000"
 # send substitutes by, ordered so each maps to a position. EXAMPLE is a value Meta requires at
 # creation, and a name is not a valid one: their review rejects placeholder-looking examples.
 NAME = {1: "customer_name", 2: "establishment", 3: "service", 4: "detail"}
-EXAMPLE = {1: "محمد", 2: "مغسلة النخيل", 3: "غيار الزيت", 4: "1234"}
+EXAMPLE = {1: "محمد", 2: "مغسلة النخيل", 3: "قص شعر", 4: "1234"}
 
 def call(path, payload=None):
     d = json.dumps(payload).encode() if payload is not None else None

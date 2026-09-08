@@ -1643,7 +1643,7 @@ async def read_catalogue(request: Request, body: CatalogueIn) -> dict:
     """One establishment's services — id, name, and cycle.
 
     FOR `insights`, which needs three things this service already holds: the NAME, so a bundle
-    card says "غيار زيت" rather than `svc_9f2a` and is therefore pressable; the CYCLE, because
+    card says "قص شعر" rather than `svc_9f2a` and is therefore pressable; the CYCLE, because
     cycle completion is computed from it and asking the owner for it a second time would be asking
     for something he already gave us; and the FULL LIST INCLUDING RETIRED SERVICES, because an
     indicator over the last ninety days covers visits to services that have since been switched

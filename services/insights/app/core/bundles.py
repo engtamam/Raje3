@@ -56,7 +56,7 @@ def build(pairs: list[Pair], *, names: dict[str, str] | None = None,
     """The cards, strongest first.
 
     `names` maps a service id to what the owner calls it — passed in rather than looked up here,
-    because a bundle card showing `svc_9f2a` instead of "غيار زيت" is a card nobody presses, and
+    because a bundle card showing `svc_9f2a` instead of "قص شعر" is a card nobody presses, and
     the catalogue belongs to `operations`.
 
     `missing_counts` is how many customers take one side and not the other — the opportunity size.

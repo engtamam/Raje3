@@ -15,7 +15,7 @@ def page(**over):
              shop_name="ورشة النخبة", brand_colour="#0F5F4E")
     p.prefs = Section(available=True, data=_normalise_prefs({"preferences": [{"class": c, "enabled": c != "marketing"}
                                                      for c in CLASS_ORDER]}))
-    p.visits = Section(available=True, data=[{"services": "غيار الزيت", "date": "12 يونيو"}])
+    p.visits = Section(available=True, data=[{"services": "قص شعر", "date": "12 يونيو"}])
     for k, v in over.items():
         setattr(p, k, v)
     return p
@@ -170,7 +170,7 @@ def with_offers(*offers):
 
 
 def an_offer(**over):
-    o = {"text": "20% على غيار الزيت", "expires_at": SOON, "sent_at": SOON - 86400,
+    o = {"text": "20% على قص شعر", "expires_at": SOON, "sent_at": SOON - 86400,
          "services": []}
     o.update(over)
     return o
@@ -188,7 +188,7 @@ def test_the_offer_is_the_first_thing_on_the_page():
 
 def test_the_offer_is_shown_in_its_own_words():
     html = render_page(with_offers(an_offer()), THEME)
-    assert "20% على غيار الزيت" in html
+    assert "20% على قص شعر" in html
 
 
 def test_what_it_covers_is_said_either_way():
@@ -197,8 +197,8 @@ def test_what_it_covers_is_said_either_way():
     everything = render_page(with_offers(an_offer()), THEME)
     assert "على كل الخدمات" in everything
 
-    some = render_page(with_offers(an_offer(services=["غيار الزيت", "غسيل"])), THEME)
-    assert "غيار الزيت" in some and "غسيل" in some
+    some = render_page(with_offers(an_offer(services=["قص شعر", "غسيل"])), THEME)
+    assert "قص شعر" in some and "غسيل" in some
 
 
 def test_the_countdown_gets_the_MOMENT_not_a_duration():
@@ -242,12 +242,12 @@ def test_the_branch_appears_beside_the_service_only_when_the_row_has_one():
     that never varies is one the eye stops reading, taking the date and the service with it.
     """
     with_branch = render_page(page(visits=Section(available=True, data=[
-        {"services": "غيار الزيت", "branch": "فرع العليا", "date": "12 يونيو"}])), THEME)
+        {"services": "قص شعر", "branch": "فرع العليا", "date": "12 يونيو"}])), THEME)
     assert "فرع العليا" in with_branch
-    assert "غيار الزيت" in with_branch
+    assert "قص شعر" in with_branch
 
     plain = render_page(page(visits=Section(available=True, data=[
-        {"services": "غيار الزيت", "date": "12 يونيو"}])), THEME)
+        {"services": "قص شعر", "date": "12 يونيو"}])), THEME)
     assert "·" not in plain.split("زياراتك")[1].split("</section>")[0]
 
 

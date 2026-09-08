@@ -113,7 +113,7 @@ def check(t: dict) -> list[str]:
 # This started as two entries for the two address slots, with everything else read out of
 # `variables` by POSITION. That was already wrong and nobody could see it: `mkt_offer` slot 3 is a
 # discount amount and position 3 is called «الخدمة», so Meta's reviewer received a variable named
-# «service» whose example was «غيار الزيت» sitting where «20%» goes. The reviewer approves the
+# «service» whose example was «قص شعر» sitting where «20%» goes. The reviewer approves the
 # WORDS, and we were describing them inaccurately.
 #
 # It became visible only when an offer grew a seventh blank and the position table — which stops
@@ -127,7 +127,7 @@ FILL_SLOTS = {
     "amount": {"name": "offer_value", "example": "20%"},
     "code": {"name": "coupon_code", "example": "RJ-7K2M"},
     "date": {"name": "expires_on", "example": "12 سبتمبر"},
-    "catalogue": {"name": "service", "example": "غيار الزيت"},
+    "catalogue": {"name": "service", "example": "قص شعر"},
     "owner": {"name": "owner_line", "example": "افتتحنا فرعنا الجديد في حي الياسمين"},
 }
 
@@ -151,7 +151,7 @@ def expand(lib: dict) -> list[dict]:
             # invitation on a utility text and the one-tap stop on a marketing one, and it lands on
             # slot 3 in a visit confirmation and slot 6 in an offer. Keyed by number alone this
             # raised a KeyError on '6' — which is the honest failure; the quiet one would have been
-            # submitting «الخدمة / غيار الزيت» to Meta's reviewer where a link belongs.
+            # submitting «الخدمة / قص شعر» to Meta's reviewer where a link belongs.
             by_pos = {n: (fills[i] if i < len(fills) else "") for i, n in enumerate(used)}
             names, examples = [], []
             for i in used:

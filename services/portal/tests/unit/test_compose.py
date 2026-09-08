@@ -174,7 +174,7 @@ GONE = int(time.time()) - 60
 
 
 def test_the_offers_arrive_and_carry_their_end():
-    p = page(rem=Rem(offers=[{"text": "20% على غيار الزيت", "expires_at": SOON,
+    p = page(rem=Rem(offers=[{"text": "20% على قص شعر", "expires_at": SOON,
                               "sent_at": SOON - 86400, "services": ["srv_1"]}]))
     assert p.offers.available
     assert p.offers.data[0]["expires_at"] == SOON

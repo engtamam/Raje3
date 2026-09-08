@@ -330,7 +330,7 @@ def build(types: list[dict]) -> dict:
                            "empty variable"},
             "2": {"name": "establishment", "example": "مغسلة النخيل",
                   "means": "the establishment's name — its identity, never ours"},
-            "3": {"name": "service", "example": "غيار الزيت",
+            "3": {"name": "service", "example": "قص شعر",
                   "means": "the service or the content"},
             "4": {"name": "detail", "example": "1234",
                   "means": "a second detail: a date, an amount, a transaction reference"},

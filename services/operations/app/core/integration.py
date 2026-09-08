@@ -24,7 +24,7 @@ Only rows that are all three of:
 
 A row that fails any one of those is his, and is left exactly alone. And note what the three
 conditions leave standing: everything he edited into use, everything ever sold, and everything the
-till adopted by name — because `invoices.resolve` matches a seeded «غيار الزيت» to the till's
+till adopted by name — because `invoices.resolve` matches a seeded «قص شعر» to the till's
 product and stamps its id onto our row rather than forking. That adoption is what makes retiring
 the remainder honest: the survivors are the ones nothing in the world refers to.
 

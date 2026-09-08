@@ -21,7 +21,7 @@ const ACTIONS: Record<string, { id: string; label: string; method: string; path:
 
 let packagesResponse: unknown[] = [];
 let servicesResponse: unknown[] = [
-  { id: 'svc_a', name: 'غيار زيت', active: true },
+  { id: 'svc_a', name: 'قص شعر', active: true },
   { id: 'svc_b', name: 'فحص فرامل', active: true },
 ];
 let earnResponse: unknown = { services: {}, groups: {}, service_group: {}, general: {}, packages: {} };
@@ -95,7 +95,7 @@ describe('الباقات', () => {
     ];
     open();
     await waitFor(() => expect(screen.getByText('باقة الصيانة')).toBeTruthy());
-    expect(screen.getByText('غيار زيت')).toBeTruthy();
+    expect(screen.getByText('قص شعر')).toBeTruthy();
     expect(screen.getByText('فحص فرامل')).toBeTruthy();
     expect(screen.getByText('150 ريال')).toBeTruthy();
   });
@@ -118,7 +118,7 @@ describe('الباقات', () => {
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
 
     fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة جديدة' } });
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     const priceBox = screen.getByPlaceholderText('0');
     fireEvent.change(priceBox, { target: { value: '150' } });
@@ -154,7 +154,7 @@ describe('الباقات', () => {
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
 
     fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة' } });
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
     fireEvent.click(screen.getByText('أسبوعياً'));
@@ -176,7 +176,7 @@ describe('الباقات', () => {
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
 
     fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة السبت' } });
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
     fireEvent.click(screen.getByText('أسبوعياً'));
@@ -198,7 +198,7 @@ describe('الباقات', () => {
     await waitFor(() => expect(screen.getByPlaceholderText(/باقة الصيانة الشاملة/)).toBeTruthy());
     // Both suggested services are pre-checked (accent-highlighted) — visible as the price/points
     // form being immediately ready to save once a name and price are typed.
-    expect(screen.getByText('غيار زيت')).toBeTruthy();
+    expect(screen.getByText('قص شعر')).toBeTruthy();
     expect(screen.getByText('فحص فرامل')).toBeTruthy();
   });
 
@@ -254,7 +254,7 @@ describe('الباقات', () => {
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
 
     fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة الشهر' } });
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
     fireEvent.click(screen.getByText('شهرياً'));
@@ -278,7 +278,7 @@ describe('الباقات', () => {
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
 
     fireEvent.change(screen.getByPlaceholderText(/باقة الصيانة الشاملة/), { target: { value: 'باقة' } });
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '150' } });
     fireEvent.click(screen.getByText('سنوياً'));
@@ -293,10 +293,10 @@ describe('الباقات', () => {
     fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
 
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     expect(screen.getByText('الخدمات (2 مُختارة — خدمتان على الأقل)')).toBeTruthy();
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     expect(screen.getByText('الخدمات (1 مُختارة — خدمتان على الأقل)')).toBeTruthy();
   });
 
@@ -308,7 +308,7 @@ describe('الباقات', () => {
     await waitFor(() => screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
     fireEvent.click(screen.getByRole('button', { name: /أنشئ باقتك الأولى/ }));
     await waitFor(() => screen.getByPlaceholderText(/باقة الصيانة الشاملة/));
-    fireEvent.click(screen.getByText('غيار زيت'));
+    fireEvent.click(screen.getByText('قص شعر'));
     fireEvent.click(screen.getByText('فحص فرامل'));
     await waitFor(() => expect(screen.getByText(/استخدم مجموع نقاط الخدمات \(25\)/)).toBeTruthy());
     fireEvent.click(screen.getByText(/استخدم مجموع نقاط الخدمات/));
@@ -345,11 +345,11 @@ describe('الباقات', () => {
   it('a package with a description shows it on the card', async () => {
     packagesResponse = [
       { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
-       active: true, description: 'غيار زيت + فحص فرامل بسعر واحد' },
+       active: true, description: 'قص شعر + فحص فرامل بسعر واحد' },
     ];
     open();
     await waitFor(() => expect(screen.getByText('باقة الصيانة')).toBeTruthy());
-    expect(screen.getByText('غيار زيت + فحص فرامل بسعر واحد')).toBeTruthy();
+    expect(screen.getByText('قص شعر + فحص فرامل بسعر واحد')).toBeTruthy();
   });
 
   it('a package with has_image shows its real photo; one without shows the placeholder', async () => {

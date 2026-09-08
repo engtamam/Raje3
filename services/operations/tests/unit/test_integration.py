@@ -46,7 +46,7 @@ def service(sid, *, name, seeded=True, external_id="", catchall=False, active=Tr
 async def test_only_seeded_rows_nothing_refers_to_are_retired():
     store = FakeStore()
     await seed(store, "t1", [
-        service("s1", name="غيار الزيت"),                       # ours, untouched -> retired
+        service("s1", name="قص شعر"),                       # ours, untouched -> retired
         service("s2", name="تبديل إطار"),                       # ours, but sold  -> kept
         service("s3", name="برمجة ريموت", seeded=False),        # HE typed it     -> kept
         service("s4", name="غسيل", external_id="POS-9"),        # the till claimed it -> kept
@@ -79,7 +79,7 @@ async def test_it_runs_once_and_then_costs_one_read():
     retire a service the owner added AFTER integrating, which is exactly what a second pass over a
     freshly-seeded catalogue would do."""
     store = FakeStore()
-    await seed(store, "t1", [service("s1", name="غيار الزيت")])
+    await seed(store, "t1", [service("s1", name="قص شعر")])
 
     first = await Integration(store=store).note_invoice("t1")
     second = await Integration(store=store).note_invoice("t1")
@@ -100,7 +100,7 @@ async def test_no_row_means_not_yet_rather_than_unknown():
     reach exactly the shops it was written for: the ones that were seeded before seeding stopped.
     """
     store = FakeStore()
-    await seed(store, "t1", [service("s1", name="غيار الزيت")])
+    await seed(store, "t1", [service("s1", name="قص شعر")])
 
     out = await Integration(store=store).note_invoice("t1")
 
@@ -117,7 +117,7 @@ async def test_the_two_standings_do_not_overwrite_each_other():
 
     store = FakeStore()
     await mark_sandbox(store, "t1", expires_at=999)
-    await seed(store, "t1", [service("s1", name="غيار الزيت")])
+    await seed(store, "t1", [service("s1", name="قص شعر")])
 
     await Integration(store=store).note_invoice("t1")
 

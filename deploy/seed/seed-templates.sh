@@ -167,7 +167,7 @@ for ty in LIB["types"]:
         # honest for them. The last blank is not: it is the invitation on a utility text and the
         # one-tap stop on a marketing one, and it lands on slot 3 in a visit confirmation and on
         # slot 6 in an offer. Keyed by number alone it would be submitted to Meta's reviewer under
-        # the name «service» with «غيار الزيت» as its example — a human reads that, sees a service
+        # the name «service» with «قص شعر» as its example — a human reads that, sees a service
         # name where a link belongs, and the whole library is refused against names that then
         # cannot be reused.
         fills = list(ty.get("fills") or [])

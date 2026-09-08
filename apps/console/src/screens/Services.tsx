@@ -103,7 +103,7 @@ const UNGROUPED = '';
  * The one line under a service name, and it reports EVERYTHING that service is set to do.
  *
  * Two messages can be scheduled off one visit and they are not the same message. The cycle is the
- * one that brings him back — «حان وقت غيار الزيت» — and it is timed to when the need returns. The
+ * one that brings him back — «حان وقت قص شعر» — and it is timed to when the need returns. The
  * follow-up asks whether the last visit went well, and is timed to a few days after it. An owner
  * reading this line is deciding whether to open the row, so it has to say which of the two are on.
  */

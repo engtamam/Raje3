@@ -41,15 +41,15 @@ def test_a_boolean_is_never_a_product_id():
 
 def test_whitespace_in_a_name_is_collapsed_and_nothing_else_is_touched():
     """Quietly rewriting this text produces a catalogue the owner does not recognise as theirs."""
-    assert I.normalise_name("  غيار   الزيت  ") == "غيار الزيت"
+    assert I.normalise_name("  قص   شعر  ") == "قص شعر"
 
 
 # ── the boundary ───────────────────────────────────────────────────────────────────────────────
 def test_a_line_with_an_id_becomes_a_real_service(store):
-    res = resolve(store, [{"product_id": "P1", "name": "غيار الزيت"}])
+    res = resolve(store, [{"product_id": "P1", "name": "قص شعر"}])
     assert len(res.created_services) == 1 and len(res.service_ids) == 1
     svc = run(store.by_external_id("t1", "P1"))
-    assert svc.name == "غيار الزيت"
+    assert svc.name == "قص شعر"
 
 
 def test_a_line_without_an_id_creates_nothing(store):
@@ -77,18 +77,18 @@ def test_an_auto_created_service_has_no_cycle(store):
 # ── the three field failures ───────────────────────────────────────────────────────────────────
 def test_a_renamed_product_updates_and_never_forks(store):
     """Forking would double the catalogue every time a shop tidies its wording."""
-    resolve(store, [{"product_id": "P1", "name": "غيار زيت"}])
-    res = resolve(store, [{"product_id": "P1", "name": "غيار الزيت والفلتر"}])
+    resolve(store, [{"product_id": "P1", "name": "قص شعر"}])
+    res = resolve(store, [{"product_id": "P1", "name": "قص شعر والفلتر"}])
     assert res.created_services == [] and len(res.renamed_services) == 1
     assert len(run(store.list("t1", active_only=False))) == 1
-    assert run(store.by_external_id("t1", "P1")).name == "غيار الزيت والفلتر"
+    assert run(store.by_external_id("t1", "P1")).name == "قص شعر والفلتر"
 
 
 def test_a_shop_that_went_manual_first_adopts_its_tills_id(store):
     """It has the service typed by hand months ago. A second row would split the visit history."""
-    run(store.save(Service(id=new_id("srv"), tenant="t1", name="غيار الزيت",
+    run(store.save(Service(id=new_id("srv"), tenant="t1", name="قص شعر",
                            cycle_days=90, created=NOW)))
-    res = resolve(store, [{"product_id": "P1", "name": "غيار الزيت"}])
+    res = resolve(store, [{"product_id": "P1", "name": "قص شعر"}])
     assert res.created_services == []
     assert len(run(store.list("t1", active_only=False))) == 1
     adopted = run(store.by_external_id("t1", "P1"))
@@ -110,16 +110,16 @@ def test_a_malformed_line_becomes_free_text_rather_than_an_error(store):
 
 
 def test_auto_create_off_sends_everything_to_free_text(store):
-    res = resolve(store, [{"product_id": "P1", "name": "غيار الزيت"}], auto_create=False)
-    assert res.created_services == [] and res.free_text == ["غيار الزيت"]
+    res = resolve(store, [{"product_id": "P1", "name": "قص شعر"}], auto_create=False)
+    assert res.created_services == [] and res.free_text == ["قص شعر"]
 
 
 def test_one_tenants_catalogue_is_never_touched_by_another(store):
     """The catalogue is a per-tenant COPY, which is what makes auto-creation safe at all."""
-    resolve(store, [{"product_id": "P1", "name": "غيار الزيت"}])
+    resolve(store, [{"product_id": "P1", "name": "قص شعر"}])
     run(I.resolve(I.parse_lines([{"product_id": "P1", "name": "شيء مختلف"}]),
                   tenant="t2", service_store=store, new_id=new_id, now=NOW))
-    assert run(store.by_external_id("t1", "P1")).name == "غيار الزيت"
+    assert run(store.by_external_id("t1", "P1")).name == "قص شعر"
     assert len(run(store.list("t2", active_only=False))) == 1
 
 

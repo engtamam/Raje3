@@ -106,8 +106,8 @@ def test_an_overlong_text_is_refused_with_the_limit_in_the_message():
 
 
 def test_ordinary_arabic_passes_untouched():
-    assert sanitise_owner_text("  خصم 20% على غيار الزيت  ", required=True) == \
-        "خصم 20% على غيار الزيت"
+    assert sanitise_owner_text("  خصم 20% على قص شعر  ", required=True) == \
+        "خصم 20% على قص شعر"
 
 
 # ── what will actually happen ──────────────────────────────────────────────────────────────────

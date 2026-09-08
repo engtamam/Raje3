@@ -50,7 +50,7 @@ vi.mock('../catalog', async (importOriginal) => {
             { a: 'pkg:pkg1', b: 'svc_wax', a_name: 'باقة الصيانة', b_name: 'تلميع',
              why: 'يُطلبان معاً', customers: 30, action: 'extend_package',
              action_label: 'أضفها لهذه الباقة', package_id: 'pkg1' },
-            { a: 'svc_a', b: 'svc_b', a_name: 'غيار زيت', b_name: 'فحص فرامل',
+            { a: 'svc_a', b: 'svc_b', a_name: 'قص شعر', b_name: 'فحص فرامل',
              why: 'يُطلبان معاً', customers: 40, action: 'bundle',
              action_label: 'اجعلها باقة — تحدّد سعرها أنت' },
           ],
