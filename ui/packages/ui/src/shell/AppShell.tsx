@@ -427,31 +427,38 @@ export function AppShell({
                     </Badge>
                   )}
                 </div>
-                {onSupport && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onSupport}
-                    aria-label={labels.support}
-                    title={labels.support}
-                    data-testid="support-link"
-                    className="shrink-0 hover:bg-black/[0.06] dark:hover:bg-white/10"
-                  >
-                    <LifeBuoy size={18} />
-                  </Button>
-                )}
-                {onAccount && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onAccount}
-                    aria-label={labels.account}
-                    data-testid="account-link"
-                    className="shrink-0 hover:bg-black/[0.06] dark:hover:bg-white/10"
-                  >
-                    <UserCog size={18} />
-                  </Button>
-                )}
+                {/* ONE GROUP, NOT LOOSE SIBLINGS — both icons live in their own flex row,
+                    separate from the username's own flex slot above. A future third icon
+                    (or a fourth) joins THIS group and the two just cluster together at the
+                    row's own end; nothing about it has to renegotiate space with the name/
+                    badge column the way two direct `justify-between` siblings would. */}
+                <div className="flex shrink-0 items-center gap-1">
+                  {onSupport && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onSupport}
+                      aria-label={labels.support}
+                      title={labels.support}
+                      data-testid="support-link"
+                      className="shrink-0 hover:bg-black/[0.06] dark:hover:bg-white/10"
+                    >
+                      <LifeBuoy size={18} />
+                    </Button>
+                  )}
+                  {onAccount && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onAccount}
+                      aria-label={labels.account}
+                      data-testid="account-link"
+                      className="shrink-0 hover:bg-black/[0.06] dark:hover:bg-white/10"
+                    >
+                      <UserCog size={18} />
+                    </Button>
+                  )}
+                </div>
               </div>
               <Button
                 variant="ghost"
