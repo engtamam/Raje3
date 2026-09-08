@@ -26,7 +26,7 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  AlertTriangle, Cake, Gift, Info, Megaphone, RotateCcw, Tag, type LucideIcon,
+  Cake, Gift, Info, Megaphone, RotateCcw, Tag, type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
@@ -53,7 +53,6 @@ const GOAL_ICONS: Record<string, LucideIcon> = {
   megaphone: Megaphone,
   cake: Cake,
   info: Info,
-  alert: AlertTriangle,
   tag: Tag,
 };
 
@@ -325,9 +324,9 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
 
   // ── step 2 and 3: what will happen, and the one press ────────────────────────────────────────
   if (picked) {
-    // THE MATCHING REASON, IF ONE EXISTS AND HAS ACTUALLY LOADED — absent for the three goals
-    // with no automatic counterpart yet (announce, service_offer/package_offer, awareness,
-    // seasonal_care, safety), and absent while `reasons` is still `null` (loading or denied).
+    // THE MATCHING REASON, IF ONE EXISTS AND HAS ACTUALLY LOADED — absent for the goals with no
+    // automatic counterpart yet (announce, service_offer/package_offer, awareness,
+    // seasonal_care), and absent while `reasons` is still `null` (loading or denied).
     const linkedReasonId = GOAL_REASON_ID[picked.goal];
     const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;
     return (

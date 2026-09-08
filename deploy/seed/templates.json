@@ -267,25 +267,6 @@
       ]
     },
     {
-      "name": "wrn_safety_notice",
-      "deferral": "priority",
-      "title": "تحذير سلامة",
-      "cls": "warning",
-      "category": "UTILITY",
-      "header": "تنبيه",
-      "tones": {
-        "warm": "مرحباً {{1}}، من {{2}}: {{3}}. يخص {{4}}، ونحب نطمّنك. {{5}} 🎁",
-        "feminine": "مرحباً {{1}}، من {{2}}: {{3}}. يخص {{4}}، ونحب نطمّنك. {{5}} 🎁"
-      },
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "catalogue",
-        "invite"
-      ]
-    },
-    {
       "name": "mkt_offer",
       "deferral": "defer",
       "title": "عرض أو خصم",

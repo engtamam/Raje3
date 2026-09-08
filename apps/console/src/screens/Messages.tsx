@@ -68,6 +68,11 @@ const GOAL_TITLE: Record<string, string> = {
   // fell back to `c.goal` (the raw English key) in the list below until this was caught live
   // against campaigns.goals: an owner would have read "seasonal_care" instead of its own title.
   seasonal_care: 'نصيحة موسمية',
+  // KEPT DELIBERATELY — `safety` was removed from `CARDS`/`GOAL_TEMPLATE` (goals.py) whole, so
+  // no NEW campaign can ever carry this goal again, but a shop that already launched one before
+  // the removal still has that row in its own history here. Without this entry that OLD row
+  // would fall back to the raw key ("safety") instead of a real title — a real record made to
+  // look broken by a feature removal it had nothing to do with.
   safety: 'نبّه عن خطر',
 };
 
@@ -141,9 +146,9 @@ interface ReasonRow {
  *  KEYED BY REASON ID, matched by hand against GOAL_TEMPLATE (campaigns/app/core/models.py) —
  *  not derived, because a shared `template_type` alone is not enough: `mkt_loyalty_activation`
  *  backs TWO reasons (`reward_within_reach` and `loyal_customer`) and only one of them is the
- *  same occasion «حملاتي»'s own `reward_loyal` goal describes. Three goals have no automatic
- *  counterpart at all yet (`announce`, `service_offer`/`package_offer`, `awareness`,
- *  `seasonal_care`, `safety`) — absent here on purpose, not an oversight. */
+ *  same occasion «حملاتي»'s own `reward_loyal` goal describes. The remaining goals have no
+ *  automatic counterpart at all yet (`announce`, `service_offer`/`package_offer`, `awareness`,
+ *  `seasonal_care`) — absent here on purpose, not an oversight. */
 const REASON_GOAL: Record<string, { goal: string; title: string }> = {
   gone_missing: { goal: 'win_back', title: 'رجّع اللي غابوا' },
   personal_occasion: { goal: 'occasion', title: 'هنّئ في مناسبة' },

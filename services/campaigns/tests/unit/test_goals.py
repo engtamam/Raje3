@@ -121,16 +121,15 @@ def test_a_goal_resolves_to_everything_the_system_needs():
 
 def test_a_goals_class_is_a_fact_about_the_message_not_a_choice():
     """THE CLASS IS NEVER THE OWNER'S, and this used to read «awareness is the only non-marketing
-    goal» — which was a count, not a rule. A count breaks the day the product grows, and it did:
-    a shop that discovers a defective batch has to be able to warn the people using it, and that
-    message is neither an offer nor a tip. It reaches customers who opted OUT of offers, because
-    it is not one — filing it as marketing would silence it for exactly the people most likely to
-    be hurt.
+    goal» — which was a count, not a rule. A count breaks the day the product grows: `safety`
+    (removed — a shop that discovers a defective batch has no automatic goal to reach them
+    through today) reached customers who opted OUT of offers under its own `warning` class,
+    precisely because it was not one — filing it as marketing would have silenced it for exactly
+    the people most likely to be hurt.
 
     What must never change is that the class comes from the GOAL, so no campaign can dress itself
     as something it is not."""
     assert resolve_goal("awareness")["cls"] == "awareness"
-    assert resolve_goal("safety")["cls"] == "warning"
     assert resolve_goal("win_back")["cls"] == "marketing"
     # AND EVERY GOAL HAS ONE, whatever it is. A goal with no class would be a message with no rule.
     assert all(resolve_goal(goal)["cls"] for goal in CARDS)

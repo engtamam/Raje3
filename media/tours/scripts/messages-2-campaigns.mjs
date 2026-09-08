@@ -2,7 +2,7 @@
  * «رسائلي» — MERGED 2 OF 2: «حملاتي» in full. Was three separate clips
  * (messages-3-campaigns, messages-4-campaign-anatomy, messages-5-campaign-strategy — each its
  * own recording/verification pass); merged into one continuous journey per the same decision
- * already made for تسجيل الزيارة and خدماتي ومنتجاتي: what «حملاتي» is → all eight real goals and
+ * already made for تسجيل الزيارة and خدماتي ومنتجاتي: what «حملاتي» is → all seven real goals and
  * each one's actual audience → the four questions worth asking before you ever press launch —
  * one story, not three disconnected beats. The three original files are deleted; every real fact
  * and selector below is carried over from them unchanged, only the voice and the connective
@@ -12,7 +12,7 @@
  * a single selector — this project's own standing rule.
  *
  * A REAL, LIVE CONSTRAINT THIS SCRIPT IS BUILT AROUND, CONFIRMED NOT ASSUMED: a direct read of
- * `campaigns.goals` on this demo tenant, right before writing this file, showed all EIGHT goals
+ * `campaigns.goals` on this demo tenant, right before writing this file, showed all SEVEN goals
  * with `available: false` — "قوالب … ما زالت قيد مراجعة واتساب — سترسل تلقائياً عند اعتمادها."
  * Every goal card is genuinely disabled right now (Launch.tsx: `disabled={g.available === false}`),
  * so no real launch can be performed or verified today. That is not a demo-account defect to work
@@ -21,8 +21,9 @@
  * HERE EVER CLICKS A LOCKED CARD OR PRESSES A REAL LAUNCH — every goal walkthrough below uses
  * `hover`, never `click`, on the goal cards themselves.
  *
- * THE EIGHT GOALS (not six — `seasonal_care` and `safety` are real, current goals; a real gap this
- * project's own earlier pass fixed in Messages.tsx's GOAL_TITLE map, in its own commit).
+ * THE SEVEN GOALS (not six — `seasonal_care` is a real, current goal; a real gap this
+ * project's own earlier pass fixed in Messages.tsx's GOAL_TITLE map, in its own commit. `safety`
+ * existed at that pass and was removed later — deleted whole, at the owner's own instruction.)
  *
  * WHY THE AUDIENCE RULES ARE SAID IN WORDS, NOT DEMONSTRATED WITH A LIVE PREVIEW: `ask()` (the
  * "اعرض ما سيصل" button) only ever renders once a goal is `picked`, and every card is disabled —
@@ -32,12 +33,12 @@
  */
 export default {
   id: 'messages-2-campaigns',
-  title: 'حملاتي — ثمانية أهداف تسويقية جاهزة، تختار متى تُطلقها',
+  title: 'حملاتي — سبعة أهداف تسويقية جاهزة، تختار متى تُطلقها',
   section: 'رسائلي',
   useDemoSession: true,
   sfx: true, // real clicks (tabs, launch button) — earns a click sound
   preload: true,
-  // Dense clip: 8 goals walked one by one plus a 4-question strategy pass, ~75 steps of mostly
+  // Dense clip: 7 goals walked one by one plus a 4-question strategy pass, ~75 steps of mostly
   // short hovers — the 180s default cap isn't enough room; same reasoning services-1-overview's
   // own secondsCap comment already gives for its own longer walkthrough.
   secondsCap: 300,
@@ -59,7 +60,7 @@ export default {
     },
     {
       click: 'role=button:أطلق حملة',
-      say: 'اضغط «أطلق حملة» — ثمانية أهداف تسويقية جاهزة',
+      say: 'اضغط «أطلق حملة» — سبعة أهداف تسويقية جاهزة',
     },
     {
       say: 'بانتظارك',
@@ -138,15 +139,15 @@ export default {
       say: 'تصله مرة واحدة، ثم تُقفَل تلقائياً شهراً كاملاً',
     },
     {
-      chapter: 'وهدفان إضافيان لكل احتياج',
+      chapter: 'وهدف إضافي لكل احتياج',
       hover: 'role=button:نصيحة موسمية',
-      say: 'و«نصيحة موسمية» و«نبّه عن خطر»',
+      say: 'و«نصيحة موسمية»',
     },
     {
       say: 'نفس الذكاء بتوقيت مختلف',
     },
     {
-      say: 'لمناسبة الموسم، أو لاستدعاء عيب حقيقي بخدمة',
+      say: 'لمناسبة الموسم كله، لا لعميل بعينه',
     },
     {
       hover: 'role=button:عرض على خدمة',

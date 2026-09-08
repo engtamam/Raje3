@@ -44,12 +44,6 @@ GOAL_TEMPLATE = {
     "occasion": ("mkt_personal_occasion", "marketing"),
     "awareness": ("awr_care_tip", "awareness"),
     "seasonal_care": ("awr_seasonal_care", "awareness"),
-    # NOT MARKETING, AND THE CLASS IS THE WHOLE REASON THIS IS SEPARATE FROM `announce`. A hazard
-    # notice reaches people who never consented to offers, because it is not an offer — it is the
-    # shop telling somebody that a thing they are using may hurt them. Filing it as marketing
-    # would silence it for exactly the customers most likely to be affected: the ones who opted
-    # out of being sold to.
-    "safety": ("wrn_safety_notice", "warning"),
     # AN OFFER ON ONE SERVICE — and it sends the OFFER template, not the announcement.
     #
     # It borrowed «جديد في {{2}}: {{3}}» for as long as it existed, so a discount reached the
