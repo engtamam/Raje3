@@ -12,7 +12,7 @@
  * THE TAB ITSELF IS NOT PERSISTED — a fresh sign-in (or a reload) always opens on «الرئيسية»,
  * the one screen every role needs first, rather than resuming wherever he last tapped away from.
  *
- * TWO LAYOUTS, ONE MARKUP, PICKED BY CSS (2026-08-22): below `md` this column is content-then-
+ * TWO LAYOUTS, ONE MARKUP, PICKED BY CSS: below `md` this column is content-then-
  * bottom-bar (`flex-col`); at `md` and up it becomes sidebar-then-content (`md:flex-row`), and the
  * RTL document flips a row's visual order on its own — so the sidebar, placed FIRST here, lands on
  * the start (right) edge exactly where the shop console's own `AppShell` puts its rail. See

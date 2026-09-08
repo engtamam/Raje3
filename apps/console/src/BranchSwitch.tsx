@@ -66,7 +66,7 @@ export function BranchSwitch({
 
   const list: ScopeBranch[] = isReady(branches) ? branches : [];
 
-  /* ── ADDING ONE FROM HERE, WHICH IS TAMAM'S DECISION AND THE RIGHT ONE ──────────────────────
+  /* ── ADDING ONE FROM HERE, ANSWERING THE QUESTION THIS FEATURE STARTED FROM ─────────────────
      «هل ممكن نخلي انشاء الفروع من المبدل نفسه، يضغط وينشئ فرع لو عنده الصلاحية؟»
 
      The moment a person wants a second branch is the moment he is looking at this control and

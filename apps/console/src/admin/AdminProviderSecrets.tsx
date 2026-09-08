@@ -25,6 +25,7 @@ import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
+import { TabBar } from '../rj-ui/TabBar';
 import { Modal } from '../rj-ui/Modal';
 import { BlockView, type Block } from '@base-ui/components/BlockRenderer';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
@@ -101,8 +102,8 @@ const PROVIDER_OF: Record<string, string> = {
   PAYMENT_PUBLISHABLE_KEY: 'payment',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
-  // الاسم التقني الدقيق كما هو — هذي لوحة إدارة داخلية (تمام وفريقه)، لا شاشة يقرأها صاحب محل،
-  // فلا حاجة لتلطيف الاسم أو تبسيطه (قرار 2026-09-07، يلغي التسمية الأطول السابقة).
+  // الاسم التقني الدقيق كما هو — هذي لوحة إدارة داخلية (لفريق المنصة)، لا شاشة يقرأها صاحب محل،
+  // فلا حاجة لتلطيف الاسم أو تبسيطه (قرار يلغي التسمية الأطول السابقة).
   meta: { label: 'Meta', icon: MessageCircle },
   // "الذكاء الاصطناعي" عام عمداً الآن — بس فيه فئة واحدة اليوم فقط. لو انضاف ذكاء اصطناعي ثانٍ
   // لغرض مختلف مستقبلاً (خدمة عملاء المنصة مثلاً)، هذا الاسم يحتاج توضيحاً وقتها (مثلاً "ذكاء
@@ -237,17 +238,27 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
           />
           {active === 'assistant_ai' ? (
             <div className="flex flex-col gap-4">
-              {/* المسار — واحد فقط اليوم، لكن ظاهر ومُختار من الآن. مسار ثانٍ مستقبلاً (محرّك ذكاء
-                 ثانٍ، أو خدمة عملاء المنصة) يضاف هنا بلا إعادة تصميم — انظر تعليق `AI_PATHS` أعلاه.
-                 `size="sm"` — NESTED under the provider row above, so it reads as a sub-choice,
-                 not a second copy of the same control (see Segmented's own module docstring). */}
-              <div className="flex flex-col gap-1">
-                <span className="text-label font-medium text-text-secondary">المسار</span>
-                <Segmented size="sm" value={aiPath} onChange={setAiPath}
-                          options={AI_PATHS.map((p) => ({ value: p.value, label: p.label }))} />
-              </div>
-              <Segmented size="sm" value={aiTab} onChange={(v) => setAiTab(v as 'admin' | 'calc')}
-                        options={[{ value: 'admin', label: 'الإدارة' }, { value: 'calc', label: 'المحاسبة' }]} />
+              {/* المسار — واحد فقط اليوم. شريطان مُقسَّمان (Segmented) فوق بعض بلا شي بينهما
+                 "مسطرة تحت مسطرة" — نفس القاعدة اللي بنت عليها `TabBar` (rj-ui/TabBar.tsx's own
+                 docstring) و`ci/check_no_two_tab_strips_stack_in_one_view.py`. لا داعي لعنصر
+                 تحكّم كامل لخيار واحد إجباري أصلاً — يظهر اسم المسار كنص عادي، ويتحوّل إلى عنصر
+                 اختيار حقيقي (مثلاً قائمة منسدلة، لا Segmented ثانٍ) فقط يوم ينضاف مسار ثانٍ
+                 فعلياً. */}
+              {AI_PATHS.length > 1 ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-label font-medium text-text-secondary">المسار</span>
+                  <Segmented size="sm" value={aiPath} onChange={setAiPath}
+                            options={AI_PATHS.map((p) => ({ value: p.value, label: p.label }))} />
+                </div>
+              ) : (
+                <p className="text-label text-text-secondary">
+                  المسار: <span className="font-medium text-text-primary">{AI_PATHS[0].label}</span>
+                </p>
+              )}
+              {/* الإدارة/المحاسبة — قسمان حقيقيان من نفس الشاشة، لا فلتر: شريط تبويب حقيقي
+                 (`TabBar`) بدل Segmented ثانٍ تحت شريط المزوّدين أعلاه. */}
+              <TabBar value={aiTab} onChange={(v) => setAiTab(v)}
+                     options={[{ value: 'admin', label: 'الإدارة' }, { value: 'calc', label: 'المحاسبة' }]} />
               {aiTab === 'admin' ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <SecretsCard providerLabel="الذكاء الاصطناعي" rows={activeRows} session={session}
@@ -483,6 +494,10 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const [pending, setPending] = useState<PendingChange[] | 'loading' | 'failed'>('loading');
   const [days, setDays] = useState(30);
 
+  // ── مصدر عدد الرسائل الشهري للتوقع — حقيقي (report.calls) أو يدوي، قبل وجود استهلاك فعلي.
+  const [monthlySource, setMonthlySource] = useState<'real' | 'manual'>('real');
+  const [manualMonthlyCalls, setManualMonthlyCalls] = useState('1000');
+
   // ── الأسعار المرجعية (جوجل) — بالريال مباشرة، لا عملة ثانية بالنظام أصلاً. ندخلها نحن يدوياً
   // ونحدّثها وقت ما تتغيّر (جوجل ما توفر API لأسعارها) — مين يحدّثها يحوّلها بنفسه وقتها. الوحدة
   // قابلة للتبديل (لكل 1000 / لكل مليون) لراحة المقارنة مع صفحة تسعير جوجل نفسها.
@@ -551,9 +566,14 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const marginPercent = m > 0 ? (1 - 1 / m) * 100 : 0;
 
   // ── التوقع الشهري — يستخدم الاستهلاك الحقيقي (report.calls) مُقاساً لشهر كامل، بغض النظر عن
-  // نافذة القراءة الفعلية (`days`) — لا يفترض حجماً، يمدّد الحجم المُلاحَظ فعلياً. ─────────────────
+  // نافذة القراءة الفعلية (`days`) — لا يفترض حجماً، يمدّد الحجم المُلاحَظ فعلياً. قبل أي استهلاك
+  // حقيقي (لا محل بعد يستخدم البوت فعلياً) الرقم صفر بصدق — «يدوي» يعطي رقماً مفترَضاً بدل
+  // انتظار بيانات لا وجود لها بعد، مفصول تماماً عن مصدر متوسط التوكنات (tokenSource) أعلاه — هذا
+  // عدد الرسائل، ذاك متوسط توكناتها، سؤالان مختلفان.
   const monthlyScale = hasReport && report.days > 0 ? 30 / report.days : 0;
-  const monthlyCalls = hasReport ? Math.round(report.calls * monthlyScale) : 0;
+  const monthlyCalls = monthlySource === 'manual'
+    ? Number(manualMonthlyCalls) || 0
+    : hasReport ? Math.round(report.calls * monthlyScale) : 0;
   const monthlyRevenueSar = (monthlyCalls * suggestedHalalas) / 100;
   const monthlyGoogleCostSar = monthlyCalls * costPerCallSar;
 
@@ -667,11 +687,24 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         </div>
 
         <div className="rounded-card border border-dashed border-border-subtle p-3">
-          <p className="text-label font-medium text-text-secondary">
-            توقع شهري (على استهلاك حقيقي، مُمدَّد لشهر كامل)
-          </p>
-          {hasReport ? (
-            <div className="mt-1 flex flex-col gap-1 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-label font-medium text-text-secondary">
+              {monthlySource === 'manual' ? 'توقع شهري (على عدد رسائل تفترضه)'
+                                          : 'توقع شهري (على استهلاك حقيقي، مُمدَّد لشهر كامل)'}
+            </p>
+            {/* لا محل بعد يستخدم البوت فعلياً يعني «حقيقي» يعطي صفراً صادقاً — «يدوي» يفترض
+               عدداً بدل انتظار بيانات لا وجود لها بعد، لتجربة الحاسبة نفسها. */}
+            <Segmented size="sm" value={monthlySource} onChange={(v) => setMonthlySource(v as 'real' | 'manual')}
+                      options={[{ value: 'real', label: 'حقيقي' }, { value: 'manual', label: 'يدوي' }]} />
+          </div>
+          {monthlySource === 'manual' ? (
+            <Field label="عدد الرسائل المفترض شهرياً" htmlFor="calc-manual-monthly-calls" className="mt-2 max-w-[10rem]">
+              <Input id="calc-manual-monthly-calls" dir="ltr" type="number" min={0} value={manualMonthlyCalls}
+                    onChange={(e) => setManualMonthlyCalls(e.target.value)} />
+            </Field>
+          ) : null}
+          {monthlySource === 'manual' || hasReport ? (
+            <div className="mt-2 flex flex-col gap-1 text-sm">
               <p>عدد الرسائل المتوقع: <span className="font-semibold tabular-nums">{monthlyCalls.toLocaleString('en-US')}</span></p>
               <p>الإيراد المتوقع: <span className="font-semibold tabular-nums">{monthlyRevenueSar.toFixed(0)} ﷼</span></p>
               <p>تكلفة جوجل الحقيقية المتوقعة: <span className="font-semibold tabular-nums">{monthlyGoogleCostSar.toFixed(0)} ﷼</span></p>
@@ -684,7 +717,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
               </p>
             </div>
           ) : (
-            <p className="mt-1 text-sm text-text-secondary">بانتظار الاستهلاك الحقيقي…</p>
+            <p className="mt-2 text-sm text-text-secondary">بانتظار الاستهلاك الحقيقي…</p>
           )}
         </div>
 

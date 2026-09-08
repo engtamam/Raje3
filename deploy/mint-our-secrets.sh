@@ -28,7 +28,7 @@
 #  not lock a table in another. pre-deploy.sh creates them.
 #
 #  EXCEPT TWO, WHICH NEVER GET THAT TREATMENT. affiliate-service and portal are genuinely new
-#  services (2026-08-20) that gen-secrets.py's own schema already covers end to end, database
+#  services that gen-secrets.py's own schema already covers end to end, database
 #  included — both were deliberately put on the platform's shared `base_services` database rather
 #  than a same-named one of their own, and gen-secrets.py's dsn_for() already sets that correctly
 #  the first time either secret is minted. This script used to put them through the same

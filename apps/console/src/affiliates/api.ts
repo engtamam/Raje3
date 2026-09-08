@@ -496,7 +496,7 @@ export interface TeamMember {
   id: string; name: string; status: string; confirmed_halalas: number; pending_halalas: number;
   commission_count: number; shops: number; total_net_revenue_minor: number; revenue_partial: boolean;
   // `GET /me/team` merges the SAME `performance_for()` dict `/me/wafa-eligibility` returns for
-  // the manager himself — sent all along, just never typed or rendered until now (2026-08-23).
+  // the manager himself — sent all along, just never typed or rendered until now.
   active_shops?: number; retention_rate?: number; refund_rate?: number; support_kpis?: SupportKpis;
   total_referrals?: number; total_commissions?: number;
 }

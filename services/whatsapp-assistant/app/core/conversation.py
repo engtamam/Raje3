@@ -122,8 +122,8 @@ _TRIAGE_PROMPT_BY_CHOICE = {
 # runs — see handle_inbound_text), and a central shop with 0 or 1 open branches has nothing to
 # ask about. This is the SAME structural gate shape as the triage list above (fixed rows, a
 # dedicated state, `reply_id` the only way out, free text re-sent the list) for the same reason:
-# the branch determines the schedule this customer is quoted (design point restated in Tamam's own
-# framing — "المهم عشان تحديد الفرع بيحدد الجدول"), so it must never be guessed from free text.
+# the branch determines the schedule this customer is quoted (design point restated in the owner's
+# own framing — "المهم عشان تحديد الفرع بيحدد الجدول"), so it must never be guessed from free text.
 _BRANCH_PROMPT = "أي فرع يناسبك؟"
 _BRANCH_LIST_BUTTON_TEXT = "اختر الفرع"
 _BRANCH_REPLY_PREFIX = "branch:"
@@ -231,7 +231,7 @@ def build_system_prompt(shop_name: str, owner_notes: str = "") -> str:
     # customer names someone). The tool layer never exposes a way to honour a preference for an
     # `auto` service in the first place — check_availability/propose_booking take no operator
     # argument — so this instruction changes tone, never behaviour the code doesn't already
-    # enforce. Decided (2026-09-08): a shop that set a service to "تلقائي" chose to spread bookings
+    # enforce. Decided: a shop that set a service to "تلقائي" chose to spread bookings
     # evenly across its team; a free-text preference must not quietly override that, but refusing
     # flatly reads as the shop not caring who serves the customer, which is the opposite message.
     staff_preference = (

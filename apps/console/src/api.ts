@@ -81,7 +81,7 @@ export function sentenceFor(e: unknown, fallback: string): string {
   return fallback;
 }
 
-// A REQUEST MUST NOT HANG FOREVER. Confirmed live under real concurrent load (2026-08-27 load
+// A REQUEST MUST NOT HANG FOREVER. Confirmed live under real concurrent load (load
 // test): a request that never gets a reply — not rejected, not slow, just gone — leaves whichever
 // screen made it sitting on its own "يُحمَّل…" skeleton indefinitely; the screen's own retry UI
 // («تعذّر القراءة», a real button) never even appears, because nothing ever tells the screen the

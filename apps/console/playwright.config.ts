@@ -11,7 +11,7 @@
  * /api to the tunnel (see vite.config.ts), so the browser stays on one origin and the production
  * CORS list is not widened for a laptop. Open the tunnel first:
  *
- *   ssh -N -p 2224 -L 127.0.0.1:8090:127.0.0.1:30080 tamam@127.0.0.1
+ *   ssh -N -p 2224 -L 127.0.0.1:8090:127.0.0.1:30080 <your-ssh-user>@127.0.0.1
  *
  * ONE WORKER, and it is not about speed. The pass opens a shop and then works inside it; two
  * running at once would be two shops racing through the same phone-number space, and the failure

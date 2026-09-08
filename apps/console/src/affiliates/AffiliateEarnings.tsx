@@ -1,5 +1,5 @@
 /**
- * «أرباحي» (2026-08-22) — the fifth and final screen, built on this session's own research into
+ * «أرباحي» — the fifth and final screen, built on this session's own research into
  * gig-app earnings screens (Uber Driver/DoorDash/Instacart: one hero number, a reconciling
  * breakdown, a docked cash-out CTA, a terse transaction list with detail-on-tap) plus a full
  * backend inventory of `core/payouts.py` + `core/wafa.py`'s self-service routes.

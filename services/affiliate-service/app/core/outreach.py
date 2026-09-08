@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — the outbound conversion playbook (2026-08-22)
+# affiliate-service — the outbound conversion playbook
 # -----------------------------------------------------------------------------
 # A FINER axis than Lead.status. Every lead already carries a coarse triage state
 # (new/assigned/contacted/interested/...); this is the sales-specific funnel a promoter actually

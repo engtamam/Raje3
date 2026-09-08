@@ -4,7 +4,7 @@
  * down, two layouts/one markup picked by CSS) — see that file's own header note for the full
  * reasoning.
  *
- * THE TAB LIVES IN THE URL NOW (2026-09-07) — this used to be a bare `useState`, with a comment
+ * THE TAB LIVES IN THE URL NOW — this used to be a bare `useState`, with a comment
  * saying "بلا موجّه (router) بهذا التطبيق أصلاً" as if that were still true; it stopped being true
  * the day `main.tsx` put `AdminPortal` under `RouterProvider` at `/*` for the legal route. A tab
  * only living in memory meant a refresh always landed back on "الرئيسية" no matter where the

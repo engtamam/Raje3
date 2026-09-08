@@ -346,7 +346,7 @@ function AppCard({
   onSwitch?: () => void;
   switchLabel?: string;
   switching?: boolean;
-  /** OWNED CARDS ONLY (2026-08-22 — «كل تطبيق له إدارة اشتراكه الخاص»). One shape, two callers:
+  /** OWNED CARDS ONLY («كل تطبيق له إدارة اشتراكه الخاص»). One shape, two callers:
    *  an app cancels itself immediately; the base opens the confirmation dialog (which also
    *  cancels every app with it) — the card only ever triggers whichever its caller gave it. */
   onCancel?: () => void;

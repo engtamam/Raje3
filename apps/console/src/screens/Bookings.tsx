@@ -245,7 +245,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [filterServices, setFilterServices] = useState<string[]>([]);   // [] = every service
   const [filterPayment, setFilterPayment] = useState<'any' | PaymentStatus>('any');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // البحث بالبادئة — عاد بعد إصدار المنصة v0.16.24 (2026-08-19)، الذي حمل المسار الداخلي
+  // البحث بالبادئة — عاد بعد إصدار المنصة v0.16.24، الذي حمل المسار الداخلي
   // /internal/search/suggest الذي كان ناقصاً منذ يوم بُنيت هذه الميزة.
   const [phoneQuery, setPhoneQuery] = useState('');
   const [phoneMatches, setPhoneMatches] = useState<CustomerHit[] | null>([]);

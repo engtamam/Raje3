@@ -301,7 +301,7 @@ def _from_row(row: dict[str, Any]) -> Booking:
     if "service_ids" in row and row["service_ids"] is not None:
         row["service_ids"] = tuple(row["service_ids"])
     row.pop("bucket", None)
-    # DROPPED, NOT MIGRATED (2026-09-08) — `series_id`/`series_seq` were dead fields: written on
+    # DROPPED, NOT MIGRATED — `series_id`/`series_seq` were dead fields: written on
     # every row (dataclass defaults, both always None) but read by nothing, ever — `for_series`,
     # the one method that would have used them, had no caller anywhere in this codebase. Every
     # existing row on disk still carries both keys (both None), so they must still be POPPED here
@@ -309,7 +309,7 @@ def _from_row(row: dict[str, Any]) -> Booking:
     # on the very first read of a row written before this change.
     row.pop("series_id", None)
     row.pop("series_seq", None)
-    # MIGRATED, NOT DROPPED (2026-08-19) — `deposit_taken: bool` became `payment_status: str`
+    # MIGRATED, NOT DROPPED — `deposit_taken: bool` became `payment_status: str`
     # (§ "بدون عربون بعربون او مدفوع"). Every row already on disk still carries the old key; read
     # it once here rather than requiring a backfill job before this deploy is safe to roll out.
     if "deposit_taken" in row:

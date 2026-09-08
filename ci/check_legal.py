@@ -46,7 +46,7 @@ PACK = ROOT / "platform" / "services" / "compliance-service" / "app" / "data" / 
 # Which of our files fills which template in the pack.
 DOCS = {
     # terms.yaml is RETIRED, same move as privacy-policy.yaml below — terms.md is now the sole
-    # source (2026-09-06); see the modes/gates_of loop for where its own marker is read instead.
+    # source; see the modes/gates_of loop for where its own marker is read instead.
     "affiliate-agreement.yaml": "",  # ours entirely — gates a different engagement (see rule 3)
     "affiliate-privacy-policy.yaml": "",  # ours entirely — public disclosure, no PDPL template fills it
     "processor-dpa.yaml": "doc14_processor_dpa.yaml",
@@ -177,7 +177,7 @@ if pp_md.exists():
     gates_of["privacy-policy.md"] = "shop"
 else:
     problems.append("privacy-policy.md is missing — nothing publishes the privacy policy")
-# terms.yaml is gone the same way (2026-09-06) — same reasoning, same read, so it still counts
+# terms.yaml is gone the same way — same reasoning, same read, so it still counts
 # toward "every document declares a mode" and "exactly one accept per engagement" below.
 terms_md = OURS / "terms.md"
 if terms_md.exists():

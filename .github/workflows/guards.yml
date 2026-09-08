@@ -1073,12 +1073,17 @@ jobs:
       - name: every feature key is both sold and enforced
         run: python3 ci/check_entitlements.py
 
-      # A DIFFERENT PROMISE FROM THE ONE ABOVE, found live the same day (2026-09-08): two apps
+      # A DIFFERENT PROMISE FROM THE ONE ABOVE, found live the same day as the one above it: two apps
       # (rating, the WhatsApp bot) were flipped `listed: true` — priced, sold, fully built and
       # enforced — and still invisible to every shop and every admin, because a plan flip and its
       # display row in apps.py's APPS tuple are two halves of one change that nothing compared.
       - name: every listed, sellable app has a display row
         run: python3 ci/check_listed_apps_are_wired.py
+
+      # A comment explains WHY, never WHO asked or WHEN — the reasoning stays true after the
+      # person leaves or the date passes; a byline does not. See the gate's own docstring.
+      - name: no comment names the owner or carries an authorship-timestamp-shaped date
+        run: python3 ci/check_no_name_or_date_in_comments.py
 
       # The price list is a BASE plus APPS, and entitlements MERGE across every live subscription:
       # numbers SUM. So two rows carrying -1 for one key make it -2, and an app repeating

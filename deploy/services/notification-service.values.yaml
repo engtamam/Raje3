@@ -96,7 +96,7 @@ env:
                                 # first thing a new owner touches (spec 16.5 signup).
   SMS_CHAIN: "console"          # unifonic and taqnyat are both built in — Saudi providers, ready
                                 # when we have an account.
-  # DECISION (2026-09-04, made final in v0.18.23): we send through META DIRECTLY, never a BSP.
+  # DECISION (made final in v0.18.23): we send through META DIRECTLY, never a BSP.
   # 360dialog — the driver, its config, its cost-tracking, and the send-time wallet gate that
   # existed only to bill it — is REMOVED from the platform as of v0.18.23, not paused. There is
   # nothing left to flip a decision away from; `WHATSAPP_360DIALOG_BASE_URL` and

@@ -1,5 +1,5 @@
 /**
- * The affiliate portal's real home screen (2026-08-22) — replaces the earlier placeholder now
+ * The affiliate portal's real home screen — replaces the earlier placeholder now
  * that the backend actually has something to show: `GET /me/home` (affiliate_self.py::home)
  * assembles everything below from six-to-eight routes into one call, server-side, so this screen
  * makes exactly ONE request rather than fanning them out itself.

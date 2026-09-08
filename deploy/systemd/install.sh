@@ -18,7 +18,7 @@ C_G=$'\e[32m'; C_D=$'\e[2m'; C_N=$'\e[0m'
 # THE UNITS NAME AN ABSOLUTE PATH, so a repo checked out somewhere else needs them rewritten rather
 # than copied. Doing that here beats a README line that says "edit the file first".
 for unit in raje3-up.service raje3-gateway-forward.service; do
-  sed "s#/home/tamam/raje3#$ROOT#g" "$HERE/$unit" > "/etc/systemd/system/$unit"
+  sed "s#/home/deploy/raje3#$ROOT#g" "$HERE/$unit" > "/etc/systemd/system/$unit"
 done
 chmod +x "$HERE/on-boot.sh"
 

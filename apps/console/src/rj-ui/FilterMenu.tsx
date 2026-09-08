@@ -1,5 +1,5 @@
 /**
- * FilterMenu — the first component in Raje3's own library (2026-08-22), replacing the pattern
+ * FilterMenu — the first component in Raje3's own library, replacing the pattern
  * every screen currently hand-rolls (see Bookings.tsx's inline filter panel): a trigger with an
  * active-count badge, a dropdown of choices, and a way to clear them. The version already in the
  * product only ever DISPLAYS the current filter — there is no way to remove one selection without

@@ -127,7 +127,7 @@ async def test_options_unknown_dimension_is_empty():
     assert await backend.options(tenant=TENANT, dimension="party_size", chosen={}) == []
 
 
-# ── options(dimension="reward") — loyalty-in-booking (2026-09-08) ──────────────────────────────
+# ── options(dimension="reward") — loyalty-in-booking ────────────────────────────────────────────
 
 async def test_options_reward_skips_when_peers_are_not_wired():
     """The default, unconfigured state — never a crash, never a fake offer."""

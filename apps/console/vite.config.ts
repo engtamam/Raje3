@@ -1,6 +1,6 @@
 // THE CONSOLE CONSUMES OUR OWN UI KIT AS SOURCE — one alias, no npm package, no build step
 // between. `ui/packages/ui/src` (repo root) is OURS: a copy taken from base-services' platform/ui
-// (2026-08-22, at their v0.16.29) the day we needed to edit it ourselves rather than ask their
+// (at their v0.16.29) the day we needed to edit it ourselves rather than ask their
 // team to carry our changes upstream. `platform/` stays read-only and untouched, same as every
 // backend service in it — this alias is the one exception that used to point there, and does not
 // any more.
@@ -57,8 +57,8 @@ export default defineConfig({
   // reach it. Proxying keeps the browser on one origin, so no preflight is involved at all and the
   // deployed configuration stays exactly as strict as it should be.
   //
-  // `CLUSTER` is the tunnel: ssh -N -p 22 -L 127.0.0.1:8090:127.0.0.1:30080 tamam@13.53.200.173
-  // (found stale 2026-09-07 — the old line named a local port-forward alias, 127.0.0.1:2224, that
+  // `CLUSTER` is the tunnel: ssh -N -p 22 -L 127.0.0.1:8090:127.0.0.1:30080 <ssh-user>@13.53.200.173
+  // (found stale — the old line named a local port-forward alias, 127.0.0.1:2224, that
   // no longer resolves; the real host is the one ops-mcp's own config.toml connects to)
   //
   // 8090 AND 127.0.0.1, BOTH DELIBERATE. VirtualBox already publishes a forward on 127.0.0.1:8080,

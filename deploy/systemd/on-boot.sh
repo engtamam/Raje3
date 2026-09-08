@@ -16,7 +16,7 @@ set -uo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 NS="${NS:-base-services}"
-ROOT="${ROOT:-/home/tamam/raje3}"
+ROOT="${ROOT:-/home/deploy/raje3}"
 export PATH="$PATH:/usr/local/bin:/usr/bin"
 
 say(){ echo "raje3-up: $*"; }

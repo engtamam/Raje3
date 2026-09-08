@@ -67,7 +67,7 @@ APPS: tuple[dict[str, Any], ...] = (
              "على مدار الساعة وبلا انتظار، فيرفع مبيعاتك ويوفر وقت فريقك بدل ما يُستنزف بالردود."},
 )
 
-# BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY (2026-09-08): a plan's
+# BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's
 # `listed: true` flip in plans.json and this tuple's own row are TWO HALVES of one change, and
 # both `feature.rating` and `feature.whatsapp` had their plan flipped (priced, listed, sold —
 # `بوت خدمة العملاء الذكي` at 19900, `التقييم` at 9900) while this file kept the OLD comment

@@ -456,7 +456,7 @@ export function Visit() {
                 className="h-[clamp(3rem,7dvh,3.5rem)] w-full rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums shadow-sm placeholder:text-text-secondary"
               />
 
-              {/* FEEDBACK, NOT A GATE. It says «تمام» the moment the ten digits are right and
+              {/* FEEDBACK, NOT A GATE. It confirms the moment the ten digits are right and
                   counts what is missing before that — and it stops there: he can still move to
                   the services and come back, because the field is not always filled in the order
                   the screen lists it. The refusal belongs to «حفظ وإرسال», which is the moment a

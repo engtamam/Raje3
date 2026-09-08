@@ -162,7 +162,7 @@ class OnboardingService:
                 f"{self._authz}/internal/authz/tenants/{self._tenant}/bootstrap", method="POST",
                 internal=True,
                 body={"roles": [
-                    # `affiliates.self` (2026-08-22) — closes the gap this comment used to
+                    # `affiliates.self` — closes the gap this comment used to
                     # flag: neither role ever carried a real capability, so every affiliate
                     # token minted for this tenant held `caps: []` and every self-service route
                     # (once gated by app/api/authz.py::require_capability) would have refused

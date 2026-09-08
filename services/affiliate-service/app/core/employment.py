@@ -67,7 +67,7 @@ class EmploymentError(Exception):
 
 
 # Serialises `request()` per-affiliate — same fix, same reasoning as payouts.py's own
-# `_PAYOUT_LOCKS` (2026-09-07): two simultaneous requests could otherwise both pass the
+# `_PAYOUT_LOCKS`: two simultaneous requests could otherwise both pass the
 # "no open request" check and both create their own EMPLOYMENT_REQUESTED row.
 _EMPLOYMENT_LOCKS = "affiliate_employment_locks"
 _LOCK_TTL_SECONDS = 20

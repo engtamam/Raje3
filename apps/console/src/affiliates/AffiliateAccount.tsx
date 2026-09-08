@@ -1,5 +1,5 @@
 /**
- * «حسابي» (2026-08-22) — built out from the sign-out-only stub, on this session's own research
+ * «حسابي» — built out from the sign-out-only stub, on this session's own research
  * into gig/field-sales account screens (Uber Driver, DoorDash Dasher) plus a full backend
  * inventory of what affiliate-service actually supports.
  *

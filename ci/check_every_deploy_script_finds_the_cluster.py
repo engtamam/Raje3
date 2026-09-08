@@ -2,7 +2,7 @@
 """EVERY SCRIPT THAT TOUCHES THE CLUSTER ASKS THE SAME PLACE WHERE IT IS.
 
 WHAT HAPPENED. `deploy/` held thirty-two scripts and three different answers to «which machine?».
-`verify-fleet.sh` read `target.env`. `ship.sh` read it and then defaulted to `tamam@127.0.0.1:2224`
+`verify-fleet.sh` read `target.env`. `ship.sh` read it and then defaulted to `<ssh-user>@127.0.0.1:2224`
 if it said nothing. The eighteen `prove-*.sh` never read it and called the local `kubectl`. When
 the cluster moved to a real host, one of the three was updated — because nothing tied the other
 two to it, so there was nothing to notice.
@@ -24,7 +24,7 @@ THE RULE, AND IT HAS NO EXCEPTIONS TABLE.
   2. No script decides for itself which kubeconfig to use, and none names an ssh destination. Not
      as a default, not as a fallback, not in a `${VAR:-...}`. A default target is precisely how a
      script reaches confidently for a machine that does not exist — `ship.sh` and `registry.sh`
-     both carried `tamam@127.0.0.1`, an address that stopped meaning anything the day its tunnel
+     both carried `<ssh-user>@127.0.0.1`, an address that stopped meaning anything the day its tunnel
      was retired, and neither of them said so.
 
 WHY NOT «reads target.env somehow». Because that was the old state: three scripts all read it,
@@ -51,7 +51,7 @@ C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 NEEDS_CLUSTER = re.compile(r"(?<![-\w./])(kubectl|helm)(?![-\w])")
 
 # AN SSH DESTINATION, WHICH IS THE ONLY PLACE A HOST LITERAL DOES HARM. `127.0.0.1` inside a
-# probe URL or a listen address is a script talking to itself and is correct; `ssh … tamam@
+# probe URL or a listen address is a script talking to itself and is correct; `ssh … <ssh-user>@
 # 127.0.0.1` is a script talking to a tunnel that no longer exists. The scope is narrowed to
 # `ssh`/`scp` arguments rather than the pattern loosened to spare the innocent ones.
 A_DESTINATION = re.compile(
@@ -62,7 +62,7 @@ A_DESTINATION = re.compile(
     r"(?<![\w.@-])((?:[a-z_][\w.-]*@[\w.-]+)|\d{1,3}(?:\.\d{1,3}){3})(?![\w.-])",
     re.IGNORECASE)
 
-# AND THE FALLBACK THAT LOOKS LIKE CAUTION AND IS NOT: `REMOTE="${REMOTE:-tamam@127.0.0.1}"`.
+# AND THE FALLBACK THAT LOOKS LIKE CAUTION AND IS NOT: `REMOTE="${REMOTE:-<ssh-user>@127.0.0.1}"`.
 # A default here does not make the script more robust — it makes it unable to say «I was not
 # told where to go», which is the one thing it needed to say.
 A_DEFAULT_HOST = re.compile(
@@ -81,7 +81,7 @@ QUOTED = re.compile(r'"[^"]*"|\'[^\']*\'', re.DOTALL)
 
 # A LINE THAT SPEAKS RATHER THAN ACTS. Quote-stripping is right for the whole-file question («does
 # anything here CALL kubectl?») and wrong for the per-line ones, because
-# `SSH="${SSH:-ssh -p 2224 tamam@127.0.0.1}"` is entirely inside quotes and is exactly the defect.
+# `SSH="${SSH:-ssh -p 2224 <ssh-user>@127.0.0.1}"` is entirely inside quotes and is exactly the defect.
 # So the per-line rules read the raw line and skip only the lines whose verb is speech.
 PROSE = re.compile(r"^\s*(echo|printf|warn|ok|die|say|red|note|hint|step|phase)\b")
 

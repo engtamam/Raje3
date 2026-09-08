@@ -40,7 +40,7 @@ APPLICATION_STATUSES = (PENDING, APPROVED, REJECTED)
 MANAGER = "affiliate_manager"
 PROMOTER = "affiliate_promoter"
 
-#: THE ONE CAPABILITY EVERY SIGNED-IN AFFILIATE HOLDS (2026-08-22) — same shape as
+#: THE ONE CAPABILITY EVERY SIGNED-IN AFFILIATE HOLDS — same shape as
 #: billing-service's own `billing.self`/compliance-service's `compliance.self`: not a role-
 #: specific grant, just "this is a real, approved affiliate acting on his own data", enforced by
 #: `app/api/authz.py::require_capability` on every self-service route. Every route's OWN
@@ -571,7 +571,7 @@ LEAD_STATUSES = (LEAD_NEW, LEAD_ASSIGNED, LEAD_CONTACTED, LEAD_INTERESTED, LEAD_
 #: actually linking a real referral.
 LEAD_MANUAL_STATUSES = (LEAD_CONTACTED, LEAD_INTERESTED, LEAD_NOT_INTERESTED, LEAD_FOLLOW_UP)
 
-# ── the outbound conversion playbook (2026-08-22) — a FINER axis than LEAD_STATUSES above.
+# ── the outbound conversion playbook — a FINER axis than LEAD_STATUSES above.
 # `status` is the coarse triage every lead gets regardless of channel; `outreach_stage_code` is
 # the sales-specific funnel a promoter actually walks — gatekeeper, hook, offer, follow-up,
 # onboarding, paid, plus a cold-revival and a post-conversion referral leg. Both live on the SAME
@@ -823,7 +823,7 @@ class Lead:
     #: Each: {"at": epoch, "by": affiliate_id, "text": str, "status_from": str, "status_to": str}.
     notes: list[dict[str, Any]] = field(default_factory=list)
     found_at: int = 0
-    #: THE FINER SALES FUNNEL (2026-08-22, see OUTREACH_STAGES's own note above) — blank until a
+    #: THE FINER SALES FUNNEL (see OUTREACH_STAGES's own note above) — blank until a
     #: promoter first touches this lead through the playbook. A DIFFERENT axis from `status`:
     #: changed only by TemplateUseService.set_outcome()'s explicit `new_stage_code`, never derived
     #: from `status` or from a template's own `stage_code`.

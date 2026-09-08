@@ -74,7 +74,7 @@ def tickets_env():
 
 def _token(**over) -> str:
     now = dt.datetime.now(dt.timezone.utc)
-    # Every real affiliate token carries `affiliates.self` (2026-08-22) — see
+    # Every real affiliate token carries `affiliates.self` — see
     # app/core/models.py's own note. `**over` still lets a caller pass `caps=[...]` to test a
     # missing-capability 403 specifically.
     claims = {"sub": "nobody", "iss": ISS, "aud": AUD, "caps": ["affiliates.self"],
@@ -194,7 +194,7 @@ def test_reply_to_a_ticket_not_found_is_a_clean_404():
     assert r.status_code == 404
 
 
-# ── /me/home's own open_tickets carousel feed (2026-08-23) ─────────────────────────────────────
+# ── /me/home's own open_tickets carousel feed ───────────────────────────────────────────────────
 
 def test_home_open_tickets_carries_open_ones_only_with_the_shops_name_attached():
     http = FakeTicketHttp({

@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — the outbound conversion playbook's own routes (2026-08-22)
+# affiliate-service — the outbound conversion playbook's own routes
 # -----------------------------------------------------------------------------
 # READS ARE OPEN TO ANY AFFILIATE — a promoter needs the stage list and the template library to
 # do his own job. WRITES TO THE SHARED LIBRARY (stages, templates) are manager-only, same data

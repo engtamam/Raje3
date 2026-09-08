@@ -101,7 +101,7 @@ class WafaError(Exception):
 
 
 # Serialises `request()` per-affiliate — same fix, same reasoning as payouts.py's own
-# `_PAYOUT_LOCKS` (2026-09-07).
+# `_PAYOUT_LOCKS`.
 _WAFA_LOCKS = "affiliate_wafa_locks"
 _LOCK_TTL_SECONDS = 20
 

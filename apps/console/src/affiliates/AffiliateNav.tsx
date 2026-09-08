@@ -1,5 +1,5 @@
 /**
- * The bottom nav — the FIRST shared shell the portal has had (2026-08-22). Home and Leads were
+ * The bottom nav — the FIRST shared shell the portal has had. Home and Leads were
  * both built as if they were the only screen; a second real screen means somewhere has to hold
  * "which one am I on" instead of `AffiliatePortal` hard-rendering one component.
  *
@@ -10,7 +10,7 @@
  * screen — the same honesty rule Home's own empty states follow, applied to navigation instead of
  * data.
  *
- * MOBILE GETS A BOTTOM BAR, NOT THE SHOP CONSOLE'S SIDEBAR (2026-08-22): a marketer works this app
+ * MOBILE GETS A BOTTOM BAR, NOT THE SHOP CONSOLE'S SIDEBAR: a marketer works this app
  * one-handed, walking between shops, and the thumb reaches the bottom edge of a phone — not a
  * hamburger in a corner. `platform/ui`'s shared `AppShell` collapses to an off-canvas DRAWER on
  * mobile (a hidden rail behind a hamburger), which is right for a shop owner sitting at a counter

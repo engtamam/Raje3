@@ -373,7 +373,7 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     branch_id = op.branch_id
     if body.branch_id is not None:
         # `None` STILL MEANS «LEAVE IT» — an owner renaming somebody has not asked to move him.
-        # An EXPLICIT VALUE MUST NOW BE A REAL BRANCH (2026-08-22): «كل الفروع» is no longer a
+        # An EXPLICIT VALUE MUST NOW BE A REAL BRANCH: «كل الفروع» is no longer a
         # state this route can put somebody back into, matching create's own rule. An id we do
         # not recognise is refused rather than silently resolved to «unassigned».
         try:

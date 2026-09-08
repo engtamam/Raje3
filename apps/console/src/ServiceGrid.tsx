@@ -1,7 +1,7 @@
 /**
  * The service grid — big buttons, in a FIXED order.
  *
- * REMOVED (2026-09-04): a usage-weighted/contextual reorder ("what this shop asks for most rises
+ * REMOVED: a usage-weighted/contextual reorder ("what this shop asks for most rises
  * to the top; the moment a service is chosen, what is usually bought with it rises further").
  * The idea was sound but the effect was not: an operator memorizes WHERE a service sits after a
  * few days at the counter, the same way he memorizes a keyboard — and a tile that can move breaks

@@ -161,7 +161,7 @@ def test_approving_an_unknown_application_id_is_a_clean_400(client):
 
 
 def test_update_application_refuses_a_token_with_no_capability_at_all(client):
-    # `affiliates.self` (2026-08-22) now gates the route itself — a token with NO caps never
+    # `affiliates.self` now gates the route itself — a token with NO caps never
     # reaches the service layer at all.
     r = client.patch("/api/v1/affiliates/me/applications/does-not-exist",
                      json={"name": "محاولة"},
@@ -220,7 +220,7 @@ def test_me_is_404_for_a_token_with_no_matching_affiliate_row(client):
 
 
 def test_me_refuses_a_valid_token_that_lacks_affiliates_self(client):
-    """The real, positive proof that `affiliates.self` (2026-08-22) actually gates this family
+    """The real, positive proof that `affiliates.self` actually gates this family
     of routes — a valid, signed token that simply never carries the capability is refused BEFORE
     any data lookup, distinct from the 404 above (which is a data check on a token that DOES
     carry it, for a subject with no matching row)."""

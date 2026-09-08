@@ -1,5 +1,5 @@
 /**
- * «عملائي المحتملين» — the second real screen (2026-08-22), built on the research this session
+ * «عملائي المحتملين» — the second real screen, built on the research this session
  * did on mobile CRM/pipeline UX (Pipedrive, Follow Up Boss, HubSpot mobile) plus a full backend
  * inventory of `core/lead_sourcing.py` + `core/outreach.py`. The converged pattern across every
  * app researched: a FLAT LIST (never kanban on a phone), sorted needs-attention-first, with a

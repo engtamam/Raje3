@@ -159,7 +159,7 @@ env:
   # calls, which deliberately carries no prices — see operations' own route docstring.
   OPERATIONS_CATALOGUE_WITH_PRICES_PATH: "/internal/operations/catalogue-with-prices"
   # Phase 4/5 (real booking creation, and the WhatsApp Flow booking channel) — SWITCHED OVER
-  # (2026-09-08): bookings-service is our own internal service, already deployed, not an external
+  # bookings-service is our own internal service, already deployed, not an external
   # dependency waiting on anyone — see app/core/booking_assignment.py's module docstring and
   # app/config.py's own note on this flag for what "real" actually wires.
   BOOKING_PROVIDER_DRIVER: "real"
@@ -217,7 +217,7 @@ env:
   WALLET_SERVICE_CONFIRM_PATH: "/internal/wallet/confirm"
   WALLET_SERVICE_RELEASE_PATH: "/internal/wallet/release"
   # A generous per-turn token ceiling, priced at the real usage rate below. Safety margin is 0
-  # (2026-09-06, the owner's own call — see app/config.py's own note): it only earns its keep once
+  # (the owner's own call — see app/config.py's own note): it only earns its keep once
   # PRICING_USAGE_HALALAS_PER_1K_TOKENS below is a real, non-zero rate.
   WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: "4000"
   WALLET_SAFETY_MARGIN_HALALAS: "0"

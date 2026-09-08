@@ -134,7 +134,7 @@ env:
   LOYALTY_REPORT_PATH: "/internal/loyalty/report"
   TENANT_SERVICE_URL: "http://tenant-service:8000"
   TENANT_READ_PATH: "/internal/tenants/{id}"
-  # FOUND MISSING LIVE (2026-09-04): the dispute-defense report's `backup_coverage` and `legal`
+  # FOUND MISSING LIVE: the dispute-defense report's `backup_coverage` and `legal`
   # sources have called these two since they were built — every call against them was failing
   # silently the whole time (each source fails independently, per report_render's own design, so
   # nothing crashed; the report just always showed those sections as unavailable). No base URL

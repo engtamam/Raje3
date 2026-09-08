@@ -177,7 +177,7 @@ def test_a_wrong_typed_value_is_refused_not_silently_stored(client, operator_aut
     assert r.status_code == 400
 
 
-# ── secrets — audit-ordering fix (2026-09-07) ──────────────────────────────────────────────────
+# ── secrets — audit-ordering fix ────────────────────────────────────────────────────────────────
 def test_setting_an_empty_secret_is_refused_not_logged_as_a_completed_rotation(client, secrets_auth):
     """THE REAL BUG: this route used to audit "operator.secret_set" BEFORE calling `.set()`, so a
     refused write (an empty value here) was still permanently logged as a completed rotation.

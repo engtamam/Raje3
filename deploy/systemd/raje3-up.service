@@ -20,8 +20,8 @@ Wants=k3s.service network-online.target
 Type=oneshot
 RemainAfterExit=yes
 Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-WorkingDirectory=/home/tamam/raje3
-ExecStart=/usr/bin/env bash /home/tamam/raje3/deploy/systemd/on-boot.sh
+WorkingDirectory=/home/deploy/raje3
+ExecStart=/usr/bin/env bash /home/deploy/raje3/deploy/systemd/on-boot.sh
 # TEN MINUTES, BECAUSE THAT IS WHAT A CRASH RECOVERY COSTS. A shorter timeout would kill the very
 # wait that exists to survive it.
 TimeoutStartSec=900

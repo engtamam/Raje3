@@ -1,5 +1,5 @@
 /**
- * تذاكر المحلات، كبانر واحد يُقلَّب — Home's own carousel over `open_tickets` (2026-08-23).
+ * تذاكر المحلات، كبانر واحد يُقلَّب — Home's own carousel over `open_tickets`.
  *
  * WHY A CAROUSEL AND NOT A LIST. The tickets screen already has a full list (AffiliateTools.tsx's
  * own `ShopTicketList`) — this widget is not a second copy of it, it is Home's own "who needs you

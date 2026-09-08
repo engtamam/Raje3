@@ -18,7 +18,7 @@
 # instead of the proof.
 #
 # Meanwhile `verify-fleet.sh` read `deploy/target.env` and `ship.sh` read it and then defaulted to
-# `tamam@127.0.0.1:2224`, an address whose ssh tunnel was retired months ago. Three answers to one
+# `<ssh-user>@127.0.0.1:2224`, an address whose ssh tunnel was retired months ago. Three answers to one
 # question, and moving the cluster updated one of them, because nothing tied the other two to it.
 #
 #   . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"

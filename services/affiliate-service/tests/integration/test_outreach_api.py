@@ -56,7 +56,7 @@ def client(outreach_env) -> TestClient:
 
 def _token(**over) -> str:
     now = dt.datetime.now(dt.timezone.utc)
-    # Every real affiliate token carries `affiliates.self` (2026-08-22) — see
+    # Every real affiliate token carries `affiliates.self` — see
     # app/core/models.py's own note. `**over` still lets a caller pass `caps=[...]` to test a
     # missing-capability 403 specifically.
     claims = {"sub": "nobody", "iss": ISS, "aud": AUD, "caps": ["affiliates.self"],

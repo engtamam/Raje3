@@ -3,7 +3,7 @@
 # check_listed_apps_are_wired.py — a SOLD, LISTED app must be DISPLAYED somewhere a shop and an
 # admin can actually find it.
 #
-# THE FAILURE THIS CATCHES, TWICE, THE SAME DAY (2026-09-08). Two apps — التقييم (feature.rating,
+# THE FAILURE THIS CATCHES, TWICE, THE SAME DAY. Two apps — التقييم (feature.rating,
 # 9900) and بوت خدمة العملاء الذكي (feature.whatsapp, 19900) — had their plan.json row flipped to
 # `listed: true`: priced, sold, fully built and enforced. Neither one ever appeared in the
 # console's app store OR the platform admin panel, because operations/app/core/apps.py's APPS

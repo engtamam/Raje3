@@ -296,10 +296,9 @@ describe('AdminProviderSecrets', () => {
 
     render(<AdminProviderSecrets session={SESSION} />);
     // فئة الذكاء الاصطناعي هي الوحيدة الموجودة بهذه الاستجابة، فهي المفتوحة افتراضياً.
-    await waitFor(() => expect(screen.getByText('المسار')).toBeTruthy());
-    // مسار واحد اليوم، لكنه ظاهر ومُختار (radio مفرد داخل مجموعة حقيقية).
-    const pathRadio = screen.getByRole('radio', { name: 'مساعد واتساب المحلات' });
-    expect(pathRadio.getAttribute('aria-checked')).toBe('true');
+    // مسار واحد اليوم — نص عادي، بلا عنصر تحكّم لخيار إجباري وحيد (2026-09-08).
+    await waitFor(() => expect(screen.getByText('مساعد واتساب المحلات')).toBeTruthy());
+    expect(screen.queryByRole('radio', { name: 'مساعد واتساب المحلات' })).toBeNull();
 
     // وتبويب "الإدارة" هو الافتراضي.
     expect(screen.getByText('الإدارة')).toBeTruthy();
@@ -454,6 +453,67 @@ describe('AdminProviderSecrets', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'لكل مليون توكن' }));
     expect((screen.getByLabelText('سعر الدخل (Input)') as HTMLInputElement).value).toBe('1.13');
     expect((screen.getByLabelText('سعر الخرج (Output)') as HTMLInputElement).value).toBe('9.38');
+  });
+
+  it('المحاسبة: the monthly forecast has a manual mode for when no shop has real usage yet', async () => {
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      // النسخة الحقيقية من هذي الحالة تحديداً — لا محل بعد يستخدم البوت فعلياً، فكل الأرقام صفر.
+      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
+        return Promise.resolve({
+          days: 30, calls: 0, conversations: 0, input_tokens: 0, output_tokens: 0,
+          avg_input_tokens_per_call: 0, avg_output_tokens_per_call: 0,
+          avg_calls_per_conversation: 0, truncated: false,
+        });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    fireEvent.click(await screen.findByText('المحاسبة'));
+    // 0 رسالة حقيقية صادق هنا — التقرير وصل، لكن ما فيه استهلاك بعد.
+    await waitFor(() => expect(screen.getByText(/الإيراد المتوقع:/).textContent)
+      .toMatch(/: 0 ﷼/));
+
+    // بلا استهلاك حقيقي أصلاً، متوسط التوكنات (النظام) صفر أيضاً — فتفعيل "يدوي" هنا وحده لا
+    // يكفي ليعطي رقماً واقعياً؛ يحتاج متوسط توكنات مفترَض معه (القيم اليدوية الافتراضية 300/150
+    // كافية).
+    fireEvent.click(screen.getAllByRole('radio', { name: 'يدوي' })[0]); // مصدر متوسط التوكنات
+    // "يدوي" اسم مشترك مع مفتاح مصدر متوسط التوكنات فوق، فالراديو الثاني هو مصدر عدد الرسائل.
+    fireEvent.click(screen.getAllByRole('radio', { name: 'يدوي' })[1]);
+    const monthlyInput = screen.getByLabelText('عدد الرسائل المفترض شهرياً') as HTMLInputElement;
+    expect(monthlyInput.value).toBe('1000'); // القيمة الافتراضية
+
+    fireEvent.change(monthlyInput, { target: { value: '2000' } });
+    await waitFor(() => expect(screen.getByText('2,000')).toBeTruthy()); // عدد الرسائل المتوقع
+
+    // والإيراد/التكلفة يتحرّكان معه — مش يبقيان صفراً وهو مفترِض عدداً حقيقياً.
+    expect(screen.getByText(/الإيراد المتوقع:/).textContent).not.toMatch(/: 0 ﷼/);
+    expect(screen.getByText(/تكلفة جوجل الحقيقية المتوقعة:/).textContent).not.toMatch(/: 0 ﷼/);
+
+    // والرجوع لـ"حقيقي" يرجّع الحالة الصادقة (صفر، مش وهم من آخر رقم يدوي).
+    fireEvent.click(screen.getByRole('radio', { name: 'حقيقي' }));
+    await waitFor(() => expect(screen.getByText(/الإيراد المتوقع:/).textContent)
+      .toMatch(/: 0 ﷼/));
   });
 
   it('المحاسبة lists a scheduled change with its real effective date, and "إلغاء" cancels the right key', async () => {

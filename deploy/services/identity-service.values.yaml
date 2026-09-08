@@ -316,7 +316,7 @@ env:
   # block: a subject with outstanding ToS/consent acceptance is refused at login/signup, not
   # just flagged. fail-mode stays open — if compliance-service is unreachable, identity keeps
   # working rather than locking everyone out over a dependency outage.
-  # COMPLIANCE_INTERNAL_TOKEN confirmed present in identity-service-secrets (2026-09-04, after
+  # COMPLIANCE_INTERNAL_TOKEN confirmed present in identity-service-secrets (after
   # v0.18.8's gen-secrets.py fix — commit 744d843 — was actually synced to the server).
   IDENTITY_LEGAL_ENFORCEMENT: "block"
   COMPLIANCE_URL: "http://compliance-service:8000"

@@ -5,9 +5,9 @@
  * actions the caller's own capabilities actually reach. We read it, never edit it — that file
  * lives outside `services/` and is `base-services-dc`'s.
  *
- * REAL SHAPE, VERIFIED AGAINST `admin_catalog.py::build_catalog` DIRECTLY (2026-08-24, after this
- * module shipped with the WRONG one for several phases and every consumer's own test mocked
- * around the mistake instead of catching it) — grouped BY SERVICE, never a flat action list:
+ * REAL SHAPE, VERIFIED AGAINST `admin_catalog.py::build_catalog` DIRECTLY (after this module
+ * shipped with the WRONG one for several phases and every consumer's own test mocked around the
+ * mistake instead of catching it) — grouped BY SERVICE, never a flat action list:
  *   {"services": [{"service": "affiliate-service", "actions": [...]}], "unreachable": [...]}
  * `unreachable` names a configured service that failed to answer — reported, not swallowed, per
  * the aggregator's own header note ("a missing service should be visible, not invisible").

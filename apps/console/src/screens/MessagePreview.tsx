@@ -294,8 +294,8 @@ export function MessagePreview({
         ) : (
           <>
             {/* ── ONE TABLE, AND A ROW THAT OPENS INTO THE MESSAGE ─────────────────────────
-                TAMAM'S DECISION, AFTER HIS OWN QUESTION: «مو المفروض الصيغ والرسائل تكون ظاهرة
-                له؟ ويكون معها الحالات حقت واتساب؟» — and he chose «الاثنان: جدولٌ يفتح فقاعة».
+                THE QUESTION THIS ANSWERED: «مو المفروض الصيغ والرسائل تكون ظاهرة له؟ ويكون
+                معها الحالات حقت واتساب؟» — the answer settled on was «الاثنان: جدولٌ يفتح فقاعة».
 
                 WHAT IT REPLACED WAS THREE PLACES FOR ONE QUESTION. Our wordings sat in one grid
                 with no standing on them at all, his APPROVED texts in a second, and everything of
@@ -348,11 +348,12 @@ export function MessagePreview({
                       {isOpen ? (
                         <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-2 px-3 py-3">
                           {/* ── THE SHAPE, THEN THE EXAMPLE ────────────────────────────
-                              TAMAM, READING THIS SHEET: «العميل يقرا الرساله ما يعرف وين
-                              الفراغات». What was here was the filled example alone — what his
-                              customer receives — and from it he cannot tell which words are his
-                              shop's forever and which change with every person. If he then wants
-                              to write his own, he has no idea where the blanks belong.
+                              THE GAP THIS CLOSED: «العميل يقرا الرساله ما يعرف وين الفراغات».
+                              What was here was the filled example alone — what the shop's
+                              customer receives — and from it an owner cannot tell which words
+                              are the shop's forever and which change with every person. Wanting
+                              to write his own wording, he would have no idea where the blanks
+                              belong.
 
                               THE BLANKS ARE NAMED, NOT NUMBERED. `{{2}}` is a customer in one
                               wording and a service in the next; the number is a position. The

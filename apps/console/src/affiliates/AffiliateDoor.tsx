@@ -12,7 +12,7 @@
  *   — an affiliate's agreement is about referrals and commission, not about a shop's PDPL
  *   obligations to ITS customers, and a person agreeing to the wrong document agreed to nothing.
  *
- *   TWO DOORS, NOT THREE ANY LONGER (2026-08-23): «قبول دعوة» is gone — a manager no longer
+ *   TWO DOORS, NOT THREE ANY LONGER: «قبول دعوة» is gone — a manager no longer
  *   invites through us at all ("رابط للمدير مافي اي ارسال المدير راح يرسل له الرابط").
  *   He shares his own referral link himself, and whoever uses it lands right here, on «تقديم
  *   طلب», with `?ref=` pre-filling the same field a self-applicant fills by hand.

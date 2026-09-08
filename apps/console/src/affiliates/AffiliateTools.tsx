@@ -1,5 +1,5 @@
 /**
- * «أدواتي» (2026-08-22) — the fourth screen, built on this session's own research into CRM
+ * «أدواتي» — the fourth screen, built on this session's own research into CRM
  * content-library and background-job UX (Pipedrive/Close/HubSpot template patterns, async-job
  * monitoring conventions) plus a full backend inventory of `core/outreach.py` + the lead-search
  * routes.
@@ -43,7 +43,7 @@ type View = 'menu' | 'templates' | 'citations' | 'search' | 'sector-stats' | 'ki
 
 export function AffiliateTools({ session, deepLinkTicket, onConsumeDeepLinkTicket }: {
   session: AffiliateSession;
-  /** Set by Home's own TicketCarousel (2026-08-23) — a ticket a marketer tapped directly, skipping
+  /** Set by Home's own TicketCarousel — a ticket a marketer tapped directly, skipping
    *  the shop picker and the ticket list entirely, straight into its own thread. */
   deepLinkTicket?: HomeTicket | null;
   onConsumeDeepLinkTicket?: () => void;
