@@ -160,6 +160,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const [only, setOnly] = useState<string | null>(null);
   /** The add-a-service form, shown only when he asks for it. */
   const [adding, setAdding] = useState(false);
+  /** A photo picked on the CREATE form, held only in the browser until «إضافة» is actually
+   *  pressed — there is no server-side draft for it, because there is nowhere to attach one to
+   *  before a service id exists. Confirm uploads it against the id create_service just returned;
+   *  cancel (or closing the form) drops this state and the file is never sent at all — the same
+   *  "temporary, only real if confirmed" behaviour a server-side draft would give, achieved by
+   *  simply not touching the network until the id exists. */
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
   /** The file-import drawer (ServicesImportDrawer.tsx), same "shown only when asked" idiom. */
   const [importing, setImporting] = useState(false);
   /**
@@ -411,7 +418,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const addService = async (
     name: string,
     opts: { cycleDays: number; durationMinutes: number; priceMinor: number | null; followUpDays: number;
-            points: number | null; group: string; description: string },
+            points: number | null; group: string; description: string; image: File | null },
   ) => {
     const a = action(catalog, 'operations.create_service');
     if (!a || !name.trim()) return;
@@ -449,8 +456,17 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         if (grp && opts.group.trim()) {
           await call(session, grp, { name: opts.group.trim(), service_ids: [id] });
         }
+        // THE HELD PHOTO GOES LAST, AGAINST THE REAL ID — the only moment it can go anywhere at
+        // all. uploadServiceImage() does its own load()/error handling, so nothing further is
+        // needed here beyond forgetting the held file either way (success or failure both leave
+        // the form closing; a failed photo does not undo the service that was already created,
+        // same "partial creation is fine, rest is editable after" posture as every field above).
+        if (action(catalog, 'operations.upload_service_image') && opts.image) {
+          await uploadServiceImage(id, opts.image);
+        }
       }
 
+      setPendingImage(null);
       setAdding(false);
       load();
     } catch (e) {
@@ -1052,6 +1068,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     points: pts === '' ? null : Number(pts),
                     group: String(f.get('group') || ''),
                     description: String(f.get('description') || ''),
+                    image: pendingImage,
                   });
                 }}
               >
@@ -1064,19 +1081,34 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
                 {/* SAME BOX, SAME WORDING, AS THE TABLE'S OWN EDIT FIELD — this is the same
                     `description` the server already accepts on create, not a new one added just
-                    for this form. The image, by contrast, genuinely cannot be attached here: every
-                    upload route is keyed by an existing service id (`upload_service_image(id, …)`),
-                    so a photo has nowhere to attach to until «إضافة» returns one — the hint below
-                    says so instead of pretending a file picker could work before that. */}
+                    for this form. */}
                 <label className="flex flex-col gap-1">
                   <span className="text-sm">وصف قصير (اختياري)</span>
                   <textarea name="description" maxLength={300} rows={2}
                             placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
                             className="w-full rounded-lg bg-surface-2 px-3 py-2 text-sm" />
-                  <span className="text-xs text-text-secondary">
-                    وتقدر تضيف صورة للخدمة بعد إضافتها، من بطاقتها في الجدول.
-                  </span>
                 </label>
+
+                {/* THE PHOTO STAYS ON THIS SIDE OF THE NETWORK UNTIL «إضافة». There is no
+                    server-side draft for it — nothing to attach a file to before a service id
+                    exists — so the "hold it, only real if confirmed" behaviour is just this: a
+                    File object living in `pendingImage`, never read by anything until submit
+                    calls uploadServiceImage() with the real id, and dropped untouched on cancel
+                    (or on a second pick, which replaces rather than adds to it — one photo per
+                    service, same as the row's own edit view). */}
+                {action(catalog, 'operations.upload_service_image') ? (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-sm">صورة الخدمة (اختياري)</span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp"
+                           onChange={(e) => setPendingImage(e.target.files?.[0] ?? null)}
+                           className="text-sm" />
+                    {pendingImage ? (
+                      <span className="text-xs text-text-secondary">
+                        {pendingImage.name} — تُرفع فقط لو ضغطت «{t('services.add')}»
+                      </span>
+                    ) : null}
+                  </label>
+                ) : null}
 
                 {/* SHORT LABELS, AND THE QUESTION LIVES IN THE «؟». The full sentences did not
                     fit the label column on a phone and arrived clipped mid-word — «كل كم يوماً
@@ -1135,7 +1167,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
                 <div className="flex gap-2">
                   <Button type="submit" disabled={saving}>{t('services.add')}</Button>
-                  <Button type="button" variant="ghost" onClick={() => setAdding(false)}>{t('services.cancel')}</Button>
+                  <Button type="button" variant="ghost"
+                          onClick={() => { setAdding(false); setPendingImage(null); }}>{t('services.cancel')}</Button>
                 </div>
               </form>
             )
