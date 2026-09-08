@@ -387,30 +387,15 @@ async def set_rating_settings(request: Request, body: RatingSettingsIn,
     return {"ok": True, **settings.public()}
 
 
-@router.get("/reasons/{reason_id}/preview", dependencies=[Depends(rate_limit)])
-async def preview_reason(request: Request, reason_id: str,
-                          principal: Principal = Depends(_READ)) -> dict:
-    """The three wordings of this message, as the customer will read them.
+async def _template_options(c, template_type: str, establishment: str, *, tenant: str) -> tuple[list[dict], dict]:
+    """Every wording OUR library holds for one template type, rendered with example values.
 
-    RENDERED BY THE ENGINE, NOT BY THE SCREEN. It goes through the same `render()` a send goes
-    through, with example values — so a wording that cannot render is one he cannot choose, and
-    what he reads here is what leaves the building. A screen that assembled the text itself would
-    show a message that works on his phone and fails on the customer's.
-
-    HIS OWN APPROVED TEXTS COME BACK BESIDE OURS, in the same shape and marked as his. This is the
-    list «رسائلي» offers him: three of ours, and whatever he has written and Meta approved.
+    THE SHARED HALF OF THE PREVIEW — pulled out of `preview_reason` so a goal with no reason (see
+    `preview_by_type` below) reads the exact same library, the exact same renderer, and the exact
+    same «approved on his number» check, rather than a second, drifting copy of all three.
     """
     from app.core import reasons as TR
-    from app.core.custom_templates import APPROVED, CustomTemplateStore
-    from app.core.reason_choices import ChoiceStore
 
-    reason = TR.get(reason_id)
-    if reason is None:
-        return {"ok": False, "error": "لا يوجد داعٍ للإرسال بهذا الاسم."}
-
-    c = request.app.state.container
-    shop = await c.identity.get(_tenant(principal))
-    establishment = getattr(shop, "name", "") or "محلّك"
     # READ, NOT JUST FETCHED. `all()` answers `[]` for a library it could not reach exactly as it
     # does for one with nothing in it, and the screen turned that single emptiness into «القوالب
     # تُراجَع لدى واتساب» — a cause it had no evidence for, and reassurance in the two cases that
@@ -420,7 +405,7 @@ async def preview_reason(request: Request, reason_id: str,
 
     options: list[dict] = []
     for row in library:
-        if row.get("type") != reason.template_type or not row.get("active", True):
+        if row.get("type") != template_type or not row.get("active", True):
             continue
         try:
             # ONE DICT, PASSED AS ALL THREE — the same shape `tick.py`'s real send already uses
@@ -468,10 +453,71 @@ async def preview_reason(request: Request, reason_id: str,
     # notification-service unreachable or not configured — and not-known must never be rendered as
     # a verdict. The screen shows no badge at all in that case, because «not ready» and «we could
     # not ask» are different sentences and only one of them is about him.
-    approved_names = await c.approved_templates.names(_tenant(principal))
+    approved_names = await c.approved_templates.names(tenant)
     if approved_names is not None:
         for option in options:
             option["approved"] = option["name"] in approved_names
+
+    return options, shelf
+
+
+@router.get("/templates/by-type/{template_type}/preview", dependencies=[Depends(rate_limit)])
+async def preview_by_type(request: Request, template_type: str,
+                          principal: Principal = Depends(_READ)) -> dict:
+    """The same preview as `preview_reason`, for a campaign GOAL with no reasons-registry
+    counterpart at all.
+
+    THE ASYMMETRY THIS FIXES. Only three of «حملاتي»'s eight goals share a reason id
+    (`win_back`/`occasion`/`reward_loyal`, via Launch.tsx's own `GOAL_REASON_ID`), and only those
+    three ever got «اعرض نص هذه الرسالة، أو عدّله». The other five — announce, awareness,
+    seasonal_care, service_offer, package_offer — have no reason to preview by, so they never got
+    the modal at all. This route asks by template TYPE instead, which every goal already carries
+    (campaigns/app/core/models.py's own `GOAL_TEMPLATE`).
+
+    NO `reason`, NO `mine`, NO `chosen` — there is no reason row to attach his own texts or his
+    switch to; those stay reachable through «متى نرسل» for the three that DO have one. A goal whose
+    type has no active template at all (`awr_seasonal_care` — none seeded yet) answers with an
+    empty `options` list and `empty_because`, exactly like an unwritten reason would.
+    """
+    c = request.app.state.container
+    shop = await c.identity.get(_tenant(principal))
+    establishment = getattr(shop, "name", "") or "محلّك"
+    options, shelf = await _template_options(c, template_type, establishment,
+                                             tenant=_tenant(principal))
+    empty_because = ""
+    if not options:
+        read_ok = bool(shelf.get("ok"))
+        empty_because = "unread" if not read_ok else "none"
+    return {"options": options, "chosen": "", "empty_because": empty_because,
+            "tone": getattr(shop, "tone", "") or "warm"}
+
+
+@router.get("/reasons/{reason_id}/preview", dependencies=[Depends(rate_limit)])
+async def preview_reason(request: Request, reason_id: str,
+                          principal: Principal = Depends(_READ)) -> dict:
+    """The three wordings of this message, as the customer will read them.
+
+    RENDERED BY THE ENGINE, NOT BY THE SCREEN. It goes through the same `render()` a send goes
+    through, with example values — so a wording that cannot render is one he cannot choose, and
+    what he reads here is what leaves the building. A screen that assembled the text itself would
+    show a message that works on his phone and fails on the customer's.
+
+    HIS OWN APPROVED TEXTS COME BACK BESIDE OURS, in the same shape and marked as his. This is the
+    list «رسائلي» offers him: three of ours, and whatever he has written and Meta approved.
+    """
+    from app.core import reasons as TR
+    from app.core.custom_templates import APPROVED, CustomTemplateStore
+    from app.core.reason_choices import ChoiceStore
+
+    reason = TR.get(reason_id)
+    if reason is None:
+        return {"ok": False, "error": "لا يوجد داعٍ للإرسال بهذا الاسم."}
+
+    c = request.app.state.container
+    shop = await c.identity.get(_tenant(principal))
+    establishment = getattr(shop, "name", "") or "محلّك"
+    options, shelf = await _template_options(c, reason.template_type, establishment,
+                                             tenant=_tenant(principal))
 
     mine = await CustomTemplateStore(c.datastore).list(_tenant(principal), reason_id=reason_id)
     for row in mine:

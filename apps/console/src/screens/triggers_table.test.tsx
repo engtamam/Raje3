@@ -1,35 +1,40 @@
 /**
- * «متى نرسل» is a table with two filters — and a filter that finds nothing says which one did it.
+ * «القوالب» is the one place every message template in the product is shown — the automatic
+ * reasons AND the campaign goals, grouped by class, each carrying its own tag.
  *
- * WHY IT STOPPED BEING A LIST OF CARDS. Thirteen rows, each a title, a sentence and a switch, is a
- * screen that answers «what messages exist» and refuses every other question. An owner arrives
- * with one of two: «أيّها مفعّل؟» and «أيّ التسويقية عندي؟» — the second being the class he is
- * legally answerable for — and both were answered by scanning the whole page with his eye, every
- * time. The screen itself is now a table, with filters over both message types and statuses.
+ * WHY IT STOPPED BEING A FILTERED TABLE. The old «متى نرسل» only ever listed the automatic
+ * reasons; «حملاتي» separately explained its eight goals, and only three of them ever got a rich
+ * preview. The rename folds both into one screen, grouped into sections (خدمية/شخصية/تسويقية/وعي
+ * ونصائح/عروض) rather than filtered by pill — an owner scanning by class now reads one section at
+ * a time instead of pressing a filter to find it.
  *
- * WHAT THE TABLE MUST NOT COST: the «when». «بعد تسجيل الزيارة بعشر دقائق» is what makes a name
- * mean something to somebody reading it for the first time, so it stays under the title — a column
- * of bare names would be tidier and less useful.
+ * WHAT MUST NOT BE LOST: the «when» stays under every card's title, and the three templates a
+ * reason AND a goal share (win_back/occasion/reward_loyal) appear exactly ONCE, carrying both
+ * tags, never as two cards.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { vi } from 'vitest';
 
-/** A row's title appears TWICE by design: once visibly, and once as the switch's accessible name —
- *  `sr-only`, because thirteen identical toggles are indistinguishable to a screen reader without
- *  it. So «is this row shown» is a COUNT, never a single-element lookup. */
 const rows = (label: string) => screen.queryAllByText(label).length;
 
 const REASONS = [
-  // `gone_missing` — deliberately, not `visit_recorded` — so the SAME well-exercised row also
-  // covers the cross-link to «حملاتي» (Messages.tsx's own REASON_GOAL, keyed by this exact id).
-  { id: 'gone_missing', label: 'سُجّلت زيارة', when: 'بعد عشر دقائق',
+  { id: 'visit_recorded', label: 'سُجّلت زيارة', when: 'بعد عشر دقائق',
     cls: 'service', cls_label: 'خدمية', on: true, can_switch: true,
     template_status: 'approved' },
-  { id: 'winback', label: 'استرجاع', when: 'بعد 90 يوماً',
+  // `gone_missing` carries the cross-link to «حملاتي»'s own win_back goal (REASON_GOAL, keyed by
+  // this exact id) — the SAME reason id the real registry uses, so this exercises the dedup rule.
+  { id: 'gone_missing', label: 'تجاوز دورته ولم يعد', when: 'بعد 90 يوماً',
     cls: 'marketing', cls_label: 'تسويقية', on: false, can_switch: true },
   { id: 'points_expiring', label: 'نقاطك تنتهي', when: 'قبل الانتهاء بأسبوع',
     cls: 'personal', cls_label: 'شخصية', on: true, can_switch: true },
+];
+
+const GOALS = [
+  { goal: 'win_back', title: 'رجّع اللي غابوا', line: 'من تأخّر عن موعده' },
+  { goal: 'announce', title: 'أعلن جديدك', line: 'خبر أو عرض للجميع' },
+  { goal: 'awareness', title: 'وعِّ عملاءك', line: 'نصيحة تخصّ ما أخذوه' },
 ];
 
 vi.mock('../catalog', async (importOriginal) => {
@@ -39,6 +44,7 @@ vi.mock('../catalog', async (importOriginal) => {
     action: (_c: unknown, id: string) => ({ id, label: id, method: 'GET', path: `/${id}` }),
     call: async (_s: unknown, a: { id: string }) => {
       if (a.id === 'reminders.reasons') return { reasons: REASONS };
+      if (a.id === 'campaigns.goals') return { goals: GOALS };
       return {};
     },
   };
@@ -52,71 +58,73 @@ const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
 
 function open() {
-  // MessagesScreen now reads `useSearchParams` (the «أرسل رسالة رجوع» deep link from محلّي's
-  // at-risk card) — it needs a router context even for a test that never touches the query string.
   return render(<MemoryRouter><MessagesScreen session={session} catalog={catalog} /></MemoryRouter>);
 }
 
-describe('«متى نرسل» — a table a question can be asked of', () => {
-  it('shows every reason, with its class and its «when», before anything is filtered', async () => {
+describe('«القوالب» — every template, once, grouped and tagged', () => {
+  it('shows every reason, with its class and its «when»', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    expect(rows('استرجاع')).toBeGreaterThan(0);
-    // THE «WHEN» IS NOT DROPPED FOR TIDINESS.
+    expect(rows('تجاوز دورته ولم يعد')).toBeGreaterThan(0);
     expect(screen.getByText('بعد عشر دقائق')).toBeTruthy();
   });
 
-  it('narrows to one class when it is picked from the class filter', async () => {
+  it('groups cards under section headers by class', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    // FilterMenu — the trigger opens the list, then the option itself is a listbox row.
-    fireEvent.click(screen.getByRole('button', { name: 'النوع' }));
-    fireEvent.click(screen.getByRole('option', { name: 'تسويقية' }));
-    expect(rows('استرجاع')).toBeGreaterThan(0);
-    // The one he is answerable for, alone — which is the whole reason this filter exists.
-    expect(rows('سُجّلت زيارة')).toBe(0);
-    expect(rows('نقاطك تنتهي')).toBe(0);
+    // EACH LABEL CAN ALSO APPEAR AS A CARD'S OWN class badge — so a section header is a COUNT,
+    // never a single-element lookup, same reasoning `rows()` already documents above.
+    expect(rows('خدمية')).toBeGreaterThan(0);
+    expect(rows('شخصية')).toBeGreaterThan(0);
+    expect(rows('تسويقية')).toBeGreaterThan(0);
+    // THE TWO NEW SECTIONS, for goals with no automatic counterpart at all.
+    expect(rows('وعي ونصائح')).toBeGreaterThan(0);
   });
 
-  it('narrows to what is switched off', async () => {
+  it('tags an automatic-only reason «تلقائي»', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    fireEvent.click(screen.getByRole('radio', { name: 'موقوفة' }));
-    expect(rows('استرجاع')).toBeGreaterThan(0);
-    expect(rows('سُجّلت زيارة')).toBe(0);
+    expect(screen.getAllByText('تلقائي').length).toBeGreaterThan(0);
   });
 
-  it('combines both, because that is the question people actually have', async () => {
+  it('tags a manual-only goal «أنت ترسلها»', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    fireEvent.click(screen.getByRole('button', { name: 'النوع' }));
-    fireEvent.click(screen.getByRole('option', { name: 'خدمية' }));
-    fireEvent.click(screen.getByRole('radio', { name: 'موقوفة' }));
-    // A service message that is switched off: none here — and the screen says so rather than
-    // showing an empty box under two pressed pills.
-    expect(screen.getByText(/لا شيء بهذا الوصف/)).toBeTruthy();
+    // `announce` has no reason at all — awareness/announce are goal-only cards.
+    await screen.findByText('أعلن جديدك');
+    expect(rows('أنت ترسلها')).toBeGreaterThan(0);
+  });
+
+  it('carries BOTH tags on the one card shared by a reason and a goal, never two cards', async () => {
+    open();
+    await screen.findAllByText('سُجّلت زيارة');
+    // `gone_missing` IS `win_back` — one card, both capabilities, never duplicated. Appears
+    // TWICE: once visibly, once as the switch's sr-only accessible name (see triggers_table.tsx's
+    // own note on why a row's title is never a single-element lookup).
+    expect(rows('تجاوز دورته ولم يعد')).toBe(2);
+    expect(rows('رجّع اللي غابوا')).toBe(0); // never a SECOND card under this title
+    expect(screen.getByText('تلقائي + يمكن إطلاقه يدوياً')).toBeTruthy();
   });
 
   it('says the state in a word, not only as a switch', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    // A switch alone is readable to somebody watching for it and invisible to somebody scanning —
-    // and «موقوفة» is exactly what the filter above promises to find.
     expect(screen.getAllByText('مفعّلة').length).toBeGreaterThan(0);
     expect(screen.getAllByText('موقوفة').length).toBeGreaterThan(0);
   });
 
-  it('shows the template-status badge on the row that carries one', async () => {
+  it('shows the template-status badge on the card that carries one', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
     expect(screen.getByText('معتمدة')).toBeTruthy();
   });
 
-  it('cross-links a row that shares a template with a «حملاتي» goal', async () => {
+  it('cross-links a card that shares a template with a «حملاتي» goal', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    expect(screen.getByText('نفسها في «رجّع اللي غابوا»')).toBeTruthy();
-    // A row with no matching goal (winback/points_expiring here) offers no link at all.
-    expect(screen.getAllByText(/نفسها في/).length).toBe(1);
+    expect(screen.getByText('أطلقها من «رجّع اللي غابوا»')).toBeTruthy();
+    // A card with no matching goal at all (points_expiring here) offers no link — but a bare
+    // goal card (announce, awareness — «أنت ترسلها») links too, the same way the shared ones do.
+    expect(screen.getAllByText(/أطلقها من/).length).toBeGreaterThan(0);
   });
 });

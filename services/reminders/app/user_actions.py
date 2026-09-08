@@ -181,6 +181,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "نصّ الرسالة كما تصل عميلك، بالصيغ المتاحة لها.",
     },
     {
+        "id": "reminders.preview_by_type", "label": "معاينة قالب حملة", "method": "GET",
+        "path": "/api/v1/reminders/templates/by-type/{template_type}/preview",
+        "capability": "reminders.read",
+        "params": [{"name": "template_type", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات",
+        # SAME ENGINE, NO REASON ID. «حملاتي»'s five goals with no automatic counterpart — أعلن
+        # جديدك، وعِّ عملاءك، نصيحة موسمية، عرض على خدمة، عرض على باقة — preview their own
+        # template directly by type, rather than through a reason that does not exist for them.
+        "help": "نصّ رسالة هذا الهدف كما تصل عميلك، بلا داعٍ إرسال مرتبط بها.",
+    },
+    {
         "id": "reminders.set_reason", "label": "تشغيل أو إيقاف رسالة", "method": "PUT",
         "path": "/api/v1/reminders/reasons/{reason_id}", "capability": "reminders.manage",
         "params": [{"name": "reason_id", "in": "path", "type": "string", "required": True}],

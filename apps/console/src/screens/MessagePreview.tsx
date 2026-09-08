@@ -88,17 +88,28 @@ const TONE: Record<string, string> = {
 };
 
 export function MessagePreview({
-  session, catalog, reasonId, label, when, canRetext, onClose, onChosen,
+  session, catalog, reasonId, templateType, label, when, canRetext, onClose, onChosen,
 }: {
   session: Session;
   catalog: Catalog;
-  reasonId: string;
+  /** Either this OR `templateType` — never neither. */
+  reasonId?: string;
+  /**
+   * A CAMPAIGN GOAL WITH NO REASON OF ITS OWN — announce, awareness, seasonal_care,
+   * service_offer, package_offer (see Launch.tsx's own GOAL_REASON_ID). Reads
+   * `reminders.preview_by_type` instead of `reminders.preview_reason`, and drops everything
+   * that only makes sense attached to a reason row: his own texts, the switch, retexting.
+   */
+  templateType?: string;
   label: string;
   when: string;
   canRetext: boolean;
   onClose: () => void;
   onChosen: () => void;
 }) {
+  // A REASON HAS ONE, A BARE TEMPLATE TYPE DOES NOT — his own texts, submitting, «ساعدوني»,
+  // switching the shop's chosen wording, all key off a reason id that does not exist here.
+  const byGoal = !reasonId && Boolean(templateType);
   const [options, setOptions] = useState<Loading<Option[]>>(undefined);
   // Same reason as the send log: `null` already means «loading» here, so «we could not read» gets
   // its own field rather than borrowing one that means something else.
@@ -133,12 +144,13 @@ export function MessagePreview({
   const [help, setHelp] = useState<HelpRow[] | null>([]);
 
   useEffect(() => {
-    const a = action(catalog, 'reminders.preview_reason');
+    const id = byGoal ? 'reminders.preview_by_type' : 'reminders.preview_reason';
+    const a = action(catalog, id);
     if (!a) { setOptions(DENIED); return; }
     call<{ options: Option[]; chosen?: string; tone?: string; error?: string;
            empty_because?: string;
            reason?: { slots?: Slot[]; mandatory?: Mandatory } }>(
-      session, a, { reason_id: reasonId })
+      session, a, byGoal ? { template_type: templateType } : { reason_id: reasonId })
       .then((x) => {
         if (x.error) { setError(x.error); setOptions([]); return; }
         setOptions(x.options ?? []);
@@ -149,15 +161,17 @@ export function MessagePreview({
         setMandatory(x.reason?.mandatory);
       })
       .catch(() => { setOptionsFailed(true); setOptions([]); });
-  }, [session, catalog, reasonId, reload]);
+  }, [session, catalog, reasonId, templateType, byGoal, reload]);
 
   useEffect(() => {
+    // NO REASON, NO TEXTS OF HIS OWN TO LIST — see `byGoal`'s own note.
+    if (byGoal) return;
     const a = action(catalog, 'reminders.my_templates');
     if (!a) return;
     call<{ templates: Mine[] }>(session, a, { reason_id: reasonId })
       .then((x) => setMine((x.templates ?? []).filter((t) => t.status !== 'approved')))
       .catch(() => setMine(null));
-  }, [session, catalog, reasonId, reload]);
+  }, [session, catalog, reasonId, byGoal, reload]);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.my_template_help');
@@ -438,8 +452,9 @@ export function MessagePreview({
               </p>
             </section>
 
-            {/* ── his own words, when he wants them ─────────────────────────────────────── */}
-            {canRetext && action(catalog, 'reminders.write_template') ? (
+            {/* ── his own words, when he wants them — never for a bare goal, which has no reason
+                to attach a written text to ──────────────────────────────────────────────────── */}
+            {!byGoal && canRetext && action(catalog, 'reminders.write_template') ? (
               <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
                 <span className="text-sm text-text-secondary">
                   تبي صياغتك أنت؟ اكتبها ونرفعها لواتساب باسمك.
@@ -448,11 +463,11 @@ export function MessagePreview({
               </div>
             ) : null}
 
-            {writing ? (
+            {writing && !byGoal ? (
               <TextEditor
                 session={session}
                 catalog={catalog}
-                reasonId={reasonId}
+                reasonId={reasonId ?? ''}
                 label={label}
                 slots={slots}
                 mandatory={mandatory}
@@ -471,8 +486,10 @@ export function MessagePreview({
               />
             ) : null}
 
-            {/* WHY HE CANNOT WRITE ONE, WHEN HE CANNOT — said here rather than left to guess. */}
-            {!canRetext ? (
+            {/* WHY HE CANNOT WRITE ONE, WHEN HE CANNOT — said here rather than left to guess.
+                Never for a bare goal: that sentence is about a legal right on a reason, not
+                about this screen's own limits. */}
+            {!byGoal && !canRetext ? (
               <p className="flex items-center gap-2 border-t border-border-subtle pt-4 text-sm text-text-secondary">
                 <Lock size={14} aria-hidden />
                 هذه الرسالة تُرسَل بصياغتنا — نصّها مرتبط بحقٍّ نظامي لعميلك.

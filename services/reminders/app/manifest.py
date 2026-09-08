@@ -153,6 +153,12 @@ def build_manifest(
             {"path": "/api/v1/reminders/reasons", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/reasons/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/reasons/{}/preview", "tier": "user", "method": "GET"},
+            # THE SAME PREVIEW, FOR A CAMPAIGN GOAL WITH NO REASONS-REGISTRY COUNTERPART. «حملاتي»
+            # has eight goals; only three share a reason id (win_back/occasion/reward_loyal via
+            # GOAL_REASON_ID). The other five had no route that could preview their own template
+            # without inventing a fake reason — this one takes the template type directly.
+            {"path": "/api/v1/reminders/templates/by-type/{}/preview", "tier": "user",
+             "method": "GET"},
             # The rating app's own settings (core/rating_settings.py) — read live on every visit's
             # send decision (api/internal.py::_rating_eligible), present regardless of whether the
             # shop owns the app so the route never 404s on a shop that has not bought it yet.

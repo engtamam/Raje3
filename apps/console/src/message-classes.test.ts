@@ -44,10 +44,11 @@ describe('the class of every reason reaches the screen', () => {
     expect(tone).not.toBe(personal);
   });
 
-  it('the list says how many of each, and where the campaigns are', () => {
-    // «عدد الرسائل قليل» was a reading of a flat list, not a fact about it. The count answers it,
-    // and the sentence answers the question the count raises next.
-    expect(messagesSrc).toContain('سبباً يرسل باسم محلّك');
+  it('the screen groups by section, and the campaigns tab is still the cross-link target', () => {
+    // «القوالب» replaced the flat list's own count sentence with SECTION HEADERS — an owner
+    // scanning by class now reads one section at a time. The count itself is no longer a single
+    // sentence over a table; the grouping answers the same question the sentence used to.
+    expect(messagesSrc).toContain('SECTION_LABEL');
     expect(messagesSrc).toContain('حملاتي');
   });
 });

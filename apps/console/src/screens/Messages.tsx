@@ -25,14 +25,13 @@
  * `campaigns === null` rendered nothing at all — and a section that disappears reads as a fault,
  * while a capability nobody can see is one nobody can buy.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
-import { FilterMenu } from '../rj-ui/FilterMenu';
 import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
@@ -41,7 +40,7 @@ import { AlertTriangle, Gauge, Lock } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { AssistantHint } from '../AssistantHint';
 import { Launch } from './Launch';
-import { LockedCard } from './Locked';
+import { AppGate, LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
 import { owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
@@ -160,21 +159,6 @@ const REASON_GOAL: Record<string, { goal: string; title: string }> = {
  *  Marketing is the only class that needs consent, is barred from the quiet window and is billed
  *  at the higher rate — so it is the one an owner must be able to find in a list without reading.
  *  The other four behave alike and are toned to sit quietly. */
-/** THE THREE CLASSES AS FILTER PILLS, in the order an owner thinks about them: the ones that
- *  simply happen, the ones about him personally, and the ones that need his customer's consent —
- *  which is the row he is legally answerable for and therefore the one he comes here to find.
- *
- *  THE LABELS ARE NOT READ FROM THE ROWS. Each row carries `cls_label` from the server and that is
- *  what the badge prints; a filter, though, has to exist before any row is read, and building the
- *  pill list out of whatever happened to arrive would give a shop with no promotional reasons a
- *  different set of filters from the shop next door. */
-const CLASS_ORDER = ['service', 'personal', 'marketing'] as const;
-const CLASS_LABEL: Record<string, string> = {
-  service: 'خدمية',
-  personal: 'شخصية',
-  marketing: 'تسويقية',
-};
-
 // «شخصية» WAS «neutral», AND UNDER THE VIOLET REBRAND THAT READ AS «تسويقية» IN DISGUISE. Neutral
 // draws from `surface-2` — a pale violet-tinted grey on this theme — which sits close enough to
 // `accent-soft` to be confused with it, and `accent` itself is reserved for the product's one
@@ -189,6 +173,118 @@ const CLASS_TONE: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'd
   warning: 'warning',
   marketing: 'warning',
 };
+
+/**
+ * ONE GOAL CARD, READ FROM `campaigns.goals` — just enough to build the five that have no
+ * automatic reason of their own (win_back/occasion/reward_loyal are read from `reasons` instead,
+ * via REASON_GOAL, and never duplicated here — see `templateCards` below).
+ */
+interface GoalRow {
+  goal: string;
+  title: string;
+  line: string;
+  template_status?: TemplateStatus;
+}
+
+/**
+ * THE TEMPLATE TYPE EACH GOAL SENDS — the same table campaigns/app/core/models.py's own
+ * `GOAL_TEMPLATE` holds, mirrored here so «القوالب» can open the by-type preview
+ * (`reminders.preview_by_type`) WITHOUT a reason id, for the five goals that have none. Kept in
+ * sync by hand, the same way `GOAL_TITLE` above already is — a table this small drifting is a
+ * one-line fix; a network round trip just to learn it is not worth the goals endpoint growing a
+ * field for exactly one screen.
+ */
+const GOAL_TEMPLATE_TYPE: Record<string, string> = {
+  announce: 'mkt_announcement',
+  awareness: 'awr_care_tip',
+  seasonal_care: 'awr_seasonal_care',
+  service_offer: 'mkt_offer',
+  package_offer: 'mkt_offer',
+};
+
+/** THE FIVE SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the three `cls` values the reasons
+ *  registry already uses, then the two that exist only for campaign goals with no automatic
+ *  counterpart at all. */
+const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers'] as const;
+const SECTION_LABEL: Record<string, string> = {
+  service: 'خدمية',
+  personal: 'شخصية',
+  marketing: 'تسويقية',
+  tips: 'وعي ونصائح',
+  offers: 'عروض',
+};
+
+/** Which section a GOAL-ONLY card lands under (win_back/occasion/reward_loyal are reason cards,
+ *  never built from this — see `templateCards`). `announce` sits with the marketing reasons: it
+ *  is exactly as promotional as they are, just never automatic. */
+const GOAL_SECTION: Record<string, string> = {
+  announce: 'marketing',
+  awareness: 'tips',
+  seasonal_care: 'tips',
+  service_offer: 'offers',
+  package_offer: 'offers',
+};
+
+/** A reason whose message needs an app this shop may not own — never hidden, LOCKED (Locked.tsx's
+ *  own `AppGate`). Read from `reasons.py`'s `source` field where it is clean (`booking_confirmed`
+ *  is `source="bookings"`); `rating_requested` carries no such source (it is fired by reminders
+ *  itself, on behalf of the rating app) so its app is named here by hand. */
+const REASON_APP: Record<string, string> = {
+  booking_confirmed: 'bookings',
+  rating_requested: 'rating',
+};
+
+/** One entry in «القوالب» — a reason, a goal, or (for the three that are both) one card carrying
+ *  both capabilities, never shown twice. */
+interface TemplateCard {
+  key: string;
+  label: string;
+  when: string;
+  cls: string;
+  clsLabel: string;
+  /** 'auto' when a reason fires this without anybody pressing anything; 'manual' when it is a
+   *  goal the owner launches himself from «حملاتي». A card carrying both is the three shared
+   *  ones — REASON_GOAL's own three. */
+  tags: ('auto' | 'manual')[];
+  reason?: ReasonRow;
+  /** Set whenever a goal is attached — either because THIS card came from `goals` directly (a
+   *  goal with no reason), or because a reason card shares one via REASON_GOAL. Used for the
+   *  cross-link to «حملاتي» and, when there is no `reason`, for the by-type preview. */
+  goal?: string;
+  templateType?: string;
+  lockAppId?: string;
+}
+
+/** THE GOAL → REASON MAP, THE OTHER DIRECTION FROM `REASON_GOAL` above — so a goal read from
+ *  `campaigns.goals` that already has a reason card is skipped here rather than drawn twice. */
+const GOAL_HAS_REASON = new Set(Object.values(REASON_GOAL).map((r) => r.goal));
+
+/** Every template in the product, once — reasons first (their own order), then the goals with no
+ *  reason of their own, grouped by section and never duplicated. Pure, so a test can hold the
+ *  rule without rendering anything. */
+export function templateCards(reasons: ReasonRow[], goals: GoalRow[]): TemplateCard[] {
+  const out: TemplateCard[] = [];
+  for (const r of reasons) {
+    const linked = REASON_GOAL[r.id];
+    out.push({
+      key: `reason:${r.id}`, label: r.label, when: r.when,
+      cls: r.cls ?? '', clsLabel: r.cls_label ?? '',
+      tags: linked ? ['auto', 'manual'] : ['auto'],
+      reason: r, goal: linked?.goal,
+      lockAppId: REASON_APP[r.id],
+    });
+  }
+  for (const g of goals) {
+    if (GOAL_HAS_REASON.has(g.goal)) continue; // already carried by its reason card, above
+    const cls = GOAL_SECTION[g.goal] ?? 'marketing';
+    out.push({
+      key: `goal:${g.goal}`, label: g.title, when: g.line,
+      cls, clsLabel: SECTION_LABEL[cls] ?? cls,
+      tags: ['manual'], goal: g.goal, templateType: GOAL_TEMPLATE_TYPE[g.goal],
+    });
+  }
+  return out;
+}
 
 interface Schedule {
   schedule: { id?: string; kind?: string; due_at?: number; subject_ref?: string }[];
@@ -316,6 +412,103 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
   );
 }
 
+/** THE TAG, IN HIS WORDS — the owner's own explicit ask: whether a card fires by itself, whether
+ *  he presses it himself, or both, must be visible on the card, never buried in a modal. */
+const TAG_LABEL: Record<'auto' | 'manual', string> = {
+  auto: 'تلقائي',
+  manual: 'أنت ترسلها',
+};
+
+/**
+ * ONE CARD, WHATEVER IT IS BACKED BY. `card.reason` present means a switch, a «بنصّك أنت» badge
+ * and the reasons-based preview; absent means a bare goal, opened through the by-type preview
+ * instead. Matches the product's existing card idiom — rounded-card, shadow-sm, an icon circle —
+ * rather than inventing new chrome (see LockedCard in Locked.tsx, the establishment this pass
+ * borrows its visual language from).
+ */
+function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink }: {
+  card: TemplateCard;
+  session: Session;
+  busy: string;
+  onOpen: () => void;
+  onFlip?: (on: boolean) => void;
+  onCrossLink: () => void;
+}) {
+  const r = card.reason;
+  return (
+    <div className={['flex items-center gap-3 rounded-card border border-border-subtle',
+                     'bg-surface-1 p-3 shadow-sm', r && !r.on ? 'opacity-70' : ''].join(' ')}>
+      {/* THE ICON CIRCLE — the product's own idiom, not a new one. */}
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2">
+        <MessageSquare size={16} className="text-text-secondary" aria-hidden />
+      </span>
+
+      <button type="button" onClick={onOpen}
+              className="flex min-w-0 flex-1 flex-col gap-1 text-start">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="truncate font-medium">{card.label}</span>
+          {card.clsLabel ? (
+            <Badge tone={CLASS_TONE[card.cls] ?? 'neutral'}>{card.clsLabel}</Badge>
+          ) : null}
+          {/* THE TAG(S) — BOTH, ON ONE CARD, FOR THE THREE THAT ARE BOTH. */}
+          {card.tags.length === 2 ? (
+            <Badge tone="neutral">تلقائي + يمكن إطلاقه يدوياً</Badge>
+          ) : (
+            <Badge tone="neutral">{TAG_LABEL[card.tags[0]]}</Badge>
+          )}
+          {r?.template_status && r.template_status !== 'unknown' ? (
+            <Badge tone={TEMPLATE_STATUS_META[r.template_status].tone}>
+              {TEMPLATE_STATUS_META[r.template_status].label}
+            </Badge>
+          ) : null}
+          {r?.template ? (
+            <>
+              <Badge tone="neutral">بنصّك أنت</Badge>
+              <AssistantHint session={session} anchor="messages.customTextBadge" />
+            </>
+          ) : null}
+        </span>
+        <span className="truncate text-xs text-text-secondary">{card.when}</span>
+      </button>
+
+      {/* THE CROSS-LINK — a SIBLING of the card's own button, never nested inside it. Shown for
+          every card carrying a goal: the three shared reason cards AND the goal-only cards, both
+          link to «حملاتي» the same way. */}
+      {card.goal ? (
+        <button type="button" onClick={onCrossLink}
+               className="shrink-0 whitespace-nowrap text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
+          {`أطلقها من «${GOAL_TITLE[card.goal] ?? 'حملاتي'}»`}
+        </button>
+      ) : null}
+
+      {/* THE SWITCH — only for a reason. A bare goal has nothing to switch: it fires only when he
+          presses «أطلق حملة» in «حملاتي», never by itself. */}
+      {r ? (
+        <span className="flex w-24 shrink-0 items-center justify-end gap-2">
+          <span className="text-xs text-text-secondary">
+            {r.can_switch ? (r.on ? 'مفعّلة' : 'موقوفة') : ''}
+          </span>
+          {r.can_switch && onFlip ? (
+            <span className="[&_label>span]:sr-only">
+              <Toggle
+                label={card.label}
+                checked={r.on}
+                disabled={busy === r.id}
+                onChange={onFlip}
+              />
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-text-secondary">
+              <Lock size={14} aria-hidden />
+              حقٌّ لعميلك
+            </span>
+          )}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function MessagesScreen(
   { session, catalog, owned }:
   { session: Session; catalog: Catalog; owned?: Loading<Owned> },
@@ -338,26 +531,13 @@ export function MessagesScreen(
    */
   const [reasons, setReasons] = useState<Loading<ReasonRow[]>>(undefined);
   const [busy, setBusy] = useState('');
-  /** The row he opened to read its wording. `null` is closed — it is not a screen of its own. */
-  const [reading, setReading] = useState<ReasonRow | null | undefined>(undefined);
-  /** THE TWO FILTERS, AND THEY LIVE HERE RATHER THAN IN THE URL. A filter a person set to answer
-   *  one question is not a place he wants to come back to tomorrow — «موقوفة» remembered across a
-   *  session would hide his working messages the next time he opened the screen, and he would
-   *  read that as the product having switched them off.
-   *
-   *  THE CLASS FILTER IS AN ARRAY, ON `FilterMenu`. A shop asking «which of mine are marketing OR
-   *  personal» is one real question, and a single-select pill could never answer it — it could
-   *  only be asked one class at a time. */
-  const [clsFilter, setClsFilter] = useState<string[]>([]);
-  const [stateFilter, setStateFilter] = useState<'' | 'on' | 'off'>('');
-
-  /** The rows the two filters leave standing. Nothing is invented and nothing is re-ordered: the
-   *  server's order is the product's order, and a filter that also sorted would make «where did
-   *  that row go» a second question. */
-  const shown = (isReady(reasons) ? reasons : []).filter(
-    (t) => (clsFilter.length === 0 || clsFilter.includes(t.cls ?? ''))
-      && (!stateFilter || (stateFilter === 'on' ? t.on : !t.on)),
-  );
+  /** The card he opened to read its wording. `null` is closed — it is not a screen of its own. */
+  const [reading, setReading] = useState<TemplateCard | null | undefined>(undefined);
+  /** THE FIVE GOALS WITH NO REASON OF THEIR OWN — read once, with the screen, same as `reasons`:
+   *  «القوالب» is now the one place both live, and a goal fetched only after a tab switch would
+   *  make the first paint of that tab incomplete. `null` on a denied/failed read simply means
+   *  those five cards do not appear — the three shared ones still do, via `reasons` alone. */
+  const [goals, setGoals] = useState<GoalRow[] | null>(null);
   const [switchError, setSwitchError] = useState('');
 
   /** «هل كل شيء يعمل؟» — read once, with the screen, same as the reasons table below it: it is
@@ -441,6 +621,25 @@ export function MessagesScreen(
       // nothing, which is the one sentence that must never be shown by mistake.
       .catch(() => setReasons(null));
   }, [session, catalog]);
+
+  // THE FIVE GOALS WITH NO AUTOMATIC COUNTERPART — read once, beside `reasons`, so «القوالب»
+  // opens complete. A shop whose role/plan cannot see `campaigns.goals` simply keeps the reasons
+  // it already has: the three shared cards still carry «أنت ترسلها» via REASON_GOAL.
+  useEffect(() => {
+    const a = action(catalog, 'campaigns.goals');
+    if (!a) return;
+    call<{ goals: GoalRow[] }>(session, a)
+      .then((x) => setGoals(x.goals ?? []))
+      .catch(() => setGoals(null));
+  }, [session, catalog]);
+
+  /** EVERY TEMPLATE, ONCE — the whole point of the rename. Built only once both reads have
+   *  something to say; a goal read that has not arrived yet must not make the three shared cards
+   *  flicker from "both" to "automatic only" and back. */
+  const cards = useMemo(
+    () => templateCards(isReady(reasons) ? reasons : [], goals ?? []),
+    [reasons, goals],
+  );
 
   // THE SUMMARY, ONCE, WITH THE SCREEN. Cheap by its own design (owner.py's docstring: one call
   // rather than four, exactly so a status screen is never briefly wrong) — and silent on failure
@@ -617,7 +816,7 @@ export function MessagesScreen(
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'reasons', label: 'متى نرسل' },
+          { value: 'reasons', label: 'القوالب' },
           { value: 'auto', label: 'بانتظار الخروج' },
           { value: 'campaigns', label: 'حملاتي' },
           { value: 'log', label: 'السجل' },
@@ -625,51 +824,22 @@ export function MessagesScreen(
       />
 
       {tab === 'reasons' ? (
-        <section className="flex flex-col gap-3">
-          {/* ── everything that sends in his name, and the switch for each ──────────────────
-              THE ROW IS A SENTENCE, NOT A SETTING. «سُجّلت زيارة» with «بعد تسجيل الزيارة
-              بعشر دقائق» under it answers the two questions he has — what and when — before he
-              touches anything. Both come from the server: a label kept here would drift from the
-              engine the first time a reason changed, and he would be reading a promise nothing
-              keeps. */}
+        <section className="flex flex-col gap-4">
+          {/* ── EVERY TEMPLATE IN THE PRODUCT, ONCE ─────────────────────────────────────────
+              THE RENAME'S WHOLE POINT. «متى نرسل» only ever listed the thirteen automatic
+              reasons; «حملاتي» separately explained eight goals, and only three of them ever got
+              the rich preview an owner could actually read and edit. «القوالب» is now the one
+              place both live — every card carrying its own tags, its own class, and, for the
+              three that are both, both capabilities on one card rather than two. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
-          {/* ── ONE LINE, NOT TWO. Both facts an owner needs before reading thirteen rows —
-              what he has, and where the ones HE launches live — now share a sentence instead of
-              stacking as two paragraphs above a table he has not reached yet.
-              «عدد الرسائل قليل» was the first reading of a flat list — and it was a reading, not
-              a fact: the four promotional reasons were always here, indistinguishable from the
-              rest. The count says what he has; the badges say which is which. And the promotional
-              rows here fire THEMSELVES — a campaign is one he presses send on, both need his
-              customer's consent, and a screen naming one without the other reads as half a
-              product. */}
-          {Array.isArray(reasons) && reasons.length > 0 ? (
-            <p className="px-1 text-sm text-text-secondary">
-              {`${reasons.length} سبباً يرسل باسم محلّك — `}
-              {Object.entries(
-                reasons.reduce<Record<string, number>>((acc, r) => {
-                  const k = r.cls_label ?? 'أخرى';
-                  acc[k] = (acc[k] ?? 0) + 1;
-                  return acc;
-                }, {}),
-              )
-                .map(([label, n]) => `${n} ${label}`)
-                .join(' · ')}
-              {' — التسويقية تنطلق وحدها؛ ما تُطلقه أنت بنفسك ففي «حملاتي».'}
-            </p>
-          ) : null}
           {isLoading(reasons) ? (
             <Skeleton height={200} />
           ) : isDenied(reasons) ? (
-            // THE ONE ANSWER WAITING NEVER CHANGES. This section is decided by his role, so
-            // «حاول بعد قليل» sends him back tomorrow to the same closed door (م · النمط 2).
             <EmptyState
               title="لا يشمل دورك دواعي الإرسال"
               description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
             />
           ) : hasFailed(reasons) ? (
-            // THE ONLY PATH TO THIS SENTENCE USED TO BE AN EMPTY LIST, and an empty list here
-            // meant «the action is not in your catalogue» — a permission answer wearing an outage
-            // sentence, so he retried every day on something waiting would never open.
             <EmptyState
               title="تعذّر قراءة رسائلك"
               description="حسابك سليم، والخلل عندنا. حاول بعد قليل."
@@ -681,180 +851,75 @@ export function MessagesScreen(
             />
           ) : (
             <>
-              {/* ── FILTERS FIRST, BECAUSE THIRTEEN ROWS ARE READ WITH A QUESTION IN MIND ──────
-                  الشاشة نفسها تسير جدول ويسير فيه فلاتر على أنواع الرسائل وأيضاً على الحالات.
-
-                  The list answered «what messages exist» and nothing else. «أيّها مفعّل؟» and «أيّ
-                  التسويقية عندي؟» — the two questions an owner actually arrives with — were
-                  answered by scanning thirteen cards with his eye, every time.
-
-                  ON THE ROW'S OWN FACTS, NEVER ON A SECOND LIST. Both filters read `cls` and `on`
-                  from the rows the server sent; nothing here invents a category or remembers one. */}
-              {/* THE TWO FILTERS STAY ON ONE ROW, ALWAYS. `flex-wrap` on this row used to drop
-                  the state Segmented onto its own line the moment it ran tight, reading as two
-                  unrelated controls instead of one filter bar. The inner group is `flex-nowrap`
-                  + `overflow-x-auto` — both filters stay side by side and the group scrolls
-                  sideways on a narrow screen instead of breaking, the same pattern a phone's own
-                  filter-chip row uses. The OUTER row keeps `flex-wrap` so `AssistantHint`'s own
-                  answer (`basis-full`, see AssistantHint.tsx) can still drop to a fresh line
-                  when the "؟" is opened, instead of being forced into that same scroller. */}
-              <div className="flex flex-wrap items-center gap-2 px-1">
-                <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
-                  <FilterMenu
-                    className="shrink-0"
-                    label="النوع"
-                    options={CLASS_ORDER.map((c) => ({ value: c, label: CLASS_LABEL[c] }))}
-                    selected={clsFilter}
-                    onChange={setClsFilter}
-                  />
-                  <Segmented
-                    className="shrink-0"
-                    ariaLabel="تصفية بالحالة"
-                    value={stateFilter}
-                    onChange={setStateFilter}
-                    options={[
-                      { value: '', label: 'الكل' },
-                      { value: 'on', label: 'مفعّلة' },
-                      { value: 'off', label: 'موقوفة' },
-                    ]}
-                  />
-                </div>
-                <AssistantHint session={session} anchor="messages.class" />
-              </div>
-
-              {/* A FILTER THAT MATCHES NOTHING SAYS SO. An empty table under two pressed pills
-                  reads as «you have none of these» — which is true — but a reader who cannot see
-                  which pill did it presses them one by one to find out. */}
-              {shown.length === 0 ? (
-                <p className="px-1 py-6 text-center text-sm text-text-secondary">
-                  لا شيء بهذا الوصف — جرّب «الكل».
-                </p>
-              ) : (
-                <ul className="flex flex-col divide-y divide-border-subtle rounded-card border border-border-subtle bg-surface-1">
-                  {shown.map((t) => (
-                    <li key={t.id}
-                        className={['flex items-center gap-3 px-3 py-2.5',
-                                    t.on ? '' : 'opacity-70'].join(' ')}>
-                      {/* THE WHOLE ROW OPENS IT, not a small "preview" link. What the message SAYS
-                          is the thing he came to see; the switch keeps its own hit area at the far
-                          side, where a thumb reaching for it cannot open a modal by accident. */}
-                      <button type="button"
-                              onClick={() => setReading(t)}
-                              className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span className="truncate font-medium">{t.label}</span>
-                          {/* THE CLASS, ON EVERY ROW. Without it «متى نرسل» is thirteen sentences
-                              that look alike and behave nothing alike — and the owner, who carries
-                              the fine if a promotional message goes out without consent, could not
-                              tell which was which. */}
-                          {t.cls_label ? (
-                            <Badge tone={CLASS_TONE[t.cls ?? ''] ?? 'neutral'}>{t.cls_label}</Badge>
-                          ) : null}
-                          {/* THE BADGE, ON THE ROW ITSELF — not hidden behind opening the preview
-                              modal to learn a fact that decides whether this row sends at all.
-                              «unknown» draws nothing: a status this screen could not vouch for
-                              must not be shown as if it were one. */}
-                          {t.template_status && t.template_status !== 'unknown' ? (
-                            <Badge tone={TEMPLATE_STATUS_META[t.template_status].tone}>
-                              {TEMPLATE_STATUS_META[t.template_status].label}
-                            </Badge>
-                          ) : null}
-                          {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a
-                              line saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}
-                          {t.template ? (
-                            <>
-                              <Badge tone="neutral">بنصّك أنت</Badge>
-                              <AssistantHint session={session} anchor="messages.customTextBadge" />
-                            </>
-                          ) : null}
-                        </span>
-                        {/* THE «WHEN» STAYS, AND IT IS THE REASON THIS IS NOT A BARE TABLE. «بعد
-                            تسجيل الزيارة بعشر دقائق» is what makes the name mean something to
-                            somebody reading it for the first time; a column of names alone would
-                            be tidier and less useful. */}
-                        <span className="truncate text-xs text-text-secondary">{t.when}</span>
-                      </button>
-
-                      {/* THE CROSS-LINK — a SIBLING of the row's own button, never nested inside
-                          it (two interactive elements cannot nest). Only for the reasons that
-                          ARE a campaign goal's own message under a different trigger — «تجاوز
-                          دورته ولم يعد» here is «رجّع اللي غابوا» in «حملاتي», same template,
-                          and until this an owner editing one had no way to know the other screen
-                          sends it too. */}
-                      {REASON_GOAL[t.id] ? (
-                        <button type="button"
-                               onClick={() => navigate(`?tab=campaigns&launch=${REASON_GOAL[t.id].goal}`)}
-                               className="shrink-0 whitespace-nowrap text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
-                          نفسها في «{REASON_GOAL[t.id].title}»
-                        </button>
-                      ) : null}
-
-                      {/* ONE FIXED-WIDTH COLUMN, so thirteen switches line up under one another
-                          instead of each sitting wherever its own row's text happened to end. */}
-                      <span className="flex w-24 shrink-0 items-center justify-end gap-2">
-                        {/* THE STATE IN A WORD, BESIDE THE SWITCH THAT CHANGES IT. The switch
-                            alone is readable to a person watching for it and invisible to one
-                            scanning fast — and «موقوفة» is exactly what the filter above promises
-                            to find. */}
-                        <span className="text-xs text-text-secondary">
-                          {t.can_switch ? (t.on ? 'مفعّلة' : 'موقوفة') : ''}
-                        </span>
-
-                        {t.can_switch ? (
-                          // THE NAME STAYS, THE SECOND COPY GOES. The kit uses `label` for BOTH
-                          // the switch's accessible name and a visible caption beside it — so
-                          // every row printed its own title twice. Hiding it VISUALLY ONLY keeps
-                          // it in the accessibility tree, where it is the one thing that makes
-                          // thirteen identical switches distinguishable.
-                          <span className="[&_label>span]:sr-only">
-                            <Toggle
-                              label={t.label}
-                              checked={t.on}
-                              disabled={busy === t.id}
-                              onChange={(on) => flip(t, on)}
-                            />
-                          </span>
-                        ) : (
-                          // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying
-                          // does nothing; a lock with a reason answers before he asks.
-                          <span className="flex items-center gap-1 text-xs text-text-secondary">
-                            <Lock size={14} aria-hidden />
-                            حقٌّ لعميلك
-                          </span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {/* MOVED UP FROM UNDER THE WHOLE LIST — a note about what the switch above does
-                  belongs beside the switches, not after a reader has already scrolled past all
-                  thirteen of them. */}
+              {SECTION_ORDER.map((section) => {
+                const inSection = cards.filter((c) => c.cls === section);
+                if (inSection.length === 0) return null;
+                return (
+                  <div key={section} className="flex flex-col gap-2">
+                    <h3 className="px-1 text-sm font-medium text-text-secondary">
+                      {SECTION_LABEL[section]}
+                    </h3>
+                    <ul className="flex flex-col gap-2">
+                      {inSection.map((c) => (
+                        <li key={c.key}>
+                          {c.lockAppId ? (
+                            <AppGate appId={c.lockAppId} owned={owned}>
+                              <TemplateCardItem card={c} session={session} busy={busy}
+                                                onOpen={() => setReading(c)}
+                                                onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
+                                                onCrossLink={() => c.goal
+                                                  && navigate(`?tab=campaigns&launch=${c.goal}`)} />
+                            </AppGate>
+                          ) : (
+                            <TemplateCardItem card={c} session={session} busy={busy}
+                                              onOpen={() => setReading(c)}
+                                              onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
+                                              onCrossLink={() => c.goal
+                                                && navigate(`?tab=campaigns&launch=${c.goal}`)} />
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
               <p className="px-1 text-xs text-text-secondary">
                 الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
+                التسويقية تنطلق وحدها؛ ما تُطلقه أنت بنفسك ففي «حملاتي».
               </p>
             </>
           )}
           {reading ? (
-            <MessagePreview
-              session={session}
-              catalog={catalog}
-              reasonId={reading.id}
-              label={reading.label}
-              when={reading.when}
-              canRetext={reading.can_retext}
-              onClose={() => setReading(null)}
-              // The chosen text changed, so the row's «بنصّك أنت» badge has to be re-read from
-              // the server rather than guessed at here.
-              onChosen={() => {
-                const a = action(catalog, 'reminders.reasons');
-                if (a) {
-                  call<{ reasons: ReasonRow[] }>(session, a)
-                    .then((x) => setReasons(x.reasons ?? []))
-                    .catch(() => {});
-                }
-              }}
-            />
+            reading.reason ? (
+              <MessagePreview
+                session={session}
+                catalog={catalog}
+                reasonId={reading.reason.id}
+                label={reading.label}
+                when={reading.when}
+                canRetext={reading.reason.can_retext}
+                onClose={() => setReading(null)}
+                onChosen={() => {
+                  const a = action(catalog, 'reminders.reasons');
+                  if (a) {
+                    call<{ reasons: ReasonRow[] }>(session, a)
+                      .then((x) => setReasons(x.reasons ?? []))
+                      .catch(() => {});
+                  }
+                }}
+              />
+            ) : (
+              <MessagePreview
+                session={session}
+                catalog={catalog}
+                templateType={reading.templateType}
+                label={reading.label}
+                when={reading.when}
+                canRetext={false}
+                onClose={() => setReading(null)}
+                onChosen={() => {}}
+              />
+            )
           ) : null}
         </section>
       ) : tab === 'auto' ? (
