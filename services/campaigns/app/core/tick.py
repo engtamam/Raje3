@@ -19,9 +19,12 @@ campaign is firing at night.
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+from app.core.locks import record_lock
 
 # Saudi Arabia has no daylight saving, so a fixed offset is correct — the same constant as
 # reminders' gate, and the same reason it is named rather than inlined.
@@ -109,18 +112,38 @@ class Tick:
             return res
         rows, _ = await self._s.find("campaigns", {"tenant": tenant, "state": "active"},
                                      limit=200, sort=("created", "asc"))
-        for row in rows:
-            try:
-                await self._one(row, now=now, res=res)
-            except Exception as exc:                                        # noqa: BLE001
-                # One campaign's failure must not stop the others. A tenant with a malformed
-                # campaign would otherwise have every campaign frozen, and the symptom is "nothing
-                # sends" rather than "one campaign is broken".
-                res.reasons[f"خطأ في حملة: {str(exc)[:50]}"] = \
-                    res.reasons.get(f"خطأ في حملة: {str(exc)[:50]}", 0) + 1
-                if self._t is not None:
-                    self._t.event("campaign_tick_failed", tenant=tenant,
-                                  campaign=row.get("id", ""), error=str(exc)[:200])
+
+        # CAMPAIGNS ARE INDEPENDENT, SO THEY RUN CONCURRENTLY — bounded, so a tenant with many
+        # active campaigns cannot open unbounded connections to the store/sender at once. Each
+        # campaign gets its OWN TickResult rather than mutating the shared one from inside the
+        # gather: that keeps the merge a simple, sequential, race-free step after every campaign has
+        # finished, instead of trusting concurrent tasks not to interleave badly on a shared dict.
+        sem = asyncio.Semaphore(10)
+
+        async def _one_bounded(row: dict[str, Any]) -> TickResult:
+            local = TickResult()
+            async with sem:
+                try:
+                    await self._one(row, now=now, res=local)
+                except Exception as exc:                                    # noqa: BLE001
+                    # One campaign's failure must not stop the others. A tenant with a malformed
+                    # campaign would otherwise have every campaign frozen, and the symptom is
+                    # "nothing sends" rather than "one campaign is broken".
+                    key = f"خطأ في حملة: {str(exc)[:50]}"
+                    local.reasons[key] = local.reasons.get(key, 0) + 1
+                    if self._t is not None:
+                        self._t.event("campaign_tick_failed", tenant=tenant,
+                                      campaign=row.get("id", ""), error=str(exc)[:200])
+            return local
+
+        for local in await asyncio.gather(*(_one_bounded(row) for row in rows)):
+            res.evaluated += local.evaluated
+            res.fired += local.fired
+            res.sent += local.sent
+            res.suppressed += local.suppressed
+            res.skipped += local.skipped
+            for k, v in local.reasons.items():
+                res.reasons[k] = res.reasons.get(k, 0) + v
         return res
 
     async def _one(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> None:
@@ -209,6 +232,10 @@ class Tick:
             # cost the owner a month for a send that never happened.
             campaign["locked_until"] = now + self._lock_days * DAY
             await self._save(campaign, now)
+            # THE SIDE RECORD `_locks()` READS, kept current at the one place this path writes a
+            # lock. See app.core.locks for why the read side no longer scans campaigns.
+            await record_lock(self._s, campaign.get("tenant", ""),
+                              campaign.get("goal", ""), campaign["locked_until"])
         return out.finished
 
     async def _save(self, campaign: dict[str, Any], now: int) -> None:
