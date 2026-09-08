@@ -33,8 +33,8 @@ function timeToMinutes(t: string): number {
 }
 
 const ALGORITHMS: { value: AssignmentSettings['algorithm']; label: string; hint: string }[] = [
-  { value: 'nearest', label: 'أقرب فتحة',
-   hint: 'أول موظف مؤهَّل عنده فتحة فاضية — بلا أي إعداد إضافي، نفس سلوك اليوم بالضبط.' },
+  { value: 'nearest', label: 'أقرب موعد',
+   hint: 'أول موظف مؤهَّل عنده موعد فاضٍ — بلا أي إعداد إضافي، نفس سلوك اليوم بالضبط.' },
   { value: 'least_loaded', label: 'الأقل حِمل',
    hint: 'يوزّع بالتساوي — الموظف اللي عنده حجوزات أقل بنفس الفترة يُفضَّل.' },
   { value: 'manual_order', label: 'ترتيب يدوي',
@@ -166,7 +166,7 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary">لخدمات «تلقائي» فقط — تحدد مين يفوز الفتحة إذا كان أكثر من موظف مؤهَّل حراً بنفس الوقت</p>
+            <p className="text-sm text-text-secondary">لخدمات «تلقائي» فقط — تحدد مين يفوز بالموعد إذا كان أكثر من موظف مؤهَّل حراً بنفس الوقت</p>
             <Segmented
               size="sm"
               ariaLabel="خوارزمية التوزيع"

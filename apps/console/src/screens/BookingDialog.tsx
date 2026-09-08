@@ -375,7 +375,7 @@ export function BookingDialog(
   const firstSlotIsShopOpening = shopClosedNow && (slots ?? []).length > 0
     && (slots as Slot[])[0].startsAt - Math.floor(Date.now() / 1000) > 5 * 60;
 
-  // "أقرب يوم فيه فتحة" — for when the day on screen has nothing at all (closed, or fully
+  // "أقرب يوم فيه موعد" — for when the day on screen has nothing at all (closed, or fully
   // booked): the same whole-horizon search the old «أقرب موعد» button always did, just jumping
   // the day switcher to the day it actually found instead of only filling two fields.
   async function jumpToNearestDay() {
@@ -393,12 +393,12 @@ export function BookingDialog(
           best = { operatorId: opId, startsAt: r.starts_at };
         }
       }
-      if (best === null) { setSlotsError('لا فتحة قريبة خلال أسبوعين.'); return; }
+      if (best === null) { setSlotsError('لا موعد قريب خلال أسبوعين.'); return; }
       setDay(dayOfEpoch(best.startsAt));
       setTime(timeOfEpoch(best.startsAt));
       if (!operatorId) setOperatorId(best.operatorId);
     } catch (e) {
-      setSlotsError(sentenceFor(e, 'تعذّر البحث عن فتحة.'));
+      setSlotsError(sentenceFor(e, 'تعذّر البحث عن موعد.'));
     } finally {
       setJumping(false);
     }
@@ -633,8 +633,8 @@ export function BookingDialog(
           </p>
         ) : null}
 
-        {/* ── الوقت — منتقي فتحات واحد، لا حقلين خام وزر منفصل ─────────────────────────────
-            كل رقاقة فتحة حقيقية فاضية؛ الضغط عليها يعبّئ الوقت (والموظف، لو كان «أي متاح») مباشرة. */}
+        {/* ── الوقت — منتقي مواعيد واحد، لا حقلين خام وزر منفصل ─────────────────────────────
+            كل رقاقة موعد حقيقي فاضٍ؛ الضغط عليها يعبّئ الوقت (والموظف، لو كان «أي متاح») مباشرة. */}
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm text-text-secondary">الوقت</h3>
@@ -663,13 +663,13 @@ export function BookingDialog(
 
           {chosen.length === 0 || missingDuration || noCommonOperator ? null
             : slots === null ? (
-              <p className="text-sm text-text-secondary">نبحث عن فتحات فاضية…</p>
+              <p className="text-sm text-text-secondary">نبحث عن مواعيد فاضية…</p>
             ) : slots.length === 0 ? (
               <div className="flex flex-col gap-2">
-                <p className="text-sm text-text-secondary">لا فتحة فاضية هذا اليوم.</p>
+                <p className="text-sm text-text-secondary">لا موعد فاضٍ هذا اليوم.</p>
                 <Button type="button" variant="ghost" disabled={jumping} onClick={jumpToNearestDay}
                        className="self-start">
-                  {jumping ? 'يبحث…' : 'أقرب يوم فيه فتحة'}
+                  {jumping ? 'يبحث…' : 'أقرب يوم فيه موعد'}
                 </Button>
               </div>
             ) : (
