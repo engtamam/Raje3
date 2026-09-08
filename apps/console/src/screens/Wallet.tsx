@@ -132,7 +132,7 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
         <KpiCard
           icon={<Bot size={20} aria-hidden />}
           tone="info"
-          label="رصيد الذكاء الاصطناعي"
+          label="وحدات الذكاء"
           value={riyalsLabel(aiTotal)}
           hint={
             <span className="flex flex-col gap-0.5">
@@ -159,7 +159,7 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
             label="رصيد تجديد الاشتراك"
             value={riyalsLabel(renewal)}
             hint={renewal > 0
-              ? 'يُخصم منه تلقائياً عند كل تجديد — لا يلمس رصيد الذكاء الاصطناعي أبداً'
+              ? 'يُخصم منه تلقائياً عند كل تجديد — لا يلمس وحدات الذكاء أبداً'
               : 'رصيدك لا يكفي التجديد القادم — اشحنه قبل موعده حتى لا يتوقف اشتراكك'}
           />
         ) : null}

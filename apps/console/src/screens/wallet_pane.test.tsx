@@ -48,7 +48,7 @@ describe('WalletPane', () => {
     };
     render(<WalletPane session={session} catalog={catalog} />);
     await waitFor(() => expect(screen.getByText('200 ريال')).toBeTruthy());
-    expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy();
+    expect(screen.getByText('وحدات الذكاء')).toBeTruthy();
     expect(screen.getByText('123.45 ريال')).toBeTruthy();   // the bundled ai_credit+topup total
   });
 
@@ -71,7 +71,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
     expect(screen.queryByText('رصيد تجديد الاشتراك')).toBeNull();
   });
 
@@ -103,7 +103,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
     expect(screen.queryByText('رصيد تجديد الاشتراك')).toBeNull();
   });
 
@@ -117,7 +117,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
     expect(screen.queryByText('عمولتك كشريك')).toBeNull();
   });
 
@@ -160,7 +160,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('رصيد الذكاء الاصطناعي')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
     expect(screen.queryByText('شحن رصيدي يدوياً')).toBeNull();
   });
 
