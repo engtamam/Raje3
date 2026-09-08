@@ -164,9 +164,12 @@ class LeadSourcingService:
         lat, lng = grid[point_i]
         keyword = job.keywords[keyword_i]
         client = PlacesClient(api_key=api_key)
+        # `api_key` was just resolved above (a store read + AES-GCM decrypt) and cannot change
+        # mid-unit — threaded down through _search_one_unit/_ingest/_save_new_or_merge instead of
+        # each of them re-resolving it per lead.
         found, duplicates = await self._search_one_unit(
             client, lat=lat, lng=lng, radius_km=job.radius_km, keyword=keyword, job=job,
-            city=city)
+            city=city, api_key=api_key)
         job.found_count += found
         job.duplicate_count += duplicates
 
@@ -180,7 +183,7 @@ class LeadSourcingService:
 
     async def _search_one_unit(self, client: PlacesClient, *, lat: float, lng: float,
                                radius_km: float, keyword: str, job: LeadSearchJob,
-                               city: dict[str, Any]) -> tuple[int, int]:
+                               city: dict[str, Any], api_key: str) -> tuple[int, int]:
         """One (point, keyword) unit — pagination and auto-split included, same shape as
         places_scraper_v2.py's own `fetch_with_autosplit`, just synchronous-and-bounded rather
         than looping the whole grid."""
@@ -189,11 +192,11 @@ class LeadSourcingService:
         if len(places) >= _MAX_PAGE_RESULTS and radius_km > 2.5:
             for olat, olng in split_offsets(radius_km):
                 sub = self._fetch_all_pages(client, lat + olat, lng + olng, 2500, keyword)
-                f, d = await self._ingest(sub, job=job, city=city)
+                f, d = await self._ingest(sub, job=job, city=city, api_key=api_key)
                 found += f
                 duplicates += d
         else:
-            found, duplicates = await self._ingest(places, job=job, city=city)
+            found, duplicates = await self._ingest(places, job=job, city=city, api_key=api_key)
         return found, duplicates
 
     def _fetch_all_pages(self, client: PlacesClient, lat: float, lng: float, radius_m: float,
@@ -212,26 +215,46 @@ class LeadSourcingService:
         return results
 
     async def _ingest(self, places: list[dict], *, job: LeadSearchJob,
-                      city: dict[str, Any]) -> tuple[int, int]:
-        found = duplicates = 0
+                      city: dict[str, Any], api_key: str) -> tuple[int, int]:
+        candidates = []
         for place in places:
             place_id = place.get("place_id", "")
             name = place.get("name", "")
             indicators = job.filter_indicators if job.apply_filter else []
-            if not place_id or not matches_indicators(name, indicators):
-                continue
-            # place_id already known ⇒ skip WITHOUT spending a Details call on it at all.
-            if await self._s.get(LEADS, place_id) is not None:
+            if place_id and matches_indicators(name, indicators):
+                candidates.append(place)
+
+        # ONE batched membership query instead of up to _MAX_PAGE_RESULTS (60) sequential
+        # `get(LEADS, place_id)` dedup checks — DataStore.find's `{field: [values]}` form is an
+        # indexed IN-query on both adapters (see ports/datastore.py's own note on it). Same
+        # dedup rule as before: LEADS is keyed by place_id, so a hit on the `place_id` field is
+        # exactly the same "already known" fact a direct key lookup would have found.
+        existing_ids: set[str] = set()
+        place_ids = [p.get("place_id", "") for p in candidates]
+        if place_ids:
+            rows, _ = await self._s.find(LEADS, {"place_id": place_ids}, limit=len(place_ids),
+                                         sort=("found_at", "desc"))
+            existing_ids = {r.get("place_id", "") for r in rows}
+
+        found = duplicates = 0
+        seen_in_batch: set[str] = set()
+        for place in candidates:
+            place_id = place.get("place_id", "")
+            # `seen_in_batch` covers the (unlikely but possible) case of the same place_id
+            # appearing twice within one page — the sequential version would have caught the
+            # second occurrence via a fresh get() after the first was saved; the batched
+            # pre-check alone would miss it.
+            if place_id in existing_ids or place_id in seen_in_batch:
                 duplicates += 1
                 continue
+            seen_in_batch.add(place_id)
             found += 1
-            await self._save_new_or_merge(place, job=job, city=city)
+            await self._save_new_or_merge(place, job=job, city=city, api_key=api_key)
         return found, duplicates
 
     async def _save_new_or_merge(self, place: dict, *, job: LeadSearchJob,
-                                 city: dict[str, Any]) -> None:
+                                 city: dict[str, Any], api_key: str) -> None:
         place_id = place.get("place_id", "")
-        api_key = await self._keys.resolve(job.affiliate_id)
         client = PlacesClient(api_key=api_key)
         details = client.details(place_id)
         phone = details.get("formatted_phone_number", "")
