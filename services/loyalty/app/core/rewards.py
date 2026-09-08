@@ -111,14 +111,20 @@ class Rewards:
             out = [r for r in out if r.active]
         return sorted(out, key=lambda r: r.cost)
 
-    async def affordable(self, tenant: str, points: int) -> list[Reward]:
+    async def affordable(self, tenant: str, points: int, *,
+                         catalogue: list[Reward] | None = None) -> list[Reward]:
         """What this balance can actually buy — and ONLY that (spec §9.5).
 
         Not the full menu with the unaffordable greyed out. Showing a customer standing at the
         counter a reward he cannot have is a worse moment than his not knowing it exists, and the
         operator holding the phone is the one who has to manage it.
+
+        `catalogue` lets a caller that already fetched `list(tenant)` (e.g. to also show every
+        reward's cost) pass it in rather than pay for the same read twice — the default still
+        fetches, so every other caller is unaffected.
         """
-        return [r for r in await self.list(tenant) if r.cost <= points]
+        rows = catalogue if catalogue is not None else await self.list(tenant)
+        return [r for r in rows if r.cost <= points]
 
 
 def _row_to_reward(row: dict) -> Reward:

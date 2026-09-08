@@ -349,3 +349,48 @@ def test_an_unreadable_ceiling_does_not_stop_the_campaign(st):
     # sender looking like an unread one, where it fell back to the pass batch and sent 200.
     assert d.shares == [None], "unknown is its own value; the sender keeps its own bound"
     assert len(d.fired) == 1
+
+
+# ── concurrent campaigns ───────────────────────────────────────────────────────────────────────
+class SlowDispatcher(Dispatcher):
+    """Fires with an artificial await so overlapping campaigns actually interleave, the way a real
+    dispatcher's store/sender calls would — proving the gather change isn't just sequential in
+    disguise, and that the merge afterwards is still correct despite the interleaving."""
+
+    async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
+        await asyncio.sleep(0)
+        return await super().fire(campaign, now=now, fired_by=fired_by, daily_share=daily_share)
+
+
+def test_independent_campaigns_run_concurrently_and_every_result_is_counted(st):
+    """`gather` must not drop a campaign nor double-count one when several fire in the same pass —
+    each gets its own TickResult, merged sequentially after every task finishes."""
+    for i in range(5):
+        save(st, Campaign(tenant="t1", goal="win_back", id=f"c{i}", state="active"))
+    d = SlowDispatcher(sent=3)
+    res = tick(st, d, at(9))
+    assert len(d.fired) == 5
+    assert {cid for cid, _ in d.fired} == {f"c{i}" for i in range(5)}
+    assert res.fired == 5
+    assert res.sent == 15
+
+
+def test_one_campaigns_crash_does_not_lose_the_others_results(st):
+    """A malformed campaign among several must not swallow what the healthy ones sent — the crash
+    is recorded on its own local result and merged in like any other."""
+    for i in range(3):
+        save(st, Campaign(tenant="t1", goal="win_back", id=f"c{i}", state="active"))
+    save(st, Campaign(tenant="t1", goal="win_back", id="boom", state="active"))
+
+    class Flaky(Dispatcher):
+        async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
+            if campaign.get("id") == "boom":
+                raise RuntimeError("dispatch exploded")
+            return await super().fire(campaign, now=now, fired_by=fired_by,
+                                      daily_share=daily_share)
+
+    d = Flaky(sent=2)
+    res = tick(st, d, at(9))
+    assert res.fired == 3
+    assert res.sent == 6
+    assert any("خطأ في حملة" in k for k in res.reasons)

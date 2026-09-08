@@ -174,51 +174,74 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
     return out
 
 
+def _match_win_back(row: dict[str, Any], *, now: int, window_days: int,
+                    last: int, **_: Any) -> tuple[bool, str]:
+    if not last:
+        return False, ""
+    # THE CUSTOMER'S OWN RHYTHM, not a fixed number. `interval_days` is what reminders learned
+    # for them; falling back to the window only when nothing has been learned yet.
+    usual = float(row.get("interval_days") or window_days)
+    elapsed = (now - last) / DAY
+    # 1.5x their own cycle: late enough to be absence rather than lateness, early enough that
+    # the shop is still the one they think of. A multiplier rather than added days, because
+    # "two weeks late" means something different at a car wash and at a workshop.
+    if elapsed >= usual * 1.5:
+        return True, f"آخر زيارة قبل {int(elapsed)} يوماً، ومعدّله {int(usual)}"
+    return False, ""
+
+
+def _match_reward_loyal(row: dict[str, Any], *, now: int, window_days: int, min_visits: int,
+                        last: int, visits: int, **_: Any) -> tuple[bool, str]:
+    if visits >= min_visits and last and (now - last) / DAY <= window_days:
+        return True, f"{visits} زيارات خلال {window_days} يوماً"
+    return False, ""
+
+
+def _match_broadcast(row: dict[str, Any], **_: Any) -> tuple[bool, str]:
+    # Everyone the gate allows. The rule is deliberately empty — narrowing an announcement is
+    # the owner's job through a different goal, not a hidden filter here.
+    return True, "كل العملاء"
+
+
+def _match_service_offer(row: dict[str, Any], *, service_id: str = "", **_: Any) -> tuple[bool, str]:
+    # AN OFFER ON ONE SERVICE. The rule here is deliberately wide — everyone the gate allows —
+    # because the narrowing that matters is the cycle lock in `resolve`, and putting it here
+    # too would make one decision live in two places.
+    #
+    # A campaign of this goal WITHOUT a service is refused rather than widened to the whole
+    # shop: it would be an announcement sent under a name that promises targeting, and the
+    # owner would read the reach number as proof it worked.
+    if not service_id:
+        return False, ""
+    return True, "من قارب موعد هذه الخدمة"
+
+
+def _match_occasion(row: dict[str, Any], **_: Any) -> tuple[bool, str]:
+    # The owner supplied the date; matching a customer to it is data we do not hold yet.
+    # Returning False rather than everyone: a birthday campaign that reaches every customer is
+    # worse than one that reaches nobody, because it goes out under the shop's name.
+    return bool(row.get("occasion_today")), "مناسبته اليوم"
+
+
+# ONE FUNCTION PER GOAL, LOOKED UP BY NAME instead of an if/elif chain walked sequentially on
+# every candidate row — the biggest loop in this file. `announce` and `awareness` share a rule
+# object rather than a duplicated line, same as the chain they replace.
+_MATCHERS: dict[str, Any] = {
+    "win_back": _match_win_back,
+    "reward_loyal": _match_reward_loyal,
+    "announce": _match_broadcast,
+    "awareness": _match_broadcast,
+    "service_offer": _match_service_offer,
+    "occasion": _match_occasion,
+}
+
+
 def _matches(goal: str, row: dict[str, Any], *, now: int, window_days: int,
              min_visits: int, service_id: str = "") -> tuple[bool, str]:
+    fn = _MATCHERS.get(goal)
+    if fn is None:
+        return False, ""
     last = int(row.get("last_visit") or 0)
     visits = int(row.get("visit_count") or 0)
-
-    if goal == "win_back":
-        if not last:
-            return False, ""
-        # THE CUSTOMER'S OWN RHYTHM, not a fixed number. `interval_days` is what reminders learned
-        # for them; falling back to the window only when nothing has been learned yet.
-        usual = float(row.get("interval_days") or window_days)
-        elapsed = (now - last) / DAY
-        # 1.5x their own cycle: late enough to be absence rather than lateness, early enough that
-        # the shop is still the one they think of. A multiplier rather than added days, because
-        # "two weeks late" means something different at a car wash and at a workshop.
-        if elapsed >= usual * 1.5:
-            return True, f"آخر زيارة قبل {int(elapsed)} يوماً، ومعدّله {int(usual)}"
-        return False, ""
-
-    if goal == "reward_loyal":
-        if visits >= min_visits and last and (now - last) / DAY <= window_days:
-            return True, f"{visits} زيارات خلال {window_days} يوماً"
-        return False, ""
-
-    if goal in ("announce", "awareness"):
-        # Everyone the gate allows. The rule is deliberately empty — narrowing an announcement is
-        # the owner's job through a different goal, not a hidden filter here.
-        return True, "كل العملاء"
-
-    if goal == "service_offer":
-        # AN OFFER ON ONE SERVICE. The rule here is deliberately wide — everyone the gate allows —
-        # because the narrowing that matters is the cycle lock in `resolve`, and putting it here
-        # too would make one decision live in two places.
-        #
-        # A campaign of this goal WITHOUT a service is refused rather than widened to the whole
-        # shop: it would be an announcement sent under a name that promises targeting, and the
-        # owner would read the reach number as proof it worked.
-        if not service_id:
-            return False, ""
-        return True, "من قارب موعد هذه الخدمة"
-
-    if goal == "occasion":
-        # The owner supplied the date; matching a customer to it is data we do not hold yet.
-        # Returning False rather than everyone: a birthday campaign that reaches every customer is
-        # worse than one that reaches nobody, because it goes out under the shop's name.
-        return bool(row.get("occasion_today")), "مناسبته اليوم"
-
-    return False, ""
+    return fn(row, now=now, window_days=window_days, min_visits=min_visits,
+             service_id=service_id, last=last, visits=visits)

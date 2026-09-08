@@ -188,12 +188,10 @@ async def _tenants_with_balances(c, limit: int = 2000) -> list[str]:
     from app.core.models import BALANCES
 
     rows = await c.datastore.scan_all(BALANCES, limit=limit)
-    seen: list[str] = []
-    for row in rows:
-        tenant = str(row.get("tenant") or "")
-        if tenant and tenant not in seen:
-            seen.append(tenant)
-    return seen
+    # dict.fromkeys keeps first-seen order in O(n) — the growing `x not in list` scan this replaced
+    # was O(n²) on a collection that is, by design, a whole-collection read.
+    tenants = (str(row.get("tenant") or "") for row in rows)
+    return list(dict.fromkeys(t for t in tenants if t))
 
 
 @router.post("/loyalty/recover", dependencies=[Depends(require_internal_token)])
@@ -471,8 +469,9 @@ async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dic
     """
     c = request.app.state.container
     bal = await c.ledger.balance(tenant, subject_ref)
-    affordable = await c.rewards.affordable(tenant, bal.points)
-    all_costs = [r.cost for r in await c.rewards.list(tenant)]
+    catalogue = await c.rewards.list(tenant)
+    affordable = await c.rewards.affordable(tenant, bal.points, catalogue=catalogue)
+    all_costs = [r.cost for r in catalogue]
     from app.api.v1.loyalty import _threshold
     from app.core.notify import to_next_reward
     from app.core.redeem import needs_approval

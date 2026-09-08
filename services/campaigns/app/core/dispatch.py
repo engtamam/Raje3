@@ -51,6 +51,21 @@ class Dispatcher:
         # enforces its own limit regardless, and a campaign refusing to run because we could not
         # read a number would be our outage wearing their ceiling.
         self._daily_share = int(daily_share)
+        # AN IN-PROCESS CACHE OF THE REACHED-LEDGER, KEYED BY (tenant, campaign). The container
+        # builds one Dispatcher and reuses it for the life of the pod, so a standing or a
+        # multi-pass scheduled campaign used to pay a full drain of its own history on every single
+        # fire — a set that only ever grows, re-read from scratch every five minutes for as long as
+        # the campaign runs. Once this instance has drained a campaign once, `_remember` keeps the
+        # cached set current, so later passes on THIS instance skip the drain entirely.
+        #
+        # THIS IS A PERFORMANCE CACHE, NOT THE SAFETY NET. A pod restart or a second replica starts
+        # with an empty cache and drains fresh — correct, just the slow path again. And even a
+        # stale cache (another replica remembered a subject this one does not know about yet) does
+        # not risk a double message: the send below is keyed on `(campaign, subject)` alone, so
+        # reminders' own idempotency catches a duplicate attempt regardless of what this cache
+        # believes. This cache only decides whether someone is OFFERED to the sender again, never
+        # whether the customer receives a second message.
+        self._reached_cache: dict[str, set[str]] = {}
 
     async def fire(self, campaign: dict[str, Any], *, now: int, daily_share: int | None = None,
                    fired_by: str = "system") -> DispatchResult:
@@ -211,15 +226,33 @@ class Dispatcher:
         #
         # This set decides whether a real person is messaged twice. It is exactly the kind of set
         # that must never be a page.
+        #
+        # DRAINED ONCE PER INSTANCE, THEN GROWN LOCALLY (see `self._reached_cache` above).
+        # `_remember` keeps the cached copy current, so a repeat pass on the same Dispatcher
+        # returns the cache instead of re-reading the whole ledger every time.
+        cache_key = f"{tenant}|{campaign_id}"
+        cached = self._reached_cache.get(cache_key)
+        if cached is not None:
+            return cached
         rows = await drain(self._s, "campaign_reached",
                            {"tenant": tenant, "campaign_id": campaign_id}, sort=("at", "asc"))
-        return {r.get("subject_ref", "") for r in rows if r.get("subject_ref")}
+        reached = {r.get("subject_ref", "") for r in rows if r.get("subject_ref")}
+        self._reached_cache[cache_key] = reached
+        return reached
 
     async def _remember(self, tenant: str, campaign_id: str, subject: str, now: int) -> None:
         key = f"{tenant}|{campaign_id}|{subject}"
         await self._s.put("campaign_reached", key, {
             "id": key, "tenant": tenant, "campaign_id": campaign_id,
             "subject_ref": subject, "at": now})
+        # KEEP THE CACHE IN STEP WITH WHAT WAS JUST WRITTEN, so the next `_already_reached` call on
+        # this instance (later in the same pass, or on the next tick) sees this subject without a
+        # re-drain. Only touches the cache if a prior call already populated it for this campaign —
+        # nothing to keep in step with otherwise.
+        cache_key = f"{tenant}|{campaign_id}"
+        cached = self._reached_cache.get(cache_key)
+        if cached is not None:
+            cached.add(subject)
 
     async def _save(self, run: Run) -> None:
         await self._s.put("campaign_runs", run.key, as_row(run))

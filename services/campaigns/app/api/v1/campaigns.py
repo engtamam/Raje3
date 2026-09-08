@@ -16,6 +16,8 @@ and nothing visibly happens for up to five minutes. They press it again. Firing 
 """
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -27,6 +29,7 @@ from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
 from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
+from app.core.locks import read_locks, record_lock
 from app.core import press
 from app.core.preview import PreviewError, build as build_preview, describe_when
 from app.core.share import compute as compute_share
@@ -130,12 +133,18 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     # AND WHAT EACH GOAL WILL ASK HIM TO FILL (ط-4), read from the template this shop would
     # actually send — including one he rewrote himself — so the screen draws the blanks that
     # exist rather than one free box for every goal, four of which had nowhere to put it. THE
-    # SAME LOOP now also decides `enabled` — see the docstring above for why that used to be a
-    # second, independently-timed call.
+    # SAME READS now also decide `enabled` — see the docstring above for why that used to be a
+    # second, independently-timed call. DEDUPED FIRST: several goals share one template type
+    # (e.g. `service_offer` and `package_offer` both render `mkt_offer`), so looking it up
+    # per-goal asked the store the same question twice for no different answer — a `set`
+    # collapses that before any lookup happens. THEN FETCHED CONCURRENTLY: the lookups are
+    # independent reads, so there is no reason to wait on one before starting the next.
+    tenant = _tenant(principal)
+    types = {template_type for template_type, _cls in GOAL_TEMPLATE.values()}
+    rows = await asyncio.gather(*(c.templates.pick(tenant, t) for t in types))
     enabled: set[str] = set()
     fills: dict[str, list[str]] = {}
-    for template_type, _cls in GOAL_TEMPLATE.values():
-        row = await c.templates.pick(_tenant(principal), template_type)
+    for template_type, row in zip(types, rows):
         if row:
             enabled.add(template_type)
             fills[template_type] = list(row.get("fills") or [])
@@ -446,6 +455,10 @@ async def create(request: Request, body: CampaignIn,
         if until:
             row["locked_until"] = until
             row["state"] = "done"
+            # SAME SIDE RECORD AS THE TICK PATH — see app.core.locks. Both places a campaign's
+            # `locked_until` gets written keep this one row current, so `_locks()` never has to
+            # scan campaigns to answer "what is locked right now".
+            await record_lock(c.datastore, campaign.tenant, body.goal, until)
         await c.datastore.put("campaigns", campaign.key, row)
 
     return {"campaign": as_row(campaign), "run": fired,
@@ -515,16 +528,10 @@ async def pause(request: Request, campaign_id: str,
 
 
 async def _locks(c, tenant: str) -> dict[str, int]:
-    """goal -> locked_until, from the campaigns that carry one."""
-    rows, _ = await c.datastore.find("campaigns", {"tenant": tenant}, limit=200,
-                                     sort=("created", "desc"))
-    out: dict[str, int] = {}
-    for r in rows:
-        until = int(r.get("locked_until") or 0)
-        goal = r.get("goal", "")
-        if until and goal in CARDS:
-            out[goal] = max(out.get(goal, 0), until)
-    return out
+    """goal -> locked_until, from the side record — see app.core.locks for why this is not a
+    campaign scan any more."""
+    locks = await read_locks(c.datastore, tenant)
+    return {g: u for g, u in locks.items() if g in CARDS}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
