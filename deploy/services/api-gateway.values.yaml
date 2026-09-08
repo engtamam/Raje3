@@ -231,6 +231,7 @@ env:
       {"prefix":"/api/v1/campaigns","upstream":"http://campaigns:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/search","upstream":"http://search-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/bookings","upstream":"http://bookings:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/wallet","upstream":"http://wallet-service:8000","auth":"required","strip_prefix":false},
 
       {"prefix":"/api/v1/tickets","upstream":"http://ticket-service:8000","auth":"required","strip_prefix":false},
 
