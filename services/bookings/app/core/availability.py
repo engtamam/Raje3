@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import datetime as _dt
 from dataclasses import dataclass, field
-from typing import Sequence
+from typing import Iterator, Sequence
 
 from app.core.riyadh import RIYADH
 
@@ -106,30 +106,23 @@ def _overlaps(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
     return a_start < b_end and b_start < a_end
 
 
-def free_slots(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: int,
-               window_start: int, window_end: int,
-               granularity_minutes: int = DEFAULT_GRANULARITY_MINUTES) -> list[Slot]:
-    """Every candidate start time, on the grid, where a `duration_minutes`-long booking fits
-    inside a working window and touches none of `busy`.
+def _iter_candidates(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: int,
+                     window_start: int, window_end: int,
+                     granularity_minutes: int) -> "Iterator[Slot]":
+    """The raw scan behind `free_slots`/`nearest_slot`, as a generator — LAZY on purpose.
 
-    `window_start`/`window_end` bound the SEARCH (typically "today" or "this week" in epoch
-    seconds) — not the working hours themselves, which come entirely from `schedule`.
+    `nearest_slot` only ever wants the FIRST result and used to pay for the other 13 days and 9
+    hours of candidates anyway, because `free_slots` built the whole list before taking `[0]` off
+    it. Yielding means a caller that `break`s after one hit (nearest_slot) never materialises the
+    rest; a caller that wants everything (the grid) still gets exactly the same sequence, just
+    pulled through `list()` instead of appended to one. Same geometry, same order, same values —
+    the split only changes how much of it is computed before the first one is used.
 
-    REFUSES RATHER THAN GUESSES (see module docstring): `duration_minutes <= 0` raises
-    `DurationNotConfigured`. Every other input producing zero candidates (a closed day, a fully
-    booked window) is a normal, correct empty list — "not configured" and "not available" must
-    never collapse into the same shape, or a shop reads a config gap as a fully-booked day.
+    Assumes `duration_minutes > 0` and `window_end > window_start` — validated by both public
+    callers before this ever runs; this generator does not re-check.
     """
-    if duration_minutes <= 0:
-        raise DurationNotConfigured(
-            "duration_minutes is 0 or unset — this service's booking length was never "
-            "configured, not merely fully booked")
-    if window_end <= window_start:
-        return []
-
     duration_seconds = duration_minutes * 60
     step_seconds = granularity_minutes * 60
-    slots: list[Slot] = []
 
     day = _riyadh_date(window_start)
     last_day = _riyadh_date(window_end - 1) if window_end > window_start else day
@@ -156,10 +149,34 @@ def free_slots(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: in
             while cand + duration_seconds <= win_end:
                 cand_end = cand + duration_seconds
                 if not any(_overlaps(cand, cand_end, b.starts_at, b.ends_at) for b in busy):
-                    slots.append(Slot(starts_at=cand, ends_at=cand_end))
+                    yield Slot(starts_at=cand, ends_at=cand_end)
                 cand += step_seconds
         day = day + _dt.timedelta(days=1)
-    return slots
+
+
+def free_slots(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: int,
+               window_start: int, window_end: int,
+               granularity_minutes: int = DEFAULT_GRANULARITY_MINUTES) -> list[Slot]:
+    """Every candidate start time, on the grid, where a `duration_minutes`-long booking fits
+    inside a working window and touches none of `busy`.
+
+    `window_start`/`window_end` bound the SEARCH (typically "today" or "this week" in epoch
+    seconds) — not the working hours themselves, which come entirely from `schedule`.
+
+    REFUSES RATHER THAN GUESSES (see module docstring): `duration_minutes <= 0` raises
+    `DurationNotConfigured`. Every other input producing zero candidates (a closed day, a fully
+    booked window) is a normal, correct empty list — "not configured" and "not available" must
+    never collapse into the same shape, or a shop reads a config gap as a fully-booked day.
+    """
+    if duration_minutes <= 0:
+        raise DurationNotConfigured(
+            "duration_minutes is 0 or unset — this service's booking length was never "
+            "configured, not merely fully booked")
+    if window_end <= window_start:
+        return []
+    return list(_iter_candidates(schedule, busy, duration_minutes=duration_minutes,
+                                 window_start=window_start, window_end=window_end,
+                                 granularity_minutes=granularity_minutes))
 
 
 def is_free(schedule: Schedule, busy: Sequence[Busy], *, starts_at: int, duration_minutes: int) -> bool:
@@ -190,6 +207,18 @@ def nearest_slot(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: 
     which the caller renders as "no opening in the next two weeks", never as a silent empty grid.
     """
     window_end = after + search_days * 86400
-    found = free_slots(schedule, busy, duration_minutes=duration_minutes,
-                       window_start=after, window_end=window_end)
-    return found[0] if found else None
+    if duration_minutes <= 0:
+        raise DurationNotConfigured(
+            "duration_minutes is 0 or unset — this service's booking length was never "
+            "configured, not merely fully booked")
+    if window_end <= after:
+        return None
+    # EARLY-EXIT, ON PURPOSE (unlike free_slots' full list): "nearest" wants exactly one answer,
+    # and an open calendar used to mean scanning all `search_days` days and every quarter-hour in
+    # them just to keep the first and throw the rest away. `_iter_candidates` is lazy, so the loop
+    # below stops pulling from it the instant the first one lands.
+    for slot in _iter_candidates(schedule, busy, duration_minutes=duration_minutes,
+                                 window_start=after, window_end=window_end,
+                                 granularity_minutes=DEFAULT_GRANULARITY_MINUTES):
+        return slot
+    return None

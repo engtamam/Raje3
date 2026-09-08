@@ -89,18 +89,31 @@ def nearest_slots_any(candidates: list[Candidate], *, duration_minutes: int, aft
 
     Empty `candidates` or nothing free for anyone within the window is a normal empty list — same
     "not configured vs not available" discipline as `availability.py`; `DurationNotConfigured`
-    still raises through from `nearest_slot` on a genuinely unset duration, uncaught here."""
+    still raises through from `nearest_slot` on a genuinely unset duration, uncaught here.
+
+    CACHED ACROSS ROUNDS, NOT RECOMPUTED. Every round used to re-ask EVERY candidate "what's your
+    next opening from `cursor`", even the ones whose last answer was already past the new cursor
+    and therefore still exactly correct — a shop with six eligible operators paid six fresh scans
+    per chip when at most one of them (the round's own winner) could possibly have a stale answer.
+    A candidate's cached slot is only ever invalid once `cursor` has moved past it (or it was never
+    computed at all); everyone else's answer is reused as-is. Same results, same order, same tie
+    behaviour — this only skips work whose answer would not have changed."""
     if not candidates:
         return []
     found: list[MergedSlot] = []
     cursor = after
+    cache: dict[str, MergedSlot | None] = {}
     for _ in range(max_slots):
         best: MergedSlot | None = None
         for c in candidates:
-            r = _nearest_for_one(c.schedule, list(c.busy), duration_minutes=duration_minutes,
-                                 after=cursor, search_days=search_days)
-            if r is not None and r.starts_at < window_end and (best is None or r.starts_at < best.starts_at):
-                best = MergedSlot(operator_id=c.operator_id, starts_at=r.starts_at)
+            cached = cache.get(c.operator_id)
+            if cached is None or cached.starts_at < cursor:
+                r = _nearest_for_one(c.schedule, list(c.busy), duration_minutes=duration_minutes,
+                                     after=cursor, search_days=search_days)
+                cached = MergedSlot(operator_id=c.operator_id, starts_at=r.starts_at) if r is not None else None
+                cache[c.operator_id] = cached
+            if cached is not None and cached.starts_at < window_end and (best is None or cached.starts_at < best.starts_at):
+                best = cached
         if best is None:
             break
         # NO FORWARD PROGRESS — same guard BookingDialog.tsx's own loop carried (a mock or a
