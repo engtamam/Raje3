@@ -17,7 +17,8 @@ import {
   Pencil, Phone, Plus, Settings, Trash2, User, X,
 } from 'lucide-react';
 import {
-  attendBooking, type Booking, bookingsForCustomer, cancelBooking, type CatalogueService,
+  assignmentSettings, attendBooking, type AssignmentSettings, type Booking, bookingsForCustomer,
+  cancelBooking, type CatalogueService,
   customerRecord, type CustomerHit, type DayHours, fetchCatalogue, type FieldOperator,
   listBookings, listBookingStaff, noShowBooking, rescheduleBooking, sentenceFor, suggestByPrefix,
   type VisitRecord, type WeeklyHours, workingHours,
@@ -31,7 +32,7 @@ import { FilterMenu } from '../rj-ui/FilterMenu';
 import type { Session } from '../session';
 import { AssistantHint } from '../AssistantHint';
 import { BookingDialog } from './BookingDialog';
-import { WorkingHoursDialog } from './WorkingHoursDialog';
+import { BookingSettingsDialog } from './BookingSettingsDialog';
 import { BookingsMonthView } from './BookingsMonthView';
 import { BookingsYearView } from './BookingsYearView';
 import { addMonths, addYears, startOfMonth, startOfYear } from './calendarMath';
@@ -208,9 +209,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // أوقات الدوام — سياسة واحدة للمنشأة كلها. `undefined` = لسه ما وصلت، تُعامل
   // كنافذة 8-22 الافتراضية القديمة ريثما تصل، عشان الشبكة ما تومض فاضية أول ما تُفتح الشاشة.
   const [weekly, setWeekly] = useState<WeeklyHours | undefined>(undefined);
-  const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
+  // إعدادات الحجوزات — نافذة واحدة بتبويبين («أوقات الدوام»/«طريقة التوزيع»)، زر دائري واحد
+  // بدل زرين متجاورين بنفس الشكل (طُلب مباشرة: توفير مساحة وتقليل التكرار).
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   useEffect(() => {
     workingHours(session).then((r) => setWeekly(r.weekly)).catch(() => setWeekly(undefined));
+  }, [session]);
+  const [assignSettings, setAssignSettings] = useState<AssignmentSettings | undefined>(undefined);
+  useEffect(() => {
+    assignmentSettings(session).then(setAssignSettings).catch(() => setAssignSettings(undefined));
   }, [session]);
   /** ذاك اليوم بالضبط — مفتوح بوقته المضبوط، أو الافتراضي ريثما تصل الإعدادات. */
   const dayEntry = (dateStr: string): DayHours => {
@@ -696,7 +703,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </div>
             ) : null}
 
-            <button type="button" onClick={() => setHoursDialogOpen(true)}
+            <button type="button" onClick={() => setSettingsDialogOpen(true)}
                    aria-label={t('bookings.workingHours')} title={t('bookings.workingHours')}
                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
                    style={{ background: 'var(--rj-surface)' }}>
@@ -1389,12 +1396,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         <Plus size={24} aria-hidden />
       </button>
 
-      {hoursDialogOpen ? (
-        <WorkingHoursDialog
+      {settingsDialogOpen ? (
+        <BookingSettingsDialog
           session={session}
           weekly={weekly ?? {}}
-          onClose={() => setHoursDialogOpen(false)}
-          onSaved={setWeekly}
+          assignment={assignSettings ?? { algorithm: 'nearest', manual_order: [] }}
+          staff={(staff ?? []).filter((s) => s.active !== false && s.role === 'operator')}
+          onClose={() => setSettingsDialogOpen(false)}
+          onHoursSaved={setWeekly}
+          onAssignmentSaved={setAssignSettings}
         />
       ) : null}
 

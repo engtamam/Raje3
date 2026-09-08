@@ -51,7 +51,7 @@ interface Operator {
   working_hours?: Record<string, DayHours> | null;
 }
 
-// نفس ترتيب العرض وتسمية الأيام في WorkingHoursDialog.tsx — الأحد أولاً، ونفس ترقيم weekday()
+// نفس ترتيب العرض وتسمية الأيام في BookingSettingsDialog.tsx — الأحد أولاً، ونفس ترقيم weekday()
 // المخزَّن فعلياً بلا أي ترجمة.
 const HOURS_DISPLAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
 const HOURS_DAY_LABEL: Record<number, string> = {
@@ -88,8 +88,11 @@ const ROLES: { value: string; label: string; can: string; icon: typeof UserRound
 interface Branch { id: string; name: string; active?: boolean; lat?: number; lng?: number; city?: string }
 
 /** Just enough of a service to list it as a candidate — mirrors Services.tsx's own reading of
- *  `eligible_staff_ids` (empty/absent = every active operator, the zero-config default). */
-interface ServiceLite { id: string; name: string; active?: boolean; eligible_staff_ids?: string[] }
+ *  `eligible_staff_ids` (empty/absent = every active FIELD-ROLE operator, the zero-config
+ *  default — assignment-mode redesign phase 2). `assignment_mode` decides whether this screen
+ *  offers the service here at all: an "auto" one is never assigned BY NAME, from either side. */
+interface ServiceLite { id: string; name: string; active?: boolean; eligible_staff_ids?: string[];
+  assignment_mode?: 'named' | 'auto' }
 
 /** What the branch comparison already computes for the whole shop (insights, spec 10.6.3). */
 interface BranchStat { branch_id?: string; visits?: number; customers?: number }
@@ -622,16 +625,22 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
   const [servicesBusy, setServicesBusy] = useState(false);
   const [servicesError, setServicesError] = useState('');
 
+  // الافتراضي بلا قيد يطابق الخادم الآن: كل موظف نشط بدور ميداني، لا كل موظف نشط بأي دور
+  // (assignment-mode redesign phase 2) — نفس تصحيح Services.tsx بالضبط.
+  const fieldActiveIds = (allOperators ?? [])
+    .filter((op) => op.active !== false && op.role === 'operator').map((op) => op.id);
+
   async function toggleService(svc: ServiceLite) {
     if (!updateService) return;
-    const activeIds = (allOperators ?? []).filter((op) => op.active !== false).map((op) => op.id);
     const current = svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
       ? new Set(svc.eligible_staff_ids)
-      : new Set(activeIds);   // «كل الموظفين» — لا قيد بعد
+      : new Set(fieldActiveIds);   // «الافتراضي بلا قيد» — الموظفون الميدانيون فقط
     if (current.has(o.id)) current.delete(o.id); else current.add(o.id);
-    // لا نخزّن «الجميع بالاسم» أبداً — نفس قاعدة Services.tsx بالضبط: الموظف السادس المضاف
-    // مستقبلاً لازم يبقى مؤهلاً تلقائياً لخدمة لم يقيّدها أحد، لا مستبعداً بصمت من قائمة جامدة.
-    const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
+    // لا نخزّن «الافتراضي بالاسم» أبداً — نفس قاعدة Services.tsx بالضبط: الموظف الميداني السادس
+    // المُضاف مستقبلاً لازم يبقى مؤهلاً تلقائياً لخدمة لم يقيّدها أحد، لا مستبعداً بصمت من قائمة جامدة.
+    const isExactlyTheDefault = current.size === fieldActiveIds.length
+      && fieldActiveIds.every((id) => current.has(id));
+    const eligible_staff_ids = isExactlyTheDefault ? [] : [...current];
     setServicesBusy(true);
     setServicesError('');
     try {
@@ -651,9 +660,13 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
   function isEligible(svc: ServiceLite): boolean {
     return svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
       ? svc.eligible_staff_ids.includes(o.id)
-      : true;   // «كل الموظفين» — لا قيد بعد
+      : true;   // «الافتراضي بلا قيد» — الموظفون الميدانيون فقط؛ هذي القائمة أصلاً services
+                // مصفّاة بـ assignment_mode !== 'auto' تحت، فكل خدمة هنا «بالاسم» بالتعريف.
   }
-  const activeServices = (services ?? []).filter((s) => s.active !== false);
+  // خدمات «تلقائي» غير معروضة هنا إطلاقاً — لا معنى لسؤال "هل هذا الموظف مؤهَّل بالاسم" لخدمة
+  // لا تُسأل بالاسم أصلاً؛ يبقى تخصيصها ممكناً من «خدماتي» فقط (القائمة نفسها، بس تحت الخدمة).
+  const activeServices = (services ?? [])
+    .filter((s) => s.active !== false && s.assignment_mode !== 'auto');
   const eligibleServiceIds = activeServices.filter(isEligible).map((s) => s.id);
   async function onServicesChange(next: string[]) {
     const changedIds = [

@@ -729,6 +729,28 @@ export function setWorkingHours(
   });
 }
 
+/** The shop's own "auto" tie-breaker (assignment-mode redesign, phase 2/3) — which of an "auto"
+ *  service's several free, eligible operators actually gets a given slot. `manual_order` only
+ *  means anything when `algorithm === 'manual_order'`; carried regardless so switching TO manual
+ *  later does not lose a lineup set earlier. Not in the action catalog (same as `workingHours`
+ *  above) — a plain fetch, not `action(catalog, ...)`. */
+export interface AssignmentSettings {
+  algorithm: 'nearest' | 'least_loaded' | 'manual_order';
+  manual_order: string[];
+}
+export function assignmentSettings(session: Session): Promise<AssignmentSettings> {
+  return call(session, '/api/v1/bookings/assignment-settings');
+}
+
+/** `bookings.manage` only, same gate `setWorkingHours` uses. */
+export function setAssignmentSettings(
+  session: Session, settings: AssignmentSettings,
+): Promise<AssignmentSettings> {
+  return call(session, '/api/v1/bookings/assignment-settings', {
+    method: 'PATCH', body: JSON.stringify(settings),
+  });
+}
+
 /** The grid's own read — every booking for one branch, one business day. `date` is `YYYY-MM-DD`,
  *  the shop's own business day, exactly as `day_bucket()` computes it server-side. */
 export function listBookings(
