@@ -115,7 +115,9 @@ describe('«من تأخّر»', () => {
     open();
     await waitFor(() => screen.getByText('مها'));
     // نورة's row still carries a placeholder line — invisible, never rendered as absent text.
-    const placeholder = screen.getByText('نورة').closest('button')?.querySelector('[aria-hidden="true"]');
+    // Scoped to `.invisible` itself, not just any `aria-hidden` element in the row — the row's
+    // own avatar icon is aria-hidden too and would otherwise match first.
+    const placeholder = screen.getByText('نورة').closest('button')?.querySelector('.invisible');
     expect(placeholder).toBeTruthy();
     expect(placeholder?.className).toContain('invisible');
   });

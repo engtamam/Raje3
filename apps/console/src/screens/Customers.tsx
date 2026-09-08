@@ -18,11 +18,14 @@
 import { hasFailed, isDenied, isLoading, isReady, DENIED, type Loading } from '../loading';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, Users } from 'lucide-react';
+import {
+  AlertTriangle, ChevronLeft, Copy, Lock, PartyPopper, Search, SearchX, ShieldAlert, Trash2,
+  UserRound, Users, UserPlus,
+} from 'lucide-react';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Button } from '../rj-ui/Button';
-import { Segmented } from '../rj-ui/Segmented';
+import { TabBar } from '../rj-ui/TabBar';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { Badge } from '../rj-ui/Badge';
 import { action, call, type Catalog } from '../catalog';
@@ -213,11 +216,12 @@ export function CustomersScreen(
           days. Before this the only way the shop could learn of it was a phone call — which is
           exactly what his page was built to replace. */}
       {asks?.length ? (
-        <section className="flex flex-col gap-2 rounded-card border border-warning/40 bg-surface-1 p-4 shadow-sm">
-          <h2 className="text-sm font-medium">
+        <section className="flex flex-col gap-2 rounded-card border border-warning/40 bg-warning-soft p-4 text-warning-on-soft shadow-sm">
+          <h2 className="flex items-center gap-1.5 text-sm font-medium">
+            <ShieldAlert size={16} aria-hidden />
             طلبات على البيانات ({asks.length})
           </h2>
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-warning-on-soft/80">
             عملاء طلبوا نسخة من بياناتهم أو حذفها من صفحاتهم. الرد عليهم مسؤوليتك نظاماً، خلال
             ثلاثين يوماً من تاريخ الطلب.
           </p>
@@ -236,12 +240,11 @@ export function CustomersScreen(
         </section>
       ) : null}
 
-      <Segmented
-        // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
-        // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
-        // ragged block half the screen wide. It takes a className and merges with
-        // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
-        className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+      {/* THE PAGE'S OWN TOP-LEVEL SWITCH, NOT A FILTER — same shape rule as حسابي: the outermost
+          section switcher a screen renders is TabBar (an underlined strip), never Segmented (a
+          pill on a track), so a page never reads as two identical bars stacked on each other. */}
+      <TabBar
+        fullWidth
         ariaLabel="أقسام العملاء"
         value={tab}
         onChange={setTab}
@@ -284,30 +287,36 @@ export function CustomersScreen(
         // should have been chasing someone. An empty state is a claim about his shop; we may only
         // make it when we actually read.
         <EmptyState
+          icon={<AlertTriangle size={20} aria-hidden />}
           title="تعذّرت القراءة"
           description="لم نستطع جلب القائمة الآن — والخلل عندنا لا في محلك. أعد المحاولة بعد قليل."
         />
       ) : denied ? (
         <EmptyState
+          icon={<Lock size={20} aria-hidden />}
           title={tab === 'overdue' ? 'لا يشمل دورك متابعة المتأخرين' : 'لا يشمل دورك قائمة العملاء'}
           description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
         />
       ) : showing.length === 0 ? (
         // THREE DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. "No customer matched" is a
         // search result; "you have no customers yet" is the state of the shop; and an empty
-        // overdue list is GOOD NEWS — the one empty state in this product that is a compliment.
+        // overdue list is GOOD NEWS — the one empty state in this product that is a compliment, so
+        // it alone gets a celebratory icon rather than the shared neutral one below.
         tab === 'overdue' ? (
           <EmptyState
+            icon={<PartyPopper size={20} aria-hidden />}
             title="لا أحد متأخر"
             description="كل عميل إما زار في وقته أو تذكيره لم يحن بعد."
           />
         ) : searching ? (
           <EmptyState
+            icon={<SearchX size={20} aria-hidden />}
             title="لا نتائج"
             description="تأكد من الرقم، أو سجّل زيارة جديدة لهذا العميل."
           />
         ) : (
           <EmptyState
+            icon={<UserPlus size={20} aria-hidden />}
             title="لا يوجد عملاء بعد"
             description="سجّل أول زيارة من «تسجيل زيارة» — العميل يُنشأ بزيارته."
           />
@@ -334,8 +343,14 @@ export function CustomersScreen(
             <button
               type="button"
               onClick={() => navigate(`/customers/${c.id}`)}
-              className="flex w-full items-center justify-between rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]"
+              className="flex w-full items-center justify-between gap-3 rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]"
             >
+              {/* A CIRCLE, NOT A BULLET — the eye finds "this row is a person" by shape and colour
+                  before it reads a phone number, the same reasoning behind every icon-circle
+                  elsewhere in this redesign (حسابي's Fact cells, Team.tsx's empty states). */}
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
+                <UserRound size={16} aria-hidden />
+              </span>
               {/* `text-right`, A PHYSICAL VALUE ON PURPOSE — `items-end` was tried first and did
                   not hold: `align-items: flex-end` on a `flex-col` container's CROSS axis (which
                   is the horizontal, inline axis) does not reliably resolve against `dir="rtl"`
@@ -344,7 +359,7 @@ export function CustomersScreen(
                   a row that has it) regardless, so the fix that actually holds is forcing every
                   line's OWN text to paint at the box's right edge, independent of any child's own
                   `dir` — text-align is not a flex property and does not inherit that ambiguity. */}
-              <div className="flex flex-col text-right">
+              <div className="flex flex-1 flex-col text-right">
                 <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                 <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
                 {/* FREE ON THIS ROW'S OWN DATA — `last_visit`/`visit_count` are denormalised on
@@ -430,7 +445,11 @@ function PrivacyAskRow({ session, ask, who, whoFailed, close, onDone, onOpen }: 
     <div className="flex flex-col gap-2 border-t border-border-subtle pt-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-col">
-          <span className="text-sm">
+          {/* THE ICON NAMES THE REQUEST BEFORE THE WORD DOES — a copy-request and an erase-request
+              call for very different urgency, and a row scanned in a list of several should not
+              need the sentence read to tell which is which. */}
+          <span className="flex items-center gap-1.5 text-sm">
+            {erasure ? <Trash2 size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
             {erasure ? 'طلب حذف بياناته' : 'طلب نسخة من بياناته'}
           </span>
           {/* WHO ASKED. Three different answers, and none of them may borrow another's words: a
