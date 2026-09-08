@@ -165,6 +165,41 @@ def test_recipients_the_gate_would_refuse_are_counted_before_the_send(st):
     assert res.run.suppressed == 4 and res.run.sent == 1
 
 
+# ── the in-process reached cache ───────────────────────────────────────────────────────────────
+def test_a_reused_dispatcher_does_not_redrain_the_reached_ledger(st):
+    """The container builds one Dispatcher and keeps firing it every five minutes for the life of
+    a standing/scheduled campaign — the second pass on the SAME instance must not pay for another
+    full drain of a ledger it already has cached."""
+    s = Sender()
+    d = Dispatcher(store=st, sender=s, audience_resolver=resolver("a", "b"))
+    run(d.fire(CAMPAIGN, now=NOW))
+
+    drains = []
+    real_get = st.find
+    async def counting_find(collection, *a, **kw):
+        if collection == "campaign_reached":
+            drains.append(1)
+        return await real_get(collection, *a, **kw)
+    st.find = counting_find
+
+    run(d.fire(CAMPAIGN, now=NOW))
+    assert drains == [], "the second pass on the same instance must use the cache, not the store"
+
+
+def test_the_cache_still_agrees_with_the_store_after_a_repeat_pass(st):
+    """The cache is a performance shortcut, not a second source of truth — it must track what the
+    same instance actually sent, exactly as a fresh drain from the store would."""
+    s = Sender()
+    d = Dispatcher(store=st, sender=s, audience_resolver=resolver("a", "b"))
+    run(d.fire(CAMPAIGN, now=NOW))
+    run(d.fire(CAMPAIGN, now=NOW))
+    assert [c["subject_ref"] for c in s.calls] == ["a", "b"]
+
+    fresh = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a", "b"))
+    run(fresh.fire(CAMPAIGN, now=NOW))
+    assert fresh._sender.calls == [], "a fresh instance, draining the real store, agrees nobody is left"
+
+
 def test_identical_reasons_are_counted_not_listed(st):
     """An owner needs '3 deferred for the daily cap', not three identical lines."""
     s = Sender(refuse=["a", "b", "c"], reason="بلغ الحد اليومي")
