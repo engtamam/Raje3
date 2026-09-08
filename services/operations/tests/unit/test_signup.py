@@ -144,13 +144,17 @@ async def test_a_bad_affiliate_id_is_reported_but_does_not_cost_the_owner_his_sh
 class FakePlans:
     def __init__(self, *, base_id="plan_base",
                 subscribe_answer=(201, {"status": "trialing", "trial_end": 1800000000.0}),
-                trial_plan_ids=None, app_subscribe_answer=(201, {"status": "trialing"})):
+                trial_plan_ids=None, app_subscribe_answer=(201, {"status": "trialing"}),
+                # DEFAULTS EMPTY — a test that does not care about the free contacts grant sees
+                # no extra subscribe call at all; one testing it passes its own id.
+                contacts_id=""):
         self.base_id = base_id
         self.subscribe_answer = subscribe_answer
         # DEFAULTS TO "JUST THE BASE" — a test that wants app trials too passes its own list;
         # one that does not care about that half of the behaviour is unaffected by its existence.
         self.trial_plan_ids = trial_plan_ids if trial_plan_ids is not None else [base_id]
         self.app_subscribe_answer = app_subscribe_answer
+        self.contacts_id = contacts_id
         self.subscribe_calls: list[tuple[str, str]] = []
 
     async def base_plan_id(self) -> str:
@@ -158,6 +162,9 @@ class FakePlans:
 
     async def list_trial_plans(self) -> list[str]:
         return list(self.trial_plan_ids)
+
+    async def contacts_plan_id(self) -> str:
+        return self.contacts_id
 
     async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
                         payment_token: str = ""):
@@ -252,6 +259,52 @@ async def test_one_apps_failed_trial_does_not_stop_the_rest_or_the_welcome():
     assert out["trial_started"] is True
     assert plans.subscribe_calls == [
         ("t-1", "plan_base"), ("t-1", "plan_campaigns"), ("t-1", "plan_loyalty")]
+
+
+@pytest.mark.anyio
+async def test_a_fresh_signup_holds_the_free_contacts_grant_from_day_one():
+    """«بيانات التواصل» is granted alongside الأساس's own trial — not instead of it, and not
+    only when a shop later buys or trials something else."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans(contacts_id="plan_contacts")
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["trial_started"] is True                          # الأساس's own trial, unaffected
+    assert ("t-1", "plan_contacts") in plans.subscribe_calls
+
+
+@pytest.mark.anyio
+async def test_no_contacts_plan_found_means_no_grant_and_no_error():
+    """An ambiguous or unreachable catalogue skips the grant rather than guessing, same rule as
+    `base_plan_id`'s own empty answer."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans()                                          # contacts_id defaults to ""
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["tenant"] == "t-1"
+    assert plans.subscribe_calls == [("t-1", "plan_base")]       # no extra call made
+
+
+@pytest.mark.anyio
+async def test_the_contacts_grant_survives_a_failed_base_trial():
+    """The whole point of pulling this out of `_start_app_trials`: it must not depend on the base
+    trial having started at all."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans(base_id="", contacts_id="plan_contacts")   # ambiguous catalogue: no base trial
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["trial_started"] is False
+    assert ("t-1", "plan_contacts") in plans.subscribe_calls
+
+
+@pytest.mark.anyio
+async def test_a_failed_contacts_grant_does_not_cost_the_owner_his_shop():
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans(contacts_id="plan_contacts",
+                      app_subscribe_answer=(503, {"detail": "unreachable"}))
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["tenant"] == "t-1"
 
 
 @pytest.mark.anyio

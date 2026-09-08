@@ -369,6 +369,19 @@ class SignupService:
         # a working shop over one unreachable peer is the worse trade by a wide margin.
         trial_started, trial_error, trial_end = await self._start_base_trial(tenant)
 
+        # THE ONE APP EVERY SHOP HOLDS FROM DAY ONE, WHATEVER ELSE IT BUYS OR LETS LAPSE.
+        # «بيانات التواصل» is free and standalone (plans.json's own note on the row) — a shop
+        # able to register a customer must not depend on الأساس's trial staying alive, and must
+        # not need an owner to find «متجر التطبيقات» and press a button for a door that costs him
+        # nothing. Granted ALONGSIDE the base trial above, never instead of it: this changes
+        # nothing about what a fresh signup already receives, it only adds the one grant that
+        # used to depend on الأساس being active.
+        #
+        # NEVER UNDONE ON FAILURE, same trade as every other best-effort seed in this saga: an
+        # account that works and is missing this one grant is repairable from «متجر التطبيقات»
+        # in one tap.
+        await self._start_contacts_grant(tenant)
+
         # HIS DATA MAP, AND PDPL IS THE REASON IT IS HERE AND NOT LATER.
         #
         # `DsarService.dispatch` refuses with NO_DATA_TARGETS_REGISTERED on an empty map, so until
@@ -576,6 +589,42 @@ class SignupService:
         # plainly did.
         await self._start_app_trials(tenant, base_plan_id=plan_id)
         return True, "", float((out or {}).get("trial_end") or 0.0)
+
+    async def _start_contacts_grant(self, tenant: str) -> None:
+        """Subscribe this fresh shop to «بيانات التواصل», the one free standalone app every shop
+        gets on day one — regardless of الأساس, its trial, or whether it is ever bought at all.
+
+        WHY THIS IS SEPARATE FROM `_start_base_trial`/`_start_app_trials` ABOVE, AND NOT ONE MORE
+        ENTRY THOSE ALREADY WALK. Both of those only run when the base trial itself opened
+        (`_start_base_trial` calls `_start_app_trials` from inside its own success branch) — and
+        `list_trial_plans` only returns plans that carry a trial. «بيانات التواصل» carries none
+        (plans.json: `trial_days: 0`, subscribed at amount 0 with `interval='once'`) precisely
+        because it never lapses and is never a trial to begin with, so it would never appear on
+        either list. Folding it into `_start_app_trials` would make this grant depend on the base
+        trial succeeding first, which is the one dependency this task exists to remove: a shop
+        must hold this even the day its base trial fails to start or its base subscription later
+        lapses.
+
+        FOUND BY WHAT IT IS, never a configured id — `HttpPlans.contacts_plan_id()` reads the one
+        listed, free plan carrying `feature.contacts`, the same rule `base_plan_id()` uses for the
+        base. Never raises; a billing hiccup here is a missing convenience, not a failed signup.
+        """
+        if self._plans is None:
+            return
+        try:
+            plan_id = await self._plans.contacts_plan_id()
+            if not plan_id:
+                return
+            status, out = await self._plans.subscribe(tenant=tenant, plan_id=plan_id)
+        except Exception as exc:                                              # noqa: BLE001
+            status, out = 0, {"detail": str(exc)[:200]}
+        if status not in (200, 201) and self._telemetry is not None:
+            try:
+                self._telemetry.event(
+                    "signup_contacts_grant_failed", tenant=tenant,
+                    reason=str((out or {}).get("detail") or f"status {status}")[:200])
+            except Exception:                                                  # noqa: BLE001
+                pass    # a telemetry failure must not fail a signup
 
     async def _start_app_trials(self, tenant: str, *, base_plan_id: str) -> None:
         """Every OTHER listed plan carrying a trial, subscribed the same moment the base's own

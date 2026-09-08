@@ -1,0 +1,61 @@
+/**
+ * The one-line banner above every screen — proven it no longer assumes الأساس is the only
+ * subscription worth naming. A shop with no base at all can still hold تسجيل زيارة standalone,
+ * and بيانات التواصل (free, `interval='once'`) must never trigger a banner at all.
+ */
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { SubscriptionBar } from './SubscriptionBar';
+import type { Owned } from './apps';
+
+const NOW = 1_700_000_000_000; // ms
+
+function renderBar(owned: Owned) {
+  render(
+    <MemoryRouter>
+      <SubscriptionBar owned={owned} now={NOW} />
+    </MemoryRouter>,
+  );
+}
+
+describe('SubscriptionBar', () => {
+  it('names الأساس when its own trial is ending — reading the name from the data, not a literal', () => {
+    renderBar({
+      checked: true, message: '', keys: [], apps: [],
+      base: { plan_id: 'p1', status: 'trialing', renews_at: NOW / 1000 + 3 * 86400 },
+    });
+    expect(screen.getByText(/فعّل الأساس/)).toBeTruthy();
+  });
+
+  it('says nothing for a shop with no base and no standalone app either', () => {
+    renderBar({ checked: true, message: '', keys: [], apps: [], base: null });
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('names the standalone app actually ending, never الأساس, when there is no base at all', () => {
+    renderBar({
+      checked: true, message: '', keys: ['feature.visit'],
+      apps: [
+        { key: 'feature.visit', name: 'تسجيل زيارة', what: '', screen: '', owned: true,
+          renews_at: NOW / 1000 + 3 * 86400 },
+      ],
+      base: null,
+    });
+    const status = screen.getByRole('status');
+    expect(status.textContent).toContain('تسجيل زيارة');
+    expect(status.textContent).not.toContain('الأساس');
+  });
+
+  it('never mentions بيانات التواصل — it is free and carries no renewal date', () => {
+    renderBar({
+      checked: true, message: '', keys: ['feature.contacts'],
+      apps: [
+        { key: 'feature.contacts', name: 'بيانات التواصل', what: '', screen: '', owned: true,
+          renews_at: null },
+      ],
+      base: null,
+    });
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+});

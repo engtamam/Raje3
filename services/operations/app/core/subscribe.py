@@ -368,6 +368,9 @@ class NullPlans:
     async def list_trial_plans(self) -> list[str]:
         return []
 
+    async def contacts_plan_id(self) -> str:
+        return ""
+
 
 class HttpPlans:
     """billing-service, for the two things this path needs and nothing else.
@@ -538,6 +541,35 @@ class HttpPlans:
             return []
         return [str(p.get("id") or "") for p in (out.get("plans") or [])
                if int(p.get("trial_days") or 0) > 0 and p.get("id")]
+
+    async def contacts_plan_id(self) -> str:
+        """The one listed, FREE plan that grants `feature.contacts` — «بيانات التواصل»'s own id,
+        found the exact same way `base_plan_id` finds the base above: by what the row IS, never by
+        a configured id that would go stale the day the price list changes.
+
+        A shop should hold this from day one regardless of what else it buys or lets lapse — see
+        signup.py's own `_start_contacts_grant`. FREE, not just "carries the key": a future paid
+        plan could also grant `feature.contacts` as a bundled extra, and that is not this row —
+        only the zero-priced one is the standing, no-reason-to-withhold grant every shop gets.
+
+        Empty on anything but a clean, single answer, same discipline as `base_plan_id`.
+        """
+        status, out = self._request(self._plans)
+        if status >= 400:
+            return ""
+
+        def _free(plan: dict) -> bool:
+            prices = plan.get("prices") or []
+            if not prices:
+                return True                                # no price row at all: nothing owed
+            try:
+                return int(prices[0].get("amount_minor") or 0) == 0
+            except (TypeError, ValueError):
+                return False
+
+        rows = [p for p in (out.get("plans") or [])
+               if "feature.contacts" in granted_keys(p.get("limits")) and _free(p)]
+        return str(rows[0].get("id") or "") if len(rows) == 1 else ""
 
 
 def build_connections(settings) -> Any:

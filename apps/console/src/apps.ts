@@ -115,6 +115,32 @@ export const APP_ROWS: AppRow[] = [
     section: '',
     onCustomer: '',
   },
+  // THE FREE STANDALONE APP — plans.json's own «بيانات التواصل», amount 0, held by every fresh
+  // shop from day one (services/operations/app/core/signup.py::_start_contacts_grant), whether
+  // or not it also holds الأساس. Listed here so the same catalogue screens that show every other
+  // app (Locked.tsx, PlanCards.tsx) can name this one instead of falling through to an unknown key.
+  {
+    id: 'contacts',
+    key: 'feature.contacts',
+    name: 'بيانات التواصل',
+    what: 'يفتح باب تسجيل العميل برقمه من أي مكان في المحل، حتى بلا اشتراك أساسي.',
+    section: '',
+    onCustomer: '',
+  },
+  // «تسجيل زيارة» — the visit register sold on its own (plans.json's own note on the row), for a
+  // shop that wants nothing else from الأساس. `feature.base` still opens the same door for an
+  // existing base subscriber (api/subscribed.py accepts either key) — this row is the STANDALONE
+  // purchase path, and nav.ts's own «تسجيل زيارة» entry is unrelated: that nav item is a page
+  // reachable by every shop (recording a visit is not itself locked behind this key server-side
+  // beyond the OR-gate), so no `section` tie-in is added here.
+  {
+    id: 'visit',
+    key: 'feature.visit',
+    name: 'تسجيل زيارة',
+    what: 'يفتح تسجيل زيارة العميل وحده، بلا بقية الأساس.',
+    section: '',
+    onCustomer: '',
+  },
   // NO SECTION OF ITS OWN — «ربط واتساب» is a sub-tab under «حسابي», not a rail entry, and the
   // connect card itself stays open regardless (a shop needs to see the connect flow to understand
   // what it is buying). This row exists so its TWO CONFIGURATION cards — what the assistant knows
@@ -202,4 +228,30 @@ export function daysLeft(owned: Loading<Owned>, now: number): number | null {
   // ALREADY PAST IS NOT «0 DAYS LEFT», it is not a countdown at all — `baseState` says «lapsed»
   // and the screen shows the sentence for that, not a zero that reads like a deadline today.
   return seconds <= 0 ? null : Math.ceil(seconds / 86400);
+}
+
+/**
+ * WHICH SUBSCRIPTION IS THE ONE WORTH A BANNER — never assumed to be الأساس. A shop with no base
+ * at all can still hold a standalone app bought on its own (تسجيل زيارة), and that one is what is
+ * actually ending for him. بيانات التواصل is excluded by construction rather than by name: it is
+ * free and subscribed with `interval='once'` (never renews), so it never carries a `renews_at`
+ * and simply never wins the search below — no special-case needed for it here.
+ *
+ * RETURNS `null` WHEN THERE IS NOTHING TO NAME — no base, and no standalone app carrying a
+ * renewal date. `SubscriptionBar` already shows nothing in that case.
+ */
+export function relevantSubscription(
+  owned: Loading<Owned>,
+): { name: string; renewsAt: number } | null {
+  if (!isReady(owned) || !owned.checked) return null;
+  if (owned.base) {
+    return { name: 'الأساس', renewsAt: owned.base.renews_at };
+  }
+  // THE SOONEST-ENDING STANDALONE APP HE HOLDS, if any — same "don't guess" discipline as
+  // `base_plan_id` on the server: several could carry a `renews_at`, and the one closest to
+  // today is the one worth a banner.
+  const candidates = owned.apps.filter((a) => a.owned && a.renews_at);
+  if (candidates.length === 0) return null;
+  const soonest = candidates.reduce((a, b) => (a.renews_at! < b.renews_at! ? a : b));
+  return { name: soonest.name, renewsAt: soonest.renews_at! };
 }
