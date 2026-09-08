@@ -1,6 +1,6 @@
 """When the month lapses the shop keeps its data and stops adding to it.
 
-TAMAM'S DECISION, IN HIS WORDS: «لما يشترك وينتهي اشتراكه يقفل النظام. القراءة تبقى والكتابة تقف.
+THE OWNER'S DECISION, IN THEIR OWN WORDS: «لما يشترك وينتهي اشتراكه يقفل النظام. القراءة تبقى والكتابة تقف.
 واللي يفعله يشتغل معاه.» — and the second sentence is as load-bearing as the first: this answers
 for `feature.base` alone, so an app he still pays for keeps working while the base is lapsed.
 

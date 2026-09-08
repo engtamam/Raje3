@@ -54,7 +54,7 @@ class LeadError(Exception):
 
 
 async def owns_lead(store, lead: Lead, affiliate_id: str) -> bool:
-    """The ownership check `set_status` originally inlined — extracted (2026-08-22) once the
+    """The ownership check `set_status` originally inlined — extracted once the
     outbound conversion playbook (core/outreach.py) needed the EXACT SAME rule for logging a
     template use or setting its outcome: the lead's own assigned promoter, or that promoter's own
     manager. Never a capability. An unassigned lead belongs to nobody yet — only `assign()` itself

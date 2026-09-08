@@ -13,7 +13,7 @@ SAME SMALL FRAMEWORK AS THE ORIGINAL:
   the caller  resolves the owner's phone to a tenant id, then runs the scenario's sources, each
               failing independently — one peer being down never blanks the whole report.
 
-ALL 7 SOURCES / ALL 7 SCENARIOS ARE WIRED (2026-09-04). `legal` needed an internal-tier compliance
+ALL 7 SOURCES / ALL 7 SCENARIOS ARE WIRED. `legal` needed an internal-tier compliance
 route that did not exist yet (only user-tier `/api/v1/compliance/legal*` did, and this service
 cannot mint a signed JWT itself the way the ops-mcp workaround did — only identity-service holds
 that key). base-services_de added the internal-token twins in v0.18.11; `_fetch_legal` calls them

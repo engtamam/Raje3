@@ -140,7 +140,7 @@ class CommissionEngine:
         claws back on its own.
 
         A PARTIAL refund reduces the commission BY THE SAME PROPORTION, not just a full refund
-        voiding it outright (ح-3, closed 2026-09-04 — Tamam's own decision: "تنقص بنفس النسبة
+        voiding it outright (ح-3, closed — the owner's own decision: "تنقص بنفس النسبة
         تلقائياً"). Found live: a shop refunded 50% of an invoice and the affiliate's commission
         stayed at its full original amount forever — we were paying commission on money that had
         gone back to the customer. RECOMPUTED FROM `original_amount_halalas` EVERY TIME, never

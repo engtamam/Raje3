@@ -6,7 +6,7 @@ the most convincing way available — the panel accepts the change, the audit lo
 actor and a timestamp, and behaviour does not move, because nothing consults the override. The
 operator ends up holding a receipt for a change that never happened.
 
-FIRST SLICE (2026-09-07) — the console's "المزوّدين الخارجيين ← الذكاء الاصطناعي ← الإدارة" screen
+FIRST SLICE — the console's "المزوّدين الخارجيين ← الذكاء الاصطناعي ← الإدارة" screen
 needs live control over the model and a couple of behavioural knobs without a redeploy; these three
 are read through RuntimeConfig at the exact points named below, in the same change that added them
 here. Everything else this service tunes (thresholds, session timing, feature toggles) stays

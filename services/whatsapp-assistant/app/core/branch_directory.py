@@ -5,7 +5,7 @@ see app/core/sending_identity.py) gives `handle_inbound_text` an empty `branch_i
 customer, because there is nothing in the inbound webhook itself that says which branch a
 message is "about". A per_branch shop's number already answers this (Phase 1's
 `split_sending_identity`); a central shop's does not, and guessing would mean quoting a real
-customer the wrong branch's hours, staff or availability — exactly what Tamam's own framing of
+customer the wrong branch's hours, staff or availability — exactly what the owner's own framing of
 this feature refused to do ("الفرع ما تفترض من راسك"). So for a central shop with more than one
 open branch, the conversation gate (core/conversation.py's `_branch_list_plan` /
 `handle_branch_selection`) asks, the same structural way the mandatory triage gate asks rather

@@ -13,7 +13,7 @@ the fleet depends on. Applying that unsupervised is only responsible if the tool
 result and UNDOES it the instant something looks wrong, rather than trusting the arithmetic and
 walking away. That watch-and-revert loop (`apply_and_verify`, below) is the whole reason this file
 is longer than the CPU one — it is not extra caution for its own sake, it is the price of removing
-the human approval step Tamam explicitly asked to remove.
+the human approval step this tool was explicitly asked to remove.
 
 THE FORMULA (sourced, not invented — see the two web searches this session's own conversation
 ran): reserve 15% of the memory GIVEN TO THIS POSTGRES POD for the OS/kernel overhead inside the

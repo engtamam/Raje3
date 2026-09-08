@@ -1,6 +1,6 @@
 """The preview offers the wording as WRITTEN as well as filled, and names the blanks.
 
-TAMAM, READING THE SHEET: «العميل يقرا الرساله ما يعرف وين الفراغات». The sheet showed one thing —
+READING THIS SHEET AS THE OWNER WOULD: «العميل يقرا الرساله ما يعرف وين الفراغات». The sheet showed one thing —
 the example his customer receives — and from a filled sentence you cannot tell which words belong
 to the shop forever and which change with every person. If he then wants to write his own wording,
 he has no idea where the blanks go or what may fill them.

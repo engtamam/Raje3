@@ -175,7 +175,7 @@ def test_an_unrelated_affiliate_cannot_log_a_use_against_someone_elses_lead(clie
 
 
 def test_reading_a_leads_template_uses_is_ownership_checked_too(client):
-    """Fixed (2026-08-22): this GET used to trust `lead_id` with no ownership check at all."""
+    """Fixed: this GET used to trust `lead_id` with no ownership check at all."""
     r = client.get("/api/v1/affiliates/me/leads/lead-out1/template-uses",
                    headers={"Authorization": f"Bearer {_token(sub='p-out2')}"})
     assert r.status_code == 400

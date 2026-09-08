@@ -4,7 +4,7 @@ under ITS OWN start day's bucket, so a second booking for the same operator plac
 midnight — in the NEXT day's bucket — never sees it: the conflict check looks in the wrong bucket
 entirely. No concurrency/timing needed: this is a plain sequential double-booking, not a race.
 
-Found by a QA fan-out audit (2026-09-07) tracing the actual conflict-check logic, not the module's
+Found by a QA fan-out audit tracing the actual conflict-check logic, not the module's
 own comment claiming "no shop is open then" — nothing in `create()` enforces that assumption; a
 service whose duration pushes a legitimately-started booking past midnight is never refused.
 """

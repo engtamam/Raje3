@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every action in every user_actions.py/admin_actions.py carries real `help` text.
 
-WHY THIS EXISTS. A review of the whole catalog (2026-09-06) found the field organically, half
+WHY THIS EXISTS. A review of the whole catalog found the field organically, half
 adopted: some services had it on every action, others on none — `services/bookings/app/
 user_actions.py` had zero of eleven, `services/affiliate-service/app/admin_actions.py` had two
 of thirty. Nothing enforced it, so a new action could ship forever with no explanation a

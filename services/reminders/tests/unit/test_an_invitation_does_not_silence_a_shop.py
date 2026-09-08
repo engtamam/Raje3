@@ -88,7 +88,7 @@ def test_the_same_pass_would_not_send_a_promotion(st):
 
 
 def test_no_consent_line_claims_a_benefit_the_shop_may_not_have():
-    """TAMAM CAUGHT THIS TWICE, AND THE SECOND TIME IS THE ONE WORTH KEEPING.
+    """THIS WAS CAUGHT TWICE, AND THE SECOND TIME IS THE ONE WORTH KEEPING.
 
     The first fix corrected only the line used when there is no address. The LINKED one — the one
     that actually goes out once a shop has a public page — still said «ولك عندنا مزايا خاصة», and

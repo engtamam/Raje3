@@ -847,7 +847,7 @@ _CLOSED_LIKE_STATUSES = {"closed", "resolved", "done"}
 
 
 async def _open_tickets_for_home(request: Request, *, affiliate_id: str) -> list[dict[str, Any]]:
-    """The carousel's own feed (2026-08-23) — every OPEN ticket across every shop this marketer
+    """The carousel's own feed — every OPEN ticket across every shop this marketer
     referred, one call per shop via the SAME `TicketReader.list_tickets` the tickets screen
     already uses (§13), never a new ticket-service endpoint.
 

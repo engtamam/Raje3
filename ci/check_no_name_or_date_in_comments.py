@@ -43,8 +43,17 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # near the very end, and every earlier `#` comment is silently never scanned at all. Found live:
 # this gate's own first run said guards.yml was clean while a `#` comment three lines below the
 # one it did catch carried the exact date-in-parens shape it exists to catch.
+#
+# PYTHON'S OWN TRIPLE-QUOTED STRINGS COUNT AS COMMENTS HERE TOO — found live: smart-db-
+# connections.py named the owner directly inside its own module docstring ("the human approval
+# step ... explicitly asked to remove"), and the gate said clean, because only `#` lines were
+# ever scanned. In this codebase a `"""..."""`/`'''...'''` block is almost never DATA — it is
+# where the reasoning lives (every module/class/function docstring throughout this repo). A
+# false positive here (a triple-quoted string that happens to be a real value, not documentation)
+# is rare enough that a human glance costs less than the class of miss this closes.
 LANG = {
-    ".py": {"line": re.compile(r"#(.*)$", re.M), "block": None},
+    ".py": {"line": re.compile(r"#(.*)$", re.M),
+           "block": re.compile(r'"""(.*?)"""|\'\'\'(.*?)\'\'\'', re.S)},
     ".sh": {"line": re.compile(r"#(.*)$", re.M), "block": None},
     ".yaml": {"line": re.compile(r"#(.*)$", re.M), "block": None},
     ".yml": {"line": re.compile(r"#(.*)$", re.M), "block": None},
@@ -71,7 +80,10 @@ def comment_spans(text: str, ext: str) -> list[str]:
     spec = LANG[ext]
     spans: list[str] = []
     if spec["block"] is not None:
-        spans.extend(m.group(1) for m in spec["block"].finditer(text))
+        for m in spec["block"].finditer(text):
+            # Python's pattern has two alternative groups (""" vs ''' quoting) — exactly one is
+            # ever set per match; the block-comment patterns for other languages have only one.
+            spans.append(next((g for g in m.groups() if g is not None), ""))
         text = spec["block"].sub("", text)  # do not re-match a block comment's own // inside it
     spans.extend(m.group(1) for m in spec["line"].finditer(text))
     return spans

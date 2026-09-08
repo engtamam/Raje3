@@ -107,7 +107,7 @@ def test_a_refusal_from_the_registry_is_not_rendered_as_success(client, monkeypa
 
 
 def test_a_registry_that_is_not_answering_does_not_blame_his_name(client, monkeypatch):
-    """THE ONE TAMAM HIT: `PUT /staff/shop-name → 400` on a perfectly good name.
+    """THE ONE REAL HIT: `PUT /staff/shop-name → 400` on a perfectly good name.
 
     This route read `if code >= 400` and gave every failure the same sentence — «تعذّر حفظ الاسم.
     جرّب اسماً آخر.» The registry answers 400 only for a name it will not take. It answers 404

@@ -163,7 +163,7 @@ class PayoutService:
                "account_ref": affiliate.payout_account_ref}
 
     async def get_payout_method(self, affiliate_id: str) -> dict[str, Any]:
-        """The read half `set_payout_method` never had (2026-08-22) — the account screen needs to
+        """The read half `set_payout_method` never had — the account screen needs to
         show WHAT is on file before he changes it, same "hint, never the value" discipline
         `LeadSourcingKeys`'s own places-API-key routes already use for a secret on file. The full
         `account_ref` (an IBAN, or a platform account id) is write-only past this point: it goes

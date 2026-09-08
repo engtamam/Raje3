@@ -27,7 +27,7 @@ user's OWN self-service (`_SELF` / ordinary user-cap) routes; operator (platform
 routes belong in admin_actions or nowhere.
 
 EVERY ACTION BELOW CARRIES `"capability": "affiliates.self"` — the one capability every APPROVED
-affiliate token holds (2026-08-22, see app/core/models.py::AFFILIATE_SELF and
+affiliate token holds (see app/core/models.py::AFFILIATE_SELF and
 app/api/v1/affiliate_self.py's own module docstring on why this exists at all). It answers ONLY "is
 this a real, approved affiliate" — WHICH rows he may touch (his own leads, his own team, a manager's
 own shared library writes) is still, and only, the ownership/role DATA check each route makes for

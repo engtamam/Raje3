@@ -20,7 +20,7 @@ never seeded one; every method here degrades to "cannot proceed" rather than gue
 THE STAFF STEP SKIPS ITSELF (v0.18.53's conditional-step contract — see platform's booking_flow.py
 docstring). `options(dimension="staff", ...)` returns `[]` the instant the chosen service is not
 `named` mode, and the platform's engine advances past that step silently — no "any available"
-placeholder needed. Matches the console's own BookingDialog.tsx behaviour and the 2026-09-08
+placeholder needed. Matches the console's own BookingDialog.tsx behaviour and the
 decision on this feature: `auto` services never ask who, `named` services always do.
 
 SINGLE-BRANCH SHOPS ONLY, FOR NOW — a documented limitation, not a guess. Resolving WHICH branch a
@@ -30,7 +30,7 @@ a separate, later pass. A shop with more than one open branch simply cannot comp
 yet — `options`/`calendar`/`slots` all return empty rather than guessing a branch, and `reserve`
 refuses with a reason a customer can read.
 
-LOYALTY-IN-BOOKING, NEVER STANDALONE REDEMPTION (2026-09-08 decision, restated here because it is
+LOYALTY-IN-BOOKING, NEVER STANDALONE REDEMPTION (restated here because it is
 the whole reason this exists in this file and not a separate loyalty Flow). core/points.py's own
 module docstring already records why a bare "redeem your points" tool was removed from the AI text
 channel: a redemption with no booking behind it is a reward the shop hands over with no visit to

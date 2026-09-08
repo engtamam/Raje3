@@ -125,7 +125,7 @@ async def set_template_use_outcome(request: Request, use_id: str, body: SetOutco
 @router.get("/leads/{lead_id}/template-uses", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def lead_template_uses(request: Request, lead_id: str,
                              principal: Principal = Depends(require_user)) -> dict:
-    """Fixed (2026-08-22): this used to trust `lead_id` with no ownership check at all — any
+    """Fixed: this used to trust `lead_id` with no ownership check at all — any
     signed-in affiliate could read another affiliate's lead's whole outreach history by guessing
     or observing an id. Gated now on the exact same rule every other lead-scoped route already
     uses (`LeadSourcingService.get_lead`), not a new one."""

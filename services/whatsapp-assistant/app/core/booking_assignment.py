@@ -3,7 +3,7 @@
 deployed. Opt-in only: `BOOKING_PROVIDER_DRIVER=real` (see app/config.py's own note).
 
 THE ONE POLICY QUESTION THIS MODULE ANSWERS: which operator does an AI-led WhatsApp booking get
-assigned to. There is no chat UI for a customer to browse staff photos and pick one — Tamam's own
+assigned to. There is no chat UI for a customer to browse staff photos and pick one — the owner's own
 framing of this feature ("تحديد الموظفه مهم") asked that a real operator be assigned, not that a
 customer be made to choose. A customer naming a PREFERRED stylist is a real, later feature (a
 free-text name would need to be resolved against this same list, matched, and confirmed) — not
