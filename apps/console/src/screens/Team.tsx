@@ -18,7 +18,7 @@
  * AND IDENTITY COMES FROM THE SESSION (§3.5). There is no "who is recording this" field anywhere
  * in the product: an operator signs in on his own phone and every visit is attributed to him.
  */
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
@@ -1058,6 +1058,26 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
     }
   }
 
+  // ONE PASS EACH, NOT ONE PER ROW. `operators`/`stats` were being filtered/found from
+  // scratch inside every `BranchRow` render — a full linear scan per branch per render,
+  // re-run on every render including just opening the add-branch form. Built once here as
+  // lookup maps, so each row below is an O(1) `.get()` instead.
+  const activeStaffByBranch = useMemo(() => {
+    if (!isReady(operators)) return null;
+    const m = new Map<string, number>();
+    for (const o of operators) {
+      if (o.active === false) continue;
+      m.set(o.branch_id, (m.get(o.branch_id) ?? 0) + 1);
+    }
+    return m;
+  }, [operators]);
+  const statByBranch = useMemo(() => {
+    if (!isReady(stats)) return null;
+    const m = new Map<string, BranchStat>();
+    for (const r of stats) m.set(r.branch_id, r);
+    return m;
+  }, [stats]);
+
   if (branches === null) return <Skeleton height={160} />;
 
   return (
@@ -1084,10 +1104,8 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
               session={session}
               branch={b}
               edit={edit}
-              staff={isReady(operators)
-                ? operators.filter((o) => o.active !== false && o.branch_id === b.id).length
-                : null}
-              stat={isReady(stats) ? stats.find((r) => r.branch_id === b.id) ?? {} : null}
+              staff={activeStaffByBranch ? activeStaffByBranch.get(b.id) ?? 0 : null}
+              stat={statByBranch ? statByBranch.get(b.id) ?? {} : null}
               onChanged={onChanged}
             />
           ))}
