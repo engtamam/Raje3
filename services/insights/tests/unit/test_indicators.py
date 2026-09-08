@@ -208,3 +208,40 @@ def test_the_learning_state_carries_progress_not_just_a_sentence():
 
 def test_good_coverage_blocks_nothing():
     assert blocked("branch_comparison", coverage=Coverage(total=1000, known=950)) is None
+
+
+# ── `by_customer` is an optimisation, never a different answer ───────────────────────────────────
+# `_compute_scope` builds `indicators._by_customer(visits)` once and threads it into every one of
+# these instead of letting each rebuild its own — see tick.py. Every function must produce exactly
+# the same result whether it is handed the pre-built grouping or left to build it itself.
+def test_by_customer_param_does_not_change_return_rate():
+    v = [visit("a", 60), visit("a", 30), visit("b", 10), visit("c", 5), visit("c", 100)]
+    per = ind._by_customer(v)
+    assert ind.return_rate(v) == ind.return_rate(v, by_customer=per)
+
+
+def test_by_customer_param_does_not_change_churn_rate():
+    v = [visit("a", 200), visit("a", 100), visit("b", 5), visit("b", 3)]
+    per = ind._by_customer(v)
+    assert ind.churn_rate(v, now=NOW) == ind.churn_rate(v, now=NOW, by_customer=per)
+
+
+def test_by_customer_param_does_not_change_at_risk():
+    v = [visit("a", 200), visit("a", 100), visit("b", 5), visit("b", 3)]
+    per = ind._by_customer(v)
+    assert ind.at_risk(v, now=NOW) == ind.at_risk(v, now=NOW, by_customer=per)
+
+
+def test_by_customer_param_does_not_change_new_vs_returning():
+    v = [visit("a", 60), visit("a", 10), visit("b", 5)]
+    per = ind._by_customer(v)
+    assert (ind.new_vs_returning(v, now=NOW)
+            == ind.new_vs_returning(v, now=NOW, by_customer=per))
+
+
+def test_by_customer_param_does_not_change_cycle_completion():
+    v = [visit("a", 60, "svc1"), visit("a", 10, "svc1"), visit("b", 5, "svc1")]
+    per = ind._by_customer(v)
+    cycles = {"svc1": 30}
+    assert (ind.cycle_completion(v, cycles=cycles, now=NOW)
+            == ind.cycle_completion(v, cycles=cycles, now=NOW, by_customer=per))
