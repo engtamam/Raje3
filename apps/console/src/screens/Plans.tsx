@@ -123,7 +123,7 @@ export interface Subscription {
  * period; `boolean` is a capability that is on or off. The renderer below reads `kind` rather than
  * guessing from the key, so a new gauge needs a sentence here and nothing else.
  */
-const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
+export const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'staff.seats': { label: 'مقاعد للموظفين', unit: 'مقعد' },
   branches: { label: 'فروع', unit: 'فرع' },
   'messages.monthly': { label: 'رسائل في الشهر', unit: 'رسالة' },
@@ -232,7 +232,7 @@ export function isStandalone(plan: Plan): boolean {
  * A key missing from this map falls back to its raw name rather than crashing — a future
  * dependency works (both the purchase refusal and this note) the moment its plans.json row
  * carries `requires_any`; adding it here is a readability improvement, not a precondition. */
-const REQUIRES_ANY_LABELS: Record<string, string> = {
+export const REQUIRES_ANY_LABELS: Record<string, string> = {
   'feature.base': 'الأساس',
   'feature.visit': 'تسجيل زيارة',
   'feature.bookings': 'الحجوزات',

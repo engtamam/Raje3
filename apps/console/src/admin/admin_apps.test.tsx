@@ -72,7 +72,8 @@ describe('AdminApps', () => {
     render(<AdminApps session={SESSION} />);
     await waitFor(() => expect(screen.getByText('الأساس')).toBeTruthy());
     expect(screen.getByText('99 ريال')).toBeTruthy();
-    expect(screen.getByText('مقاعد الموظفين')).toBeTruthy();   // translated, not "staff.seats"
+    expect(screen.getByText('مقاعد للموظفين')).toBeTruthy();   // translated, not "staff.seats" —
+    // same wording as `Plans.tsx`'s own `LIMIT_WORDS` (shared, imported, never a second copy)
     expect(screen.getByText('نشطة')).toBeTruthy();
   });
 
@@ -128,6 +129,27 @@ describe('AdminApps', () => {
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/billing/plans/plan_419e081916264f6bbe935e97877af116', 'PATCH',
       expect.objectContaining({ name: 'الأساس الجديد' }), 'tok-1'));
+  });
+
+  it('messages.monthly never gets an editable number/unlimited control, only a fixed sentence', async () => {
+    const BASE_WITH_MESSAGES = {
+      ...PLAN,
+      limits: { ...PLAN.limits, 'messages.monthly': { kind: 'counter', limit: 'unlimited', period: 'billing_period' } },
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(FULL_CATALOG);
+    reqMock = vi.fn().mockResolvedValueOnce({ plans: [BASE_WITH_MESSAGES] });
+
+    render(<AdminApps session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تعديل')).toBeTruthy());
+    fireEvent.click(screen.getByText('تعديل'));
+
+    const row = (await screen.findByText('رسائل واتساب')).closest('div');
+    // THE FIXED SENTENCE, NOT A CONTROL — no number input and no "unlimited" checkbox INSIDE
+    // THIS ROW specifically (staff.seats, the plan's other limit, keeps its own real "غير محدود"
+    // checkbox elsewhere in the drawer — scoping to this row is what makes the assertion mean
+    // "this key has no control", not "the drawer has no checkboxes at all").
+    expect(screen.getByText('غير محدودة دائماً — واتساب تتحكم بالسقف الفعلي')).toBeTruthy();
+    expect(row?.querySelector('input')).toBeNull();
   });
 
   it('creating a coupon sends plan_id and the date window, built against the confirmed contract', async () => {

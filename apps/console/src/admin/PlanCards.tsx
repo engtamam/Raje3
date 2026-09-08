@@ -4,12 +4,28 @@
  * line instead of a technical key, and the price goes through `../money.ts` (the same rule
  * everywhere else in the product: halalas on the wire, riyals on the screen).
  *
- * VISUAL LANGUAGE MATCHES `KpiCard.tsx`, NOT INVENTED HERE: soft-tone icon badge, generous
- * padding, shadow-sm, a big tabular-nums number as the focal point — the same vocabulary the rest
- * of the admin panel already reads as "polished". The first pass of this file used plain text
- * rows and a raw period string leaked straight from the API ("billing_period", never translated)
- * — found live, both fixed here: boolean features get a check/x icon, gauges/counters a numeric
- * chip, and PERIOD_LABEL now covers both real values billing-service actually returns.
+ * SAME WORDING AS THE SHOP-OWNER-FACING «الاشتراك» SCREEN, ON PURPOSE. `LIMIT_WORDS` and
+ * `REQUIRES_ANY_LABELS` are `Plans.tsx`'s own maps, exported from there and imported here rather
+ * than re-typed — a raw key that gets a sentence on one screen and stays raw jargon on its sibling
+ * is a drift bug waiting to happen the day someone edits only one of the two files. This file adds
+ * only what an ADMIN needs beyond that: the icon per key (the shop-owner screen has no room for
+ * one), and a slightly more technical fallback for a key `Plans.tsx` deliberately never prints
+ * (`plan.requires_any`'s own value shape is a list, never a number — see that file's own note).
+ *
+ * OWNER'S OWN COMPLAINT, VERBATIM (screenshot reviewed live): every button — تعديل/إيقاف/إخفاء/
+ * إظهار — was the same flat grey in every state, so a destructive action (إيقاف: stops new
+ * subscriptions) read exactly like a neutral one (تعديل) or a reversible, low-stakes one (إخفاء/
+ * إظهار: only changes what the store lists, existing subscribers untouched). Colour now follows
+ * what each button's own `onClick` actually does, matching this session's own rule everywhere
+ * else (`Plans.tsx`'s own note on its danger cancel button): a fast signal a glance reads, and a
+ * destructive action wearing a neutral action's colour is a colour saying nothing.
+ *
+ * VISUAL LANGUAGE MATCHES `Wallet.tsx` (المحفظتي), the owner's own named quality bar this session
+ * — tinted panels, real icon circles, colour-coded state, generous spacing — not `KpiCard.tsx`
+ * alone as the very first pass here used. That first pass used plain text rows and a raw period
+ * string leaked straight from the API ("billing_period", never translated) — found live, both
+ * fixed here: boolean features get a check/x icon, gauges/counters a numeric chip, and
+ * PERIOD_LABEL now covers both real values billing-service actually returns.
  *
  * TWO SEPARATE TOGGLES, ONE ROUTE. `active` (can anyone subscribe at all) and `listed` (does the
  * store show it) both call `billing.plan_availability` directly — the ONE of the three app
@@ -25,7 +41,8 @@
 import { useState } from 'react';
 import {
   Package, Check, X, Power, Pencil, Users, GitBranch, Plug, Sparkles, Gift,
-  Megaphone, LineChart, MessageSquare, FileText, Eye, EyeOff,
+  Megaphone, LineChart, MessageSquare, FileText, Eye, EyeOff, CheckCircle2, PauseCircle,
+  Star, PhoneCall, ClipboardCheck, Boxes, Layers,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
@@ -38,6 +55,7 @@ import { riyals, riyalsLabel, halalas } from '../money';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
+import { LIMIT_WORDS, REQUIRES_ANY_LABELS, isStandalone, kindOf } from '../screens/Plans';
 
 interface LimitEntry { kind: 'boolean' | 'gauge' | 'counter' | string; limit: number | 'unlimited'; period?: string }
 interface Price { type: string; currency: string; interval: string; amount_minor: number }
@@ -46,27 +64,60 @@ interface Plan {
   prices: Price[]; limits: Record<string, LimitEntry>; trial_days: number;
 }
 
-// technical key -> Arabic label + icon. An unknown key still renders (label = the raw key, a
-// generic icon) — never hidden, never breaks the screen. Extend this the day billing-service adds
-// a new limit; never guess ahead of it.
-const LIMIT_META: Record<string, { label: string; icon: typeof Users }> = {
-  'staff.seats': { label: 'مقاعد الموظفين', icon: Users },
-  'branches': { label: 'الفروع', icon: GitBranch },
-  'feature.base': { label: 'الميزات الأساسية', icon: Sparkles },
-  'feature.bookings': { label: 'الحجوزات', icon: Gift },
-  'feature.api': { label: 'واجهة API', icon: Plug },
-  'feature.loyalty': { label: 'برنامج النقاط', icon: Gift },
-  'feature.campaigns': { label: 'الحملات', icon: Megaphone },
-  'feature.insights.engine': { label: 'محرّك التحليلات', icon: LineChart },
-  'messages.monthly': { label: 'رسائل واتساب', icon: MessageSquare },
-  'templates.custom': { label: 'القوالب المخصّصة', icon: FileText },
+// The icon per key — the one thing `Plans.tsx`'s own `LIMIT_WORDS` has no room for (that screen
+// prints a plain check-mark line, never an icon per feature). Keyed the SAME as `LIMIT_WORDS`, so
+// a key with no entry here still renders (falls back to a generic icon) rather than breaking.
+const LIMIT_ICON: Record<string, typeof Users> = {
+  'staff.seats': Users,
+  branches: GitBranch,
+  'feature.base': Sparkles,
+  'feature.bookings': Gift,
+  'feature.api': Plug,
+  'feature.loyalty': Gift,
+  'feature.campaigns': Megaphone,
+  'feature.insights.engine': LineChart,
+  'messages.monthly': MessageSquare,
+  'templates.custom': FileText,
+  'feature.rating': Star,
+  'feature.whatsapp': MessageSquare,
+  'feature.contacts': PhoneCall,
+  'feature.visit': ClipboardCheck,
+  'plan.standalone': Boxes,
 };
+
+// technical key -> Arabic label (from `Plans.tsx`'s own `LIMIT_WORDS`) + icon (above). A key with
+// no sentence there falls back to `REQUIRES_ANY_LABELS` (for `plan.requires_any` itself, which
+// `Plans.tsx` deliberately never prints as a line) and finally to the raw key — never hidden,
+// never breaking the screen, but the raw-key fallback should now be dead code in practice.
+function limitLabel(key: string): string {
+  return LIMIT_WORDS[key]?.label ?? REQUIRES_ANY_LABELS[key] ?? key;
+}
+function limitIcon(key: string): typeof Users {
+  return LIMIT_ICON[key] ?? Sparkles;
+}
 
 // "month" (a calendar month, regardless of billing interval — templates.custom's own reset clock)
 // and "billing_period" (once per subscription cycle, whatever its interval is — messages.monthly's
 // own) are the two real values billing-service returns; anything else still renders, verbatim,
 // rather than being swallowed.
 const PERIOD_LABEL: Record<string, string> = { month: 'شهرياً', billing_period: 'كل دورة فوترة' };
+
+// NEVER EDITABLE, ANYWHERE THIS FORM RENDERS A LIMIT — `messages.monthly` is not a sold ceiling,
+// it is billing's own protection meter (deploy/seed/plans.json's own header: "measured, never
+// sold... it catches our own runaway loop before the owner's bill does"), and its value is always
+// the WORD "unlimited", never a number the base plan actually enforces. The generic editor below
+// treated every counter/gauge key alike — a number field plus an "unlimited" checkbox — which let
+// this ONE key be typed into as a real number with no code anywhere refusing it. Two real risks,
+// traced end to end: reminders' own send path (services/reminders/app/core/quota.py::consume)
+// never refuses a send for this key regardless of what billing answers, so a typed number would
+// not even stop a single message — but billing-service would still start metering against it, and
+// plans.json's own `"overage": "allow_and_bill"` on this key means a shop could be charged an
+// overage fee for a ceiling that never actually limited anything it paid for. Removed from the
+// editable list entirely rather than merely defaulted — a control that exists "but nobody presses
+// it" is one press away from both of those, and Meta's own real ceiling (250/2,000 customers a
+// day) is the only number that should ever gate a send; see reminders/core/ceiling.py, which reads
+// it live and is untouched by this.
+const NEVER_EDITABLE = new Set(['messages.monthly']);
 
 function amountLine(entry: LimitEntry): string {
   const amount = entry.limit === 'unlimited' ? 'غير محدود' : String(entry.limit);
@@ -114,6 +165,15 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
   const limitEntries = Object.entries(plan.limits);
   const booleans = limitEntries.filter(([, e]) => e.kind === 'boolean');
   const counted = limitEntries.filter(([, e]) => e.kind !== 'boolean');
+  const kind = kindOf(plan as never);
+  const standalone = isStandalone(plan as never);
+  // THE CARD'S OWN FACE — a capacity row (مقاعد إضافية/فرع إضافي) is not "an app" the same way
+  // التقييم is, and a standalone app (بوت خدمة العملاء الذكي) is sold on its own, unlike every
+  // other app which needs الأساس underneath it. Both facts are read straight off the plan's own
+  // limits (`kindOf`/`isStandalone`, `Plans.tsx`'s own logic, imported rather than re-derived),
+  // never off its name — and both get their own icon/tone rather than sharing the generic Package
+  // every card used to wear regardless of what it actually sold.
+  const CardIcon = kind === 'capacity' ? Boxes : kind === 'base' ? Layers : Package;
 
   async function toggleActive() {
     if (!availabilityAction) return;
@@ -144,15 +204,34 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
   return (
     <section className={[
       'flex flex-col gap-4 rounded-card border p-5 shadow-sm transition-opacity',
-      plan.active ? 'border-border-subtle bg-surface-1' : 'border-border-subtle bg-surface-1 opacity-70',
+      // A TINTED PANEL WHEN STOPPED, NOT JUST DIMMED — `opacity-70` alone made a stopped app look
+      // like a loading card, not a deliberately-off one. `Wallet.tsx`/`KpiCard.tsx`'s own
+      // "colour the whole shape, not just a chip" rule, applied here: a neutral, muted panel for
+      // "stopped", the ordinary surface for "running".
+      plan.active
+        ? 'border-border-subtle bg-surface-1'
+        : 'border-border-subtle bg-surface-2/60 opacity-90',
     ].join(' ')}>
       <div className="flex items-start justify-between gap-3">
-        <span className="inline-flex w-fit rounded-lg bg-surface-2 p-2 text-text-secondary">
-          <Package size={20} />
+        <span className={[
+          'inline-flex w-fit rounded-lg p-2',
+          plan.active ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
+        ].join(' ')}>
+          <CardIcon size={20} />
         </span>
         <div className="flex flex-col items-end gap-1">
-          <Badge tone={plan.active ? 'success' : 'neutral'}>{plan.active ? 'نشطة' : 'متوقفة'}</Badge>
-          {!plan.listed ? <Badge tone="warning">مخفية عن القائمة</Badge> : null}
+          <Badge tone={plan.active ? 'success' : 'neutral'}>
+            {plan.active ? <CheckCircle2 size={12} /> : <PauseCircle size={12} />}
+            {plan.active ? 'نشطة' : 'متوقفة'}
+          </Badge>
+          {!plan.listed ? (
+            <Badge tone="warning"><EyeOff size={12} /> مخفية عن القائمة</Badge>
+          ) : null}
+          {kind === 'capacity' ? (
+            <Badge tone="info">إضافة سعة</Badge>
+          ) : standalone ? (
+            <Badge tone="accent"><Boxes size={12} /> تُشترى وحدها</Badge>
+          ) : null}
         </div>
       </div>
 
@@ -170,14 +249,13 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
       {booleans.length > 0 ? (
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {booleans.map(([key, entry]) => {
-            const meta = LIMIT_META[key];
-            const Icon = meta?.icon ?? Sparkles;
+            const Icon = limitIcon(key);
             const on = Boolean(entry.limit);
             return (
               <div key={key} className={`flex items-center gap-2 text-sm ${on ? 'text-text-primary' : 'text-text-muted'}`}>
                 {on ? <Check size={15} className="shrink-0 text-success" /> : <X size={15} className="shrink-0 text-text-muted" />}
                 <Icon size={14} className="shrink-0" />
-                <span>{meta?.label ?? key}</span>
+                <span>{limitLabel(key)}</span>
               </div>
             );
           })}
@@ -187,12 +265,12 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
       {counted.length > 0 ? (
         <ul className="flex flex-col gap-1.5 border-t border-border-subtle pt-3 text-sm">
           {counted.map(([key, entry]) => {
-            const meta = LIMIT_META[key];
+            const Icon = limitIcon(key);
             return (
               <li key={key} className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-text-secondary">
-                  {meta ? <meta.icon size={14} className="shrink-0" /> : null}
-                  {meta?.label ?? key}
+                  <Icon size={14} className="shrink-0" />
+                  {limitLabel(key)}
                 </span>
                 <span className="font-medium tabular-nums">{amountLine(entry)}</span>
               </li>
@@ -215,15 +293,28 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
           </Button>
         ) : null}
         {availabilityAction ? (
-          <Button type="button" size="sm" variant="outline" disabled={busy}
-                  className="flex flex-1 items-center justify-center gap-2"
+          // DANGER WHEN THIS PRESS WOULD STOP NEW SUBSCRIPTIONS, A CALM TONE WHEN IT WOULD RESUME
+          // THEM — read straight off `plan.active`, the same fact the confirm dialog below already
+          // states in words. The owner's own complaint, verbatim: this button and «تعديل» used to
+          // be the identical flat grey, so a press that quietly turns off sales read as harmless as
+          // a press that opens an edit form.
+          <Button type="button" size="sm" disabled={busy}
+                  variant={plan.active ? 'danger' : undefined}
+                  className={plan.active
+                    ? 'flex flex-1 items-center justify-center gap-2'
+                    : 'flex flex-1 items-center justify-center gap-2 bg-success-soft text-success-on-soft hover:opacity-90'}
                   onClick={() => setArmActive(true)}>
             <Power size={14} /> {plan.active ? 'إيقاف' : 'تفعيل'}
           </Button>
         ) : null}
         {availabilityAction ? (
-          <Button type="button" size="sm" variant="outline" disabled={busy}
-                  className="flex flex-1 items-center justify-center gap-2"
+          // ITS OWN, DISTINCT, LESS ALARMING TONE — show/hide only changes what the STORE lists;
+          // existing subscribers are never touched (see the ConfirmDialog body below, and the
+          // entitlement-resolver trace in the comment further down). A warning-soft tint says
+          // "worth a second look" without borrowing إيقاف's red, which means "this costs someone
+          // something" — hiding a plan costs nobody anything already bought.
+          <Button type="button" size="sm" disabled={busy}
+                  className="flex flex-1 items-center justify-center gap-2 bg-warning-soft text-warning-on-soft hover:opacity-90"
                   onClick={() => setArmListed(true)}>
             {plan.listed ? <EyeOff size={14} /> : <Eye size={14} />} {plan.listed ? 'إخفاء' : 'إظهار'}
           </Button>
@@ -336,13 +427,32 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
         {Object.keys(limits).length > 0 ? (
           <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
             <h4 className="text-sm font-semibold text-text-secondary">الحدود والميزات</h4>
-            {Object.entries(limits).map(([key, entry]) => (
+            {/* رسائل واتساب — NOT A ROW HERE AT ALL, on purpose. See NEVER_EDITABLE's own note:
+                there is nothing to toggle or type, so a fixed sentence replaces the control
+                rather than a disabled one sitting where an editable field used to be. */}
+            {limits['messages.monthly'] ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-sm text-text-secondary">
+                  <MessageSquare size={14} className="shrink-0" /> رسائل واتساب
+                </span>
+                {/* THE REAL STORED VALUE, NOT AN ASSUMPTION — this key is meant to always read
+                    "unlimited" (see NEVER_EDITABLE's own note), but a fixed sentence that claimed
+                    so regardless of what billing actually holds would hide the one case worth
+                    surfacing: a row that somehow already carries a real number. */}
+                <span className="text-xs text-text-muted">
+                  {limits['messages.monthly'].limit === 'unlimited'
+                    ? 'غير محدودة دائماً — واتساب تتحكم بالسقف الفعلي'
+                    : `${amountLine(limits['messages.monthly'])} — يجب أن تكون غير محدودة، راجع الإعداد`}
+                </span>
+              </div>
+            ) : null}
+            {Object.entries(limits).filter(([key]) => !NEVER_EDITABLE.has(key)).map(([key, entry]) => (
               <div key={key} className="flex items-center justify-between gap-3">
-                <span className="text-sm">{LIMIT_META[key]?.label ?? key}</span>
+                <span className="text-sm">{limitLabel(key)}</span>
                 {entry.kind === 'boolean' ? (
                   <Toggle checked={Boolean(entry.limit)}
                          onChange={(v) => setLimitValue(key, { limit: v ? 1 : 0 })}
-                         ariaLabel={LIMIT_META[key]?.label ?? key} />
+                         ariaLabel={limitLabel(key)} />
                 ) : (
                   <div className="flex items-center gap-2">
                     <Input dir="ltr" inputMode="numeric" className="w-20"
