@@ -21,7 +21,9 @@ import { MemoryRouter } from 'react-router-dom';
 const rows = (label: string) => screen.queryAllByText(label).length;
 
 const REASONS = [
-  { id: 'visit_recorded', label: 'سُجّلت زيارة', when: 'بعد عشر دقائق',
+  // `gone_missing` — deliberately, not `visit_recorded` — so the SAME well-exercised row also
+  // covers the cross-link to «حملاتي» (Messages.tsx's own REASON_GOAL, keyed by this exact id).
+  { id: 'gone_missing', label: 'سُجّلت زيارة', when: 'بعد عشر دقائق',
     cls: 'service', cls_label: 'خدمية', on: true, can_switch: true,
     template_status: 'approved' },
   { id: 'winback', label: 'استرجاع', when: 'بعد 90 يوماً',
@@ -108,5 +110,13 @@ describe('«متى نرسل» — a table a question can be asked of', () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
     expect(screen.getByText('معتمدة')).toBeTruthy();
+  });
+
+  it('cross-links a row that shares a template with a «حملاتي» goal', async () => {
+    open();
+    await screen.findAllByText('سُجّلت زيارة');
+    expect(screen.getByText('نفسها في «رجّع اللي غابوا»')).toBeTruthy();
+    // A row with no matching goal (winback/points_expiring here) offers no link at all.
+    expect(screen.getAllByText(/نفسها في/).length).toBe(1);
   });
 });

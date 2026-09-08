@@ -26,7 +26,7 @@
  * while a capability nobody can see is one nobody can buy.
  */
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
@@ -131,6 +131,24 @@ interface ReasonRow {
    *  never Meta's raw status name. */
   template_status?: TemplateStatus;
 }
+
+/** SOME AUTOMATIC REASONS ARE THE EXACT SAME MESSAGE «حملاتي» ALSO LAUNCHES BY HAND — «تجاوز
+ *  دورته ولم يعد» (this reason) IS «رجّع اللي غابوا» (that goal), both `mkt_winback`, and until
+ *  now nothing on either screen said so. An owner editing one wording had no way to know a
+ *  second screen sends it too, and reading it as two unrelated messages is how a shop rewrites
+ *  «رجّع اللي غابوا» and is confused when the automatic reminder still reads in the old words.
+ *
+ *  KEYED BY REASON ID, matched by hand against GOAL_TEMPLATE (campaigns/app/core/models.py) —
+ *  not derived, because a shared `template_type` alone is not enough: `mkt_loyalty_activation`
+ *  backs TWO reasons (`reward_within_reach` and `loyal_customer`) and only one of them is the
+ *  same occasion «حملاتي»'s own `reward_loyal` goal describes. Three goals have no automatic
+ *  counterpart at all yet (`announce`, `service_offer`/`package_offer`, `awareness`,
+ *  `seasonal_care`, `safety`) — absent here on purpose, not an oversight. */
+const REASON_GOAL: Record<string, { goal: string; title: string }> = {
+  gone_missing: { goal: 'win_back', title: 'رجّع اللي غابوا' },
+  personal_occasion: { goal: 'occasion', title: 'هنّئ في مناسبة' },
+  loyal_customer: { goal: 'reward_loyal', title: 'كافئ المخلصين' },
+};
 
 /** THE FIVE, EACH WITH ITS OWN COLOUR, AND THE ONE THAT MATTERS MOST WEARS THE LOUDEST.
  *
@@ -301,6 +319,7 @@ export function MessagesScreen(
   // links here with `?tab=campaigns&launch=win_back` rather than a plain link to «رسائلي», because
   // a plain link still makes him find the tab, press «أطلق حملة», and pick the one goal he already
   // came here for. Read once, on mount — a tab change afterwards is his own choice to keep.
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const launchGoal = params.get('launch') || undefined;
   const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>(
@@ -750,6 +769,20 @@ export function MessagesScreen(
                             be tidier and less useful. */}
                         <span className="truncate text-xs text-text-secondary">{t.when}</span>
                       </button>
+
+                      {/* THE CROSS-LINK — a SIBLING of the row's own button, never nested inside
+                          it (two interactive elements cannot nest). Only for the reasons that
+                          ARE a campaign goal's own message under a different trigger — «تجاوز
+                          دورته ولم يعد» here is «رجّع اللي غابوا» in «حملاتي», same template,
+                          and until this an owner editing one had no way to know the other screen
+                          sends it too. */}
+                      {REASON_GOAL[t.id] ? (
+                        <button type="button"
+                               onClick={() => navigate(`?tab=campaigns&launch=${REASON_GOAL[t.id].goal}`)}
+                               className="shrink-0 whitespace-nowrap text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
+                          نفسها في «{REASON_GOAL[t.id].title}»
+                        </button>
+                      ) : null}
 
                       {/* ONE FIXED-WIDTH COLUMN, so thirteen switches line up under one another
                           instead of each sitting wherever its own row's text happened to end. */}

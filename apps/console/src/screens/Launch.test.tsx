@@ -14,6 +14,7 @@ const ACTIONS: Record<string, { id: string; label: string; method: string; path:
   'operations.list_services': { id: 'operations.list_services', label: 'x', method: 'GET', path: '/services' },
   'operations.list_packages': { id: 'operations.list_packages', label: 'x', method: 'GET', path: '/packages' },
   'operations.list_branches': { id: 'operations.list_branches', label: 'x', method: 'GET', path: '/branches' },
+  'reminders.reasons': { id: 'reminders.reasons', label: 'x', method: 'GET', path: '/reasons' },
 };
 
 const previewCalls: unknown[] = [];
@@ -27,9 +28,15 @@ vi.mock('../catalog', async (importOriginal) => {
     call: async (_session: unknown, a: { id: string }, body?: unknown) => {
       if (a.id === 'campaigns.goals') {
         return {
-          goals: [{ goal: 'package_offer', title: 'عرض على باقة', line: 'روّج لباقة',
-                   icon: 'tag', available: true, offers: true,
-                   blanks: ['amount', 'catalogue', 'date'], template_status: 'approved' }],
+          goals: [
+            { goal: 'package_offer', title: 'عرض على باقة', line: 'روّج لباقة',
+             icon: 'tag', available: true, offers: true,
+             blanks: ['amount', 'catalogue', 'date'], template_status: 'approved' },
+            // A GOAL WITH A MATCHING «متى نرسل» REASON (win_back ↔ gone_missing) — the one
+            // shape that earns the cross-link button.
+            { goal: 'win_back', title: 'رجّع اللي غابوا', line: 'من تأخّر عن موعده',
+             icon: 'return', available: true, offers: true, blanks: [] },
+          ],
         };
       }
       if (a.id === 'operations.list_services') return { services: [] };
@@ -37,6 +44,12 @@ vi.mock('../catalog', async (importOriginal) => {
         return { packages: [{ id: 'pkg1', name: 'باقة الصيانة', active: true }] };
       }
       if (a.id === 'operations.list_branches') return { branches: [] };
+      if (a.id === 'reminders.reasons') {
+        return {
+          reasons: [{ id: 'gone_missing', label: 'تجاوز دورته ولم يعد',
+                     when: 'حين يمضي على زيارته مرّة ونصف دورته المعتادة', can_retext: true }],
+        };
+      }
       if (a.id === 'campaigns.preview') { previewCalls.push(body); return { message: 'معاينة', reaches: 10 }; }
       if (a.id === 'campaigns.create') { createCalls.push(body); return { campaign: { id: 'cmp1' } }; }
       return {};
@@ -85,5 +98,19 @@ describe('the template-status badge on the goal picker', () => {
     render(<Launch session={session} catalog={catalog} onDone={() => {}} />);
     await waitFor(() => expect(screen.getByText('عرض على باقة')).toBeTruthy());
     expect(screen.getByText('معتمدة')).toBeTruthy();
+  });
+});
+
+describe('the cross-link to «متى نرسل»', () => {
+  it('offers to view/retext the message when the picked goal shares a reason', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="win_back" />);
+    await waitFor(() => expect(screen.getByText('رجّع اللي غابوا')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('اعرض نص هذه الرسالة، أو عدّله')).toBeTruthy());
+  });
+
+  it('offers nothing for a goal with no automatic counterpart', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="package_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي باقة؟')).toBeTruthy());
+    expect(screen.queryByText('اعرض نص هذه الرسالة، أو عدّله')).toBeNull();
   });
 });

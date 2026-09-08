@@ -37,6 +37,7 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { western } from '../digits';
+import { MessagePreview } from './MessagePreview';
 
 /**
  * `campaigns-service` (app/core/goals.py) sends a NAME, never an emoji — "return", "gift",
@@ -166,6 +167,12 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
+  // WHICH REASONS «متى نرسل» ALREADY KNOWS ABOUT, read once so a picked goal that shares a
+  // reason (see GOAL_REASON_ID's own docstring) can offer the SAME message-preview/retext
+  // screen «متى نرسل» itself uses, instead of building a second one.
+  const [reasons, setReasons] = useState<{ id: string; label: string; when: string;
+    can_retext: boolean }[] | null>(null);
+  const [previewingReason, setPreviewingReason] = useState(false);
 
   /**
    * THE DAY «هنّئ في مناسبة» IS ABOUT, AND THE GOAL HAD NO WAY TO NAME IT.
@@ -250,7 +257,24 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         .then((x) => setBranches((x.branches ?? []).filter((b) => b.active !== false)))
         .catch(() => setBranches(null));
     }
+
+    // AND «متى نرسل»'s OWN REASONS — only to learn `can_retext` for the few that share a
+    // template with a goal here (GOAL_REASON_ID). `null` on a failed/denied read simply hides
+    // the cross-link rather than breaking anything this screen otherwise does.
+    const rsn = action(catalog, 'reminders.reasons');
+    if (rsn) {
+      call<{ reasons: { id: string; label: string; when: string; can_retext: boolean }[] }>(
+        session, rsn)
+        .then((x) => setReasons(x.reasons ?? []))
+        .catch(() => setReasons(null));
+    }
   }, [session, catalog, goalsAction]);
+
+  /** THE SAME MAP «متى نرسل»'s OWN `REASON_GOAL` USES, THE OTHER DIRECTION — see that file's own
+   *  docstring for why this is hand-matched against GOAL_TEMPLATE rather than derived. */
+  const GOAL_REASON_ID: Record<string, string> = {
+    win_back: 'gone_missing', occasion: 'personal_occasion', reward_loyal: 'loyal_customer',
+  };
 
   const ask = async (goal: Goal) => {
     if (!previewAction) return;
@@ -301,6 +325,11 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
 
   // ── step 2 and 3: what will happen, and the one press ────────────────────────────────────────
   if (picked) {
+    // THE MATCHING REASON, IF ONE EXISTS AND HAS ACTUALLY LOADED — absent for the three goals
+    // with no automatic counterpart yet (announce, service_offer/package_offer, awareness,
+    // seasonal_care, safety), and absent while `reasons` is still `null` (loading or denied).
+    const linkedReasonId = GOAL_REASON_ID[picked.goal];
+    const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;
     return (
       <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
@@ -311,6 +340,29 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         </div>
         {picked.behaviour ? (
           <p className="text-sm text-text-secondary">{picked.behaviour}</p>
+        ) : null}
+
+        {/* THE CROSS-LINK, THE OTHER DIRECTION — «متى نرسل»'s own row for the exact same
+            template opens with a link back here (Messages.tsx's own REASON_GOAL); this is the
+            same door from this side, reusing MessagePreview/TextEditor whole rather than a
+            second, smaller preview-and-edit screen built just for goal cards. */}
+        {linkedReason ? (
+          <button type="button" onClick={() => setPreviewingReason(true)}
+                 className="w-fit text-sm text-text-secondary underline underline-offset-2 hover:text-text-primary">
+            اعرض نص هذه الرسالة، أو عدّله
+          </button>
+        ) : null}
+        {previewingReason && linkedReason ? (
+          <MessagePreview
+            session={session}
+            catalog={catalog}
+            reasonId={linkedReason.id}
+            label={linkedReason.label}
+            when={linkedReason.when}
+            canRetext={linkedReason.can_retext}
+            onClose={() => setPreviewingReason(false)}
+            onChosen={() => {}}
+          />
         ) : null}
 
         {/* THE FREE BLANK — DRAWN ONLY WHERE THE MESSAGE HAS ONE (ط-4).
