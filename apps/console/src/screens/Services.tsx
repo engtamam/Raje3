@@ -23,7 +23,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
-import { Check, ImageOff, LayoutGrid, List, Pencil, Power, RotateCcw, Upload, Wrench, X } from 'lucide-react';
+import { Check, CircleHelp, ImageOff, LayoutGrid, List, Pencil, Plus, Power, RotateCcw, SlidersHorizontal, Upload, Wrench, X } from 'lucide-react';
 import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
@@ -190,6 +190,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * the table, not to the width of one column.
    */
   const [asked, setAsked] = useState<string | null>(null);
+  /** «الإعداد العام» — used to be a native `<details>` sitting on its own row below the toolbar,
+   *  which put a whole extra line between the toolbar and the table for a control that belongs
+   *  beside «شرح الأعمدة» and «استيراد من ملف» (same row, same kind of ask: "show me something
+   *  about this list"). Plain state instead of `<details>` so the trigger can live in the toolbar
+   *  while the panel itself still opens below the table header, same place it always has. */
+  const [openGeneral, setOpenGeneral] = useState(false);
   // WHO EXISTS AT ALL — read only so the eligibility row can be shown/hidden and its checkboxes
   // labelled. A shop with one operator (or none of this screen's role) never reads this at all
   // in any way that shows: the row below is hidden whenever there is one or fewer of them.
@@ -953,24 +959,45 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             pixels per column wide crowded into each other and spilled onto the neighbouring
             label — «النقاط؟» reading as one word. A legend answers all four at once, in a
             sentence each, and the header goes back to being four words. */}
-        <button
-          type="button"
-          aria-expanded={Boolean(asked)}
-          onClick={() => setAsked(asked ? null : 'legend')}
-          className="grid h-10 place-items-center rounded-lg px-3 text-sm text-text-secondary"
-        >
+        <Button type="button" variant="ghost" size="sm"
+               aria-expanded={Boolean(asked)}
+               onClick={() => setAsked(asked ? null : 'legend')}>
+          <CircleHelp size={15} aria-hidden />
           {asked ? t('services.hideExplain') : t('services.showExplain')}
-        </button>
+        </Button>
+
+        {/* «الإعداد العام» MOVED HERE, out of its own row below the toolbar — the same kind of
+            ask as the two buttons beside it ("show me something about this list"), so it earns
+            the same spot rather than a whole line of its own. The panel it opens still renders
+            below the table header, unchanged — only the trigger moved. */}
+        {action(catalog, 'reminders.set_general') ? (
+          <Button type="button" variant="ghost" size="sm"
+                 aria-expanded={openGeneral}
+                 onClick={() => setOpenGeneral((v) => !v)}>
+            <SlidersHorizontal size={15} aria-hidden />
+            {t('services.generalSetting')}
+            <span className="tabular-nums text-text-muted">
+              {summarise(t, {
+                interval_days: settings?.general?.interval_days,
+                follow_up_days: settings?.general?.follow_up_days,
+              })}
+            </span>
+          </Button>
+        ) : null}
 
         {action(catalog, 'operations.bulk_import_services') && !adding ? (
           <Button className={action(catalog, 'operations.create_service') ? undefined : 'ms-auto'}
                  variant="outline" onClick={() => setImporting(true)}>
+            <Upload size={15} aria-hidden />
             {t('services.importFromFile')}
           </Button>
         ) : null}
 
         {action(catalog, 'operations.create_service') && !adding ? (
-          <Button className="ms-auto" onClick={() => setAdding(true)}>{t('services.addServiceOrProduct')}</Button>
+          <Button className="ms-auto" onClick={() => setAdding(true)}>
+            <Plus size={16} aria-hidden />
+            {t('services.addServiceOrProduct')}
+          </Button>
         ) : null}
       </div>
 
@@ -978,19 +1005,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                            existing={(services ?? []).map((s) => ({ name: s.name, active: s.active }))}
                            open={importing} onClose={() => setImporting(false)} onImported={load} />
 
-      {action(catalog, 'reminders.set_general') ? (
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-1 py-1 text-sm text-text-secondary">
-            <span className="font-medium text-text-primary">{t('services.generalSetting')}</span>
-            <span className="tabular-nums">
-              {summarise(t, {
-                interval_days: settings?.general?.interval_days,
-                follow_up_days: settings?.general?.follow_up_days,
-              })}
-            </span>
-            <span className="text-xs opacity-70 group-open:hidden">{t('services.change')}</span>
-          </summary>
-          <div className="mt-2 flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+      {action(catalog, 'reminders.set_general') && openGeneral ? (
+        <>
+          <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-text-secondary">{t('services.appliesToUncustomized')}</span>
               <Hint>
@@ -1062,7 +1079,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               />
             </div>
           </div>
-        </details>
+        </>
       ) : null}
 
       <div className="flex flex-col gap-3">
