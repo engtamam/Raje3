@@ -25,10 +25,21 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
-import { Check, Lock } from 'lucide-react';
+import { Check, ExternalLink, Lock, Sparkles } from 'lucide-react';
 import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+
+/**
+ * ONE BUTTON UNDER THE BUBBLE — Meta draws these OUTSIDE the message, not inside it, and the two
+ * kinds land the customer in different places: `url` leaves WhatsApp for a website; `flow` opens
+ * WhatsApp's OWN screens (our booking Flow, for instance) without ever leaving the app. An owner
+ * deciding on a wording needs to see which one his customer actually gets, not just the label.
+ */
+export interface MessageButton {
+  label: string;
+  kind: 'flow' | 'url';
+}
 
 export interface Option {
   name: string; tone: string; text: string; mine?: boolean;
@@ -41,6 +52,9 @@ export interface Option {
   /** For his own texts: where it stands with Meta, and Meta's words when it was refused. */
   status?: string;
   reason?: string;
+  /** The button(s) Meta renders under this bubble, if the template carries one. Absent for an
+   *  ordinary text message — most of them. */
+  buttons?: MessageButton[];
 }
 
 /** What a row says about itself, in his words — never Meta's status names. */
@@ -353,7 +367,8 @@ export function MessagePreview({
                               </p>
                             </div>
                           ) : null}
-                          <Bubble text={o.text} caption={o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone} />
+                          <Bubble text={o.text} caption={o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone}
+                                  buttons={o.buttons} />
                           {/* META'S OWN WORDS when it refused. Re-wording a refusal sends him
                               looking for a problem we invented. */}
                           {o.reason ? (
@@ -474,7 +489,7 @@ export function MessagePreview({
  * inside — a label inside the bubble is text the customer never receives sitting where the text he
  * receives goes.
  */
-function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: act }: {
+export function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: act, buttons }: {
   text: string;
   caption: string;
   active?: boolean;
@@ -483,6 +498,8 @@ function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: ac
   /** Given only when this bubble can BECOME the shop's voice — see `chooseTone` (#326). */
   onChoose?: () => void;
   action?: React.ReactNode;
+  /** See `MessageButton`'s own docstring — absent for the vast majority of messages. */
+  buttons?: MessageButton[];
 }) {
   // THE WHOLE BUBBLE IS THE TARGET, not a button underneath it. He is choosing a sentence, and
   // the sentence is the thing on the screen — a separate «اختر» control asks him to read one
@@ -509,6 +526,29 @@ function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: ac
       >
         {text}
       </Tag>
+      {/* ── THE BUTTON(S), OUTSIDE THE BUBBLE — exactly where Meta actually draws them. A
+          shop owner who has never seen this rendered has no way to picture what «افتح الحجز»
+          looks like next to his words: still text-only WhatsApp, or a link, or a button that
+          opens our own screens without ever leaving the app (a Flow). One row per button,
+          divided from the one above it — Meta's own layout for more than one. */}
+      {buttons && buttons.length > 0 ? (
+        <div className="flex flex-col overflow-hidden rounded-2xl ring-1 ring-border-subtle">
+          {buttons.map((b, i) => (
+            <div
+              key={`${b.label}-${i}`}
+              className={[
+                'flex items-center justify-center gap-2 bg-surface-1 px-3 py-2.5 text-sm font-medium text-accent',
+                i > 0 ? 'border-t border-border-subtle' : '',
+              ].join(' ')}
+            >
+              {b.kind === 'flow'
+                ? <Sparkles size={14} aria-hidden />
+                : <ExternalLink size={14} aria-hidden />}
+              <span>{b.label}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <figcaption className="flex items-center justify-between gap-2 px-1">
         <span className="flex items-center gap-1 text-xs text-text-secondary">
           {active ? <Check size={14} className="text-accent" aria-hidden /> : null}
