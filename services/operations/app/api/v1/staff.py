@@ -39,7 +39,7 @@ from app.api.authz import require_any_capability, require_capability
 from app.api.ratelimit import rate_limit
 from app.api.scope import branch_scope
 from app.api import scope as SCOPE
-from app.core.models import Branch, Operator, Package, Service
+from app.core.models import ASSIGNMENT_MODES, Branch, Operator, Package, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
 from app.core import ai_notes as AN
@@ -1379,6 +1379,10 @@ class ServicePatch(BaseModel):
     # `Service.eligible_staff_ids` docstring: "[] means every active operator"), not "leave it" —
     # so an owner can deliberately clear a restriction back to unrestricted from this same route.
     eligible_staff_ids: list[str] | None = Field(default=None, max_length=64)
+    # NAMED vs AUTO — see Service.assignment_mode's own docstring (models.py). `None` means
+    # "leave it", same convention as every field on this model; validated against
+    # `ASSIGNMENT_MODES` here rather than trusted, since this is the one route that can set it.
+    assignment_mode: str | None = Field(default=None, max_length=16)
 
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
@@ -1405,6 +1409,12 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         val = getattr(body, fld)
         if val is not None:
             setattr(s, fld, val.strip() if isinstance(val, str) else val)
+
+    if body.assignment_mode is not None:
+        if body.assignment_mode not in ASSIGNMENT_MODES:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                f"assignment_mode must be one of {sorted(ASSIGNMENT_MODES)}")
+        s.assignment_mode = body.assignment_mode
 
     # EVERY OPERATOR GRANTED IS CHECKED against this tenant's own roster, same discipline
     # `update_operator`'s `visible_branch_ids` already uses — an id we do not recognise is

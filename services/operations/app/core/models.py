@@ -130,6 +130,11 @@ class Asset:
                 "created": self.created}
 
 
+# Service.assignment_mode's only two real values — validated wherever a caller may set it
+# (staff.py), never trusted to be one of these just because a row came out of the store.
+ASSIGNMENT_MODES = frozenset({"named", "auto"})
+
+
 @dataclass
 class Service:
     """A catalogue entry, written by the owner in «خدماتي» —
@@ -183,6 +188,20 @@ class Service:
     # `/internal/operations/service-durations` (extended to carry this alongside duration), never
     # duplicated into bookings' own store.
     eligible_staff_ids: list[str] = field(default_factory=list)
+    # NAMED vs AUTO (docs — the booking assignment-mode redesign, phase 1). "auto" is the
+    # DEFAULT — the owner's own rule: the easiest path is always the default, and "أي متاح" is
+    # one fewer decision a shop that never thinks about this has to make (GlossGenius ships the
+    # identical default-flip: "Any Professional" is the ordinary case, a named pick is the
+    # exception). "named" asks the customer/booking screen "which operator" explicitly, same as
+    # every service's behaviour before this field existed — a shop opts INTO that per service, it
+    # is no longer what a new service silently gets. `eligible_staff_ids` still says WHO may be
+    # picked either way; this field only says WHETHER the question is asked at all
+    # (services/bookings/app/core/assignment.py owns the actual auto-pick algorithm, phase 2+).
+    # A DEFAULT ON THE SERVICE, NOT THE SHOP, because the same shop can genuinely want both at
+    # once (a salon's named-stylist haircut beside its no-preference express service) — confirmed
+    # as the real pattern two salon platforms (Fresha, GlossGenius) already ship, not a
+    # hypothetical edge case.
+    assignment_mode: str = "auto"
     # A SHORT, OWNER-WRITTEN LINE — real value the WhatsApp assistant did not have before this
     # field existed: `service_catalog.py` hands the AI the bare priced row (name, price, duration)
     # and nothing else, so "what does this service actually involve" had no answer. Empty is the
@@ -203,6 +222,7 @@ class Service:
                 "active": self.active, "sort": self.sort, "catchall": self.catchall,
                 "external_id": self.external_id, "seeded": self.seeded, "created": self.created,
                 "eligible_staff_ids": list(self.eligible_staff_ids),
+                "assignment_mode": self.assignment_mode,
                 "description": self.description, "has_image": bool(self.image_key)}
 
 

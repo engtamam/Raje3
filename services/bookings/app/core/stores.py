@@ -69,6 +69,49 @@ class WorkingHoursStore:
         await self._s.put(self.collection, tenant, weekly)
 
 
+# THE SHOP'S OWN DEFAULT ALGORITHM, when a service is in "auto" mode (Service.assignment_mode,
+# operations' own models.py) and more than one eligible operator is free for a given slot — WHICH
+# one gets it. One policy per tenant, same "one document, not per-branch" shape WORKING_HOURS
+# already uses, for the same reason: this is an operating philosophy, not a per-branch setting.
+ASSIGNMENT_SETTINGS = "assignment_settings"
+
+# "nearest" is the DEFAULT — the owner's own rule (always the easiest default): it needs no setup
+# at all, and it is the exact behaviour every shop already had before "auto" existed (whichever
+# eligible operator has the soonest opening wins) — so a shop that never opens this setting keeps
+# feeling like nothing changed. "least_loaded"/"manual_order" are real, named alternatives from
+# real salon platforms (Vagaro's own "Most Open Schedule"/"Website Employee Lineup") for a shop
+# that wants to balance load or hand-rank its own staff instead.
+DEFAULT_ASSIGNMENT_ALGORITHM = "nearest"
+ASSIGNMENT_ALGORITHMS = frozenset({"nearest", "least_loaded", "manual_order"})
+
+
+class AssignmentSettingsStore:
+    """One row per tenant: which algorithm `assignment.py` should use when a slot has more than
+    one eligible, free operator, plus the manual lineup order `manual_order` reads (a plain list
+    of operator ids, most-preferred first — empty until the owner actually ranks anyone)."""
+    collection = ASSIGNMENT_SETTINGS
+
+    def __init__(self, store) -> None:
+        self._s = store
+
+    async def get(self, tenant: str) -> dict[str, Any]:
+        if not tenant:
+            return {"algorithm": DEFAULT_ASSIGNMENT_ALGORITHM, "manual_order": []}
+        row = await self._s.get(self.collection, tenant)
+        if not row:
+            return {"algorithm": DEFAULT_ASSIGNMENT_ALGORITHM, "manual_order": []}
+        algo = str(row.get("algorithm") or DEFAULT_ASSIGNMENT_ALGORITHM)
+        if algo not in ASSIGNMENT_ALGORITHMS:
+            algo = DEFAULT_ASSIGNMENT_ALGORITHM
+        return {"algorithm": algo, "manual_order": list(row.get("manual_order") or [])}
+
+    async def save(self, tenant: str, *, algorithm: str, manual_order: list[str]) -> None:
+        if algorithm not in ASSIGNMENT_ALGORITHMS:
+            raise ValueError(f"algorithm must be one of {sorted(ASSIGNMENT_ALGORITHMS)}")
+        await self._s.put(self.collection, tenant,
+                          {"algorithm": algorithm, "manual_order": list(manual_order)})
+
+
 class BookingStore:
     collection = BOOKINGS
 
