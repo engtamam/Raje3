@@ -28,6 +28,7 @@ import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
+import { Modal } from '../rj-ui/Modal';
 import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
@@ -196,6 +197,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    *  about this list"). Plain state instead of `<details>` so the trigger can live in the toolbar
    *  while the panel itself still opens below the table header, same place it always has. */
   const [openGeneral, setOpenGeneral] = useState(false);
+  /** Which service the GRID view's «تعديل» opened, if any. The table view keeps its own
+   *  inline-edit (`open`/`editing`) unchanged — a row IS the columns, so editing in place there
+   *  already reads as one continuous thing. A card is a photo first; jumping him to the table to
+   *  edit the very thing he was just looking at threw away the view he chose. This is a second,
+   *  separate piece of state on purpose — the two edit surfaces are not the same control. */
+  const [modalSvc, setModalSvc] = useState<string | null>(null);
   // WHO EXISTS AT ALL — read only so the eligibility row can be shown/hidden and its checkboxes
   // labelled. A shop with one operator (or none of this screen's role) never reads this at all
   // in any way that shows: the row below is hidden whenever there is one or fewer of them.
@@ -1301,8 +1308,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 </span>
                 <div className="relative mt-1 flex items-center justify-end ps-2">
                   {action(catalog, 'operations.update_service') ? (
-                    <Button variant="outline" size="sm"
-                           onClick={() => { setLayout('list'); setOpen(svc.id); }}>
+                    <Button variant="outline" size="sm" onClick={() => setModalSvc(svc.id)}>
                       {t('services.edit')}
                     </Button>
                   ) : null}
@@ -1728,6 +1734,179 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       )}
       </div>
       </div>
+        );
+      })()}
+
+      {/* THE GRID VIEW'S OWN EDIT SURFACE — a card is a photo first, and «تعديل» used to throw
+          that away by switching him to the table just to change a name. Same fields, same
+          save-on-blur handlers as the table row (patchService/setService/setServicePoints/
+          uploadServiceImage — nothing here is a second source of truth), laid out for the view
+          he was actually looking at instead. */}
+      {(() => {
+        const svc = (services ?? []).find((s) => s.id === modalSvc);
+        if (!svc) return null;
+        const { value, own } = settingFor(svc.id);
+        const stopped = svc.active === false;
+        return (
+          <Modal open onClose={() => setModalSvc(null)} title={svc.name} size="lg">
+            <div className="flex flex-col gap-4">
+              {/* A REAL, LARGE PHOTO — the whole point of opening this from the grid rather than
+                  the table, where a thumbnail the size of a fingertip was the most this setting
+                  could ever get. */}
+              <div className="relative -mx-1 aspect-[16/9] overflow-hidden rounded-xl bg-surface-2">
+                {images[svc.id] ? (
+                  <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full place-items-center text-text-muted">
+                    <ImageOff size={32} aria-hidden />
+                  </div>
+                )}
+                {action(catalog, 'operations.upload_service_image') ? (
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/60 to-transparent p-3">
+                    <label className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-surface-1/90 px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm backdrop-blur">
+                      <Upload size={13} aria-hidden /> صورة
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
+                    </label>
+                    {svc.has_image ? (
+                      <button type="button" onClick={() => deleteServiceImage(svc.id)}
+                             className="flex items-center gap-1.5 rounded-lg bg-surface-1/90 px-3 py-1.5 text-xs font-medium text-danger shadow-sm backdrop-blur">
+                        <X size={13} aria-hidden /> حذف الصورة
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-text-secondary">{t('services.name')}</span>
+                <input
+                  defaultValue={svc.name}
+                  maxLength={128}
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== svc.name) patchService(svc.id, { name: v }); }}
+                  className="h-11 rounded-lg bg-surface-2 px-3 text-base font-medium"
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm text-text-secondary">وصف قصير (اختياري)</span>
+                <textarea
+                  defaultValue={svc.description ?? ''}
+                  maxLength={300}
+                  rows={2}
+                  placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v !== (svc.description ?? '')) patchService(svc.id, { description: v }); }}
+                  className="w-full rounded-lg bg-surface-2 px-3 py-2 text-sm"
+                />
+              </label>
+
+              {/* THE SAME NUMBERS THE TABLE ROW OFFERS, IN A GRID OF THEIR OWN — a card's edit
+                  surface has the width for four fields side by side that a table column never
+                  did, so this is not a cramped port of the row, it is the layout the row's own
+                  fixed-width cells never had room to be. */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-text-secondary">{t('services.duration.label')}</span>
+                  <input type="number" min={0} max={720} dir="ltr"
+                        defaultValue={svc.duration_minutes ? String(svc.duration_minutes) : ''}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          if (raw === '') return;
+                          const n = Number(raw);
+                          if (n !== (svc.duration_minutes ?? 0)) patchService(svc.id, { duration_minutes: n });
+                        }}
+                        className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-text-secondary">{t('services.price.label')}</span>
+                  <input type="text" inputMode="decimal" dir="ltr" placeholder="—"
+                        defaultValue={svc.price_minor ? riyals(svc.price_minor) : ''}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          if (raw === '') return;
+                          const minor = halalas(raw);
+                          if (minor === null) { setError(t('services.error.priceInvalid')); return; }
+                          if (minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
+                        }}
+                        className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                </label>
+                {action(catalog, 'reminders.set_service_settings') ? (
+                  <>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-text-secondary">{t('services.reminderCycle.label')}</span>
+                      <input type="number" min={0} dir="ltr"
+                            defaultValue={value.interval_days ? String(value.interval_days) : ''}
+                            placeholder={own ? '0' : String(value.interval_days ?? 0)}
+                            onBlur={(e) => {
+                              const raw = e.target.value.trim();
+                              if (raw === '') return;
+                              const n = Number(raw);
+                              if (n !== (value.interval_days ?? 0)) setService(svc.id, { interval_days: n });
+                            }}
+                            className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs text-text-secondary">{t('services.followUp')}</span>
+                      <input type="number" min={0} dir="ltr"
+                            defaultValue={value.follow_up_days ? String(value.follow_up_days) : ''}
+                            placeholder={own ? '0' : String(value.follow_up_days ?? 0)}
+                            onBlur={(e) => {
+                              const raw = e.target.value.trim();
+                              if (raw === '') return;
+                              const n = Number(raw);
+                              if (n !== (value.follow_up_days ?? 0)) setService(svc.id, { follow_up_days: n });
+                            }}
+                            className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                    </label>
+                  </>
+                ) : null}
+                {earnAction ? (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-text-secondary">{t('services.points')}</span>
+                    <input type="number" min={0} dir="ltr"
+                          defaultValue={earnFor(svc.id).own ? String(earnFor(svc.id).points) : ''}
+                          placeholder={String(earnFor(svc.id).points)}
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim();
+                            if (raw === '') return;
+                            const n = Number(raw);
+                            if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n);
+                          }}
+                          className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                  </label>
+                ) : null}
+              </div>
+
+              {action(catalog, 'reminders.set_group') ? (
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm text-text-secondary">{t('services.group')}</span>
+                  <select
+                    value={settings?.service_group?.[svc.id] ?? ''}
+                    onChange={(e) => { const v = e.target.value; if (!v) leaveGroup(svc.id); else joinGroup(svc.id, v); }}
+                    className="h-10 w-full rounded-lg bg-surface-2 px-2 text-sm"
+                  >
+                    <option value="">{t('services.noGroupOption')}</option>
+                    {Object.keys(settings?.groups ?? {}).map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
+              <div className="flex items-center justify-between border-t border-border-subtle pt-3">
+                <span className="text-sm text-text-secondary">
+                  {stopped ? t('services.stoppedBadge') : t('services.active')}
+                </span>
+                {action(catalog, 'operations.update_service') ? (
+                  <Button variant={stopped ? 'solid' : 'outline'} size="sm"
+                         onClick={() => patchService(svc.id, { active: stopped })}>
+                    <Power size={14} aria-hidden />
+                    {stopped ? t('services.activate') : t('services.deactivate')}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </Modal>
         );
       })()}
     </div>

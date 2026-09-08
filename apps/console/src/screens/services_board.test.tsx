@@ -95,15 +95,17 @@ describe('خدماتي — board/cards (phase 3)', () => {
     expect(img.src).toContain('blob:fake-image-url');
   });
 
-  it("clicking a card's edit button switches to the table and opens that row", async () => {
+  it("clicking a card's edit button opens the edit modal in place, not the table", async () => {
     open();
     await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('بطاقات'));
     await waitFor(() => expect(screen.getAllByText('تعديل').length).toBeGreaterThan(0));
     // both cards (svc_a, svc_b) carry an edit button — svc_a's is first
     fireEvent.click(screen.getAllByText('تعديل')[0]);
-    await waitFor(() => expect(document.querySelector('table')).toBeTruthy());
-    // the name field for svc_a is now a real, editable input
+    // STAYS ON THE GRID — a card is a photo first, and the view he chose is not thrown away just
+    // to change a name. The modal opens over it instead, with the same name as a real input.
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(document.querySelector('table')).toBeFalsy();
     expect(screen.getByDisplayValue('غسيل خارجي')).toBeTruthy();
   });
 

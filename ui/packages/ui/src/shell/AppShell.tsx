@@ -517,7 +517,14 @@ export function AppShell({
       {/* flex column so the footer (when present) is pinned to the BOTTOM: the content wrapper grows to fill
           the viewport, so on a short page the footer sits at the bottom edge — never floating mid-screen —
           and on a long page it flows after the content. */}
-      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+      {/* `overscroll-contain` — WITHOUT IT, a fast wheel/touchpad scroll that outruns this
+          element's own content does not stop at the true bottom; the browser's own rubber-band
+          glide carries the page past it into blank space before snapping back, which reads as
+          "the scroll goes further than the page actually has" (reported directly on a long
+          table). This is the scroll CONTAINER — the one place that bounce can happen — so it is
+          the one place that needs to say the bounce stops here rather than propagating to
+          whatever sits behind it. */}
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* Mobile header (below md only): a hamburger opens the drawer, with the brand beside it. On desktop
             there is no global header bar — each page owns its own filters next to its content. */}
         <div className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-border-subtle bg-surface-0/90 px-4 py-2.5 backdrop-blur-md md:hidden">
