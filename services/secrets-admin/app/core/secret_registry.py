@@ -80,6 +80,19 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="notification-service",
         label="سر تطبيق ميتا",
     ),
+    # NOT ACTUALLY SECRET — Meta's own Facebook Login for Business config id is sent from the
+    # BROWSER, in the clear, on every Embedded Signup popup (`fb.login({config_id, ...})`); Meta's
+    # App ID above is the same class of value (the `client_id` of a public OAuth-style exchange).
+    # It rides this sealed-secret pipe anyway, deliberately, for one reason only: so setting it is
+    # 100% from this one panel, with no separate console rebuild step — see console's meta.ts and
+    # operations' connect.py for the runtime read this feeds (GET /whatsapp/config).
+    SecretEntry(
+        key="META_APP_CONFIG_ID",
+        secret="notification-service-secrets",
+        namespace="base-services",
+        deployment="notification-service",
+        label="معرّف إعداد تسجيل الدخول (Facebook Login for Business)",
+    ),
     # Meta calls our webhook with this token on every re-subscribe. A stale one does not break
     # sending — it breaks RECEIVING, silently, which is the harder half to notice.
     SecretEntry(

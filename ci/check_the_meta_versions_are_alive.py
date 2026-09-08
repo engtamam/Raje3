@@ -50,8 +50,12 @@ RETIRED = ("sessionInfoVersion", "session_info_version", "featureType", "feature
            "only_waba_sharing", "whatsapp_business_app_onboarding")
 
 ANY_GRAPH = re.compile(r"graph\.facebook\.com/(v\d+\.\d+)")
-# A bare version pin — `VITE_META_GRAPH_VERSION || 'v21.0'`, `VITE_META_GRAPH_VERSION=v21.0`.
-PINNED = re.compile(r"(?:META_GRAPH_VERSION|GRAPH_VERSION)\s*(?:\|\||=|:)[^\n]*?['\"=]?(v\d+\.\d+)")
+# A bare version pin — `GRAPH_VERSION_FALLBACK = 'v26.0'`, `WHATSAPP_GRAPH_BASE: "...v26.0"`. `\w*`
+# after the name catches a suffixed variant (e.g. `GRAPH_VERSION_FALLBACK`) — the console's own
+# constant now that the App ID/Config ID/Graph version travel as a runtime read rather than
+# build-time env; the real pin lives server-side (WHATSAPP_GRAPH_BASE), this is only its safety
+# net, but a gate that stopped recognising it would be one blind spot poorer for no reason.
+PINNED = re.compile(r"(?:META_GRAPH_VERSION|GRAPH_VERSION)\w*\s*(?:\|\||=|:)[^\n]*?['\"=]?(v\d+\.\d+)")
 
 # Where we say what we ship. `platform/` is excluded because it is read only and speaks for
 # itself; build output is excluded because it is this same source, compiled.

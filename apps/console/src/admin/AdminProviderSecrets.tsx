@@ -486,6 +486,18 @@ function fmtDate(epoch: number): string {
   });
 }
 
+/** The secrets list's own `updated_at` — an ISO string ("2026-09-04T12:31:18Z"), never an epoch
+ *  number like `fmtDate` above takes. Shown raw before this: an operator reading a settings screen
+ *  should never have to parse ISO 8601 by eye. Falls back to the raw string on a value `Date`
+ *  cannot parse, rather than showing nothing or crashing the row. */
+function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('ar-SA-u-nu-latn', {
+    year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
 function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAction, cancelAction }: {
   session: AdminSession; reportAction: AdminAction; pendingAction: AdminAction;
   scheduleAction?: AdminAction; cancelAction?: AdminAction;
@@ -509,7 +521,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   // for the actual cost math — so switching it while leaving googleInputSar/googleOutputSar
   // untouched silently changes what the SAME typed number MEANS (1.13 "per 1000 tokens" is 1000×
   // Google's real price if it was actually typed as "per million"), not just how it displays. A
-  // real bug, found 2026-09-08 from a screenshot: identical inputs, real cost off by ~1000× between
+  // real bug, found from a screenshot: identical inputs, real cost off by ~1000× between
   // the two tabs. Converting here keeps the number always meaning the same real price no matter
   // which unit it is being viewed/typed in.
   function changeUnit(next: '1k' | '1m') {
@@ -991,7 +1003,10 @@ function SecretForm({ row, session, updateAction, onSaved, onClose }: {
       {/* الحالة (····{last4}/تعذّر الاتصال) تظهر على البطاقة نفسها قبل الفتح — لا تُكرَّر هنا. */}
       {row.updated_at ? (
         <p className="text-label text-text-secondary">
-          آخر تحديث: {row.updated_at}{row.updated_by ? ` — ${row.updated_by}` : ''}
+          آخر تحديث: {fmtDateTime(row.updated_at)}
+          {/* row.updated_by غير معروض عمداً — معرّف مشغّل تقني خام لا اسم، ولا يوجد بالمنصة كلها
+             (حتى سجل التدقيق الكامل) أي مكان يحوّله لاسم حقيقي اليوم. عرضه هنا وحده كان سيخلق
+             تناقضاً بلا فائدة فعلية لصاحب اللوحة. */}
         </p>
       ) : null}
       {savedLast4 ? (

@@ -12,10 +12,19 @@
  * the critical path of every screen — the field screen, the till, the customer list — for a button
  * almost nobody presses twice in a shop's lifetime. The pane that needs it asks for it.
  *
+ * NOT A BUILD-TIME SECRET, A RUNTIME READ. The App ID and Facebook Login Config ID used to be
+ * baked in at Docker build time (`VITE_META_APP_ID`/`VITE_META_CONFIG_ID`) — meaning setting them
+ * meant a console rebuild, not a form. Neither is actually secret (both travel from THIS browser
+ * to Meta's own JS SDK in the clear on every popup open already), so `Connect.tsx` now fetches
+ * them from `GET /api/v1/whatsapp/config` — the same operator-set value the admin's «المزوّدين
+ * الخارجيين» panel writes — and hands them to `loadMetaSdk` below. Nothing here reads
+ * `import.meta.env` for a Meta value any more.
+ *
  * AND «NOT CONFIGURED» IS A DIFFERENT ANSWER FROM «FAILED TO LOAD». Without an app id there is
  * nothing to load and refreshing changes nothing; with one, a load failure is a network fault the
- * owner can retry. One sentence for both is how a person spends an afternoon on a door that was
- * never open.
+ * owner can retry. A config fetch that itself fails (network error, session expired) collapses
+ * into the SAME `'unconfigured'` state — ours, never his, and the honest sentence the console
+ * already shows for it — rather than inventing a fourth, less legible state.
  */
 
 export type SdkState = 'unconfigured' | 'loading' | 'ready' | 'failed';
@@ -26,22 +35,26 @@ export interface MetaSdk {
   login: (cb: (r: unknown) => void, opts: Record<string, unknown>) => void;
 }
 
+/** What `GET /api/v1/whatsapp/config` answers — see connect.py's own docstring on why none of
+ *  this is secret despite riding the sealed-secrets panel for admin-UX reasons alone. */
+export interface MetaConfig {
+  app_id: string;
+  config_id: string;
+  graph_version: string;
+  configured: boolean;
+}
+
 const SRC = 'https://connect.facebook.net/en_US/sdk.js';
 
 /**
- * THE GRAPH VERSION IS PINNED, and pinned in configuration rather than in this file.
- *
- * `FB.init` requires it and Meta retires versions on a schedule: an unpinned default drifts under
- * us on a date somebody else chooses, and the failure would arrive as a connect flow that stopped
- * returning what our exchange expects. A default here keeps a local run working; the deployment
- * names the version it was tested against.
- *
- * AND IT IS THE VERSION THE BACK END SPEAKS. This console pinned v21.0 while the onboarding
- * adapter behind it was calling Graph v26.0 — one product holding two conversations with Meta,
- * which nobody chose and nothing reported. `ci/check_the_meta_versions_are_alive.py` now refuses
- * a second answer.
+ * THE GRAPH VERSION'S OWN FALLBACK — a defensive default, kept even though the real value now
+ * travels with `MetaConfig.graph_version`. A backend that answers `configured: true` with an
+ * empty `graph_version` (a config gap on our side, not the owner's) must still never call
+ * `FB.init` with an undefined version; this is that safety net, never the source of truth.
+ * `ci/check_the_meta_versions_are_alive.py` pins the REAL value against the backend's own
+ * settings default now, not against a string in this file.
  */
-export const GRAPH_VERSION = import.meta.env.VITE_META_GRAPH_VERSION || 'v26.0';
+export const GRAPH_VERSION_FALLBACK = 'v26.0';
 
 /**
  * The `extras` for `FB.login`, and it is EMPTY — that is Embedded Signup v4's whole shape.
@@ -68,12 +81,15 @@ export function metaSdk(): MetaSdk | null {
   return (window as unknown as { FB?: MetaSdk }).FB ?? null;
 }
 
-/** Load and initialise the SDK once. Repeated calls share the first attempt. */
-export function loadMetaSdk(): Promise<SdkState> {
-  if (!import.meta.env.VITE_META_APP_ID) return Promise.resolve<SdkState>('unconfigured');
+/** Load and initialise the SDK once, against a config fetched from the backend. Repeated calls
+ *  (with any config) share the first attempt — the same one-popup-pane assumption `Connect.tsx`
+ *  already makes, since Meta's own SDK is a single global regardless of which card asked. */
+export function loadMetaSdk(config: MetaConfig | null): Promise<SdkState> {
+  if (!config || !config.configured || !config.app_id) return Promise.resolve<SdkState>('unconfigured');
   if (metaSdk()) return Promise.resolve<SdkState>('ready');
   if (pending) return pending;
 
+  const version = config.graph_version || GRAPH_VERSION_FALLBACK;
   pending = new Promise<SdkState>((resolve) => {
     const el = document.createElement('script');
     el.src = SRC;
@@ -84,8 +100,7 @@ export function loadMetaSdk(): Promise<SdkState> {
       if (!fb) { resolve('failed'); return; }
       // `cookie: false` — we take nothing from Meta but the message the popup posts back, and a
       // session cookie set on our origin is a thing to secure for no benefit.
-      fb.init({ appId: import.meta.env.VITE_META_APP_ID, cookie: false,
-                xfbml: false, version: GRAPH_VERSION });
+      fb.init({ appId: config.app_id, cookie: false, xfbml: false, version });
       resolve('ready');
     };
     // A FAILED LOAD IS ANSWERED, NEVER LEFT HANGING. A promise that never settles leaves the

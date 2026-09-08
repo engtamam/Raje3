@@ -349,6 +349,28 @@ async def whatsapp_connect_status(request: Request, branch_id: str = "",
     return attempt.public(can_send=await _can_send(identity, attempt))
 
 
+@router.get("/config", dependencies=[Depends(rate_limit)])
+async def whatsapp_meta_config(request: Request, principal=Depends(_OWNER)) -> Any:
+    """What the console needs to even OPEN the Embedded Signup popup — the App ID and Facebook
+    Login Config ID, read live from notification-service's own sealed values, never a copy held
+    here. NOT SECRET (see `HttpMetaConfig`'s own docstring) — gated on `billing.self` anyway,
+    same "every console call authenticates" convention as `/connect`/`/connect/register` right
+    beside it, even though nothing in the response could not already be read from the browser's
+    own network tab during a real popup open.
+
+    `configured: false` for EVERY reason it could be unset or unreachable — never a distinct
+    error shape, so the console's one "عُطلٌ من عندنا" sentence covers all of them honestly.
+    """
+    s = get_settings()
+    out = await connect.build_meta_config(s).read()
+    return {
+        "app_id": str(out.get("app_id") or ""),
+        "config_id": str(out.get("config_id") or ""),
+        "graph_version": str(out.get("graph_version") or ""),
+        "configured": bool(out.get("configured")),
+    }
+
+
 class RegisterIn(BaseModel):
     """The 6-digit PIN, and which number it is for."""
 

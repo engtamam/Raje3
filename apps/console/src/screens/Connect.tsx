@@ -22,7 +22,7 @@ import { DENIED, hasFailed, isDenied, isLoading, type Loading } from '../loading
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { action, call, type Catalog } from '../catalog';
-import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type SdkState } from '../meta';
+import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type MetaConfig, type SdkState } from '../meta';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 
@@ -104,13 +104,36 @@ export function Connect({
   // Meta's authorization code lives about thirty seconds; loading a script inside that window
   // would spend a third of it before the popup even appears.
   const [sdk, setSdk] = useState<SdkState>('loading');
+  // THE FETCHED CONFIG ITSELF, KEPT — `fb.login({config_id: ...})` below needs it, and it would
+  // otherwise only exist inside the effect that fetched it. `null` means "not answered yet or the
+  // fetch failed"; `loadMetaSdk` already treats that the same as `configured: false`.
+  const [metaConfig, setMetaConfig] = useState<MetaConfig | null>(null);
   // HIS OWN 6-DIGIT PIN, held only long enough to travel. It is his business account's two-step
   // verification code — we do not have it, cannot look it up, and never store it.
   const [pin, setPin] = useState('');
   const [registering, setRegistering] = useState(false);
   const [registerNote, setRegisterNote] = useState('');
 
-  useEffect(() => { loadMetaSdk().then(setSdk); }, []);
+  useEffect(() => {
+    // FETCHED WHEN THE PANE OPENS, so the popup can be opened by the press itself — same timing
+    // reasoning as loading the SDK script (loadMetaSdk's own note): Meta's authorization code
+    // lives about thirty seconds, so nothing that can happen before the button is pressed should
+    // wait for it. Not secret (meta.ts's own docstring), so a normal `call` through the catalog —
+    // same mechanism as every other console read.
+    const a = action(catalog, 'whatsapp.meta_config');
+    if (!a) { setSdk('unconfigured'); return; }
+    let cancelled = false;
+    call<MetaConfig>(session, a)
+      .then((cfg) => {
+        if (cancelled) return;
+        setMetaConfig(cfg);
+        loadMetaSdk(cfg).then((s) => { if (!cancelled) setSdk(s); });
+      })
+      // A FAILED FETCH IS OURS, NEVER HIS — collapses into the same `'unconfigured'` state
+      // `loadMetaSdk(null)` would produce, not a distinct error the button has to learn to show.
+      .catch(() => { if (!cancelled) setSdk('unconfigured'); });
+    return () => { cancelled = true; };
+  }, [session, catalog]);
 
   /**
    * THE LISTENER IS MOUNTED BEFORE THE POPUP OPENS AND STAYS FOR THE PANE'S LIFE.
@@ -310,7 +333,7 @@ export function Connect({
               // may act on whatever message comes back.
               pendingConnectBranch = branchId ?? '';
               fb.login(() => { /* the answer arrives on the message listener, never here */ }, {
-                config_id: import.meta.env.VITE_META_CONFIG_ID,
+                config_id: metaConfig?.config_id ?? '',
                 response_type: 'code',
                 override_default_response_type: true,
                 extras: SIGNUP_EXTRAS,

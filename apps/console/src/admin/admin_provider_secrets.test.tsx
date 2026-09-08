@@ -81,6 +81,13 @@ describe('AdminProviderSecrets', () => {
     expect(screen.getByText('····ab12')).toBeTruthy();
     // NEVER THE RAW VALUE, NOT EVEN AS A KEY NAME IN A DATA ATTRIBUTE THE DOM WOULD EXPOSE.
     expect(screen.queryByText(/value/i)).toBeNull();
+
+    // آخر تحديث يُعرض مُنسَّقاً (لا ISO خام كـ"2026-08-01T00:00:00Z")، وبلا معرّف المشغّل
+    // التقني الخام ("op-1") — لا مكان بالمنصة كلها يحوّله لاسم حقيقي حالياً.
+    await waitFor(() => expect(screen.getByText(/آخر تحديث:/)).toBeTruthy());
+    expect(screen.queryByText(/2026-08-01T00:00:00Z/)).toBeNull();
+    expect(screen.queryByText(/op-1/)).toBeNull();
+    expect(screen.getByText(/آخر تحديث:/).textContent).toMatch(/أغسطس/);
   });
 
   it('an unreadable row says so inside the "الأسرار" dialog, never a false "غير مُعدّ"', async () => {

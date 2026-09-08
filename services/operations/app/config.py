@@ -399,6 +399,13 @@ class Settings(BaseSettings):
     # its messages went.
     WHATSAPP_ONBOARDING_DRIVER: str = "null"     # null | http
     WHATSAPP_ONBOARDING_PATH: str = "/internal/whatsapp/embedded-signup"
+    # ── WHAT THE CONSOLE NEEDS TO EVEN OPEN THE POPUP — GET /whatsapp/config (this service's own
+    # route). Meta's App ID and Facebook Login Config ID are not secret (both travel from the
+    # BROWSER to Meta's own JS SDK in the clear on every popup open already); they are sealed
+    # through secrets-admin anyway so an operator sets them from one panel with no console
+    # rebuild — see notification-service's own settings for where the sealed values actually
+    # live, and this route's own docstring for why it asks THERE rather than holding a copy.
+    WHATSAPP_META_CONFIG_PATH: str = "/internal/whatsapp/config"
     # ── THE STEP THE EXCHANGE STOPS BEFORE (base-services v0.16.10) ──────────────────────────
     # Meta refuses to SEND from a number until it is registered (error 133010), so a connection
     # that stops at the token exchange is «مربوط» and mute — this product's signature failure,

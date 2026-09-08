@@ -65,15 +65,16 @@ describe('the Embedded Signup extras', () => {
     vi.unstubAllEnvs();
   });
 
-  it('falls back to the Graph version the back end speaks, not an older one', async () => {
-    // The console pinned v21.0 while the onboarding adapter behind it called v26.0 — one product
-    // holding two conversations with Meta. A retired Graph version does not fail loudly: the
-    // field you asked for stops appearing, so the shop is «connected» and cannot send. This is
-    // the default a deployment inherits when it names none, which is the half that drifted.
+  it('falls back to a safe Graph version when the backend answers configured with none named', async () => {
+    // The console once pinned v21.0 (build-time) while the onboarding adapter behind it called
+    // v26.0 — one product holding two conversations with Meta. The version now travels with
+    // `GET /whatsapp/config`'s own `graph_version`, never a build-time env — this fallback exists
+    // only so a config gap on OUR side never calls `FB.init` with an undefined version.
     vi.resetModules();
-    vi.stubEnv('VITE_META_GRAPH_VERSION', '');
-    const { GRAPH_VERSION } = await import('./meta');
-    expect(GRAPH_VERSION).toBe('v26.0');
-    vi.unstubAllEnvs();
+    const { loadMetaSdk, GRAPH_VERSION_FALLBACK } = await import('./meta');
+    expect(GRAPH_VERSION_FALLBACK).toBe('v26.0');
+    // Unconfigured, and no window.FB — never a network call to Meta's own SDK for this check.
+    const state = await loadMetaSdk({ app_id: '', config_id: '', graph_version: '', configured: false });
+    expect(state).toBe('unconfigured');
   });
 });

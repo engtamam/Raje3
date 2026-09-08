@@ -24,7 +24,11 @@ from app.core.secret_registry import (
 
 def test_the_registry_is_the_ones_we_decided_on():
     assert {e.key for e in SECRETS} == {
-        "META_APP_ID", "META_APP_SECRET", "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
+        "META_APP_ID", "META_APP_SECRET",
+        # not actually secret (Meta's own Embedded Signup sends it from the browser in the
+        # clear) — rides this pipe anyway so setting it needs no console rebuild.
+        "META_APP_CONFIG_ID",
+        "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
         # the assistant's model, via assistant-service (Vertex AI) — no real GCP project exists
         # yet, this is where an operator supplies both once one does.
         "ASSISTANT_MODEL_PROJECT", "ASSISTANT_MODEL_CREDENTIAL",

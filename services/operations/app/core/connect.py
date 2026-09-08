@@ -538,6 +538,52 @@ class HttpExchange:
             return False, f"{EXCHANGE_UNREACHABLE}: {exc}"
 
 
+class NullMetaConfig:
+    """No path to notification-service, or the driver is off. Answers honestly rather than
+    letting the console's popup button open with an empty/undefined app id — same "refuse,
+    never fake success" posture as `NullExchange` right above."""
+
+    async def read(self) -> dict[str, Any]:
+        return {"configured": False}
+
+
+class HttpMetaConfig:
+    """Asks notification-service for the App ID / Config ID it already holds sealed, rather than
+    this service holding a second copy that could drift from the one actually used for the token
+    exchange. GET, not a value ever cached here: this is asked once per Connect-pane open (the
+    console's own dedupe, see meta.ts), and a sealed value can change from the admin panel at any
+    time — a stale copy here would show a popup that opens with yesterday's app id."""
+
+    def __init__(self, *, base_url: str, path: str, token: str, timeout: int = 8) -> None:
+        self._url = base_url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+
+    async def read(self) -> dict[str, Any]:
+        import json
+        import urllib.error
+
+        try:
+            out: dict[str, Any] = json.loads(internal_http.read(
+                self._url, self._timeout, method="GET",
+                token=self._token) or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            # OURS, NEVER HIS — a peer we cannot reach reads exactly like "not configured yet" to
+            # the console (same button state, same sentence), never a raw error or a hung spinner.
+            return {"configured": False}
+        out.setdefault("configured", False)
+        return out
+
+
+def build_meta_config(settings: Any) -> Any:
+    if not (getattr(settings, "NOTIFICATION_SERVICE_URL", "") or ""):
+        return NullMetaConfig()
+    return HttpMetaConfig(base_url=settings.NOTIFICATION_SERVICE_URL,
+                          path=settings.WHATSAPP_META_CONFIG_PATH,
+                          token=settings.INTERNAL_SERVICE_TOKEN,
+                          timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
 def build_exchange(settings: Any) -> Any:
     driver = (getattr(settings, "WHATSAPP_ONBOARDING_DRIVER", "") or "null").lower()
     # DRIVER `http` WITH NO PEER URL IS NOT A DRIVER, and it fails in the worst possible place.

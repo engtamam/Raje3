@@ -259,6 +259,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أين وصل ربط واتساب، وما الخطوة الباقية إن توقّف.",
     },
     {
+        "id": "whatsapp.meta_config", "label": "إعدادات ربط ميتا", "method": "GET",
+        "path": "/api/v1/whatsapp/config", "capability": "billing.self", "group": "حسابي",
+        # WHAT THE CONSOLE NEEDS TO EVEN OPEN THE POPUP, read live from the operator-set sealed
+        # values — never a build-time copy. See connect.py's own docstring on why it is safe for
+        # this to travel over an ordinary authenticated call despite carrying no secret.
+        "help": "معرّف تطبيق ميتا اللازم لفتح نافذة ربط واتساب.",
+    },
+    {
         "id": "whatsapp.register_number", "label": "تفعيل الإرسال", "method": "POST",
         "path": "/api/v1/whatsapp/connect/register", "capability": "billing.self",
         "group": "حسابي",

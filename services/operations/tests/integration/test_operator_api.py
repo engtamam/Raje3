@@ -1191,3 +1191,41 @@ def test_the_till_door_carries_the_approval_in_both_directions(client):
         assert seen.get("approved_by") == "خالد المدير", seen
     finally:
         client.app.state.container.loyalty_desk = saved
+
+
+# ── GET /whatsapp/config — what the console needs to open the Embedded Signup popup ────────────
+class _MetaConfig:
+    def __init__(self, out):
+        self._out = out
+
+    async def read(self):
+        return self._out
+
+
+def test_meta_config_route_carries_no_secret_and_reports_configured(client, monkeypatch):
+    from app.core import connect as connect_core
+    monkeypatch.setattr(connect_core, "build_meta_config", lambda s: _MetaConfig(
+        {"app_id": "123", "config_id": "456", "graph_version": "v26.0", "configured": True}))
+    r = client.get("/api/v1/whatsapp/config", headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body == {"app_id": "123", "config_id": "456", "graph_version": "v26.0",
+                    "configured": True}
+    # NOT WHAT THIS ROUTE COULD LEAK IF IT READ THE WRONG FIELD — no key here is ever secret
+    # (see connect.py's own docstring), but a stray "secret" surviving a copy-paste is exactly
+    # the class of mistake this test would catch.
+    assert "secret" not in str(body).lower()
+
+
+def test_meta_config_route_reports_not_configured_never_a_broken_response(client, monkeypatch):
+    from app.core import connect as connect_core
+    monkeypatch.setattr(connect_core, "build_meta_config", lambda s: _MetaConfig(
+        {"configured": False}))
+    r = client.get("/api/v1/whatsapp/config", headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 200
+    assert r.json() == {"app_id": "", "config_id": "", "graph_version": "", "configured": False}
+
+
+def test_meta_config_route_requires_the_owners_own_capability(client):
+    r = client.get("/api/v1/whatsapp/config")
+    assert r.status_code in (401, 403)

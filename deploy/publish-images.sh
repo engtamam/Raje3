@@ -34,25 +34,24 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
-# META'S THREE VALUES, AND MOYASAR'S ONE, REACH THE CONSOLE AT BUILD TIME OR NOT AT ALL.
+# MOYASAR'S KEY, AND THE TWO ASSISTANT SWITCHES, REACH THE CONSOLE AT BUILD TIME OR NOT AT ALL.
 #
 # Vite inlines `import.meta.env.*` into the bundle, so these cannot be set on the pod the way every
-# service setting is: an image built without them cannot be configured later, and the screen
-# correctly says «الربط غير مُفعَّل بعد» for ever. They were declared in the Dockerfile and passed
-# by nothing — a setting nobody could supply, which is the shape this repo keeps finding.
+# service setting is: an image built without them cannot be configured later. They were declared
+# in the Dockerfile and passed by nothing — a setting nobody could supply, which is the shape this
+# repo keeps finding.
 #
-# VITE_MOYASAR_PUBLISHABLE_KEY joined the same list 2026-08-22: `payment.ts`'s `canMintToken`
-# reads it the identical way, and it is the identical kind of value — a publishable key, safe to
-# ship in client code, absent by default so the card form correctly declares itself unavailable
-# rather than pretending to work.
+# META'S OWN THREE VALUES USED TO LIVE IN THIS SAME LIST — App ID, Config ID, Graph version — but
+# none of them is actually secret (all three travel from the browser to Meta's own JS SDK in the
+# clear already), so they moved to a runtime read (`GET /api/v1/whatsapp/config`, see console's
+# own meta.ts) instead: set once from the admin secrets panel, no rebuild ever needed again.
 #
 # NOT IN GIT, and read from the same file the ship already reads: they are an operator's own
 # application credentials. Absent is a valid state — the button then says so honestly.
 [ -f "$ROOT/deploy/target.env" ] && . "$ROOT/deploy/target.env"
-META_ARGS=()
-for v in VITE_META_APP_ID VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION VITE_MOYASAR_PUBLISHABLE_KEY \
-        VITE_ASSISTANT_HELP_ICON_ENABLED VITE_ASSISTANT_CHAT_ENABLED; do
-  [ -n "${!v:-}" ] && META_ARGS+=(--build-arg "$v=${!v}")
+VITE_BUILD_ARGS=()
+for v in VITE_MOYASAR_PUBLISHABLE_KEY VITE_ASSISTANT_HELP_ICON_ENABLED VITE_ASSISTANT_CHAT_ENABLED; do
+  [ -n "${!v:-}" ] && VITE_BUILD_ARGS+=(--build-arg "$v=${!v}")
 done
 OWNER="${GHCR_OWNER:-engtamam}"
 REG="ghcr.io/$OWNER/raje3"
@@ -87,9 +86,9 @@ LOGS="$(mktemp -d)"; trap 'rm -rf "$LOGS"' EXIT
 one(){
   local name="$1" d=""
   {
-    # `${META_ARGS[@]+"${META_ARGS[@]}"}` — empty-array expansion that survives `set -u`, which is
+    # `${VITE_BUILD_ARGS[@]+"${VITE_BUILD_ARGS[@]}"}` — empty-array expansion that survives `set -u`, which is
     # on. Every other image ignores the args it was not asked about.
-    docker build ${META_ARGS[@]+"${META_ARGS[@]}"}       -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" || exit 1
+    docker build ${VITE_BUILD_ARGS[@]+"${VITE_BUILD_ARGS[@]}"}       -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" || exit 1
     docker push "$REG/$name:$COMMIT" || exit 1
     docker push "$REG/$name:latest"  || true
     # ASK THE REGISTRY, DO NOT READ THE LOCAL IMAGE. RepoDigests is empty for an image built from

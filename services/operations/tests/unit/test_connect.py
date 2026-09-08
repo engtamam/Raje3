@@ -184,3 +184,39 @@ def test_the_driver_may_not_be_switched_on_with_nowhere_to_send_in_production():
                  NOTIFICATION_SERVICE_URL="", INTERNAL_SERVICE_TOKEN="x" * 40)
     with pytest.raises(ValueError, match="NOTIFICATION_SERVICE_URL"):
         s.assert_onboarding_config_ok()
+
+
+# ── GET /whatsapp/config's own core: what the console needs to open the popup ─────────────────
+class _NoUrl:
+    NOTIFICATION_SERVICE_URL = ""
+    WHATSAPP_META_CONFIG_PATH = "/internal/whatsapp/config"
+    INTERNAL_SERVICE_TOKEN = "t"
+    PEER_TIMEOUT_SECONDS = 8
+
+
+def test_no_notification_service_url_falls_back_to_the_null_config():
+    """Same reasoning as `build_exchange` right above it — a relative URL would raise building the
+    request, outside any try, and the console's popup button would break rather than stay
+    honestly disabled."""
+    assert isinstance(connect.build_meta_config(_NoUrl()), connect.NullMetaConfig)
+
+
+def test_a_notification_service_url_builds_the_http_config_reader():
+    class _S(_NoUrl):
+        NOTIFICATION_SERVICE_URL = "http://notification-service:8000"
+    assert isinstance(connect.build_meta_config(_S()), connect.HttpMetaConfig)
+
+
+def test_the_null_config_answers_not_configured_never_a_broken_shape():
+    out = run(connect.NullMetaConfig().read())
+    assert out == {"configured": False}
+
+
+def test_an_unreachable_peer_reads_as_not_configured_never_a_raised_error():
+    """The exact case the docstring names: a network fault must collapse into the SAME
+    `configured: false` the console already renders as its one honest sentence — never a raw
+    exception reaching the route, never a distinct error shape the console would have to learn."""
+    reader = connect.HttpMetaConfig(base_url="http://unreachable.invalid:1", path="/x",
+                                    token="t", timeout=1)
+    out = run(reader.read())
+    assert out == {"configured": False}

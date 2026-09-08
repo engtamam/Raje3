@@ -4,16 +4,10 @@
  *  the name is a compile error rather than an `undefined` that silently becomes a relative URL. */
 interface ImportMetaEnv {
   readonly VITE_API_BASE?: string;
-  /** Meta's Embedded Signup configuration id. Configuration, never a constant: it differs between
-   *  our test app and the live one, and a literal would need a rebuild to change. */
-  readonly VITE_META_CONFIG_ID?: string;
-  /** Meta's app id. Its ABSENCE is the switch: with no id there is nothing to load, and the
-   *  connect button says the connection is not enabled yet instead of asking for a refresh. */
-  readonly VITE_META_APP_ID?: string;
-  /** The Graph version FB.init is pinned to — Meta retires versions on its own schedule, and it
-   *  must be the one the onboarding adapter speaks. Absent, the console falls back to the version
-   *  named in `meta.ts`, which the gate holds equal to the deployment's. */
-  readonly VITE_META_GRAPH_VERSION?: string;
+  // NO VITE_META_* HERE ANY MORE. Meta's App ID / Facebook Login Config ID / Graph version used
+  // to be build-time env, baked into the bundle. They are now a runtime read — see meta.ts's own
+  // docstring and `GET /api/v1/whatsapp/config` — set entirely from the admin secrets panel, no
+  // console rebuild required.
   /** Renders (or hides) the assistant-backed "?" icon (AssistantHint.tsx) — INDEPENDENT of any
    *  future chat-widget switch (Phase 6). Absent or anything but the literal string "true" hides
    *  it entirely, not just disables it: a switched-off feature should leave no trace on the screen. */

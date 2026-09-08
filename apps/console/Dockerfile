@@ -45,19 +45,15 @@ COPY deploy/seed/legal /build/deploy/seed/legal
 COPY platform/services/compliance-service/app/data/pdpl-templates /build/platform/services/compliance-service/app/data/pdpl-templates
 COPY apps/console/ ./
 
-# META'S IDENTIFIERS ARE BAKED AT BUILD TIME, because vite resolves import.meta.env when it
-# compiles — a static bundle has no environment to read at runtime. Absent, the connect button
-# says «الربط غير مُفعَّل بعد» and does not pretend a refresh would help.
-ARG VITE_META_APP_ID=""
-ARG VITE_META_CONFIG_ID=""
-ARG VITE_META_GRAPH_VERSION=""
-# NO ARGUMENT SELECTS THE EMBEDDED SIGNUP VERSION, because none can: v4 reads it from the Facebook
-# Login for Business configuration behind VITE_META_CONFIG_ID. A build argument here was a second
-# place to say it, and the two could disagree.
-ENV VITE_META_APP_ID=$VITE_META_APP_ID VITE_META_CONFIG_ID=$VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION=$VITE_META_GRAPH_VERSION
-# THE SAME SHAPE FOR MOYASAR. `payment.ts`'s `canMintToken` reads this the identical way META's
-# vars are read — baked in now or never, absent by default so the card form correctly declares
-# itself unavailable rather than pretending to work with no key behind it.
+# META'S IDENTIFIERS ARE NO LONGER BUILD ARGS. They used to be baked in here the same way
+# Moyasar's key still is below — but neither Meta's App ID nor its Facebook Login Config ID is
+# actually secret (both travel from the browser to Meta's own JS SDK in the clear already), so
+# they now come from a runtime read (`GET /api/v1/whatsapp/config`, see console's own meta.ts) —
+# set from the admin secrets panel, no rebuild required. See meta.ts's own docstring for the full
+# reasoning and `ci/check_the_meta_versions_are_alive.py` for what still pins the Graph version.
+# THE SAME SHAPE FOR MOYASAR STILL APPLIES BELOW. `payment.ts`'s `canMintToken` reads this baked
+# in at build time — absent by default so the card form correctly declares itself unavailable
+# rather than pretending to work with no key behind it.
 ARG VITE_MOYASAR_PUBLISHABLE_KEY=""
 ENV VITE_MOYASAR_PUBLISHABLE_KEY=$VITE_MOYASAR_PUBLISHABLE_KEY
 # UNLIKE META/MOYASAR ABOVE, NOT AN OPERATOR CREDENTIAL — a pure feature switch with no secret
