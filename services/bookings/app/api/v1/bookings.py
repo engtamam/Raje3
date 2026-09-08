@@ -202,6 +202,31 @@ async def nearest_slot(request: Request, branch_id: str, operator_id: str,
     return {"starts_at": found}
 
 
+@router.get("/nearest-any", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def nearest_slots_any(request: Request, branch_id: str, operator_ids: str,
+                            service_ids: str, after: int, window_end: int,
+                            max_slots: int = 6, exclude_booking_id: str = "",
+                            principal: Principal = Depends(require_user)) -> dict:
+    """The «أي متاح» merge (app/core/assignment.py, Phase 0) — ONE call instead of the console's
+    old sequential per-candidate loop against `/nearest` above. `operator_ids` is the caller's own
+    eligible set (comma-separated, same convention `service_ids` already uses on this route) —
+    each is still refused individually if ineligible, same as `/nearest` always has been; this
+    endpoint does not itself decide who is eligible."""
+    tenant = _tenant(principal)
+    await _require_branch(request, principal, branch_id)
+    c = request.app.state.container
+    op_ids = [s for s in operator_ids.split(",") if s]
+    svc_ids = [s for s in service_ids.split(",") if s]
+    try:
+        found = await c.booking_ops.nearest_slots_any(
+            tenant=tenant, branch_id=branch_id, operator_ids=op_ids, service_ids=svc_ids,
+            after=after, window_end=window_end, max_slots=max_slots,
+            exclude_booking_id=exclude_booking_id)
+    except OperationError as exc:
+        return _handle(exc)
+    return {"slots": [{"operator_id": s.operator_id, "starts_at": s.starts_at} for s in found]}
+
+
 class CreateIn(BaseModel):
     branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(min_length=1, max_length=64)

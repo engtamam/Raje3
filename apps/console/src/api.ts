@@ -863,6 +863,22 @@ export function nearestSlot(
   return call(session, `/api/v1/bookings/nearest?${q.toString()}`);
 }
 
+/** The «أي متاح» merge (Phase 0) — ONE call across every eligible operator, replacing the old
+ *  per-operator sequential loop this used to be built from in BookingDialog.tsx. Each returned
+ *  slot names the operator it actually belongs to. */
+export function nearestSlotsAny(
+  session: Session, branchId: string, operatorIds: string[], serviceIds: string[],
+  after: number, windowEnd: number, maxSlots: number,
+  excludeBookingId?: string,
+): Promise<{ slots: { operator_id: string; starts_at: number }[] }> {
+  const q = new URLSearchParams({
+    branch_id: branchId, operator_ids: operatorIds.join(','), service_ids: serviceIds.join(','),
+    after: String(after), window_end: String(windowEnd), max_slots: String(maxSlots),
+  });
+  if (excludeBookingId) q.set('exclude_booking_id', excludeBookingId);
+  return call(session, `/api/v1/bookings/nearest-any?${q.toString()}`);
+}
+
 /**
  * Confirm who is saving, and come back with the PROOF — not just the name.
  *

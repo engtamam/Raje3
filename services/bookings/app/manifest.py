@@ -101,6 +101,10 @@ def build_manifest(
             # Stage 8 (docs/وصف-تطبيق-الحجوزات.md §2.6/§6.2): read at the moment it is useful.
             {"path": "/api/v1/bookings/risk", "tier": "user", "method": "GET"},
             {"path": "/api/v1/bookings/nearest", "tier": "user", "method": "GET"},
+            # THE «أي متاح» MERGE (app/core/assignment.py, Phase 0) — one call across several
+            # eligible operators, replacing BookingDialog.tsx's own sequential loop against the
+            # single-operator route above.
+            {"path": "/api/v1/bookings/nearest-any", "tier": "user", "method": "GET"},
             {"path": "/api/v1/bookings/{}/reschedule", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/services", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/note", "tier": "user", "method": "PATCH"},

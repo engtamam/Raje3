@@ -29,7 +29,7 @@ import {
   ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
   type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
   editBookingPayment, editBookingReward, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
-  nearestSlot, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
+  nearestSlot, nearestSlotsAny, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
   sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix, type WeeklyHours,
 } from '../api';
 import { asLocal } from '../phone';
@@ -297,11 +297,10 @@ export function BookingDialog(
   // (when the operator step is «أي متاح») the operator who actually owns it — the exact "who
   // for, and with whom" question that a bare time input never answered.
   //
-  // BUILT FROM THE SAME `nearestSlot` ENDPOINT THE OLD «أقرب موعد» BUTTON USED, called
-  // repeatedly (no new backend route): each call answers "what's the very next opening from this
-  // moment", so walking `cursor` forward past each found slot turns one-answer-at-a-time into a
-  // short list. Same sequential-per-operator search `findNearest` always did when no operator was
-  // picked — just repeated per round instead of once.
+  // ONE SERVER CALL, NOT A LOOP OF THEM (Phase 0, services/bookings/app/core/assignment.py) —
+  // this used to walk `cursor` forward itself, calling the single-operator `/nearest` endpoint
+  // once per candidate per round (up to SLOTS_PER_DAY × eligibleStaff.length round trips for one
+  // chip row). The merge now happens server-side in `nearest-any`; this effect only asks once.
   const [slots, setSlots] = useState<Slot[] | null>(null);   // null = loading
   const [slotsError, setSlotsError] = useState('');
   const [jumping, setJumping] = useState(false);
@@ -319,30 +318,15 @@ export function BookingDialog(
       const dayEndEpoch = dayStartEpoch + 24 * 3600;
       // ALWAYS FROM RIGHT NOW WHEN THE DAY ON SCREEN IS TODAY — never from a pre-filled or
       // previously-picked time, the exact bug this dialog once had (§ findNearest's own history).
-      let cursor = day === todayStr() ? Math.floor(Date.now() / 1000) : dayStartEpoch;
+      const after = day === todayStr() ? Math.floor(Date.now() / 1000) : dayStartEpoch;
       const candidates = operatorId ? [operatorId] : eligibleStaff.map((o) => o.id);
       if (candidates.length === 0) { if (!stale) setSlots([]); return; }
-      const found: Slot[] = [];
       try {
-        for (let i = 0; i < SLOTS_PER_DAY; i++) {
-          let best: Slot | null = null;
-          for (const opId of candidates) {
-            // eslint-disable-next-line no-await-in-loop
-            const r = await nearestSlot(session, branchId, opId, chosen, cursor, editing?.id);
-            if (r.starts_at !== null && r.starts_at < dayEndEpoch
-                && (best === null || r.starts_at < best.startsAt)) {
-              best = { operatorId: opId, startsAt: r.starts_at };
-            }
-          }
-          if (!best || stale) break;
-          // NO FORWARD PROGRESS — an answer that ignores the search floor (only ever seen from a
-          // mock in tests, never the real endpoint) would otherwise repeat the same slot forever
-          // up to SLOTS_PER_DAY, showing a row of identical chips for one real opening.
-          if (found.length > 0 && best.startsAt === found[found.length - 1].startsAt) break;
-          found.push(best);
-          cursor = best.startsAt + durationTotal * 60;
+        const r = await nearestSlotsAny(
+          session, branchId, candidates, chosen, after, dayEndEpoch, SLOTS_PER_DAY, editing?.id);
+        if (!stale) {
+          setSlots(r.slots.map((s) => ({ operatorId: s.operator_id, startsAt: s.starts_at })));
         }
-        if (!stale) setSlots(found);
       } catch (e) {
         if (!stale) { setSlots([]); setSlotsError(sentenceFor(e, 'تعذّر البحث عن فتحات.')); }
       }

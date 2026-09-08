@@ -775,6 +775,49 @@ class BookingOperations:
                          search_days=search_days)
         return found.starts_at if found else None
 
+    async def nearest_slots_any(self, *, tenant: str, branch_id: str, operator_ids: list[str],
+                                service_ids: list[str], after: int, window_end: int,
+                                max_slots: int, exclude_booking_id: str = "",
+                                search_days: int = 14) -> list:
+        """The «أي متاح» merge (app/core/assignment.py) — PHASE 0 of the assignment-mode work:
+        the exact search BookingDialog.tsx used to run itself, one HTTP call per candidate per
+        round, now one call total. `operator_ids` is the caller's OWN eligible set (the console
+        already computes this for display; recomputing it here would be a second, possibly-
+        drifting copy of the same intersection) — this method only refuses per-operator the same
+        way `nearest_slot` already does, so an id that slipped in from a stale client-side list is
+        still caught, never trusted blindly.
+
+        ONE `slots_between` READ FOR EVERYONE, not one per candidate — the busy set for a whole
+        branch's window is fetched once and split by operator, same data `nearest_slot` fetches
+        per call today, just shared across every candidate in this one request instead of
+        re-fetched per operator.
+        """
+        from app.core.assignment import Candidate, nearest_slots_any as _merge
+        from app.core.availability import Busy
+
+        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        if not duration:
+            raise OperationError(
+                "مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+
+        bucket = day_bucket(after)
+        end_bucket = day_bucket(window_end)
+        rows = await self._bookings.slots_between(
+            tenant, branch_id, start_bucket=bucket, end_bucket=end_bucket, limit=500)
+
+        candidates: list[Candidate] = []
+        for operator_id in operator_ids:
+            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
+            schedule = await self._effective_schedule(tenant, operator_id)
+            busy = tuple(
+                Busy(b.starts_at, b.starts_at + b.duration_minutes * 60)
+                for b in rows if b.operator_id == operator_id and b.status != STATUS_CANCELLED
+                and b.id != exclude_booking_id)
+            candidates.append(Candidate(operator_id=operator_id, schedule=schedule, busy=busy))
+
+        return _merge(candidates, duration_minutes=duration, after=after,
+                      window_end=window_end, max_slots=max_slots, search_days=search_days)
+
     async def _require(self, tenant: str, booking_id: str) -> Booking:
         booking = await self._bookings.get(tenant, booking_id)
         if booking is None:

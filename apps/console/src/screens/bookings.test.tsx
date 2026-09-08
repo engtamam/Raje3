@@ -82,6 +82,10 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'nearestSlot', args });
       return { starts_at: 1786860000 };
     },
+    nearestSlotsAny: async (...args: unknown[]) => {
+      asked.push({ fn: 'nearestSlotsAny', args });
+      return { slots: [{ operator_id: 'op1', starts_at: 1786860000 }] };
+    },
     listBookingStaff: async () => ([{ id: 'op1', name: 'سارة', active: true, has_pin: false, branch_id: '' }]),
     suggestByPrefix: async (...args: unknown[]) => {
       asked.push({ fn: 'suggestByPrefix', args });
@@ -373,8 +377,8 @@ describe('حجز جديد', () => {
 
     const before = Math.floor(Date.now() / 1000);
     dialog().getByText('قص شعر').click();
-    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlot')).toBe(true));
-    const call = asked.find((a) => a.fn === 'nearestSlot')!;
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
+    const call = asked.find((a) => a.fn === 'nearestSlotsAny')!;
     const after = call.args[4] as number;
     expect(Math.abs(after - before)).toBeLessThan(10);
   });
@@ -387,11 +391,11 @@ describe('حجز جديد', () => {
     const dialog = () => within(screen.getByRole('dialog'));
 
     dialog().getByText('قص شعر').click();
-    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlot')).toBe(true));
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
     asked.length = 0;
     dialog().getByLabelText('اليوم التالي').click();
-    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlot')).toBe(true));
-    const call = asked.find((a) => a.fn === 'nearestSlot')!;
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
+    const call = asked.find((a) => a.fn === 'nearestSlotsAny')!;
     const after = call.args[4] as number;
     // Computed independently of «now» — the previous version compared `after - now` against a
     // fixed 3600s floor, which fails whenever the real clock happens to run this test within an
@@ -551,7 +555,7 @@ describe('booking dialog — Stage 8', () => {
     expect(dialog().getByLabelText('اليوم التالي')).toBeTruthy();
 
     dialog().getByText('قص شعر').click();
-    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlot')).toBe(true));
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlotsAny')).toBe(true));
   });
 });
 

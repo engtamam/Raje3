@@ -59,6 +59,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أقرب موعد فاضٍ لهذا العامل بعد وقت تحدّده. لا شيء إن لم توجد فتحة.",
     },
     {
+        "id": "bookings.nearest_any", "label": "أقرب فتحة — أي متاح", "method": "GET",
+        "path": "/api/v1/bookings/nearest-any", "capability": "bookings.read",
+        "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
+                  {"name": "operator_ids", "in": "query", "type": "string", "required": True},
+                  {"name": "service_ids", "in": "query", "type": "string", "required": True},
+                  {"name": "after", "in": "query", "type": "integer", "required": True},
+                  {"name": "window_end", "in": "query", "type": "integer", "required": True}],
+        "group": "الحجوزات",
+        "help": "أقرب الفتحات بين عدّة موظفين مؤهّلين معاً — تُرجع كل فتحة مع صاحبها.",
+    },
+    {
         "id": "bookings.create", "label": "حجز جديد", "method": "POST",
         "path": "/api/v1/bookings", "capability": "bookings.write",
         "group": "الحجوزات",

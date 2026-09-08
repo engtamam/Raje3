@@ -272,6 +272,50 @@ def test_nearest_slot_respects_branch_scope(env_guard):
     assert r.status_code == 503
 
 
+def test_nearest_any_merges_across_several_operators(env_guard):
+    """Phase 0's own route through real HTTP — two eligible operators, both free from `after`.
+    With nobody busy, every round's tie goes to whichever candidate the merge iterates first
+    (deterministic, same as the pure `assignment.py` tests) — op1, since it is listed first —
+    and successive chips are still 30 minutes apart, never overlapping."""
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.read")
+    r = client.get("/api/v1/bookings/nearest-any", params={
+        "branch_id": "b1", "operator_ids": "op1,op2", "service_ids": "svc1",
+        "after": 1786860000, "window_end": 1786860000 + 4 * 3600, "max_slots": 2,
+    }, headers=auth)
+    assert r.status_code == 200, r.text
+    slots = r.json()["slots"]
+    assert len(slots) == 2
+    assert slots[0]["starts_at"] == 1786860000
+    assert slots[1]["starts_at"] == 1786860000 + 1800
+    assert {s["operator_id"] for s in slots} == {"op1"}
+
+
+def test_nearest_any_with_no_operators_is_an_empty_list_not_an_error(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.read")
+    r = client.get("/api/v1/bookings/nearest-any", params={
+        "branch_id": "b1", "operator_ids": "", "service_ids": "svc1",
+        "after": 1786860000, "window_end": 1786860000 + 3600, "max_slots": 3,
+    }, headers=auth)
+    assert r.status_code == 200, r.text
+    assert r.json()["slots"] == []
+
+
+def test_nearest_any_respects_branch_scope(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    client.app.state.container.branch_scope = _DeniedScope()
+    auth = _auth("bookings.read")
+    r = client.get("/api/v1/bookings/nearest-any", params={
+        "branch_id": "b1", "operator_ids": "op1", "service_ids": "svc1",
+        "after": 1786860000, "window_end": 1786860000 + 3600, "max_slots": 3,
+    }, headers=auth)
+    assert r.status_code == 503
+
+
 def test_no_establishment_on_the_token_is_refused(env_guard):
     client = _make_app()
     _stub_ops(client)
