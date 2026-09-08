@@ -43,6 +43,18 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# THE RATING APP'S OWN BUTTON — empty is the correct default, same "not-yet-wired knob fails
+# closed rather than guessing" posture NOTIFICATION_INTERACTIVE_SEND_PATH's own comment states.
+# notification-service's register() has always accepted a `flow_button` (WaTemplateIn.flow_button
+# — {"flow_id"|"flow_name","text",...}), and this script has never sent one for
+# svc_visit_confirmation_rating, so every copy of that template ever registered was plain text
+# with no tappable Flow button — a customer could read "قيّم زيارتك" but never open the form,
+# whatever `_rating_eligible` and the sender's own flow_token wiring answer. A `flow_id` only
+# exists once a real Flow is built and published in Meta's Flow Builder for this WABA (external —
+# nothing in this repo can create one); set RATING_FLOW_ID to it once that exists and this script
+# starts declaring the button. Until then this is a documented no-op, not a silent one.
+RATING_FLOW_ID="${RATING_FLOW_ID:-}"
+
 red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
 
@@ -93,9 +105,9 @@ echo "seeding the WhatsApp library into tenant=$TENANT"
 # unquoted because it interpolates the library and the flag, so the SHELL evaluates substitution
 # inside it before python sees it — three backticked words in a comment ran as commands during a
 # real seed once (see seed-roles.sh).
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$SUBMIT" <<PY
+kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$SUBMIT" "$RATING_FLOW_ID" <<PY
 import json, sys, urllib.error, urllib.request
-token, submit = sys.argv[1], sys.argv[2] == "1"
+token, submit, rating_flow_id = sys.argv[1], sys.argv[2] == "1", sys.argv[3]
 H = "http://localhost:8000"
 LIB = json.loads('''$(cat "$FILE")''')
 
@@ -174,7 +186,7 @@ for ty in LIB["types"]:
             existing += 1
             continue
 
-        s, out = call("/api/v1/whatsapp/templates", {
+        body = {
             "name": name,
             # ARABIC ONLY TODAY, and the language is part of the identity — adding English later is
             # a second row under the same name, not a redesign (spec 8.4.1).
@@ -191,7 +203,16 @@ for ty in LIB["types"]:
             # owner's typed value reached no slot, and the preview rendered «…» where his
             # discount should have been.
             "fills": ty.get("fills") or [],
-        })
+        }
+        # THE RATING APP'S OWN BUTTON — declared ONLY on its own template, and only once a real
+        # Flow exists to point it at. Every other template must not grow this key: notification-
+        # service's register() compares `flow_button` byte-for-byte to decide whether an unchanged
+        # re-run may skip re-pending an already-approved template, so sending `{}` everywhere is
+        # correct — sending a non-empty value on the wrong template would submit a button Meta has
+        # nothing to attach it to.
+        if ty["name"] == "svc_visit_confirmation_rating" and rating_flow_id:
+            body["flow_button"] = {"flow_id": rating_flow_id, "text": "قيّم زيارتك"}
+        s, out = call("/api/v1/whatsapp/templates", body)
         if s == 201:
             registered += 1
         else:
