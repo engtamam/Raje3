@@ -81,7 +81,7 @@
     "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway",
     "feature.rating": "the post-visit rating app (WhatsApp Flow, stars + free text) — replaces the plain visit-confirmation message for a shop that owns it, never a second message",
     "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. THE ONE APP THAT MAY BE BOUGHT STANDALONE, WITHOUT الأساس first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)",
-    "feature.contacts": "بيانات التواصل — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does — a shop buying only this holds no base underneath it",
+    "feature.contacts": "جهات الاتصال — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does — a shop buying only this holds no base underneath it",
     "feature.visit": "تسجيل زيارة — the visit register itself, pulled out from under `feature.base`'s exclusive control and sold as its own standalone app. A shop holding EITHER `feature.base` OR this may record a visit (services/operations/app/api/subscribed.py::subscribed_write_or_visit); `feature.base` keeps its old meaning unchanged for existing subscribers — retiring it in favour of this key everywhere is a separate, future migration decision, not this one"
   },
   "_removed": [
@@ -106,11 +106,23 @@
         "number in his own dashboard makes him want one.",
         "",
         "0 MEANS NO TRIAL, and the length is set from our panel by editing this row. No service",
-        "knows the number, and a shop that signed up under 14 days keeps 14 whatever we change."
+        "knows the number, and a shop that signed up under 14 days keeps 14 whatever we change.",
+        "",
+        "RETIRED FROM NEW SIGNUPS — `listed: false`, the owner's own decision, once there was no",
+        "real subscriber anywhere to migrate (test server, never launched). The bundle this row",
+        "sold is now two separately-priced standalone apps — «جهات الاتصال» (free, granted to",
+        "every fresh shop on day one regardless, signup.py::_start_contacts_grant) and «تسجيل",
+        "زيارة» (the visit register itself, sold on its own). `base_plan_id()` deliberately reads",
+        "without `include_hidden`, so a fresh signup now finds none and skips the base-trial step",
+        "cleanly — no crash, no empty-string plan_id passed anywhere; see that function's own",
+        "note. This row is NOT retired (`active` stays true) — it is not deleted or deactivated,",
+        "only removed from the storefront, because deleting the row itself would be pointless",
+        "surgery on a plan nobody outside this file has ever held."
       ],
       "name": "الأساس",
       "amount": 9900,
       "trial_days": 30,
+      "listed": false,
       "limits": {
         "messages.monthly": {
           "kind": "counter",
@@ -348,7 +360,7 @@
     },
     {
       "_": [
-        "بيانات التواصل — THE ONE FREE APP ON THE PRICE LIST, and deliberately so: the owner's own",
+        "جهات الاتصال — THE ONE FREE APP ON THE PRICE LIST, and deliberately so: the owner's own",
         "decision was that registering a customer must be possible «من أي تطبيق», and a shop with",
         "no other product at all must still be able to open the one door that resolves-or-creates a",
         "customer by phone (POST /field/customers/ensure). A price on that door would put the",
@@ -378,7 +390,7 @@
         "behind `feature.visit`/`feature.base` (see «تسجيل زيارة» below) even for a customer this",
         "app just created."
       ],
-      "name": "بيانات التواصل",
+      "name": "جهات الاتصال",
       "amount": 0,
       "trial_days": 0,
       "listed": true,
@@ -402,7 +414,7 @@
         "every app on this list sells for.",
         "",
         "`plan.standalone` — a shop buying only this holds no base underneath it either, same",
-        "mechanism as «بوت خدمة العملاء الذكي» and «بيانات التواصل» above.",
+        "mechanism as «بوت خدمة العملاء الذكي» and «جهات الاتصال» above.",
         "",
         "`feature.base` KEEPS ITS OLD MEANING, UNCHANGED, FOR EXISTING SUBSCRIBERS. This row does",
         "not replace it and does not migrate anybody off it — `subscribed_write_or_visit`",
