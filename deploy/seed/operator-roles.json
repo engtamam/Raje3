@@ -67,7 +67,12 @@
     "the route now accepts either). AND platform-support — described right below as the role that",
     "'reads a shop's log to answer why a message didn't arrive' — held platform.support and",
     "platform.tickets but not platform.audit, so the one role whose own job description names this",
-    "exact task could not do it. Added here to match what the role already claims to be for."
+    "exact task could not do it. Added here to match what the role already claims to be for.",
+    "",
+    "A SEVENTH FIND, FOR THE NEW SIGNALS SERVICE: 'platform.observability' is error-collector's own",
+    "capability (GET /api/v1/signals) — platform-owner gets it as everything-owner, and",
+    "platform-support too, since reading why something broke is exactly the job its own description",
+    "already names."
   ],
   "roles": [
     {
@@ -114,7 +119,8 @@
         "tenant.manage",
         "tickets.manage",
         "platform.tickets",
-        "platform.assistant"
+        "platform.assistant",
+        "platform.observability"
       ]
     },
     {
@@ -150,7 +156,8 @@
       "capabilities": [
         "platform.support",
         "platform.tickets",
-        "platform.audit"
+        "platform.audit",
+        "platform.observability"
       ]
     },
     {

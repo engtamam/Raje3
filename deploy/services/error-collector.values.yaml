@@ -1,0 +1,165 @@
+# error-collector — deployment values.
+#
+# WHAT THIS SERVICE IS: one place every error on the product lands, from both directions at once —
+# a pod's stack trace on any node, and a browser's window.onerror in front of a real owner. It
+# answers «الشاشة وقفت عند فلان» without a developer, a kubeconfig and twenty minutes of
+# `kubectl logs`. It is internal platform tooling: never sold, never on a plan, never gated by a
+# licence — which is why there is no BILLING_SERVICE_URL below and no feature key anywhere in it.
+#
+# ── ONE MANUAL STEP, AND NOTHING WORKS WITHOUT IT ────────────────────────────────────────────
+# The SERVER half of the stream arrives from a Fluent Bit DaemonSet that this chart does not
+# install. It is a raw manifest applied by hand, exactly as secrets-admin's RBAC is:
+#
+#     kubectl apply -f deploy/k3s/fluent-bit.yaml
+#     kubectl -n base-services rollout status ds/fluent-bit     # read it back before trusting it
+#
+# APPLY IT AFTER THIS SERVICE IS UP, not before: Fluent Bit posts to
+# http://error-collector.base-services.svc.cluster.local:8000/internal/signals/ingest, and a
+# DaemonSet started against a service that does not answer spends its retry budget on nothing.
+#
+# AND IF IT IS NEVER APPLIED, THE FAILURE IS SILENT AND SHAPED LIKE SUCCESS: this service boots,
+# passes every probe, serves the screen, and the screen shows only browser errors — which reads as
+# «الخوادم ما فيها أخطاء» rather than «ما وصلنا شيء من الخوادم». That sentence is the whole reason
+# this note is at the top of the file rather than in a runbook.
+service:
+  name: error-collector
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/raje3/error-collector
+  # PLACEHOLDER — this service has not been built or published yet (platform/scripts/
+  # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
+  # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
+  # a rollout against this digest fails at image pull, which is the correct, loud failure.
+  digest: "sha256:674b4d4eaaee370a33ceedb1c295f09369389b2b2e216ffe06dd84d3b9747cc2"   # cbd31381, published by publish-images.sh
+
+replicas: 1
+
+drivers:
+  # POSTGRES, LIKE EVERY OTHER SERVICE ON THIS FLEET. The generic JSONB store the platform already
+  # runs, indexed and backed up at the cluster layer — not a private SQLite file, which would be a
+  # second storage engine on the product for one collection, unreachable by every operational tool
+  # we already have and gone with the pod that held it.
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
+    # this fleet sits at 2-4m at rest. The cold tier's floor, because this one does no work between
+    # requests at all — no tick, no peer polling, one nightly sweep.
+    cpu: 14m  # smart-cpu-sizing.py: cold tier, node budget-derived
+    # SMALLER THAN THE FLEET'S 128Mi, and the reason is the shape of the work rather than thrift:
+    # every route here is one bounded page in and one bounded page out, with a 16 KB ceiling on the
+    # largest field. There is no in-memory aggregate, no cache of anything, and nothing accumulates
+    # between requests.
+    memory: 96Mi
+  limits:
+    # Twice the request. A collector's one real risk is a burst — a node's worth of pods failing at
+    # once, every one of them logging — and the bound is what turns that into refused writes on one
+    # pod rather than a node under memory pressure taking healthy services down with it.
+    memory: 192Mi
+
+autoscaling:
+  enabled: false        # flip on once you have load; requests.cpu above makes it real
+
+existingSecret: error-collector-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet, and here that is a stronger statement than usual: this service holds whatever a
+    # stack trace happened to print, so an egress path out of the cluster would be an exfiltration
+    # path for content nobody reviewed. It calls audit-service and nothing else.
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  # ── The request budget per person ─────────────────────────────────────────────────────────
+  # HIGHER THAN THE FLEET'S 600, because the report route is called by a BROWSER IN TROUBLE. A
+  # screen failing in a render loop produces a burst of onerror calls from one person in seconds,
+  # and throttling exactly the session that is breaking is how the report of the breakage is the
+  # one thing that never arrives. The client's own recursion guard is the real brake
+  # (apps/console/src/lib/errorReporter.ts); this is the backstop behind it.
+  RATELIMIT_MAX: "1200"
+  RATELIMIT_WINDOW_SECONDS: "60"
+  # rs256, WHICH IS THE FLEET'S ONE TRUST MODEL: identity signs, everyone else verifies with the
+  # shared TOKEN_PUBLIC_KEY (named in secretRefs at the bottom of this file). A second driver here
+  # would be a second trust model on the product, which `ci/check_deploy_wiring.py` refuses.
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── how long a signal lives ───────────────────────────────────────────────────────────────
+  # TEN DAYS, AND IT IS A PRIVACY CONTROL RATHER THAN A DISK BUDGET. A `context` blob is written by
+  # whatever emitted it and can carry personal data by accident; the erasure contract reaches only
+  # the rows carrying a verified subject, so a short unconditional age limit is what answers for the
+  # rest — see services/error-collector/app/core/erasure.py, which reports this exact number back to
+  # a DSAR as the basis for what it could not reach. Long enough that a bug reported on Monday is
+  # still readable the following week.
+  SIGNAL_RETENTION_DAYS: "10"
+  # ONE PASS, NOT THE SWEEP. The cron below calls the reap until it answers 0.
+  SIGNAL_REAP_LIMIT: "5000"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # FAIL-CLOSED, like the rest of the fleet — and the worry that argued for the opposite does not
+  # apply here on inspection. The concern was that a collector which refuses writes while
+  # audit-service is unreachable stops hearing about errors at exactly the moment the platform is
+  # unhealthy. But NEITHER WRITE PATH IS AUDITED: ingest and report record nothing (a signal is not
+  # an action by a person, and an audit row per log line would be a second, larger log), so an
+  # audit-service outage cannot block them. The only audited routes on this service are the
+  # inherited operator ones — setting a credential, changing a knob — and those are exactly the
+  # privileged, rare actions that must not proceed unwitnessed.
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"   # the product's own front doors. Empty here would blank them on the next install (#338).
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# THE SWEEP. Without it the ten-day retention above is a comment: rows accumulate for ever, every
+# probe stays green, and the privacy argument this service is built on quietly stops being true.
+#
+# THE ROUTE ACCEPTS AN EMPTY POST (playbook §4.41). The chart's scheduled-job template sends an
+# empty body with a JSON content type, and a required Pydantic body would answer 422 before a line
+# of the route's own code ran — nothing failing, nothing deleted. `ci/check_cron_bodies.py` reads
+# this entry, finds the route, and fails the build on exactly that.
+#
+# DAILY AT 03:00, not hourly. Retention is measured in days, so a pass that runs at 03:07 is
+# invisible to everybody — while twenty-four scans a day over the whole collection is not. Each
+# pass is bounded at SIGNAL_REAP_LIMIT and answers how many it took; an operator with a backlog
+# calls it again rather than waiting a day.
+cronJobs:
+  - name: reap
+    schedule: "0 3 * * *"
+    path: /internal/signals/reap
+
+# No ingress: reached service-to-service on the internal tier, and through the gateway for the
+# console's two routes (deploy/services/api-gateway.values.yaml's GATEWAY_ROUTES).
+ingress:
+  enabled: false
+
+# ── the SHARED secrets ────────────────────────────────────────────────────────────────────────
+# Identical values across every service, injected by the chart from one source. BACKUP_KEK is
+# needed even though this service's own archive is deliberately EMPTY (app/backup_manifest.py
+# excludes `signals` on purpose — an archive would outlive both the retention purge and any
+# erasure): /internal/backup/export answers a bare 503 without the key, and backup-service reads
+# that as a failed target rather than as an exempt one. The exemption is declared where the roster
+# is decided — `raje3.io/backup-exempt` in deploy/services/backup-service.values.yaml.
+#
+# PII_SALT must be the SAME value every other service holds. It is what folds the reporter of a
+# browser error to the pseudonym an erasure later finds the row by; a different salt here would
+# fold one person to two pseudonyms and the DSAR would find nothing while reporting success.
+#
+# INTERNAL_SERVICE_TOKEN is the one Fluent Bit presents on every ingest — the same shared value
+# every other service already holds, read by deploy/k3s/fluent-bit.yaml from this service's own
+# secret rather than duplicated into one of its own.
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN, TOKEN_PUBLIC_KEY, DATASTORE_DSN

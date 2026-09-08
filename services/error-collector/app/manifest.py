@@ -1,0 +1,116 @@
+# =============================================================================
+# error-collector — Self-describing service manifest
+# -----------------------------------------------------------------------------
+# A machine-readable descriptor so a gateway/platform can discover what this
+# service is, what it exposes, which ports (adapters) it uses, and which events
+# it emits/consumes. Served at GET /internal/manifest. Phase 1: ports/events are
+# empty; later phases populate them.
+# =============================================================================
+from __future__ import annotations
+
+from typing import Any
+
+from app.config import Settings
+
+
+def _backup() -> dict:
+    """This service's backup declaration (app/backup_manifest.py), or an empty one.
+
+    Published in the manifest so the backup fan-out discovers what to capture the same way the DSAR
+    fan-out discovers who holds a person — a holder nobody declares is one nobody backs up."""
+    try:
+        from app.backup_manifest import BACKUP
+    except Exception:
+        return {"object_prefix": "", "collections": [], "excluded": []}
+    return BACKUP
+
+
+def _admin_actions() -> list[dict[str, Any]]:
+    """This service's declared admin actions (docs/contracts/admin-actions.schema.json), or [] if it
+    declares none. Opt-in: a service with no app/admin_actions.py simply exposes nothing to the
+    panel. The panel is a map — these decide what is SHOWN, never what an operator may DO."""
+    try:
+        from app.admin_actions import ADMIN_ACTIONS
+    except Exception:
+        return []
+    return list(ADMIN_ACTIONS)
+
+
+def _user_actions() -> list[dict[str, Any]]:
+    """This service's declared end-user (self-service) actions
+    (docs/contracts/user-actions.schema.json), or [] if it declares none. Opt-in: aggregated into
+    GET /api/v1/app/catalog. The app is a map — these decide what is SHOWN, never what a user may DO."""
+    try:
+        from app.user_actions import USER_ACTIONS
+    except Exception:
+        return []
+    return list(USER_ACTIONS)
+
+
+def build_manifest(
+    settings: Settings, ports: list[dict[str, str]] | None = None
+) -> dict[str, Any]:
+    return {
+        "name": settings.SERVICE_NAME,
+        "version": settings.SERVICE_VERSION,
+        "env": settings.ENV,
+        # The two the scaffold's OWN operator routes already enforce (api/v1/operator.py:
+        # require_capability("platform.secrets") / ("platform.config")) — pre-declared so a freshly
+        # generated service's operator routes are grantable and reachable, not permanently dark until
+        # someone remembers to advertise them. ADD this service's domain capabilities alongside them
+        # (e.g. "files.upload", "files.read"); remove one only if you also remove the route that
+        # enforces it. An advertised capability is what the admin panel and onboarding grant against.
+        # AND `platform.observability` — this service's own. The signal stream spans every tenant
+        # on the platform by construction (a pod's stack trace belongs to no shop), so the
+        # capability that opens it is one of OURS, granted to our operators, and never something an
+        # establishment can hold. Advertised here because a capability the manifest does not name
+        # is one nobody can ever be granted: the route would exist, be wired, and be permanently
+        # unreachable.
+        "capabilities": ["platform.secrets", "platform.config", "platform.observability"],
+        "endpoints": [
+            {"path": "/healthz", "tier": "public", "method": "GET"},
+            {"path": "/readyz", "tier": "public", "method": "GET"},
+            {"path": "/metrics", "tier": "public", "method": "GET"},
+            {"path": "/internal/health", "tier": "internal", "method": "GET"},
+            {"path": "/internal/manifest", "tier": "internal", "method": "GET"},
+            {"path": "/internal/backup/export", "tier": "internal", "method": "POST"},
+            {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
+            {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
+            {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
+             # DECLARED, because a data map built from manifests is how a DSAR fan-out
+             # finds who holds a person. An undeclared holder is never asked, never acks,
+             # and is therefore never MISSED — the request closes green on an erasure
+             # that did not happen.
+             "erasure_category": "subject"},
+            # The two doors into the stream. INGEST is internal-token because its caller is a
+            # DaemonSet with no identity on this platform; REAP is the same, because its caller is
+            # the scheduler. Declared like everything else — a route table built from manifests
+            # that omits the write path omits the only way anything gets in here.
+            {"path": "/internal/signals/ingest", "tier": "internal", "method": "POST"},
+            {"path": "/internal/signals/reap", "tier": "internal", "method": "POST"},
+            {"path": "/api/v1/signals/admin/ping", "tier": "user", "method": "GET"},
+            # Reading the stream, and adding to it from a browser. Two different privileges on
+            # purpose — see app/api/v1/signals.py.
+            {"path": "/api/v1/signals", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/signals/report", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/signals/whoami", "tier": "user", "method": "GET"},
+            # The operator surface: credentials and policy an operator changes after launch.
+            # Declared like anything else — a route table built from manifests that omits the
+            # place credentials are set is a route table that hides the highest-privilege
+            # surface the service has.
+            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+        ],
+        "ports": ports or [],  # port -> driver, from the composition root
+        # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty
+        # `emitted` reads as "this service publishes nothing", so a consumer wiring against it
+        # subscribes to nothing and fails silently rather than at boot.
+        "events": {"emitted": [], "consumed": []},  # e.g. {"emitted": ["wallet.credited"], ...}
+        "admin_actions": _admin_actions(),
+        "backup": _backup(),
+        "user_actions": _user_actions(),
+    }

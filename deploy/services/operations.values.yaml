@@ -241,7 +241,7 @@ env:
   PAYMENT_PUBLISHABLE_KEY: ""
   PAYMENT_PROVIDER: "moyasar"
 
-  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations"
+  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,ticket-service:tickets,job-service:jobs,wallet-service:wallet,analytics-service:events,webhook-service:deliveries,connector-service:connections,feature-flag-service:flags,backup-service:archives,bookings:bookings,whatsapp-assistant:conversations,affiliate-service:affiliates,assistant-service:conversations,error-collector:signals"
 
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   TENANT_SERVICE_URL: "http://tenant-service:8000"

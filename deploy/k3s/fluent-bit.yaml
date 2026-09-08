@@ -1,0 +1,392 @@
+# ==================================================================================================
+#  fluent-bit — the SERVER half of the signal stream, and the only reason error-collector sees
+#  anything that did not come out of a browser.
+# --------------------------------------------------------------------------------------------------
+#  WHAT THIS IS. A DaemonSet on every node, tailing every container's stdout, keeping ONLY the lines
+#  that are actually failures, reshaping each one into error-collector's ingestion contract, and
+#  posting it to /internal/signals/ingest. Nothing else on the product reads a log file.
+#
+#  WHY THE RESHAPE IS IN THE PIPELINE AND NOT IN THE COLLECTOR. The ingest route validates strictly
+#  (services/error-collector/app/core/signals.py) — a raw tail record is 422, deliberately. The
+#  alternative is a collector that accepts whatever arrives, and a store full of rows whose `source`
+#  is empty and whose `message` is a JSON blob: every filter on the screen would return nothing and
+#  nothing anywhere would fail to say why. So the shipper does the shaping, and the collector's
+#  refusal is what proves it did.
+#
+#  WHY IT IS FILTERED HERE AND NOT THERE, TOO. This fleet's pods emit an access line per request.
+#  Shipping all of it would be a second, larger logging system, paid for in the collector's memory
+#  and in the operator's attention — and «errors» is the whole product claim of the screen this
+#  feeds. `keep_only_failures` in the lua below is where that decision lives, in one function, with
+#  its rule written next to it.
+#
+#  A MANUAL, ONE-TIME APPLY — never wired into bring-up.sh or install.sh. deploy/k3s/*.yaml are
+#  documented manual steps on this product (deploy/k3s/secrets-admin-rbac.yaml is applied exactly
+#  this way), because each one grants something a chart deliberately does not.
+#
+#      kubectl apply -f deploy/k3s/fluent-bit.yaml
+#      kubectl -n base-services rollout status ds/fluent-bit
+#      kubectl -n base-services logs ds/fluent-bit --tail=20     # read it back before trusting it
+#
+#  APPLY IT AFTER error-collector IS UP. A DaemonSet started against a service that does not answer
+#  spends its retry budget on nothing, and the first thing an operator sees is a crash loop that has
+#  nothing to do with logging.
+#
+#  AND IF IT IS NEVER APPLIED, THE FAILURE IS SHAPED LIKE SUCCESS: error-collector boots, passes
+#  every probe, serves the screen — and the screen shows browser errors only, which reads as «the
+#  servers are fine» rather than «nothing from the servers ever arrived». That is why this note is
+#  also at the top of deploy/services/error-collector.values.yaml, where the operator deploying the
+#  service will actually be looking.
+#
+#  ── WHAT IT MAY DO, AND EVERY OMISSION IS DELIBERATE ─────────────────────────────────────────────
+#
+#    get + list + watch on pods and namespaces, cluster-wide. The `kubernetes` filter needs them to
+#    turn a log FILE NAME into a pod, a namespace and a set of labels — which is the only way a log
+#    line can say which service it came from. This is genuinely cluster-wide, unlike
+#    secrets-admin's Role: a DaemonSet tails pods on its node in every namespace, so a namespaced
+#    Role would enrich nothing outside base-services and the records would arrive with no service
+#    name at all.
+#
+#    AND NOTHING ELSE. No secrets — this is the second workload on the cluster with any API
+#    permission at all, and the one thing it must never be able to read is the object holding the
+#    token it presents. No create, no patch, no delete, anywhere: a log shipper that can write to
+#    the API server is a log shipper that can be pivoted into one that deploys.
+#
+#  THE TOKEN IS READ, NOT COPIED. `INTERNAL_SERVICE_TOKEN` comes from error-collector's own Secret
+#  by reference (`secretKeyRef` below), never restated here. A second copy of a shared credential in
+#  a manifest is a credential with two rotation schedules, and the one nobody remembers is the one
+#  still working after the other is revoked.
+# ==================================================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: base-services
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: base-services
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: base-services
+rules:
+  # READ-ONLY, AND ONLY THE TWO KINDS THE ENRICHER ASKS FOR. `list` and `watch` are here — unlike
+  # secrets-admin's Role, which refuses both — because the filter maintains a cache of pod metadata
+  # and cannot do that from `get` alone. That is safe for pods, whose spec is not a secret, and is
+  # exactly why `secrets` is absent from this list rather than narrowed by name.
+  - apiGroups: [""]
+    resources: ["pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: base-services
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit
+subjects:
+  - kind: ServiceAccount
+    name: fluent-bit
+    namespace: base-services
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: base-services
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: base-services
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush           5
+        Daemon          Off
+        Log_Level       warn
+        Parsers_File    parsers.conf
+        HTTP_Server     Off
+        # THE BUFFER IS BOUNDED, AND THIS IS THE LINE THAT KEEPS A LOG SHIPPER FROM BECOMING THE
+        # OUTAGE. A node whose pods are all failing produces more than the collector can take; with
+        # no ceiling the shipper grows until the kubelet evicts it, taking healthy pods on that node
+        # with it. Past this, the tail input pauses and resumes — losing the oldest lines, which is
+        # the correct thing to lose.
+        storage.type     memory
+        Mem_Buf_Limit    16MB
+
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        # NOT the shipper's own log. Posting our own errors to the collector we post to is a loop
+        # that only ends when one of the two runs out of memory.
+        Exclude_Path      /var/log/containers/fluent-bit*.log
+        # CRI, not docker: k3s runs containerd, whose log lines are `time stream flag message`, not
+        # JSON. Parsed with the wrong one, every field below is empty and every record is dropped by
+        # the filter — a pipeline that runs perfectly and ships nothing.
+        multiline.parser  cri
+        DB                /var/log/flb_kube.db
+        Mem_Buf_Limit     16MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_Tag_Prefix     kube.var.log.containers.
+        Merge_Log           On
+        # NESTED, NOT MERGED AT THE TOP LEVEL. A service that logs a field called `kubernetes` or
+        # `time` would otherwise overwrite the enricher's own — so the application's parsed JSON
+        # lands under one key the lua below reads deliberately.
+        Merge_Log_Key       app
+        Keep_Log            On
+        K8S-Logging.Parser  Off
+        K8S-Logging.Exclude Off
+        Labels              On
+        Annotations         Off
+
+    [FILTER]
+        Name    lua
+        Match   kube.*
+        script  shape.lua
+        call    shape
+
+    [OUTPUT]
+        Name            http
+        Match           kube.*
+        Host            error-collector.base-services.svc.cluster.local
+        Port            8000
+        URI             /internal/signals/ingest
+        Format          json
+        Json_date_key   false
+        header          Content-Type application/json
+        # THE SHARED TOKEN, read from the environment, which is read from error-collector's own
+        # Secret. Never written in this file.
+        header          X-Internal-Token ${INTERNAL_SERVICE_TOKEN}
+        # RETRY, THEN GIVE UP AND SAY SO. A collector that is down during a deploy must not turn
+        # into an unbounded queue on every node; the lines lost are the ones from the window in
+        # which the error reporter itself was unavailable, and that is a fact worth having in the
+        # shipper's own log rather than hidden by an infinite retry.
+        Retry_Limit     5
+
+  parsers.conf: |
+    # The CRI parser the tail input names. Shipped here rather than relied on from the image's own
+    # defaults, so a base-image change cannot silently alter how every line on the cluster is read.
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<message>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+  shape.lua: |
+    -- Turn a Kubernetes log record into error-collector's ingestion contract, or drop it.
+    --
+    -- ONE FUNCTION, TWO DECISIONS, IN THIS ORDER: is this a failure at all, and if so what does it
+    -- look like as a signal. They are together because the second is meaningless without the first
+    -- and because a rule split across two filters is a rule nobody reads as a whole.
+    --
+    -- RETURNING -1 DROPS THE RECORD. That is the "keep only failures" gate, and it is the reason
+    -- this pipeline costs a node almost nothing on an ordinary day.
+
+    local function lower(s)
+      return string.lower(tostring(s or ""))
+    end
+
+    -- A number, or nil. `tonumber` on a string status is what makes `"503"` and `503` the same
+    -- answer — a shipper that treated them differently would keep half the failures.
+    local function num(v)
+      if v == nil then return nil end
+      return tonumber(v)
+    end
+
+    local function first(app, keys)
+      for _, k in ipairs(keys) do
+        local v = app[k]
+        if v ~= nil and v ~= "" then return v end
+      end
+      return nil
+    end
+
+    -- IS THIS A FAILURE. Two independent tests, either of which is enough:
+    --   * the line SAYS so — level/severity/levelname is error, fatal or critical;
+    --   * the line IMPLIES so — a status of 500 or more, whatever it called itself.
+    -- The second exists because a service that answers 500 and logs it at `info` is exactly the
+    -- service whose failures nobody is looking at.
+    local function is_failure(app, status)
+      local lvl = lower(first(app, {"level", "severity", "levelname", "loglevel"}))
+      if lvl == "error" or lvl == "err" or lvl == "fatal" or lvl == "critical" then
+        return true, (lvl == "err" and "error" or lvl)
+      end
+      if status ~= nil and status >= 500 then
+        -- SEVERITY IS STILL `error`, not the line's own word. A 500 is a failure regardless of how
+        -- calmly it was logged, and filing it under `info` would hide it behind the screen's own
+        -- default filter.
+        return true, "error"
+      end
+      return false, nil
+    end
+
+    -- WHICH SERVICE. The label first, because that is the name the rest of the product uses for a
+    -- service; the container name second, because a pod without our labels (an upstream chart, a
+    -- job) still has one; and the pod name last, because a nameless signal is unfilterable and an
+    -- ugly name is merely ugly.
+    local function service_of(kube)
+      local labels = kube["labels"] or {}
+      return labels["app.kubernetes.io/name"]
+          or labels["app"]
+          or kube["container_name"]
+          or kube["pod_name"]
+          or "unknown"
+    end
+
+    function shape(tag, timestamp, record)
+      local app = record["app"]
+      if type(app) ~= "table" then app = {} end
+      local kube = record["kubernetes"]
+      if type(kube) ~= "table" then kube = {} end
+
+      local status = num(first(app, {"status_code", "status", "http_status"}))
+      local failed, severity = is_failure(app, status)
+      if not failed then
+        return -1, 0, 0
+      end
+
+      -- THE MESSAGE, and the raw line is the fallback rather than an empty string. A signal with no
+      -- message is refused by the collector, so a service logging under a key nobody anticipated
+      -- would vanish entirely instead of arriving imperfectly named.
+      local message = first(app, {"message", "msg", "event", "error"})
+                      or record["message"] or record["log"] or "(no message)"
+
+      -- WHAT IS LEFT OF THE PARSED LINE, minus the fields promoted to columns above. Keeping them
+      -- in both places would double the row and put the same fact in two places that can disagree.
+      local promoted = {message = true, msg = true, event = true, error = true,
+                        level = true, severity = true, levelname = true, loglevel = true,
+                        status_code = true, status = true, http_status = true,
+                        request_id = true, requestId = true, req_id = true}
+      local detail = {}
+      local has_detail = false
+      for k, v in pairs(app) do
+        if not promoted[k] then
+          detail[k] = v
+          has_detail = true
+        end
+      end
+      if not has_detail then detail = nil end
+
+      local out = {
+        source     = "server_log",
+        severity   = severity,
+        service    = tostring(service_of(kube)),
+        message    = string.sub(tostring(message), 1, 8000),
+        -- THE TAIL'S OWN CLOCK, which is when the line was written rather than when it was
+        -- shipped. The collector sets `received_at` itself and cannot be told otherwise, so these
+        -- two are separately true and a slow flush is visible instead of invisible.
+        occurred_at = math.floor(timestamp),
+        request_id = first(app, {"request_id", "requestId", "req_id"}),
+        status_code = status,
+        detail     = detail,
+        context    = {
+          pod       = kube["pod_name"],
+          namespace = kube["namespace_name"],
+          node      = kube["host"],
+          container = kube["container_name"],
+          stream    = record["stream"],
+        },
+      }
+      -- CODE 2 REPLACES THE RECORD AND KEEPS THE ORIGINAL TIMESTAMP. Code 1 would too, but 2 says
+      -- explicitly that the timestamp is not being rewritten — which matters, because `occurred_at`
+      -- above is derived from it.
+      return 2, timestamp, out
+    end
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: base-services
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: base-services
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluent-bit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluent-bit
+        app.kubernetes.io/part-of: base-services
+    spec:
+      serviceAccountName: fluent-bit
+      # THE ONE PLACE THIS PRODUCT MOUNTS A SERVICE ACCOUNT TOKEN BESIDES secrets-admin. The
+      # `kubernetes` filter authenticates to the API server with it; without it every record
+      # arrives with no service name and the screen cannot be filtered at all.
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 10
+      # EVERY NODE, INCLUDING A TAINTED ONE. A control-plane node whose pods are failing is exactly
+      # the node an operator needs the logs from, and a DaemonSet that silently skips it produces a
+      # screen that is complete-looking and wrong.
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: fluent-bit
+          # PINNED BY DIGEST, and the tag is here only as a note to a reader. A tag is a name and a
+          # name can be moved — by strangers, on their own schedule — and the change would arrive at
+          # the next node reboot rather than at a moment anybody chose
+          # (ci/check_a_raw_manifest_pins_its_image.py).
+          image: docker.io/fluent/fluent-bit@sha256:4af3920cc2ff976200e0fc09f23e7ca4ee7d4477a6d592cb496fc39378181b02   # 3.1.9
+          imagePullPolicy: IfNotPresent
+          env:
+            # BY REFERENCE, NEVER COPIED. The same shared token every service on this platform
+            # carries, read out of error-collector's own Secret so there is one value with one
+            # rotation.
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: error-collector-secrets
+                  key: INTERNAL_SERVICE_TOKEN
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              # NO CPU LIMIT, matching every other workload on this fleet: a request is a floor and
+              # a weight, and throttling the shipper during the burst it exists to capture is how
+              # the burst goes unrecorded. Memory IS capped, because unbounded memory on every node
+              # is the failure mode a log shipper actually has.
+              memory: 64Mi
+          securityContext:
+            # IT READS FILES AND POSTS THEM. Nothing here needs to write outside its own position
+            # database, escalate, or hold a capability.
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              # NOT read-only: the tail input keeps its position database (`/var/log/flb_kube.db`)
+              # here, which is what stops a restart re-shipping every line on the node.
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: config
+              mountPath: /fluent-bit/etc/
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: config
+          configMap:
+            name: fluent-bit-config

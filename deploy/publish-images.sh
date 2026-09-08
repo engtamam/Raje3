@@ -65,7 +65,7 @@ die(){ echo -e "${C_R}  ✖ $*${C_N}" >&2; exit 1; }
 ctx(){ case "$1" in console) echo "$ROOT";; *) echo "$ROOT/services/$1";; esac; }
 dfl(){ case "$1" in console) echo "$ROOT/apps/console/Dockerfile";; *) echo "$ROOT/services/$1/Dockerfile";; esac; }
 
-ALL=(affiliate-service bookings campaigns insights loyalty operations portal reminders whatsapp-assistant secrets-admin console)
+ALL=(affiliate-service bookings campaigns error-collector insights loyalty operations portal reminders whatsapp-assistant secrets-admin console)
 TARGETS=("$@"); [ ${#TARGETS[@]} -eq 0 ] && TARGETS=("${ALL[@]}")
 JOBS="${JOBS:-${#TARGETS[@]}}"
 

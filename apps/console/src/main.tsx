@@ -23,6 +23,7 @@ import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
 import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
 import { arabicAuth, arabicBlockDoc, arabicShared } from './i18n';
 import { applyRaje3 } from './brand/theme';
+import { installErrorReporter } from './lib/errorReporter';
 import './index.css';
 
 // AFFILIATES.<DOMAIN> AND ADMIN.<DOMAIN> ARE DIFFERENT HOSTS, NOT DIFFERENT DEPLOYS. The edge
@@ -116,6 +117,11 @@ const adminRouter = createBrowserRouter([
 const router = isAffiliateHost ? affiliateRouter : isAdminHost ? adminRouter : shopRouter;
 
 applyRaje3();
+// BEFORE THE FIRST RENDER, and beside applyRaje3() because this is the one place on this bundle
+// that runs exactly once for all three hostnames. A reporter installed inside a component would
+// miss everything that threw on the way to mounting it — which is the class of failure that
+// leaves an owner looking at a blank pane with nothing anywhere to look at afterwards.
+installErrorReporter();
 createRoot(document.getElementById('root')!).render(
   // THE PROVIDER WRAPS THE WHOLE APP, not just the door. The legal gate uses the kit's
   // AcceptTerms and lives inside the shell — a provider around the sign-in screen alone would

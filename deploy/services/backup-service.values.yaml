@@ -150,7 +150,11 @@ metrics:
 # what the chart offers for exactly this — a fact about the deployment rather than configuration
 # of the process — and it is the only spelling that is both renderable and true.
 podAnnotations:
-  raje3.io/backup-exempt: "search-service"
+  # error-collector: a ten-day diagnostic buffer, deliberately never persisted — its own
+  # backup_manifest.py declares zero collections on purpose (see its own header for the argument
+  # in full). An archive would outlive the retention purge and any erasure, turning a bounded
+  # store into a permanent copy of whatever a stack trace happened to print.
+  raje3.io/backup-exempt: "search-service,error-collector"
 
 env:
   TOKEN_VERIFIER_DRIVER: "jwks"

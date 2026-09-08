@@ -16,9 +16,12 @@ import { AdminDisputeReports } from './AdminDisputeReports';
 import { AdminWhatsAppTemplates } from './AdminWhatsAppTemplates';
 import { AdminTeam } from './AdminTeam';
 import { AdminCompliance } from './AdminCompliance';
+import { AdminSignals } from './AdminSignals';
 import type { AdminSession } from './api';
 
-type SubTab = 'config' | 'secrets' | 'wa_templates' | 'legal' | 'disputes' | 'team' | 'audit' | 'compliance';
+type SubTab =
+  | 'config' | 'secrets' | 'wa_templates' | 'legal' | 'disputes' | 'team' | 'audit' | 'compliance'
+  | 'signals';
 
 export function AdminPlatform({ session }: { session: AdminSession }) {
   const [sub, setSub] = useState<SubTab>('config');
@@ -37,6 +40,10 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
             { value: 'team', label: 'فريق الإدارة' },
             { value: 'audit', label: 'سجل التدقيق' },
             { value: 'compliance', label: 'الامتثال' },
+            // A NINTH SUB-TAB, NOT A NEW TOP-LEVEL SECTION — AdminNav.tsx's own cap on the rail
+            // is about top-level sections, not sub-tabs already living inside «المنصّة». Placed
+            // beside «سجل التدقيق»: both answer «ما الذي حدث؟» after the fact.
+            { value: 'signals', label: 'سجل الأخطاء' },
           ]}
         />
       </div>
@@ -48,6 +55,7 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
       {sub === 'team' ? <AdminTeam session={session} /> : null}
       {sub === 'audit' ? <AdminAuditLog session={session} /> : null}
       {sub === 'compliance' ? <AdminCompliance session={session} /> : null}
+      {sub === 'signals' ? <AdminSignals session={session} /> : null}
     </div>
   );
 }

@@ -49,7 +49,7 @@ info(){ echo -e "${C_C}  ▸ $*${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
 
-OURS="bookings campaigns insights loyalty operations reminders whatsapp-assistant"
+OURS="bookings campaigns error-collector insights loyalty operations reminders whatsapp-assistant"
 SHARED_ONLY="affiliate-service portal"
 SHARED="PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK SECRETS_KEK CACHE_URL EVENTBUS_URL QUEUE_URL RATELIMIT_URL TOKEN_PUBLIC_KEY"
 
