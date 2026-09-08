@@ -30,6 +30,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 
+#: SHARED COPY — this module is pasted into every service, and its CODE must stay identical in
+#: all of them. These are separate deployables with no package to share, so the copies are held
+#: equal by `ci/check_a_module_copied_into_every_service_stays_one_module.py` rather than by
+#: anybody remembering. Prose may differ; logic may not. Removing this line is itself a failure.
+
 _PREFIX = "sub_"
 _LEN = 32          # 128 bits of the digest — collision-safe, and short enough to index
 
@@ -45,9 +50,16 @@ def subject_ref(salt: str, tenant: str, subject: str) -> str:
                          "every email address, which is not a pseudonym at all")
     if not subject:
         raise ValueError("subject must not be empty")
-    # Idempotent: an already-wrapped pseudonym passed back in folds to ITSELF, never a second hash.
-    # Double-wrapping is how an erasure re-hashes a subject_ref, matches zero rows, reports
-    # already_absent, and closes the request COMPLETED over data it never actually touched.
+    # A REF IS NOT A SUBJECT (د-2). Hashing a pseudonym a second time yields the ref of a ref,
+    # which matches no row anywhere — and the caller that does it is invariably an ERASURE, so the
+    # scan finds nothing, answers `already_absent` with 200, the dispatcher reads ACKED, and the
+    # request closes COMPLETED. The person is told their data is gone while every field of it sits
+    # untouched, on a legal deadline, with nothing in any log to contradict the claim.
+    #
+    # IDEMPOTENT, NOT REFUSED (v0.16.23). An already-wrapped ref handed back in folds to itself —
+    # a caller that already has a subject_ref and passes it along one more time is the common case,
+    # not the bug; the bug was ever hashing it a second time. Refusing that call outright just moved
+    # the failure from "wrong pseudonym, silently" to "erasure crashes on the ordinary case."
     if is_subject_ref(subject):
         return subject
     mac = hmac.new(salt.encode("utf-8"),
