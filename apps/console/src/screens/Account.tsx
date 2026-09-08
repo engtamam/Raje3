@@ -22,11 +22,12 @@
  * opening this page gets a short page, never a broken one.
  */
 import { useEffect, useState } from 'react';
-import { KeyRound, UserCog } from 'lucide-react';
+import { KeyRound, MapPin, UserCog } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
+import { TabBar } from '../rj-ui/TabBar';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
@@ -195,44 +196,46 @@ export function AccountScreen(
   ];
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-5 p-4">
       <PageHeader icon={UserCog} title="حسابي" />
 
       {/* ── who he is, and where he works — ALWAYS shown, regardless of tab. A field operator's
           role often cannot reach «منشأتي» at all (it is gated on capabilities his role does not
           hold), so this cannot live behind that tab, let alone a sub-tab of it. Depends on no
-          capability, only `session.operatorName` (never absent) and the branch read above. */}
-      <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
-        <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
-        {myBranch ? (
-          <span className="text-sm text-text-secondary">
-            {myBranch.name || myBranch.id}
-          </span>
-        ) : myBranchFailed ? (
-          <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
-        ) : null}
+          capability, only `session.operatorName` (never absent) and the branch read above.
+          A COLOURED ICON CIRCLE, not a bare text block — the same "identity card" language every
+          other screen in this redesign pass now uses (Wallet.tsx's own KpiCard icons), so the
+          person reading it recognises the pattern instead of meeting a fifth flat gray box. */}
+      <div className="flex items-center gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <span aria-hidden
+             className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
+          <UserCog size={20} />
+        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
+          {myBranch ? (
+            <span className="flex items-center gap-1 text-sm text-text-secondary">
+              <MapPin size={13} aria-hidden /> {myBranch.name || myBranch.id}
+            </span>
+          ) : myBranchFailed ? (
+            <span className="text-sm text-danger">تعذّرت قراءة فرعك</span>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <Segmented
-          // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
-          // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
-          // ragged block half the screen wide. It takes a className and merges with
-          // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
-          // AND IT SCROLLS RATHER THAN WRAPS. `flex-1` on five long Arabic labels still folded
-          // onto a second row on a phone, which is what «بياناتي وأوراقي» hanging alone under the
-          // strip was. One row that slides sideways reads as one control; two ragged rows read as
-          // a broken one. The even split comes back at sm, where the labels fit.
-          // A GRID, NOT A ROW THAT SLIDES. The strip scrolled sideways, and a control that
-          // scrolls hides itself: the last tab arrived cut down the middle, which reads as a
-          // rendering fault rather than as "there is more this way". Six equal cells over three
-          // columns fit six Arabic labels on the narrowest phone with nothing clipped and nothing
-          // ragged — the wrapping the kit does by default is ragged because the cells are not
-          // equal, not because wrapping is wrong. One row from sm up, where they all fit.
-          className="grid w-full grid-cols-3 gap-1 sm:flex sm:flex-nowrap [&>button]:w-full [&>button]:truncate sm:[&>button]:flex-1"
+      <div className="flex flex-col gap-1.5">
+        {/* THE TOP-LEVEL SWITCHER FOR THE WHOLE PAGE — TabBar (rj-ui/TabBar.tsx), never Segmented:
+            the page's own «منشأتي» sub-tabs below are ALSO a Segmented strip, and two pill-track
+            rows stacked directly on each other is exactly "شريطين تحت بعض", the shape the owner
+            ruled out entirely (Segmented's own module docstring, TabBar's own docstring). TabBar's
+            underline shape reads as real navigation into a different section of the page; the
+            nested «منشأتي» row stays Segmented precisely because IT is a filter within one
+            section, not a second copy of this row. */}
+        <TabBar
+          fullWidth
           ariaLabel="أقسام حسابي"
           value={active}
-          onChange={(v) => setPane(v as Pane)}
+          onChange={(v) => setPane(v)}
           options={tabs.map((t) => ({ value: t.id, label: t.label }))}
         />
         {/* The sentence that used to live under each row. Without it the strip is five nouns. */}

@@ -131,7 +131,10 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           shop, which is what they are: not one of them is editable here. */}
       <section className="grid grid-cols-2 gap-2">
         <Fact label="اسم المنشأة" value={t.name || '—'} wide />
-        <Fact label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')}
+        <Fact label="حالة الحساب"
+              value={<Badge tone={t.status === 'active' ? 'success' : 'neutral'}>
+                       {t.status === 'active' ? 'فعّال' : (t.status || '—')}
+                     </Badge>}
               hint={<AssistantHint anchor="account.tenant_status" session={session} />} />
         {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
             timezone; reading the device's would schedule an owner travelling abroad into his
@@ -583,7 +586,7 @@ function shrink(file: File): Promise<string> {
 }
 
 function Fact({ label, value, wide, hint }:
-    { label: string; value: string; wide?: boolean; hint?: React.ReactNode }) {
+    { label: string; value: React.ReactNode; wide?: boolean; hint?: React.ReactNode }) {
   return (
     <div className={`flex flex-col gap-1 rounded-card bg-surface-1 p-3 shadow-sm ${wide ? 'col-span-2' : ''}`}>
       <span className="flex items-center gap-1 text-xs text-text-secondary">
