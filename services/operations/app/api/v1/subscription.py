@@ -175,10 +175,20 @@ async def subscribe(request: Request, body: SubscribeIn,
     trial_days = await c.billing_plans.trial_days(body.plan_id)
     connected = await c.connections.connected(tenant)
 
-    # PAID MEANS A TOKEN WE CAN ACTUALLY CHARGE. An empty one is not "pay later"; it is the press
-    # of a button with no money behind it, and the plan must not start on it.
+    # A FREE PLAN NEEDS NO TOKEN EITHER — "بيانات التواصل" (plans.json) is the first of these,
+    # amount 0, and `may_subscribe`'s own "no token, no plan" rule used to refuse it unconditionally,
+    # exactly as it should refuse a paid plan with no way to charge it. `amount_minor` asks the
+    # SAME live price billing would actually charge; `None` means "could not read" and must NOT be
+    # read as free — an outage must never let a paid plan through with no payment token.
+    price_minor = await c.billing_plans.amount_minor(body.plan_id)
+    free = price_minor == 0
+
+    # PAID MEANS A TOKEN WE CAN ACTUALLY CHARGE, OR A PLAN THAT CHARGES NOTHING AT ALL. An empty
+    # token on a PAID plan is not "pay later"; it is the press of a button with no money behind
+    # it, and the plan must not start on it — `free` is the one exception, decided by price, not
+    # by the caller's own claim.
     decision = may_subscribe(connected=connected, trial_days=trial_days,
-                             paid=bool(body.payment_token))
+                             paid=bool(body.payment_token) or free)
     if not decision.allowed:
         # RETURNED, NEVER RAISED. The platform's error handler strips an HTTPException's detail,
         # so a raised refusal arrives as a bare 402 and the sentence telling him what to do — the
@@ -212,8 +222,15 @@ async def subscribe(request: Request, body: SubscribeIn,
                             content={"error": "BAD_INTERVAL",
                                      "message": "هذه الباقة تُجدَّد شهرياً ولا تُشترى مرة واحدة."})
 
+    # A FREE APP IS SUBSCRIBED ONCE, NOT MONTHLY, REGARDLESS OF WHAT THE CALLER SENT. `once`
+    # gives `period_end = 0`, which the resolver reads as "never lapses" and the renewal sweep
+    # skips outright — so a free-forever standalone app never re-cycles through a pointless
+    # SAR 0 invoice every month. Never for a base row (refused just above, and a base is never
+    # free): this only ever touches an app, and only a free one.
+    interval = "once" if free and not is_base(plan_limits) else body.interval
+
     status_code, out = await c.billing_plans.subscribe(
-        tenant=tenant, plan_id=body.plan_id, interval=body.interval,
+        tenant=tenant, plan_id=body.plan_id, interval=interval,
         payment_token=body.payment_token)
     if status_code >= 400:
         # BILLING'S REFUSAL IS BILLING'S. We do not translate it into a sentence of our own — an

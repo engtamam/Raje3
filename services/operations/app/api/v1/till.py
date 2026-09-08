@@ -48,7 +48,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.operations import OperationError
 from app.core.till_budget import LookupRefused, count_lookup, note_visit
-from app.api.subscribed import no_subscription_needed, subscribed_write
+from app.api.subscribed import no_subscription_needed, subscribed_write, subscribed_write_or_visit
 
 router = APIRouter(prefix="/till", tags=["till"])
 
@@ -158,7 +158,7 @@ def _key_for(tenant: str, visit: "TillVisitIn") -> str:
     return content_key(tenant=tenant, visit=visit)
 
 
-@router.post("/visits", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+@router.post("/visits", dependencies=[Depends(subscribed_write_or_visit), Depends(rate_limit)])
 async def record_from_till(request: Request, body: TillBatchIn,
                            principal: Principal = Depends(_TILL)) -> Any:
     """Accept what the till already captured, and report the outcome PER ITEM.

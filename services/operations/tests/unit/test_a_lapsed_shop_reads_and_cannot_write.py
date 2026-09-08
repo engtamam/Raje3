@@ -210,7 +210,7 @@ def test_recording_a_visit_asks_the_subscription_and_erasing_a_customer_does_not
     Recording a visit grows the shop's data and needs the month paid. Erasing a customer is the
     CUSTOMER's right under PDPL, and a late invoice does not suspend the law.
     """
-    from app.api.subscribed import no_subscription_needed, subscribed_write
+    from app.api.subscribed import no_subscription_needed, subscribed_write_or_visit
     from app.api.v1.field import router
 
     def _deps(path: str, method: str) -> set:
@@ -219,5 +219,8 @@ def test_recording_a_visit_asks_the_subscription_and_erasing_a_customer_does_not
                 return {d.call for d in route.dependant.dependencies}
         raise AssertionError(f"{method} {path} is not on the router any more")
 
-    assert subscribed_write in _deps("/field/visits", "POST")
+    # RECORDING A VISIT NO LONGER NEEDS feature.base ALONE — a shop holding the new, separately
+    # priced "تسجيل زيارة" standalone app (feature.visit) may record visits too. subscribed_write
+    # (base alone) would be the WRONG dependency here now; see subscribed_write_or_visit.
+    assert subscribed_write_or_visit in _deps("/field/visits", "POST")
     assert no_subscription_needed in _deps("/field/customers/{customer_id}/erase", "POST")

@@ -18,7 +18,7 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request, status
 
 from app.api.auth import Principal, require_user
-from app.core.base_licence import LicenceError
+from app.core.base_licence import CANNOT_ASK, LicenceError
 
 
 async def subscribed_write(request: Request,
@@ -47,39 +47,81 @@ async def subscribed_write(request: Request,
     return principal
 
 
-async def subscribed_write_or_whatsapp(request: Request,
-                                       principal: Principal = Depends(require_user)) -> Principal:
-    """Refuse this write unless EITHER the base subscription OR a standalone `feature.whatsapp`
-    plan is live.
+def subscribed_write_or(*licence_attrs: str, refusal: str):
+    """Build a write-gate dependency that passes if ANY of the named container licences answers
+    True for this tenant — the generalisation of what used to be `subscribed_write_or_whatsapp`
+    on its own.
 
-    THE ONE DOOR TWO DIFFERENT BUYERS MUST BOTH OPEN. `subscribed_write` alone refuses "واتساب
-    الذكي (مستقل)"'s own subscriber — he holds no base at all, by design (plans.json's own note
-    on that row) — so the WhatsApp connect routes (api/v1/connect.py) use this instead of
-    `subscribed_write`, everywhere else on this file unchanged.
+    THE PROBLEM WITH THE THING THIS REPLACES. `subscribed_write_or_whatsapp` hardcoded exactly
+    two attribute names ("base_licence", "whatsapp_licence") inside its own body. That was fine
+    for the one app that needed an OR — it stopped being fine the moment registering a customer
+    needed to accept `feature.base` OR `feature.contacts` OR `feature.bookings`, because the only
+    way to reuse that shape was to copy the whole function a second time with different attribute
+    names hardcoded in a different place, and a third time after that. Copy-pasted gates are
+    exactly how one of them quietly drifts — a fixed sentence, a missed licence, a forgotten
+    "could not ask" branch — and nothing before this file made that impossible.
 
-    A shop holding NEITHER is still refused — this does not exempt WhatsApp from needing to be
-    bought, it only widens WHICH purchase counts.
+    `licence_attrs` are `request.app.state.container` attribute names, each an object shaped like
+    `base_licence`/`whatsapp_licence`/anything built by `core/feature_licence.py`: an async
+    `.allowed(tenant) -> bool | None`. Joining the OR is one line at a call site below — no new
+    function, no new file.
+
+    SHORT-CIRCUITS ON THE FIRST YES, in the order given, so a licence that need not be asked
+    (an HTTP round trip) is not asked. Fails closed exactly like `subscribed_write`: a tenant-less
+    principal is 403, an unwired licence lets the write through (same "a deployment that cannot
+    read entitlements is not this gate's problem to invent a refusal for" posture as
+    `subscribed_write` above), and "could not ask" from EVERY licence that answered refuses with
+    `CANNOT_ASK` rather than the caller-supplied `refusal` — telling a paying shop it has not paid
+    is a different wrong from telling an unpaid one the truth, and the two sentences must never
+    share a string.
     """
-    if not principal.tenant:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
-    base = getattr(request.app.state.container, "base_licence", None)
-    wa = getattr(request.app.state.container, "whatsapp_licence", None)
-    if base is None or wa is None:
-        return principal
-    base_answer = await base.allowed(principal.tenant)
-    if base_answer is True:
-        return principal
-    wa_answer = await wa.allowed(principal.tenant)
-    if wa_answer is True:
-        return principal
-    # NEITHER IS A CLEAR YES. Fail closed on an outage the same way subscribed_write does —
-    # "could not ask" from either check must not read as permission.
-    if base_answer is None or wa_answer is None:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail="تعذّر التحقق من اشتراكك الآن — حاول بعد قليل.")
-    raise HTTPException(
-        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-        detail="يحتاج ربط واتساب اشتراكاً فعّالاً — بالأساس، أو بتطبيق واتساب الذكي المستقل.")
+    async def _gate(request: Request,
+                    principal: Principal = Depends(require_user)) -> Principal:
+        if not principal.tenant:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+        container = request.app.state.container
+        licences = [getattr(container, attr, None) for attr in licence_attrs]
+        if any(l is None for l in licences):
+            return principal
+        saw_unreachable = False
+        for licence in licences:
+            answer = await licence.allowed(principal.tenant)
+            if answer is True:
+                return principal
+            if answer is None:
+                saw_unreachable = True
+        if saw_unreachable:
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=CANNOT_ASK)
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=refusal)
+    return _gate
+
+
+# "واتساب الذكي (مستقل)" holds no base at all, by design (plans.json's own note on that row) — so
+# the WhatsApp connect routes (api/v1/connect.py) use this instead of `subscribed_write`,
+# everywhere else on this file unchanged. Same dependency object as before this file was
+# generalised — only its construction changed, not its behaviour or its identity as an import.
+subscribed_write_or_whatsapp = subscribed_write_or(
+    "base_licence", "whatsapp_licence",
+    refusal="يحتاج ربط واتساب اشتراكاً فعّالاً — بالأساس، أو بتطبيق واتساب الذكي المستقل.")
+
+# Registering a customer — `/field/customers/ensure` — must be possible from any app that
+# legitimately creates or first meets a customer relationship, not gated to `feature.base` alone:
+# `feature.base` for today's legacy bundle, `feature.contacts` for "بيانات التواصل" (the free
+# standalone app built to carry exactly this), and `feature.bookings` because a booking can be how
+# a shop meets a customer for the first time. A FUTURE app joins this OR by adding its own
+# attribute name to this one line — nothing else in this file changes.
+subscribed_write_or_customer_creating_app = subscribed_write_or(
+    "base_licence", "contacts_licence", "bookings_licence",
+    refusal="يحتاج تسجيل عميل اشتراكاً فعّالاً — بالأساس، أو بتطبيق بيانات التواصل، "
+           "أو بتطبيق الحجوزات.")
+
+# Recording a visit — `/field/visits`, `/field/visits/{id}/offer`, and the till door that
+# ultimately calls the same `Operations.record_visit` — accepts `feature.base` (the legacy
+# bundle, unchanged for existing subscribers) OR the new, separately-priced `feature.visit`
+# standalone app ("تسجيل زيارة").
+subscribed_write_or_visit = subscribed_write_or(
+    "base_licence", "visit_licence",
+    refusal="يحتاج تسجيل الزيارة اشتراكاً فعّالاً — بالأساس، أو بتطبيق تسجيل زيارة المستقل.")
 
 
 async def no_subscription_needed() -> None:

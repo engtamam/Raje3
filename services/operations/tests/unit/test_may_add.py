@@ -149,3 +149,38 @@ def test_the_kill_switch_makes_a_standalone_plan_need_a_base_too():
 def test_an_ordinary_app_is_unaffected_by_the_standalone_marker_being_absent():
     """No regression: a plan with no `plan.standalone` key at all behaves exactly as before."""
     assert may_add(plan_limits=CAMPAIGNS, held=set(), has_base=False).allowed is False
+
+
+# ── `plan.requires_any` — نقاطي needs a touchpoint app first ───────────────────────────────────
+LOYALTY = {"feature.loyalty": {"kind": "boolean", "limit": 1},
+          "plan.requires_any": {"kind": "list", "list": ["feature.visit", "feature.bookings"]}}
+
+
+def test_requires_any_refuses_with_neither_dependency_held():
+    d = may_add(plan_limits=LOYALTY, held=set(), has_base=True)
+    assert d.allowed is False
+    assert "تسجيل زيارة" in d.reason and "الحجوزات" in d.reason
+
+
+def test_requires_any_allows_with_only_visit_held():
+    d = may_add(plan_limits=LOYALTY, held={"feature.visit"}, has_base=True)
+    assert d.allowed is True
+
+
+def test_requires_any_allows_with_only_bookings_held():
+    d = may_add(plan_limits=LOYALTY, held={"feature.bookings"}, has_base=True)
+    assert d.allowed is True
+
+
+def test_requires_any_still_refuses_with_neither_even_when_a_base_is_held():
+    """AN INDEPENDENT GATE, NOT A SUBSTITUTE FOR THE BASE RULE. Holding a base satisfies the
+    base-required rule but not this one — the two are separate checks and both must pass."""
+    d = may_add(plan_limits=LOYALTY, held={"feature.campaigns"}, has_base=True)
+    assert d.allowed is False
+
+
+def test_a_plan_with_no_requires_any_is_completely_unaffected():
+    """REGRESSION CHECK. Every existing app with no `plan.requires_any` key behaves exactly as
+    before — the new gate never fires for it."""
+    d = may_add(plan_limits=CAMPAIGNS, held=set(), has_base=True)
+    assert d.allowed is True

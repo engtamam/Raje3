@@ -163,6 +163,39 @@ def is_standalone(plan_limits: dict[str, Any] | None) -> bool:
         return False
 
 
+#: The key naming which OTHER `feature.*` keys a candidate plan needs AT LEAST ONE of already
+#: held before it may be bought — data-driven, same shape/posture as `STANDALONE_KEY` just above:
+#: a small, explicit field on the CANDIDATE plan's own row, never a plan name or id hardcoded
+#: here. "نقاطي" (loyalty) is the first user of it (plans.json's own note on that row): points
+#: earned on no customer touchpoint at all are a promise with no way to be kept, so it declares
+#: `["feature.visit", "feature.bookings"]` and `may_add` refuses the purchase unless the shop's
+#: held entitlements already intersect that list. A THIRD app declares its own dependency with
+#: one plans.json edit and no change to this file.
+REQUIRES_ANY_KEY = "plan.requires_any"
+
+# Readable Arabic for the small, known set of keys this refusal is likely to name today. A key
+# this dict does not yet carry still produces a working sentence — its own raw name — rather than
+# failing; a future `requires_any` entry needs only its own plans.json edit to WORK, and a label
+# here is a readability improvement on top of that, not a precondition for it.
+_REQUIRES_ANY_LABELS: dict[str, str] = {
+    "feature.base": "الأساس",
+    "feature.visit": "تسجيل زيارة",
+    "feature.bookings": "الحجوزات",
+    "feature.contacts": "بيانات التواصل",
+}
+
+
+def requires_any(plan_limits: dict[str, Any] | None) -> list[str]:
+    """The other feature keys THIS candidate plan's own row says at least one of must already be
+    held — read straight off `plan.requires_any`, never merged and never a tenant's held
+    entitlements (same discipline as `is_standalone` just above)."""
+    value = (plan_limits or {}).get(REQUIRES_ANY_KEY)
+    raw = value.get("list") if isinstance(value, dict) else value
+    if isinstance(raw, list):
+        return [k for k in raw if isinstance(k, str) and k]
+    return []
+
+
 def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: bool,
            standalone_plans_enabled: bool = True) -> Decision:
     """May this establishment buy THIS plan, given what it already holds?
@@ -193,6 +226,15 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: boo
     """
     grants = granted_keys(plan_limits)
 
+    # AN INDEPENDENT, ADDITIONAL GATE — NOT A REPLACEMENT FOR THE BASE-REQUIRED RULE BELOW. An
+    # app can need both a base-equivalent AND a specific sibling app (loyalty needs الأساس, and
+    # loyalty ALSO needs something that actually earns a point), so this is checked regardless of
+    # `has_base`/`is_standalone` and does not return early out of their branches.
+    dependency = requires_any(plan_limits)
+    if dependency and not (set(dependency) & held):
+        names = " أو ".join(_REQUIRES_ANY_LABELS.get(k, k) for k in dependency)
+        return Decision(False, reason=f"هذا التطبيق يحتاج تفعيل {names} أولاً.")
+
     if is_base(plan_limits):
         if has_base:
             return Decision(False, reason="عندك اشتراك أساسي فعّال. لتغييره، عدّل اشتراكك الحالي "
@@ -214,7 +256,11 @@ def may_subscribe(*, connected: bool, trial_days: int, paid: bool = True) -> Dec
 
     `connected`   does this establishment have a WhatsApp account attached?
     `trial_days`  the plan's trial length. Non-zero means he is not paying yet.
-    `paid`        did money actually change hands — a gateway charge that succeeded?
+    `paid`        did money actually change hands — a gateway charge that succeeded — OR is this
+                  plan's own resolved price 0 (api/v1/subscription.py computes `paid = paid or
+                  price_minor == 0` at the call site, so this function stays a pure boolean and
+                  need not know about prices at all)? A SAR 0 plan owes nothing to have started,
+                  same as a trial — the difference is a trial ends and this never charges.
 
     PURE, so the rule can be read and tested without a cluster. Everything around it is plumbing;
     this is the decision.
@@ -306,6 +352,9 @@ class NullPlans:
     async def limits(self, plan_id: str) -> dict[str, Any] | None:
         return None
 
+    async def amount_minor(self, plan_id: str) -> int | None:
+        return None
+
     async def subscriptions(self, tenant: str) -> list[dict[str, Any]] | None:
         return None
 
@@ -388,6 +437,32 @@ class HttpPlans:
         for plan in (out.get("plans") or []):
             if plan.get("id") == plan_id:
                 return dict(plan.get("limits") or {})
+        return None
+
+    async def amount_minor(self, plan_id: str) -> int | None:
+        """This plan's own resolved price, in halalas — the ONE extra fact `may_subscribe` needs
+        that `limits`/`trial_days` do not carry.
+
+        STILL NOT A SECOND PRICING MODEL. This class's own docstring says it holds no price — and
+        it still does not: nothing here is cached, computed, or kept between calls. This asks the
+        SAME live `/plans` read `limits`/`trial_days` already make, for the one field none of them
+        happened to return, and forgets it the moment the call returns.
+
+        None means "could not read" — the caller must not treat that as "free"; a billing outage
+        must never let a paid plan through with no payment token.
+        """
+        status, out = self._request(f"{self._plans}?include_hidden=true")
+        if status >= 400:
+            return None
+        for plan in (out.get("plans") or []):
+            if plan.get("id") == plan_id:
+                prices = plan.get("prices") or []
+                if not prices:
+                    return None
+                try:
+                    return int(prices[0].get("amount_minor") or 0)
+                except (TypeError, ValueError):
+                    return None
         return None
 
     async def subscriptions(self, tenant: str) -> list[dict[str, Any]] | None:

@@ -41,7 +41,7 @@ import {
   CalendarClock, Check, Gift, Layers, Megaphone, Minus, Plus, Sparkles, type LucideIcon,
 } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
-import { isReady, type Loading } from '../loading';
+import { isDenied, isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import type { Session } from '../session';
 import { riyals } from '../money';
@@ -151,6 +151,19 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   // a real, customer-meaningful fact worth a line on the card, not an internal implementation
   // detail: a shop with no other subscription reads this and knows it can buy this one alone.
   'plan.standalone': { label: 'يُشترى وحده، بلا حاجة لاشتراك أساسي' },
+  // `plan.requires_any` (services/operations/app/core/subscribe.py) NEVER ACTUALLY PRINTS: its
+  // value is `{ kind: 'list', list: [...] }`, never a positive `limit`, so `planLines` below
+  // never pushes this label — the entry exists only so `ci/check_entitlements.py` finds the
+  // wording it demands for every sold limit. The reader-facing sentence for THIS key lives beside
+  // the "needs base first" note ("التطبيقات تُضاف…" above the apps grid), which names the actual
+  // missing app(s) — see `missingRequirement` and its render site just below.
+  'plan.requires_any': { label: 'يحتاج تطبيقاً آخر مفعّلاً أولاً' },
+  // بيانات التواصل — the FREE app (see plans.json's own note on the row). Grants exactly one
+  // door: resolving or creating a customer by phone with no visit attached.
+  'feature.contacts': { label: 'تسجيل بيانات العملاء وحفظها' },
+  // تسجيل زيارة — the visit register itself, sold on its own (see plans.json's own note on the
+  // row for why it no longer needs الأساس underneath it).
+  'feature.visit': { label: 'تسجيل الزيارات وتأكيدها والتذكير بها' },
 };
 
 // Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so an
@@ -214,6 +227,40 @@ export function isStandalone(plan: Plan): boolean {
  * `limit: 0` IS A DECLARED DENY, not a grant. The base carries every app at 0 so no screen has to
  * tell «not bought» from «never heard of» — read as grants, the base would look like everything.
  */
+/** Short, readable names for the small set of keys `requiresAny` is likely to name — same list,
+ * same wording spirit, as `_REQUIRES_ANY_LABELS` in services/operations/app/core/subscribe.py.
+ * A key missing from this map falls back to its raw name rather than crashing — a future
+ * dependency works (both the purchase refusal and this note) the moment its plans.json row
+ * carries `requires_any`; adding it here is a readability improvement, not a precondition. */
+const REQUIRES_ANY_LABELS: Record<string, string> = {
+  'feature.base': 'الأساس',
+  'feature.visit': 'تسجيل زيارة',
+  'feature.bookings': 'الحجوزات',
+  'feature.contacts': 'بيانات التواصل',
+};
+
+/** The OTHER feature keys this plan's own row says at least one of must already be held —
+ * `services/operations/app/core/subscribe.py::requires_any` reads the SAME field, off the same
+ * shape, purchase-time. Never merged, never a tenant's held entitlements — the candidate plan's
+ * own declaration, exactly like `isStandalone` just above. */
+export function requiresAny(plan: Plan): string[] {
+  const raw = (plan.limits?.['plan.requires_any'] as unknown as { list?: unknown })?.list;
+  return Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string' && Boolean(k)) : [];
+}
+
+/** The sentence for a locked/disabled buy state when this shop holds none of `requiresAny`'s
+ * keys yet — empty when the plan declares no dependency, when the read has not settled or could
+ * not be asked, or when he is DENIED the read entirely (same "show the surface, not a lock" rule
+ * `owns` follows), so the card never flashes a lock it cannot yet justify. */
+export function missingRequirement(plan: Plan, owned: Loading<Owned>): string {
+  const need = requiresAny(plan);
+  if (!need.length) return '';
+  if (isDenied(owned) || !isReady(owned) || !owned.checked) return '';
+  if (need.some((k) => owned.keys.includes(k))) return '';
+  const names = need.map((k) => REQUIRES_ANY_LABELS[k] ?? k).join(' أو ');
+  return `يحتاج تفعيل ${names} أولاً.`;
+}
+
 export function kindOf(plan: Plan): Kind {
   const limits = plan.limits ?? {};
   // THE METER MAKES IT A BASE — the same fact operations decides from, off the same field. An app
@@ -316,7 +363,7 @@ function renewalDay(epoch: number | null | undefined): string {
 // running under it, not a different kind of thing. This card is the one place that fact has to
 // read true at a glance, so it is named, and built, around an app — never a "plan".
 function AppCard({
-  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
+  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, lockedNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
   onUndoCancel, undoingCancel, session,
@@ -337,6 +384,11 @@ function AppCard({
   /** The server's own sentence when billing was ASKED and could not answer. Empty while the read
    *  is still in flight — the two are different states and the card must not merge them. */
   unreadNote?: string;
+  /** `missingRequirement`'s own sentence — this shop holds none of `plan.requires_any`'s keys yet
+   *  (e.g. نقاطي needs تسجيل زيارة or الحجوزات first). Same placement/styling as the "needs base
+   *  first" note above the apps grid, but per-card, since the requirement is per-plan. Empty
+   *  when the plan declares no dependency, or the dependency is already satisfied. */
+  lockedNote?: string;
   /** CAPACITY ROWS ONLY. One feature line and a price is the whole card — the base's own padding
    *  and icon size read as empty space around that little, not as room to breathe. */
   compact?: boolean;
@@ -557,6 +609,12 @@ function AppCard({
           <p className="mt-2 text-xs text-text-secondary">
             {unreadNote || 'جارٍ التحقق من اشتراكك…'}
           </p>
+        ) : null}
+        {/* `plan.requires_any` — this shop holds none of the app(s) this plan needs yet. Said
+            here rather than discovered as a refusal after he presses, same posture as the base
+            note above the apps grid. */}
+        {lockedNote ? (
+          <p className="mt-2 text-xs text-text-secondary">{lockedNote}</p>
         ) : null}
       </div>
     </article>
@@ -1450,6 +1508,10 @@ export function PlansPane({
               // it read as the same flat «مفعّل» a fully-paying app gets, which is a different
               // fact he needs to know before the trial ends and the first real charge lands.
               const appStatusLabel = appSub?.status === 'trialing' ? 'تجريبي' : undefined;
+              // `plan.requires_any` — an INDEPENDENT gate from the base-required rule just above:
+              // an app can need both. Empty when the plan declares no dependency, when the read
+              // has not settled, or when the dependency is already satisfied.
+              const lockedNote = missingRequirement(p, owned);
               return (
                 <li key={p.id}>
                   <AppCard
@@ -1458,9 +1520,10 @@ export function PlansPane({
                     owned={owns(owned ?? null, appKey(p))}
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && canMintToken
-                                     && (hasBase !== false || isStandalone(p)))}
+                                     && (hasBase !== false || isStandalone(p)) && !lockedNote)}
                     onBuy={() => choose(p)}
                     unreadNote={unreadNote}
+                    lockedNote={lockedNote}
                     ownedLabel="مفعّل"
                     statusLabel={appStatusLabel}
                     statusTone={appStatusLabel ? 'success' : undefined}

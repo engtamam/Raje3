@@ -246,7 +246,7 @@ def test_updating_an_operator_to_an_empty_branch_is_refused(client, monkeypatch)
 
 # ── our own subscribe path ─────────────────────────────────────────────────────────────────────
 class FakePlans:
-    def __init__(self, trial: int = 0, limits=None):
+    def __init__(self, trial: int = 0, limits=None, amount: int | None = 9900):
         self.trial = trial
         self.subscribed = []
         # READABLE BY DEFAULT, and this used to be None — «could not read». Every test here was
@@ -256,12 +256,19 @@ class FakePlans:
         # refuses it («apps need a base first»). What these tests buy is a subscription.
         self.plan_limits = {"messages.monthly": {"limit": "unlimited"}} if limits is None else limits
         self.held: list | None = []
+        # A REAL, PAID PRICE BY DEFAULT — 99 SAR, same as every other app on the price list — so
+        # the existing "no token, no plan" tests below keep exercising exactly what they always
+        # did. A test of the FREE-plan path passes `amount=0` explicitly.
+        self.amount = amount
 
     async def trial_days(self, plan_id):
         return self.trial
 
     async def limits(self, plan_id):
         return self.plan_limits
+
+    async def amount_minor(self, plan_id):
+        return self.amount
 
     async def subscriptions(self, tenant):
         return self.held
@@ -282,8 +289,8 @@ class FakeConnections:
         return self._c
 
 
-def _wire(client, *, connected: bool, trial: int = 0, limits=None):
-    plans = FakePlans(trial, limits)
+def _wire(client, *, connected: bool, trial: int = 0, limits=None, amount: int | None = 9900):
+    plans = FakePlans(trial, limits, amount=amount)
     client.app.state.container.billing_plans = plans
     client.app.state.container.connections = FakeConnections(connected)
     return plans
@@ -354,6 +361,32 @@ def test_a_paid_plan_without_a_payment_token_is_refused(client, monkeypatch):
     assert r.status_code == 402
     assert r.json()["error"] == "PAYMENT_REQUIRED"
     assert plans.subscribed == [], "nothing may reach billing when nothing was paid"
+
+
+def test_a_free_plan_subscribes_with_no_payment_token_at_all(client, monkeypatch):
+    """بيانات التواصل (plans.json, amount: 0) — the free-plan bug's own fix, as a test. A plan
+    whose RESOLVED price is 0 must go through with no token at all, same as a trial does; unlike a
+    trial it is billed forever at nothing, so it is subscribed `once` rather than monthly (see
+    subscription.py's own comment on that override) — this test also proves that override fires."""
+    plans = _wire(client, connected=True, trial=0, amount=0,
+                 limits={"feature.contacts": {"kind": "boolean", "limit": 1},
+                        "plan.standalone": {"kind": "boolean", "limit": 1}})
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_free"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201, r.text
+    assert plans.subscribed == [("t1", "plan_free", "once")]
+    assert plans.tokens == [""], "no token was sent, and none was required"
+
+
+def test_a_paid_plan_still_refuses_with_no_token_even_when_free_plans_exist(client, monkeypatch):
+    """REGRESSION CHECK. The free-plan exemption must not have widened into "no plan needs a
+    token any more" — an ordinary paid app is refused exactly as before."""
+    plans = _wire(client, connected=True, trial=0, amount=9900)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 402
+    assert r.json()["error"] == "PAYMENT_REQUIRED"
+    assert plans.subscribed == []
 
 
 def test_a_trial_still_needs_no_card(client, monkeypatch):

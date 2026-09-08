@@ -31,7 +31,9 @@ from app.core import operator_ticket as OT
 from app.core import plate as P
 from app.core import vehicles as V
 from app.core.operations import OperationError, Operations
-from app.api.subscribed import no_subscription_needed, subscribed_write
+from app.api.subscribed import (no_subscription_needed, subscribed_write,
+                                subscribed_write_or_customer_creating_app,
+                                subscribed_write_or_visit)
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
 router = APIRouter(prefix="/field", tags=["field"])
@@ -99,7 +101,7 @@ class VisitIn(BaseModel):
     occurred_at: int = Field(default=0, ge=0)
 
 
-@router.post("/visits", status_code=status.HTTP_201_CREATED, dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+@router.post("/visits", status_code=status.HTTP_201_CREATED, dependencies=[Depends(subscribed_write_or_visit), Depends(rate_limit)])
 async def record_visit(request: Request, body: VisitIn, background: BackgroundTasks,
                        principal: Principal = Depends(_RECORD)) -> dict:
     """Record a visit. This endpoint is the product, as far as the shop floor is concerned."""
@@ -324,7 +326,7 @@ class EnsureCustomerIn(BaseModel):
     name: str = Field(default="", max_length=128)
 
 
-@router.post("/customers/ensure", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+@router.post("/customers/ensure", dependencies=[Depends(subscribed_write_or_customer_creating_app), Depends(rate_limit)])
 async def ensure_customer(request: Request, body: EnsureCustomerIn, background: BackgroundTasks,
                           principal: Principal = Depends(_RECORD)) -> dict:
     """Resolve or create a customer by phone, with no visit attached — `bookings`' console dialog
@@ -650,7 +652,7 @@ class ApplyOfferIn(BaseModel):
     subject_ref: str = Field(min_length=8, max_length=128)
 
 
-@router.post("/visits/{visit_id}/offer", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+@router.post("/visits/{visit_id}/offer", dependencies=[Depends(subscribed_write_or_visit), Depends(rate_limit)])
 async def apply_offer(request: Request, visit_id: str, body: ApplyOfferIn,
                       principal: Principal = Depends(_RECORD)) -> dict:
     """Record that an offer was applied to this visit — the tap that proves it (§5.6.2).

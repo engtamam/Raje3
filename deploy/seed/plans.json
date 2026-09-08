@@ -80,7 +80,9 @@
     "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing",
     "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway",
     "feature.rating": "the post-visit rating app (WhatsApp Flow, stars + free text) — replaces the plain visit-confirmation message for a shop that owns it, never a second message",
-    "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. THE ONE APP THAT MAY BE BOUGHT STANDALONE, WITHOUT الأساس first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)"
+    "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. THE ONE APP THAT MAY BE BOUGHT STANDALONE, WITHOUT الأساس first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)",
+    "feature.contacts": "بيانات التواصل — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does — a shop buying only this holds no base underneath it",
+    "feature.visit": "تسجيل زيارة — the visit register itself, pulled out from under `feature.base`'s exclusive control and sold as its own standalone app. A shop holding EITHER `feature.base` OR this may record a visit (services/operations/app/api/subscribed.py::subscribed_write_or_visit); `feature.base` keeps its old meaning unchanged for existing subscribers — retiring it in favour of this key everywhere is a separate, future migration decision, not this one"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -161,6 +163,14 @@
         "feature.whatsapp": {
           "kind": "boolean",
           "limit": 0
+        },
+        "feature.contacts": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.visit": {
+          "kind": "boolean",
+          "limit": 0
         }
       }
     },
@@ -197,6 +207,18 @@
       }
     },
     {
+      "_": [
+        "REQUIRES_ANY (2026-09-09), THE OWNER'S OWN REASONING: points earned on nothing are not a",
+        "programme, they are a promise with no way to keep it. Loyalty points are earned by a",
+        "customer TOUCHPOINT — a visit recorded, or an appointment attended — and a shop holding",
+        "NEITHER تسجيل زيارة nor الحجوزات (and not الأساس, which carries the same visit register)",
+        "has no way for a single point to ever be earned. `plan.requires_any` says so, data-driven,",
+        "exactly like `plan.standalone` above: `may_add` (services/operations/app/core/",
+        "subscribe.py) refuses the purchase unless the shop's own held entitlements already",
+        "intersect this list — independent of, and in addition to, the ordinary base-required",
+        "rule. A THIRD app may declare its own dependency the same way, with one edit here and",
+        "zero code changes."
+      ],
       "name": "برنامج النقاط",
       "amount": 9900,
       "trial_days": 30,
@@ -204,6 +226,10 @@
         "feature.loyalty": {
           "kind": "boolean",
           "limit": 1
+        },
+        "plan.requires_any": {
+          "kind": "list",
+          "list": ["feature.visit", "feature.bookings"]
         }
       }
     },
@@ -311,6 +337,86 @@
       "listed": true,
       "limits": {
         "feature.whatsapp": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "بيانات التواصل — THE ONE FREE APP ON THE PRICE LIST, and deliberately so: the owner's own",
+        "decision was that registering a customer must be possible «من أي تطبيق», and a shop with",
+        "no other product at all must still be able to open the one door that resolves-or-creates a",
+        "customer by phone (POST /field/customers/ensure). A price on that door would put the",
+        "product's front door behind a paywall nobody else on the price list has to clear first.",
+        "",
+        "amount: 0, ON PURPOSE. billing-service takes the charge at renewal, not at subscribe — see",
+        "`_charge_invoice`'s own zero-total branch, which already auto-succeeds a 0-halala invoice",
+        "with no gateway call — so a free row needs no special handling there. What DOES need one",
+        "is our own `may_subscribe` (services/operations/app/core/subscribe.py), which used to",
+        "refuse ANY subscribe with no `payment_token` regardless of price; it now treats a plan",
+        "whose resolved price is 0 as paid whether or not a token was sent.",
+        "",
+        "SUBSCRIBED WITH interval='once', NOT 'month' — services/operations/app/api/v1/",
+        "subscription.py forces this for every free row, this one included: `once` sets",
+        "`period_end` to 0, which the resolver reads as 'never lapses' and the renewal sweep skips",
+        "outright, so a free-forever app never re-cycles through a pointless SAR 0 invoice every",
+        "month for nothing.",
+        "",
+        "`plan.standalone` — same marker, same reason as «بوت خدمة العملاء الذكي» above: a shop",
+        "buying only this holds no base underneath it, so `may_add` must skip its own",
+        "base-required rule for THIS row too. `STANDALONE_PLANS_ENABLED` is the same kill switch",
+        "for both rows.",
+        "",
+        "`feature.contacts` GRANTS NOTHING BEYOND THE ONE DOOR IT NAMES — it is read by",
+        "`subscribed_write_or_customer_creating_app` (services/operations/app/api/subscribed.py)",
+        "alongside `feature.base` and `feature.bookings`; it does not touch visits, which stay",
+        "behind `feature.visit`/`feature.base` (see «تسجيل زيارة» below) even for a customer this",
+        "app just created."
+      ],
+      "name": "بيانات التواصل",
+      "amount": 0,
+      "trial_days": 0,
+      "listed": true,
+      "limits": {
+        "feature.contacts": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
+        "تسجيل زيارة — THE VISIT REGISTER ITSELF, PULLED OUT FROM UNDER الأساس'S EXCLUSIVE",
+        "CONTROL. Until this row, recording a visit was reachable ONLY through `feature.base` — a",
+        "shop wanting nothing else from الأساس could not record a single visit without buying the",
+        "whole bundle underneath it. This row sells the register on its own, at the same flat 99",
+        "every app on this list sells for.",
+        "",
+        "`plan.standalone` — a shop buying only this holds no base underneath it either, same",
+        "mechanism as «بوت خدمة العملاء الذكي» and «بيانات التواصل» above.",
+        "",
+        "`feature.base` KEEPS ITS OLD MEANING, UNCHANGED, FOR EXISTING SUBSCRIBERS. This row does",
+        "not replace it and does not migrate anybody off it — `subscribed_write_or_visit`",
+        "(services/operations/app/api/subscribed.py) accepts EITHER key, so a shop already on",
+        "الأساس keeps recording visits exactly as before, with no action needed. Retiring",
+        "`feature.base`'s bundling of the visit register in favour of this key everywhere is a",
+        "separate, future migration decision — deliberately not made by this row."
+      ],
+      "name": "تسجيل زيارة",
+      "amount": 9900,
+      "trial_days": 30,
+      "listed": true,
+      "limits": {
+        "feature.visit": {
           "kind": "boolean",
           "limit": 1
         },
@@ -431,6 +537,14 @@
         "feature.whatsapp": {
           "kind": "boolean",
           "limit": 1
+        },
+        "feature.contacts": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.visit": {
+          "kind": "boolean",
+          "limit": 0
         }
       }
     }

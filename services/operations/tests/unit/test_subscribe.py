@@ -23,6 +23,22 @@ def test_a_paid_plan_with_a_connection_goes_through():
     assert may_subscribe(connected=True, trial_days=0).allowed
 
 
+# ── `paid` also covers a plan whose OWN price is 0 (api/v1/subscription.py computes
+# `paid = bool(payment_token) or price_minor == 0` at the call site) ───────────────────────────
+def test_a_free_plan_needs_no_payment_token():
+    """بيانات التواصل (plans.json, amount: 0) — same shape as the trial exemption just above,
+    reached a different way: the call site passes `paid=True` when the resolved price is 0."""
+    assert may_subscribe(connected=True, trial_days=0, paid=True).allowed is True
+
+
+def test_a_paid_plan_with_no_token_is_still_refused():
+    """REGRESSION CHECK. `paid=False` — an ordinary priced plan with no token and no free-plan
+    override — refuses exactly as it always has."""
+    d = may_subscribe(connected=True, trial_days=0, paid=False)
+    assert d.allowed is False
+    assert "لم يكتمل الدفع" in d.reason
+
+
 def test_the_trial_needs_nothing():
     """This is what makes the rule fair rather than a wall. The trial is for TRYING — the field
     screen, the customers, the points and the indicators all work without WhatsApp, and gating the

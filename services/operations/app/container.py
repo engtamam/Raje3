@@ -310,6 +310,17 @@ def build_container(settings: Settings) -> Container:
     from app.core.whatsapp_licence import build_whatsapp_licence
 
     container.whatsapp_licence = build_whatsapp_licence(settings)
+    # `feature.contacts`, `feature.bookings` and `feature.visit` — every OTHER key that can
+    # satisfy a customer- or visit-creating write door alongside `feature.base`
+    # (api/subscribed.py::subscribed_write_or_customer_creating_app,
+    # subscribed_write_or_visit). One parametrised builder, not three hand-copied licence
+    # files — see core/feature_licence.py's own docstring for why that stopped being safe at
+    # the third key.
+    from app.core.feature_licence import build_feature_licence
+
+    container.contacts_licence = build_feature_licence(settings, "feature.contacts")
+    container.bookings_licence = build_feature_licence(settings, "feature.bookings")
+    container.visit_licence = build_feature_licence(settings, "feature.visit")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
