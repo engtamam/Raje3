@@ -411,7 +411,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const addService = async (
     name: string,
     opts: { cycleDays: number; durationMinutes: number; priceMinor: number | null; followUpDays: number;
-            points: number | null; group: string },
+            points: number | null; group: string; description: string },
   ) => {
     const a = action(catalog, 'operations.create_service');
     if (!a || !name.trim()) return;
@@ -425,6 +425,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           // omitted — the same "0 = not configured" reading duration already uses — so a blank box
           // sends nothing at all rather than sending a real 0 (which would read as "free").
           ...(opts.priceMinor !== null ? { price_minor: opts.priceMinor } : {}),
+          // ALREADY ACCEPTED AT CREATE TIME (server default ""), unlike the image below — the row
+          // itself carries this from the first moment, same field the table's own edit box writes.
+          ...(opts.description.trim() ? { description: opts.description.trim() } : {}),
         });
       const id = created?.id ?? '';
 
@@ -1048,6 +1051,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     // instructions with different futures.
                     points: pts === '' ? null : Number(pts),
                     group: String(f.get('group') || ''),
+                    description: String(f.get('description') || ''),
                   });
                 }}
               >
@@ -1056,6 +1060,22 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   <input name="name" required autoFocus maxLength={128}
                          placeholder={t('services.name.placeholder')}
                          className="h-10 rounded-lg bg-surface-2 px-3" />
+                </label>
+
+                {/* SAME BOX, SAME WORDING, AS THE TABLE'S OWN EDIT FIELD — this is the same
+                    `description` the server already accepts on create, not a new one added just
+                    for this form. The image, by contrast, genuinely cannot be attached here: every
+                    upload route is keyed by an existing service id (`upload_service_image(id, …)`),
+                    so a photo has nowhere to attach to until «إضافة» returns one — the hint below
+                    says so instead of pretending a file picker could work before that. */}
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm">وصف قصير (اختياري)</span>
+                  <textarea name="description" maxLength={300} rows={2}
+                            placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
+                            className="w-full rounded-lg bg-surface-2 px-3 py-2 text-sm" />
+                  <span className="text-xs text-text-secondary">
+                    وتقدر تضيف صورة للخدمة بعد إضافتها، من بطاقتها في الجدول.
+                  </span>
                 </label>
 
                 {/* SHORT LABELS, AND THE QUESTION LIVES IN THE «؟». The full sentences did not
