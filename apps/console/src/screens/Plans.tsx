@@ -534,7 +534,13 @@ function AppCard({
             {switching ? 'يُبدَّل…' : switchLabel}
           </Button>
         ) : (
-          <Button type="button" disabled={busy || !sellable} onClick={onBuy}>
+          // FULL WIDTH, LIKE THE CARD'S OWN «إيقاف التجديد» BUTTON BELOW IT — «أضِفه» is four
+          // letters, and `Button` shrinks to its label by default (inline-flex, no width of its
+          // own), so next to the danger button's long "إيقاف تجديد هذا التطبيق" text this one sat
+          // as a small floating pill on an otherwise full-width card (screenshot). The card's own
+          // weight, not the label's length, should decide how big the one action on it reads.
+          <Button type="button" size="lg" className="w-full"
+                 disabled={busy || !sellable} onClick={onBuy}>
             {buyLabel}
           </Button>
         )}

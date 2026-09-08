@@ -43,6 +43,9 @@ from app.core import links as L
 # `shop` are on every reason and are not listed per reason: slot 1 and slot 2 of every template
 # in the library, always available, never a choice.
 CUSTOMER = "customer"
+# NOT A SEPARATE SLOT — the same slot 1 every template already has, sampled with a name that
+# agrees with the «feminine» tone's own verb conjugations. See SAMPLE's own note below.
+CUSTOMER_FEMININE = "customer_feminine"
 SHOP = "shop"
 SERVICE = "service"          # what he came for, or what is due
 REWARD = "reward"            # what he redeemed
@@ -371,6 +374,12 @@ def candidates(kind: str, template_type: str) -> tuple[str, ...]:
 # look like a real customer's are also the ones Meta's own review requires at submission.
 SAMPLE = {
     CUSTOMER: "محمد",
+    # THE FEMININE TONE'S OWN SAMPLE — never SAMPLE[CUSTOMER], which is a masculine name. The
+    # «feminine» tone conjugates every verb in the body itself («نوّرتِنا», «أخذتِ») to address a
+    # female customer; a preview that then filled the blank with «محمد» read as grammatically
+    # wrong on the one screen an owner is deciding whether the wording sounds right at all
+    # (found live: the preview under «مؤنثة» showed «يا هلا محمد، نوّرتِنا...»).
+    CUSTOMER_FEMININE: "سارة",
     SERVICE: "قص شعر",
     REWARD: "غسيل مجاني",
     POINTS: "40",
@@ -431,9 +440,14 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
                  # A template with no customer at all must never fall through to `by_number`'s
                  # customer-shaped guess for ANY of its slots.
                  "establishment": establishment}
+    # THE NAME AGREES WITH THE ROW'S OWN TONE, NOT A GLOBAL CONSTANT. «feminine» rows conjugate
+    # every verb to address a woman («نوّرتِنا», «أخذتِ») — a preview built from SAMPLE[CUSTOMER]
+    # regardless of tone put a masculine name in front of feminine verbs on the one screen an
+    # owner reads to judge whether a wording sounds right.
+    customer_sample = SAMPLE[CUSTOMER_FEMININE] if template.get("tone") == "feminine" else SAMPLE[CUSTOMER]
     # Slot 3 of the library's own numbering is «الخدمة أو المحتوى», 4 «تفصيل», 5 «الرصيد» — the
     # positional meanings the texts were written against (deploy/seed/templates.json).
-    by_number = {1: SAMPLE[CUSTOMER], 2: establishment, 3: SAMPLE[SERVICE],
+    by_number = {1: customer_sample, 2: establishment, 3: SAMPLE[SERVICE],
                  4: SAMPLE[POINTS], 5: SAMPLE[BALANCE]}
     out: dict[str, str] = {}
     for i, number in enumerate(variables):
