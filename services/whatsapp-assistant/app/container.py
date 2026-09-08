@@ -150,6 +150,7 @@ class Container:
     sender: Any = None
     secret_store: Any = None
     inbound_feed: Any = None
+    coexistence_feed: Any = None
     engine: Any = None
 
     def describe(self) -> list[dict[str, str]]:
@@ -318,6 +319,13 @@ def build_container(settings: Settings) -> Container:
     # The catch-up half of the "missed bus event" mitigation — see app/main.py's
     # `_on_whatsapp_message` docstring and app/core/inbound_poll.py for the full design.
     container.inbound_feed = build_inbound_feed(settings)
+
+    from app.adapters.coexistence_feed import build as build_coexistence_feed
+
+    # COEXISTENCE — the owner's own-app echoes, so the AI can go quiet on a customer they just
+    # answered by hand (app/core/coexistence_poll.py). Off by default at both this build() call
+    # (settings gate inside it) and notification-service's own storage flag.
+    container.coexistence_feed = build_coexistence_feed(settings)
     container.engine = ConversationEngine(
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
         points_summary=container.points_summary, shop_identity=container.shop_identity,

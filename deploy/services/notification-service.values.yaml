@@ -197,6 +197,19 @@ env:
   # api/webhooks.py's own `_handle_flow`) rather than crash.
   WHATSAPP_FLOW_ENDPOINT_ENABLED: "true"
 
+  # ── WhatsApp Coexistence (platform v0.18.56) — a shop keeps using its own WhatsApp Business
+  # app on the SAME number it connected to us ───────────────────────────────────────────────
+  # ON, platform-wide, so it needs no per-shop toggle anywhere: whether a shop ends up in
+  # coexistence mode is decided entirely inside Meta's own Embedded Signup popup (the app's
+  # Facebook Login for Business config — see console's meta.ts SIGNUP_EXTRAS note), never by a
+  # button in this product. Turning this on here just means "if a shop is ever in that mode,
+  # do not lose the owner's own-app activity" — with it off, a shop that chose coexistence on
+  # Meta's side would have silent gaps (owner replies invisible to the AI, no history import).
+  WHATSAPP_COEXISTENCE_ENABLED: "true"
+  # 2 days: a reconciliation buffer for whatsapp-assistant's catch-up poll, never an archive —
+  # see this service's own config.py note. Raise only with a real reason to keep it longer.
+  WHATSAPP_COEXISTENCE_RETENTION_DAYS: "2"
+
   # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────
   # http, not null. The null gate answers UNKNOWN forever and the production boot guard REFUSES
   # to start on it for a service that declares consent-gated processing. That guard is why

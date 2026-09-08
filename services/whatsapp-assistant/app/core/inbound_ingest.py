@@ -10,6 +10,7 @@ reached it first.
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from app.core.sending_identity import split as split_sending_identity
@@ -139,7 +140,17 @@ async def ingest_inbound_message(
                 tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text,
                 branch_id=branch_id)
 
-        if plan is not None and plan.kind in ("text", "list") and not await outbound_allowed(
+        # COEXISTENCE: the owner may have just answered this same customer from their own phone
+        # (app/core/coexistence_poll.py). The message is still ingested, still attributed, still
+        # advances the conversation above — only the SEND is held back, for the bounded cooldown,
+        # so the customer does not get a human answer immediately followed by a bot one.
+        from app.core.owner_presence import is_owner_active
+        owner_active = plan is not None and plan.kind in ("text", "list") and await is_owner_active(
+            container, tenant=tenant, contact=from_number, now=int(time.time()))
+        if owner_active:
+            logger.info("whatsapp_owner_active_suppressed",
+                       extra={"tenant": tenant, "wamid": wamid})
+        elif plan is not None and plan.kind in ("text", "list") and not await outbound_allowed(
                 container, settings, tenant):
             logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
         elif plan is not None and plan.kind == "text" and plan.text:

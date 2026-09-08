@@ -189,6 +189,13 @@ env:
   # connect.py, base-services v0.18.55). The only remaining gate is a real per-shop WhatsApp
   # connection existing at all — outside code's reach by definition, not a config knob.
   WHATSAPP_FLOW_BOOKING_ENABLED: "true"
+  # WhatsApp Coexistence (platform v0.18.56) — twin of notification-service's own flag. ON,
+  # platform-wide, no per-shop toggle: see this service's config.py note on why the two flags
+  # are meant to flip together at install time. When a shop's number is in coexistence mode
+  # (Meta's own choice, not ours), this is what makes the AI go quiet for a while whenever the
+  # owner answers a customer from their own phone (app/core/owner_presence.py) instead of
+  # talking over them.
+  WHATSAPP_COEXISTENCE_ENABLED: "true"
   BOOKINGS_DAY_SLOTS_ANY_REAL_PATH: "/internal/bookings/day-slots-real"
   BOOKINGS_WORKING_HOURS_PATH: "/internal/working-hours"
   # insights' association engine (services/insights/app/core/associations.py) — the SAME

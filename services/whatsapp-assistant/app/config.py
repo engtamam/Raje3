@@ -174,6 +174,21 @@ class Settings(BaseSettings):
     # every other tenant's tick, same convention as reminders' Receipts._max_pages.
     INBOUND_POLL_MAX_PAGES: int = 20
 
+    # WhatsApp COEXISTENCE (a shop keeps using its own WhatsApp Business app on the SAME number it
+    # connected to us) — platform v0.18.56. OFF by default, and meant to flip together with
+    # notification-service's own WHATSAPP_COEXISTENCE_ENABLED at install time (deploy/bring-up.sh):
+    # this flag decides whether THIS service polls the echo feed at all, not whether the platform
+    # records echoes. See app/core/coexistence_poll.py and app/core/owner_presence.py.
+    WHATSAPP_COEXISTENCE_ENABLED: bool = False
+    NOTIFICATION_COEXISTENCE_ECHOES_PATH: str = "/internal/whatsapp/coexistence/echoes"
+    COEXISTENCE_POLL_PAGE_SIZE: int = 200
+    COEXISTENCE_POLL_MAX_PAGES: int = 20
+    # How long the AI stays quiet on a customer after the owner answers them by hand from their own
+    # phone — long enough to cover one real back-and-forth, short enough that a single manual reply
+    # never silences the assistant on that customer for the rest of the day. 0 disables the
+    # suppression (echoes are still polled and recorded upstream; nothing here would act on them).
+    COEXISTENCE_HUMAN_COOLDOWN_SECONDS: int = 1800
+
     # operations — customer recognition (phone -> subject_ref) and visit-pattern summaries.
     OPERATIONS_SERVICE_URL: str = ""
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We

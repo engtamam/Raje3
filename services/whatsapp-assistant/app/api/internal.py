@@ -187,12 +187,23 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
                            max_pages=settings.INBOUND_POLL_MAX_PAGES)
     inbound_poll = await poller.run(auditor=request.app.state.auditor)
 
+    # ── coexistence catch-up sweep — notes every owner-sent echo so the AI goes quiet on that
+    # customer for a while (app/core/owner_presence.py). Same global-cursor reasoning as the
+    # inbound sweep just above; a no-op ({"configured": False, ...}) when the feature is off.
+    from app.core.coexistence_poll import CoexistencePoller
+
+    co_poller = CoexistencePoller(container=c, settings=settings,
+                                  logger=get_logger("app.coexistence_poll"),
+                                  max_pages=settings.COEXISTENCE_POLL_MAX_PAGES)
+    coexistence_poll = await co_poller.run(now=now)
+
     return {"tenant": tenant, "tenants_swept": len(tenants), "replied": replied, "closed": closed,
             "scanned": scanned,
             "retention_purged_conversations": retention_purged_conversations,
             "retention_purged_messages": retention_purged_messages,
             "retention_truncated": retention_truncated,
-            "inbound_poll": inbound_poll}
+            "inbound_poll": inbound_poll,
+            "coexistence_poll": coexistence_poll}
 
 
 class EraseIn(BaseModel):
