@@ -251,11 +251,23 @@ def build_container(settings: Settings) -> Container:
     container.points_summary = P.build(settings)
     container.customer_lookup = CL.build(settings)
     container.branch_directory = BD.build(settings)
+    container.shop_identity = SI.build(settings)
+    container.service_catalog = SC.build(settings)
+    container.package_catalog = PC.build(settings)
     # PHASE 5 — the WhatsApp Flow (structured screens) booking channel, distinct from the AI text
     # channel's own BOOKING_PROVIDER_DRIVER above. Requires "real" (reuses the exact same
     # RealBookingProvider instance, never a second policy) — fails fast on a config that turns
     # this on without it, same "no silent half-feature" posture as every other combined-config
     # assertion on this service.
+    #
+    # MOVED BELOW service_catalog/customer_lookup/points_summary/branch_directory's OWN
+    # assignments (found live, 2026-09-08, reviewing this exact block for the loyalty-in-booking
+    # addition): this used to sit BEFORE `container.service_catalog = SC.build(...)`, so
+    # `catalog=container.service_catalog` below always passed the container's default (unset)
+    # value — FlowBookingBackend's `options(dimension="service")` would have raised the first time
+    # a real Flow request ever reached it. WHATSAPP_FLOW_BOOKING_ENABLED has never been on in a
+    # real deployment yet, so this was never exercised in production, only found by re-reading the
+    # ordering while wiring the next piece.
     if settings.WHATSAPP_FLOW_BOOKING_ENABLED:
         if settings.BOOKING_PROVIDER_DRIVER != "real":
             raise ValueError(
@@ -263,10 +275,8 @@ def build_container(settings: Settings) -> Container:
         from app.core import flow_booking_backend as FBB
         container.flow_booking_provider = FBB.build(
             settings, real=container.booking_provider, catalog=container.service_catalog,
-            branch_directory=container.branch_directory)
-    container.shop_identity = SI.build(settings)
-    container.service_catalog = SC.build(settings)
-    container.package_catalog = PC.build(settings)
+            branch_directory=container.branch_directory,
+            customer_lookup=container.customer_lookup, points_summary=container.points_summary)
     # growth/invoice-report's own read — every booking whatsapp-assistant made, for
     # invoice_report.py's average-invoice-value stat. Same Null/Http split as SC/PC just above.
     container.booking_actor_report = BAR.build(settings)

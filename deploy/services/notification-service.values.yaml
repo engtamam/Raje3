@@ -155,10 +155,13 @@ env:
   # per-shop content). Steps match FlowBookingBackend's own dimension handling exactly: "staff"
   # SKIPS ITSELF for an `auto`-mode service (v0.18.53's conditional-step contract) and is asked
   # only for a `named` one — see that module's own docstring.
+  # "reward" (loyalty-in-booking, 2026-09-08): skips itself for any customer with nothing real to
+  # redeem — see FlowBookingBackend.options()'s own "LOYALTY-IN-BOOKING" note on why this is the
+  # ONLY place a WhatsApp Flow may ever spend points (never a standalone redemption).
   WHATSAPP_BOOKING_DEFINITION: |
     {
-      "steps": [{"dimension":"service"},{"dimension":"staff"},{"dimension":"date"},
-               {"dimension":"confirm"}],
+      "steps": [{"dimension":"service"},{"dimension":"staff"},{"dimension":"reward"},
+               {"dimension":"date"},{"dimension":"confirm"}],
       "mode": "single",
       "horizon_days": 14,
       "min_days": 1,
@@ -166,6 +169,7 @@ env:
       "strings": {
         "pick_service": "اختر الخدمة",
         "pick_staff": "اختر الموظف",
+        "pick_reward": "عندك رصيد نقاط — تحب تستبدله بهذا الحجز؟",
         "pick_date": "اختر التاريخ",
         "pick_time": "اختر الوقت",
         "continue": "متابعة",

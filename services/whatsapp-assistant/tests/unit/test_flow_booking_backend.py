@@ -44,13 +44,31 @@ def _real(*, branch_operators=None, service_eligibility=None, nearest_any_real_s
         create_booking=create_booking or _FakePeer(None))
 
 
-def _backend(*, catalog=None, branches=None, day_slots=None, real=None) -> FlowBookingBackend:
+class _FakeCustomerLookup:
+    def __init__(self, found: bool, subject_ref: str = "sub_1"):
+        self._found, self._subject_ref = found, subject_ref
+
+    async def resolve(self, tenant, phone):
+        return {"found": self._found, "subject_ref": self._subject_ref if self._found else ""}
+
+
+class _FakePointsSummary:
+    def __init__(self, offers: list[dict]):
+        self._offers = offers
+
+    async def offers(self, *, tenant, subject_ref):
+        return self._offers
+
+
+def _backend(*, catalog=None, branches=None, day_slots=None, real=None,
+            customer_lookup=None, points_summary=None) -> FlowBookingBackend:
     return FlowBookingBackend(
         real=real or _real(), catalog=catalog or _FakeCatalog([]),
         branch_directory=branches or _FakeBranches([{"id": BRANCH}]),
         day_slots=day_slots or _FakePeer({"starts_at": []}),
         working_hours_url="http://bookings", working_hours_path="/internal/working-hours",
-        token="tok", timeout=5)
+        token="tok", timeout=5,
+        customer_lookup=customer_lookup, points_summary=points_summary)
 
 
 # ── options(dimension="service") ─────────────────────────────────────────────────────────────
@@ -107,6 +125,46 @@ async def test_options_staff_skips_without_a_single_resolvable_branch():
 async def test_options_unknown_dimension_is_empty():
     backend = _backend()
     assert await backend.options(tenant=TENANT, dimension="party_size", chosen={}) == []
+
+
+# ── options(dimension="reward") — loyalty-in-booking (2026-09-08) ──────────────────────────────
+
+async def test_options_reward_skips_when_peers_are_not_wired():
+    """The default, unconfigured state — never a crash, never a fake offer."""
+    backend = _backend(customer_lookup=None, points_summary=None)
+    assert await backend.options(
+        tenant=TENANT, dimension="reward", chosen={}, customer="+9665") == []
+
+
+async def test_options_reward_skips_without_a_customer_seeded():
+    backend = _backend(customer_lookup=_FakeCustomerLookup(True),
+                       points_summary=_FakePointsSummary([{"reward_id": "r1"}]))
+    assert await backend.options(tenant=TENANT, dimension="reward", chosen={}, customer="") == []
+
+
+async def test_options_reward_skips_when_the_customer_cannot_be_resolved():
+    backend = _backend(customer_lookup=_FakeCustomerLookup(False),
+                       points_summary=_FakePointsSummary([{"reward_id": "r1"}]))
+    assert await backend.options(
+        tenant=TENANT, dimension="reward", chosen={}, customer="+9665") == []
+
+
+async def test_options_reward_skips_when_nothing_is_affordable():
+    backend = _backend(customer_lookup=_FakeCustomerLookup(True),
+                       points_summary=_FakePointsSummary([]))
+    assert await backend.options(
+        tenant=TENANT, dimension="reward", chosen={}, customer="+9665") == []
+
+
+async def test_options_reward_lists_real_affordable_offers():
+    offers = [{"reward_id": "r1", "reward_name": "قهوة مجانية", "points_cost": 500},
+             {"reward_id": "r2", "reward_name": "خصم 10٪", "points_cost": 200}]
+    backend = _backend(customer_lookup=_FakeCustomerLookup(True),
+                       points_summary=_FakePointsSummary(offers))
+    options = await backend.options(
+        tenant=TENANT, dimension="reward", chosen={}, customer="+9665")
+    assert {"id": "r1", "title": "قهوة مجانية — 500 نقطة"} in options
+    assert {"id": "r2", "title": "خصم 10٪ — 200 نقطة"} in options
 
 
 # ── calendar() ───────────────────────────────────────────────────────────────────────────────
@@ -217,6 +275,33 @@ async def test_reserve_honours_a_named_staff_pick():
         tenant=TENANT, selection={"service": "svc1", "time": "1893456000", "staff": "op2"},
         idempotency_key="idem1", customer="+966500000000")
     assert merge.calls[-1]["operator_ids"] == ["op2"]
+
+
+async def test_reserve_passes_the_chosen_reward_as_intended_reward_id():
+    """LOYALTY-IN-BOOKING — the chosen reward books AND redeems atomically via the same
+    intended_reward_id field Phase 4 already built (INTENT only, spent at attend() time)."""
+    create = _FakePeer({"id": "bk_789"})
+    merge = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 1893456000}]})
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    real = _real(nearest_any_real_slot=merge, create_booking=create, branch_operators=ops)
+    backend = _backend(real=real)
+    result = await backend.reserve(
+        tenant=TENANT, selection={"service": "svc1", "time": "1893456000", "reward": "r1"},
+        idempotency_key="idem1", customer="+966500000000")
+    assert result == {"ok": True, "ref": "bk_789"}
+    assert create.calls[-1]["intended_reward_id"] == "r1"
+
+
+async def test_reserve_without_a_chosen_reward_sends_no_intended_reward_id():
+    create = _FakePeer({"id": "bk_790"})
+    merge = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 1893456000}]})
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    real = _real(nearest_any_real_slot=merge, create_booking=create, branch_operators=ops)
+    backend = _backend(real=real)
+    await backend.reserve(
+        tenant=TENANT, selection={"service": "svc1", "time": "1893456000"},
+        idempotency_key="idem1", customer="+966500000000")
+    assert "intended_reward_id" not in create.calls[-1]
 
 
 async def test_reserve_reports_a_readable_reason_on_refusal():

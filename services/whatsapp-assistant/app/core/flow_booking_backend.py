@@ -29,6 +29,19 @@ core/branch_directory.py already exists to resolve for the free-text channel); a
 a separate, later pass. A shop with more than one open branch simply cannot complete a Flow booking
 yet — `options`/`calendar`/`slots` all return empty rather than guessing a branch, and `reserve`
 refuses with a reason a customer can read.
+
+LOYALTY-IN-BOOKING, NEVER STANDALONE REDEMPTION (2026-09-08 decision, restated here because it is
+the whole reason this exists in this file and not a separate loyalty Flow). core/points.py's own
+module docstring already records why a bare "redeem your points" tool was removed from the AI text
+channel: a redemption with no booking behind it is a reward the shop hands over with no visit to
+show for it if the customer never comes in. So `options(dimension="reward", ...)` below is the
+ONLY place points can ever be spent from a WhatsApp Flow — it rides INSIDE this same booking, using
+the exact mechanism `booking_flow.py`'s own docstring calls "LOYALTY-IN-BOOKING": the chosen reward
+becomes `selection["reward"]` and travels to `reserve()`, which books AND redeems atomically via
+`hold_and_confirm`'s existing `intended_reward_id` (Phase 4's own field — nothing new on the write
+side). SKIPS ITSELF (same v0.18.53 contract as the staff step) whenever the customer cannot be
+identified, has no loyalty programme, or has nothing affordable without manager approval — a
+customer with nothing to redeem never sees the step at all.
 """
 from __future__ import annotations
 
@@ -59,7 +72,8 @@ class FlowBookingBackend:
 
     def __init__(self, *, real: RealBookingProvider, catalog: Any, branch_directory: Any,
                 day_slots: _Peer, working_hours_url: str, working_hours_path: str,
-                token: str, timeout: int) -> None:
+                token: str, timeout: int, customer_lookup: Any = None,
+                points_summary: Any = None) -> None:
         self._real = real
         self._catalog = catalog
         self._branches = branch_directory
@@ -67,6 +81,10 @@ class FlowBookingBackend:
         self._wh_url = working_hours_url.rstrip("/") + working_hours_path
         self._token = token
         self._timeout = timeout
+        # OPTIONAL — see module docstring, "LOYALTY-IN-BOOKING". None (never wired) means the
+        # reward step always skips, same fail-safe posture as an unreachable peer; never a crash.
+        self._customer_lookup = customer_lookup
+        self._points_summary = points_summary
 
     async def _branch_id(self, tenant: str) -> str:
         """The one open branch, or "" — see module docstring, "SINGLE-BRANCH SHOPS ONLY"."""
@@ -122,6 +140,21 @@ class FlowBookingBackend:
             names = {str(o.get("id")): str(o.get("name") or "")
                     for o in (ops or {}).get("operators") or []}
             return [{"id": op_id, "title": names.get(op_id) or op_id} for op_id in pool]
+
+        if dimension == "reward":
+            # SKIPS ITSELF FAR MORE OFTEN THAN NOT — see module docstring, "LOYALTY-IN-BOOKING".
+            # Every early return here is the SAME outcome (no step shown), for different reasons;
+            # none of them is an error, so none of them logs or refuses anything.
+            if self._customer_lookup is None or self._points_summary is None or not customer:
+                return []
+            resolved = await self._customer_lookup.resolve(tenant, customer)
+            subject_ref = str(resolved.get("subject_ref") or "") if resolved.get("found") else ""
+            if not subject_ref:
+                return []
+            offers = await self._points_summary.offers(tenant=tenant, subject_ref=subject_ref)
+            return [{"id": str(o.get("reward_id") or ""),
+                    "title": f"{o.get('reward_name') or ''} — {int(o.get('points_cost') or 0)} نقطة"}
+                   for o in offers if o.get("reward_id")]
 
         return []
 
@@ -207,14 +240,19 @@ class FlowBookingBackend:
             result = await self._real.hold_and_confirm(
                 tenant=tenant, subject_ref="", service_id=service_id, starts_at=starts_at,
                 idempotency_key=idempotency_key, branch_id=branch_id, from_number=customer,
-                preferred_operator_id=str(selection.get("staff") or ""))
+                preferred_operator_id=str(selection.get("staff") or ""),
+                # LOYALTY-IN-BOOKING — see module docstring. INTENT ONLY (RealBookingProvider's
+                # own comment on this field): the actual spend still waits for attend(), so a
+                # no-show never costs the shop a reward it never delivered.
+                intended_reward_id=str(selection.get("reward") or ""))
         except BookingAssignmentError as exc:
             return {"ok": False, "reason": str(exc)}
         return {"ok": True, "ref": str(result.get("id") or "")}
 
 
 def build(settings: Any, *, real: RealBookingProvider, catalog: Any,
-         branch_directory: Any) -> "FlowBookingBackend":
+         branch_directory: Any, customer_lookup: Any = None,
+         points_summary: Any = None) -> "FlowBookingBackend":
     """Requires `real`/`catalog`/`branch_directory` — the SAME instances the container already
     built for BOOKING_PROVIDER_DRIVER="real" and the AI channel's own catalogue/branch lookups
     (container.py's `service_catalog`/`branch_directory`), never a second copy of their peers.
@@ -222,13 +260,20 @@ def build(settings: Any, *, real: RealBookingProvider, catalog: Any,
     module needs (bookings-service's day-slots-any route) is not reachable because
     BOOKINGS_SERVICE_URL is unset — WHATSAPP_FLOW_BOOKING_ENABLED already requires
     BOOKING_PROVIDER_DRIVER="real" at the container level, so this should never actually be hit
-    with an empty URL in practice."""
+    with an empty URL in practice.
+
+    `customer_lookup`/`points_summary` are OPTIONAL — the container's own instances
+    (`CL.build`/`P.build`, already constructed for the AI text channel), reused rather than
+    duplicated. Omitted (both default None) means the reward step always skips — see
+    FlowBookingBackend's own docstring, "LOYALTY-IN-BOOKING" — never a crash from a missing peer.
+    """
     if not settings.BOOKINGS_SERVICE_URL:
         raise ValueError("WHATSAPP_FLOW_BOOKING_ENABLED=true requires BOOKINGS_SERVICE_URL set")
     token = settings.INTERNAL_SERVICE_TOKEN
     timeout = settings.PEER_TIMEOUT_SECONDS
     return FlowBookingBackend(
         real=real, catalog=catalog, branch_directory=branch_directory,
+        customer_lookup=customer_lookup, points_summary=points_summary,
         day_slots=_Peer(url=settings.BOOKINGS_SERVICE_URL,
                         path=settings.BOOKINGS_DAY_SLOTS_ANY_REAL_PATH,
                         token=token, timeout=timeout),
