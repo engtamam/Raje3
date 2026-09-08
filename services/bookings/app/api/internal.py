@@ -238,7 +238,7 @@ def _to_busy(rows: list[BusyIn]) -> list[Busy]:
 
 @router.post("/availability/check", dependencies=[Depends(require_internal_token)])
 async def availability_check(body: AvailabilityCheckIn) -> dict:
-    """Every candidate start time in the window — the grid's own data source, and the "أقرب فتحة"
+    """Every candidate start time in the window — the grid's own data source, and the "أقرب موعد"
     button's underlying query. `duration_minutes` is a required, positive field at the API
     boundary already (`Field(gt=0)`), so `DurationNotConfigured` from the pure layer below is
     unreachable through this route by construction — the boundary enforces what the design doc
@@ -260,9 +260,9 @@ class NearestSlotIn(BaseModel):
 
 @router.post("/availability/nearest", dependencies=[Depends(require_internal_token)])
 async def availability_nearest(body: NearestSlotIn) -> dict:
-    """The "أقرب فتحة" button (docs/وصف-تطبيق-الحجوزات.md §6.2): the first open candidate at or
+    """The "أقرب موعد" button (docs/وصف-تطبيق-الحجوزات.md §6.2): the first open candidate at or
     after `after`. `null` when nothing is free in `search_days` — the caller renders that as "لا
-    فتحة قريبة", never as a silently empty grid."""
+    موعد قريب", never as a silently empty grid."""
     found = nearest_slot(body.schedule.to_schedule(), _to_busy(body.busy),
                          duration_minutes=body.duration_minutes, after=body.after,
                          search_days=body.search_days)

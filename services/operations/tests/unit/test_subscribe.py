@@ -26,7 +26,7 @@ def test_a_paid_plan_with_a_connection_goes_through():
 # ── `paid` also covers a plan whose OWN price is 0 (api/v1/subscription.py computes
 # `paid = bool(payment_token) or price_minor == 0` at the call site) ───────────────────────────
 def test_a_free_plan_needs_no_payment_token():
-    """بيانات التواصل (plans.json, amount: 0) — same shape as the trial exemption just above,
+    """جهات الاتصال (plans.json, amount: 0) — same shape as the trial exemption just above,
     reached a different way: the call site passes `paid=True` when the resolved price is 0."""
     assert may_subscribe(connected=True, trial_days=0, paid=True).allowed is True
 

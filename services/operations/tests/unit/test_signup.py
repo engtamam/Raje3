@@ -263,7 +263,7 @@ async def test_one_apps_failed_trial_does_not_stop_the_rest_or_the_welcome():
 
 @pytest.mark.anyio
 async def test_a_fresh_signup_holds_the_free_contacts_grant_from_day_one():
-    """«بيانات التواصل» is granted alongside الأساس's own trial — not instead of it, and not
+    """«جهات الاتصال» is granted alongside الأساس's own trial — not instead of it, and not
     only when a shop later buys or trials something else."""
     http = FakeHttp(list(_HAPPY_PATH))
     plans = FakePlans(contacts_id="plan_contacts")

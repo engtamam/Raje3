@@ -158,7 +158,7 @@ export const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   // the "needs base first" note ("التطبيقات تُضاف…" above the apps grid), which names the actual
   // missing app(s) — see `missingRequirement` and its render site just below.
   'plan.requires_any': { label: 'يحتاج تطبيقاً آخر مفعّلاً أولاً' },
-  // بيانات التواصل — the FREE app (see plans.json's own note on the row). Grants exactly one
+  // جهات الاتصال — the FREE app (see plans.json's own note on the row). Grants exactly one
   // door: resolving or creating a customer by phone with no visit attached.
   'feature.contacts': { label: 'تسجيل بيانات العملاء وحفظها' },
   // تسجيل زيارة — the visit register itself, sold on its own (see plans.json's own note on the
@@ -236,7 +236,7 @@ export const REQUIRES_ANY_LABELS: Record<string, string> = {
   'feature.base': 'الأساس',
   'feature.visit': 'تسجيل زيارة',
   'feature.bookings': 'الحجوزات',
-  'feature.contacts': 'بيانات التواصل',
+  'feature.contacts': 'جهات الاتصال',
 };
 
 /** The OTHER feature keys this plan's own row says at least one of must already be held —

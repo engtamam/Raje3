@@ -364,7 +364,7 @@ def test_a_paid_plan_without_a_payment_token_is_refused(client, monkeypatch):
 
 
 def test_a_free_plan_subscribes_with_no_payment_token_at_all(client, monkeypatch):
-    """بيانات التواصل (plans.json, amount: 0) — the free-plan bug's own fix, as a test. A plan
+    """جهات الاتصال (plans.json, amount: 0) — the free-plan bug's own fix, as a test. A plan
     whose RESOLVED price is 0 must go through with no token at all, same as a trial does; unlike a
     trial it is billed forever at nothing, so it is subscribed `once` rather than monthly (see
     subscription.py's own comment on that override) — this test also proves that override fires."""

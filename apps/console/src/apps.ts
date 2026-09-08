@@ -115,14 +115,14 @@ export const APP_ROWS: AppRow[] = [
     section: '',
     onCustomer: '',
   },
-  // THE FREE STANDALONE APP — plans.json's own «بيانات التواصل», amount 0, held by every fresh
+  // THE FREE STANDALONE APP — plans.json's own «جهات الاتصال», amount 0, held by every fresh
   // shop from day one (services/operations/app/core/signup.py::_start_contacts_grant), whether
   // or not it also holds الأساس. Listed here so the same catalogue screens that show every other
   // app (Locked.tsx, PlanCards.tsx) can name this one instead of falling through to an unknown key.
   {
     id: 'contacts',
     key: 'feature.contacts',
-    name: 'بيانات التواصل',
+    name: 'جهات الاتصال',
     what: 'يفتح باب تسجيل العميل برقمه من أي مكان في المحل، حتى بلا اشتراك أساسي.',
     section: '',
     onCustomer: '',
@@ -233,7 +233,7 @@ export function daysLeft(owned: Loading<Owned>, now: number): number | null {
 /**
  * WHICH SUBSCRIPTION IS THE ONE WORTH A BANNER — never assumed to be الأساس. A shop with no base
  * at all can still hold a standalone app bought on its own (تسجيل زيارة), and that one is what is
- * actually ending for him. بيانات التواصل is excluded by construction rather than by name: it is
+ * actually ending for him. جهات الاتصال is excluded by construction rather than by name: it is
  * free and subscribed with `interval='once'` (never renews), so it never carries a `renews_at`
  * and simply never wins the search below — no special-case needed for it here.
  *

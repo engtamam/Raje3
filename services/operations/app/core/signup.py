@@ -370,7 +370,7 @@ class SignupService:
         trial_started, trial_error, trial_end = await self._start_base_trial(tenant)
 
         # THE ONE APP EVERY SHOP HOLDS FROM DAY ONE, WHATEVER ELSE IT BUYS OR LETS LAPSE.
-        # «بيانات التواصل» is free and standalone (plans.json's own note on the row) — a shop
+        # «جهات الاتصال» is free and standalone (plans.json's own note on the row) — a shop
         # able to register a customer must not depend on الأساس's trial staying alive, and must
         # not need an owner to find «متجر التطبيقات» and press a button for a door that costs him
         # nothing. Granted ALONGSIDE the base trial above, never instead of it: this changes
@@ -591,13 +591,13 @@ class SignupService:
         return True, "", float((out or {}).get("trial_end") or 0.0)
 
     async def _start_contacts_grant(self, tenant: str) -> None:
-        """Subscribe this fresh shop to «بيانات التواصل», the one free standalone app every shop
+        """Subscribe this fresh shop to «جهات الاتصال», the one free standalone app every shop
         gets on day one — regardless of الأساس, its trial, or whether it is ever bought at all.
 
         WHY THIS IS SEPARATE FROM `_start_base_trial`/`_start_app_trials` ABOVE, AND NOT ONE MORE
         ENTRY THOSE ALREADY WALK. Both of those only run when the base trial itself opened
         (`_start_base_trial` calls `_start_app_trials` from inside its own success branch) — and
-        `list_trial_plans` only returns plans that carry a trial. «بيانات التواصل» carries none
+        `list_trial_plans` only returns plans that carry a trial. «جهات الاتصال» carries none
         (plans.json: `trial_days: 0`, subscribed at amount 0 with `interval='once'`) precisely
         because it never lapses and is never a trial to begin with, so it would never appear on
         either list. Folding it into `_start_app_trials` would make this grant depend on the base

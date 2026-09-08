@@ -273,7 +273,7 @@ def is_free(schedule: Schedule, busy: Sequence[Busy], *, starts_at: int, duratio
 
 def nearest_slot(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: int,
                  after: int, search_days: int = 14) -> Slot | None:
-    """The "أقرب فتحة" button (docs/وصف-تطبيق-الحجوزات.md §6.2) — the first candidate at or after
+    """The "أقرب موعد" button (docs/وصف-تطبيق-الحجوزات.md §6.2) — the first candidate at or after
     `after`, searching forward up to `search_days`. `None` when nothing is free in that horizon,
     which the caller renders as "no opening in the next two weeks", never as a silent empty grid.
     """

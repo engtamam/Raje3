@@ -30,7 +30,7 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
   // `unknown` STAYS SILENT — billing unread. `none` USED TO MEAN THE SAME («nothing to say» —
   // no base, so nothing running out) but a shop with no base at all can still hold a STANDALONE
   // app bought on its own (تسجيل زيارة), and ITS renewal is what is actually ending for him —
-  // handled just below rather than assumed away. بيانات التواصل never surfaces here: it is free
+  // handled just below rather than assumed away. جهات الاتصال never surfaces here: it is free
   // and subscribed `interval='once'`, so it never carries a `renews_at` and never wins the search
   // in `relevantSubscription` — no special case needed for it.
   if (state === 'unknown') return null;

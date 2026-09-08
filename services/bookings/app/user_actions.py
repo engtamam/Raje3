@@ -49,17 +49,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "من أصل آخر خمس مواعيد له، كم مرة لم يحضر — رقمٌ يُعرض بجانب اسمه ولا يمنع الحجز.",
     },
     {
-        "id": "bookings.nearest", "label": "أقرب فتحة", "method": "GET",
+        "id": "bookings.nearest", "label": "أقرب موعد", "method": "GET",
         "path": "/api/v1/bookings/nearest", "capability": "bookings.read",
         "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
                   {"name": "operator_id", "in": "query", "type": "string", "required": True},
                   {"name": "service_ids", "in": "query", "type": "string", "required": True},
                   {"name": "after", "in": "query", "type": "integer", "required": True}],
         "group": "الحجوزات",
-        "help": "أقرب موعد فاضٍ لهذا العامل بعد وقت تحدّده. لا شيء إن لم توجد فتحة.",
+        "help": "أقرب موعد فاضٍ لهذا العامل بعد وقت تحدّده. لا شيء إن لم يوجد موعد.",
     },
     {
-        "id": "bookings.nearest_any", "label": "أقرب فتحة — أي متاح", "method": "GET",
+        "id": "bookings.nearest_any", "label": "أقرب موعد — أي متاح", "method": "GET",
         "path": "/api/v1/bookings/nearest-any", "capability": "bookings.read",
         "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
                   {"name": "operator_ids", "in": "query", "type": "string", "required": True},
@@ -67,7 +67,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
                   {"name": "after", "in": "query", "type": "integer", "required": True},
                   {"name": "window_end", "in": "query", "type": "integer", "required": True}],
         "group": "الحجوزات",
-        "help": "أقرب الفتحات بين عدّة موظفين مؤهّلين معاً — تُرجع كل فتحة مع صاحبها.",
+        "help": "أقرب المواعيد بين عدّة موظفين مؤهّلين معاً — تُرجع كل موعد مع صاحبه.",
     },
     {
         "id": "bookings.create", "label": "حجز جديد", "method": "POST",
@@ -102,7 +102,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/bookings/{booking_id}/cancel", "capability": "bookings.write",
         "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "الحجوزات",
-        "help": "يلغي الحجز ويحرّر الفتحة لغيره. لا رجوع عنه من هنا.",
+        "help": "يلغي الحجز ويحرّر الموعد لغيره. لا رجوع عنه من هنا.",
     },
     {
         "id": "bookings.attend", "label": "تسجيل الحضور", "method": "PATCH",

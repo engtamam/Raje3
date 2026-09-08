@@ -1,7 +1,7 @@
 /**
  * The one-line banner above every screen — proven it no longer assumes الأساس is the only
  * subscription worth naming. A shop with no base at all can still hold تسجيل زيارة standalone,
- * and بيانات التواصل (free, `interval='once'`) must never trigger a banner at all.
+ * and جهات الاتصال (free, `interval='once'`) must never trigger a banner at all.
  */
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -47,11 +47,11 @@ describe('SubscriptionBar', () => {
     expect(status.textContent).not.toContain('الأساس');
   });
 
-  it('never mentions بيانات التواصل — it is free and carries no renewal date', () => {
+  it('never mentions جهات الاتصال — it is free and carries no renewal date', () => {
     renderBar({
       checked: true, message: '', keys: ['feature.contacts'],
       apps: [
-        { key: 'feature.contacts', name: 'بيانات التواصل', what: '', screen: '', owned: true,
+        { key: 'feature.contacts', name: 'جهات الاتصال', what: '', screen: '', owned: true,
           renews_at: null },
       ],
       base: null,

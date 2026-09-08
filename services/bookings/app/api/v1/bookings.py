@@ -210,13 +210,13 @@ async def write_assignment_settings(request: Request, body: AssignmentSettingsIn
 async def nearest_slot(request: Request, branch_id: str, operator_id: str,
                        service_ids: str, after: int, exclude_booking_id: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
-    """The "أقرب فتحة" button (§6.2) — `service_ids` is a comma-separated list, since query
+    """The "أقرب موعد" button (§6.2) — `service_ids` is a comma-separated list, since query
     params carry no arrays cleanly. `null` when nothing is free in the search window.
 
     `exclude_booking_id` IS FOR RESCHEDULING ONE THAT ALREADY EXISTS. Without it, an edit of a
     booking asks "when is this operator free?" while that operator's own diary still contains the
     very appointment being moved — so its current hour reads as taken and, for a long service on a
-    busy day, the answer comes back "لا فتحة فاضية هذا اليوم" for a booking that is sitting in a
+    busy day, the answer comes back "لا موعد فاضٍ هذا اليوم" for a booking that is sitting in a
     perfectly good slot right now. The one booking being edited is not a conflict with itself.
     """
     tenant = _tenant(principal)

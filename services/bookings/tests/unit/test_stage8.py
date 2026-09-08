@@ -1,5 +1,5 @@
 """Stage 8 (docs/وصف-تطبيق-الحجوزات.md §2.6, §6.2): a number read at the moment it is useful, and
-the "أقرب فتحة" button.
+the "أقرب موعد" button.
 """
 from __future__ import annotations
 
@@ -197,7 +197,7 @@ def test_a_smaller_window_judges_her_on_less_history():
     assert risk["risky"] is True
 
 
-# ── §6.2: "أقرب فتحة" ─────────────────────────────────────────────────────────────────────────
+# ── §6.2: "أقرب موعد" ─────────────────────────────────────────────────────────────────────────
 
 def test_nearest_slot_finds_the_first_real_opening():
     ops = _ops()

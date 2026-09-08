@@ -106,13 +106,13 @@ subscribed_write_or_whatsapp = subscribed_write_or(
 
 # Registering a customer — `/field/customers/ensure` — must be possible from any app that
 # legitimately creates or first meets a customer relationship, not gated to `feature.base` alone:
-# `feature.base` for today's legacy bundle, `feature.contacts` for "بيانات التواصل" (the free
+# `feature.base` for today's legacy bundle, `feature.contacts` for "جهات الاتصال" (the free
 # standalone app built to carry exactly this), and `feature.bookings` because a booking can be how
 # a shop meets a customer for the first time. A FUTURE app joins this OR by adding its own
 # attribute name to this one line — nothing else in this file changes.
 subscribed_write_or_customer_creating_app = subscribed_write_or(
     "base_licence", "contacts_licence", "bookings_licence",
-    refusal="يحتاج تسجيل عميل اشتراكاً فعّالاً — بالأساس، أو بتطبيق بيانات التواصل، "
+    refusal="يحتاج تسجيل عميل اشتراكاً فعّالاً — بالأساس، أو بتطبيق جهات الاتصال، "
            "أو بتطبيق الحجوزات.")
 
 # Recording a visit — `/field/visits`, `/field/visits/{id}/offer`, and the till door that

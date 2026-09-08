@@ -339,7 +339,7 @@ export function BookingDialog(
           setSlots(r.slots.map((s) => ({ operatorId: s.operator_id, startsAt: s.starts_at })));
         }
       } catch (e) {
-        if (!stale) { setSlots([]); setSlotsError(sentenceFor(e, 'تعذّر البحث عن فتحات.')); }
+        if (!stale) { setSlots([]); setSlotsError(sentenceFor(e, 'تعذّر البحث عن مواعيد.')); }
       }
     }
     run();
@@ -610,7 +610,7 @@ export function BookingDialog(
 
             مخفي تماماً حين كل الخدمات المختارة «تلقائي» (`assignment_mode`، المرحلة 3) — لا خدمة
             متبقية تسأل «مع مين» أصلاً، فالسؤال نفسه يسقط بدل ما يُعرض بخيار وحيد لا معنى له.
-            `operatorId` يبقى فارغاً طوال الوقت (نفس سلوك «أي متاح» الحالي بالضبط)، ومنتقي الفتحات
+            `operatorId` يبقى فارغاً طوال الوقت (نفس سلوك «أي متاح» الحالي بالضبط)، ومنتقي المواعيد
             تحته يعبّئه فعلياً لحظة اختيار رقاقة — العميل ما يسأل، بس التخصيص الفعلي يصير كالمعتاد. */}
         {anyNamed ? (
           <Field label="الموظف" required htmlFor="bkg-op"

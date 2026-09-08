@@ -181,7 +181,7 @@ _REQUIRES_ANY_LABELS: dict[str, str] = {
     "feature.base": "الأساس",
     "feature.visit": "تسجيل زيارة",
     "feature.bookings": "الحجوزات",
-    "feature.contacts": "بيانات التواصل",
+    "feature.contacts": "جهات الاتصال",
 }
 
 
@@ -543,7 +543,7 @@ class HttpPlans:
                if int(p.get("trial_days") or 0) > 0 and p.get("id")]
 
     async def contacts_plan_id(self) -> str:
-        """The one listed, FREE plan that grants `feature.contacts` — «بيانات التواصل»'s own id,
+        """The one listed, FREE plan that grants `feature.contacts` — «جهات الاتصال»'s own id,
         found the exact same way `base_plan_id` finds the base above: by what the row IS, never by
         a configured id that would go stale the day the price list changes.
 

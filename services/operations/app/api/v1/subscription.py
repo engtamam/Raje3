@@ -175,7 +175,7 @@ async def subscribe(request: Request, body: SubscribeIn,
     trial_days = await c.billing_plans.trial_days(body.plan_id)
     connected = await c.connections.connected(tenant)
 
-    # A FREE PLAN NEEDS NO TOKEN EITHER — "بيانات التواصل" (plans.json) is the first of these,
+    # A FREE PLAN NEEDS NO TOKEN EITHER — "جهات الاتصال" (plans.json) is the first of these,
     # amount 0, and `may_subscribe`'s own "no token, no plan" rule used to refuse it unconditionally,
     # exactly as it should refuse a paid plan with no way to charge it. `amount_minor` asks the
     # SAME live price billing would actually charge; `None` means "could not read" and must NOT be
