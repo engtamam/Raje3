@@ -442,18 +442,27 @@ async def preview_reason(request: Request, reason_id: str,
         body = row.get("body", "")
         for i, value in enumerate(rendered.variables, start=1):
             body = body.replace("{{" + str(i) + "}}", value)
-        options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
-                        "text": body, "mine": False,
-                        # AND THE SHAPE THE EXAMPLE CAME FROM. Reading the sheet: «العميل
-                        # يقرأ الرسالة ما يعرف وين الفراغات». A filled example is what his
-                        # customer receives; it is not what the message IS. Without the blanks he
-                        # cannot tell which words are his shop's forever and which change per
-                        # person — and if he wants to write his own he has no idea where the
-                        # blanks go.
-                        "template": _with_named_blanks(row),
-                        # CAN THIS ONE ACTUALLY GO OUT TODAY — asked of the account, not assumed.
-                        # `approved` is filled below in one read rather than one per row.
-                        "approved": None, "status": "", "reason": ""})
+        option = {"name": row.get("name", ""), "tone": row.get("tone", ""),
+                 "text": body, "mine": False,
+                 # AND THE SHAPE THE EXAMPLE CAME FROM. Reading the sheet: «العميل
+                 # يقرأ الرسالة ما يعرف وين الفراغات». A filled example is what his
+                 # customer receives; it is not what the message IS. Without the blanks he
+                 # cannot tell which words are his shop's forever and which change per
+                 # person — and if he wants to write his own he has no idea where the
+                 # blanks go.
+                 "template": _with_named_blanks(row),
+                 # CAN THIS ONE ACTUALLY GO OUT TODAY — asked of the account, not assumed.
+                 # `approved` is filled below in one read rather than one per row.
+                 "approved": None, "status": "", "reason": ""}
+        # THE BUTTON META ACTUALLY SENDS, SURFACED — not just read. `row["button"]` (the visible
+        # label) and `row["flow_button"]` (which Flow it opens, by stable flow_name — see the
+        # rating template's own seed comment) have always been on this row; nothing before this
+        # ever put them where an owner deciding on a wording could see them. Only a genuine
+        # Flow-carrying row gets one — `button` sits blank on every ordinary template, and a
+        # blank label is not a button.
+        if row.get("flow_button") and row.get("button"):
+            option["buttons"] = [{"label": row["button"], "kind": "flow"}]
+        options.append(option)
 
     # WHAT META HAS ACTUALLY APPROVED ON HIS NUMBER. `None` from this reader means NOT KNOWN —
     # notification-service unreachable or not configured — and not-known must never be rendered as
