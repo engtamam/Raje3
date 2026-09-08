@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:b87a4a9091c116bbbd04c2a8e70528c9e432f4f4491724f7c13ae383cd80e135"   # 4a3b0be8, published by publish-images.sh
+  digest: "sha256:5881517c1ebb24065e431d0622a6e4c5e4cec2e2ba28313069668c9066c4c01d"   # 708d243d, published by publish-images.sh
 
 replicas: 1
 
