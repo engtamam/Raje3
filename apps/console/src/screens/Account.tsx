@@ -188,9 +188,12 @@ export function AccountScreen(
   const [branchGateState, setBranchGateState] = useState<BranchGate>('open');
   const SHOP_SUBTABS = [
     { value: 'people' as const, label: 'العاملون' },
-    // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after — same reasoning
-    // `TeamScreen`'s own (uncontrolled-mode) label always used.
-    { value: 'branches' as const, label: branchGateState === 'open' ? 'الفروع' : 'الفروع 🔒' },
+    // THE LOCK IS VISIBLE BEFORE HE PRESSES, not after — same reasoning as always, now through
+    // Segmented's own `badge`/`badgeTone` (its 2026-09-07 redesign exists for exactly this: a
+    // status baked into the label as raw text/emoji, with zero colour, is what that redesign
+    // replaced everywhere else — this raw "🔒" was the one spot still doing it the old way).
+    { value: 'branches' as const, label: 'الفروع',
+     ...(branchGateState !== 'open' ? { badge: 'مقفل', badgeTone: 'partial' as const } : {}) },
     { value: 'whatsapp' as const, label: 'ربط واتساب' },
     { value: 'identity' as const, label: 'الهوية والإعدادات' },
   ];

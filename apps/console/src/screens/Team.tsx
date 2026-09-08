@@ -27,7 +27,7 @@ import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
-import { Check, Lock, Megaphone, ShieldCheck, UserCog, UserRound } from 'lucide-react';
+import { Check, Lock, Megaphone, ShieldCheck, UserCog, UserPlus, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { STORE_PATH } from '../nav';
 import { action, call, type Catalog } from '../catalog';
@@ -238,12 +238,14 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
             { value: 'people', label: 'العاملون' },
-            // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after. A tab that
-            // looks pressable and then refuses is worse than one that says so. It marks BOTH kinds
-            // of closed door — «not yours» and «not in your enabled apps» — and the panel says which.
-            { value: 'branches',
-              label: branchGate(Boolean(listBranches), branchLimit) === 'open'
-                ? 'الفروع' : 'الفروع 🔒' },
+            // THE LOCK IS VISIBLE BEFORE HE PRESSES, not after — a tab that looks pressable and
+            // then refuses is worse than one that says so. It marks BOTH kinds of closed door —
+            // «not yours» and «not in your enabled apps» — and the panel says which. Through
+            // Segmented's own `badge`/`badgeTone`, same as Account.tsx's controlled-mode copy of
+            // this exact tab, not a raw emoji glued onto the label text.
+            { value: 'branches', label: 'الفروع',
+             ...(branchGate(Boolean(listBranches), branchLimit) !== 'open'
+               ? { badge: 'مقفل', badgeTone: 'partial' as const } : {}) },
           ]}
           value={tab}
           onChange={setTab}
@@ -372,11 +374,13 @@ export function People({ session, operators, branches, add, edit, hire, setHours
         // «لا يوجد موظفون بعد» INVITES HIM TO ADD PEOPLE HE ALREADY HAS. Said after a failed read
         // it is an instruction to redo work, on the screen that decides who sees whose data.
         <EmptyState
+          icon={<UserRound size={20} aria-hidden />}
           title="تعذّرت قراءة فريقك"
           description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
         />
       ) : operators.length === 0 ? (
         <EmptyState
+          icon={<UserRound size={20} aria-hidden />}
           title="لا يوجد موظفون بعد"
           description="أضف موظفيك ليسجّلوا الزيارات بحساباتهم."
         />
@@ -393,7 +397,9 @@ export function People({ session, operators, branches, add, edit, hire, setHours
       {/* THE BUTTON THE SCREEN WAS MISSING. It said «أضف موظفيك» and offered no way to — a screen
           that asks for an action it does not provide, found by using it. */}
       {add && !open ? (
-        <Button onClick={() => setOpen(true)}>إضافة موظف</Button>
+        <Button className="flex items-center justify-center gap-1.5" onClick={() => setOpen(true)}>
+          <UserPlus size={16} aria-hidden /> إضافة موظف
+        </Button>
       ) : null}
 
       {add && open ? (

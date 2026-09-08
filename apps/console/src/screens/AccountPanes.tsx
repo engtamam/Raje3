@@ -10,6 +10,7 @@
  * the box implies the product forgot to wire it, the sentence tells him what to do.
  */
 import { useEffect, useState, type FormEvent } from 'react';
+import { Building2, CalendarDays, Clock, MessageCircle } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { riyalsLabel } from '../money';
 import { Button } from '../rj-ui/Button';
@@ -130,7 +131,7 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           of «label ………… value» read as a form he has to fill; four cells read as a card about his
           shop, which is what they are: not one of them is editable here. */}
       <section className="grid grid-cols-2 gap-2">
-        <Fact label="اسم المنشأة" value={t.name || '—'} wide />
+        <Fact icon={<Building2 size={16} />} label="اسم المنشأة" value={t.name || '—'} wide />
         <Fact label="حالة الحساب"
               value={<Badge tone={t.status === 'active' ? 'success' : 'neutral'}>
                        {t.status === 'active' ? 'فعّال' : (t.status || '—')}
@@ -139,8 +140,9 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
         {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
             timezone; reading the device's would schedule an owner travelling abroad into his
             customers' small hours. */}
-        <Fact label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
-        <Fact label="التقويم" value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
+        <Fact icon={<Clock size={16} />} label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
+        <Fact icon={<CalendarDays size={16} />} label="التقويم"
+              value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
       </section>
 
       {/* WHAT THIS SHOP DOES, BESIDE WHO IT IS. It stood among the branch settings, which made it
@@ -161,10 +163,16 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           the same p-4/rounded-card/size-5 every peer card on this pane now uses. */}
       {digestAction ? (
         <div className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-          <span className="flex flex-col">
-            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
-            <span className="text-xs text-text-secondary">
-              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
+          <span className="flex items-center gap-3">
+            <span aria-hidden
+                 className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
+              <MessageCircle size={18} />
+            </span>
+            <span className="flex flex-col">
+              <span className="text-sm">تقريري الأسبوعي على واتساب</span>
+              <span className="text-xs text-text-secondary">
+                صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
+              </span>
             </span>
           </span>
           <Toggle
@@ -585,15 +593,27 @@ function shrink(file: File): Promise<string> {
   });
 }
 
-function Fact({ label, value, wide, hint }:
-    { label: string; value: React.ReactNode; wide?: boolean; hint?: React.ReactNode }) {
+function Fact({ label, value, wide, hint, icon }:
+    { label: string; value: React.ReactNode; wide?: boolean; hint?: React.ReactNode;
+      icon?: React.ReactNode }) {
   return (
-    <div className={`flex flex-col gap-1 rounded-card bg-surface-1 p-3 shadow-sm ${wide ? 'col-span-2' : ''}`}>
-      <span className="flex items-center gap-1 text-xs text-text-secondary">
-        {label}
-        {hint}
-      </span>
-      <span className="truncate">{value}</span>
+    <div className={`flex items-start gap-2.5 rounded-card bg-surface-1 p-3 shadow-sm ${wide ? 'col-span-2' : ''}`}>
+      {/* THE SAME "ICON IN A SOFT CIRCLE" LANGUAGE AS THE IDENTITY CARD ABOVE AND Wallet.tsx's own
+         KpiCard — a smaller size-8 here since these are four secondary facts, not the one
+         headline card, but the same visual vocabulary so the page reads as one design. */}
+      {icon ? (
+        <span aria-hidden
+             className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
+          {icon}
+        </span>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex items-center gap-1 text-xs text-text-secondary">
+          {label}
+          {hint}
+        </span>
+        <span className="truncate">{value}</span>
+      </div>
     </div>
   );
 }

@@ -20,7 +20,7 @@ export function EmptyState({ icon, title, description, action, className }: RjEm
   return (
     <div className={['flex flex-col items-center justify-center gap-3 px-6 py-12 text-center', className ?? ''].filter(Boolean).join(' ')}>
       {icon ? (
-        <div className="grid h-12 w-12 place-items-center rounded-full bg-surface-2 text-text-muted">
+        <div className="grid h-12 w-12 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
           {icon}
         </div>
       ) : null}
