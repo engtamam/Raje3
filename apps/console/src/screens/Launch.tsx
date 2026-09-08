@@ -172,6 +172,13 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   const [reasons, setReasons] = useState<{ id: string; label: string; when: string;
     can_retext: boolean }[] | null>(null);
   const [previewingReason, setPreviewingReason] = useState(false);
+  // HOW MANY TIMES EACH SERVICE WAS ACTUALLY TAKEN — «insights»'s own `service_popularity`,
+  // read WITHOUT a `branch_id` so it is the chain-wide count (insights keys a separate "_all"
+  // snapshot precisely for this), never one branch's own share. A campaign here always reaches
+  // every branch's customers together, so the order this drives must never be built from one
+  // branch's own numbers — the owner's own instruction. `{}` (nothing loaded, or a shop too new
+  // for the engine to have anything) leaves the picker in its original, unordered shape.
+  const [serviceDemand, setServiceDemand] = useState<Record<string, number>>({});
 
   /**
    * THE DAY «هنّئ في مناسبة» IS ABOUT, AND THE GOAL HAD NO WAY TO NAME IT.
@@ -255,6 +262,21 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
       call<{ branches: Branch[] }>(session, brs)
         .then((x) => setBranches((x.branches ?? []).filter((b) => b.active !== false)))
         .catch(() => setBranches(null));
+    }
+
+    // AND HOW OFTEN EACH SERVICE IS ACTUALLY TAKEN — `service_popularity`, free on every plan
+    // (insights/app/core/plans.py's own REQUIRES never lists it), so this asks unconditionally.
+    // NO `branch_id` — see `serviceDemand`'s own comment on why this must stay chain-wide.
+    const dash = action(catalog, 'insights.dashboard');
+    if (dash) {
+      call<{ values?: { service_popularity?: { service_id: string; count: number }[] } }>(
+        session, dash)
+        .then((x) => {
+          const map: Record<string, number> = {};
+          for (const row of x.values?.service_popularity ?? []) map[row.service_id] = row.count;
+          setServiceDemand(map);
+        })
+        .catch(() => {});
     }
 
     // AND «متى نرسل»'s OWN REASONS — only to learn `can_retext` for the few that share a
@@ -507,13 +529,22 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         ) : hasBlank(picked, 'catalogue') ? (
           <label className="flex flex-col gap-1">
             <span className="text-sm">على أي خدمة؟</span>
+            {/* ORDERED LEAST-TAKEN FIRST, SILENTLY — «عرض على خدمة» exists for exactly this: an
+                owner looking for the service that needs a push, not the one that already sells
+                itself. `serviceDemand`'s own comment is why this is chain-wide, never one
+                branch's own count. Plain names only, no count printed on the option itself —
+                the ORDER is the feature; a number beside every row is a second thing to read for
+                a picker that should stay a one-glance choice. */}
             <select
               value={serviceId}
               onChange={(e) => { setServiceId(e.target.value); setPreview(null); }}
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             >
               <option value="">اختر خدمة</option>
-              {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {(services ?? [])
+                .slice()
+                .sort((a, b) => (serviceDemand[a.id] ?? 0) - (serviceDemand[b.id] ?? 0))
+                .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
         ) : null}

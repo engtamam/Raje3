@@ -15,6 +15,7 @@ const ACTIONS: Record<string, { id: string; label: string; method: string; path:
   'operations.list_packages': { id: 'operations.list_packages', label: 'x', method: 'GET', path: '/packages' },
   'operations.list_branches': { id: 'operations.list_branches', label: 'x', method: 'GET', path: '/branches' },
   'reminders.reasons': { id: 'reminders.reasons', label: 'x', method: 'GET', path: '/reasons' },
+  'insights.dashboard': { id: 'insights.dashboard', label: 'x', method: 'GET', path: '/dashboard' },
 };
 
 const previewCalls: unknown[] = [];
@@ -36,10 +37,33 @@ vi.mock('../catalog', async (importOriginal) => {
             // shape that earns the cross-link button.
             { goal: 'win_back', title: 'رجّع اللي غابوا', line: 'من تأخّر عن موعده',
              icon: 'return', available: true, offers: true, blanks: [] },
+            { goal: 'service_offer', title: 'عرض على خدمة', line: 'يوصل فقط لمن قارب موعد',
+             icon: 'tag', available: true, offers: true,
+             blanks: ['amount', 'catalogue', 'date'] },
           ],
         };
       }
-      if (a.id === 'operations.list_services') return { services: [] };
+      if (a.id === 'operations.list_services') {
+        return {
+          services: [
+            { id: 'svc_popular', name: 'غسلة سريعة' },
+            { id: 'svc_rare', name: 'تلميع كامل' },
+            { id: 'svc_unseen', name: 'خدمة جديدة' },
+          ],
+        };
+      }
+      if (a.id === 'insights.dashboard') {
+        return {
+          values: {
+            // svc_unseen carries NO row at all — the honest reading of "never promoted" (?? 0),
+            // so it must still sort to the very front, ahead of svc_rare's real (low) count.
+            service_popularity: [
+              { service_id: 'svc_popular', count: 40 },
+              { service_id: 'svc_rare', count: 2 },
+            ],
+          },
+        };
+      }
       if (a.id === 'operations.list_packages') {
         return { packages: [{ id: 'pkg1', name: 'باقة الصيانة', active: true }] };
       }
@@ -112,5 +136,16 @@ describe('the cross-link to «متى نرسل»', () => {
     render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="package_offer" />);
     await waitFor(() => expect(screen.getByText('على أي باقة؟')).toBeTruthy());
     expect(screen.queryByText('اعرض نص هذه الرسالة، أو عدّله')).toBeNull();
+  });
+});
+
+describe('the service picker on «عرض على خدمة»', () => {
+  it('orders services least-taken first, chain-wide — never taken sorts ahead of a low real count', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="service_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    const options = Array.from(document.querySelectorAll('select option'))
+      .map((o) => o.textContent)
+      .filter((t) => t !== 'اختر خدمة');
+    expect(options).toEqual(['خدمة جديدة', 'تلميع كامل', 'غسلة سريعة']);
   });
 });
