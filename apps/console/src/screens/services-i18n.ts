@@ -86,7 +86,7 @@ registerOperatorStrings({
 
     'services.visitConfirmation': 'تأكيد الزيارة',
     'services.visitConfirmation.hint': 'رسالة تصل عميلك بعد تسجيل زيارته مباشرة. تناسب من يترك شيئاً عندك — ورشة أو مغسلة — وقد لا تناسب من يدفع ويمشي.',
-    'services.visitConfirmation.on': 'نرسل رسالة قصيرة بعد تسجيل الزيارة.',
+    'services.visitConfirmation.on': 'نرسل رسالة قصيرة بعد تسجيل الزيارة — طلب تقييم لو كان تطبيق التقييم مفعّلاً عندك، وإلا تأكيد عادي.',
     'services.visitConfirmation.off': 'لا نرسل شيئاً عند تسجيل الزيارة.',
 
     'services.name': 'الاسم',
@@ -246,7 +246,7 @@ registerOperatorStrings({
 
     'services.visitConfirmation': 'Visit confirmation',
     'services.visitConfirmation.hint': 'A message that reaches your customer right after his visit is recorded. Fits a shop where he leaves something with you — a garage or a laundry — and may not fit one where he pays and walks.',
-    'services.visitConfirmation.on': 'We send a short message after the visit is recorded.',
+    'services.visitConfirmation.on': 'We send a short message after the visit is recorded — a rating request if you have the rating app enabled, a plain confirmation otherwise.',
     'services.visitConfirmation.off': 'We send nothing when a visit is recorded.',
 
     'services.name': 'Name',
@@ -406,7 +406,7 @@ registerOperatorStrings({
 
     'services.visitConfirmation': 'وزٹ کی تصدیق',
     'services.visitConfirmation.hint': 'ایک پیغام جو گاہک کی وزٹ درج ہونے کے فوراً بعد اسے پہنچتا ہے۔ اس دکان کے لیے مناسب ہے جہاں وہ کچھ چھوڑ جاتا ہے — گیراج یا لانڈری — اور شاید اس کے لیے مناسب نہ ہو جہاں وہ ادائیگی کرکے چلا جاتا ہے۔',
-    'services.visitConfirmation.on': 'وزٹ درج ہونے کے بعد ہم ایک مختصر پیغام بھیجتے ہیں۔',
+    'services.visitConfirmation.on': 'وزٹ درج ہونے کے بعد ہم ایک مختصر پیغام بھیجتے ہیں — اگر ریٹنگ ایپ فعال ہے تو ریٹنگ کی درخواست، ورنہ عام تصدیق۔',
     'services.visitConfirmation.off': 'وزٹ درج ہونے پر ہم کچھ نہیں بھیجتے۔',
 
     'services.name': 'نام',
@@ -566,7 +566,7 @@ registerOperatorStrings({
 
     'services.visitConfirmation': 'Tabbatar da ziyara',
     'services.visitConfirmation.hint': 'Saƙon da ke kaiwa abokin cinikinka nan take bayan an rubuta ziyararsa. Ya dace da shago inda yake barin wani abu a wurinka — gareji ko wanki — kuma yana yiwuwa bai dace da wanda ke biya ya tafi ba.',
-    'services.visitConfirmation.on': 'Muna aika gajeren saƙo bayan an rubuta ziyara.',
+    'services.visitConfirmation.on': 'Muna aika gajeren saƙo bayan an rubuta ziyara — neman kimantawa idan an kunna app ɗin kimantawa, in ba haka ba tabbatarwa ta yau da kullun.',
     'services.visitConfirmation.off': 'Ba ma aika komai lokacin da aka rubuta ziyara.',
 
     'services.name': 'Suna',
@@ -726,7 +726,7 @@ registerOperatorStrings({
 
     'services.visitConfirmation': 'Kumpirmasyon ng visit',
     'services.visitConfirmation.hint': 'Mensaheng aabot sa kustomer mo kaagad pagkatapos ma-record ang kanyang visit. Bagay sa shop kung saan may iniiwan siya sa iyo — garahe o laundry — at maaaring hindi bagay sa isang nagbabayad lang at aalis.',
-    'services.visitConfirmation.on': 'Nagpapadala kami ng maikling mensahe pagkatapos ma-record ang visit.',
+    'services.visitConfirmation.on': 'Nagpapadala kami ng maikling mensahe pagkatapos ma-record ang visit — hiling na rating kung naka-enable ang rating app, o karaniwang kumpirmasyon kung hindi.',
     'services.visitConfirmation.off': 'Wala kaming ipinapadala kapag na-record ang isang visit.',
 
     'services.name': 'Pangalan',
