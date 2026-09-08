@@ -431,6 +431,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       return sum > 0 ? sum : null;
     };
   }, [services]);
+  // SAME MAP-ONCE PATTERN AS `priceMinorOf` ABOVE, for the one other per-service field
+  // `BookingActions` needs (§2.7's "احجزي الجلسة القادمة" cycle) — built here so that sheet
+  // reuses a lookup instead of re-scanning `services` with `.find()` per service id.
+  const cycleDaysOf = useMemo(() => {
+    const m = new Map((services ?? []).map((s) => [s.id, s.cycle_days ?? 0]));
+    return (ids: string[]): number => Math.max(0, ...ids.map((id) => m.get(id) ?? 0));
+  }, [services]);
 
   const visible = useMemo(() => {
     return (rows ?? []).filter((b) => {
@@ -458,13 +465,16 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   );
 
   // ── columns: staff in day view, days in week view ───────────────────────────────────────────
-  const columns = view === 'day'
+  // Both inputs are already memoized (`staffHere`, `daysToLoad`) — memoize the derived array too,
+  // so it isn't rebuilt (and every downstream column-keyed render redone) on every render.
+  const columns = useMemo(() => view === 'day'
     ? staffHere.map((o) => ({ key: o.id, label: o.name, date }))
     // DAY NUMBER ONLY, NO MONTH — a week column is a fraction of the grid's own width, and the
     // range header above already states the month ("16 أغسطس – 22 أغسطس"). Repeating it in seven
     // narrow columns was what forced "الأحد 16 أغسط…" to truncate before the day number even
     // finished rendering — the one number the column actually needs to say.
-    : daysToLoad.map((d) => ({ key: d, label: `${weekdayLabel(t, new Date(`${d}T00:00:00Z`).getUTCDay())} ${Number(d.split('-')[2])}`, date: d }));
+    : daysToLoad.map((d) => ({ key: d, label: `${weekdayLabel(t, new Date(`${d}T00:00:00Z`).getUTCDay())} ${Number(d.split('-')[2])}`, date: d })),
+    [view, staffHere, date, daysToLoad, t]);
 
   // النافذة الرأسية — يوم واحد: دوامه هو بالضبط. أسبوع: محور مشترك واحد (أوسع دوام بين كل أيامه)،
   // لأن مقياساً مختلفاً لكل عمود يخلي نفس الموضع الرأسي يعني وقتاً مختلفاً من عمود لعمود، وهذا
@@ -1442,6 +1452,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           booking={openBooking}
           operatorLabel={nameOf(openBooking.operator_id)}
           services={services ?? []}
+          priceMinorOf={priceMinorOf}
+          serviceNamesOf={serviceNamesOf}
+          cycleDaysOf={cycleDaysOf}
           onClose={() => setOpenBooking(null)}
           onChanged={(b) => {
             setRows((cur) => (cur ?? []).map((x) => (x.id === b.id ? b : x)));
@@ -1451,8 +1464,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           }}
           onBookNext={(b) => {
             setOpenBooking(null);
-            const cycleDays = Math.max(
-              0, ...b.service_ids.map((id) => (services ?? []).find((s) => s.id === id)?.cycle_days ?? 0));
+            const cycleDays = cycleDaysOf(b.service_ids);
             setDialog({
               operatorId: b.operator_id,
               startsAt: b.starts_at + cycleDays * 86400,
@@ -1785,9 +1797,14 @@ function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onO
  *  visual identity. Closing a booking as attended offers "احجزي الجلسة القادمة" (§2.7) when the
  *  service has a real cycle — the sleeping field `cycle_days` already in the catalogue, used for
  *  its own purpose rather than reinvented. */
-function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
-                         onBookNext, onEdit, session, say }: {
+function BookingActions({ booking, operatorLabel, services, priceMinorOf, serviceNamesOf,
+                         cycleDaysOf, onClose, onChanged, onBookNext, onEdit, session, say }: {
   booking: Booking; operatorLabel: string; services: CatalogueService[];
+  // BUILT ONCE, ONE LEVEL UP (in `BookingsScreen`) — passed down so this sheet reuses those
+  // lookups instead of re-deriving them via `.find()` per service id on every open.
+  priceMinorOf: (b: Booking) => number | null;
+  serviceNamesOf: (ids: string[]) => string[];
+  cycleDaysOf: (ids: string[]) => number;
   onClose: () => void; onChanged: (b: Booking) => void; onBookNext: (b: Booking) => void;
   onEdit: (b: Booking) => void; session: Session; say: (msg: string) => void;
 }) {
@@ -1807,17 +1824,12 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
       setBusy(false);
     }
   };
-  const cycleDays = Math.max(
-    0, ...booking.service_ids.map((id) => services.find((s) => s.id === id)?.cycle_days ?? 0));
+  const cycleDays = cycleDaysOf(booking.service_ids);
   // THE SAME NUMBER THE CARD AND THE DIALOG ITSELF SHOW — the booking's own override when it
   // was negotiated, otherwise the catalogue's sum for whatever services it holds.
-  const priceMinor = booking.price_override_minor ?? (() => {
-    const sum = booking.service_ids.reduce(
-      (total, id) => total + (services.find((s) => s.id === id)?.price_minor ?? 0), 0);
-    return sum > 0 ? sum : null;
-  })();
+  const priceMinor = priceMinorOf(booking);
   const pay = booking.payment_status ?? 'none';
-  const serviceNames = booking.service_ids.map((id) => services.find((s) => s.id === id)?.name ?? id);
+  const serviceNames = serviceNamesOf(booking.service_ids);
 
   if (attended) {
     return (

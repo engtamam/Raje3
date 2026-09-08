@@ -16,7 +16,7 @@
  * would have to find. Inheritance, not copying: a service either FOLLOWS the general value or
  * holds its own, which is why "return to general" is a DELETE and not a write of today's default.
  */
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
@@ -29,7 +29,7 @@ import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import { Modal } from '../rj-ui/Modal';
-import { hasFailed, isLoading } from '../loading';
+import { hasFailed, isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { halalas, riyals } from '../money';
@@ -359,7 +359,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     const bins = new Map<string, Service[]>();
     for (const svc of list) {
       const key = settings?.service_group?.[svc.id] ?? UNGROUPED;
-      bins.set(key, [...(bins.get(key) ?? []), svc]);
+      // Mutate the existing bin in place instead of copying the whole array on every
+      // service — the copy-on-append version was O(n²) for a shop with a long menu.
+      const bin = bins.get(key);
+      if (bin) bin.push(svc);
+      else bins.set(key, [svc]);
     }
     // NAMED GROUPS FIRST, ungrouped last: the ungrouped bin is a remainder, not a category, and
     // opening on it would bury the structure the owner built.
@@ -786,6 +790,38 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     </>
   );
 
+  // GROUPING/FILTERING, COMPUTED ONCE PER MEANINGFUL CHANGE — not on every render. This was an
+  // IIFE inline in the JSX, so it reran (and re-grouped every service) on every keystroke while
+  // editing a service field, not just when the underlying list, settings, tab, or filter changed.
+  // Placed BEFORE every early return below (hooks must run in the same order on every render,
+  // including the «packages» tab and loading/failed/empty states) — guarded internally since
+  // `services` isn't narrowed to a real array at this point yet.
+  const { stoppedCount, view, visible, bins, shown } = useMemo(() => {
+    if (!isReady(services)) {
+      return { stoppedCount: 0, view: 'active' as const, visible: [] as Service[],
+        bins: [] as [string, Service[]][], shown: [] as [string, Service[]][] };
+    }
+    const stoppedCount = services.filter((x) => x.active === false).length;
+    // THE TAB HE IS STANDING ON CAN CEASE TO EXIST UNDER HIM. Re-activating the last stopped
+    // service takes the count to zero, which hides the whole strip — and the state still said
+    // «الموقوفة», so the screen rendered an empty list with no control anywhere to leave it.
+    // He was stuck on a tab that was no longer on screen, by doing exactly the right thing.
+    //
+    // DERIVED, NOT JUST RESET. A `useEffect` that corrects the state afterwards renders the
+    // trapped frame first; reading the view through this expression means the frame that
+    // cannot happen never does.
+    const view = stoppedCount > 0 ? show : 'active';
+    const visible = services.filter((svc) => {
+      // `active` absent means active: the field grid has never sent the flag, and treating a
+      // missing field as "stopped" would empty the screen for every shop reading that route.
+      const stopped = svc.active === false;
+      return view === 'stopped' ? stopped : !stopped;
+    });
+    const bins = grouped(visible);
+    const shown = only === null ? bins : bins.filter(([g]) => g === only);
+    return { stoppedCount, view, visible, bins, shown };
+  }, [services, settings, show, only]);
+
   // «الباقات» IS ITS OWN SELF-CONTAINED SUB-COMPONENT — it does not depend on `services`/
   // `settings` having loaded here at all, so it renders regardless of this screen's own guards
   // below (which are all about the SERVICES tab's own data).
@@ -910,24 +946,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           below it and counts the same services, so a group he makes appears here the moment it
           exists and one he deletes leaves — there is nothing to keep in step. */}
       {(() => {
-        const stoppedCount = services.filter((x) => x.active === false).length;
-        // THE TAB HE IS STANDING ON CAN CEASE TO EXIST UNDER HIM. Re-activating the last stopped
-        // service takes the count to zero, which hides the whole strip — and the state still said
-        // «الموقوفة», so the screen rendered an empty list with no control anywhere to leave it.
-        // He was stuck on a tab that was no longer on screen, by doing exactly the right thing.
-        //
-        // DERIVED, NOT JUST RESET. A `useEffect` that corrects the state afterwards renders the
-        // trapped frame first; reading the view through this expression means the frame that
-        // cannot happen never does.
-        const view = stoppedCount > 0 ? show : 'active';
-        const visible = services.filter((svc) => {
-          // `active` absent means active: the field grid has never sent the flag, and treating a
-          // missing field as "stopped" would empty the screen for every shop reading that route.
-          const stopped = svc.active === false;
-          return view === 'stopped' ? stopped : !stopped;
-        });
-        const bins = grouped(visible);
-        const shown = only === null ? bins : bins.filter(([g]) => g === only);
+        // `stoppedCount`, `view`, `visible`, `bins`, `shown` come from the memoized pipeline above.
         return (
       <div className="flex flex-col gap-3">
       {/* ── one toolbar, and nothing beside the table ───────────────────────────────────────
