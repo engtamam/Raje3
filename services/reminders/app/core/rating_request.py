@@ -1,11 +1,12 @@
 """What we are waiting to hear back — one row per rating Flow actually sent.
 
-WHY THIS EXISTS. `send_flow` (adapters/message_sender) only sends; it does not know which visit
-the message was about, and it must not — a sender that also remembers things is a sender two
-callers can disagree about. The caller that DOES know (a later phase's scheduling code) writes one
-row here at send time, keyed by the same `flow_token` it handed to `send_flow`. When the customer's
-answer comes back on the bus, that token is the ONLY thing the reply carries that means anything to
-us — resolving it here is how a reply becomes "this visit, this tenant" rather than a stray message
+WHY THIS EXISTS. `send()` (adapters/message_sender — the ordinary template send, carrying a
+`flow_token` only for this one kind) only sends; it does not know which visit the message was
+about, and it must not — a sender that also remembers things is a sender two callers can disagree
+about. The caller that DOES know is tick.py's own send step: it writes one row here immediately
+before the send, keyed by the same `flow_token` it hands to `send()`. When the customer's answer
+comes back on the bus, that token is the ONLY thing the reply carries that means anything to us —
+resolving it here is how a reply becomes "this visit, this tenant" rather than a stray message
 from a number we do not recognise.
 
 ONE ROW, RESOLVED ONCE. `resolve()` deletes the row it returns — a flow_token is a single-use

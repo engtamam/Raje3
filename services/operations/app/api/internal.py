@@ -1552,9 +1552,9 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
     """The rating app's own write — a customer's answer to the post-visit WhatsApp Flow, resolved
     by `reminders` (its `flow_token` -> visit lookup) and handed here as a plain fact.
 
-    RATING ONLY, NEVER SENT AT VISIT-CREATION TIME (foundation phase, models.py's own docstring) —
-    a customer answers hours after the visit exists, so this is always a write to an EXISTING row,
-    never part of recording the visit itself.
+    RATING ONLY, NEVER SENT AT VISIT-CREATION TIME (models.py's own docstring) — a customer answers
+    hours after the visit exists, so this is always a write to an EXISTING row, never part of
+    recording the visit itself.
 
     IDEMPOTENT ON "ALREADY RATED", not an error. Meta retries a webhook it did not get a fast
     enough 200 for, and a second nfm_reply for the same flow_token must not silently overwrite an

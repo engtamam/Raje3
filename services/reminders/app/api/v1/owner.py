@@ -351,7 +351,11 @@ async def set_reason(request: Request, reason_id: str, body: ReasonIn,
     return {"ok": True, "reasons": choices.public()}
 
 
-# ── the rating app's own settings (foundation phase — nothing reads these yet) ───────────────
+# ── the rating app's own settings — read on every visit's send decision ───────────────────────
+# `enabled` and `delay_minutes` feed `_rating_eligible`/`_message_delay_seconds` (api/internal.py);
+# `points` feeds tick.py's `rating_points` (the participation line rendered into the message
+# itself). All three are live, not placeholders — a shop that owns the app and toggles this off
+# gets the plain confirmation on its very next visit, not "eventually".
 class RatingSettingsIn(BaseModel):
     """Three knobs, all optional — `None` means "leave it", same rule `ReasonIn` uses above."""
 

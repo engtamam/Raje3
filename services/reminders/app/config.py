@@ -186,10 +186,11 @@ class Settings(BaseSettings):
     # and every notification went to a silent 404 for weeks — a failed notification is not a failed
     # ticket, so nothing looked wrong.
     NOTIFICATION_SEND_PATH: str = "/internal/notify"
-    # THE RATING APP'S OWN MESSAGE (foundation for a later phase) — a WhatsApp Flow, sent through
-    # the SAME interactive route whatsapp-assistant already uses for button/list messages
-    # (notification-service's request model gained `type: "flow"` alongside them). Nothing schedules
-    # a flow send yet; this is only the wiring so `HttpSender.send_flow` has somewhere to post.
+    # `HttpSender.send_flow`'s OWN ROUTE — NOT the rating app's, which sends through the ordinary
+    # NOTIFICATION_SEND_PATH above (a ~template carrying a flow_token, not a bare interactive
+    # message). This path is for a standalone Flow with no template at all, same interactive route
+    # whatsapp-assistant already uses for button/list messages. Genuinely unused today — see
+    # send_flow's own docstring — kept configured so a future caller has somewhere to post.
     NOTIFICATION_INTERACTIVE_SEND_PATH: str = "/internal/notify/whatsapp/interactive"
     # DID IT ARRIVE, AND WAS IT READ. The status webhook is at-most-once and lands on the
     # notification peer, which persists each receipt against the delivery it belongs to and serves
@@ -246,8 +247,8 @@ class Settings(BaseSettings):
     # in this service. See adapters/message_sender for why this is a route and not a column.
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
     OPERATIONS_RECIPIENT_PATH: str = "/internal/operations/recipient"
-    # THE RATING APP'S OWN WRITE (foundation phase) — `{}` is the visit id, filled at call time
-    # (see core/rating_writer.py). Idempotent on "already rated" server-side.
+    # THE RATING APP'S OWN WRITE — `{}` is the visit id, filled at call time (see
+    # core/rating_writer.py). Idempotent on "already rated" server-side.
     OPERATIONS_VISIT_RATING_PATH: str = "/internal/operations/visits/{}/rating"
     # WHICH BRANCH THIS PERSON MAY SEE — asked of the only service that staffs the shop.
     #

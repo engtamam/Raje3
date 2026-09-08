@@ -249,12 +249,19 @@
     },
     {
       "_": [
-        "SOLD, NOT BUILT YET — same convention `feature.bookings` used while its own ten stages",
-        "were in progress. `listed: false` so this row exists (the price is decided, the wording is",
-        "ready, ci/check_entitlements.py's SOLD_UNBUILT knows about it) but no shop can actually buy",
-        "it until the WhatsApp Flow send/webhook and the post-visit scheduling switch both ship.",
-        "Flip to `listed: true` the day a shop can actually use what this key sells — same rule the",
-        "bookings row's own history states in its comment above."
+        "BUILT AND WIRED END TO END (verified 2026-09-08, full pipeline audit) — the master Flow",
+        "provisions on install (deploy/seed/bootstrap-rating-flow.sh, called by bring-up.sh), every",
+        "shop clones it automatically at WhatsApp connect (operations/core/flows.py), the template",
+        "already carries a real flow_button Meta accepts (operations/data/templates.seed.json),",
+        "tick.py sends it with a flow_token instead of the plain confirmation when a shop owns and",
+        "enables it, and the reply comes back through notification-service's unfiltered fan-out to",
+        "RatingConsumer, which writes the rating and grants its points. NONE of that is gated by",
+        "this row — every shop's Flow and template are already provisioned regardless of `listed`.",
+        "`listed: false` is now a pure GO-LIVE DECISION, not a technical placeholder: this key is",
+        "NOT in ci/check_entitlements.py's SOLD_UNBUILT (that dict is empty) precisely because",
+        "nothing about it is sold-ahead-of-built any more. Flip to `listed: true` (or the admin",
+        "panel's own «إظهار» toggle, PlanCards.tsx) whenever the owner decides to open it — that is",
+        "the ONLY remaining step."
       ],
       "name": "التقييم",
       "amount": 9900,

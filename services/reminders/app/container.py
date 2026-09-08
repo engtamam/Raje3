@@ -253,10 +253,12 @@ def build_container(settings: Settings) -> Container:
 
     container.sender = build_sender(settings)
 
-    # THE RATING APP'S OWN RECEIVE SIDE (foundation phase) — the bus subscriber that turns a Flow
-    # completion into a written rating. Built regardless of whether any shop owns the app yet;
-    # `RatingConsumer.handle` is a no-op for every message that is not a recognised rating reply,
-    # which is every message today (nothing schedules a send yet — a later phase does).
+    # THE RATING APP'S OWN RECEIVE SIDE — the bus subscriber that turns a Flow completion into a
+    # written rating. Built regardless of whether any shop owns the app; `RatingConsumer.handle`
+    # is a no-op for every message that is not a recognised rating reply, which is most messages
+    # (an ordinary text, a button reply elsewhere) but genuinely not "every message" — tick.py
+    # schedules real rating sends today for any shop that owns and enables the app, and a reply to
+    # one of those is exactly what this consumer exists to catch.
     from app.core.rating_consumer import RatingConsumer
     from app.core.rating_request import RatingRequestStore
     from app.core.rating_writer import HttpRatingWriter, NullRatingWriter

@@ -163,11 +163,12 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "source": "admin",
         "critical": False,
         "resource": "rating_settings",
-        "why": "foundation phase only — nothing yet reads these three numbers, so a wrong value "
-               "here has no effect on a customer until a later phase wires the post-visit message "
-               "and the point credit to them; audited anyway because every settings write in this "
-               "service is, and a row that starts non-critical stays easy to find the day it stops "
-               "being harmless",
+        "why": "these three numbers ARE live — `enabled`/`delay_minutes` feed _rating_eligible and "
+               "the post-visit timer, `points` feeds the message's own participation line — so a "
+               "wrong value here has a real, same-day effect on whatever shop owns the app. Left "
+               "non-critical because every settings write in this service is audited regardless, "
+               "and this one's blast radius is one shop's own messages, never a cross-tenant one — "
+               "not because it is harmless.",
     },
     {
         "action": "reminders.schedule_cancelled",

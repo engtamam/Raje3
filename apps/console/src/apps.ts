@@ -99,11 +99,11 @@ export const APP_ROWS: AppRow[] = [
     section: '',
     onCustomer: '',
   },
-  // SOLD, NOT BUILT YET — same convention as `feature.bookings` while its own ten stages were in
-  // progress. Kept here (per this file's own header comment: "the wording is ready the day it
-  // flips to listed") even though it is not yet reachable — `owns()` answers correctly regardless
-  // (the underlying plan is `listed: false` in plans.json, so `Plans.tsx` never offers it for
-  // purchase), and nothing renders behind this key until a later phase actually gates on it.
+  // BUILT AND WIRED — the whole pipeline (per-shop Flow clone, the template's real flow_button,
+  // the send/receive round-trip, RatingsTab.tsx already gated on `operations.ratings`) is live;
+  // see plans.json's own note on this row for the full audit. `listed: false` there is a pure
+  // go-live decision now, not a placeholder — `owns()` already answers correctly the day it
+  // flips, and `Plans.tsx` simply starts offering it for purchase then, no console change needed.
   {
     id: 'rating',
     key: 'feature.rating',

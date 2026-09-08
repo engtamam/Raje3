@@ -137,11 +137,13 @@ def create_app() -> FastAPI:
         except Exception as exc:                                            # noqa: BLE001
             logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
 
-        # ── the rating app's own reply (foundation phase) — every inbound WhatsApp message,
-        # unfiltered, the same fan-out every other consumer of this topic reads. `handle` is a
-        # no-op for anything that is not a recognised rating Flow reply, which is everything today
-        # (nothing schedules a send yet). AT-MOST-ONCE, same as the two subscriptions above — see
-        # RatingConsumer's own docstring for why no catch-up path exists yet.
+        # ── the rating app's own reply — every inbound WhatsApp message, unfiltered, the same
+        # fan-out every other consumer of this topic reads. `handle` is a no-op for anything that
+        # is not a recognised rating Flow reply — most messages, still, since only a shop that
+        # owns AND has enabled the app (`_rating_eligible`, api/internal.py) ever gets one sent in
+        # the first place (tick.py schedules it, with a real flow_token, not a placeholder).
+        # AT-MOST-ONCE, same as the two subscriptions above — see RatingConsumer's own docstring
+        # for why no catch-up path exists yet (an accepted, deliberate gap, not an oversight).
         async def _on_whatsapp_message(event) -> None:
             payload = event.payload if hasattr(event, "payload") else (event or {})
             message = dict(payload).get("message") or {}

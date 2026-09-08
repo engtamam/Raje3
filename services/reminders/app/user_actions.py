@@ -191,9 +191,10 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "reminders.rating_settings", "label": "إعدادات التقييم", "method": "GET",
         "path": "/api/v1/reminders/rating_settings", "capability": "reminders.read",
         "group": "الإعدادات",
-        # RATING-APP FOUNDATION (nothing reads these yet — a later phase wires the post-visit
-        # message and the point credit to them). Present regardless of whether the shop owns the
-        # rating app, same as any other setting screen a shop can look at before buying.
+        # LIVE — feeds the post-visit message and the point credit on every send (see
+        # api/internal.py::_rating_eligible and tick.py's rating_points). Present regardless of
+        # whether the shop owns the rating app, same as any other setting screen a shop can look
+        # at before buying.
         "help": "هل رسالة التقييم مفعّلة، بعد كم دقيقة تُرسَل، وكم نقطة تُمنح على المشاركة.",
     },
     {

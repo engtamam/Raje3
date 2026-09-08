@@ -231,13 +231,18 @@ class HttpSender:
                         flow_id: str, flow_cta: str, flow_screen: str,
                         flow_data: dict[str, Any] | None = None, idempotency_key: str = "",
                         sending_identity: str = "") -> str:
-        """The rating app's own message — same recipient resolution as `send()` (this service holds
-        only `subject_ref`, never a stored phone number), posted to the SAME interactive route
-        whatsapp-assistant already uses for buttons/lists, with `type: "flow"`.
+        """NOT the rating app's message — that one goes out through `send()` above, as an ordinary
+        approved template carrying a `flow_token` (the template's own registered `flow_button` is
+        what actually opens the Flow; see operations/data/templates.seed.json). This is a SEPARATE
+        mechanism: a Flow sent as a bare interactive message with no template behind it at all,
+        posted to the same interactive route whatsapp-assistant already uses for buttons/lists,
+        with `type: "flow"`.
 
-        Foundation-phase wiring: nothing schedules a call to this yet (a later phase does). Kept to
-        the same shape as `send()` — same recipient lookup, same erased-customer/ceiling/failure
-        handling — so scheduling it later is a call site, not a new sending path to build.
+        GENUINELY UNUSED TODAY — nothing in this service calls it outside its own tests, and
+        nothing needs to for the rating feature, which is fully wired through `send()` instead.
+        Kept to the same shape as `send()` — same recipient lookup, same erased-customer/ceiling/
+        failure handling — in case a future feature needs a Flow with no template wrapping it (a
+        one-off form, say), so that would be a call site, not a new sending path to build.
         """
         if not self._notify_interactive:
             raise SendFailed("NOTIFICATION_INTERACTIVE_SEND_PATH is not configured")

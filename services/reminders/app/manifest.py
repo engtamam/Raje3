@@ -153,8 +153,9 @@ def build_manifest(
             {"path": "/api/v1/reminders/reasons", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/reasons/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/reasons/{}/preview", "tier": "user", "method": "GET"},
-            # The rating app's own settings — foundation phase (core/rating_settings.py); nothing
-            # reads these yet, present regardless of whether the shop owns the app.
+            # The rating app's own settings (core/rating_settings.py) — read live on every visit's
+            # send decision (api/internal.py::_rating_eligible), present regardless of whether the
+            # shop owns the app so the route never 404s on a shop that has not bought it yet.
             {"path": "/api/v1/reminders/rating_settings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/rating_settings", "tier": "user", "method": "PUT"},
             # Settings, three levels deep (spec 10.8.1). The owner never picks a level — they edit

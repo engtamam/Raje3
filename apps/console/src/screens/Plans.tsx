@@ -136,8 +136,10 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   // `listed: false`, so this sentence never actually renders a card — it exists so the wording
   // is ready the day the app flips to listed, not written under launch pressure.
   'feature.bookings': { label: 'نظام الحجوزات ومواعيد العملاء' },
-  // SOLD_UNBUILT (ci/check_entitlements.py) — foundation phase only, `listed: false` in
-  // plans.json so this sentence is ready the day it flips, never printed before then.
+  // BUILT (verified 2026-09-08, full pipeline audit — see plans.json's own note on this row) —
+  // NOT in ci/check_entitlements.py's SOLD_UNBUILT (that dict is empty). `listed: false` in
+  // plans.json is a pure go-live decision now; this sentence is ready and simply never prints
+  // until that flips, since `Plans.tsx` never offers an unlisted plan for purchase.
   'feature.rating': { label: 'تقييم العملاء بعد الزيارة' },
   // THE BASE ITSELF, and it has a sentence for the same reason every other key does: it is
   // charged for, so the page where he decides must name it. «سجلّ الزيارات» rather than «الأساس»
