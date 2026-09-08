@@ -31,6 +31,7 @@ import { TabBar } from '../rj-ui/TabBar';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
+import { AppGate } from './Locked';
 import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { WalletPane } from './Wallet';
@@ -300,9 +301,17 @@ export function AccountScreen(
               {/* MOVED FROM «الهوية والإعدادات» 2026-09-07 — both configure the WhatsApp
                   assistant's own behaviour (what it knows about this shop, how long a customer's
                   message may be before it's refused), not the establishment's identity. A shop
-                  owner flagged the old placement directly. */}
-              <AiNotesCard session={session} catalog={catalog} />
-              <MsgWordLimitCard session={session} catalog={catalog} />
+                  owner flagged the old placement directly.
+
+                  LOCKED BEHIND THE APP, NOT JUST THE CAPABILITY — found live: a shop with no
+                  WhatsApp bot bought at all could still type notes and set a word limit for an
+                  assistant that would never read either, because both cards only ever checked
+                  whether the OPERATOR'S ROLE could write, never whether the SHOP had bought the
+                  bot. Same shape as every other app's lock (Locked.tsx's own AppGate). */}
+              <AppGate appId="whatsapp" owned={owned}>
+                <AiNotesCard session={session} catalog={catalog} />
+                <MsgWordLimitCard session={session} catalog={catalog} />
+              </AppGate>
             </div>
           ) : null}
 

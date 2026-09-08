@@ -115,6 +115,21 @@ export const APP_ROWS: AppRow[] = [
     section: '',
     onCustomer: '',
   },
+  // NO SECTION OF ITS OWN — «ربط واتساب» is a sub-tab under «حسابي», not a rail entry, and the
+  // connect card itself stays open regardless (a shop needs to see the connect flow to understand
+  // what it is buying). This row exists so its TWO CONFIGURATION cards — what the assistant knows
+  // about this shop, and the customer-message word limit — can be locked behind AppGate: both
+  // configure the assistant's own behaviour and were editable with no bot bought at all, found
+  // live (screenshot: a fresh shop with no WhatsApp app could still type notes for an assistant
+  // that would never read them).
+  {
+    id: 'whatsapp',
+    key: 'feature.whatsapp',
+    name: 'المساعد الذكي عبر واتساب',
+    what: 'يردّ على عملائك ويحجز لهم عبر واتساب بذكاء اصطناعي، بأسلوب محلّك.',
+    section: '',
+    onCustomer: '',
+  },
 ];
 
 /** The key that locks a nav section, or null when the section belongs to the base. */
