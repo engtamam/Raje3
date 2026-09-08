@@ -376,21 +376,44 @@ _FORBIDDEN_HISTORY_DISCLOSURE_PATTERNS = (
 _HISTORY_DISCLOSURE_STRIPPED = "تحب تجرب لك شي اليوم؟"
 
 
+def _combine_patterns(patterns: tuple[re.Pattern[str], ...]) -> re.Pattern[str]:
+    """Merge a group of individually-compiled patterns into ONE alternation, so testing a reply
+    against the whole group costs a single `.search()` (branching done once, in C) instead of a
+    Python `for` loop calling into the regex engine once per pattern. `_sanitize_reply` runs on
+    every reply this service ever sends, so the loop-of-searches shape here was the hottest of the
+    four groups to collapse.
+
+    Each pattern's own flags travel WITH it as a scoped inline-flag group (`(?i:...)` vs `(?:...)`)
+    rather than being merged onto the combined regex globally — a group here mixes case-sensitive
+    Arabic patterns with case-insensitive English ones (see e.g. `_FORBIDDEN_META_PATTERNS`), and a
+    single `re.IGNORECASE` on the whole alternation would silently loosen the Arabic ones too.
+    Wrapping every alternative in its own non-capturing group also keeps `|` precedence identical
+    to the original "any pattern matches" semantics."""
+    parts = []
+    for pat in patterns:
+        body = pat.pattern
+        parts.append(f"(?i:{body})" if pat.flags & re.IGNORECASE else f"(?:{body})")
+    return re.compile("|".join(parts))
+
+
+# One alternation per group, built once at import time — see `_combine_patterns`.
+_FORBIDDEN_CLAIM_RE = _combine_patterns(_FORBIDDEN_CLAIM_PATTERNS)
+_FORBIDDEN_META_RE = _combine_patterns(_FORBIDDEN_META_PATTERNS)
+_DISCOUNT_CLAIM_RE = _combine_patterns(_DISCOUNT_CLAIM_PATTERNS)
+_FORBIDDEN_HISTORY_DISCLOSURE_RE = _combine_patterns(_FORBIDDEN_HISTORY_DISCLOSURE_PATTERNS)
+
+
 def _sanitize_reply(text: str) -> str:
     if not text:
         return text
-    for pat in _FORBIDDEN_CLAIM_PATTERNS:
-        if pat.search(text):
-            return "لحظة، دعني أتحقق قبل أن أؤكد لك أي شيء."
-    for pat in _FORBIDDEN_META_PATTERNS:
-        if pat.search(text):
-            return _META_DEFLECTION
-    for pat in _DISCOUNT_CLAIM_PATTERNS:
-        if pat.search(text):
-            return _DISCOUNT_STRIPPED
-    for pat in _FORBIDDEN_HISTORY_DISCLOSURE_PATTERNS:
-        if pat.search(text):
-            return _HISTORY_DISCLOSURE_STRIPPED
+    if _FORBIDDEN_CLAIM_RE.search(text):
+        return "لحظة، دعني أتحقق قبل أن أؤكد لك أي شيء."
+    if _FORBIDDEN_META_RE.search(text):
+        return _META_DEFLECTION
+    if _DISCOUNT_CLAIM_RE.search(text):
+        return _DISCOUNT_STRIPPED
+    if _FORBIDDEN_HISTORY_DISCLOSURE_RE.search(text):
+        return _HISTORY_DISCLOSURE_STRIPPED
     text = _PHONE_LIKE.sub("[رقم محجوب]", text)
     return text
 
