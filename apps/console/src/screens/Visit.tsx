@@ -10,6 +10,7 @@
  * chosen what he is doing, which is after the moment the offer was sent for.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckCircle2, Gift, Pencil } from 'lucide-react';
 import {
   balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
   offerFor, pointsByService, type EarnSettings,
@@ -581,13 +582,19 @@ export function Visit() {
                 Nothing renders without a balance: a shop with no loyalty programme must not be
                 shown an empty points box on the screen it uses a hundred times a day. */}
             {balance ? (
-              <div className="rounded-xl bg-surface-1 p-3 shadow-sm">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="flex items-center gap-1 text-sm text-text-secondary">
+              // A TINTED PANEL, NOT ANOTHER GREY BOX — same reasoning as Shop.tsx's own Tile:
+              // "the eye sorts the row by shape/colour before it ever reads a number". On a
+              // counter this pane loads a hundred times a day; a cashier recognising "this is the
+              // points card" by its own colour, before reading a word of it, IS the speed — never
+              // in tension with it.
+              <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <Gift size={15} aria-hidden />
                     {t('visit.points.balance')}
                     <AssistantHint session={session} anchor="visit.points_balance" />
                   </span>
-                  <span className="tabular-nums text-xl font-semibold">{balance.points} {t('visit.points.unit')}</span>
+                  <span className="tabular-nums text-xl font-bold">{balance.points} {t('visit.points.unit')}</span>
                 </div>
 
                 {redeemed ? (
@@ -618,7 +625,11 @@ export function Visit() {
                                 found that out from an error message with the customer already
                                 holding out his hand (د-14أ). */}
                             {r.needs_approval ? (
-                              <span className="ms-2 inline-flex items-center gap-1 rounded bg-surface-3 px-1.5 py-0.5 text-xs text-text-secondary">
+                              // WARNING-TONED, NOT NEUTRAL GRAY — "this one needs a manager" is a
+                              // fact that changes what the cashier does next; it must read as a
+                              // different KIND of row before he reads a word of it, the same
+                              // colour-before-text recognition the points card above now uses.
+                              <span className="ms-2 inline-flex items-center gap-1 rounded bg-warning-soft px-1.5 py-0.5 text-xs font-medium text-warning-on-soft">
                                 {t('visit.points.needsApproval')}
                                 <AssistantHint session={session} anchor="visit.needs_approval" />
                               </span>
@@ -697,10 +708,17 @@ export function Visit() {
    */
   const knownPane = (
     <div className="flex h-full flex-col justify-center gap-3">
-      <div className="rounded-2xl bg-surface-1 p-4 shadow-sm">
+      {/* SUCCESS COLOUR, NOT ANOTHER GREY CARD — this is the moment the match is confirmed, and
+          the same "colour before number" rule applies: a green card says "matched, proceed" before
+          a single digit is read. */}
+      <div className="rounded-2xl bg-success-soft p-4 text-success-on-soft shadow-sm">
+        <div className="flex items-center justify-center gap-1.5">
+          <CheckCircle2 size={16} aria-hidden />
+          <span className="text-xs font-medium">{t('visit.customerMatched')}</span>
+        </div>
         <div dir="ltr" className="text-center text-3xl font-semibold tabular-nums">{phone}</div>
         {name ? <div className="mt-1 text-center text-lg">{name}</div> : null}
-        <div className="mt-1 text-center text-sm text-text-secondary">
+        <div className="mt-1 text-center text-sm">
           {t('visit.plate.prefix')} <span dir="ltr">{plate}</span>
         </div>
       </div>
@@ -714,8 +732,9 @@ export function Visit() {
           setChanging(true);
           setPlateKnown(false);
         }}
-        className="min-h-[44px] rounded-xl bg-surface-2 text-base font-semibold"
+        className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-surface-2 text-base font-semibold"
       >
+        <Pencil size={15} aria-hidden />
         {t('visit.editCustomer')}
       </button>
 
