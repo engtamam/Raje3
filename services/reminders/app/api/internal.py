@@ -1223,12 +1223,19 @@ async def sendable(request: Request, tenant: str) -> dict:
     shop = await _establishment(c, tenant)
     tone = str(getattr(shop, "tone", "") or "")
     approved = await c.approved_templates.names(tenant)
+    # THE SAME BADGE reasons/OWN screen SHOWS, for campaigns' own goal cards — one status word
+    # per type (see rendering.type_status), not the collapsed approved/not-approved `blocked`
+    # dict below alone, which cannot tell a REJECTED template from one still under review.
+    statuses_by_name = await c.approved_templates.statuses(tenant)
     choices = await ChoiceStore(c.datastore).load(tenant)
     customs = CustomTemplateStore(c.datastore)
 
     out: dict[str, dict] = {}
     blocked: dict[str, str] = {}
+    statuses: dict[str, str] = {}
     for template_type in sorted({str(t.get("type") or "") for t in library} - {""}):
+        statuses[template_type] = R.type_status(
+            template_type, library=library, statuses=statuses_by_name)
         own_name = _own_template(choices, list(TR.candidates("campaign", template_type)))
         own_row = await customs.get(tenant, own_name) if own_name else None
         try:
@@ -1243,7 +1250,8 @@ async def sendable(request: Request, tenant: str) -> dict:
             continue
         if row:
             out[template_type] = row
-    return {"templates": out, "types": sorted(out), "blocked": blocked, "count": len(out)}
+    return {"templates": out, "types": sorted(out), "blocked": blocked, "count": len(out),
+            "statuses": statuses}
 
 
 class RhythmsIn(BaseModel):

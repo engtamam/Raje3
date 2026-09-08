@@ -48,6 +48,11 @@ class NullTemplates:
     async def blocked_reasons(self, tenant: str) -> dict[str, str]:
         return {}
 
+    async def statuses(self, tenant: str) -> dict[str, str]:
+        # LOCAL/TEST DEFAULT — every seeded type reads "approved", matching the permissive
+        # posture every other Null* peer here takes with nothing real wired.
+        return {t.get("type", ""): "approved" for t in self._lib}
+
 
 class HttpTemplates:
     """What THIS shop can actually send — asked of reminders, per tenant.
@@ -111,6 +116,14 @@ class HttpTemplates:
     async def blocked_reasons(self, tenant: str) -> dict[str, str]:
         """reminders' OWN sentence for why a type is not sendable — never guessed here."""
         return dict((await self._raw(tenant)).get("blocked") or {})
+
+    async def statuses(self, tenant: str) -> dict[str, str]:
+        """One status word per type — pending | approved | rejected | paused | disabled |
+        not_registered | not_seeded | unknown — reminders' own `rendering.type_status`, the same
+        badge the admin panel's own template screen shows. `{}` when the peer's answer carried
+        none (an old cached response from before this field existed, or an unreachable peer) —
+        a caller reads a missing key as "unknown" on its own, same as every other status here."""
+        return dict((await self._raw(tenant)).get("statuses") or {})
 
 
 # ── the audience: built from operations' customers and reminders' learned intervals ────────────

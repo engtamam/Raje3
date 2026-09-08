@@ -138,10 +138,18 @@ class Card:
     # Empty means every blank is ours to fill, which is most of the engine's messages: a visit
     # confirmation asks him for nothing.
     blanks: list[str] = field(default_factory=list)
+    # ONE WORD, THE SAME ONE THE ADMIN PANEL'S OWN TEMPLATE SCREEN SHOWS — approved | pending |
+    # rejected | paused | disabled | not_registered | not_seeded | unknown (reminders'
+    # `rendering.type_status`). Never guessed here: a card that is `available` can still be
+    # "pending" (Meta has not caught up with THIS establishment's own account yet, even though
+    # the type is seeded and usable in general) — the owner is entitled to see which, not just
+    # whether he may press the card right now.
+    template_status: str = "unknown"
 
 
 def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks: dict[str, int] | None = None,
-          enabled_types: set[str] | None = None, blocked_reasons: dict[str, str] | None = None) -> list[Card]:
+          enabled_types: set[str] | None = None, blocked_reasons: dict[str, str] | None = None,
+          statuses: dict[str, str] | None = None) -> list[Card]:
     """The five cards, in the order an owner should see them.
 
     `locks` maps goal → locked_until. `enabled_types` is which template types this tenant can
@@ -150,8 +158,13 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
     REASON reminders computed (`blocked_reasons`, keyed by template type): under review at Meta, or
     never seeded. Guessing a reason here would be a second, possibly wrong, version of a fact one
     call away.
+
+    `statuses` is the badge itself — one word per template type (`rendering.type_status`), shown
+    on every card whether it is available or not, so an owner can see "pending" without having to
+    press a locked card to learn why.
     """
     locks = locks or {}
+    statuses = statuses or {}
     out: list[Card] = []
     for goal, meta in CARDS.items():
         card = Card(goal=goal, title=meta["title"], line=meta["line"], icon=meta["icon"],
@@ -166,6 +179,7 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
             card.unavailable_reason = f"متاح بعد {days} يوم"
 
         tmpl_type = GOAL_TEMPLATE.get(goal, ("", ""))[0]
+        card.template_status = statuses.get(tmpl_type, "unknown")
         # THE BLANKS COME FROM THE TEMPLATE THIS SHOP WOULD ACTUALLY SEND, not from a table here.
         # A shop that rewrote the message itself has its own blanks, and a second list in this
         # file would describe the library's while the send used his.

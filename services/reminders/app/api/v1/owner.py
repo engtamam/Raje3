@@ -307,10 +307,24 @@ async def list_reasons(request: Request, principal: Principal = Depends(_READ)) 
     THE SCREEN HAD NOTHING TO SHOW BEFORE THIS. «رسائلي» listed the send log and the campaigns —
     so the one question an owner actually has, «ما الذي يخرج باسمي، ومتى؟», had no answer anywhere
     in the product, and the only way to stop a message was to cancel it one row at a time.
+
+    EACH ROW NOW CARRIES ITS OWN APPROVAL STATUS (`template_status`) — the same picture the
+    admin panel's own template screen shows, surfaced here instead of hidden behind a modal a
+    person has to open one row at a time to learn a fact that decides whether it sends at all.
     """
     from app.core.reason_choices import ChoiceStore
-    choices = await ChoiceStore(request.app.state.container.datastore).load(_tenant(principal))
-    return {"reasons": choices.public()}
+    from app.core import reasons as TR
+    c = request.app.state.container
+    choices = await ChoiceStore(c.datastore).load(_tenant(principal))
+    rows = choices.public()
+    library = await c.library.all()
+    statuses = await c.approved_templates.statuses(_tenant(principal))
+    for row in rows:
+        reason = TR.get(str(row.get("id") or ""))
+        row["template_status"] = (
+            R.type_status(reason.template_type, library=library, statuses=statuses)
+            if reason else "unknown")
+    return {"reasons": rows}
 
 
 @router.put("/reasons/{reason_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])

@@ -403,3 +403,41 @@ def test_the_line_the_screen_approved_is_the_line_this_will_carry():
     assert sanitise_owner_text("ا" * 60) == "ا" * 60
     with pytest.raises(RenderError):
         sanitise_owner_text("ا" * 61)
+
+
+# ── type_status: the one owner of "what does this shop-facing row say about itself" ─────────────
+from app.core.rendering import type_status  # noqa: E402
+
+_STATUS_LIBRARY = [
+    {"name": "mkt_winback_warm", "type": "mkt_winback", "tone": "warm", "active": True},
+    {"name": "mkt_winback_feminine", "type": "mkt_winback", "tone": "feminine", "active": True},
+]
+
+
+def test_a_type_with_no_library_rows_is_not_seeded():
+    assert type_status("mkt_ghost", library=_STATUS_LIBRARY, statuses={}) == "not_seeded"
+
+
+def test_an_unreadable_peer_is_unknown_never_not_registered():
+    """`statuses=None` means the peer could not be asked — drawing "never submitted" from an
+    outage would tell an owner to act on a fact nobody actually checked."""
+    assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=None) == "unknown"
+
+
+def test_a_seeded_type_never_registered_for_this_tenant():
+    assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses={}) == "not_registered"
+
+
+def test_approved_wins_even_if_the_other_tone_is_still_pending():
+    statuses = {"mkt_winback_warm": "approved", "mkt_winback_feminine": "pending"}
+    assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "approved"
+
+
+def test_pending_beats_paused_and_disabled():
+    statuses = {"mkt_winback_warm": "paused", "mkt_winback_feminine": "pending"}
+    assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "pending"
+
+
+def test_rejected_only_when_nothing_better_is_true_of_any_tone():
+    statuses = {"mkt_winback_warm": "rejected", "mkt_winback_feminine": "rejected"}
+    assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "rejected"

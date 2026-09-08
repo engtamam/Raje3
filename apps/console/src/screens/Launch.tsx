@@ -28,12 +28,14 @@ import { useEffect, useState } from 'react';
 import {
   AlertTriangle, Cake, Gift, Info, Megaphone, RotateCcw, Tag, type LucideIcon,
 } from 'lucide-react';
+import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Segmented } from '../rj-ui/Segmented';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { western } from '../digits';
 
 /**
@@ -71,6 +73,9 @@ interface Goal {
    * so a shop that rewrote its own message gets its own blanks.
    */
   blanks?: string[];
+  /** The badge — same picture the admin panel's own template screen shows, on every card
+   *  whether it is locked or not (see templateStatus.ts's own docstring). */
+  template_status?: TemplateStatus;
 }
 
 interface Preview {
@@ -604,7 +609,19 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             return <Icon size={20} className="shrink-0" aria-hidden />;
           })() : null}
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="font-medium">{g.title}</span>
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{g.title}</span>
+              {/* THE BADGE, ON THE CARD ITSELF — whether it is locked or not (§ audit): an
+                  available card can still be «pending» for the tone THIS establishment ended
+                  up with, and an owner is entitled to see that without pressing a locked card
+                  to learn why. «unknown» draws nothing — a status this screen could not vouch
+                  for must not be shown as if it were one. */}
+              {g.template_status && g.template_status !== 'unknown' ? (
+                <Badge tone={TEMPLATE_STATUS_META[g.template_status].tone}>
+                  {TEMPLATE_STATUS_META[g.template_status].label}
+                </Badge>
+              ) : null}
+            </span>
             <span className="text-sm text-text-secondary">{g.line}</span>
             {/* NOT DISABLED ANY MORE, ON PURPOSE. Found live: an owner asked why he could not
                 even OPEN this and compose his message while a template was under Meta's review —

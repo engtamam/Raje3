@@ -29,7 +29,7 @@ vi.mock('../catalog', async (importOriginal) => {
         return {
           goals: [{ goal: 'package_offer', title: 'عرض على باقة', line: 'روّج لباقة',
                    icon: 'tag', available: true, offers: true,
-                   blanks: ['amount', 'catalogue', 'date'] }],
+                   blanks: ['amount', 'catalogue', 'date'], template_status: 'approved' }],
         };
       }
       if (a.id === 'operations.list_services') return { services: [] };
@@ -77,5 +77,13 @@ describe('package_offer', () => {
     const body = previewCalls[0] as { package_id: string; service_id: string };
     expect(body.package_id).toBe('pkg1');
     expect(body.service_id).toBe('');
+  });
+});
+
+describe('the template-status badge on the goal picker', () => {
+  it('shows the badge when the goal carries a known status', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} />);
+    await waitFor(() => expect(screen.getByText('عرض على باقة')).toBeTruthy());
+    expect(screen.getByText('معتمدة')).toBeTruthy();
   });
 });

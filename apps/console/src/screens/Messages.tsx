@@ -35,6 +35,7 @@ import { Segmented } from '../rj-ui/Segmented';
 import { FilterMenu } from '../rj-ui/FilterMenu';
 import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
+import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { Toggle } from '../rj-ui/Toggle';
 import { AlertTriangle, Gauge, Lock } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
@@ -126,6 +127,9 @@ interface ReasonRow {
    *  server — the key to colour by, the label to print — so the Arabic cannot drift from ours. */
   cls?: string;
   cls_label?: string;
+  /** The badge — see templateStatus.ts's own docstring for why the words here are ours,
+   *  never Meta's raw status name. */
+  template_status?: TemplateStatus;
 }
 
 /** THE FIVE, EACH WITH ITS OWN COLOUR, AND THE ONE THAT MATTERS MOST WEARS THE LOUDEST.
@@ -721,6 +725,15 @@ export function MessagesScreen(
                               tell which was which. */}
                           {t.cls_label ? (
                             <Badge tone={CLASS_TONE[t.cls ?? ''] ?? 'neutral'}>{t.cls_label}</Badge>
+                          ) : null}
+                          {/* THE BADGE, ON THE ROW ITSELF — not hidden behind opening the preview
+                              modal to learn a fact that decides whether this row sends at all.
+                              «unknown» draws nothing: a status this screen could not vouch for
+                              must not be shown as if it were one. */}
+                          {t.template_status && t.template_status !== 'unknown' ? (
+                            <Badge tone={TEMPLATE_STATUS_META[t.template_status].tone}>
+                              {TEMPLATE_STATUS_META[t.template_status].label}
+                            </Badge>
                           ) : null}
                           {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a
                               line saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}

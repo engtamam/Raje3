@@ -35,6 +35,9 @@ class _DivergingTemplates:
     async def blocked_reasons(self, tenant: str) -> dict[str, str]:
         return {}
 
+    async def statuses(self, tenant: str) -> dict[str, str]:
+        return {}
+
 
 @pytest.fixture()
 def client():

@@ -676,3 +676,65 @@ class ApprovedTemplates:
         if rows is None:
             return None
         return {str(r.get("name")) for r in rows if r.get("name")}
+
+    async def statuses(self, tenant: str) -> dict[str, str] | None:
+        """Every one of this tenant's templates, by name, with Meta's OWN status word —
+        pending | approved | rejected | paused | disabled. `names()` above collapses all four
+        unsendable statuses into "not approved", which is exactly right for choosing what to
+        send but wrong for TELLING the owner why: "قوالبك قيد المراجعة" about a template Meta
+        actually REJECTED sends him to wait for something that will never resolve on its own.
+
+        `None` means not known — unconfigured or unreachable — never "nothing registered"; a
+        caller must not draw "no template exists" from a peer it could not ask.
+        """
+        if not self._url:
+            return None
+        import urllib.error
+        import urllib.parse
+        from app.adapters import internal_http
+
+        # NO `status=` FILTER — every status this tenant's templates carry, in one read, so a
+        # caller building a badge per template does not make one request per status to assemble
+        # the same picture `names()` gets in one.
+        query = urllib.parse.urlencode({"tenant": tenant, "limit": 200})
+        try:
+            out = internal_http.get_json(f"{self._url}?{query}", self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return None
+        rows = out.get("templates")
+        if rows is None:
+            return None
+        return {str(r.get("name")): str(r.get("status") or "pending")
+                for r in rows if r.get("name")}
+
+
+#: THE ONE OWNER OF "WHAT DOES THIS SHOP-FACING ROW SAY ABOUT ITSELF" — a single status word per
+#: TYPE (svc_visit_confirmation, mkt_winback, ...), not per registered NAME. A type has one row
+#: per tone (see PlatformLibrary), each its own Meta registration that can be approved on its own
+#: schedule — a shop must not be told "still under review" about a type whose warm tone Meta
+#: already approved just because its feminine tone has not caught up. Priority, best answer first:
+#: approved (something usable exists) > pending (still with Meta, resolves on its own) > paused
+#: (Meta held it for quality — ours to look at) > disabled (Meta removed it — ours to fix) >
+#: rejected (Meta refused every tone) > not_registered (never submitted) > not_seeded (not even in
+#: our own library — a genuine gap, not a Meta state at all).
+_STATUS_PRIORITY = ("approved", "pending", "paused", "disabled", "rejected")
+
+
+def type_status(template_type: str, *, library: list[dict[str, Any]],
+                statuses: dict[str, str] | None) -> str:
+    candidates = [r for r in library if r.get("type") == template_type]
+    if not candidates:
+        return "not_seeded"
+    if statuses is None:
+        return "unknown"
+    names = {str(r.get("name")) for r in candidates if r.get("name")}
+    seen = {statuses[n] for n in names if n in statuses}
+    if not seen:
+        return "not_registered"
+    for status in _STATUS_PRIORITY:
+        if status in seen:
+            return status
+    # A status word Meta introduced after this list was written — surfaced rather than hidden
+    # behind a guess, so a new one is visible the day it first appears rather than the day
+    # somebody notices a badge went quiet.
+    return sorted(seen)[0]

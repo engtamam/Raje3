@@ -41,6 +41,7 @@ class Identity:
 class Approved:
     def __init__(self, names): self._names = names
     async def names(self, tenant): return set(self._names)
+    async def statuses(self, tenant): return {n: "approved" for n in self._names}
 
 
 def _wire(client, *, tone, approved):
@@ -80,6 +81,19 @@ def test_nothing_approved_is_an_empty_answer_not_a_full_one(client):
     body = client.get("/internal/reminders/sendable?tenant=t-1", headers=HEAD).json()
     assert body["templates"] == {} and body["count"] == 0
     assert set(body["blocked"]) == {"mkt_winback", "mkt_offer"}
+
+
+def test_statuses_carries_one_word_per_type_for_campaigns_own_goal_cards(client):
+    """The badge campaigns' own goal cards show — a status per TYPE, not per registered name, so
+    a type with one tone approved (`wb_warm`) and the other never even registered (`wb_calm`
+    absent from this fake's own approved set) still reads as usable overall — the same "best
+    tone wins" reasoning `choose()` itself already applies to picking which one to send."""
+    _wire(client, tone="warm", approved={"wb_warm"})
+    body = client.get("/internal/reminders/sendable?tenant=t-1", headers=HEAD).json()
+    assert body["statuses"]["mkt_winback"] == "approved"
+    # `of_calm` (mkt_offer's only registered name here) is not in the approved set at all —
+    # the fake's own `statuses()` never mentions it, so the type reads as never submitted.
+    assert body["statuses"]["mkt_offer"] == "not_registered"
 
 
 def test_it_is_internal_only(client):

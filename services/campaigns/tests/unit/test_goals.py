@@ -95,6 +95,21 @@ def test_no_filter_means_everything_is_available():
     assert all(c.available for c in cards(now=NOW))
 
 
+# ── the badge — one status word per card, the admin panel's own vocabulary ──────────────────────
+def test_no_statuses_given_reads_as_unknown_not_a_guess():
+    assert all(c.template_status == "unknown" for c in cards(now=NOW))
+
+
+def test_the_cards_own_status_comes_from_its_template_types_status():
+    got = cards(now=NOW, statuses={"mkt_winback": "pending"})
+    winback = next(c for c in got if c.goal == "win_back")
+    assert winback.template_status == "pending"
+    # A DIFFERENT GOAL'S CARD IS UNAFFECTED — the map is keyed by template type, not by goal, so
+    # one goal's own status must never leak onto a card whose type was never in the map at all.
+    other = next(c for c in got if c.goal == "announce")
+    assert other.template_status == "unknown"
+
+
 # ── one place for a new goal ───────────────────────────────────────────────────────────────────
 def test_a_goal_resolves_to_everything_the_system_needs():
     """One place, so adding a goal is two rows — not a change in four files where the fourth is

@@ -22,7 +22,8 @@ const rows = (label: string) => screen.queryAllByText(label).length;
 
 const REASONS = [
   { id: 'visit_recorded', label: 'سُجّلت زيارة', when: 'بعد عشر دقائق',
-    cls: 'service', cls_label: 'خدمية', on: true, can_switch: true },
+    cls: 'service', cls_label: 'خدمية', on: true, can_switch: true,
+    template_status: 'approved' },
   { id: 'winback', label: 'استرجاع', when: 'بعد 90 يوماً',
     cls: 'marketing', cls_label: 'تسويقية', on: false, can_switch: true },
   { id: 'points_expiring', label: 'نقاطك تنتهي', when: 'قبل الانتهاء بأسبوع',
@@ -101,5 +102,11 @@ describe('«متى نرسل» — a table a question can be asked of', () => {
     // and «موقوفة» is exactly what the filter above promises to find.
     expect(screen.getAllByText('مفعّلة').length).toBeGreaterThan(0);
     expect(screen.getAllByText('موقوفة').length).toBeGreaterThan(0);
+  });
+
+  it('shows the template-status badge on the row that carries one', async () => {
+    open();
+    await screen.findAllByText('سُجّلت زيارة');
+    expect(screen.getByText('معتمدة')).toBeTruthy();
   });
 });

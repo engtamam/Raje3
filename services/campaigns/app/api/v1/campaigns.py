@@ -124,6 +124,9 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     # قالب فعّال» is ours to fix — never guessed here, and never the one hardcoded sentence that
     # used to stand in for both.
     blocked = await c.templates.blocked_reasons(_tenant(principal))
+    # THE BADGE — one status word per type, shown on every card whether it is locked or not
+    # (see Card.template_status's own docstring).
+    statuses = await c.templates.statuses(_tenant(principal))
     # AND WHAT EACH GOAL WILL ASK HIM TO FILL (ط-4), read from the template this shop would
     # actually send — including one he rewrote himself — so the screen draws the blanks that
     # exist rather than one free box for every goal, four of which had nowhere to put it. THE
@@ -138,7 +141,8 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
             fills[template_type] = list(row.get("fills") or [])
     return {"goals": [vars(card) for card in
                       cards(now=_now(), fills_by_type=fills, locks=locks,
-                            enabled_types=enabled, blocked_reasons=blocked)]}
+                            enabled_types=enabled, blocked_reasons=blocked,
+                            statuses=statuses)]}
 
 
 @router.post("/preview", dependencies=[Depends(rate_limit)])
