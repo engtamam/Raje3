@@ -355,3 +355,51 @@ async def price(body: PriceIn, request: Request, settings: Settings = Depends(ge
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return {"strategy": cfg.strategy, "halalas": halalas}
+
+
+# ── PHASE 5 — the WhatsApp Flow booking channel ──────────────────────────────────────────────
+class FlowBookingIn(BaseModel):
+    """The platform's own HttpBookingBackend adapter's fixed shape (notification-service's
+    services/notification-service/app/adapters/booking/http.py) — one op, one tenant, and
+    whichever of `dimension`/`chosen`/`date`/`selection`/`idempotency_key` that op needs. Kept
+    permissive (no per-op required-field split) because the platform is the one enforcing which
+    op sends what; a stricter model here would just be a second, possibly-drifting copy of that
+    contract."""
+    op: str
+    tenant: str = ""
+    customer: str = ""
+    dimension: str = ""
+    chosen: dict[str, Any] = Field(default_factory=dict)
+    date: str = ""
+    selection: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str = ""
+
+
+@router.post("/whatsapp-flow/booking", dependencies=[Depends(require_internal_token)])
+async def whatsapp_flow_booking(body: FlowBookingIn, request: Request) -> dict:
+    """Answers the platform's generic booking_flow.py engine (v0.18.54+) — see
+    core/flow_booking_backend.py's own module docstring for the full contract and the
+    single-branch-shops-only limitation. 404s (via a plain refusal, never a stack trace) when
+    WHATSAPP_FLOW_BOOKING_ENABLED is off, so an unconfigured deployment's Flow simply cannot
+    reach a backend rather than crash one that half-exists.
+    """
+    container = getattr(request.app.state, "container", None)
+    backend = getattr(container, "flow_booking_provider", None) if container is not None else None
+    if backend is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "WhatsApp Flow booking is not enabled")
+
+    if body.op == "options":
+        options = await backend.options(tenant=body.tenant, dimension=body.dimension,
+                                        chosen=body.chosen, customer=body.customer)
+        return {"options": options}
+    if body.op == "calendar":
+        return await backend.calendar(tenant=body.tenant, chosen=body.chosen,
+                                      customer=body.customer)
+    if body.op == "slots":
+        slots = await backend.slots(tenant=body.tenant, chosen=body.chosen, date=body.date,
+                                    customer=body.customer)
+        return {"slots": slots}
+    if body.op == "reserve":
+        return await backend.reserve(tenant=body.tenant, selection=body.selection,
+                                     idempotency_key=body.idempotency_key, customer=body.customer)
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown op {body.op!r}")

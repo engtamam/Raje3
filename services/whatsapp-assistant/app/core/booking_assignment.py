@@ -136,7 +136,7 @@ class RealBookingProvider:
         return eligible_pool
 
     async def _pick_slot(self, tenant: str, branch_id: str, service_id: str, after: int,
-                         exclude_booking_id: str = "") -> tuple[str, int]:
+                         exclude_booking_id: str = "", operator_id: str = "") -> tuple[str, int]:
         """THE REAL ENGINE (phase 4) — see module docstring. Returns (operator_id, starts_at)
         TOGETHER, from the SAME merge call — `availability()` used to discard the slot this same
         pick already found and immediately re-ask a second peer (`nearest_real_slot`) for that
@@ -148,8 +148,22 @@ class RealBookingProvider:
         algorithm may have ranked things differently a moment earlier; each call trusts
         bookings-service's own answer at ITS OWN moment, never a stale one from the other).
         Raises BookingAssignmentError rather than returning an empty id so every caller is forced
-        to handle "nothing free" explicitly instead of silently proceeding with one."""
+        to handle "nothing free" explicitly instead of silently proceeding with one.
+
+        `operator_id`, WHEN GIVEN, PINS THE POOL TO THAT ONE PERSON — never trusted blindly: it
+        still goes through `_eligible_pool` and is refused (BookingAssignmentError) if that
+        operator turns out not to be eligible for `service_id` at this branch, the same "the write
+        refuses, not only the suggestion" rule every other pick in this module already holds. This
+        is what a `named`-mode service picked via the WhatsApp Flow (Phase 5) needs: the customer
+        already chose WHO on an earlier screen — the merge search below exists to answer "who is
+        free", never to override a choice the customer already made."""
         eligible_pool = await self._eligible_pool(tenant, branch_id, service_id)
+        if operator_id:
+            if operator_id not in eligible_pool:
+                raise BookingAssignmentError(
+                    f"operator {operator_id!r} is not eligible for service {service_id!r} "
+                    f"at branch {branch_id!r}")
+            eligible_pool = [operator_id]
         payload: dict[str, Any] = {
             "tenant": tenant, "branch_id": branch_id, "operator_ids": eligible_pool,
             "service_ids": [service_id], "after": after, "max_slots": 1}
@@ -162,11 +176,13 @@ class RealBookingProvider:
                 f"no operator at branch {branch_id!r} is free for service {service_id!r} near {after}")
         return str(slots[0]["operator_id"]), int(slots[0]["starts_at"])
 
-    async def _pick_operator(self, tenant: str, branch_id: str, service_id: str, after: int) -> str:
+    async def _pick_operator(self, tenant: str, branch_id: str, service_id: str, after: int,
+                             operator_id: str = "") -> str:
         """Same engine as `_pick_slot`, for a caller (`hold_and_confirm`) that already knows WHEN
         (the customer's own confirmed time) and only needs WHO."""
-        operator_id, _starts_at = await self._pick_slot(tenant, branch_id, service_id, after)
-        return operator_id
+        picked, _starts_at = await self._pick_slot(tenant, branch_id, service_id, after,
+                                                    operator_id=operator_id)
+        return picked
 
     async def _resolve_customer_id(self, tenant: str, from_number: str) -> str:
         result = self._customer_id_by_phone.call({"tenant": tenant, "phone": from_number})
@@ -202,7 +218,8 @@ class RealBookingProvider:
 
     async def hold_and_confirm(self, *, tenant: str, subject_ref: str, service_id: str,
                                starts_at: int, idempotency_key: str, branch_id: str = "",
-                               from_number: str = "", intended_reward_id: str = "") -> dict:
+                               from_number: str = "", intended_reward_id: str = "",
+                               preferred_operator_id: str = "") -> dict:
         if not branch_id:
             raise BookingAssignmentError("no branch on this conversation — cannot create a real booking")
         if not from_number:
@@ -212,7 +229,11 @@ class RealBookingProvider:
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
 
-        operator_id = await self._pick_operator(tenant, branch_id, service_id, starts_at)
+        # `preferred_operator_id` (Phase 5): the WhatsApp Flow's own `named`-service staff step
+        # already resolved WHO — see `_pick_operator`'s own docstring on why this still goes
+        # through the eligible-pool check rather than being trusted as-is.
+        operator_id = await self._pick_operator(tenant, branch_id, service_id, starts_at,
+                                                operator_id=preferred_operator_id)
 
         # INTENT ONLY, NEVER A SPEND — bookings-service's own `create()` only stamps this on the
         # row (see InternalCreateBookingIn.intended_reward_id's own docstring); the actual points

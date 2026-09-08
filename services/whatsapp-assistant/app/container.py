@@ -134,6 +134,7 @@ class Container:
     llm: Any = None
     runtime_config: Any = None
     booking_provider: Any = None
+    flow_booking_provider: Any = None
     points_summary: Any = None
     customer_lookup: Any = None
     branch_directory: Any = None
@@ -250,6 +251,19 @@ def build_container(settings: Settings) -> Container:
     container.points_summary = P.build(settings)
     container.customer_lookup = CL.build(settings)
     container.branch_directory = BD.build(settings)
+    # PHASE 5 — the WhatsApp Flow (structured screens) booking channel, distinct from the AI text
+    # channel's own BOOKING_PROVIDER_DRIVER above. Requires "real" (reuses the exact same
+    # RealBookingProvider instance, never a second policy) — fails fast on a config that turns
+    # this on without it, same "no silent half-feature" posture as every other combined-config
+    # assertion on this service.
+    if settings.WHATSAPP_FLOW_BOOKING_ENABLED:
+        if settings.BOOKING_PROVIDER_DRIVER != "real":
+            raise ValueError(
+                "WHATSAPP_FLOW_BOOKING_ENABLED=true requires BOOKING_PROVIDER_DRIVER=\"real\"")
+        from app.core import flow_booking_backend as FBB
+        container.flow_booking_provider = FBB.build(
+            settings, real=container.booking_provider, catalog=container.service_catalog,
+            branch_directory=container.branch_directory)
     container.shop_identity = SI.build(settings)
     container.service_catalog = SC.build(settings)
     container.package_catalog = PC.build(settings)

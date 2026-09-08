@@ -232,6 +232,9 @@ class Settings(BaseSettings):
     # eligible operator and applies the shop's own algorithm (AssignmentSettingsStore), replacing
     # the "sorted by id, first one" placeholder `_pick_operator` used before this existed.
     BOOKINGS_NEAREST_ANY_REAL_SLOT_PATH: str = "/internal/bookings/nearest-any-real"
+    # PHASE 5 (WhatsApp Flow) — the TIME screen's own question: every time on ONE day at least one
+    # eligible operator is free for, never who. See core/flow_booking_backend.py's own docstring.
+    BOOKINGS_DAY_SLOTS_ANY_REAL_PATH: str = "/internal/bookings/day-slots-real"
     BOOKINGS_CREATE_PATH: str = "/internal/bookings"
     # Booking-management-via-WhatsApp (view/cancel/reschedule an EXISTING booking) — the
     # customer-ownership counterparts to bookings-service's staff-only routes. See
@@ -251,6 +254,20 @@ class Settings(BaseSettings):
     # deployed and reachable, the same "opt in, never silently upgrade" posture WALLET_SERVICE_URL
     # and every other optional peer on this service already takes.
     BOOKING_PROVIDER_DRIVER: str = "config"
+    # The shop's weekly working-hours policy (bookings-service's own store, the SAME one the
+    # console's own calendar reads) — feeds the Flow CALENDAR step's include_days/unavailable
+    # constraints. See core/flow_booking_backend.py.
+    BOOKINGS_WORKING_HOURS_PATH: str = "/internal/working-hours"
+
+    # PHASE 5 — the WhatsApp Flow (structured screens) booking channel, distinct from the AI text
+    # channel above (BOOKING_PROVIDER_DRIVER). Off by default: the platform's own generic Flow
+    # infrastructure (v0.18.54+) POSTs to a URL WE configure on THEIR side once this is on; turning
+    # it on here only builds our half (the endpoint answering those calls) — see
+    # core/flow_booking_backend.py and api/internal.py's /internal/whatsapp-flow/booking route.
+    # Requires BOOKING_PROVIDER_DRIVER="real" (reuses the exact same peers/engine, never a second
+    # policy) — checked at build() time, same fail-fast posture as every other combined-config
+    # assertion on this service.
+    WHATSAPP_FLOW_BOOKING_ENABLED: bool = False
 
     # Booking-management-via-WhatsApp — view/cancel/reschedule an EXISTING booking through the
     # bot. TWO INDEPENDENT FLAGS, both default true (fully on, for this round's testing), each

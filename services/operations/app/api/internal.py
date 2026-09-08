@@ -1701,7 +1701,12 @@ async def read_catalogue_with_prices(request: Request, body: CatalogueIn) -> dic
     c = request.app.state.container
     rows = await ServiceStore(c.datastore).list(body.tenant, active_only=True)
     return {"services": [{"id": s.id, "name": s.name, "price_minor": s.price_minor,
-                          "has_image": bool(s.image_key)} for s in rows],
+                          "has_image": bool(s.image_key),
+                          # PHASE 5 (WhatsApp Flow) — the ONE extra field its staff-selection
+                          # step needs, riding on the SAME catalogue call the Flow already makes
+                          # for the service list (no second peer round trip). "named" | "auto",
+                          # see Service.assignment_mode's own docstring in core/models.py.
+                          "assignment_mode": s.assignment_mode} for s in rows],
             "count": len(rows)}
 
 

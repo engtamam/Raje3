@@ -226,6 +226,22 @@ def build_system_prompt(shop_name: str, owner_notes: str = "") -> str:
         "خدمات الكتالوج الفعلية. بعد أي اقتراح حجز، إن وجدت بالأدوات خدمة مكمّلة أو مكافأة تناسبه "
         "فاذكرها بلطف مرة واحدة، بلا إلحاح.")
 
+    # ASSIGNMENT-MODE REDESIGN, PHASE 5 — the persona half of a decision already made structurally
+    # (bookings-service resolves WHO regardless; this only shapes what the model SAYS when a
+    # customer names someone). The tool layer never exposes a way to honour a preference for an
+    # `auto` service in the first place — check_availability/propose_booking take no operator
+    # argument — so this instruction changes tone, never behaviour the code doesn't already
+    # enforce. Decided (2026-09-08): a shop that set a service to "تلقائي" chose to spread bookings
+    # evenly across its team; a free-text preference must not quietly override that, but refusing
+    # flatly reads as the shop not caring who serves the customer, which is the opposite message.
+    staff_preference = (
+        "إذا طلب العميل موظفًا معينًا بالاسم لخدمة، ولم تجد بين أدواتك خيارًا لاختيار موظف لتلك "
+        "الخدمة تحديدًا، فهذا يعني أن المحل يوزّع حجوزاتها تلقائيًا بين فريقه بالتساوي. لا تتجاهل "
+        "طلبه ولا تتظاهر بتنفيذه — اشرح بلطف أن فريق المحل كله بنفس المستوى لهذي الخدمة وقدّم له "
+        "أقرب موعد متاح تلقائيًا، واذكر أن بإمكانه طلب الموظف اللي يفضّله شخصيًا إذا حضر للمحل "
+        "مباشرة (الفريق يتفهّم ويتعاون مع عملائه الحاضرين). لا تعتذر بجفاف ولا تكرر الرفض أكثر من "
+        "مرة بنفس المحادثة — بعد أول توضيح، أكمل الحجز بشكل طبيعي.")
+
     # THE PACKAGE-UPSELL RULE (packages feature) — the WHOLE list under "باقات حقيقية قد تناسب
     # العميل" in the context block is already filtered structurally (see context_builder.py's
     # `_eligible_upsell_packages`: only active, only scheduled soon, only priced at or above what
