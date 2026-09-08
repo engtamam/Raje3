@@ -60,24 +60,22 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "يقول لك أين الفرصة: أي خدمتين تُطلبان معاً، ومن كان سيشتري أكثر، وأثر رسائلك."},
     {"key": "feature.bookings", "name": "الحجوزات", "screen": "bookings",
      "what": "حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً."},
+    {"key": "feature.rating", "name": "التقييم", "screen": "ratings",
+     "what": "رسالة تقييم بعد كل زيارة — نجوم وتعليق حر — بدل رسالة التأكيد العادية."},
+    {"key": "feature.whatsapp", "name": "بوت خدمة العملاء الذكي", "screen": "connect",
+     "what": "يرد على استفسارات عملائك، يحجز مواعيدهم، يستبدل نقاطهم، ويقترح عليهم خدمة تناسبهم — "
+             "على مدار الساعة وبلا انتظار، فيرفع مبيعاتك ويوفر وقت فريقك بدل ما يُستنزف بالردود."},
 )
 
-# `feature.whatsapp` (the AI assistant's auto-reply/auto-booking over WhatsApp — NOT the ordinary
-# service messages, which stay inside the base unchanged) IS DELIBERATELY NOT A ROW HERE YET. It is
-# already gated, live, at the one act that matters (whatsapp-assistant's own core/licence.py talks
-# to billing directly — this file is not in that call path at all, exactly like every other key
-# below is checked at its own act and not through this catalogue). A row here is what makes an app
-# BROWSABLE: it draws its lock on a console screen and appears in `/apps`'s list. Its price has not
-# been agreed, so — same as «المؤسسات» stays out of the ordinary plan listing until it is one a shop
-# can actually choose — it stays out of this tuple until it is one they can actually buy. Add the
-# row the day it is priced; nothing about the gate above needs to change when that happens.
-
-# `feature.rating` (the post-visit rating app, WhatsApp Flow — stars + free text) IS THE SAME CASE
-# AS `feature.bookings` WAS: it has a plan row now (`listed: false` in plans.json, `SOLD_UNBUILT`
-# in ci/check_entitlements.py), but nothing checks the key yet and no shop can actually buy it —
-# `listed: false` keeps it off `Plans.tsx`'s store grid regardless. Add the row here the same day
-# the plan flips to `listed: true` — not before, or the console draws a lock on an app nobody can
-# purchase.
+# BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY (2026-09-08): a plan's
+# `listed: true` flip in plans.json and this tuple's own row are TWO HALVES of one change, and
+# both `feature.rating` and `feature.whatsapp` had their plan flipped (priced, listed, sold —
+# `بوت خدمة العملاء الذكي` at 19900, `التقييم` at 9900) while this file kept the OLD comment
+# explaining why the row did not exist YET — never updated once the "yet" became "now". Neither
+# app appeared anywhere a shop or an admin could see it, despite being fully built and sold.
+# `ci/check_listed_apps_are_wired.py` is the gate that now catches exactly this drift — a listed,
+# single-feature plan row with no matching entry here fails the build, so this cannot happen
+# silently again.
 
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
 
