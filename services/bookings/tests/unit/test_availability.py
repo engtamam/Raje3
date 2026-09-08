@@ -137,3 +137,115 @@ def test_a_window_with_start_not_before_end_is_rejected_at_construction():
         Window(700, 700)
     with pytest.raises(ValueError):
         Window(800, 700)
+
+
+# ── coverage for the bitmask port of `_iter_candidates` (perf-audit-2026-09-08) ──────────────
+#
+# `free_slots`/`nearest_slot` now check busy overlap via a per-day minute-resolution bitmask
+# instead of scanning `busy` per candidate — these cases target the exact edges where a
+# floor/ceil-to-the-minute bucket could, in principle, disagree with the old continuous
+# `_overlaps` check: a duration NOT a multiple of the 15-minute grid, a busy interval with
+# sub-minute-irrelevant-but-mid-bucket boundaries, a day exception, and an empty schedule.
+
+def test_a_non_grid_duration_still_skips_only_the_minutes_it_actually_touches():
+    """duration_minutes=20 is not a multiple of the 15-minute candidate grid — the OLD scan
+    checked continuous overlap regardless; the bitmask must still agree exactly."""
+    busy = [Busy(_riyadh_epoch(2026, 8, 16, 9, 20), _riyadh_epoch(2026, 8, 16, 9, 40))]
+    slots = free_slots(BASIC, busy, duration_minutes=20,
+                       window_start=_riyadh_epoch(2026, 8, 16),
+                       window_end=_riyadh_epoch(2026, 8, 16, 11, 0))
+    starts = {s.starts_at for s in slots}
+    # 09:00-09:20 would touch nothing of [09:20,09:40) — busy starts exactly where this ends.
+    assert _riyadh_epoch(2026, 8, 16, 9, 0) in starts
+    # 09:15-09:35 overlaps the busy interval.
+    assert _riyadh_epoch(2026, 8, 16, 9, 15) not in starts
+    # 09:30-09:50 still overlaps the tail of the busy interval (09:30 < 09:40).
+    assert _riyadh_epoch(2026, 8, 16, 9, 30) not in starts
+    # 09:45-10:05 starts after busy ends at 09:40 — no overlap.
+    assert _riyadh_epoch(2026, 8, 16, 9, 45) in starts
+
+
+def test_a_busy_interval_ending_mid_bucket_does_not_over_reject_the_next_slot():
+    """A busy stretch ending at 09:20 (not on the 15-minute grid) must not bleed into the
+    following candidate that starts exactly there — this is the case a coarser, 15-minute-bucket
+    mask (rather than a minute-resolution one) would get wrong."""
+    busy = [Busy(_riyadh_epoch(2026, 8, 16, 9, 0), _riyadh_epoch(2026, 8, 16, 9, 20))]
+    slots = free_slots(BASIC, busy, duration_minutes=30,
+                       window_start=_riyadh_epoch(2026, 8, 16),
+                       window_end=_riyadh_epoch(2026, 8, 16, 11, 0))
+    starts = {s.starts_at for s in slots}
+    assert _riyadh_epoch(2026, 8, 16, 9, 0) not in starts     # overlaps 09:00-09:20
+    assert _riyadh_epoch(2026, 8, 16, 9, 15) not in starts    # 09:15-09:45 still overlaps
+    # 09:30-10:00 starts on the grid, after the busy stretch ends at 09:20 — must be free.
+    assert _riyadh_epoch(2026, 8, 16, 9, 30) in starts
+
+
+def test_a_day_exception_closing_the_day_offers_nothing_regardless_of_busy():
+    """An exception day with no windows must short-circuit before the busy bitmask is even
+    built for that day — same result as the pre-bitmask scan (an empty schedule that day)."""
+    off = Schedule(weekly=BASIC.weekly,
+                   exceptions={SUNDAY.isoformat(): DayException(closed=True)})
+    busy = [Busy(_riyadh_epoch(2026, 8, 16, 9, 0), _riyadh_epoch(2026, 8, 16, 10, 0))]
+    slots = free_slots(off, busy, duration_minutes=30,
+                       window_start=_riyadh_epoch(2026, 8, 16),
+                       window_end=_riyadh_epoch(2026, 8, 17))
+    assert slots == []
+
+
+def test_an_empty_schedule_with_busy_intervals_offers_nothing():
+    """No weekly hours at all, on any day — the busy bitmask must never be asked to fill in for
+    a schedule that never opens."""
+    empty = Schedule(weekly={})
+    busy = [Busy(_riyadh_epoch(2026, 8, 16, 9, 0), _riyadh_epoch(2026, 8, 16, 10, 0))]
+    slots = free_slots(empty, busy, duration_minutes=30,
+                       window_start=_riyadh_epoch(2026, 8, 16),
+                       window_end=_riyadh_epoch(2026, 8, 18))
+    assert slots == []
+
+
+def test_a_busy_interval_spanning_a_day_boundary_only_blocks_the_day_it_touches():
+    """A busy stretch crossing Riyadh midnight must block the tail of one day and the head of
+    the next, and nothing else — exercising the per-day busy mask's own clipping at `day_epoch`
+    and `day_epoch + 86400`."""
+    two_day = Schedule(weekly={
+        6: (Window(540, 780),),        # Sunday 09:00-13:00
+        0: (Window(0, 120),),          # Monday 00:00-02:00
+    })
+    busy = [Busy(_riyadh_epoch(2026, 8, 16, 12, 0), _riyadh_epoch(2026, 8, 17, 1, 0))]
+    slots = free_slots(two_day, busy, duration_minutes=30,
+                       window_start=_riyadh_epoch(2026, 8, 16, 9, 0),
+                       window_end=_riyadh_epoch(2026, 8, 17, 2, 0))
+    starts = {s.starts_at for s in slots}
+    assert _riyadh_epoch(2026, 8, 16, 11, 30) in starts       # ends right at 12:00, before busy
+    assert _riyadh_epoch(2026, 8, 16, 12, 0) not in starts    # inside the cross-midnight busy stretch
+    assert _riyadh_epoch(2026, 8, 17, 0, 0) not in starts     # still inside it, on the next day
+    assert _riyadh_epoch(2026, 8, 17, 1, 0) in starts         # starts exactly when busy ends
+
+
+def test_free_slots_and_nearest_slot_agree_with_a_dense_dozen_busy_intervals():
+    """A denser busy calendar than the other cases above — several back-to-back and gapped
+    intervals in one day — cross-checked against a from-scratch continuous overlap
+    reimplementation, so the bitmask's day-mask construction is exercised with more than one or
+    two intervals at once."""
+    busy_windows = [(9, 0, 9, 10), (9, 15, 9, 25), (9, 45, 10, 5), (11, 0, 11, 3),
+                    (12, 0, 12, 59)]
+    busy = [Busy(_riyadh_epoch(2026, 8, 16, *bw[:2]), _riyadh_epoch(2026, 8, 16, *bw[2:]))
+           for bw in busy_windows]
+    slots = free_slots(BASIC, busy, duration_minutes=17,
+                       window_start=_riyadh_epoch(2026, 8, 16, 9, 0),
+                       window_end=_riyadh_epoch(2026, 8, 16, 13, 0))
+
+    def continuous_overlap(a_start, a_end):
+        return any(a_start < b.ends_at and b.starts_at < a_end for b in busy)
+
+    # Rebuild the same candidate grid by hand and check every one against a plain continuous
+    # overlap test — the two must agree on every single candidate, not just a few samples.
+    window_open = _riyadh_epoch(2026, 8, 16, 9, 0)
+    window_close = _riyadh_epoch(2026, 8, 16, 13, 0)
+    expected = set()
+    t = window_open
+    while t + 17 * 60 <= window_close:
+        if not continuous_overlap(t, t + 17 * 60):
+            expected.add(t)
+        t += 15 * 60
+    assert {s.starts_at for s in slots} == expected

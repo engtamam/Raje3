@@ -142,16 +142,27 @@ def parse_lines(raw_lines: list[dict[str, Any]], *,
 
 
 async def resolve(lines: list[Line], *, tenant: str, service_store,
-                  new_id, now: int, auto_create: bool = True) -> InvoiceResult:
+                  new_id, now: int, auto_create: bool = True,
+                  existing: list | None = None) -> InvoiceResult:
     """Map invoice lines onto this tenant's own catalogue, creating what is genuinely new.
 
     THE CATALOGUE IS PER TENANT AND ALWAYS HAS BEEN. A service created here belongs to this
     establishment alone — a shop's services are its own rows, never a shared reference. That
     is why one shop renaming "بنشر" does not rename it for every other shop, and it is what makes
     auto-creation safe at all.
+
+    `existing` LETS A CALLER SHARE ONE CATALOGUE READ ACROSS SEVERAL INVOICES FOR THE SAME
+    TENANT (`record_visits_batch`, up to 50 items a batch, most from the same till) — `None`
+    (every other caller) keeps the original one-read-per-call behaviour unchanged. When the
+    caller DOES share a list, it is mutated in place: a service created or adopted here is
+    appended (or already reflected — a rename/adopt mutates the SAME object the caller's list
+    already holds) so the NEXT item for this tenant in the same batch sees it too, exactly as it
+    would if each item still paid for its own fresh read.
     """
     res = InvoiceResult()
-    existing = await service_store.list(tenant, active_only=False)
+    owns_list = existing is None
+    if existing is None:
+        existing = await service_store.list(tenant, active_only=False)
     # Two indexes: by external id (authoritative) and by name (for the shop that used the product
     # manually before it ever integrated — see below).
     by_ext = {s.external_id: s for s in existing if getattr(s, "external_id", "")}
@@ -217,6 +228,11 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
             cycle_days=0, external_id=line.product_id, created=now)
         by_ext[line.product_id] = svc
         by_name[svc.name] = svc
+        if not owns_list:
+            # A CALLER-SHARED LIST GETS THE NEW ROW TOO — otherwise the NEXT item for this same
+            # tenant in the batch would rebuild `by_ext`/`by_name` from a list that still does not
+            # know this service exists, and create a DUPLICATE for the same `product_id`.
+            existing.append(svc)
         res.service_ids.append(svc.id)
         res.created_services.append(svc.id)
         res.quantities[svc.id] = res.quantities.get(svc.id, 0) + max(1, line.quantity)

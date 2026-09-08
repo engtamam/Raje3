@@ -247,6 +247,14 @@ class BookingOperations:
         if self._staff_eligibility is None:
             return
         by_service = await self._staff_eligibility.eligible_for(tenant, tuple(service_ids))
+        self._refuse_if_ineligible_from(by_service, operator_id, service_ids)
+
+    @staticmethod
+    def _refuse_if_ineligible_from(by_service: dict[str, list[str] | None], operator_id: str,
+                                   service_ids: list[str]) -> None:
+        """Same rule as `_refuse_if_ineligible` above, split out so a caller that already fetched
+        `by_service` ONCE for a whole batch of operators (`nearest_slots_any`) can re-check every
+        one of them against the same answer instead of asking the peer again per operator."""
         for sid in service_ids:
             allowed = by_service.get(sid)
             if allowed and operator_id not in allowed:
@@ -267,18 +275,29 @@ class BookingOperations:
         else:
             await self._refuse_if_ineligible(tenant, operator_id, list(service_ids))
 
-    async def _effective_schedule(self, tenant: str, operator_id: str) -> "Any":
+    async def _effective_schedule(self, tenant: str, operator_id: str, *,
+                                  hours_override: Any = "_unset") -> "Any":
         """The shop's own weekly hours, narrowed to THIS operator's own override when he has
         one — never wider than the shop's, by construction: `operations` refuses to save an
         override that reaches outside the shop's hours (write-time check), and this intersects
-        defensively AGAIN at read time regardless (belt and suspender, neither alone)."""
+        defensively AGAIN at read time regardless (belt and suspender, neither alone).
+
+        `hours_override` lets a caller that already batched `StaffHoursLookup.hours_for` for
+        SEVERAL operators at once (`nearest_slots_any`) hand this method the answer it already
+        has instead of this method fetching the same operator's override on its own — the
+        sentinel default (never a real override value) means every other caller keeps asking for
+        it itself, unchanged.
+        """
         from app.core.availability import Schedule, Window
 
         hours = await self.working_hours(tenant)
-        override = None
-        if self._staff_hours is not None:
-            per_operator = await self._staff_hours.hours_for(tenant, (operator_id,))
-            override = per_operator.get(operator_id)
+        if hours_override != "_unset":
+            override = hours_override
+        else:
+            override = None
+            if self._staff_hours is not None:
+                per_operator = await self._staff_hours.hours_for(tenant, (operator_id,))
+                override = per_operator.get(operator_id)
         weekly: dict[int, tuple] = {}
         for d in range(7):
             shop_entry = hours[str(d)]
@@ -742,7 +761,7 @@ class BookingOperations:
 
             await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
-        from app.core.availability import Busy, free_slots, nearest_slot as _nearest
+        from app.core.availability import Busy, iter_days_of_slots, nearest_slot as _nearest
 
         schedule = await self._effective_schedule(tenant, operator_id)
 
@@ -757,23 +776,23 @@ class BookingOperations:
                and b.id != exclude_booking_id]
 
         if package_id:
-            # DAY-STEPPED, NOT A SINGLE CALL — a package may only recur on SOME days in this
+            # DAY-LAZY, NOT A SINGLE UPFRONT SCAN — a package may only recur on SOME days in this
             # window (weekly/monthly/yearly, core/scheduling.py on the operations side), so the
             # ordinary "first free slot" answer would happily return a slot on a day the package
-            # does not run. `free_slots` (pure, no I/O) gives every candidate across the whole
-            # window at once; each is checked against the package's own schedule for its OWN day,
-            # memoised so a day with several candidate slots is only asked about once.
-            all_slots = free_slots(schedule, busy, duration_minutes=duration,
-                                   window_start=after, window_end=after + search_days * 86400)
-            offerable_by_day: dict[int, bool] = {}
-            for slot in all_slots:
-                day = day_bucket(slot.starts_at)
-                if day not in offerable_by_day:
-                    offerable_by_day[day] = (self._package_offerable is not None and
-                                             await self._package_offerable.offerable(
-                                                 tenant, package_id, slot.starts_at))
-                if offerable_by_day[day]:
-                    return slot.starts_at
+            # does not run. `iter_days_of_slots` (pure, no I/O) yields one calendar day's
+            # candidates at a time, in order; each day is asked about the package's OWN schedule
+            # exactly ONCE (never once per slot), and the loop stops the moment a day is offerable
+            # — the days after it are never even computed, let alone asked about.
+            for day, slots in iter_days_of_slots(schedule, busy, duration_minutes=duration,
+                                                 window_start=after,
+                                                 window_end=after + search_days * 86400):
+                if not slots:
+                    continue
+                offerable = (self._package_offerable is not None and
+                            await self._package_offerable.offerable(
+                                tenant, package_id, slots[0].starts_at))
+                if offerable:
+                    return slots[0].starts_at
             return None
 
         found = _nearest(schedule, busy, duration_minutes=duration, after=after,
@@ -814,11 +833,25 @@ class BookingOperations:
         rows = await self._bookings.slots_between(
             tenant, branch_id, start_bucket=bucket, end_bucket=end_bucket, limit=500)
 
+        # HOISTED OUT OF THE LOOP BELOW — `service_ids` is the SAME tuple on every iteration, so
+        # asking the eligibility peer once per operator was the exact same HTTP question asked
+        # `len(operator_ids)` times over. One call answers it for every operator in this batch;
+        # `_refuse_if_ineligible_from` below is the same check `_refuse_if_ineligible` makes,
+        # just handed this pre-fetched answer instead of asking the peer again per operator.
+        by_service = (await self._staff_eligibility.eligible_for(tenant, tuple(service_ids))
+                     if self._staff_eligibility is not None else {})
+        # SAME BATCHING FOR WORKING-HOURS OVERRIDES — `StaffHoursLookup.hours_for` already accepts
+        # every operator id at once; calling it per operator inside the loop paid for N peer round
+        # trips to answer exactly what one batched call answers in full.
+        hours_by_operator = (await self._staff_hours.hours_for(tenant, tuple(operator_ids))
+                            if self._staff_hours is not None else {})
+
         candidates: list[Candidate] = []
         load_by_operator: dict[str, int] = {}
         for operator_id in operator_ids:
-            await self._refuse_if_ineligible(tenant, operator_id, service_ids)
-            schedule = await self._effective_schedule(tenant, operator_id)
+            self._refuse_if_ineligible_from(by_service, operator_id, service_ids)
+            schedule = await self._effective_schedule(
+                tenant, operator_id, hours_override=hours_by_operator.get(operator_id))
             own_rows = [b for b in rows if b.operator_id == operator_id
                        and b.status != STATUS_CANCELLED and b.id != exclude_booking_id]
             busy = tuple(Busy(b.starts_at, b.starts_at + b.duration_minutes * 60) for b in own_rows)

@@ -179,6 +179,13 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
     svc = c.operations
     results: list[dict] = []
     accepted = 0
+    # ONE CATALOGUE READ PER DISTINCT TENANT IN THE BATCH, NOT ONE PER ITEM — up to 50 items a
+    # batch, most posted by the same till for the same shop, and `_invoices.resolve` used to
+    # re-read the WHOLE catalogue from scratch for every single one. Filled lazily, on first
+    # sight of each tenant, and handed to `resolve` below so every later item for that same
+    # tenant reuses it — `resolve` itself keeps this list current as it creates/adopts services,
+    # so an item that duplicates an earlier item's new product in the SAME batch still dedupes.
+    catalogue_by_tenant: dict[str, list] = {}
 
     # ENUMERATED, BECAUSE THE CALLER PAIRS BY POSITION (ك-7). Every result below carries the
     # item's index in the batch AS THE CALLER SENT IT. Without it a till has only
@@ -196,10 +203,14 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
         item_total_minor = 0
         if item.lines:
             try:
+                service_store = ServiceStore(c.datastore)
+                if item.tenant not in catalogue_by_tenant:
+                    catalogue_by_tenant[item.tenant] = await service_store.list(
+                        item.tenant, active_only=False)
                 res = await _invoices.resolve(
                     _invoices.parse_lines(item.lines), tenant=item.tenant,
-                    service_store=ServiceStore(c.datastore), new_id=new_id,
-                    now=int(time.time()))
+                    service_store=service_store, new_id=new_id,
+                    now=int(time.time()), existing=catalogue_by_tenant[item.tenant])
                 item.service_ids = list(dict.fromkeys(list(item.service_ids) + res.service_ids))
                 # THE COUNT TRAVELS WITH THE IDS, or the group-basket test reads an empty map for
                 # ever — which is what it did: `parse_lines` looked for `quantity` while our own
