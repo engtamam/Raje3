@@ -20,6 +20,13 @@ from typing import Any
 from app.core.models import ENTRIES, REDEMPTIONS
 
 
+# A TRUE FIX HERE IS AN INCREMENTAL AGGREGATE UPDATED WHERE `Ledger.post`/`Redeemer.redeem` WRITE,
+# not a recompute on every report read. Deliberately left as a full read for now: doing it right
+# means those write paths maintain a running tally alongside the ledger they already write, and a
+# bug there would corrupt a number this same module exists to keep honest (see "COMPUTED FROM THE
+# LEDGER, never from a counter kept alongside it" above) — not a change to make without touching
+# `post`/`redeem`'s correctness-critical write paths, which was explicitly out of scope for this
+# pass. Revisit if report reads become a measured hot path.
 async def build(store: Any, tenant: str, *, limit: int = 100000) -> dict:
     entries, _ = await store.find(ENTRIES, {"tenant": tenant}, limit=limit,
                                   sort=("created_at", "asc"))

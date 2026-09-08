@@ -100,8 +100,9 @@ async def balance(request: Request, subject_ref: str,
     c = request.app.state.container
     tenant = _tenant(principal)
     bal = await c.ledger.balance(tenant, subject_ref)
-    affordable = await c.rewards.affordable(tenant, bal.points)
-    all_costs = [r.cost for r in await c.rewards.list(tenant)]
+    catalogue = await c.rewards.list(tenant)
+    affordable = await c.rewards.affordable(tenant, bal.points, catalogue=catalogue)
+    all_costs = [r.cost for r in catalogue]
     threshold = await _threshold(c, tenant)
     return {
         "subject_ref": subject_ref,
