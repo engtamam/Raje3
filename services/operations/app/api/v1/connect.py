@@ -239,9 +239,7 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         # not run that script yet gets "no master booking_flow configured" from provision(), same
         # harmless after-the-response failure as an unconfigured rating/report Flow. This
         # provisions the Flow itself; the SEPARATE per-tenant encryption key it needs before it
-        # can actually receive traffic is not yet automated (escalated to the platform team,
-        # 2026-09-08) — provisioning here is still correct to run regardless, so a shop is ready
-        # the moment that piece lands too, no re-connect needed.
+        # can actually receive traffic is the next background task below.
         from app.core.flows import BOOKING_FLOW_CATEGORIES, BOOKING_FLOW_NAME
         master_booking_flow_id = await rc.get(
             tenant="", key="MASTER_BOOKING_FLOW_ID", default=s.MASTER_BOOKING_FLOW_ID)
@@ -252,6 +250,13 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         background.add_task(provision_shop_flow, c.flows, tenant, master_booking_flow_id,
                             flow_name=BOOKING_FLOW_NAME, categories=BOOKING_FLOW_CATEGORIES,
                             endpoint_uri=booking_endpoint_uri)
+        # THE FLOW'S OTHER HALF — a sealed per-tenant encryption key and its public half
+        # registered with Meta (base-services v0.18.55). No longer escalated: this closes the
+        # one gap that was genuinely outside our hands. Idempotent on notification-service's own
+        # side (never regenerates an existing key), so running it on every connect is safe —
+        # including a reconnect, or a shop adding a second number later.
+        from app.core.flows import provision_shop_flow_encryption
+        background.add_task(provision_shop_flow_encryption, c.flows, tenant)
         background.add_task(publish, c.library, await c.templates.list(), tenant)
     # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the

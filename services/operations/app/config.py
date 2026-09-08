@@ -357,6 +357,10 @@ class Settings(BaseSettings):
     # twin) — see core/flows.py. Idempotent by name on notification-service's own side, same as
     # the template register above.
     WHATSAPP_FLOW_PROVISION_PATH: str = "/internal/whatsapp/flows/provision"
+    # THE FLOW'S OTHER connect-time STEP (Phase 5, base-services v0.18.55) — ensures a sealed
+    # per-tenant Flow-encryption key exists and its public half is registered with Meta. See
+    # core/flows.py's `HttpFlows.ensure_encryption`.
+    WHATSAPP_FLOW_ENCRYPTION_ENSURE_PATH: str = "/internal/whatsapp/flow-encryption/ensure"
     # THE MASTER FLOW'S id, minted ONCE by deploy/seed/bootstrap-rating-flow.py under the
     # platform's own WABA and stored through THIS SETTING'S RuntimeConfig override (platform
     # scope, tenant="") — never a static default, because the id does not exist until that

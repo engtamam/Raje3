@@ -186,11 +186,12 @@ env:
   # header, and http.py's own `if self._token:` guard means an empty value here is simply never
   # sent, not a crash). Confirm how this deployment's chart actually wires a shared secret into
   # a plain config value before setting it — do not hardcode the token's plaintext here.
-  # ON — SAFE BEFORE ANY KEY IS SEALED. The route itself refuses cleanly per-tenant
-  # (503 FLOW_KEY_UNCONFIGURED) whenever no key is sealed for that tenant yet (see
-  # api/webhooks.py's own `_handle_flow`) — turning this on ahead of the per-tenant
-  # Flow-encryption-key automation (escalated to the platform team, 2026-09-08) costs nothing and
-  # means no second deploy is needed the moment that piece lands.
+  # ON. Each shop's own Flow-encryption key is now sealed automatically at connect time
+  # (operations' connect.py, base-services v0.18.55's flow-encryption/ensure route) — a shop
+  # connected before this route existed just needs a reconnect (or a manual
+  # provision_shop_flow_encryption call) to get one. Before that key is sealed for a given
+  # tenant, its requests refuse cleanly per-tenant (503 FLOW_KEY_UNCONFIGURED, see
+  # api/webhooks.py's own `_handle_flow`) rather than crash.
   WHATSAPP_FLOW_ENDPOINT_ENABLED: "true"
 
   # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────

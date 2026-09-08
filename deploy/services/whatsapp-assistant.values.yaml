@@ -183,12 +183,11 @@ env:
   BOOKING_MANAGEMENT_ENABLED: "true"
   BOOKING_HISTORY_VISIBLE: "true"
   # Phase 5 (WhatsApp Flow booking, structured screens — distinct from the AI text channel just
-  # above, and NOT gated on it: the Flow needs no conversational model at all). This half — our
-  # own code and our own bookings-service peer — is fully wired and on. What still gates real
-  # traffic is entirely on the PLATFORM/Meta side: notification-service's
-  # WHATSAPP_FLOW_ENDPOINT_ENABLED, a real per-shop WhatsApp connection, and the per-tenant
-  # Flow-encryption key (not yet automated — escalated to the platform team, 2026-09-08) — none of
-  # which need another change here once they land.
+  # above, and NOT gated on it: the Flow needs no conversational model at all). Fully wired and
+  # on, end to end: notification-service's WHATSAPP_FLOW_ENDPOINT_ENABLED is on, and each shop's
+  # own Flow-encryption key is sealed automatically the moment its WhatsApp connects (operations'
+  # connect.py, base-services v0.18.55). The only remaining gate is a real per-shop WhatsApp
+  # connection existing at all — outside code's reach by definition, not a config knob.
   WHATSAPP_FLOW_BOOKING_ENABLED: "true"
   BOOKINGS_DAY_SLOTS_ANY_REAL_PATH: "/internal/bookings/day-slots-real"
   BOOKINGS_WORKING_HOURS_PATH: "/internal/working-hours"

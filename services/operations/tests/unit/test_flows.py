@@ -12,7 +12,7 @@ import urllib.error
 from unittest.mock import patch
 
 from app.core.flows import (RATING_FLOW_CATEGORIES, RATING_FLOW_NAME, HttpFlows, NullFlows,
-                            build_flows, provision_shop_flow)
+                            build_flows, provision_shop_flow, provision_shop_flow_encryption)
 
 
 def run(c):
@@ -36,7 +36,8 @@ class _Resp:
 
 def client():
     return HttpFlows(notify_url="http://notify",
-                     provision_path="/internal/whatsapp/flows/provision", token="t")
+                     provision_path="/internal/whatsapp/flows/provision", token="t",
+                     encryption_ensure_path="/internal/whatsapp/flow-encryption/ensure")
 
 
 # ── NullFlows: honest about being unconfigured ──────────────────────────────────────────────────
@@ -99,6 +100,76 @@ def test_an_unreachable_peer_is_a_failure_that_says_so():
     with patch("urllib.request.urlopen", _urlopen):
         out = run(client().provision("t1", clone_flow_id="master-1"))
     assert out["ok"] is False and out["reason"]
+
+
+# ── HttpFlows.ensure_encryption — the Flow's other connect-time step (base-services v0.18.55) ──
+def test_ensure_encryption_posts_to_its_own_path_not_provision():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["url"] = req.full_url
+        seen["body"] = json.loads(req.data)
+        return _Resp({"ok": True, "created": True, "uploaded": True,
+                     "phone_number_id": "pn1", "status": "VALID"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(client().ensure_encryption("t1"))
+    assert seen["url"].endswith("/internal/whatsapp/flow-encryption/ensure")
+    assert seen["body"] == {"tenant": "t1"}
+    assert out["ok"] is True
+    assert out["status"] == "VALID"
+
+
+def test_ensure_encryption_sends_an_explicit_phone_number_id_when_given():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"ok": True, "created": False, "uploaded": True})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(client().ensure_encryption("t1", phone_number_id="pn_explicit"))
+    assert seen["body"] == {"tenant": "t1", "phone_number_id": "pn_explicit"}
+
+
+def test_ensure_encryption_with_no_path_configured_refuses_without_a_call():
+    """A client built before this feature existed (encryption_ensure_path="") must not crash —
+    same 'no master configured' discipline `provision` already holds for a missing clone id."""
+    def _urlopen(req, timeout=0):
+        raise AssertionError("must not call anything with no path configured")
+
+    bare = HttpFlows(notify_url="http://notify",
+                     provision_path="/internal/whatsapp/flows/provision", token="t")
+    with patch("urllib.request.urlopen", _urlopen):
+        out = run(bare.ensure_encryption("t1"))
+    assert out["ok"] is False
+
+
+def test_null_flows_ensure_encryption_is_honest_too():
+    null = NullFlows()
+    out = run(null.ensure_encryption("t1"))
+    assert out == {"ok": False, "reason": "flow encryption provisioning is not configured"}
+    assert null.provisioned == ["t1"]
+
+
+def test_provision_shop_flow_encryption_forwards_to_the_driver():
+    null = NullFlows()
+    out = run(provision_shop_flow_encryption(null, "t1"))
+    assert out["ok"] is False
+    assert null.provisioned == ["t1"]
+
+
+def test_build_flows_wires_the_encryption_path_too():
+    class S:
+        NOTIFICATION_SERVICE_URL = "http://notification-service:8000"
+        WHATSAPP_FLOW_PROVISION_PATH = "/internal/whatsapp/flows/provision"
+        WHATSAPP_FLOW_ENCRYPTION_ENSURE_PATH = "/internal/whatsapp/flow-encryption/ensure"
+        INTERNAL_SERVICE_TOKEN = "t"
+        PEER_TIMEOUT_SECONDS = 8
+
+    flows = build_flows(S())
+    assert flows.driver == "http"
+    assert flows._encryption_ensure.endswith("/internal/whatsapp/flow-encryption/ensure")
 
 
 # ── the factory ──────────────────────────────────────────────────────────────────────────────────

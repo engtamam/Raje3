@@ -74,6 +74,10 @@ class NullFlows:
         self.provisioned.append(tenant)
         return {"ok": False, "reason": "flow provisioning is not configured"}
 
+    async def ensure_encryption(self, tenant: str, *, phone_number_id: str = "") -> dict[str, Any]:
+        self.provisioned.append(tenant)
+        return {"ok": False, "reason": "flow encryption provisioning is not configured"}
+
 
 class HttpFlows:
     """notification-service's internal Flow-provisioning twin."""
@@ -81,16 +85,25 @@ class HttpFlows:
     driver = "http"
 
     def __init__(self, *, notify_url: str, provision_path: str, token: str,
-                 timeout: int = 8) -> None:
+                 timeout: int = 8, encryption_ensure_path: str = "") -> None:
         base = notify_url.rstrip("/")
         self._provision = base + provision_path
+        # OPTIONAL — a deployment that has not declared the path yet (an old values file, before
+        # the Phase 5 wiring) simply cannot call ensure_encryption; `build_flows` below always
+        # sets a real default, so this is only ever empty in a hand-built instance.
+        self._encryption_ensure = base + encryption_ensure_path if encryption_ensure_path else ""
         self._token = token
         self._timeout = timeout
 
     def _post(self, body: dict[str, Any]) -> tuple[int, Any]:
+        return self._post_to(self._provision, body)
+
+    def _post_to(self, url: str, body: dict[str, Any]) -> tuple[int, Any]:
+        if not url:
+            return 503, {"detail": "no path configured for this call"}
         data = json.dumps(body).encode()
         req = urllib.request.Request(
-            self._provision, data=data, method="POST",
+            url, data=data, method="POST",
             headers={"X-Internal-Token": self._token, "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
@@ -137,15 +150,31 @@ class HttpFlows:
             return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
         return {"ok": True, **(out if isinstance(out, dict) else {})}
 
+    async def ensure_encryption(self, tenant: str, *, phone_number_id: str = "") -> dict[str, Any]:
+        """The booking Flow's OTHER connect-time step (Phase 5, base-services v0.18.55): ensure
+        this shop has a sealed Flow-encryption key and a matching public key registered with Meta
+        for its number — the twin of `provision` above, called alongside it, never instead of it.
+        Idempotent on notification-service's own side (never regenerates an existing key, only
+        re-registers the public half) — safe to call on every connect, not just the first."""
+        body: dict[str, Any] = {"tenant": tenant}
+        if phone_number_id:
+            body["phone_number_id"] = phone_number_id
+        status, out = self._post_to(self._encryption_ensure, body)
+        if status >= 400:
+            return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
+        return {"ok": True, **(out if isinstance(out, dict) else {})}
+
 
 def build_flows(settings: Any) -> Any:
     url = getattr(settings, "NOTIFICATION_SERVICE_URL", "") or ""
     path = getattr(settings, "WHATSAPP_FLOW_PROVISION_PATH", "") or ""
     if not url or not path:
         return NullFlows()
-    return HttpFlows(notify_url=url, provision_path=path,
-                     token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "",
-                     timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+    return HttpFlows(
+        notify_url=url, provision_path=path,
+        token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "",
+        timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8),
+        encryption_ensure_path=getattr(settings, "WHATSAPP_FLOW_ENCRYPTION_ENSURE_PATH", "") or "")
 
 
 async def provision_shop_flow(flows: Any, tenant: str, master_flow_id: str, *,
@@ -162,3 +191,11 @@ async def provision_shop_flow(flows: Any, tenant: str, master_flow_id: str, *,
     # an unrecognised flow_name would submit "SURVEY" for a Flow that asks nothing.
     return await flows.provision(tenant, clone_flow_id=master_flow_id, flow_name=flow_name,
                                  categories=categories, endpoint_uri=endpoint_uri)
+
+
+async def provision_shop_flow_encryption(flows: Any, tenant: str, *,
+                                         phone_number_id: str = "") -> dict[str, Any]:
+    """The booking Flow's OTHER connect-time call — see `HttpFlows.ensure_encryption`'s own
+    docstring. Same free-function shape as `provision_shop_flow` beside it, for the same reason
+    (connect.py's background tasks read identically either way)."""
+    return await flows.ensure_encryption(tenant, phone_number_id=phone_number_id)

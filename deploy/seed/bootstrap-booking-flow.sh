@@ -143,9 +143,8 @@ except urllib.error.HTTPError as e:
 PY
 if [ $? -eq 0 ]; then
   grn "MASTER_BOOKING_FLOW_ID stored in operations' runtime config"
-  ylw "reminder: each shop's own clone still needs its per-tenant Flow-encryption key sealed"
-  ylw "before it can receive real traffic — see docs/design/whatsapp-booking-flow.md; that step"
-  ylw "is not yet automated (escalated to the platform team, 2026-09-08)."
+  grn "each shop's own Flow-encryption key is sealed automatically at connect time (base-services"
+  grn "v0.18.55, operations/app/api/v1/connect.py) — no further manual step needed per shop."
 else
   red "authored the Flow but failed to store its id — re-run this script; it is idempotent by name"
   exit 1
