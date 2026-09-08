@@ -11,17 +11,21 @@
  * — found live, both fixed here: boolean features get a check/x icon, gauges/counters a numeric
  * chip, and PERIOD_LABEL now covers both real values billing-service actually returns.
  *
- * The active/listed toggle calls `billing.plan_availability` directly — the ONE of the three app
+ * TWO SEPARATE TOGGLES, ONE ROUTE. `active` (can anyone subscribe at all) and `listed` (does the
+ * store show it) both call `billing.plan_availability` directly — the ONE of the three app
  * actions (`update_plan`/`plan_availability`) that becomes a real button here, because it is the
- * only one with a simple body param (active/listed, both booleans) a purpose-built card can fill
+ * only one with simple body params (active/listed, both booleans) a purpose-built card can fill
  * in itself — unlike the generic engine, which always sent an empty body (see AdminApps.tsx's own
- * older note). Full editing (`update_plan`) and creating a new app (`create_plan`) still need a
- * real form — deferred to a later screen, same call as before, still correct.
+ * older note). They used to be a SINGLE button that only ever sent `active` — found live, by a
+ * full pipeline audit that went looking for a show/hide control and discovered `listed` had never
+ * actually been wired to anything in this file, despite the server route always having accepted
+ * it. Full editing (`update_plan`) and creating a new app (`create_plan`) still need a real form
+ * — deferred to a later screen, same call as before, still correct.
  */
 import { useState } from 'react';
 import {
   Package, Check, X, Power, Pencil, Users, GitBranch, Plug, Sparkles, Gift,
-  Megaphone, LineChart, MessageSquare, FileText,
+  Megaphone, LineChart, MessageSquare, FileText, Eye, EyeOff,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
@@ -97,6 +101,14 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
 }) {
   const [busy, setBusy] = useState(false);
   const [armActive, setArmActive] = useState(false);
+  // A SEPARATE ARM/CONFIRM FROM `armActive` — `active` (can anybody subscribe at all) and
+  // `listed` (does the store show it) are two different questions with two different answers on
+  // the SAME plan on purpose (an unlisted-but-active plan is a negotiated one nobody browses to;
+  // a listed-but-inactive one is "قريباً" — visible, not yet buyable). Conflating them into one
+  // button was the actual bug a full pipeline audit found: the only toggle this card ever had
+  // sent `{ active: !plan.active }` and never touched `listed` at all, so there was no real
+  // show/hide control despite the server route (`billing.plan_availability`) accepting both.
+  const [armListed, setArmListed] = useState(false);
   const [editing, setEditing] = useState(false);
   const price = plan.prices[0];
   const limitEntries = Object.entries(plan.limits);
@@ -113,6 +125,19 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
     } finally {
       setBusy(false);
       setArmActive(false);
+    }
+  }
+
+  async function toggleListed() {
+    if (!availabilityAction) return;
+    setBusy(true);
+    try {
+      await req(availabilityAction.path.replace('{plan_id}', encodeURIComponent(plan.id)),
+                'POST', { listed: !plan.listed }, session.access_token);
+      onReload();
+    } finally {
+      setBusy(false);
+      setArmListed(false);
     }
   }
 
@@ -196,6 +221,13 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
             <Power size={14} /> {plan.active ? 'إيقاف' : 'تفعيل'}
           </Button>
         ) : null}
+        {availabilityAction ? (
+          <Button type="button" size="sm" variant="outline" disabled={busy}
+                  className="flex flex-1 items-center justify-center gap-2"
+                  onClick={() => setArmListed(true)}>
+            {plan.listed ? <EyeOff size={14} /> : <Eye size={14} />} {plan.listed ? 'إخفاء' : 'إظهار'}
+          </Button>
+        ) : null}
       </div>
 
       <ConfirmDialog open={armActive} onClose={() => setArmActive(false)} onConfirm={toggleActive}
@@ -204,6 +236,17 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
                     body={plan.active
                       ? 'لا أحد جديد يقدر يشترك فيها — المشتركون الحاليون ما يتأثرون.'
                       : 'تصير متاحة للاشتراك من جديد.'} />
+
+      {/* SAME "existing subscribers never move" GUARANTEE AS `active` ABOVE — confirmed by tracing
+          the real entitlement check (billing-service's entitlement_resolver.resolve()) all the
+          way through: it reads only actual subscription rows, never `plan.listed`. Hiding a plan
+          from the store cannot touch anyone already on it. */}
+      <ConfirmDialog open={armListed} onClose={() => setArmListed(false)} onConfirm={toggleListed}
+                    busy={busy} danger={plan.listed}
+                    title={plan.listed ? `إخفاء "${plan.name}" عن المتجر؟` : `إظهار "${plan.name}" في المتجر؟`}
+                    body={plan.listed
+                      ? 'يختفي من متجر التطبيقات لمن لم يشترك بعد — المشتركون الحاليون ما يتأثرون، وتقدر تُظهرها من جديد وقت ما تبي.'
+                      : 'يصير مرئياً في متجر التطبيقات ويقدر أي محل يشتريه.'} />
 
       {updateAction ? (
         <PlanEditDrawer session={session} plan={plan} updateAction={updateAction} open={editing}

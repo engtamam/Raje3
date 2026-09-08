@@ -257,16 +257,13 @@
         "enables it, and the reply comes back through notification-service's unfiltered fan-out to",
         "RatingConsumer, which writes the rating and grants its points. NONE of that is gated by",
         "this row — every shop's Flow and template are already provisioned regardless of `listed`.",
-        "`listed: false` is now a pure GO-LIVE DECISION, not a technical placeholder: this key is",
-        "NOT in ci/check_entitlements.py's SOLD_UNBUILT (that dict is empty) precisely because",
-        "nothing about it is sold-ahead-of-built any more. Flip to `listed: true` (or the admin",
-        "panel's own «إظهار» toggle, PlanCards.tsx) whenever the owner decides to open it — that is",
-        "the ONLY remaining step."
+        "FLIPPED TO `listed: true` 2026-09-08, on the owner's own explicit instruction, once the",
+        "full pipeline audit above confirmed nothing about it is sold-ahead-of-built any more."
       ],
       "name": "التقييم",
       "amount": 9900,
       "trial_days": 30,
-      "listed": false,
+      "listed": true,
       "limits": {
         "feature.rating": {
           "kind": "boolean",
