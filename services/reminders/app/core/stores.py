@@ -109,16 +109,23 @@ class ScheduleStore(_Base):
         return out[:limit]
 
     async def cancel_kind(self, tenant: str, subject_ref: str, service_id: str, kind: str,
-                          *, reason: str, now: int) -> int:
+                          *, reason: str, now: int,
+                          pending: list[dict[str, Any]] | None = None) -> int:
         """Cancel pending rows of one kind for one customer and service.
 
         This is what a new visit calls: asking how last month's service went while the customer is
         standing at the counter is the bug spec 5.6 names, and the fix is a cancel, not a filter at
         send time — a row that survives to the tick will eventually find a moment when nothing
         stops it.
+
+        `pending` lets a caller that already fetched this customer's pending rows (a visit with
+        several services calls this once per service, and the rows do not change in between) hand
+        them in instead of paying for the same store read again. Falls back to fetching them here
+        so every other caller stays correct.
         """
         n = 0
-        for r in await self.pending_for_subject(tenant, subject_ref):
+        rows = pending if pending is not None else await self.pending_for_subject(tenant, subject_ref)
+        for r in rows:
             if r.get("service_id") == service_id and r.get("kind") == kind:
                 r["state"] = "cancelled"
                 r["reason"] = reason

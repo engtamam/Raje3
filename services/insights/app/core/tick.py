@@ -180,8 +180,15 @@ class Tick:
         have_log = bool(eff.get("ok"))
         partial_log = bool(eff.get("truncated"))
 
+        # BUILT ONCE, THREADED INTO EVERY INDICATOR BELOW THAT GROUPS BY CUSTOMER. Six or more of
+        # them independently rebuilt `indicators._by_customer(visits)` — a full O(visits) dict
+        # build plus a per-customer sort, each — for the same `visits` list this scope already
+        # holds. Same technique `retention_series` already uses for its own trailing windows,
+        # applied one layer up: one grouping, shared by every caller that needs it.
+        per_customer = indicators._by_customer(visits)
+
         values: dict[str, Any] = {
-            "return_rate": indicators.return_rate(visits),
+            "return_rate": indicators.return_rate(visits, by_customer=per_customer),
             # THE SAME NUMBER AS A LINE. Computed beside its own snapshot rather than in a second
             # job: one read of `visits`, one clock, and no chance of the headline figure and the
             # last point of the trend disagreeing — which is exactly the bug an owner screenshots.
@@ -208,7 +215,7 @@ class Tick:
             # here rather than in the digest so the report and the panel cannot describe two
             # different periods with one word.
             "visits_week": indicators.visits_in_window(visits, now=now),
-            "churn_rate": indicators.churn_rate(visits, now=now),
+            "churn_rate": indicators.churn_rate(visits, now=now, by_customer=per_customer),
             "active_customers": indicators.active_customers(visits, now=now),
             # THE SAME TWO NUMBERS, WITH A "BEFORE" — a level alone cannot tell an owner "growing"
             # from "turning over" (new customers backfilling a count while real ones leave under
@@ -216,7 +223,7 @@ class Tick:
             # existing reader of the plain scalar keeps working unchanged.
             "active_customers_trend": indicators.active_customers_trend(visits, now=now),
             "churn_rate_trend": indicators.churn_rate_trend(visits, now=now),
-            "new_vs_returning": indicators.new_vs_returning(visits, now=now),
+            "new_vs_returning": indicators.new_vs_returning(visits, now=now, by_customer=per_customer),
             "service_popularity": indicators.service_popularity(visits),
             "services_per_visit": indicators.services_per_visit(visits),
             "peak_map": indicators.peak_map(visits),
@@ -231,8 +238,9 @@ class Tick:
             "engine_reserve": indicators.engine_reserve(
                 visits, now=now, weeks=self._reserve_weeks,
                 percentile=self._reserve_percentile, floor=self._reserve_floor),
-            "cycle_completion": indicators.cycle_completion(visits, cycles=cycles, now=now),
-            "at_risk": indicators.at_risk(visits, now=now),
+            "cycle_completion": indicators.cycle_completion(
+                visits, cycles=cycles, now=now, by_customer=per_customer),
+            "at_risk": indicators.at_risk(visits, now=now, by_customer=per_customer),
             "weak_services": indicators.weak_services(
                 visits, catalogue=[s.get("id", "") for s in catalogue]),
             "service_names": names,

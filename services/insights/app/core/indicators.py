@@ -15,6 +15,7 @@ testable across its whole space.
 """
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections import Counter
 from typing import Any, Iterable
 
@@ -35,11 +36,11 @@ def _by_customer(visits: Iterable[dict]) -> dict[str, list[dict]]:
 def _return_rate_of(per: dict[str, list[dict]]) -> float:
     """`return_rate`'s own arithmetic, over an index the caller already built.
 
-    SPLIT OUT SO `retention_series` NEVER BUILDS THE SAME INDEX TWICE. It used to call
-    `_by_customer(slice_)` for `people` and then `return_rate(slice_)`, which called
-    `_by_customer(slice_)` again on the identical slice — two dict-builds-and-sorts per trailing
-    window instead of one. `return_rate` below is unchanged for every other caller; only the
-    duplicate build inside `retention_series` goes away.
+    SPLIT OUT SO NEITHER `retention_series` NOR `return_rate`'s OWN `by_customer` PARAM EVER
+    REBUILDS THE SAME INDEX TWICE — two independent callers share this one instead of each
+    carrying its own copy of the arithmetic (`retention_series` for its six trailing windows;
+    `return_rate` for `tick.py::_compute_scope`'s shared per-scope index, see that function's own
+    docstring below).
     """
     if not per:
         return 0.0
@@ -47,13 +48,17 @@ def _return_rate_of(per: dict[str, list[dict]]) -> float:
     return round(repeat / len(per), 3)
 
 
-def return_rate(visits: list[dict]) -> float:
+def return_rate(visits: list[dict], *, by_customer: dict[str, list[dict]] | None = None) -> float:
     """Of the people who came at all, how many came more than once.
 
     THE FIRST NUMBER AN OWNER SHOULD SEE, because a shop where nobody returns has one problem and
     it is not which service to bundle. Every other indicator here assumes returning customers.
+
+    `by_customer` lets a caller that has already grouped `visits` (the tick computes it once for
+    the whole scope — see `tick.py::_compute_scope`) hand the grouping in instead of paying to
+    rebuild it. Falls back to building it here so every other caller stays correct.
     """
-    return _return_rate_of(_by_customer(visits))
+    return _return_rate_of(by_customer if by_customer is not None else _by_customer(visits))
 
 
 def return_cycle_days(visits: list[dict], *, min_gaps: int = 20) -> int | None:
@@ -91,7 +96,8 @@ def active_customers(visits: list[dict], *, now: int, window_days: int = 90) -> 
                 and v.get("subject_ref")})
 
 
-def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5) -> float | None:
+def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5,
+              by_customer: dict[str, list[dict]] | None = None) -> float | None:
     """Who is overdue against THEIR OWN cycle, not against a number we picked.
 
     A COFFEE CUSTOMER MISSING A WEEK IS A WORRY; AN OIL CUSTOMER MISSING EIGHTY DAYS IS PUNCTUAL.
@@ -105,8 +111,10 @@ def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5) -> float | N
     `retention_series` already draw this distinction (None means "not ready", never a fabricated
     number) — this now matches them, so a brand-new shop's dashboard shows nothing rather than a
     misleadingly reassuring "0%" on day one.
+
+    `by_customer` — see `return_rate`.
     """
-    per = _by_customer(visits)
+    per = by_customer if by_customer is not None else _by_customer(visits)
     lapsed = eligible = 0
     for rows in per.values():
         times = [int(r.get("occurred_at") or r.get("created_at") or 0) for r in rows]
@@ -172,14 +180,18 @@ def churn_rate_trend(visits: list[dict], *, now: int, slack: float = 1.5,
 
 
 def at_risk(visits: list[dict], *, now: int, slack: float = 1.5,
-            limit: int = 200) -> list[dict[str, Any]]:
+            limit: int = 200,
+            by_customer: dict[str, list[dict]] | None = None) -> list[dict[str, Any]]:
     """Not an indicator — a LIST TO ACT ON (spec §10.7).
 
     Returns the people, so the screen can end in a button rather than a number. An owner told "12%
     of your customers are lapsing" does nothing; an owner handed twelve names presses send.
+
+    `by_customer` — see `return_rate`.
     """
     out: list[dict[str, Any]] = []
-    for ref, rows in _by_customer(visits).items():
+    per = by_customer if by_customer is not None else _by_customer(visits)
+    for ref, rows in per.items():
         times = [int(r.get("occurred_at") or r.get("created_at") or 0) for r in rows]
         if len(times) < 2:
             continue
@@ -195,9 +207,11 @@ def at_risk(visits: list[dict], *, now: int, slack: float = 1.5,
     return out[:limit]
 
 
-def new_vs_returning(visits: list[dict], *, now: int, window_days: int = 30) -> dict[str, int]:
+def new_vs_returning(visits: list[dict], *, now: int, window_days: int = 30,
+                     by_customer: dict[str, list[dict]] | None = None) -> dict[str, int]:
+    # `by_customer` — see `return_rate`.
     since = now - window_days * DAY
-    per = _by_customer(visits)
+    per = by_customer if by_customer is not None else _by_customer(visits)
     new = returning = 0
     for rows in per.values():
         times = [int(r.get("occurred_at") or r.get("created_at") or 0) for r in rows]
@@ -387,7 +401,8 @@ def visits_in_window(visits: list[dict], *, now: int, window_days: int = 7) -> d
             "window_days": window_days}
 
 
-def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) -> float | None:
+def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int,
+                     by_customer: dict[str, list[dict]] | None = None) -> float | None:
     """Of the customers who ever took a periodic service, how many are still current on it.
 
     FREE, because `cycle_days` is already in the catalogue — `reminders` cannot schedule without
@@ -398,12 +413,15 @@ def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) ->
     early returns here (no periodic service configured; periodic services configured but none
     ever taken) both collapsed to the same 0.0 a real "0% on-time" would produce — ambiguous at
     exactly the state most shops start in. Same fix as `churn_rate` right above.
+
+    `by_customer` — see `return_rate`.
     """
     periodic = {s: d for s, d in (cycles or {}).items() if d > 0}
     if not periodic:
         return None
     on_time = total = 0
-    for rows in _by_customer(visits).values():
+    per = by_customer if by_customer is not None else _by_customer(visits)
+    for rows in per.values():
         last: dict[str, int] = {}
         for r in rows:
             ts = int(r.get("occurred_at") or r.get("created_at") or 0)
@@ -642,14 +660,19 @@ def holdout_comparison(visits: list[dict], *, tenant: str, now: int,
             continue
         (held if H.is_holdout(tenant, ref, share=share) else reached).append(v)
 
-    held_people = len(_by_customer(held))
-    reached_people = len(_by_customer(reached))
+    # Grouped once per side and threaded into `return_rate` below — `held`/`reached` are two
+    # subsets of the same visits, not the tick's full-scope grouping, so this dedup is local to
+    # this function rather than something the caller can hand in.
+    held_by_customer = _by_customer(held)
+    reached_by_customer = _by_customer(reached)
+    held_people = len(held_by_customer)
+    reached_people = len(reached_by_customer)
     if held_people < min_each or reached_people < min_each:
         return {"ready": False, "reason": "learning", "held": held_people,
                 "reached": reached_people, "need": min_each}
 
-    held_rate = round(return_rate(held), 3)
-    reached_rate = round(return_rate(reached), 3)
+    held_rate = round(return_rate(held, by_customer=held_by_customer), 3)
+    reached_rate = round(return_rate(reached, by_customer=reached_by_customer), 3)
     return {
         "ready": True,
         "held": held_people,
@@ -727,14 +750,22 @@ def returned_after_reminder(visits: list[dict], sends: list[dict], *, now: int,
         if not ref or sent_at < cutoff:
             continue
         times = by_customer.get(ref) or []
-        # the first visit after the message, inside the window
-        after = next((t for t in times if sent_at <= t <= sent_at + win), 0)
+        # `times` IS ALREADY SORTED (built and sorted once above), so both questions below are
+        # range queries on a sorted list — `bisect` answers each in O(log n) rather than the
+        # O(n) linear scan this used to run per message, which matters most for the loyal
+        # customers with the longest visit histories.
+        #
+        # the first visit after the message, inside the window: the leftmost t >= sent_at, if it
+        # is also within `sent_at + win`.
+        idx = bisect_left(times, sent_at)
+        after = times[idx] if idx < len(times) and times[idx] <= sent_at + win else 0
         if not after:
             continue
         # AND NOBODY WHO WAS ALREADY IN THE SHOP. A visit the same week as the message, but BEFORE
         # it, means the person had already come back; crediting the message would be counting our
-        # own confirmation as a return.
-        before = any(sent_at - win <= t < sent_at for t in times)
+        # own confirmation as a return. Non-empty range [sent_at - win, sent_at) <=> its lower
+        # bound (inclusive) sits before its upper bound (exclusive).
+        before = bisect_left(times, sent_at - win) < bisect_left(times, sent_at)
         if not before:
             credited_visits.setdefault(ref, set()).add(after)
 

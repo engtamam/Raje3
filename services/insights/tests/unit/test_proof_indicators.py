@@ -94,6 +94,49 @@ def test_an_unreadable_send_log_refuses_rather_than_printing_a_confident_zero():
     assert "visits" not in out, "a refusal must not carry a number to be read as the answer"
 
 
+def test_a_visit_exactly_on_the_message_moment_is_credited():
+    """Lower bound of the `after` window is inclusive (`sent_at <= t`)."""
+    sends = [{"subject_ref": "bnd1", "at": NOW - 10 * DAY}]
+    visits = [{"subject_ref": "bnd1", "occurred_at": NOW - 10 * DAY}]
+    assert credited(visits, sends)["visits"] == 1
+
+
+def test_a_visit_exactly_on_the_attribution_edge_is_credited():
+    """Upper bound of the `after` window is inclusive (`t <= sent_at + attribute_days`) — this is
+    the exact boundary the bisect rewrite has to get right, since a linear `<=` scan and a
+    bisect-based range query disagree easily by one second at the edge."""
+    sent_at = NOW - 20 * DAY
+    sends = [{"subject_ref": "bnd2", "at": sent_at}]
+    visits = [{"subject_ref": "bnd2", "occurred_at": sent_at + 14 * DAY}]  # attribute_days default
+    assert credited(visits, sends)["visits"] == 1
+
+
+def test_a_visit_one_second_past_the_attribution_edge_is_not_credited():
+    sent_at = NOW - 20 * DAY
+    sends = [{"subject_ref": "bnd3", "at": sent_at}]
+    visits = [{"subject_ref": "bnd3", "occurred_at": sent_at + 14 * DAY + 1}]
+    assert credited(visits, sends)["visits"] == 0
+
+
+def test_a_visit_exactly_on_the_before_window_edge_blocks_credit():
+    """The `before` window is `sent_at - win <= t < sent_at` — inclusive on the near edge, which is
+    the boundary a bisect range query has to preserve exactly. A visit sitting right there means
+    the customer had already come back, so a later qualifying visit must not be credited."""
+    sent_at = NOW - 5 * DAY
+    sends = [{"subject_ref": "bnd4", "at": sent_at}]
+    visits = [{"subject_ref": "bnd4", "occurred_at": sent_at - 14 * DAY},   # exactly on the edge
+              {"subject_ref": "bnd4", "occurred_at": sent_at + 2 * DAY}]   # would otherwise qualify
+    assert credited(visits, sends)["visits"] == 0
+
+
+def test_a_visit_one_second_before_the_before_window_edge_does_not_block():
+    sent_at = NOW - 5 * DAY
+    sends = [{"subject_ref": "bnd5", "at": sent_at}]
+    visits = [{"subject_ref": "bnd5", "occurred_at": sent_at - 14 * DAY - 1},  # just outside
+              {"subject_ref": "bnd5", "occurred_at": sent_at + 2 * DAY}]
+    assert credited(visits, sends)["visits"] == 1
+
+
 def test_a_capped_send_log_says_the_count_is_a_floor():
     """ي-6. `reminders` exports `truncated` and it was fetched and dropped. Older sends are missing
     from the join, so the credit can only be low — and the shops that hit the cap are the busy
