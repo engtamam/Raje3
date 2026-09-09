@@ -71,7 +71,26 @@ async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int,
     replied = 0
     due = await c.engine.sweep_due(tenant, now=now, batch=batch)
     for subject_ref in due:
-        plan = await c.engine.compose_reply(tenant, subject_ref, now=now)
+        # ISOLATED PER CONVERSATION, ON PURPOSE — this call is the one real network/LLM round
+        # trip in the whole tick, and it is exactly the one that can fail on data this service
+        # does not control (a malformed provider response, a transient model-garden outage, one
+        # poisoned conversation history). Before this try/except, an exception here propagated
+        # out of BOTH loops — this tenant's remaining due conversations AND every tenant still
+        # queued behind this one in tick()'s own loop never ran, and since nothing here advances
+        # the conversation's due state before compose_reply is called, the exact same poisoned
+        # conversation is due again next tick — a single bad reply could wedge the reply pipeline
+        # for the entire platform indefinitely. Any wallet hold `compose_reply` reserved is not
+        # leaked by skipping it: `self._reserve_llm_hold`'s own contract is that an unconfirmed
+        # hold simply expires on wallet-service's HOLD_TTL_SECONDS, never stranded (see
+        # core/conversation.py's `compose_reply` docstring at the `confirm(hold_id)` call).
+        try:
+            plan = await c.engine.compose_reply(tenant, subject_ref, now=now)
+        except Exception:
+            from app.observability.logging import get_logger
+            get_logger("app.internal.tick").exception(
+                "whatsapp_compose_reply_failed",
+                extra={"tenant": tenant, "subject_ref": subject_ref})
+            continue
         if plan.kind == "none":
             continue
         conv = await c.datastore.get("wa_conversations", f"{tenant}|{subject_ref}")
@@ -166,8 +185,20 @@ async def tick(request: Request, settings: Settings = Depends(get_settings)) -> 
     retention_purged_conversations = retention_purged_messages = 0
     retention_truncated = False
     for t in tenants:
-        got = await _tick_one_tenant(c, settings, t, now=now, batch=batch,
-                                     auditor=request.app.state.auditor)
+        # ISOLATED PER TENANT, ON PURPOSE — mirrors the per-conversation isolation inside
+        # `_tick_one_tenant` itself (see its own comment on the `compose_reply` call). This is
+        # the outer defence: anything else in that function which can still raise (sweep_due,
+        # sweep_timed_out, retention) must not cost every OTHER tenant its tick just because one
+        # tenant's data is bad. One tenant simply gets nothing counted this tick and is picked
+        # up again next time; every other tenant proceeds normally.
+        try:
+            got = await _tick_one_tenant(c, settings, t, now=now, batch=batch,
+                                         auditor=request.app.state.auditor)
+        except Exception:
+            from app.observability.logging import get_logger
+            get_logger("app.internal.tick").exception(
+                "whatsapp_tick_one_tenant_failed", extra={"tenant": t})
+            continue
         replied += got["replied"]
         closed += got["closed"]
         scanned += got["scanned"]
