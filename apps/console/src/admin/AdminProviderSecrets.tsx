@@ -51,6 +51,9 @@ interface SecretRow {
 const SECRET_HELP: Record<string, string> = {
   META_APP_ID: 'من لوحة مطوّري Meta (developers.facebook.com) — تطبيقك ← إعدادات أساسية ← "معرّف التطبيق".',
   META_APP_SECRET: 'من نفس صفحة إعدادات التطبيق بلوحة مطوّري Meta — "سر التطبيق" (يحتاج تأكيد كلمة مرور حسابك لإظهاره).',
+  // ليست سرّية فعلياً (تُرسَل من المتصفح بالوضوح بكل نافذة Embedded Signup) — تمر من هنا فقط
+  // عشان الإعداد كله يصير من مكان واحد بلا إعادة نشر للكونسول.
+  META_APP_CONFIG_ID: 'من لوحة مطوّري Meta — تطبيقك ← "Facebook Login for Business" ← إعداد التسجيل المُنشأ لعملية Embedded Signup الخاصة بواتساب — "Configuration ID".',
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'نص تختاره أنت بنفسك (أي نص عشوائي قوي) وتُدخِله هنا وبنفس الوقت بإعدادات الـwebhook بلوحة Meta — يجب أن يتطابق النصّان بالضبط.',
   // هوية واتساب المنصة نفسها (لا محل معيّن) — إرسالات النظام زي رمز التحقق (OTP) عند التسجيل.
   // خطوات ميتا: Business Manager ← Users ← System users ← أنشئ واحداً بصلاحية Admin ← فعّل صلاحية
@@ -95,7 +98,8 @@ function generateToken(): string {
 // أي مفتاح يخص أي مزوّد — بطاقة واحدة لكل مزوّد، لا صف طويل لكل مفتاح على حدة. مفتاح غير معروف
 // (مزوّد سادس أُضيف بـsecret_registry.py ولم يُضف هنا) يقع في بطاقة "أخرى" العامة، لا يُفقد أبداً.
 const PROVIDER_OF: Record<string, string> = {
-  META_APP_ID: 'meta', META_APP_SECRET: 'meta', WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
+  META_APP_ID: 'meta', META_APP_SECRET: 'meta', META_APP_CONFIG_ID: 'meta',
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: 'meta',
   WHATSAPP_ACCESS_TOKEN: 'meta', WHATSAPP_PHONE_NUMBER_ID: 'meta', WHATSAPP_BUSINESS_ACCOUNT_ID: 'meta',
   ASSISTANT_MODEL_PROJECT: 'assistant_ai', ASSISTANT_MODEL_CREDENTIAL: 'assistant_ai',
   PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_ID: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
