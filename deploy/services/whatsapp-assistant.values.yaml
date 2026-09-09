@@ -255,12 +255,18 @@ env:
   # ── LLM (via assistant-service — no direct call to any model provider from this service) ─────
   LLM_DRIVER: "assistant_service"
   ASSISTANT_SERVICE_URL: "http://assistant-service:8000"
-  # gemini-3.5-flash-lite, not the stronger/pricier 3.7-flash: this service's model calls are
-  # intent classification, a handful of allowlisted tool calls, and short replies — none of it
-  # needs 3.7's extra capability. Current-generation, since the whole 2.5 family (Flash and
-  # Flash-Lite) retires 2026-10-16 and building on it now would mean an unnecessary near-term
-  # migration.
-  ASSISTANT_MODEL_NAME: "gemini-3.5-flash-lite"
+  # gemini-3.1-flash-lite (owner's own choice, 2026-09-09), not the stronger/pricier 3.7-flash:
+  # this service's model calls are intent classification, a handful of allowlisted tool calls, and
+  # short replies — none of it needs 3.7's extra capability. Current-generation, since the whole
+  # 2.5 family (Flash and Flash-Lite) retires 2026-10-16 and building on it now would mean an
+  # unnecessary near-term migration.
+  #
+  # me-central2 (Dammam) AVAILABILITY WAS CONFIRMED FOR 3.5-flash-lite SPECIFICALLY (official
+  # Google docs, see ASSISTANT_MODEL_LOCATION's own comment in app/config.py) — 3.1-flash-lite's
+  # own regional availability there was NOT independently re-confirmed at the time of this switch.
+  # If the bot goes silent (LlmUnavailable) right after this ships, check that first before
+  # anything else.
+  ASSISTANT_MODEL_NAME: "gemini-3.1-flash-lite"
   # NO VALUE YET — no real GCP project exists at the time this driver was wired in. Left empty on
   # purpose: app/config.py::assert_llm_config_ok allows this ONLY because SECRETS_KEK is set (see
   # secretRefs above), meaning an operator can supply both from «مفاتيح المزوّدين» once a project

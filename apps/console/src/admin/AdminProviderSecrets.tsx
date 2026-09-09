@@ -334,9 +334,11 @@ const MODEL_PROVIDER_META: Record<string, string> = {
 };
 interface ModelOption { id: string; label: string; provider: keyof typeof MODEL_PROVIDER_META; wired: boolean }
 const MODEL_OPTIONS: ModelOption[] = [
-  // الوحيد المُختبر فعلياً على مشروعنا (me-central2) — راجع تعليق ASSISTANT_MODEL_LOCATION بـ
-  // config.py: gemini-3.5-flash-lite مؤكَّد GA بهذي المنطقة (توثيق Google الرسمي، 2026-09-02).
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (الحالي)', provider: 'google', wired: true },
+  // الافتراضي الحالي (deploy/services/whatsapp-assistant.values.yaml، 2026-09-09) — لاحظ إن
+  // التأكيد الرسمي لتوفّر me-central2 (توثيق Google، 2026-09-02) كان لـ3.5-flash-lite بالذات، لا
+  // 3.1 — انظر تعليق ASSISTANT_MODEL_NAME بنفس ملف القيم.
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (الحالي)', provider: 'google', wired: true },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', provider: 'google', wired: true },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', provider: 'google', wired: true },
   { id: 'gemini-3.5-pro', label: 'Gemini 3.5 Pro', provider: 'google', wired: true },
   { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'google', wired: true },
