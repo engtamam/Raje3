@@ -92,6 +92,12 @@ jobs:
       - name: paired settings agree across the services that share them
         run: python3 ci/check_paired_config.py
 
+      # The one place a Python default and a TypeScript literal make the same promise — an
+      # admin scheduling an AI-unit pricing change must open the panel on the real current number, not
+      # one that drifted the day only one side was edited.
+      - name: AI-unit pricing defaults agree between backend and console
+        run: python3 ci/check_ai_unit_pricing_defaults_agree.py
+
       # A failed read rendered as an empty one. «لا يوجد عملاء» to a shop with three thousand,
       # and «لا أحد متأخر» — a compliment — at the moment he should be chasing someone.
       - name: no screen renders a failed read as an empty one
