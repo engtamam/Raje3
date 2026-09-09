@@ -89,7 +89,8 @@ class _FakeSettings:
     PII_SALT = "salt"
     CONSENT_PURPOSE = "whatsapp_ai_assistant"
     CONSENT_POLICY_ON_UNKNOWN = "fail_open"
-    OUTBOUND_MAX_PER_TENANT_PER_HOUR = 999
+    CONVERSATION_OUTBOUND_MAX_PER_10MIN = 999
+    OUTBOUND_MAX_PER_NUMBER_PER_HOUR = 999
 
 
 def _container():

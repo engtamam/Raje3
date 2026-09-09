@@ -97,7 +97,8 @@ async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int,
         to = (conv or {}).get("from_number", "")
         if not to:
             continue
-        if not await outbound_allowed(c, settings, tenant):
+        if not await outbound_allowed(c, settings, tenant, subject_ref=subject_ref,
+                                      branch_id=(conv or {}).get("branch_id", "")):
             from app.observability.logging import get_logger
             get_logger("app.internal.tick").warning(
                 "whatsapp_outbound_capped", extra={"tenant": tenant})

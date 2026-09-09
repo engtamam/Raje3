@@ -17,14 +17,27 @@ from app.core.sending_identity import split as split_sending_identity
 from app.ports.consent_gate import DENIED, UNKNOWN
 
 
-async def outbound_allowed(container: Any, settings: Any, tenant: str) -> bool:
-    """One tenant's outbound AI replies are capped per rolling hour — belt beside
-    notification-service's own ceiling (OUTBOUND_MAX_PER_TENANT_PER_HOUR's own config.py note), so
-    a runaway conversation loop or a bug that keeps re-proposing the same reply cannot spend a
-    shop's whole WhatsApp allowance by itself. Shared by both send paths — this fast-path ingest
-    and app/api/internal.py's tick — so the budget is the same no matter which one is sending."""
+async def outbound_allowed(container: Any, settings: Any, tenant: str, *,
+                           subject_ref: str = "", branch_id: str = "") -> bool:
+    """TWO limiters, see config.py's own note on `CONVERSATION_OUTBOUND_MAX_PER_10MIN` /
+    `OUTBOUND_MAX_PER_NUMBER_PER_HOUR` for why they are separate. Shared by both send paths — this
+    fast-path ingest and app/api/internal.py's tick — so the budget is the same no matter which one
+    is sending.
+
+    `subject_ref` is REQUIRED to get the tight per-conversation check at all — a caller with no
+    conversation in hand (there is none today; kept optional rather than forcing every caller to
+    thread a value it cannot have) only gets the coarser per-number backstop, same as before this
+    split existed."""
+    if subject_ref:
+        conv_verdict = await container.rate_limiter.check(
+            f"wa_outbound_conv:{tenant}:{subject_ref}",
+            limit=settings.CONVERSATION_OUTBOUND_MAX_PER_10MIN, window_s=600)
+        if not conv_verdict.allowed:
+            return False
+
     verdict = await container.rate_limiter.check(
-        f"wa_outbound:{tenant}", limit=settings.OUTBOUND_MAX_PER_TENANT_PER_HOUR, window_s=3600)
+        f"wa_outbound_number:{tenant}:{branch_id}",
+        limit=settings.OUTBOUND_MAX_PER_NUMBER_PER_HOUR, window_s=3600)
     return verdict.allowed
 
 
@@ -151,7 +164,7 @@ async def ingest_inbound_message(
             logger.info("whatsapp_owner_active_suppressed",
                        extra={"tenant": tenant, "wamid": wamid})
         elif plan is not None and plan.kind in ("text", "list") and not await outbound_allowed(
-                container, settings, tenant):
+                container, settings, tenant, subject_ref=subject_ref, branch_id=branch_id):
             logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
         elif plan is not None and plan.kind == "text" and plan.text:
             await container.sender.send_template(

@@ -654,10 +654,26 @@ class Settings(BaseSettings):
     # Bounded work per tick — an unbounded sweep of due conversations is how a slow query becomes
     # a missed batch, exactly as in reminders' TICK_BATCH_SIZE.
     CONVERSATION_TICK_BATCH_SIZE: int = 200
-    # Outbound sends per tenant per rolling window — belt beside notification-service's own ceiling
-    # (spec parity with reminders' REACH_WINDOW/CEILING), so a runaway conversation loop cannot
-    # spend a shop's whole WhatsApp allowance by itself.
-    OUTBOUND_MAX_PER_TENANT_PER_HOUR: int = 200
+    # ── outbound safety net, TWO SEPARATE LIMITERS, DIFFERENT THREATS ────────────────────────────
+    # The single shop-wide-per-hour cap this used to be had a real flaw: on a genuinely busy day
+    # (many customers, all legitimate) it could trip and go silent mid-conversation for every
+    # customer at once — the cure looking like the disease it was meant to prevent. The actual
+    # failure this guards against (a bug that keeps re-proposing the same reply, or a loop in the
+    # LLM/tool-call path) hammers ONE conversation, not the whole shop — so the tight limiter
+    # should be scoped to match: WhatsApp's own "pair rate limit" (same business number, same
+    # recipient, too fast) is the same reasoning, at the platform level.
+    #
+    # 1) PER CONVERSATION (tenant + subject_ref) — the real circuit breaker. A normal back-and-forth
+    #    is nowhere near this pace; a runaway loop blows through it in seconds and gets stopped
+    #    there, without silencing any OTHER customer's conversation with the same shop.
+    CONVERSATION_OUTBOUND_MAX_PER_10MIN: int = 10
+    # 2) PER WHATSAPP NUMBER (tenant + branch_id — "" for a central shop's one number), a much
+    #    higher backstop for the case a bug somehow spans MANY different conversations at once.
+    #    Sized well above real usage on purpose: WhatsApp's own lowest tier already allows 250
+    #    conversations/24h per number, and a shop this busy should never see its own assistant
+    #    silenced by an internal ceiling before Meta's own limit would ever bite. This is a last
+    #    resort, not a routine brake — see developers.facebook.com/docs/whatsapp/messaging-limits.
+    OUTBOUND_MAX_PER_NUMBER_PER_HOUR: int = 2000
     # Longest a single conversation may run before it is forcibly closed regardless of activity —
     # a safety ceiling under the session timeout, not a replacement for it.
     CONVERSATION_MAX_DURATION_SECONDS: int = 14_400

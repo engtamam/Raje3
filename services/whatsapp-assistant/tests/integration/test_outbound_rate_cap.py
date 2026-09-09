@@ -1,7 +1,8 @@
-"""OUTBOUND_MAX_PER_TENANT_PER_HOUR — the belt beside notification-service's own ceiling (see
-config.py's own note on the setting). A runaway conversation loop or a bug that keeps re-proposing
-the same reply must not spend a shop's whole WhatsApp allowance by itself. Proves the cap is
-actually consulted by app/core/inbound_ingest.py's send path, not just declared.
+"""CONVERSATION_OUTBOUND_MAX_PER_10MIN / OUTBOUND_MAX_PER_NUMBER_PER_HOUR — see config.py's own
+note on why these are two separate limiters. A runaway conversation loop or a bug that keeps
+re-proposing the same reply must be stopped on THAT conversation alone, never by silencing every
+other customer talking to the same shop. Proves both caps are actually consulted by
+app/core/inbound_ingest.py's send path, not just declared.
 """
 from __future__ import annotations
 
@@ -83,7 +84,9 @@ class _Settings:
     PII_SALT = "salt"
     CONSENT_PURPOSE = "whatsapp_ai_assistant"
     CONSENT_POLICY_ON_UNKNOWN = "fail_open"
-    OUTBOUND_MAX_PER_TENANT_PER_HOUR = 1
+    CONVERSATION_OUTBOUND_MAX_PER_10MIN = 1
+    OUTBOUND_MAX_PER_NUMBER_PER_HOUR = 1000   # permissive — these tests exercise the tight
+                                              # per-conversation cap, not the per-number backstop
 
 
 def _container(limit=1):
@@ -109,8 +112,9 @@ def test_a_reply_under_the_cap_is_sent():
 
 
 def test_a_reply_over_the_hourly_cap_is_capped_not_sent():
-    """OUTBOUND_MAX_PER_TENANT_PER_HOUR=1 in _Settings — the second distinct inbound message in
-    the same tenant/hour must not reach the sender at all."""
+    """CONVERSATION_OUTBOUND_MAX_PER_10MIN=1 in _Settings — the second inbound message from the
+    SAME customer (same from_number, so the same derived subject_ref) must not reach the sender
+    at all."""
     c = _container()
     logger = _NullLogger()
     run(_ingest(c, logger, wamid="w1"))
@@ -130,3 +134,21 @@ def test_the_cap_is_a_separate_budget_per_tenant():
         text="hi", reply_id="", raw_payload={"wamid": "w2"}))
     assert result == {"processed": True, "reason": ""}
     assert len(c.sender.sent) == 2
+
+
+def test_one_capped_customer_never_silences_a_different_customer_at_the_same_shop():
+    """The exact real-world failure the split into two limiters exists to prevent: a flat
+    shop-wide cap used to go silent for EVERY customer of a busy shop at once the moment any one
+    conversation tripped it — the cure looking like the disease it guarded against. With the
+    per-conversation limiter tight (=1) and the per-number backstop generous, a second customer
+    at the SAME shop must still get a reply even though the first one already used up its own
+    conversation's budget."""
+    c = _container()
+    logger = _NullLogger()
+    run(_ingest(c, logger, wamid="w1"))   # from_number +966500000000 — uses up its own budget
+    result = run(ingest_inbound_message(
+        container=c, logger=logger, settings=_Settings(), auditor=None,
+        tenant=TENANT, wamid="w2", from_number="+966500000099", kind="text",
+        text="hi", reply_id="", raw_payload={"wamid": "w2"}))
+    assert result == {"processed": True, "reason": ""}
+    assert len(c.sender.sent) == 2   # both customers got their reply

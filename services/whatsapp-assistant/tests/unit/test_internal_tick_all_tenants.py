@@ -22,7 +22,8 @@ class _C:
 
 
 class _Settings:
-    OUTBOUND_MAX_PER_TENANT_PER_HOUR = 2
+    CONVERSATION_OUTBOUND_MAX_PER_10MIN = 2
+    OUTBOUND_MAX_PER_NUMBER_PER_HOUR = 2
 
 
 async def test_active_tenants_discovers_every_distinct_tenant_with_a_conversation_row():
