@@ -1,5 +1,5 @@
 {
-  "release": "v0.19.1",
+  "release": "v0.19.2",
   "images": {
     "analytics-service": "sha256:d9fadc29677b14ef30f996b86b7650dc4eacd09858934e4e4671b6a1f4caefea",
     "api-gateway": "sha256:a4b1d1ce53883be76cff1fcd210295d470fffc7651bc7223b134b8289ea05b57",
@@ -18,7 +18,7 @@
     "search-service": "sha256:8bc58f8689b6c66d0b93c333a8022eca13e540b9f13cb65bdcc3d5e4aabd0234",
     "tenant-service": "sha256:c723f0b0a71783e9eaeee13f063040b048a2c9932dff084333b717f1fdb58742",
     "ticket-service": "sha256:3086d3601497298c01b5cbf72782db8ad39cdb1a6f2cb254e7596f9a8c374464",
-    "wallet-service": "sha256:cd89cca44584248496f2071338d1d26713bcad68654c4bb56a93ac236bc20b4d",
+    "wallet-service": "sha256:c07a1a1a765ef2dc5d8c43ca678b9c8a7cb621582022c60a07b2a441b188a2a7",
     "webhook-service": "sha256:089428855635f12cf5796430a06f5716c39eb5fdddb617e20355c8e3157192fd"
   }
 }
