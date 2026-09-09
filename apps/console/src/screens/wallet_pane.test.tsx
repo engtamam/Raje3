@@ -3,7 +3,7 @@
  * commission) must never render for a shop it does not apply to.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ApiError } from '../api';
 
 let actionIds: Set<string>;
@@ -207,12 +207,13 @@ describe('WalletPane', () => {
       fireEvent.click(await screen.findByText('شحن رصيدي يدوياً'));
       await screen.findByText('شحن رصيدك');
 
-      // no amount typed yet — the dialog refuses rather than calling the backend with nothing
-      fireEvent.click(screen.getByText('الدفع الآن'));
-      await screen.findByText('أدخل مبلغاً صحيحاً أولاً.');
-      expect(topupCall).not.toHaveBeenCalled();
-
-      fireEvent.change(screen.getByLabelText('المبلغ (ريال)'), { target: { value: '50' } });
+      // starts at a real, valid default (50 ريال — multiples of 10, +/- stepper, no free amount
+      // and no "empty" state per the owner's own 2026-09-09 decision) — submitting immediately
+      // must already work. Scoped to the stepper's own group: without a real ai-unit rate wired
+      // (not in `withActions()` here), the units preview below it falls back to the same riyal
+      // text, so an unscoped query matches two elements.
+      const amountGroup = () => screen.getByRole('group', { name: 'المبلغ' });
+      expect(within(amountGroup()).getByText('50 ريال')).toBeTruthy();
       fireEvent.click(screen.getByText('الدفع الآن'));
 
       await waitFor(() => expect(topupCall).toHaveBeenCalledWith(
@@ -222,6 +223,20 @@ describe('WalletPane', () => {
       await waitFor(() => expect(window.location.href).toBe(
         'https://onboarding-prod.tuwaiqpay.com.sa/pay/abc',
       ));
+    });
+
+    it('the +/- stepper moves in multiples of 10 riyals', async () => {
+      setup();
+      render(<WalletPane session={session} catalog={catalog} />);
+      fireEvent.click(await screen.findByText('شحن رصيدي يدوياً'));
+      await screen.findByText('شحن رصيدك');
+
+      const amountGroup = () => screen.getByRole('group', { name: 'المبلغ' });
+      fireEvent.click(screen.getByLabelText('زيادة 10 ريال'));
+      expect(within(amountGroup()).getByText('60 ريال')).toBeTruthy();
+      fireEvent.click(screen.getByLabelText('إنقاص 10 ريال'));
+      fireEvent.click(screen.getByLabelText('إنقاص 10 ريال'));
+      expect(within(amountGroup()).getByText('40 ريال')).toBeTruthy();
     });
 
     it('shows a real Arabic sentence for a known backend error code, not the raw code', async () => {
@@ -238,7 +253,8 @@ describe('WalletPane', () => {
       fireEvent.click(await screen.findByText('شحن رصيدي يدوياً'));
       await screen.findByText('شحن رصيدك');
 
-      fireEvent.change(screen.getByLabelText('المبلغ (ريال)'), { target: { value: '999999' } });
+      // the backend can still refuse a client-valid amount (e.g. a per-shop cap) — the dialog
+      // does not need to reproduce the exact threshold to prove it maps the error sentence.
       fireEvent.click(screen.getByText('الدفع الآن'));
 
       await waitFor(() => expect(

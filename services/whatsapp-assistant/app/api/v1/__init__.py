@@ -64,10 +64,12 @@ async def pricing_current(request: Request,
     rather than an open read, not a per-tenant value.
     """
     from app.config import get_settings
+    from app.core.ai_unit_pricing import AiUnitPricingConfig
 
     container = request.app.state.container
     settings = get_settings()
     current = await PricingConfig.from_runtime(container.runtime_config, settings)
+    ai_unit = await AiUnitPricingConfig.from_runtime(container.runtime_config, settings)
     # EVERY PENDING CHANGE, NOT JUST A STRATEGY SWAP — a rate-only change (the far more common
     # case: the strategy stays "usage_based", only PRICING_USAGE_HALALAS_PER_1K_TOKENS moves) is
     # exactly as much "the price is about to change" as a strategy change is. The card decides
@@ -84,6 +86,11 @@ async def pricing_current(request: Request,
         "tier_included_conversations": current.tier_included_conversations,
         "tier_overage_halalas_per_conversation": current.tier_overage_halalas_per_conversation,
         "addon_flat_halalas": current.addon_flat_halalas,
+        # THE ONLY AI-UNIT FIELD A SHOP EVER NEEDS TO READ — the fixed halala->unit display scale
+        # (core/ai_unit_pricing.py's own note: this NEVER varies by model). Margins/per-model costs
+        # are our own cost basis, not a shop-facing fact — never returned here, same "a shop reads
+        # a fact about their own subscription, not our internals" boundary this route already draws.
+        "ai_unit_units_per_halala": ai_unit.units_per_halala,
         "pending_changes": upcoming,
     }
 

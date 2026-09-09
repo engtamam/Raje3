@@ -91,6 +91,7 @@ def test_the_deploy_time_defaults_with_nothing_pending(client, shop_auth):
         "tier_included_conversations": 0,
         "tier_overage_halalas_per_conversation": 0,
         "addon_flat_halalas": 0,
+        "ai_unit_units_per_halala": 1000,
         "pending_changes": [],
     }
 
@@ -113,3 +114,22 @@ def test_a_change_scheduled_by_the_operator_shows_up_here_with_its_effective_dat
     assert body["pending_changes"] == [
         {"key": "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "value": 40, "effective_at": effective_at},
     ]
+
+
+def test_a_landed_ai_unit_rate_change_is_reflected_here(client, shop_auth):
+    """`ai_unit_units_per_halala` is the ONE AI-unit field this route ever returns — a shop reads
+    the fixed display scale, never a margin or a per-model cost (our own internal cost basis)."""
+    operator_auth = _auth("platform.config")
+    now = int(__import__("time").time())
+
+    import asyncio
+
+    from app.core.pricing_schedule import apply_due, schedule
+
+    container = client.app.state.container
+    asyncio.run(schedule(container.datastore, key="PRICING_AI_UNIT_UNITS_PER_HALALA",
+                         value=2000, effective_at=now - 1, actor="op1", now=now - 100))
+    asyncio.run(apply_due(container.datastore, container.runtime_config, now=now))
+
+    body = client.get(PATH, headers=shop_auth).json()
+    assert body["ai_unit_units_per_halala"] == 2000

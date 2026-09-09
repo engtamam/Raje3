@@ -20,17 +20,27 @@
  * to him is not rendered greyed-out, it does not exist on the page at all.
  */
 import { useEffect, useState } from 'react';
-import { Banknote, Bot, RefreshCw, Wallet as WalletIcon } from 'lucide-react';
+import { Banknote, Bot, Minus, Plus, RefreshCw, Wallet as WalletIcon } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
-import { Input } from '../rj-ui/Field';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { ApiError, sentenceFor } from '../api';
 import { action, call, type Catalog } from '../catalog';
-import { halalas, riyalsLabel } from '../money';
+import { riyalsLabel } from '../money';
 import type { Session } from '../session';
+
+/** «وحدات الذكاء» — halalas × units_per_halala, the SAME fixed display scale
+ *  services/whatsapp-assistant/app/core/ai_unit_pricing.py's own docstring defines: 1 halala is
+ *  always worth this many units, whatever model is actually running. `null` unitsPerHalala (the
+ *  read failed, or the shop has no AI-pricing capability) falls back to riyals rather than
+ *  guessing a rate — the same ABSENT-MEANS-ABSENT posture the rest of this file already keeps. */
+function unitsLabel(minorHalalas: number, unitsPerHalala: number | null): string {
+  if (unitsPerHalala === null) return riyalsLabel(minorHalalas);
+  const units = Math.round(minorHalalas * unitsPerHalala);
+  return `${units.toLocaleString('en-US')} وحدة`;
+}
 
 interface WalletBalance {
   currency: string;
@@ -50,8 +60,12 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
   const balanceAction = action(catalog, 'wallet.my_balance');
   const subsAction = action(catalog, 'billing.my_subscriptions');
   const topupCheckoutAction = action(catalog, 'billing.wallet_topup_checkout');
+  const pricingCurrentAction = action(catalog, 'whatsapp_assistant.pricing_current');
   const isPartner = !!action(catalog, 'partner.my_shops');
   const [topupOpen, setTopupOpen] = useState(false);
+  // null = not read yet (or the shop cannot read it) — unitsLabel falls back to riyals then, never
+  // guesses a rate. See ai_unit_pricing.py's own docstring on why this is a FIXED, shared scale.
+  const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
 
   const load = () => {
     if (!balanceAction) { setWallet(null); return; }
@@ -69,6 +83,13 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
         (x.subscriptions ?? []).some((s) => (s.payment_gateway ?? '').toLowerCase() === 'wallet'
           && s.status !== 'canceled')))
       .catch(() => setWalletFundEnabled(false));
+  }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!pricingCurrentAction) return;
+    call<{ ai_unit_units_per_halala: number }>(session, pricingCurrentAction)
+      .then((x) => setUnitsPerHalala(x.ai_unit_units_per_halala))
+      .catch(() => setUnitsPerHalala(null));
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!balanceAction) return null;
@@ -133,12 +154,12 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
           icon={<Bot size={20} aria-hidden />}
           tone="info"
           label="وحدات الذكاء"
-          value={riyalsLabel(aiTotal)}
+          value={unitsLabel(aiTotal, unitsPerHalala)}
           hint={
             <span className="flex flex-col gap-0.5">
-              <span>{riyalsLabel(aiCredit)} مضمّن من باقتك — يتجدد تلقائياً كل شهر</span>
+              <span>{unitsLabel(aiCredit, unitsPerHalala)} مضمّن من باقتك — يتجدد تلقائياً كل شهر</span>
               {topup > 0 ? (
-                <span>+ {riyalsLabel(topup)} شحنته يدوياً — يُستخدم فقط بعد ما ينتهي المضمّن</span>
+                <span>+ {unitsLabel(topup, unitsPerHalala)} شحنته يدوياً — يُستخدم فقط بعد ما ينتهي المضمّن</span>
               ) : (
                 <span>الشحن اليدوي يبقيه شغّالاً لو انتهى المضمّن قبل نهاية الشهر</span>
               )}
@@ -177,11 +198,18 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
 
       {topupCheckoutAction ? (
         <TopUpDialog session={session} action={topupCheckoutAction} open={topupOpen}
+                    unitsPerHalala={unitsPerHalala}
                     onClose={() => setTopupOpen(false)} onCharged={load} />
       ) : null}
     </div>
   );
 }
+
+// المبلغ دايماً مضاعف لهذا الرقم — بلا كسور غريبة (7 ريال)، وحتى تطلع أرقام الوحدات مستديرة هي
+// كمان. أزرار +/- بدل مبلغ حر أو باقات ثابتة.
+const TOPUP_STEP_SAR = 10;
+const TOPUP_MIN_SAR = 10;
+const TOPUP_MAX_SAR = 5000;
 
 /**
  * ONE FUND: the manual top-up always credits `topup` (the fund's own default on the backend, per
@@ -192,18 +220,25 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
  * (`billing.wallet_topup_checkout`) and redirects the browser to the gateway's own page — never
  * the token route (`billing.wallet_topup`), which TuwaiqPay cannot serve at all.
  */
-function TopUpDialog({ session, action: checkoutAction, open, onClose, onCharged }: {
+function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, onClose, onCharged }: {
   session: Session; action: import('../catalog').Action; open: boolean;
-  onClose: () => void; onCharged: () => void;
+  unitsPerHalala: number | null; onClose: () => void; onCharged: () => void;
 }) {
-  const [amount, setAmount] = useState('');
+  const [amountSar, setAmountSar] = useState(TOPUP_STEP_SAR * 5);   // 50 ريال — بداية معقولة
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { if (open) { setAmount(''); setError(''); } }, [open]);
+  useEffect(() => { if (open) { setAmountSar(TOPUP_STEP_SAR * 5); setError(''); } }, [open]);
 
-  const amountMinor = halalas(amount);
-  const ready = amountMinor !== null && amountMinor > 0;
+  const amountMinor = amountSar * 100;
+  const ready = amountSar >= TOPUP_MIN_SAR && amountSar <= TOPUP_MAX_SAR;
+
+  // مضاعفات 10 دائماً — أي رقم يُكتب أو يُصل إليه يُقرَّب لأقرب مضاعف بدل ما يُرفض ويُترك المحل
+  // يصحح بنفسه.
+  function setClamped(next: number) {
+    const rounded = Math.round(next / TOPUP_STEP_SAR) * TOPUP_STEP_SAR;
+    setAmountSar(Math.max(TOPUP_MIN_SAR, Math.min(TOPUP_MAX_SAR, rounded)));
+  }
 
   async function submit() {
     if (!ready) { setError('أدخل مبلغاً صحيحاً أولاً.'); return; }
@@ -231,10 +266,27 @@ function TopUpDialog({ session, action: checkoutAction, open, onClose, onCharged
     <ConfirmDialog open={open} onClose={onClose} onConfirm={submit} busy={busy} danger={false}
                   confirmLabel="الدفع الآن" title="شحن رصيدك"
                   body="سيحوّلك هذا لصفحة الدفع الآمنة. المبلغ يُضاف لرصيدك فور إتمام الدفع، ولا يُسترجع بعد الشحن.">
-      <label className="flex flex-col gap-1.5">
-        <span className="text-label font-medium text-text-secondary">المبلغ (ريال)</span>
-        <Input dir="ltr" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-      </label>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-label font-medium text-text-secondary">المبلغ (مضاعفات {TOPUP_STEP_SAR} ريال)</span>
+        <div className="flex items-center gap-2" role="group" aria-label="المبلغ">
+          <Button type="button" variant="outline" size="sm" aria-label={`إنقاص ${TOPUP_STEP_SAR} ريال`}
+                 disabled={busy || amountSar <= TOPUP_MIN_SAR}
+                 onClick={() => setClamped(amountSar - TOPUP_STEP_SAR)}>
+            <Minus size={14} />
+          </Button>
+          <span className="min-w-[5rem] text-center text-lg font-semibold tabular-nums" dir="ltr">
+            {amountSar} ريال
+          </span>
+          <Button type="button" variant="outline" size="sm" aria-label={`زيادة ${TOPUP_STEP_SAR} ريال`}
+                 disabled={busy || amountSar >= TOPUP_MAX_SAR}
+                 onClick={() => setClamped(amountSar + TOPUP_STEP_SAR)}>
+            <Plus size={14} />
+          </Button>
+        </div>
+        <p className="text-label text-text-secondary">
+          = {unitsLabel(amountMinor, unitsPerHalala)}
+        </p>
+      </div>
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
     </ConfirmDialog>
   );
