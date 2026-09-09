@@ -362,7 +362,14 @@ def render(*, template: dict[str, Any], system: dict[str, str],
                 value = FALLBACK_NAME
             if not value:
                 raise RenderError(f"المتغيّر {key} من النظام وهو فارغ — لا تُرسَل رسالة ناقصة.")
-            out.append(value)
+            # KEY "1" IS THE CUSTOMER'S OWN NAME — the one `system` value a customer, not the shop,
+            # actually authors (self-registration or staff typing exactly what he gave them). Every
+            # OTHER free-text-shaped slot in this function already runs through sanitise_owner_text;
+            # this one didn't, which is the same injection channel that guard exists for, just
+            # reachable by a customer instead of an owner. Every other `system` key here is a
+            # computed value (a date, a count) this service produced itself, never customer-typed —
+            # sanitising those would risk rejecting a legitimate value shaped unlike free text.
+            out.append(sanitise_owner_text(value) if key == "1" else value)
 
     return Rendered(template.get("name", ""), template.get("type", ""),
                     template.get("class", "service"), out)

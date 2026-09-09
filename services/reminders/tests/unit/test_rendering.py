@@ -100,6 +100,31 @@ def test_a_customer_with_no_name_still_gets_a_valid_message():
     assert r.variables[0] == FALLBACK_NAME
 
 
+def test_a_customer_name_with_a_link_is_refused_not_sent():
+    """REAL BUG, found by audit and fixed: the customer's own name (slot 1) is the one `system`
+    value an ADVERSARY, not the shop, can author — any customer can set their own WhatsApp display
+    name. It must go through sanitise_owner_text like every other free-text slot, not slip through
+    the catch-all `system` branch unsanitised."""
+    with pytest.raises(RenderError):
+        render(template=t("svc_service_reminder_brief"),
+               system={"1": "احجز الآن على x.com", "2": "ورشة النخبة"},
+               catalogue={"3": "قص شعر"}, owner={})
+
+
+def test_a_customer_name_with_a_newline_is_refused_not_sent():
+    with pytest.raises(RenderError):
+        render(template=t("svc_service_reminder_brief"),
+               system={"1": "أحمد\nمدير التسويق", "2": "ورشة النخبة"},
+               catalogue={"3": "قص شعر"}, owner={})
+
+
+def test_a_normal_customer_name_still_passes_through_unchanged():
+    """The fix must not break the overwhelmingly common case: an ordinary name."""
+    r = render(template=t("svc_service_reminder_brief"),
+               system={"1": "محمد العتيبي", "2": "ورشة النخبة"}, catalogue={"3": "قص شعر"}, owner={})
+    assert r.variables[0] == "محمد العتيبي"
+
+
 def test_a_missing_system_value_that_is_not_the_name_refuses():
     with pytest.raises(RenderError):
         render(template=t("svc_service_reminder_brief"), system={"1": "أحمد"},
