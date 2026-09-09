@@ -22,7 +22,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronLeft, CircleHelp, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
-import { Field, Input } from '../rj-ui/Field';
+import { Field, Input, Select } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { TabBar } from '../rj-ui/TabBar';
@@ -318,10 +318,48 @@ function CardTrigger({ onClick, title, subtitle, trailing }: {
   );
 }
 
+// ── قائمة النماذج، مقسّمة حسب المزوّد — كلهم فعلياً على نفس مشروع Vertex AI (منطقة الدمام
+// me-central2 تستضيف نماذج من هذي المزوّدين السبعة عبر Model Garden، بنفس المشروع/بيانات
+// الاعتماد المسجَّلة أعلاه) — الفرق ليس "جوجل مقابل غيره"، الفرق شكل الاستدعاء نفسه. "غير مدعوم
+// بعد" ليست تخميناً: `adapters/llm/assistant_service.py`'s الخاص بـ`_model_url` يبني الرابط دائماً
+// على `/publishers/google/models/...:generateContent` — شكل طلب/رد Gemini بالذات. أي ناشر ثانٍ
+// على نفس Vertex (Anthropic/xAI/...) له مسار رابط وشكل استدعاء مختلفَين تماماً (مثلاً Anthropic
+// على Vertex نفسه يستخدم `:rawPredict` برسائل بصيغته الخاصة لا صيغة Gemini) — اختياره اليوم لا
+// يعطي خطأً واضحاً، يعطي ردوداً فاشلة صامتة رغم إنه بنفس المشروع تماماً. تظهر هنا لأن الشاشة تُقال
+// الحقيقة كاملة (نفس مبدأ `NoActionAvailable`)، لا تُخفى، لكنها تبقى معطّلة بالاختيار حتى يُبنى
+// مسار استدعاء كل ناشر بذاته.
+const MODEL_PROVIDER_META: Record<string, string> = {
+  google: 'Google', anthropic: 'Anthropic', xai: 'xAI', zhipu: 'Zhipu AI',
+  openai: 'OpenAI', minimax: 'MiniMax', alibaba: 'Alibaba',
+};
+interface ModelOption { id: string; label: string; provider: keyof typeof MODEL_PROVIDER_META; wired: boolean }
+const MODEL_OPTIONS: ModelOption[] = [
+  // الوحيد المُختبر فعلياً على مشروعنا (me-central2) — راجع تعليق ASSISTANT_MODEL_LOCATION بـ
+  // config.py: gemini-3.5-flash-lite مؤكَّد GA بهذي المنطقة (توثيق Google الرسمي، 2026-09-02).
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (الحالي)', provider: 'google', wired: true },
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', provider: 'google', wired: true },
+  { id: 'gemini-3.5-pro', label: 'Gemini 3.5 Pro', provider: 'google', wired: true },
+  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'google', wired: true },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google', wired: true },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google', wired: true },
+  { id: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic', wired: false },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic', wired: false },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic', wired: false },
+  { id: 'grok-4', label: 'Grok 4', provider: 'xai', wired: false },
+  { id: 'grok-4-fast', label: 'Grok 4 Fast', provider: 'xai', wired: false },
+  { id: 'glm-4.6', label: 'GLM-4.6', provider: 'zhipu', wired: false },
+  { id: 'glm-4.5-air', label: 'GLM-4.5 Air', provider: 'zhipu', wired: false },
+  { id: 'gpt-oss-120b', label: 'gpt-oss-120b', provider: 'openai', wired: false },
+  { id: 'gpt-oss-20b', label: 'gpt-oss-20b', provider: 'openai', wired: false },
+  { id: 'minimax-m2', label: 'MiniMax M2', provider: 'minimax', wired: false },
+  { id: 'qwen3-max', label: 'Qwen3 Max', provider: 'alibaba', wired: false },
+  { id: 'qwen3-235b-a22b', label: 'Qwen3 235B A22B', provider: 'alibaba', wired: false },
+];
+
 // ── "الإدارة" — نموذج الذكاء الاصطناعي وسلوكه (app/runtime_policy.py، حيّ بلا إعادة نشر) ──────────
 const CONFIG_KEY_META: Record<string, { label: string; help: string }> = {
-  ASSISTANT_MODEL_NAME: { label: 'اسم النموذج',
-    help: 'اسم نموذج Vertex AI بالضبط (مثال: gemini-2.5-flash) — تغييره يسري على المحادثة التالية فوراً.' },
+  ASSISTANT_MODEL_NAME: { label: 'النموذج',
+    help: 'اختر من قائمة النماذج المتاحة، مبوّبة حسب المزوّد — تغييره يسري على المحادثة التالية فوراً. نماذج Gemini فقط مفعّلة اليوم؛ باقي الناشرين موجودون على نفس مشروع Vertex AI لكن استدعاءهم يحتاج كوداً لم يُبنَ بعد (انظر تعليق MODEL_OPTIONS أعلاه).' },
   SOFT_DECLINE_THRESHOLD: { label: 'عتبة التوقف عن الاقتراح',
     help: 'عدد مرات رفض العميل لاقتراح قبل ما يتوقف المساعد عن اقتراح أي شي عليه (بلا تصعيد لموظف).' },
   MAX_CAROUSEL_CARDS: { label: 'أقصى بطاقات بالعرض',
@@ -444,8 +482,28 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
       </div>
       {meta?.help ? <p className="text-label text-text-secondary">{meta.help}</p> : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Input id={`config-${k}`} dir="ltr" value={value} onChange={(e) => setValue(e.target.value)}
-              className="max-w-xs" />
+        {k === 'ASSISTANT_MODEL_NAME' ? (
+          <Select id={`config-${k}`} dir="ltr" value={value} onChange={(e) => setValue(e.target.value)}
+                 className="max-w-xs">
+            {/* القيمة الحالية قد تكون معرّفاً لم يعد بالقائمة (نسخة قديمة، تعديل خارج الشاشة) —
+               تُضاف كخيار وحيد ظاهر بدل ما تُفقد صامتة أو تُستبدل بأول نموذج بالقائمة. */}
+            {!MODEL_OPTIONS.some((m) => m.id === value) && value ? (
+              <option value={value}>{value} (قيمة حالية غير مدرجة)</option>
+            ) : null}
+            {Object.entries(MODEL_PROVIDER_META).map(([provider, providerLabel]) => (
+              <optgroup key={provider} label={providerLabel}>
+                {MODEL_OPTIONS.filter((m) => m.provider === provider).map((m) => (
+                  <option key={m.id} value={m.id} disabled={!m.wired}>
+                    {m.label}{m.wired ? '' : ' — غير مدعوم بعد'}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </Select>
+        ) : (
+          <Input id={`config-${k}`} dir="ltr" value={value} onChange={(e) => setValue(e.target.value)}
+                className="max-w-xs" />
+        )}
         {setAction ? (
           <Button size="sm" disabled={!value} onClick={() => setStep('confirm-set')}>تحديث</Button>
         ) : null}

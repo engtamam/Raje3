@@ -322,17 +322,19 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('مفتاح الذكاء الاصطناعي')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('إغلاق'));
 
-    // تعديل قيمة نموذج يمر عبر تأكيد قبل PUT — نفس انضباط الأسرار، داخل نافذة البطاقة.
+    // تعديل قيمة نموذج يمر عبر تأكيد قبل PUT — نفس انضباط الأسرار، داخل نافذة البطاقة. الآن قائمة
+    // منسدلة مبوّبة حسب المزوّد (2026-09-09)، لا خانة كتابة حرة — لا نموذج آخر غير Google مفعّل بعد.
     await openCard('النموذج والسلوك');
-    await waitFor(() => expect(screen.getByDisplayValue('gemini-2.5-flash')).toBeTruthy());
-    const modelInput = screen.getByDisplayValue('gemini-2.5-flash') as HTMLInputElement;
-    fireEvent.change(modelInput, { target: { value: 'gemini-3.0-flash' } });
+    await waitFor(() => expect((screen.getByLabelText('النموذج') as HTMLSelectElement).value)
+      .toBe('gemini-2.5-flash'));
+    const modelSelect = screen.getByLabelText('النموذج') as HTMLSelectElement;
+    fireEvent.change(modelSelect, { target: { value: 'gemini-3.5-pro' } });
     fireEvent.click(screen.getByRole('button', { name: 'تحديث' }));
-    await waitFor(() => expect(screen.getByText(/تعديل "اسم النموذج"؟/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/تعديل "النموذج"؟/)).toBeTruthy());
     fireEvent.click(screen.getByText('تأكيد'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/assistant/operator/config', 'PUT',
-      { key: 'ASSISTANT_MODEL_NAME', value: 'gemini-3.0-flash' }, 'tok-1',
+      { key: 'ASSISTANT_MODEL_NAME', value: 'gemini-3.5-pro' }, 'tok-1',
     ));
     fireEvent.click(screen.getByLabelText('إغلاق'));
 
