@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from app.adapters.datastore.memory import MemoryDataStore
+from app.adapters.llm.assistant_service import LlmUnavailable
 from app.adapters.llm.stub import StubLlm
 from app.auditable_actions import AUDITABLE_ACTIONS
 from app.core.audit import Auditor
@@ -134,6 +137,45 @@ async def test_a_sufficient_balance_reserves_calls_the_llm_and_confirms_the_hold
     assert wallet.balance == 1000 - 150
     assert wallet.held == 0             # nothing left outstanding after confirm
     assert wallet.holds == {}
+
+
+class _FailingLlm:
+    """Simulates a genuine provider failure (timeout, 5xx, a hung call) — the same class of thing
+    Google's own Gemini API billing docs describe: `ai.google.dev/gemini-api/docs/billing` says
+    plainly that only a successful (200) response is ever billed; a failed request "won't be
+    charged for the tokens used" on their side. This proves OUR OWN wallet mirrors that — a
+    failure must never itself be the thing that spends a shop's balance."""
+    driver = "failing"
+
+    def __init__(self):
+        self.calls = 0
+
+    async def respond(self, **kwargs):
+        self.calls += 1
+        raise LlmUnavailable("simulated provider timeout")
+
+
+async def test_a_failed_llm_call_never_confirms_or_charges_the_hold():
+    """THE REAL-MONEY GUARANTEE: if the model call itself fails (timeout, provider error — Gemini
+    "froze" and never answered), the reserved hold must NEVER be confirmed. It is left exactly as
+    reserved, to expire unspent on wallet-service's own HOLD_TTL_SECONDS sweep (see
+    core/wallet_balance.py's module docstring) — matching Google's own billing behaviour: no
+    charge for a call that never actually produced a usable response."""
+    store = MemoryDataStore()
+    wallet = _AtomicFakeWallet(balance_halalas=1000)
+    llm = _FailingLlm()
+    engine = _engine(store, llm, wallet)
+    await _through_triage(engine, "sub1", now=1000)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref="sub1", from_number="+9665",
+                                 text="أبي أحجز غسيل", now=1010)
+
+    with pytest.raises(LlmUnavailable):
+        await engine.compose_reply(TENANT, "sub1", now=1200)
+
+    assert llm.calls == 1                     # the call really happened, and really failed
+    assert wallet.balance == 1000              # UNTOUCHED — confirm() was never reached
+    assert wallet.held == 150                  # still reserved, exactly as before the failed call
+    assert len(wallet.holds) == 1              # sitting there, unconfirmed — expires via TTL, unspent
 
 
 async def test_an_insufficient_balance_stops_the_ai_before_any_llm_call():
