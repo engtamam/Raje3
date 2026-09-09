@@ -84,9 +84,9 @@ class HttpAssistantConnections:
         return self._call("POST", f"{self._path}/{cid}/invoke", body=body)
 
 
-def ensure_connection(client: HttpAssistantConnections, *, tenant: str, url: str, model: str,
-                      auth: str, credential: str, system_prompt: str, tools: list[dict[str, Any]],
-                      temperature: float = 0.2) -> str:
+def ensure_connection(client: HttpAssistantConnections, *, tenant: str, url: str, shape: str,
+                      model: str, auth: str, credential: str, system_prompt: str,
+                      tools: list[dict[str, Any]], temperature: float = 0.2) -> str:
     """The tenant's connection id, creating or updating it as needed. Never re-sends `credential`
     on an update — assistant-service's own PUT route does not accept one (see internal.py's
     ConnUpdateIn: the credential is write-only at create time, rotated by recreating the
@@ -95,20 +95,33 @@ def ensure_connection(client: HttpAssistantConnections, *, tenant: str, url: str
     """
     existing = next((c for c in client.list(tenant) if c.get("name") == _CONNECTION_NAME), None)
     if existing is None:
-        conn = client.create(tenant=tenant, name=_CONNECTION_NAME, url=url, model=model, auth=auth,
-                             system_prompt=system_prompt, temperature=temperature, tools=tools,
-                             credential=credential)
+        conn = client.create(tenant=tenant, name=_CONNECTION_NAME, url=url, shape=shape, model=model,
+                             auth=auth, system_prompt=system_prompt, temperature=temperature,
+                             tools=tools, credential=credential)
         return str(conn["id"])
 
     cid = str(existing["id"])
     # ONLY WHAT ACTUALLY CHANGED — an update call every single turn regardless would be a wasted
-    # round trip on every message this service ever handles, for no benefit: the prompt/tools are
-    # already correct the overwhelming majority of the time.
+    # round trip on every message this service ever handles, for no benefit: the prompt/tools/url/
+    # shape/model are already correct the overwhelming majority of the time.
+    #
+    # url/shape/model WERE MISSING HERE UNTIL NOW — a real bug, not a new one this fixes in
+    # passing: an operator switching ASSISTANT_MODEL_NAME (this module's own docstring promises it
+    # "takes effect on the very next reply") never actually reached an ALREADY-PROVISIONED tenant's
+    # connection, because this diff only ever looked at system_prompt/tools. The switch silently
+    # kept talking to the old model for every shop that had already messaged once — only a
+    # brand-new tenant (no `existing` yet) ever picked up the new value, via `create` above.
     changes: dict[str, Any] = {}
     if existing.get("system_prompt") != system_prompt:
         changes["system_prompt"] = system_prompt
     if existing.get("tools") != tools:
         changes["tools"] = tools
+    if existing.get("url") != url:
+        changes["url"] = url
+    if existing.get("shape") != shape:
+        changes["shape"] = shape
+    if existing.get("model") != model:
+        changes["model"] = model
     if changes:
         client.update(cid, tenant=tenant, **changes)
     return cid

@@ -45,7 +45,7 @@ def test_no_existing_connection_creates_one_with_the_given_prompt_and_tools():
 
     with patch("urllib.request.urlopen", _urlopen):
         cid = ensure_connection(
-            client(), tenant="t1", url="http://model", model="m", auth="vertex",
+            client(), tenant="t1", url="http://model", shape="generate", model="m", auth="vertex",
             credential="cred", system_prompt="prompt A", tools=[{"name": "x"}])
 
     assert cid == "conn_1"
@@ -53,8 +53,9 @@ def test_no_existing_connection_creates_one_with_the_given_prompt_and_tools():
     assert method == "POST"
     assert url.endswith("/internal/assistant/connections")
     assert body == {"tenant": "t1", "name": "whatsapp-assistant", "url": "http://model",
-                    "model": "m", "auth": "vertex", "system_prompt": "prompt A",
-                    "temperature": 0.2, "tools": [{"name": "x"}], "credential": "cred"}
+                    "shape": "generate", "model": "m", "auth": "vertex",
+                    "system_prompt": "prompt A", "temperature": 0.2, "tools": [{"name": "x"}],
+                    "credential": "cred"}
 
 
 def test_an_existing_connection_with_the_same_prompt_and_tools_is_left_alone():
@@ -63,11 +64,12 @@ def test_an_existing_connection_with_the_same_prompt_and_tools_is_left_alone():
     def _urlopen(req, timeout=None):
         calls.append(req.get_method())
         return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
-                                       "system_prompt": "same", "tools": [{"name": "x"}]}]})
+                                       "system_prompt": "same", "tools": [{"name": "x"}],
+                                       "url": "http://model", "shape": "generate", "model": "m"}]})
 
     with patch("urllib.request.urlopen", _urlopen):
         cid = ensure_connection(
-            client(), tenant="t1", url="http://model", model="m", auth="vertex",
+            client(), tenant="t1", url="http://model", shape="generate", model="m", auth="vertex",
             credential="cred", system_prompt="same", tools=[{"name": "x"}])
 
     assert cid == "conn_9"
@@ -81,12 +83,14 @@ def test_a_changed_prompt_updates_the_existing_connection_without_resending_the_
         calls.append((req.get_method(), json.loads(req.data or b"{}")))
         if req.get_method() == "GET":
             return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
-                                           "system_prompt": "old", "tools": [{"name": "x"}]}]})
+                                           "system_prompt": "old", "tools": [{"name": "x"}],
+                                           "url": "http://model", "shape": "generate",
+                                           "model": "m"}]})
         return _Resp({"id": "conn_9"})
 
     with patch("urllib.request.urlopen", _urlopen):
         cid = ensure_connection(
-            client(), tenant="t1", url="http://model", model="m", auth="vertex",
+            client(), tenant="t1", url="http://model", shape="generate", model="m", auth="vertex",
             credential="cred", system_prompt="new", tools=[{"name": "x"}])
 
     assert cid == "conn_9"
@@ -103,16 +107,43 @@ def test_changed_tools_alone_also_triggers_an_update():
         calls.append((req.get_method(), json.loads(req.data or b"{}")))
         if req.get_method() == "GET":
             return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
-                                           "system_prompt": "same", "tools": [{"name": "x"}]}]})
+                                           "system_prompt": "same", "tools": [{"name": "x"}],
+                                           "url": "http://model", "shape": "generate",
+                                           "model": "m"}]})
         return _Resp({"id": "conn_9"})
 
     with patch("urllib.request.urlopen", _urlopen):
         ensure_connection(
-            client(), tenant="t1", url="http://model", model="m", auth="vertex",
+            client(), tenant="t1", url="http://model", shape="generate", model="m", auth="vertex",
             credential="cred", system_prompt="same", tools=[{"name": "y"}])
 
     put_calls = [c for c in calls if c[0] == "PUT"]
     assert put_calls[0][1] == {"tenant": "t1", "tools": [{"name": "y"}]}
+
+
+def test_a_changed_model_alone_updates_url_shape_and_model_even_with_prompt_and_tools_unchanged():
+    """The bug this fixes: an operator switching ASSISTANT_MODEL_NAME must reach an
+    ALREADY-PROVISIONED tenant's connection on its very next turn, not only a brand-new one."""
+    calls = []
+
+    def _urlopen(req, timeout=None):
+        calls.append((req.get_method(), json.loads(req.data or b"{}")))
+        if req.get_method() == "GET":
+            return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
+                                           "system_prompt": "same", "tools": [{"name": "x"}],
+                                           "url": "http://old-model", "shape": "generate",
+                                           "model": "gemini-2.5-flash"}]})
+        return _Resp({"id": "conn_9"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        ensure_connection(
+            client(), tenant="t1", url="http://new-model", shape="anthropic",
+            model="claude-sonnet-5", auth="vertex", credential="cred", system_prompt="same",
+            tools=[{"name": "x"}])
+
+    put_calls = [c for c in calls if c[0] == "PUT"]
+    assert put_calls[0][1] == {"tenant": "t1", "url": "http://new-model", "shape": "anthropic",
+                               "model": "claude-sonnet-5"}
 
 
 def test_a_second_tenants_connection_is_not_confused_with_the_first():
@@ -127,10 +158,10 @@ def test_a_second_tenants_connection_is_not_confused_with_the_first():
         return _Resp({"id": "x"})
 
     with patch("urllib.request.urlopen", _urlopen):
-        ensure_connection(client(), tenant="tenant_a", url="u", model="m", auth="vertex",
-                          credential="c", system_prompt="p", tools=[])
-        ensure_connection(client(), tenant="tenant_b", url="u", model="m", auth="vertex",
-                          credential="c", system_prompt="p", tools=[])
+        ensure_connection(client(), tenant="tenant_a", url="u", shape="generate", model="m",
+                          auth="vertex", credential="c", system_prompt="p", tools=[])
+        ensure_connection(client(), tenant="tenant_b", url="u", shape="generate", model="m",
+                          auth="vertex", credential="c", system_prompt="p", tools=[])
 
     assert seen_get_tenants == ["tenant_a", "tenant_b"]
 
@@ -141,8 +172,8 @@ def test_an_unreachable_service_raises_the_named_unavailable_error():
 
     with patch("urllib.request.urlopen", _urlopen):
         with pytest.raises(AssistantConnectionsUnavailable):
-            ensure_connection(client(), tenant="t1", url="u", model="m", auth="vertex",
-                              credential="c", system_prompt="p", tools=[])
+            ensure_connection(client(), tenant="t1", url="u", shape="generate", model="m",
+                              auth="vertex", credential="c", system_prompt="p", tools=[])
 
 
 def test_invoke_omits_max_tokens_when_zero_the_platform_wide_no_cap_default():

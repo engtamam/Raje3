@@ -263,7 +263,8 @@ def test_no_runtime_config_wired_uses_the_constructor_model_name():
         url="http://assistant-service:8000", connections_path="/internal/assistant/connections",
         token="t", timeout=8)
     adapter = AssistantServiceLlm(
-        connections=connections, model_location="me-central2", model_name="the-constructor-default",
+        connections=connections, model_location="me-central2",
+        model_name="gemini-the-constructor-default",
         model_auth="vertex", env_project="proj", env_credential="cred", allowed_tools=frozenset())
 
     captured_urls = []

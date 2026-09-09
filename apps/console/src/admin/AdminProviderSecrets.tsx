@@ -324,14 +324,18 @@ function CardTrigger({ onClick, title, subtitle, trailing }: {
 
 // ── قائمة النماذج، مقسّمة حسب المزوّد — كلهم فعلياً على نفس مشروع Vertex AI (منطقة الدمام
 // me-central2 تستضيف نماذج من هذي المزوّدين السبعة عبر Model Garden، بنفس المشروع/بيانات
-// الاعتماد المسجَّلة أعلاه) — الفرق ليس "جوجل مقابل غيره"، الفرق شكل الاستدعاء نفسه. "غير مدعوم
-// بعد" ليست تخميناً: `adapters/llm/assistant_service.py`'s الخاص بـ`_model_url` يبني الرابط دائماً
-// على `/publishers/google/models/...:generateContent` — شكل طلب/رد Gemini بالذات. أي ناشر ثانٍ
-// على نفس Vertex (Anthropic/xAI/...) له مسار رابط وشكل استدعاء مختلفَين تماماً (مثلاً Anthropic
-// على Vertex نفسه يستخدم `:rawPredict` برسائل بصيغته الخاصة لا صيغة Gemini) — اختياره اليوم لا
-// يعطي خطأً واضحاً، يعطي ردوداً فاشلة صامتة رغم إنه بنفس المشروع تماماً. تظهر هنا لأن الشاشة تُقال
-// الحقيقة كاملة (نفس مبدأ `NoActionAvailable`)، لا تُخفى، لكنها تبقى معطّلة بالاختيار حتى يُبنى
-// مسار استدعاء كل ناشر بذاته.
+// الاعتماد المسجَّلة أعلاه) — الفرق ليس "جوجل مقابل غيره"، الفرق شكل الاستدعاء (`shape`) اللي
+// نمرره لـassistant-service (base-services، v0.18.61+) عند إنشاء الاتصال، وهي اللي فعلياً تتصل
+// بجوجل. `adapters/llm/assistant_service.py`'s الخاص بـ`_model_url_and_shape` يبني الرابط والشكل
+// الصحيحين حسب بادئة اسم النموذج (gemini-/claude-/غيره) — مطابق تماماً لتصنيف `wired` هنا، فلا
+// يفترقان صامتاً. "غير مدعوم بعد" ليست تخميناً حالة بحالة:
+//   • xAI (Grok): لا يوجد تأكيد إنه موجود على Vertex Model Garden أصلاً — لم يُتحقق منه.
+//   • Alibaba (Qwen): مؤكَّد أنه غير موجود على Vertex Model Garden (يحتاج DashScope مباشرة، مضيف
+//     ومصادقة مختلفين كلياً عن مشروعنا الحالي) — Vertex ليس فقط "غير مبني"، بل غير الطريق الصحيح.
+// كل الباقي (Google/Anthropic/Zhipu/OpenAI's gpt-oss/MiniMax) مؤكَّد على Vertex ومسار الاستدعاء
+// مبني ومُختبر (tests/unit/test_assistant_connections.py) — يبقى الشرط التشغيلي الوحيد قبل أول
+// استدعاء حقيقي: مشروع GCP حقيقي (لا يوجد بعد، انظر memory) + لأي ناشر شريك (Claude تحديداً)
+// تفعيل صريح من Model Garden وزيادة حصة (quota) من نفس لوحة GCP، موافقتها 24-48 ساعة.
 const MODEL_PROVIDER_META: Record<string, string> = {
   google: 'Google', anthropic: 'Anthropic', xai: 'xAI', zhipu: 'Zhipu AI',
   openai: 'OpenAI', minimax: 'MiniMax', alibaba: 'Alibaba',
@@ -348,16 +352,16 @@ const MODEL_OPTIONS: ModelOption[] = [
   { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', provider: 'google', wired: true },
   { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google', wired: true },
   { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google', wired: true },
-  { id: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic', wired: false },
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic', wired: false },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic', wired: false },
+  { id: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic', wired: true },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic', wired: true },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic', wired: true },
   { id: 'grok-4', label: 'Grok 4', provider: 'xai', wired: false },
   { id: 'grok-4-fast', label: 'Grok 4 Fast', provider: 'xai', wired: false },
-  { id: 'glm-4.6', label: 'GLM-4.6', provider: 'zhipu', wired: false },
-  { id: 'glm-4.5-air', label: 'GLM-4.5 Air', provider: 'zhipu', wired: false },
-  { id: 'gpt-oss-120b', label: 'gpt-oss-120b', provider: 'openai', wired: false },
-  { id: 'gpt-oss-20b', label: 'gpt-oss-20b', provider: 'openai', wired: false },
-  { id: 'minimax-m2', label: 'MiniMax M2', provider: 'minimax', wired: false },
+  { id: 'glm-4.6', label: 'GLM-4.6', provider: 'zhipu', wired: true },
+  { id: 'glm-4.5-air', label: 'GLM-4.5 Air', provider: 'zhipu', wired: true },
+  { id: 'gpt-oss-120b', label: 'gpt-oss-120b', provider: 'openai', wired: true },
+  { id: 'gpt-oss-20b', label: 'gpt-oss-20b', provider: 'openai', wired: true },
+  { id: 'minimax-m2', label: 'MiniMax M2', provider: 'minimax', wired: true },
   { id: 'qwen3-max', label: 'Qwen3 Max', provider: 'alibaba', wired: false },
   { id: 'qwen3-235b-a22b', label: 'Qwen3 235B A22B', provider: 'alibaba', wired: false },
 ];
@@ -365,7 +369,7 @@ const MODEL_OPTIONS: ModelOption[] = [
 // ── "الإدارة" — نموذج الذكاء الاصطناعي وسلوكه (app/runtime_policy.py، حيّ بلا إعادة نشر) ──────────
 const CONFIG_KEY_META: Record<string, { label: string; help: string }> = {
   ASSISTANT_MODEL_NAME: { label: 'النموذج',
-    help: 'اختر من قائمة النماذج المتاحة، مبوّبة حسب المزوّد — تغييره يسري على المحادثة التالية فوراً. نماذج Gemini فقط مفعّلة اليوم؛ باقي الناشرين موجودون على نفس مشروع Vertex AI لكن استدعاءهم يحتاج كوداً لم يُبنَ بعد (انظر تعليق MODEL_OPTIONS أعلاه).' },
+    help: 'اختر من قائمة النماذج المتاحة، مبوّبة حسب المزوّد — تغييره يسري على المحادثة التالية فوراً حتى للمحلات اللي بدأت تحادث قبل التغيير. Grok وQwen معطّلان: Grok غير مؤكَّد على Vertex AI أصلاً، وQwen مؤكَّد أنه خارج Vertex كلياً (يحتاج مضيفاً/مصادقة مختلفين تماماً). باقي الناشرين مبنيّون ومُختبرون، بانتظار مشروع GCP حقيقي (ولـClaude تحديداً: تفعيل + حصة إضافية من نفس اللوحة).' },
   SOFT_DECLINE_THRESHOLD: { label: 'عتبة التوقف عن الاقتراح',
     help: 'عدد مرات رفض العميل لاقتراح قبل ما يتوقف المساعد عن اقتراح أي شي عليه (بلا تصعيد لموظف).' },
   MAX_CAROUSEL_CARDS: { label: 'أقصى بطاقات بالعرض',

@@ -262,10 +262,24 @@ class AssistantServiceLlm:
         return int(await self._runtime_config.get(
             tenant="", key="MAX_REPLY_TOKENS", default=self._max_reply_tokens))
 
-    def _model_url(self, project: str, model_name: str) -> str:
+    def _model_url_and_shape(self, project: str, model_name: str) -> tuple[str, str]:
+        """(url, shape) for assistant-service's own /assistant/connections `shape` field — see that
+        service's core/connections.py (v0.18.61+): "generate" | "anthropic" | "chat". All three are
+        reached through the SAME GCP project/credential (Vertex AI Model Garden hosts every one of
+        them), never a different provider account — only the URL path and wire shape differ per
+        publisher. Classified by model-id PREFIX, matching the console's own MODEL_OPTIONS grouping
+        (apps/console/src/admin/AdminProviderSecrets.tsx) so the two never drift apart silently.
+        """
         loc = self._model_location
-        return (f"https://{loc}-aiplatform.googleapis.com/v1/projects/{project}"
-                f"/locations/{loc}/publishers/google/models/{model_name}:generateContent")
+        base = f"https://{loc}-aiplatform.googleapis.com/v1/projects/{project}/locations/{loc}"
+        if model_name.startswith("claude-"):
+            return f"{base}/publishers/anthropic/models/{model_name}:rawPredict", "anthropic"
+        if model_name.startswith("gemini-"):
+            return f"{base}/publishers/google/models/{model_name}:generateContent", "generate"
+        # Every other wired publisher (Zhipu/MiniMax/Alibaba/gpt-oss on Vertex) speaks the
+        # OpenAI-compatible endpoint — one project-wide URL, the model id travels in the request
+        # BODY instead of the path (assistant-service's http_provider.py's own CHAT shape).
+        return f"{base}/endpoints/openapi/chat/completions", "chat"
 
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
@@ -290,9 +304,10 @@ class AssistantServiceLlm:
                 "via /api/v1/assistant/operator/secrets once a real GCP project exists")
 
         model_name = await self._resolve_model_name()
+        url, shape = self._model_url_and_shape(project, model_name)
         try:
             cid = ensure_connection(
-                self._connections, tenant=tenant, url=self._model_url(project, model_name),
+                self._connections, tenant=tenant, url=url, shape=shape,
                 model=model_name, auth=self._model_auth, credential=credential,
                 system_prompt=full_prompt, tools=tool_schemas)
         except AssistantConnectionsUnavailable as exc:
