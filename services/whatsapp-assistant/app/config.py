@@ -347,14 +347,20 @@ class Settings(BaseSettings):
     # usage data exists (see core/ai_unit_pricing.py for the actual cost basis this service prices
     # against).
     WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: int = 4000
-    # THE HARD SAFETY MARGIN (halalas — 100 = 1 SAR) held back on TOP of the token estimate on
-    # every reserve, so a misestimate or a mid-flight rate change can never itself be what pushes
-    # a confirm past the true available balance. Config, not a literal in the reserve call itself.
+    # AN EXTRA HALALA AMOUNT (100 = 1 SAR) HELD BACK ON TOP OF THE TOKEN ESTIMATE on every
+    # reserve — held, never spent unless actually needed: wallet-service v0.19.2's own
+    # confirm(final_net=...) always charges the real, usually-smaller cost and auto-releases
+    # whatever of the reserve (margin included) was not actually used.
     #
-    # 0 (the owner's own call): a margin only earns its keep once the per-token rate
-    # (core/ai_unit_pricing.py) is real and non-zero — held back against a cost that is zero only
-    # shrinks every shop's included balance for no protection, and reads as "why is my wallet lower
-    # than what I was told" with nothing to show for it.
+    # 0 IS THE RIGHT VALUE, DELIBERATELY, NOT A PLACEHOLDER. `reserve()` is already the one
+    # atomic gate against overspending (wallet-service's own compare-and-set against the held
+    # balance — see app/core/wallet_balance.py's module docstring), and `confirm()`'s final_net is
+    # always clamped to what was reserved, so it can never itself push a charge past what reserve
+    # already verified was available. A margin here does not add any protection that does not
+    # already exist — its ONLY real effect is making the reserve check itself STRICTER: a shop
+    # whose balance genuinely covers a turn's real cost, but sits just under the reserve's own
+    # padded estimate, would be refused and see the AI stop replying for no real financial reason.
+    # A positive margin here would be a real regression, not a safety net.
     WALLET_SAFETY_MARGIN_HALALAS: int = 0
     # THE NAMED FUND(S) this bot's own hold is scoped to (wallet-service v0.18.42's fund-scoping,
     # comma-separated — plural for a future deployment that ever needs more than one). Empty

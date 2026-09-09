@@ -15,10 +15,11 @@ THE HARD RULE: THE BALANCE MUST NEVER GO NEGATIVE, UNDER ANY CIRCUMSTANCE — no
 misestimate. Two things make that true here:
 
   1. `reserve()` asks wallet-service to hold an ESTIMATED CEILING (a generous per-turn token
-     estimate at the configured rate, PLUS a fixed WALLET_SAFETY_MARGIN_HALALAS on top — 1 SAR by
-     default, config not hardcoded) before the LLM is ever called. wallet-service refuses the
-     reserve outright (402 INSUFFICIENT_FUNDS) if the post-hold balance would not cover it — the
-     check IS the hold, atomically, so no other concurrent turn can spend the same halala twice.
+     estimate at the configured rate, plus WALLET_SAFETY_MARGIN_HALALAS on top if that is ever
+     set above its own default of 0 — see config.py's own note on why 0 is the right value, not a
+     placeholder) before the LLM is ever called. wallet-service refuses the reserve outright (402
+     INSUFFICIENT_FUNDS) if the post-hold balance would not cover it — the check IS the hold,
+     atomically, so no other concurrent turn can spend the same halala twice.
   2. `confirm()` charges the REAL, usually-smaller token cost once it is known — wallet-service
      v0.19.2's own `confirm(hold_id, final_net=...)` (its own core/wallet_service.py::confirm),
      requested and shipped for exactly this use case. `final_net` is ALWAYS clamped to the
