@@ -166,6 +166,20 @@ async def ingest_inbound_message(
         elif plan is not None and plan.kind in ("text", "list") and not await outbound_allowed(
                 container, settings, tenant, subject_ref=subject_ref, branch_id=branch_id):
             logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
+            # A CAP TRIPPING IS AN EXPECTED, WORKING SAFETY MECHANISM, NOT A FAILURE — it is logged
+            # at `warning`, which Fluent Bit's own shape.lua deliberately never ships to
+            # error-collector (only error/fatal/critical, or an HTTP 500+, reach that screen; see
+            # deploy/k3s/fluent-bit.yaml's own `is_failure` note). Without this, an operator has no
+            # way to ever see or count how often either limiter actually trips. The audit trail is
+            # the right home for it instead — same pattern as `consent_refused` just above: a real,
+            # queryable, per-tenant record, best-effort so a down audit sink cannot block a message.
+            try:
+                await auditor.record(
+                    "whatsapp_assistant.outbound_capped", actor="whatsapp-assistant",
+                    resource=f"wamid:{wamid}", tenant=tenant,
+                    metadata={"subject_ref": subject_ref, "branch_id": branch_id})
+            except Exception:                                        # noqa: BLE001
+                pass
         elif plan is not None and plan.kind == "text" and plan.text:
             await container.sender.send_template(
                 tenant=tenant, to=from_number, template_name="wa_assistant_reply",
