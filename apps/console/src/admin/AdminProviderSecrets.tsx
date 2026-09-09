@@ -151,6 +151,8 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   const personaPreviewAction = findAction('whatsapp_assistant.persona_preview');
   // "المحاسبة" — القراءات/الجدولة عبر مسار تسعير مستقل عمداً (POST /pricing/schedule)، لا
   // set_operator_config: تعديل سعر لا يسري فوراً أبداً — انظر operator.py's own note.
+  // pricing_report — استهلاك حقيقي (COST_LEDGER)، لا تخمين: معاينة "كم وحدة تستهلكها رسالة عادية
+  // فعلياً" قبل جدولة أي تعديل بحاسبة وحدات الذكاء أدناه.
   const pricingReportAction = findAction('whatsapp_assistant.pricing_report');
   const pricingPendingAction = findAction('whatsapp_assistant.pricing_pending');
   const pricingScheduleAction = findAction('whatsapp_assistant.schedule_pricing');
@@ -276,7 +278,7 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
                     <AIPersonaCard session={session} previewAction={personaPreviewAction} />
                   ) : null}
                 </div>
-              ) : pricingReportAction && pricingPendingAction ? (
+              ) : pricingPendingAction ? (
                 <AIPricingCalculator session={session}
                                      reportAction={pricingReportAction}
                                      pendingAction={pricingPendingAction}
@@ -537,26 +539,17 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
   );
 }
 
-// ── "المحاسبة" — حاسبة تسعير الذكاء الاصطناعي: سعر جوجل الحقيقي + هامش = سعرنا، على استهلاك
-// حقيقي (COST_LEDGER عبر pricing/report) أو افتراض يدوي، وتطبيق يمرّ دائماً عبر جدولة مؤجَّلة —
-// انظر core/pricing_schedule.py's own docstring: تعديل سعر لا يسري فوراً أبداً. ──────────────────
+// ── "المحاسبة" — إعدادات تسعير «وحدات الذكاء» (core/ai_unit_pricing.py): السعر الحقيقي لكل
+// نموذج عند جوجل + هامش = المعدّل الذي يُستهلَك منه رصيد المحفظة، وتطبيق يمرّ دائماً عبر جدولة
+// مؤجَّلة — انظر core/pricing_schedule.py's own docstring: تعديل سعر لا يسري فوراً أبداً. ─────────
+interface PendingChange { key: string; value: string | number | boolean; effective_at: number; scheduled_by: string; scheduled_at: number; }
 interface UsageReport {
   days: number; calls: number; conversations: number; input_tokens: number; output_tokens: number;
   avg_input_tokens_per_call: number; avg_output_tokens_per_call: number;
   avg_calls_per_conversation: number; truncated: boolean;
 }
-interface PendingChange { key: string; value: string | number | boolean; effective_at: number; scheduled_by: string; scheduled_at: number; }
 
 const PRICING_KEY_LABEL: Record<string, string> = {
-  PRICING_STRATEGY: 'طريقة التسعير',
-  // "وحدة" هنا تعني 1000 توكن — سعر الفاتورة، لا "وحدات الذكاء" (رصيد المحفظة). راجع تعليق
-  // AIPricingCalculator's الخاص بقسم "تسعير الاشتراك" أعلاه لتفريق المسارين.
-  PRICING_USAGE_HALALAS_PER_1K_TOKENS: 'هللات لكل 1000 وحدة (تسعير الاشتراك)',
-  PRICING_USAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة',
-  PRICING_TIER_BASE_HALALAS: 'سعر الباقة الأساسي',
-  PRICING_TIER_INCLUDED_CONVERSATIONS: 'محادثات مشمولة بالباقة',
-  PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة زيادة',
-  PRICING_ADDON_FLAT_HALALAS: 'سعر إضافة ثابتة',
   PRICING_AI_UNIT_UNITS_PER_HALALA: 'وحدات لكل هللة',
   PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER: 'مضاعف هامش الدخل',
   PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER: 'مضاعف هامش الخرج',
@@ -583,56 +576,20 @@ function fmtDateTime(iso: string): string {
 }
 
 function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAction, cancelAction }: {
-  session: AdminSession; reportAction: AdminAction; pendingAction: AdminAction;
+  session: AdminSession; reportAction?: AdminAction; pendingAction: AdminAction;
   scheduleAction?: AdminAction; cancelAction?: AdminAction;
 }) {
-  const [report, setReport] = useState<UsageReport | 'loading' | 'failed'>('loading');
   const [pending, setPending] = useState<PendingChange[] | 'loading' | 'failed'>('loading');
-  const [days, setDays] = useState(30);
+  // استهلاك حقيقي (COST_LEDGER) — لا تخمين. يغذّي معاينة "كم وحدة فعلياً" تحت حاسبة وحدات الذكاء،
+  // بنفس الدور اللي كان له بحاسبة تسعير الاشتراك القديمة (المحذوفة) قبل ما نظام الوحدات يُبنى.
+  const [report, setReport] = useState<UsageReport | 'loading' | 'failed'>('loading');
+  const days = 30;
 
-  // ── مصدر عدد الرسائل الشهري للتوقع — حقيقي (report.calls) أو يدوي، قبل وجود استهلاك فعلي.
-  const [monthlySource, setMonthlySource] = useState<'real' | 'manual'>('real');
-  const [manualMonthlyCalls, setManualMonthlyCalls] = useState('1000');
-
-  // ── الأسعار المرجعية (جوجل) — بالريال مباشرة، لا عملة ثانية بالنظام أصلاً. ندخلها نحن يدوياً
-  // ونحدّثها وقت ما تتغيّر (جوجل ما توفر API لأسعارها) — مين يحدّثها يحوّلها بنفسه وقتها. الوحدة
-  // قابلة للتبديل (لكل 1000 / لكل مليون) لراحة المقارنة مع صفحة تسعير جوجل نفسها.
-  const [unit, setUnit] = useState<'1k' | '1m'>('1m');
-  const [googleInputSar, setGoogleInputSar] = useState('1.13');
-  const [googleOutputSar, setGoogleOutputSar] = useState('9.38');
-
-  // THE TOGGLE MUST RESCALE THE NUMBERS, NOT JUST RELABEL THEM. `unit` also picks `divisor` below
-  // for the actual cost math — so switching it while leaving googleInputSar/googleOutputSar
-  // untouched silently changes what the SAME typed number MEANS (1.13 "per 1000 tokens" is 1000×
-  // Google's real price if it was actually typed as "per million"), not just how it displays. A
-  // real bug, found from a screenshot: identical inputs, real cost off by ~1000× between
-  // the two tabs. Converting here keeps the number always meaning the same real price no matter
-  // which unit it is being viewed/typed in.
-  function changeUnit(next: '1k' | '1m') {
-    if (next === unit) return;
-    const factor = next === '1k' ? 1 / 1000 : 1000; // 1m→1k: ÷1000. 1k→1m: ×1000.
-    const rescale = (v: string) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return v;
-      // Rounded to 8 decimals and trailing zeros trimmed — plain `n * factor` leaves float noise
-      // like 0.009380000000000001 sitting in the field the owner is about to read and type over.
-      return String(Math.round(n * factor * 1e8) / 1e8);
-    };
-    setGoogleInputSar((v) => rescale(v));
-    setGoogleOutputSar((v) => rescale(v));
-    setUnit(next);
-  }
-
-  // ── متوسط التوكنات — يدوي أو من استهلاك حقيقي (report). ──────────────────────────────────────
-  const [tokenSource, setTokenSource] = useState<'system' | 'manual'>('system');
-  const [manualAvgInput, setManualAvgInput] = useState('300');
-  const [manualAvgOutput, setManualAvgOutput] = useState('150');
-
-  const [multiplier, setMultiplier] = useState('3');
-  const [effectiveInDays, setEffectiveInDays] = useState('15');
-  const [scheduling, setScheduling] = useState(false);
-  const [scheduleError, setScheduleError] = useState('');
-  const [scheduleDone, setScheduleDone] = useState(false);
+  useEffect(() => {
+    if (!reportAction) { setReport('failed'); return; }
+    req<UsageReport>(`${reportAction.path}?days=${days}`, 'GET', undefined, session.access_token)
+      .then(setReport).catch(() => setReport('failed'));
+  }, [reportAction, session.access_token]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── وحدات الذكاء — سعر عرض ثابت (وحدات لكل هللة) حول تكلفة حقيقية تختلف باختلاف النموذج. كل
   // حقل هنا مفتاح تسعير مثل أي مفتاح فوق — يمرّ بنفس بوابة الجدولة، لا يُطبَّق فوراً أبداً.
@@ -662,8 +619,8 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         ['PRICING_AI_UNIT_USD_TO_SAR', Number(usdToSar) || 0],
         ['PRICING_AI_UNIT_MODEL_COSTS_JSON', modelCostsJson],
       ];
-      // بالتتابع، لا Promise.all — نفس منطق doSchedule فوق: التناسق أهم من السرعة هنا، وأي
-      // رفض (حد غير منطقي) يجب أن يوقف الباقي بدل جدولة نصف التعديل فقط.
+      // بالتتابع، لا Promise.all — التناسق أهم من السرعة هنا، وأي رفض (حد غير منطقي) يجب أن
+      // يوقف الباقي بدل جدولة نصف التعديل فقط.
       for (const [key, value] of fields) {
         await req(scheduleAction.path, 'POST', { key, value, effective_in_days: days_ },
           session.access_token);
@@ -676,64 +633,12 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   }
 
   function reload() {
-    setReport('loading');
-    req<UsageReport>(`${reportAction.path}?days=${days}`, 'GET', undefined, session.access_token)
-      .then(setReport).catch(() => setReport('failed'));
     setPending('loading');
     req<{ pending: PendingChange[] }>(pendingAction.path, 'GET', undefined, session.access_token)
       .then((body) => setPending(body.pending)).catch(() => setPending('failed'));
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reload يُستدعى صراحة عند تغيّر days أيضاً
-  useEffect(reload, [reportAction.path, pendingAction.path, session.access_token, days]);
-
-  const hasReport = typeof report === 'object';
-  const avgInput = tokenSource === 'system' && hasReport
-    ? report.avg_input_tokens_per_call : Number(manualAvgInput) || 0;
-  const avgOutput = tokenSource === 'system' && hasReport
-    ? report.avg_output_tokens_per_call : Number(manualAvgOutput) || 0;
-  const divisor = unit === '1m' ? 1_000_000 : 1_000;
-  const costPerCallSar = (avgInput / divisor) * (Number(googleInputSar) || 0)
-    + (avgOutput / divisor) * (Number(googleOutputSar) || 0);
-  const m = Number(multiplier) || 0;
-  const suggestedPriceSar = costPerCallSar * m;
-  const suggestedHalalas = suggestedPriceSar * 100;
-  const totalTokens = avgInput + avgOutput;
-  const suggestedHalalasPer1k = totalTokens > 0 ? (suggestedHalalas / totalTokens) * 1000 : 0;
-  const marginPercent = m > 0 ? (1 - 1 / m) * 100 : 0;
-
-  // ── التوقع الشهري — يستخدم الاستهلاك الحقيقي (report.calls) مُقاساً لشهر كامل، بغض النظر عن
-  // نافذة القراءة الفعلية (`days`) — لا يفترض حجماً، يمدّد الحجم المُلاحَظ فعلياً. قبل أي استهلاك
-  // حقيقي (لا محل بعد يستخدم البوت فعلياً) الرقم صفر بصدق — «يدوي» يعطي رقماً مفترَضاً بدل
-  // انتظار بيانات لا وجود لها بعد، مفصول تماماً عن مصدر متوسط التوكنات (tokenSource) أعلاه — هذا
-  // عدد الرسائل، ذاك متوسط توكناتها، سؤالان مختلفان.
-  const monthlyScale = hasReport && report.days > 0 ? 30 / report.days : 0;
-  const monthlyCalls = monthlySource === 'manual'
-    ? Number(manualMonthlyCalls) || 0
-    : hasReport ? Math.round(report.calls * monthlyScale) : 0;
-  const monthlyRevenueSar = (monthlyCalls * suggestedHalalas) / 100;
-  const monthlyGoogleCostSar = monthlyCalls * costPerCallSar;
-
-  async function doSchedule() {
-    if (!scheduleAction) return;
-    setScheduling(true); setScheduleError(''); setScheduleDone(false);
-    const days_ = Number(effectiveInDays) || 0;
-    try {
-      // اثنان لا واحد — الطريقة (usage_based) والمعدّل نفسه، بنفس تاريخ السريان، عشان تبقى
-      // متّسقتين لحظة ما تُطبَّقان معاً بالتِك (لا يصير معدّل جديد على طريقة قديمة أو العكس).
-      await req(scheduleAction.path, 'POST',
-        { key: 'PRICING_STRATEGY', value: 'usage_based', effective_in_days: days_ },
-        session.access_token);
-      await req(scheduleAction.path, 'POST',
-        { key: 'PRICING_USAGE_HALALAS_PER_1K_TOKENS', value: Math.round(suggestedHalalasPer1k),
-         effective_in_days: days_ },
-        session.access_token);
-      setScheduleDone(true);
-      reload();
-    } catch (err) {
-      setScheduleError(sentenceFor(err, 'تعذّرت جدولة التعديل.'));
-    } finally { setScheduling(false); }
-  }
+  useEffect(reload, [pendingAction.path, session.access_token]);
 
   async function doCancel(key: string) {
     if (!cancelAction) return;
@@ -744,176 +649,6 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {/* ── تسعير الاشتراك — مسار منفصل تماماً عن "إعدادات وحدات الذكاء" تحت، رغم تشابه الأدوات.
-         هذا يحسب سعراً يظهر على فاتورة الاشتراك نفسها (PRICING_STRATEGY/PRICING_USAGE_HALALAS_
-         PER_1K_TOKENS) — لا علاقة له باستهلاك رصيد الذكاء بمحفظة المحل. اليوم لا خدمة فوترة حقيقية
-         تقرأ هذا المسار بعد (core/pricing.py's own note: "a future billing/insights peer calls once
-         one exists") — الجدولة هنا تنجح وتُحفَظ، لكن بلا أثر فعلي على أي فاتورة حتى تُبنى تلك
-         الخدمة. ── */}
-      <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
-        <div>
-          <h3 className="font-medium">تسعير الاشتراك — المدخلات</h3>
-          <p className="text-label text-text-secondary">
-            سعر يظهر على فاتورة الاشتراك (لا رصيد المحفظة) — بانتظار خدمة فوترة تربطه فعلياً، الجدولة
-            هنا لا تغيّر شيئاً على أرض الواقع اليوم.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-label font-medium text-text-secondary">سعر جوجل (ريال)</span>
-            <Segmented value={unit} onChange={(v) => changeUnit(v as '1k' | '1m')}
-                      options={[{ value: '1k', label: 'لكل 1000 توكن' }, { value: '1m', label: 'لكل مليون توكن' }]} />
-          </div>
-          <p className="text-label text-text-secondary">
-            جوجل يسعّر بالدولار — حوّلها بنفسك للريال وقت ما تحدّث الرقم من صفحة تسعيرهم.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="سعر الدخل (Input)" htmlFor="calc-google-in">
-              <Input id="calc-google-in" dir="ltr" type="number" step="0.01" value={googleInputSar}
-                    onChange={(e) => setGoogleInputSar(e.target.value)} />
-            </Field>
-            <Field label="سعر الخرج (Output)" htmlFor="calc-google-out">
-              <Input id="calc-google-out" dir="ltr" type="number" step="0.01" value={googleOutputSar}
-                    onChange={(e) => setGoogleOutputSar(e.target.value)} />
-            </Field>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
-          <span className="text-label font-medium text-text-secondary">متوسط التوكنات لكل رسالة</span>
-          <Segmented value={tokenSource} onChange={(v) => setTokenSource(v as 'system' | 'manual')}
-                    options={[{ value: 'system', label: 'من قيمة النظام' }, { value: 'manual', label: 'يدوي' }]} />
-          {tokenSource === 'manual' ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="دخل (Input)" htmlFor="calc-avg-in">
-                <Input id="calc-avg-in" dir="ltr" type="number" value={manualAvgInput}
-                      onChange={(e) => setManualAvgInput(e.target.value)} />
-              </Field>
-              <Field label="خرج (Output)" htmlFor="calc-avg-out">
-                <Input id="calc-avg-out" dir="ltr" type="number" value={manualAvgOutput}
-                      onChange={(e) => setManualAvgOutput(e.target.value)} />
-              </Field>
-            </div>
-          ) : report === 'loading' ? (
-            <p className="text-label text-text-secondary">جارٍ التحميل…</p>
-          ) : report === 'failed' ? (
-            <p role="alert" className="text-label text-danger">تعذّرت قراءة الاستهلاك الحقيقي.</p>
-          ) : (
-            <p className="text-label text-text-secondary">
-              {avgInput} دخل + {avgOutput} خرج (متوسط آخر {report.days} يوم، {report.calls} رسالة فعلية)
-            </p>
-          )}
-        </div>
-
-        <Field label="المضاعف (هامش الربح)" htmlFor="calc-multiplier">
-          <Input id="calc-multiplier" dir="ltr" type="number" step="0.1" value={multiplier}
-                onChange={(e) => setMultiplier(e.target.value)} className="max-w-[8rem]" />
-        </Field>
-      </section>
-
-      {/* ── النتيجة والتطبيق ─────────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
-        <h3 className="font-medium">النتيجة المقترحة</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-card bg-surface-2 p-3">
-            <p className="text-label text-text-secondary">سعر الفاتورة المقترح لكل 1000 وحدة</p>
-            <p className="text-lg font-semibold tabular-nums">{suggestedHalalasPer1k.toFixed(1)} هللة</p>
-          </div>
-          <div className="rounded-card bg-surface-2 p-3">
-            <p className="text-label text-text-secondary">تكلفتنا الحقيقية عند جوجل / رسالة</p>
-            <p className="text-lg font-semibold tabular-nums">{(costPerCallSar * 100).toFixed(2)} هللة</p>
-          </div>
-          <div className="rounded-card bg-surface-2 p-3">
-            <p className="text-label text-text-secondary">سعرنا المقترح / رسالة</p>
-            <p className="text-lg font-semibold tabular-nums">{suggestedHalalas.toFixed(2)} هللة</p>
-          </div>
-          <div className="rounded-card bg-surface-2 p-3">
-            <p className="text-label text-text-secondary">هامش الربح</p>
-            <p className="text-lg font-semibold tabular-nums">{marginPercent.toFixed(0)}٪</p>
-          </div>
-        </div>
-
-        <div className="rounded-card border border-dashed border-border-subtle p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-label font-medium text-text-secondary">
-              {monthlySource === 'manual' ? 'توقع شهري (على عدد رسائل تفترضه)'
-                                          : 'توقع شهري (على استهلاك حقيقي، مُمدَّد لشهر كامل)'}
-            </p>
-            {/* لا محل بعد يستخدم البوت فعلياً يعني «حقيقي» يعطي صفراً صادقاً — «يدوي» يفترض
-               عدداً بدل انتظار بيانات لا وجود لها بعد، لتجربة الحاسبة نفسها. */}
-            <Segmented size="sm" value={monthlySource} onChange={(v) => setMonthlySource(v as 'real' | 'manual')}
-                      options={[{ value: 'real', label: 'حقيقي' }, { value: 'manual', label: 'يدوي' }]} />
-          </div>
-          {monthlySource === 'manual' ? (
-            <Field label="عدد الرسائل المفترض شهرياً" htmlFor="calc-manual-monthly-calls" className="mt-2 max-w-[10rem]">
-              <Input id="calc-manual-monthly-calls" dir="ltr" type="number" min={0} value={manualMonthlyCalls}
-                    onChange={(e) => setManualMonthlyCalls(e.target.value)} />
-            </Field>
-          ) : null}
-          {monthlySource === 'manual' || hasReport ? (
-            <div className="mt-2 flex flex-col gap-1 text-sm">
-              <p>عدد الرسائل المتوقع: <span className="font-semibold tabular-nums">{monthlyCalls.toLocaleString('en-US')}</span></p>
-              <p>الإيراد المتوقع: <span className="font-semibold tabular-nums">{monthlyRevenueSar.toFixed(0)} ﷼</span></p>
-              <p>تكلفة جوجل الحقيقية المتوقعة: <span className="font-semibold tabular-nums">{monthlyGoogleCostSar.toFixed(0)} ﷼</span></p>
-              <p>الربح المتوقع: <span className="font-semibold tabular-nums">{(monthlyRevenueSar - monthlyGoogleCostSar).toFixed(0)} ﷼</span></p>
-              {/* التذكير اللي يفسّر لماذا "عدد الرسائل" رقم قرار لا رقم معلومة فقط — نموذج أغلى
-                 يقلّل الرسائل المتوقعة عند نفس الهامش، فيحتاج تعديل الهامش لا تجاهل الأثر. */}
-              <p className="text-label text-text-secondary">
-                نموذج أغلى بنفس الهامش يعني سعراً أعلى للعميل، وغالباً رسائل أقل — إن قلّ الهامش
-                المطلوب، عدّله بدل ما تتجاهل التأثير على العدد.
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-text-secondary">بانتظار الاستهلاك الحقيقي…</p>
-          )}
-        </div>
-
-        {scheduleAction ? (
-          <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
-            <div className="flex flex-wrap items-end gap-2">
-              <Field label="يسري بعد (أيام)" htmlFor="calc-effective-days">
-                <Input id="calc-effective-days" dir="ltr" type="number" min={1} value={effectiveInDays}
-                      onChange={(e) => setEffectiveInDays(e.target.value)} className="max-w-[8rem]" />
-              </Field>
-              <Button onClick={doSchedule} disabled={scheduling || !multiplier}>
-                {scheduling ? 'جارٍ الجدولة…' : 'جدولة التعديل'}
-              </Button>
-            </div>
-            <p className="text-label text-text-secondary">
-              لا يسري فوراً — بعد {effectiveInDays || '؟'} يوم من الآن، عشان تقدر تُعلم المحلات قبلها.
-            </p>
-            {scheduleError ? <p role="alert" className="text-danger text-sm">{scheduleError}</p> : null}
-            {scheduleDone ? <p className="text-success text-sm">تمّت الجدولة.</p> : null}
-          </div>
-        ) : null}
-      </section>
-
-      {/* ── الاستهلاك الحقيقي ────────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-medium">الاستهلاك الحقيقي</h3>
-          <Segmented value={String(days)} onChange={(v) => setDays(Number(v))}
-                    options={[{ value: '7', label: '7 أيام' }, { value: '30', label: '30 يوم' }, { value: '90', label: '90 يوم' }]} />
-        </div>
-        {report === 'loading' ? (
-          <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-        ) : report === 'failed' ? (
-          <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-            <p>الرسائل: <span className="font-semibold tabular-nums">{report.calls.toLocaleString('en-US')}</span></p>
-            <p>المحادثات: <span className="font-semibold tabular-nums">{report.conversations.toLocaleString('en-US')}</span></p>
-            <p>رسالة/محادثة: <span className="font-semibold tabular-nums">{report.avg_calls_per_conversation}</span></p>
-            <p>متوسط دخل: <span className="font-semibold tabular-nums">{report.avg_input_tokens_per_call}</span></p>
-            <p>متوسط خرج: <span className="font-semibold tabular-nums">{report.avg_output_tokens_per_call}</span></p>
-            {report.truncated ? (
-              <p className="text-label text-danger">الأرقام حد أدنى — الاستهلاك الفعلي أعلى.</p>
-            ) : null}
-          </div>
-        )}
-      </section>
-
       {/* ── تعديلات مجدولة قادمة ─────────────────────────────────────────────────────────── */}
       <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
         <h3 className="font-medium">تعديلات مجدولة قادمة</h3>
@@ -988,10 +723,12 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
           <p className="text-label text-text-secondary">
             السعر الحقيقي كما هو من فاتورة جوجل الفعلية أو صفحة تسعيرها الرسمية لكل نموذج — بالدولار لكل
             مليون توكن، دخل وخرج منفصلين — بلا أي هامش إقليمي مضاف هنا، الرقم المُدخَل هو التكلفة
-            الحقيقية كما هي. نموذج غير مذكور هنا يعتمد السعر الثابت القديم (هللات لكل 1000 توكن، من
-            تسعير الاشتراك أعلاه) بدل إيقاف المساعد.
+            الحقيقية كما هي. نموذج غير مذكور هنا يُحتسَب بمعدّل احتياطي صفري بدل إيقاف المساعد.
           </p>
         </Field>
+        <AiUnitConsumptionPreview report={report} unitsPerHalala={unitsPerHalala}
+                                  inputMargin={inputMargin} outputMargin={outputMargin}
+                                  usdToSar={usdToSar} modelCostsJson={modelCostsJson} />
         {scheduleAction ? (
           <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
             <div className="flex flex-wrap items-end gap-2">
@@ -1013,6 +750,75 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         ) : null}
       </section>
     </div>
+  );
+}
+
+// ── معاينة الاستهلاك — الأرقام المكتوبة فوق (لم تُجدوَل بعد) مطبّقة على الاستهلاك الفعلي الحقيقي
+// (COST_LEDGER)، لا افتراض 300/150 توكن اعتباطي. أول نموذج مذكور بـmodelCostsJson فقط — نفس منطق
+// core/ai_unit_pricing.py's الخاص بالمعاودة على نموذج غير مذكور، مبسَّط هنا لعرض واحد واضح بدل
+// عرض كل نموذج بالسجل دفعة وحدة. أي خطأ صيغة/رقم غير منطقي يُخفي المعاينة بدل ما يعرض NaN.
+function AiUnitConsumptionPreview({ report, unitsPerHalala, inputMargin, outputMargin, usdToSar,
+                                   modelCostsJson }: {
+  report: UsageReport | 'loading' | 'failed'; unitsPerHalala: string; inputMargin: string;
+  outputMargin: string; usdToSar: string; modelCostsJson: string;
+}) {
+  if (report === 'loading') {
+    return <p className="text-label text-text-secondary">جارٍ قراءة الاستهلاك الفعلي…</p>;
+  }
+  if (report === 'failed') {
+    return (
+      <p className="text-label text-text-secondary">
+        تعذّرت قراءة الاستهلاك الفعلي — المعاينة تحتاجه، الجدولة نفسها لا تحتاجه.
+      </p>
+    );
+  }
+  if (report.calls === 0) {
+    return (
+      <p className="text-label text-text-secondary">
+        لا استهلاك فعلي بعد (آخر {report.days} يوم) — معاينة الاستهلاك تظهر أول ما يرد البوت على
+        رسالة حقيقية.
+      </p>
+    );
+  }
+
+  let firstModelCost: { input_usd_per_million: number; output_usd_per_million: number } | null = null;
+  try {
+    const parsed = JSON.parse(modelCostsJson) as Record<string, { input_usd_per_million: number;
+      output_usd_per_million: number }>;
+    const firstKey = Object.keys(parsed)[0];
+    firstModelCost = firstKey ? parsed[firstKey] : null;
+  } catch { /* معاينة فقط — صيغة غير صالحة تُخفي المعاينة، لا تُبلغ خطأ الجدولة الحقيقي */ }
+
+  const unitsPerHalalaNum = Number(unitsPerHalala);
+  const inputMarginNum = Number(inputMargin);
+  const outputMarginNum = Number(outputMargin);
+  const usdToSarNum = Number(usdToSar);
+  const valid = firstModelCost
+    && Number.isFinite(unitsPerHalalaNum) && Number.isFinite(inputMarginNum)
+    && Number.isFinite(outputMarginNum) && Number.isFinite(usdToSarNum);
+  if (!valid || !firstModelCost) {
+    return (
+      <p className="text-label text-text-secondary">
+        عدّل الأرقام فوق لأرقام صحيحة لمعاينة الاستهلاك.
+      </p>
+    );
+  }
+
+  // نفس معادلة halalas_per_1k_tokens بـai_unit_pricing.py بالضبط: دولار/مليون × سعر الصرف ×
+  // الهامش = هللات لكل مليون، ÷1000 = هللات لكل 1000 توكن، ×وحدات/هللة = وحدات لكل 1000 توكن.
+  const unitsPer1k = (usdPerMillion: number, margin: number) =>
+    ((usdPerMillion * usdToSarNum * margin * 100) / 1000) * unitsPerHalalaNum;
+  const inUnits = unitsPer1k(firstModelCost.input_usd_per_million, inputMarginNum);
+  const outUnits = unitsPer1k(firstModelCost.output_usd_per_million, outputMarginNum);
+  const perCall = (report.avg_input_tokens_per_call / 1000) * inUnits
+    + (report.avg_output_tokens_per_call / 1000) * outUnits;
+
+  return (
+    <p className="text-label text-text-secondary">
+      متوسط رسالة فعلي (آخر {report.days} يوم، {report.calls} رد): {report.avg_input_tokens_per_call}{' '}
+      دخل + {report.avg_output_tokens_per_call} خرج — بهذي الأرقام تسحب تقريباً{' '}
+      <span className="font-medium text-text-primary">{Math.round(perCall).toLocaleString('en-US')} وحدة</span>.
+    </p>
   );
 }
 

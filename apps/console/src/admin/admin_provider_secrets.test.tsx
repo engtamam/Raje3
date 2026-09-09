@@ -262,8 +262,6 @@ describe('AdminProviderSecrets', () => {
            path: '/api/v1/assistant/operator/config/{key}', capability: 'platform.config', confirm: true },
           { id: 'whatsapp_assistant.persona_preview', label: 'x', method: 'GET' as const,
            path: '/api/v1/assistant/operator/persona-preview', capability: 'platform.config' },
-          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
-           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
           { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
            path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
           { id: 'whatsapp_assistant.schedule_pricing', label: 'x', method: 'POST' as const,
@@ -287,13 +285,6 @@ describe('AdminProviderSecrets', () => {
       }
       if (path.startsWith('/api/v1/assistant/operator/persona-preview')) {
         return Promise.resolve({ prompt: 'أنت المساعد الرقمي...' });
-      }
-      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
-        return Promise.resolve({
-          days: 30, calls: 300, conversations: 100, input_tokens: 90_000, output_tokens: 45_000,
-          avg_input_tokens_per_call: 300, avg_output_tokens_per_call: 150,
-          avg_calls_per_conversation: 3, truncated: false,
-        });
       }
       if (path === '/api/v1/assistant/operator/pricing/pending') {
         return Promise.resolve({ pending: [] });
@@ -343,19 +334,17 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText(/أنت المساعد الرقمي/)).toBeTruthy());
     fireEvent.click(screen.getByLabelText('إغلاق'));
 
-    // "المحاسبة" تفتح الحاسبة الحقيقية، لا نص "قريباً" — وتقرأ الاستهلاك الحقيقي فوراً.
+    // "المحاسبة" تفتح إعدادات وحدات الذكاء الحقيقية، لا نص "قريباً".
     fireEvent.click(screen.getByText('المحاسبة'));
-    await waitFor(() => expect(screen.getByText(/300 دخل \+ 150 خرج/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('إعدادات وحدات الذكاء')).toBeTruthy());
     expect(screen.queryByText('الأسرار')).toBeNull();
   });
 
-  it('المحاسبة computes a suggested price from real usage and google\'s reference rates, and schedules BOTH the strategy and the rate together on "جدولة التعديل"', async () => {
+  it('المحاسبة schedules the five AI-unit pricing keys together on "جدولة إعدادات وحدات الذكاء"', async () => {
     const AI_CATALOG = {
       services: [
         { service: 'secrets-admin', actions: CATALOG.services[0].actions },
         { service: 'whatsapp-assistant', actions: [
-          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
-           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
           { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
            path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
           { id: 'whatsapp_assistant.schedule_pricing', label: 'x', method: 'POST' as const,
@@ -374,13 +363,6 @@ describe('AdminProviderSecrets', () => {
                      configured: false, last4: null, updated_at: null, updated_by: null }],
         });
       }
-      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
-        return Promise.resolve({
-          days: 30, calls: 300, conversations: 100, input_tokens: 90_000, output_tokens: 45_000,
-          avg_input_tokens_per_call: 300, avg_output_tokens_per_call: 150,
-          avg_calls_per_conversation: 3, truncated: false,
-        });
-      }
       if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
       if (path === '/api/v1/assistant/operator/pricing/schedule' && method === 'POST') {
         return Promise.resolve({ key: 'x', value: 'x', effective_at: 0 });
@@ -392,24 +374,22 @@ describe('AdminProviderSecrets', () => {
     // فئة الذكاء الاصطناعي هي الوحيدة، والحاسبة ليست التبويب الافتراضي — نفتحها.
     await waitFor(() => expect(screen.getByText('المحاسبة')).toBeTruthy());
     fireEvent.click(screen.getByText('المحاسبة'));
-    // القيم الافتراضية (0.30$/0.30 دخل، 2.50$ خرج لكل مليون، صرف 3.75، مضاعف 3) على متوسط حقيقي
-    // 300 دخل + 150 خرج تعطي حوالي 1.16 هللة لكل 1000 توكن — يُقرَّب لـ1 عند الجدولة.
-    await waitFor(() => expect(screen.getByText(/300 دخل \+ 150 خرج/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('إعدادات وحدات الذكاء')).toBeTruthy());
 
-    fireEvent.click(screen.getByRole('button', { name: 'جدولة التعديل' }));
+    fireEvent.click(screen.getByRole('button', { name: 'جدولة إعدادات وحدات الذكاء' }));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/assistant/operator/pricing/schedule', 'POST',
-      { key: 'PRICING_STRATEGY', value: 'usage_based', effective_in_days: 15 }, 'tok-1',
+      { key: 'PRICING_AI_UNIT_UNITS_PER_HALALA', value: 1000, effective_in_days: 15 }, 'tok-1',
     ));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/assistant/operator/pricing/schedule', 'POST',
-      { key: 'PRICING_USAGE_HALALAS_PER_1K_TOKENS', value: 1, effective_in_days: 15 }, 'tok-1',
+      { key: 'PRICING_AI_UNIT_USD_TO_SAR', value: 3.75, effective_in_days: 15 }, 'tok-1',
     ));
     await waitFor(() => expect(screen.getByText('تمّت الجدولة.')).toBeTruthy());
   });
 
-  it('المحاسبة: toggling the per-1000/per-million unit rescales the price fields so the real cost stays the same (2026-09-08 fix — it used to reinterpret the same typed number as 1000× the price)', async () => {
+  it('المحاسبة previews real consumption per message from actual usage, not a guess', async () => {
     const AI_CATALOG = {
       services: [
         { service: 'secrets-admin', actions: CATALOG.services[0].actions },
@@ -430,99 +410,26 @@ describe('AdminProviderSecrets', () => {
                      configured: false, last4: null, updated_at: null, updated_by: null }],
         });
       }
+      if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
       if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
         return Promise.resolve({
-          days: 30, calls: 300, conversations: 100, input_tokens: 90_000, output_tokens: 45_000,
+          days: 30, calls: 100, conversations: 40, input_tokens: 30_000, output_tokens: 15_000,
           avg_input_tokens_per_call: 300, avg_output_tokens_per_call: 150,
-          avg_calls_per_conversation: 3, truncated: false,
+          avg_calls_per_conversation: 2.5, truncated: false,
         });
       }
-      if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
-      throw new Error(`unexpected path ${path}`);
+      throw new Error(`unexpected ${path}`);
     });
 
     render(<AdminProviderSecrets session={SESSION} />);
-    fireEvent.click(await screen.findByText('المحاسبة'));
-    await waitFor(() => expect(screen.getByText(/300 دخل \+ 150 خرج/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('المحاسبة')).toBeTruthy());
+    fireEvent.click(screen.getByText('المحاسبة'));
+    await waitFor(() => expect(screen.getByText('إعدادات وحدات الذكاء')).toBeTruthy());
 
-    // القيمة الحقيقية (تكلفتنا) على المضاعف الافتراضي، بوحدة "لكل مليون" (الافتراضية).
-    const realCostBefore = screen.getByText('تكلفتنا الحقيقية عند جوجل / رسالة')
-      .nextElementSibling!.textContent;
-
-    // التبديل لـ"لكل 1000" — القيمتان بالخانتين لازم يتحوّلا (÷1000: نفس السعر لكن لكمية أصغر
-    // بألف مرة)، وتبقى التكلفة الحقيقية كما هي (نفس السعر الواقعي، وحدة عرض مختلفة فقط).
-    fireEvent.click(screen.getByRole('radio', { name: 'لكل 1000 توكن' }));
-    expect((screen.getByLabelText('سعر الدخل (Input)') as HTMLInputElement).value).toBe('0.00113');
-    expect((screen.getByLabelText('سعر الخرج (Output)') as HTMLInputElement).value).toBe('0.00938');
-    const realCostAfter = screen.getByText('تكلفتنا الحقيقية عند جوجل / رسالة')
-      .nextElementSibling!.textContent;
-    expect(realCostAfter).toBe(realCostBefore);
-
-    // والرجوع لـ"لكل مليون" يعيد القيمتين الأصليتين بالضبط.
-    fireEvent.click(screen.getByRole('radio', { name: 'لكل مليون توكن' }));
-    expect((screen.getByLabelText('سعر الدخل (Input)') as HTMLInputElement).value).toBe('1.13');
-    expect((screen.getByLabelText('سعر الخرج (Output)') as HTMLInputElement).value).toBe('9.38');
-  });
-
-  it('المحاسبة: the monthly forecast has a manual mode for when no shop has real usage yet', async () => {
-    const AI_CATALOG = {
-      services: [
-        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
-        { service: 'whatsapp-assistant', actions: [
-          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
-           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
-          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
-           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
-        ] },
-      ],
-      unreachable: [],
-    };
-    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
-    reqMock = vi.fn().mockImplementation((path: string) => {
-      if (path === '/api/v1/secrets') {
-        return Promise.resolve({
-          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
-                     configured: false, last4: null, updated_at: null, updated_by: null }],
-        });
-      }
-      // النسخة الحقيقية من هذي الحالة تحديداً — لا محل بعد يستخدم البوت فعلياً، فكل الأرقام صفر.
-      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
-        return Promise.resolve({
-          days: 30, calls: 0, conversations: 0, input_tokens: 0, output_tokens: 0,
-          avg_input_tokens_per_call: 0, avg_output_tokens_per_call: 0,
-          avg_calls_per_conversation: 0, truncated: false,
-        });
-      }
-      if (path === '/api/v1/assistant/operator/pricing/pending') return Promise.resolve({ pending: [] });
-      throw new Error(`unexpected path ${path}`);
-    });
-
-    render(<AdminProviderSecrets session={SESSION} />);
-    fireEvent.click(await screen.findByText('المحاسبة'));
-    // 0 رسالة حقيقية صادق هنا — التقرير وصل، لكن ما فيه استهلاك بعد.
-    await waitFor(() => expect(screen.getByText(/الإيراد المتوقع:/).textContent)
-      .toMatch(/: 0 ﷼/));
-
-    // بلا استهلاك حقيقي أصلاً، متوسط التوكنات (النظام) صفر أيضاً — فتفعيل "يدوي" هنا وحده لا
-    // يكفي ليعطي رقماً واقعياً؛ يحتاج متوسط توكنات مفترَض معه (القيم اليدوية الافتراضية 300/150
-    // كافية).
-    fireEvent.click(screen.getAllByRole('radio', { name: 'يدوي' })[0]); // مصدر متوسط التوكنات
-    // "يدوي" اسم مشترك مع مفتاح مصدر متوسط التوكنات فوق، فالراديو الثاني هو مصدر عدد الرسائل.
-    fireEvent.click(screen.getAllByRole('radio', { name: 'يدوي' })[1]);
-    const monthlyInput = screen.getByLabelText('عدد الرسائل المفترض شهرياً') as HTMLInputElement;
-    expect(monthlyInput.value).toBe('1000'); // القيمة الافتراضية
-
-    fireEvent.change(monthlyInput, { target: { value: '2000' } });
-    await waitFor(() => expect(screen.getByText('2,000')).toBeTruthy()); // عدد الرسائل المتوقع
-
-    // والإيراد/التكلفة يتحرّكان معه — مش يبقيان صفراً وهو مفترِض عدداً حقيقياً.
-    expect(screen.getByText(/الإيراد المتوقع:/).textContent).not.toMatch(/: 0 ﷼/);
-    expect(screen.getByText(/تكلفة جوجل الحقيقية المتوقعة:/).textContent).not.toMatch(/: 0 ﷼/);
-
-    // والرجوع لـ"حقيقي" يرجّع الحالة الصادقة (صفر، مش وهم من آخر رقم يدوي).
-    fireEvent.click(screen.getByRole('radio', { name: 'حقيقي' }));
-    await waitFor(() => expect(screen.getByText(/الإيراد المتوقع:/).textContent)
-      .toMatch(/: 0 ﷼/));
+    // الأرقام الافتراضية (1000 وحدة/هللة، هامش 5/2، 3.75 صرف، gemini-3.1-flash-lite بسعره الحقيقي)
+    // على متوسط فعلي 300 دخل + 150 خرج = ~309 وحدة، نفس المعادلة المُتحقَّق منها بـai_unit_pricing.py.
+    const preview = await waitFor(() => screen.getByText(/300 دخل \+ 150 خرج/));
+    expect(preview.textContent).toContain('309 وحدة');
   });
 
   it('المحاسبة lists a scheduled change with its real effective date, and "إلغاء" cancels the right key', async () => {
@@ -531,8 +438,6 @@ describe('AdminProviderSecrets', () => {
       services: [
         { service: 'secrets-admin', actions: CATALOG.services[0].actions },
         { service: 'whatsapp-assistant', actions: [
-          { id: 'whatsapp_assistant.pricing_report', label: 'x', method: 'GET' as const,
-           path: '/api/v1/assistant/operator/pricing/report', capability: 'platform.config' },
           { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
            path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
           { id: 'whatsapp_assistant.cancel_pending_pricing', label: 'x', method: 'DELETE' as const,
@@ -549,16 +454,9 @@ describe('AdminProviderSecrets', () => {
                      configured: false, last4: null, updated_at: null, updated_by: null }],
         });
       }
-      if (path.startsWith('/api/v1/assistant/operator/pricing/report')) {
-        return Promise.resolve({
-          days: 30, calls: 0, conversations: 0, input_tokens: 0, output_tokens: 0,
-          avg_input_tokens_per_call: 0, avg_output_tokens_per_call: 0,
-          avg_calls_per_conversation: 0, truncated: false,
-        });
-      }
       if (path === '/api/v1/assistant/operator/pricing/pending') {
         return Promise.resolve({
-          pending: [{ key: 'PRICING_USAGE_HALALAS_PER_1K_TOKENS', value: 5,
+          pending: [{ key: 'PRICING_AI_UNIT_USD_TO_SAR', value: 4,
                      effective_at: EFFECTIVE_AT, scheduled_by: 'op1', scheduled_at: 0 }],
         });
       }
@@ -570,11 +468,11 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('المحاسبة')).toBeTruthy());
     fireEvent.click(screen.getByText('المحاسبة'));
 
-    await waitFor(() => expect(screen.getByText('هللات لكل 1000 وحدة (تسعير الاشتراك)')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('سعر صرف الدولار')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'إلغاء' }));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
-      '/api/v1/assistant/operator/pricing/pending/PRICING_USAGE_HALALAS_PER_1K_TOKENS',
+      '/api/v1/assistant/operator/pricing/pending/PRICING_AI_UNIT_USD_TO_SAR',
       'DELETE', undefined, 'tok-1',
     ));
   });
