@@ -64,6 +64,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.ai_unit_pricing import AiUnitPricingConfig, model_rate_halalas_per_1k
 from app.core.context_builder import build_context_block
 from app.core.frustration import detect_frustration
 from app.core.soft_decline import is_decline
@@ -469,6 +470,7 @@ class ConversationEngine:
                 branch_directory: Any = None,
                 wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
                 wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100,
+                ai_unit_pricing_settings: Any = None, default_model_name: str = "",
                 booking_history_visible: bool = True,
                 booking_management_enabled: bool = True, licence: Any = None,
                 shop_notes_enabled: bool = True, msg_word_limit_enabled: bool = True,
@@ -520,6 +522,12 @@ class ConversationEngine:
         self._wallet_estimated_tokens = max(0, int(wallet_estimated_tokens))
         self._wallet_rate_halalas_per_1k = max(0, int(wallet_rate_halalas_per_1k))
         self._wallet_margin_halalas = max(0, int(wallet_margin_halalas))
+        # AI-UNIT PRICING (app/core/ai_unit_pricing.py) — the deploy-time Settings object, so
+        # `_reserve_llm_hold` can resolve a REAL per-model rate instead of the flat
+        # `wallet_rate_halalas_per_1k` above. None-safe: a conversation built without one (every
+        # pre-existing test constructor) keeps the exact flat-rate behaviour it always had.
+        self._ai_unit_pricing_settings = ai_unit_pricing_settings
+        self._default_model_name = default_model_name
         # NOT constructor-required either, same "keep pre-existing test constructors working
         # unmodified" reasoning as `auditor` below — a conversation whose engine was built
         # without one simply gets the generic label from `_shop_name`.
@@ -697,6 +705,34 @@ class ConversationEngine:
         return ReplyPlan(kind="list", text=_BRANCH_PROMPT, list_button_text=_BRANCH_LIST_BUTTON_TEXT,
                          list_rows=rows)
 
+    async def _model_aware_reserve_rate(self) -> float:
+        """The halalas-per-1k-tokens rate `_reserve_llm_hold` prices the estimated ceiling at —
+        the ACTUAL model's own real rate (app/core/ai_unit_pricing.py) when a pricing registry is
+        wired, the flat legacy rate otherwise (no pre-existing test constructor regresses).
+
+        THE WORSE OF INPUT/OUTPUT, DELIBERATELY, NOT A BLEND — `WALLET_ESTIMATED_MAX_TOKENS_PER_
+        TURN` is one blended ceiling covering context input plus the reply, not a real input/output
+        split (there is no such split anywhere in this service's estimate today). Since a model's
+        output rate is always the more expensive of the two (see ai_unit_pricing.py's own note on
+        why the two margins are separate), pricing the WHOLE blended estimate at the higher of the
+        two rates can only OVER-reserve relative to the true, unknown input/output mix — it can
+        never under-reserve a genuinely pricier model, which is the one failure mode
+        `WALLET_HOLD`'s own contract (the balance must never go negative) cannot tolerate. A cheap
+        model still reserves less than an expensive one, because the per-model rate itself is
+        smaller — it simply is not perfectly tight, the same trade-off the safety margin already
+        exists to make on purpose.
+        """
+        if self._ai_unit_pricing_settings is None:
+            return float(self._wallet_rate_halalas_per_1k)
+        model_name = self._default_model_name
+        if self._runtime_config is not None:
+            model_name = await self._runtime_config.get(
+                tenant="", key="ASSISTANT_MODEL_NAME", default=model_name)
+        cfg = await AiUnitPricingConfig.from_runtime(self._runtime_config, self._ai_unit_pricing_settings)
+        input_rate, output_rate = model_rate_halalas_per_1k(
+            cfg, model_name, fallback_halalas_per_1k=float(self._wallet_rate_halalas_per_1k))
+        return max(input_rate, output_rate)
+
     async def _reserve_llm_hold(self, tenant: str, conversation_ref: str) -> str | None:
         """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
         docstring for the full reasoning). Returns a hold id on success, or None — insufficient
@@ -706,9 +742,10 @@ class ConversationEngine:
         """
         if self._wallet is None:
             return None
+        rate = await self._model_aware_reserve_rate()
         amount = WB.estimated_hold_halalas(
             estimated_tokens=self._wallet_estimated_tokens,
-            halalas_per_1k_tokens=self._wallet_rate_halalas_per_1k,
+            halalas_per_1k_tokens=rate,
             safety_margin_halalas=self._wallet_margin_halalas)
         source = WB.new_reserve_source(conversation_ref)
         try:

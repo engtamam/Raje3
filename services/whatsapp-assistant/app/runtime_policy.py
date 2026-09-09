@@ -43,4 +43,12 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     "PRICING_ADDON_FLAT_HALALAS",
     "PRICING_USAGE_HALALAS_PER_1K_TOKENS",
     "PRICING_USAGE_HALALAS_PER_CONVERSATION",
+    # ── AI-unit pricing (core/ai_unit_pricing.py, read by core/conversation.py's own reserve math
+    # and the console's calculator "وحدات الذكاء" tab) — same scheduled-change reasoning as the
+    # seven above, extending the SAME mechanism rather than a second one.
+    "PRICING_AI_UNIT_UNITS_PER_HALALA",
+    "PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER",
+    "PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER",
+    "PRICING_AI_UNIT_USD_TO_SAR",
+    "PRICING_AI_UNIT_MODEL_COSTS_JSON",
 })

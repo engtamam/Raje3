@@ -342,6 +342,7 @@ def build_container(settings: Settings) -> Container:
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
         wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,
+        ai_unit_pricing_settings=settings, default_model_name=settings.ASSISTANT_MODEL_NAME,
         debounce_seconds=settings.CONVERSATION_DEBOUNCE_SECONDS,
         session_timeout_seconds=settings.CONVERSATION_SESSION_TIMEOUT_SECONDS,
         max_duration_seconds=settings.CONVERSATION_MAX_DURATION_SECONDS,

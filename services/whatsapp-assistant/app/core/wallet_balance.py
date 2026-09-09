@@ -113,15 +113,17 @@ class HttpWalletBalance:
         self._post(self._release_path, {"hold_id": hold_id})
 
 
-def estimated_hold_halalas(*, estimated_tokens: int, halalas_per_1k_tokens: int,
+def estimated_hold_halalas(*, estimated_tokens: int, halalas_per_1k_tokens: float,
                            safety_margin_halalas: int) -> int:
     """The reserve ceiling for ONE turn: a generous token estimate priced at the configured
-    usage rate (the real per-turn cost basis — see core/pricing.py's usage_based strategy), plus a
-    fixed safety margin on top so a misestimate or a mid-flight price wobble can never itself be
-    the thing that pushes a confirm past the true available balance. `math.ceil` rounds the token
-    component UP, never down — the margin exists to absorb variance, not to be eaten by rounding
-    working against it."""
-    token_cost = math.ceil((max(0, estimated_tokens) / 1000.0) * max(0, halalas_per_1k_tokens))
+    usage rate — today the ACTUAL per-model rate (core/ai_unit_pricing.py::model_rate_halalas_per_1k,
+    the worse of its input/output halves — see core/conversation.py's own `_reserve_llm_hold`),
+    never a flat one when a real per-model registry is wired — plus a fixed safety margin on top so
+    a misestimate or a mid-flight price wobble can never itself be the thing that pushes a confirm
+    past the true available balance. `halalas_per_1k_tokens` is a float (a real per-model rate is
+    rarely a whole halala) — `math.ceil` still rounds the token component UP, never down, so the
+    margin exists to absorb variance rather than be eaten by rounding working against it."""
+    token_cost = math.ceil((max(0, estimated_tokens) / 1000.0) * max(0.0, halalas_per_1k_tokens))
     return token_cost + max(0, safety_margin_halalas)
 
 

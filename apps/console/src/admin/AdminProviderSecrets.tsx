@@ -555,6 +555,11 @@ const PRICING_KEY_LABEL: Record<string, string> = {
   PRICING_TIER_INCLUDED_CONVERSATIONS: 'محادثات مشمولة بالباقة',
   PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة زيادة',
   PRICING_ADDON_FLAT_HALALAS: 'سعر إضافة ثابتة',
+  PRICING_AI_UNIT_UNITS_PER_HALALA: 'وحدات لكل هللة',
+  PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER: 'مضاعف هامش الدخل',
+  PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER: 'مضاعف هامش الخرج',
+  PRICING_AI_UNIT_USD_TO_SAR: 'سعر صرف الدولار',
+  PRICING_AI_UNIT_MODEL_COSTS_JSON: 'تكلفة جوجل الحقيقية لكل نموذج',
 };
 
 function fmtDate(epoch: number): string {
@@ -626,6 +631,47 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const [scheduling, setScheduling] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const [scheduleDone, setScheduleDone] = useState(false);
+
+  // ── وحدات الذكاء — سعر عرض ثابت (وحدات لكل هللة) حول تكلفة حقيقية تختلف باختلاف النموذج. كل
+  // حقل هنا مفتاح تسعير مثل أي مفتاح فوق — يمرّ بنفس بوابة الجدولة، لا يُطبَّق فوراً أبداً.
+  const [unitsPerHalala, setUnitsPerHalala] = useState('1000');
+  const [inputMargin, setInputMargin] = useState('5');
+  const [outputMargin, setOutputMargin] = useState('2');
+  const [usdToSar, setUsdToSar] = useState('3.75');
+  const [modelCostsJson, setModelCostsJson] = useState(
+    '{"gemini-3.1-flash-lite": {"input_usd_per_million": 0.25, "output_usd_per_million": 1.50}}');
+  const [aiUnitEffectiveInDays, setAiUnitEffectiveInDays] = useState('15');
+  const [aiUnitScheduling, setAiUnitScheduling] = useState(false);
+  const [aiUnitScheduleError, setAiUnitScheduleError] = useState('');
+  const [aiUnitScheduleDone, setAiUnitScheduleDone] = useState(false);
+
+  async function doScheduleAiUnit() {
+    if (!scheduleAction) return;
+    setAiUnitScheduling(true); setAiUnitScheduleError(''); setAiUnitScheduleDone(false);
+    const days_ = Number(aiUnitEffectiveInDays) || 0;
+    try {
+      let parsedCosts: unknown;
+      try { parsedCosts = JSON.parse(modelCostsJson); } catch { throw new Error('صيغة تكلفة النماذج ليست JSON صحيحاً.'); }
+      if (typeof parsedCosts !== 'object' || parsedCosts === null) throw new Error('صيغة تكلفة النماذج ليست JSON صحيحاً.');
+      const fields: [string, string | number][] = [
+        ['PRICING_AI_UNIT_UNITS_PER_HALALA', Math.round(Number(unitsPerHalala) || 0)],
+        ['PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER', Number(inputMargin) || 0],
+        ['PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER', Number(outputMargin) || 0],
+        ['PRICING_AI_UNIT_USD_TO_SAR', Number(usdToSar) || 0],
+        ['PRICING_AI_UNIT_MODEL_COSTS_JSON', modelCostsJson],
+      ];
+      // بالتتابع، لا Promise.all — نفس منطق doSchedule فوق: التناسق أهم من السرعة هنا، وأي
+      // رفض (حد غير منطقي) يجب أن يوقف الباقي بدل جدولة نصف التعديل فقط.
+      for (const [key, value] of fields) {
+        await req(scheduleAction.path, 'POST', { key, value, effective_in_days: days_ },
+          session.access_token);
+      }
+      setAiUnitScheduleDone(true);
+      reload();
+    } catch (err) {
+      setAiUnitScheduleError(sentenceFor(err, 'تعذّرت جدولة إعدادات وحدات الذكاء.'));
+    } finally { setAiUnitScheduling(false); }
+  }
 
   function reload() {
     setReport('loading');
@@ -881,6 +927,77 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
             ))}
           </div>
         )}
+      </section>
+
+      {/* ── وحدات الذكاء — سعر عرض ثابت حول تكلفة حقيقية بالنموذج ───────────────────────────── */}
+      <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4 lg:col-span-2">
+        <div>
+          <h3 className="font-medium">إعدادات وحدات الذكاء</h3>
+          <p className="text-label text-text-secondary">
+            رصيد الذكاء يُعرَض للمحل بـ«وحدات الذكاء» — سعر صرف ثابت لا يتغيّر (وحدات لكل هللة)، ملفوف
+            حول تكلفة حقيقية تختلف باختلاف النموذج فعلاً (النموذج الأغلى يستهلك وحدات أكثر لنفس
+            الرسالة). كل حقل هنا يمرّ ببوابة الجدولة نفسها فوق — لا يسري فوراً أبداً.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="وحدات لكل هللة" htmlFor="calc-units-per-halala">
+            <Input id="calc-units-per-halala" dir="ltr" type="number" min={1} value={unitsPerHalala}
+                  onChange={(e) => setUnitsPerHalala(e.target.value)} />
+            <p className="text-label text-text-secondary">
+              سعر عرض ثابت — لا علاقة له بأي نموذج، مجرد مقياس عرض للرصيد والاستهلاك.
+            </p>
+          </Field>
+          <Field label="سعر صرف الدولار (ريال)" htmlFor="calc-usd-to-sar">
+            <Input id="calc-usd-to-sar" dir="ltr" type="number" step="0.01" value={usdToSar}
+                  onChange={(e) => setUsdToSar(e.target.value)} />
+            <p className="text-label text-text-secondary">جوجل يسعّر بالدولار — التثبيت الرسمي 3.75.</p>
+          </Field>
+          <Field label="مضاعف هامش الدخل (Input)" htmlFor="calc-input-margin">
+            <Input id="calc-input-margin" dir="ltr" type="number" step="0.1" value={inputMargin}
+                  onChange={(e) => setInputMargin(e.target.value)} />
+            <p className="text-label text-text-secondary">
+              يُضرَب في تكلفة الدخل الحقيقية لكل نموذج — منفصل عن هامش الخرج عمداً.
+            </p>
+          </Field>
+          <Field label="مضاعف هامش الخرج (Output)" htmlFor="calc-output-margin">
+            <Input id="calc-output-margin" dir="ltr" type="number" step="0.1" value={outputMargin}
+                  onChange={(e) => setOutputMargin(e.target.value)} />
+            <p className="text-label text-text-secondary">
+              الخرج يكلّف جوجل أعلى بكثير من الدخل لكل توكن — لهذا مضاعف الخرج مستقل عن الدخل.
+            </p>
+          </Field>
+        </div>
+        <Field label="تكلفة جوجل الحقيقية لكل نموذج (JSON)" htmlFor="calc-model-costs">
+          <textarea id="calc-model-costs" dir="ltr"
+                   className="w-full rounded-input border border-border-subtle bg-surface-0 p-2 font-mono text-sm"
+                   rows={3} value={modelCostsJson}
+                   onChange={(e) => setModelCostsJson(e.target.value)} />
+          <p className="text-label text-text-secondary">
+            السعر الحقيقي كما هو من فاتورة جوجل الفعلية أو صفحة تسعيرها الرسمية لكل نموذج — بالدولار لكل
+            مليون توكن، دخل وخرج منفصلين — بلا أي هامش إقليمي مضاف هنا، الرقم المُدخَل هو التكلفة
+            الحقيقية كما هي. نموذج غير مذكور هنا يعتمد السعر الثابت القديم (هللات لكل 1000 وحدة) بدل
+            إيقاف المساعد.
+          </p>
+        </Field>
+        {scheduleAction ? (
+          <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="يسري بعد (أيام)" htmlFor="calc-ai-unit-effective-days">
+                <Input id="calc-ai-unit-effective-days" dir="ltr" type="number" min={1}
+                      value={aiUnitEffectiveInDays}
+                      onChange={(e) => setAiUnitEffectiveInDays(e.target.value)} className="max-w-[8rem]" />
+              </Field>
+              <Button onClick={doScheduleAiUnit} disabled={aiUnitScheduling}>
+                {aiUnitScheduling ? 'جارٍ الجدولة…' : 'جدولة إعدادات وحدات الذكاء'}
+              </Button>
+            </div>
+            <p className="text-label text-text-secondary">
+              لا يسري فوراً — بعد {aiUnitEffectiveInDays || '؟'} يوم من الآن، عشان تقدر تُعلم المحلات قبلها.
+            </p>
+            {aiUnitScheduleError ? <p role="alert" className="text-danger text-sm">{aiUnitScheduleError}</p> : null}
+            {aiUnitScheduleDone ? <p className="text-success text-sm">تمّت الجدولة.</p> : null}
+          </div>
+        ) : null}
       </section>
     </div>
   );

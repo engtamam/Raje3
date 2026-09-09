@@ -590,6 +590,78 @@ class Settings(BaseSettings):
     PRICING_USAGE_HALALAS_PER_1K_TOKENS: int = 0
     PRICING_USAGE_HALALAS_PER_CONVERSATION: int = 0
 
+    # ── AI-unit pricing (وحدات الذكاء, app/core/ai_unit_pricing.py) ─────────────────────────────
+    # A FIXED, model-independent display scale — 1 halala is always worth this many units, no
+    # matter which model answered. What actually varies per model is the halala rate below it is
+    # wrapped around (PRICING_AI_UNIT_MODEL_COSTS_JSON). Pricing keys, like the seven above: any
+    # change goes through core/pricing_schedule.py's scheduled-change gate, never applied instantly.
+    PRICING_AI_UNIT_UNITS_PER_HALALA: int = 1000
+    # Separate input/output margins — output tokens cost Google far more per token than input for
+    # every model checked, so one blended multiplier would misprice one direction or the other.
+    PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER: float = 5.0
+    PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER: float = 2.0
+    # SAR is pegged to USD at 3.75 (SAMA); Google bills in USD, this platform prices in SAR. A
+    # currency conversion, not a cost adjustment — see ai_unit_pricing.py's own note on why there is
+    # no separate regional-markup step anywhere in this pipeline.
+    PRICING_AI_UNIT_USD_TO_SAR: float = 3.75
+    # {model_name: {"input_usd_per_million": x, "output_usd_per_million": y}} — the REAL, admin-
+    # entered Google price per model (off the real invoice/pricing page, never inflated by a
+    # guessed markup — see ai_unit_pricing.ModelCost's own docstring). A model missing from this
+    # registry falls back to PRICING_USAGE_HALALAS_PER_1K_TOKENS in both directions rather than
+    # blocking the assistant. Ships with today's deployed default model
+    # (ASSISTANT_MODEL_NAME=gemini-3.1-flash-lite, per deploy/services/whatsapp-assistant.values.yaml)
+    # priced from Google's own published global rate.
+    PRICING_AI_UNIT_MODEL_COSTS_JSON: str = (
+        '{"gemini-3.1-flash-lite": {"input_usd_per_million": 0.25, '
+        '"output_usd_per_million": 1.50}}')
+
+    @field_validator("PRICING_AI_UNIT_UNITS_PER_HALALA")
+    @classmethod
+    def _reject_bad_units_per_halala(cls, v: int) -> int:
+        if not (0 < v <= 1_000_000):
+            raise ValueError(
+                "PRICING_AI_UNIT_UNITS_PER_HALALA must be a positive integer up to 1,000,000 — a "
+                "typo here silently rescales every shop's displayed AI-unit balance and consumption")
+        return v
+
+    @field_validator("PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER", "PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER")
+    @classmethod
+    def _reject_bad_margin_multiplier(cls, v: float) -> float:
+        if not (1.0 < v <= 50.0):
+            raise ValueError(
+                "AI-unit margin multipliers must be greater than 1 and at most 50 — a typo like "
+                "'500' instead of '5' would silently overcharge every shop by 100x")
+        return v
+
+    @field_validator("PRICING_AI_UNIT_USD_TO_SAR")
+    @classmethod
+    def _reject_bad_usd_to_sar(cls, v: float) -> float:
+        if not (0.0 < v <= 50.0):
+            raise ValueError(
+                "PRICING_AI_UNIT_USD_TO_SAR must be a positive, plausible exchange rate (<= 50) — "
+                "the SAR peg is 3.75; anything wildly off is a typo, not a real rate change")
+        return v
+
+    @field_validator("PRICING_AI_UNIT_MODEL_COSTS_JSON")
+    @classmethod
+    def _reject_bad_model_costs_json(cls, v: str) -> str:
+        from app.core.ai_unit_pricing import parse_model_costs
+
+        parsed = parse_model_costs(v)
+        if v.strip() and v.strip() != "{}" and not parsed:
+            raise ValueError(
+                "PRICING_AI_UNIT_MODEL_COSTS_JSON did not parse into any usable model — expected "
+                '{"model_name": {"input_usd_per_million": x, "output_usd_per_million": y}}')
+        for name, cost in parsed.items():
+            if cost.input_usd_per_million < 0 or cost.output_usd_per_million < 0:
+                raise ValueError(f"PRICING_AI_UNIT_MODEL_COSTS_JSON: {name!r} has a negative price")
+            if cost.input_usd_per_million > 1000 or cost.output_usd_per_million > 1000:
+                raise ValueError(
+                    f"PRICING_AI_UNIT_MODEL_COSTS_JSON: {name!r} exceeds $1000/million tokens — "
+                    f"almost certainly a typo (e.g. a per-1k price entered where per-million is "
+                    f"expected)")
+        return v
+
     # ── ceilings / rate limits specific to this service ──────────────────────
     # Bounded work per tick — an unbounded sweep of due conversations is how a slow query becomes
     # a missed batch, exactly as in reminders' TICK_BATCH_SIZE.

@@ -106,7 +106,12 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
         assert banned not in view
 
 
-def test_the_ten_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
+def test_the_fifteen_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
+    # NOTE: MAX_REPLY_TOKENS is in RUNTIME_POLICY but never appears here — `settable()`
+    # (core/runtime_config.py) matches its "_TOKENS" suffix against the general credential/session
+    # deny-list and it is not in that module's own `_ALLOW` exceptions (only
+    # PRICING_USAGE_HALALAS_PER_1K_TOKENS is) — a pre-existing gap, not something this change
+    # touches. Documented here instead of silently working around it a second time.
     view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
     assert view == {
         "ASSISTANT_MODEL_NAME": "gemini-2.5-flash",
@@ -119,6 +124,13 @@ def test_the_ten_declared_knobs_start_at_their_configured_defaults(client, opera
         "PRICING_ADDON_FLAT_HALALAS": 0,
         "PRICING_USAGE_HALALAS_PER_1K_TOKENS": 0,
         "PRICING_USAGE_HALALAS_PER_CONVERSATION": 0,
+        "PRICING_AI_UNIT_UNITS_PER_HALALA": 1000,
+        "PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER": 5.0,
+        "PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER": 2.0,
+        "PRICING_AI_UNIT_USD_TO_SAR": 3.75,
+        "PRICING_AI_UNIT_MODEL_COSTS_JSON": (
+            '{"gemini-3.1-flash-lite": {"input_usd_per_million": 0.25, '
+            '"output_usd_per_million": 1.50}}'),
     }
 
 

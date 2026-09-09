@@ -41,6 +41,7 @@ from app.core.pricing_schedule import cancel as cancel_pricing_change
 from app.core.pricing_schedule import is_a_pricing_key
 from app.core.pricing_schedule import pending as pending_pricing_changes
 from app.core.pricing_schedule import schedule as schedule_pricing_change
+from app.core.ai_unit_pricing import parse_model_costs
 from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
 from app.runtime_policy import RUNTIME_POLICY
@@ -191,6 +192,53 @@ class PricingScheduleIn(BaseModel):
     effective_in_days: int = Field(..., ge=_MIN_SCHEDULE_DELAY_DAYS, le=365)
 
 
+# SANITY BOUNDS FOR THE FIVE AI-UNIT KEYS — mirrors the type bounds their own Settings field_
+# validators enforce at boot (app/config.py), applied here too because a runtime schedule never
+# goes through pydantic's own validators (RuntimeConfig._coerce only casts type, it does not
+# re-run Settings' field_validator chain — see core/runtime_config.py's own `_coerce`). Without
+# this, a typo like "500" instead of "5" for a margin multiplier would schedule cleanly and only
+# fail (or worse, silently overcharge every shop) the moment the tick applies it.
+def _ai_unit_bounds_violation(key: str, value: Any) -> str | None:
+    if key == "PRICING_AI_UNIT_UNITS_PER_HALALA":
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            return "must be a whole number"
+        if not (0 < n <= 1_000_000):
+            return "must be a positive integer up to 1,000,000"
+        return None
+    if key in ("PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER", "PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER"):
+        try:
+            f = float(value)
+        except (TypeError, ValueError):
+            return "must be a number"
+        if not (1.0 < f <= 50.0):
+            return "must be greater than 1 and at most 50"
+        return None
+    if key == "PRICING_AI_UNIT_USD_TO_SAR":
+        try:
+            f = float(value)
+        except (TypeError, ValueError):
+            return "must be a number"
+        if not (0.0 < f <= 50.0):
+            return "must be a positive, plausible exchange rate (<= 50) — the SAR peg is 3.75"
+        return None
+    if key == "PRICING_AI_UNIT_MODEL_COSTS_JSON":
+        raw = str(value)
+        parsed = parse_model_costs(raw)
+        if raw.strip() and raw.strip() != "{}" and not parsed:
+            return ('did not parse into any usable model — expected '
+                   '{"model_name": {"input_usd_per_million": x, "output_usd_per_million": y}}')
+        for name, cost in parsed.items():
+            if cost.input_usd_per_million < 0 or cost.output_usd_per_million < 0:
+                return f"{name!r} has a negative price"
+            if cost.input_usd_per_million > 1000 or cost.output_usd_per_million > 1000:
+                return (f"{name!r} exceeds $1000/million tokens — almost certainly a typo (a "
+                        f"per-1k price entered where per-million is expected)")
+        return None
+    return None
+
+
 @router.get("/pricing/report", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
 async def get_pricing_report(request: Request, days: int = 30, tenant: str = "",
                              principal: Principal = Depends(require_user)) -> dict:
@@ -297,6 +345,9 @@ async def schedule_pricing(request: Request, body: PricingScheduleIn,
         # RUNTIME_POLICY's pricing subset; this catches the day they drift instead of scheduling
         # a change for a key RuntimeConfig.set() would refuse anyway once the tick tries to apply it.
         return _refuse(f"{body.key} is not declared settable.")
+    violation = _ai_unit_bounds_violation(body.key, body.value)
+    if violation is not None:
+        return _refuse(f"{body.key}: {violation}")
     now = int(time.time())
     effective_at = now + body.effective_in_days * 86_400
     container = request.app.state.container
