@@ -19,16 +19,15 @@ misestimate. Two things make that true here:
      default, config not hardcoded) before the LLM is ever called. wallet-service refuses the
      reserve outright (402 INSUFFICIENT_FUNDS) if the post-hold balance would not cover it — the
      check IS the hold, atomically, so no other concurrent turn can spend the same halala twice.
-  2. `confirm()` always charges exactly the RESERVED amount (wallet-service's own `confirm` has no
-     "charge a smaller actual amount" variant — see its own core/wallet_service.py::confirm) rather
-     than the real, usually-smaller, token cost. This is a deliberately conservative choice: it
-     means this service is never in a position where a reply was already sent but the matching
-     charge could still fail or under/overshoot from a second, separate spend call racing against
-     another turn's reserve. Precise reconciliation against actual token cost (this service already
-     persists real input_tokens/output_tokens per conversation, see core/models.py) is a real,
-     available follow-up via wallet-service's ledger — deliberately NOT built here, because it adds
-     a second money-moving call this decision does not need in order to guarantee the one rule that
-     was asked for.
+  2. `confirm()` charges the REAL, usually-smaller token cost once it is known — wallet-service
+     v0.19.2's own `confirm(hold_id, final_net=...)` (its own core/wallet_service.py::confirm),
+     requested and shipped for exactly this use case. `final_net` is ALWAYS clamped to the
+     reserved amount by the caller (core/conversation.py's own compose_reply) before this call —
+     wallet-service refuses (mutating nothing) a `final_net` above what was reserved, since a hold
+     exists precisely to bound what a confirm may ever spend; the clamp is what guarantees this
+     call can never itself trigger that refusal. `final_net=None` (the default) still confirms the
+     full reserved amount — the ORIGINAL, pre-v0.19.2 behaviour, kept for any caller that has not
+     computed a real cost of its own (there is none today, but the port stays honest either way).
 
 FAILS CLOSED, UNLIKE EVERY OTHER OPTIONAL PEER THIS SERVICE CALLS. customer_lookup.py, points.py,
 service_catalog.py all fail OPEN on a peer outage because an unreachable read degrades to "less
@@ -56,7 +55,7 @@ class NullWalletBalance:
     async def reserve(self, *, tenant: str, amount_halalas: int, source: str) -> str | None:
         return f"null_hold_{source}"
 
-    async def confirm(self, hold_id: str) -> None:
+    async def confirm(self, hold_id: str, *, final_net: int | None = None) -> None:
         return None
 
     async def release(self, hold_id: str) -> None:
@@ -104,10 +103,15 @@ class HttpWalletBalance:
         hold_id = result.get("hold_id")
         return str(hold_id) if hold_id else None
 
-    async def confirm(self, hold_id: str) -> None:
+    async def confirm(self, hold_id: str, *, final_net: int | None = None) -> None:
         # Idempotent on wallet-service's own side (confirming an already-confirmed hold is a
-        # no-op there) — a retry after a timeout on OUR side is therefore safe to just re-call.
-        self._post(self._confirm_path, {"hold_id": hold_id})
+        # no-op there, and a RETRY WITH A DIFFERENT final_net still replays the FIRST confirm's
+        # result — keyed on hold_id, never on the amount) — a retry after a timeout on OUR side is
+        # therefore safe to just re-call, unconditionally, with whatever final_net we have now.
+        body: dict[str, Any] = {"hold_id": hold_id}
+        if final_net is not None:
+            body["final_net"] = max(0, int(final_net))
+        self._post(self._confirm_path, body)
 
     async def release(self, hold_id: str) -> None:
         self._post(self._release_path, {"hold_id": hold_id})

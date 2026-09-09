@@ -71,11 +71,15 @@ class _AtomicFakeWallet:
             self.holds[hold_id] = amount_halalas
             return hold_id
 
-    async def confirm(self, hold_id: str) -> None:
+    async def confirm(self, hold_id: str, *, final_net: int | None = None) -> None:
+        # Mirrors wallet-service v0.19.2's own real confirm(final_net=...): the WHOLE reservation
+        # is dropped either way, but the balance only falls by the REAL spend (final_net, when
+        # given) — the unspent remainder is auto-released back, never charged.
         async with self._lock:
-            amount = self.holds.pop(hold_id, 0)
-            self.balance -= amount
-            self.held -= amount
+            reserved = self.holds.pop(hold_id, 0)
+            spent = reserved if final_net is None else min(final_net, reserved)
+            self.balance -= spent
+            self.held -= reserved
 
     async def release(self, hold_id: str) -> None:
         async with self._lock:

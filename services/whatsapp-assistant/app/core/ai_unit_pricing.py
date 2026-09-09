@@ -30,6 +30,8 @@ never applied instantly: a shop that woke up to a costlier model with no notice 
 """
 from __future__ import annotations
 
+import math
+
 import json
 from dataclasses import dataclass
 from typing import Any
@@ -165,3 +167,22 @@ def model_rate_halalas_per_1k(cfg: AiUnitPricingConfig, model_name: str, *,
         halalas_per_1k_tokens(priciest.output_usd_per_million, usd_to_sar=cfg.usd_to_sar,
                               margin_multiplier=cfg.output_margin_multiplier),
         True)
+
+
+def real_cost_halalas(cfg: AiUnitPricingConfig, model_name: str, *, input_tokens: int,
+                      output_tokens: int, fallback_halalas_per_1k: float) -> tuple[int, bool]:
+    """(cost_halalas, used_fallback) — the ACTUAL charge for one turn, now that the real
+    input/output token counts are known (after the LLM call, unlike `_reserve_llm_hold`'s own
+    conservative blended ceiling priced BEFORE it). Enabled by wallet-service v0.19.2's own
+    confirm(hold_id, final_net=...) — see core/conversation.py's own call site and
+    core/wallet_balance.py's module docstring for why this could not be built before that shipped.
+
+    UNLIKE THE RESERVE'S SINGLE BLENDED RATE, this prices input and output SEPARATELY at their
+    own real rates — the actual per-component cost, not a worst-case stand-in for a split that was
+    unknown at reserve time. `math.ceil` per component, matching `estimated_hold_halalas`'s own
+    rounding direction (never round a real charge down)."""
+    input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
+        cfg, model_name, fallback_halalas_per_1k=fallback_halalas_per_1k)
+    cost = (math.ceil(max(0, input_tokens) / 1000.0 * input_rate)
+           + math.ceil(max(0, output_tokens) / 1000.0 * output_rate))
+    return cost, used_fallback

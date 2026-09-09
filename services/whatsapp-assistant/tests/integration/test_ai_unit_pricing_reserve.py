@@ -10,6 +10,7 @@ import asyncio
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.llm.stub import StubLlm
+from app.ports.llm import LlmReply
 from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
 from app.core.conversation import ConversationEngine
 from app.core.points import NullPointsSummary
@@ -31,13 +32,14 @@ class _FakeWallet:
 
     def __init__(self):
         self.reserved_amounts: list[int] = []
+        self.confirmed_final_nets: list[int | None] = []
 
     async def reserve(self, *, tenant: str, amount_halalas: int, source: str):
         self.reserved_amounts.append(amount_halalas)
         return f"hld_{source}"
 
-    async def confirm(self, hold_id: str) -> None:
-        return None
+    async def confirm(self, hold_id: str, *, final_net: int | None = None) -> None:
+        self.confirmed_final_nets.append(final_net)
 
     async def release(self, hold_id: str) -> None:
         return None
@@ -206,6 +208,42 @@ async def test_a_model_switch_mid_turn_cannot_split_the_reserve_from_the_actual_
     # AND the actual call ran the SAME model the reserve was priced for — not "expensive-model",
     # which a second, independent resolve deeper in the turn would have returned instead.
     assert llm.calls[0]["model_name"] == "cheap-model"
+
+
+async def test_confirm_charges_the_real_smaller_cost_not_the_reserved_ceiling():
+    """THE REAL FEATURE: wallet-service v0.19.2's confirm(final_net=...). The reserve above prices
+    a conservative ceiling BEFORE the LLM call (worse-of-input/output, blended over a generous
+    token estimate); StubLlm's default reply carries real, small token counts (5 in, 5 out) —
+    the real cost must come out well under what was reserved, priced at EACH side's own real rate
+    (not the reserve's single blended one)."""
+    store = MemoryDataStore()
+    wallet = _FakeWallet()
+    llm = StubLlm()
+    engine = _engine(store, llm, wallet, model_name="expensive-model")
+    await _through_triage_and_reserve(engine, "sub1")
+
+    assert wallet.reserved_amounts == [15]   # expensive-model's own rate, see the test above
+    # real: ceil(5/1000 * 9.375 input-rate) + ceil(5/1000 * 15.0 output-rate) = 1 + 1 = 2
+    assert wallet.confirmed_final_nets == [2]
+    assert wallet.confirmed_final_nets[0] < wallet.reserved_amounts[0]   # never the full ceiling
+
+
+async def test_confirm_is_clamped_to_the_reserved_amount_never_exceeds_it():
+    """The one direction that must never happen: wallet-service refuses final_net above the
+    reserved net outright. A real cost that somehow exceeds the reserve's own generous estimate
+    (a reply far longer than WALLET_ESTIMATED_MAX_TOKENS_PER_TURN assumed) must be CLAMPED down to
+    the reserved amount rather than ever attempt a final_net past it."""
+    store = MemoryDataStore()
+    wallet = _FakeWallet()
+    llm = StubLlm()
+    # Reserved for "cheap-model" (a small rate) but the real reply is priced as if it ran
+    # "expensive-model" — simulating real usage costing far more than what was ever reserved.
+    llm.queue(LlmReply(text="رد طويل جداً", input_tokens=5000, output_tokens=5000))
+    engine = _engine(store, llm, wallet, model_name="cheap-model")
+    await _through_triage_and_reserve(engine, "sub1")
+
+    reserved = wallet.reserved_amounts[0]
+    assert wallet.confirmed_final_nets == [reserved]   # clamped down, never a value above it
 
 
 async def test_with_no_ai_unit_pricing_settings_wired_behaviour_is_byte_identical_to_before():

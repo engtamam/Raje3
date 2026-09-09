@@ -64,7 +64,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from app.core.ai_unit_pricing import AiUnitPricingConfig, model_rate_halalas_per_1k
+from app.core.ai_unit_pricing import (
+    AiUnitPricingConfig, model_rate_halalas_per_1k, real_cost_halalas)
 from app.core.context_builder import build_context_block
 from app.core.frustration import detect_frustration
 from app.core.soft_decline import is_decline
@@ -750,18 +751,20 @@ class ConversationEngine:
         return max(input_rate, output_rate), used_fallback
 
     async def _reserve_llm_hold(self, tenant: str, conversation_ref: str, model_name: str
-                                ) -> str | None:
+                                ) -> tuple[str | None, int]:
         """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
-        docstring for the full reasoning). Returns a hold id on success, or None — insufficient
-        funds, or the peer call itself failed, which this method treats identically (fails
-        CLOSED): an uncertain reserve is never treated as a successful one, because this is the
-        one call in this service where "probably fine" is not an acceptable answer.
+        docstring for the full reasoning). Returns (hold id, reserved amount) on success, or
+        (None, 0) — insufficient funds, or the peer call itself failed, which this method treats
+        identically (fails CLOSED): an uncertain reserve is never treated as a successful one,
+        because this is the one call in this service where "probably fine" is not an acceptable
+        answer.
 
         `model_name` is `compose_reply`'s OWN already-resolved value, not re-resolved here — see
-        `_resolve_live_model_name`'s own note on why.
-        """
+        `_resolve_live_model_name`'s own note on why. The reserved amount rides back alongside the
+        hold id so `compose_reply` can clamp the REAL cost it computes after the LLM call to it —
+        wallet-service's own confirm(final_net=...) refuses a final_net above what was reserved."""
         if self._wallet is None:
-            return None
+            return None, 0
         rate, used_fallback = await self._model_aware_reserve_rate(model_name)
         if used_fallback and self._auditor is not None:
             # THE LIVE MODEL HAS NO REGISTERED PRICE — a real operator gap, not a reason to stop
@@ -782,9 +785,10 @@ class ConversationEngine:
             safety_margin_halalas=self._wallet_margin_halalas)
         source = WB.new_reserve_source(conversation_ref)
         try:
-            return await self._wallet.reserve(tenant=tenant, amount_halalas=amount, source=source)
+            hold_id = await self._wallet.reserve(tenant=tenant, amount_halalas=amount, source=source)
         except Exception:
-            return None    # fails CLOSED — an exception is exactly as uncertain as no answer
+            return None, 0   # fails CLOSED — an exception is exactly as uncertain as no answer
+        return hold_id, (amount if hold_id is not None else 0)
 
     async def _stop_wallet_depleted(self, conv: ConversationState, *, tenant: str,
                                     subject_ref: str, now: int) -> ReplyPlan:
@@ -1205,9 +1209,11 @@ class ConversationEngine:
         # it None, matching NullWalletBalance's own "never blocks" contract — see
         # app/core/wallet_balance.py).
         hold_id: str | None = None
+        reserved_amount = 0
         if self._wallet is not None:
             conversation_ref = self._key(tenant, subject_ref)
-            hold_id = await self._reserve_llm_hold(tenant, conversation_ref, model_name)
+            hold_id, reserved_amount = await self._reserve_llm_hold(
+                tenant, conversation_ref, model_name)
             if hold_id is None:
                 return await self._stop_wallet_depleted(
                     conv, tenant=tenant, subject_ref=subject_ref, now=now)
@@ -1241,13 +1247,29 @@ class ConversationEngine:
         })
 
         if hold_id is not None:
-            # CONFIRM CHARGES THE FULL RESERVED CEILING, not the real (usually smaller) token
-            # cost — a deliberate choice, not an oversight; see `_reserve_llm_hold`'s and
-            # app/core/wallet_balance.py's module docstrings for why. If `self._llm.respond`
-            # raised above, this line never runs and the hold simply expires on wallet-service's
-            # own TTL — "the hold expires; it cannot strand the money" is wallet-service's own
-            # guarantee, not something this service needs to additionally handle.
-            await self._wallet.confirm(hold_id)
+            # CONFIRM AT THE REAL COST — wallet-service v0.19.2's own confirm(final_net=...),
+            # requested for exactly this: the reserve above priced a conservative ceiling BEFORE
+            # this call, blind to the real input/output split; `reply.input_tokens`/`output_tokens`
+            # are the real, known counts now. `real_cost_halalas` prices them at each side's own
+            # real rate (not the reserve's single worst-of-the-two blend), and the result is
+            # CLAMPED to `reserved_amount` — wallet-service refuses a final_net above what was
+            # reserved (a hold exists precisely to bound this), and a real cost past the reserve's
+            # own generous estimate would mean WALLET_ESTIMATED_MAX_TOKENS_PER_TURN itself needs
+            # revisiting, never a reason to let one turn's confirm fail outright. If
+            # `self._llm.respond` raised above, this line never runs and the hold simply expires
+            # on wallet-service's own TTL — "the hold expires; it cannot strand the money" is
+            # wallet-service's own guarantee, not something this service needs to additionally
+            # handle.
+            final_net = reserved_amount
+            if self._ai_unit_pricing_settings is not None:
+                cfg = await AiUnitPricingConfig.from_runtime(
+                    self._runtime_config, self._ai_unit_pricing_settings)
+                real_cost, _ = real_cost_halalas(
+                    cfg, model_name, input_tokens=reply.input_tokens,
+                    output_tokens=reply.output_tokens,
+                    fallback_halalas_per_1k=float(self._wallet_rate_halalas_per_1k))
+                final_net = min(real_cost, reserved_amount)
+            await self._wallet.confirm(hold_id, final_net=final_net)
 
         if reply.tool_call is not None:
             max_carousel_cards = await self._runtime_int(
