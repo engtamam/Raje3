@@ -549,7 +549,9 @@ interface PendingChange { key: string; value: string | number | boolean; effecti
 
 const PRICING_KEY_LABEL: Record<string, string> = {
   PRICING_STRATEGY: 'طريقة التسعير',
-  PRICING_USAGE_HALALAS_PER_1K_TOKENS: 'هللات لكل 1000 وحدة',
+  // "وحدة" هنا تعني 1000 توكن — سعر الفاتورة، لا "وحدات الذكاء" (رصيد المحفظة). راجع تعليق
+  // AIPricingCalculator's الخاص بقسم "تسعير الاشتراك" أعلاه لتفريق المسارين.
+  PRICING_USAGE_HALALAS_PER_1K_TOKENS: 'هللات لكل 1000 وحدة (تسعير الاشتراك)',
   PRICING_USAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة',
   PRICING_TIER_BASE_HALALAS: 'سعر الباقة الأساسي',
   PRICING_TIER_INCLUDED_CONVERSATIONS: 'محادثات مشمولة بالباقة',
@@ -742,9 +744,20 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {/* ── المدخلات ─────────────────────────────────────────────────────────────────────── */}
+      {/* ── تسعير الاشتراك — مسار منفصل تماماً عن "إعدادات وحدات الذكاء" تحت، رغم تشابه الأدوات.
+         هذا يحسب سعراً يظهر على فاتورة الاشتراك نفسها (PRICING_STRATEGY/PRICING_USAGE_HALALAS_
+         PER_1K_TOKENS) — لا علاقة له باستهلاك رصيد الذكاء بمحفظة المحل. اليوم لا خدمة فوترة حقيقية
+         تقرأ هذا المسار بعد (core/pricing.py's own note: "a future billing/insights peer calls once
+         one exists") — الجدولة هنا تنجح وتُحفَظ، لكن بلا أثر فعلي على أي فاتورة حتى تُبنى تلك
+         الخدمة. ── */}
       <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-4">
-        <h3 className="font-medium">المدخلات</h3>
+        <div>
+          <h3 className="font-medium">تسعير الاشتراك — المدخلات</h3>
+          <p className="text-label text-text-secondary">
+            سعر يظهر على فاتورة الاشتراك (لا رصيد المحفظة) — بانتظار خدمة فوترة تربطه فعلياً، الجدولة
+            هنا لا تغيّر شيئاً على أرض الواقع اليوم.
+          </p>
+        </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
@@ -804,7 +817,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         <h3 className="font-medium">النتيجة المقترحة</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-card bg-surface-2 p-3">
-            <p className="text-label text-text-secondary">السعر المقترح لكل 1000 وحدة</p>
+            <p className="text-label text-text-secondary">سعر الفاتورة المقترح لكل 1000 وحدة</p>
             <p className="text-lg font-semibold tabular-nums">{suggestedHalalasPer1k.toFixed(1)} هللة</p>
           </div>
           <div className="rounded-card bg-surface-2 p-3">
@@ -975,8 +988,8 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
           <p className="text-label text-text-secondary">
             السعر الحقيقي كما هو من فاتورة جوجل الفعلية أو صفحة تسعيرها الرسمية لكل نموذج — بالدولار لكل
             مليون توكن، دخل وخرج منفصلين — بلا أي هامش إقليمي مضاف هنا، الرقم المُدخَل هو التكلفة
-            الحقيقية كما هي. نموذج غير مذكور هنا يعتمد السعر الثابت القديم (هللات لكل 1000 وحدة) بدل
-            إيقاف المساعد.
+            الحقيقية كما هي. نموذج غير مذكور هنا يعتمد السعر الثابت القديم (هللات لكل 1000 توكن، من
+            تسعير الاشتراك أعلاه) بدل إيقاف المساعد.
           </p>
         </Field>
         {scheduleAction ? (

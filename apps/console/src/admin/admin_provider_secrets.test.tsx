@@ -570,7 +570,7 @@ describe('AdminProviderSecrets', () => {
     await waitFor(() => expect(screen.getByText('المحاسبة')).toBeTruthy());
     fireEvent.click(screen.getByText('المحاسبة'));
 
-    await waitFor(() => expect(screen.getByText('هللات لكل 1000 وحدة')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('هللات لكل 1000 وحدة (تسعير الاشتراك)')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'إلغاء' }));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
