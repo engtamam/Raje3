@@ -125,6 +125,35 @@ def test_recent_messages_are_translated_into_role_content_turns():
         {"role": "user", "content": "three"}]
 
 
+def test_the_stable_catalogue_comes_before_the_volatile_conversation_summary():
+    """Deliberate ordering for Vertex AI's own automatic prefix caching (implicit context
+    caching — a cache hit needs the SAME bytes at the START of the prompt). `context_block` (the
+    shop's service catalogue + offers) barely changes across many different conversations for the
+    SAME shop; `summary` is THIS conversation's own running summary, different almost every turn.
+    Putting the volatile part first (the old order) meant no two calls for the same shop ever
+    shared a matching prefix at all — this proves the catalogue now sits right after the persona
+    instructions, ahead of the summary."""
+    captured = {}
+
+    def _urlopen(req, timeout=None):
+        if req.get_method() == "GET":
+            return _Resp({"connections": []})
+        body = json.loads(req.data or b"{}")
+        if "system_prompt" in body:
+            captured["system_prompt"] = body["system_prompt"]
+            return _Resp({"id": "conn_1"})
+        return _Resp({"kind": "text", "text": "ok", "tokens_in": 1, "tokens_out": 1})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(llm().respond(
+            system_prompt="PERSONA", summary="RUNNING SUMMARY",
+            context_block="SERVICE CATALOGUE", recent_messages=[], user_message="hi",
+            allowed_tools=frozenset(), tenant="t1"))
+
+    prompt = captured["system_prompt"]
+    assert prompt.index("SERVICE CATALOGUE") < prompt.index("RUNNING SUMMARY")
+
+
 def test_the_deploy_time_max_reply_tokens_is_sent_on_every_invoke():
     """No runtime_config wired — MAX_REPLY_TOKENS falls back to whatever the adapter was built
     with, same shape as model_name's own deploy-time default."""

@@ -288,9 +288,18 @@ class AssistantServiceLlm:
         tools_for_call = self._allowed & frozenset(allowed_tools) if allowed_tools else self._allowed
         tool_schemas = [_TOOL_SCHEMAS[name] for name in sorted(tools_for_call)]
 
+        # STABLE CONTENT FIRST, VOLATILE CONTENT LAST — deliberately, for Vertex AI's own
+        # automatic prefix caching (implicit context caching, no configuration needed, active for
+        # a shared prefix of >=2048 tokens): a cache hit requires the SAME bytes at the START of
+        # the prompt. `context_block` (the shop's service catalogue + offers) barely changes
+        # across many different conversations for the SAME shop — a real, large caching win if it
+        # sits right after the equally-stable persona instructions. `summary` is the opposite: it
+        # is THIS conversation's own running summary, different on nearly every turn — placing it
+        # first (the old order) meant no two calls ever shared a matching prefix at all, so a
+        # catalogue that was otherwise identical call after call never had a chance to cache.
         full_prompt = system_prompt + (
-            f"\n\nConversation summary so far: {summary}" if summary else "") + (
-            f"\n\n{context_block}" if context_block else "")
+            f"\n\n{context_block}" if context_block else "") + (
+            f"\n\nConversation summary so far: {summary}" if summary else "")
 
         project = await self._resolve_project()
         credential = await self._resolve_credential()
