@@ -43,7 +43,15 @@ grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
 ROOT="$(cd "$HERE/../.." && pwd)"
 python3 "$ROOT/ci/check_shop_kb_is_valid.py" || { red "refusing to sync — fix the KB files above first"; exit 1; }
 
-CM_YAML=$(kubectl create configmap "$NAME" \
+# `command kubectl`, NOT `kubectl` — when the cluster is reached over ssh (cluster.sh's own
+# CLUSTER_VIA=ssh rung), `kubectl` is a shell FUNCTION that forwards the whole command line,
+# `--from-file` and all, to the remote node — which does not have $KB_DIR, a path on THIS machine.
+# `--dry-run=client` never talks to the cluster at all; it only needs a real local binary reading a
+# real local directory, so `command` (bash's own "ignore any function of this name") is what makes
+# that true regardless of which rung cluster.sh resolved. Found live: this exact call failing with
+# "error reading $KB_DIR: no such file or directory" — the ssh side genuinely had no such file,
+# because there was never meant to be a file there, only a request built from one.
+CM_YAML=$(command kubectl create configmap "$NAME" \
   --from-file="$KB_DIR" \
   --dry-run=client -o yaml)
 
