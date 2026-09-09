@@ -340,7 +340,10 @@ def build_container(settings: Settings) -> Container:
         runtime_config=container.runtime_config,
         max_carousel_cards=settings.MAX_CAROUSEL_CARDS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
-        wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
+        # THE FLAT FALLBACK RATE, kept at 0 (the dead subscription-pricing scaffold that used to
+        # own this number is gone — see core/ai_unit_pricing.py's own model_rate_halalas_per_1k for
+        # the real per-model rate this only backstops when a model is missing from that registry).
+        wallet_rate_halalas_per_1k=0,
         wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,
         ai_unit_pricing_settings=settings, default_model_name=settings.ASSISTANT_MODEL_NAME,
         debounce_seconds=settings.CONVERSATION_DEBOUNCE_SECONDS,

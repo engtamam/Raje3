@@ -21,20 +21,20 @@ async def test_a_due_scheduled_pricing_change_lands_on_the_next_tick(client):
     now = int(time.time())
     # ALREADY DUE — effective_at in the past, exactly what a real 15-day-old schedule looks like
     # the moment the tick that finally applies it runs.
-    await schedule(c.datastore, key="PRICING_USAGE_HALALAS_PER_1K_TOKENS", value=40,
+    await schedule(c.datastore, key="PRICING_AI_UNIT_USD_TO_SAR", value=4.0,
                    effective_at=now - 60, actor="test:operator", now=now - 15 * 86_400)
 
     before = await c.runtime_config.get(
-        tenant="", key="PRICING_USAGE_HALALAS_PER_1K_TOKENS", default=0)
-    assert before == 0   # not yet applied — the schedule alone never changes the effective value
+        tenant="", key="PRICING_AI_UNIT_USD_TO_SAR", default=3.75)
+    assert before == 3.75   # not yet applied — the schedule alone never changes the effective value
 
     resp = client.post("/internal/whatsapp_assistant/tick", json={},
                        headers={"X-Internal-Token": INTERNAL_TOKEN})
     assert resp.status_code == 200, resp.text
 
     after = await c.runtime_config.get(
-        tenant="", key="PRICING_USAGE_HALALAS_PER_1K_TOKENS", default=0)
-    assert after == 40   # landed
+        tenant="", key="PRICING_AI_UNIT_USD_TO_SAR", default=3.75)
+    assert after == 4.0   # landed
 
     from app.core.pricing_schedule import pending
 
@@ -46,14 +46,14 @@ async def test_a_not_yet_due_scheduled_change_never_lands_early(client):
 
     c = _container(client)
     now = int(time.time())
-    await schedule(c.datastore, key="PRICING_TIER_BASE_HALALAS", value=500,
+    await schedule(c.datastore, key="PRICING_AI_UNIT_UNITS_PER_HALALA", value=2000,
                    effective_at=now + 10 * 86_400, actor="test:operator", now=now)
 
     client.post("/internal/whatsapp_assistant/tick", json={},
                headers={"X-Internal-Token": INTERNAL_TOKEN})
 
-    value = await c.runtime_config.get(tenant="", key="PRICING_TIER_BASE_HALALAS", default=0)
-    assert value == 0   # ten days out — this tick must not touch it
+    value = await c.runtime_config.get(tenant="", key="PRICING_AI_UNIT_UNITS_PER_HALALA", default=1000)
+    assert value == 1000   # ten days out — this tick must not touch it
 
     from app.core.pricing_schedule import pending
 

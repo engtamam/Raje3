@@ -3,8 +3,8 @@
 Every other `platform.config` knob (app/runtime_policy.py: ASSISTANT_MODEL_NAME/
 SOFT_DECLINE_THRESHOLD/MAX_CAROUSEL_CARDS) applies the moment an operator sets it — that is
 correct for those, because none of them changes what a shop is BILLED. A pricing key
-(PRICING_STRATEGY/PRICING_USAGE_HALALAS_PER_1K_TOKENS/...) is different: a shop that woke up to a
-higher rate with no notice has a real grievance, not a UX inconvenience. So a pricing change is
+(PRICING_AI_UNIT_USD_TO_SAR/PRICING_AI_UNIT_MODEL_COSTS_JSON/...) is different: a shop that woke up
+to a higher rate with no notice has a real grievance, not a UX inconvenience. So a pricing change is
 SCHEDULED, not applied — written here with an `effective_at` in the future, and only actually
 handed to `RuntimeConfig.set()` once a tick (api/internal.py::tick(), the same cron-driven sweep
 every other periodic job in this service already runs on) finds it due. The gap between scheduling
@@ -73,11 +73,8 @@ async def pending(store: Any) -> list[PendingPriceChange]:
 # so a future runtime-policy addition that is NOT a pricing number (a behavioural knob like
 # SOFT_DECLINE_THRESHOLD) can never accidentally be scheduled through this delayed path instead of
 # applying instantly the way an operator setting it would expect.
+# AI-unit pricing (core/ai_unit_pricing.py) — see app/runtime_policy.py's own note on these five.
 _PRICING_KEYS = frozenset({
-    "PRICING_STRATEGY", "PRICING_TIER_BASE_HALALAS", "PRICING_TIER_INCLUDED_CONVERSATIONS",
-    "PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION", "PRICING_ADDON_FLAT_HALALAS",
-    "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "PRICING_USAGE_HALALAS_PER_CONVERSATION",
-    # AI-unit pricing (core/ai_unit_pricing.py) — see app/runtime_policy.py's own note on these five.
     "PRICING_AI_UNIT_UNITS_PER_HALALA", "PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER",
     "PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER", "PRICING_AI_UNIT_USD_TO_SAR",
     "PRICING_AI_UNIT_MODEL_COSTS_JSON",

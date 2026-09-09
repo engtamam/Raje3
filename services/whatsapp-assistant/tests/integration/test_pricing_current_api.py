@@ -84,13 +84,6 @@ def test_platform_config_alone_does_not_grant_this_read(client):
 def test_the_deploy_time_defaults_with_nothing_pending(client, shop_auth):
     body = client.get(PATH, headers=shop_auth).json()
     assert body == {
-        "strategy": "tier_plus_cap",
-        "usage_halalas_per_1k_tokens": 0,
-        "usage_halalas_per_conversation": 0,
-        "tier_base_halalas": 0,
-        "tier_included_conversations": 0,
-        "tier_overage_halalas_per_conversation": 0,
-        "addon_flat_halalas": 0,
         "ai_unit_units_per_halala": 1000,
         "pending_changes": [],
     }
@@ -101,7 +94,7 @@ def test_a_change_scheduled_by_the_operator_shows_up_here_with_its_effective_dat
 ):
     operator_auth = _auth("platform.config")
     r = client.post("/api/v1/assistant/operator/pricing/schedule",
-                    json={"key": "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "value": 40,
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0,
                           "effective_in_days": 15},
                     headers=operator_auth)
     assert r.status_code == 200, r.text
@@ -109,10 +102,10 @@ def test_a_change_scheduled_by_the_operator_shows_up_here_with_its_effective_dat
 
     body = client.get(PATH, headers=shop_auth).json()
     # STILL THE OLD EFFECTIVE VALUE — it has not landed yet.
-    assert body["usage_halalas_per_1k_tokens"] == 0
+    assert body["ai_unit_units_per_halala"] == 1000
     # BUT VISIBLE, WITH THE REAL DATE — this is the whole feature: "ما كنت أعرف" is never true.
     assert body["pending_changes"] == [
-        {"key": "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "value": 40, "effective_at": effective_at},
+        {"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0, "effective_at": effective_at},
     ]
 
 

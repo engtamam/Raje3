@@ -51,12 +51,12 @@ def test_a_reschedule_racing_the_tick_is_not_silently_deleted():
     async def run():
         real = MemoryDataStore()
         now = 1_800_000_000
-        await schedule(real, key="PRICING_STRATEGY", value="usage_based",
+        await schedule(real, key="PRICING_AI_UNIT_USD_TO_SAR", value=4.0,
                        effective_at=now - 60, actor="op1", now=now - 15 * 86_400)
 
         # The reschedule that "races in" — a DIFFERENT value/effective_at/scheduled_at, so the
         # compare in apply_due must tell it apart from what was actually applied.
-        raced_row = {"key": "PRICING_STRATEGY", "value": "addon_on_existing_plan",
+        raced_row = {"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.2,
                     "effective_at": now + 15 * 86_400, "scheduled_by": "op2", "scheduled_at": now}
 
         store = _RescheduleRacingStore(real, rescheduled_row=raced_row)
@@ -68,10 +68,10 @@ def test_a_reschedule_racing_the_tick_is_not_silently_deleted():
 
     applied, remaining, calls = asyncio.run(run())
 
-    assert applied == ["PRICING_STRATEGY"]           # the originally-due change WAS applied
-    assert calls[0]["value"] == "usage_based"         # with the value that was actually due
+    assert applied == ["PRICING_AI_UNIT_USD_TO_SAR"]           # the originally-due change WAS applied
+    assert calls[0]["value"] == 4.0         # with the value that was actually due
 
     # THE FIX: the raced-in reschedule must survive — never silently deleted.
     assert len(remaining) == 1, "the concurrent reschedule was wiped out by the tick that raced it"
-    assert remaining[0].value == "addon_on_existing_plan"
+    assert remaining[0].value == 4.2
     assert remaining[0].effective_at == 1_800_000_000 + 15 * 86_400

@@ -339,9 +339,10 @@
         "NO `credits` KEY YET — the owner wants the price to fund an included usage allowance",
         "(billing-service's own plan-credit-grant mechanism, PLAN_CREDIT_LIMIT_KEY='credits':",
         "a `credits` gauge limit here becomes a wallet credit granted on every paid invoice), but",
-        "PRICING_USAGE_HALALAS_PER_1K_TOKENS is still 0 fleet-wide (deploy/services/whatsapp-",
-        "assistant.values.yaml) — the real per-token rate was never set, so an included-credits",
-        "number would be sized against a cost that is not real yet. Add it once that rate is."
+        "the real AI-unit pricing (whatsapp-assistant's core/ai_unit_pricing.py, PRICING_AI_UNIT_*)",
+        "was only just wired and has not been reconciled against this plan's price yet — an",
+        "included-credits number would be sized against a cost basis not yet decided against. Add",
+        "it once that reconciliation happens."
       ],
       "name": "بوت خدمة العملاء الذكي",
       "amount": 19900,

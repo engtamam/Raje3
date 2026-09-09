@@ -323,51 +323,6 @@ async def backup_import(request: Request, body: BackupImportIn,
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
-# ── pricing — the smallest honest caller for a genuinely staged module ──────────────────────────
-# app/core/pricing.py computed a price nothing ever asked for (ci/check_dead_core.py flagged it):
-# no billing peer exists yet to charge a shop for this service. Following docs/adding-a-new-app.md
-# §3c's own precedent (bookings' /internal/availability/check, pulled forward for the same reason)
-# this is the smallest real, callable, tested interface — token counts and period context in the
-# request body rather than read from a store that does not exist yet — and it becomes the exact
-# route a future billing/insights peer calls once one exists. Nothing about price_conversation's
-# own signature changes later; only where its inputs come from does.
-class PriceIn(BaseModel):
-    # ge=0 ADDED 2026-09-07 — a QA audit found this had no floor: a negative value reached
-    # pricing.usage_based() and could produce a negative halalas result with nothing clamping it.
-    input_tokens: int = Field(default=0, ge=0)
-    output_tokens: int = Field(default=0, ge=0)
-    # THIS PERIOD'S conversation count / first-of-period flag — the caller's to track (it is the
-    # one that knows the billing period), not this service's; see core/pricing.py's own docstring
-    # for why: a business number frozen into this service would be a rewrite waiting to happen.
-    conversations_this_period: int = 0
-    is_first_conversation_this_period: bool = False
-
-
-@router.post("/whatsapp_assistant/price", dependencies=[Depends(require_internal_token)])
-async def price(body: PriceIn, request: Request, settings: Settings = Depends(get_settings)) -> dict:
-    """What ONE conversation would cost under the configured PRICING_STRATEGY.
-
-    Every constant behind this is zero in config today (see core/pricing.py's module docstring) —
-    this computes the SHAPE, not a real charge, until the business sets real numbers. Resolved
-    through RuntimeConfig (`from_runtime`, not `from_settings`) — a scheduled pricing change that
-    has landed (core/pricing_schedule.py) must be reflected here on the very next call, the same
-    "no redeploy" contract every other RUNTIME_POLICY knob already has.
-    """
-    from app.core.pricing import ConversationCost, PricingConfig, price_conversation
-
-    container = getattr(request.app.state, "container", None)
-    runtime_config = getattr(container, "runtime_config", None) if container is not None else None
-    cfg = await PricingConfig.from_runtime(runtime_config, settings)
-    cost = ConversationCost(input_tokens=body.input_tokens, output_tokens=body.output_tokens)
-    try:
-        halalas = price_conversation(
-            cfg, cost, conversations_this_period=body.conversations_this_period,
-            is_first_conversation_this_period=body.is_first_conversation_this_period)
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
-    return {"strategy": cfg.strategy, "halalas": halalas}
-
-
 # ── PHASE 5 — the WhatsApp Flow booking channel ──────────────────────────────────────────────
 class FlowBookingIn(BaseModel):
     """The platform's own HttpBookingBackend adapter's fixed shape (notification-service's

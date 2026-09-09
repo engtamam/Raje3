@@ -84,7 +84,7 @@ def test_report_needs_the_capability(client, reader_auth):
 
 def test_schedule_needs_the_capability(client, reader_auth):
     r = client.post(f"{PREFIX}/pricing/schedule",
-                    json={"key": "PRICING_STRATEGY", "value": "usage_based", "effective_in_days": 15},
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0, "effective_in_days": 15},
                     headers=reader_auth)
     assert r.status_code == 403
 
@@ -150,32 +150,32 @@ def test_report_with_an_explicit_tenant_sees_only_that_shops_own_rows(client, op
 # ── schedule / pending / cancel ────────────────────────────────────────────────
 def test_scheduling_a_pricing_change_never_applies_it_instantly(client, operator_auth):
     before = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
-    assert before["PRICING_USAGE_HALALAS_PER_1K_TOKENS"] == 0
+    assert before["PRICING_AI_UNIT_USD_TO_SAR"] == 3.75
 
     r = client.post(f"{PREFIX}/pricing/schedule",
-                    json={"key": "PRICING_USAGE_HALALAS_PER_1K_TOKENS", "value": 40,
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0,
                           "effective_in_days": 15},
                     headers=operator_auth)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["key"] == "PRICING_USAGE_HALALAS_PER_1K_TOKENS" and body["value"] == 40
+    assert body["key"] == "PRICING_AI_UNIT_USD_TO_SAR" and body["value"] == 4.0
 
-    # STILL ZERO — nothing landed. The whole point.
+    # STILL THE DEPLOY-TIME DEFAULT — nothing landed. The whole point.
     after = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
-    assert after["PRICING_USAGE_HALALAS_PER_1K_TOKENS"] == 0
+    assert after["PRICING_AI_UNIT_USD_TO_SAR"] == 3.75
 
 
 def test_a_scheduled_change_appears_in_pending_with_its_own_effective_at(client, operator_auth):
     r = client.post(f"{PREFIX}/pricing/schedule",
-                    json={"key": "PRICING_STRATEGY", "value": "usage_based",
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0,
                           "effective_in_days": 15},
                     headers=operator_auth)
     scheduled_at_effective = r.json()["effective_at"]
 
     pending = client.get(f"{PREFIX}/pricing/pending", headers=operator_auth).json()["pending"]
     assert len(pending) == 1
-    assert pending[0]["key"] == "PRICING_STRATEGY"
-    assert pending[0]["value"] == "usage_based"
+    assert pending[0]["key"] == "PRICING_AI_UNIT_USD_TO_SAR"
+    assert pending[0]["value"] == 4.0
     assert pending[0]["effective_at"] == scheduled_at_effective
     # ~15 days out, not "today" — the floor this whole feature exists to enforce.
     import time
@@ -184,12 +184,12 @@ def test_a_scheduled_change_appears_in_pending_with_its_own_effective_at(client,
 
 def test_a_zero_or_negative_delay_is_refused_not_silently_floored(client, operator_auth):
     r = client.post(f"{PREFIX}/pricing/schedule",
-                    json={"key": "PRICING_STRATEGY", "value": "usage_based",
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0,
                           "effective_in_days": 0},
                     headers=operator_auth)
     assert r.status_code == 422   # pydantic's own Field(ge=1) refusal
     r = client.post(f"{PREFIX}/pricing/schedule",
-                    json={"key": "PRICING_STRATEGY", "value": "usage_based",
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0,
                           "effective_in_days": -5},
                     headers=operator_auth)
     assert r.status_code == 422
@@ -208,33 +208,33 @@ def test_scheduling_again_replaces_the_earlier_pending_change_for_the_same_key(
     client, operator_auth,
 ):
     client.post(f"{PREFIX}/pricing/schedule",
-               json={"key": "PRICING_STRATEGY", "value": "usage_based", "effective_in_days": 15},
+               json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0, "effective_in_days": 15},
                headers=operator_auth)
     r = client.post(f"{PREFIX}/pricing/schedule",
-                    json={"key": "PRICING_STRATEGY", "value": "addon_on_existing_plan",
+                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.2,
                           "effective_in_days": 7},
                     headers=operator_auth)
     assert r.status_code == 200
 
     pending = client.get(f"{PREFIX}/pricing/pending", headers=operator_auth).json()["pending"]
     assert len(pending) == 1   # not two — the second call replaced the first, never queued beside it
-    assert pending[0]["value"] == "addon_on_existing_plan"
+    assert pending[0]["value"] == 4.2
 
 
 def test_cancelling_a_pending_change_removes_it_and_leaves_the_effective_value_untouched(
     client, operator_auth,
 ):
     client.post(f"{PREFIX}/pricing/schedule",
-               json={"key": "PRICING_STRATEGY", "value": "usage_based", "effective_in_days": 15},
+               json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0, "effective_in_days": 15},
                headers=operator_auth)
-    r = client.delete(f"{PREFIX}/pricing/pending/PRICING_STRATEGY", headers=operator_auth)
+    r = client.delete(f"{PREFIX}/pricing/pending/PRICING_AI_UNIT_USD_TO_SAR", headers=operator_auth)
     assert r.status_code == 200 and r.json()["cancelled"] is True
 
     assert client.get(f"{PREFIX}/pricing/pending", headers=operator_auth).json()["pending"] == []
     config = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
-    assert config["PRICING_STRATEGY"] == "tier_plus_cap"   # the deploy-time default, untouched
+    assert config["PRICING_AI_UNIT_USD_TO_SAR"] == 3.75   # the deploy-time default, untouched
 
 
 def test_cancelling_a_key_with_nothing_pending_says_so_honestly(client, operator_auth):
-    r = client.delete(f"{PREFIX}/pricing/pending/PRICING_STRATEGY", headers=operator_auth)
+    r = client.delete(f"{PREFIX}/pricing/pending/PRICING_AI_UNIT_USD_TO_SAR", headers=operator_auth)
     assert r.status_code == 200 and r.json()["cancelled"] is False

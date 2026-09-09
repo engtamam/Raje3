@@ -65,13 +65,10 @@ _DENY_SUFFIXES = ("_KEY", "_KEYS", "_SECRET", "_SECRETS", "_TOKEN", "_TOKENS",
 _ALLOW: frozenset[str] = frozenset({
     # Ends in "_TOKENS" (the LLM-token-count kind, plural), which _DENY_SUFFIXES' "_TOKEN"/
     # "_TOKENS" entries exist to catch for the OTHER kind — an API/session credential. This is a
-    # count, never a secret; app/core/pricing.py::PricingConfig is what actually reads it.
-    "PRICING_USAGE_HALALAS_PER_1K_TOKENS",
-    # Same false positive, same reasoning — a reply-length ceiling in TOKEN COUNT, never a
-    # credential. Was declared in RUNTIME_POLICY as if it were already settable, but `settable()`
-    # silently refused it here — the panel looked live and was not, exactly the failure mode this
-    # module's own docstring warns about. app/adapters/llm/assistant_service.py's
-    # `_resolve_max_tokens` is what actually reads it.
+    # reply-length ceiling in TOKEN COUNT, never a credential. Was declared in RUNTIME_POLICY as
+    # if it were already settable, but `settable()` silently refused it here — the panel looked
+    # live and was not, exactly the failure mode this module's own docstring warns about.
+    # app/adapters/llm/assistant_service.py's `_resolve_max_tokens` is what actually reads it.
     "MAX_REPLY_TOKENS",
 })
 

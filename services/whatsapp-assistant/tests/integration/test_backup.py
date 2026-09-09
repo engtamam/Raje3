@@ -1,4 +1,4 @@
-"""Integration: /internal/backup/{export,verify,import} and /internal/whatsapp_assistant/price.
+"""Integration: /internal/backup/{export,verify,import}.
 
 These three backup routes and the manifest endpoints that declare them were the exact silent gap
 docs/adding-a-new-app.md §3b warns about — real code, wired nowhere a gate or a caller could see.
@@ -103,47 +103,4 @@ def test_manifest_advertises_the_backup_and_privacy_routes(client):
     assert resp.status_code == 200
     paths = {e["path"] for e in resp.json()["endpoints"]}
     assert {"/internal/backup/export", "/internal/backup/verify", "/internal/backup/import",
-            "/internal/privacy/erase", "/internal/whatsapp_assistant/price"} <= paths
-
-
-# ── pricing — the smallest honest caller for a module ci/check_dead_core.py flagged as unreached ──
-def test_price_without_internal_token_is_refused(client):
-    resp = client.post("/internal/whatsapp_assistant/price", json={})
-    assert resp.status_code == 401
-
-
-def test_price_is_zero_when_every_pricing_constant_is_zero(client):
-    """Every PRICING_* default is 0 (deploy/services/whatsapp-assistant.values.yaml) — this is
-    SHAPE, not a shipped price list, until the business sets real numbers."""
-    resp = client.post("/internal/whatsapp_assistant/price",
-                       json={"input_tokens": 500, "output_tokens": 200}, headers=_headers())
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["halalas"] == 0
-    assert body["strategy"] == "tier_plus_cap"
-
-
-def test_price_rejects_negative_token_counts(client):
-    """A QA audit found `PriceIn.input_tokens`/`output_tokens` had no `Field(ge=0)` — a negative
-    value reaches `pricing.usage_based()` and can produce a negative halalas result with nothing
-    clamping it. This route is internal-token-gated, not attacker-reachable directly, but a
-    misbehaving internal caller (or a future billing peer's own bug) should never be able to make
-    this compute a negative charge — refused at the door, same as any other malformed input."""
-    resp = client.post("/internal/whatsapp_assistant/price",
-                       json={"input_tokens": -1, "output_tokens": 200}, headers=_headers())
-    assert resp.status_code == 422
-    resp = client.post("/internal/whatsapp_assistant/price",
-                       json={"input_tokens": 200, "output_tokens": -1}, headers=_headers())
-    assert resp.status_code == 422
-
-
-def test_price_rejects_an_unknown_strategy_cleanly_not_with_a_500(client, monkeypatch):
-    monkeypatch.setenv("PRICING_STRATEGY", "not_a_real_strategy")
-    from app.config import get_settings
-    get_settings.cache_clear()
-    try:
-        resp = client.post("/internal/whatsapp_assistant/price", json={}, headers=_headers())
-        assert resp.status_code == 400
-    finally:
-        monkeypatch.delenv("PRICING_STRATEGY", raising=False)
-        get_settings.cache_clear()
+            "/internal/privacy/erase"} <= paths

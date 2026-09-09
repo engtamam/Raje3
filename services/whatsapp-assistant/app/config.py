@@ -342,20 +342,19 @@ class Settings(BaseSettings):
     WALLET_SERVICE_RESERVE_PATH: str = "/internal/wallet/reserve"
     WALLET_SERVICE_CONFIRM_PATH: str = "/internal/wallet/confirm"
     WALLET_SERVICE_RELEASE_PATH: str = "/internal/wallet/release"
-    # A GENEROUS per-turn ceiling, not a precise estimate — priced at the same real usage rate
-    # (PRICING_USAGE_HALALAS_PER_1K_TOKENS below) that is this service's actual cost basis. Sized
-    # to comfortably cover CONVERSATION_RAW_WINDOW_MESSAGES worth of context plus a normal reply;
-    # revisit once real usage data exists (see core/pricing.py's own "not a final decision" note).
+    # A GENEROUS per-turn ceiling, not a precise estimate — sized to comfortably cover
+    # CONVERSATION_RAW_WINDOW_MESSAGES worth of context plus a normal reply; revisit once real
+    # usage data exists (see core/ai_unit_pricing.py for the actual cost basis this service prices
+    # against).
     WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: int = 4000
     # THE HARD SAFETY MARGIN (halalas — 100 = 1 SAR) held back on TOP of the token estimate on
     # every reserve, so a misestimate or a mid-flight rate change can never itself be what pushes
     # a confirm past the true available balance. Config, not a literal in the reserve call itself.
     #
-    # 0 (the owner's own call): a margin only earns its keep once
-    # PRICING_USAGE_HALALAS_PER_1K_TOKENS is a real, non-zero rate — held back against a cost that
-    # is currently 0 only shrinks every shop's included balance for no protection, and reads as
-    # "why is my wallet lower than what I was told" with nothing to show for it. Revisit the moment
-    # real per-token pricing lands.
+    # 0 (the owner's own call): a margin only earns its keep once the per-token rate
+    # (core/ai_unit_pricing.py) is real and non-zero — held back against a cost that is zero only
+    # shrinks every shop's included balance for no protection, and reads as "why is my wallet lower
+    # than what I was told" with nothing to show for it.
     WALLET_SAFETY_MARGIN_HALALAS: int = 0
     # THE NAMED FUND(S) this bot's own hold is scoped to (wallet-service v0.18.42's fund-scoping,
     # comma-separated — plural for a future deployment that ever needs more than one). Empty
@@ -579,17 +578,6 @@ class Settings(BaseSettings):
     BOOKING_MAX_LEAD_DAYS: int = 30
     BOOKING_SLOT_GRANULARITY_MINUTES: int = 15
 
-    # ── pricing (app/core/pricing.py) — SHAPE only, not a final decision ─────
-    # Which strategy is active. tier_plus_cap | addon_on_existing_plan | usage_based. See the
-    # module docstring: this is scaffolding for a pricing conversation, not a shipped price list.
-    PRICING_STRATEGY: str = "tier_plus_cap"
-    PRICING_TIER_BASE_HALALAS: int = 0
-    PRICING_TIER_INCLUDED_CONVERSATIONS: int = 0
-    PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION: int = 0
-    PRICING_ADDON_FLAT_HALALAS: int = 0
-    PRICING_USAGE_HALALAS_PER_1K_TOKENS: int = 0
-    PRICING_USAGE_HALALAS_PER_CONVERSATION: int = 0
-
     # ── AI-unit pricing (وحدات الذكاء, app/core/ai_unit_pricing.py) ─────────────────────────────
     # A FIXED, model-independent display scale — 1 halala is always worth this many units, no
     # matter which model answered. What actually varies per model is the halala rate below it is
@@ -607,8 +595,8 @@ class Settings(BaseSettings):
     # {model_name: {"input_usd_per_million": x, "output_usd_per_million": y}} — the REAL, admin-
     # entered Google price per model (off the real invoice/pricing page, never inflated by a
     # guessed markup — see ai_unit_pricing.ModelCost's own docstring). A model missing from this
-    # registry falls back to PRICING_USAGE_HALALAS_PER_1K_TOKENS in both directions rather than
-    # blocking the assistant. Ships with today's deployed default model
+    # registry falls back to a zero halalas-per-1k rate in both directions rather than blocking
+    # the assistant. Ships with today's deployed default model
     # (ASSISTANT_MODEL_NAME=gemini-3.1-flash-lite, per deploy/services/whatsapp-assistant.values.yaml)
     # priced from Google's own published global rate.
     PRICING_AI_UNIT_MODEL_COSTS_JSON: str = (

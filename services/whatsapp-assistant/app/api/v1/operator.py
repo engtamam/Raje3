@@ -339,7 +339,7 @@ async def schedule_pricing(request: Request, body: PricingScheduleIn,
     delay is enforced here (>= 1 day) rather than trusted from the caller."""
     if not is_a_pricing_key(body.key):
         return _refuse(f"{body.key} is not a pricing key — see app/runtime_policy.py for the "
-                       f"seven that are.")
+                       f"five that are.")
     if body.key not in RUNTIME_POLICY:
         # DEFENSE IN DEPTH, NOT REDUNDANT — is_a_pricing_key's own list is hand-kept in sync with
         # RUNTIME_POLICY's pricing subset; this catches the day they drift instead of scheduling

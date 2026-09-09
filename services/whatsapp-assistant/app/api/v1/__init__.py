@@ -31,7 +31,6 @@ from app.api.authz import require_capability
 from app.api.deps import get_guard
 from app.api.ratelimit import rate_limit
 from app.core.booking_assignment import ACTOR as ACTOR_CREATED_BY
-from app.core.pricing import PricingConfig
 from app.core.pricing_schedule import pending as pending_pricing_changes
 from app.core.shop_impact_report import report as shop_impact_report
 
@@ -68,24 +67,15 @@ async def pricing_current(request: Request,
 
     container = request.app.state.container
     settings = get_settings()
-    current = await PricingConfig.from_runtime(container.runtime_config, settings)
     ai_unit = await AiUnitPricingConfig.from_runtime(container.runtime_config, settings)
-    # EVERY PENDING CHANGE, NOT JUST A STRATEGY SWAP — a rate-only change (the far more common
-    # case: the strategy stays "usage_based", only PRICING_USAGE_HALALAS_PER_1K_TOKENS moves) is
-    # exactly as much "the price is about to change" as a strategy change is. The card decides
-    # which of these keys it actually displays and matches against this list itself — this route's
-    # job is to hide nothing that is genuinely coming, not to guess which one the UI cares about.
+    # EVERY PENDING CHANGE — a shop's price is about to change the moment ANY AI-unit pricing key
+    # is scheduled to move. The card decides which of these keys it actually displays and matches
+    # against this list itself — this route's job is to hide nothing that is genuinely coming, not
+    # to guess which one the UI cares about.
     upcoming = [{"key": c.key, "value": c.value, "effective_at": c.effective_at}
                for c in await pending_pricing_changes(container.datastore)]
 
     return {
-        "strategy": current.strategy,
-        "usage_halalas_per_1k_tokens": current.usage_halalas_per_1k_tokens,
-        "usage_halalas_per_conversation": current.usage_halalas_per_conversation,
-        "tier_base_halalas": current.tier_base_halalas,
-        "tier_included_conversations": current.tier_included_conversations,
-        "tier_overage_halalas_per_conversation": current.tier_overage_halalas_per_conversation,
-        "addon_flat_halalas": current.addon_flat_halalas,
         # THE ONLY AI-UNIT FIELD A SHOP EVER NEEDS TO READ — the fixed halala->unit display scale
         # (core/ai_unit_pricing.py's own note: this NEVER varies by model). Margins/per-model costs
         # are our own cost basis, not a shop-facing fact — never returned here, same "a shop reads
