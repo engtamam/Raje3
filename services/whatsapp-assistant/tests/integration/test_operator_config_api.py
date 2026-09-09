@@ -178,6 +178,44 @@ def test_a_wrong_typed_value_is_refused_not_silently_stored(client, operator_aut
     assert r.status_code == 400
 
 
+# ── runtime bounds — the boot guard's rules applied to a LIVE override too (validate_runtime_
+# override, wired as RuntimeConfig's own `validate=`). Type-correct but nonsensical used to pass
+# straight through: `_coerce` only casts type, it never re-runs Settings' own field_validators. ──
+def test_a_value_past_metas_own_carousel_bounds_is_refused_at_runtime_not_only_at_boot(
+    client, operator_auth,
+):
+    r = client.put(f"{PREFIX}/config", json={"key": "MAX_CAROUSEL_CARDS", "value": 11},
+                   headers=operator_auth)
+    assert r.status_code == 400
+    # NEVER 11 — whatever it was before this call, the refused write must not have landed. Not
+    # asserted against a specific baseline: `client` is module-scoped and shared with earlier
+    # tests in this file that legitimately change this same key.
+    assert client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"][
+        "MAX_CAROUSEL_CARDS"] != 11
+
+
+def test_a_nonpositive_reply_token_ceiling_is_refused(client, operator_auth):
+    r = client.put(f"{PREFIX}/config", json={"key": "MAX_REPLY_TOKENS", "value": 0},
+                   headers=operator_auth)
+    assert r.status_code == 400
+
+
+def test_an_implausibly_large_reply_token_ceiling_is_refused(client, operator_auth):
+    """4,000 is already generous headroom for a WhatsApp reply — 50,000 is far more likely a typo
+    (a word/character count entered where a token count was meant) than a real ceiling."""
+    r = client.put(f"{PREFIX}/config", json={"key": "MAX_REPLY_TOKENS", "value": 50_000},
+                   headers=operator_auth)
+    assert r.status_code == 400
+
+
+def test_a_zero_soft_decline_threshold_is_refused_at_runtime(client, operator_auth):
+    """Same rule as this field's own boot-time field_validator — SOFT_DECLINE_THRESHOLD=0 would
+    escalate every single turn."""
+    r = client.put(f"{PREFIX}/config", json={"key": "SOFT_DECLINE_THRESHOLD", "value": 0},
+                   headers=operator_auth)
+    assert r.status_code == 400
+
+
 # ── secrets — audit-ordering fix ────────────────────────────────────────────────────────────────
 def test_setting_an_empty_secret_is_refused_not_logged_as_a_completed_rotation(client, secrets_auth):
     """THE REAL BUG: this route used to audit "operator.secret_set" BEFORE calling `.set()`, so a

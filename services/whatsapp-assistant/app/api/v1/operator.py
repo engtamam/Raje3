@@ -44,7 +44,7 @@ from app.core.pricing_schedule import schedule as schedule_pricing_change
 from app.core.ai_unit_pricing import parse_model_costs
 from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
-from app.runtime_policy import RUNTIME_POLICY
+from app.runtime_policy import RUNTIME_POLICY, validate_runtime_override
 
 router = APIRouter(prefix="/api/v1/assistant/operator", tags=["operator"])
 
@@ -103,7 +103,8 @@ def _runtime_config(request: Request) -> RuntimeConfig:
     rc = getattr(container, "runtime_config", None) if container is not None else None
     if rc is not None:
         return rc
-    return RuntimeConfig(request.app.state.container.datastore, Settings, policy=RUNTIME_POLICY)
+    return RuntimeConfig(request.app.state.container.datastore, Settings, policy=RUNTIME_POLICY,
+                         validate=validate_runtime_override)
 
 
 class ConfigIn(BaseModel):

@@ -235,8 +235,9 @@ def build_container(settings: Settings) -> Container:
     # operator.py) needs the same store instance the LLM adapter resolves it from, not a second
     # one that would never see the write.
     from app.core.runtime_config import RuntimeConfig
-    from app.runtime_policy import RUNTIME_POLICY
-    container.runtime_config = RuntimeConfig(container.datastore, Settings, policy=RUNTIME_POLICY)
+    from app.runtime_policy import RUNTIME_POLICY, validate_runtime_override
+    container.runtime_config = RuntimeConfig(container.datastore, Settings, policy=RUNTIME_POLICY,
+                                             validate=validate_runtime_override)
     container.llm = build_llm(settings, secret_store=container.secret_store,
                               runtime_config=container.runtime_config)
     # "config" (default) keeps the zero-infra placeholder; "real" (Phase 4) swaps in

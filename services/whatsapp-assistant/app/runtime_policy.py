@@ -21,6 +21,10 @@ finds it due — core/ai_unit_pricing.py's own resolve function is the real per-
 """
 from __future__ import annotations
 
+from typing import Any
+
+from app.core.runtime_config import RuntimeConfigError
+
 RUNTIME_POLICY: frozenset[str] = frozenset({
     # Which Gemini model the assistant calls — app/adapters/llm/assistant_service.py::respond()
     # reads it per turn, so a switch takes effect on the very next conversation turn, no redeploy.
@@ -44,3 +48,26 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     "PRICING_AI_UNIT_USD_TO_SAR",
     "PRICING_AI_UNIT_MODEL_COSTS_JSON",
 })
+
+
+# THE BOOT GUARD'S RULES, APPLIED TO A LIVE OVERRIDE TOO — this module's own docstring already
+# promises it ("THE BOOT GUARD'S RULES APPLY AT RUNTIME TOO"), but `RuntimeConfig.set()`'s
+# `_coerce` only casts to the field's TYPE, never re-runs the Settings class's own
+# `field_validator`s (core/runtime_config.py's own `_coerce` docstring says so explicitly). Without
+# this wired in as `RuntimeConfig`'s `validate=`, a value like `SOFT_DECLINE_THRESHOLD=0` or
+# `MAX_CAROUSEL_CARDS=500` passed type-coercion cleanly and broke the very next conversation that
+# touched it — exactly the "typo breaks production" gap this closes. Mirrors
+# api/v1/operator.py's own `_ai_unit_bounds_violation`, same reasoning, for the three
+# INSTANT-apply keys rather than the scheduled pricing ones.
+def validate_runtime_override(key: str, value: Any) -> None:
+    if key == "SOFT_DECLINE_THRESHOLD" and not (isinstance(value, int) and value > 0):
+        raise RuntimeConfigError(
+            f"{key}: {value!r} — must be a positive whole number; zero or negative would "
+            f"escalate every single turn, or never respect a decline at all")
+    if key == "MAX_CAROUSEL_CARDS" and not (isinstance(value, int) and 2 <= value <= 10):
+        raise RuntimeConfigError(
+            f"{key}: {value!r} — Meta's own WhatsApp carousel bounds are 2-10 cards")
+    if key == "MAX_REPLY_TOKENS" and not (isinstance(value, int) and 1 <= value <= 4_000):
+        raise RuntimeConfigError(
+            f"{key}: {value!r} — must be a positive token count up to 4,000; a WhatsApp reply "
+            f"is a few sentences at most")

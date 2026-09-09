@@ -378,14 +378,19 @@ const MODEL_OPTIONS: ModelOption[] = [
 ];
 
 // ── "الإدارة" — نموذج الذكاء الاصطناعي وسلوكه (app/runtime_policy.py، حيّ بلا إعادة نشر) ──────────
-const CONFIG_KEY_META: Record<string, { label: string; help: string }> = {
+// `min`/`max` MIRROR app/config.py's OWN field_validators + app/runtime_policy.py's
+// `validate_runtime_override` — the backend refuses anything outside these bounds regardless
+// (a raw API call cannot bypass this screen), so these are a courtesy: catching a typo before
+// the round trip, not the actual enforcement. A key with no `min`/`max` here renders a free-text
+// input, same as before.
+const CONFIG_KEY_META: Record<string, { label: string; help: string; min?: number; max?: number }> = {
   ASSISTANT_MODEL_NAME: { label: 'النموذج',
     help: 'اختر من قائمة النماذج المتاحة، مبوّبة حسب المزوّد — تغييره يسري على المحادثة التالية فوراً حتى للمحلات اللي بدأت تحادث قبل التغيير. Grok وQwen معطّلان: Grok غير مؤكَّد على Vertex AI أصلاً، وQwen مؤكَّد أنه خارج Vertex كلياً (يحتاج مضيفاً/مصادقة مختلفين تماماً). باقي الناشرين مبنيّون ومُختبرون، بانتظار مشروع GCP حقيقي (ولـClaude تحديداً: تفعيل + حصة إضافية من نفس اللوحة).' },
-  SOFT_DECLINE_THRESHOLD: { label: 'عتبة التوقف عن الاقتراح',
+  SOFT_DECLINE_THRESHOLD: { label: 'عتبة التوقف عن الاقتراح', min: 1, max: 100,
     help: 'عدد مرات رفض العميل لاقتراح قبل ما يتوقف المساعد عن اقتراح أي شي عليه (بلا تصعيد لموظف).' },
-  MAX_CAROUSEL_CARDS: { label: 'أقصى بطاقات بالعرض',
-    help: 'أقصى عدد بطاقات خدمات/باقات يعرضها المساعد بردّ واحد.' },
-  MAX_REPLY_TOKENS: { label: 'أقصى طول رد',
+  MAX_CAROUSEL_CARDS: { label: 'أقصى بطاقات بالعرض', min: 2, max: 10,
+    help: 'أقصى عدد بطاقات خدمات/باقات يعرضها المساعد بردّ واحد. حدود ميتا نفسها بقالب العرض: 2-10 بطاقات.' },
+  MAX_REPLY_TOKENS: { label: 'أقصى طول رد', min: 1, max: 4000,
     help: 'سقف حماية تقني (توكن) لطول رد النموذج نفسه — يمنع رداً غير طبيعي الطول من تكلفة أضعاف رد عادي. لا علاقة له بحد كلمات رسالة العميل (إعداد المحل الخاص به).' },
 };
 
@@ -445,9 +450,18 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
   // خطوة تأكيد داخل نفس النافذة — لا نافذة ثانية فوق الأولى. `Modal` هنا (بخلاف ConfirmDialog) لا
   // يدعم التكديس (انظر تعليقه الخاص)، فأي تأكيد يصير محتوى بديل داخل نفس النافذة المفتوحة أصلاً.
   const [step, setStep] = useState<'edit' | 'confirm-set' | 'confirm-clear'>('edit');
+  const meta = CONFIG_KEY_META[k];
+  const isNumeric = meta?.min !== undefined || meta?.max !== undefined;
+  // A COURTESY, NOT THE ENFORCEMENT — app/runtime_policy.py's `validate_runtime_override` refuses
+  // the same range server-side regardless (see this file's own note on CONFIG_KEY_META above).
+  // Empty is caught separately (the "تحديث" button is already disabled on `!value`).
+  const numericInvalid = isNumeric && value !== '' && (() => {
+    if (!/^-?\d+$/.test(value)) return true;
+    const n = Number(value);
+    return (meta.min !== undefined && n < meta.min) || (meta.max !== undefined && n > meta.max);
+  })();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const meta = CONFIG_KEY_META[k];
 
   async function doSet() {
     if (!setAction || !value) return;
@@ -523,10 +537,16 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
           </Select>
         ) : (
           <Input id={`config-${k}`} dir="ltr" value={value} onChange={(e) => setValue(e.target.value)}
+                type={isNumeric ? 'number' : 'text'} min={meta?.min} max={meta?.max} step={1}
                 className="max-w-xs" />
         )}
+        {isNumeric && meta ? (
+          <span className="text-label text-text-muted">المدى المسموح: {meta.min}–{meta.max}</span>
+        ) : null}
         {setAction ? (
-          <Button size="sm" disabled={!value} onClick={() => setStep('confirm-set')}>تحديث</Button>
+          <Button size="sm" disabled={!value || numericInvalid} onClick={() => setStep('confirm-set')}>
+            تحديث
+          </Button>
         ) : null}
         {clearAction ? (
           <Button size="sm" variant="outline" onClick={() => setStep('confirm-clear')}>
@@ -534,6 +554,11 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
           </Button>
         ) : null}
       </div>
+      {numericInvalid ? (
+        <p role="alert" className="text-danger text-sm">
+          يجب أن تكون قيمة صحيحة بين {meta?.min} و{meta?.max}.
+        </p>
+      ) : null}
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
     </div>
   );

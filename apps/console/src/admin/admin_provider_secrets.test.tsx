@@ -340,6 +340,70 @@ describe('AdminProviderSecrets', () => {
     expect(screen.queryByText('الأسرار')).toBeNull();
   });
 
+  it('a bounded numeric knob refuses a value outside its own range before the network call', async () => {
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.operator_config', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/config', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.set_operator_config', label: 'x', method: 'PUT' as const,
+           path: '/api/v1/assistant/operator/config', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.clear_operator_config', label: 'x', method: 'DELETE' as const,
+           path: '/api/v1/assistant/operator/config/{key}', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.persona_preview', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/persona-preview', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      if (path === '/api/v1/assistant/operator/config') {
+        // Meta's own carousel bounds are 2-10 — see app/config.py's own field_validator.
+        return Promise.resolve({ config: { MAX_CAROUSEL_CARDS: 5 } });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/persona-preview')) {
+        return Promise.resolve({ prompt: 'أنت المساعد الرقمي...' });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') {
+        return Promise.resolve({ pending: [] });
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await openCard('النموذج والسلوك');
+    await waitFor(() => expect((screen.getByLabelText('أقصى بطاقات بالعرض') as HTMLInputElement).value)
+      .toBe('5'));
+    const cardsInput = screen.getByLabelText('أقصى بطاقات بالعرض') as HTMLInputElement;
+    const updateButton = screen.getByRole('button', { name: 'تحديث' }) as HTMLButtonElement;
+
+    // 11 is past Meta's own 10-card ceiling — refused before any PUT is even attempted.
+    fireEvent.change(cardsInput, { target: { value: '11' } });
+    expect(updateButton.disabled).toBe(true);
+    expect(screen.getByText(/يجب أن تكون قيمة صحيحة بين 2 و10/)).toBeTruthy();
+
+    // Back inside bounds re-enables it, and the PUT that follows carries the corrected value.
+    fireEvent.change(cardsInput, { target: { value: '8' } });
+    expect(updateButton.disabled).toBe(false);
+    fireEvent.click(updateButton);
+    await waitFor(() => expect(screen.getByText(/تعديل "أقصى بطاقات بالعرض"؟/)).toBeTruthy());
+    fireEvent.click(screen.getByText('تأكيد'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/assistant/operator/config', 'PUT',
+      { key: 'MAX_CAROUSEL_CARDS', value: '8' }, 'tok-1',
+    ));
+  });
+
   it('المحاسبة schedules the five AI-unit pricing keys together on "جدولة إعدادات وحدات الذكاء"', async () => {
     const AI_CATALOG = {
       services: [

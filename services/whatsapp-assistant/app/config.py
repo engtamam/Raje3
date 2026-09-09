@@ -413,6 +413,17 @@ class Settings(BaseSettings):
     # 500 tokens is generous headroom, not a target.
     MAX_REPLY_TOKENS: int = 500
 
+    @field_validator("MAX_REPLY_TOKENS")
+    @classmethod
+    def _reject_implausible_max_reply_tokens(cls, v: int) -> int:
+        if not (1 <= v <= 4_000):
+            raise ValueError(
+                "must be a positive count up to 4,000 — a WhatsApp reply is a few sentences at "
+                "most (500 is already generous headroom); zero or negative would refuse every "
+                "reply outright, and anything past 4,000 is far more likely a typo (a token "
+                "count where a word or character count was meant) than a real ceiling")
+        return v
+
     # ── LLM (function calling, via assistant-service) ─────────────────────────
     LLM_DRIVER: str = "null"                 # null | assistant_service
     # The ONLY functions the model may call. Enforced twice: once by what we declare to the
@@ -438,6 +449,16 @@ class Settings(BaseSettings):
     # Meta's own carousel bounds are 2-10 cards; the default stays well under that ceiling — a
     # customer scrolling ten cards on a small screen is not "helpful", it is noise.
     MAX_CAROUSEL_CARDS: int = 5
+
+    @field_validator("MAX_CAROUSEL_CARDS")
+    @classmethod
+    def _reject_carousel_cards_outside_metas_own_bounds(cls, v: int) -> int:
+        if not (2 <= v <= 10):
+            raise ValueError(
+                "Meta's own WhatsApp carousel template bounds are 2-10 cards — a value outside "
+                "that range is accepted by nothing downstream of this: below 2 there is no "
+                "carousel to show, above 10 Meta itself refuses the send")
+        return v
 
     @property
     def llm_tool_allowlist(self) -> frozenset[str]:
