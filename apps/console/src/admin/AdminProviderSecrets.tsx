@@ -340,7 +340,12 @@ const MODEL_PROVIDER_META: Record<string, string> = {
   google: 'Google', anthropic: 'Anthropic', xai: 'xAI', zhipu: 'Zhipu AI',
   openai: 'OpenAI', minimax: 'MiniMax', alibaba: 'Alibaba',
 };
-interface ModelOption { id: string; label: string; provider: keyof typeof MODEL_PROVIDER_META; wired: boolean }
+interface ModelOption {
+  id: string; label: string; provider: keyof typeof MODEL_PROVIDER_META; wired: boolean;
+  /** Shown next to the label ONLY when `wired` is false — the real, per-provider reason, not a
+   *  generic "not built yet" that reads as a promise (Qwen never will be, via this project). */
+  disabledReason?: string;
+}
 const MODEL_OPTIONS: ModelOption[] = [
   // الافتراضي الحالي (deploy/services/whatsapp-assistant.values.yaml، 2026-09-09) — لاحظ إن
   // التأكيد الرسمي لتوفّر me-central2 (توثيق Google، 2026-09-02) كان لـ3.5-flash-lite بالذات، لا
@@ -355,15 +360,19 @@ const MODEL_OPTIONS: ModelOption[] = [
   { id: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic', wired: true },
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic', wired: true },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic', wired: true },
-  { id: 'grok-4', label: 'Grok 4', provider: 'xai', wired: false },
-  { id: 'grok-4-fast', label: 'Grok 4 Fast', provider: 'xai', wired: false },
+  { id: 'grok-4', label: 'Grok 4', provider: 'xai', wired: false,
+    disabledReason: 'غير مؤكَّد على Vertex AI' },
+  { id: 'grok-4-fast', label: 'Grok 4 Fast', provider: 'xai', wired: false,
+    disabledReason: 'غير مؤكَّد على Vertex AI' },
   { id: 'glm-4.6', label: 'GLM-4.6', provider: 'zhipu', wired: true },
   { id: 'glm-4.5-air', label: 'GLM-4.5 Air', provider: 'zhipu', wired: true },
   { id: 'gpt-oss-120b', label: 'gpt-oss-120b', provider: 'openai', wired: true },
   { id: 'gpt-oss-20b', label: 'gpt-oss-20b', provider: 'openai', wired: true },
   { id: 'minimax-m2', label: 'MiniMax M2', provider: 'minimax', wired: true },
-  { id: 'qwen3-max', label: 'Qwen3 Max', provider: 'alibaba', wired: false },
-  { id: 'qwen3-235b-a22b', label: 'Qwen3 235B A22B', provider: 'alibaba', wired: false },
+  { id: 'qwen3-max', label: 'Qwen3 Max', provider: 'alibaba', wired: false,
+    disabledReason: 'ليس على Vertex — يحتاج DashScope' },
+  { id: 'qwen3-235b-a22b', label: 'Qwen3 235B A22B', provider: 'alibaba', wired: false,
+    disabledReason: 'ليس على Vertex — يحتاج DashScope' },
 ];
 
 // ── "الإدارة" — نموذج الذكاء الاصطناعي وسلوكه (app/runtime_policy.py، حيّ بلا إعادة نشر) ──────────
@@ -504,7 +513,7 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
               <optgroup key={provider} label={providerLabel}>
                 {MODEL_OPTIONS.filter((m) => m.provider === provider).map((m) => (
                   <option key={m.id} value={m.id} disabled={!m.wired}>
-                    {m.label}{m.wired ? '' : ' — غير مدعوم بعد'}
+                    {m.label}{m.wired ? '' : ` — ${m.disabledReason ?? 'غير مدعوم'}`}
                   </option>
                 ))}
               </optgroup>
