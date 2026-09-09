@@ -105,12 +105,19 @@ def ensure_connection(client: HttpAssistantConnections, *, tenant: str, url: str
     # round trip on every message this service ever handles, for no benefit: the prompt/tools/url/
     # shape/model are already correct the overwhelming majority of the time.
     #
-    # url/shape/model WERE MISSING HERE UNTIL NOW — a real bug, not a new one this fixes in
+    # url/shape/model/auth WERE MISSING HERE UNTIL NOW — a real bug, not a new one this fixes in
     # passing: an operator switching ASSISTANT_MODEL_NAME (this module's own docstring promises it
     # "takes effect on the very next reply") never actually reached an ALREADY-PROVISIONED tenant's
     # connection, because this diff only ever looked at system_prompt/tools. The switch silently
     # kept talking to the old model for every shop that had already messaged once — only a
     # brand-new tenant (no `existing` yet) ever picked up the new value, via `create` above.
+    #
+    # `auth` (ASSISTANT_MODEL_AUTH — "vertex" or "api_key") is a deploy-time constant, not a
+    # runtime-live one like ASSISTANT_MODEL_NAME — it changes only on a redeploy with a different
+    # config value, never mid-process. But the exact same gap applied to it: an already-provisioned
+    # tenant's stored connection would keep whatever auth type it was created with FOREVER after
+    # such a redeploy, since nothing here ever compared it either — only a brand-new tenant (no
+    # `existing` row yet) picked up the redeployed value, same failure shape as url/shape/model.
     changes: dict[str, Any] = {}
     if existing.get("system_prompt") != system_prompt:
         changes["system_prompt"] = system_prompt
@@ -122,6 +129,8 @@ def ensure_connection(client: HttpAssistantConnections, *, tenant: str, url: str
         changes["shape"] = shape
     if existing.get("model") != model:
         changes["model"] = model
+    if existing.get("auth") != auth:
+        changes["auth"] = auth
     if changes:
         client.update(cid, tenant=tenant, **changes)
     return cid

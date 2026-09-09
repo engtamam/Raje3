@@ -65,7 +65,8 @@ def test_an_existing_connection_with_the_same_prompt_and_tools_is_left_alone():
         calls.append(req.get_method())
         return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
                                        "system_prompt": "same", "tools": [{"name": "x"}],
-                                       "url": "http://model", "shape": "generate", "model": "m"}]})
+                                       "url": "http://model", "shape": "generate", "model": "m",
+                                       "auth": "vertex"}]})
 
     with patch("urllib.request.urlopen", _urlopen):
         cid = ensure_connection(
@@ -85,7 +86,7 @@ def test_a_changed_prompt_updates_the_existing_connection_without_resending_the_
             return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
                                            "system_prompt": "old", "tools": [{"name": "x"}],
                                            "url": "http://model", "shape": "generate",
-                                           "model": "m"}]})
+                                           "model": "m", "auth": "vertex"}]})
         return _Resp({"id": "conn_9"})
 
     with patch("urllib.request.urlopen", _urlopen):
@@ -109,7 +110,7 @@ def test_changed_tools_alone_also_triggers_an_update():
             return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
                                            "system_prompt": "same", "tools": [{"name": "x"}],
                                            "url": "http://model", "shape": "generate",
-                                           "model": "m"}]})
+                                           "model": "m", "auth": "vertex"}]})
         return _Resp({"id": "conn_9"})
 
     with patch("urllib.request.urlopen", _urlopen):
@@ -132,7 +133,7 @@ def test_a_changed_model_alone_updates_url_shape_and_model_even_with_prompt_and_
             return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
                                            "system_prompt": "same", "tools": [{"name": "x"}],
                                            "url": "http://old-model", "shape": "generate",
-                                           "model": "gemini-2.5-flash"}]})
+                                           "model": "gemini-2.5-flash", "auth": "vertex"}]})
         return _Resp({"id": "conn_9"})
 
     with patch("urllib.request.urlopen", _urlopen):
@@ -144,6 +145,32 @@ def test_a_changed_model_alone_updates_url_shape_and_model_even_with_prompt_and_
     put_calls = [c for c in calls if c[0] == "PUT"]
     assert put_calls[0][1] == {"tenant": "t1", "url": "http://new-model", "shape": "anthropic",
                                "model": "claude-sonnet-5"}
+
+
+def test_a_changed_auth_alone_updates_the_existing_connection():
+    """Same bug shape as the url/shape/model fix above, one field short: ASSISTANT_MODEL_AUTH is a
+    deploy-time constant (a redeploy with a different value, never a live mid-process switch), but
+    an already-provisioned tenant's connection would keep whatever auth type it was created with
+    forever after such a redeploy, since `auth` was never compared here either — only a brand-new
+    tenant (no `existing` row yet) ever picked up the redeployed value."""
+    calls = []
+
+    def _urlopen(req, timeout=None):
+        calls.append((req.get_method(), json.loads(req.data or b"{}")))
+        if req.get_method() == "GET":
+            return _Resp({"connections": [{"id": "conn_9", "name": "whatsapp-assistant",
+                                           "system_prompt": "same", "tools": [{"name": "x"}],
+                                           "url": "http://model", "shape": "generate",
+                                           "model": "m", "auth": "vertex"}]})
+        return _Resp({"id": "conn_9"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        ensure_connection(
+            client(), tenant="t1", url="http://model", shape="generate", model="m",
+            auth="api_key", credential="cred", system_prompt="same", tools=[{"name": "x"}])
+
+    put_calls = [c for c in calls if c[0] == "PUT"]
+    assert put_calls[0][1] == {"tenant": "t1", "auth": "api_key"}
 
 
 def test_a_second_tenants_connection_is_not_confused_with_the_first():
