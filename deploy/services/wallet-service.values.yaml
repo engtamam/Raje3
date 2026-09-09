@@ -27,7 +27,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/wallet-service
-  digest: "sha256:02aa3552eaa96a56818c05da7a0f7b9627b1f861e1ff017da80f078a8c6e24ce"   # v0.18.47
+  digest: "sha256:046791a87b10a2a93792f46cd30f5f5d944d09324a9ec49d88cb3264a7ef154e"   # v0.18.62
 
 replicas: 1
 
@@ -125,6 +125,23 @@ env:
   #                and deliberately its OWN fund, never `topup`: a shop's AI-usage top-up must
   #                never be silently spent on its subscription bill, or the other way round.
   WALLET_FUNDS: "commission:1:taxed:withdrawable,ai_credit:2:taxed:locked,topup:3:taxed:locked,renewal:4:taxed:locked"
+  # ── Grant expiry (v0.18.62+) — `topup` ONLY, deliberately ────────────────────────────────────
+  # `ai_credit` and `renewal` are NOT listed here, on purpose: `ai_credit` is a plan allowance
+  # that resets on its own subscription cycle already (no Grant/expires_at involved at all — it
+  # is spent straight from the fund, "use it or lose it" by the plan renewal itself, not by this
+  # mechanism); `renewal` is a shop's own subscription-bill prepayment, unrelated to AI usage
+  # entirely. Neither needs, or should get, a TTL/idle policy.
+  #
+  # `topup` is real, purchased, non-refundable-in-the-normal-case prepaid credit — the one fund
+  # this mechanism actually exists for. `idle_behavior: "dormant"` (not "forfeit"): the SAFE
+  # default per wallet-service's own config.py docstring on SAMA's stored-value regime, held until
+  # a lawyer confirms whether `topup` can be reclassified as a pure non-withdrawable service
+  # credit (the "Closed Loop Account" category researched this session — a real, lighter regime,
+  # but one that still needs SAMA's own "no objection" filing, not an automatic exemption).
+  # `ttl_days: 365` matches OpenAI's own published Service Credit Terms, the closest real-world
+  # precedent for a prepaid AI-usage credit; `notice_days: 30` warns a shop before anything moves,
+  # never a silent surprise.
+  WALLET_FUND_EXPIRY_POLICIES: '{"topup": {"ttl_days": 365, "idle_behavior": "dormant", "notice_days": 30}}'
   # Taxed, unlike the message funds that preceded it: a commission paid to a partner IS a supply,
   # and VAT on it is a real obligation rather than a second charge on a riyal already taxed.
   WALLET_VAT_BP: "1500"
