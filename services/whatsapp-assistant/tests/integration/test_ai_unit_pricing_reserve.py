@@ -59,7 +59,8 @@ _REGISTRY = (
     '"expensive-model": {"input_usd_per_million": 5.00, "output_usd_per_million": 20.00}}')
 
 
-def _engine(store, llm, wallet, *, model_name: str, model_costs_json: str = _REGISTRY):
+def _engine(store, llm, wallet, *, model_name: str, model_costs_json: str = _REGISTRY,
+           runtime_config=None):
     return ConversationEngine(
         store=store, llm=llm, booking_provider=_provider(store),
         points_summary=NullPointsSummary(), debounce_seconds=180,
@@ -69,7 +70,8 @@ def _engine(store, llm, wallet, *, model_name: str, model_costs_json: str = _REG
         wallet_balance=wallet, wallet_estimated_tokens=1000,
         wallet_rate_halalas_per_1k=100,   # the flat legacy fallback rate
         wallet_margin_halalas=0,
-        ai_unit_pricing_settings=_Settings(model_costs_json), default_model_name=model_name)
+        ai_unit_pricing_settings=_Settings(model_costs_json), default_model_name=model_name,
+        runtime_config=runtime_config)
 
 
 async def _through_triage_and_reserve(engine, subject: str) -> None:
@@ -164,6 +166,46 @@ async def test_using_an_unpriced_models_substitute_rate_is_audited():
     assert not [e for e in sink.events
                if e.action == "whatsapp_assistant.unpriced_model_used"
                and e.resource == "model:cheap-model"]
+
+
+class _FlakyRuntimeConfig:
+    """Simulates an operator flipping ASSISTANT_MODEL_NAME mid-turn: the FIRST .get() call for
+    that key (compose_reply's own `_resolve_live_model_name`, called once before the reserve)
+    answers `first`; every call after that answers `second` — exactly what a second, independent
+    re-resolve deeper in the same turn would have seen under the old TOCTOU."""
+    def __init__(self, first: str, second: str):
+        self._first, self._second = first, second
+        self._calls = 0
+
+    async def get(self, *, tenant: str, key: str, default):
+        if key != "ASSISTANT_MODEL_NAME":
+            return default
+        self._calls += 1
+        return self._first if self._calls == 1 else self._second
+
+
+async def test_a_model_switch_mid_turn_cannot_split_the_reserve_from_the_actual_call():
+    """THE RACE THIS FIX CLOSES: before threading one resolved model_name through both the reserve
+    and the actual LLM call, each side re-read ASSISTANT_MODEL_NAME independently — a switch
+    landing in the real async I/O gap between them (shop context, prompt building) meant the
+    reserve was priced at one model's rate while the actual call ran a different one. Both sides
+    must now agree, always, on whichever value was live at the ONE moment compose_reply resolved
+    it — never a mix."""
+    store = MemoryDataStore()
+    wallet = _FakeWallet()
+    llm = StubLlm()
+    runtime_config = _FlakyRuntimeConfig(first="cheap-model", second="expensive-model")
+    engine = _engine(store, llm, wallet, model_name="cheap-model", runtime_config=runtime_config)
+    await _through_triage_and_reserve(engine, "sub1")
+
+    assert len(wallet.reserved_amounts) == 1
+    assert len(llm.calls) == 1
+    # cheap-model's own rate (0.40 usd/M output * 3.75 * 2.0 margin * 100 / 1000 = 0.3 halalas/1k,
+    # the worse-of-the-two — see _model_aware_reserve_rate's own note), ceil(1000/1000 * 0.3) = 1.
+    assert wallet.reserved_amounts[0] == 1
+    # AND the actual call ran the SAME model the reserve was priced for — not "expensive-model",
+    # which a second, independent resolve deeper in the turn would have returned instead.
+    assert llm.calls[0]["model_name"] == "cheap-model"
 
 
 async def test_with_no_ai_unit_pricing_settings_wired_behaviour_is_byte_identical_to_before():

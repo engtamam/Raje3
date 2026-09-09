@@ -705,8 +705,23 @@ class ConversationEngine:
         return ReplyPlan(kind="list", text=_BRANCH_PROMPT, list_button_text=_BRANCH_LIST_BUTTON_TEXT,
                          list_rows=rows)
 
-    async def _model_aware_reserve_rate(self) -> tuple[float, str, bool]:
-        """(rate, model_name, used_fallback_rate) — the halalas-per-1k-tokens rate
+    async def _resolve_live_model_name(self) -> str:
+        """THE ONE PLACE THIS TURN RESOLVES ASSISTANT_MODEL_NAME — `compose_reply` calls this
+        EXACTLY ONCE and threads the result through both the wallet reserve (`_reserve_llm_hold`)
+        and the actual LLM call (`self._llm.respond(model_name=...)`). Before this existed, each
+        side re-read the runtime override independently, at two different points in the same
+        turn (real async I/O — shop context, prompt building — runs between them) — a real TOCTOU:
+        an operator flipping the model mid-turn could reserve at one model's rate and then
+        actually run a different, possibly pricier one. One resolve, reused everywhere, removes
+        the race structurally rather than narrowing its window."""
+        model_name = self._default_model_name
+        if self._runtime_config is not None:
+            model_name = await self._runtime_config.get(
+                tenant="", key="ASSISTANT_MODEL_NAME", default=model_name)
+        return model_name
+
+    async def _model_aware_reserve_rate(self, model_name: str) -> tuple[float, bool]:
+        """(rate, used_fallback_rate) for `model_name` — the halalas-per-1k-tokens rate
         `_reserve_llm_hold` prices the estimated ceiling at, the ACTUAL model's own real rate
         (app/core/ai_unit_pricing.py) when a pricing registry is wired, the flat legacy rate
         otherwise (no pre-existing test constructor regresses).
@@ -728,26 +743,26 @@ class ConversationEngine:
         function's own note on why never zero) was used instead — `_reserve_llm_hold` audits it.
         """
         if self._ai_unit_pricing_settings is None:
-            return float(self._wallet_rate_halalas_per_1k), self._default_model_name, False
-        model_name = self._default_model_name
-        if self._runtime_config is not None:
-            model_name = await self._runtime_config.get(
-                tenant="", key="ASSISTANT_MODEL_NAME", default=model_name)
+            return float(self._wallet_rate_halalas_per_1k), False
         cfg = await AiUnitPricingConfig.from_runtime(self._runtime_config, self._ai_unit_pricing_settings)
         input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
             cfg, model_name, fallback_halalas_per_1k=float(self._wallet_rate_halalas_per_1k))
-        return max(input_rate, output_rate), model_name, used_fallback
+        return max(input_rate, output_rate), used_fallback
 
-    async def _reserve_llm_hold(self, tenant: str, conversation_ref: str) -> str | None:
+    async def _reserve_llm_hold(self, tenant: str, conversation_ref: str, model_name: str
+                                ) -> str | None:
         """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
         docstring for the full reasoning). Returns a hold id on success, or None — insufficient
         funds, or the peer call itself failed, which this method treats identically (fails
         CLOSED): an uncertain reserve is never treated as a successful one, because this is the
         one call in this service where "probably fine" is not an acceptable answer.
+
+        `model_name` is `compose_reply`'s OWN already-resolved value, not re-resolved here — see
+        `_resolve_live_model_name`'s own note on why.
         """
         if self._wallet is None:
             return None
-        rate, model_name, used_fallback = await self._model_aware_reserve_rate()
+        rate, used_fallback = await self._model_aware_reserve_rate(model_name)
         if used_fallback and self._auditor is not None:
             # THE LIVE MODEL HAS NO REGISTERED PRICE — a real operator gap, not a reason to stop
             # replying (see model_rate_halalas_per_1k's own note), but one that must be visible:
@@ -1178,6 +1193,12 @@ class ConversationEngine:
             return await self._stop_not_subscribed(
                 conv, tenant=tenant, subject_ref=subject_ref, now=now)
 
+        # RESOLVED EXACTLY ONCE FOR THIS WHOLE TURN — see `_resolve_live_model_name`'s own note on
+        # why: reused below for BOTH the wallet reserve and the actual LLM call, so the two can
+        # never disagree about which model is really running even if an operator flips
+        # ASSISTANT_MODEL_NAME in the gap between them.
+        model_name = await self._resolve_live_model_name()
+
         # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s
         # docstring. `self._wallet is not None` gates whether this service is wallet-gated at all
         # (pre-existing test constructors and a deployment with no WALLET_SERVICE_URL both leave
@@ -1186,7 +1207,7 @@ class ConversationEngine:
         hold_id: str | None = None
         if self._wallet is not None:
             conversation_ref = self._key(tenant, subject_ref)
-            hold_id = await self._reserve_llm_hold(tenant, conversation_ref)
+            hold_id = await self._reserve_llm_hold(tenant, conversation_ref, model_name)
             if hold_id is None:
                 return await self._stop_wallet_depleted(
                     conv, tenant=tenant, subject_ref=subject_ref, now=now)
@@ -1199,7 +1220,7 @@ class ConversationEngine:
         reply: LlmReply = await self._llm.respond(
             system_prompt=system_prompt, summary=conv.summary, recent_messages=recent,
             user_message=user_turn, allowed_tools=allowed, context_block=context_block,
-            tenant=tenant)
+            tenant=tenant, model_name=model_name)
         conv.input_tokens += reply.input_tokens
         conv.output_tokens += reply.output_tokens
         # ONE ROW PER REAL LLM CALL, APPENDED — the actual cost basis pricing.py's own docstring

@@ -284,7 +284,7 @@ class AssistantServiceLlm:
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
                       allowed_tools: frozenset[str], context_block: str = "",
-                      tenant: str = "") -> LlmReply:
+                      tenant: str = "", model_name: str = "") -> LlmReply:
         tools_for_call = self._allowed & frozenset(allowed_tools) if allowed_tools else self._allowed
         tool_schemas = [_TOOL_SCHEMAS[name] for name in sorted(tools_for_call)]
 
@@ -303,7 +303,12 @@ class AssistantServiceLlm:
                 "ASSISTANT_MODEL_PROJECT/ASSISTANT_MODEL_CREDENTIAL not yet configured — set them "
                 "via /api/v1/assistant/operator/secrets once a real GCP project exists")
 
-        model_name = await self._resolve_model_name()
+        # THE CALLER'S ALREADY-RESOLVED VALUE WINS — see LlmPort.respond's own note on why
+        # (core/conversation.py's compose_reply resolves this once, before the wallet reserve, and
+        # passes it straight through here so the reserve and the actual call can never disagree
+        # about which model this turn is really running). Only re-resolve when nothing was passed,
+        # for every caller that has no reserve step of its own to have already resolved it for.
+        model_name = model_name or await self._resolve_model_name()
         url, shape = self._model_url_and_shape(project, model_name)
         try:
             cid = ensure_connection(

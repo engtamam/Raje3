@@ -32,11 +32,12 @@ class StubLlm:
 
     async def respond(self, *, system_prompt: str, summary: str, recent_messages: list[dict],
                       user_message: str, allowed_tools: frozenset[str],
-                      context_block: str = "", tenant: str = "") -> LlmReply:
+                      context_block: str = "", tenant: str = "",
+                      model_name: str = "") -> LlmReply:
         self.calls.append({"system_prompt": system_prompt, "summary": summary,
                            "recent_messages": recent_messages, "user_message": user_message,
                            "allowed_tools": allowed_tools, "context_block": context_block,
-                           "tenant": tenant})
+                           "tenant": tenant, "model_name": model_name})
         if self._queue:
             return self._queue.popleft()
         return LlmReply(text="عذرًا، لم أفهم طلبك.", input_tokens=5, output_tokens=5)

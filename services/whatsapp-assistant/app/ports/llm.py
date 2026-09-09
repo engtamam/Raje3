@@ -53,9 +53,19 @@ class LlmPort(Protocol):
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
                       allowed_tools: frozenset[str], context_block: str = "",
-                      tenant: str = "") -> LlmReply: ...
+                      tenant: str = "", model_name: str = "") -> LlmReply: ...
     # `tenant` exists for AssistantServiceLlm (app/adapters/llm/assistant_service.py), which
     # routes each tenant to its OWN isolated AI connection on assistant-service — a single shared
     # port instance serves every tenant, so it is the one fact this call needs that the prompt/
     # message arguments do not already carry. NullLlm accepts and ignores it: there is nothing to
     # route when nothing is ever called.
+    #
+    # `model_name`, EMPTY BY DEFAULT MEANING "resolve the live value yourself" (AssistantServiceLlm
+    # re-reads ASSISTANT_MODEL_NAME from runtime_config when this is ""). A caller that already
+    # resolved the live model name for its OWN purposes (core/conversation.py's own
+    # `compose_reply` — it needs the model to price the wallet reserve BEFORE this call even
+    # happens) should pass that SAME value here rather than let this port re-resolve it
+    # independently: two separate reads of a value that can change between them (an operator
+    # flipping ASSISTANT_MODEL_NAME mid-turn) is a real TOCTOU — the reserve priced at one model's
+    # rate, the actual call running a different, possibly pricier one. One resolve, reused
+    # everywhere in the same turn, removes the race structurally rather than narrowing it.
