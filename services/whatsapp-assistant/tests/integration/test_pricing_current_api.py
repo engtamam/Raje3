@@ -92,9 +92,11 @@ def test_the_deploy_time_defaults_with_nothing_pending(client, shop_auth):
 def test_a_change_scheduled_by_the_operator_shows_up_here_with_its_effective_date(
     client, shop_auth,
 ):
+    """The one AI-unit key a shop MAY see: PRICING_AI_UNIT_UNITS_PER_HALALA. See the sibling test
+    right below for the keys that must never appear here, however they schedule."""
     operator_auth = _auth("platform.config")
     r = client.post("/api/v1/assistant/operator/pricing/schedule",
-                    json={"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0,
+                    json={"key": "PRICING_AI_UNIT_UNITS_PER_HALALA", "value": 2000,
                           "effective_in_days": 15},
                     headers=operator_auth)
     assert r.status_code == 200, r.text
@@ -105,8 +107,30 @@ def test_a_change_scheduled_by_the_operator_shows_up_here_with_its_effective_dat
     assert body["ai_unit_units_per_halala"] == 1000
     # BUT VISIBLE, WITH THE REAL DATE — this is the whole feature: "ما كنت أعرف" is never true.
     assert body["pending_changes"] == [
-        {"key": "PRICING_AI_UNIT_USD_TO_SAR", "value": 4.0, "effective_at": effective_at},
+        {"key": "PRICING_AI_UNIT_UNITS_PER_HALALA", "value": 2000, "effective_at": effective_at},
     ]
+
+
+def test_a_pending_margin_or_model_cost_change_never_leaks_here(client, shop_auth):
+    """REAL BUG, found by audit and fixed: pending_changes used to return EVERY scheduled pricing
+    key unfiltered, including our own cost basis (margins, real Google per-model prices) — a shop
+    session could read what we pay and what we mark it up by. Only PRICING_AI_UNIT_UNITS_PER_HALALA
+    (a fixed display scale, never a cost fact) may ever appear here."""
+    operator_auth = _auth("platform.config")
+    for key, value in (
+        ("PRICING_AI_UNIT_USD_TO_SAR", 4.0),
+        ("PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER", 8.0),
+        ("PRICING_AI_UNIT_OUTPUT_MARGIN_MULTIPLIER", 3.0),
+        ("PRICING_AI_UNIT_MODEL_COSTS_JSON",
+         '{"gemini-3.1-flash-lite": {"input_usd_per_million": 0.99, "output_usd_per_million": 9.99}}'),
+    ):
+        r = client.post("/api/v1/assistant/operator/pricing/schedule",
+                        json={"key": key, "value": value, "effective_in_days": 15},
+                        headers=operator_auth)
+        assert r.status_code == 200, r.text
+
+    body = client.get(PATH, headers=shop_auth).json()
+    assert body["pending_changes"] == []
 
 
 def test_a_landed_ai_unit_rate_change_is_reflected_here(client, shop_auth):

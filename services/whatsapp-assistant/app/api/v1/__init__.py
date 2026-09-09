@@ -68,12 +68,14 @@ async def pricing_current(request: Request,
     container = request.app.state.container
     settings = get_settings()
     ai_unit = await AiUnitPricingConfig.from_runtime(container.runtime_config, settings)
-    # EVERY PENDING CHANGE — a shop's price is about to change the moment ANY AI-unit pricing key
-    # is scheduled to move. The card decides which of these keys it actually displays and matches
-    # against this list itself — this route's job is to hide nothing that is genuinely coming, not
-    # to guess which one the UI cares about.
+    # ONLY THE FIELD A SHOP MAY EVER SEE, same boundary as ai_unit_units_per_halala below — a
+    # pending margin/model-cost change is OUR cost basis, never a fact a shop-level `pricing_read`
+    # session should read. pending_pricing_changes() itself has no such filter (it is the
+    # operator-only route's own data source too), so this route must filter before returning it.
+    _SHOP_VISIBLE_PENDING_KEYS = frozenset({"PRICING_AI_UNIT_UNITS_PER_HALALA"})
     upcoming = [{"key": c.key, "value": c.value, "effective_at": c.effective_at}
-               for c in await pending_pricing_changes(container.datastore)]
+               for c in await pending_pricing_changes(container.datastore)
+               if c.key in _SHOP_VISIBLE_PENDING_KEYS]
 
     return {
         # THE ONLY AI-UNIT FIELD A SHOP EVER NEEDS TO READ — the fixed halala->unit display scale
