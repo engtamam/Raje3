@@ -85,21 +85,47 @@ def test_model_rate_uses_the_registry_when_the_model_is_known():
     cfg = AiUnitPricingConfig(
         units_per_halala=1000, input_margin_multiplier=5.0, output_margin_multiplier=2.0,
         usd_to_sar=3.75, model_costs={"gemini-3.1-flash-lite": ModelCost(0.25, 1.50)})
-    input_rate, output_rate = model_rate_halalas_per_1k(
+    input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
         cfg, "gemini-3.1-flash-lite", fallback_halalas_per_1k=99.0)
     assert input_rate == 0.46875
     assert output_rate == 1.125
+    assert used_fallback is False
 
 
-def test_model_rate_falls_back_to_the_flat_rate_for_an_unpriced_model():
-    """A model missing from the registry must never block the AI — it gets the flat legacy rate
-    in both directions rather than a KeyError or a refusal."""
+def test_model_rate_falls_back_to_the_flat_legacy_rate_only_when_the_registry_is_empty():
+    """A model missing from the registry must never block the AI — no KeyError, no refusal. With
+    NOTHING registered there is no "most expensive known model" to substitute, so this is the one
+    case the flat legacy rate is still used — and the caller is told so via `used_fallback`."""
     cfg = AiUnitPricingConfig(
         units_per_halala=1000, input_margin_multiplier=5.0, output_margin_multiplier=2.0,
         usd_to_sar=3.75, model_costs={})
-    input_rate, output_rate = model_rate_halalas_per_1k(
+    input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
         cfg, "some-new-unpriced-model", fallback_halalas_per_1k=42.0)
     assert input_rate == 42.0 and output_rate == 42.0
+    assert used_fallback is True
+
+
+def test_an_unpriced_model_is_billed_at_the_priciest_known_models_rate_never_free():
+    """THE REAL BUG THIS REPLACES: the flat legacy rate is deployed at 0 in production — an
+    unpriced model used to be billed at exactly nothing, silently, for every conversation that
+    touched it. The substitute must always be a REAL, non-zero rate: the most expensive model
+    already registered, so an unpriced model can only ever be over-charged relative to its true
+    (unknown) cost, never given away for free."""
+    cfg = AiUnitPricingConfig(
+        units_per_halala=1000, input_margin_multiplier=5.0, output_margin_multiplier=2.0,
+        usd_to_sar=3.75,
+        model_costs={
+            "cheap-model": ModelCost(0.10, 0.40),
+            "expensive-model": ModelCost(3.00, 15.00),
+        })
+    input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
+        cfg, "some-new-unpriced-model", fallback_halalas_per_1k=0.0)
+    assert used_fallback is True
+    assert input_rate > 0 and output_rate > 0   # never zero, even though the legacy fallback IS 0
+    # exactly "expensive-model"'s own rate, not a blend
+    expensive_in, expensive_out, _ = model_rate_halalas_per_1k(
+        cfg, "expensive-model", fallback_halalas_per_1k=0.0)
+    assert (input_rate, output_rate) == (expensive_in, expensive_out)
 
 
 def test_a_cheap_model_and_an_expensive_model_produce_visibly_different_rates():
@@ -111,8 +137,8 @@ def test_a_cheap_model_and_an_expensive_model_produce_visibly_different_rates():
             "cheap-model": ModelCost(0.10, 0.40),
             "expensive-model": ModelCost(3.00, 15.00),
         })
-    cheap_in, cheap_out = model_rate_halalas_per_1k(cfg, "cheap-model", fallback_halalas_per_1k=0)
-    exp_in, exp_out = model_rate_halalas_per_1k(cfg, "expensive-model", fallback_halalas_per_1k=0)
+    cheap_in, cheap_out, _ = model_rate_halalas_per_1k(cfg, "cheap-model", fallback_halalas_per_1k=0)
+    exp_in, exp_out, _ = model_rate_halalas_per_1k(cfg, "expensive-model", fallback_halalas_per_1k=0)
     assert exp_in > cheap_in
     assert exp_out > cheap_out
     assert exp_in > cheap_in * 10   # a real, large gap — not noise

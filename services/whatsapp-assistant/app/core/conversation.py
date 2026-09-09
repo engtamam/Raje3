@@ -705,10 +705,11 @@ class ConversationEngine:
         return ReplyPlan(kind="list", text=_BRANCH_PROMPT, list_button_text=_BRANCH_LIST_BUTTON_TEXT,
                          list_rows=rows)
 
-    async def _model_aware_reserve_rate(self) -> float:
-        """The halalas-per-1k-tokens rate `_reserve_llm_hold` prices the estimated ceiling at —
-        the ACTUAL model's own real rate (app/core/ai_unit_pricing.py) when a pricing registry is
-        wired, the flat legacy rate otherwise (no pre-existing test constructor regresses).
+    async def _model_aware_reserve_rate(self) -> tuple[float, str, bool]:
+        """(rate, model_name, used_fallback_rate) — the halalas-per-1k-tokens rate
+        `_reserve_llm_hold` prices the estimated ceiling at, the ACTUAL model's own real rate
+        (app/core/ai_unit_pricing.py) when a pricing registry is wired, the flat legacy rate
+        otherwise (no pre-existing test constructor regresses).
 
         THE WORSE OF INPUT/OUTPUT, DELIBERATELY, NOT A BLEND — `WALLET_ESTIMATED_MAX_TOKENS_PER_
         TURN` is one blended ceiling covering context input plus the reply, not a real input/output
@@ -721,17 +722,21 @@ class ConversationEngine:
         model still reserves less than an expensive one, because the per-model rate itself is
         smaller — it simply is not perfectly tight, the same trade-off the safety margin already
         exists to make on purpose.
+
+        `used_fallback_rate` is `model_rate_halalas_per_1k`'s own signal that `model_name` had no
+        registered price and a substitute (the most expensive KNOWN model's rate — see that
+        function's own note on why never zero) was used instead — `_reserve_llm_hold` audits it.
         """
         if self._ai_unit_pricing_settings is None:
-            return float(self._wallet_rate_halalas_per_1k)
+            return float(self._wallet_rate_halalas_per_1k), self._default_model_name, False
         model_name = self._default_model_name
         if self._runtime_config is not None:
             model_name = await self._runtime_config.get(
                 tenant="", key="ASSISTANT_MODEL_NAME", default=model_name)
         cfg = await AiUnitPricingConfig.from_runtime(self._runtime_config, self._ai_unit_pricing_settings)
-        input_rate, output_rate = model_rate_halalas_per_1k(
+        input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
             cfg, model_name, fallback_halalas_per_1k=float(self._wallet_rate_halalas_per_1k))
-        return max(input_rate, output_rate)
+        return max(input_rate, output_rate), model_name, used_fallback
 
     async def _reserve_llm_hold(self, tenant: str, conversation_ref: str) -> str | None:
         """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
@@ -742,7 +747,20 @@ class ConversationEngine:
         """
         if self._wallet is None:
             return None
-        rate = await self._model_aware_reserve_rate()
+        rate, model_name, used_fallback = await self._model_aware_reserve_rate()
+        if used_fallback and self._auditor is not None:
+            # THE LIVE MODEL HAS NO REGISTERED PRICE — a real operator gap, not a reason to stop
+            # replying (see model_rate_halalas_per_1k's own note), but one that must be visible:
+            # this used to be silently invisible AND silently free (the old fallback was 0), the
+            # worst combination. Best-effort, same as every other non-critical audit call in this
+            # file — a down audit sink must never itself block a reply.
+            try:
+                await self._auditor.record(
+                    "whatsapp_assistant.unpriced_model_used", actor="whatsapp-assistant",
+                    resource=f"model:{model_name}", tenant=tenant,
+                    metadata={"model": model_name})
+            except Exception:                                        # noqa: BLE001
+                pass
         amount = WB.estimated_hold_halalas(
             estimated_tokens=self._wallet_estimated_tokens,
             halalas_per_1k_tokens=rate,

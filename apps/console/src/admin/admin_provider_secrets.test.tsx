@@ -404,6 +404,69 @@ describe('AdminProviderSecrets', () => {
     ));
   });
 
+  it('picking a model with no registered price warns before it ever reaches the network', async () => {
+    const AI_CATALOG = {
+      services: [
+        { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+        { service: 'whatsapp-assistant', actions: [
+          { id: 'whatsapp_assistant.operator_config', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/config', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.set_operator_config', label: 'x', method: 'PUT' as const,
+           path: '/api/v1/assistant/operator/config', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.clear_operator_config', label: 'x', method: 'DELETE' as const,
+           path: '/api/v1/assistant/operator/config/{key}', capability: 'platform.config', confirm: true },
+          { id: 'whatsapp_assistant.persona_preview', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/persona-preview', capability: 'platform.config' },
+          { id: 'whatsapp_assistant.pricing_pending', label: 'x', method: 'GET' as const,
+           path: '/api/v1/assistant/operator/pricing/pending', capability: 'platform.config' },
+        ] },
+      ],
+      unreachable: [],
+    };
+    fetchCatalogMock = vi.fn().mockResolvedValue(AI_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'ASSISTANT_MODEL_CREDENTIAL', label: 'مفتاح الذكاء الاصطناعي',
+                     configured: false, last4: null, updated_at: null, updated_by: null }],
+        });
+      }
+      if (path === '/api/v1/assistant/operator/config') {
+        // gemini-3.1-flash-lite is priced; gemini-2.5-flash (the CURRENT live model) is not.
+        return Promise.resolve({
+          config: {
+            ASSISTANT_MODEL_NAME: 'gemini-2.5-flash',
+            PRICING_AI_UNIT_MODEL_COSTS_JSON:
+              '{"gemini-3.1-flash-lite": {"input_usd_per_million": 0.25, "output_usd_per_million": 1.5}}',
+          },
+        });
+      }
+      if (path.startsWith('/api/v1/assistant/operator/persona-preview')) {
+        return Promise.resolve({ prompt: 'أنت المساعد الرقمي...' });
+      }
+      if (path === '/api/v1/assistant/operator/pricing/pending') {
+        return Promise.resolve({ pending: [] });
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await openCard('النموذج والسلوك');
+    const modelSelect = await waitFor(
+      () => screen.getByLabelText('النموذج') as HTMLSelectElement);
+
+    // The live model (gemini-2.5-flash) has no cost entry — warned immediately, no interaction needed.
+    expect(screen.getByText(/هذا النموذج بلا سعر مسجَّل/)).toBeTruthy();
+
+    // Switching to the priced model clears the warning.
+    fireEvent.change(modelSelect, { target: { value: 'gemini-3.1-flash-lite' } });
+    expect(screen.queryByText(/هذا النموذج بلا سعر مسجَّل/)).toBeNull();
+
+    // Switching to an unpriced-but-wired model brings it back.
+    fireEvent.change(modelSelect, { target: { value: 'gpt-oss-120b' } });
+    expect(screen.getByText(/هذا النموذج بلا سعر مسجَّل/)).toBeTruthy();
+  });
+
   it('المحاسبة schedules the five AI-unit pricing keys together on "جدولة إعدادات وحدات الذكاء"', async () => {
     const AI_CATALOG = {
       services: [

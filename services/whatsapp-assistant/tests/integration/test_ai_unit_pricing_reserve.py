@@ -1,6 +1,8 @@
 """ConversationEngine's reserve math, wired to a real (fake) per-model cost registry — a cheap
 model and an expensive model must reserve visibly different amounts for the exact same turn, and a
-model missing from the registry must fall back to the flat legacy rate rather than blocking the AI.
+model missing from the registry must never block the AI. It also must never be free: with any
+OTHER model already priced, it is billed at the most expensive of those; only a completely empty
+registry falls back to the flat legacy rate.
 """
 from __future__ import annotations
 
@@ -98,15 +100,70 @@ async def test_a_cheap_and_an_expensive_model_reserve_visibly_different_amounts_
     assert expensive_amount > cheap_amount * 10
 
 
-async def test_an_unpriced_model_falls_back_to_the_flat_legacy_rate_rather_than_blocking():
+async def test_an_unpriced_model_is_billed_at_the_priciest_known_models_rate_never_free():
+    """THE REAL BUG THIS REPLACES: this registry's own flat legacy fallback is 100 — but an
+    unpriced model must not fall back to THAT when the registry itself is non-empty; it must be
+    billed at the most expensive model already registered ("expensive-model" here), so it can
+    only ever be over-charged relative to its true unknown cost, never under-charged or free."""
     store = MemoryDataStore()
     wallet = _FakeWallet()
     engine = _engine(store, StubLlm(), wallet, model_name="some-brand-new-model")
     await _through_triage_and_reserve(engine, "sub1")
 
     assert len(wallet.reserved_amounts) == 1
-    # 1000 tokens @ the flat 100 halalas/1k fallback, no margin configured here = 100.
-    assert wallet.reserved_amounts[0] == 100
+    # "expensive-model"'s own rate (max of its input/output halves) — 15 halalas/1k, not the flat
+    # 100 fallback and never 0.
+    assert wallet.reserved_amounts[0] == 15
+
+
+async def test_an_unpriced_model_with_a_completely_empty_registry_falls_back_to_the_flat_rate():
+    """The one case the flat legacy rate IS still used: no model has ever been priced at all, so
+    there is no "most expensive known model" to substitute."""
+    store = MemoryDataStore()
+    wallet = _FakeWallet()
+    engine = _engine(store, StubLlm(), wallet, model_name="some-brand-new-model",
+                     model_costs_json="{}")
+    await _through_triage_and_reserve(engine, "sub1")
+
+    assert len(wallet.reserved_amounts) == 1
+    assert wallet.reserved_amounts[0] == 100   # the flat 100 halalas/1k fallback, no margin here
+
+
+async def test_using_an_unpriced_models_substitute_rate_is_audited():
+    """The visibility half of the fix — a real Auditor (not a no-op fake), so a bug in
+    auditable_actions.py's own declaration (this action must be declared there, or `Auditor.record`
+    itself refuses it) is caught here rather than silently swallowed by _reserve_llm_hold's own
+    best-effort try/except."""
+    from app.core.audit import Auditor
+    from app.core.auditable import critical_actions, declared_actions, validate
+    from app.adapters.audit_sink.null import NullAuditSink
+    from app.auditable_actions import AUDITABLE_ACTIONS
+
+    actions = validate(AUDITABLE_ACTIONS, "whatsapp-assistant")
+    sink = NullAuditSink()
+    auditor = Auditor(sink=sink, service="whatsapp-assistant",
+                      critical_actions=critical_actions(actions),
+                      declared_actions=declared_actions(actions), fail_closed=True)
+
+    store = MemoryDataStore()
+    wallet = _FakeWallet()
+    engine = _engine(store, StubLlm(), wallet, model_name="some-brand-new-model")
+    engine.set_auditor(auditor)
+    await _through_triage_and_reserve(engine, "sub1")
+
+    unpriced_events = [e for e in sink.events if e.action == "whatsapp_assistant.unpriced_model_used"]
+    assert len(unpriced_events) == 1
+    assert unpriced_events[0].metadata.get("model") == "some-brand-new-model"
+
+    # A PRICED model must never fire this event — the audit trail would be noise otherwise.
+    store2 = MemoryDataStore()
+    wallet2 = _FakeWallet()
+    engine2 = _engine(store2, StubLlm(), wallet2, model_name="cheap-model")
+    engine2.set_auditor(auditor)
+    await _through_triage_and_reserve(engine2, "sub2")
+    assert not [e for e in sink.events
+               if e.action == "whatsapp_assistant.unpriced_model_used"
+               and e.resource == "model:cheap-model"]
 
 
 async def test_with_no_ai_unit_pricing_settings_wired_behaviour_is_byte_identical_to_before():

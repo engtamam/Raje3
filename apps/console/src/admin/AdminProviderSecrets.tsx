@@ -417,6 +417,20 @@ function AIConfigCard({ session, getAction, setAction, clearAction }: {
     ? Object.entries(config).filter(([k]) => !k.startsWith('PRICING_')) : [];
   const count = entries.length;
 
+  // STILL READ HERE, even though PRICING_* is excluded from `entries` just above — the ONE
+  // question the model dropdown needs answered: "is the currently-selected model actually
+  // priced?" An operator picking a model with no cost entry used to find out only after the fact
+  // (core/ai_unit_pricing.py's own model_rate_halalas_per_1k substitutes a rate rather than
+  // blocking, so nothing here would otherwise ever surface the gap). Same JSON `config` already
+  // fetched for this card — no second request.
+  const pricedModelIds = new Set<string>();
+  if (typeof config === 'object') {
+    try {
+      const parsed = JSON.parse(String(config.PRICING_AI_UNIT_MODEL_COSTS_JSON ?? '{}'));
+      if (parsed && typeof parsed === 'object') Object.keys(parsed).forEach((k) => pricedModelIds.add(k));
+    } catch { /* malformed JSON reads as "nothing priced" — same fail-safe direction as the backend */ }
+  }
+
   return (
     <>
       <CardTrigger onClick={() => setOpen(true)} title="النموذج والسلوك"
@@ -433,7 +447,8 @@ function AIConfigCard({ session, getAction, setAction, clearAction }: {
           <div className="flex flex-col gap-4">
             {entries.map(([key, value]) => (
               <ConfigRow key={key} session={session} k={key} currentValue={value}
-                        setAction={setAction} clearAction={clearAction} onSaved={reload} />
+                        setAction={setAction} clearAction={clearAction} onSaved={reload}
+                        pricedModelIds={key === 'ASSISTANT_MODEL_NAME' ? pricedModelIds : undefined} />
             ))}
           </div>
         )}
@@ -442,9 +457,12 @@ function AIConfigCard({ session, getAction, setAction, clearAction }: {
   );
 }
 
-function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }: {
+function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved, pricedModelIds }: {
   session: AdminSession; k: string; currentValue: unknown;
   setAction?: AdminAction; clearAction?: AdminAction; onSaved: () => void;
+  /** Only passed for k === 'ASSISTANT_MODEL_NAME' — see AIConfigCard's own note on where this
+   *  comes from. `undefined` for every other row (no warning rendered at all). */
+  pricedModelIds?: Set<string>;
 }) {
   const [value, setValue] = useState(String(currentValue ?? ''));
   // خطوة تأكيد داخل نفس النافذة — لا نافذة ثانية فوق الأولى. `Modal` هنا (بخلاف ConfirmDialog) لا
@@ -557,6 +575,12 @@ function ConfigRow({ session, k, currentValue, setAction, clearAction, onSaved }
       {numericInvalid ? (
         <p role="alert" className="text-danger text-sm">
           يجب أن تكون قيمة صحيحة بين {meta?.min} و{meta?.max}.
+        </p>
+      ) : null}
+      {pricedModelIds && value && !pricedModelIds.has(value) ? (
+        <p role="alert" className="text-warning text-sm">
+          هذا النموذج بلا سعر مسجَّل بـ«المحاسبة» — سيُحاسَب بسعر بديل (الأغلى بين النماذج
+          المسجَّلة حالياً) لحد ما يُسجَّل سعره الحقيقي.
         </p>
       ) : null}
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}

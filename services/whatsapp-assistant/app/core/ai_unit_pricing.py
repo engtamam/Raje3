@@ -48,7 +48,8 @@ def parse_model_costs(raw: str) -> dict[str, ModelCost]:
     """`PRICING_AI_UNIT_MODEL_COSTS_JSON` -> {model_name: ModelCost}. Malformed JSON, a non-dict
     top level, or a row missing either field is DROPPED rather than raising — the same fail-safe
     posture `model_rate_halalas_per_1k` below relies on (a model missing from this registry falls
-    back to the flat legacy rate, it never blocks a reply)."""
+    back to the most expensive OTHER registered model's rate, never to zero; it never blocks a
+    reply either way)."""
     try:
         data = json.loads(raw or "{}")
     except ValueError:
@@ -127,17 +128,40 @@ def units_per_1k_tokens(usd_per_million: float, *, usd_to_sar: float, margin_mul
 
 
 def model_rate_halalas_per_1k(cfg: AiUnitPricingConfig, model_name: str, *,
-                              fallback_halalas_per_1k: float) -> tuple[float, float]:
-    """(input_halalas_per_1k, output_halalas_per_1k) for the model ACTUALLY in use this turn
-    (ASSISTANT_MODEL_NAME's live value). A model missing from `cfg.model_costs` — not yet priced
-    by an operator — gets the flat legacy rate in BOTH directions rather than blocking the AI: a
-    missing price entry is an operator gap, never a reason to refuse every reply, the same
-    fail-safe posture every other optional-config default on this service already takes."""
+                              fallback_halalas_per_1k: float,
+                              ) -> tuple[float, float, bool]:
+    """(input_halalas_per_1k, output_halalas_per_1k, used_fallback) for the model ACTUALLY in use
+    this turn (ASSISTANT_MODEL_NAME's live value).
+
+    A model missing from `cfg.model_costs` — not yet priced by an operator — must never be
+    treated as FREE: this is never a reason to refuse the reply (a missing price entry is an
+    operator gap, not a reason to stop the AI — same fail-safe posture every other optional-
+    config default on this service already takes), but the direction of the fail-safe matters.
+    So the substitute is the MOST EXPENSIVE model already registered in `cfg.model_costs` — this
+    can only ever OVER-charge relative to the unpriced model's true (unknown) cost, never give it
+    away. `fallback_halalas_per_1k` (the old flat legacy rate) is the last resort, used only when
+    `cfg.model_costs` is empty entirely — an operator who has priced NOTHING has no "most
+    expensive known model" to fall back to. Was previously this legacy rate directly for every
+    unpriced model, including a deploy where it is wired at 0 — silently making every reply on an
+    unpriced model free, with no signal anywhere that it was happening. `used_fallback` tells the
+    caller a substitute rate was used at all, so it can be logged/audited rather than pass
+    invisibly (see core/conversation.py's own call site)."""
     cost = cfg.model_costs.get(model_name)
-    if cost is None:
-        return fallback_halalas_per_1k, fallback_halalas_per_1k
+    if cost is not None:
+        return (
+            halalas_per_1k_tokens(cost.input_usd_per_million, usd_to_sar=cfg.usd_to_sar,
+                                  margin_multiplier=cfg.input_margin_multiplier),
+            halalas_per_1k_tokens(cost.output_usd_per_million, usd_to_sar=cfg.usd_to_sar,
+                                  margin_multiplier=cfg.output_margin_multiplier),
+            False)
+    if not cfg.model_costs:
+        return fallback_halalas_per_1k, fallback_halalas_per_1k, True
+    priciest = max(
+        cfg.model_costs.values(),
+        key=lambda c: max(c.input_usd_per_million, c.output_usd_per_million))
     return (
-        halalas_per_1k_tokens(cost.input_usd_per_million, usd_to_sar=cfg.usd_to_sar,
+        halalas_per_1k_tokens(priciest.input_usd_per_million, usd_to_sar=cfg.usd_to_sar,
                               margin_multiplier=cfg.input_margin_multiplier),
-        halalas_per_1k_tokens(cost.output_usd_per_million, usd_to_sar=cfg.usd_to_sar,
-                              margin_multiplier=cfg.output_margin_multiplier))
+        halalas_per_1k_tokens(priciest.output_usd_per_million, usd_to_sar=cfg.usd_to_sar,
+                              margin_multiplier=cfg.output_margin_multiplier),
+        True)

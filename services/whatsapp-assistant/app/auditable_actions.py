@@ -138,6 +138,31 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "consent_refused/proposal_rejected",
     },
     {
+        "action": "whatsapp_assistant.outbound_capped",
+        "source": "internal",
+        "critical": False,
+        "resource": "conversation",
+        "why": "either outbound rate limiter (core/inbound_ingest.py's own outbound_allowed — "
+               "per-conversation or per-number) refused a send. Logged at `warning`, which Fluent "
+               "Bit deliberately never ships to error-collector (a cap tripping is expected, "
+               "working behaviour, not a failure) — this is the ONLY place an operator can see or "
+               "count one. Not critical: the safe outcome (nothing over-sent) already happened; "
+               "losing the record on an audit-sink outage costs visibility, never safety",
+    },
+    {
+        "action": "whatsapp_assistant.unpriced_model_used",
+        "source": "internal",
+        "critical": False,
+        "resource": "model",
+        "why": "the live ASSISTANT_MODEL_NAME had no entry in PRICING_AI_UNIT_MODEL_COSTS_JSON, so "
+               "the reserve was priced at a substitute rate instead (core/ai_unit_pricing.py's own "
+               "model_rate_halalas_per_1k) — an operator gap, not a reason to refuse the reply, but "
+               "one that must be visible: this used to be both invisible and silently free (the "
+               "flat legacy fallback is deployed at 0). Not critical: the reply itself already "
+               "went out correctly either way; losing the record on an audit-sink outage costs "
+               "visibility into a pricing gap, never money-safety",
+    },
+    {
         "action": "operator.secret_set",
         "source": "admin",
         "critical": True,
