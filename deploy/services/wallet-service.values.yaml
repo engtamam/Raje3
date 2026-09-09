@@ -114,10 +114,11 @@ env:
   #                allowance runs out mid-month (owner's own decision, 2026-09-06 — "ما يقطع على
   #                عملاءه"). Priority 3, so it is only ever touched once `ai_credit` is empty.
   #                whatsapp-assistant scopes its reserve to `ai_credit,topup` together — never to
-  #                `topup` alone, and never to `renewal`/`commission`. The purchase flow that
-  #                actually credits this fund is a separate, not-yet-built feature (a console
-  #                "اشحن رصيدك" screen over a new billing-service route); this fund exists so that
-  #                flow has somewhere real to land the moment it ships.
+  #                `topup` alone, and never to `renewal`/`commission`. THE PURCHASE FLOW ALREADY
+  #                SHIPS AND CREDITS THIS FUND — apps/console/src/screens/Wallet.tsx's own "شحن
+  #                رصيدي يدوياً" button, over billing.wallet_topup_checkout (a gateway-redirect
+  #                checkout, not the token route). Was documented here as not-yet-built; corrected
+  #                once that stopped being true.
   #   renewal    — a prepaid top-up a shop puts toward its OWN Raje3 subscription bill, debited
   #                automatically for a subscription pinned to payment_gateway=="wallet" (gateways
   #                with no recurring-charge support, e.g. TuwaiqPay). Locked, same reasoning —
