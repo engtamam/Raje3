@@ -44,6 +44,8 @@ import urllib.request
 import uuid
 from typing import Any
 
+from app.core.ai_unit_pricing import TOKENS_PER_PRICING_UNIT
+
 
 class NullWalletBalance:
     """No wallet-service configured (dev/test default, or a deployment that has not wired billing
@@ -127,7 +129,8 @@ def estimated_hold_halalas(*, estimated_tokens: int, halalas_per_1k_tokens: floa
     past the true available balance. `halalas_per_1k_tokens` is a float (a real per-model rate is
     rarely a whole halala) — `math.ceil` still rounds the token component UP, never down, so the
     margin exists to absorb variance rather than be eaten by rounding working against it."""
-    token_cost = math.ceil((max(0, estimated_tokens) / 1000.0) * max(0.0, halalas_per_1k_tokens))
+    token_cost = math.ceil(
+        (max(0, estimated_tokens) / TOKENS_PER_PRICING_UNIT) * max(0.0, halalas_per_1k_tokens))
     return token_cost + max(0, safety_margin_halalas)
 
 

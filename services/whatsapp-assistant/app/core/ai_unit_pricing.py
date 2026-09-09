@@ -30,11 +30,20 @@ never applied instantly: a shop that woke up to a costlier model with no notice 
 """
 from __future__ import annotations
 
-import math
-
 import json
+import math
 from dataclasses import dataclass
 from typing import Any
+
+# THE ONE BASIS EVERY RATE IN THIS MODULE, AND wallet_balance.py's OWN RESERVE MATH, IS
+# DENOMINATED IN — "halalas per 1000 tokens". Named rather than a bare `1000` repeated at each of
+# the three sites that convert a raw token count into "how many pricing units is that" (this
+# module's own `halalas_per_1k_tokens`/`real_cost_halalas`, and wallet_balance.py's
+# `estimated_hold_halalas`): a literal at each site is how one of them could silently drift to a
+# different scale (1024? per-single-token?) while the others stayed at 1000, splitting the
+# reserve's estimate from the confirm's real charge for no product reason at all — one constant,
+# imported everywhere it is used, makes that impossible by construction.
+TOKENS_PER_PRICING_UNIT = 1000
 
 
 @dataclass(frozen=True)
@@ -117,7 +126,7 @@ def halalas_per_1k_tokens(usd_per_million: float, *, usd_to_sar: float,
     sar_per_million = max(0.0, usd_per_million) * max(0.0, usd_to_sar)
     priced_sar_per_million = sar_per_million * max(0.0, margin_multiplier)
     halalas_per_million = priced_sar_per_million * 100          # 1 SAR = 100 halalas
-    return halalas_per_million / 1000
+    return halalas_per_million / (1_000_000 / TOKENS_PER_PRICING_UNIT)
 
 
 def units_per_1k_tokens(usd_per_million: float, *, usd_to_sar: float, margin_multiplier: float,
@@ -183,6 +192,6 @@ def real_cost_halalas(cfg: AiUnitPricingConfig, model_name: str, *, input_tokens
     rounding direction (never round a real charge down)."""
     input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
         cfg, model_name, fallback_halalas_per_1k=fallback_halalas_per_1k)
-    cost = (math.ceil(max(0, input_tokens) / 1000.0 * input_rate)
-           + math.ceil(max(0, output_tokens) / 1000.0 * output_rate))
+    cost = (math.ceil(max(0, input_tokens) / TOKENS_PER_PRICING_UNIT * input_rate)
+           + math.ceil(max(0, output_tokens) / TOKENS_PER_PRICING_UNIT * output_rate))
     return cost, used_fallback
