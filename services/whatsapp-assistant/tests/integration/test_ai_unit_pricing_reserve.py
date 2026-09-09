@@ -109,28 +109,70 @@ async def test_an_unpriced_model_is_billed_at_the_priciest_known_models_rate_nev
     unpriced model must not fall back to THAT when the registry itself is non-empty; it must be
     billed at the most expensive model already registered ("expensive-model" here), so it can
     only ever be over-charged relative to its true unknown cost, never under-charged or free."""
-    store = MemoryDataStore()
-    wallet = _FakeWallet()
-    engine = _engine(store, StubLlm(), wallet, model_name="some-brand-new-model")
-    await _through_triage_and_reserve(engine, "sub1")
+    store_unpriced, store_expensive = MemoryDataStore(), MemoryDataStore()
+    wallet_unpriced, wallet_expensive = _FakeWallet(), _FakeWallet()
+    engine_unpriced = _engine(store_unpriced, StubLlm(), wallet_unpriced,
+                              model_name="some-brand-new-model")
+    engine_expensive = _engine(store_expensive, StubLlm(), wallet_expensive,
+                               model_name="expensive-model")
+    await _through_triage_and_reserve(engine_unpriced, "sub1")
+    await _through_triage_and_reserve(engine_expensive, "sub1")
 
-    assert len(wallet.reserved_amounts) == 1
-    # "expensive-model"'s own rate (max of its input/output halves) — 15 halalas/1k, not the flat
-    # 100 fallback and never 0.
-    assert wallet.reserved_amounts[0] == 15
+    assert len(wallet_unpriced.reserved_amounts) == 1
+    # SAME conversation flow (identical prompt size either way), priced at "expensive-model"'s own
+    # rate for both — the unpriced model's substitute, exactly, never the flat fallback and never 0.
+    assert wallet_unpriced.reserved_amounts == wallet_expensive.reserved_amounts
 
 
 async def test_an_unpriced_model_with_a_completely_empty_registry_falls_back_to_the_flat_rate():
     """The one case the flat legacy rate IS still used: no model has ever been priced at all, so
-    there is no "most expensive known model" to substitute."""
-    store = MemoryDataStore()
-    wallet = _FakeWallet()
-    engine = _engine(store, StubLlm(), wallet, model_name="some-brand-new-model",
-                     model_costs_json="{}")
-    await _through_triage_and_reserve(engine, "sub1")
+    there is no "most expensive known model" to substitute — EVERY model name reserves identically
+    against an empty registry, priced at the one flat rate left (100 halalas/1k) for both."""
+    store_a, store_b = MemoryDataStore(), MemoryDataStore()
+    wallet_a, wallet_b = _FakeWallet(), _FakeWallet()
+    engine_a = _engine(store_a, StubLlm(), wallet_a, model_name="some-brand-new-model",
+                      model_costs_json="{}")
+    engine_b = _engine(store_b, StubLlm(), wallet_b, model_name="a-totally-different-unpriced-name",
+                      model_costs_json="{}")
+    await _through_triage_and_reserve(engine_a, "sub1")
+    await _through_triage_and_reserve(engine_b, "sub1")
 
-    assert len(wallet.reserved_amounts) == 1
-    assert wallet.reserved_amounts[0] == 100   # the flat 100 halalas/1k fallback, no margin here
+    assert len(wallet_a.reserved_amounts) == 1
+    assert wallet_a.reserved_amounts == wallet_b.reserved_amounts
+
+
+class _FakeCatalog:
+    def __init__(self, services: list[dict]):
+        self._services = services
+
+    async def list_active(self, tenant):
+        return self._services
+
+
+def _big_catalog(n: int) -> list[dict]:
+    return [{"id": f"svc{i}", "name": f"خدمة رقم {i} — وصف طويل نسبياً لهذه الخدمة", "price_minor": 5000}
+           for i in range(n)]
+
+
+async def test_a_shops_own_bigger_catalogue_reserves_visibly_more_for_the_same_model():
+    """THE REAL FEATURE — replaces a flat, one-size-fits-all token guess with a REAL measurement
+    of what is actually about to be sent. Two shops, same model, same conversation shape: the one
+    with a much bigger service catalogue (core/context_builder.py's own build_context_block,
+    genuinely uncapped) must reserve visibly more, because its real prompt really is bigger — the
+    old flat WALLET_ESTIMATED_MAX_TOKENS_PER_TURN guess could never have told these apart."""
+    store_small, store_big = MemoryDataStore(), MemoryDataStore()
+    wallet_small, wallet_big = _FakeWallet(), _FakeWallet()
+    engine_small = _engine(store_small, StubLlm(), wallet_small, model_name="cheap-model")
+    engine_small._catalog = _FakeCatalog(_big_catalog(1))
+    engine_big = _engine(store_big, StubLlm(), wallet_big, model_name="cheap-model")
+    engine_big._catalog = _FakeCatalog(_big_catalog(200))
+
+    await _through_triage_and_reserve(engine_small, "sub1")
+    await _through_triage_and_reserve(engine_big, "sub1")
+
+    assert len(wallet_small.reserved_amounts) == 1
+    assert len(wallet_big.reserved_amounts) == 1
+    assert wallet_big.reserved_amounts[0] > wallet_small.reserved_amounts[0]
 
 
 async def test_using_an_unpriced_models_substitute_rate_is_audited():
@@ -193,20 +235,24 @@ async def test_a_model_switch_mid_turn_cannot_split_the_reserve_from_the_actual_
     reserve was priced at one model's rate while the actual call ran a different one. Both sides
     must now agree, always, on whichever value was live at the ONE moment compose_reply resolved
     it — never a mix."""
-    store = MemoryDataStore()
-    wallet = _FakeWallet()
-    llm = StubLlm()
+    store, store_control = MemoryDataStore(), MemoryDataStore()
+    wallet, wallet_control = _FakeWallet(), _FakeWallet()
+    llm, llm_control = StubLlm(), StubLlm()
     runtime_config = _FlakyRuntimeConfig(first="cheap-model", second="expensive-model")
     engine = _engine(store, llm, wallet, model_name="cheap-model", runtime_config=runtime_config)
+    # CONTROL: no flaky runtime_config at all — "cheap-model" resolved consistently throughout,
+    # exactly what a non-racing turn looks like. Its reserved amount is the ground truth to compare
+    # against, rather than a hand-computed magic number tied to this test's own prompt size.
+    engine_control = _engine(store_control, llm_control, wallet_control, model_name="cheap-model")
     await _through_triage_and_reserve(engine, "sub1")
+    await _through_triage_and_reserve(engine_control, "sub1")
 
     assert len(wallet.reserved_amounts) == 1
     assert len(llm.calls) == 1
-    # cheap-model's own rate (0.40 usd/M output * 3.75 * 2.0 margin * 100 / 1000 = 0.3 halalas/1k,
-    # the worse-of-the-two — see _model_aware_reserve_rate's own note), ceil(1000/1000 * 0.3) = 1.
-    assert wallet.reserved_amounts[0] == 1
-    # AND the actual call ran the SAME model the reserve was priced for — not "expensive-model",
-    # which a second, independent resolve deeper in the turn would have returned instead.
+    # Priced at "cheap-model"'s own rate, matching the control exactly — NOT "expensive-model",
+    # which a second, independent resolve deeper in the turn would have priced it at instead.
+    assert wallet.reserved_amounts == wallet_control.reserved_amounts
+    # AND the actual call ran the SAME model the reserve was priced for.
     assert llm.calls[0]["model_name"] == "cheap-model"
 
 
@@ -222,8 +268,9 @@ async def test_confirm_charges_the_real_smaller_cost_not_the_reserved_ceiling():
     engine = _engine(store, llm, wallet, model_name="expensive-model")
     await _through_triage_and_reserve(engine, "sub1")
 
-    assert wallet.reserved_amounts == [15]   # expensive-model's own rate, see the test above
-    # real: ceil(5/1000 * 9.375 input-rate) + ceil(5/1000 * 15.0 output-rate) = 1 + 1 = 2
+    # real: ceil(5/1000 * 9.375 input-rate) + ceil(5/1000 * 15.0 output-rate) = 1 + 1 = 2 — this
+    # depends only on StubLlm's own default reply token counts, never on the reserve's own
+    # (now real-prompt-size-based) estimate.
     assert wallet.confirmed_final_nets == [2]
     assert wallet.confirmed_final_nets[0] < wallet.reserved_amounts[0]   # never the full ceiling
 

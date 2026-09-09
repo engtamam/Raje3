@@ -339,7 +339,7 @@ def build_container(settings: Settings) -> Container:
         catalog_provider=container.catalog_provider,
         rhythm_provider=container.rhythm_provider,
         runtime_config=container.runtime_config,
-        max_carousel_cards=settings.MAX_CAROUSEL_CARDS,
+        max_carousel_cards=settings.MAX_CAROUSEL_CARDS, max_reply_tokens=settings.MAX_REPLY_TOKENS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
         # THE FLAT FALLBACK RATE, kept at 0 (the dead subscription-pricing scaffold that used to
         # own this number is gone — see core/ai_unit_pricing.py's own model_rate_halalas_per_1k for

@@ -58,14 +58,14 @@ shop, true for every customer at once, not a signal that this one conversation n
 """
 from __future__ import annotations
 
+import math
 import re
 import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from app.core.ai_unit_pricing import (
-    AiUnitPricingConfig, model_rate_halalas_per_1k, real_cost_halalas)
+from app.core.ai_unit_pricing import AiUnitPricingConfig, real_cost_halalas
 from app.core.context_builder import build_context_block
 from app.core.frustration import detect_frustration
 from app.core.soft_decline import is_decline
@@ -442,6 +442,38 @@ def opaque_reference(subject_ref: str) -> str:
     return "عميل-" + subject_ref[-6:] if subject_ref else "عميل"
 
 
+# CHARACTERS PER TOKEN, CONSERVATIVE ON PURPOSE. Google's own stated ratio is ~4 characters per
+# token — for English. Every message this service actually sends is mostly Arabic (the persona,
+# the shop's own service names, the customer's own words), and Arabic tokenizes far less
+# efficiently than English on most subword tokenizers (real-world reports put it anywhere from
+# ~1 to ~2.5 characters per token, well short of English's 4) — no Gemini-specific figure is
+# published, so this picks the CONSERVATIVE end of that range rather than assume English-level
+# efficiency. Every reserve/estimate elsewhere in this service already errs toward OVER- rather
+# than under-counting (see estimated_hold_halalas's own `math.ceil`, the reserve rate picking the
+# worse of input/output); this constant keeps that same discipline for the token estimate itself.
+_CHARS_PER_TOKEN_ESTIMATE = 2
+
+
+def _estimate_input_tokens(system_prompt: str, context_block: str, summary: str,
+                           recent_messages: list[dict[str, str]], user_message: str) -> int:
+    """A FAST, LOCAL estimate of how many input tokens THIS TURN will actually cost — no network
+    call (Google's own free `countTokens` API would be exact, but needs a round trip through
+    assistant-service that this service does not have wired, and would add real latency to every
+    single turn for a number this estimate only needs to be reasonably close, not exact; the
+    ACTUAL charge always comes from the real token counts Google returns after the call — this is
+    only what the reserve is priced against BEFORE it, never what is finally spent).
+
+    Replaces a flat, one-size-fits-all guess (WALLET_ESTIMATED_MAX_TOKENS_PER_TURN) with a REAL
+    measurement of what is about to be sent: one shop's whole service catalogue
+    (core/context_builder.py's own `build_context_block`, uncapped) can be many times larger than
+    another's, and the old flat estimate had no way to tell them apart. `len()` on a Python string
+    is O(1) (the length is already known, not re-scanned) — this costs nothing worth measuring."""
+    text = system_prompt + context_block + summary + user_message
+    for m in recent_messages:
+        text += str(m.get("text", ""))
+    return math.ceil(len(text) / _CHARS_PER_TOKEN_ESTIMATE)
+
+
 @dataclass
 class ReplyPlan:
     """What core/conversation.py decided to send, for the caller (main.py's tick, or the button-
@@ -477,7 +509,8 @@ class ConversationEngine:
                 shop_notes_enabled: bool = True, msg_word_limit_enabled: bool = True,
                 base_entitlement: Any = None, catalog_provider: Any = None,
                 rhythm_provider: Any = None,
-                max_carousel_cards: int = 5, runtime_config: Any = None) -> None:
+                max_carousel_cards: int = 5, runtime_config: Any = None,
+                max_reply_tokens: int = 500) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -497,6 +530,13 @@ class ConversationEngine:
         # answer "nothing due/lapsed" rather than failing the turn).
         self._rhythm_provider = rhythm_provider
         self._max_carousel_cards = max_carousel_cards
+        # THE SAME DEPLOY-TIME-DEFAULT-PLUS-LIVE-OVERRIDE SHAPE AS max_carousel_cards ABOVE
+        # (app/runtime_policy.py's own MAX_REPLY_TOKENS, read live via `_runtime_int` at the one
+        # place that needs it: `_reserve_llm_hold`'s output-side ceiling). This is the SAME cap
+        # app/adapters/llm/assistant_service.py's own `_resolve_max_tokens` enforces on the actual
+        # call — the two must agree, since the reserve prices against exactly what the real call
+        # is bounded to produce, never a separate guess of its own.
+        self._max_reply_tokens = max(1, int(max_reply_tokens))
         # app/runtime_policy.py's live-override path (SOFT_DECLINE_THRESHOLD, MAX_CAROUSEL_CARDS)
         # — see `_runtime_int` below, which is what the two use sites actually call. `None` (no
         # panel wired yet, or a test) means every existing constructor call behaves exactly as
@@ -721,37 +761,8 @@ class ConversationEngine:
                 tenant="", key="ASSISTANT_MODEL_NAME", default=model_name)
         return model_name
 
-    async def _model_aware_reserve_rate(self, model_name: str) -> tuple[float, bool]:
-        """(rate, used_fallback_rate) for `model_name` — the halalas-per-1k-tokens rate
-        `_reserve_llm_hold` prices the estimated ceiling at, the ACTUAL model's own real rate
-        (app/core/ai_unit_pricing.py) when a pricing registry is wired, the flat legacy rate
-        otherwise (no pre-existing test constructor regresses).
-
-        THE WORSE OF INPUT/OUTPUT, DELIBERATELY, NOT A BLEND — `WALLET_ESTIMATED_MAX_TOKENS_PER_
-        TURN` is one blended ceiling covering context input plus the reply, not a real input/output
-        split (there is no such split anywhere in this service's estimate today). Since a model's
-        output rate is always the more expensive of the two (see ai_unit_pricing.py's own note on
-        why the two margins are separate), pricing the WHOLE blended estimate at the higher of the
-        two rates can only OVER-reserve relative to the true, unknown input/output mix — it can
-        never under-reserve a genuinely pricier model, which is the one failure mode
-        `WALLET_HOLD`'s own contract (the balance must never go negative) cannot tolerate. A cheap
-        model still reserves less than an expensive one, because the per-model rate itself is
-        smaller — it simply is not perfectly tight, the same trade-off the safety margin already
-        exists to make on purpose.
-
-        `used_fallback_rate` is `model_rate_halalas_per_1k`'s own signal that `model_name` had no
-        registered price and a substitute (the most expensive KNOWN model's rate — see that
-        function's own note on why never zero) was used instead — `_reserve_llm_hold` audits it.
-        """
-        if self._ai_unit_pricing_settings is None:
-            return float(self._wallet_rate_halalas_per_1k), False
-        cfg = await AiUnitPricingConfig.from_runtime(self._runtime_config, self._ai_unit_pricing_settings)
-        input_rate, output_rate, used_fallback = model_rate_halalas_per_1k(
-            cfg, model_name, fallback_halalas_per_1k=float(self._wallet_rate_halalas_per_1k))
-        return max(input_rate, output_rate), used_fallback
-
-    async def _reserve_llm_hold(self, tenant: str, conversation_ref: str, model_name: str
-                                ) -> tuple[str | None, int]:
+    async def _reserve_llm_hold(self, tenant: str, conversation_ref: str, model_name: str, *,
+                                estimated_input_tokens: int) -> tuple[str | None, int]:
         """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
         docstring for the full reasoning). Returns (hold id, reserved amount) on success, or
         (None, 0) — insufficient funds, or the peer call itself failed, which this method treats
@@ -762,27 +773,45 @@ class ConversationEngine:
         `model_name` is `compose_reply`'s OWN already-resolved value, not re-resolved here — see
         `_resolve_live_model_name`'s own note on why. The reserved amount rides back alongside the
         hold id so `compose_reply` can clamp the REAL cost it computes after the LLM call to it —
-        wallet-service's own confirm(final_net=...) refuses a final_net above what was reserved."""
+        wallet-service's own confirm(final_net=...) refuses a final_net above what was reserved.
+
+        `estimated_input_tokens` is `_estimate_input_tokens`'s own REAL measurement of the exact
+        prompt about to be sent — not a flat guess. Priced per-side (real_cost_halalas: input at
+        its own rate, output capped at MAX_REPLY_TOKENS at ITS rate — a real, enforced ceiling,
+        unlike input, which is why only input needed measuring at all) rather than the old
+        single-worse-of-the-two-rates blend over one flat combined estimate: with the real input
+        size and a real output ceiling both known, there is no longer an unknown split left to
+        hedge against by picking the pricier rate for everything.
+        """
         if self._wallet is None:
             return None, 0
-        rate, used_fallback = await self._model_aware_reserve_rate(model_name)
-        if used_fallback and self._auditor is not None:
-            # THE LIVE MODEL HAS NO REGISTERED PRICE — a real operator gap, not a reason to stop
-            # replying (see model_rate_halalas_per_1k's own note), but one that must be visible:
-            # this used to be silently invisible AND silently free (the old fallback was 0), the
-            # worst combination. Best-effort, same as every other non-critical audit call in this
-            # file — a down audit sink must never itself block a reply.
-            try:
-                await self._auditor.record(
-                    "whatsapp_assistant.unpriced_model_used", actor="whatsapp-assistant",
-                    resource=f"model:{model_name}", tenant=tenant,
-                    metadata={"model": model_name})
-            except Exception:                                        # noqa: BLE001
-                pass
-        amount = WB.estimated_hold_halalas(
-            estimated_tokens=self._wallet_estimated_tokens,
-            halalas_per_1k_tokens=rate,
-            safety_margin_halalas=self._wallet_margin_halalas)
+        max_reply_tokens = await self._runtime_int("MAX_REPLY_TOKENS", self._max_reply_tokens)
+        if self._ai_unit_pricing_settings is None:
+            amount = WB.estimated_hold_halalas(
+                estimated_tokens=self._wallet_estimated_tokens,
+                halalas_per_1k_tokens=float(self._wallet_rate_halalas_per_1k),
+                safety_margin_halalas=self._wallet_margin_halalas)
+        else:
+            cfg = await AiUnitPricingConfig.from_runtime(
+                self._runtime_config, self._ai_unit_pricing_settings)
+            cost, used_fallback = real_cost_halalas(
+                cfg, model_name, input_tokens=estimated_input_tokens,
+                output_tokens=max_reply_tokens,
+                fallback_halalas_per_1k=float(self._wallet_rate_halalas_per_1k))
+            if used_fallback and self._auditor is not None:
+                # THE LIVE MODEL HAS NO REGISTERED PRICE — a real operator gap, not a reason to
+                # stop replying (see model_rate_halalas_per_1k's own note), but one that must be
+                # visible: this used to be silently invisible AND silently free (the old fallback
+                # was 0), the worst combination. Best-effort, same as every other non-critical
+                # audit call in this file — a down audit sink must never itself block a reply.
+                try:
+                    await self._auditor.record(
+                        "whatsapp_assistant.unpriced_model_used", actor="whatsapp-assistant",
+                        resource=f"model:{model_name}", tenant=tenant,
+                        metadata={"model": model_name})
+                except Exception:                                    # noqa: BLE001
+                    pass
+            amount = cost + self._wallet_margin_halalas
         source = WB.new_reserve_source(conversation_ref)
         try:
             hold_id = await self._wallet.reserve(tenant=tenant, amount_halalas=amount, source=source)
@@ -1203,6 +1232,19 @@ class ConversationEngine:
         # ASSISTANT_MODEL_NAME in the gap between them.
         model_name = await self._resolve_live_model_name()
 
+        # BUILT BEFORE THE HOLD, DELIBERATELY — MOVED HERE FROM AFTER IT. The reserve needs to
+        # know how big THIS turn's real input actually is, and the only honest way to know that is
+        # to build the exact same system_prompt/context_block the LLM call itself will send, then
+        # measure it — see `_estimate_input_tokens`'s own note on why a flat guess
+        # (WALLET_ESTIMATED_MAX_TOKENS_PER_TURN) could never be right for every shop alike: one
+        # shop's whole service catalogue (core/context_builder.py's own `build_context_block`) can
+        # be many times another's, with no cap on it either way.
+        conv.auto_reply_turns += 1
+        shop_ctx = await self._shop_context(tenant)
+        owner_notes = shop_ctx.ai_notes if self._shop_notes_enabled else ""
+        system_prompt = build_system_prompt(shop_ctx.name, owner_notes)
+        context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_base)
+
         # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s
         # docstring. `self._wallet is not None` gates whether this service is wallet-gated at all
         # (pre-existing test constructors and a deployment with no WALLET_SERVICE_URL both leave
@@ -1212,17 +1254,15 @@ class ConversationEngine:
         reserved_amount = 0
         if self._wallet is not None:
             conversation_ref = self._key(tenant, subject_ref)
+            estimated_input_tokens = _estimate_input_tokens(
+                system_prompt, context_block, conv.summary, recent, user_turn)
             hold_id, reserved_amount = await self._reserve_llm_hold(
-                tenant, conversation_ref, model_name)
+                tenant, conversation_ref, model_name,
+                estimated_input_tokens=estimated_input_tokens)
             if hold_id is None:
                 return await self._stop_wallet_depleted(
                     conv, tenant=tenant, subject_ref=subject_ref, now=now)
 
-        conv.auto_reply_turns += 1
-        shop_ctx = await self._shop_context(tenant)
-        owner_notes = shop_ctx.ai_notes if self._shop_notes_enabled else ""
-        system_prompt = build_system_prompt(shop_ctx.name, owner_notes)
-        context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_base)
         reply: LlmReply = await self._llm.respond(
             system_prompt=system_prompt, summary=conv.summary, recent_messages=recent,
             user_message=user_turn, allowed_tools=allowed, context_block=context_block,
