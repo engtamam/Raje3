@@ -106,16 +106,12 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
         assert banned not in view
 
 
-def test_the_fifteen_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
-    # NOTE: MAX_REPLY_TOKENS is in RUNTIME_POLICY but never appears here — `settable()`
-    # (core/runtime_config.py) matches its "_TOKENS" suffix against the general credential/session
-    # deny-list and it is not in that module's own `_ALLOW` exceptions (only
-    # PRICING_USAGE_HALALAS_PER_1K_TOKENS is) — a pre-existing gap, not something this change
-    # touches. Documented here instead of silently working around it a second time.
+def test_the_sixteen_declared_knobs_start_at_their_configured_defaults(client, operator_auth):
     view = client.get(f"{PREFIX}/config", headers=operator_auth).json()["config"]
     assert view == {
         "ASSISTANT_MODEL_NAME": "gemini-2.5-flash",
         "MAX_CAROUSEL_CARDS": 5,
+        "MAX_REPLY_TOKENS": 500,
         "SOFT_DECLINE_THRESHOLD": 2,
         "PRICING_STRATEGY": "tier_plus_cap",
         "PRICING_TIER_BASE_HALALAS": 0,
