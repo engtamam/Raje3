@@ -472,7 +472,7 @@ interface PendingChange { key: string; value: string | number | boolean; effecti
 
 const PRICING_KEY_LABEL: Record<string, string> = {
   PRICING_STRATEGY: 'طريقة التسعير',
-  PRICING_USAGE_HALALAS_PER_1K_TOKENS: 'هللات لكل 1000 توكن',
+  PRICING_USAGE_HALALAS_PER_1K_TOKENS: 'هللات لكل 1000 وحدة',
   PRICING_USAGE_HALALAS_PER_CONVERSATION: 'هللات لكل محادثة',
   PRICING_TIER_BASE_HALALAS: 'سعر الباقة الأساسي',
   PRICING_TIER_INCLUDED_CONVERSATIONS: 'محادثات مشمولة بالباقة',
@@ -681,7 +681,7 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
         <h3 className="font-medium">النتيجة المقترحة</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-card bg-surface-2 p-3">
-            <p className="text-label text-text-secondary">السعر المقترح لكل 1000 توكن</p>
+            <p className="text-label text-text-secondary">السعر المقترح لكل 1000 وحدة</p>
             <p className="text-lg font-semibold tabular-nums">{suggestedHalalasPer1k.toFixed(1)} هللة</p>
           </div>
           <div className="rounded-card bg-surface-2 p-3">
