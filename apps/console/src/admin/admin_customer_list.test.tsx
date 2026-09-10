@@ -145,6 +145,9 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     expect(screen.getByText('نظرة عامة')).toBeTruthy();
     expect(screen.getByText('التطبيقات والفوترة')).toBeTruthy();
+    // The real KPI row — tenure/status/app/last-updated, from this tenant's own real data.
+    expect(screen.getByText('منذ متى معنا')).toBeTruthy();
+    expect(screen.getByText('نشطة')).toBeTruthy();   // tenant.status === 'active'
     // A real page swap — the list's own KPI row and search box are gone from the DOM, not just
     // hidden under a modal scrim (the earlier shape, an overlay both still present at once).
     expect(screen.queryByText('إجمالي العملاء')).toBeNull();
@@ -176,10 +179,11 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     expect(screen.queryByText('plan_abc123')).toBeNull();
 
     // A full PAGE now replaces the list (not an overlay on top of it) — see CustomerList.tsx's own
-    // note on why: the table row disappears from the DOM once the detail page opens, so the plan
-    // name appears exactly once, not twice.
+    // note on why: the table row disappears from the DOM once the detail page opens. The name
+    // still appears twice ON the detail page itself — the KPI row's own hint, and the Overview
+    // tab's row — both real, both from the same subscription data, not a duplicate render.
     fireEvent.click(screen.getByText('محل الأول'));
-    await waitFor(() => expect(screen.getAllByText('تطبيق الحجوزات').length).toBe(1));
+    await waitFor(() => expect(screen.getAllByText('تطبيق الحجوزات').length).toBe(2));
   });
 
   it('the seats tab shows the real count against the real entitled limit, x/y', async () => {

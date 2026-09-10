@@ -30,14 +30,15 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { Activity, ArrowRight, Clock, Package, RefreshCw } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
+import { KpiCard } from './../rj-ui/KpiCard';
 import { Input, Select } from './../rj-ui/Field';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
-import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
+import { findCustomerAction, SUB_STATUS_META, TENANT_STATUS_META, type Tenant, type Subscription } from './CustomerList';
 import { StatusBadge, type DeliveryRow } from './AdminWhatsAppDiagnostics';
 
 interface Invoice {
@@ -56,17 +57,30 @@ const INVOICE_STATUS_META: Record<Invoice['status'], { label: string; tone: 'neu
 
 type Tab = 'overview' | 'billing' | 'seats' | 'tickets' | 'whatsapp' | 'audit';
 
+/** منذ متى معنا، بكلمات — نفس منطق `ago()` المستخدم بشاشة المحل نفسها (screens/Customer.tsx)،
+ *  محلياً هنا لأن هذا الملف لا يستورد من apps/console/src/screens. */
+function tenureText(createdAt: string): string {
+  if (!createdAt) return '—';
+  const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
+  if (days < 1) return 'اليوم';
+  if (days < 30) return `${days} يوم`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} شهر`;
+  const years = Math.floor(months / 12);
+  return `${years} سنة`;
+}
+
 /**
  * الصفحة الكاملة — لا نافذة منبثقة، هذي أول شاشة إدارية تحمل لمسة الفخامة اللي شاشات المحل نفسه
- * تحملها (`shadow-glow`، `text-display`) بعد دراسة الثيم الكاملة. البنية التحتية فقط بهذي الخطوة:
- * صف الـKPIs فاضٍ عمداً — تصميمه (وأي مكوّن ذكي بداخله، مثل AreaTrend الموجود وغير المستخدم بلوحة
- * الإدارة) خطوة قادمة منفصلة، تبويب تبويب. محتوى التبويبات الستة نفسه لم يتغيّر — لا تراجع وظيفي.
+ * تحملها (`shadow-glow`، `text-display`) بعد دراسة الثيم الكاملة.
  */
 export function CustomerDetail({ session, tenant, subscription, planNames, catalog, onClose }: {
   session: AdminSession; tenant: Tenant; subscription: Subscription | null;
   planNames: Map<string, string>; catalog: AdminCatalog; onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const subMeta = subscription ? SUB_STATUS_META[subscription.status] : null;
+  const tenantMeta = TENANT_STATUS_META[tenant.status] ?? TENANT_STATUS_META.pending;
 
   return (
     <div className="flex min-h-full flex-col gap-5 p-6">
@@ -83,11 +97,20 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
         </div>
       </header>
 
-      {/* صف الـKPIs — البنية التحتية فقط، بانتظار التصميم القادم (مؤشرات القيمة، الفوترة، النشاط،
-         خط اتجاه AreaTrend...). فارغ عمداً الآن — لا أرقام مؤقتة توهم بأنها نهائية. */}
-      <section aria-label="مؤشرات المحل" className="rounded-card border border-dashed border-border-subtle p-4">
-        <p className="text-label text-text-muted">صف المؤشرات — تصميمه الخطوة القادمة.</p>
-      </section>
+      {/* صف الـKPIs — من بيانات هذي الصفحة نفسها (tenant/subscription)، لا أرقام مختلقة. مؤشرات
+         أعمق (نشاط واتساب حقيقي، استهلاك المحفظة، تذاكر مفتوحة) تحتاج قراءات إضافية وتُضاف مع كل
+         تبويب لما يُبنى — لا رقم يُعرض هنا قبل ما يكون مصدره حقيقياً. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard icon={<Clock size={18} />} label="منذ متى معنا" value={tenureText(tenant.created_at)}
+                tone="accent" hint={tenant.created_at?.slice(0, 10)} />
+        <KpiCard icon={<Activity size={18} />} label="حالة الحساب" value={tenantMeta.label}
+                tone={tenantMeta.tone} />
+        <KpiCard icon={<Package size={18} />} label="التطبيق" value={subMeta?.label ?? 'بلا تطبيق'}
+                tone={subMeta?.tone ?? 'neutral'}
+                hint={subscription ? (planNames.get(subscription.plan_id) ?? subscription.plan_id) : undefined} />
+        <KpiCard icon={<RefreshCw size={18} />} label="آخر تحديث" value={tenureText(tenant.updated_at)}
+                tone="neutral" hint={tenant.updated_at?.slice(0, 10)} />
+      </div>
 
       <Segmented value={tab} onChange={(v) => setTab(v as Tab)}
                 options={[
