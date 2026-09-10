@@ -18,6 +18,7 @@ reads, believes, and plans around, and correcting it next month costs more than 
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as _dt
 import json
 import time
@@ -170,9 +171,12 @@ class SettlementsSource:
             # statement already issued.
             #
             # So we read wider by issue date and narrow by `paid_at` below.
-            paid = self._invoices(status="paid",
-                                  since=period_start - LOOKBACK_SECONDS, until=period_end)
-            void = self._invoices(status="void", since=period_start, until=period_end)
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            paid = await asyncio.to_thread(
+                self._invoices, status="paid", since=period_start - LOOKBACK_SECONDS,
+                until=period_end)
+            void = await asyncio.to_thread(
+                self._invoices, status="void", since=period_start, until=period_end)
         except Exception:                                                       # noqa: BLE001
             return None
 

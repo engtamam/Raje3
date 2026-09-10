@@ -32,6 +32,7 @@ FOUR THINGS NOTIFICATION-SERVICE WILL NOT FORGIVE, learned from its request mode
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import urllib.error
@@ -366,6 +367,19 @@ class HttpSender:
         return str(out.get("media_id") or "")
 
     async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
+                            variables: list[str], service_ids: list[str],
+                            service_names: dict[str, str], idempotency_key: str,
+                            sending_identity: str = "") -> str:
+        """Thin async wrapper — every call inside is stdlib urllib, plain synchronous methods, so
+        the whole card-building-and-send sequence runs as ONE unit off the event loop. See
+        core/customer_lookup.py::HttpCustomerLookup.resolve for the same offload idiom."""
+        return await asyncio.to_thread(
+            self._send_carousel_sync, tenant=tenant, subject_ref=subject_ref,
+            template_name=template_name, variables=variables, service_ids=service_ids,
+            service_names=service_names, idempotency_key=idempotency_key,
+            sending_identity=sending_identity)
+
+    def _send_carousel_sync(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
                             sending_identity: str = "") -> str:

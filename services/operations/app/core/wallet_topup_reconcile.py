@@ -29,6 +29,7 @@ counted; the sweep's own job is throughput across the whole pending set, not all
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import urllib.error
@@ -109,26 +110,33 @@ class HttpWalletTopups:
         """
         if not self.configured:
             return None
-        out: list[dict] = []
-        cursor = ""
         try:
-            for _ in range(MAX_PAGES):
-                params = {"limit": self._limit, "older_than_seconds": self._older_than}
-                if cursor:
-                    params["cursor"] = cursor
-                payload = self._get(self._pending_path, params)
-                rows = payload.get("payments") or []
-                out.extend(r for r in rows if isinstance(r, dict))
-                cursor = payload.get("next_cursor") or ""
-                if not cursor:
-                    break
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. The
+            # whole page-walk runs as ONE synchronous unit in the thread, not page-by-page.
+            return await asyncio.to_thread(self._pending_sync)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
+
+    def _pending_sync(self) -> list[dict]:
+        out: list[dict] = []
+        cursor = ""
+        for _ in range(MAX_PAGES):
+            params = {"limit": self._limit, "older_than_seconds": self._older_than}
+            if cursor:
+                params["cursor"] = cursor
+            payload = self._get(self._pending_path, params)
+            rows = payload.get("payments") or []
+            out.extend(r for r in rows if isinstance(r, dict))
+            cursor = payload.get("next_cursor") or ""
+            if not cursor:
+                break
         return out
 
     async def reconcile(self, payment_id: str) -> bool:
         try:
-            self._post(self._reconcile_path.replace("{payment_id}", payment_id))
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            await asyncio.to_thread(
+                self._post, self._reconcile_path.replace("{payment_id}", payment_id))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
         return True

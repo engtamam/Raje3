@@ -38,6 +38,7 @@ which stops the AI exactly as a genuine 402 would — the one case this module r
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import urllib.error
@@ -100,7 +101,8 @@ class HttpWalletBalance:
             "reason": "whatsapp_assistant.llm_turn"}
         if self._reserve_funds:
             body["funds"] = list(self._reserve_funds)
-        result = self._post(self._reserve_path, body)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(self._post, self._reserve_path, body)
         if result is None:
             return None
         hold_id = result.get("hold_id")
@@ -114,10 +116,12 @@ class HttpWalletBalance:
         body: dict[str, Any] = {"hold_id": hold_id}
         if final_net is not None:
             body["final_net"] = max(0, int(final_net))
-        self._post(self._confirm_path, body)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        await asyncio.to_thread(self._post, self._confirm_path, body)
 
     async def release(self, hold_id: str) -> None:
-        self._post(self._release_path, {"hold_id": hold_id})
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        await asyncio.to_thread(self._post, self._release_path, {"hold_id": hold_id})
 
 
 def estimated_hold_halalas(*, estimated_tokens: int, halalas_per_1k_tokens: float,

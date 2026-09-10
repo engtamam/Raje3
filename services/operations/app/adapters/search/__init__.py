@@ -21,6 +21,7 @@ nothing.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -114,7 +115,8 @@ class HttpSearch:
         """
         q = urllib.parse.urlencode({"index": index, "tenant": tenant, "prefix": prefix})
         try:
-            out = self._get(f"{self._suggest_path}?{q}")
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            out = await asyncio.to_thread(self._get, f"{self._suggest_path}?{q}")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             # A READ THAT DID NOT HAPPEN IS NOT AN EMPTY SHOP. `None` travels all the way to the
             # screen, which says «تعذّر البحث» rather than «لا يوجد عميل» — the one wrong answer
@@ -127,8 +129,9 @@ class HttpSearch:
                     size: int) -> list[dict[str, Any]] | None:
         """Whole-token search: the peer matches complete tokens, so the terms come from `suggest`."""
         try:
-            out = self._post(self._query_path, {"index": index, "tenant": tenant, "text": text,
-                                                "size": size, "highlight": False})
+            out = await asyncio.to_thread(
+                self._post, self._query_path,
+                {"index": index, "tenant": tenant, "text": text, "size": size, "highlight": False})
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
         hits = out.get("hits") if isinstance(out, dict) else None
