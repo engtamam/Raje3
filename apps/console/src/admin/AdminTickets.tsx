@@ -93,13 +93,20 @@ export function AdminTickets({ session }: { session: AdminSession }) {
     return (id?: string) => (id ? (m.get(id) ?? id) : '—');
   }, [tenants]);
 
+  const hasFilter = Boolean(filters.status || filters.type || filters.priority || filters.assignee || filters.tenant);
+
   useEffect(() => {
     if (!listAction) { setTickets('failed'); return; }
+    setSelected(null);
+    setDetail(null);
+    // NO FETCH AT ALL WITHOUT A FILTER — the server itself refuses an empty `where` (same rule as
+    // billing.list_invoices; see this file's own module docstring), so sending the request anyway
+    // just trades the warning below for a SECOND, contradictory "تعذّرت القراءة" on top of it. The
+    // warning already tells the operator what to do; an empty result says it more calmly.
+    if (!hasFilter) { setTickets([]); setCursor(undefined); return; }
     req<{ tickets: TicketSummary[]; cursor?: string }>(
       `${listAction.path}?${sweepQuery(filters)}`, 'GET', undefined, session.access_token)
       .then((r) => { setTickets(r.tickets); setCursor(r.cursor); }).catch(() => setTickets('failed'));
-    setSelected(null);
-    setDetail(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches on any filter change
   }, [listAction, filters]);
 
@@ -200,14 +207,15 @@ export function AdminTickets({ session }: { session: AdminSession }) {
         <Input value={filters.assignee} onChange={(e) => setFilters((f) => ({ ...f, assignee: e.target.value }))}
               placeholder="المسؤول…" className="w-36" aria-label="فلترة بالمسؤول" />
       </div>
-      {!filters.status && !filters.type && !filters.priority && !filters.assignee && !filters.tenant ? (
+      {!hasFilter ? (
         <p role="alert" className="text-sm text-danger">
           لازم فلتر واحد على الأقل — لا قراءة عابرة لكل المستأجرين بلا حدود، نفس قاعدة الفواتير.
         </p>
       ) : null}
 
-      <Table columns={columns} rows={tickets} getRowId={(t) => `${t.tenant}:${t.id}`} onRowClick={setSelected}
-            emptyTitle="لا تذاكر تطابق هذي الفلاتر" failedTitle="تعذّرت قراءة التذاكر" />
+      <Table columns={columns} rows={hasFilter ? tickets : []} getRowId={(t) => `${t.tenant}:${t.id}`} onRowClick={setSelected}
+            emptyTitle={hasFilter ? 'لا تذاكر تطابق هذي الفلاتر' : 'اختر فلتراً لعرض التذاكر'}
+            failedTitle="تعذّرت قراءة التذاكر" />
       {cursor ? (
         <button type="button" onClick={loadMore} disabled={loadingMore}
                 className="self-center text-label text-brand disabled:opacity-50">

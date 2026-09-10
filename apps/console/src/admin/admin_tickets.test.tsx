@@ -127,6 +127,38 @@ describe('AdminTickets (unified cross-tenant inbox)', () => {
       expect.stringContaining('tenant=t1'), 'GET', undefined, 'tok-1'));
   });
 
+  it('clearing every filter never re-fetches — the server refuses an empty where, so this side must not even ask', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [] });
+      if (path.includes('/tickets/admin/tickets?')) {
+        return Promise.resolve({ tickets: [
+          { id: 'tk1', tenant: 't1', type: 'support', status: 'open', priority: 'normal',
+           created: '', updated: '', assignee: '', tags: [], raiser_ref: '' },
+        ] });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminTickets session={SESSION} />);
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('status=open'), 'GET', undefined, 'tok-1'));
+    reqMock.mockClear();
+
+    fireEvent.change(screen.getByLabelText('فلترة بالحالة'), { target: { value: '' } });
+    // the warning shows...
+    await waitFor(() => expect(screen.getByText(
+      'لازم فلتر واحد على الأقل — لا قراءة عابرة لكل المستأجرين بلا حدود، نفس قاعدة الفواتير.',
+    )).toBeTruthy());
+    // ...and the calm placeholder, never the contradictory "تعذّرت القراءة" a wasted, refused
+    // fetch would have produced.
+    expect(screen.getByText('اختر فلتراً لعرض التذاكر')).toBeTruthy();
+    expect(screen.queryByText('تعذّرت قراءة التذاكر')).toBeNull();
+    // and, above all, no request was ever sent for the tickets list with no filter at all.
+    expect(reqMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('/tickets/admin/tickets?'), 'GET', undefined, 'tok-1');
+  });
+
   it('KPI cards count escalated/pending from the shown page, colour-coded', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockImplementation((path: string) => {
