@@ -123,6 +123,17 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         ],
         "help": "سجلّ إرسال واتساب لمحل واحد بسببه — أحد الحقلين مطلوب.",
     },
+    {
+        "id": "operations.whatsapp_platform_status", "label": "حالة واتساب المنصة", "method": "GET",
+        "path": "/api/v1/platform/whatsapp/platform-status", "capability": "platform.operations",
+        "group": "المنصة",
+        "params": [
+            {"name": "window_hours", "in": "query", "type": "number", "required": False,
+             "help": "نافذة إحصاء الإرسال بالساعات (١-١٦٨)، الافتراضي ٢٤"},
+        ],
+        "help": "حالة اتصال كل رقم، ومعدّل نجاح/فشل الإرسال الحقيقي، وعدد الأرقام المربوطة، وعدد "
+                "من ألغى اشتراكه التسويقي — أسرار المنصة نفسها لا أي محل.",
+    },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {
         "id": "operations.list_partners", "label": "الشركاء", "method": "GET",

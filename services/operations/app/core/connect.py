@@ -314,6 +314,23 @@ class ConnectionStore:
                 for r in rows if r.get("tenant"))
         return out[:cap]
 
+    async def all(self, *, limit: int = 2000) -> list[Attempt]:
+        """EVERY connection row, whatever its state — including `stopped`, which `live_connections`
+        deliberately excludes (it is that method's own work list, not a fleet census).
+
+        FOR THE ADMIN STATUS PANEL (Raje3 Meta-panel Phase 1), which asks a different question than
+        the sweep does: not "who still needs checking" but "what does the whole fleet look like right
+        now, good and bad alike" — a screen that hid `stopped` rows would show a healthier platform
+        than the one actually running.
+        """
+        rows = await self._s.scan_all(CONNECTIONS, max(1, min(2000, limit)))
+        return [Attempt(tenant=str(r.get("tenant") or ""), state=str(r.get("state") or ""),
+                        step=str(r.get("step") or ""), waba_id=str(r.get("waba_id") or ""),
+                        phone_number_id=str(r.get("phone_number_id") or ""),
+                        business_id=str(r.get("business_id") or ""),
+                        detail=str(r.get("detail") or ""), at=int(r.get("at") or 0),
+                        branch_id=str(r.get("branch_id") or "")) for r in rows if r.get("tenant")]
+
     async def mark_swept(self, sweep: str, tenant: str, at: int) -> None:
         """Record that `sweep` has just finished with `tenant`.
 

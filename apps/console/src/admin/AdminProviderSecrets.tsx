@@ -20,10 +20,14 @@
  * the write-only guarantee above, which is about a value already saved.
  */
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronLeft, CircleHelp, Copy, CreditCard, MessageCircle, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle, CheckCircle2, ChevronLeft, CircleHelp, Clock, Copy, CreditCard, Loader2,
+  MessageCircle, PhoneOff, Send, Sparkles, UserX, XCircle,
+} from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
+import { KpiCard } from '../rj-ui/KpiCard';
 import { Segmented } from '../rj-ui/Segmented';
 import { TabBar } from '../rj-ui/TabBar';
 import { Modal } from '../rj-ui/Modal';
@@ -143,6 +147,10 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
   const findAction = (id: string) => allActions.find((a) => a.id === id);
   const listAction = findAction('secrets.list');
   const updateAction = findAction('secrets.update');
+  // "الحالة" — رؤية تشغيلية حقيقية لواتساب المنصة نفسها (Raje3 Meta-panel Phase 1): لا اتصال
+  // جديد بميتا، فقط بيانات نملكها فعلاً (ConnectionStore بoperations، وDeliveryStore/
+  // WhatsAppNumberIndex/PreferenceStore بnotification-service) مجمّعة بمسار إداري واحد.
+  const platformStatusAction = findAction('operations.whatsapp_platform_status');
   // "الإدارة" — النموذج والسلوك، عبر خدمة الذكاء الاصطناعي مباشرة (platform.config)، لا عبر
   // secrets-admin: هذي قيم سياسة تُقرأ صراحة (RuntimeConfig)، لا أسرار مختومة بمفتاح.
   const configGetAction = findAction('whatsapp_assistant.operator_config');
@@ -291,10 +299,17 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <SecretsCard providerLabel={(PROVIDER_META[active ?? ''] ?? PROVIDER_META.other).label}
-                          rows={activeRows} session={session} updateAction={updateAction}
-                          onSaved={() => listAction && reload(listAction)} />
+            <div className="flex flex-col gap-4">
+              {/* "الحالة" تظهر فوق "الأسرار" — رؤية تشغيلية قبل خزنة الأسرار، لا بدلاً عنها ولا
+                 داخلها. فئة meta فقط اليوم (هي الوحيدة اللي عندها بيانات تشغيلية حقيقية جاهزة). */}
+              {active === 'meta' && platformStatusAction ? (
+                <MetaStatusSection session={session} action={platformStatusAction} />
+              ) : null}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <SecretsCard providerLabel={(PROVIDER_META[active ?? ''] ?? PROVIDER_META.other).label}
+                            rows={activeRows} session={session} updateAction={updateAction}
+                            onSaved={() => listAction && reload(listAction)} />
+              </div>
             </div>
           )}
         </>
@@ -321,6 +336,163 @@ function CardTrigger({ onClick, title, subtitle, trailing }: {
         <ChevronLeft size={13} /> فتح الإعدادات
       </span>
     </button>
+  );
+}
+
+// ── "الحالة" (Raje3 Meta-panel Phase 1) — رؤية تشغيلية حقيقية لواتساب المنصة نفسها، لا اتصال
+// جديد بميتا. مصدران مستقلان مُجمَّعان بمسار operations واحد: حالة كل رقم (ConnectionStore، فوري
+// بلا استدعاء خارجي) + معدّل إرسال حقيقي/أرقام مربوطة/انسحاب تسويقي (notification-service). كل
+// رقم يُبلَّغ عن نفسه (`peer_unavailable`) بدل ما يُسقِط الشاشة كلها. ─────────────────────────────
+interface ConnectionRow {
+  id: string; tenant: string; state: string; step: string; waba_id: string;
+  phone_number_id: string; business_id: string; detail: string; at: number; branch_id: string;
+}
+interface DeliveryCounts {
+  sent: number; failed: number; queued: number; delivered: number; read: number; total: number;
+  window_hours: number;
+}
+interface PlatformStatusResponse {
+  connections: { total: number; by_state: Record<string, number>; numbers: ConnectionRow[] };
+  peer_unavailable: boolean;
+  deliveries: DeliveryCounts | null;
+  numbers_bound: number | null;
+  marketing_opt_outs: number | null;
+}
+
+// الحالات الأربع الحقيقية بConnectionStore (core/connect.py) + "failed" النظرية — لون كل حالة
+// يُقرأ فوراً: مربوط أخضر، متوقف/معطّل أحمر، بالانتظار أصفر/رمادي. لا تخمين ولا تدرّج جديد — نفس
+// نغمات Badge المستخدمة بكل الشاشة أصلاً.
+const CONNECTION_STATE_META: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral'; icon: typeof CheckCircle2 }> = {
+  connected: { label: 'مربوط', tone: 'success', icon: CheckCircle2 },
+  exchanging: { label: 'جارٍ الإتمام', tone: 'info', icon: Loader2 },
+  finished_unconfirmed: { label: 'أُنشئ ولم يُؤكَّد', tone: 'warning', icon: Clock },
+  stopped: { label: 'متوقف', tone: 'danger', icon: PhoneOff },
+  failed: { label: 'فشل', tone: 'danger', icon: XCircle },
+};
+function connectionStateMeta(state: string) {
+  return CONNECTION_STATE_META[state]
+    ?? { label: state || 'غير معروف', tone: 'neutral' as const, icon: CircleHelp };
+}
+
+function fmtDateTimeFromEpoch(at: number): string {
+  if (!at) return '—';
+  return new Date(at * 1000).toLocaleString('ar-SA-u-nu-latn', {
+    year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function MetaStatusSection({ session, action }: { session: AdminSession; action: AdminAction }) {
+  const [status, setStatus] = useState<PlatformStatusResponse | 'loading' | 'failed'>('loading');
+
+  function reload() {
+    setStatus('loading');
+    req<PlatformStatusResponse>(action.path, 'GET', undefined, session.access_token)
+      .then(setStatus)
+      .catch(() => setStatus('failed'));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- reload is stable per action.path identity
+  useEffect(reload, [action.path, session.access_token]);
+
+  if (status === 'loading') {
+    return <p className="text-sm text-text-secondary">جارٍ تحميل حالة واتساب المنصة…</p>;
+  }
+  if (status === 'failed') {
+    return <p role="alert" className="text-danger text-sm">تعذّرت قراءة حالة واتساب المنصة.</p>;
+  }
+
+  const d = status.deliveries;
+  const byState = status.connections.by_state;
+  const connectedCount = byState.connected ?? 0;
+  const problemCount = (byState.stopped ?? 0) + (byState.failed ?? 0);
+  const deliveryRate = d && d.sent + d.failed > 0
+    ? Math.round((d.sent / (d.sent + d.failed)) * 100) : null;
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h2 className="font-medium">حالة واتساب المنصة</h2>
+          <p className="text-label text-text-secondary">
+            واتساب المنصة نفسها — إرسالات مثل رمز التحقق عند التسجيل، لا رقم أي محل.
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={reload}>تحديث</Button>
+      </div>
+
+      {status.peer_unavailable ? (
+        <div className="flex items-center gap-2 rounded-card bg-warning-soft p-3 text-sm text-warning-on-soft">
+          <AlertTriangle size={16} className="shrink-0" />
+          تعذّر الاتصال بخدمة الإشعارات — أرقام الإرسال والانسحاب أدناه غير متاحة الآن، وحالة
+          الأرقام (بالأسفل) مقروءة محلياً وسليمة رغم ذلك.
+        </div>
+      ) : null}
+
+      {/* بطاقات مؤشرات ملوَّنة — نفس مكوّن KpiCard المستخدم بشاشات المحفظة/الحجوزات، لا أرقام
+         عادية بلا لون. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <KpiCard icon={<CheckCircle2 size={18} />} label="أرقام مربوطة الآن"
+                value={connectedCount} tone={connectedCount > 0 ? 'success' : 'neutral'}
+                hint={`من إجمالي ${status.connections.total} رقم متصل تاريخياً`}
+                testId="kpi-connected-numbers" />
+        <KpiCard icon={<PhoneOff size={18} />} label="أرقام متوقفة/فاشلة"
+                value={problemCount} tone={problemCount > 0 ? 'danger' : 'neutral'}
+                testId="kpi-problem-numbers" />
+        <KpiCard icon={<Send size={18} />} label="رسائل مُرسَلة"
+                value={d ? d.sent : '—'} tone={d && d.sent > 0 ? 'success' : 'neutral'}
+                hint={d ? `آخر ${d.window_hours} ساعة` : 'تعذّرت القراءة'}
+                testId="kpi-sent" />
+        <KpiCard icon={<XCircle size={18} />} label="رسائل فشلت"
+                value={d ? d.failed : '—'}
+                tone={d && d.failed > 0 ? 'danger' : (d ? 'success' : 'neutral')}
+                hint={deliveryRate !== null ? `نجاح ${deliveryRate}٪` : undefined}
+                testId="kpi-failed" />
+        <KpiCard icon={<Sparkles size={18} />} label="أرقام مربوطة (المنصّة)"
+                value={status.numbers_bound ?? '—'} tone="accent"
+                testId="kpi-numbers-bound" />
+        <KpiCard icon={<UserX size={18} />} label="ألغوا الاشتراك التسويقي"
+                value={status.marketing_opt_outs ?? '—'} tone="warning"
+                testId="kpi-opt-outs" />
+      </div>
+
+      {/* حالة كل رقم — شارة ملوَّنة لكل حالة، لا نص عادي. */}
+      {status.connections.numbers.length === 0 ? (
+        <p className="text-sm text-text-secondary">لا اتصالات مسجَّلة بعد.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-right text-sm">
+            <thead>
+              <tr className="text-label text-text-secondary">
+                <th className="p-2 font-medium">المحل</th>
+                <th className="p-2 font-medium">الحالة</th>
+                <th className="p-2 font-medium">آخر تحديث</th>
+              </tr>
+            </thead>
+            <tbody>
+              {status.connections.numbers.map((row) => {
+                const meta = connectionStateMeta(row.state);
+                const Icon = meta.icon;
+                return (
+                  <tr key={row.id} className="border-t border-border-subtle">
+                    <td className="p-2">
+                      <span dir="ltr" className="font-mono text-label">{row.tenant}</span>
+                      {row.branch_id ? <span className="text-text-muted"> · {row.branch_id}</span> : null}
+                    </td>
+                    <td className="p-2">
+                      <Badge tone={meta.tone}>
+                        <Icon size={12} className={row.state === 'exchanging' ? 'animate-spin' : undefined} />
+                        {meta.label}
+                      </Badge>
+                    </td>
+                    <td className="p-2 text-text-secondary">{fmtDateTimeFromEpoch(row.at)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

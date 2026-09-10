@@ -255,6 +255,11 @@ def build_container(settings: Settings) -> Container:
     # token carries. See `api/v1/platform.py::whatsapp_diagnostics`.
     from app.adapters.whatsapp_diagnostics import build_whatsapp_diagnostics
     container.whatsapp_diagnostics = build_whatsapp_diagnostics(settings)
+    # THE META CATEGORY'S "STATUS" TAB (Raje3 Meta-panel Phase 1) — the platform-wide delivery,
+    # bound-numbers and opt-out figures, read from notification-service the same way as the line
+    # right above. See `api/v1/platform.py::whatsapp_platform_status`.
+    from app.adapters.platform_status import build_platform_status
+    container.platform_status = build_platform_status(settings)
     # WHAT EACH SHOP ACTUALLY PAID US — the one input a commission statement takes. Unconfigured
     # in a local run, and then the monthly sweep issues nothing and says why, rather than issuing
     # a statement of zero that a partner would read and believe.

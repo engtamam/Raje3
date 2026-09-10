@@ -245,6 +245,9 @@ def build_manifest(
             {"path": "/api/v1/platform/branches/locations", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/tenants/{}/capacity", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/diagnostics", "tier": "user", "method": "GET"},
+            # THE META CATEGORY'S "STATUS" TAB (Raje3 Meta-panel Phase 1) — platform-wide delivery,
+            # bound-numbers and connection-state figures, never one shop's.
+            {"path": "/api/v1/platform/whatsapp/platform-status", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},

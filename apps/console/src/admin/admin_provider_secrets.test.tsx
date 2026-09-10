@@ -604,6 +604,99 @@ describe('AdminProviderSecrets', () => {
     ));
   });
 
+  // ── "الحالة" (Raje3 Meta-panel Phase 1) — رؤية تشغيلية فوق بطاقة "الأسرار"، مع لون حقيقي لكل
+  // حالة اتصال ومعدّل إرسال حقيقي. ─────────────────────────────────────────────────────────────
+  const STATUS_CATALOG = {
+    services: [
+      { service: 'secrets-admin', actions: CATALOG.services[0].actions },
+      { service: 'operations', actions: [
+        { id: 'operations.whatsapp_platform_status', label: 'x', method: 'GET' as const,
+         path: '/api/v1/platform/whatsapp/platform-status', capability: 'platform.operations' },
+      ] },
+    ],
+    unreachable: [],
+  };
+
+  it('renders "حالة واتساب المنصة" above "الأسرار" for Meta, with a connected number in success styling and a stopped one in danger styling', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(STATUS_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'META_APP_SECRET', label: 'سر تطبيق ميتا', configured: true,
+                     last4: 'ab12', updated_at: null, updated_by: null }],
+        });
+      }
+      if (path === '/api/v1/platform/whatsapp/platform-status') {
+        return Promise.resolve({
+          connections: {
+            total: 2, by_state: { connected: 1, stopped: 1 },
+            numbers: [
+              { id: 'a', tenant: 'shop-a', state: 'connected', step: '', waba_id: '', phone_number_id: '',
+               business_id: '', detail: '', at: 1_700_000_000, branch_id: '' },
+              { id: 'b', tenant: 'shop-b', state: 'stopped', step: '', waba_id: '', phone_number_id: '',
+               business_id: '', detail: '', at: 1_700_000_100, branch_id: '' },
+            ],
+          },
+          peer_unavailable: false,
+          deliveries: { sent: 40, failed: 10, queued: 0, delivered: 35, read: 20, total: 50, window_hours: 24 },
+          numbers_bound: 2, marketing_opt_outs: 7,
+        });
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider(/^Meta\b/);
+
+    // الحالة تظهر — والأسرار كذلك، معاً بنفس الشاشة، "الحالة" فوقها.
+    await waitFor(() => expect(screen.getByText('حالة واتساب المنصة')).toBeTruthy());
+    expect(screen.getByText('الأسرار')).toBeTruthy();
+
+    // أرقام حقيقية بالمؤشرات، لا نص "قريباً".
+    await waitFor(() => expect(screen.getByTestId('kpi-sent').textContent).toContain('40'));
+    expect(screen.getByTestId('kpi-failed').textContent).toContain('10');
+    expect(screen.getByTestId('kpi-numbers-bound').textContent).toContain('2');
+    expect(screen.getByTestId('kpi-opt-outs').textContent).toContain('7');
+
+    // اللون الحقيقي: مربوط أخضر (success)، متوقف أحمر (danger) — لا نفس اللون للاثنين.
+    const connectedBadge = screen.getByText('مربوط');
+    const stoppedBadge = screen.getByText('متوقف');
+    expect(connectedBadge.closest('span')?.className).toContain('success');
+    expect(stoppedBadge.closest('span')?.className).toContain('danger');
+    expect(connectedBadge.closest('span')?.className)
+      .not.toBe(stoppedBadge.closest('span')?.className);
+  });
+
+  it('an unreachable notification-service still shows connection state, and says the rest is unavailable', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(STATUS_CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/secrets') {
+        return Promise.resolve({
+          secrets: [{ key: 'META_APP_SECRET', label: 'سر تطبيق ميتا', configured: true,
+                     last4: 'ab12', updated_at: null, updated_by: null }],
+        });
+      }
+      if (path === '/api/v1/platform/whatsapp/platform-status') {
+        return Promise.resolve({
+          connections: {
+            total: 1, by_state: { connected: 1 },
+            numbers: [{ id: 'a', tenant: 'shop-a', state: 'connected', step: '', waba_id: '',
+                       phone_number_id: '', business_id: '', detail: '', at: 1_700_000_000, branch_id: '' }],
+          },
+          peer_unavailable: true, deliveries: null, numbers_bound: null, marketing_opt_outs: null,
+        });
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    render(<AdminProviderSecrets session={SESSION} />);
+    await openProvider(/^Meta\b/);
+    await waitFor(() => expect(screen.getByText(/تعذّر الاتصال بخدمة الإشعارات/)).toBeTruthy());
+    // الاتصال المحلي (operations) لا يزال يُعرض بلا مشكلة رغم انقطاع notification-service.
+    expect(screen.getByText('مربوط')).toBeTruthy();
+    expect(screen.getByTestId('kpi-sent').textContent).toContain('—');
+  });
+
   it('never renders any "reveal" or "show" control', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({

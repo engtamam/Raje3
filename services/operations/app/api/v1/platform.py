@@ -541,3 +541,54 @@ async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_
             {"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
             status_code=502)
     return out
+
+
+@router.get("/whatsapp/platform-status", dependencies=[Depends(rate_limit)])
+async def whatsapp_platform_status(request: Request, window_hours: int = 24,
+                                   principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The Meta category's "Status" tab (Raje3 Meta-panel Phase 1, cheapest slice — nothing here is
+    a new call to Meta, only data this platform already holds).
+
+    THE PLATFORM'S OWN NUMBERS, NEVER A SHOP'S. `AdminProviderSecrets.tsx`'s Meta secrets
+    (META_APP_ID, WHATSAPP_ACCESS_TOKEN, …) are OUR sending identity — the same one that sends a
+    signup OTP — not any one establishment's connected WhatsApp. So this answers four things about
+    the platform as a whole:
+
+      1. per-number CONNECTION state — read in-process from `ConnectionStore.all()`, this service's
+         own table, with no peer call at all;
+      2. real WhatsApp delivery counts over a recent window — `notification-service`'s
+         `DeliveryStore`, asked through `container.platform_status` (never this service's own copy
+         of that data, which does not exist);
+      3. how many WhatsApp numbers are currently bound — `notification-service`'s
+         `WhatsAppNumberIndex`, same call;
+      4. how many customers have opted out of marketing — `notification-service`'s
+         `PreferenceStore`, same call.
+
+    TWO INDEPENDENT READS, EACH ANSWERED HONESTLY ON ITS OWN. A `notification-service` outage must
+    not blank the connection states this service already knows, and a slow `ConnectionStore` scan
+    must not block the delivery figures — so both are fetched, and the peer's own unavailability is
+    reported IN the response (`peer_unavailable`) rather than failing the whole request.
+    """
+    from app.core.connect import ConnectionStore
+
+    await request.app.state.auditor.record(
+        "platform.whatsapp_status_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant="", resource="whatsapp:platform-status",
+        ip=request.client.host if request.client else "")
+    ds = request.app.state.container.datastore
+    rows = await ConnectionStore(ds).all()
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r.state] = counts.get(r.state, 0) + 1
+    connections = {
+        "total": len(rows), "by_state": counts,
+        # Newest first, and capped — this is a status glance, never a full export of every number
+        # this platform has ever connected.
+        "numbers": [r.to_dict() for r in sorted(rows, key=lambda r: -r.at)[:200]],
+    }
+    peer = request.app.state.container.platform_status
+    remote = await peer.read(window_hours=max(1, min(168, window_hours)))
+    if remote is None:
+        return {"connections": connections, "peer_unavailable": True,
+                "deliveries": None, "numbers_bound": None, "marketing_opt_outs": None}
+    return {"connections": connections, "peer_unavailable": False, **remote}
