@@ -189,6 +189,13 @@ class ServiceStore(_Base):
                                    limit=200, sort=("sort", "asc"))
         return [Service(**r) for r in rows]
 
+    async def has_any_active(self, tenant: str) -> bool:
+        """Cheap existence check — one row, not the whole catalogue. For a caller (the customer-
+        success scan) asking «did this shop ever add a service?» across every tenant, `list()`'s
+        own 200-row page would be 200x the real cost for an answer that only needs 0 or 1."""
+        rows, _ = await self._find(tenant, {"active": True}, limit=1)
+        return bool(rows)
+
     async def catchall(self, tenant: str) -> Service | None:
         """The tenant's "خدمة أخرى" entry, if it has one.
 
@@ -259,6 +266,13 @@ class VisitStore(_Base):
     async def for_customer(self, tenant: str, customer_id: str, limit: int = 20) -> list[Visit]:
         rows, _ = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
         return [Visit(**r) for r in rows]
+
+    async def has_any(self, tenant: str) -> bool:
+        """Cheap existence check — one row, not a count. The customer-success scan's own "has this
+        shop ever recorded a visit at all?" needs exactly this, across every tenant; a real count
+        would cost a full scan per tenant for a question a single indexed row already answers."""
+        rows, _ = await self._find(tenant, {}, limit=1)
+        return bool(rows)
 
     async def offers_spent(self, tenant: str, customer_id: str, limit: int = 200) -> list[str]:
         """The send-log rows this customer has already spent — the answer reminders needs.

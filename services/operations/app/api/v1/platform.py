@@ -654,3 +654,58 @@ async def whatsapp_platform_status(request: Request,
         "marketing_opt_outs": opt_outs.get("count"),
         "marketing_opt_outs_capped": bool(opt_outs.get("capped")),
     }
+
+
+class CustomerSuccessTenantIn(BaseModel):
+    id: str = Field(min_length=1, max_length=128)
+    name: str = Field(default="", max_length=256)
+    # ISO 8601, exactly the shape tenant-service's own tenant.list already answers with
+    # (`Tenant.created_at`) — the console already holds this list, this route never calls
+    # tenant-service itself.
+    created_at: str = Field(default="")
+
+
+class CustomerSuccessIn(BaseModel):
+    tenants: list[CustomerSuccessTenantIn]
+    # Days with no service added before a fresh signup counts as "stalled". A plain number, not a
+    # hardcoded constant, because base-services-9f/تمام may want to tune it without a redeploy —
+    # but it IS bounded (1-30) so a typo cannot turn this into a 0-day or year-long window.
+    stall_days: int = Field(default=3, ge=1, le=30)
+
+
+@router.post("/customers/success-scan", dependencies=[Depends(rate_limit)])
+async def customer_success_scan(request: Request, body: CustomerSuccessIn,
+                                principal: Principal = Depends(_PLATFORM)) -> dict:
+    """«نجاح العملاء» — which shops may be stalling, computed for real from this service's own
+    visit/service records, never guessed.
+
+    THE CALLER SUPPLIES THE TENANT LIST (id + created_at), because tenant-service — not this
+    service — owns it, and the console already holds it (the same `tenant.list` call
+    `CustomerList.tsx` makes). This route does not call tenant-service itself; it only asks its OWN
+    data two bounded questions per tenant (`Operations.customer_success_flags`) — no scan, no N+1
+    against a peer, cost bounded by however many tenants the caller sent (capped the same way
+    `CustomerList.tsx`'s own TENANT_LIST_LIMIT already caps that list).
+
+    A tenant with an unparsable/missing `created_at` is skipped for the stall check (never treated
+    as "just signed up", which would false-negative it forever, nor as "ancient", which would
+    false-positive it immediately) but still checked for the no-visits signal.
+    """
+    import datetime as _dt
+
+    svc = request.app.state.container.operations
+    now = _dt.datetime.now(_dt.timezone.utc).timestamp()
+    out: list[dict] = []
+    for t in body.tenants[:200]:      # same order-of-magnitude cap as tenant.list's own ceiling
+        try:
+            created = _dt.datetime.fromisoformat(t.created_at.replace("Z", "+00:00")).timestamp()
+        except (ValueError, AttributeError):
+            created = now      # unparsable -> never flagged as "stalled since signup" (see docstring)
+        flags = await svc.customer_success_flags(
+            t.id, created_at=created, now=now, stall_seconds=body.stall_days * 86400)
+        if flags["no_services_after_stall"] or flags["has_services_no_visits"]:
+            out.append({"tenant": t.id, "name": t.name, **flags})
+    await request.app.state.auditor.record(
+        "platform.customer_success_scanned", actor=getattr(principal, "subject", "") or "",
+        tenant="", resource=f"tenants:{len(body.tenants)}",
+        ip=request.client.host if request.client else "")
+    return {"stalling": out, "scanned": len(body.tenants)}

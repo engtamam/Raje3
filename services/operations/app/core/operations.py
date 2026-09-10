@@ -521,6 +521,31 @@ class Operations:
             return None
         return await self._customers.get(tenant, key)
 
+    async def customer_success_flags(self, tenant: str, *, created_at: float,
+                                     now: float, stall_seconds: int) -> dict[str, bool]:
+        """The two real, checkable "this shop may need us to reach out" signals — nothing fuzzier.
+
+        `no_services_after_stall`: signed up more than `stall_seconds` ago and has not added a
+        single active service — the earliest possible stall, before there is even a catalogue to
+        book against. `has_services_no_visits`: has a real catalogue, but not one visit has ever
+        been recorded — the shop set up but never actually started using the product day to day.
+        The two are deliberately exclusive in READING (a shop with no services cannot also be read
+        as "has services, no visits" — that would double-count the same underlying gap under two
+        different labels), though nothing stops both fields from being independently computed.
+
+        ONE tenant at a time, TWO bounded existence reads (`has_any_active`/`has_any`) — never a
+        count, never `list()`'s own 200-row page. The caller (the platform-wide scan) runs this
+        once per tenant from a list it already holds capped at TENANT_LIST_LIMIT, so the total
+        cost is bounded by that cap, not by how many services or visits a shop has accumulated.
+        """
+        has_services = await self._services.has_any_active(tenant)
+        stalled_signup = (not has_services) and (now - created_at) >= stall_seconds
+        has_visits = await self._visits.has_any(tenant) if has_services else False
+        return {
+            "no_services_after_stall": stalled_signup,
+            "has_services_no_visits": has_services and not has_visits,
+        }
+
     async def _resolve_customer(self, tenant: str, phone: str, name: str) -> tuple[Customer, bool]:
         """Find this phone's customer, or build a new (UNSAVED) one. Returns (customer, created).
 

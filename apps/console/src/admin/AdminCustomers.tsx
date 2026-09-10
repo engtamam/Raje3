@@ -4,6 +4,11 @@
  * تبويبات)، لا محرّك عام. طلبات المسوّقين (المحرّك العام، مجموعة "Affiliates" فقط) وتشخيص واتساب
  * يبقيان تبويبين منفصلين كما كانا.
  *
+ * "نجاح العملاء" (`CustomerSuccess.tsx`) — تبويب رابع، مستوى المنصة كلها لا محل واحد: يفحص كل
+ * محل بسؤالين حقيقيين من بيانات operations الفعلية (`operations.customer_success_scan`) — مرّت
+ * مدة التعثّر بلا خدمة، أو عنده خدمات بس ولا زيارة سُجّلت له أبداً — عشان الفريق يتواصل قبل ما
+ * المحل ينسحب. مدّة "التعثّر" اختيار حقيقي بالشاشة (1/3/7/14 يوماً)، لا رقم مثبّت بالكود.
+ *
  * المرحلة الحالية (1): جدول العملاء + تبويبَي "نظرة عامة" و"الاشتراك والفوترة" ببيانات حقيقية.
  * البقية (فروع/مستخدمين، تذاكر، واتساب لكل عميل، سجل تدقيق) ظاهرة كتبويبات بمحتوى "قريباً" صريح
  * يشرح بالضبط الفجوة — انظر CustomerDetail.tsx's own header.
@@ -13,10 +18,11 @@ import { Segmented } from '../rj-ui/Segmented';
 import { ActionCatalogPanel } from './ActionRenderer';
 import { AdminWhatsAppDiagnostics } from './AdminWhatsAppDiagnostics';
 import { CustomerList } from './CustomerList';
+import { CustomerSuccess } from './CustomerSuccess';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 
-type SubTab = 'customers' | 'affiliates' | 'whatsapp';
+type SubTab = 'customers' | 'success' | 'affiliates' | 'whatsapp';
 
 export function AdminCustomers({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
@@ -48,12 +54,14 @@ export function AdminCustomers({ session }: { session: AdminSession }) {
           onChange={(v) => setSub(v as SubTab)}
           options={[
             { value: 'customers', label: 'العملاء' },
+            { value: 'success', label: 'نجاح العملاء' },
             { value: 'affiliates', label: 'طلبات المسوّقين' },
             { value: 'whatsapp', label: 'تشخيص واتساب' },
           ]}
         />
       </div>
       {sub === 'customers' ? <CustomerList session={session} /> : null}
+      {sub === 'success' ? <CustomerSuccess session={session} /> : null}
       {sub === 'affiliates' ? <ActionCatalogPanel session={session} actions={affiliateActions} catalog={catalog} /> : null}
       {sub === 'whatsapp' ? <AdminWhatsAppDiagnostics session={session} /> : null}
     </div>

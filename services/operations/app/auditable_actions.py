@@ -601,6 +601,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "only, every call witnessed hit or miss.",
     },
     {
+        "action": "platform.customer_success_scanned",
+        "source": "admin",
+        "critical": False,
+        "resource": "tenants:{count}",
+        "why": "an operator ran the platform-wide stalled-shop scan — reads only (no shop's own "
+               "record is exposed beyond a tenant id/name and two boolean flags this service "
+               "already computes for its own operational reasons), so not critical, but the count "
+               "of tenants scanned is worth a witness like every other platform.* glance in this "
+               "file.",
+    },
+    {
         "action": "partner.statements_issued",
         "source": "system",
         "critical": True,

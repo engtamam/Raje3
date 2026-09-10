@@ -143,6 +143,19 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         ],
         "help": "مطابقة تامة فقط — يكتب موظف الدعم رقم الجوال كاملاً، لا بحث تقريبي.",
     },
+    {
+        "id": "operations.customer_success_scan", "label": "نجاح العملاء — فحص المحلات المتعثّرة",
+        "method": "POST", "path": "/api/v1/platform/customers/success-scan",
+        "capability": "platform.operations", "group": "المنصة",
+        "params": [
+            {"name": "tenants", "in": "body", "type": "string", "required": True,
+             "help": "قائمة المنشآت (id + created_at) — من tenant.list نفسه، لا مسار جديد للقائمة"},
+            {"name": "stall_days", "in": "body", "type": "number", "required": False,
+             "help": "كم يوم بلا خدمة تُعتبر «تعثّر» — افتراضي 3"},
+        ],
+        "help": "محلات سجّلت ولم تضِف خدمة خلال المدة، أو أضافت خدمات ولا زيارة واحدة سُجّلت لها — "
+                "من بيانات هذه الخدمة الفعلية، لا تخمين.",
+    },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {
         "id": "operations.list_partners", "label": "الشركاء", "method": "GET",
