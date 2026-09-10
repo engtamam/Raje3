@@ -204,3 +204,56 @@ def test_overrides_are_listed_with_who_set_them():
     run(rc.set(tenant="acme", key="RATELIMIT_MAX", value=42, actor_ref="sub_abc"))
     got = run(rc.overrides(tenant="acme"))
     assert got[0].key == "RATELIMIT_MAX" and got[0].set_by == "sub_abc"
+
+
+def test_a_tenant_override_wins_over_a_platform_one_inside_effective():
+    rc = _rc()
+    run(rc.set(tenant="", key="RATELIMIT_MAX", value=10))       # platform-wide
+    run(rc.set(tenant="acme", key="RATELIMIT_MAX", value=77))   # this tenant's own
+    assert run(rc.effective(tenant="acme", settings=_settings()))["RATELIMIT_MAX"] == 77
+
+
+def test_a_platform_override_applies_when_the_tenant_has_none_of_its_own():
+    rc = _rc()
+    run(rc.set(tenant="", key="RATELIMIT_MAX", value=10))
+    assert run(rc.effective(tenant="acme", settings=_settings()))["RATELIMIT_MAX"] == 10
+
+
+def test_a_corrupt_override_inside_effective_falls_back_instead_of_taking_the_service_down():
+    rc = _rc()
+    run(rc.set(tenant="acme", key="RATELIMIT_MAX", value=7))
+    row = run(rc._s.get("runtime_config", "acme|RATELIMIT_MAX"))
+    row["value"] = "{not json"
+    run(rc._s.put("runtime_config", "acme|RATELIMIT_MAX", row))
+    view = run(rc.effective(tenant="acme", settings=_settings()))
+    assert view["RATELIMIT_MAX"] == _settings().RATELIMIT_MAX
+
+
+class _CountingStore(MemoryDataStore):
+    """Counts every read call — the one fact `effective()`'s own batching promise needs proven:
+    a policy of N keys must cost a FIXED number of reads (one `find` per scope in play), never one
+    read per key. A regression back to the old per-key loop would make this test's own count grow
+    with `POLICY`'s size instead of staying constant."""
+    def __init__(self) -> None:
+        super().__init__()
+        self.get_calls = 0
+        self.find_calls = 0
+
+    async def get(self, collection, key):
+        self.get_calls += 1
+        return await super().get(collection, key)
+
+    async def find(self, collection, where, *, limit=100, after=None, sort=("created", "desc")):
+        self.find_calls += 1
+        return await super().find(collection, where, limit=limit, after=after, sort=sort)
+
+
+def test_effective_costs_two_batched_reads_never_one_per_key():
+    store = _CountingStore()
+    rc = RuntimeConfig(store, Settings, now=lambda: "2026-01-01T00:00:00Z", policy=POLICY)
+    run(rc.set(tenant="acme", key="RATELIMIT_MAX", value=77))
+
+    run(rc.effective(tenant="acme", settings=_settings()))
+
+    assert store.get_calls == 0    # NOT a `get()` call per key — that was the old N-reads pattern
+    assert store.find_calls == 2   # one for the tenant scope, one for the platform scope

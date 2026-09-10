@@ -187,12 +187,39 @@ class RuntimeConfig:
 
         Never includes a denied key, so a credential or a DSN cannot appear in a config read even
         by accident.
-        """
+
+        TWO BATCHED READS, NOT UP TO TWO PER KEY — `get()` above is the right shape for "just this
+        one key", but this reads every settable key at once, and used to call `get()` in a loop:
+        one `_s.get` for the tenant scope plus one for the platform scope, PER key, up to 2N round
+        trips for N policy keys (a policy of 20 keys meant up to 40 sequential store reads on every
+        render of the settings panel). `overrides()` right below already reads a whole scope in ONE
+        `_s.find` call; this does the same — one `find` per scope actually in play (one, if `tenant`
+        is already ""), then resolves every key from the two small in-memory maps that come back."""
+        by_tenant: dict[str, Any] = {}
+        by_platform: dict[str, Any] = {}
+        scopes = [tenant, ""] if tenant else [""]
+        for scope in scopes:
+            rows, _ = await self._s.find(_COLL, {"tenant": scope}, limit=500, sort=("key", "asc"))
+            target = by_tenant if scope == tenant and tenant else by_platform
+            for r in rows:
+                target[r["key"]] = r["value"]
+
         out: dict[str, Any] = {}
         for key in sorted(self._policy):
             if not settable(key, self._cls, self._policy):
                 continue
-            out[key] = await self.get(tenant=tenant, key=key, default=getattr(settings, key, None))
+            default = getattr(settings, key, None)
+            raw = by_tenant.get(key) if tenant else None
+            if raw is None:
+                raw = by_platform.get(key)
+            if raw is None:
+                out[key] = default
+                continue
+            try:
+                out[key] = json.loads(raw)
+            except ValueError:
+                # Same fail-safe as `get()`: a corrupt row must not take the service down.
+                out[key] = default
         return out
 
     async def overrides(self, *, tenant: str) -> list[Override]:
