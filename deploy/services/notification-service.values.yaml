@@ -160,14 +160,14 @@ env:
   # ONLY place a WhatsApp Flow may ever spend points (never a standalone redemption).
   WHATSAPP_BOOKING_DEFINITION: |
     {
-      "steps": [{"dimension":"service"},{"dimension":"staff"},{"dimension":"reward"},
-               {"dimension":"date"},{"dimension":"confirm"}],
+      "steps": [{"dimension":"service","multi":true},{"dimension":"staff"},
+               {"dimension":"reward"},{"dimension":"date"},{"dimension":"confirm"}],
       "mode": "single",
       "horizon_days": 14,
       "min_days": 1,
       "max_days": 14,
       "strings": {
-        "pick_service": "اختر الخدمة",
+        "pick_service": "اختر خدمة أو أكثر",
         "pick_staff": "اختر الموظف",
         "pick_reward": "عندك رصيد نقاط — تحب تستبدله بهذا الحجز؟",
         "pick_date": "اختر التاريخ",

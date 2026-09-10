@@ -68,6 +68,17 @@ def _fmt_time(starts_at: int) -> str:
     return _dt.datetime.fromtimestamp(starts_at, tz=RIYADH).strftime("%H:%M")
 
 
+def _service_ids(chosen_or_selection: dict[str, Any]) -> list[str]:
+    """The "service" dimension's own chosen value, normalised — a plain string (a single-choice
+    step, or an older/non-multi Flow definition) or a list (the `"multi": true` CheckboxGroup
+    step, platform v0.19.16+) both come out as a list of non-blank ids, never a bare string a
+    caller would have to branch on."""
+    value = chosen_or_selection.get("service")
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if v]
+    return [str(value)] if value else []
+
+
 class FlowBookingBackend:
     driver = "flow"
 
@@ -128,20 +139,31 @@ class FlowBookingBackend:
                    if r.get("id")]
 
         if dimension == "staff":
-            service_id = str(chosen.get("service") or "")
-            svc = await self._service_row(tenant, service_id) if service_id else None
-            if svc is None or svc.get("assignment_mode") != "named":
-                # SKIP — auto (or an unresolved/unknown service) never asks who. See module
-                # docstring on v0.18.53's conditional-step contract.
+            service_ids = _service_ids(chosen)
+            if not service_ids:
+                return []
+            # ANY chosen service requiring a NAMED operator means the whole booking does — an
+            # operator picked for a multi-service visit has to be able to do EVERY one of them
+            # (see `_eligible_pool`'s own docstring), so the strictest single service decides
+            # whether this step is asked at all.
+            rows = await asyncio.gather(
+                *(self._service_row(tenant, sid) for sid in service_ids))
+            if not any(r is not None and r.get("assignment_mode") == "named" for r in rows):
+                # SKIP — none of the chosen services need a named operator. See module docstring
+                # on v0.18.53's conditional-step contract.
                 return []
             branch_id = await self._branch_id(tenant)
             if not branch_id:
                 return []   # no single resolvable branch — see "SINGLE-BRANCH SHOPS ONLY"
             try:
-                pool = await self._real._eligible_pool(tenant, branch_id, service_id)   # noqa: SLF001 — same-feature internal reuse
+                pool = await self._real._eligible_pool(tenant, branch_id, service_ids)   # noqa: SLF001 — same-feature internal reuse
             except BookingAssignmentError:
                 return []
-            ops = self._real._branch_operators.call({"tenant": tenant, "branch_id": branch_id})   # noqa: SLF001
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. A
+            # real, pre-existing gap this edit found while already touching this call site.
+            ops = await asyncio.to_thread(
+                self._real._branch_operators.call,   # noqa: SLF001
+                {"tenant": tenant, "branch_id": branch_id})
             names = {str(o.get("id")): str(o.get("name") or "")
                     for o in (ops or {}).get("operators") or []}
             return [{"id": op_id, "title": names.get(op_id) or op_id} for op_id in pool]
@@ -184,8 +206,8 @@ class FlowBookingBackend:
 
     async def slots(self, *, tenant: str, chosen: dict[str, Any], date: str,
                     customer: str = "") -> list[dict[str, Any]]:
-        service_id = str(chosen.get("service") or "")
-        if not service_id or not date:
+        service_ids = _service_ids(chosen)
+        if not service_ids or not date:
             return []
         branch_id = await self._branch_id(tenant)
         if not branch_id:
@@ -195,12 +217,12 @@ class FlowBookingBackend:
             if staff:
                 # THE CHOSEN NAME WINS — still re-validated against the real eligible pool (never
                 # trusted blindly) rather than searched across everyone.
-                pool = await self._real._eligible_pool(tenant, branch_id, service_id)   # noqa: SLF001
+                pool = await self._real._eligible_pool(tenant, branch_id, service_ids)   # noqa: SLF001
                 if staff not in pool:
                     return []
                 pool = [staff]
             else:
-                pool = await self._real._eligible_pool(tenant, branch_id, service_id)   # noqa: SLF001
+                pool = await self._real._eligible_pool(tenant, branch_id, service_ids)   # noqa: SLF001
         except BookingAssignmentError:
             return []
 
@@ -211,9 +233,16 @@ class FlowBookingBackend:
         day_start = int(_dt.datetime.combine(day, _dt.time(0, 0), tzinfo=RIYADH).timestamp())
         day_end = day_start + 86400
 
-        result = self._day_slots.call({
+        # DURATION IS NEVER COMPUTED HERE — bookings-service's own day-slots-any route sums the
+        # REAL duration of every id in `service_ids` server-side (confirmed directly against its
+        # own contract), the same "one source of truth for duration" `hold_and_confirm_multi`'s
+        # own docstring already states for the write side.
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. A real,
+        # pre-existing gap this edit found while already touching this exact call site: `_Peer.call`
+        # is plain sync (urllib), and nothing here was offloading it.
+        result = await asyncio.to_thread(self._day_slots.call, {
             "tenant": tenant, "branch_id": branch_id, "operator_ids": pool,
-            "service_ids": [service_id], "day_start": day_start, "day_end": day_end})
+            "service_ids": service_ids, "day_start": day_start, "day_end": day_end})
         times = (result or {}).get("starts_at") or []
         # id = the epoch start time itself, echoed back at reserve() — opaque to the customer
         # (they see only the formatted title), and WHO ends up with it is decided at reserve()
@@ -229,9 +258,9 @@ class FlowBookingBackend:
             # SHOULD NEVER HAPPEN FOR OUR OWN SENDS (we always seed `customer` — see module
             # docstring) — refused rather than guessed if it somehow does.
             return {"ok": False, "reason": "تعذّر تحديد هويتك. أعد فتح المحادثة من جديد من فضلك."}
-        service_id = str(selection.get("service") or "")
+        service_ids = _service_ids(selection)
         time_id = str(selection.get("time") or "")
-        if not service_id or not time_id:
+        if not service_ids or not time_id:
             return {"ok": False, "reason": "الاختيار غير مكتمل."}
         try:
             starts_at = int(time_id)
@@ -242,8 +271,12 @@ class FlowBookingBackend:
             return {"ok": False, "reason": "تعذّر تحديد الفرع لهذا الحجز."}
 
         try:
-            result = await self._real.hold_and_confirm(
-                tenant=tenant, subject_ref="", service_id=service_id, starts_at=starts_at,
+            # ONE OR SEVERAL SERVICES, THE SAME CALL — see `hold_and_confirm_multi`'s own
+            # docstring (platform v0.19.16's multi-select). Always the `_multi` entry point here:
+            # `_service_ids` already normalises a single-choice step to a one-element list, so
+            # there is no separate single-service branch to maintain.
+            result = await self._real.hold_and_confirm_multi(
+                tenant=tenant, subject_ref="", service_ids=service_ids, starts_at=starts_at,
                 idempotency_key=idempotency_key, branch_id=branch_id, from_number=customer,
                 preferred_operator_id=str(selection.get("staff") or ""),
                 # LOYALTY-IN-BOOKING — see module docstring. INTENT ONLY (RealBookingProvider's

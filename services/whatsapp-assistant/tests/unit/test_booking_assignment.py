@@ -415,3 +415,85 @@ async def test_hold_and_confirm_surfaces_a_peer_refusal_rather_than_a_fake_succe
         assert False, "expected BookingAssignmentError"
     except BookingAssignmentError:
         pass
+
+
+# ── multi-service (platform v0.19.16's CheckboxGroup Flow steps) ───────────────────────────────
+async def test_hold_and_confirm_multi_sends_every_chosen_service_to_the_write():
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None, "svc2": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    created = _FakePeer({"id": "bkg_multi1", "status": "booked"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
+    booking = await provider.hold_and_confirm_multi(
+        tenant=TENANT, subject_ref="sub1", service_ids=["svc1", "svc2"], starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+    assert booking["id"] == "bkg_multi1"
+    assert created.calls[0]["service_ids"] == ["svc1", "svc2"]
+    # THE ELIGIBILITY QUESTION WAS ASKED ABOUT BOTH — the eligibility peer sees the whole set,
+    # not one call per service.
+    assert elig.calls[0]["service_ids"] == ["svc1", "svc2"]
+
+
+async def test_hold_and_confirm_multi_requires_an_operator_eligible_for_every_chosen_service():
+    """The intersection rule — an operator restricted OUT of even one of several chosen services
+    must never be picked, only someone who can do all of them."""
+    ops = _FakePeer({"operators": [{"id": "op1"}, {"id": "op2"}]})
+    # op1 can do svc1 but not svc2; op2 can do both.
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": ["op1", "op2"], "svc2": ["op2"]}})
+    merged = _FakePeer({"slots": [{"operator_id": "op2", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    created = _FakePeer({"id": "bkg_multi2", "status": "booked"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
+    await provider.hold_and_confirm_multi(
+        tenant=TENANT, subject_ref="sub1", service_ids=["svc1", "svc2"], starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+    # ONLY op2 (eligible for BOTH) reached the merge search — never op1, restricted out by svc2.
+    assert merged.calls[0]["operator_ids"] == ["op2"]
+
+
+async def test_hold_and_confirm_multi_with_no_operator_eligible_for_all_refuses():
+    ops = _FakePeer({"operators": [{"id": "op1"}, {"id": "op2"}]})
+    # op1 does svc1 only, op2 does svc2 only — nobody does both.
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": ["op1"], "svc2": ["op2"]}})
+    provider = _provider(branch_operators=ops, service_eligibility=elig)
+    try:
+        await provider.hold_and_confirm_multi(
+            tenant=TENANT, subject_ref="sub1", service_ids=["svc1", "svc2"], starts_at=5000,
+            idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+        assert False, "expected BookingAssignmentError"
+    except BookingAssignmentError:
+        pass
+
+
+async def test_hold_and_confirm_multi_refuses_with_no_services_chosen():
+    provider = _provider()
+    try:
+        await provider.hold_and_confirm_multi(
+            tenant=TENANT, subject_ref="sub1", service_ids=[], starts_at=5000,
+            idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+        assert False, "expected BookingAssignmentError"
+    except BookingAssignmentError:
+        pass
+
+
+async def test_hold_and_confirm_single_service_is_unchanged_wraps_into_hold_and_confirm_multi():
+    """The AI text channel's own port (`app/ports/booking_provider.py`) still declares
+    `service_id: str` — proving this stays byte-for-byte compatible, not just "similar"."""
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None}})
+    merged = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 5000}]})
+    cust = _FakePeer({"customer_id": "cus_real1"})
+    created = _FakePeer({"id": "bkg_1", "status": "booked"})
+    provider = _provider(branch_operators=ops, service_eligibility=elig,
+                         nearest_any_real_slot=merged, customer_id_by_phone=cust,
+                         create_booking=created)
+    booking = await provider.hold_and_confirm(
+        tenant=TENANT, subject_ref="sub1", service_id="svc1", starts_at=5000,
+        idempotency_key="k1", branch_id=BRANCH, from_number="+9665")
+    assert booking["id"] == "bkg_1"
+    assert created.calls[0]["service_ids"] == ["svc1"]

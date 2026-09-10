@@ -115,10 +115,18 @@ class RealBookingProvider:
         # ordinary single-service path is completely unaffected either way.
         self._package_eligibility = package_eligibility
 
-    async def _eligible_pool(self, tenant: str, branch_id: str, service_id: str) -> list[str]:
-        """This branch's own active operators, narrowed to whoever is eligible for `service_id` —
-        the shared first half of `_pick_operator` below, factored out so the merge call can be
-        skipped entirely once the pool is already known empty."""
+    async def _eligible_pool(self, tenant: str, branch_id: str,
+                             service_ids: list[str]) -> list[str]:
+        """This branch's own active operators, narrowed to whoever is eligible for EVERY id in
+        `service_ids` — the shared first half of `_pick_operator` below, factored out so the merge
+        call can be skipped entirely once the pool is already known empty.
+
+        A SINGLE service is just the one-element-list case; nothing here is new for that caller.
+        For several (the WhatsApp Flow's multi-select service step, platform v0.19.16+), the
+        eligible pool is the INTERSECTION across all of them — an operator must be able to do
+        EVERY chosen service, never just one of several, the same "the write refuses, not only
+        the suggestion" posture the rest of this module already holds. A service with no
+        restriction at all (`allowed is None`) simply contributes no narrowing of its own."""
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
         ops = await asyncio.to_thread(
             self._branch_operators.call, {"tenant": tenant, "branch_id": branch_id})
@@ -127,19 +135,23 @@ class RealBookingProvider:
             raise BookingAssignmentError(f"no active operators at branch {branch_id!r}")
 
         elig = await asyncio.to_thread(
-            self._service_eligibility.call, {"tenant": tenant, "service_ids": [service_id]})
-        allowed = (elig or {}).get("eligible_staff_ids", {}).get(service_id)
-        # `None` (unrestricted) MEANS EVERY ACTIVE OPERATOR — same contract
-        # services/operations/app/api/internal.py::internal_service_eligibility documents; an
-        # empty LIST (as opposed to a missing key) is the real, if unusual, "restricted to
-        # nobody" state and must narrow the pool to nothing, not fall back to "everyone".
-        eligible_pool = candidates if allowed is None else [c for c in candidates if c in allowed]
+            self._service_eligibility.call, {"tenant": tenant, "service_ids": list(service_ids)})
+        eligible_staff = (elig or {}).get("eligible_staff_ids", {})
+        eligible_pool = candidates
+        for service_id in service_ids:
+            allowed = eligible_staff.get(service_id)
+            # `None` (unrestricted) MEANS EVERY ACTIVE OPERATOR — same contract
+            # services/operations/app/api/internal.py::internal_service_eligibility documents; an
+            # empty LIST (as opposed to a missing key) is the real, if unusual, "restricted to
+            # nobody" state and must narrow the pool to nothing, not fall back to "everyone".
+            if allowed is not None:
+                eligible_pool = [c for c in eligible_pool if c in allowed]
         if not eligible_pool:
             raise BookingAssignmentError(
-                f"no operator at branch {branch_id!r} is eligible for service {service_id!r}")
+                f"no operator at branch {branch_id!r} is eligible for services {service_ids!r}")
         return eligible_pool
 
-    async def _pick_slot(self, tenant: str, branch_id: str, service_id: str, after: int,
+    async def _pick_slot(self, tenant: str, branch_id: str, service_ids: list[str], after: int,
                          exclude_booking_id: str = "", operator_id: str = "") -> tuple[str, int]:
         """THE REAL ENGINE (phase 4) — see module docstring. Returns (operator_id, starts_at)
         TOGETHER, from the SAME merge call — `availability()` used to discard the slot this same
@@ -156,21 +168,21 @@ class RealBookingProvider:
 
         `operator_id`, WHEN GIVEN, PINS THE POOL TO THAT ONE PERSON — never trusted blindly: it
         still goes through `_eligible_pool` and is refused (BookingAssignmentError) if that
-        operator turns out not to be eligible for `service_id` at this branch, the same "the write
-        refuses, not only the suggestion" rule every other pick in this module already holds. This
-        is what a `named`-mode service picked via the WhatsApp Flow (Phase 5) needs: the customer
-        already chose WHO on an earlier screen — the merge search below exists to answer "who is
-        free", never to override a choice the customer already made."""
-        eligible_pool = await self._eligible_pool(tenant, branch_id, service_id)
+        operator turns out not to be eligible for EVERY id in `service_ids` at this branch, the
+        same "the write refuses, not only the suggestion" rule every other pick in this module
+        already holds. This is what a `named`-mode service picked via the WhatsApp Flow (Phase 5)
+        needs: the customer already chose WHO on an earlier screen — the merge search below
+        exists to answer "who is free", never to override a choice the customer already made."""
+        eligible_pool = await self._eligible_pool(tenant, branch_id, service_ids)
         if operator_id:
             if operator_id not in eligible_pool:
                 raise BookingAssignmentError(
-                    f"operator {operator_id!r} is not eligible for service {service_id!r} "
+                    f"operator {operator_id!r} is not eligible for services {service_ids!r} "
                     f"at branch {branch_id!r}")
             eligible_pool = [operator_id]
         payload: dict[str, Any] = {
             "tenant": tenant, "branch_id": branch_id, "operator_ids": eligible_pool,
-            "service_ids": [service_id], "after": after, "max_slots": 1}
+            "service_ids": list(service_ids), "after": after, "max_slots": 1}
         if exclude_booking_id:
             payload["exclude_booking_id"] = exclude_booking_id
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
@@ -178,14 +190,15 @@ class RealBookingProvider:
         slots = (result or {}).get("slots") or []
         if not slots:
             raise BookingAssignmentError(
-                f"no operator at branch {branch_id!r} is free for service {service_id!r} near {after}")
+                f"no operator at branch {branch_id!r} is free for services {service_ids!r} "
+                f"near {after}")
         return str(slots[0]["operator_id"]), int(slots[0]["starts_at"])
 
-    async def _pick_operator(self, tenant: str, branch_id: str, service_id: str, after: int,
+    async def _pick_operator(self, tenant: str, branch_id: str, service_ids: list[str], after: int,
                              operator_id: str = "") -> str:
         """Same engine as `_pick_slot`, for a caller (`hold_and_confirm`) that already knows WHEN
         (the customer's own confirmed time) and only needs WHO."""
-        picked, _starts_at = await self._pick_slot(tenant, branch_id, service_id, after,
+        picked, _starts_at = await self._pick_slot(tenant, branch_id, service_ids, after,
                                                     operator_id=operator_id)
         return picked
 
@@ -212,7 +225,7 @@ class RealBookingProvider:
             return []
         try:
             _operator_id, starts_at = await self._pick_slot(
-                tenant, branch_id, service_id, earliest, exclude_booking_id=exclude_booking_id)
+                tenant, branch_id, [service_id], earliest, exclude_booking_id=exclude_booking_id)
         except BookingAssignmentError:
             return []
         # DURATION IS 0 HERE, ON PURPOSE — bookings-service computes the real duration itself at
@@ -227,6 +240,32 @@ class RealBookingProvider:
                                starts_at: int, idempotency_key: str, branch_id: str = "",
                                from_number: str = "", intended_reward_id: str = "",
                                preferred_operator_id: str = "") -> dict:
+        """The single-service shape the AI text channel's own port (`app/ports/booking_provider.py`)
+        still declares — kept byte-for-byte unchanged so `ConfigDrivenAvailabilityProvider`'s own
+        matching signature, and every `tools.py` call site, need no edit. See
+        `hold_and_confirm_multi` below for the WhatsApp Flow's own multi-select entry point — the
+        same underlying write, just with a real list instead of one wrapped in a list here."""
+        return await self.hold_and_confirm_multi(
+            tenant=tenant, subject_ref=subject_ref, service_ids=[service_id],
+            starts_at=starts_at, idempotency_key=idempotency_key, branch_id=branch_id,
+            from_number=from_number, intended_reward_id=intended_reward_id,
+            preferred_operator_id=preferred_operator_id)
+
+    async def hold_and_confirm_multi(self, *, tenant: str, subject_ref: str,
+                                     service_ids: list[str], starts_at: int, idempotency_key: str,
+                                     branch_id: str = "", from_number: str = "",
+                                     intended_reward_id: str = "",
+                                     preferred_operator_id: str = "") -> dict:
+        """The real write, for one service or several — see module docstring on why this is a
+        SIBLING to `hold_and_confirm`, not a signature change to it (same shape as
+        `hold_and_confirm_package` right below being a sibling of this one, not a merge into it).
+        `bookings-service`'s own `/internal/bookings` route already accepts `service_ids` as a
+        list and computes duration from the REAL set server-side (confirmed directly against
+        `InternalCreateBookingIn`) — nothing about the write itself is new; only the operator
+        pick now has to find someone eligible for EVERY chosen service (see `_eligible_pool`'s
+        own docstring), not just one."""
+        if not service_ids:
+            raise BookingAssignmentError("no service chosen — cannot create a real booking")
         if not branch_id:
             raise BookingAssignmentError("no branch on this conversation — cannot create a real booking")
         if not from_number:
@@ -239,7 +278,7 @@ class RealBookingProvider:
         # `preferred_operator_id` (Phase 5): the WhatsApp Flow's own `named`-service staff step
         # already resolved WHO — see `_pick_operator`'s own docstring on why this still goes
         # through the eligible-pool check rather than being trusted as-is.
-        operator_id = await self._pick_operator(tenant, branch_id, service_id, starts_at,
+        operator_id = await self._pick_operator(tenant, branch_id, service_ids, starts_at,
                                                 operator_id=preferred_operator_id)
 
         # INTENT ONLY, NEVER A SPEND — bookings-service's own `create()` only stamps this on the
@@ -248,8 +287,8 @@ class RealBookingProvider:
         # the whole reason a WhatsApp-initiated reward costs the shop nothing on a no-show — see
         # core/tools.py's `propose_booking` branch for how `reward_id` gets here.
         body = {"tenant": tenant, "branch_id": branch_id, "operator_id": operator_id,
-                "customer_id": customer_id, "service_ids": [service_id], "starts_at": starts_at,
-                "idempotency_key": idempotency_key, "created_by": ACTOR}
+                "customer_id": customer_id, "service_ids": list(service_ids),
+                "starts_at": starts_at, "idempotency_key": idempotency_key, "created_by": ACTOR}
         if intended_reward_id:
             body["intended_reward_id"] = intended_reward_id
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.

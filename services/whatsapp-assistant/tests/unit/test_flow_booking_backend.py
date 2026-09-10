@@ -320,3 +320,57 @@ async def test_reserve_refuses_incomplete_selection():
     assert (await backend.reserve(tenant=TENANT, selection={}, idempotency_key="i",
                                   customer="+9665")) == {
         "ok": False, "reason": "الاختيار غير مكتمل."}
+
+
+# ── multi-select (platform v0.19.16's CheckboxGroup Flow steps) ───────────────────────────────
+async def test_reserve_with_a_multi_select_service_list_sends_all_of_them():
+    create = _FakePeer({"id": "bk_multi1"})
+    merge = _FakePeer({"slots": [{"operator_id": "op1", "starts_at": 1893456000}]})
+    ops = _FakePeer({"operators": [{"id": "op1"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": None, "svc2": None}})
+    real = _real(nearest_any_real_slot=merge, create_booking=create, branch_operators=ops,
+                service_eligibility=elig)
+    backend = _backend(real=real)
+    result = await backend.reserve(
+        tenant=TENANT, selection={"service": ["svc1", "svc2"], "time": "1893456000"},
+        idempotency_key="idem_multi1", customer="+966500000000")
+    assert result == {"ok": True, "ref": "bk_multi1"}
+    assert create.calls[0]["service_ids"] == ["svc1", "svc2"]
+
+
+async def test_options_staff_asks_when_any_chosen_service_is_named_even_if_not_all():
+    """The strictest chosen service decides — one `named` service among several `auto` ones
+    still means an operator must be picked, since whoever is assigned has to do ALL of them."""
+    catalog = _FakeCatalog([
+        {"id": "svc1", "name": "قص", "assignment_mode": "auto"},
+        {"id": "svc2", "name": "صبغة", "assignment_mode": "named"},
+    ])
+    ops = _FakePeer({"operators": [{"id": "op1", "name": "سارة"}]})
+    backend = _backend(catalog=catalog, real=_real(branch_operators=ops))
+    options = await backend.options(
+        tenant=TENANT, dimension="staff", chosen={"service": ["svc1", "svc2"]})
+    assert options == [{"id": "op1", "title": "سارة"}]
+
+
+async def test_options_staff_skips_when_every_chosen_service_is_auto():
+    catalog = _FakeCatalog([
+        {"id": "svc1", "name": "قص", "assignment_mode": "auto"},
+        {"id": "svc2", "name": "تنظيف", "assignment_mode": "auto"},
+    ])
+    backend = _backend(catalog=catalog)
+    options = await backend.options(
+        tenant=TENANT, dimension="staff", chosen={"service": ["svc1", "svc2"]})
+    assert options == []
+
+
+async def test_slots_for_a_multi_select_service_list_asks_the_pool_eligible_for_all():
+    ops = _FakePeer({"operators": [{"id": "op1"}, {"id": "op2"}]})
+    elig = _FakePeer({"eligible_staff_ids": {"svc1": ["op1", "op2"], "svc2": ["op2"]}})
+    day_slots = _FakePeer({"starts_at": [1893456000]})
+    real = _real(branch_operators=ops, service_eligibility=elig)
+    backend = _backend(real=real, day_slots=day_slots)
+    slots = await backend.slots(
+        tenant=TENANT, chosen={"service": ["svc1", "svc2"]}, date="2030-01-01")
+    assert len(slots) == 1
+    assert day_slots.calls[0]["service_ids"] == ["svc1", "svc2"]
+    assert day_slots.calls[0]["operator_ids"] == ["op2"]
