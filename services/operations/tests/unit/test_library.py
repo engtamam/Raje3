@@ -301,3 +301,33 @@ def test_a_wired_peer_gives_the_http_client():
         PEER_TIMEOUT_SECONDS = 8
 
     assert build_library(S()).driver == "http"
+
+
+def test_the_three_book_back_offers_carry_the_booking_flow_button_in_the_real_seed():
+    """The curated library itself, not a synthetic dict — the three marketing templates whose whole
+    point is getting a customer back through the door (mkt_offer, mkt_winback,
+    mkt_personal_occasion) must each carry `flow_button: {"flow_name": "booking_flow"}` and a real
+    button label, both tones, so a tap on the message opens the same booking Flow
+    core/flows.py provisions per shop (BOOKING_FLOW_NAME) rather than leaving the customer to call.
+    Every OTHER template type must NOT carry it — a booking screen on an announcement or a care tip
+    is a promise the text never made."""
+    import pathlib
+
+    seed = pathlib.Path(__file__).resolve().parents[2] / "data" / "templates.seed.json"
+    rows = __import__("json").loads(seed.read_text(encoding="utf-8"))["templates"]
+
+    booking_types = {"mkt_offer", "mkt_winback", "mkt_personal_occasion"}
+    seen_types = set()
+    for row in rows:
+        if row.get("type") in booking_types:
+            seen_types.add(row["type"])
+            assert row.get("flow_button") == {"flow_name": "booking_flow"}, row["name"]
+            assert row.get("button"), f"{row['name']} has a flow_button but no visible button label"
+        else:
+            # OTHER templates may carry THEIR OWN flow (svc_visit_confirmation_rating's own
+            # rating_flow) — only the booking flow specifically must never leak onto a template
+            # whose text never promised an appointment screen.
+            fb = row.get("flow_button") or {}
+            assert fb.get("flow_name") != "booking_flow", \
+                f"{row['name']} carries the booking flow it never promised"
+    assert seen_types == booking_types   # all three types actually exist in the seed, none silently absent

@@ -984,7 +984,7 @@
         6
       ],
       "header": "",
-      "button": "",
+      "button": "اطلب موعدك الآن",
       "fills": [
         "system",
         "system",
@@ -1004,7 +1004,10 @@
         "قص شعر",
         "12 سبتمبر",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
-      ]
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      }
     },
     {
       "name": "mkt_offer_feminine",
@@ -1024,7 +1027,7 @@
         6
       ],
       "header": "",
-      "button": "",
+      "button": "اطلبي موعدك الآن",
       "fills": [
         "system",
         "system",
@@ -1044,7 +1047,10 @@
         "قص وتشذيب",
         "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
-      ]
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      }
     },
     {
       "name": "mkt_winback_warm",
@@ -1063,7 +1069,7 @@
         5
       ],
       "header": "",
-      "button": "",
+      "button": "اطلب موعدك الآن",
       "fills": [
         "system",
         "system",
@@ -1081,7 +1087,10 @@
         "20%",
         "12 سبتمبر",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
-      ]
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      }
     },
     {
       "name": "mkt_winback_feminine",
@@ -1100,7 +1109,7 @@
         5
       ],
       "header": "",
-      "button": "",
+      "button": "اطلبي موعدك الآن",
       "fills": [
         "system",
         "system",
@@ -1118,7 +1127,10 @@
         "20%",
         "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
-      ]
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      }
     },
     {
       "name": "mkt_loyalty_activation_warm",
@@ -1279,7 +1291,7 @@
         5
       ],
       "header": "",
-      "button": "",
+      "button": "اطلب موعدك الآن",
       "fills": [
         "system",
         "system",
@@ -1297,7 +1309,10 @@
         "20%",
         "12 سبتمبر",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
-      ]
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      }
     },
     {
       "name": "mkt_personal_occasion_feminine",
@@ -1316,7 +1331,7 @@
         5
       ],
       "header": "",
-      "button": "",
+      "button": "اطلبي موعدك الآن",
       "fills": [
         "system",
         "system",
@@ -1334,7 +1349,10 @@
         "20%",
         "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
-      ]
+      ],
+      "flow_button": {
+        "flow_name": "booking_flow"
+      }
     },
     {
       "name": "mkt_cross_sell_warm",
@@ -1668,36 +1686,76 @@
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — {{2}}",
-            "body_examples": ["قص شعر", "50 ريال"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+            "body_examples": [
+              "قص شعر",
+              "50 ريال"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "احجز الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — {{2}}",
-            "body_examples": ["قص شعر", "50 ريال"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+            "body_examples": [
+              "قص شعر",
+              "50 ريال"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "احجز الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — {{2}}",
-            "body_examples": ["قص شعر", "50 ريال"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+            "body_examples": [
+              "قص شعر",
+              "50 ريال"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "احجز الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — {{2}}",
-            "body_examples": ["قص شعر", "50 ريال"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+            "body_examples": [
+              "قص شعر",
+              "50 ريال"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "احجز الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — {{2}}",
-            "body_examples": ["قص شعر", "50 ريال"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "احجز الآن"}]
+            "body_examples": [
+              "قص شعر",
+              "50 ريال"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "احجز الآن"
+              }
+            ]
           }
         ]
       }
