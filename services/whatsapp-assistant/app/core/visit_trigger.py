@@ -50,11 +50,11 @@ from typing import Any
 
 _TEMPLATE_NAME = "visit_flow"
 #: A SYMBOL, NOT A WORD (owner decision, 2026-09-10) — a staff member who cannot type Arabic (or
-#: any language reliably on a shared/borrowed device) can still type this. `**` sits on every
+#: any language reliably on a shared/borrowed device) can still type this. `##` sits on every
 #: keypad including a bare feature phone's, and is not a sequence anyone types mid-sentence to a
 #: customer or the owner by accident. Matched exactly, deliberately not a prefix/fuzzy match — the
 #: same certainty a slash command gives.
-_TRIGGER_WORD = "**"
+_TRIGGER_WORD = "##"
 
 
 async def maybe_open_visit_flow(*, container: Any, tenant: str, from_number: str, kind: str,

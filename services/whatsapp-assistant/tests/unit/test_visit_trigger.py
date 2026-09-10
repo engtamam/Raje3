@@ -56,7 +56,7 @@ class _Container:
     sender: Any = field(default_factory=_Sender)
 
 
-def _call(c, *, kind="text", text="**", tenant="t1", from_number="966500000001",
+def _call(c, *, kind="text", text="##", tenant="t1", from_number="966500000001",
          idempotency_key="visit:wamid1"):
     return run(maybe_open_visit_flow(
         container=c, tenant=tenant, from_number=from_number, kind=kind, text=text,
@@ -70,6 +70,15 @@ def test_the_exact_keyword_from_an_identified_staff_sender_opens_the_flow():
                               "template_name": "visit_flow", "variables": [],
                               "idempotency_key": "visit:wamid1", "flow_token": "visit:wamid1",
                               "flow_action_data": {"customer": "966500000001"}}]
+
+
+def test_the_symbol_mixed_with_other_text_never_opens_the_flow():
+    """Exact match only — "##" has to be the WHOLE message, never a fragment of a real sentence
+    ("## متى نفتح اليوم؟") that happens to contain it."""
+    c = _Container()
+    assert _call(c, text="## متى نفتح اليوم؟") is False
+    assert c.sender.sent == []
+    assert c.operator_identity.calls == 0
 
 
 def test_an_ordinary_message_from_the_same_staff_sender_never_opens_the_flow():
