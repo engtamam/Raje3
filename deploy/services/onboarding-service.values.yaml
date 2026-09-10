@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/onboarding-service
-  digest: "sha256:50024970e684490cfbae08ce3c0b6244ba3cbbeb8f5f693c898e2a2d31c97620"   # v0.19.13
+  digest: "sha256:1b75a80d8bbfb2ad231284d8e1df2a6cfd6a306c03fc4a679fc2e3f4b6744ce5"   # v0.19.16
 
 replicas: 1
 
