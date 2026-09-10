@@ -365,9 +365,10 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByText('التذاكر والدعم'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/tickets/admin/tickets?tenant=t1'), 'GET', undefined, 'tok-1'));
-    await waitFor(() => expect(screen.getByText('tk1')).toBeTruthy());
+    // getAllByText — rj-ui's own Table renders a desktop table AND a mobile card list at once.
+    await waitFor(() => expect(screen.getAllByText('tk1').length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getByText('tk1'));
+    fireEvent.click(screen.getAllByText('tk1')[0]);
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/tickets/admin/tickets/tk1?tenant=t1'), 'GET', undefined, 'tok-1'));
     await waitFor(() => expect(screen.getByText('ما وصلتني الرسالة')).toBeTruthy());
@@ -408,7 +409,8 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByText('محل الأول'));
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     fireEvent.click(screen.getByText('التذاكر والدعم'));
-    await waitFor(() => expect(screen.getByText('tk1')).toBeTruthy());
+    // getAllByText — rj-ui's own Table renders a desktop table AND a mobile card list at once.
+    await waitFor(() => expect(screen.getAllByText('tk1').length).toBeGreaterThan(0));
 
     fireEvent.change(screen.getByLabelText('فلترة بالحالة'), { target: { value: 'open' } });
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
@@ -417,9 +419,37 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByText('حمّل المزيد'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('cursor=page2'), 'GET', undefined, 'tok-1'));
-    await waitFor(() => expect(screen.getByText('tk2')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('tk2').length).toBeGreaterThan(0));
     // both pages stay on screen — load more appends, never replaces
-    expect(screen.getByText('tk1')).toBeTruthy();
+    expect(screen.getAllByText('tk1').length).toBeGreaterThan(0);
+  });
+
+  it('tickets tab KPIs count escalated/pending from the shown page, by real status colour', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/tickets/admin/tickets')) {
+        return Promise.resolve({ tenant: 't1', tickets: [
+          { id: 'tk1', type: 'support', status: 'escalated', priority: 'high', created: '', updated: '', assignee: '', tags: [], raiser_ref: '' },
+          { id: 'tk2', type: 'support', status: 'pending', priority: 'normal', created: '', updated: '', assignee: '', tags: [], raiser_ref: '' },
+          { id: 'tk3', type: 'support', status: 'resolved', priority: 'low', created: '', updated: '', assignee: '', tags: [], raiser_ref: '' },
+        ] });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+    fireEvent.click(screen.getByText('التذاكر والدعم'));
+
+    await waitFor(() => expect(screen.getByText('المعروضة')).toBeTruthy());
+    expect(screen.getAllByText('3').length).toBeGreaterThan(0);   // total shown
+    expect(screen.getByText('مصعَّدة')).toBeTruthy();
+    expect(screen.getByText('بالانتظار')).toBeTruthy();
   });
 
   it('no capability, no silent blank table', async () => {

@@ -30,7 +30,7 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, Package, RefreshCw, Users } from 'lucide-react';
+import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, Package, RefreshCw, Ticket, Users } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
@@ -508,9 +508,32 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
   }
 
   const hasActiveFilter = filters.status || filters.type || filters.priority || filters.assignee;
+  // مؤشرات من نفس القائمة المجلوبة — على حسب لون statusTone (تصعيد/انتظار)، لا تعداد حالة ثابت
+  // (الحالة تدفّق عمل حرّ لكل تينانت، statusTone نفسه أصلاً مبني على نفس الأساس). العدد عن
+  // الصفحة المعروضة فقط، مو كل تذاكر العميل تاريخياً — لا رقم يوهم بأنه إجمالي شامل.
+  const shownTickets = tickets === 'loading' || tickets === 'failed' ? [] : tickets;
+  const escalated = shownTickets.filter((t) => statusTone(t.status) === 'danger').length;
+  const pending = shownTickets.filter((t) => statusTone(t.status) === 'warning').length;
+
+  const columns: TableColumn<TicketSummary>[] = [
+    { key: 'id', header: 'التذكرة', render: (t) => <span dir="ltr" className="font-mono text-text-muted">{t.id}</span> },
+    { key: 'type', header: 'النوع', render: (t) => t.type || '—' },
+    { key: 'priority', header: 'الأولوية', hideOnCard: true, render: (t) => t.priority || '—' },
+    { key: 'assignee', header: 'المسؤول', hideOnCard: true, render: (t) => <span dir="ltr">{t.assignee || '—'}</span> },
+    { key: 'updated', header: 'آخر تحديث', render: (t) => <span dir="ltr" className="text-label text-text-secondary">{new Date(t.updated).toLocaleString('ar-SA')}</span> },
+    { key: 'status', header: 'الحالة', render: (t) => <Badge tone={statusTone(t.status)}>{t.status}</Badge> },
+  ];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      {shownTickets.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <KpiCard icon={<Ticket size={18} />} label="المعروضة" value={shownTickets.length} tone="neutral" />
+          <KpiCard icon={<CircleAlert size={18} />} label="مصعَّدة" value={escalated} tone={escalated > 0 ? 'danger' : 'neutral'} />
+          <KpiCard icon={<Clock size={18} />} label="بالانتظار" value={pending} tone={pending > 0 ? 'warning' : 'neutral'} />
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <Select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
                className="w-auto min-w-32" aria-label="فلترة بالحالة">
@@ -536,33 +559,15 @@ export function TicketsTab({ session, tenant, catalog }: { session: AdminSession
         ) : null}
       </div>
 
-      {tickets === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-       : tickets === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
-       : tickets.length === 0 ? (
-        <p className="text-sm text-text-muted">
-          {hasActiveFilter ? 'لا تذاكر تطابق هذي الفلاتر.' : 'لا تذاكر لهذا العميل.'}
-        </p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {tickets.map((t) => (
-            <button key={t.id} type="button" onClick={() => setSelected(t.id)}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 p-3 text-sm text-start hover:bg-surface-3">
-              <span dir="ltr" className="font-mono text-text-muted">{t.id}</span>
-              {t.type ? <span className="text-label text-text-muted">{t.type}</span> : null}
-              {t.priority ? <span className="text-label text-text-muted">{t.priority}</span> : null}
-              {t.assignee ? <span dir="ltr" className="text-label text-text-muted">{t.assignee}</span> : null}
-              <span dir="ltr" className="text-label text-text-muted">{new Date(t.updated).toLocaleString('ar-SA')}</span>
-              <Badge tone={statusTone(t.status)}>{t.status}</Badge>
-            </button>
-          ))}
-          {cursor ? (
-            <button type="button" onClick={loadMore} disabled={loadingMore}
-                    className="self-center text-label text-brand disabled:opacity-50">
-              {loadingMore ? 'جارٍ التحميل…' : 'حمّل المزيد'}
-            </button>
-          ) : null}
-        </div>
-      )}
+      <Table columns={columns} rows={tickets} getRowId={(t) => t.id} onRowClick={(t) => setSelected(t.id)}
+            emptyTitle={hasActiveFilter ? 'لا تذاكر تطابق هذي الفلاتر' : 'لا تذاكر لهذا العميل'}
+            failedTitle="تعذّرت قراءة التذاكر" />
+      {cursor ? (
+        <button type="button" onClick={loadMore} disabled={loadingMore}
+                className="self-center text-label text-brand disabled:opacity-50">
+          {loadingMore ? 'جارٍ التحميل…' : 'حمّل المزيد'}
+        </button>
+      ) : null}
     </div>
   );
 }

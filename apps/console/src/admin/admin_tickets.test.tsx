@@ -65,8 +65,10 @@ describe('AdminTickets (unified cross-tenant inbox)', () => {
       expect.stringContaining('/api/v1/tickets/admin/tickets?status=open'), 'GET', undefined, 'tok-1'));
     // never called the list route with NO filter at all
     expect(reqMock).not.toHaveBeenCalledWith('/api/v1/tickets/admin/tickets?limit=50', 'GET', undefined, 'tok-1');
-    await waitFor(() => expect(screen.getByText('tk1')).toBeTruthy());
-    expect(screen.getByText('محل الأول')).toBeTruthy();
+    // getAllByText — rj-ui's own Table renders a desktop table AND a mobile card list at once,
+    // and "محل الأول" also appears once more as the tenant filter's own <option>.
+    await waitFor(() => expect(screen.getAllByText('tk1').length).toBeGreaterThan(0));
+    expect(screen.getAllByText('محل الأول').length).toBeGreaterThan(0);
   });
 
   it('opening a row fetches that ticket\'s full detail using ITS OWN tenant field', async () => {
@@ -96,10 +98,52 @@ describe('AdminTickets (unified cross-tenant inbox)', () => {
     });
 
     render(<AdminTickets session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('tk9')).toBeTruthy());
-    fireEvent.click(screen.getByText('tk9'));
+    await waitFor(() => expect(screen.getAllByText('tk9').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText('tk9')[0]);
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/tickets/admin/tickets/tk9?tenant=t2'), 'GET', undefined, 'tok-1'));
     await waitFor(() => expect(screen.getByText('مشكلة بالدفع')).toBeTruthy());
+  });
+
+  it('the tenant filter is a real, working query param — was missing entirely before', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') {
+        return Promise.resolve({
+          tenants: [{ id: 't1', slug: 'shop-one', name: 'محل الأول', status: 'active',
+                     created_at: '', updated_at: '' }],
+        });
+      }
+      return Promise.resolve({ tickets: [] });
+    });
+
+    render(<AdminTickets session={SESSION} />);
+    // wait for the tenant LIST to actually resolve and populate the <option>s — the <select>
+    // itself renders immediately, before that fetch lands, with only "كل المحلات".
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('فلترة بالمحل'), { target: { value: 't1' } });
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('tenant=t1'), 'GET', undefined, 'tok-1'));
+  });
+
+  it('KPI cards count escalated/pending from the shown page, colour-coded', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [] });
+      if (path.includes('/tickets/admin/tickets?')) {
+        return Promise.resolve({ tickets: [
+          { id: 'tk1', tenant: 't1', type: 'support', status: 'escalated', priority: 'high', created: '', updated: '', assignee: '', tags: [], raiser_ref: '' },
+          { id: 'tk2', tenant: 't1', type: 'support', status: 'pending', priority: 'normal', created: '', updated: '', assignee: '', tags: [], raiser_ref: '' },
+        ] });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminTickets session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('المعروضة')).toBeTruthy());
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(screen.getByText('مصعَّدة')).toBeTruthy();
+    expect(screen.getByText('بالانتظار')).toBeTruthy();
   });
 });
