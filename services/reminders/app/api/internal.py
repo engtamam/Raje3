@@ -755,6 +755,12 @@ class CampaignSendIn(BaseModel):
     # the SAME request already accepted under a different name.
     flow_token: str = Field(default="", max_length=256)
     flow_action_data: dict[str, Any] = Field(default_factory=dict)
+    # PHASE 2 — campaigns' REQUEST for a carousel instead of plain text (core/shape.py), for a shop
+    # without the appointment book. A request, not a guarantee: `send_one` below looks for a
+    # carousel template of this type/tone via rendering.choose_carousel and falls back to the
+    # ordinary flat template — silently — when none is registered/approved, exactly as an unset
+    # `flow_token` falls back to plain text today.
+    carousel: bool = Field(default=False)
 
     model_config = {"populate_by_name": True}
 
@@ -804,6 +810,7 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_value": body.offer_value,
         "flow_token": body.flow_token,
         "flow_action_data": dict(body.flow_action_data),
+        "carousel": body.carousel,
     }
     library = await _library(c, body.tenant)
     # THE APPROVED SET, WHICH THIS PATH NEVER READ. The reminder tick has always preferred a

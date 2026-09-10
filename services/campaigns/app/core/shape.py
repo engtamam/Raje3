@@ -58,6 +58,14 @@ class Shape:
 
     flow_token: str = ""
     flow_action_data: dict[str, Any] = field(default_factory=dict)
+    # PHASE 2 — the carousel counterpart of the booking Flow, for a shop that does NOT own the
+    # appointment book. A REQUEST, not a guarantee: reminders is the one place that knows whether a
+    # carousel template actually exists (registered, approved, one of the three tones) for this
+    # campaign type, and it falls back to plain text on its own if none does — see
+    # rendering.choose_carousel. Threading the availability check through here would mean
+    # campaigns re-learning a fact reminders already owns, the exact duplication core/shape.py's
+    # own module docstring warns against for the booking Flow.
+    carousel: bool = False
 
     @property
     def opens_booking(self) -> bool:
@@ -84,13 +92,22 @@ async def opens_booking_for(tenant: str, template_type: str, *, licence: Any) ->
     return bool(await licence.allowed(tenant))
 
 
-def for_send(*, opens_booking: bool, idempotency_key: str) -> Shape:
+def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = "") -> Shape:
     """The shape of ONE send. `opens_booking` is `opens_booking_for`'s answer, asked once above.
 
     NO KEY, NO FLOW. An empty idempotency key would mint an empty token, which `HttpSender.send`
     treats as «no Flow» anyway — answering PLAIN here says so out loud instead of relying on a
     falsy value three services away.
+
+    NEVER BOTH. A shop that owns the book gets the Flow; a shop that does not, and whose text is one
+    of the three that end in «come back», gets a REQUEST for the carousel — mutually exclusive by
+    construction, because `opens_booking` and «not `opens_booking`» cannot both be true. Any other
+    template type (mkt_announcement, mkt_loyalty_activation, mkt_cross_sell) gets neither: they were
+    never carousel-shaped, and forcing one would be advertising a swipeable strip under a message
+    that asks for nothing.
     """
-    if not opens_booking or not idempotency_key:
-        return PLAIN
-    return Shape(flow_token=idempotency_key, flow_action_data={CUSTOMER_SEED: ""})
+    if opens_booking and idempotency_key:
+        return Shape(flow_token=idempotency_key, flow_action_data={CUSTOMER_SEED: ""})
+    if not opens_booking and template_type in BOOKING_TYPES:
+        return Shape(carousel=True)
+    return PLAIN

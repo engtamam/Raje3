@@ -180,3 +180,67 @@ def test_the_peer_client_can_no_longer_carry_a_coupon_code():
     from app.adapters.peers import HttpSender
 
     assert "coupon_code" not in inspect.signature(HttpSender.send).parameters
+
+
+# ── (d) Phase 2: the carousel REQUEST, for a shop without the book ────────────────────────────
+def test_a_shop_without_bookings_on_a_come_back_type_gets_a_carousel_request():
+    call = fire("mkt_offer", licence=Licence(False)).calls[0]
+    assert call["carousel"] is True
+    assert call["flow_token"] == ""
+
+
+def test_a_deployment_with_no_licence_wired_also_gets_the_carousel_request():
+    """None is not «yes, has bookings» — same fail-closed direction as the flow test above, and the
+    carousel request is the natural default for «we do not know he has the book»."""
+    call = fire("mkt_winback", licence=None).calls[0]
+    assert call["carousel"] is True
+
+
+def test_a_bookings_shop_never_gets_both_flow_and_carousel():
+    call = fire("mkt_personal_occasion", licence=Licence(True)).calls[0]
+    assert call["flow_token"] != "" and call["carousel"] is False
+
+
+def test_a_type_outside_the_three_never_requests_a_carousel_either():
+    """`mkt_announcement` asks for nothing — no booking screen and no carousel belongs under it,
+    whatever the shop's own entitlement."""
+    call = fire("mkt_announcement", licence=Licence(False)).calls[0]
+    assert call["carousel"] is False
+
+
+def test_for_send_never_sets_both_fields_at_once():
+    both_true = shape.for_send(opens_booking=True, idempotency_key="k", template_type="mkt_offer")
+    assert both_true.carousel is False
+    neither = shape.for_send(opens_booking=False, idempotency_key="k", template_type="mkt_announcement")
+    assert neither is shape.PLAIN
+
+
+def test_plain_carries_no_carousel_request_either():
+    assert shape.PLAIN.carousel is False
+
+
+def test_the_peer_client_omits_the_carousel_key_entirely_on_an_ordinary_send():
+    from app.adapters import peers
+
+    seen: dict = {}
+
+    async def _fake_post(url, body, token, timeout):
+        seen.update(body)
+        return {"sent": True}
+
+    real = peers._post
+    peers._post = _fake_post
+    try:
+        sender = peers.HttpSender(url="http://reminders.invalid", path="/internal/reminders/send",
+                                  token="t" * 40)
+        run(sender.send(tenant="t1", subject_ref="sub_a", template_type="mkt_offer",
+                        cls="marketing", owner_text="خصم", idempotency_key="cmp:c1:sub_a"))
+        assert "carousel" not in seen
+
+        seen.clear()
+        run(sender.send(tenant="t1", subject_ref="sub_a", template_type="mkt_offer",
+                        cls="marketing", owner_text="خصم", idempotency_key="cmp:c1:sub_a",
+                        carousel=True))
+        assert seen["carousel"] is True
+    finally:
+        peers._post = real

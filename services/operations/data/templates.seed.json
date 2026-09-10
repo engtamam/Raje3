@@ -1355,6 +1355,270 @@
       }
     },
     {
+      "name": "mkt_offer_carousel_warm",
+      "type": "mkt_offer",
+      "tone": "warm",
+      "label": "عرض أو خصم — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "شوف خدماتنا وعندنا لك خصم عليها:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "المحلات بلا حجز واتساب مفعَّل (feature.bookings) — مغاسل السيارات مثلاً — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل تلقائياً فقط لمحل غير مؤهَّل للحجز، ومحرك القوالب هنا (rendering.choose_carousel) يتراجع بصمت للنص العادي إن لم يجد قالباً معتمداً — active:false يمنع اختيار هذا الصف في مسار الإرسال العادي وشاشة اختيار الأهداف.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["غسيل خارجي", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["تلميع", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["تعقيم داخلي", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_offer_carousel_feminine",
+      "type": "mkt_offer",
+      "tone": "feminine",
+      "label": "عرض أو خصم — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "شوفي خدماتنا وعندنا لك خصم عليها:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["قص وتشذيب", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["صبغة", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["عناية بالبشرة", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_winback_carousel_warm",
+      "type": "mkt_winback",
+      "tone": "warm",
+      "label": "استعادة غائب — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "وحشتنا! شوف خدماتنا وعندنا لك خصم على زيارتك القادمة:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "نفس شكل mkt_offer_carousel، لنص الاستعادة بدل نص العرض العام.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["غسيل خارجي", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["تلميع", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["تعقيم داخلي", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_winback_carousel_feminine",
+      "type": "mkt_winback",
+      "tone": "feminine",
+      "label": "استعادة غائب — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "وحشتِنا! شوفي خدماتنا وعندنا لك خصم على زيارتك القادمة:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["قص وتشذيب", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["صبغة", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["عناية بالبشرة", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_personal_occasion_carousel_warm",
+      "type": "mkt_personal_occasion",
+      "tone": "warm",
+      "label": "مناسبة شخصية — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنت بخير 🌿 شوف خدماتنا وعندنا لك خصم:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "نفس شكل mkt_offer_carousel، لنص المناسبة الشخصية بدل نص العرض العام.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["غسيل خارجي", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["تلميع", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["تعقيم داخلي", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_personal_occasion_carousel_feminine",
+      "type": "mkt_personal_occasion",
+      "tone": "feminine",
+      "label": "مناسبة شخصية — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنتِ بخير 🌿 شوفي خدماتنا وعندنا لك خصم:",
+      "variables": [],
+      "header": "",
+      "button": "",
+      "fills": [],
+      "model": "both",
+      "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["قص وتشذيب", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["صبغة", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}} — خصم {{2}}",
+            "body_examples": ["عناية بالبشرة", "20%"],
+            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+          }
+        ]
+      }
+    },
+    {
       "name": "mkt_cross_sell_warm",
       "type": "mkt_cross_sell",
       "tone": "warm",

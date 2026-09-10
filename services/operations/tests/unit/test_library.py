@@ -320,6 +320,14 @@ def test_the_three_book_back_offers_carry_the_booking_flow_button_in_the_real_se
     seen_types = set()
     for row in rows:
         if row.get("type") in booking_types:
+            # PHASE 2's CAROUSEL VARIANTS SHARE THE SAME TYPE, AND CARRY NEITHER (core/shape.py):
+            # a carousel and a flow_button are mutually exclusive shapes for one send, and these
+            # rows exist for the shop the flow_button branch below is not written for — one that
+            # does NOT own the appointment book. `active: false` keeps `choose()` (and this flow-
+            # button contract) from ever seeing them; only `rendering.choose_carousel` does.
+            if row.get("carousel"):
+                assert not row.get("flow_button"), f"{row['name']} must not carry both shapes"
+                continue
             seen_types.add(row["type"])
             assert row.get("flow_button") == {"flow_name": "booking_flow"}, row["name"]
             assert row.get("button"), f"{row['name']} has a flow_button but no visible button label"

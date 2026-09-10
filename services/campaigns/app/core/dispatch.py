@@ -183,7 +183,8 @@ class Dispatcher:
             # THE SAME KEY AGAIN, AS THIS SEND'S FLOW TOKEN — see core/shape.py on why it is not
             # minted separately. PLAIN (both fields empty) for every send that opens nothing, which
             # reminders' sender omits from the wire body entirely.
-            send_shape = shape.for_send(opens_booking=opens_booking, idempotency_key=key)
+            send_shape = shape.for_send(opens_booking=opens_booking, idempotency_key=key,
+                                        template_type=str(campaign.get("template_type") or ""))
             try:
                 outcome = await self._sender.send(
                     tenant=tenant,
@@ -210,7 +211,12 @@ class Dispatcher:
                     # THE BOOKING SCREEN UNDER THE OFFER, for a shop that owns the appointment
                     # book. Empty on every other send, and an empty token never reaches the wire.
                     flow_token=send_shape.flow_token,
-                    flow_action_data=dict(send_shape.flow_action_data))
+                    flow_action_data=dict(send_shape.flow_action_data),
+                    # PHASE 2's REQUEST FOR THE CAROUSEL SHAPE — see core/shape.py. Reminders is
+                    # the one that knows whether a carousel template actually exists for this type;
+                    # a `False` here (every send today, and every non-carousel-eligible type) costs
+                    # this field nothing on the wire — see HttpSender.send below.
+                    carousel=send_shape.carousel)
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is

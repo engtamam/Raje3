@@ -59,7 +59,7 @@ _DEFAULT_CEILING_DEFER = 12 * 3600
 MAX_ATTEMPTS = 20
 from app.core import rendering as R
 from app.core.models import SendLog, as_row, key_of
-from app.adapters.message_sender import CeilingReached, Unsendable
+from app.adapters.message_sender import CarouselUnavailable, CeilingReached, Unsendable
 from app.core.consent import Consent
 from app.core.stores import (CLAIM_LEASE_SECONDS, EngagementStore, PrefsStore, RuleStore,
                              ScheduleStore, SendLogStore)
@@ -521,6 +521,75 @@ class Tick:
             return {"sent": False, "reason": str(exc)}
 
         key = row.get("idempotency_key") or f"cmp_{row.get('id','')}"
+
+        # ── THE CAROUSEL REQUEST (core/shape.py Phase 2) ─────────────────────────────────────
+        # Set ONLY by campaigns' dispatch.py, for a shop WITHOUT the appointment book, on one of
+        # the three "come back" marketing types. His own re-written text (`own_name`) takes
+        # priority over it, same as it already does over the flat template chosen above — a
+        # carousel is a shape neither he nor the ordinary fallback asked for by name.
+        #
+        # A REQUEST, NOT A GUARANTEE. `choose_carousel` returning `None` (no carousel template of
+        # this type/tone, or none Meta has approved yet) and `send_carousel` raising
+        # `CarouselUnavailable` (fewer than two service photos survive the upload step) both fall
+        # straight through to the flat send below, silently — the exact same rendered message this
+        # row would have carried if `carousel` had never been set.
+        if row.get("carousel") and not own_name:
+            carousel_row = R.choose_carousel(template_type=row.get("template_type", ""), tone=tone,
+                                             library=library, approved=approved)
+            if carousel_row is not None:
+                try:
+                    await self._quota.consume(tenant=tenant, idempotency_key=key)
+                except Q.QuotaError as exc:
+                    await self._log.append(tenant, as_row(SendLog(
+                        tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                        schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                        outcome="suppressed", reason=str(exc))))
+                    return {"sent": False, "reason": str(exc)}
+                try:
+                    cdelivery_id = await self._sender.send_carousel(
+                        tenant=tenant, subject_ref=subject,
+                        template_name=str(carousel_row.get("name", "")),
+                        variables=[str(row.get("offer_value", ""))],
+                        service_ids=list(row.get("offer_services") or []),
+                        service_names=service_names, idempotency_key=key,
+                        sending_identity=_sending_identity(tenant, row))
+                except CarouselUnavailable:
+                    # GIVE THE SLOT BACK AND FALL THROUGH — see the block's own docstring above.
+                    await self._quota.release(tenant=tenant, idempotency_key=key)
+                except Unsendable as exc:
+                    await self._quota.release(tenant=tenant, idempotency_key=key)
+                    gone = f"لا يوجد مستقبِل: {exc}"
+                    await self._log.append(tenant, as_row(SendLog(
+                        tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                        schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                        outcome="suppressed", reason=gone)))
+                    return {"sent": False, "reason": gone}
+                except CeilingReached as exc:
+                    await self._quota.release(tenant=tenant, idempotency_key=key)
+                    capped = (f"سقف واتساب اليومي ({exc.code}) — لم تُرسل. أعد الإرسال غداً "
+                              f"وتُكمل من حيث توقّفت دون تكرار على أحد.")
+                    await self._log.append(tenant, as_row(SendLog(
+                        tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                        schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                        outcome="suppressed", reason=capped)))
+                    return {"sent": False, "reason": capped}
+                except Exception:
+                    await self._quota.release(tenant=tenant, idempotency_key=key)
+                    raise
+                else:
+                    await self._reach.record(tenant, subject, now=now)
+                    await self._log.append(tenant, as_row(SendLog(
+                        tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                        schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                        template_name=str(carousel_row.get("name", "")),
+                        outcome="sent", idempotency_key=key, delivery_id=cdelivery_id,
+                        offer_text=row.get("offer_text", ""),
+                        offer_expires_at=int(row.get("offer_expires_at") or 0),
+                        offer_services=list(row.get("offer_services") or []),
+                        offer_service_names=[service_names[s] for s in (row.get("offer_services") or [])
+                                             if s in service_names],
+                        offer_value=str(row.get("offer_value", "")))))
+                    return {"sent": True, "reason": ""}
 
         # THE QUOTA, IMMEDIATELY BEFORE THE SEND AND NOWHERE EARLIER. Everything above this line
         # can still refuse — the gate, the render — and a message we decided not to send must not

@@ -1402,3 +1402,107 @@ def test_prune_reach_does_the_one_global_scan(st):
 
     assert calls["n"] == 1
     assert gone == 3
+
+
+# ── Phase 2: the carousel shape (core/shape.py), requested by the campaign path only ──────────
+CAROUSEL_LIB = LIB + [
+    {"name": "mkt_offer_carousel_brief", "type": "mkt_offer", "tone": "brief", "active": False,
+     "carousel": {"cards": [{"header_format": "IMAGE"}]}},
+]
+
+
+class CarouselCapableSender:
+    """FakeSender plus `send_carousel` — a Sender that HAS the carousel capability wired."""
+
+    def __init__(self, *, carousel_ok: bool = True):
+        self.calls = []
+        self.carousel_calls = []
+        self._carousel_ok = carousel_ok
+
+    async def send(self, **kw):
+        self.calls.append(kw)
+        return "dlv_flat"
+
+    async def send_carousel(self, **kw):
+        from app.adapters.message_sender import CarouselUnavailable
+        self.carousel_calls.append(kw)
+        if not self._carousel_ok:
+            raise CarouselUnavailable("fewer than two service photos are available")
+        return "dlv_carousel"
+
+
+def _carousel_row(**over):
+    d = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
+        "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
+        "owner_text": "خصم 20%", "idempotency_key": "idem_car", "id": "idem_car",
+        "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
+        "offer_services": ["oil", "tyres"], "offer_value": "20%", "carousel": True}
+    d.update(over)
+    return d
+
+
+def _consented(st):
+    from app.core.consent import Consent
+
+    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+
+
+def test_carousel_requested_and_available_sends_the_carousel_not_the_flat_message(st):
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    out = run(tick(st, sender).send_one("t1", _carousel_row(), now=at(10), library=CAROUSEL_LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert len(sender.carousel_calls) == 1 and not sender.calls
+    call = sender.carousel_calls[0]
+    assert call["template_name"] == "mkt_offer_carousel_brief"
+    assert call["service_ids"] == ["oil", "tyres"]
+
+
+def test_carousel_requested_but_unavailable_falls_back_to_the_flat_message(st):
+    """`CarouselUnavailable` (too few service photos) is NOT a send failure — the campaign message
+    still goes out, in the shape it would have taken if `carousel` had never been set."""
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=False)
+    out = run(tick(st, sender).send_one("t1", _carousel_row(), now=at(10), library=CAROUSEL_LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert len(sender.carousel_calls) == 1, "the attempt is real, not skipped"
+    assert len(sender.calls) == 1, "and it fell through to the ordinary flat send"
+
+
+def test_no_carousel_template_in_the_library_falls_back_silently(st):
+    """A carousel REQUESTED but never registered/approved for this type+tone — `choose_carousel`
+    answers `None` and the flat path is never even attempted through the sender's carousel call."""
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    out = run(tick(st, sender).send_one("t1", _carousel_row(), now=at(10), library=LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert not sender.carousel_calls and len(sender.calls) == 1
+
+
+def test_carousel_not_requested_never_touches_the_carousel_sender_even_if_one_exists(st):
+    """A booking shop (or any ordinary send) never sets `carousel` on the row — `send_one` must not
+    go looking for one on its own."""
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    row = _carousel_row(carousel=False)
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert not sender.carousel_calls and len(sender.calls) == 1
+
+
+def test_a_sender_with_no_carousel_capability_at_all_is_never_called_for_one(st):
+    """Every deployment before this feature shipped — `FakeSender` has no `send_carousel` method at
+    all, and a plain campaign send (no `carousel` on the row) must not need one."""
+    _consented(st)
+    sender = FakeSender()
+    row = _carousel_row(carousel=False)
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert len(sender.calls) == 1

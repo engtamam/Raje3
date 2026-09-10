@@ -179,7 +179,13 @@ def main() -> int:
         if fills.count("owner") > 1:
             problems.append(f"{name}: {fills.count('owner')} free-text blanks. One at most — more "
                             f"is a form, and an owner who abandons a form sends nothing")
-        if not r.get("active", False):
+        # A CAROUSEL VARIANT IS DELIBERATELY INACTIVE (core/shape.py Phase 2, reminders'
+        # rendering.choose_carousel). It shares its `type` with the flat rows of the same campaign
+        # goal on purpose — a carousel is a SHAPE that goal may take, not a fourth goal in the
+        # picker — and `active: false` is exactly what keeps `choose()` (the flat send path, and
+        # the `sendable` goal-card endpoint) from ever selecting it; `choose_carousel` is the only
+        # reader that looks for `carousel` instead of `active`.
+        if not r.get("active", False) and not r.get("carousel"):
             problems.append(f"{name}: active is false — choose() filters on it, so this template "
                             f"exists everywhere and sends nowhere")
 
@@ -196,7 +202,14 @@ def main() -> int:
 
         # THE TONES OF ONE TYPE MUST AGREE ON THEIR BLANKS. The tone is a live switch: a shop that
         # changes it mid-campaign would otherwise leave a blank unfilled, which Meta refuses.
-        if fills != list(by_type[r["type"]][0].get("fills") or []):
+        #
+        # EXCEPT A CAROUSEL VARIANT AGAINST A FLAT ONE — they are two different SHAPES of the same
+        # goal (see the `active` exemption just above), never two tones of the same message, so
+        # comparing their blanks is comparing two different templates by construction. Two
+        # carousel rows of the same type (warm vs feminine) still must agree with EACH OTHER —
+        # compared against the first carousel row of this type, not the first row overall.
+        siblings = [x for x in by_type[r["type"]] if bool(x.get("carousel")) == bool(r.get("carousel"))]
+        if fills != list(siblings[0].get("fills") or []):
             problems.append(f"{name}: its blanks differ from the other tones of {r['type']} — the "
                             f"tone is a switch the owner flips, not a different message")
 

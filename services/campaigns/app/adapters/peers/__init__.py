@@ -356,7 +356,8 @@ class HttpSender:
                    service_names: list[str] | None = None,
                    branch_id: str = "",
                    flow_token: str = "",
-                   flow_action_data: dict[str, Any] | None = None) -> dict[str, Any]:
+                   flow_action_data: dict[str, Any] | None = None,
+                   carousel: bool = False) -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -388,6 +389,11 @@ class HttpSender:
             body["flow_token"] = flow_token
             if flow_action_data:
                 body["flow_action_data"] = dict(flow_action_data)
+        # THE CAROUSEL REQUEST (core/shape.py, Phase 2) — same "no meaningless field on an ordinary
+        # send" rule as flow_token above. `False` is every send this product has ever made outside
+        # the three booking-eligible marketing types on a shop without the appointment book.
+        if carousel:
+            body["carousel"] = True
         try:
             return await _post(self._url, body, self._token, self._timeout)
         except urllib.error.HTTPError as exc:

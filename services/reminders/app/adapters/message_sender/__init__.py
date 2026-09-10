@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
+import urllib.request
 from typing import Any
 
 from app.adapters import internal_http
@@ -91,6 +93,18 @@ class NullSender:
                           "idempotency_key": idempotency_key})
         return f"dlv_{idempotency_key}" if idempotency_key else ""
 
+    async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
+                            variables: list[str], service_ids: list[str],
+                            service_names: dict[str, str], idempotency_key: str,
+                            sending_identity: str = "") -> str:
+        self.sent.append({"tenant": tenant, "sending_identity": sending_identity or tenant,
+                          "subject_ref": subject_ref, "type": "carousel",
+                          "template_name": template_name, "variables": variables,
+                          "service_ids": list(service_ids),
+                          "service_names": dict(service_names),
+                          "idempotency_key": idempotency_key})
+        return f"dlv_{idempotency_key}" if idempotency_key else ""
+
 
 class HttpSender:
     """The real one: resolve the recipient from operations, then hand it to notification-service.
@@ -103,7 +117,9 @@ class HttpSender:
     def __init__(self, *, notify_url: str, notify_path: str, operations_url: str,
                  recipient_path: str, token: str, channel: str = "whatsapp",
                  timeout: int = 8, ceiling_codes: tuple[str, ...] = DEFAULT_CEILING_CODES,
-                 interactive_notify_path: str = "") -> None:
+                 interactive_notify_path: str = "",
+                 carousel_send_path: str = "", media_upload_id_path: str = "",
+                 catalogue_image_path: str = "") -> None:
         self._ceiling = frozenset(ceiling_codes)
         self._notify = notify_url.rstrip("/") + notify_path
         # OPTIONAL, and empty when omitted — a deployment that has not set
@@ -112,6 +128,16 @@ class HttpSender:
         # on this platform fails closed rather than guessing at a path.
         self._notify_interactive = (notify_url.rstrip("/") + interactive_notify_path
                                     if interactive_notify_path else "")
+        # PHASE 2 (carousel, core/shape.py) — three more OPTIONAL routes, same posture: a
+        # deployment that has not set all three yet cannot reach `send_carousel` at all (it raises
+        # CarouselUnavailable immediately rather than guessing), which `tick.send_one` already
+        # treats as "fall back to the flat template" — so this is harmless on every cluster until
+        # every one of the three is configured.
+        self._carousel_send = notify_url.rstrip("/") + carousel_send_path if carousel_send_path else ""
+        self._media_upload = notify_url.rstrip("/") + media_upload_id_path if media_upload_id_path else ""
+        # `operations_url` — the SAME peer `_resolve` below already calls, just a different route.
+        self._catalogue_image = (operations_url.rstrip("/") + catalogue_image_path
+                                 if catalogue_image_path else "")
         self._resolve = operations_url.rstrip("/") + recipient_path
         self._token = token
         self._channel = channel
@@ -293,6 +319,111 @@ class HttpSender:
             raise SendFailed(f"{result_status}: {result.get('error') or 'no reason given'}")
         return str(result.get("delivery_id") or "")
 
+    def _fetch_service_image(self, tenant: str, kind: str, item_id: str) -> tuple[bytes, str] | None:
+        """One service/package photo, or `None` on anything but a clean 2xx — a missing photo, a
+        peer hiccup and a 404 all look the same from here: "this card cannot be built", never an
+        exception, exactly as whatsapp-assistant's own CarouselSender._fetch_image treats it."""
+        if not self._catalogue_image:
+            return None
+        url = self._catalogue_image.format(kind, item_id) + f"?tenant={urllib.parse.quote(tenant)}"
+        req = internal_http.request(url, method="GET", token=self._token)
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                if not 200 <= resp.status < 300:
+                    return None
+                ctype = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+                return resp.read(), ctype
+        except (urllib.error.URLError, OSError):
+            return None
+
+    def _upload_media_id(self, *, tenant: str, data: bytes, content_type: str) -> str:
+        """A Meta media id for one photo, or `""` on any failure — the caller drops the card."""
+        import base64
+
+        if not self._media_upload:
+            return ""
+        body = {"tenant": tenant, "file_type": content_type, "file_name": "card.jpg",
+                "data_base64": base64.b64encode(data).decode()}
+        try:
+            out = internal_http.post_json(self._media_upload, body, self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return ""
+        return str(out.get("media_id") or "")
+
+    async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
+                            variables: list[str], service_ids: list[str],
+                            service_names: dict[str, str], idempotency_key: str,
+                            sending_identity: str = "") -> str:
+        """The carousel shape (core/shape.py Phase 2) — one card per covered service, its own photo
+        turned into a Meta media id. THE SAME TWO-STEP whatsapp-assistant's own CarouselSender
+        already performs for its catalog carousel (adapters/whatsapp_sender/carousel.py): GET the
+        photo from operations, POST it to notification-service for a media id, THEN POST the
+        assembled cards to `/internal/notify/whatsapp/carousel`. Nothing new on either peer's side.
+
+        RAISES CarouselUnavailable — never sends a broken carousel — when fewer than two cards
+        survive (no `service_ids` at all, every photo missing, an upload failing): Meta's own
+        carousel minimum is two cards, and `tick.send_one` treats this exactly as "no carousel
+        template was found" and falls back to the flat message.
+        """
+        if not (self._carousel_send and self._media_upload and self._catalogue_image):
+            raise CarouselUnavailable("carousel paths are not configured")
+        recipient, _name = self._recipient(tenant, subject_ref)
+        if not recipient:
+            raise Unsendable(f"no recipient for {subject_ref} — erased or unknown")
+
+        cards: list[dict[str, Any]] = []
+        for sid in service_ids:
+            fetched = self._fetch_service_image(tenant, "service", sid)
+            if fetched is None:
+                continue
+            data, ctype = fetched
+            media_id = self._upload_media_id(tenant=tenant, data=data, content_type=ctype)
+            if not media_id:
+                continue
+            cards.append({
+                "media_id": media_id, "media_type": "image",
+                # THE SERVICE'S OWN NAME, THEN THE SHARED VARIABLES (the offer's own value, in
+                # today's only caller) — same order the seed's card body declares them in
+                # (operations/data/templates.seed.json), one card per service, one offer per send.
+                "body_params": [service_names.get(sid, sid), *variables],
+                # INERT TODAY. A quick-reply payload notification-service will happily deliver and
+                # nothing on this path reads back — whatsapp-assistant's own conversation handler
+                # parses ITS carousel's "carousel:{kind}:{id}" payload; a campaign carousel reply
+                # has no handler yet. Kept self-describing rather than blank so a future one is a
+                # parser to add, not a payload shape to invent.
+                "buttons": [{"sub_type": "quick_reply", "payload": f"mkt_carousel:service:{sid}"}],
+            })
+            if len(cards) >= 10:
+                break
+        if len(cards) < 2:
+            raise CarouselUnavailable("fewer than two service photos are available")
+
+        payload = {
+            "recipient": recipient, "tenant": tenant, "template_name": template_name,
+            # THE CAROUSEL ROW'S OWN TOP-LEVEL BODY IS STATIC (no variables) — same shape as
+            # `wa_catalog_carousel`'s own seed row — so nothing here needs the customer's resolved
+            # `name` this call already looked up; `variables` is per-card only (see `body_params`
+            # above), never a top-level component.
+            "language": "ar", "variables": [], "cards": cards,
+            "user_id": subject_ref, "event": "campaigns.marketing",
+            "sending_identity": sending_identity or tenant,
+            "idempotency_key": idempotency_key, "biz_opaque_callback_data": idempotency_key,
+        }
+        body = json.dumps(payload).encode()
+        status, raw = internal_http.send(
+            self._carousel_send, timeout=self._timeout, method="POST", body=body,
+            content_type=internal_http.JSON, token=self._token)
+        if not 200 <= status < 300:
+            raise SendFailed(f"notification-service returned {status}")
+        result = json.loads(raw or b"{}")
+        result_status = str(result.get("status") or "")
+        if result_status and result_status not in _DELIVERED:
+            code = str(result.get("error_code") or result.get("code") or "")
+            if code in self._ceiling:
+                raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
+            raise SendFailed(f"{result_status}: {result.get('error') or 'no reason given'}")
+        return str(result.get("delivery_id") or "")
+
     def _recipient(self, tenant: str, subject_ref: str) -> tuple[str, str]:
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()
         try:
@@ -355,6 +486,13 @@ class Unsendable(Exception):
     customer on every tick, forever."""
 
 
+class CarouselUnavailable(Exception):
+    """The carousel shape (core/shape.py Phase 2) could not be built THIS time — not configured, or
+    fewer than two service photos survived. NOT a send failure: `tick.send_one` catches it and
+    falls back to the flat template it already chose, exactly as it would if no carousel template
+    had been found in the library at all."""
+
+
 def build_sender(settings) -> Any:
     driver = (getattr(settings, "SENDER_DRIVER", "") or "null").lower()
     if driver == "null":
@@ -368,4 +506,7 @@ def build_sender(settings) -> Any:
         channel=settings.MESSAGE_CHANNEL,
         timeout=settings.PEER_TIMEOUT_SECONDS,
         ceiling_codes=settings.whatsapp_ceiling_codes,
-        interactive_notify_path=getattr(settings, "NOTIFICATION_INTERACTIVE_SEND_PATH", ""))
+        interactive_notify_path=getattr(settings, "NOTIFICATION_INTERACTIVE_SEND_PATH", ""),
+        carousel_send_path=getattr(settings, "NOTIFICATION_CAROUSEL_SEND_PATH", ""),
+        media_upload_id_path=getattr(settings, "NOTIFICATION_MEDIA_UPLOAD_ID_PATH", ""),
+        catalogue_image_path=getattr(settings, "OPERATIONS_CATALOGUE_IMAGE_PATH", ""))
