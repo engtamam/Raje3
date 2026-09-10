@@ -12,6 +12,7 @@ the file — never an empty list.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 from typing import Any
@@ -35,7 +36,9 @@ class HttpEvidence:
         body = json.dumps({"tenant": tenant, "since": since, "until": until}).encode()
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            status, raw = internal_http.send(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, raw = await asyncio.to_thread(
+                internal_http.send,
                 self._url, timeout=self._timeout, method="POST", body=body,
                 content_type=internal_http.JSON, token=self._token)
             if not 200 <= status < 300:

@@ -529,6 +529,7 @@ class HttpExchange:
 
     async def exchange(self, *, tenant: str, code: str, waba_id: str,
                        phone_number_id: str) -> tuple[bool, str]:
+        import asyncio
         import json
         import urllib.error
         import urllib.request
@@ -536,9 +537,11 @@ class HttpExchange:
         body = json.dumps({"tenant": tenant, "code": code, "waba_id": waba_id,
                            "phone_number_id": phone_number_id}).encode()
         try:
-            # Built in adapters/internal_http.py, the one place this service attaches the token.
-            internal_http.read(self._url, self._timeout, method="POST", body=body,
-                               content_type=internal_http.JSON, token=self._token)
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Built
+            # in adapters/internal_http.py, the one place this service attaches the token.
+            await asyncio.to_thread(
+                internal_http.read, self._url, self._timeout, method="POST", body=body,
+                content_type=internal_http.JSON, token=self._token)
             return True, ""
         except urllib.error.HTTPError as exc:
             # THE REASON IS CARRIED, NOT SWALLOWED. "Meta rejected the code" and "our app secret is
@@ -577,13 +580,15 @@ class HttpMetaConfig:
         self._timeout = timeout
 
     async def read(self) -> dict[str, Any]:
+        import asyncio
         import json
         import urllib.error
 
         try:
-            out: dict[str, Any] = json.loads(internal_http.read(
-                self._url, self._timeout, method="GET",
-                token=self._token) or b"{}")
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            raw = await asyncio.to_thread(
+                internal_http.read, self._url, self._timeout, method="GET", token=self._token)
+            out: dict[str, Any] = json.loads(raw or b"{}")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # OURS, NEVER HIS — a peer we cannot reach reads exactly like "not configured yet" to
             # the console (same button state, same sentence), never a raw error or a hung spinner.

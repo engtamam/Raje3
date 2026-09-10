@@ -206,6 +206,45 @@ def _scan_async_function(fn: ast.AsyncFunctionDef) -> tuple[bool, bool, bool, bo
     return reaches_io, reaches_sleep, reaches_lock, offloads
 
 
+def _service_and_module(f: pathlib.Path) -> tuple[str, str]:
+    """(service name, dotted module path) for a file — e.g. `services/operations/app/adapters/
+    internal_http.py` -> `("operations", "app.adapters.internal_http")`. The dotted path is exactly
+    what an import statement inside that same service names (every service's own code imports as
+    `app.foo.bar`, never a package-qualified path crossing service boundaries — services share no
+    Python package). Keyed by service too, not just the dotted string, so two different services
+    that both happen to have `app.adapters.internal_http` never merge into one shared registry
+    entry — a name collision ACROSS services must stay as invisible to this gate as one across
+    unrelated files within a service already is."""
+    parts = f.relative_to(ROOT).parts   # ("services", "<svc>", "app", ...)
+    svc = parts[1]
+    app_idx = parts.index("app")
+    tail = list(parts[app_idx:])
+    tail[-1] = tail[-1][:-3] if tail[-1] != "__init__.py" else None  # strip ".py"
+    if tail[-1] is None:
+        tail = tail[:-1]
+    return svc, ".".join(tail)
+
+
+def _import_aliases(tree: ast.Module) -> dict[str, str]:
+    """local name -> dotted module path, for THIS file's own top-level imports — only the shape
+    that matters here: `import app.foo.bar [as x]` and `from app.foo import bar [as x]`, both of
+    which bind a name to a MODULE (never to a function/class pulled out of one — `from app.core.x
+    import some_func` binds `some_func` to a NAME, not a module, and a later `some_func(...)` call
+    is just a bare-name call already covered by section 3's ordinary same-file/cross-file-by-name
+    matching path, not this one). Only imports reachable at module top level are tracked — an
+    import inside a function body is rare in this codebase's own style and not worth the added
+    branch-tracking to resolve correctly."""
+    aliases: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                aliases[a.asname or a.name.split(".")[0]] = a.name
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            for a in node.names:
+                aliases[a.asname or a.name] = f"{node.module}.{a.name}"
+    return aliases
+
+
 def _walk_functions(tree: ast.Module):
     """Every FunctionDef/AsyncFunctionDef in the tree, at any nesting depth — a plain `ast.walk`
     already reaches nested ones; this just filters to the two node types once."""
@@ -228,20 +267,37 @@ def _sync_function_reaches_blocking_io(fn: ast.FunctionDef) -> bool:
     return False
 
 
-def _calls_blocking_helper(fn: ast.AsyncFunctionDef, helper_names: set[str]) -> bool:
+def _calls_blocking_helper(fn: ast.AsyncFunctionDef, helper_names: set[str], *,
+                           import_aliases: dict[str, str] | None = None,
+                           names_by_module: dict[str, set[str]] | None = None) -> bool:
     """Does this async function's own body directly CALL (invoke, not merely reference) a name
     registered as a known-blocking sync helper? A bare reference passed to `asyncio.to_thread`/
     `run_in_threadpool` (`to_thread(self._post, body)`) never produces a matching Call node here —
     only `self._post(body)` invoked directly does — so this needs no offload-aware exclusion of
     its own; the existing `_calls_offload` check elsewhere already decides that question for
-    section 1's own direct-urlopen case."""
+    section 1's own direct-urlopen case.
+
+    TWO WAYS A NAME COUNTS. `helper_names` (this file's own registry) matches ANY call ending in
+    that name — bare or `self.X(...)`/`obj.X(...)`, same as before. `import_aliases`/
+    `names_by_module` additionally match a MODULE-QUALIFIED call (`internal_http.get_json(...)`)
+    when the qualifying name resolves, via this file's own imports, to ANOTHER file whose registry
+    has that name — the cross-file-imported-helper shape a purely same-file registry would miss
+    (`core/quota.py`'s own `internal_http.get_json(...)`, found only by manual audit before this)."""
     for node in ast.walk(fn):
         if node is fn:
             continue
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
+        if not isinstance(node, ast.Call):
+            continue
         if _call_name(node) in helper_names:
             return True
+        if import_aliases and names_by_module:
+            func = node.func
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                module = import_aliases.get(func.value.id)
+                if module and func.attr in names_by_module.get(module, set()):
+                    return True
     return False
 
 
@@ -264,9 +320,14 @@ def main() -> int:
         print("no service .py files found — this gate needs re-pointing")
         return 1
 
-    # A CHEAP PRE-FILTER, NOT THE CHECK ITSELF — skip parsing a file that could not possibly match
-    # any of the flagged names, without hand-rolling a second, looser matcher. Parsed trees are
-    # cached (one parse per file, used by both passes below), never re-read from disk twice.
+    # EVERY FILE IS PARSED — NO KEYWORD PRE-FILTER. There used to be one ("skip a file that could
+    # not possibly match"), and it was wrong the moment section 3 grew a cross-file import
+    # resolution: `core/quota.py` calls `internal_http.get_json(...)` and its own text never
+    # mentions `urlopen`/`subprocess`/etc. at all — the blocking call lives in the IMPORTED
+    # module's file, not this one's text. A prefilter keyed on this file's own text can never see
+    # that. Parsed trees are cached (one parse per file, used by every pass below), never re-read
+    # from disk twice — and parsing every file here costs well under two seconds on this repo's
+    # size (~1300 files), not worth trading correctness for.
     trees: dict[pathlib.Path, ast.Module] = {}
     for f in files:
         try:
@@ -274,9 +335,6 @@ def main() -> int:
         except (OSError, UnicodeDecodeError) as exc:
             print(f"cannot read {f.relative_to(ROOT).as_posix()}: {exc}")
             return 1
-        if not any(name in text for name in
-                  ("urlopen", "subprocess", "os.system", "requests", "threading", *_SLEEP_NAMES)):
-            continue
         try:
             trees[f] = ast.parse(text, filename=str(f))
         except SyntaxError as exc:
@@ -297,6 +355,13 @@ def main() -> int:
     # — cross-file collisions (the actual source of every false positive found so far) cannot occur
     # by construction, and no name needs blocklisting away to fix them.
     blocking_helper_names: dict[pathlib.Path, set[str]] = {}
+    # ALSO KEYED BY (service, dotted module path) — the cross-file-IMPORT resolution this section
+    # was missing: a sync helper CALLED THROUGH AN IMPORT (`internal_http.get_json(...)`, the
+    # module never one this file itself defines) needs the CALLEE's own file's registry, reached
+    # via the CALLER's own import statement, not the caller's file. `core/quota.py`'s own
+    # `internal_http.get_json(...)` — found only by manual audit, never by this gate, until this —
+    # is exactly the shape this closes. See `_calls_blocking_helper`'s own docstring.
+    names_by_module: dict[str, set[str]] = {}
     for f, tree in trees.items():
         names: set[str] = set()
         for fn in _walk_functions(tree):
@@ -305,6 +370,8 @@ def main() -> int:
                 names.add(fn.name)
         if names:
             blocking_helper_names[f] = names
+            svc, module = _service_and_module(f)
+            names_by_module[f"{svc}::{module}"] = names
 
     # ── PASS 2: every async def, checked against both the direct (section 1/2) and the
     # indirect-via-a-named-helper (section 3) shapes ───────────────────────────────────────────
@@ -315,6 +382,14 @@ def main() -> int:
     checked = 0
     for f, tree in trees.items():
         rel = f.relative_to(ROOT).as_posix()
+        svc, _module = _service_and_module(f)
+        import_aliases = _import_aliases(tree)
+        # RESOLVED AGAINST THIS FILE'S OWN SERVICE ONLY — `import app.foo.bar` inside operations
+        # can only ever mean operations' own `app/foo/bar.py`; prefixing every alias's dotted
+        # target with `svc::` before it is looked up in `names_by_module` is what keeps two
+        # services' same-named modules from being treated as the same file (see
+        # `_service_and_module`'s own docstring).
+        import_modules = {alias: f"{svc}::{dotted}" for alias, dotted in import_aliases.items()}
         for fn in _walk_functions(tree):
             if not isinstance(fn, ast.AsyncFunctionDef):
                 continue
@@ -324,7 +399,9 @@ def main() -> int:
                 io_hits.append(f"{rel}:{fn.lineno}: async def {fn.name}() calls blocking "
                                f"network/process I/O directly, with no asyncio.to_thread/"
                                f"run_in_threadpool in the same function")
-            elif not offloads and _calls_blocking_helper(fn, blocking_helper_names.get(f, set())):
+            elif not offloads and _calls_blocking_helper(
+                    fn, blocking_helper_names.get(f, set()),
+                    import_aliases=import_modules, names_by_module=names_by_module):
                 # `elif` — a function already flagged above (direct + unoffloaded) is not also
                 # double-reported here for calling a second, indirect helper.
                 indirect_hits.append(

@@ -168,7 +168,8 @@ class HttpSender:
         supply the per-send action; empty otherwise, and notification-service ignores them for an
         ordinary template. `flow_action_data` is omitted from the wire body entirely when empty —
         Meta rejects an empty data object, same rule build_flow's own docstring states."""
-        recipient, name = self._recipient(tenant, subject_ref)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        recipient, name = await asyncio.to_thread(self._recipient, tenant, subject_ref)
         if not recipient:
             # NOT AN ERROR, and not a retry. The subject was erased, or never existed. Raising
             # would put this schedule into the retry loop forever, and every tick would ask
@@ -304,7 +305,8 @@ class HttpSender:
         """
         if not self._notify_interactive:
             raise SendFailed("NOTIFICATION_INTERACTIVE_SEND_PATH is not configured")
-        recipient, _name = self._recipient(tenant, subject_ref)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        recipient, _name = await asyncio.to_thread(self._recipient, tenant, subject_ref)
         if not recipient:
             raise Unsendable(f"no recipient for {subject_ref} — erased or unknown")
         req_body = json.dumps({

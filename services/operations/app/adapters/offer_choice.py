@@ -12,6 +12,7 @@ never agreed to, on an invoice he cannot explain.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 from app.adapters import internal_http
@@ -44,7 +45,9 @@ def http_chooser(*, reminders_url: str, token: str, timeout: int = 5):
                            "service_ids": list(service_ids)}).encode()
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            status, raw = internal_http.send(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, raw = await asyncio.to_thread(
+                internal_http.send,
                 reminders_url.rstrip("/") + "/internal/reminders/offer/choose",
                 timeout=timeout, method="POST", body=body,
                 content_type=internal_http.JSON, token=token)

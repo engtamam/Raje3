@@ -7,6 +7,7 @@ it does not own.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 from typing import Any
@@ -51,7 +52,9 @@ class HttpRatingWriter:
         body = json.dumps({"tenant": tenant, "rating": rating, "feedback_text": feedback_text,
                            "subject_ref": subject_ref, "rating_points": rating_points}).encode()
         try:
-            status, raw = internal_http.send(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, raw = await asyncio.to_thread(
+                internal_http.send,
                 url, timeout=self._timeout, method="POST", body=body,
                 content_type=internal_http.JSON, token=self._token)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):

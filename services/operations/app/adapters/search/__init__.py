@@ -78,8 +78,10 @@ class HttpSearch:
             "fields": fields,
         }).encode()
         try:
-            # Built in adapters/internal_http.py, the one place this service attaches the token.
-            status, _ = internal_http.send(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Built
+            # in adapters/internal_http.py, the one place this service attaches the token.
+            status, _ = await asyncio.to_thread(
+                internal_http.send,
                 f"{self._url}{self._path}", timeout=self._timeout, method="POST", body=body,
                 content_type=internal_http.JSON, token=self._token)
             return 200 <= status < 300

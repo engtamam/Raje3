@@ -13,6 +13,7 @@ a host of their choosing and be told yes.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -37,7 +38,9 @@ class HttpConsentGate:
             # One static header, attached in adapters/internal_http.py — the only place this service
             # builds an internally authenticated request. `omit_blank_token` preserves what this
             # gate already did: no configured token means no header, not an empty one.
-            status, raw = internal_http.send(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, raw = await asyncio.to_thread(
+                internal_http.send,
                 f"{self._url}?{query}", timeout=self._timeout, method="GET",
                 token=self._token, omit_blank_token=True)
         except urllib.error.HTTPError as exc:

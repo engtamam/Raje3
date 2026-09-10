@@ -9,6 +9,7 @@ answer, because a window skipped here is a message recorded as never delivered f
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -33,8 +34,10 @@ class HttpReceiptFeed:
             return {}
         query = urllib.parse.urlencode({"after": after or "", "limit": self._page})
         try:
-            # Built in adapters/internal_http.py, the one place this service attaches the token.
-            status, raw = internal_http.send(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Built
+            # in adapters/internal_http.py, the one place this service attaches the token.
+            status, raw = await asyncio.to_thread(
+                internal_http.send,
                 f"{self._url}?{query}", timeout=self._timeout, method="GET", token=self._token)
             if not 200 <= status < 300:
                 return {}

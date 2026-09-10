@@ -23,6 +23,7 @@ So this is the caller: our list, their read, one HTTP call per shop.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -61,10 +62,13 @@ class HttpApprovals:
     async def sync(self, tenant: str) -> dict[str, Any]:
         query = urllib.parse.urlencode({"tenant": tenant})
         try:
-            # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out: dict[str, Any] = json.loads(internal_http.read(
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Built
+            # in adapters/internal_http.py, the one place this service attaches the token.
+            raw = await asyncio.to_thread(
+                internal_http.read,
                 f"{self._url}?{query}", self._timeout, method="POST", body=b"",
-                content_type=internal_http.JSON, token=self._token) or b"{}")
+                content_type=internal_http.JSON, token=self._token)
+            out: dict[str, Any] = json.loads(raw or b"{}")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
             # THE REASON IS TRUNCATED AND THE TENANT IS NOT IN IT. This string reaches telemetry,
             # and a peer's error body can carry anything it likes.
