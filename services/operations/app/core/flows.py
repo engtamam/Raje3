@@ -61,6 +61,19 @@ BOOKING_FLOW_NAME = "booking_flow"
 #: The one category Meta's fixed set has for exactly this purpose.
 BOOKING_FLOW_CATEGORIES = ["APPOINTMENT_BOOKING"]
 
+#: THE FIFTH FLOW, CLONE-PER-SHOP LIKE `booking_flow` above — visit-registration over WhatsApp, a
+#: second channel alongside the console's own شاشة تسجيل الزيارة (this session's own approved
+#: plan). Staff talking to THEIR OWN shop's number about THAT shop's own customers is exactly the
+#: same shape as `booking_flow`'s own reasoning — never `_platform`, unlike subscription_renewal.
+#: Also DYNAMIC and GENERATED (notification-service's own WHATSAPP_VISIT_DEFINITION, third
+#: BookingEngine registration under name="visit") — same "ask the running service for the JSON,
+#: never hand-author a file for a dynamic Flow" shape `deploy/seed/bootstrap-visit-flow.sh` copies
+#: from `bootstrap-booking-flow.sh` verbatim.
+VISIT_FLOW_NAME = "visit_flow"
+#: Nothing in Meta's fixed set names "an employee logs an in-person visit" — OTHER is the honest
+#: answer, same as report_flow's own category for the identical reason.
+VISIT_FLOW_CATEGORIES = ["OTHER"]
+
 #: A FOURTH FLOW — but NOT clone-per-shop like the three above (owner's decision, 2026-09-10). It
 #: is PLATFORM-owned: sent from OUR OWN WhatsApp number to a shop owner about THEIR bill, the same
 #: category as the `auth_otp` template (see `PLATFORM` above) — authored ONCE, on `PLATFORM`, via

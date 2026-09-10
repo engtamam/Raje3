@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:e91302cb0f7c42066d4bc2d88927abd74ab5936d328cbbc70072fb9571e48b1a"   # v0.19.17
+  digest: "sha256:582833781e4d8dfcf8df0cc80bf481e68ff3df74ee0f6a097ef3a235d2448e3d"   # v0.19.18
 
 replicas: 1
 
@@ -196,6 +196,39 @@ env:
   # the token arrives through the secret — bring-up.sh's "whatsapp renewal provider token" step
   # copies the shared INTERNAL_SERVICE_TOKEN into this pod's secret under this exact key.
   WHATSAPP_RENEWAL_PROVIDER_URL: "http://operations:8000/internal/whatsapp/renewal-provider"
+
+  # visit-registration over WhatsApp (platform v0.19.16 multi-select + v0.19.17 free-text/no-date
+  # shape) — a second channel alongside the console's own شاشة تسجيل الزيارة, cloned per shop like
+  # `booking_flow` (staff talking to their OWN shop's number, never `_platform`). "phone" is a
+  # TEXT step (v0.19.17) — unlike booking, where the texting customer IS the customer, here the
+  # operator has to TYPE who the visit is for. "service" is `multi` (v0.19.16) — the console's own
+  # screen already lets an operator tick several; this is the first WhatsApp channel that can too.
+  # NO date/time step: a visit happens now, not on a calendar (v0.19.17 dropped the old hard
+  # requirement). See services/whatsapp-assistant's core/flow_visit_backend.py for the {options,
+  # reserve} side.
+  # ACTIVE as of platform v0.19.18 — the third BookingEngine(name="visit") + these settings are
+  # now registered on notification-service's own side (asked, shipped, repinned).
+  WHATSAPP_VISIT_DEFINITION: |
+    {
+      "steps": [{"dimension":"phone","input":"text"},{"dimension":"service","multi":true},
+               {"dimension":"confirm"}],
+      "strings": {
+        "pick_phone": "أدخل رقم جوال العميل",
+        "pick_service": "اختر خدمة أو أكثر",
+        "continue": "متابعة",
+        "confirm": "تسجيل الزيارة",
+        "required": "الرجاء الإدخال",
+        "backend_error": "تعذّر تسجيل الزيارة. حاول مرة أخرى."
+      }
+    }
+  # services/whatsapp-assistant's own /internal/whatsapp-flow/visit route — same in-cluster DNS
+  # pattern as WHATSAPP_BOOKING_PROVIDER_URL right above.
+  WHATSAPP_VISIT_PROVIDER_URL: "http://whatsapp-assistant:8000/internal/whatsapp-flow/visit"
+  # WHATSAPP_VISIT_PROVIDER_TOKEN IS DELIBERATELY NOT SET HERE — same reasoning as
+  # WHATSAPP_BOOKING_PROVIDER_TOKEN's own note just above: arrives through `envFrom`, bring-up.sh's
+  # own "whatsapp visit provider token" step (already wired) copies the shared
+  # INTERNAL_SERVICE_TOKEN into this pod's secret under this exact key.
+
   # ON. Each shop's own Flow-encryption key is now sealed automatically at connect time
   # (operations' connect.py, base-services v0.18.55's flow-encryption/ensure route) — a shop
   # connected before this route existed just needs a reconnect (or a manual

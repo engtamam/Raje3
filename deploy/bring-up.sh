@@ -610,6 +610,23 @@ else
   ok "notification-service may now call operations' subscription-renewal Flow endpoint"
 fi
 
+# ── 4g ────────────────────────────────────────────────────────────────────────────────────────
+# WHATSAPP_VISIT_PROVIDER_TOKEN — THE SAME SHAPE AS 4e/4f JUST ABOVE, for visit-registration over
+# WhatsApp: notification-service's third BookingEngine(name="visit") sends this as
+# X-Internal-Token when it calls whatsapp-assistant's own /internal/whatsapp-flow/visit.
+step "whatsapp visit provider token"
+NIST="$(kubectl -n "$NS" get secret notification-service-secrets -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null || true)"
+NCUR="$(kubectl -n "$NS" get secret notification-service-secrets -o jsonpath='{.data.WHATSAPP_VISIT_PROVIDER_TOKEN}' 2>/dev/null || true)"
+if [[ -z "$NIST" ]]; then
+  warn "INTERNAL_SERVICE_TOKEN not in notification-service-secrets — cannot derive WHATSAPP_VISIT_PROVIDER_TOKEN"
+elif [[ "$NIST" == "$NCUR" ]]; then
+  ok "already matches the shared internal token"
+else
+  kubectl -n "$NS" patch secret notification-service-secrets --type=merge \
+    -p "{\"data\":{\"WHATSAPP_VISIT_PROVIDER_TOKEN\":\"$NIST\"}}" >/dev/null
+  ok "notification-service may now call whatsapp-assistant's visit-registration Flow endpoint"
+fi
+
 # ── 5 & 6 ─────────────────────────────────────────────────────────────────────────────────────
 step "databases and buckets"
 bash "$HERE/hooks/pre-deploy.sh"
@@ -741,6 +758,10 @@ soft "report flow" bash "$HERE/seed/bootstrap-report-flow.sh"
 # same day the display-row gap (ci/check_listed_apps_are_wired.py) was found, same root cause:
 # a feature finished in code with no install-chain step to make it real on a fresh cluster.
 soft "booking flow" bash "$HERE/seed/bootstrap-booking-flow.sh"
+# THE SAME ORDERING CONSTRAINT, A FIFTH FLOW — visit-registration over WhatsApp, cloned per shop
+# like booking (never a manual admin action — see the subscription-renewal note right below for
+# what THAT looks like and why this one is different).
+soft "visit-registration flow" bash "$HERE/seed/bootstrap-visit-flow.sh"
 # THE SUBSCRIPTION-RENEWAL FLOW IS DELIBERATELY NOT HERE (owner's decision, 2026-09-10) — unlike
 # rating/report/booking above, minting its master is a MANUAL admin action
 # (POST /api/v1/platform/flows/subscription-renewal/seed, platform.operations capability, console-

@@ -33,6 +33,11 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # refused key, so it never even noticed) — found while wiring the fourth Flow below and
     # fixed in the same change rather than left for whoever hits it next.
     "MASTER_BOOKING_FLOW_ID",
+    # THE SAME PATTERN, A FIFTH FLOW — visit-registration over WhatsApp, minted once by
+    # deploy/seed/bootstrap-visit-flow.sh, read per shop by connect.py. Added here FROM THE START
+    # this time — see MASTER_BOOKING_FLOW_ID's own comment on the bug this exact omission caused
+    # once already.
+    "MASTER_VISIT_FLOW_ID",
     # THE SAME PATTERN, A FOURTH FLOW — subscription renewal, minted once by an explicit admin
     # action (api/v1/platform.py::seed_subscription_renewal_flow) rather than at a shop's own
     # connect time (never cloned per shop — see core/flows.py's own module comments). Read back

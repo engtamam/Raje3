@@ -416,8 +416,10 @@ async def whatsapp_flow_booking(body: FlowBookingIn, request: Request) -> dict:
 
 # ── visit-registration over WhatsApp — a second channel alongside the console ──────────────────
 class FlowVisitIn(BaseModel):
-    """core/flow_visit_backend.py's own op contract — see that module's docstring for why it is
-    engine-agnostic (the Flow engine on the other side is not yet built)."""
+    """The SAME shape as `FlowBookingIn` above — this Flow is the exact same `BookingEngine`
+    (platform v0.19.16/v0.19.17), registered a third time under `name="visit"` with a
+    date/time-free, multi-select-service `FlowDefinition`. See core/flow_visit_backend.py's own
+    module docstring."""
     op: str
     tenant: str = ""
     customer: str = ""
@@ -429,17 +431,16 @@ class FlowVisitIn(BaseModel):
 
 @router.post("/whatsapp-flow/visit", dependencies=[Depends(require_internal_token)])
 async def whatsapp_flow_visit(body: FlowVisitIn, request: Request) -> dict:
-    """Answers whichever Flow engine ends up driving visit-registration over WhatsApp — see
-    core/flow_visit_backend.py's own module docstring. 404s (a plain refusal, never a stack
-    trace) when WHATSAPP_FLOW_VISIT_ENABLED is off, same posture as the booking route above.
+    """Answers the visit-registration Flow engine — see core/flow_visit_backend.py's own module
+    docstring. 404s (a plain refusal, never a stack trace) when WHATSAPP_FLOW_VISIT_ENABLED is
+    off, same posture as the booking route above. No "calendar"/"slots" branch: the visit Flow's
+    own definition has no date/time steps, so the engine never asks for either.
     """
     container = getattr(request.app.state, "container", None)
     backend = getattr(container, "flow_visit_provider", None) if container is not None else None
     if backend is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "WhatsApp visit registration is not enabled")
 
-    if body.op == "identify":
-        return await backend.identify(tenant=body.tenant, customer=body.customer)
     if body.op == "options":
         options = await backend.options(tenant=body.tenant, dimension=body.dimension,
                                         chosen=body.chosen, customer=body.customer)

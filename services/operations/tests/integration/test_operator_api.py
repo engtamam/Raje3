@@ -121,6 +121,7 @@ def test_the_config_surface_offers_exactly_what_something_reads(client, operator
     h = {"headers": operator_auth}
     assert set(client.get("/api/v1/operations/operator/config", **h).json()["config"]) == {
         "MASTER_RATING_FLOW_ID", "MASTER_REPORT_FLOW_ID", "MASTER_BOOKING_FLOW_ID",
+        "MASTER_VISIT_FLOW_ID",
         "MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID", "RETENTION_CUSTOMER_YEARS"}
     r = client.put("/api/v1/operations/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"

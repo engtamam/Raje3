@@ -197,6 +197,11 @@ env:
   # connect.py, base-services v0.18.55). The only remaining gate is a real per-shop WhatsApp
   # connection existing at all — outside code's reach by definition, not a config knob.
   WHATSAPP_FLOW_BOOKING_ENABLED: "true"
+  # Visit-registration over WhatsApp — the second channel alongside the console (this session's
+  # own approved plan). Same "opt in, never silently upgrade" posture; platform v0.19.18
+  # registered the matching engine + JSON-generation route, so the master Flow can now actually
+  # be minted (deploy/seed/bootstrap-visit-flow.sh) and cloned per shop at connect time.
+  WHATSAPP_FLOW_VISIT_ENABLED: "true"
   # WhatsApp Coexistence (platform v0.18.56) — twin of notification-service's own flag. ON,
   # platform-wide, no per-shop toggle: see this service's config.py note on why the two flags
   # are meant to flip together at install time. When a shop's number is in coexistence mode

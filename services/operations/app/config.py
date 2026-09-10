@@ -385,6 +385,9 @@ class Settings(BaseSettings):
     # THE SAME PATTERN, A THIRD FLOW — the WhatsApp booking Flow (Phase 5), minted once by
     # deploy/seed/bootstrap-booking-flow.sh. See MASTER_RATING_FLOW_ID's own comment above.
     MASTER_BOOKING_FLOW_ID: str = ""
+    # THE SAME PATTERN, A FIFTH FLOW — visit-registration over WhatsApp, minted once by
+    # deploy/seed/bootstrap-visit-flow.sh. See MASTER_RATING_FLOW_ID's own comment above.
+    MASTER_VISIT_FLOW_ID: str = ""
     # THE SAME PATTERN, A FOURTH FLOW — subscription renewal (deploy/seed/
     # subscription-renewal-flow.json), minted once by
     # deploy/seed/bootstrap-subscription-renewal-flow.sh. See MASTER_RATING_FLOW_ID's own comment
