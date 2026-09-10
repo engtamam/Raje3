@@ -130,7 +130,7 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     expect(screen.getByText('محل معلَّق')).toBeTruthy();
   });
 
-  it('opening a row opens the customer detail drawer with its name', async () => {
+  it('opening a row replaces the list with a full customer detail PAGE, not an overlay', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
@@ -145,6 +145,15 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     expect(screen.getByText('نظرة عامة')).toBeTruthy();
     expect(screen.getByText('التطبيقات والفوترة')).toBeTruthy();
+    // A real page swap — the list's own KPI row and search box are gone from the DOM, not just
+    // hidden under a modal scrim (the earlier shape, an overlay both still present at once).
+    expect(screen.queryByText('إجمالي العملاء')).toBeNull();
+    expect(screen.queryByPlaceholderText('ابحث بالاسم…')).toBeNull();
+
+    // Back returns to the list.
+    fireEvent.click(screen.getByLabelText('رجوع'));
+    await waitFor(() => expect(screen.queryByText('shop-one')).toBeNull());
+    expect(screen.getByPlaceholderText('ابحث بالاسم…')).toBeTruthy();
   });
 
   it('shows the plan NAME, not the raw plan_id, in both the table and the detail view', async () => {
@@ -156,18 +165,21 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
       }
       if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
       if (path.includes('/billing/plans')) {
-        return Promise.resolve({ plans: [{ id: 'plan_abc123', name: 'الباقة الاحترافية' }] });
+        return Promise.resolve({ plans: [{ id: 'plan_abc123', name: 'تطبيق الحجوزات' }] });
       }
       if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
       return Promise.resolve({ subscriptions: [] });
     });
 
     render(<AdminCustomers session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('الباقة الاحترافية')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('تطبيق الحجوزات')).toBeTruthy());
     expect(screen.queryByText('plan_abc123')).toBeNull();
 
+    // A full PAGE now replaces the list (not an overlay on top of it) — see CustomerList.tsx's own
+    // note on why: the table row disappears from the DOM once the detail page opens, so the plan
+    // name appears exactly once, not twice.
     fireEvent.click(screen.getByText('محل الأول'));
-    await waitFor(() => expect(screen.getAllByText('الباقة الاحترافية').length).toBeGreaterThan(1));
+    await waitFor(() => expect(screen.getAllByText('تطبيق الحجوزات').length).toBe(1));
   });
 
   it('the seats tab shows the real count against the real entitled limit, x/y', async () => {

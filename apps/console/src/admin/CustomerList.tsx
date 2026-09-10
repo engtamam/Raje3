@@ -128,6 +128,16 @@ export function CustomerList({ session }: { session: AdminSession }) {
     return <NoActionAvailable catalog={catalog} permissionTitle="هذه الشاشة ليست ضمن صلاحياتك" />;
   }
 
+  // صفحة كاملة تحل محل القائمة، لا نافذة منبثقة فوقها — الاثنان معاً بالـDOM كانا يعنيان احتمال
+  // شريطي تبويب فوق بعض (Segmented القائمة تحت + Segmented تفاصيل المحل فوقه)، بالضبط الصنف اللي
+  // ci/check_no_two_tab_strips_stack_in_one_view.py يحذّر منه. التبديل هنا يقفلها معمارياً لا بصرياً فقط.
+  if (openTenant) {
+    return (
+      <CustomerDetail session={session} tenant={openTenant} subscription={subsByTenant.get(openTenant.id) ?? null}
+                      planNames={planNames} catalog={catalog} onClose={() => setOpenTenant(null)} />
+    );
+  }
+
   const shown = rows.filter((t) => {
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
     if (query.trim() && !t.name.toLowerCase().includes(query.trim().toLowerCase())
@@ -207,11 +217,6 @@ export function CustomerList({ session }: { session: AdminSession }) {
           </table>
         </div>
       )}
-
-      {openTenant ? (
-        <CustomerDetail session={session} tenant={openTenant} subscription={subsByTenant.get(openTenant.id) ?? null}
-                        planNames={planNames} catalog={catalog} onClose={() => setOpenTenant(null)} />
-      ) : null}
     </div>
   );
 }

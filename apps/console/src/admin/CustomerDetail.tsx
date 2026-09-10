@@ -29,9 +29,10 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
-import { Modal } from './../rj-ui/Modal';
+import { Button } from './../rj-ui/Button';
 import { Input, Select } from './../rj-ui/Field';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
@@ -54,6 +55,12 @@ const INVOICE_STATUS_META: Record<Invoice['status'], { label: string; tone: 'neu
 
 type Tab = 'overview' | 'billing' | 'seats' | 'tickets' | 'whatsapp' | 'audit';
 
+/**
+ * الصفحة الكاملة — لا نافذة منبثقة، هذي أول شاشة إدارية تحمل لمسة الفخامة اللي شاشات المحل نفسه
+ * تحملها (`shadow-glow`، `text-display`) بعد دراسة الثيم الكاملة. البنية التحتية فقط بهذي الخطوة:
+ * صف الـKPIs فاضٍ عمداً — تصميمه (وأي مكوّن ذكي بداخله، مثل AreaTrend الموجود وغير المستخدم بلوحة
+ * الإدارة) خطوة قادمة منفصلة، تبويب تبويب. محتوى التبويبات الستة نفسه لم يتغيّر — لا تراجع وظيفي.
+ */
 export function CustomerDetail({ session, tenant, subscription, planNames, catalog, onClose }: {
   session: AdminSession; tenant: Tenant; subscription: Subscription | null;
   planNames: Map<string, string>; catalog: AdminCatalog; onClose: () => void;
@@ -61,26 +68,43 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
   const [tab, setTab] = useState<Tab>('overview');
 
   return (
-    <Modal open onClose={onClose} size="xl" title={tenant.name} subtitle={<span dir="ltr">{tenant.slug}</span>}>
-      <div className="flex flex-col gap-4">
-        <Segmented value={tab} onChange={(v) => setTab(v as Tab)}
-                  options={[
-                    { value: 'overview', label: 'نظرة عامة' },
-                    { value: 'billing', label: 'التطبيقات والفوترة' },
-                    { value: 'seats', label: 'الفروع والمستخدمين' },
-                    { value: 'tickets', label: 'التذاكر والدعم' },
-                    { value: 'whatsapp', label: 'واتساب' },
-                    { value: 'audit', label: 'السجل والتدقيق' },
-                  ]} />
+    <div className="flex min-h-full flex-col gap-5 p-6">
+      {/* رأس الصفحة الفاخر — توهّج بلون العلامة عند المرور (shadow-glow)، وحجم خط display الأكبر
+         بالنظام لاسم المحل. أول استخدام للاثنين بلوحة الإدارة كاملة. */}
+      <header className="flex items-center gap-4 rounded-card border border-border-subtle bg-surface-1 p-5
+                         shadow-md transition-shadow duration-base ease-smooth hover:shadow-glow">
+        <Button variant="ghost" size="icon" aria-label="رجوع" onClick={onClose}>
+          <ArrowRight size={20} />
+        </Button>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display font-semibold tracking-tight text-text-primary">{tenant.name}</h1>
+          <span dir="ltr" className="text-label text-text-secondary">{tenant.slug}</span>
+        </div>
+      </header>
 
-        {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} planNames={planNames} /> : null}
-        {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
-        {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
-        {tab === 'tickets' ? <TicketsTab session={session} tenant={tenant} catalog={catalog} /> : null}
-        {tab === 'whatsapp' ? <WhatsAppTab session={session} tenant={tenant} catalog={catalog} /> : null}
-        {tab === 'audit' ? <AuditTab session={session} tenant={tenant} catalog={catalog} /> : null}
-      </div>
-    </Modal>
+      {/* صف الـKPIs — البنية التحتية فقط، بانتظار التصميم القادم (مؤشرات القيمة، الفوترة، النشاط،
+         خط اتجاه AreaTrend...). فارغ عمداً الآن — لا أرقام مؤقتة توهم بأنها نهائية. */}
+      <section aria-label="مؤشرات المحل" className="rounded-card border border-dashed border-border-subtle p-4">
+        <p className="text-label text-text-muted">صف المؤشرات — تصميمه الخطوة القادمة.</p>
+      </section>
+
+      <Segmented value={tab} onChange={(v) => setTab(v as Tab)}
+                options={[
+                  { value: 'overview', label: 'نظرة عامة' },
+                  { value: 'billing', label: 'التطبيقات والفوترة' },
+                  { value: 'seats', label: 'الفروع والمستخدمين' },
+                  { value: 'tickets', label: 'التذاكر والدعم' },
+                  { value: 'whatsapp', label: 'واتساب' },
+                  { value: 'audit', label: 'السجل والتدقيق' },
+                ]} />
+
+      {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} planNames={planNames} /> : null}
+      {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
+      {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
+      {tab === 'tickets' ? <TicketsTab session={session} tenant={tenant} catalog={catalog} /> : null}
+      {tab === 'whatsapp' ? <WhatsAppTab session={session} tenant={tenant} catalog={catalog} /> : null}
+      {tab === 'audit' ? <AuditTab session={session} tenant={tenant} catalog={catalog} /> : null}
+    </div>
   );
 }
 
