@@ -145,9 +145,12 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
     expect(screen.getByText('نظرة عامة')).toBeTruthy();
     expect(screen.getByText('التطبيقات والفوترة')).toBeTruthy();
-    // The real KPI row — tenure/status/app/last-updated, from this tenant's own real data.
+    // The real KPI row — tenure/composite health/app/last-updated, from this tenant's own real
+    // data. This mock has no subscription, so the composite health reads "بلا تطبيق نشط" even
+    // though the tenant ITSELF is active — proving the badge is genuinely composite, not a copy
+    // of tenant.status alone.
     expect(screen.getByText('منذ متى معنا')).toBeTruthy();
-    expect(screen.getByText('نشطة')).toBeTruthy();   // tenant.status === 'active'
+    expect(screen.getByText('بلا تطبيق نشط')).toBeTruthy();
     // A real page swap — the list's own KPI row and search box are gone from the DOM, not just
     // hidden under a modal scrim (the earlier shape, an overlay both still present at once).
     expect(screen.queryByText('إجمالي العملاء')).toBeNull();
@@ -157,6 +160,25 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByLabelText('رجوع'));
     await waitFor(() => expect(screen.queryByText('shop-one')).toBeNull());
     expect(screen.getByPlaceholderText('ابحث بالاسم…')).toBeTruthy();
+  });
+
+  it('clicking the app KPI card jumps straight to the billing tab', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      return Promise.resolve({ subscriptions: [] });
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('التطبيق')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('التطبيق'));
+    // The billing tab's own unique heading becomes visible — proves the KPI card is a real
+    // shortcut into that tab, not decoration.
+    await waitFor(() => expect(screen.getByText('التطبيقات المفعّلة')).toBeTruthy());
   });
 
   it('shows the plan NAME, not the raw plan_id, in both the table and the detail view', async () => {
@@ -179,11 +201,11 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     expect(screen.queryByText('plan_abc123')).toBeNull();
 
     // A full PAGE now replaces the list (not an overlay on top of it) — see CustomerList.tsx's own
-    // note on why: the table row disappears from the DOM once the detail page opens. The name
-    // still appears twice ON the detail page itself — the KPI row's own hint, and the Overview
-    // tab's row — both real, both from the same subscription data, not a duplicate render.
+    // note on why: the table row disappears from the DOM once the detail page opens. The Overview
+    // tab's own status/app rows moved into the KPI row above it (clearer, colour-coded) rather
+    // than repeating the same fact twice on one page — so the plan name now appears exactly once.
     fireEvent.click(screen.getByText('محل الأول'));
-    await waitFor(() => expect(screen.getAllByText('تطبيق الحجوزات').length).toBe(2));
+    await waitFor(() => expect(screen.getAllByText('تطبيق الحجوزات').length).toBe(1));
   });
 
   it('the seats tab shows the real count against the real entitled limit, x/y', async () => {

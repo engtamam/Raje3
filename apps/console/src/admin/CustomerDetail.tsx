@@ -38,7 +38,7 @@ import { KpiCard } from './../rj-ui/KpiCard';
 import { Input, Select } from './../rj-ui/Field';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
-import { findCustomerAction, SUB_STATUS_META, TENANT_STATUS_META, type Tenant, type Subscription } from './CustomerList';
+import { findCustomerAction, SUB_STATUS_META, type Tenant, type Subscription } from './CustomerList';
 import { StatusBadge, type DeliveryRow } from './AdminWhatsAppDiagnostics';
 
 interface Invoice {
@@ -71,6 +71,25 @@ function tenureText(createdAt: string): string {
 }
 
 /**
+ * الشارة المركّبة — تدمج حالة الحساب وحالة التطبيق سوا برأي واحد، بدل ما المشغّل يجمّع الاثنين
+ * بعقله. الترتيب مقصود: الأخطر أولاً (حساب معلَّق يطغى على كل شيء)، وبلا تطبيق نشط حالة تستاهل
+ * انتباه حتى لو الحساب نفسه سليم ظاهرياً.
+ */
+function accountHealth(tenant: Tenant, subscription: Subscription | null):
+  { label: string; tone: 'success' | 'warning' | 'danger' | 'info' } {
+  if (tenant.status === 'suspended') return { label: 'معلَّق', tone: 'danger' };
+  if (tenant.status === 'pending') return { label: 'قيد التفعيل', tone: 'warning' };
+  if (tenant.status === 'deleted') return { label: 'محذوف', tone: 'danger' };
+  if (!subscription) return { label: 'بلا تطبيق نشط', tone: 'warning' };
+  if (subscription.status === 'past_due') return { label: 'متأخر بالدفع', tone: 'danger' };
+  if (subscription.status === 'paused' || subscription.status === 'canceled') {
+    return { label: 'التطبيق متوقف', tone: 'warning' };
+  }
+  if (subscription.status === 'trialing') return { label: 'تجريبي', tone: 'info' };
+  return { label: 'سليم', tone: 'success' };
+}
+
+/**
  * الصفحة الكاملة — لا نافذة منبثقة، هذي أول شاشة إدارية تحمل لمسة الفخامة اللي شاشات المحل نفسه
  * تحملها (`shadow-glow`، `text-display`) بعد دراسة الثيم الكاملة.
  */
@@ -80,7 +99,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
 }) {
   const [tab, setTab] = useState<Tab>('overview');
   const subMeta = subscription ? SUB_STATUS_META[subscription.status] : null;
-  const tenantMeta = TENANT_STATUS_META[tenant.status] ?? TENANT_STATUS_META.pending;
+  const health = accountHealth(tenant, subscription);
 
   return (
     <div className="flex min-h-full flex-col gap-5 p-6">
@@ -103,11 +122,14 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard icon={<Clock size={18} />} label="منذ متى معنا" value={tenureText(tenant.created_at)}
                 tone="accent" hint={tenant.created_at?.slice(0, 10)} />
-        <KpiCard icon={<Activity size={18} />} label="حالة الحساب" value={tenantMeta.label}
-                tone={tenantMeta.tone} />
-        <KpiCard icon={<Package size={18} />} label="التطبيق" value={subMeta?.label ?? 'بلا تطبيق'}
-                tone={subMeta?.tone ?? 'neutral'}
-                hint={subscription ? (planNames.get(subscription.plan_id) ?? subscription.plan_id) : undefined} />
+        {/* الشارة المركّبة — حالة الحساب + حالة التطبيق برأي واحد، لا رقمين يُجمَعان بعقل المشغّل. */}
+        <KpiCard icon={<Activity size={18} />} label="صحة الحساب" value={health.label} tone={health.tone} />
+        {/* التطبيق قابل للنقر — يوديك مباشرة لتبويب الفوترة، بدل ما تدوّر عليه يدوياً. */}
+        <button type="button" onClick={() => setTab('billing')} className="text-start">
+          <KpiCard icon={<Package size={18} />} label="التطبيق" value={subMeta?.label ?? 'بلا تطبيق'}
+                  tone={subMeta?.tone ?? 'neutral'}
+                  hint={subscription ? (planNames.get(subscription.plan_id) ?? subscription.plan_id) : 'اضغط للفوترة'} />
+        </button>
         <KpiCard icon={<RefreshCw size={18} />} label="آخر تحديث" value={tenureText(tenant.updated_at)}
                 tone="neutral" hint={tenant.updated_at?.slice(0, 10)} />
       </div>
@@ -122,7 +144,7 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
                   { value: 'audit', label: 'السجل والتدقيق' },
                 ]} />
 
-      {tab === 'overview' ? <OverviewTab tenant={tenant} subscription={subscription} planNames={planNames} /> : null}
+      {tab === 'overview' ? <OverviewTab tenant={tenant} /> : null}
       {tab === 'billing' ? <BillingTab session={session} tenant={tenant} catalog={catalog} planNames={planNames} /> : null}
       {tab === 'seats' ? <SeatsTab session={session} tenant={tenant} catalog={catalog} /> : null}
       {tab === 'tickets' ? <TicketsTab session={session} tenant={tenant} catalog={catalog} /> : null}
@@ -132,23 +154,14 @@ export function CustomerDetail({ session, tenant, subscription, planNames, catal
   );
 }
 
-function OverviewTab({ tenant, subscription, planNames }: {
-  tenant: Tenant; subscription: Subscription | null; planNames: Map<string, string>;
-}) {
-  const subMeta = subscription ? SUB_STATUS_META[subscription.status] : null;
+/**
+ * ما تبقّى هنا بعد صف الـKPIs بالأعلى (الحالة/التطبيق/التواريخ صارت هناك، أوضح وملوّنة، والـslug
+ * بالرأس أصلاً) — فقط ما لا يظهر بمكان ثانٍ: الرقم التعريفي الكامل، وفجوة معروفة صريحة (المسوّق).
+ */
+function OverviewTab({ tenant }: { tenant: Tenant }) {
   return (
     <div className="flex flex-col gap-3">
-      <Row label="الحالة"><Badge tone={tenant.status === 'active' ? 'success' : tenant.status === 'suspended' ? 'danger' : 'neutral'}>{tenant.status}</Badge></Row>
-      <Row label="التطبيق">
-        {subMeta ? (
-          <span className="flex items-center gap-2">
-            <Badge tone={subMeta.tone}>{subMeta.label}</Badge>
-            <span>{planNames.get(subscription!.plan_id) ?? subscription!.plan_id}</span>
-          </span>
-        ) : <span className="text-text-muted">بلا تطبيق مفعّل</span>}
-      </Row>
-      <Row label="تاريخ الانضمام"><span dir="ltr">{tenant.created_at?.slice(0, 10)}</span></Row>
-      <Row label="آخر تحديث"><span dir="ltr">{tenant.updated_at?.slice(0, 10)}</span></Row>
+      <Row label="المعرّف"><span dir="ltr" className="text-text-secondary">{tenant.id}</span></Row>
       <Row label="المسوّق">
         <span className="text-text-muted">غير متاح — الربط موجود بكود affiliate-service (of_tenant) لكن غير مكشوف كمسار إداري بعد.</span>
       </Row>
