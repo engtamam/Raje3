@@ -530,7 +530,8 @@ class Tick:
         #
         # A REQUEST, NOT A GUARANTEE. `choose_carousel` returning `None` (no carousel template of
         # this type/tone, or none Meta has approved yet) and `send_carousel` raising
-        # `CarouselUnavailable` (fewer than two service photos survive the upload step) both fall
+        # `CarouselUnavailable` (no covered services at all, or fewer than two card media uploads
+        # succeed — a missing photo no longer drops a card, a placeholder stands in) both fall
         # straight through to the flat send below, silently — the exact same rendered message this
         # row would have carried if `carousel` had never been set.
         if row.get("carousel") and not own_name:

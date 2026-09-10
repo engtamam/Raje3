@@ -1427,7 +1427,7 @@ class CarouselCapableSender:
         from app.adapters.message_sender import CarouselUnavailable
         self.carousel_calls.append(kw)
         if not self._carousel_ok:
-            raise CarouselUnavailable("fewer than two service photos are available")
+            raise CarouselUnavailable("fewer than two card media uploads succeeded")
         return "dlv_carousel"
 
 
@@ -1462,7 +1462,7 @@ def test_carousel_requested_and_available_sends_the_carousel_not_the_flat_messag
 
 
 def test_carousel_requested_but_unavailable_falls_back_to_the_flat_message(st):
-    """`CarouselUnavailable` (too few service photos) is NOT a send failure — the campaign message
+    """`CarouselUnavailable` (too few surviving card uploads) is NOT a send failure — the campaign message
     still goes out, in the shape it would have taken if `carousel` had never been set."""
     _consented(st)
     sender = CarouselCapableSender(carousel_ok=False)

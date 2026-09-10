@@ -110,22 +110,40 @@ def test_idempotency_key_rides_both_the_key_and_the_callback_data():
     assert calls["carousel_body"]["biz_opaque_callback_data"] == "cmp:c1:sub_a"
 
 
-# ── graceful degradation — a missing photo drops the card, never the send ────────────────────
-def test_a_service_with_no_photo_is_dropped_not_fatal():
-    _, calls = _wire(service_ids=("oil", "tyres", "filters"), image_ok=True)
-    # `filters` has no NAMES entry either, but that alone does not drop it — only a failed fetch
-    # does. All three fetch fine here, so all three cards survive.
+# ── graceful degradation — a missing photo gets the placeholder, never drops the card ─────────
+def test_a_service_with_no_photo_still_gets_a_card_via_the_placeholder():
+    _, calls = _wire(service_ids=("oil", "tyres", "filters"), image_ok=False)
+    # None of the three has a real photo — every one still becomes a card, uploaded like any
+    # other, because `_fetch_service_image` returning None now means "use the placeholder", not
+    # "drop the card".
     assert len(calls["carousel_body"]["cards"]) == 3
 
 
-def test_fewer_than_two_surviving_cards_raises_carousel_unavailable_not_sendfailed():
+def test_a_mix_of_real_and_missing_photos_all_survive():
     s = sender()
+    calls: dict = {"uploads": []}
+
+    def _urlopen(req, timeout=0):
+        url = req.full_url
+        if "/catalogue/" in url:
+            # only "oil" has a real photo — "tyres" and "filters" both 404
+            return _Resp(data=b"realjpeg") if "oil" in url else _Resp(status=404)
+        if "/media/upload-id" in url:
+            body = json.loads(req.data or b"{}")
+            calls["uploads"].append(body)
+            return _Resp({"media_id": f"mid_{len(calls['uploads'])}"})
+        return _Resp({"status": "sent", "delivery_id": "dlv_c1"})
+
     with patch.object(s, "_recipient", return_value=("+966500000000", "")), \
-         patch("urllib.request.urlopen", return_value=_Resp(status=404)):
-        with pytest.raises(CarouselUnavailable):
-            run(s.send_carousel(tenant="t1", subject_ref="sub_a", template_name="x",
-                                variables=[], service_ids=["oil", "tyres"],
-                                service_names={}, idempotency_key="k1"))
+         patch("urllib.request.urlopen", _urlopen):
+        result = run(s.send_carousel(tenant="t1", subject_ref="sub_a", template_name="x",
+                                     variables=[], service_ids=["oil", "tyres", "filters"],
+                                     service_names={}, idempotency_key="k1"))
+    assert result == "dlv_c1"
+    assert len(calls["uploads"]) == 3
+    # the two placeholder cards uploaded the exact same base64 payload — not a per-card asset
+    assert calls["uploads"][1]["data_base64"] == calls["uploads"][2]["data_base64"]
+    assert calls["uploads"][0]["data_base64"] != calls["uploads"][1]["data_base64"]
 
 
 def test_no_services_at_all_raises_carousel_unavailable():
@@ -137,7 +155,7 @@ def test_no_services_at_all_raises_carousel_unavailable():
                                 idempotency_key="k1"))
 
 
-def test_an_upload_failure_drops_that_card_alone():
+def test_an_upload_failure_drops_that_card_alone_even_for_a_real_photo():
     """Two of three uploads succeed — still >= Meta's own carousel minimum, so the send goes out
     with the two surviving cards rather than being refused over the one that failed."""
     s = sender()
@@ -160,6 +178,25 @@ def test_an_upload_failure_drops_that_card_alone():
                                      variables=[], service_ids=["oil", "tyres", "filters"],
                                      service_names={}, idempotency_key="k1"))
     assert result == "dlv_c1"
+
+
+def test_fewer_than_two_surviving_uploads_raises_carousel_unavailable_not_sendfailed():
+    """Missing photos no longer threaten the floor — a run of upload failures still can."""
+    s = sender()
+    with patch.object(s, "_recipient", return_value=("+966500000000", "")), \
+         patch("urllib.request.urlopen") as m:
+        def _urlopen(req, timeout=0):
+            url = req.full_url
+            if "/catalogue/" in url:
+                return _Resp(status=404)
+            if "/media/upload-id" in url:
+                return _Resp({"detail": "nope"}, status=400)
+            raise AssertionError(f"unexpected URL {url}")
+        m.side_effect = _urlopen
+        with pytest.raises(CarouselUnavailable):
+            run(s.send_carousel(tenant="t1", subject_ref="sub_a", template_name="x",
+                                variables=[], service_ids=["oil", "tyres"],
+                                service_names={}, idempotency_key="k1"))
 
 
 # ── recipient resolution and configuration — same rules as send()/send_flow() ─────────────────

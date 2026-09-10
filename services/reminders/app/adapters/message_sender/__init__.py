@@ -32,6 +32,7 @@ FOUR THINGS NOTIFICATION-SERVICE WILL NOT FORGIVE, learned from its request mode
 """
 from __future__ import annotations
 
+import base64
 import json
 import urllib.error
 import urllib.parse
@@ -51,6 +52,19 @@ from app.core.rendering import FALLBACK_NAME
 # anything failing. WHATSAPP_CEILING_CODES overrides it, and the day Meta publishes a new one it
 # is a values-file edit rather than a release.
 DEFAULT_CEILING_CODES = ("130429", "80007", "131048", "131056", "131064", "131049")
+
+# A CARD NEEDS A PHOTO OR IT ISN'T A CARD — Meta's media-card-carousel template requires an image
+# or video header on every card (developers.facebook.com/documentation/business-messaging/
+# whatsapp/templates/marketing-templates/media-card-carousel-templates: "Each card in the
+# template has an image or video header asset"), there is no text-only card in this template
+# type. A covered service with no uploaded photo used to mean its card was dropped — and the
+# whole carousel with it, the day fewer than two services had one. This is that gap closed: a
+# plain neutral placeholder (400x300, solid light grey, no text, no logo — nothing that could be
+# wrong for a shop) stands in for the missing photo so the card, and the carousel, still send.
+_PLACEHOLDER_CARD_IMAGE = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAZAAAAEsCAIAAABi1XKVAAAC90lEQVR42u3UMQ0AAAzDsPLn2WcohmOTJSPIkbQDcEIkAAwLwLAAwwIwLADDAgwLwLAADAswLADDAjAswLAADAvAsADDAjAsAMMCDAvAsAAMCzAsAMMCMCzAsAAMC8CwAMMCMCzAsFQADAvAsADDAjAsAMMCDAvAsAAMCzAsAMMCMCzAsAAMC8CwAMMCMCwAwwIMC8CwAAwLMCwAwwIwLMCwAAwLwLAAwwIwLMCwVAAMC8CwAMMCMCwAwwIMC8CwAAwLMCwAwwIwLMCwAAwLwLAAwwIwLADDAgwLwLAADAswLADDAjAswLAADAvAsADDAjAswLAADAvAsADDAjAsAMMCDAvAsAAMCzAsAMMCMCzAsAAMC8CwAMMCMCwAwwIMC8CwAAwLMCwAwwIwLMCwAAwLwLAAwwIwLMCwAAwLwLAAwwIwLADDAgwLwLAADAswLADDAjAswLAADAvAsADDAjAsAMMCDAvAsAAMCzAsAMMCMCzAsAAMC8CwAMMCMCzAsAAMC8CwAMMCMCwAwwIMC8CwAAwLMCwAwwIwLMCwAAwLwLAAwwIwLADDAgwLwLAADAswLADDAjAswLAADAvAsADDAjAsAMMCDAvAsAAMCzAsAMMCMCzAsAAMC8CwAMMCMCzAsAAMC8CwAMMCMCwAwwIMC8CwAAwLMCwAwwIwLMCwAAwLwLAAwwIwLMCwAAwLwLAAwwIwLADDAgwLwLAADAswLADDAjAswLAADAswLAkAwwIwLMCwAAwLwLAAwwIwLADDAgwLwLAADAswLADDAjAswLAADAvAsADDAjAsAMMCDAvAsAAMCzAsAMMCMCzAsAAMCzAsFQDDAjAswLAADAvAsADDAjAsAMMCDAvAsAAMC/hsAaYjYT7whqT1AAAAAElFTkSuQmCC"
+)
+_PLACEHOLDER_CARD_CONTENT_TYPE = "image/png"
 
 
 class NullSender:
@@ -130,9 +144,10 @@ class HttpSender:
                                     if interactive_notify_path else "")
         # PHASE 2 (carousel, core/shape.py) — three more OPTIONAL routes, same posture: a
         # deployment that has not set all three yet cannot reach `send_carousel` at all (it raises
-        # CarouselUnavailable immediately rather than guessing), which `tick.send_one` already
-        # treats as "fall back to the flat template" — so this is harmless on every cluster until
-        # every one of the three is configured.
+        # CarouselUnavailable immediately rather than guessing). Once configured, every covered
+        # service gets a card — its own photo when operations has one, `_PLACEHOLDER_CARD_IMAGE`
+        # when it doesn't — so the carousel's existence no longer depends on how many of this
+        # shop's services happen to have a photo uploaded.
         self._carousel_send = notify_url.rstrip("/") + carousel_send_path if carousel_send_path else ""
         self._media_upload = notify_url.rstrip("/") + media_upload_id_path if media_upload_id_path else ""
         # `operations_url` — the SAME peer `_resolve` below already calls, just a different route.
@@ -321,8 +336,8 @@ class HttpSender:
 
     def _fetch_service_image(self, tenant: str, kind: str, item_id: str) -> tuple[bytes, str] | None:
         """One service/package photo, or `None` on anything but a clean 2xx — a missing photo, a
-        peer hiccup and a 404 all look the same from here: "this card cannot be built", never an
-        exception, exactly as whatsapp-assistant's own CarouselSender._fetch_image treats it."""
+        peer hiccup and a 404 all look the same from here: "no real photo for this card", which
+        `send_carousel` now answers with the placeholder rather than dropping the card."""
         if not self._catalogue_image:
             return None
         url = self._catalogue_image.format(kind, item_id) + f"?tenant={urllib.parse.quote(tenant)}"
@@ -337,9 +352,9 @@ class HttpSender:
             return None
 
     def _upload_media_id(self, *, tenant: str, data: bytes, content_type: str) -> str:
-        """A Meta media id for one photo, or `""` on any failure — the caller drops the card."""
-        import base64
-
+        """A Meta media id for one photo — real or the placeholder, this call cannot tell the
+        difference and does not need to — or `""` on any failure, the only case the caller still
+        drops the card for."""
         if not self._media_upload:
             return ""
         body = {"tenant": tenant, "file_type": content_type, "file_name": "card.jpg",
@@ -354,16 +369,19 @@ class HttpSender:
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
                             sending_identity: str = "") -> str:
-        """The carousel shape (core/shape.py Phase 2) — one card per covered service, its own photo
-        turned into a Meta media id. THE SAME TWO-STEP whatsapp-assistant's own CarouselSender
-        already performs for its catalog carousel (adapters/whatsapp_sender/carousel.py): GET the
+        """The carousel shape (core/shape.py Phase 2) — one card per covered service. GET the
         photo from operations, POST it to notification-service for a media id, THEN POST the
-        assembled cards to `/internal/notify/whatsapp/carousel`. Nothing new on either peer's side.
+        assembled cards to `/internal/notify/whatsapp/carousel` — THE SAME TWO-STEP
+        whatsapp-assistant's own CarouselSender performs for its catalog carousel
+        (adapters/whatsapp_sender/carousel.py). A service with no uploaded photo still gets a
+        card: `_PLACEHOLDER_CARD_IMAGE` stands in, uploaded for a real media id exactly like a
+        real photo is, so a shop that never uploaded a single photo still gets a working carousel.
 
         RAISES CarouselUnavailable — never sends a broken carousel — when fewer than two cards
-        survive (no `service_ids` at all, every photo missing, an upload failing): Meta's own
-        carousel minimum is two cards, and `tick.send_one` treats this exactly as "no carousel
-        template was found" and falls back to the flat message.
+        survive. With the placeholder in play that now means only: no `service_ids` at all, or
+        the media upload itself failing for enough of them. Meta's own carousel minimum is two
+        cards, and `tick.send_one` treats this exactly as "no carousel template was found" and
+        falls back to the flat message.
         """
         if not (self._carousel_send and self._media_upload and self._catalogue_image):
             raise CarouselUnavailable("carousel paths are not configured")
@@ -374,9 +392,10 @@ class HttpSender:
         cards: list[dict[str, Any]] = []
         for sid in service_ids:
             fetched = self._fetch_service_image(tenant, "service", sid)
-            if fetched is None:
-                continue
-            data, ctype = fetched
+            if fetched is not None:
+                data, ctype = fetched
+            else:
+                data, ctype = _PLACEHOLDER_CARD_IMAGE, _PLACEHOLDER_CARD_CONTENT_TYPE
             media_id = self._upload_media_id(tenant=tenant, data=data, content_type=ctype)
             if not media_id:
                 continue
@@ -396,7 +415,7 @@ class HttpSender:
             if len(cards) >= 10:
                 break
         if len(cards) < 2:
-            raise CarouselUnavailable("fewer than two service photos are available")
+            raise CarouselUnavailable("fewer than two card media uploads succeeded")
 
         payload = {
             "recipient": recipient, "tenant": tenant, "template_name": template_name,
@@ -487,10 +506,11 @@ class Unsendable(Exception):
 
 
 class CarouselUnavailable(Exception):
-    """The carousel shape (core/shape.py Phase 2) could not be built THIS time — not configured, or
-    fewer than two service photos survived. NOT a send failure: `tick.send_one` catches it and
-    falls back to the flat template it already chose, exactly as it would if no carousel template
-    had been found in the library at all."""
+    """The carousel shape (core/shape.py Phase 2) could not be built THIS time — not configured, no
+    covered services at all, or fewer than two card media uploads succeeded (a missing photo no
+    longer costs a card; only a failed upload does). NOT a send failure: `tick.send_one` catches
+    it and falls back to the flat template it already chose, exactly as it would if no carousel
+    template had been found in the library at all."""
 
 
 def build_sender(settings) -> Any:
