@@ -136,7 +136,34 @@ describe('AdminWhatsAppTemplates', () => {
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/whatsapp/templates', 'POST',
       { name: 'auth_otp', language: 'ar', category: 'AUTHENTICATION',
-       body: 'رمزك هو {{code}}', variables: ['code'] },
+       body: 'رمزك هو {{code}}', variables: ['code'], flow_button: {} },
+      'tok-1',
+    ));
+  });
+
+  it('registering with the flow toggle on sends flow_button, and off sends {} even if fields were filled first', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [] })
+      .mockResolvedValueOnce(tpl())
+      .mockResolvedValueOnce({ templates: [tpl()] });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('قالب جديد')).toBeTruthy());
+    fireEvent.click(screen.getByText('قالب جديد'));
+
+    fireEvent.change(screen.getByLabelText(/الاسم/), { target: { value: 'subscription_renewal' } });
+    fireEvent.change(screen.getByLabelText(/نص القالب/), { target: { value: 'حان وقت التجديد' } });
+    fireEvent.click(screen.getByLabelText('زر يفتح فلو تفاعلي'));
+    fireEvent.change(screen.getByLabelText(/اسم الفلو/), { target: { value: 'subscription_renewal' } });
+    fireEvent.change(screen.getByLabelText(/نص الزر/), { target: { value: 'جدّد الآن' } });
+    fireEvent.click(screen.getByText('حفظ كمسوّدة'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/whatsapp/templates', 'POST',
+      { name: 'subscription_renewal', language: 'ar', category: 'AUTHENTICATION',
+       body: 'حان وقت التجديد', variables: [],
+       flow_button: { flow_name: 'subscription_renewal', text: 'جدّد الآن' } },
       'tok-1',
     ));
   });
@@ -281,7 +308,23 @@ describe('AdminWhatsAppTemplates', () => {
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/whatsapp/templates', 'POST',
       { name: 'auth.otp', language: 'ar', category: 'AUTHENTICATION',
-       body: 'رمزك الجديد هو {{code}}', variables: ['code'] }, 'tok-1'));
+       body: 'رمزك الجديد هو {{code}}', variables: ['code'], flow_button: {} }, 'tok-1'));
+  });
+
+  it('a template already linked to a flow shows it on the card and prefills the editor', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValueOnce({
+      templates: [tpl({ flow_button: { flow_name: 'subscription_renewal', text: 'جدّد الآن' } })],
+    });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText(/زر يفتح فلو تفاعلي:/)).toBeTruthy());
+    expect(screen.getByText(/subscription_renewal/)).toBeTruthy();
+
+    fireEvent.click(screen.getByText('تعديل'));
+    const flowNameInput = await screen.findByLabelText(/اسم الفلو/) as HTMLInputElement;
+    expect(flowNameInput.value).toBe('subscription_renewal');
+    expect((screen.getByLabelText(/نص الزر/) as HTMLInputElement).value).toBe('جدّد الآن');
   });
 
   it('no templates yet, no capability — each says so plainly, never a silent blank screen', async () => {

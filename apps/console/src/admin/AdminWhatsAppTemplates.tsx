@@ -24,6 +24,7 @@ import { Badge } from '../rj-ui/Badge';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { Segmented } from '../rj-ui/Segmented';
 import { Drawer } from '../rj-ui/Drawer';
+import { Toggle } from '../rj-ui/Toggle';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
@@ -32,6 +33,11 @@ import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
 
 type TemplateStatus = 'pending' | 'approved' | 'rejected' | 'paused' | 'disabled';
+
+interface FlowButton {
+  flow_name?: string;
+  text?: string;
+}
 
 interface Template {
   id: string;
@@ -45,6 +51,7 @@ interface Template {
   status: TemplateStatus;
   provider_template_id: string;
   rejection_reason: string;
+  flow_button?: FlowButton;
   created: string;
   updated: string;
 }
@@ -278,6 +285,13 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
         </p>
       ) : null}
 
+      {template.flow_button?.flow_name ? (
+        <p className="text-label text-text-secondary">
+          زر يفتح فلو تفاعلي: <span dir="ltr" className="font-mono">{template.flow_button.flow_name}</span>
+          {template.flow_button.text ? ` — "${template.flow_button.text}"` : ''}
+        </p>
+      ) : null}
+
       {template.status === 'rejected' || template.status === 'paused' || template.status === 'disabled' ? (
         template.rejection_reason ? (
           <p role="alert" className="rounded-lg border border-danger/30 bg-danger/5 p-2.5 text-label text-danger">
@@ -497,6 +511,9 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
   const [category, setCategory] = useState(initial?.category ?? 'AUTHENTICATION');
   const [body, setBody] = useState(initial?.body ?? '');
   const [variablesText, setVariablesText] = useState((initial?.variables ?? []).join(', '));
+  const [flowEnabled, setFlowEnabled] = useState(!!initial?.flow_button?.flow_name);
+  const [flowName, setFlowName] = useState(initial?.flow_button?.flow_name ?? '');
+  const [flowButtonText, setFlowButtonText] = useState(initial?.flow_button?.text ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -506,6 +523,9 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
     setName(initial?.name ?? ''); setLanguage(initial?.language ?? 'ar');
     setCategory(initial?.category ?? 'AUTHENTICATION'); setBody(initial?.body ?? '');
     setVariablesText((initial?.variables ?? []).join(', ')); setError('');
+    setFlowEnabled(!!initial?.flow_button?.flow_name);
+    setFlowName(initial?.flow_button?.flow_name ?? '');
+    setFlowButtonText(initial?.flow_button?.text ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed only when the drawer (re)opens
   }, [open]);
 
@@ -513,17 +533,25 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
   // في وضع التعديل الاسم مقفل — أي قيمة موجودة أصلاً صالحة بحكم أنها مسجّلة فعلاً، حتى لو لا
   // تطابق قاعدة التسجيل الجديدة (اسم قديم بنقطة، مثلاً)؛ إعادة فرض القاعدة هنا كانت تقفل زر
   // الحفظ نهائياً على أي قالب موجود مسبقاً لا يطابقها — عكس الهدف كاملاً.
-  const canSave = (editingExisting || /^[a-z0-9_]+$/.test(name)) && body.trim().length > 0;
+  const canSave = (editingExisting || /^[a-z0-9_]+$/.test(name)) && body.trim().length > 0
+    && (!flowEnabled || flowName.trim().length > 0);
 
   async function save() {
     if (!canSave) return;
     setBusy(true);
     setError('');
     try {
+      // flow_button فاضي (لا flow_name فيه) يعني "بلا زر فلو" للخادم (whatsapp_templates.py's
+      // own register()) — نرسل {} صراحة لا كائناً جزئياً، حتى إلغاء التفعيل يمسح زراً سابقاً
+      // بدل أن يُبقيه معلَّقاً.
+      const flow_button = flowEnabled && flowName.trim()
+        ? { flow_name: flowName.trim(), ...(flowButtonText.trim() ? { text: flowButtonText.trim() } : {}) }
+        : {};
       await req(action.path, 'POST',
-        { name, language, category, body, variables }, session.access_token);
+        { name, language, category, body, variables, flow_button }, session.access_token);
       if (!editingExisting) {
         setName(''); setBody(''); setVariablesText(''); setCategory('AUTHENTICATION'); setLanguage('ar');
+        setFlowEnabled(false); setFlowName(''); setFlowButtonText('');
       }
       onCreated();
     } catch (err) {
@@ -581,6 +609,38 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
           <Input id="wa-tpl-vars" dir="ltr" value={variablesText}
                 onChange={(e) => setVariablesText(e.target.value)} placeholder="code" />
         </Field>
+
+        {/* زر يفتح فلو تفاعلي (Meta FLOW button) — منفصل عن القالب النصي البسيط. الحقل موجود
+           بالخادم من قبل (register()'s own flow_button)، بس ما كان له واجهة هنا؛ القالب لسه
+           يُبنى بنفس مسار "حفظ كمسوّدة ثم أرسل للمراجعة" — الفرق الوحيد إن ميتا تُنشئ زر FLOW
+           بالقالب نفسه، لا رسالة تفاعلية منفصلة. */}
+        <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">زر يفتح فلو تفاعلي</p>
+              <p className="text-label text-text-secondary">
+                بدل رابط أو رد سريع، القالب يحمل زراً يفتح شاشات تفاعلية (فلو) مباشرة.
+              </p>
+            </div>
+            <Toggle checked={flowEnabled} onChange={setFlowEnabled} ariaLabel="زر يفتح فلو تفاعلي"
+                   testId="wa-tpl-flow-toggle" />
+          </div>
+          {flowEnabled ? (
+            <>
+              <Field label="اسم الفلو (flow_name)" required htmlFor="wa-tpl-flow-name"
+                    hint="نفس الاسم المسجَّل به الفلو عند التزويد — مثال: booking_flow">
+                <Input id="wa-tpl-flow-name" dir="ltr" value={flowName}
+                      onChange={(e) => setFlowName(e.target.value)} placeholder="subscription_renewal" />
+              </Field>
+              <Field label="نص الزر" htmlFor="wa-tpl-flow-text"
+                    hint='يظهر للعميل على الزر نفسه — افتراضياً "Open" إن تُرك فارغاً.'>
+                <Input id="wa-tpl-flow-text" value={flowButtonText}
+                      onChange={(e) => setFlowButtonText(e.target.value)} placeholder="جدّد الآن" />
+              </Field>
+            </>
+          ) : null}
+        </div>
+
         {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
       </div>
     </Drawer>
