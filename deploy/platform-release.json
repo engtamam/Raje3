@@ -1,5 +1,5 @@
 {
-  "release": "v0.19.5",
+  "release": "v0.19.6",
   "images": {
     "analytics-service": "sha256:d9fadc29677b14ef30f996b86b7650dc4eacd09858934e4e4671b6a1f4caefea",
     "api-gateway": "sha256:c69621628be0b498597d931c24ab61a4a00a8ae6c86ea379f510920ce4c01938",
@@ -13,12 +13,12 @@
     "feature-flag-service": "sha256:ee0bb4b355f802bd83186efb654287756e6c1d9869ac5f8318a66b6b63c51216",
     "identity-service": "sha256:59d7b01be157ebc43fe2df791df1a8394684401fc92fe70f98eac67e8c27107a",
     "job-service": "sha256:7f3e8b78e44637ea729bdbbd15bd98076f0807dca66f91237cf8afa47ca30d8c",
-    "notification-service": "sha256:7f2881a738fed59e3f4d25880be2314765eebcf9c012692270ff0f3b0ca8be97",
+    "notification-service": "sha256:ef202fd1111528aa8a21cc3ede2d3cb29df997b9c9e9462786cb0a305bea8639",
     "onboarding-service": "sha256:50024970e684490cfbae08ce3c0b6244ba3cbbeb8f5f693c898e2a2d31c97620",
     "search-service": "sha256:8bc58f8689b6c66d0b93c333a8022eca13e540b9f13cb65bdcc3d5e4aabd0234",
     "tenant-service": "sha256:c723f0b0a71783e9eaeee13f063040b048a2c9932dff084333b717f1fdb58742",
-    "ticket-service": "sha256:3086d3601497298c01b5cbf72782db8ad39cdb1a6f2cb254e7596f9a8c374464",
-    "wallet-service": "sha256:a826964eb5f4a487c2b423483e7b049e4aac98745ee17754dfe33445a995b45b",
+    "ticket-service": "sha256:31d1ded103eb9d494f9f450613bcede5c2dbf32ed5a7fdc751f05393ee06a203",
+    "wallet-service": "sha256:d16ec4f5ca6299b6b5ef8e9cd13bddd949291e80feec99839e296dbf5a81a0eb",
     "webhook-service": "sha256:089428855635f12cf5796430a06f5716c39eb5fdddb617e20355c8e3157192fd"
   }
 }
