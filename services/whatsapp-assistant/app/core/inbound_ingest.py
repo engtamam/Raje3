@@ -69,19 +69,24 @@ async def ingest_inbound_message(
         # revisiting a wamid the bus already delivered, or vice versa). This IS the dedup.
         return {"processed": False, "reason": "duplicate"}
 
-    # VISIT-REGISTRATION OVER WHATSAPP's own trigger — checked BEFORE the ordinary customer
-    # consent-gate/conversation path below, and deliberately not folded into it: this message is
-    # from the SHOP'S OWN STAFF about the shop's own operational data, never a customer, so the
-    # customer consent-gate question does not apply to it at all. See core/visit_trigger.py's own
-    # docstring for the three-gate order (cheapest first) and why an unidentified sender simply
-    # falls through into the ordinary path below rather than being refused.
-    from app.core.visit_trigger import maybe_open_visit_flow
+    # THE STAFF MENU (`##`) AND ITS OWN ROW TAPS — checked BEFORE the ordinary customer consent-
+    # gate/conversation path below, and deliberately not folded into it: this message is from the
+    # SHOP'S OWN STAFF about the shop's own operational data, never a customer, so the customer
+    # consent-gate question does not apply to it at all. See core/visit_trigger.py's own docstring
+    # for the gate order (cheapest first) and why an unidentified sender simply falls through into
+    # the ordinary path below rather than being refused.
+    from app.core.visit_trigger import maybe_handle_staff_menu_reply, maybe_open_staff_menu
 
-    if await maybe_open_visit_flow(
+    if await maybe_open_staff_menu(
             container=container, tenant=tenant, from_number=from_number, kind=kind, text=text,
-            idempotency_key=f"visit:{wamid}"):
+            idempotency_key=f"staffmenu:{wamid}"):
         await container.inbound_store.mark_processed(tenant, wamid)
-        return {"processed": True, "reason": "visit_flow_opened"}
+        return {"processed": True, "reason": "staff_menu_opened"}
+    if await maybe_handle_staff_menu_reply(
+            container=container, tenant=tenant, from_number=from_number, kind=kind,
+            reply_id=reply_id, idempotency_key=f"staffmenu:{wamid}"):
+        await container.inbound_store.mark_processed(tenant, wamid)
+        return {"processed": True, "reason": "staff_menu_flow_opened"}
 
     # THE CONSENT CHECK, WITH THE RAW NUMBER, BEFORE IT IS EVER FOLDED INTO A PSEUDONYM. The port
     # (app/ports/consent_gate.py) is explicit that a service holding only a subject_ref cannot use

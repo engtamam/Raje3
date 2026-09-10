@@ -1,7 +1,14 @@
-"""Turn one inbound message from an IDENTIFIED STAFF SENDER into an opened visit-registration
-Flow — the entry point for the second channel this session's own approved plan describes
+"""Turn one inbound message from an IDENTIFIED STAFF SENDER into an opened internal-management
+menu — the entry point for the second channel this session's own approved plan describes
 (.claude/plans/stateless-wondering-fox.md; see services/operations' `api/internal.py::
-internal_visit_from_whatsapp` for the write side).
+internal_visit_from_whatsapp` for the visit-registration Flow's own write side).
+
+TWO STEPS, NOT ONE. `##` opens a real WhatsApp **Interactive List Message** — Meta's own native
+menu component (a bottom-sheet list, up to 10 rows, each a short title + optional description; no
+custom styling, the same list UI a customer sees in any other list this product already sends,
+e.g. the mandatory triage gate) — never a Flow directly. Tapping a row is what opens the actual
+Flow for whichever internal action it names. One row today ("تسجيل زيارة"); a second internal
+Flow later is a second row, never a second trigger word or a restructure of this module.
 
 SENT FROM THE SHOP'S OWN NUMBER, PER-SHOP LIKE `booking_flow` — unlike the subscription-renewal
 Flow (`core/renewal_trigger.py`'s own `_PLATFORM` sending identity), this is staff talking to
@@ -11,73 +18,100 @@ is always the real shop tenant, never `_platform`.
 NEVER FOR AN ORDINARY MESSAGE, EVEN FROM A REAL STAFF MEMBER — the owner's own correction
 (2026-09-10): a staff member texting the shop's number usually wants to talk to the SHOP (the AI,
 or the owner reading it himself), exactly like anyone else, and hijacking every one of his messages
-into a Flow would break that. So this only ever fires on an EXPLICIT keyword (`_TRIGGER_WORD`),
-never on plain conversation — the same "he chooses it, it is never forced on him" shape a Telegram
-bot's own `/command` has, the closest WhatsApp gets to one being an interactive list message a
-keyword opens (WhatsApp itself has no native slash-command system — checked). Chosen as the
-FIRST, free check before anything else: a random customer typing the same word costs nothing
-extra, since every gate after it still has to answer honestly for him too.
+into a menu would break that. So the menu only ever opens on an EXPLICIT symbol (`_TRIGGER_WORD`),
+matched EXACTLY — never a substring of a real sentence — the same "he chooses it, it is never
+forced on him" shape a Telegram bot's own `/command` has (WhatsApp itself has no native
+slash-command system — checked; a list message opened by a chosen keyword is the closest official
+equivalent). Chosen as the FIRST, free check before anything else: a random customer typing the
+same symbol costs nothing extra, since every gate after it still has to answer honestly for him
+too.
 
-FOUR GATES, IN THE CHEAPEST-FIRST ORDER, BEFORE ANY PEER READ HAPPENS:
-  1. The keyword itself — a bare string compare, no I/O. Anything else (including the exact same
-     text as it, but from a customer, or as a button reply) never reaches gate 2.
-  2. `licence.allowed(tenant)` — the same subscription gate every WhatsApp feature in this
-     product already holds (see core/conversation.py's own use of it). A lapsed/unsubscribed shop
-     gets nothing from this trigger, same as it gets nothing from the AI channel.
-  3. `whatsapp_visit_gate.enabled(tenant)` — the OWNER's own explicit opt-in (services/operations'
-     core/whatsapp_visit_flag.py). Off by default for every shop; this trigger must never open a
-     Flow a shop never asked for.
-  4. `operator_identity.resolve(...)` — the actual, real two-peer-read WhatsApp-sender-to-operator
-     match. Deliberately checked LAST: it is the only one of the four that costs a network round
-     trip, and the earlier three already answer "no" for almost every message (most text is not
-     the keyword at all, and most tenants have not opted in) without ever making it.
+THE SYMBOL, NOT A WORD (a second owner decision, 2026-09-10): `##` instead of an Arabic keyword,
+so a staff member who cannot type Arabic reliably (or at all, on a borrowed/shared device) can
+still use it — sits on every keypad including a bare feature phone's.
 
-AN UNIDENTIFIED SENDER IS NOT AN ERROR. A customer who happens to type the same keyword, or a
-staff member whose phone changed and was never re-registered, both fall through here with `False`
-— the caller (app/core/inbound_ingest.py) then continues into the ordinary customer conversation
-exactly as it already does today, reading his message as ordinary text. This trigger only ever
-intercepts, never refuses.
+NOT A SECURITY BOUNDARY, AND DELIBERATELY NOT MADE SECRET-PER-SHOP (owner's own question,
+answered 2026-09-10): the symbol only signals INTENT ("I want the menu"), never proof of WHO is
+asking — a stranger typing `##` learns nothing and gets nothing, because `operator_identity`
+resolution is the real gate and answers honestly for him too (empty). Making the symbol itself a
+secret would add real complexity (a new per-tenant setting, a forgot-my-code support path) for
+zero additional protection, since the actual security already lives one layer down.
 
-ONE FLOW TODAY, NAMED FOR MORE LATER. The keyword opens the visit-registration Flow directly
-rather than a menu — the owner's own future direction ("نقدر نضيف اكثر من فلو مستقبلا") is a real
-one, and the natural next step once a second internal Flow exists is an interactive LIST message
-here instead of a direct open (WhatsApp's own closest thing to a command menu — up to 10 rows,
-each a title + description). Not built now because there is only one Flow to list.
+FOUR GATES BEFORE THE MENU EVER SENDS, CHEAPEST-FIRST — see `maybe_open_staff_menu`'s own
+docstring. THE SAME THREE (minus the symbol match, which only applies to opening the menu) ARE
+RE-CHECKED when a row is actually tapped (`maybe_handle_staff_menu_reply`) — the list itself
+proves nothing extra: WhatsApp does not let anyone else forge a reply to a message they were never
+sent, but re-checking costs one more cheap read and matches this codebase's own "the write
+re-checks, never only the suggestion" discipline everywhere else (see core/flow_visit_backend.py's
+own `reserve()`, which never trusts an `operator_id` handed to it either).
 """
 from __future__ import annotations
 
 from typing import Any
 
-_TEMPLATE_NAME = "visit_flow"
-#: A SYMBOL, NOT A WORD (owner decision, 2026-09-10) — a staff member who cannot type Arabic (or
-#: any language reliably on a shared/borrowed device) can still type this. `##` sits on every
-#: keypad including a bare feature phone's, and is not a sequence anyone types mid-sentence to a
-#: customer or the owner by accident. Matched exactly, deliberately not a prefix/fuzzy match — the
-#: same certainty a slash command gives.
+#: row id -> the template that opens that Flow. One entry today; a second internal Flow is a
+#: second entry here and a second row in `_MENU_ROWS`, nothing else in this module changes.
+_MENU_TEMPLATES: dict[str, str] = {
+    "staffmenu:visit": "visit_flow",
+}
+_MENU_ROWS: list[dict[str, str]] = [
+    {"id": "staffmenu:visit", "title": "تسجيل زيارة",
+     "description": "سجّل زيارة عميل من هنا مباشرة"},
+]
+_MENU_ID_PREFIX = "staffmenu:"
+
+#: A SYMBOL, NOT A WORD — see the module docstring.
 _TRIGGER_WORD = "##"
 
 
-async def maybe_open_visit_flow(*, container: Any, tenant: str, from_number: str, kind: str,
-                                text: str, idempotency_key: str) -> bool:
-    """`True` iff a Flow-opening message was sent — the caller should stop and not continue into
-    the ordinary conversation for this message. `False` for everything else: not the keyword,
-    gated off, not opted in, or the sender is not (or no longer) a real operator here."""
-    if kind != "text" or text.strip() != _TRIGGER_WORD:
-        return False
+async def _staff_operator_id(container: Any, *, tenant: str, from_number: str) -> str:
+    """The three real gates, shared by both the menu-open and the row-tap paths: licence, owner
+    opt-in, sender identity. `""` for anything that fails any of them — never a distinct error,
+    same "an unidentified sender is not an error" posture the module docstring states."""
     licence = getattr(container, "licence", None)
     if licence is not None and not await licence.allowed(tenant):
-        return False
+        return ""
     gate = getattr(container, "whatsapp_visit_gate", None)
     if gate is None or not await gate.enabled(tenant):
-        return False
+        return ""
     identity = getattr(container, "operator_identity", None)
     if identity is None:
+        return ""
+    return await identity.resolve(tenant=tenant, from_number=from_number)
+
+
+async def maybe_open_staff_menu(*, container: Any, tenant: str, from_number: str, kind: str,
+                                text: str, idempotency_key: str) -> bool:
+    """`True` iff the menu was sent — the caller should stop and not continue into the ordinary
+    conversation for this message. `False` for everything else: not the symbol, gated off, not
+    opted in, or the sender is not (or no longer) a real operator here."""
+    if kind != "text" or text.strip() != _TRIGGER_WORD:
         return False
-    operator_id = await identity.resolve(tenant=tenant, from_number=from_number)
+    operator_id = await _staff_operator_id(container, tenant=tenant, from_number=from_number)
+    if not operator_id:
+        return False
+    await container.sender.send_list(
+        tenant=tenant, to=from_number, body="اختر من القائمة:", button_text="القائمة",
+        rows=_MENU_ROWS, idempotency_key=idempotency_key)
+    return True
+
+
+async def maybe_handle_staff_menu_reply(*, container: Any, tenant: str, from_number: str,
+                                        kind: str, reply_id: str, idempotency_key: str) -> bool:
+    """`True` iff a row tap opened its Flow — the caller should stop, same as
+    `maybe_open_staff_menu`. `False` for a reply that is not one of this menu's own rows, or one
+    whose sender can no longer be verified (re-checked here, never trusted from the tap alone —
+    see module docstring)."""
+    if kind != "list_reply" or not reply_id.startswith(_MENU_ID_PREFIX):
+        return False
+    template_name = _MENU_TEMPLATES.get(reply_id)
+    if not template_name:
+        return False
+    operator_id = await _staff_operator_id(container, tenant=tenant, from_number=from_number)
     if not operator_id:
         return False
     await container.sender.send_template(
-        tenant=tenant, to=from_number, template_name=_TEMPLATE_NAME, variables=[],
+        tenant=tenant, to=from_number, template_name=template_name, variables=[],
         idempotency_key=idempotency_key, flow_token=idempotency_key,
         flow_action_data={"customer": from_number})
     return True
