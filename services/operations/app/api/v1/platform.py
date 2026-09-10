@@ -544,7 +544,7 @@ async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_
 
 
 @router.get("/whatsapp/platform-status", dependencies=[Depends(rate_limit)])
-async def whatsapp_platform_status(request: Request, window_hours: int = 24,
+async def whatsapp_platform_status(request: Request,
                                    principal: Principal = Depends(_PLATFORM)) -> dict:
     """The Meta category's "Status" tab (Raje3 Meta-panel Phase 1, cheapest slice — nothing here is
     a new call to Meta, only data this platform already holds).
@@ -556,7 +556,7 @@ async def whatsapp_platform_status(request: Request, window_hours: int = 24,
 
       1. per-number CONNECTION state — read in-process from `ConnectionStore.all()`, this service's
          own table, with no peer call at all;
-      2. real WhatsApp delivery counts over a recent window — `notification-service`'s
+      2. real WhatsApp delivery counts over the most recent rows — `notification-service`'s
          `DeliveryStore`, asked through `container.platform_status` (never this service's own copy
          of that data, which does not exist);
       3. how many WhatsApp numbers are currently bound — `notification-service`'s
@@ -568,6 +568,13 @@ async def whatsapp_platform_status(request: Request, window_hours: int = 24,
     not blank the connection states this service already knows, and a slow `ConnectionStore` scan
     must not block the delivery figures — so both are fetched, and the peer's own unavailability is
     reported IN the response (`peer_unavailable`) rather than failing the whole request.
+
+    THE PEER'S FIGURES ARE CAPPED COUNTS, NOT A TIME WINDOW (platform v0.19.6): each is exact over
+    the most-recent `cap` rows (`notification-service`'s own `NOTIFY_PLATFORM_STATUS_CAP`, default
+    5000) and marked `capped` past it — there is no `window_hours` any more, and the peer's own
+    nested shape ({"deliveries": {...}, "bound_numbers": {"count","capped"}, ...}) is reshaped here
+    into the flat fields the console already renders, so the console never has to know the peer's
+    internal envelope.
     """
     from app.core.connect import ConnectionStore
 
@@ -587,8 +594,23 @@ async def whatsapp_platform_status(request: Request, window_hours: int = 24,
         "numbers": [r.to_dict() for r in sorted(rows, key=lambda r: -r.at)[:200]],
     }
     peer = request.app.state.container.platform_status
-    remote = await peer.read(window_hours=max(1, min(168, window_hours)))
+    remote = await peer.read()
     if remote is None:
         return {"connections": connections, "peer_unavailable": True,
                 "deliveries": None, "numbers_bound": None, "marketing_opt_outs": None}
-    return {"connections": connections, "peer_unavailable": False, **remote}
+    deliveries = remote.get("deliveries") or {}
+    bound = remote.get("bound_numbers") or {}
+    opt_outs = remote.get("marketing_opt_outs") or {}
+    return {
+        "connections": connections, "peer_unavailable": False,
+        "deliveries": {
+            "sent": deliveries.get("sent", 0), "failed": deliveries.get("failed", 0),
+            "delivered": deliveries.get("delivered", 0), "read": deliveries.get("read", 0),
+            # how many of the most-recent messages this figure was actually computed over, and
+            # whether that hit the cap — the console shows "آخر N رسالة" instead of a false "24 ساعة".
+            "sampled": deliveries.get("sampled", 0), "capped": bool(deliveries.get("capped")),
+        },
+        "numbers_bound": bound.get("count"), "numbers_bound_capped": bool(bound.get("capped")),
+        "marketing_opt_outs": opt_outs.get("count"),
+        "marketing_opt_outs_capped": bool(opt_outs.get("capped")),
+    }

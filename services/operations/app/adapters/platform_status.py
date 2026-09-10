@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import urllib.error
-import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -41,12 +40,15 @@ class PlatformStatus:
         except Exception:                                                       # noqa: BLE001
             return None
 
-    async def read(self, *, window_hours: int = 24) -> dict[str, Any] | None:
-        """The platform-wide delivery/number/opt-out figures — `None` means unreachable, not zero."""
+    async def read(self) -> dict[str, Any] | None:
+        """The platform-wide delivery/number/opt-out figures — `None` means unreachable, not zero.
+
+        The real route (shipped platform v0.19.6) has no time window: each figure is a capped count
+        over the most-recent NOTIFY_PLATFORM_STATUS_CAP rows, not a clock-bounded slice — there was
+        never a `window_hours` parameter to honour, so this no longer sends one."""
         if not self.configured:
             return None
-        q = f"?window_hours={urllib.parse.quote(str(window_hours))}"
-        return await run_in_threadpool(self._call, "/internal/whatsapp/platform-status" + q)
+        return await run_in_threadpool(self._call, "/internal/whatsapp/platform-status")
 
 
 def build_platform_status(settings) -> PlatformStatus:

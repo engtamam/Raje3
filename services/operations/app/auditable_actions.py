@@ -498,6 +498,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "missed record does not undo the read), but still worth naming who looked and when.",
     },
     {
+        "action": "platform.whatsapp_status_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp:platform-status",
+        "why": "an operator viewed the platform's OWN WhatsApp status glance (connection states plus "
+               "aggregate send/bound-number/opt-out counts) — never one shop's data, so this is not "
+               "a tenancy-wall crossing. Not critical (a missed record does not undo the read), but "
+               "still worth naming who looked, same reasoning as whatsapp_diagnostics_viewed above.",
+    },
+    {
         "action": "compliance.evidence_exported",
         "source": "internal",
         "critical": True,

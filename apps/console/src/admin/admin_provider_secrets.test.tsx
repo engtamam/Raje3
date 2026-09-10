@@ -638,8 +638,9 @@ describe('AdminProviderSecrets', () => {
             ],
           },
           peer_unavailable: false,
-          deliveries: { sent: 40, failed: 10, queued: 0, delivered: 35, read: 20, total: 50, window_hours: 24 },
-          numbers_bound: 2, marketing_opt_outs: 7,
+          deliveries: { sent: 40, failed: 10, delivered: 35, read: 20, sampled: 50, capped: false },
+          numbers_bound: 2, numbers_bound_capped: false,
+          marketing_opt_outs: 7, marketing_opt_outs_capped: false,
         });
       }
       throw new Error(`unexpected path ${path}`);

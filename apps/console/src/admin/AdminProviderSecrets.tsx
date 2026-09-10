@@ -348,15 +348,19 @@ interface ConnectionRow {
   phone_number_id: string; business_id: string; detail: string; at: number; branch_id: string;
 }
 interface DeliveryCounts {
-  sent: number; failed: number; queued: number; delivered: number; read: number; total: number;
-  window_hours: number;
+  // A capped count over the most-recent rows (platform v0.19.6), never a clock-bounded window —
+  // `sampled` is how many of the most-recent messages this was actually computed over, and
+  // `capped` is true when there were more than that (the true totals are higher).
+  sent: number; failed: number; delivered: number; read: number; sampled: number; capped: boolean;
 }
 interface PlatformStatusResponse {
   connections: { total: number; by_state: Record<string, number>; numbers: ConnectionRow[] };
   peer_unavailable: boolean;
   deliveries: DeliveryCounts | null;
   numbers_bound: number | null;
+  numbers_bound_capped?: boolean;
   marketing_opt_outs: number | null;
+  marketing_opt_outs_capped?: boolean;
 }
 
 // الحالات الأربع الحقيقية بConnectionStore (core/connect.py) + "failed" النظرية — لون كل حالة
@@ -440,7 +444,7 @@ function MetaStatusSection({ session, action }: { session: AdminSession; action:
                 testId="kpi-problem-numbers" />
         <KpiCard icon={<Send size={18} />} label="رسائل مُرسَلة"
                 value={d ? d.sent : '—'} tone={d && d.sent > 0 ? 'success' : 'neutral'}
-                hint={d ? `آخر ${d.window_hours} ساعة` : 'تعذّرت القراءة'}
+                hint={d ? `من آخر ${d.sampled}${d.capped ? '+' : ''} رسالة` : 'تعذّرت القراءة'}
                 testId="kpi-sent" />
         <KpiCard icon={<XCircle size={18} />} label="رسائل فشلت"
                 value={d ? d.failed : '—'}
@@ -448,11 +452,13 @@ function MetaStatusSection({ session, action }: { session: AdminSession; action:
                 hint={deliveryRate !== null ? `نجاح ${deliveryRate}٪` : undefined}
                 testId="kpi-failed" />
         <KpiCard icon={<Sparkles size={18} />} label="أرقام مربوطة (المنصّة)"
-                value={status.numbers_bound ?? '—'} tone="accent"
-                testId="kpi-numbers-bound" />
+                value={status.numbers_bound === null ? '—'
+                       : `${status.numbers_bound}${status.numbers_bound_capped ? '+' : ''}`}
+                tone="accent" testId="kpi-numbers-bound" />
         <KpiCard icon={<UserX size={18} />} label="ألغوا الاشتراك التسويقي"
-                value={status.marketing_opt_outs ?? '—'} tone="warning"
-                testId="kpi-opt-outs" />
+                value={status.marketing_opt_outs === null ? '—'
+                       : `${status.marketing_opt_outs}${status.marketing_opt_outs_capped ? '+' : ''}`}
+                tone="warning" testId="kpi-opt-outs" />
       </div>
 
       {/* حالة كل رقم — شارة ملوَّنة لكل حالة، لا نص عادي. */}
