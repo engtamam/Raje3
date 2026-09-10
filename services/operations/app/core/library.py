@@ -111,6 +111,9 @@ class NullLibrary:
     async def drain(self, tenant: str) -> dict[str, Any]:
         return {"ok": False, "reason": "template publishing is not configured"}
 
+    async def list_names(self, tenant: str) -> set[str] | None:
+        return set()
+
 
 class HttpLibrary:
     """notification-service's internal template twins."""
@@ -118,11 +121,13 @@ class HttpLibrary:
     driver = "http"
 
     def __init__(self, *, notify_url: str, register_path: str, drain_path: str,
-                 token: str, timeout: int = 8, media_upload_handle_path: str = "") -> None:
+                 token: str, timeout: int = 8, media_upload_handle_path: str = "",
+                 list_path: str = "") -> None:
         base = notify_url.rstrip("/")
         self._register = base + register_path
         self._drain = base + drain_path
         self._media_upload_handle = (base + media_upload_handle_path) if media_upload_handle_path else ""
+        self._list = (base + list_path) if list_path else ""
         self._token = token
         self._timeout = timeout
 
@@ -138,6 +143,33 @@ class HttpLibrary:
             return exc.code, {"detail": exc.read().decode()[:200]}
         except (urllib.error.URLError, OSError, ValueError) as exc:
             return 503, {"detail": str(exc)[:120]}
+
+    def _get(self, url: str) -> tuple[int, Any]:
+        try:
+            status, raw = internal_http.send(url, timeout=self._timeout, method="GET",
+                                             token=self._token)
+            return status, json.loads(raw or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, {"detail": exc.read().decode()[:200]}
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return 503, {"detail": str(exc)[:120]}
+
+    async def list_names(self, tenant: str) -> set[str] | None:
+        """Every template name currently registered for `tenant` — `None` means "could not ask"
+        (no list path configured, or the peer is unreachable), told apart from "asked, and there
+        are none" (an empty set). See core/platform_templates.py's own use: a `None` here must
+        refuse to seed anything, never read as "nothing exists yet, register it all"."""
+        if not self._list:
+            return None
+        query = urllib.parse.urlencode({"tenant": tenant, "limit": 200})
+        try:
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, out = await asyncio.to_thread(self._get, f"{self._list}?{query}")
+        except (urllib.error.URLError, OSError, ValueError):
+            return None
+        if status >= 400 or not isinstance(out, dict):
+            return None
+        return {str(t.get("name", "")) for t in (out.get("templates") or []) if t.get("name")}
 
     def _upload_placeholder_handle(self, tenant: str) -> str:
         """A fresh resumable-upload handle for the placeholder image — NEVER cached across calls
@@ -224,7 +256,8 @@ def build_library(settings: Any) -> Any:
                        token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "",
                        timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8),
                        media_upload_handle_path=getattr(
-                           settings, "NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH", "") or "")
+                           settings, "NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH", "") or "",
+                       list_path=getattr(settings, "NOTIFICATION_TEMPLATE_LIST_PATH", "") or "")
 
 
 async def publish(library: Any, templates: list[dict[str, Any]], tenant: str) -> dict[str, Any]:

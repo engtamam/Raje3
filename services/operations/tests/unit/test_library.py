@@ -280,6 +280,44 @@ def test_nothing_registered_means_nothing_is_asked_of_meta():
     assert out["drain"]["ok"] is False
 
 
+# ── listing what a tenant already has ────────────────────────────────────────────────────────
+def test_list_names_reads_the_names_off_the_peers_own_shape():
+    def _urlopen(req, timeout=0):
+        return _Resp({"templates": [{"name": "auth_otp"}, {"name": "ai_wallet_low_balance"}]})
+
+    c = client(list_path="/internal/whatsapp/templates")
+    with patch("urllib.request.urlopen", _urlopen):
+        names = run(c.list_names("_platform"))
+    assert names == {"auth_otp", "ai_wallet_low_balance"}
+
+
+def test_list_names_with_no_list_path_configured_cannot_ask():
+    c = client()   # list_path left at its default (empty)
+    assert run(c.list_names("_platform")) is None
+
+
+def test_list_names_on_an_unreachable_peer_cannot_ask():
+    def _urlopen(req, timeout=0):
+        raise urllib.error.URLError("connection refused")
+
+    c = client(list_path="/internal/whatsapp/templates")
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(c.list_names("_platform")) is None
+
+
+def test_list_names_on_no_templates_at_all_is_an_empty_set_not_none():
+    def _urlopen(req, timeout=0):
+        return _Resp({"templates": []})
+
+    c = client(list_path="/internal/whatsapp/templates")
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(c.list_names("_platform")) == set()
+
+
+def test_null_library_list_names_is_always_an_empty_set():
+    assert run(NullLibrary().list_names("_platform")) == set()
+
+
 # ── how it is built ───────────────────────────────────────────────────────────────────────────
 def test_without_the_peer_wired_it_publishes_nothing_and_says_so():
     class S:

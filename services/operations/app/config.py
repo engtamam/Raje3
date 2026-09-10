@@ -149,6 +149,12 @@ class Settings(BaseSettings):
     # The first version lived in a document, which meant changing a word cost a rebuild and a
     # rollout. That is not a library, it is a constant.
     TEMPLATES_SEED_FILE: str = ""
+    # THE PLATFORM'S OWN TEMPLATES (tenant `_platform`) — a SEPARATE, much smaller file: these are
+    # sent from our own WhatsApp number (subscription-renewal, low-AI-wallet-balance, ...), never
+    # a shop's library. Registered automatically at boot (a local upsert, no Meta call — see
+    # core/platform_templates.py), but NEVER submitted automatically: submitting is a live Meta
+    # call and stays the operator's own "أرسل للمراجعة" click, by owner decision (2026-09-10).
+    PLATFORM_TEMPLATES_SEED_FILE: str = ""
 
     # ── search — how a customer becomes findable ──────────────────────────────
     # `null` indexes nothing and SAYS so. Correct for tests; refused in production by the boot
@@ -350,6 +356,11 @@ class Settings(BaseSettings):
     # cap; `drain` hands over what has never been submitted, inside Meta's 100/hour.
     NOTIFICATION_TEMPLATE_REGISTER_PATH: str = "/internal/whatsapp/templates"
     NOTIFICATION_TEMPLATE_DRAIN_PATH: str = "/internal/whatsapp/templates/submit-pending"
+    # SAME ROUTE AS REGISTER, DIFFERENT VERB — GET lists, POST registers (notification-service's
+    # own /internal/whatsapp/templates). Read once at startup to seed the platform's OWN templates
+    # without ever re-registering (and so reverting) one an operator has since edited — see
+    # core/platform_templates.py's own docstring.
+    NOTIFICATION_TEMPLATE_LIST_PATH: str = "/internal/whatsapp/templates"
     # The one-time placeholder-image upload a carousel template's cards need at creation — see
     # app/core/library.py's own note on why this is never a static, pre-baked handle.
     NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH: str = "/internal/whatsapp/media/upload-handle"

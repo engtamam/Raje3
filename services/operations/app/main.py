@@ -88,6 +88,20 @@ def create_app() -> FastAPI:
                 logger.info("templates_seeded", extra={"count": n})
         except Exception as exc:                                            # noqa: BLE001
             logger.error("template_seed_failed", extra={"error": str(exc)[:300]})
+
+        # THE PLATFORM'S OWN TEMPLATES (`_platform`) — registered automatically (a local upsert,
+        # no Meta call), never submitted automatically (that stays the operator's own console
+        # click). See core/platform_templates.py's own docstring for why this never reverts an
+        # operator's edit, and why a failure here is logged, not fatal, same as the seed above.
+        try:
+            from app.core.platform_templates import seed_platform_templates
+
+            stats = await seed_platform_templates(
+                container.library, seed_path=settings.PLATFORM_TEMPLATES_SEED_FILE)
+            if stats["registered"]:
+                logger.info("platform_templates_seeded", extra=stats)
+        except Exception as exc:                                            # noqa: BLE001
+            logger.error("platform_template_seed_failed", extra={"error": str(exc)[:300]})
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})

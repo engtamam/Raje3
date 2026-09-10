@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:dd99c5ab6f746418f2f61e30bb6a4b6c58a60422f10a95ce2def5fdf96e5ed14"   # 125345e6, published by publish-images.sh
+  digest: "sha256:69842f27f68b91adf03bfa093e9eaf9ebecded4593b8bbb7ac4841d9acc28fe5"   # eb035e03, published by publish-images.sh
 
 replicas: 1
 
@@ -298,6 +298,8 @@ env:
   # empty. After that the platform console owns the text, and re-applying this file on every boot
   # would quietly undo whatever an operator edited.
   TEMPLATES_SEED_FILE: "/app/data/templates.seed.json"
+  # THE PLATFORM'S OWN TEMPLATES — separate, much smaller file (core/platform_templates.py).
+  PLATFORM_TEMPLATES_SEED_FILE: "/app/data/platform_templates.seed.json"
 
   AUDIT_SINK_DRIVER: "http"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
@@ -338,6 +340,7 @@ env:
   # over, inside Meta's 100/hour, and skips anything already awaiting a verdict.
   NOTIFICATION_TEMPLATE_REGISTER_PATH: "/internal/whatsapp/templates"
   NOTIFICATION_TEMPLATE_DRAIN_PATH: "/internal/whatsapp/templates/submit-pending"
+  NOTIFICATION_TEMPLATE_LIST_PATH: "/internal/whatsapp/templates"
   NOTIFICATION_MEDIA_UPLOAD_HANDLE_PATH: "/internal/whatsapp/media/upload-handle"
   TEMPLATE_SYNC_MAX_TENANTS: "200"
 

@@ -1,0 +1,36 @@
+{
+  "_readme": [
+    "The platform's OWN WhatsApp templates — sent from `_platform` (services/operations/app/",
+    "core/flows.py's own PLATFORM constant), never a shop's library (data/templates.seed.json).",
+    "",
+    "REGISTERED AUTOMATICALLY, NEVER SUBMITTED AUTOMATICALLY (owner decision, 2026-09-10 — same",
+    "principle as the subscription-renewal Flow's own manual 'تجهيز الفلو' seed action): register()",
+    "is a local upsert with no Meta call and no cap (see core/library.py's own docstring), so",
+    "having this content ready costs nothing and needs no install-time Meta connection. Submitting",
+    "for review IS a live Meta call and STAYS a manual 'أرسل للمراجعة' click from the console —",
+    "this file only saves the operator from hand-typing the body/variables/flow_button first.",
+    "",
+    "ONLY REGISTERED WHEN THE NAME DOES NOT ALREADY EXIST for `_platform` (app/core/",
+    "platform_templates.py's own seed_platform_templates) — an operator's own edit to one of",
+    "these, or a re-submission after a rejection, is never silently reverted by a later boot."
+  ],
+  "templates": [
+    {
+      "name": "ai_wallet_low_balance",
+      "language": "ar",
+      "category": "UTILITY",
+      "body": "رصيد الذكاء الاصطناعي بمنصة راجِع أوشك ينتهي، وبدونه يتوقف الرد الآلي على عملائك. اشحن الآن من هنا: {{1}}",
+      "variables": [1],
+      "examples": ["https://kobo-cloud.com"]
+    },
+    {
+      "name": "subscription_renewal_flow",
+      "language": "ar",
+      "category": "UTILITY",
+      "body": "حان موعد تجديد اشتراكك بمنصة راجِع. اضغط الزر أدناه لمراجعة الفاتورة وتجديده مباشرة.",
+      "variables": [],
+      "examples": [],
+      "flow_button": { "flow_name": "subscription_renewal", "text": "جدّد الآن" }
+    }
+  ]
+}
