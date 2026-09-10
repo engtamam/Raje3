@@ -35,6 +35,15 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         # وقفت عند فلان» used to require a developer with a kubeconfig reading pod logs by hand.
         "help": "كل خطأ سجّلته المنصة — من خوادمها ومن متصفحات المستخدمين — في مكان واحد، "
                 "مع وقته والخدمة التي أصدرته ونصّه كاملاً. يُحفظ عشرة أيام ثم يُمحى تلقائياً.",
+        # tenant/subject_ref: hand-built by AdminSignals.tsx's own customer-lookup, not this
+        # generic form — declared for documentation parity with the live route, same as every
+        # other catalog entry names what it actually accepts.
+        "params": [
+            {"name": "tenant", "in": "query", "type": "string", "required": False,
+             "help": "أخطاء منشأة واحدة فقط"},
+            {"name": "subject_ref", "in": "query", "type": "string", "required": False,
+             "help": "أخطاء عميل واحد بعينه — يُحترَم فقط مع tenant"},
+        ],
     },
     # ── the platform's own operator surface, inherited from _template ─────────────────────────
     # OURS, not an establishment's: these are the credentials and knobs our operators manage for

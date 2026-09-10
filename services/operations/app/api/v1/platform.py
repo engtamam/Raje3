@@ -563,6 +563,15 @@ async def platform_customer_by_phone(request: Request, tenant: str, phone: str,
     A DISTINCT action (`platform.customer_searched_by_phone`, not that same action) because this is
     a cross-shop admin read under `platform.operations`, not the shop's own `operations.read` — the
     two must stay separately answerable, same as every other `platform.*` action in this file.
+
+    CARRIES `subject_ref` ON TOP OF `public()`, UNLIKE THE SHOP'S OWN SCREEN. `public()` withholds
+    it deliberately (a shop owner has no use for the pseudonym other services key rows by), but the
+    admin panel does: the «سجل الأخطاء» screen's own customer search resolves phone → subject_ref
+    HERE, once, then asks error-collector for that pseudonym's signals — the same two-step shape as
+    every other cross-service admin lookup on this platform (never a raw phone number sent onward).
+    Safe to expose here specifically because this whole route already sits behind
+    `platform.operations`, the same capability that already lets an operator read this customer's
+    full profile.
     """
     await request.app.state.auditor.record(
         "platform.customer_searched_by_phone", actor=getattr(principal, "subject", "") or "",
@@ -571,7 +580,7 @@ async def platform_customer_by_phone(request: Request, tenant: str, phone: str,
     c = await request.app.state.container.operations.customer_by_phone_searched(tenant, phone)
     if c is None:
         return {"customer": None}
-    return {"customer": c.public()}
+    return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
 
 
 @router.get("/whatsapp/platform-status", dependencies=[Depends(rate_limit)])

@@ -8,99 +8,19 @@
  * إحداهما. هنا كل تبويب يُمرَّر قائمته وأفعال صفّه بالاسم مباشرة، فلا تصادم.
  */
 import { useEffect, useState } from 'react';
-import { Search, User, XCircle } from 'lucide-react';
 import { Segmented } from '../rj-ui/Segmented';
-import { Button } from '../rj-ui/Button';
-import { Field, Input } from '../rj-ui/Field';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
-import { req, type AdminSession } from './api';
+import type { AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
 import { ActionListGroup } from './ActionRenderer';
+import { CustomerByPhoneLookup, type FoundCustomer } from './CustomerByPhoneLookup';
 
-interface FoundCustomer {
-  id: string; tenant: string; phone: string; name: string;
-  visit_count: number; last_visit: number;
-}
-
-/**
- * بحث سريع عن عميل بمنشأة معروفة + رقم جواله — الباب اللي طلبه تمام بدل انتظار المرحلة أ
- * كاملة: موظف الدعم يعرف المحل الذي يخدمه العميل (لا بحث عبر كل المنشآت دفعة واحدة — مطابقة
- * تامة فقط، لا تخمين تقريبي)، فيكتب الاثنين ويحصل على ملفّه مباشرة.
- *
- * العميل الموجود يُصفّي التبويبات الستة أدناه تلقائياً (`onFound`) بمنشأته — الخلل اللي كان
- * يمنع هذا (compliance-service عمياء عن أي محل حقيقي) انحل بمعزل عن هذا الملف (platform v0.19.7)،
- * فما احتجنا نغيّر شيء هنا غير تمرير النتيجة لأعلى. التصفية بالمنشأة فقط، لا بالعميل نفسه: DSAR
- * وحظر الحذف لا يقبلان تصفية "بعميل واحد" أصلاً بالخادم اليوم — القائمة تضيق للمحل الصحيح، والعين
- * تُكمل. سجل الموافقات وحده يقبل `subject` أيضاً (رقم الجوال مباشرة)، فيُصفّى للعميل بالضبط.
- */
-function CustomerLookup({ session, action, onFound }: {
-  session: AdminSession; action: AdminAction;
-  onFound: (c: FoundCustomer | null) => void;
-}) {
-  const [tenant, setTenant] = useState('');
-  const [phone, setPhone] = useState('');
-  const [state, setState] = useState<'idle' | 'loading' | 'found' | 'missed' | 'failed'>('idle');
-  const [result, setResult] = useState<FoundCustomer | null>(null);
-
-  const search = async () => {
-    if (!tenant.trim() || !phone.trim()) return;
-    setState('loading'); setResult(null); onFound(null);
-    try {
-      const q = `?tenant=${encodeURIComponent(tenant.trim())}&phone=${encodeURIComponent(phone.trim())}`;
-      const r = await req<{ customer: FoundCustomer | null }>(
-        `${action.path}${q}`, 'GET', undefined, session.access_token);
-      if (r.customer) { setResult(r.customer); setState('found'); onFound(r.customer); }
-      else { setState('missed'); }
-    } catch {
-      setState('failed');
-    }
-  };
-
-  return (
-    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-      <h2 className="font-medium">ابحث عن عميل</h2>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Field label="المنشأة (tenant)" className="flex-1">
-          <Input value={tenant} onChange={(e) => setTenant(e.target.value)}
-                placeholder="tnt_..." dir="ltr" />
-        </Field>
-        <Field label="رقم الجوال" className="flex-1">
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)}
-                placeholder="05xxxxxxxx" dir="ltr"
-                onKeyDown={(e) => { if (e.key === 'Enter') search(); }} />
-        </Field>
-        <Button onClick={search} disabled={state === 'loading' || !tenant.trim() || !phone.trim()}>
-          <Search size={16} /> بحث
-        </Button>
-      </div>
-
-      {state === 'failed' ? (
-        <p role="alert" className="text-sm text-danger">تعذّر البحث. حاول مرة أخرى.</p>
-      ) : null}
-      {state === 'missed' ? (
-        <p className="flex items-center gap-2 text-sm text-text-secondary">
-          <XCircle size={16} className="shrink-0" /> لا عميل بهذا الرقم في هذه المنشأة.
-        </p>
-      ) : null}
-      {state === 'found' && result ? (
-        <div className="flex items-center gap-3 rounded-card bg-accent-soft p-3">
-          <User size={20} className="shrink-0 text-accent-on-soft" />
-          <div className="flex flex-col text-sm">
-            <span className="font-medium">{result.name || 'بلا اسم مسجَّل'}</span>
-            <span dir="ltr" className="text-text-secondary">{result.phone}</span>
-            <span className="text-label text-text-secondary">
-              {result.visit_count} زيارة — آخر زيارة{' '}
-              {result.last_visit ? new Date(result.last_visit * 1000).toLocaleDateString('ar-SA-u-nu-latn') : '—'}
-            </span>
-            <span className="text-label text-accent-on-soft">
-              التبويبات أدناه مصفّاة الآن على منشأته — الموافقات مصفّاة عليه هو بالذات.
-            </span>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
+// العميل الموجود يُصفّي التبويبات الستة أدناه تلقائياً (`onFound`) بمنشأته — الخلل اللي كان
+// يمنع هذا (compliance-service عمياء عن أي محل حقيقي) انحل بمعزل عن هذا الملف (platform v0.19.7)،
+// فما احتجنا نغيّر شيء هنا غير تمرير النتيجة لأعلى. التصفية بالمنشأة فقط، لا بالعميل نفسه: DSAR
+// وحظر الحذف لا يقبلان تصفية "بعميل واحد" أصلاً بالخادم اليوم — القائمة تضيق للمحل الصحيح، والعين
+// تُكمل. سجل الموافقات وحده يقبل `subject` أيضاً (رقم الجوال مباشرة)، فيُصفّى للعميل بالضبط.
+const FOUND_NOTE = 'التبويبات أدناه مصفّاة الآن على منشأته — الموافقات مصفّاة عليه هو بالذات.';
 
 type TabId = 'legal_hold' | 'dsar' | 'consent' | 'data_targets' | 'ropa' | 'breach';
 
@@ -160,7 +80,7 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
       <div className="flex flex-col gap-4 p-6">
         <h1 className="text-2xl leading-tight tracking-tight">الامتثال</h1>
         {lookupAction ? (
-          <CustomerLookup session={session} action={lookupAction} onFound={setFoundCustomer} />
+          <CustomerByPhoneLookup session={session} action={lookupAction} onFound={setFoundCustomer} foundNote={FOUND_NOTE} />
         ) : null}
         <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لأي قسم من الامتثال." />
       </div>
@@ -182,7 +102,7 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
       <h1 className="text-2xl leading-tight tracking-tight">الامتثال</h1>
 
       {lookupAction ? (
-        <CustomerLookup session={session} action={lookupAction} onFound={setFoundCustomer} />
+        <CustomerByPhoneLookup session={session} action={lookupAction} onFound={setFoundCustomer} foundNote={FOUND_NOTE} />
       ) : null}
 
       <Segmented

@@ -167,14 +167,23 @@ class SignalStore:
     # ── read ─────────────────────────────────────────────────────────────────────────────────
     async def browse(self, *, sources: list[str] | None = None,
                      severities: list[str] | None = None, service: str = "",
+                     tenant: str = "", subject_ref: str = "",
                      since: int = 0, until: int = 0, q: str = "",
                      limit: int = 100, after: str = "") -> tuple[list[dict[str, Any]], str | None]:
         """One page, newest first, with a cursor for the next.
 
-        TWO KINDS OF FILTER, AND THE SPLIT IS NOT ARBITRARY. `source`, `severity` and `service` are
-        equality/membership, which is exactly what the DataStore port supports and what its GIN
-        index serves — so they are pushed DOWN and cost nothing. The time window and the free-text
-        search are neither, so they are applied HERE, over pages the datastore already ordered.
+        TWO KINDS OF FILTER, AND THE SPLIT IS NOT ARBITRARY. `source`, `severity`, `service`,
+        `tenant` and `subject_ref` are equality/membership, which is exactly what the DataStore
+        port supports and what its GIN index serves — so they are pushed DOWN and cost nothing. The
+        time window and the free-text search are neither, so they are applied HERE, over pages the
+        datastore already ordered.
+
+        `subject_ref` IS ALWAYS PASSED WITH `tenant`, NEVER ALONE — the caller (the admin panel's
+        customer search) resolves a phone number to a pseudonym WITHIN one already-chosen shop, and
+        `subject_ref` alone would be ambiguous: the same salted value can theoretically only mean
+        one (tenant, phone) pair, but a caller passing it without the tenant it was resolved under
+        is a caller that skipped the resolution step, and this signature makes that impossible to
+        do by accident.
 
         WHICH MEANS THIS LOOP IS BOUNDED AND SAYS SO. It keeps pulling ordered pages until it has a
         full page of matches, the collection runs out, or it has examined `max_scan` rows — and in
@@ -189,6 +198,10 @@ class SignalStore:
             where["severity"] = severities if len(severities) > 1 else severities[0]
         if service:
             where["service"] = service
+        if tenant:
+            where["tenant"] = tenant
+        if subject_ref:
+            where["subject_ref"] = subject_ref
 
         limit = max(1, min(int(limit), 500))
         needle = q.strip().lower()

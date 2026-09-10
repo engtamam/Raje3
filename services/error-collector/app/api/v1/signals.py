@@ -73,6 +73,8 @@ async def list_signals(
     source: list[str] | None = Query(default=None),
     severity: list[str] | None = Query(default=None),
     service: str = Query(default="", max_length=128),
+    tenant: str = Query(default="", max_length=128),
+    subject_ref: str = Query(default="", max_length=128),
     since: int = Query(default=0, ge=0),
     until: int = Query(default=0, ge=0),
     q: str = Query(default="", max_length=256),
@@ -86,14 +88,21 @@ async def list_signals(
     the other half of `source` and `severity` being free-form strings. A new source starts
     appearing as a checkbox the moment something posts one, with no console deploy.
 
+    `tenant`/`subject_ref` ANSWER «أي أخطاء صارت لهذا العميل؟» — the admin panel resolves a phone
+    number to a pseudonym first (operations' own by-phone lookup), then asks here with the SAME
+    pseudonym. Narrower than a tenant filter alone; see `SignalStore.browse`'s own note on why
+    `subject_ref` is never accepted without `tenant` alongside it.
+
     NOT AUDITED. This is a read performed on every page load and on every filter change; recording
     it would bury the writes an investigation actually looks for under a stream of list calls. It
     is also the only read on this service, and it returns nobody's personal record — it returns
-    what broke.
+    what broke. `tenant`/`subject_ref` narrow it, they do not turn it into one: no message text
+    named a person before this filter existed, and this filter does not add any.
     """
     store = _store(request)
     rows, next_cursor = await store.browse(
         sources=_split(source), severities=_split(severity), service=service.strip(),
+        tenant=tenant.strip(), subject_ref=subject_ref.strip() if tenant.strip() else "",
         since=since, until=until, q=q, limit=limit, after=after)
     return {
         "signals": [public(r) for r in rows],

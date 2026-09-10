@@ -67,6 +67,9 @@ def test_finds_the_customer_in_the_chosen_tenant(client):
     assert r.status_code == 200
     body = r.json()["customer"]
     assert body["name"] == "أحمد" and body["tenant"] == "tnt_a"
+    # subject_ref rides along, unlike the shop's own screen (Customer.public() withholds it) — the
+    # admin panel's error-log search needs it to ask error-collector for this pseudonym's signals.
+    assert body["subject_ref"] and body["subject_ref"] != body["phone"]
 
 
 def test_does_not_leak_across_tenants(client):

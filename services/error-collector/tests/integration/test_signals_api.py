@@ -227,6 +227,69 @@ def test_both_doors_land_in_the_same_table_and_are_read_by_one_query(client):
     assert "subject_ref" not in browser and "tenant" not in browser
 
 
+def test_a_search_narrowed_to_one_customers_pseudonym_excludes_everyone_elses_errors(client):
+    """The admin panel's «أخطاء هذا العميل» search: resolve phone -> subject_ref elsewhere
+    (operations), then filter here by (tenant, subject_ref) — never subject_ref alone, see
+    SignalStore.browse's own note on why."""
+    from app.config import get_settings
+    from app.core.pii import subject_ref as _sref
+
+    marker = "customer-scoped-check-7a1b"
+    # Customer A's own browser report — the route computes subject_ref from the caller's token,
+    # exactly as a real customer-facing report would.
+    client.post("/api/v1/signals/report",
+                json=dict(BROWSER_SHAPED, message=f"{marker} customer A"),
+                headers=_auth(_token(caps=[], sub="alice@x.com", tenant="tnt_a")))
+    # A different customer, SAME tenant — must not leak into A's filtered view.
+    client.post("/api/v1/signals/report",
+                json=dict(BROWSER_SHAPED, message=f"{marker} customer B"),
+                headers=_auth(_token(caps=[], sub="bob@x.com", tenant="tnt_a")))
+
+    salt = get_settings().PII_SALT
+    ref_a = _sref(salt, "tnt_a", "alice@x.com")
+
+    body = client.get("/api/v1/signals",
+                      params={"q": marker, "tenant": "tnt_a", "subject_ref": ref_a},
+                      headers=_reader()).json()
+    rows = [r for r in body["signals"] if marker in r["message"]]
+    assert len(rows) == 1 and rows[0]["message"].endswith("customer A")
+
+
+def test_a_tenant_only_search_with_no_subject_ref_returns_the_whole_shop(client):
+    marker = "tenant-only-check-3c9d"
+    client.post("/api/v1/signals/report",
+                json=dict(BROWSER_SHAPED, message=f"{marker} one"),
+                headers=_auth(_token(caps=[], sub="carol@x.com", tenant="tnt_c")))
+    client.post("/api/v1/signals/report",
+                json=dict(BROWSER_SHAPED, message=f"{marker} two"),
+                headers=_auth(_token(caps=[], sub="dave@x.com", tenant="tnt_c")))
+
+    body = client.get("/api/v1/signals", params={"q": marker, "tenant": "tnt_c"},
+                      headers=_reader()).json()
+    rows = [r for r in body["signals"] if marker in r["message"]]
+    assert len(rows) == 2
+
+
+def test_a_subject_ref_with_no_tenant_is_ignored_not_a_cross_tenant_leak(client):
+    """See SignalStore.browse's own note: subject_ref is only ever honoured alongside tenant. A
+    caller that sent one without the other gets the UNFILTERED-by-pseudonym answer, never a 500
+    and never (by construction, since the two are salted together) a stray cross-tenant match."""
+    from app.config import get_settings
+    from app.core.pii import subject_ref as _sref
+
+    marker = "orphan-subject-ref-check-5e2f"
+    client.post("/api/v1/signals/report",
+                json=dict(BROWSER_SHAPED, message=marker),
+                headers=_auth(_token(caps=[], sub="erin@x.com", tenant="tnt_e")))
+    salt = get_settings().PII_SALT
+    ref = _sref(salt, "tnt_e", "erin@x.com")
+
+    body = client.get("/api/v1/signals", params={"q": marker, "subject_ref": ref},
+                      headers=_reader()).json()
+    rows = [r for r in body["signals"] if marker in r["message"]]
+    assert len(rows) == 1     # found via q= alone — the subject_ref-with-no-tenant was a no-op
+
+
 def test_the_filter_lists_come_back_with_the_page(client):
     body = client.get("/api/v1/signals", headers=_reader()).json()
     assert "browser" in body["sources"] and "server_log" in body["sources"]
