@@ -131,6 +131,9 @@ env:
   INBOUND_POLL_PAGE_SIZE: "200"
   INBOUND_POLL_MAX_PAGES: "20"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
+  # THE SUBSCRIPTION-RENEWAL FLOW'S ONE identity-service READ — the tenant's founding owner's own
+  # phone (platform v0.19.13), to open the renewal Flow on. See app/core/owner_phone.py.
+  IDENTITY_SERVICE_URL: "http://identity-service:8000"
   # ACTIVATED — phase 4 (build_system_prompt's `growth` section) shipped in the same commit as
   # this flip: the persona now knows when/how to reach for list_due_services/list_lapsed_services,
   # and the structural guardrails (personalization-by-effect, soft-decline suppression) were both

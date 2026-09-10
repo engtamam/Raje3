@@ -153,6 +153,8 @@ class Container:
     coexistence_feed: Any = None
     engine: Any = None
     renewal_consumer: Any = None
+    owner_phone: Any = None
+    renewal_trigger: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         return [
@@ -318,6 +320,17 @@ def build_container(settings: Settings) -> Container:
 
     container.renewal_consumer = RenewalConsumer(
         requests=RenewalRequestStore(container.datastore), sender=container.sender)
+    # THE SUBSCRIPTION-RENEWAL FLOW'S OWN SEND SIDE — the last piece. Opens the Flow the moment
+    # billing tells us (subscription.renewed) a renewal invoice exists, on the shop owner's own
+    # number (identity-service, platform v0.19.13). See app/core/renewal_trigger.py's own
+    # docstring for the full design.
+    from app.core.owner_phone import build as build_owner_phone
+    from app.core.renewal_trigger import build as build_renewal_trigger
+
+    container.owner_phone = build_owner_phone(settings)
+    container.renewal_trigger = build_renewal_trigger(
+        settings, store=container.datastore, owner_phone=container.owner_phone,
+        sender=container.sender)
     # WAS NEVER ASSIGNED HERE AT ALL — `_CONSENT_GATE`'s registry existed, the field on `Container`
     # existed, and nothing between the two ever ran; `container.consent_gate` stayed the dataclass
     # default (`None`) forever, one line short of doing anything. See app/core/inbound_ingest.py

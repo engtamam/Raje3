@@ -190,6 +190,13 @@ class Settings(BaseSettings):
     COEXISTENCE_HUMAN_COOLDOWN_SECONDS: int = 1800
 
     # operations — customer recognition (phone -> subject_ref) and visit-pattern summaries.
+    # identity-service — the subscription-renewal trigger's ONE read: the tenant's founding
+    # owner's own login identifier (platform v0.19.13), to send the renewal Flow to. Empty ⇒ the
+    # trigger cannot resolve a recipient and simply does not send (never a fake/guessed number —
+    # see core/owner_phone.py).
+    IDENTITY_SERVICE_URL: str = ""
+    IDENTITY_OWNER_PHONE_PATH: str = "/internal/tenancy/owner-phone"
+
     OPERATIONS_SERVICE_URL: str = ""
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We
     # added the narrowest possible route, /internal/operations/customer-by-phone (reusing the

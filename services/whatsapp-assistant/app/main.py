@@ -106,9 +106,20 @@ def create_app() -> FastAPI:
                 auditor=_app.state.auditor, tenant=tenant, wamid=wamid, from_number=from_number,
                 kind=kind, text=text, reply_id=reply_id, raw_payload=payload)
 
+        # THE SUBSCRIPTION-RENEWAL FLOW'S OWN TRIGGER — billing-service emits this the moment a
+        # renewal invoice exists (platform v0.19.11/12). See app/core/renewal_trigger.py's own
+        # docstring; `handle` is a no-op for an event missing tenant/invoice_id, one already
+        # claimed, or a tenant with no reachable owner.
+        import time as _time
+
+        async def _on_subscription_renewed(event) -> None:
+            payload = getattr(event, "payload", None) or {}
+            await container.renewal_trigger.handle(dict(payload), now=int(_time.time()))
+
         try:
             await container.event_bus.subscribe("whatsapp.message", _on_whatsapp_message)
             await container.event_bus.subscribe("whatsapp.status", lambda e: None)
+            await container.event_bus.subscribe("subscription.renewed", _on_subscription_renewed)
             logger.info("subscribed", extra={"topic": "whatsapp.message"})
         except Exception as exc:                                            # noqa: BLE001
             logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})

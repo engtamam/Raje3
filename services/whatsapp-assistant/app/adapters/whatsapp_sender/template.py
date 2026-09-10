@@ -8,7 +8,16 @@ matched back to this send without a join.
 Unlike reminders' sender, `to` here is a real phone number the CALLER already holds (the customer
 just messaged US — see core/conversation.py), not a subject_ref resolved through a peer. This
 service never persists a phone number at rest; it only ever holds one for the length of a live
-WhatsApp conversation, in the inbound message it was handed.
+WhatsApp conversation, in the inbound message it was handed — EXCEPT the subscription-renewal
+trigger (core/renewal_trigger.py), which holds a shop owner's number for the length of one
+proactive send, resolved fresh from identity-service each time, never stored at rest either.
+
+`flow_token`/`flow_action_data` — the SAME optional Flow-button-in-a-template fields reminders'
+own `HttpSender.send()` carries (its own module docstring explains why they ride the template
+send rather than a separate call): when the approved template carries a Flow button, these seed
+the Flow's opening screen; empty otherwise, and notification-service ignores them for an ordinary
+template. `flow_action_data` is omitted from the wire body entirely when empty — Meta rejects an
+empty data object.
 """
 from __future__ import annotations
 
@@ -30,9 +39,12 @@ class NullTemplateSender:
         self.sent: list[dict[str, Any]] = []
 
     async def send_template(self, *, tenant: str, to: str, template_name: str,
-                             variables: list[str], idempotency_key: str) -> str:
+                             variables: list[str], idempotency_key: str,
+                             flow_token: str = "", flow_action_data: dict[str, Any] | None = None
+                             ) -> str:
         self.sent.append({"tenant": tenant, "to": to, "template_name": template_name,
-                          "variables": variables, "idempotency_key": idempotency_key})
+                          "variables": variables, "idempotency_key": idempotency_key,
+                          "flow_token": flow_token, "flow_action_data": flow_action_data or {}})
         return f"dlv_{idempotency_key}" if idempotency_key else ""
 
 
@@ -45,15 +57,19 @@ class TemplateSender:
         self._timeout = timeout
 
     async def send_template(self, *, tenant: str, to: str, template_name: str,
-                             variables: list[str], idempotency_key: str) -> str:
+                             variables: list[str], idempotency_key: str,
+                             flow_token: str = "", flow_action_data: dict[str, Any] | None = None
+                             ) -> str:
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
         return await asyncio.to_thread(
             self._send_template_sync, tenant=tenant, to=to, template_name=template_name,
-            variables=variables, idempotency_key=idempotency_key)
+            variables=variables, idempotency_key=idempotency_key, flow_token=flow_token,
+            flow_action_data=flow_action_data)
 
     def _send_template_sync(self, *, tenant: str, to: str, template_name: str,
-                            variables: list[str], idempotency_key: str) -> str:
-        body = json.dumps({
+                            variables: list[str], idempotency_key: str, flow_token: str = "",
+                            flow_action_data: dict[str, Any] | None = None) -> str:
+        payload: dict[str, Any] = {
             "recipient": to,
             "channel": "whatsapp",
             "template_key": template_name,
@@ -64,7 +80,12 @@ class TemplateSender:
             "idempotency_key": idempotency_key,
             "event": "whatsapp_assistant.reengage",
             "biz_opaque_callback_data": idempotency_key,
-        }).encode()
+        }
+        if flow_token:
+            payload["flow_token"] = flow_token
+            if flow_action_data:
+                payload["flow_action_data"] = dict(flow_action_data)
+        body = json.dumps(payload).encode()
         req = urllib.request.Request(
             self._notify, data=body, method="POST",
             headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
