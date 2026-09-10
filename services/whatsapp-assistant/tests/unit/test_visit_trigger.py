@@ -1,5 +1,5 @@
-"""maybe_open_visit_flow — the three-gate check (licence, owner opt-in, sender identity) before a
-visit-registration Flow ever opens for an inbound staff message."""
+"""maybe_open_visit_flow — the keyword gate (never an ordinary message), then the three-gate check
+(licence, owner opt-in, sender identity) before a visit-registration Flow ever opens."""
 from __future__ import annotations
 
 import asyncio
@@ -56,40 +56,62 @@ class _Container:
     sender: Any = field(default_factory=_Sender)
 
 
-def test_an_identified_staff_sender_opens_the_flow():
+def _call(c, *, kind="text", text="**", tenant="t1", from_number="966500000001",
+         idempotency_key="visit:wamid1"):
+    return run(maybe_open_visit_flow(
+        container=c, tenant=tenant, from_number=from_number, kind=kind, text=text,
+        idempotency_key=idempotency_key))
+
+
+def test_the_exact_keyword_from_an_identified_staff_sender_opens_the_flow():
     c = _Container()
-    ok = run(maybe_open_visit_flow(
-        container=c, tenant="t1", from_number="966500000001", idempotency_key="visit:wamid1"))
-    assert ok is True
+    assert _call(c) is True
     assert c.sender.sent == [{"tenant": "t1", "to": "966500000001",
                               "template_name": "visit_flow", "variables": [],
                               "idempotency_key": "visit:wamid1", "flow_token": "visit:wamid1",
                               "flow_action_data": {"customer": "966500000001"}}]
 
 
+def test_an_ordinary_message_from_the_same_staff_sender_never_opens_the_flow():
+    """The whole point of the keyword: a staff member texting the shop about anything else must
+    reach the ordinary conversation untouched, never be hijacked into a Flow."""
+    c = _Container()
+    assert _call(c, text="وش أوقات الدوام اليوم؟") is False
+    assert c.sender.sent == []
+    assert c.operator_identity.calls == 0
+
+
+def test_a_button_reply_with_the_same_text_as_the_keyword_never_opens_the_flow():
+    c = _Container()
+    assert _call(c, kind="button_reply") is False
+    assert c.sender.sent == []
+
+
+def test_the_keyword_check_costs_nothing_extra_before_the_real_gates():
+    c = _Container(licence=_Licence(allowed=False))
+    assert _call(c, text="مو الكلمة") is False
+    assert c.operator_identity.calls == 0
+
+
 def test_a_licence_that_refuses_sends_nothing_and_never_resolves_identity():
     c = _Container(licence=_Licence(allowed=False))
-    ok = run(maybe_open_visit_flow(
-        container=c, tenant="t1", from_number="966500000001", idempotency_key="visit:wamid2"))
-    assert ok is False
+    assert _call(c) is False
     assert c.sender.sent == []
     assert c.operator_identity.calls == 0
 
 
 def test_a_tenant_that_never_opted_in_sends_nothing_and_never_resolves_identity():
     c = _Container(whatsapp_visit_gate=_Gate(enabled=False))
-    ok = run(maybe_open_visit_flow(
-        container=c, tenant="t1", from_number="966500000001", idempotency_key="visit:wamid3"))
-    assert ok is False
+    assert _call(c) is False
     assert c.sender.sent == []
     assert c.operator_identity.calls == 0
 
 
 def test_an_unidentified_sender_sends_nothing_falls_through():
+    """A customer who happens to type the same keyword resolves to no operator and falls through
+    exactly like an ordinary message would."""
     c = _Container(operator_identity=_Identity(operator_id=""))
-    ok = run(maybe_open_visit_flow(
-        container=c, tenant="t1", from_number="966500000001", idempotency_key="visit:wamid4"))
-    assert ok is False
+    assert _call(c) is False
     assert c.sender.sent == []
 
 
@@ -97,6 +119,4 @@ def test_a_missing_licence_object_defaults_to_allowed():
     """Some deployments wire no licence gate at all (container.licence stays None) — same
     fail-open posture the rest of this service holds when a licence object was never configured."""
     c = _Container(licence=None)
-    ok = run(maybe_open_visit_flow(
-        container=c, tenant="t1", from_number="966500000001", idempotency_key="visit:wamid5"))
-    assert ok is True
+    assert _call(c) is True

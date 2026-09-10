@@ -78,7 +78,7 @@ async def ingest_inbound_message(
     from app.core.visit_trigger import maybe_open_visit_flow
 
     if await maybe_open_visit_flow(
-            container=container, tenant=tenant, from_number=from_number,
+            container=container, tenant=tenant, from_number=from_number, kind=kind, text=text,
             idempotency_key=f"visit:{wamid}"):
         await container.inbound_store.mark_processed(tenant, wamid)
         return {"processed": True, "reason": "visit_flow_opened"}
