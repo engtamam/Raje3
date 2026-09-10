@@ -2453,3 +2453,36 @@ async def evidence_file(request: Request, body: EvidenceIn) -> dict:
         legal_reader=getattr(c, "legal_acceptances", None))
     return await file.build(body.tenant, since=body.since, until=body.until,
                             actor=body.actor)
+
+
+class RenewalProviderIn(BaseModel):
+    """notification-service's `HttpLoyaltyBackend` posts exactly this shape (op + LoyaltyProvider's
+    own kwargs flattened) — see `app/adapters/renewal_provider.py`'s module docstring for why
+    `customer` carries the invoice id here rather than an end customer."""
+    op: str = Field(min_length=1, max_length=16)
+    tenant: str = Field(default="", max_length=128)
+    customer: str = Field(default="", max_length=128)
+    reward: str = Field(default="", max_length=128)
+    idempotency_key: str = Field(default="", max_length=128)
+
+
+@router.post("/whatsapp/renewal-provider", dependencies=[Depends(require_internal_token)])
+async def whatsapp_renewal_provider(request: Request, body: RenewalProviderIn) -> dict:
+    """The subscription-renewal WhatsApp Flow's data source (platform v0.19.12's
+    `LoyaltyEngine(name="subscription_renewal")`) — `balance`/`rewards` show the tenant's due
+    invoice before payment; `redeem` creates the real pay-link. Never a fake renewal: an
+    unconfigured or unreachable billing/identity peer refuses (502), never a fabricated screen."""
+    from app.adapters.renewal_provider import RenewalUnavailable
+
+    p = request.app.state.container.renewal_provider
+    try:
+        if body.op == "balance":
+            return await p.balance(tenant=body.tenant, customer=body.customer)
+        if body.op == "rewards":
+            return {"rewards": await p.rewards(tenant=body.tenant, customer=body.customer)}
+        if body.op == "redeem":
+            return await p.redeem(tenant=body.tenant, customer=body.customer,
+                                  reward=body.reward, idempotency_key=body.idempotency_key)
+    except RenewalUnavailable as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+    raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"unknown op {body.op!r}")

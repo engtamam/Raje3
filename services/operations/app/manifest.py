@@ -141,6 +141,9 @@ def build_manifest(
             # bookings' one question of this service (docs/خطة-تنفيذ-الحجوزات.md §3):
             # what does a set of service_ids cost in minutes, right now.
             {"path": "/internal/operations/service-durations", "tier": "internal", "method": "POST"},
+            # notification-service's subscription-renewal WhatsApp Flow (platform v0.19.12's
+            # LoyaltyEngine(name="subscription_renewal")): balance/rewards/redeem over one due invoice.
+            {"path": "/internal/whatsapp/renewal-provider", "tier": "internal", "method": "POST"},
             # bookings' booking->visit gateway (§4): the ONE way an attended booking becomes a
             # real Visit — record_visit() itself, resolved by customer_id instead of phone.
             {"path": "/internal/operations/visits/from-customer", "tier": "internal", "method": "POST"},

@@ -593,6 +593,23 @@ else
   ok "notification-service may now call whatsapp-assistant's booking Flow endpoint"
 fi
 
+# ── 4f ────────────────────────────────────────────────────────────────────────────────────────
+# WHATSAPP_RENEWAL_PROVIDER_TOKEN — THE SAME SHAPE AS 4e JUST ABOVE, for the subscription-renewal
+# Flow: notification-service's LoyaltyEngine(name="subscription_renewal") sends this as
+# X-Internal-Token when it calls OUR operations service (/internal/whatsapp/renewal-provider).
+step "whatsapp renewal provider token"
+NIST="$(kubectl -n "$NS" get secret notification-service-secrets -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null || true)"
+NCUR="$(kubectl -n "$NS" get secret notification-service-secrets -o jsonpath='{.data.WHATSAPP_RENEWAL_PROVIDER_TOKEN}' 2>/dev/null || true)"
+if [[ -z "$NIST" ]]; then
+  warn "INTERNAL_SERVICE_TOKEN not in notification-service-secrets — cannot derive WHATSAPP_RENEWAL_PROVIDER_TOKEN"
+elif [[ "$NIST" == "$NCUR" ]]; then
+  ok "already matches the shared internal token"
+else
+  kubectl -n "$NS" patch secret notification-service-secrets --type=merge \
+    -p "{\"data\":{\"WHATSAPP_RENEWAL_PROVIDER_TOKEN\":\"$NIST\"}}" >/dev/null
+  ok "notification-service may now call operations' subscription-renewal Flow endpoint"
+fi
+
 # ── 5 & 6 ─────────────────────────────────────────────────────────────────────────────────────
 step "databases and buckets"
 bash "$HERE/hooks/pre-deploy.sh"

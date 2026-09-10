@@ -189,6 +189,13 @@ env:
   # shared INTERNAL_SERVICE_TOKEN into this pod's secret under this exact key, the identical
   # pattern AUTHZ_INTERNAL_TOKEN already uses for identity/authz. No values.yaml entry needed or
   # wanted for it.
+
+  # subscription-renewal Flow (platform v0.19.12's LoyaltyEngine(name="subscription_renewal")) —
+  # OUR OWN operations service, /internal/whatsapp/renewal-provider (app/adapters/renewal_provider.py).
+  # SAME posture as WHATSAPP_BOOKING_PROVIDER_URL/_TOKEN just above: the URL is a plain value here,
+  # the token arrives through the secret — bring-up.sh's "whatsapp renewal provider token" step
+  # copies the shared INTERNAL_SERVICE_TOKEN into this pod's secret under this exact key.
+  WHATSAPP_RENEWAL_PROVIDER_URL: "http://operations:8000/internal/whatsapp/renewal-provider"
   # ON. Each shop's own Flow-encryption key is now sealed automatically at connect time
   # (operations' connect.py, base-services v0.18.55's flow-encryption/ensure route) — a shop
   # connected before this route existed just needs a reconnect (or a manual

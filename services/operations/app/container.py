@@ -271,6 +271,12 @@ def build_container(settings: Settings) -> Container:
     # a statement of zero that a partner would read and believe.
     from app.adapters.settlements import build_settlements
     container.settlements = build_settlements(settings)
+    # The subscription-renewal WhatsApp Flow's data source (platform v0.19.12) — reads one due
+    # invoice and creates its pay-link. Reuses the SAME platform.billing client-credentials grant
+    # `settlements` just above already holds; a deployment with no billing/identity credentials
+    # gets a provider that refuses every op rather than faking a renewal.
+    from app.adapters.renewal_provider import build_renewal_provider
+    container.renewal_provider = build_renewal_provider(settings)
     container.search = build_search(settings)
     # THE VISIT STORE IS HANDED IN so the seams can write down that they finished (ز-7). Without
     # it nothing could tell «the after-work ran» from «the pod died before it did», and the retry
