@@ -187,7 +187,23 @@ class HttpSender:
         if flow_token:
             payload["flow_token"] = flow_token
             if flow_action_data:
-                payload["flow_action_data"] = dict(flow_action_data)
+                action_data = dict(flow_action_data)
+                # ── THE BOOKING FLOW'S SEED, FILLED HERE FOR THE SAME REASON THE NAME IS ────────
+                # The booking Flow is keyed on the customer's own phone number — that is the
+                # identity every op in whatsapp-assistant's FlowBookingBackend reads, and a Flow
+                # opened without it cannot say who is asking. Neither campaigns nor this service
+                # holds a phone number: the pseudonym is the whole point (see the module
+                # docstring), and putting the number on a schedule row would put it in a render, a
+                # log and a backup.
+                #
+                # It is already in scope right here, for the length of this one call, resolved a
+                # few lines above beside the customer's name — so the caller DECLARES the key
+                # empty and this fills the blank, exactly as the greeting above fills `variables[0]`
+                # and by exactly the same rule: only over a blank, never over a value a caller
+                # supplied. The weekly report's own Flow declares no such key and is untouched.
+                if "customer" in action_data and not str(action_data["customer"] or ""):
+                    action_data["customer"] = recipient
+                payload["flow_action_data"] = action_data
         body = json.dumps(payload).encode()
         # Built in adapters/internal_http.py, the one place this service attaches the token.
         status, raw = internal_http.send(

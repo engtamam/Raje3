@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.adapters.datastore.drain import drain
+from app.core import shape
 from app.core.spread import plan as plan_spread
 from app.core.models import Run, as_row
 
@@ -35,7 +36,8 @@ class DispatchResult:
 
 class Dispatcher:
     def __init__(self, *, store, sender, audience_resolver, batch: int = 200,
-                 telemetry=None, daily_share: int = 0, package_offerable=None) -> None:
+                 telemetry=None, daily_share: int = 0, package_offerable=None,
+                 bookings_licence=None) -> None:
         self._s = store
         self._sender = sender
         self._resolve = audience_resolver
@@ -44,6 +46,12 @@ class Dispatcher:
         # OPTIONAL — a deployment with none wired (tests, a driver not yet configured) simply never
         # runs this check; package_offer campaigns are a newer feature than this constructor.
         self._package_offerable = package_offerable
+        # WHETHER THIS SHOP OWNS THE APPOINTMENT BOOK — the one input core/shape.py needs to decide
+        # whether a win-back opens a booking screen or stays today's plain text. OPTIONAL for the
+        # same reason `package_offerable` is: a deployment with none wired (tests, a driver not yet
+        # configured) resolves every send to PLAIN, which is the behaviour that existed before this
+        # parameter did.
+        self._bookings_licence = bookings_licence
         # THE CAMPAIGN'S SHARE OF TODAY'S PROVIDER CEILING — the ceiling minus what the automatic
         # engine reserved (spec §8.4.3). Deliberately a NUMBER rather than a channel: this module
         # must not learn which provider imposes it, and a test enforces that by reading this
@@ -143,6 +151,13 @@ class Dispatcher:
                 await self._save(run)
                 return DispatchResult(run=run, finished=True)
 
+        # WHAT SHAPE THIS CAMPAIGN'S MESSAGES TAKE — asked ONCE, here, not once per recipient. It
+        # is a property of the shop (does it own the appointment book) and of the text (is this one
+        # of the three that end in «come back»), and neither changes between two candidates of the
+        # same pass. A thousand-recipient run must not become a thousand billing calls.
+        opens_booking = await shape.opens_booking_for(
+            tenant, str(campaign.get("template_type") or ""), licence=self._bookings_licence)
+
         sent_this_pass = 0
         for candidate in audience.candidates:
             if sent_this_pass >= per_pass:
@@ -165,6 +180,10 @@ class Dispatcher:
             # ONE CAMPAIGN REACHES ONE PERSON ONCE — which is also what `_already_reached` says in
             # the other direction, so the two now agree instead of one quietly undoing the other.
             key = f"cmp:{cid}:{candidate.subject_ref}"
+            # THE SAME KEY AGAIN, AS THIS SEND'S FLOW TOKEN — see core/shape.py on why it is not
+            # minted separately. PLAIN (both fields empty) for every send that opens nothing, which
+            # reminders' sender omits from the wire body entirely.
+            send_shape = shape.for_send(opens_booking=opens_booking, idempotency_key=key)
             try:
                 outcome = await self._sender.send(
                     tenant=tenant,
@@ -187,7 +206,11 @@ class Dispatcher:
                     # THE CAMPAIGN'S OWN BRANCH. It already narrows the audience; it must also
                     # decide the number the message leaves from, or a branch campaign speaks in the
                     # head office's voice and the reply lands on a team that cannot answer it.
-                    branch_id=str(campaign.get("branch_id") or ""))
+                    branch_id=str(campaign.get("branch_id") or ""),
+                    # THE BOOKING SCREEN UNDER THE OFFER, for a shop that owns the appointment
+                    # book. Empty on every other send, and an empty token never reaches the wire.
+                    flow_token=send_shape.flow_token,
+                    flow_action_data=dict(send_shape.flow_action_data))
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is

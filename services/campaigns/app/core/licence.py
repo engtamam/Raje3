@@ -80,17 +80,24 @@ class HttpLicence:
     driver = "http"
 
     def __init__(self, *, billing_url: str, check_path: str, token: str,
-                 timeout: int = 8) -> None:
+                 timeout: int = 8, key: str = KEY) -> None:
         self._url = billing_url.rstrip("/") + check_path
         self._token = token
         self._timeout = timeout
+        # WHICH FEATURE THIS INSTANCE ASKS ABOUT. `feature.campaigns` for the gate this file was
+        # written for; a second instance asks about `feature.bookings` so core/shape.py can decide
+        # whether a win-back opens the appointment book. Parametrised rather than copied — two
+        # independently-priced apps checked by two hand-copied clients is how one of them quietly
+        # gets the tenant-empty check, the timeout or the JSON key wrong and stays free for
+        # everybody (operations/core/feature_licence.py records the same conclusion).
+        self.key = key
 
     async def allowed(self, tenant: str) -> bool:
         """True only when billing SAYS yes. Anything else — a refusal, an error, an outage — is a
         no, and the caller decides which sentence to show."""
         if not tenant:
             return False
-        query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})
+        query = urllib.parse.urlencode({"tenant": tenant, "key": self.key})
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
             out: dict[str, Any] = await internal_http.get_json(
@@ -108,12 +115,16 @@ class HttpLicence:
             raise LicenceError(NOT_INCLUDED)
 
 
-def build_licence(settings: Any) -> Any:
-    """`http` when billing is wired, `null` otherwise — and the boot guard refuses null in prod."""
+def build_licence(settings: Any, key: str = KEY) -> Any:
+    """`http` when billing is wired, `null` otherwise — and the boot guard refuses null in prod.
+
+    `key` — see `HttpLicence.__init__`. The default is the gate this file exists for; the booking
+    shape asks for `feature.bookings` through the same tested client.
+    """
     url = getattr(settings, "BILLING_SERVICE_URL", "") or ""
     path = getattr(settings, "BILLING_CHECK_PATH", "") or ""
     if not url or not path:
         return NullLicence()
-    return HttpLicence(billing_url=url, check_path=path,
+    return HttpLicence(billing_url=url, check_path=path, key=key,
                        token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "",
                        timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))

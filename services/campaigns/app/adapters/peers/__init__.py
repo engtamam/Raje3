@@ -352,38 +352,49 @@ class HttpSender:
                    owner_text: str, idempotency_key: str,
                    offer_expires_at: int = 0,
                    offer_services: list[str] | None = None,
-                   offer_value: str = "", coupon_code: str = "",
+                   offer_value: str = "",
                    service_names: list[str] | None = None,
-                   branch_id: str = "") -> dict[str, Any]:
+                   branch_id: str = "",
+                   flow_token: str = "",
+                   flow_action_data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
         report verbatim. Two vocabularies for one refusal is how an owner ends up believing there
         are two problems.
         """
+        body: dict[str, Any] = {
+            "tenant": tenant, "subject_ref": subject_ref,
+            "template_type": template_type, "class": cls,
+            # WHICH NUMBER IT LEAVES FROM, and which branch the send log records. A chain with
+            # a number per branch sent every campaign message from the central one until this
+            # field travelled — see reminders' CampaignSendIn.branch_id.
+            "branch_id": branch_id,
+            "owner_text": owner_text, "idempotency_key": idempotency_key,
+            # Carried so the send log can record the entitlement AND its end. Zero for every
+            # message that offers nothing, which is most of them.
+            "offer_expires_at": offer_expires_at,
+            "offer_services": list(offer_services or []),
+            # THE TYPED PARTS. A discount is «20%» or «50 ريال», and the covered services
+            # travel as WORDS because reminders holds ids and cannot name anything.
+            "offer_value": offer_value,
+            "service_names": list(service_names or []),
+        }
+        # THE BOOKING FLOW'S OWN FIELDS (core/shape.py) — omitted from the body entirely when this
+        # send opens nothing, which is every send from a shop without the appointment book. Same
+        # "no meaningless field on an ordinary send" rule reminders' own sender follows for this
+        # exact pair, and the same shape insights' peer client uses for the weekly report.
+        if flow_token:
+            body["flow_token"] = flow_token
+            if flow_action_data:
+                body["flow_action_data"] = dict(flow_action_data)
         try:
-            return await _post(self._url, {
-                "tenant": tenant, "subject_ref": subject_ref,
-                "template_type": template_type, "class": cls,
-                # WHICH NUMBER IT LEAVES FROM, and which branch the send log records. A chain with
-                # a number per branch sent every campaign message from the central one until this
-                # field travelled — see reminders' CampaignSendIn.branch_id.
-                "branch_id": branch_id,
-                "owner_text": owner_text, "idempotency_key": idempotency_key,
-                # Carried so the send log can record the entitlement AND its end. Zero for every
-                # message that offers nothing, which is most of them.
-                "offer_expires_at": offer_expires_at,
-                "offer_services": list(offer_services or []),
-                # THE TYPED PARTS. A discount is «20%» or «50 ريال», a coupon code is machine-made,
-                # and the covered services travel as WORDS because reminders holds ids and cannot
-                # name anything.
-                "offer_value": offer_value,
-                "coupon_code": coupon_code,
-                "service_names": list(service_names or []),
-            }, self._token, self._timeout)
+            return await _post(self._url, body, self._token, self._timeout)
         except urllib.error.HTTPError as exc:
-            body = exc.read().decode()[:200]
-            return {"sent": False, "reason": f"رفض الإرسال ({exc.code}): {body}"}
+            # NOT named `body`: that name now holds the request we just sent, and reusing it for
+            # the peer's refusal would put our own payload into the owner's run report.
+            detail = exc.read().decode()[:200]
+            return {"sent": False, "reason": f"رفض الإرسال ({exc.code}): {detail}"}
 
 
 # ── the shop's name, for the preview ───────────────────────────────────────────────────────────

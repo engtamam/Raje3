@@ -190,6 +190,10 @@ class Container:
     identity: Any = None
     package_offerable: Any = None
     gate: Any = None
+    # Does this shop own the appointment book — the one input core/shape.py needs. Its own
+    # attribute rather than a field on `licence`, because it is a different key and a different
+    # question (see build's own note).
+    bookings_licence: Any = None
     dispatcher: Any = None
     tick: Any = None
 
@@ -291,12 +295,20 @@ def build_container(settings: Settings) -> Container:
             service_id=campaign.get("service_id", ""),
             branch_id=campaign.get("branch_id", ""))
 
+    from app.core.licence import build_licence
+    from app.core.shape import BOOKINGS_KEY
+
+    # A SECOND LICENCE, A DIFFERENT QUESTION. `container.licence` below asks whether this shop may
+    # LAUNCH at all; this one asks whether it owns the appointment book, which core/shape.py turns
+    # into "does this win-back open a booking screen". Two questions, one tested client — see
+    # core/licence.py's own note on why the key is a parameter rather than a copied file.
+    container.bookings_licence = build_licence(settings, BOOKINGS_KEY)
     container.dispatcher = Dispatcher(store=container.datastore, sender=container.sender,
                                       audience_resolver=_resolver,
                                       package_offerable=container.package_offerable,
                                       batch=settings.DISPATCH_BATCH_SIZE,
+                                      bookings_licence=container.bookings_licence,
                                       telemetry=container.telemetry)
-    from app.core.licence import build_licence
     container.licence = build_licence(settings)
     async def _share_for(tenant: str) -> int:
         """Today's share for one shop — the ceiling, minus the engine's reserve, minus what has
