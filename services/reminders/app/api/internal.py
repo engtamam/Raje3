@@ -735,12 +735,11 @@ class CampaignSendIn(BaseModel):
     offer_expires_at: int = Field(default=0, ge=0)
     # Which services the offer covers. Empty is "the whole shop".
     offer_services: list[str] = Field(default_factory=list, max_length=100)
-    # ── the typed parts of an offer ───────────────────────────────────────────────────────────
-    # A discount is «20%» or «50 ريال» and nothing else, and a coupon code is machine-made. They
-    # travel as their own fields rather than inside the owner's sentence, because a template slot
-    # declared `amount` or `code` is validated at render and a sentence is not.
+    # ── the typed part of an offer ────────────────────────────────────────────────────────────
+    # A discount is «20%» or «50 ريال» and nothing else. It travels as its own field rather than
+    # inside the owner's sentence, because a template slot declared `amount` is validated at
+    # render and a sentence is not.
     offer_value: str = Field(default="", max_length=32)
-    coupon_code: str = Field(default="", max_length=24)
     # The services the offer covers, NAMED — this service holds ids, and «خصم على svc_9f2» is not
     # a message. The caller owns the catalogue, so the caller sends the words.
     service_names: list[str] = Field(default_factory=list, max_length=100)
@@ -803,7 +802,6 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_expires_at": body.offer_expires_at,
         "offer_services": list(body.offer_services),
         "offer_value": body.offer_value,
-        "coupon_code": body.coupon_code,
         "flow_token": body.flow_token,
         "flow_action_data": dict(body.flow_action_data),
     }
@@ -945,7 +943,6 @@ async def choose_offer(request: Request, body: ChooseOfferIn) -> dict:
         return {"offer": None, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
     return {"offer": {"ref": str(row.get("id") or ""),
                       "text": row.get("offer_text", ""),
-                      "code": row.get("offer_code", ""),
                       # THE AMOUNT, so the till states the discount rather than reading it off a
                       # sentence — or, when the owner wrote his own line, not at all. An operator
                       # who cannot see the value takes the customer's word for it.
@@ -1005,11 +1002,6 @@ async def portal_offers(request: Request, tenant: str, subject_ref: str) -> dict
                         # offer recorded before the names were kept can be in that state.
                         "services": list(r.get("offer_service_names") or []),
                         "scoped": bool(r.get("offer_services")),
-                        # THE CODE HE READS OUT AT THE COUNTER. Written on the row at send, and
-                        # never emitted — so the page opened FROM the message that carried the
-                        # offer was the one place the code could not be found. The till has no
-                        # other handle on it, and «عرض وصلني» is not a handle.
-                        "code": str(r.get("offer_code") or ""),
                         "value": str(r.get("offer_value") or "")}
                        for r in rows]}
 

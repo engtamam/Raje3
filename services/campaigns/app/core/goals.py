@@ -32,10 +32,10 @@ from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
 DAY = 86400
 
 # THE KINDS HE FILLS HIMSELF. `system` is ours — his name, the shop, a balance — and never a
-# question. `catalogue` is a tap on his own service list rather than typing; the three typed ones
+# question. `catalogue` is a tap on his own service list rather than typing; the two typed ones
 # have a shape we can check, which is the whole reason «خصم كبير» cannot be sent; and `owner` is
 # the single free blank, where the sentence has nothing but his own words to put in it.
-MANUAL_BLANKS = ("catalogue", "amount", "code", "date", "owner")
+MANUAL_BLANKS = ("catalogue", "amount", "date", "owner")
 
 # What each card says. Two words and a line — the owner is choosing, not reading.
 CARDS = {

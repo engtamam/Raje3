@@ -10,8 +10,8 @@ WHAT WE STILL OWE HIM, and it is the whole of this file:
   · a NAME he never sees and never has to invent — Meta freezes it at approval, so it is generated
     and never reused;
   · a check that the blanks he used are ones his reason can actually fill, because a template
-    asking for a coupon code inside a visit confirmation renders nothing and fails at send, once,
-    silently, weeks later;
+    asking for a points balance inside a visit confirmation renders nothing and fails at send,
+    once, silently, weeks later;
   · a version chain, so editing an approved text is a NEW submission while the old one keeps
     sending — «ما نحذف معتمَداً أبداً، ولا نوقف الإرسال أثناء المراجعة».
 

@@ -332,8 +332,6 @@ export interface FieldOffer {
   text?: string;
   expires_at?: number;
   service_ids?: string[];
-  /** The code the customer reads off his phone — shown so both sides quote the same string. */
-  code?: string;
   /**
    * THE DISCOUNT ITSELF — «20%», «50 ريال» (أ-7).
    *

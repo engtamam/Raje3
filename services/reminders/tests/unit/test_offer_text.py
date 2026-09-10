@@ -60,7 +60,7 @@ def test_the_amount_travels_on_the_row_to_both_readers():
 
     row = as_row(SendLog(tenant="t1", subject_ref="sub_a", cls="marketing", at=0,
                          offer_text="خصم 20% على الغسيل", offer_expires_at=1,
-                         offer_value="20%", offer_code="RJ-1"))
+                         offer_value="20%"))
 
     assert row["offer_value"] == "20%", "the row is the entitlement, and this is part of it"
 
@@ -69,7 +69,7 @@ def test_the_amount_travels_on_the_row_to_both_readers():
 def test_the_offer_says_which_services_it_covers(monkeypatch):
     """The field screen reads `offer.service_ids` twice: to decide whether the visit in front of
     the operator is one this offer applies to, and to badge those services in the grid. The route
-    answered `{text, expires_at, sent_at, code}` — so the set was empty on every visit, the apply
+    answered `{text, expires_at, sent_at}` — so the set was empty on every visit, the apply
     control was never rendered once, and no service ever carried its badge. An offer the operator
     cannot apply is an offer the customer argues about at the counter.
     """
@@ -79,7 +79,7 @@ def test_the_offer_says_which_services_it_covers(monkeypatch):
     from app.api.v1 import owner as O
 
     row = {"offer_text": "خصم 20%", "offer_expires_at": 2_000_000_000, "at": 1,
-           "offer_code": "RJ-1", "offer_value": "20%",
+           "offer_value": "20%",
            "offer_services": ["svc_wash", "svc_oil"]}
 
     class _Store:
@@ -109,6 +109,7 @@ def test_the_offer_says_which_services_it_covers(monkeypatch):
 
     assert out["offer"]["service_ids"] == ["svc_wash", "svc_oil"], (
         "the screen decides whether this visit is covered, and badges the grid, from this list")
-    # AND THE REST OF THE ANSWER IS UNCHANGED: the sentence, the end, the code, the amount.
-    assert out["offer"]["text"] == "خصم 20%" and out["offer"]["code"] == "RJ-1"
+    # AND THE REST OF THE ANSWER IS UNCHANGED: the sentence, the end, the amount. No `code`:
+    # the coupon feature is gone, and a key reappearing here is what a half-revert looks like.
+    assert out["offer"]["text"] == "خصم 20%" and "code" not in out["offer"]
     assert out["offer"]["value"] == "20%"

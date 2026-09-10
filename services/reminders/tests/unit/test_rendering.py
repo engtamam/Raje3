@@ -207,20 +207,24 @@ def test_a_paused_or_disabled_template_is_not_sendable():
 
 
 # ── the typed blanks: an offer is not free text ────────────────────────────────────────────────
-COUPON = {"name": "mkt_coupon_brief", "type": "mkt_coupon", "tone": "brief", "class": "marketing",
-          "variables": [1, 2, 3, 4, 5],
-          "fills": ["system", "system", "amount", "code", "date"], "active": True}
+# NO `code` FILL ANY MORE — the coupon feature is gone, and with it the only library template that
+# ever declared one. What remains typed is the discount and the end date, and both are still
+# checked here for the same reason they always were: a bad value must stop ONE message rather than
+# reach a customer under the shop's name.
+TYPED = {"name": "mkt_offer_brief", "type": "mkt_offer", "tone": "brief", "class": "marketing",
+         "variables": [1, 2, 3, 4],
+         "fills": ["system", "system", "amount", "date"], "active": True}
 
 
-def _coupon(**over):
-    system = {"1": "محمد", "2": "مغسلة النخيل", "3": "20%", "4": "RJ-4F2K", "5": "21 أغسطس"}
+def _typed(**over):
+    system = {"1": "محمد", "2": "مغسلة النخيل", "3": "20%", "4": "21 أغسطس"}
     system.update(over)
-    return render(template=COUPON, system=system, catalogue={}, owner={})
+    return render(template=TYPED, system=system, catalogue={}, owner={})
 
 
 def test_a_typed_offer_goes_out_whole():
-    assert _coupon().variables == ["محمد", "مغسلة النخيل", "20%", "RJ-4F2K", "21 أغسطس"]
-    assert _coupon(**{"3": "50 ريال"}).variables[2] == "50 ريال"
+    assert _typed().variables == ["محمد", "مغسلة النخيل", "20%", "21 أغسطس"]
+    assert _typed(**{"3": "50 ريال"}).variables[2] == "50 ريال"
 
 
 @pytest.mark.parametrize("bad", ["خصم كبير", "٢٠٪", "20 %", "120%", "0%", "50 ريال فقط", ""])
@@ -228,20 +232,24 @@ def test_a_discount_that_is_not_a_number_never_leaves(bad):
     """«خصم كبير» promises nothing anybody can be held to, and Arabic-Indic digits are unreadable
     on half the phones our customers hold. Refused here rather than at the till."""
     with pytest.raises(RenderError):
-        _coupon(**{"3": bad})
+        _typed(**{"3": bad})
 
 
 def test_an_offer_with_no_end_is_refused():
     """An offer with no last day is an offer for ever, and the shop honours it long after it meant
     to stop. Refusing the send is the cheaper failure."""
     with pytest.raises(RenderError):
-        _coupon(**{"5": ""})
+        _typed(**{"4": ""})
 
 
-@pytest.mark.parametrize("bad", ["rj-4f2k", "RJ 4F2K", "", "RJ-4F2K-99-11"])
-def test_a_coupon_code_the_till_cannot_read_never_leaves(bad):
+def test_a_code_blank_is_no_longer_a_source_this_renderer_knows():
+    """THE DROPPED FEATURE, ASSERTED. `code` used to be a typed source with its own branch and its
+    own regex; the branch is gone, so a template still declaring it falls through to the
+    owner-slot path and REFUSES rather than quietly emitting whatever sat in that numbered slot."""
+    stale = dict(TYPED, fills=["system", "system", "amount", "code"])
     with pytest.raises(RenderError):
-        _coupon(**{"4": bad})
+        render(template=stale, system={"1": "محمد", "2": "م", "3": "20%", "4": "RJ-4F2K"},
+               catalogue={}, owner={})
 
 
 # ── the campaign path: one slot, one answer ────────────────────────────────────────────────────

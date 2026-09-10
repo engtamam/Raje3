@@ -277,10 +277,6 @@ class SendLog:
     # and then dropped. Kept here because the customer's page is read days later, when nobody is
     # holding that map any more.
     offer_service_names: list[str] = field(default_factory=list)
-    # THE CODE THE CUSTOMER READS OUT AT THE COUNTER. Derived from the send's own key rather than
-    # stored separately (core/coupons.py), and kept on the row because this row IS the entitlement
-    # — the till looks the offer up by what the customer says, and «عرض وصلني» is not a handle.
-    offer_code: str = ""
     # THE DISCOUNT ITSELF, TYPED (أ-7). «20%» or «50 ريال» — it was filled into the message slot
     # and went no further, so the customer read a number and the operator read only the sentence.
     # When the sentence is the owner's own free line it may not restate the amount at all, and the

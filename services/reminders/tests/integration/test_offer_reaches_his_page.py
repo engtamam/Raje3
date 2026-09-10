@@ -1,15 +1,13 @@
-"""أ-4 · the coupon and the service names that never left this service.
+"""أ-4 · the service names that never left this service.
 
-THE CHAIN. `tick.py` derives a coupon code and writes it on the send log — «the till looks the
-offer up by what the customer says, and «عرض وصلني» is not a handle». The customer's page reads
-`code` and renders it in large type, `dir=ltr`, «big enough to read from a phone held at arm's
-length across a counter». Between the two, `/internal/portal/offers` — the ONLY route that carries
-offers to that page — did not emit the field. So the page opened FROM the message that carried the
-offer was the one place its code could not be found.
+THE SCOPE ARRIVED AS IDENTIFIERS. `/internal/portal/offers` — the ONLY route that carries offers
+to the customer's page — emitted `offer_services`, which are ours, and the page printed them:
+«على: svc_9f2a…». The names were held at send time — the caller owns the catalogue and sends the
+words — used to render the message, and dropped.
 
-AND THE SCOPE ARRIVED AS IDENTIFIERS. The route emitted `offer_services`, which are ours, and the
-page printed them: «على: svc_9f2a…». The names were held at send time — the caller owns the
-catalogue and sends the words — used to render the message, and dropped.
+THE COUPON CODE THIS FILE ALSO GUARDED IS GONE, feature and all. The offer is recognised from the
+send log itself the moment the customer stands in front of an operator (operations' `apply_offer`),
+so a code read aloud across a counter was a second handle on a fact the first one already settled.
 
 Every link was correct alone. Nothing logged, nothing failed, and the defect is only visible from
 end to end, which is why this test starts at the store and finishes at the response body.
@@ -54,7 +52,7 @@ def _internal() -> dict:
     return {"X-Internal-Token": "t" * 40}
 
 
-def _offer(client, tenant: str, *, names: list[str], ids: list[str], code: str) -> None:
+def _offer(client, tenant: str, *, names: list[str], ids: list[str]) -> None:
     """A send log row exactly as `tick.py` writes one after a message goes out."""
     from app.core.models import SendLog, as_row
     from app.core.stores import SendLogStore
@@ -64,7 +62,7 @@ def _offer(client, tenant: str, *, names: list[str], ids: list[str], code: str) 
                   outcome="sent", idempotency_key="idem_1",
                   offer_text="خصم 20% على الغسيل الخارجي",
                   offer_expires_at=int(time.time()) + 3 * 86_400,
-                  offer_services=ids, offer_service_names=names, offer_code=code)
+                  offer_services=ids, offer_service_names=names)
     asyncio.run(SendLogStore(client.app.state.container.datastore).append(tenant, as_row(row)))
 
 
@@ -76,19 +74,25 @@ def _offers(client, tenant: str) -> list[dict]:
     return r.json()["offers"]
 
 
-def test_the_code_he_must_read_out_reaches_his_page(client):
-    _offer(client, "t_code", names=["غسيل خارجي"], ids=["svc_9f2a"], code="RJ-7K2M")
+def test_a_live_unspent_offer_is_on_his_page_at_all(client):
+    _offer(client, "t_live", names=["غسيل خارجي"], ids=["svc_9f2a"])
 
-    got = _offers(client, "t_code")
+    got = _offers(client, "t_live")
 
     assert got, "the row is live and unspent — it must be on his page at all"
-    assert got[0]["code"] == "RJ-7K2M", (
-        "the page renders this in large type and the till has no other handle on the offer")
+
+
+def test_no_offer_on_his_page_carries_a_coupon_code_any_more(client):
+    """THE DROPPED FEATURE, ASSERTED RATHER THAN ASSUMED. The code was minted on the send path,
+    written on this row and rendered here in large type; every one of those is gone, and a `code`
+    key reappearing on this response is the shape a half-revert takes."""
+    _offer(client, "t_nocode", names=["غسيل خارجي"], ids=["svc_9f2a"])
+
+    assert "code" not in _offers(client, "t_nocode")[0]
 
 
 def test_the_scope_arrives_in_words_and_not_as_our_keys(client):
-    _offer(client, "t_names", names=["غسيل خارجي", "تلميع"], ids=["svc_9f2a", "svc_1b3c"],
-           code="RJ-1A1A")
+    _offer(client, "t_names", names=["غسيل خارجي", "تلميع"], ids=["svc_9f2a", "svc_1b3c"])
 
     got = _offers(client, "t_names")
 
@@ -102,10 +106,10 @@ def test_an_offer_with_no_scope_says_so_separately_from_one_we_cannot_name(clien
     """THE THIRD STATE. Empty names used to mean «the whole shop» — so an offer limited to one
     service became a promise covering everything the moment the words were missing, and he found
     that out at the counter in front of somebody who had to refuse him."""
-    _offer(client, "t_all", names=[], ids=[], code="RJ-2B2B")
+    _offer(client, "t_all", names=[], ids=[])
     assert _offers(client, "t_all")[0]["scoped"] is False
 
-    _offer(client, "t_old", names=[], ids=["svc_9f2a"], code="RJ-3C3C")
+    _offer(client, "t_old", names=[], ids=["svc_9f2a"])
     assert _offers(client, "t_old")[0]["scoped"] is True, (
         "limited, and we cannot say to what — which is neither «the whole shop» nor a gap")
 
@@ -121,7 +125,7 @@ def test_the_amount_reaches_his_page_beside_the_sentence(client):
     row = SendLog(tenant="t_val", subject_ref="sub_" + "a" * 24, cls="marketing",
                   at=int(time.time()), outcome="sent", idempotency_key="idem_v",
                   offer_text="لك مفاجأة عندنا", offer_expires_at=int(time.time()) + 86_400,
-                  offer_value="20%", offer_code="RJ-9Z")
+                  offer_value="20%")
     _a.run(SendLogStore(client.app.state.container.datastore).append("t_val", as_row(row)))
 
     got = _offers(client, "t_val")

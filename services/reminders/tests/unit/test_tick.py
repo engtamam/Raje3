@@ -952,7 +952,10 @@ def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
     logged = run(SendLogStore(st).live_offers("t1", "sub_a", used_refs=set(), now=at(10)))
     assert logged, "the offer was sent, so it is on the log"
     assert logged[0]["offer_service_names"] == ["قص شعر", "الإطارات"]
-    assert logged[0]["offer_code"], "and the coupon it was rendered with is kept beside them"
+    # AND NO COUPON CODE BESIDE THEM ANY MORE. The row used to carry one, minted from this send's
+    # own key; the whole feature is gone (the offer is recognised from this very row at the till),
+    # and a re-appearing key here is what a half-revert would look like.
+    assert "offer_code" not in logged[0]
 
 
 # ── the report Flow's own button (rating-app-feature.md phase 6b) ─────────────────────────────

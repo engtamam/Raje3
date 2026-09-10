@@ -554,14 +554,6 @@ export function Visit() {
                     {t('visit.offer.expires')} {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
                   </div>
                 ) : null}
-                {/* THE CODE, WHEN THE OFFER CARRIES ONE. The customer says «عندي رمز» and reads
-                    it off his phone; without it on this screen the operator has nothing to match
-                    against and either refuses a real offer or takes his word for it. */}
-                {offer.code ? (
-                  <div dir="ltr" className="mt-1 font-mono text-sm tracking-wider opacity-90">
-                    {offer.code}
-                  </div>
-                ) : null}
                 {/* THE TAP, AND IT IS NOT PRESSED FOR HIM. A customer may be holding this for next
                     month; applying it because he happened to walk in would be taking something from
                     him. So it is a deliberate act, and it says what it will do. */}

@@ -54,7 +54,6 @@ BALANCE = "balance"          # what is left after
 ACTION = "action"            # what just happened to his account, in our words
 DIGEST = "digest"            # the week in one line, composed by us
 OFFER_VALUE = "offer_value"  # «20%» or «50 ريال» — typed, never a sentence
-COUPON = "coupon"            # a code, one per customer, machine-made
 ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
 CODE = "code"                # a one-time code the customer is waiting for
@@ -127,7 +126,6 @@ SLOT_LABEL = {
     ACTION: "ما تمّ",
     DIGEST: "ملخّص الأسبوع",
     OFFER_VALUE: "قيمة الخصم",
-    COUPON: "رمز القسيمة",
     ENDS_AT: "ينتهي في",
     FREE_TEXT: "نصّك",
     CODE: "الرمز",
@@ -387,7 +385,6 @@ SAMPLE = {
     ACTION: "استبدال نقاطك",
     DIGEST: "3 زيارات هذا الأسبوع",
     OFFER_VALUE: "20%",
-    COUPON: "RJ-4F2K",
     ENDS_AT: "21 أغسطس",
     FREE_TEXT: "افتتحنا فرعاً جديداً",
     CODE: "4821",
@@ -427,7 +424,7 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     fills = list(template.get("fills") or [])
     variables = list(template.get("variables") or [])
     by_source = {"system": "", "catalogue": SAMPLE[SERVICE], "owner": SAMPLE[FREE_TEXT],
-                 "amount": SAMPLE[OFFER_VALUE], "code": SAMPLE[COUPON], "date": SAMPLE[ENDS_AT],
+                 "amount": SAMPLE[OFFER_VALUE], "date": SAMPLE[ENDS_AT],
                  # BY SOURCE, NEVER BY POSITION. The address lands on slot 3 in a visit
                  # confirmation and on slot 6 in an offer, so the numbered fallback below
                  # would have drawn «قص شعر» where the owner expects to see a link.

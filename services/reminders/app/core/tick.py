@@ -35,7 +35,6 @@ from app.core import gate as G
 from app.core.custom_templates import CustomTemplateStore
 from app.core import quota as Q
 from app.core import ceiling as C
-from app.core import coupons as COUPONS
 from app.core import ladder as L
 # `LINKS`, not `L`: the ladder already owns that name here, and an address composed by the
 # wrong module is the kind of mistake a one-letter alias makes easy.
@@ -490,12 +489,7 @@ class Tick:
             # owner's single sentence into slots 3 AND 4 through all three source dicts, so a
             # four-variable template said the same thing twice; and it passed slot 1 empty, which
             # greeted every customer «عميلنا العزيز» although we hold their names. A typed slot
-            # (a discount, a coupon code, an end date) had no value to take at all.
-            # THE COUPON, DERIVED HERE AND NOWHERE ELSE. Same send, same code — a retry after a
-            # timeout must not hand the customer a second one, and a random code would need a
-            # write on the send path for no gain.
-            coupon = (COUPONS.code_for(str(row.get("idempotency_key") or ""))
-                      if int(row.get("offer_expires_at") or 0) else "")
+            # (a discount, an end date) had no value to take at all.
             values = R.campaign_slots(
                 template,
                 establishment=establishment,
@@ -503,7 +497,6 @@ class Tick:
                 service_text=R.merged_service_text(
                     [service_names.get(s, s) for s in (row.get("offer_services") or [])]),
                 offer_value=str(row.get("offer_value", "")),
-                coupon_code=coupon,
                 expires_at=int(row.get("offer_expires_at") or 0))
             # ONE DICT, PASSED AS ALL THREE. `campaign_slots` has already answered per source, so
             # handing the renderer three different maps would be deciding the same thing twice and
@@ -622,12 +615,9 @@ class Tick:
             # catalogue map — printed «على: svc_9f2a…» to a customer.
             offer_service_names=[service_names[s] for s in (row.get("offer_services") or [])
                                  if s in service_names],
-            # RECORDED WITH THE OFFER IT BELONGS TO. The customer will read it back to an operator
-            # who has to find this row from that string alone.
-            # RECORDED WITH THE OFFER, like the code: it is a fact about what was granted, and
-            # every reader of this row needs it to say what the discount actually is.
-            offer_value=str(row.get("offer_value", "")),
-            offer_code=coupon)))
+            # RECORDED WITH THE OFFER: it is a fact about what was granted, and every reader of
+            # this row needs it to say what the discount actually is.
+            offer_value=str(row.get("offer_value", "")))))
         return {"sent": True, "reason": ""}
 
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
@@ -1085,7 +1075,7 @@ class Tick:
                 #
                 # `ladder.py` calls the second rung an OFFER, and this line believed it: it
                 # flipped `cls` to marketing and changed NOTHING else — same `template_type`,
-                # no `offer_value`, no coupon, no expiry. So an ordinary service sentence went
+                # no `offer_value`, no expiry. So an ordinary service sentence went
                 # out billed against the marketing share, counted against its cap, held by its
                 # cooling rules — AND DROPPED ENTIRELY for everyone who never gave explicit
                 # marketing consent. The second touch simply vanished, for most customers, and

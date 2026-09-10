@@ -4,15 +4,12 @@ WHY THIS IS A MODULE AND NOT A LINE IN EACH CALLER. A keyboard set to Arabic pro
 and the man typing does not think about it — he has typed his own phone number. Every value a
 person hands us can arrive in either script, and the two must fold to one BEFORE anything compares,
 stores or looks it up. `plate.py` learned this early and did it in its own file; `operations.py`
-and `coupons.py` did not, and each paid for it separately:
+did not, and paid for it:
 
   * `_normalise_phone` filtered with `str.isdigit()`, which answers True for ٥ — so the digits
     survived in Arabic form, `startswith("966")` missed, `lstrip("0")` missed, and the number was
     stored as typed. The same person on two keyboards became TWO customers, which is the exact
     outcome that function's own docstring exists to prevent.
-  * `coupons.normalise` repaired case, spaces and a missing dash — everything a person does to a
-    code except the one thing their keyboard does to it. A customer holding a valid coupon was
-    refused at the counter, in front of the operator, with no way for either of them to see why.
 
 `str.isdigit()` IS THE TRAP, AND IT IS BANNED HERE. It is true for every decimal digit in Unicode,
 so in an Arabic-market product it never means what the person writing it meant. It reads as «is

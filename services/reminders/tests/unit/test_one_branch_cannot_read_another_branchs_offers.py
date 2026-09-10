@@ -74,9 +74,9 @@ class _Principal:
 def _rows():
     return [
         {"tenant": TENANT, "subject_ref": SUBJECT, "branch_id": "br_jeddah", "outcome": "sent", "at": 1_780_000_100,
-         "offer_text": "خصم جدة", "offer_code": "JED1", "offer_expires_at": 9_999_999_999},
+         "offer_text": "خصم جدة", "offer_expires_at": 9_999_999_999},
         {"tenant": TENANT, "subject_ref": SUBJECT, "branch_id": "br_riyadh", "outcome": "sent", "at": 1_780_000_200,
-         "offer_text": "خصم الرياض", "offer_code": "RUH1", "offer_expires_at": 9_999_999_999},
+         "offer_text": "خصم الرياض", "offer_expires_at": 9_999_999_999},
     ]
 
 
@@ -87,18 +87,20 @@ def _offers(scope_answer):
 
 
 def test_a_jeddah_supervisor_does_not_read_riyadhs_offer():
-    """THE DEFECT. One pseudonym, and another branch's offer code and value came back."""
+    """THE DEFECT. One pseudonym, and another branch's offer text and value came back."""
     out = _offers("br_jeddah")
 
-    codes = [o["code"] for o in out["offers"]]
-    assert codes == ["JED1"], "Riyadh's offer reached a supervisor scoped to Jeddah"
+    # THE OFFER'S OWN SENTENCE IS THE HANDLE NOW, not a coupon code — the code was this shop's
+    # second identifier for the same row and the whole feature is gone.
+    texts = [o["text"] for o in out["offers"]]
+    assert texts == ["خصم جدة"], "Riyadh's offer reached a supervisor scoped to Jeddah"
 
 
 def test_the_owner_still_sees_every_branch():
     """He is unscoped by design, as is everybody in a shop that assigns nobody to a branch — most
     shops. A fix that locked them out would be the same defect facing the other way."""
-    codes = sorted(o["code"] for o in _offers("")["offers"])
-    assert codes == ["JED1", "RUH1"]
+    texts = sorted(o["text"] for o in _offers("")["offers"])
+    assert texts == ["خصم الرياض", "خصم جدة"]
 
 
 def test_a_scope_we_could_not_read_shows_nothing_and_says_so():
