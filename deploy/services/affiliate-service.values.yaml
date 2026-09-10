@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/affiliate-service
-  digest: "sha256:fa172d69fe4f4c7e660a07082f793655bc0851885becc1cff0c718742cd82b22"   # 708d243d, published by publish-images.sh
+  digest: "sha256:4302765b1737140f7c3ee36d0a1f0edb3907269da1edf364a5a5b2b89c9834d9"   # a7802678, published by publish-images.sh
 
 replicas: 1
 

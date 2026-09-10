@@ -1,24 +1,24 @@
 {
-  "release": "v0.19.2",
+  "release": "v0.19.4",
   "images": {
     "analytics-service": "sha256:d9fadc29677b14ef30f996b86b7650dc4eacd09858934e4e4671b6a1f4caefea",
     "api-gateway": "sha256:a4b1d1ce53883be76cff1fcd210295d470fffc7651bc7223b134b8289ea05b57",
-    "assistant-service": "sha256:1439c27e19bb68e23abee3eeff8b5828aa33079f4da778800fa0a4b2fdb0c53c",
+    "assistant-service": "sha256:d8f15f89f2c4da724eb9f80ed6868997de1a528994386ffc6a1c95c573e8aebe",
     "audit-service": "sha256:e0a443537be1ae573874c9b4178fd59f353becf8fe58de65d9117bc2a0304476",
     "authz-service": "sha256:ce01ccb7fa4efc05a9ffec6aa6596e77071fd6c3e75ee15f7761887129054765",
     "backup-service": "sha256:ada5f7a2e12f2b8dbb9633b64993fb26e28175b4bb362f735661c885d401eeea",
-    "billing-service": "sha256:17d40e72946bafd43dc776ef3146b5621d0d3c3cf2c80c822ea5d4cc094b8e2f",
+    "billing-service": "sha256:d452cb9866b98f37eb5ab5f8f6468b9bf8e42908390bc4ec6e61f0746907ba83",
     "compliance-service": "sha256:93599feb6fa2d7dad3033c68bb563a7c21c3602d5f428d4760ec3bc0a4eaae9a",
     "connector-service": "sha256:bd530988da864418100f79b4c2ca40ceca68b8a97998a1a59612571b0287729c",
     "feature-flag-service": "sha256:ee0bb4b355f802bd83186efb654287756e6c1d9869ac5f8318a66b6b63c51216",
     "identity-service": "sha256:59d7b01be157ebc43fe2df791df1a8394684401fc92fe70f98eac67e8c27107a",
     "job-service": "sha256:7f3e8b78e44637ea729bdbbd15bd98076f0807dca66f91237cf8afa47ca30d8c",
-    "notification-service": "sha256:02d553ca257eaf3d12c715a0c8fda15aa4939d17fd1e315f10095a4d7550d9a8",
+    "notification-service": "sha256:7f2881a738fed59e3f4d25880be2314765eebcf9c012692270ff0f3b0ca8be97",
     "onboarding-service": "sha256:50024970e684490cfbae08ce3c0b6244ba3cbbeb8f5f693c898e2a2d31c97620",
     "search-service": "sha256:8bc58f8689b6c66d0b93c333a8022eca13e540b9f13cb65bdcc3d5e4aabd0234",
     "tenant-service": "sha256:c723f0b0a71783e9eaeee13f063040b048a2c9932dff084333b717f1fdb58742",
     "ticket-service": "sha256:3086d3601497298c01b5cbf72782db8ad39cdb1a6f2cb254e7596f9a8c374464",
-    "wallet-service": "sha256:c07a1a1a765ef2dc5d8c43ca678b9c8a7cb621582022c60a07b2a441b188a2a7",
+    "wallet-service": "sha256:a826964eb5f4a487c2b423483e7b049e4aac98745ee17754dfe33445a995b45b",
     "webhook-service": "sha256:089428855635f12cf5796430a06f5716c39eb5fdddb617e20355c8e3157192fd"
   }
 }
