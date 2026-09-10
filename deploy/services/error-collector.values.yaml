@@ -91,10 +91,16 @@ env:
   # (apps/console/src/lib/errorReporter.ts); this is the backstop behind it.
   RATELIMIT_MAX: "1200"
   RATELIMIT_WINDOW_SECONDS: "60"
-  # rs256, WHICH IS THE FLEET'S ONE TRUST MODEL: identity signs, everyone else verifies with the
-  # shared TOKEN_PUBLIC_KEY (named in secretRefs at the bottom of this file). A second driver here
-  # would be a second trust model on the product, which `ci/check_deploy_wiring.py` refuses.
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  # jwks, LIKE THE REST OF THE FLEET — NOT rs256. This was the one service still pinned to a
+  # static TOKEN_PUBLIC_KEY copied once at cluster bring-up (mint-our-secrets.sh) and never
+  # refreshed: identity-service's own signing_keyring.py rotates its key on a real cadence, with
+  # an overlap window SPECIFICALLY so a rotation "does not log people out" for a jwks verifier
+  # that re-fetches live — but a static-key verifier never re-fetches, so once a rotation
+  # happened this service alone would start rejecting freshly-issued tokens while every other
+  # service kept working. Found live: an operator got logged out of the WHOLE admin panel every
+  # so often, only ever when opening «سجل الأخطاء» — the one screen this service serves.
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
@@ -162,4 +168,6 @@ ingress:
 # INTERNAL_SERVICE_TOKEN is the one Fluent Bit presents on every ingest — the same shared value
 # every other service already holds, read by deploy/k3s/fluent-bit.yaml from this service's own
 # secret rather than duplicated into one of its own.
-# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN, TOKEN_PUBLIC_KEY, DATASTORE_DSN
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN, DATASTORE_DSN
+# TOKEN_PUBLIC_KEY dropped from that list with the move to jwks above — a jwks verifier fetches
+# its key live from identity-service and needs no static secret at all.

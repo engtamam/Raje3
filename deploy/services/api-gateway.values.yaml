@@ -250,6 +250,7 @@ env:
       {"prefix":"/api/v1/platform/branches","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/tenants","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/customers","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/partners","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/sandbox","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/statements","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
