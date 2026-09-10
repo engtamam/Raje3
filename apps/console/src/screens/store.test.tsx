@@ -12,6 +12,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SECTIONS, STORE_PATH, visibleSections } from '../nav';
 import { LockedCard } from './Locked';
+import { ANONYMOUS } from '../session';
 
 const catalog = (...ids: string[]) => ({
   services: [{ name: 'billing', actions: ids.map((id) => ({ id, label: id, method: 'GET', path: `/${id}` })) }],
@@ -38,7 +39,7 @@ describe('«متجر التطبيقات» — the name has an address now', () =
     // in the rail and the destination of the button were two facts that could drift apart.
     render(
       <MemoryRouter>
-        <LockedCard appId={'campaigns'} />
+        <LockedCard appId={'campaigns'} session={ANONYMOUS} catalog={catalog()} />
       </MemoryRouter>,
     );
     const link = screen.getByRole('link');

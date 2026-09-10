@@ -873,7 +873,7 @@ export function MessagesScreen(
                       {inSection.map((c) => (
                         <li key={c.key}>
                           {c.lockAppId ? (
-                            <AppGate appId={c.lockAppId} owned={owned}>
+                            <AppGate appId={c.lockAppId} owned={owned} session={session} catalog={catalog}>
                               <TemplateCardItem card={c} session={session} busy={busy}
                                                 onOpen={() => setReading(c)}
                                                 onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
@@ -1139,7 +1139,7 @@ export function MessagesScreen(
         //
         // And the card now carries a way to buy it. Naming a feature he cannot reach, with no
         // button, is an advertisement rather than a product.
-        <LockedCard appId="campaigns" />
+        <LockedCard appId="campaigns" session={session} catalog={catalog} owned={owned} />
       ) : campaignsFailed ? (
         <EmptyState
           title="تعذّرت قراءة حملاتك"

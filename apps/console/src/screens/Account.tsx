@@ -308,7 +308,7 @@ export function AccountScreen(
                   assistant that would never read either, because both cards only ever checked
                   whether the OPERATOR'S ROLE could write, never whether the SHOP had bought the
                   bot. Same shape as every other app's lock (Locked.tsx's own AppGate). */}
-              <AppGate appId="whatsapp" owned={owned}>
+              <AppGate appId="whatsapp" owned={owned} session={session} catalog={catalog}>
                 <AiNotesCard session={session} catalog={catalog} />
                 <MsgWordLimitCard session={session} catalog={catalog} />
               </AppGate>

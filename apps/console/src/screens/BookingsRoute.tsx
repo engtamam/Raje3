@@ -8,9 +8,9 @@ import { AppGate } from './Locked';
  * الترقية هنا فقط؛ ولا يفقد شيئاً في «تسجيل زيارة» أو «عملائي» — القاعدة نفسها في كل تطبيق.
  */
 export function Bookings() {
-  const { session, owned, branch, branches, setBranch } = useOutletContext<ShellContext>();
+  const { session, catalog, owned, branch, branches, setBranch } = useOutletContext<ShellContext>();
   return (
-    <AppGate appId="bookings" owned={owned}>
+    <AppGate appId="bookings" owned={owned} session={session} catalog={catalog}>
       <BookingsScreen session={session} branch={branch} branches={branches} onBranch={setBranch} />
     </AppGate>
   );

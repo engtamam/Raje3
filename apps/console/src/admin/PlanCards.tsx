@@ -40,9 +40,9 @@
  */
 import { useState } from 'react';
 import {
-  Package, Check, X, Power, Pencil, Users, GitBranch, Plug, Sparkles, Gift,
-  Megaphone, LineChart, MessageSquare, FileText, Eye, EyeOff, CheckCircle2, PauseCircle,
-  Star, PhoneCall, ClipboardCheck, Boxes, Layers,
+  Package, Check, X, Power, Pencil, Users, GitBranch, Plug,
+  MessageSquare, FileText, Eye, EyeOff, CheckCircle2, PauseCircle,
+  Boxes, Layers,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
@@ -55,7 +55,9 @@ import { riyals, riyalsLabel, halalas } from '../money';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
-import { LIMIT_WORDS, REQUIRES_ANY_LABELS, isStandalone, kindOf } from '../screens/Plans';
+import { LIMIT_WORDS, REQUIRES_ANY_LABELS, isStandalone, kindOf, appKey } from '../screens/Plans';
+import { APP_ROWS } from '../apps';
+import { appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 
 interface LimitEntry { kind: 'boolean' | 'gauge' | 'counter' | string; limit: number | 'unlimited'; period?: string }
 interface Price { type: string; currency: string; interval: string; amount_minor: number }
@@ -64,35 +66,32 @@ interface Plan {
   prices: Price[]; limits: Record<string, LimitEntry>; trial_days: number;
 }
 
-// The icon per key — the one thing `Plans.tsx`'s own `LIMIT_WORDS` has no room for (that screen
-// prints a plain check-mark line, never an icon per feature). Keyed the SAME as `LIMIT_WORDS`, so
-// a key with no entry here still renders (falls back to a generic icon) rather than breaking.
+// The icon for a NON-APP limit (a seat, a branch, the message meter) — the small remainder that
+// has no row in `apps.ts` to read from. A `feature.*` key is never listed here on purpose: its
+// icon comes from `APP_ROWS` below, the same single source every other screen already reads, so
+// an app never wears a different icon on this screen than on Plans.tsx/Locked.tsx.
 const LIMIT_ICON: Record<string, typeof Users> = {
   'staff.seats': Users,
   branches: GitBranch,
-  'feature.bookings': Gift,
   'feature.api': Plug,
-  'feature.loyalty': Gift,
-  'feature.campaigns': Megaphone,
-  'feature.insights.engine': LineChart,
   'messages.monthly': MessageSquare,
   'templates.custom': FileText,
-  'feature.rating': Star,
-  'feature.whatsapp': MessageSquare,
-  'feature.contacts': PhoneCall,
-  'feature.visit': ClipboardCheck,
   'plan.standalone': Boxes,
 };
 
-// technical key -> Arabic label (from `Plans.tsx`'s own `LIMIT_WORDS`) + icon (above). A key with
-// no sentence there falls back to `REQUIRES_ANY_LABELS` (for `plan.requires_any` itself, which
+// technical key -> Arabic label (from `Plans.tsx`'s own `LIMIT_WORDS`) + icon. A key with no
+// sentence there falls back to `REQUIRES_ANY_LABELS` (for `plan.requires_any` itself, which
 // `Plans.tsx` deliberately never prints as a line) and finally to the raw key — never hidden,
 // never breaking the screen, but the raw-key fallback should now be dead code in practice.
 function limitLabel(key: string): string {
   return LIMIT_WORDS[key]?.label ?? REQUIRES_ANY_LABELS[key] ?? key;
 }
 function limitIcon(key: string): typeof Users {
-  return LIMIT_ICON[key] ?? Sparkles;
+  // A `feature.*` key IS an app, and `apps.ts` already names its icon — reading it here instead
+  // of a second hardcoded map is the whole point of this screen's redesign (see the header note).
+  const row = APP_ROWS.find((a) => a.key === key);
+  if (row) return appIcon(row.icon) as typeof Users;
+  return LIMIT_ICON[key] ?? Boxes;
 }
 
 // "month" (a calendar month, regardless of billing interval — templates.custom's own reset clock)
@@ -172,7 +171,14 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
   // limits (`kindOf`/`isStandalone`, `Plans.tsx`'s own logic, imported rather than re-derived),
   // never off its name — and both get their own icon/tone rather than sharing the generic Package
   // every card used to wear regardless of what it actually sold.
-  const CardIcon = kind === 'capacity' ? Boxes : kind === 'base' ? Layers : Package;
+  // THE SAME AppRow apps.ts's OWN icon/tone — a capacity row (no app of its own) still gets
+  // `Boxes`, but a real app (base included) reads its icon/colour from the one registry every
+  // other screen already reads, instead of the plain grey `Package` this card used to fall back
+  // to for anything it could not otherwise name.
+  const matchedApp = kind === 'capacity' ? undefined
+    : kind === 'base' ? APP_ROWS.find((a) => a.id === 'base')
+    : APP_ROWS.find((a) => a.key === appKey(plan as never));
+  const CardIcon = kind === 'capacity' ? Boxes : matchedApp ? appIcon(matchedApp.icon) : Package;
 
   async function toggleActive() {
     if (!availabilityAction) return;
@@ -214,7 +220,7 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
       <div className="flex items-start justify-between gap-3">
         <span className={[
           'inline-flex w-fit rounded-lg p-2',
-          plan.active ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
+          plan.active ? toneClasses(matchedApp?.tone ?? 'accent') : 'bg-surface-2 text-text-secondary',
         ].join(' ')}>
           <CardIcon size={20} />
         </span>

@@ -21,7 +21,7 @@ export function Points() {
   const { session, catalog, owned } =
     useOutletContext<ShellContext>();
   return (
-    <AppGate appId="loyalty" owned={owned}>
+    <AppGate appId="loyalty" owned={owned} session={session} catalog={catalog}>
       <PointsScreen session={session} catalog={catalog} />
     </AppGate>
   );
