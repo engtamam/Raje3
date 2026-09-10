@@ -111,6 +111,10 @@ def build_manifest(
             {"path": "/api/v1/bookings/{}/cancel", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/attend", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/no-show", "tier": "user", "method": "PATCH"},
+            # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — deliberately `tier: user`
+            # with no `bookings.read`/`bookings.write` requirement: a shop deciding whether to buy
+            # this app has to be able to read what it would get, same posture as the price list.
+            {"path": "/api/v1/bookings/features", "tier": "user", "method": "GET"},
         ],
         "ports": ports or [],  # port -> driver, from the composition root
         # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty

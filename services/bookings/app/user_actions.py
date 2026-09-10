@@ -33,6 +33,15 @@ from typing import Any
 
 USER_ACTIONS: list[dict[str, Any]] = [
     {
+        "id": "bookings.features", "label": "مميزات تطبيق الحجوزات", "method": "GET",
+        "path": "/api/v1/bookings/features", "capability": "bookings.read",
+        "group": "التطبيقات",
+        # لا يتحقق من licence.py إطلاقاً (app/api/v1/features.py's own docstring) — بطاقة
+        # المتجر تُقرأ قبل الشراء، والقدرة نفسها (bookings.read) دور وظيفي لا اشتراك: كل مالك/
+        # مدير يحملها أصلاً بغض النظر هل اشترى التطبيق أم لا (roles.json).
+        "help": "قائمة المميزات الحقيقية اللي يوفّرها تطبيق الحجوزات، بصياغة تسويقية قصيرة.",
+    },
+    {
         "id": "bookings.list", "label": "جدول الحجوزات", "method": "GET",
         "path": "/api/v1/bookings", "capability": "bookings.read",
         "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},

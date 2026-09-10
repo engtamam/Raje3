@@ -22,6 +22,7 @@ from app.api.errors import register_error_handlers
 from app.api.health import register_readiness_check
 from app.api.v1 import router as v1_router
 from app.api.v1.bookings import router as bookings_router
+from app.api.v1.features import router as features_router
 from app.api.v1.operator import router as operator_router
 from app.config import get_settings
 from app.core.audit import build_auditor
@@ -162,6 +163,7 @@ def create_app() -> FastAPI:
     # Operator controls: credentials and policy an operator changes after launch.
     app.include_router(operator_router)
     app.include_router(bookings_router)
+    app.include_router(features_router)
 
     return app
 
