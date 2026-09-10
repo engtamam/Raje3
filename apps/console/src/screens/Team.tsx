@@ -1141,8 +1141,11 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
         // tab, no address. Now it is a place, and this is a link to it rather than an
         // instruction.
         <div className="flex flex-col items-start gap-2 rounded-card bg-surface-2 p-3">
+          {/* Not «اشتراكك الحالي» (singular) — the branch cap is the SUM of the base's own gauge plus
+              every «فرع إضافي» add-on subscription he holds (billing-service merges gauge limits
+              across every live subscription), never one subscription's own number. */}
           <p className="text-sm">
-            وصلت إلى عدد الفروع في اشتراكك الحالي. أضِف فروعاً أكثر من متجر التطبيقات.
+            وصلت إلى عدد الفروع المسموح به حالياً. أضِف فروعاً أكثر من متجر التطبيقات.
           </p>
           <div className="flex items-center gap-2">
             <Link
