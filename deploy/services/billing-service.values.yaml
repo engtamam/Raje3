@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/billing-service
-  digest: "sha256:d452cb9866b98f37eb5ab5f8f6468b9bf8e42908390bc4ec6e61f0746907ba83"   # v0.19.9
+  digest: "sha256:6aa06af2c3662d3c5a82054927d32ba77edcbee7cdd77a4f5a9d46a44990fcbc"   # v0.19.10
 
 replicas: 1
 
