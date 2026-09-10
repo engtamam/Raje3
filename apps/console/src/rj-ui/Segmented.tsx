@@ -64,7 +64,7 @@ export function Segmented<T extends string>({
       aria-disabled={disabled || undefined}
       data-testid={testId}
       className={cn(
-        // `self-start` — WITHOUT IT, a bare `<Segmented />` dropped into any plain
+        // `self-start` — WITHOUT IT, a bare Segmented element dropped into any plain
         // `flex flex-col` parent (no `items-start` set on that parent — most of the console
         // never sets it) gets STRETCHED to the parent's full cross-axis width by the flex
         // default (`align-items: stretch`), even though the track itself is `inline-flex`.

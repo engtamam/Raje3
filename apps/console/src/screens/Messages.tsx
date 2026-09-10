@@ -1011,6 +1011,17 @@ export function MessagesScreen(
       ) : tab === 'log' ? (
         <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
+            {/* THE SENTENCE MOVED ABOVE THE FILTER, not below it as every other hint on this page
+                reads — this tab sits directly under the page's own top-level strip (the "أقسام
+                الرسائل" Segmented above), and a second Segmented (this log filter) with nothing
+                between them is exactly "شريطين تحت بعض", the shape the owner ruled out. The
+                sentence is real content, not filler inserted just to separate two strips: it is
+                the same "why is a message missing" explanation this tab always carried, just
+                placed where it now also does the job of keeping the two strips apart. */}
+            <p className="flex flex-wrap items-center gap-1 px-1 text-sm text-text-secondary">
+              كل رسالة لم تخرج، ومعها سببها — لا شيء يُمنع بصمت.
+              <AssistantHint session={session} anchor="messages.deliveryStatus" />
+            </p>
             <Segmented
               className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
               ariaLabel="تصفية السجل"
@@ -1025,10 +1036,6 @@ export function MessagesScreen(
                 { value: 'suppressed', label: 'لم تخرج' },
               ]}
             />
-            <p className="flex flex-wrap items-center gap-1 px-1 text-sm text-text-secondary">
-              كل رسالة لم تخرج، ومعها سببها — لا شيء يُمنع بصمت.
-              <AssistantHint session={session} anchor="messages.deliveryStatus" />
-            </p>
             {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE. «صفِّ حسب فرعك الوحيد» is a control
                 that does nothing, and one more thing to read past. */}
             {(branches ?? []).length > 1 ? (
