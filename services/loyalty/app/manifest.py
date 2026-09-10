@@ -118,6 +118,9 @@ def build_manifest(
             {"path": "/api/v1/loyalty/settings/package/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/loyalty/settings/mode", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/loyalty/report", "tier": "user", "method": "GET"},
+            # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — no `loyalty.*` capability,
+            # deliberately: a shop deciding whether to buy this app has to read what it would get.
+            {"path": "/api/v1/loyalty/features", "tier": "user", "method": "GET"},
             # OURS: support repairing a balance for a shop that is not theirs.
             {"path": "/api/v1/loyalty/platform/reconcile", "tier": "user", "method": "POST"},
             {"path": "/api/v1/loyalty/whoami", "tier": "user", "method": "GET"},

@@ -20,6 +20,14 @@ from typing import Any
 
 USER_ACTIONS: list[dict[str, Any]] = [
     {
+        "id": "loyalty.features", "label": "مميزات برنامج النقاط", "method": "GET",
+        "path": "/api/v1/loyalty/features", "capability": "loyalty.read",
+        "group": "التطبيقات",
+        # لا يتحقق من الاشتراك إطلاقاً (app/api/v1/features.py's own docstring) — بطاقة المتجر
+        # تُقرأ قبل الشراء، والقدرة loyalty.read دور وظيفي لا اشتراك.
+        "help": "قائمة المميزات الحقيقية اللي يوفّرها برنامج النقاط، بصياغة تسويقية قصيرة.",
+    },
+    {
         "id": "loyalty.balance", "label": "رصيد النقاط", "method": "GET",
         "path": "/api/v1/loyalty/balance/{subject_ref}", "capability": "loyalty.read",
         "params": [{"name": "subject_ref", "in": "path", "type": "string", "required": True}],
