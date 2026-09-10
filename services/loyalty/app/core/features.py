@@ -11,6 +11,10 @@ NOTHING HERE IS SHARED WITH ANOTHER APP. The one tempting candidate — "نبّ�
 actual "balance just crossed into affordability → send a nudge" decision is campaigns-service's
 own (`services/reminders/app/core/reasons.py`'s `reward_within_reach`, `source="campaigns"`). That
 belongs in campaigns' own future catalog, not claimed here.
+
+REWRITTEN 2026-09-11, SAME DAY AS BOOKINGS' OWN — the first pass named what the code DOES; the
+owner's own words asked what he GETS from it («ايش بيستفيد؟»). Every title now answers with money,
+a loss avoided, or a customer who comes back.
 """
 from __future__ import annotations
 
@@ -42,8 +46,8 @@ class Feature:
 LOYALTY_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="loyalty.earn_per_visit",
-        title="نقطة على كل زيارة تلقائياً",
-        detail="تُحسب وتُضاف لحالها، بلا أي خطوة من موظفك",
+        title="يخلي عميلك يرجع لك، لا للمنافس",
+        detail="نقطة تلقائية كل زيارة، بلا أي خطوة من موظفك — وهذا يشجّعه يكمّل يجمع عندك",
         icon="star",
         tone=TONE_AMBER,
         # `Earner.from_visit` (core/earn.py:37-107) — ONE ledger entry per visit (never one per
@@ -54,8 +58,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.only_affordable_rewards",
-        title="ما نحرجه بجايزة ما يقدر ياخذها",
-        detail="نعرض له بس الجوايز اللي رصيده الحالي يكفي لها",
+        title="ما يحرج موظفك قدام الزبون",
+        detail="يعرض له بس الجوايز اللي رصيده يكفيها، فتضمن تجربة مريحة تخليه يرجع",
         icon="gift",
         tone=TONE_VIOLET,
         # `Rewards.affordable` (core/rewards.py:114-127) — not the full menu with the
@@ -64,8 +68,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.manager_approval",
-        title="مكافآت كبيرة تحتاج اعتماد مدير",
-        detail="تحدد أنت الحد، وأي مكافأة فوقه ما تُسلَّم إلا باسم مدير حقيقي",
+        title="يحميك من خسارة فلوس بمكافآت كبيرة",
+        detail="تحدد أنت الحد، وأي مكافأة فوقه ما تُسلَّم إلا باعتماد مدير حقيقي — يحفظ لك أرباحك",
         icon="shield-check",
         tone=TONE_BLUE,
         # `needs_approval`/`Redeemer._redeem_locked` (core/redeem.py:34-45, 92-130) — a real,
@@ -75,8 +79,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.expiry_warning",
-        title="يحذّر عميلك قبل ما تضيع نقاطه",
-        detail="يوصله تنبيه قبل انتهاء رصيده بأسبوعين، مو يفاجأ بضياعه",
+        title="يرجّع لك عميلك قبل ما يفوتك",
+        detail="يحذّره قبل انتهاء نقاطه بأسبوعين — تنبيه يصير سبب زيارة إضافية",
         icon="clock",
         tone=TONE_ROSE,
         # `Expiry` (core/expiry.py:53-90) — measured from the customer's own LAST MOVEMENT, not
@@ -86,8 +90,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.fraud_receipt",
-        title="يكشف لك أي تلاعب بالنقاط",
-        detail="لو موظف استخدم نقاط عميل من غير علمه، يوصله إشعار فوري يفضحها",
+        title="يحميك من غش موظفينك",
+        detail="أي تلاعب بنقاط عميل يوصله إشعار فوري يفضحه، فتحمي أرباحك",
         icon="shield-check",
         tone=TONE_TEAL,
         # `core/notify.py`'s own stated purpose (module docstring) — the redemption receipt is not

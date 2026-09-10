@@ -13,6 +13,10 @@ TWO TEMPTING CANDIDATES, CHECKED DIRECTLY AND EXCLUDED — same discipline as lo
   real "did they come back because of this" number (`holdout_comparison`/`returned_after_reminder`)
   is `services/insights/app/core/indicators.py`'s own work, surfaced through فرصي's own future
   catalog, not claimed here even though this app's own `apps.ts`-style description used to imply it.
+
+REWRITTEN 2026-09-11, SAME DAY AS BOOKINGS' OWN — the first pass named what the code DOES; the
+owner's own words asked what he GETS from it («ايش بيستفيد؟»). Every title now answers with money,
+a loss avoided, or a customer who comes back.
 """
 from __future__ import annotations
 
@@ -44,8 +48,8 @@ class Feature:
 CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="campaigns.smart_targeting",
-        title="يختار عملاءك بنفسه",
-        detail="يعرف مين ابتعد عنك فعلاً حسب عادته هو، بلا ما تحدد أنت أحد",
+        title="يرجّع لك زباينك القدام",
+        detail="يعرف مين ابتعد عنك فعلاً حسب عادته هو، فيصل عرضك بالوقت الصح ويرجع",
         icon="users",
         tone=TONE_VIOLET,
         # `audience.resolve`'s own `win_back` rule (core/audience.py:1-140) — no visit for longer
@@ -56,8 +60,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.wont_pitch_too_early",
-        title="ما يعرض عليه قبل وقته",
-        detail="لو أخذ الخدمة قريب، ما نزعجه بعرض عليها لين يقرب دورته",
+        title="ما يحرق عليك عرضك",
+        detail="ما يعرض عليه خدمة أخذها قريب، فيوصل عرضك مؤثر لما فعلاً يحتاجه",
         icon="clock",
         tone=TONE_BLUE,
         # `_too_early` (core/audience.py:94-113) — a real cycle-lock: an offer on a service reaches
@@ -67,8 +71,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.paced_sending",
-        title="يوزّع الإرسال بلا ما يخنق رسائلك",
-        detail="يحسب الأيام قبل ما تضغط، ويحذّرك لو العرض بينتهي قبل ما يوصل الكل",
+        title="يوصّل عرضك لكل عملائك، بلا استثناء",
+        detail="يحسب أيام الإرسال قبل ما تضغط، ويحذّرك لو عرضك بينتهي قبل ما يوصل الكل",
         icon="cloud",
         tone=TONE_TEAL,
         # `spread.plan` (core/spread.py:72+) — divides only the campaign's OWN share of the daily
@@ -79,8 +83,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.no_double_launch",
-        title="ضغطة واحدة، حملة وحدة",
-        detail="لو ضغطت \"أطلق\" مرتين بالغلط، ما ترسل الحملة مرتين",
+        title="يحميك من دفع فلوسك مرتين",
+        detail="لو ضغطت \"أطلق\" مرتين بالغلط، ما ترسل الحملة مرتين وتدفع مرتين على عملاء بلا داعي",
         icon="check-circle",
         tone=TONE_ROSE,
         # `Press` (core/press.py) — the claim key is built from what the OWNER chose (goal, text,
@@ -90,8 +94,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.booking_in_message",
-        title="حجز مباشر من داخل الرسالة",
-        detail="لو عندك تطبيق الحجوزات، عميلك يقدر يحجز موعده من نفس الرسالة بلا ما يتصل",
+        title="يحوّل رسالتك لحجز فوري",
+        detail="لو عندك تطبيق الحجوزات، عميلك يحجز من نفس الرسالة بلا ما يتصل أو ينسى",
         icon="calendar",
         tone=TONE_AMBER,
         # `shape.py` — NOT a shared-feature entry (this is campaigns' OWN decision, not another

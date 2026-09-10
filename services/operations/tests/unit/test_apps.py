@@ -91,7 +91,7 @@ def test_the_shared_reminders_feature_names_its_real_owner_and_matches_bookings(
     shared = next(f for f in VISIT_FEATURES if f["id"] == "reminders.learns_each_customer")
     assert shared["owned_by"] == "reminders"
     assert shared["shared_with"] == ["bookings"]
-    assert shared["title"] == "يتابع كل عميل لحاله"
+    assert shared["title"] == "يرجّع لك عميلك بلا ما تتعب"
 
 
 # ── asking ─────────────────────────────────────────────────────────────────────────────────────

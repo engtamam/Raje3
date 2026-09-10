@@ -39,8 +39,8 @@ class SharedFeature:
 SHARED_FEATURES: tuple[SharedFeature, ...] = (
     SharedFeature(
         id="reminders.learns_each_customer",
-        title="يتابع كل عميل لحاله",
-        detail="يعرف كل عميل يرجع كل قد ايش بالضبط، ويرسله تذكير بنفس وقته هو",
+        title="يرجّع لك عميلك بلا ما تتعب",
+        detail="يعرف امتى كل عميل يرجع عادة، ويذكّره بوقته — حجز إضافي بلا أي مجهود منك",
         icon="bell",
         tone="rose",
         granted_by=("visit", "bookings"),

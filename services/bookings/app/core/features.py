@@ -8,10 +8,11 @@ gap `docs/خطة-تنفيذ-الحجوزات.md`'s own ten build stages closed i
 could read (2026-09-11 product decision: "بطاقة التطبيق تكون ذكية وتظهر مميزات كثير حقيقي").
 
 EVERY ENTRY HERE IS A REAL MECHANISM, cited to the exact code that does it — never a marketing
-adjective invented for this file. `title`/`detail` are the owner-facing sentence (short, plain
-Arabic, states the SITUATION and the OUTCOME — "يحذّرك من العميل اللي ما يلتزم", never "نظام ذكي
-لتقييم المخاطر"); the docstring on each `Feature(...)` call is the engineering truth it is
-grounded in, so the two can never drift silently apart.
+adjective invented for this file. `title`/`detail` are the owner-facing sentence, and REWRITTEN
+2026-09-11 to answer the owner's own question directly — «ايش بيستفيد؟ كيف يرفع مبيعاته أو يخليه
+يكسب؟» — never a description of how the code behaves ("يحمي بيانات العميل" says nothing he can
+act on; "يحميك من خسارة موعد فاضي" does). The docstring on each `Feature(...)` call is the
+engineering truth the sentence is grounded in, so the two can never drift silently apart.
 
 `shared_with`/`owned_by` are the hooks the "features, not services" architecture (2026-09-11 CTO
 decision) needs: a feature is not necessarily this app's own code — the reminders line below is
@@ -67,8 +68,8 @@ class Feature:
 BOOKINGS_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="bookings.instant_slot",
-        title="ما تلف على الجدول تدوّر",
-        detail="بضغطة وحدة يطلع لك أقرب وقت فاضي عند أي موظف",
+        title="ما يفوّتك حجز وأنت مشغول",
+        detail="بضغطة وحدة يطلع لك أقرب وقت فاضي، فيحجز العميل عندك — لا يقفل ويحجز عند غيرك",
         icon="clock",
         tone=TONE_BLUE,
         # `BookingOperations.nearest_slot` (app/core/operations.py:732-800) — the pure derivation
@@ -80,8 +81,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.fair_distribution",
-        title="توزيع عادل بين موظفينك",
-        detail="كل واحد ياخذ نصيبه من الحجوزات، بلا محاباة",
+        title="يشغّل فريقك كله، لا موظف واحد بس",
+        detail="يوزّع الحجوزات بعدل بينهم، فتستفيد من طاقة محلك كاملة لا نص طاقتها",
         icon="users",
         tone=TONE_VIOLET,
         # `BookingOperations.nearest_slots_any` (operations.py:802-868) + `app/core/
@@ -94,8 +95,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.no_show_warning",
-        title="يحذّرك من العميل اللي ما يلتزم",
-        detail='يقلّك "هذا عادة يتغيب" قبل ما يحجز، وتقدر تطلب منه عربون',
+        title="يحميك من موعد فاضي يكلّفك فلوس",
+        detail='يقلّك "هذا عادة يتغيب" قبل ما يحجز، فتطلب عربون وتضمن وقت موظفك',
         icon="alert-triangle",
         tone=TONE_AMBER,
         # `BookingOperations.no_show_risk` (operations.py:635-658) — a real percentage, not a
@@ -108,8 +109,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.visit_auto_open",
-        title="زيارته تنفتح لحالها",
-        detail="أول ما يوصل العميل، ما تحتاج تسجّله من جديد",
+        title="يسجّل لك المبيعة تلقائياً",
+        detail="لحظة يوصل العميل تنفتح زيارته وتدخل بمبيعاتك، بلا ما تنسى تسجّلها بنفسك",
         icon="check-badge",
         tone=TONE_TEAL,
         # `BookingOperations.attend` (operations.py:560-614) — marking a booking attended is the
@@ -122,8 +123,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.safe_reschedule",
-        title="تقدر تسحب وتغيّر الموعد بأمان",
-        detail="لو موظفتين حاولوا يغيّروا نفس الموعد بنفس اللحظة، ما ينكتب إلا وحد منهم",
+        title="يحفظ حجزك من الضياع",
+        detail="لو موظفتين عدّلوا نفس الموعد بنفس اللحظة، يحفظه صح — ما يضيع عليك حجز أبداً",
         icon="move",
         tone=TONE_VIOLET,
         # `BookingOperations.reschedule`/`_claim_and_save`/`_refuse_if_conflicting`
@@ -137,8 +138,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.right_staff_only",
-        title="ما يحجز عندك إلا الموظف المؤهّل",
-        detail="لو خدمة معينة تحتاج تدريب خاص، ما يقدر يوعدها إلا اللي يعرفها",
+        title="يحميك من خطأ يكلّفك رضا عميلك",
+        detail="خدمة تحتاج تدريب خاص، ما ياخذها إلا اللي يتقنها — تحافظ على جودة شغلك وسمعتك",
         icon="shield-check",
         tone=TONE_BLUE,
         # `_refuse_if_ineligible`/`_refuse_if_ineligible_for_booking` (operations.py:242-276) —
@@ -149,8 +150,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="reminders.learns_each_customer",
-        title="يتابع كل عميل لحاله",
-        detail="يعرف كل عميل يرجع كل قد ايش بالضبط، ويرسله تذكير بنفس وقته هو",
+        title="يرجّع لك عميلك بلا ما تتعب",
+        detail="يعرف امتى كل عميل يرجع عادة، ويذكّره بوقته — حجز إضافي بلا أي مجهود منك",
         icon="bell",
         tone=TONE_ROSE,
         # NOT THIS SERVICE'S OWN CODE — the reminders engine (per-customer learned visit rhythm,

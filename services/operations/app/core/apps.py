@@ -45,14 +45,14 @@ from app.adapters import internal_http
 # capability that is not this app's own code (the reminders engine) still renders the identical
 # sentence wherever it is granted, from one authored source.
 VISIT_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "visit.no_duplicates", "title": "ما تتكرر الزيارة أبداً",
-     "detail": "لو موظفك ضغط \"حفظ\" مرتين بالغلط، تنسجل زيارة وحدة بس",
+    {"id": "visit.no_duplicates", "title": "يحميك من غلطة تخرب تقاريرك",
+     "detail": "لو موظفك ضغط \"حفظ\" مرتين بالغلط، ما تنسجل زيارة وهمية زيادة",
      "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": "",
      # `Operations.record_visit`'s own idempotency-key read (core/operations.py:282-302) — one
      # indexed read, before the customer is even resolved, so a retried request never creates a
      # second visit OR a second customer.
      },
-    {"id": "visit.works_offline", "title": "انقطاع النت ما يوقف شغلك",
+    {"id": "visit.works_offline", "title": "ما يفوّتك زبون بسبب انقطاع النت",
      # NOT "افتح التطبيق بلا نت أبداً" — the page itself still needs a connection to load once.
      # What this is: the tablet's signal drops for thirty seconds several times a day in a
      # workshop/بنشر, mid-shift, and work must not stop for it — see console's own
@@ -67,37 +67,37 @@ VISIT_FEATURES: tuple[dict[str, Any], ...] = (
      # timestamp that is in the future or older than `max_backdate` (default 90 days) rather than
      # trusting a device clock that drifted while offline.
      },
-    {"id": "visit.finds_by_plate", "title": "يلقى السيارة برقم لوحتها",
-     "detail": "مو لازم تعرف رقم جوال العميل عشان تلقاه",
+    {"id": "visit.finds_by_plate", "title": "يخدم عميلك أسرع، بلا ما ينتظر",
+     "detail": "يلقاه برقم لوحة سيارته، مو لازم تعرف رقم جواله",
      "icon": "car", "tone": "violet", "shared_with": [], "owned_by": "",
      # `_resolve_asset` (core/operations.py:428-441) — a visit looked up/created by plate SCOPED
      # WITHIN the customer (two customers can share a transcribed plate), and every recorded visit
      # returns the customer's FULL list of known plates so the next search finds either car.
      },
-    {"id": "visit.invoice_computed", "title": "الفاتورة تُحسب لحالها",
-     "detail": "ما تحتاج تجمع الأسعار بيدك",
+    {"id": "visit.invoice_computed", "title": "يحسب فاتورتك بلا غلط",
+     "detail": "يجمع لك السعر تلقائياً من كتالوجك، فما تخسر ريال بغلطة حساب يدوي",
      "icon": "receipt", "tone": "amber", "shared_with": [], "owned_by": "",
      # `record_visit`'s own catalogue-priced total (core/operations.py:346-359) — summed from the
      # shop's own priced services when no till sends a total, retiring the old rule that
      # invoice-value point-earning needed a till integration at all (2026-09-08).
      },
-    {"id": "visit.never_loses_a_visit", "title": "ما نخسر ولا زيارة",
-     "detail": "حتى لو الموظف اختار خدمة مو مسجّلة بكتالوجك، الزيارة تنحفظ",
+    {"id": "visit.never_loses_a_visit", "title": "ما يفوّتك ولا مبيعة",
+     "detail": "حتى لو خدمة جديدة مو مسجّلة بكتالوجك، الزيارة تنحفظ وتضيفها بعدين",
      "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": "",
      # `record_visit`'s unknown-service absorption (core/operations.py:307-335, integration path
      # only) — an unrecognised service id is folded into the tenant's catch-all and its real label
      # preserved, rather than the whole visit being refused: losing the visit loses the CUSTOMER
      # relationship entirely — no reminder, no points, ever — which is the worse loss by far.
      },
-    {"id": "visit.instant_search", "title": "يبحث وهو تكتب",
-     "detail": "أول ما تكتب رقم أو اسم، تطلع لك الأسماء المقترحة فوراً",
+    {"id": "visit.instant_search", "title": "يخدم عميلك بلا ما ينتظر",
+     "detail": "أول ما تكتب رقم أو اسم، تطلع لك الأسماء فوراً — تقلّل وقت وقوفه قدامك",
      "icon": "search", "tone": "blue", "shared_with": [], "owned_by": "",
      # `GET /field/customers/suggest` (api/v1/field.py:418+) — a real prefix-match (terms) +
      # whole-token search (people) merged into one autocomplete list, branch-scoped from the
      # caller's own token rather than a filter the browser could choose for itself.
      },
-    {"id": "reminders.learns_each_customer", "title": "يتابع كل عميل لحاله",
-     "detail": "يعرف كل عميل يرجع كل قد ايش بالضبط، ويرسله تذكير بنفس وقته هو",
+    {"id": "reminders.learns_each_customer", "title": "يرجّع لك عميلك بلا ما تتعب",
+     "detail": "يعرف امتى كل عميل يرجع عادة، ويذكّره بوقته — حجز إضافي بلا أي مجهود منك",
      "icon": "bell", "tone": "rose", "shared_with": ["bookings"], "owned_by": "reminders",
      # NOT THIS SERVICE'S OWN CODE — the engine lives in `services/reminders/app/core/
      # adaptive.py`/`engagement.py`, and a shop owning EITHER تسجيل زيارة or الحجوزات gets the
@@ -111,15 +111,15 @@ VISIT_FEATURES: tuple[dict[str, Any], ...] = (
 )
 
 CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "contacts.register_anywhere", "title": "يسجّل عميلك من أي مكان",
-     "detail": "برقم جواله بس، بلا حاجة يكون سوّى زيارة",
+    {"id": "contacts.register_anywhere", "title": "يفتح لك باب عميل جديد فوراً",
+     "detail": "تسجّله برقمه بس، حتى قبل أول زيارة — ما تفوّت فرصة تواصل معه",
      "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
      # `Operations.ensure_customer` (core/operations.py:577-590) — resolve-or-create by phone,
      # the SAME backend act `record_visit` uses, built so `bookings` (and this free app) can get a
      # real customer id before there is any visit to attach one to.
      },
-    {"id": "contacts.findable_immediately", "title": "يصير قابل للبحث فوراً",
-     "detail": "من ثانية ما تسجّله، تقدر تلقاه بالبحث — مو بعد أول زيارة",
+    {"id": "contacts.findable_immediately", "title": "تقدر تخدمه من ثانيته",
+     "detail": "يصير قابل للبحث فور تسجيله، بلا ما تنتظر أول زيارة",
      "icon": "search", "tone": "blue", "shared_with": [], "owned_by": "",
      # `ensure_customer` indexes the new customer for search IMMEDIATELY (api/v1/field.py:342-348),
      # unlike a customer who only appears once a first visit is recorded elsewhere.

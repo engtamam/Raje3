@@ -2,6 +2,11 @@
 not mechanism. Same discipline as bookings-service's own `core/features.py` (the first pilot of
 the "features, not services" architecture, 2026-09-11 CTO decision) — see that file's own
 docstring for the four tests a candidate feature has to pass.
+
+REWRITTEN 2026-09-11, SAME DAY — the first pass named the MECHANISM ("ما يكشف إنه يراقب") instead
+of the MONEY. The owner's own words: «ايش بيستفيد؟ كيف يرفع مبيعاته أو يخليه يكسب؟». Every title
+below now answers exactly that — more revenue, a loss avoided, or a customer who comes back —
+never a description of how the code behaves internally.
 """
 from __future__ import annotations
 
@@ -33,8 +38,8 @@ class Feature:
 WHATSAPP_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="whatsapp.speaks_your_shop_tone",
-        title="يتكلم بأسلوب محلّك أنت",
-        detail="تكتب ملاحظاتك له، ويستخدمها يخدم عملاءك بمعلومات ما يعرفها من أي مكان ثاني",
+        title="يبيع بصوت محلّك، لا بصوت آلة",
+        detail="يرد بأسلوبك أنت ويعرف تفاصيل محلك من ملاحظاتك، فيثق فيه عميلك ويشتري أسرع",
         icon="message-circle",
         tone=TONE_VIOLET,
         # `build_system_prompt` (core/conversation.py:193-332) — the persona is a FUNCTION of the
@@ -44,8 +49,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.books_without_double_booking",
-        title="يحجز من المحادثة بلا تعارض",
-        detail="يتحقق من الموعد لحظة ما يقترحه ولحظة ما يتأكد، فما يصير حجز مكرر أبداً",
+        title="يقفل الحجز فوراً، قبل ما يروح لمنافس",
+        detail="يحجز له من نفس المحادثة بلا خطأ ولا تعارض مواعيد يحرجك قدامه",
         icon="calendar",
         tone=TONE_BLUE,
         # `propose_booking`/`execute_confirmed_proposal` (core/tools.py:48, 571-611) — the model
@@ -55,8 +60,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.fair_staff_assignment",
-        title="يوزّع حجوزات الشات على فريقك بعدالة",
-        detail="نفس محرك توزيع الحجوزات اللي يستخدمه جدولك بالضبط، بلا فرق",
+        title="يشغّل فريقك كله، لا موظف واحد بس",
+        detail="يوزّع حجوزات الشات بعدل بين موظفينك، فتستفيد من طاقة محلك كاملة لا نص طاقتها",
         icon="users",
         tone=TONE_AMBER,
         # `core/booking_assignment.py::RealBookingProvider` — reuses the SAME merge-and-rank
@@ -67,8 +72,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.smart_upsell",
-        title="يقترح الإضافة المناسبة بذوق",
-        detail="باقة أو خدمة تكمّل طلبه، مرة وحدة بلطف، بلا إلحاح وبلا اختراع سعر",
+        title="يرفع فاتورة كل عميل، بلا ما توظّف بائع",
+        detail="يقترح له خدمة أو باقة تكمّل طلبه بذوق، فتبيع أكثر من نفس المحادثة",
         icon="gift",
         tone=TONE_ROSE,
         # The `upsell`/`growth` persona sections (core/conversation.py:254-278) — bounded by
@@ -79,8 +84,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.remembers_without_saying",
-        title="يخصّص اقتراحه بصمت",
-        detail="يستخدم عادة العميل ليقرر وش يقترح له، بلا ما يقول له صراحة إنه يراقب زياراته",
+        title="يقنعه يرجع من أول رسالة",
+        detail="يعرف وش يناسب كل عميل بالضبط ويقترحه بالوقت الصح، فيزيد رجوعه لمحلك",
         icon="star",
         tone=TONE_VIOLET,
         # `personalization` persona section (core/conversation.py:280-294) — what this service
@@ -90,8 +95,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.escalates_when_frustrated",
-        title="يسلّمه لموظف بشري وقت الحاجة",
-        detail="شكوى، طلب صريح، أو نفس السؤال يتكرر — يوصل لفريقك فوراً بلا ما ينتظر",
+        title="ما يخسّرك عميل غاضب",
+        detail="أي شكوى أو إلحاح توصل لفريقك فوراً، قبل لا يروح يشتكي أو يروح لمنافسك",
         icon="shield-check",
         tone=TONE_TEAL,
         # `detect_frustration`/`_requests_human` (core/frustration.py:23-52,
@@ -101,8 +106,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.stops_pushing",
-        title="يوقف عن الإلحاح إذا رفض العميل",
-        detail="يرفض عرضين ترويجيين بنفس المحادثة، يتوقف عن البيع ويكمل يخدمه عادي",
+        title="ما ينفّر عميلك بالإلحاح",
+        detail="لو رفض عرضين، يوقف عن البيع عليه ويخليه مرتاح — عميل مرتاح يرجع، عميل مزعوج لا",
         icon="check-circle",
         tone=TONE_BLUE,
         # `is_decline` (core/soft_decline.py:30-38) — after `soft_decline_threshold` short,
