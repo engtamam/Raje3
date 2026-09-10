@@ -17,21 +17,25 @@ model for I/O-bound work like this; the defect was never using it.
 TWO DIFFERENT DEFECT SHAPES, TWO DIFFERENT FIXES — kept as one gate because they are the same root
 cause (a synchronous wait inside a coroutine) with different correct remedies:
 
-1. NETWORK/PROCESS I/O (`urllib.request.urlopen`, `subprocess.run`/`.call`/`.check_call`/
-   `.check_output`, `os.system`) — fine inside `async def` only if that SAME
-   function's body ALSO calls `asyncio.to_thread` or Starlette's `run_in_threadpool` (the two
-   offload mechanisms already used correctly elsewhere: notification-service's `core/notifier.py`,
-   `services/operations`'s `adapters/whatsapp_admin.py`/`adapters/renewal_provider.py`). A nested
-   SYNCHRONOUS helper (a plain `def`, not `async def`) that makes the call is exactly the correct
-   shape — the offload happens at the `async def` call site that invokes it via
-   `asyncio.to_thread`, so sync helpers are never flagged; only an `async def` whose OWN body
-   reaches one of these calls directly is.
+1. NETWORK/PROCESS I/O (`urllib.request.urlopen`, `requests.get`/`.post`/`.put`/`.patch`/`.delete`/
+   `.head`/`.request`, `subprocess.run`/`.call`/`.check_call`/`.check_output`, `os.system`) — fine
+   inside `async def` only if that SAME function's body ALSO calls `asyncio.to_thread` or
+   Starlette's `run_in_threadpool` (the two offload mechanisms already used correctly elsewhere:
+   notification-service's `core/notifier.py`, `services/operations`'s `adapters/whatsapp_admin.py`/
+   `adapters/renewal_provider.py`). A nested SYNCHRONOUS helper (a plain `def`, not `async def`)
+   that makes the call is exactly the correct shape — the offload happens at the `async def` call
+   site that invokes it via `asyncio.to_thread`, so sync helpers are never flagged; only an
+   `async def` whose OWN body reaches one of these calls directly is. `requests` is not a
+   dependency this codebase uses today (everything is stdlib `urllib`) — flagged anyway so a
+   future dependency add does not reopen the exact same bug under a different library name.
 
-2. `time.sleep(...)` — NEVER correct inside `async def`, offloaded or not: a slept THREAD still
-   holds nothing that helps (the point of sleeping in a coroutine is to let the loop serve other
-   work meanwhile, which `asyncio.to_thread(time.sleep, n)` does not restore — it just moves the
-   freeze to a thread-pool slot for the same duration). The only fix is `await asyncio.sleep(...)`.
-   Flagged unconditionally, no offload exception.
+2. `time.sleep(...)` and `threading.Lock()`/`threading.RLock()` — NEVER correct inside
+   `async def`, offloaded or not. A slept THREAD holds nothing that helps (the point of sleeping in
+   a coroutine is to let the loop serve other work meanwhile, which `asyncio.to_thread(time.sleep,
+   n)` does not restore — it just moves the freeze to a thread-pool slot for the same duration); a
+   `threading.Lock` blocks the acquiring THREAD on `.acquire()`, same freeze, and this codebase's
+   event loop has exactly one thread running it. The fixes are `await asyncio.sleep(...)` and
+   `asyncio.Lock()` respectively. Flagged unconditionally, no offload exception.
 
 SCOPE. `services/*/app/**/*.py` — this product's own services, never `platform/` (vendored,
 read-only, and already holds the correct pattern throughout). Test files are excluded: a test's own
@@ -60,7 +64,16 @@ _BLOCKING_IO_BARE_NAMES = {"urlopen"}
 _SUBPROCESS_QUALIFIED = {("subprocess", "run"), ("subprocess", "call"),
                         ("subprocess", "check_call"), ("subprocess", "check_output"),
                         ("os", "system")}
+#: `requests.<METHOD>(...)` — same qualified-only rule as subprocess above (`get`/`post`/etc. are
+#: too generic as bare names).
+_REQUESTS_QUALIFIED = {("requests", m) for m in
+                       ("get", "post", "put", "patch", "delete", "head", "request")}
 _SLEEP_NAMES = {"sleep"}
+#: `threading.Lock(...)`/`threading.RLock(...)` — flagged at CONSTRUCTION, not at `.acquire()`
+#: (which would need data-flow tracking of which object came from a Lock() call). Building one
+#: inside `async def` is already the smell: the fix is `asyncio.Lock()`, not a differently-placed
+#: `threading.Lock()`.
+_THREAD_LOCK_QUALIFIED = {("threading", "Lock"), ("threading", "RLock")}
 
 
 def _call_name(node: ast.AST) -> str:
@@ -102,7 +115,17 @@ def _is_blocking_io(node: ast.AST) -> bool:
         return True
     func = node.func
     if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-        return (func.value.id, func.attr) in _SUBPROCESS_QUALIFIED
+        qualified = (func.value.id, func.attr)
+        return qualified in _SUBPROCESS_QUALIFIED or qualified in _REQUESTS_QUALIFIED
+    return False
+
+
+def _is_thread_lock(node: ast.AST) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+        return (func.value.id, func.attr) in _THREAD_LOCK_QUALIFIED
     return False
 
 
@@ -110,13 +133,14 @@ def _calls_offload(node: ast.AST) -> bool:
     return isinstance(node, ast.Call) and _call_name(node) in _OFFLOAD_NAMES
 
 
-def _scan_async_function(fn: ast.AsyncFunctionDef) -> tuple[bool, bool, bool]:
-    """(reaches blocking I/O directly, reaches time.sleep directly, offloads somewhere) over THIS
-    function's own body — a nested `def`/`async def`'s body belongs to that nested function, not
-    this one, so it is walked separately (or, for a nested sync `def`, never flagged at all — see
-    the module docstring)."""
+def _scan_async_function(fn: ast.AsyncFunctionDef) -> tuple[bool, bool, bool, bool]:
+    """(reaches blocking I/O directly, reaches time.sleep directly, reaches threading.Lock/RLock
+    directly, offloads somewhere) over THIS function's own body — a nested `def`/`async def`'s
+    body belongs to that nested function, not this one, so it is walked separately (or, for a
+    nested sync `def`, never flagged at all — see the module docstring)."""
     reaches_io = False
     reaches_sleep = False
+    reaches_lock = False
     offloads = False
     for node in ast.walk(fn):
         if node is fn:
@@ -127,11 +151,13 @@ def _scan_async_function(fn: ast.AsyncFunctionDef) -> tuple[bool, bool, bool]:
             continue
         if _is_time_sleep(node):
             reaches_sleep = True
+        elif _is_thread_lock(node):
+            reaches_lock = True
         elif _is_blocking_io(node):
             reaches_io = True
         if _calls_offload(node):
             offloads = True
-    return reaches_io, reaches_sleep, offloads
+    return reaches_io, reaches_sleep, reaches_lock, offloads
 
 
 def _walk_functions(tree: ast.Module):
@@ -158,6 +184,7 @@ def main() -> int:
 
     io_hits: list[str] = []
     sleep_hits: list[str] = []
+    lock_hits: list[str] = []
     checked = 0
     for f in files:
         try:
@@ -168,7 +195,7 @@ def main() -> int:
         # A CHEAP PRE-FILTER, NOT THE CHECK ITSELF — skip parsing a file that could not possibly
         # match any of the flagged names, without hand-rolling a second, looser matcher.
         if not any(name in text for name in
-                  ("urlopen", "subprocess", "os.system", *_SLEEP_NAMES)):
+                  ("urlopen", "subprocess", "os.system", "requests", "threading", *_SLEEP_NAMES)):
             continue
         try:
             tree = ast.parse(text, filename=str(f))
@@ -180,7 +207,7 @@ def main() -> int:
             if not isinstance(fn, ast.AsyncFunctionDef):
                 continue
             checked += 1
-            reaches_io, reaches_sleep, offloads = _scan_async_function(fn)
+            reaches_io, reaches_sleep, reaches_lock, offloads = _scan_async_function(fn)
             if reaches_io and not offloads:
                 io_hits.append(f"{rel}:{fn.lineno}: async def {fn.name}() calls blocking "
                                f"network/process I/O directly, with no asyncio.to_thread/"
@@ -189,8 +216,12 @@ def main() -> int:
                 sleep_hits.append(f"{rel}:{fn.lineno}: async def {fn.name}() calls time.sleep() "
                                   f"— use `await asyncio.sleep(...)` instead, offloading does "
                                   f"not fix this one")
+            if reaches_lock:
+                lock_hits.append(f"{rel}:{fn.lineno}: async def {fn.name}() builds a "
+                                 f"threading.Lock/RLock() — use `asyncio.Lock()` instead, "
+                                 f"offloading does not fix this one")
 
-    hits = io_hits + sleep_hits
+    hits = io_hits + sleep_hits + lock_hits
     if hits:
         if io_hits:
             print(f"{len(io_hits)} async function(s) block the event loop on direct I/O:")
@@ -211,9 +242,17 @@ def main() -> int:
             print("\n`asyncio.to_thread(time.sleep, n)` does NOT fix this one — it just moves the "
                   "freeze to a thread-pool slot for the same duration, defeating the reason to "
                   "sleep inside a coroutine at all. The only fix is `await asyncio.sleep(...)`.")
+        if lock_hits:
+            print(f"\n{len(lock_hits)} async function(s) build a threading.Lock/RLock() instead "
+                  f"of asyncio.Lock():")
+            for line in lock_hits:
+                print("  " + line)
+            print("\n`.acquire()` on a threading.Lock blocks the acquiring THREAD, and this "
+                  "codebase's event loop has exactly one thread running it — same freeze as "
+                  "time.sleep(). The only fix is `asyncio.Lock()`.")
         return 1
-    print(f"{checked} async function(s) reaching blocking I/O or time.sleep() across services/: "
-          f"none block the event loop")
+    print(f"{checked} async function(s) reaching blocking I/O, time.sleep() or threading.Lock() "
+          f"across services/: none block the event loop")
     return 0
 
 
