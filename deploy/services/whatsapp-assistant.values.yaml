@@ -132,8 +132,13 @@ env:
   INBOUND_POLL_MAX_PAGES: "20"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   # THE SUBSCRIPTION-RENEWAL FLOW'S ONE identity-service READ — the tenant's founding owner's own
-  # phone (platform v0.19.13), to open the renewal Flow on. See app/core/owner_phone.py.
+  # phone (platform v0.19.13), to open the renewal Flow on. See app/core/owner_phone.py. Also the
+  # low-AI-wallet-balance owner notice's own owner lookup (core/wallet_low_balance_trigger.py).
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
+  # THE TOP-UP LINK in the low-AI-wallet-balance owner notice — same domain reminders/operations
+  # already point customers at (deploy/edge/console.yaml serves the whole platform from here); a
+  # plain link, never an auto-login token or a dedicated top-up page (owner decision, 2026-09-10).
+  PUBLIC_BASE_URL: "https://kobo-cloud.com"
   # ACTIVATED — phase 4 (build_system_prompt's `growth` section) shipped in the same commit as
   # this flip: the persona now knows when/how to reach for list_due_services/list_lapsed_services,
   # and the structural guardrails (personalization-by-effect, soft-decline suppression) were both

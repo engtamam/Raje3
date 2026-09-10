@@ -376,6 +376,12 @@ class Settings(BaseSettings):
     # subscription-renewal top-up, which the SAME wallet may also hold.
     WALLET_RESERVE_FUNDS: str = ""
 
+    # THE PLATFORM'S OWN PUBLIC URL — for the top-up link in the low-balance owner notice
+    # (core/wallet_low_balance_trigger.py). The owner logs in there and tops up normally; no
+    # dedicated top-up page or auto-login token, by owner decision (2026-09-10) — simpler, cheaper,
+    # and console already serves the whole platform from this one domain (deploy/edge/console.yaml).
+    PUBLIC_BASE_URL: str = "https://kobo-cloud.com"
+
     @field_validator("WALLET_ESTIMATED_MAX_TOKENS_PER_TURN", "WALLET_SAFETY_MARGIN_HALALAS")
     @classmethod
     def _reject_negative_wallet_numbers(cls, v: int) -> int:

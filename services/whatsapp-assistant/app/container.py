@@ -155,6 +155,7 @@ class Container:
     renewal_consumer: Any = None
     owner_phone: Any = None
     renewal_trigger: Any = None
+    wallet_low_balance_trigger: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         return [
@@ -331,6 +332,12 @@ def build_container(settings: Settings) -> Container:
     container.renewal_trigger = build_renewal_trigger(
         settings, store=container.datastore, owner_phone=container.owner_phone,
         sender=container.sender)
+    # THE LOW-AI-WALLET-BALANCE OWNER NOTICE — event-driven, no sweep (owner decision,
+    # 2026-09-10). See app/core/wallet_low_balance_trigger.py's own docstring.
+    from app.core.wallet_low_balance_trigger import build as build_wallet_low_balance_trigger
+
+    container.wallet_low_balance_trigger = build_wallet_low_balance_trigger(
+        settings, owner_phone=container.owner_phone, sender=container.sender)
     # WAS NEVER ASSIGNED HERE AT ALL — `_CONSENT_GATE`'s registry existed, the field on `Container`
     # existed, and nothing between the two ever ran; `container.consent_gate` stayed the dataclass
     # default (`None`) forever, one line short of doing anything. See app/core/inbound_ingest.py

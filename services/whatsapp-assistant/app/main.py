@@ -116,10 +116,19 @@ def create_app() -> FastAPI:
             payload = getattr(event, "payload", None) or {}
             await container.renewal_trigger.handle(dict(payload), now=int(_time.time()))
 
+        # THE LOW-AI-WALLET-BALANCE OWNER NOTICE — wallet-service (platform v0.19.14+) emits this
+        # on the crossing itself, already deduped/re-armed server-side; see
+        # app/core/wallet_low_balance_trigger.py's own docstring for why this is event-driven and
+        # not a cron sweep.
+        async def _on_balance_low(event) -> None:
+            payload = getattr(event, "payload", None) or {}
+            await container.wallet_low_balance_trigger.handle(dict(payload))
+
         try:
             await container.event_bus.subscribe("whatsapp.message", _on_whatsapp_message)
             await container.event_bus.subscribe("whatsapp.status", lambda e: None)
             await container.event_bus.subscribe("subscription.renewed", _on_subscription_renewed)
+            await container.event_bus.subscribe("wallet.balance_low", _on_balance_low)
             logger.info("subscribed", extra={"topic": "whatsapp.message"})
         except Exception as exc:                                            # noqa: BLE001
             logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
