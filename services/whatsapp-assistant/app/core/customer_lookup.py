@@ -12,6 +12,7 @@ rests anywhere — the response is used to compute `subject_ref` and immediately
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -36,6 +37,13 @@ class HttpCustomerLookup:
         self._timeout = timeout
 
     async def resolve(self, tenant: str, phone: str) -> dict[str, Any]:
+        # OFF THE EVENT LOOP (urllib has no async mode) — a blocking call here freezes this pod's
+        # entire single-worker event loop for the round trip, including its own /healthz, exactly
+        # the incident adapters/token_verifier/jwks.py's own docstring documents for a different
+        # call site on the sibling service.
+        return await asyncio.to_thread(self._resolve_sync, tenant, phone)
+
+    def _resolve_sync(self, tenant: str, phone: str) -> dict[str, Any]:
         body = json.dumps({"tenant": tenant, "phone": phone}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

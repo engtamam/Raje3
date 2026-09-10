@@ -410,6 +410,11 @@ jobs:
       # reads as a verdict.
       - name: a deploy script reads the postgres role rather than spelling it
         run: python3 ci/check_a_deploy_script_does_not_invent_a_postgres_role.py
+      # A blocking urllib call inside `async def` freezes the WHOLE pod for its duration — found
+      # live twice (notification-service's jwks.py, then whatsapp-assistant's own LLM call and 23
+      # more sites), both times after the fact. This is what stops a next one landing unnoticed.
+      - name: no async def blocks the event loop on a direct urlopen() call
+        run: python3 ci/check_no_blocking_call_inside_async_def.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services

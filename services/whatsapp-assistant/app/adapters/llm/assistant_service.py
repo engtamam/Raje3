@@ -25,6 +25,7 @@ for any LLM adapter that defines it).
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from app.core.assistant_connections import (
@@ -320,8 +321,16 @@ class AssistantServiceLlm:
         model_name = model_name or await self._resolve_model_name()
         url, shape = self._model_url_and_shape(project, model_name)
         try:
-            cid = ensure_connection(
-                self._connections, tenant=tenant, url=url, shape=shape,
+            # OFF THE EVENT LOOP. `ensure_connection` and everything under `HttpAssistantConnections`
+            # are plain (non-async) methods that call `urllib.request.urlopen` synchronously — correct
+            # for what THEY are, but calling them un-awaited from here used to mean this coroutine
+            # blocked the pod's entire single-worker event loop for the round trip, same class of
+            # incident `adapters/token_verifier/jwks.py`'s own docstring documents for a different
+            # call site on the sibling service (notification-service) — including this pod's own
+            # /healthz/readyz, and every other tenant's message, for as long as assistant-service
+            # took to answer.
+            cid = await asyncio.to_thread(
+                ensure_connection, self._connections, tenant=tenant, url=url, shape=shape,
                 model=model_name, auth=self._model_auth, credential=credential,
                 system_prompt=full_prompt, tools=tool_schemas)
         except AssistantConnectionsUnavailable as exc:
@@ -335,8 +344,13 @@ class AssistantServiceLlm:
 
         max_tokens = await self._resolve_max_tokens()
         try:
-            result = self._connections.invoke(cid, tenant=tenant, messages=messages,
-                                              max_tokens=max_tokens)
+            # THE LLM CALL ITSELF — the largest single freeze on this path (assistant-service's own
+            # generation can take several seconds), now off the event loop for the same reason
+            # `ensure_connection` above is. Bounded by `ASSISTANT_SERVICE_TIMEOUT_SECONDS` inside
+            # `_call`'s own `urlopen(..., timeout=...)`, same as before — only WHERE it blocks changed.
+            result = await asyncio.to_thread(
+                self._connections.invoke, cid, tenant=tenant, messages=messages,
+                max_tokens=max_tokens)
         except AssistantConnectionsUnavailable as exc:
             raise LlmUnavailable(f"assistant-service unreachable: {exc}") from exc
 
