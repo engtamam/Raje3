@@ -1187,10 +1187,11 @@ class ConversationEngine:
                              and m.get("at", 0) >= conv.batch_started_at)
         recent = [{"role": m["role"], "text": m["text"]} for m in conv.raw_window[:-1]]
 
-        # WHETHER THIS TENANT HOLDS THE CORE PLATFORM SUBSCRIPTION AT ALL — checked live, every
-        # turn, same posture as `self._licence` below (see base_entitlement.py's own docstring for
-        # why a cancelled base must degrade THIS turn, not eventually). None-safe default True for
-        # pre-existing test constructors, matching every other optional peer's degrade-open shape.
+        # WHETHER THIS TENANT HOLDS ANY APP THAT PRODUCES REAL OPERATIONS/LOYALTY DATA — checked
+        # live, every turn, same posture as `self._licence` below (see base_entitlement.py's own
+        # docstring for why a cancelled app must degrade THIS turn, not eventually). None-safe
+        # default True for pre-existing test constructors, matching every other optional peer's
+        # degrade-open shape.
         has_base = True
         if self._base_entitlement is not None:
             try:

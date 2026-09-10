@@ -178,7 +178,6 @@ REQUIRES_ANY_KEY = "plan.requires_any"
 # failing; a future `requires_any` entry needs only its own plans.json edit to WORK, and a label
 # here is a readability improvement on top of that, not a precondition for it.
 _REQUIRES_ANY_LABELS: dict[str, str] = {
-    "feature.base": "الأساس",
     "feature.visit": "تسجيل زيارة",
     "feature.bookings": "الحجوزات",
     "feature.contacts": "جهات الاتصال",

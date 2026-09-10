@@ -1,11 +1,11 @@
 /**
  * The screen says what the services now enforce — and stays quiet about what it does not know.
  *
- * WHAT THIS PINS. `feature.base` became enforceable on the day operations and reminders started
- * refusing writes on a lapsed month. Until then `owns(owned, null)` returned `true` with a comment
- * saying «the base is not for sale separately», and that comment was true. Afterwards the screen
- * was promising something the services had stopped promising, and an owner would meet the change
- * as a 402 after typing a visit rather than as a sentence before it.
+ * WHAT THIS PINS. `owned.base` — a whole subscription row (plan_id/status/renews_at), never a
+ * boolean flag — is what `baseState`/`daysLeft`/`SubscriptionBar` read; المؤسسات is the one plan
+ * that still populates it today (الأساس itself retired entirely, 2026-09-10). The mechanism this
+ * test pins is unchanged by that retirement: a shop holding no base-shaped subscription at all
+ * simply reads `baseState → 'none'` and the bar stays silent, same as before.
  *
  * THE COUNTDOWN IS READ, NEVER COMPUTED. Thirty days is a number on a subscription; a screen that
  * derived «30 - days since signup» would disagree with billing the first time anybody changed the
@@ -26,7 +26,7 @@ function owned(status: string, renewsInDays: number): Owned {
   return {
     checked: true,
     message: '',
-    keys: ['feature.base'],
+    keys: [],
     apps: [],
     base: { plan_id: 'plan_1', status, renews_at: Math.floor(NOW / 1000) + renewsInDays * DAY },
   };

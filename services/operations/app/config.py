@@ -831,10 +831,11 @@ class Settings(BaseSettings):
     def assert_subscription_config_ok(self) -> None:
         """Boot guard. A deployment that cannot ask about a subscription gives the product away.
 
-        `build_base_licence` returns `NullBaseLicence` when billing is not wired, and it allows
-        every write. That is right for tests and fatal in production: the base is the thing every
-        shop pays for, and a null licence is a silent decision to charge nobody. It would look
-        exactly like a healthy service for as long as nobody thought to check.
+        `build_feature_licence`/`build_whatsapp_licence` return a Null licence when billing is not
+        wired, and a Null licence allows every write. That is right for tests and fatal in
+        production: every one of these is a thing shops actually pay for, and a null licence is a
+        silent decision to charge nobody. It would look exactly like a healthy service for as long
+        as nobody thought to check.
 
         This is the same shape as the audit guard above, and it exists for the same reason: the
         failure is invisible from the outside, so it has to be refused at boot, once.

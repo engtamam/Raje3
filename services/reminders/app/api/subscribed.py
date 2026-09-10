@@ -18,33 +18,43 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request, status
 
 from app.api.auth import Principal, require_user
-from app.core.base_licence import LicenceError
+
+# And when we could not ask. A DIFFERENT sentence from "you have not paid" on purpose.
+CANNOT_ASK = "تعذّر التحقق من اشتراكك الآن — حاول بعد قليل."
+
+_REFUSAL = "يحتاج تعديل رسائلك اشتراكاً فعّالاً بتطبيق تسجيل زيارة أو تطبيق الحجوزات."
 
 
 async def subscribed_write(request: Request,
                            principal: Principal = Depends(require_user)) -> Principal:
-    """Refuse this write unless the base subscription (or its trial) is live.
+    """Refuse this write unless the shop owns AN EVENT-RECORDING APP (`feature.visit` or
+    `feature.bookings`) right now — messaging is a FEATURE of one of those, not a product of its
+    own (see `core/feature_licence.py`'s own docstring for the product reasoning, 2026-09-10).
 
     402 PAYMENT_REQUIRED, never 403: the owner is not forbidden, he is unsubscribed, and the two
-    lead to different screens. `detail` carries the Arabic sentence the licence chose so the
-    console never has to guess which of the two refusals it is showing.
+    lead to different screens.
     """
     if not principal.tenant:
         # NO ESTABLISHMENT ON THE CREDENTIAL IS NOT A SHOP, and asking billing about an empty
         # tenant asks about everybody. A platform token has no month to have paid, so it does not
         # reach a shop's write door — it has its own routes, and they declare themselves exempt.
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
-    licence = getattr(request.app.state.container, "base_licence", None)
-    if licence is None:
-        # A deployment with no licence wired is refused at boot; if one is somehow running,
+    container = request.app.state.container
+    licences = [getattr(container, "visit_licence", None), getattr(container, "bookings_licence", None)]
+    if any(l is None for l in licences):
+        # A deployment with no licences wired is refused at boot; if one is somehow running,
         # refusing every write would take the whole product down for a configuration mistake.
         return principal
-    try:
-        await licence.require_write(principal.tenant)
-    except LicenceError as exc:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail=exc.message) from exc
-    return principal
+    saw_unreachable = False
+    for licence in licences:
+        answer = await licence.allowed(principal.tenant)
+        if answer is True:
+            return principal
+        if answer is None:
+            saw_unreachable = True
+    if saw_unreachable:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=CANNOT_ASK)
+    raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=_REFUSAL)
 
 
 async def no_subscription_needed() -> None:

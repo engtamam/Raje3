@@ -11,7 +11,7 @@
     "shop owner sees 148 and pays 148. amount 14800 is 148.00 SAR.",
     "",
     "════════════════════════════════════════════════════════════════════════════════════════════",
-    "A BASE AND APPS, NOT FOUR TIERS",
+    "APPS ONLY, NOT A BASE AND APPS (2026-09-10) — الأساس RETIRED ENTIRELY",
     "",
     "A ladder sells the wrong thing. A workshop that wants campaigns and will never look at an",
     "association engine had to buy the engine to reach them, and read the difference between four",
@@ -19,27 +19,39 @@
     "tier, which reprices three plans and re-argues the whole page. Invoicing and CRM are coming,",
     "and the ladder has no room for them that does not disturb what is already sold.",
     "",
-    "So: ONE base that is the product working, and each app bought on its own. He pays for what he",
-    "turned on, the page is a shop rather than a comparison table, and a new app is a row here.",
+    "A BUNDLED الأساس ROW WAS THE FIRST CUT AT THIS AND IT DID NOT SURVIVE CONTACT WITH THE ",
+    "PRODUCT: it still smuggled a tier back in — every shop needed IT before any app meant anything",
+    "— and once every real capability (visit register, staff, branches, customer records) had its",
+    "own separately-priced app, the row sold nothing a shop could not already buy piece by piece.",
+    "Deleted outright (never a live subscriber to migrate — test server, never launched): the row,",
+    "its `feature.base` key, every write-gate that asked for it alone. Ordinary shop-management",
+    "writes (staff, branches, services) now accept ANY ONE paid app — see",
+    "services/operations/app/api/subscribed.py::subscribed_write's own comment for the OR.",
+    "",
+    "MESSAGING/REMINDERS FOLLOWS THE SAME RULE, ONE LEVEL DOWN: it is not a plan row at all, it is",
+    "a FEATURE that comes bundled with whichever app actually records a customer event —",
+    "`feature.visit` or `feature.bookings` today. A shop owning either gets the reminders engine",
+    "(adaptive per-customer rhythm, engagement scoring) that ships with it; nothing here sells",
+    "'reminders' on its own, because there is nothing to remind about without an event to hang it",
+    "on. See services/reminders/app/api/subscribed.py::subscribed_write.",
+    "",
+    "He pays for what he turned on, the page is a shop rather than a comparison table, and a new",
+    "app is a row here.",
     "",
     "HOW IT ADDS UP, AND WHY IT NEEDS NO NEW CODE. billing-service resolves entitlements across",
     "EVERY live subscription and merges them — its own words: 'per-item catalogue — one",
     "subscription per product — the union IS the entitlement'. Rich limits merge by combining",
-    "`limit`, and numbers SUM: the base says feature.campaigns 0, the app says 1, the answer is 1.",
-    "Seats add the same way — base 5 plus a seat pack of 10 is 15.",
+    "`limit`, and numbers SUM.",
     "",
-    "WHICH IS WHY ONLY THE BASE MAY CARRY `messages.monthly`, AND WHY ITS VALUE IS THE WORD",
-    "`unlimited` RATHER THAN -1. billing merges its own sentinel by beating every arithmetic;",
-    "-1 is just a number to it, and two of them summed to -2 — which refuses every send.",
-    "The one-row rule holds for any key carrying the sentinel: it belongs to exactly one row.",
+    "ONLY ONE ROW MAY EVER CARRY `messages.monthly` AT ONCE (the sentinel `unlimited`, never -1 —",
+    "billing merges its own sentinel by beating every arithmetic, and two -1s summed to -2, which",
+    "refuses every send). No row carries it today; the day unlimited messaging becomes its own sold",
+    "thing again, it goes on exactly one row and nowhere else.",
     "",
-    "AND AN APP IS NOT BOUGHT TWICE, NOR WITHOUT THE BASE. Neither is expressible in billing —",
-    "subscribe always creates a row — so both are refused in our own path, operations'",
-    "`subscription.activate`, which is the only door the console uses. It decides from the",
-    "SUBSCRIPTIONS THEMSELVES (/internal/billing/subscriptions, base-services v0.16.7): a row is a",
-    "BASE when it carries `messages.monthly`, which is the one key an app may never repeat. An",
-    "earlier `feature.base` flag said the same thing less well — it could not name WHICH",
-    "subscription, WHEN it renews or WHAT was paid — and it is gone.",
+    "AND AN APP IS NOT BOUGHT TWICE. Not expressible in billing — subscribe always creates a row —",
+    "so it is refused in our own path, operations' `subscription.activate`, which is the only door",
+    "the console uses. It decides from the SUBSCRIPTIONS THEMSELVES",
+    "(/internal/billing/subscriptions, base-services v0.16.7).",
     "",
     "LIMITS ARE THE PRODUCT. The name sells; the limits dict is what actually happens. Three kinds,",
     "and the difference decides who reports the number:",
@@ -69,20 +81,19 @@
   ],
   "currency": "SAR",
   "limit_keys": {
-    "messages.monthly": "measured, never sold — see the note above. Uncapped, on the BASE ONLY",
+    "messages.monthly": "measured, never sold — see the note above. Uncapped, and only ever on ONE row at a time (المؤسسات today — no other row grants it)",
     "staff.seats": "people who can sign in; operations owns the count and reports it",
     "branches": "branches; operations owns the count and reports it",
     "feature.campaigns": "the campaign builder (§10)",
-    "feature.loyalty": "the points programme (§9)",
+    "feature.loyalty": "the points programme (§9) — a FEATURE of whichever app records the touchpoint it earns points on, per `plan.requires_any` below, never sellable alone",
     "feature.insights.engine": "the association engine (§10.6) — the one thing nobody else has",
     "feature.api": "the programmatic link: a till writing visits in the shop's name",
     "templates.custom": "templates he writes himself and submits to Meta, per month",
-    "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing",
-    "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway",
+    "feature.bookings": "الحجوزات — the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway. Also GRANTS the reminders engine (adaptive rhythm, engagement scoring) as an included FEATURE, not a separate purchase — see services/reminders/app/api/subscribed.py::subscribed_write",
     "feature.rating": "the post-visit rating app (WhatsApp Flow, stars + free text) — replaces the plain visit-confirmation message for a shop that owns it, never a second message",
-    "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. THE ONE APP THAT MAY BE BOUGHT STANDALONE, WITHOUT الأساس first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)",
-    "feature.contacts": "جهات الاتصال — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does — a shop buying only this holds no base underneath it",
-    "feature.visit": "تسجيل زيارة — the visit register itself, pulled out from under `feature.base`'s exclusive control and sold as its own standalone app. A shop holding EITHER `feature.base` OR this may record a visit (services/operations/app/api/subscribed.py::subscribed_write_or_visit); `feature.base` keeps its old meaning unchanged for existing subscribers — retiring it in favour of this key everywhere is a separate, future migration decision, not this one"
+    "feature.whatsapp": "the AI assistant over WhatsApp — an AI-composed reply and AI-driven booking for this shop's customers. Standalone, no other app required first (see its own plan row's `plan.standalone` — services/operations/app/core/subscribe.py::may_add reads it)",
+    "feature.contacts": "جهات الاتصال — a FREE standalone app that does one thing: it lets a shop with no other product at all resolve-or-create a customer by phone (POST /field/customers/ensure, services/operations). Carries `plan.standalone` for the same reason `feature.whatsapp` does",
+    "feature.visit": "تسجيل زيارة — the visit register itself, sold as its own standalone app (services/operations/app/api/subscribed.py::subscribed_write_or_visit). Also GRANTS the reminders engine (adaptive rhythm, engagement scoring) as an included FEATURE, not a separate purchase — see services/reminders/app/api/subscribed.py::subscribed_write"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -92,100 +103,6 @@
     "as its own app row, and nobody was charged for it in the meantime."
   ],
   "plans": [
-    {
-      "_": [
-        "THE BASE — the product working. Visits, customers, the service catalogue, visit",
-        "confirmation and the reminder that brings people back, the customer's own page, and the",
-        "free indicators in «محلّي».",
-        "",
-        "IT CARRIES EVERY KEY, including every app at 0, so no surface anywhere has to tell 'not",
-        "bought' apart from 'never heard of it'.",
-        "",
-        "THE TRIAL LIVES HERE, and now it can only live here — there is no higher tier to hand him",
-        "for two weeks and take away. He evaluates the product itself; the apps are bought when a",
-        "number in his own dashboard makes him want one.",
-        "",
-        "0 MEANS NO TRIAL, and the length is set from our panel by editing this row. No service",
-        "knows the number, and a shop that signed up under 14 days keeps 14 whatever we change.",
-        "",
-        "RETIRED FROM NEW SIGNUPS — `listed: false`, the owner's own decision, once there was no",
-        "real subscriber anywhere to migrate (test server, never launched). The bundle this row",
-        "sold is now two separately-priced standalone apps — «جهات الاتصال» (free, granted to",
-        "every fresh shop on day one regardless, signup.py::_start_contacts_grant) and «تسجيل",
-        "زيارة» (the visit register itself, sold on its own). `base_plan_id()` deliberately reads",
-        "without `include_hidden`, so a fresh signup now finds none and skips the base-trial step",
-        "cleanly — no crash, no empty-string plan_id passed anywhere; see that function's own",
-        "note. This row is NOT retired (`active` stays true) — it is not deleted or deactivated,",
-        "only removed from the storefront, because deleting the row itself would be pointless",
-        "surgery on a plan nobody outside this file has ever held."
-      ],
-      "name": "الأساس",
-      "amount": 9900,
-      "trial_days": 30,
-      "listed": false,
-      "limits": {
-        "messages.monthly": {
-          "kind": "counter",
-          "limit": "unlimited",
-          "period": "billing_period",
-          "overage": "allow_and_bill"
-        },
-        "staff.seats": {
-          "kind": "gauge",
-          "limit": 5
-        },
-        "branches": {
-          "kind": "gauge",
-          "limit": 1
-        },
-        "feature.campaigns": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.loyalty": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.insights.engine": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.api": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "templates.custom": {
-          "kind": "counter",
-          "limit": 0,
-          "period": "month",
-          "overage": "block"
-        },
-        "feature.base": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "feature.bookings": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.rating": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.whatsapp": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.contacts": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.visit": {
-          "kind": "boolean",
-          "limit": 0
-        }
-      }
-    },
     {
       "_": [
         "THE APPS. Each grants ONE key and says nothing about anything else — a row that repeated",
@@ -223,8 +140,8 @@
         "REQUIRES_ANY (2026-09-09), THE OWNER'S OWN REASONING: points earned on nothing are not a",
         "programme, they are a promise with no way to keep it. Loyalty points are earned by a",
         "customer TOUCHPOINT — a visit recorded, or an appointment attended — and a shop holding",
-        "NEITHER تسجيل زيارة nor الحجوزات (and not الأساس, which carries the same visit register)",
-        "has no way for a single point to ever be earned. `plan.requires_any` says so, data-driven,",
+        "NEITHER تسجيل زيارة nor الحجوزات has no way for a single point to ever be earned.",
+        "`plan.requires_any` says so, data-driven,",
         "exactly like `plan.standalone` above: `may_add` (services/operations/app/core/",
         "subscribe.py) refuses the purchase unless the shop's own held entitlements already",
         "intersect this list — independent of, and in addition to, the ordinary base-required",
@@ -272,7 +189,11 @@
         "",
         "LISTED=TRUE (2026-08-19). All ten stages of docs/خطة-تنفيذ-الحجوزات.md are built and",
         "shipped: the grid, drag-and-drop, the booking->visit gateway, the confirmation template,",
-        "no-show risk, and the today strip. A shop can now actually use what this key sells."
+        "no-show risk, and the today strip. A shop can now actually use what this key sells.",
+        "",
+        "GRANTS THE REMINDERS ENGINE TOO, same as «تسجيل زيارة» — adaptive per-customer rhythm and",
+        "engagement scoring come bundled with the app that produces the booking event they measure,",
+        "never a separate purchase. See services/reminders/app/api/subscribed.py::subscribed_write."
       ],
       "name": "الحجوزات",
       "amount": 9900,
@@ -380,16 +301,15 @@
         "outright, so a free-forever app never re-cycles through a pointless SAR 0 invoice every",
         "month for nothing.",
         "",
-        "`plan.standalone` — same marker, same reason as «بوت خدمة العملاء الذكي» above: a shop",
-        "buying only this holds no base underneath it, so `may_add` must skip its own",
-        "base-required rule for THIS row too. `STANDALONE_PLANS_ENABLED` is the same kill switch",
-        "for both rows.",
+        "`plan.standalone` — same marker, same reason as «بوت خدمة العملاء الذكي» above: nothing",
+        "in this product requires any OTHER app first any more, but the marker still exists for",
+        "`may_add`'s own OR-across-every-app rule; `STANDALONE_PLANS_ENABLED` is the same kill",
+        "switch for every row that carries it.",
         "",
         "`feature.contacts` GRANTS NOTHING BEYOND THE ONE DOOR IT NAMES — it is read by",
         "`subscribed_write_or_customer_creating_app` (services/operations/app/api/subscribed.py)",
-        "alongside `feature.base` and `feature.bookings`; it does not touch visits, which stay",
-        "behind `feature.visit`/`feature.base` (see «تسجيل زيارة» below) even for a customer this",
-        "app just created."
+        "alongside `feature.bookings`; it does not touch visits, which stay behind `feature.visit`",
+        "(see «تسجيل زيارة» below) even for a customer this app just created."
       ],
       "name": "جهات الاتصال",
       "amount": 0,
@@ -408,21 +328,17 @@
     },
     {
       "_": [
-        "تسجيل زيارة — THE VISIT REGISTER ITSELF, PULLED OUT FROM UNDER الأساس'S EXCLUSIVE",
-        "CONTROL. Until this row, recording a visit was reachable ONLY through `feature.base` — a",
-        "shop wanting nothing else from الأساس could not record a single visit without buying the",
-        "whole bundle underneath it. This row sells the register on its own, at the same flat 99",
-        "every app on this list sells for.",
+        "تسجيل زيارة — THE VISIT REGISTER ITSELF, sold on its own, at the same flat 99 every app",
+        "on this list sells for.",
         "",
-        "`plan.standalone` — a shop buying only this holds no base underneath it either, same",
-        "mechanism as «بوت خدمة العملاء الذكي» and «جهات الاتصال» above.",
+        "`plan.standalone` — a shop buying only this needs no other app first, same mechanism as",
+        "«بوت خدمة العملاء الذكي» and «جهات الاتصال» above.",
         "",
-        "`feature.base` KEEPS ITS OLD MEANING, UNCHANGED, FOR EXISTING SUBSCRIBERS. This row does",
-        "not replace it and does not migrate anybody off it — `subscribed_write_or_visit`",
-        "(services/operations/app/api/subscribed.py) accepts EITHER key, so a shop already on",
-        "الأساس keeps recording visits exactly as before, with no action needed. Retiring",
-        "`feature.base`'s bundling of the visit register in favour of this key everywhere is a",
-        "separate, future migration decision — deliberately not made by this row."
+        "GRANTS THE REMINDERS ENGINE TOO, as an included feature rather than a second purchase —",
+        "adaptive per-customer rhythm and engagement scoring come bundled with recording the event",
+        "they measure, per the product decision retiring الأساس (2026-09-10): messaging is a",
+        "feature of the app that produces the customer event, never a product of its own. See",
+        "services/reminders/app/api/subscribed.py::subscribed_write."
       ],
       "name": "تسجيل زيارة",
       "amount": 9900,
@@ -488,8 +404,11 @@
         "amount agreed with him, and no code anywhere learns it exists.",
         "",
         "IT IS A WHOLE SUBSCRIPTION, NOT AN APP — it carries every key including messages.monthly,",
-        "and it is sold INSTEAD of the base rather than beside it. A shop holding both would sum",
-        "two message meters into a smaller one, which is why `subscription.activate` refuses it.",
+        "and it is sold INSTEAD of every other row rather than beside them. A shop holding both",
+        "this and another app would sum two message meters into a smaller one, which is why",
+        "`subscription.activate` refuses it. GRANTS `feature.visit`/`feature.contacts` explicitly",
+        "(2026-09-10, replacing the retired `feature.base` this row used to carry) — an enterprise",
+        "subscriber's write access must not depend on a key that no longer exists anywhere else.",
         "",
         "The amount here is a PLACEHOLDER, not a price. It is what the plan costs when nobody has",
         "negotiated anything, and the panel overwrites it per subscription."
@@ -535,10 +454,6 @@
           "period": "month",
           "overage": "block"
         },
-        "feature.base": {
-          "kind": "boolean",
-          "limit": 1
-        },
         "feature.bookings": {
           "kind": "boolean",
           "limit": 0
@@ -553,11 +468,11 @@
         },
         "feature.contacts": {
           "kind": "boolean",
-          "limit": 0
+          "limit": 1
         },
         "feature.visit": {
           "kind": "boolean",
-          "limit": 0
+          "limit": 1
         }
       }
     }

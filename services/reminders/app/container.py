@@ -362,11 +362,15 @@ def build_container(settings: Settings) -> Container:
                           ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS,
                           ceiling=container.ceiling,
                           public_base_url=settings.PUBLIC_BASE_URL)
-    # `feature.base`, asked on every owner write here for the same reason operations asks it: a
-    # lapsed shop keeps reading its schedules and stops editing them.
-    from app.core.base_licence import build_base_licence
+    # MESSAGING IS A FEATURE OF THE APP THAT RECORDS THE EVENT, not a product of its own
+    # (2026-09-10, retiring الأساس) — asked on every owner write here (schedules, rules,
+    # templates) as an OR across `feature.visit`/`feature.bookings`: a shop keeps reading its
+    # schedules always, and may edit them the moment it owns either event-recording app. See
+    # `api/subscribed.py::subscribed_write`'s own comment.
+    from app.core.feature_licence import build_feature_licence
 
-    container.base_licence = build_base_licence(settings)
+    container.visit_licence = build_feature_licence(settings, "feature.visit")
+    container.bookings_licence = build_feature_licence(settings, "feature.bookings")
 
     # `feature.rating` — the rating app's own entitlement, asked when a visit is scheduled
     # (api/internal.py's `_rating_eligible`) to decide which of the two post-visit messages fires.

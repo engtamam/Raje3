@@ -132,20 +132,15 @@ export const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
   'feature.insights.engine': { label: 'فرصي: أين الفرصة في محلّك' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
-  // SOLD, NOT BUILT YET (ci/check_entitlements.py's SOLD_UNBUILT). The app itself carries
-  // `listed: false`, so this sentence never actually renders a card — it exists so the wording
-  // is ready the day the app flips to listed, not written under launch pressure.
-  'feature.bookings': { label: 'نظام الحجوزات ومواعيد العملاء' },
+  // BUILT AND LIVE (2026-08-19, plans.json's own note on this row). GRANTS THE REMINDERS ENGINE
+  // TOO — adaptive per-customer rhythm and engagement scoring bundled in, not a second purchase
+  // (2026-09-10, retiring الأساس) — said explicitly here so the card's own value is legible.
+  'feature.bookings': { label: 'نظام الحجوزات ومواعيد العملاء، ورسائل ذكية تلقائية تفهم سلوك كل عميل وتذكّره في وقته' },
   // BUILT (verified 2026-09-08, full pipeline audit — see plans.json's own note on this row) —
   // NOT in ci/check_entitlements.py's SOLD_UNBUILT (that dict is empty). `listed: false` in
   // plans.json is a pure go-live decision now; this sentence is ready and simply never prints
   // until that flips, since `Plans.tsx` never offers an unlisted plan for purchase.
   'feature.rating': { label: 'تقييم العملاء بعد الزيارة' },
-  // THE BASE ITSELF, and it has a sentence for the same reason every other key does: it is
-  // charged for, so the page where he decides must name it. «سجلّ الزيارات» rather than «الأساس»
-  // — the card is already titled الأساس, and repeating the title tells him nothing about what
-  // the money buys.
-  'feature.base': { label: 'سجلّ الزيارات والتذكيرات' },
   'feature.whatsapp': { label: 'مساعد ذكي يرد على عملائك عبر واتساب' },
   // THE ONE APP SOLD WITHOUT الأساس UNDERNEATH IT (see plans.json's own note on this plan row) —
   // a real, customer-meaningful fact worth a line on the card, not an internal implementation
@@ -161,9 +156,9 @@ export const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   // جهات الاتصال — the FREE app (see plans.json's own note on the row). Grants exactly one
   // door: resolving or creating a customer by phone with no visit attached.
   'feature.contacts': { label: 'تسجيل بيانات العملاء وحفظها' },
-  // تسجيل زيارة — the visit register itself, sold on its own (see plans.json's own note on the
-  // row for why it no longer needs الأساس underneath it).
-  'feature.visit': { label: 'تسجيل الزيارات وتأكيدها والتذكير بها' },
+  // تسجيل زيارة — the visit register itself, sold on its own. GRANTS THE REMINDERS ENGINE TOO —
+  // same reasoning as feature.bookings above (2026-09-10, retiring الأساس).
+  'feature.visit': { label: 'تسجيل الزيارات وتأكيدها، ورسائل ذكية تلقائية تفهم سلوك كل عميل وتذكّره في وقته' },
 };
 
 // Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so an
@@ -233,7 +228,6 @@ export function isStandalone(plan: Plan): boolean {
  * dependency works (both the purchase refusal and this note) the moment its plans.json row
  * carries `requires_any`; adding it here is a readability improvement, not a precondition. */
 export const REQUIRES_ANY_LABELS: Record<string, string> = {
-  'feature.base': 'الأساس',
   'feature.visit': 'تسجيل زيارة',
   'feature.bookings': 'الحجوزات',
   'feature.contacts': 'جهات الاتصال',

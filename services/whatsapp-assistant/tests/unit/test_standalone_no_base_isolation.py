@@ -189,10 +189,11 @@ async def test_null_base_entitlement_always_allows():
     assert await NullBaseEntitlement().allowed("any_tenant") is True
 
 
-async def test_http_base_entitlement_asks_for_feature_base_specifically():
+async def test_http_base_entitlement_asks_every_event_recording_app():
     from app.core import base_entitlement
 
-    assert base_entitlement.KEY == "feature.base"
+    assert base_entitlement.KEYS == (
+        "feature.visit", "feature.bookings", "feature.contacts", "feature.loyalty")
 
 
 async def test_an_empty_tenant_is_never_asked_about():

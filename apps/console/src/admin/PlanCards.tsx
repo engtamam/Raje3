@@ -70,7 +70,6 @@ interface Plan {
 const LIMIT_ICON: Record<string, typeof Users> = {
   'staff.seats': Users,
   branches: GitBranch,
-  'feature.base': Sparkles,
   'feature.bookings': Gift,
   'feature.api': Plug,
   'feature.loyalty': Gift,

@@ -316,28 +316,31 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_api_licence
 
     container.api_licence = build_api_licence(settings)
-    # And `feature.base` — the 99-a-month product itself, which had no licence at all until the
-    # subscription gate. Asked on every write the owner makes; never on a read.
-    from app.core.base_licence import build_base_licence
-
-    container.base_licence = build_base_licence(settings)
-    # And `feature.whatsapp` — the one plan sold with no base underneath it. Asked ONLY by the
-    # WhatsApp connect routes, alongside base_licence, so a standalone buyer can open the one
-    # door he needs without holding a base at all (api/subscribed.py::subscribed_write_or_whatsapp).
+    # NO `feature.base` ANY MORE — the bundled الأساس plan is retired entirely (2026-09-10). Every
+    # app is its own licence now, and `subscribed_write` (api/subscribed.py) is itself an OR across
+    # all of them: a generic shop-management write (staff, branches, services) needs ANY one paid
+    # app, not a specific bundle nobody sells any more.
+    #
+    # `feature.whatsapp` — the one plan sold with no other app underneath it. Also joins the
+    # generic OR below, same as every other app; it kept its own file (rather than the parametrised
+    # builder) because it predates `feature_licence.py` — see that module's own docstring.
     from app.core.whatsapp_licence import build_whatsapp_licence
 
     container.whatsapp_licence = build_whatsapp_licence(settings)
-    # `feature.contacts`, `feature.bookings` and `feature.visit` — every OTHER key that can
-    # satisfy a customer- or visit-creating write door alongside `feature.base`
-    # (api/subscribed.py::subscribed_write_or_customer_creating_app,
-    # subscribed_write_or_visit). One parametrised builder, not three hand-copied licence
-    # files — see core/feature_licence.py's own docstring for why that stopped being safe at
-    # the third key.
+    # Every OTHER standalone app's own licence, one parametrised builder rather than N hand-copied
+    # files — see core/feature_licence.py's own docstring for why that stopped being safe at the
+    # third key. Each joins `subscribed_write`'s OR (api/subscribed.py) under its own attribute
+    # name; `campaigns_licence`/`loyalty_licence`/`rating_licence` exist here ONLY so that OR can
+    # ask about them too — none of the three has a narrower, app-specific gate of its own the way
+    # visit/bookings/contacts do (api/subscribed.py::subscribed_write_or_visit and friends).
     from app.core.feature_licence import build_feature_licence
 
     container.contacts_licence = build_feature_licence(settings, "feature.contacts")
     container.bookings_licence = build_feature_licence(settings, "feature.bookings")
     container.visit_licence = build_feature_licence(settings, "feature.visit")
+    container.campaigns_licence = build_feature_licence(settings, "feature.campaigns")
+    container.loyalty_licence = build_feature_licence(settings, "feature.loyalty")
+    container.rating_licence = build_feature_licence(settings, "feature.rating")
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».

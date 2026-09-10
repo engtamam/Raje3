@@ -1,20 +1,17 @@
 """Customer registration must be possible "من أي تطبيق" — the owner's own decision — and recording
-a visit must accept the new standalone "تسجيل زيارة" app alongside الأساس. Both doors are built on
-`api.subscribed.subscribed_write_or`, the generalisation of what used to be a WhatsApp-only
-`subscribed_write_or_whatsapp`; these tests exercise the generic factory itself, and the two
-concrete gates it builds, through a real dependency chain — same shape as this module's WhatsApp
-sibling in `test_a_lapsed_shop_reads_and_cannot_write.py`.
+a visit must accept the standalone "تسجيل زيارة" app. Both doors are built on
+`api.subscribed.subscribed_write_or`, the same generic factory `subscribed_write` itself is now
+built on; these tests exercise the factory and the concrete gates it builds, through a real
+dependency chain — same shape as this module's WhatsApp sibling in
+`test_a_lapsed_shop_reads_and_cannot_write.py`.
 """
 from __future__ import annotations
 
-import pytest
-
-from app.core.base_licence import CANNOT_ASK, NullBaseLicence
 from app.core.feature_licence import NullFeatureLicence
 
 
 def _client(container_cls):
-    from fastapi import Depends, FastAPI
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     app = FastAPI()
@@ -37,8 +34,8 @@ def test_subscribed_write_or_passes_when_any_named_licence_is_true():
     gate = subscribed_write_or("a_licence", "b_licence", refusal="لا يوجد اشتراك")
 
     class _Container:
-        a_licence = NullBaseLicence(False)
-        b_licence = NullFeatureLicence("feature.x", True)
+        a_licence = NullFeatureLicence("feature.a", False)
+        b_licence = NullFeatureLicence("feature.b", True)
 
     app, client = _client(_Container)
 
@@ -58,8 +55,8 @@ def test_subscribed_write_or_refuses_when_every_named_licence_is_false():
     gate = subscribed_write_or("a_licence", "b_licence", refusal=refusal)
 
     class _Container:
-        a_licence = NullBaseLicence(False)
-        b_licence = NullFeatureLicence("feature.x", False)
+        a_licence = NullFeatureLicence("feature.a", False)
+        b_licence = NullFeatureLicence("feature.b", False)
 
     app, client = _client(_Container)
 
@@ -75,13 +72,13 @@ def test_subscribed_write_or_refuses_when_every_named_licence_is_false():
 def test_subscribed_write_or_fails_closed_with_cannot_ask_when_every_answer_is_unreachable():
     from fastapi import Depends
 
-    from app.api.subscribed import subscribed_write_or
+    from app.api.subscribed import CANNOT_ASK, subscribed_write_or
 
     gate = subscribed_write_or("a_licence", "b_licence", refusal="لا يوجد اشتراك")
 
     class _Container:
-        a_licence = NullBaseLicence(None)
-        b_licence = NullFeatureLicence("feature.x", None)
+        a_licence = NullFeatureLicence("feature.a", None)
+        b_licence = NullFeatureLicence("feature.b", None)
 
     app, client = _client(_Container)
 
@@ -102,7 +99,6 @@ def test_a_shop_holding_only_feature_contacts_may_ensure_a_customer():
     from app.api.subscribed import subscribed_write_or_customer_creating_app
 
     class _Container:
-        base_licence = NullBaseLicence(False)
         contacts_licence = NullFeatureLicence("feature.contacts", True)
         bookings_licence = NullFeatureLicence("feature.bookings", False)
 
@@ -122,7 +118,6 @@ def test_a_shop_holding_only_feature_bookings_may_ensure_a_customer():
     from app.api.subscribed import subscribed_write_or_customer_creating_app
 
     class _Container:
-        base_licence = NullBaseLicence(False)
         contacts_licence = NullFeatureLicence("feature.contacts", False)
         bookings_licence = NullFeatureLicence("feature.bookings", True)
 
@@ -136,33 +131,12 @@ def test_a_shop_holding_only_feature_bookings_may_ensure_a_customer():
     assert client.post("/field/customers/ensure").status_code == 200
 
 
-def test_a_legacy_base_subscriber_may_still_ensure_a_customer_with_neither_new_app():
+def test_a_shop_holding_neither_is_refused_ensuring_a_customer():
     from fastapi import Depends
 
     from app.api.subscribed import subscribed_write_or_customer_creating_app
 
     class _Container:
-        base_licence = NullBaseLicence(True)
-        contacts_licence = NullFeatureLicence("feature.contacts", False)
-        bookings_licence = NullFeatureLicence("feature.bookings", False)
-
-    app, client = _client(_Container)
-
-    @app.post("/field/customers/ensure",
-             dependencies=[Depends(subscribed_write_or_customer_creating_app)])
-    async def _ensure() -> dict:
-        return {"ok": True}
-
-    assert client.post("/field/customers/ensure").status_code == 200
-
-
-def test_a_shop_holding_none_of_the_three_is_refused_ensuring_a_customer():
-    from fastapi import Depends
-
-    from app.api.subscribed import subscribed_write_or_customer_creating_app
-
-    class _Container:
-        base_licence = NullBaseLicence(False)
         contacts_licence = NullFeatureLicence("feature.contacts", False)
         bookings_licence = NullFeatureLicence("feature.bookings", False)
 
@@ -180,13 +154,12 @@ def test_a_shop_holding_none_of_the_three_is_refused_ensuring_a_customer():
 
 # ── /field/visits — the visit-recording OR ─────────────────────────────────────────────────────
 
-def test_a_shop_holding_only_feature_visit_may_record_a_visit():
+def test_a_shop_holding_feature_visit_may_record_a_visit():
     from fastapi import Depends
 
     from app.api.subscribed import subscribed_write_or_visit
 
     class _Container:
-        base_licence = NullBaseLicence(False)
         visit_licence = NullFeatureLicence("feature.visit", True)
 
     app, client = _client(_Container)
@@ -198,31 +171,12 @@ def test_a_shop_holding_only_feature_visit_may_record_a_visit():
     assert client.post("/field/visits").status_code == 200
 
 
-def test_a_legacy_base_subscriber_may_still_record_a_visit_with_no_visit_app():
+def test_a_shop_holding_no_visit_app_is_refused_recording_a_visit():
     from fastapi import Depends
 
     from app.api.subscribed import subscribed_write_or_visit
 
     class _Container:
-        base_licence = NullBaseLicence(True)
-        visit_licence = NullFeatureLicence("feature.visit", False)
-
-    app, client = _client(_Container)
-
-    @app.post("/field/visits", dependencies=[Depends(subscribed_write_or_visit)])
-    async def _visit() -> dict:
-        return {"ok": True}
-
-    assert client.post("/field/visits").status_code == 200
-
-
-def test_a_shop_holding_neither_base_nor_visit_is_refused_recording_a_visit():
-    from fastapi import Depends
-
-    from app.api.subscribed import subscribed_write_or_visit
-
-    class _Container:
-        base_licence = NullBaseLicence(False)
         visit_licence = NullFeatureLicence("feature.visit", False)
 
     app, client = _client(_Container)
@@ -236,9 +190,9 @@ def test_a_shop_holding_neither_base_nor_visit_is_refused_recording_a_visit():
     assert resp.json()["detail"], "the refusal must carry a sentence an owner can act on"
 
 
-# ── the real routers actually use the widened gates, not the base-only one ────────────────────
+# ── the real routers actually use the widened gates ────────────────────────────────────────────
 
-def test_field_router_uses_the_or_gates_not_base_alone():
+def test_field_router_uses_the_or_gates():
     from app.api.subscribed import (subscribed_write_or_customer_creating_app,
                                     subscribed_write_or_visit)
     from app.api.v1.field import router

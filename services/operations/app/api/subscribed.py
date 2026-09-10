@@ -18,33 +18,17 @@ from __future__ import annotations
 from fastapi import Depends, HTTPException, Request, status
 
 from app.api.auth import Principal, require_user
-from app.core.base_licence import CANNOT_ASK, LicenceError
 
+# And when we could not ask. A DIFFERENT sentence from "you have not paid" on purpose — telling a
+# paying shop it has not paid is a different wrong from telling an unpaid one the truth.
+CANNOT_ASK = "تعذّر التحقق من اشتراكك الآن — حاول بعد قليل."
 
-async def subscribed_write(request: Request,
-                           principal: Principal = Depends(require_user)) -> Principal:
-    """Refuse this write unless the base subscription (or its trial) is live.
-
-    402 PAYMENT_REQUIRED, never 403: the owner is not forbidden, he is unsubscribed, and the two
-    lead to different screens. `detail` carries the Arabic sentence the licence chose so the
-    console never has to guess which of the two refusals it is showing.
-    """
-    if not principal.tenant:
-        # NO ESTABLISHMENT ON THE CREDENTIAL IS NOT A SHOP, and asking billing about an empty
-        # tenant asks about everybody. A platform token has no month to have paid, so it does not
-        # reach a shop's write door — it has its own routes, and they declare themselves exempt.
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
-    licence = getattr(request.app.state.container, "base_licence", None)
-    if licence is None:
-        # A deployment with no licence wired is refused at boot; if one is somehow running,
-        # refusing every write would take the whole product down for a configuration mistake.
-        return principal
-    try:
-        await licence.require_write(principal.tenant)
-    except LicenceError as exc:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail=exc.message) from exc
-    return principal
+# NO SINGLE BUNDLE ANY MORE (الأساس retired 2026-09-10). Ordinary shop-management writes — staff,
+# branches, services, redeeming an offer — are not any ONE app's business; they need SOME paid app,
+# whichever it is. This is every standalone app's licence attribute name, the same list
+# `container.py` wires — a future app joins by adding its own attribute here, nothing else changes.
+_ANY_APP = ("visit_licence", "bookings_licence", "contacts_licence", "whatsapp_licence",
+           "campaigns_licence", "loyalty_licence", "rating_licence")
 
 
 def subscribed_write_or(*licence_attrs: str, refusal: str):
@@ -96,32 +80,35 @@ def subscribed_write_or(*licence_attrs: str, refusal: str):
     return _gate
 
 
-# "واتساب الذكي (مستقل)" holds no base at all, by design (plans.json's own note on that row) — so
-# the WhatsApp connect routes (api/v1/connect.py) use this instead of `subscribed_write`,
-# everywhere else on this file unchanged. Same dependency object as before this file was
-# generalised — only its construction changed, not its behaviour or its identity as an import.
+# THE GENERIC GATE, and now the entire definition of "subscribed" — no bundle sits under it any
+# more. Every ordinary shop-management write (staff, branches, services, an offer redeemed) needs
+# SOME paid app; which one is irrelevant to routes that are not themselves app-specific.
+subscribed_write = subscribed_write_or(
+    *_ANY_APP,
+    refusal="يحتاج هذا الإجراء اشتراكاً فعّالاً في تطبيق واحد على الأقل من تطبيقاتنا.")
+
+# Connecting WhatsApp is specific to the one app that number belongs to — no OR needed any more
+# now that `subscribed_write` itself already asks about `whatsapp_licence` as one of its options;
+# kept as its own name only because `api/v1/connect.py` reads clearer naming the app it gates.
 subscribed_write_or_whatsapp = subscribed_write_or(
-    "base_licence", "whatsapp_licence",
-    refusal="يحتاج ربط واتساب اشتراكاً فعّالاً — بالأساس، أو بتطبيق واتساب الذكي المستقل.")
+    "whatsapp_licence",
+    refusal="يحتاج ربط واتساب اشتراكاً فعّالاً بتطبيق واتساب الذكي.")
 
 # Registering a customer — `/field/customers/ensure` — must be possible from any app that
-# legitimately creates or first meets a customer relationship, not gated to `feature.base` alone:
-# `feature.base` for today's legacy bundle, `feature.contacts` for "جهات الاتصال" (the free
-# standalone app built to carry exactly this), and `feature.bookings` because a booking can be how
-# a shop meets a customer for the first time. A FUTURE app joins this OR by adding its own
-# attribute name to this one line — nothing else in this file changes.
+# legitimately creates or first meets a customer relationship: `feature.contacts` ("جهات
+# الاتصال", the free standalone app built to carry exactly this) or `feature.bookings`, because a
+# booking can be how a shop meets a customer for the first time. A FUTURE app joins this OR by
+# adding its own attribute name to this one line — nothing else in this file changes.
 subscribed_write_or_customer_creating_app = subscribed_write_or(
-    "base_licence", "contacts_licence", "bookings_licence",
-    refusal="يحتاج تسجيل عميل اشتراكاً فعّالاً — بالأساس، أو بتطبيق جهات الاتصال، "
-           "أو بتطبيق الحجوزات.")
+    "contacts_licence", "bookings_licence",
+    refusal="يحتاج تسجيل عميل اشتراكاً فعّالاً بتطبيق جهات الاتصال، أو بتطبيق الحجوزات.")
 
 # Recording a visit — `/field/visits`, `/field/visits/{id}/offer`, and the till door that
-# ultimately calls the same `Operations.record_visit` — accepts `feature.base` (the legacy
-# bundle, unchanged for existing subscribers) OR the new, separately-priced `feature.visit`
+# ultimately calls the same `Operations.record_visit` — needs the separately-priced `feature.visit`
 # standalone app ("تسجيل زيارة").
 subscribed_write_or_visit = subscribed_write_or(
-    "base_licence", "visit_licence",
-    refusal="يحتاج تسجيل الزيارة اشتراكاً فعّالاً — بالأساس، أو بتطبيق تسجيل زيارة المستقل.")
+    "visit_licence",
+    refusal="يحتاج تسجيل الزيارة اشتراكاً فعّالاً بتطبيق تسجيل زيارة.")
 
 
 async def no_subscription_needed() -> None:

@@ -127,12 +127,10 @@ export const APP_ROWS: AppRow[] = [
     section: '',
     onCustomer: '',
   },
-  // «تسجيل زيارة» — the visit register sold on its own (plans.json's own note on the row), for a
-  // shop that wants nothing else from الأساس. `feature.base` still opens the same door for an
-  // existing base subscriber (api/subscribed.py accepts either key) — this row is the STANDALONE
-  // purchase path, and nav.ts's own «تسجيل زيارة» entry is unrelated: that nav item is a page
-  // reachable by every shop (recording a visit is not itself locked behind this key server-side
-  // beyond the OR-gate), so no `section` tie-in is added here.
+  // «تسجيل زيارة» — the visit register sold on its own (plans.json's own note on the row) —
+  // nav.ts's own «تسجيل زيارة» entry is unrelated: that nav item is a page reachable by every
+  // shop server-side (api/subscribed.py's OR-gate, not this key alone), so no `section` tie-in
+  // is added here.
   {
     id: 'visit',
     key: 'feature.visit',
