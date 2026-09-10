@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/billing-service
-  digest: "sha256:6aa06af2c3662d3c5a82054927d32ba77edcbee7cdd77a4f5a9d46a44990fcbc"   # v0.19.10
+  digest: "sha256:2942e3ca62d58b6a0d0a0b95cf31f7368eb36f54bbb9b62cddba2471b4731f36"   # v0.19.11
 
 replicas: 1
 
@@ -172,6 +172,17 @@ env:
   # one caveat worth remembering if a future plan ever wants its own included credit to accumulate
   # instead.
   PLAN_CREDIT_GRANT_MODE: "reset"
+
+  # ── Renewal invoicing shape (billing-service v0.19.11) — CONSOLIDATED, not the default: a shop
+  # with several apps due at once gets ONE invoice (one line per app, one charge, one WhatsApp
+  # pay-link) instead of a separate invoice per app. Money-safety is unchanged from the default —
+  # each subscription still advances/grants under its own idempotency claim, and two currencies
+  # are never summed into one invoice — this only changes HOW MANY invoices a due-sweep cuts for
+  # one tenant. "hybrid" (not used here) would additionally let one subscription opt back out via
+  # Subscription.bill_separately; nothing in this product sets that flag today, so plain
+  # "consolidated" and "hybrid" behave identically for us — consolidated is the direct statement
+  # of what we actually want, not a superset we do not use.
+  BILLING_RENEWAL_INVOICE_MODE: "consolidated"
 
   # ── Renewal by wallet debit (billing-service v0.18.42) — for gateways with no recurring-charge
   # support (TuwaiqPay: no card-on-file/token). Safe to enable ahead of any real use: it only
