@@ -106,6 +106,10 @@ def build_manifest(
             {"path": "/api/v1/insights/refresh", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/associations", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/bundles", "tier": "user", "method": "GET"},
+            # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — no `insights.*`
+            # capability, deliberately: a shop deciding whether to buy this app has to read what
+            # it would get.
+            {"path": "/api/v1/insights/features", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/dispute-report", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/digest", "tier": "user", "method": "PUT"},
