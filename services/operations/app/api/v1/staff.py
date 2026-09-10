@@ -48,6 +48,7 @@ from app.core import scheduling as SCHED
 from app.core import seats as S
 from app.core import shop_mode as SM
 from app.core import vehicles as V
+from app.core import whatsapp_visit_flag as WVF
 from app.core.signup import SignupRefused
 from app.core.stores import BranchStore, OperatorStore, PackageStore, ServiceStore, new_id
 from app.api.subscribed import no_subscription_needed, subscribed_write
@@ -732,6 +733,40 @@ async def set_vehicles(request: Request, body: VehiclesIn,
         tenant, body.tracks_vehicle)
     await request.app.state.auditor.record(
         "shop.vehicles_changed", actor=principal.subject, tenant=tenant, resource="shop_vehicles",
+        ip=request.client.host if request.client else "")
+    return row
+
+
+@router.get("/whatsapp-visit-registration", dependencies=[Depends(rate_limit)])
+async def read_whatsapp_visit_registration(
+        request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Has the owner switched on visit-registration over WhatsApp — the console's own second
+    channel (`core/whatsapp_visit_flag.py`'s own docstring has the full reasoning: OFF is the
+    default for every shop, on purpose, until the owner opts in explicitly)."""
+    enabled = await WVF.WhatsAppVisitFlagStore(request.app.state.container.datastore).enabled(
+        _tenant(principal))
+    return {"enabled": enabled}
+
+
+class WhatsAppVisitRegistrationIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/whatsapp-visit-registration",
+           dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_whatsapp_visit_registration(
+        request: Request, body: WhatsAppVisitRegistrationIn,
+        principal: Principal = Depends(_MANAGE)) -> dict:
+    """Turn visit-registration-over-WhatsApp on or off for this establishment — `_MANAGE`, not
+    `_READ`: this is the owner's own trust decision (core/whatsapp_visit_flag.py's own docstring),
+    never a plain operator's to flip. Both directions, same as `set_vehicles` next door: a shop
+    that turns it on and regrets it can turn it back off — no one-way ratchet."""
+    tenant = _tenant(principal)
+    row = await WVF.WhatsAppVisitFlagStore(request.app.state.container.datastore).set(
+        tenant, body.enabled)
+    await request.app.state.auditor.record(
+        "shop.whatsapp_visit_registration_changed", actor=principal.subject, tenant=tenant,
+        resource="shop_whatsapp_visit_registration",
         ip=request.client.host if request.client else "")
     return row
 

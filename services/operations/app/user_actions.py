@@ -459,6 +459,23 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "إن كان العمل على السيارات ظهرت صفحة رقم اللوحة والعدّاد في تسجيل الزيارة.",
     },
     {
+        "id": "operations.whatsapp_visit_registration", "label": "تسجيل الزيارة عبر واتساب",
+        "method": "GET", "path": "/api/v1/staff/whatsapp-visit-registration",
+        "capability": "operations.read", "group": "منشأتي",
+        "help": "هل يقدر موظفوك يسجّلون الزيارة من واتساب مباشرة، بالإضافة لشاشة تسجيل الزيارة.",
+    },
+    {
+        "id": "operations.set_whatsapp_visit_registration",
+        "label": "تفعيل تسجيل الزيارة عبر واتساب", "method": "PUT",
+        "path": "/api/v1/staff/whatsapp-visit-registration", "capability": "operations.manage",
+        "group": "منشأتي",
+        "params": [{"name": "enabled", "in": "body", "type": "boolean", "required": True}],
+        "confirm": True,
+        "help": "أي موظف عنده حساب دخول يقدر يسجّل زيارة من رقم واتساب الخاص فيه بدون كلمة "
+               "مرور في تلك اللحظة — فرق عن شاشة تسجيل الزيارة اللي تطلب دخوله بكلمة المرور "
+               "كل مرة.",
+    },
+    {
         "id": "operations.list_branches", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
         "help": "فروعك، وكم فرعاً تسمح به باقتك.",

@@ -241,6 +241,19 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "shop_vehicles",
     },
     {
+        # The owner's own security decision — see core/whatsapp_visit_flag.py's own docstring on
+        # why a wider WhatsApp-based attribution surface stays off until he opts in explicitly.
+        # CRITICAL, unlike the vehicles switch next door: this widens who may record a visit under
+        # a real staff attribution, not just what a screen shows.
+        "action": "shop.whatsapp_visit_registration_changed",
+        "source": "admin",
+        "critical": True,
+        "resource": "shop_whatsapp_visit_registration",
+        "why": "who widened (or narrowed) the shop's own visit-attribution surface to include "
+              "any staff member's own WhatsApp number, and when — the fact an owner disputing an "
+              "unfamiliar visit would need first.",
+    },
+    {
         # What the owner told the WhatsApp AI assistant about his own shop. Not critical: this is
         # a routine profile edit, redacted and length-capped before it is ever written, and refusing
         # to change it because the log is down protects nothing a customer would notice.
