@@ -27,11 +27,16 @@ interface FoundCustomer {
  * كاملة: موظف الدعم يعرف المحل الذي يخدمه العميل (لا بحث عبر كل المنشآت دفعة واحدة — مطابقة
  * تامة فقط، لا تخمين تقريبي)، فيكتب الاثنين ويحصل على ملفّه مباشرة.
  *
- * سجل الامتثال الفعلي لهذا العميل (DSAR/الموافقات/حظر الحذف) غير مربوط هنا بعد — الشاشة أدناه
- * لا تزال عامة على مستوى المنصة كلها بسبب خلل حقيقي بخدمة الامتثال (رُفع لفريق base-services)،
- * فربط البطاقة بسجله الفعلي ينتظر ذلك الإصلاح. هذي الخطوة تكتفي بإيجاد العميل نفسه.
+ * العميل الموجود يُصفّي التبويبات الستة أدناه تلقائياً (`onFound`) بمنشأته — الخلل اللي كان
+ * يمنع هذا (compliance-service عمياء عن أي محل حقيقي) انحل بمعزل عن هذا الملف (platform v0.19.7)،
+ * فما احتجنا نغيّر شيء هنا غير تمرير النتيجة لأعلى. التصفية بالمنشأة فقط، لا بالعميل نفسه: DSAR
+ * وحظر الحذف لا يقبلان تصفية "بعميل واحد" أصلاً بالخادم اليوم — القائمة تضيق للمحل الصحيح، والعين
+ * تُكمل. سجل الموافقات وحده يقبل `subject` أيضاً (رقم الجوال مباشرة)، فيُصفّى للعميل بالضبط.
  */
-function CustomerLookup({ session, action }: { session: AdminSession; action: AdminAction }) {
+function CustomerLookup({ session, action, onFound }: {
+  session: AdminSession; action: AdminAction;
+  onFound: (c: FoundCustomer | null) => void;
+}) {
   const [tenant, setTenant] = useState('');
   const [phone, setPhone] = useState('');
   const [state, setState] = useState<'idle' | 'loading' | 'found' | 'missed' | 'failed'>('idle');
@@ -39,12 +44,13 @@ function CustomerLookup({ session, action }: { session: AdminSession; action: Ad
 
   const search = async () => {
     if (!tenant.trim() || !phone.trim()) return;
-    setState('loading'); setResult(null);
+    setState('loading'); setResult(null); onFound(null);
     try {
       const q = `?tenant=${encodeURIComponent(tenant.trim())}&phone=${encodeURIComponent(phone.trim())}`;
       const r = await req<{ customer: FoundCustomer | null }>(
         `${action.path}${q}`, 'GET', undefined, session.access_token);
-      if (r.customer) { setResult(r.customer); setState('found'); } else { setState('missed'); }
+      if (r.customer) { setResult(r.customer); setState('found'); onFound(r.customer); }
+      else { setState('missed'); }
     } catch {
       setState('failed');
     }
@@ -86,6 +92,9 @@ function CustomerLookup({ session, action }: { session: AdminSession; action: Ad
               {result.visit_count} زيارة — آخر زيارة{' '}
               {result.last_visit ? new Date(result.last_visit * 1000).toLocaleDateString('ar-SA-u-nu-latn') : '—'}
             </span>
+            <span className="text-label text-accent-on-soft">
+              التبويبات أدناه مصفّاة الآن على منشأته — الموافقات مصفّاة عليه هو بالذات.
+            </span>
           </div>
         </div>
       ) : null}
@@ -124,6 +133,9 @@ const ACTION_IDS: Record<TabId, { list: string; row: string[] }> = {
 export function AdminCompliance({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
   const [tab, setTab] = useState<TabId>('legal_hold');
+  // العميل الموجود عبر البحث بالجوال — يُصفّي التبويبات الستة أدناه. `null` يعني «لا فلتر»، لا
+  // «ابحث الآن»: تبويبات الامتثال تبقى شغّالة عادي قبل أي بحث، على منشأة المشغّل نفسها كسابقاً.
+  const [foundCustomer, setFoundCustomer] = useState<FoundCustomer | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +159,9 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
     return (
       <div className="flex flex-col gap-4 p-6">
         <h1 className="text-2xl leading-tight tracking-tight">الامتثال</h1>
-        {lookupAction ? <CustomerLookup session={session} action={lookupAction} /> : null}
+        {lookupAction ? (
+          <CustomerLookup session={session} action={lookupAction} onFound={setFoundCustomer} />
+        ) : null}
         <NoActionAvailable catalog={catalog} permissionTitle="لا صلاحية لديك لأي قسم من الامتثال." />
       </div>
     );
@@ -157,12 +171,19 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
   const ids = ACTION_IDS[realActive];
   const listAction = byId.get(ids.list);
   const rowActions = ids.row.map((id) => byId.get(id)).filter((a): a is AdminAction => Boolean(a));
+  // منشأة العميل الموجود تُمرَّر لكل تبويب — DSAR وحظر الحذف يقبلان `tenant` فقط، والموافقات
+  // تقبل `subject` أيضاً فتُصفّى للعميل بالضبط لا لكل عملاء منشأته.
+  const extraQuery: Record<string, string> | undefined = foundCustomer
+    ? { tenant: foundCustomer.tenant, ...(realActive === 'consent' ? { subject: foundCustomer.phone } : {}) }
+    : undefined;
 
   return (
     <div className="flex flex-col gap-4 p-6">
       <h1 className="text-2xl leading-tight tracking-tight">الامتثال</h1>
 
-      {lookupAction ? <CustomerLookup session={session} action={lookupAction} /> : null}
+      {lookupAction ? (
+        <CustomerLookup session={session} action={lookupAction} onFound={setFoundCustomer} />
+      ) : null}
 
       <Segmented
         className="grid w-full grid-cols-2 gap-1 sm:grid-cols-3 sm:flex sm:flex-wrap [&>button]:truncate"
@@ -174,7 +195,8 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
       <p className="text-sm text-text-secondary">{active.hint}</p>
 
       {listAction ? (
-        <ActionListGroup session={session} listAction={listAction} rowActions={rowActions} />
+        <ActionListGroup session={session} listAction={listAction} rowActions={rowActions}
+                         extraQuery={extraQuery} />
       ) : (
         <NoActionAvailable catalog={catalog} permissionTitle={`لا صلاحية لديك لقراءة «${active.label}».`} />
       )}

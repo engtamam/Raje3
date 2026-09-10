@@ -48,25 +48,34 @@ function truncate(v: unknown): string {
   return s.length > 60 ? `${s.slice(0, 57)}…` : s;
 }
 
-export function ActionListGroup({ session, listAction, rowActions }: {
+export function ActionListGroup({ session, listAction, rowActions, extraQuery }: {
   session: AdminSession;
   listAction: AdminAction;
   /** Mutating actions from the same catalog group — offered per row when their path param
    *  resolves against it. */
   rowActions: AdminAction[];
+  /** Query params a CALLER supplies on top of the plain list — e.g. an operator-chosen tenant a
+   *  catalog-declared param exists for but this generic engine has no form to collect on its own
+   *  (that stays the caller's own screen, same as `AdminCompliance.tsx`'s customer lookup). Never
+   *  read from the catalog itself — only ever what the caller explicitly passes. */
+  extraQuery?: Record<string, string>;
 }) {
   const [rows, setRows] = useState<Row[] | 'loading' | 'failed'>('loading');
   const [confirming, setConfirming] = useState<{ action: AdminAction; row: Row } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  const qs = extraQuery && Object.keys(extraQuery).length > 0
+    ? `?${new URLSearchParams(extraQuery).toString()}` : '';
+
   const load = () => {
     setRows('loading');
-    req<unknown>(listAction.path, 'GET', undefined, session.access_token)
+    req<unknown>(`${listAction.path}${qs}`, 'GET', undefined, session.access_token)
       .then((body) => setRows(firstArray(body)))
       .catch(() => setRows('failed'));
   };
-  useEffect(load, [session, listAction.path]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- qs is derived from extraQuery each render
+  useEffect(load, [session, listAction.path, qs]);
 
   const usableRowActions = (row: Row) => rowActions.filter((a) => {
     try { resolvePath(a, row); return true; } catch { return false; }

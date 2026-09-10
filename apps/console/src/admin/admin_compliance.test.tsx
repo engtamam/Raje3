@@ -78,7 +78,8 @@ describe('AdminCompliance', () => {
       .mockResolvedValueOnce({
         customer: { id: 'cus_1', tenant: 'tnt_x', phone: '0501234567', name: 'أحمد',
                    visit_count: 3, last_visit: 1_700_000_000 },
-      });
+      })
+      .mockResolvedValueOnce({ holds: [] });   // legal holds, RELOADED now filtered by tenant
     render(<AdminCompliance session={SESSION} />);
     await waitFor(() => expect(reqMock).toHaveBeenCalledTimes(1));
 
@@ -87,9 +88,12 @@ describe('AdminCompliance', () => {
     fireEvent.click(screen.getByText('بحث'));
 
     await waitFor(() => expect(screen.getByText('أحمد')).toBeTruthy());
-    expect(reqMock).toHaveBeenLastCalledWith(
+    expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/platform/customers/by-phone?tenant=tnt_x&phone=0501234567',
       'GET', undefined, 'tok-1');
+    // The active tab's list reloads, now narrowed to the found customer's own establishment.
+    await waitFor(() => expect(reqMock).toHaveBeenLastCalledWith(
+      '/api/v1/compliance/legal-holds?tenant=tnt_x', 'GET', undefined, 'tok-1'));
   });
 
   it('a search that finds nobody says so, not a blank card', async () => {
