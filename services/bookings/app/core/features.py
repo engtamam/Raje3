@@ -155,10 +155,16 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
         tone=TONE_ROSE,
         # NOT THIS SERVICE'S OWN CODE — the reminders engine (per-customer learned visit rhythm,
         # engagement-tier scoring) lives in `services/reminders/app/core/adaptive.py`/
-        # `engagement.py`. بوكينغز only grants access to it: `reminders`' own `subscribed_write`
+        # `engagement.py`. bookings only grants access to it: `reminders`' own `subscribed_write`
         # (services/reminders/app/api/subscribed.py) is an OR across `feature.visit`/
-        # `feature.bookings` — a shop owning EITHER app gets the exact same engine, which is why
-        # this entry must render byte-identical wherever "تسجيل زيارة" shows it too.
+        # `feature.bookings` — a shop owning EITHER app gets the exact same engine.
+        #
+        # THE CANONICAL TEXT LIVES IN `services/reminders/app/core/features.py::SHARED_FEATURES`
+        # (reminders owns the real code) — this copy exists only because services in this fleet do
+        # not import each other's code, and `ci/check_shared_features_match.py` fails the build the
+        # moment this drifts from that canonical wording by so much as one character. Editing this
+        # entry without editing reminders' own copy the same way is a build failure, not a review
+        # miss.
         shared_with=("visit",),
         owned_by="reminders",
     ),

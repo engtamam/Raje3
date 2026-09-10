@@ -52,13 +52,20 @@ VISIT_FEATURES: tuple[dict[str, Any], ...] = (
      # indexed read, before the customer is even resolved, so a retried request never creates a
      # second visit OR a second customer.
      },
-    {"id": "visit.works_offline", "title": "قطع النت ما يوقفك",
-     "detail": "تسجّل الزيارة عادي حتى بدون نت، وترسل وحدها أول ما يرجع الاتصال",
+    {"id": "visit.works_offline", "title": "انقطاع النت ما يوقف شغلك",
+     # NOT "افتح التطبيق بلا نت أبداً" — the page itself still needs a connection to load once.
+     # What this is: the tablet's signal drops for thirty seconds several times a day in a
+     # workshop/بنشر, mid-shift, and work must not stop for it — see console's own
+     # `queue.ts` module docstring for the same distinction stated to a developer.
+     "detail": "لو النت قطع وأنت تسجّل، تكمل عادي وتحفظ — وترسل لحالها أول ما يرجع الاتصال",
      "icon": "cloud", "tone": "blue", "shared_with": [], "owned_by": "",
-     # The field screen queues locally through an outage and sends the REAL time the operator
-     # pressed save; `_sane_occurred_at` (core/operations.py:692) clamps a claimed timestamp that
-     # is in the future or older than `max_backdate` (default 90 days) rather than trusting a bad
-     # device clock, which would otherwise corrupt reminder scheduling and win-back logic.
+     # `apps/console/src/queue.ts` — a LOCAL WRITE FIRST, a request second: the screen confirms
+     # "تم الحفظ ✓" the instant the visit lands in a local (browser-storage) queue, never when the
+     # server answers, and the queue drains behind the operator with the SAME idempotency key on
+     # every retry so a request that actually succeeded is never sent twice. `_sane_occurred_at`
+     # (core/operations.py:692) is this feature's other half, server-side: it clamps a claimed
+     # timestamp that is in the future or older than `max_backdate` (default 90 days) rather than
+     # trusting a device clock that drifted while offline.
      },
     {"id": "visit.finds_by_plate", "title": "يلقى السيارة برقم لوحتها",
      "detail": "مو لازم تعرف رقم جوال العميل عشان تلقاه",
@@ -92,11 +99,14 @@ VISIT_FEATURES: tuple[dict[str, Any], ...] = (
     {"id": "reminders.learns_each_customer", "title": "يتابع كل عميل لحاله",
      "detail": "يعرف كل عميل يرجع كل قد ايش بالضبط، ويرسله تذكير بنفس وقته هو",
      "icon": "bell", "tone": "rose", "shared_with": ["bookings"], "owned_by": "reminders",
-     # NOT THIS SERVICE'S OWN CODE — same shared entry as bookings-service's own
-     # `reminders.learns_each_customer` (its `core/features.py`), byte-identical on purpose: the
-     # engine lives in `services/reminders/app/core/adaptive.py`/`engagement.py`, and a shop
-     # owning EITHER تسجيل زيارة or الحجوزات gets the exact same one (reminders' own
-     # `subscribed_write` ORs `visit_licence`/`bookings_licence`).
+     # NOT THIS SERVICE'S OWN CODE — the engine lives in `services/reminders/app/core/
+     # adaptive.py`/`engagement.py`, and a shop owning EITHER تسجيل زيارة or الحجوزات gets the
+     # exact same one (`subscribed_write` ORs `visit_licence`/`bookings_licence`).
+     #
+     # THE CANONICAL TEXT LIVES IN `services/reminders/app/core/features.py::SHARED_FEATURES` —
+     # this copy exists only because services in this fleet do not import each other's code, and
+     # `ci/check_shared_features_match.py` fails the build the moment this drifts from that
+     # canonical wording (or from bookings-service's own copy) by so much as one character.
      },
 )
 
