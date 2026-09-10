@@ -1229,3 +1229,15 @@ jobs:
       # bucket that does not exist yet.
       - name: the archive does not live on the machine it protects
         run: python3 ci/check_the_archive_does_not_live_on_the_machine_it_protects.py
+
+      # THE OWNER'S OWN RULE, WORD FOR WORD: "ممنوع اطلاقاً يطلع شريطين تحت بعض" — no screen may
+      # ever render two tab-switcher strips (Segmented/TabBar) stacked with nothing between them,
+      # whether in one file's own JSX or because a screen embeds a child that renders its own.
+      # Found live from a screenshot (AccountPanes → Team.tsx), so this is a real, repeated defect
+      # class, not a hypothetical one. The gate is deliberately broad (it cannot tell a mutually
+      # exclusive `if (tab===x)` branch from two strips genuinely on screen at once, and it treats
+      # a content-filter Segmented the same as a navigation one) — every finding gets a human look
+      # in the redesign pass this gate exists to seed, not a compiler-grade proof; see the script's
+      # own docstring for exactly what it does and does not catch.
+      - name: no two tab strips stack in one view
+        run: python3 ci/check_no_two_tab_strips_stack_in_one_view.py
