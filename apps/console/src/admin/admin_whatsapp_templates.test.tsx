@@ -24,6 +24,11 @@ const CATALOG = {
        path: '/api/v1/whatsapp/templates/test-send',
        capability: 'notifications.templates', confirm: true },
     ] },
+    { service: 'operations', actions: [
+      { id: 'operations.seed_subscription_renewal_flow', label: 'x', method: 'POST' as const,
+       path: '/api/v1/platform/flows/subscription-renewal/seed',
+       capability: 'platform.operations', confirm: true },
+    ] },
   ],
   unreachable: [],
 };
@@ -336,5 +341,54 @@ describe('AdminWhatsAppTemplates', () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminWhatsAppTemplates session={SESSION} />);
     await waitFor(() => expect(screen.getByText('هذه الشاشة ليست ضمن صلاحياتك')).toBeTruthy());
+  });
+
+  it('seeding the renewal flow requires confirmation, then calls the seed route', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [tpl()] })
+      .mockResolvedValueOnce({ ok: true, flow_id: 'flow_123', already_seeded: false });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تجهيز الفلو')).toBeTruthy());
+    fireEvent.click(screen.getByText('تجهيز الفلو'));
+
+    expect(reqMock).not.toHaveBeenCalledWith(
+      '/api/v1/platform/flows/subscription-renewal/seed', 'POST', expect.anything(), 'tok-1');
+    await waitFor(() => expect(screen.getByText(/تجهيز فلو تجديد الاشتراك على ميتا؟/)).toBeTruthy());
+
+    fireEvent.click(screen.getByText('تأكيد'));
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/platform/flows/subscription-renewal/seed', 'POST', undefined, 'tok-1'));
+    await waitFor(() => expect(screen.getByText(/تم تجهيزها الآن/)).toBeTruthy());
+    expect(screen.getByText('flow_123')).toBeTruthy();
+  });
+
+  it('seeding a second time reports already-seeded, plainly', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [tpl()] })
+      .mockResolvedValueOnce({ ok: true, flow_id: 'flow_123', already_seeded: true });
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تجهيز الفلو')).toBeTruthy());
+    fireEvent.click(screen.getByText('تجهيز الفلو'));
+    fireEvent.click(await screen.findByText('تأكيد'));
+
+    await waitFor(() => expect(screen.getByText(/موجودة أصلاً/)).toBeTruthy());
+  });
+
+  it('a refused seed attempt shows the reason, not a generic error', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ templates: [tpl()] })
+      .mockRejectedValueOnce(new AdminRefused('تعذّر إكمال الطلب.', 'META_REJECTED'));
+
+    render(<AdminWhatsAppTemplates session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تجهيز الفلو')).toBeTruthy());
+    fireEvent.click(screen.getByText('تجهيز الفلو'));
+    fireEvent.click(await screen.findByText('تأكيد'));
+
+    await waitFor(() => expect(screen.getByText(/META_REJECTED/)).toBeTruthy());
   });
 });

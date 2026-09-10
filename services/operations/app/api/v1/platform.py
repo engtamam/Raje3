@@ -812,3 +812,54 @@ async def customer_success_scan(request: Request, body: CustomerSuccessIn,
         tenant="", resource=f"tenants:{len(body.tenants)}",
         ip=request.client.host if request.client else "")
     return {"stalling": out, "scanned": len(body.tenants)}
+
+
+@router.post("/flows/subscription-renewal/seed", dependencies=[Depends(rate_limit)])
+async def seed_subscription_renewal_flow(request: Request,
+                                         principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Author the subscription-renewal Flow on `PLATFORM` ("_platform"), ONCE — a manual admin
+    action, never a connect-time or install-time automatic step (owner's decision, 2026-09-10:
+    nothing reaches Meta on a fresh install with no WhatsApp connection yet, and this Flow is
+    platform-owned exactly like the `auth_otp` template, never per-shop like rating/report/
+    booking's own clone-at-connect Flows — see core/flows.py's own module comments).
+
+    IDEMPOTENT: the second call (a re-run, a retry) finds the id already stored in RuntimeConfig
+    and does nothing further, same "already done" posture the three bootstrap scripts hold for
+    their own master Flows."""
+    from app.config import Settings
+    from app.core.flows import (PLATFORM, SUBSCRIPTION_RENEWAL_FLOW_CATEGORIES,
+                                SUBSCRIPTION_RENEWAL_FLOW_JSON, SUBSCRIPTION_RENEWAL_FLOW_NAME,
+                                provision_shop_flow_encryption)
+    from app.core.runtime_config import RuntimeConfig
+    from app.runtime_policy import RUNTIME_POLICY
+
+    s = get_settings()
+    c = request.app.state.container
+    rc = RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY)
+    existing = await rc.get(tenant="", key="MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID",
+                            default=s.MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID)
+    if existing:
+        return {"ok": True, "flow_id": existing, "already_seeded": True}
+
+    endpoint_uri = (f"{s.PUBLIC_BASE_URL}/webhooks/whatsapp/flow/{PLATFORM}/"
+                    f"{SUBSCRIPTION_RENEWAL_FLOW_NAME}" if s.PUBLIC_BASE_URL else "")
+    out = await c.flows.author_master(
+        name=SUBSCRIPTION_RENEWAL_FLOW_NAME, categories=SUBSCRIPTION_RENEWAL_FLOW_CATEGORIES,
+        flow_json=SUBSCRIPTION_RENEWAL_FLOW_JSON, endpoint_uri=endpoint_uri)
+    if not out.get("ok") or not out.get("flow_id"):
+        # RETURNED, NEVER RAISED — the platform's global error handler strips a raised
+        # HTTPException's own `detail`, and this reason is the one thing the admin who pressed
+        # the button needs to actually see (ci/check_refusal_survives.py).
+        return JSONResponse({"ok": False, "reason": out.get("reason") or "flow authoring failed"},
+                            status_code=status.HTTP_502_BAD_GATEWAY)
+    await rc.set(tenant="", key="MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID", value=out["flow_id"],
+                actor_ref=getattr(principal, "subject", "") or "")
+    # THE FLOW'S OTHER HALF — same call the three clone-per-shop Flows make at connect time, here
+    # made once, for PLATFORM's own number rather than a shop's.
+    enc = await provision_shop_flow_encryption(c.flows, PLATFORM)
+    await request.app.state.auditor.record(
+        "platform.subscription_renewal_flow_seeded", actor=getattr(principal, "subject", "") or "",
+        tenant="", resource=f"flow:{out['flow_id']}",
+        ip=request.client.host if request.client else "")
+    return {"ok": True, "flow_id": out["flow_id"], "already_seeded": False,
+            "encryption": enc.get("ok", False)}

@@ -191,6 +191,14 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "محلات سجّلت ولم تضِف خدمة خلال المدة، أو أضافت خدمات ولا زيارة واحدة سُجّلت لها — "
                 "من بيانات هذه الخدمة الفعلية، لا تخمين.",
     },
+    {
+        "id": "operations.seed_subscription_renewal_flow", "label": "تجهيز فلو التجديد",
+        "method": "POST", "path": "/api/v1/platform/flows/subscription-renewal/seed",
+        "capability": "platform.operations", "group": "المنصة", "confirm": True,
+        "help": "يصنع شاشة تجديد الاشتراك التفاعلية عند ميتا، مرة واحدة على حساب المنصة — "
+                "يدوي بالكامل، لا يتكرر لكل محل. آمن لإعادة الضغط: لو موجودة أصلاً، يقول ذلك ولا "
+                "يعيد إنشاءها.",
+    },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {
         "id": "operations.list_partners", "label": "الشركاء", "method": "GET",

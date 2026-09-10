@@ -25,4 +25,17 @@ RUNTIME_POLICY: frozenset[str] = frozenset({
     # THE SAME PATTERN, A SECOND FLOW — the weekly owner report (rating-app-feature.md phase 6b),
     # minted once by deploy/seed/bootstrap-report-flow.sh, read per shop by connect.py.
     "MASTER_REPORT_FLOW_ID",
+    # THE SAME PATTERN, A THIRD FLOW — WhatsApp booking (Phase 5), minted once by
+    # deploy/seed/bootstrap-booking-flow.sh, read per shop by connect.py. MISSING HERE UNTIL NOW —
+    # a real bug, not a new one: the bootstrap script's own write (PUT /api/v1/operator/config)
+    # was refused by `settable()` on every run, silently leaving MASTER_BOOKING_FLOW_ID unset no
+    # matter how many times the script "succeeded" (its own idempotency check reads the SAME
+    # refused key, so it never even noticed) — found while wiring the fourth Flow below and
+    # fixed in the same change rather than left for whoever hits it next.
+    "MASTER_BOOKING_FLOW_ID",
+    # THE SAME PATTERN, A FOURTH FLOW — subscription renewal, minted once by an explicit admin
+    # action (api/v1/platform.py::seed_subscription_renewal_flow) rather than at a shop's own
+    # connect time (never cloned per shop — see core/flows.py's own module comments). Read back
+    # by that same route on every call, purely as an idempotency check ("already seeded, skip").
+    "MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID",
 })

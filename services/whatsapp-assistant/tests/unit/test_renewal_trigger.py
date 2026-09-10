@@ -69,10 +69,12 @@ def test_a_real_event_opens_the_flow_and_remembers_the_request():
     trigger, requests, sender = _trigger()
     ok = run(trigger.handle({"tenant": "t1", "invoice_id": "inv_1"}, now=1000))
     assert ok is True
-    assert sender.sent == [{"tenant": "t1", "to": "+966500000000",
+    # tenant is ALWAYS "_platform" — the send goes out under the platform's own number, never
+    # the real shop's; the real tenant rides inside flow_action_data.customer instead.
+    assert sender.sent == [{"tenant": "_platform", "to": "+966500000000",
                             "template_name": "subscription_renewal_flow", "variables": [],
                             "idempotency_key": "renew:inv_1", "flow_token": "renew:inv_1",
-                            "flow_action_data": {"customer": "inv_1"}}]
+                            "flow_action_data": {"customer": "t1:inv_1"}}]
     pending = run(requests.resolve("renew:inv_1"))
     assert pending is not None
     assert (pending.tenant, pending.to) == ("t1", "+966500000000")
@@ -129,9 +131,9 @@ def test_an_unresolvable_owner_still_leaves_the_invoice_unclaimed_for_a_retry():
     assert sender.sent == []
 
 
-def test_two_different_tenants_open_independently():
+def test_two_different_tenants_open_independently_but_both_send_from_the_platform():
     trigger, _requests, sender = _trigger(phones={"t1": "+9665A", "t2": "+9665B"})
     run(trigger.handle({"tenant": "t1", "invoice_id": "inv_a"}, now=1000))
     run(trigger.handle({"tenant": "t2", "invoice_id": "inv_b"}, now=1000))
-    got = {(s["tenant"], s["to"]) for s in sender.sent}
-    assert got == {("t1", "+9665A"), ("t2", "+9665B")}
+    got = {(s["tenant"], s["to"], s["flow_action_data"]["customer"]) for s in sender.sent}
+    assert got == {("_platform", "+9665A", "t1:inv_a"), ("_platform", "+9665B", "t2:inv_b")}

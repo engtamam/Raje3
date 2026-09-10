@@ -25,6 +25,10 @@ from app.core.renewal_reply import parse_renewal_reply
 from app.core.renewal_request import RenewalRequestStore
 
 _TEMPLATE_NAME = "subscription_renewal_link"
+#: THE SENDING IDENTITY, always — this whole conversation happens on the platform's own number
+#: (see renewal_trigger.py's own docstring), never `pending.tenant` (the real shop, kept on the
+#: request row for audit only).
+_PLATFORM = "_platform"
 
 
 class RenewalConsumer:
@@ -47,6 +51,6 @@ class RenewalConsumer:
         if pending is None:
             return False
         await self._sender.send_template(
-            tenant=pending.tenant, to=pending.to, template_name=_TEMPLATE_NAME,
+            tenant=_PLATFORM, to=pending.to, template_name=_TEMPLATE_NAME,
             variables=[reply.pay_url], idempotency_key=f"renewal_link:{reply.flow_token}")
         return True

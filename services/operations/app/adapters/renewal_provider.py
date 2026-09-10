@@ -3,13 +3,14 @@ registered a second time as "subscription_renewal") — the same `balance|reward
 `HttpLoyaltyBackend` in notification-service calls, answered here from billing-service's real
 subscription/invoice data instead of loyalty points.
 
-THE FLOW SEEDS `customer` = THE INVOICE ID, not an end customer. This screen has no end customer —
-it is sent to a SHOP OWNER about the shop's own renewal — and billing exposes no "list this
-tenant's open invoices" read (only "read ONE invoice by id"). So the caller that TRIGGERS the send
-(the renewal-detection poller, not built here) already knows the invoice id — it just renewed the
-subscription(s) and holds the id from `run_cycle`'s own event/response — and seeds it as `customer`
-at send time (`build_flow(..., data={"customer": invoice_id})`). Every op below just reads that one
-invoice; `tenant` (passed separately by the Flow engine) is the IDOR guard billing itself enforces.
+THIS IS ONE PLATFORM-OWNED FLOW, NOT CLONED PER SHOP (owner's decision, 2026-09-10) — sent from
+OUR OWN WhatsApp number, the same category as the `auth_otp` template. So the `tenant` the Flow
+engine passes to every call below is always `"_platform"` (WHO owns the Flow, not who the message
+is ABOUT) — useless as billing's own IDOR guard, which needs the REAL shop tenant. The Flow's
+`customer` seed therefore carries BOTH, as `"{tenant}:{invoice_id}"` — set by the caller that
+TRIGGERS the send (`services/whatsapp-assistant`'s `renewal_trigger.py`), which already knows both
+from billing's own `subscription.renewed` event. Every op below parses `customer` apart and uses
+the REAL tenant for every billing call; the engine's own `tenant` argument is never read here.
 
 TWO DIFFERENT BILLING AUTH TIERS, on purpose:
   - reading the invoice: the INTERNAL tier (`GET /internal/billing/invoices/{id}?tenant=`, shared
@@ -34,6 +35,16 @@ from starlette.concurrency import run_in_threadpool
 class RenewalUnavailable(Exception):
     """Could not answer — the Flow shows a retry snackbar (LoyaltyEngine's own ProviderUnavailable
     handling), never a fake balance or a fake success."""
+
+
+def _split_customer(customer: str) -> tuple[str, str]:
+    """`"{tenant}:{invoice_id}"` -> (tenant, invoice_id), or `("", "")` for anything malformed —
+    never guessed apart. A tenant id never contains `:` (see tenant-service's own id shape), so
+    splitting once from the left is exact, not a heuristic."""
+    tenant, sep, invoice_id = customer.partition(":")
+    if not sep or not tenant or not invoice_id:
+        return "", ""
+    return tenant, invoice_id
 
 
 class RenewalProvider:
@@ -104,11 +115,14 @@ class RenewalProvider:
         except (urllib.error.URLError, OSError) as exc:
             raise RenewalUnavailable(f"billing unreachable: {exc}") from exc
 
-    # ── the LoyaltyProvider-shaped contract ──────────────────────────────────────────────────────
+    # ── the LoyaltyProvider-shaped contract — `tenant` (the engine's own arg) is NEVER read here,
+    # `customer` carries the real one (see module docstring) ─────────────────────────────────────
     async def balance(self, *, tenant: str, customer: str) -> dict[str, Any]:
-        """`customer` is the invoice id (see module docstring). -> {"label": "..."} — the amount
-        due, shown next to the screen title."""
-        inv = await run_in_threadpool(self._invoice_sync, tenant, customer)
+        """-> {"label": "..."} — the amount due, shown next to the screen title."""
+        real_tenant, invoice_id = _split_customer(customer)
+        if not real_tenant:
+            return {"label": "لا توجد فاتورة تجديد مفتوحة حالياً"}
+        inv = await run_in_threadpool(self._invoice_sync, real_tenant, invoice_id)
         if not inv:
             return {"label": "لا توجد فاتورة تجديد مفتوحة حالياً"}
         due = int(inv.get("amount_due_minor", 0) or 0)
@@ -119,8 +133,13 @@ class RenewalProvider:
         """One "reward" per invoice line (one per renewed app on a consolidated invoice) PLUS the
         single renew-everything option is redundant with the invoice itself — Meta's Flow SELECT
         screen needs at least one option to submit, so this offers exactly one: "renew this
-        invoice", titled with its total. Per-line detail (which apps) rides the description."""
-        inv = await run_in_threadpool(self._invoice_sync, tenant, customer)
+        invoice", titled with its total. Per-line detail (which apps) rides the description. `id`
+        echoes `customer` verbatim (the composite "tenant:invoice_id") — `redeem`'s own `reward`
+        arg is checked against exactly this string, never a bare invoice id."""
+        real_tenant, invoice_id = _split_customer(customer)
+        if not real_tenant:
+            return []
+        inv = await run_in_threadpool(self._invoice_sync, real_tenant, invoice_id)
         if not inv:
             return []
         lines = inv.get("lines") or []
@@ -137,7 +156,10 @@ class RenewalProvider:
         session happens to hold. -> {"ok": True, "ref": pay_url} | {"ok": False, "reason": "..."}."""
         if reward != customer:
             return {"ok": False, "reason": "الجلسة انتهت — ابدأ من جديد."}
-        out = await run_in_threadpool(self._pay_link_sync, tenant, customer)
+        real_tenant, invoice_id = _split_customer(customer)
+        if not real_tenant:
+            return {"ok": False, "reason": "الجلسة انتهت — ابدأ من جديد."}
+        out = await run_in_threadpool(self._pay_link_sync, real_tenant, invoice_id)
         if out.get("_status"):
             reason = {404: "الفاتورة غير موجودة.", 409: "هذه الفاتورة سُدِّدت بالفعل."}.get(
                 int(out["_status"]), "تعذّر إنشاء رابط الدفع الآن.")

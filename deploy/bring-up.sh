@@ -741,6 +741,12 @@ soft "report flow" bash "$HERE/seed/bootstrap-report-flow.sh"
 # same day the display-row gap (ci/check_listed_apps_are_wired.py) was found, same root cause:
 # a feature finished in code with no install-chain step to make it real on a fresh cluster.
 soft "booking flow" bash "$HERE/seed/bootstrap-booking-flow.sh"
+# THE SUBSCRIPTION-RENEWAL FLOW IS DELIBERATELY NOT HERE (owner's decision, 2026-09-10) — unlike
+# rating/report/booking above, minting its master is a MANUAL admin action
+# (POST /api/v1/platform/flows/subscription-renewal/seed, platform.operations capability, console-
+# reachable), the same "nothing reaches Meta until a person presses the button" posture the
+# template registry already holds. No install-chain step is missing here; see
+# services/operations/app/api/v1/platform.py's own route docstring.
 
 # AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
 # operations seeds its 78 templates on the first boot that finds an empty table. On this install it

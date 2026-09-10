@@ -263,6 +263,8 @@ def build_manifest(
             # tenant-service's own route, not this service's); this only checks OUR OWN visit/service
             # records, two bounded existence reads per tenant.
             {"path": "/api/v1/platform/customers/success-scan", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/platform/flows/subscription-renewal/seed", "tier": "user",
+             "method": "POST"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},

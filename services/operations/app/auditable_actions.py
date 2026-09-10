@@ -639,6 +639,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "file.",
     },
     {
+        "action": "platform.subscription_renewal_flow_seeded",
+        "source": "admin",
+        "critical": True,
+        "resource": "flow:{flow_id}",
+        "why": "authors a real Flow on the platform's own WhatsApp account, once — a one-time,"
+               " Meta-facing action an operator triggered by hand, not a read. Critical: unlike"
+               " the scan above, this reaches Meta and creates something durable.",
+    },
+    {
         "action": "partner.statements_issued",
         "source": "system",
         "critical": True,

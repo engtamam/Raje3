@@ -67,7 +67,8 @@ def test_a_matched_reply_sends_the_template_with_the_pay_url_and_returns_true():
     run(requests.remember(flow_token="tok_1", tenant="t1", to="966500000000", now=1000))
     ok = run(consumer.handle(_msg("tok_1", "https://pay.raje3.sa/x")))
     assert ok is True
-    assert sender.sent == [{"tenant": "t1", "to": "966500000000",
+    # tenant is ALWAYS "_platform" — same conversation, same sending identity the trigger used.
+    assert sender.sent == [{"tenant": "_platform", "to": "966500000000",
                             "template_name": "subscription_renewal_link",
                             "variables": ["https://pay.raje3.sa/x"],
                             "idempotency_key": "renewal_link:tok_1"}]
@@ -108,5 +109,7 @@ def test_two_different_shops_renewals_processed_in_sequence_both_land():
     run(requests.remember(flow_token="tok_b", tenant="t2", to="9665B", now=1000))
     run(consumer.handle(_msg("tok_a", "https://pay.raje3.sa/a")))
     run(consumer.handle(_msg("tok_b", "https://pay.raje3.sa/b")))
+    # both go out under "_platform" — the real tenant (t1/t2) only distinguished the recipient.
     got = {(s["tenant"], s["to"], s["variables"][0]) for s in sender.sent}
-    assert got == {("t1", "9665A", "https://pay.raje3.sa/a"), ("t2", "9665B", "https://pay.raje3.sa/b")}
+    assert got == {("_platform", "9665A", "https://pay.raje3.sa/a"),
+                   ("_platform", "9665B", "https://pay.raje3.sa/b")}

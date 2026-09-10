@@ -20,6 +20,7 @@ a retried background task) finds the shop's existing clone by name rather than m
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -41,6 +42,13 @@ REPORT_FLOW_NAME = "report_flow"
 #: never SURVEY (this Flow asks nothing, unlike rating_flow).
 REPORT_FLOW_CATEGORIES = ["OTHER"]
 
+#: THE RESERVED TENANT PLATFORM-OWNED FLOWS/TEMPLATES ARE FILED UNDER — same spelling as
+#: core/commission.py, core/partners.py, core/templates.py's own `PLATFORM` constant (each its
+#: own local copy, not shared, matching this codebase's own convention); the same account
+#: `AdminWhatsAppTemplates.tsx` registers `auth_otp` on. A Flow authored here is authored ONCE,
+#: never cloned per shop.
+PLATFORM = "_platform"
+
 #: PHASE 5 — the WhatsApp booking Flow (structured screens), a THIRD Flow through the same
 #: clone-at-connect pattern. Unlike rating/report (static, read-only screens authored once as a
 #: fixed JSON file), the booking Flow is DYNAMIC (data_exchange, driven live by
@@ -53,18 +61,76 @@ BOOKING_FLOW_NAME = "booking_flow"
 #: The one category Meta's fixed set has for exactly this purpose.
 BOOKING_FLOW_CATEGORIES = ["APPOINTMENT_BOOKING"]
 
-#: A FOURTH FLOW, a hand-authored static-screen JSON like rating/report (deploy/seed/
-#: subscription-renewal-flow.json — SELECT/CONFIRM/SUCCESS) but DYNAMIC like booking (data_exchange,
-#: driven live by operations' own `renewal_provider.py` through platform v0.19.12's
-#: LoyaltyEngine(name="subscription_renewal")) — so it needs the same `endpoint_uri` a shop's
-#: booking Flow does, at .../webhooks/whatsapp/flow/{tenant}/subscription_renewal (the THIRD
-#: route segment picks the named handler; booking's own callback has none because it is this
-#: WABA's default handler).
+#: A FOURTH FLOW — but NOT clone-per-shop like the three above (owner's decision, 2026-09-10). It
+#: is PLATFORM-owned: sent from OUR OWN WhatsApp number to a shop owner about THEIR bill, the same
+#: category as the `auth_otp` template (see `PLATFORM` above) — authored ONCE, on `PLATFORM`, via
+#: `HttpFlows.author_master` below, an explicit admin action
+#: (`api/v1/platform.py::seed_subscription_renewal_flow`), never at a shop's own connect time.
+#: DYNAMIC (data_exchange, driven live by `renewal_provider.py` through platform v0.19.12's
+#: LoyaltyEngine(name="subscription_renewal")), so it still needs a live `endpoint_uri` — fixed to
+#: `.../webhooks/whatsapp/flow/_platform/subscription_renewal`, set once at authoring time, never
+#: per shop. WHICH shop a given Flow session is about travels inside the Flow's own seed data
+#: (`renewal_provider.py`'s `customer` field carries `"{tenant}:{invoice_id}"`), not the URL.
 SUBSCRIPTION_RENEWAL_FLOW_NAME = "subscription_renewal"
 #: Meta's fixed category set has none named for billing; SIGN_UP/SIGN_IN et al. all mean something
 #: else. LEAD_GENERATION and OTHER are the two honest fits documented for "neither of the above" —
 #: this is a payment collection, not a lead, so OTHER.
 SUBSCRIPTION_RENEWAL_FLOW_CATEGORIES = ["OTHER"]
+#: THE SCREENS THEMSELVES — SELECT ("جدّد الآن", the one option is the whole due invoice, priced)
+#: -> CONFIRM ("تأكيد") -> the endpoint's `redeem` creates the real pay-link and terminates via
+#: extension_message_response (reward_ref = pay_url); SUCCESS is the schema-mandated terminal
+#: screen, shown only as a fallback (loyalty_flow.py's own SUCCESS reply almost never lets it
+#: render). Embedded here, not a deploy/seed/*.json file: authoring now happens from a running
+#: admin action (api/v1/platform.py), which cannot read a deploy-time-only asset — see
+#: `author_master`'s own docstring below. Key names (`selection`, the screen ids, `reward_ref`/
+#: `flow_token`) are loyalty_flow.py's own contract; renaming any of them here without renaming
+#: them there breaks the redeem step silently. Schema verified against developers.facebook.com/
+#: docs/whatsapp/flows/reference/{flowjson,components} (2026-09-08), same pass that verified
+#: booking's own generator — version 7.3 / data_api_version 3.0, the same pinned pair.
+SUBSCRIPTION_RENEWAL_FLOW_JSON: dict[str, Any] = {
+    "version": "7.3",
+    "data_api_version": "3.0",
+    "routing_model": {"SELECT": ["CONFIRM"], "CONFIRM": ["SUCCESS"]},
+    "screens": [
+        {
+            "id": "SELECT", "title": "تجديد الاشتراك",
+            "data": {
+                "title": {"type": "string", "__example__": "تجديد الاشتراك — 150.00 SAR"},
+                "options": {"type": "array",
+                           "__example__": [{"id": "t1:inv_1",
+                                            "title": "تجديد الاشتراك — 150.00 SAR",
+                                            "description": "تطبيق الحجوزات، تطبيق التذكيرات"}]},
+                "error_message": {"type": "string", "__example__": "", "optional": True},
+            },
+            "layout": {"type": "SingleColumnLayout", "children": [
+                {"type": "TextHeading", "text": "${data.title}"},
+                {"type": "RadioButtonsGroup", "name": "selection", "label": "${data.title}",
+                 "required": True, "data-source": "${data.options}"},
+                {"type": "Footer", "label": "متابعة", "on-click-action": {
+                    "name": "data_exchange", "payload": {"selection": "${form.selection}"}}},
+            ]},
+        },
+        {
+            "id": "CONFIRM", "title": "تأكيد التجديد",
+            "data": {"title": {"type": "string", "__example__": "تأكيد التجديد"},
+                    "error_message": {"type": "string", "__example__": "", "optional": True}},
+            "layout": {"type": "SingleColumnLayout", "children": [
+                {"type": "TextHeading", "text": "${data.title}"},
+                {"type": "TextBody", "text": "بالتأكيد، بيصلك رابط الدفع مباشرة."},
+                {"type": "Footer", "label": "تأكيد", "on-click-action": {
+                    "name": "data_exchange", "payload": {"action": "confirm"}}},
+            ]},
+        },
+        {
+            "id": "SUCCESS", "title": "تم", "terminal": True, "success": True, "data": {},
+            "layout": {"type": "SingleColumnLayout", "children": [
+                {"type": "TextHeading", "text": "جاري تجهيز رابط الدفع — بيصلك برسالة الآن."},
+                {"type": "Footer", "label": "تم",
+                "on-click-action": {"name": "complete", "payload": {}}},
+            ]},
+        },
+    ],
+}
 
 
 class NullFlows:
@@ -90,6 +156,11 @@ class NullFlows:
     async def ensure_encryption(self, tenant: str, *, phone_number_id: str = "") -> dict[str, Any]:
         self.provisioned.append(tenant)
         return {"ok": False, "reason": "flow encryption provisioning is not configured"}
+
+    async def author_master(self, *, name: str, categories: list[str], flow_json: dict[str, Any],
+                            endpoint_uri: str = "") -> dict[str, Any]:
+        self.provisioned.append(name)
+        return {"ok": False, "reason": "flow provisioning is not configured"}
 
 
 class HttpFlows:
@@ -158,7 +229,9 @@ class HttpFlows:
         }
         if endpoint_uri:
             body["endpoint_uri"] = endpoint_uri
-        status, out = self._post(body)
+        # OFF THE EVENT LOOP — see services/whatsapp-assistant/app/core/customer_lookup.py's own
+        # comment on why: `_post` is a plain (non-async) method that calls urlopen synchronously.
+        status, out = await asyncio.to_thread(self._post, body)
         if status >= 400:
             return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
         return {"ok": True, **(out if isinstance(out, dict) else {})}
@@ -172,7 +245,25 @@ class HttpFlows:
         body: dict[str, Any] = {"tenant": tenant}
         if phone_number_id:
             body["phone_number_id"] = phone_number_id
-        status, out = self._post_to(self._encryption_ensure, body)
+        status, out = await asyncio.to_thread(self._post_to, self._encryption_ensure, body)
+        if status >= 400:
+            return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
+        return {"ok": True, **(out if isinstance(out, dict) else {})}
+
+    async def author_master(self, *, name: str, categories: list[str], flow_json: dict[str, Any],
+                            endpoint_uri: str = "") -> dict[str, Any]:
+        """Author a Flow DIRECTLY on `PLATFORM` (`tenant="_platform"`) from its own screens JSON —
+        no `clone_flow_id`. This is the SAME "author from scratch" call each of the three
+        clone-per-shop Flows' own bootstrap scripts used exactly once to mint their master, before
+        every shop's own connect-time clone; the subscription-renewal Flow simply stops here and
+        is never cloned — see this module's own docstring on `SUBSCRIPTION_RENEWAL_FLOW_JSON`."""
+        body: dict[str, Any] = {
+            "tenant": PLATFORM, "name": name, "categories": categories,
+            "flow_json": json.dumps(flow_json), "publish": True,
+        }
+        if endpoint_uri:
+            body["endpoint_uri"] = endpoint_uri
+        status, out = await asyncio.to_thread(self._post, body)
         if status >= 400:
             return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
         return {"ok": True, **(out if isinstance(out, dict) else {})}

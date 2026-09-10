@@ -5,10 +5,13 @@ Flow's screens once opened; `renewal_consumer.py` (this service) delivers the pa
 confirmed; this is what actually OPENS it — sends the approved Flow-button template to the shop
 owner's own number the moment billing tells us a renewal invoice exists.
 
-WHY `customer` = THE INVOICE ID, NOT AN OWNER ID. billing exposes no "list this tenant's open
-invoices" read (only "read ONE invoice by id") — so the id has to be carried forward from the one
-place it is genuinely known: this event's own `invoice_id`. Seeded here, read back by
-`renewal_provider.py` on the operations side; see that module's own docstring for the full design.
+ONE PLATFORM-OWNED FLOW, NOT CLONED PER SHOP (owner's decision, 2026-09-10) — sent from OUR OWN
+WhatsApp number, same category as the `auth_otp` template, never a shop's own connected number.
+So every send here uses `tenant=PLATFORM` (the sending identity), and the REAL shop tenant travels
+inside the Flow's own seed data instead: `customer` = `"{tenant}:{invoice_id}"` (billing exposes
+no "list this tenant's open invoices" read, only "read ONE invoice by id", so both pieces have to
+be carried forward from the one place they are genuinely known together — this event). Read back
+and split apart by `renewal_provider.py` on the operations side; see that module's own docstring.
 
 DEDUPED BY INVOICE (RenewalTriggerStore), because a consolidated invoice (platform v0.19.11) fires
 this event once PER SUBSCRIPTION it covers, all carrying the same invoice_id — without the claim a
@@ -29,6 +32,11 @@ from app.core.renewal_trigger_store import RenewalTriggerStore
 #: "subscription_renewal" flow — the send only carries the template name; the Flow name itself is
 #: fixed at template-registration time on notification-service's own side.
 _TEMPLATE_NAME = "subscription_renewal_flow"
+#: THE SENDING IDENTITY — never the real shop's tenant. Same reserved account
+#: AdminWhatsAppTemplates.tsx registers `auth_otp` on; see services/operations/app/core/flows.py's
+#: own `PLATFORM` constant (kept as each file's own local copy, matching this codebase's
+#: convention rather than a shared import).
+_PLATFORM = "_platform"
 
 
 class RenewalTrigger:
@@ -58,11 +66,14 @@ class RenewalTrigger:
         # per invoice, so the token needs no extra entropy, same "rate:{visit_id}" shape
         # reminders' own rating_request.py uses for the identical reason.
         flow_token = f"renew:{invoice_id}"
+        # `tenant` REMEMBERED HERE IS THE REAL SHOP — kept for audit/traceability even though the
+        # send itself always goes out under `_PLATFORM` (see module docstring); the completion
+        # consumer (renewal_consumer.py) never needed this real tenant anyway, only `to`.
         await self._requests.remember(flow_token=flow_token, tenant=tenant, to=to, now=now)
         await self._sender.send_template(
-            tenant=tenant, to=to, template_name=_TEMPLATE_NAME, variables=[],
+            tenant=_PLATFORM, to=to, template_name=_TEMPLATE_NAME, variables=[],
             idempotency_key=flow_token, flow_token=flow_token,
-            flow_action_data={"customer": invoice_id})
+            flow_action_data={"customer": f"{tenant}:{invoice_id}"})
         return True
 
 

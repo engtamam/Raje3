@@ -119,6 +119,8 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
     ? findAction(catalog, 'notifications.submit_wa_template') : undefined;
   const testSendAction = catalog !== 'loading' && catalog !== 'failed'
     ? findAction(catalog, 'notifications.test_send_wa') : undefined;
+  const seedRenewalFlowAction = catalog !== 'loading' && catalog !== 'failed'
+    ? findAction(catalog, 'operations.seed_subscription_renewal_flow') : undefined;
 
   function reload() {
     if (!listAction) return;
@@ -187,6 +189,10 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
       {testSendAction ? (
         <TestSendPanel session={session} action={testSendAction}
                       templates={Array.isArray(templates) ? templates : []} />
+      ) : null}
+
+      {seedRenewalFlowAction ? (
+        <SeedRenewalFlowPanel session={session} action={seedRenewalFlowAction} />
       ) : null}
 
       {Array.isArray(templates) && templates.length > 0 ? (
@@ -490,6 +496,80 @@ function TestSendPanel({ session, action, templates }: {
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSend} busy={busy}
                     title="إرسال رسالة تجريبية حقيقية؟"
                     body={`ستصل رقم ${to} فعلياً الآن، مباشرة عبر ميتا.`} />
+    </section>
+  );
+}
+
+/**
+ * فلو التجديد — منفصل تماماً عن تسجيل القوالب أعلاه، لكنه يقود إلى نفس المكان: قالب
+ * "subscription_renewal_flow" يحتاج فلواً حقيقياً بالاسم "subscription_renewal" موجوداً على
+ * حساب المنصة قبل ما نقدر نرسله للمراجعة أصلاً. يدوي بالكامل ومرة واحدة بالعمر كله — لا يتكرر
+ * لكل محل (خلافاً لفلوهات الحجز والتقييم)، ولا يصير تلقائياً عند أي تثبيت (قرار صاحب المنصة،
+ * 2026-09-10): لا اتصال بميتا وقت التثبيت أصلاً، ولا شيء يصل ميتا بدون ضغطة زر هنا.
+ */
+function SeedRenewalFlowPanel({ session, action }: { session: AdminSession; action: AdminAction }) {
+  const [arm, setArm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<
+    { ok: true; flowId: string; alreadySeeded: boolean } | { ok: false; reason: string } | null
+  >(null);
+
+  async function doSeed() {
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      const out = await req<{ ok: boolean; flow_id?: string; already_seeded?: boolean }>(
+        action.path, 'POST', undefined, session.access_token);
+      setResult({ ok: true, flowId: out.flow_id ?? '', alreadySeeded: !!out.already_seeded });
+    } catch (err) {
+      if (err instanceof AdminRefused && err.reason) {
+        setResult({ ok: false, reason: err.reason });
+      } else {
+        setError(sentenceFor(err, 'تعذّر تجهيز الفلو.'));
+      }
+    } finally {
+      setBusy(false);
+      setArm(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="inline-flex rounded-lg bg-surface-2 p-2 text-text-secondary">
+          <FlaskConical size={16} />
+        </span>
+        <div className="flex-1">
+          <p className="font-medium">فلو تجديد الاشتراك</p>
+          <p className="text-label text-text-secondary">
+            شاشة تفاعلية على واتساب لتجديد اشتراك المحل — مرة واحدة بالعمر كله، على حساب المنصة.
+            آمن لإعادة الضغط: لو موجودة أصلاً، تقول ذلك ولا تُنشئ نسخة ثانية.
+          </p>
+        </div>
+      </div>
+
+      {result ? (
+        result.ok ? (
+          <p className="text-label text-success">
+            {result.alreadySeeded ? 'موجودة أصلاً — لم يُنشأ شيء جديد.' : 'تم تجهيزها الآن.'}{' '}
+            <span dir="ltr" className="font-mono">{result.flowId}</span>
+          </p>
+        ) : (
+          <p role="alert" className="text-label text-danger">تعذّر التجهيز — {result.reason}</p>
+        )
+      ) : null}
+      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+
+      <Button size="sm" variant="outline" onClick={() => setArm(true)} disabled={busy}
+             className="w-fit gap-2">
+        <Send size={14} /> تجهيز الفلو
+      </Button>
+
+      <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSeed} busy={busy}
+                    title="تجهيز فلو تجديد الاشتراك على ميتا؟"
+                    body="ينشئ شاشة تفاعلية حقيقية على حساب المنصة عند ميتا — مرة واحدة فقط." />
     </section>
   );
 }
