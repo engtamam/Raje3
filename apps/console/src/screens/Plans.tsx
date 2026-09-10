@@ -37,12 +37,11 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
-import {
-  CalendarClock, Check, Gift, Layers, Megaphone, Minus, Plus, Sparkles, type LucideIcon,
-} from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
+import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { action, call, type Catalog } from '../catalog';
 import { isDenied, isReady, type Loading } from '../loading';
-import { APP_ROWS, owns, type Owned } from '../apps';
+import { APP_ROWS, owns, type AppFeature, type Owned } from '../apps';
 import type { Session } from '../session';
 import { riyals } from '../money';
 import { AssistantHint } from '../AssistantHint';
@@ -72,16 +71,6 @@ const SECTION_LABEL: Record<string, string> = {
   shop: 'محلّي',
 };
 
-/** One face per app, by its `apps.ts` id — the same registry the card's copy already reads, so a
- *  new app gets a sentence AND an icon from one place rather than two. `base` gets no card of its
- *  own icon treatment; every card falls back to `Layers` if its id is not listed here yet. */
-const APP_ICON: Record<string, LucideIcon> = {
-  base: Layers,
-  campaigns: Megaphone,
-  loyalty: Gift,
-  bookings: CalendarClock,
-  insights: Sparkles,
-};
 
 interface Price { type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean }
 /** `limit` is a NUMBER OR THE WORD `unlimited` — billing's own sentinel, which its merge treats as
@@ -360,11 +349,18 @@ function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, lockedNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
-  onUndoCancel, undoingCancel, session,
+  onUndoCancel, undoingCancel, session, catalog, ownedFeatures,
 }: {
   /** Only for the "?" beside a status badge that genuinely needs one (trial/past-due/paused) —
    *  every other passive label on this card is already said in plain Arabic right on it. */
   session: Session;
+  /** Only for `AppFeatureList`'s own fetch, when this app's features are not already inline
+   *  (`ownedFeatures` below) — the same catalog `action(catalog, id)` reads everywhere else. */
+  catalog: Catalog;
+  /** ONLY FOR تسجيل زيارة/جهات الاتصال/التقييم — operations' own `apps()` already returns these
+   *  inline (see `Owned.apps[].features`); every other app fetches its own via
+   *  `AppRow.featuresAction` instead, inside `AppFeatureList` itself. */
+  ownedFeatures?: AppFeature[];
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
   owned: boolean | null;
@@ -423,7 +419,6 @@ function AppCard({
   undoingCancel?: boolean;
 }) {
   const price = monthly(plan);
-  const lines = planLines(plan);
   // THE BASE HAS NO PURCHASE KEY IN THE REGISTRY — `owns()` treats it as always held, which is
   // what stops «الأساس» being drawn locked while an entitlement read is still in flight. So it is
   // found by id, and every other row by the key it grants.
@@ -431,7 +426,11 @@ function AppCard({
     ? APP_ROWS.find((a) => a.id === 'base')
     : APP_ROWS.find((a) => a.key === appKey(plan));
   const has = owned === true;
-  const Icon = APP_ICON[app?.id ?? ''] ?? Layers;
+  const Icon = appIcon(app?.icon ?? '');
+  // OWNED STILL READS AS SUCCESS-GREEN, DELIBERATELY — a settled card competes with nothing, same
+  // as the ring/hairline above it. The app's OWN tone only distinguishes cards among each other
+  // while a shop is still deciding what to buy.
+  const badgeTone = has ? 'success' : (app?.tone ?? '');
   return (
     <article
       className={[
@@ -465,7 +464,7 @@ function AppCard({
               aria-hidden
               className={[
                 'grid h-10 w-10 shrink-0 place-items-center rounded-full',
-                has ? 'bg-success-soft text-success-on-soft' : 'bg-surface-2 text-text-secondary',
+                toneClasses(badgeTone),
               ].join(' ')}
             >
               <Icon size={18} />
@@ -511,17 +510,16 @@ function AppCard({
         </div>
       ) : null}
 
-      {lines.length ? (
-        <ul className={compact
-          ? 'flex flex-col gap-1 border-t border-border-subtle pt-2 text-xs'
-          : 'flex flex-col gap-1 border-t border-border-subtle pt-3 text-sm'}>
-          {lines.map((line) => (
-            <li key={line} className="flex items-start gap-2 text-text-secondary">
-              <Check size={compact ? 12 : 15} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
-              <span>{line}</span>
-            </li>
-          ))}
-        </ul>
+      {!compact ? (
+        <AppFeatureList
+          features={ownedFeatures}
+          actionId={app?.featuresAction}
+          fetcher={(actionId) => {
+            const a = action(catalog, actionId);
+            if (!a) return Promise.reject(new Error('لا صلاحية لقراءة مميزات هذا التطبيق'));
+            return call(session, a);
+          }}
+        />
       ) : null}
 
       {/* THE OWNED APP'S OWN META ROW - renewal date and where it lives, together on one line
@@ -1400,6 +1398,7 @@ export function PlansPane({
                       <AppCard
                         plan={p}
                         session={session}
+                        catalog={catalog}
                         owned={isBaseSubRow ? true : isThisOne}
                         busy={busy}
                         sellable={Boolean(canSubscribe && pay?.enabled && canMintToken)}
@@ -1511,7 +1510,9 @@ export function PlansPane({
                   <AppCard
                     plan={p}
                     session={session}
+                    catalog={catalog}
                     owned={owns(owned ?? null, appKey(p))}
+                    ownedFeatures={answer?.apps.find((a) => a.key === appKey(p))?.features}
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && canMintToken
                                      && (hasBase !== false || isStandalone(p)) && !lockedNote)}

@@ -24,6 +24,22 @@
  * files that will disagree within a month.
  */
 
+/** One real, separately-nameable capability — the wire shape every "features, not services"
+ *  backend route returns (bookings/loyalty/campaigns/whatsapp-assistant/insights's own
+ *  `GET .../features`, and operations' `apps()` for تسجيل زيارة/جهات الاتصال/التقييم, inline).
+ *  `icon`/`tone` are KEYS, not components/classes — `rj-ui/AppFeatureList.tsx` owns the one
+ *  mapping from each to a real Lucide icon / colour pair, so a new backend feature never needs a
+ *  matching console PR just to render. */
+export interface AppFeature {
+  id: string;
+  title: string;
+  detail: string;
+  icon: string;
+  tone: string;
+  shared_with: string[];
+  owned_by: string;
+}
+
 /** What a shop holds, as billing answers it. `null` while the answer has not arrived. */
 import { isDenied, isReady, type Loading } from './loading';
 export interface Owned {
@@ -33,7 +49,12 @@ export interface Owned {
   apps: { key: string; name: string; what: string; screen: string; owned: boolean | null;
           /** When THIS app's own subscription renews. `null` when he does not hold it, or when
            *  billing could not be read — «لا أعرف» and «لا يتجدّد» are different sentences. */
-          renews_at: number | null }[];
+          renews_at: number | null;
+          /** ONLY FOR APPS OPERATIONS ITSELF OWNS (تسجيل زيارة/جهات الاتصال/التقييم) — their real
+           *  features ride along with this same read, since operations' own `apps.py` already
+           *  carries them. Every other app's features are absent here and fetched from its own
+           *  `featuresAction` instead (see `AppRow` below) — a peer call operations does not proxy. */
+          features?: AppFeature[] }[];
   /** THE BASE SUBSCRIPTION ITSELF — its tier, its status and when it renews, straight from
    *  billing's subscription list. `null` when this shop has no base. It replaced a `feature.base`
    *  entitlement flag, which could say only THAT one existed: «يتجدّد في 12 سبتمبر» is the first
@@ -53,6 +74,24 @@ export interface AppRow {
   section: string;
   /** What it contributes inside the customer's page — the seam every future app uses. */
   onCustomer: string;
+  /** THE ONE ICON KEY for this app's own header badge — `rj-ui/AppFeatureList.tsx`'s `APP_ICONS`
+   *  is the single place that resolves it to a real component, replacing the three
+   *  uncoordinated icon maps (Plans.tsx's own `APP_ICON`, PlanCards.tsx's `LIMIT_ICON`, and
+   *  Locked.tsx's plain generic lock) this app card system used to carry. */
+  icon: string;
+  /** THE ONE COLOUR KEY for this app's own header badge — matches one of `rj-ui/Badge.tsx`'s real
+   *  tones (`accent`/`success`/`warning`/`danger`/`info`) via `rj-ui/AppFeatureList.tsx`'s
+   *  `TONE_CLASSES`, so a shelf of cards reads as distinct products at a glance rather than one
+   *  colour repeated on every card (2026-09-11 product decision — the owner's own screenshot
+   *  feedback on the first mockup: "مافي تمايز الوان").
+   */
+  tone: string;
+  /** THE CATALOG ACTION ID to fetch this app's real feature list from, when it is not this app's
+   *  own operations row (`Owned.apps[].features` above) — same `action(catalog, id)` + `call()`
+   *  pattern every other read in this console already uses, so capability/permission visibility
+   *  stays enforced exactly like every other action. Absent for base/visit/contacts/rating: those
+   *  come inline. */
+  featuresAction?: string;
 }
 
 export const APP_ROWS: AppRow[] = [
@@ -63,6 +102,7 @@ export const APP_ROWS: AppRow[] = [
     what: 'عملاؤك وزياراتهم وخدماتك، وتأكيد الزيارة والتذكير بها، وربط صندوقك.',
     section: '',
     onCustomer: 'الزيارات، والخدمات التي أخذها',
+    icon: 'layers', tone: 'accent',
   },
   {
     id: 'campaigns',
@@ -71,6 +111,8 @@ export const APP_ROWS: AppRow[] = [
     what: 'ترسل عرضاً أو خبراً لمجموعة من عملائك، ويقيس النظام مَن رجع بسببه.',
     section: 'messages',
     onCustomer: 'العروض التي وصلته، وما استهلكه منها',
+    icon: 'megaphone', tone: 'danger',
+    featuresAction: 'campaigns.features',
   },
   {
     id: 'loyalty',
@@ -79,6 +121,8 @@ export const APP_ROWS: AppRow[] = [
     what: 'نقاطٌ على كل زيارة، ومكافآت يستبدلها العميل من صفحته أو عند الصندوق.',
     section: 'points',
     onCustomer: 'رصيده، وما يستطيع استبداله',
+    icon: 'gift', tone: 'warning',
+    featuresAction: 'loyalty.features',
   },
   {
     id: 'bookings',
@@ -87,6 +131,8 @@ export const APP_ROWS: AppRow[] = [
     what: 'حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً.',
     section: 'bookings',
     onCustomer: '',
+    icon: 'calendar', tone: 'accent',
+    featuresAction: 'bookings.features',
   },
   {
     id: 'insights',
@@ -98,6 +144,8 @@ export const APP_ROWS: AppRow[] = [
     // hid the whole section would hide the argument for buying it.
     section: '',
     onCustomer: '',
+    icon: 'sparkles', tone: 'info',
+    featuresAction: 'insights.features',
   },
   // BUILT AND WIRED — the whole pipeline (per-shop Flow clone, the template's real flow_button,
   // the send/receive round-trip, RatingsTab.tsx already gated on `operations.ratings`) is live;
@@ -114,6 +162,9 @@ export const APP_ROWS: AppRow[] = [
     // meaning (inside ONE customer's page) rather than a silent assumption.
     section: '',
     onCustomer: '',
+    icon: 'star', tone: 'warning',
+    // NO featuresAction — operations owns this app's row too (core/apps.py's RATING_FEATURES),
+    // so its features arrive inline on `Owned.apps[].features`, same as visit/contacts below.
   },
   // THE FREE STANDALONE APP — plans.json's own «جهات الاتصال», amount 0, held by every fresh
   // shop from day one (services/operations/app/core/signup.py::_start_contacts_grant), whether
@@ -126,6 +177,8 @@ export const APP_ROWS: AppRow[] = [
     what: 'يفتح باب تسجيل العميل برقمه من أي مكان في المحل، حتى بلا اشتراك أساسي.',
     section: '',
     onCustomer: '',
+    icon: 'user-plus', tone: 'accent',
+    // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
   },
   // «تسجيل زيارة» — the visit register sold on its own (plans.json's own note on the row) —
   // nav.ts's own «تسجيل زيارة» entry is unrelated: that nav item is a page reachable by every
@@ -138,6 +191,8 @@ export const APP_ROWS: AppRow[] = [
     what: 'يفتح تسجيل زيارة العميل وحده، بلا بقية الأساس.',
     section: '',
     onCustomer: '',
+    icon: 'check-circle', tone: 'success',
+    // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
   },
   // NO SECTION OF ITS OWN — «ربط واتساب» is a sub-tab under «حسابي», not a rail entry, and the
   // connect card itself stays open regardless (a shop needs to see the connect flow to understand
@@ -153,6 +208,8 @@ export const APP_ROWS: AppRow[] = [
     what: 'يردّ على عملائك ويحجز لهم عبر واتساب بذكاء اصطناعي، بأسلوب محلّك.',
     section: '',
     onCustomer: '',
+    icon: 'message-circle', tone: 'accent',
+    featuresAction: 'whatsapp_assistant.features',
   },
 ];
 
