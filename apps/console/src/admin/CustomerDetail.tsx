@@ -30,7 +30,7 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, CheckCircle2, CircleAlert, Clock, Package, RefreshCw } from 'lucide-react';
+import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, Package, RefreshCw, Users } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
@@ -317,6 +317,16 @@ interface Capacity {
 function seatsLabel(current: number, limit: number): string {
   return limit < 0 ? String(current) : `${current}/${limit}`;
 }
+
+/** اللون يعكس القرب من الحد — لا نفس اللون المحايد لمحل مليان تمامًا ومحل بالكاد بدأ. غير محدود
+ *  (limit < 0) يبقى محايداً دائماً — لا سقف يُقاس القرب منه. */
+function capacityTone(current: number, limit: number): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (limit < 0) return 'neutral';
+  if (current >= limit) return 'danger';
+  if (limit > 0 && current / limit >= 0.8) return 'warning';
+  return 'success';
+}
+
 function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
   const [capacity, setCapacity] = useState<Capacity | 'loading' | 'failed'>('loading');
   const action = findCustomerAction(catalog, 'operations.tenant_capacity');
@@ -334,14 +344,19 @@ function SeatsTab({ session, tenant, catalog }: { session: AdminSession; tenant:
   if (capacity === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
   if (capacity === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>;
 
+  const branchTone = capacityTone(capacity.branches, capacity.branches_limit);
+  const seatTone = capacityTone(capacity.operators, capacity.operators_limit);
+
   return (
-    <div className="flex flex-col gap-3">
-      <Row label="الفروع">
-        <span className="font-medium">{seatsLabel(capacity.branches, capacity.branches_limit)}</span>
-      </Row>
-      <Row label="الموظفون">
-        <span className="font-medium">{seatsLabel(capacity.operators, capacity.operators_limit)}</span>
-      </Row>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <KpiCard icon={<Building2 size={18} />} label="الفروع"
+              value={seatsLabel(capacity.branches, capacity.branches_limit)} tone={branchTone}
+              hint={branchTone === 'danger' ? 'وصل الحد — إضافة فرع تحتاج ترقية' :
+                    branchTone === 'warning' ? 'قريب من الحد' : undefined} />
+      <KpiCard icon={<Users size={18} />} label="الموظفون"
+              value={seatsLabel(capacity.operators, capacity.operators_limit)} tone={seatTone}
+              hint={seatTone === 'danger' ? 'وصل الحد — إضافة موظف تحتاج ترقية' :
+                    seatTone === 'warning' ? 'قريب من الحد' : undefined} />
     </div>
   );
 }

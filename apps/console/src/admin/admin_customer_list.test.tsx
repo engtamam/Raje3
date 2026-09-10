@@ -252,6 +252,30 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     expect(screen.getByText('7')).toBeTruthy();
   });
 
+  it('the seats KPI warns near the limit and flags it clearly once reached', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/platform/tenants/t1/capacity')) {
+        // branches: 4/5 = 80% -> warning. operators: 15/15 = at the limit -> danger.
+        return Promise.resolve({ branches: 4, operators: 15, branches_limit: 5, operators_limit: 15 });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+    fireEvent.click(screen.getByText('الفروع والمستخدمين'));
+
+    await waitFor(() => expect(screen.getByText('4/5')).toBeTruthy());
+    expect(screen.getByText('قريب من الحد')).toBeTruthy();
+    expect(screen.getByText('15/15')).toBeTruthy();
+    expect(screen.getByText('وصل الحد — إضافة موظف تحتاج ترقية')).toBeTruthy();
+  });
+
   it('the whatsapp tab queries this tenant\'s own delivery log, no manual tenant entry', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockImplementation((path: string) => {
