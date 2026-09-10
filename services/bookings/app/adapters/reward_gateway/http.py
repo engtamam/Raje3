@@ -7,6 +7,7 @@ core/operations.py for why the spend waits for the appointment to actually happe
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -23,6 +24,13 @@ class HttpRewardGateway:
         """`None` on ANY failure — unreachable peer, a malformed response. The caller
         (`BookingOperations.attend`) treats that exactly like an explicit `{"ok": false}`: leave
         `intended_reward_id` set, never fail the attendance itself over it."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(
+            self._redeem_sync, tenant=tenant, subject_ref=subject_ref, reward_id=reward_id,
+            idempotency_key=idempotency_key, branch_id=branch_id, actor=actor)
+
+    def _redeem_sync(self, *, tenant: str, subject_ref: str, reward_id: str,
+                     idempotency_key: str, branch_id: str, actor: str) -> dict | None:
         body = json.dumps({
             "tenant": tenant, "subject_ref": subject_ref, "reward_id": reward_id,
             "idempotency_key": idempotency_key, "branch_id": branch_id, "actor": actor,

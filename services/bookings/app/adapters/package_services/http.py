@@ -7,6 +7,7 @@ into an explicit refusal, same posture as an unconfigured service duration.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -19,6 +20,10 @@ class HttpPackageServices:
         self._timeout = timeout
 
     async def __call__(self, tenant: str, package_id: str) -> list[str] | None:
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, package_id)
+
+    def _call_sync(self, tenant: str, package_id: str) -> list[str] | None:
         body = json.dumps({"tenant": tenant, "package_id": package_id}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

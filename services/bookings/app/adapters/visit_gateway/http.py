@@ -9,6 +9,7 @@ reimplementing it.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -30,6 +31,15 @@ class HttpVisitGateway:
         `package_id`: "" for an ordinary booking. Set, `operations` re-resolves the package's own
         CURRENT components itself rather than trusting `service_ids` here — see its own
         `/internal/operations/visits/from-customer` docstring."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(
+            self._create_sync, tenant=tenant, customer_id=customer_id, service_ids=service_ids,
+            operator_id=operator_id, branch_id=branch_id, note=note,
+            idempotency_key=idempotency_key, occurred_at=occurred_at, package_id=package_id)
+
+    def _create_sync(self, *, tenant: str, customer_id: str, service_ids: tuple[str, ...],
+                     operator_id: str, branch_id: str, note: str, idempotency_key: str,
+                     occurred_at: int, package_id: str = "") -> dict | None:
         body = json.dumps({
             "tenant": tenant, "customer_id": customer_id, "service_ids": list(service_ids),
             "operator_id": operator_id, "branch_id": branch_id, "note": note,

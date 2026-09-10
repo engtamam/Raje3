@@ -13,6 +13,7 @@ a host of their choosing and be told yes.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -31,6 +32,10 @@ class HttpConsentGate:
         self._timeout = timeout
 
     async def check(self, *, tenant: str, subject: str, purpose: str) -> ConsentVerdict:
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._check_sync, tenant=tenant, subject=subject, purpose=purpose)
+
+    def _check_sync(self, *, tenant: str, subject: str, purpose: str) -> ConsentVerdict:
         query = urllib.parse.urlencode(
             {"tenant": tenant, "subject": subject, "purpose": purpose})
         req = urllib.request.Request(f"{self._url}?{query}", method="GET")

@@ -7,6 +7,7 @@ same shape as `app/adapters/duration_lookup/http.py`.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -24,6 +25,10 @@ class HttpStaffHoursLookup:
         default when a key is simply absent), never as narrower hours nobody actually set. A `null`
         value for an operator that DID resolve means exactly the same thing, said by the peer
         itself rather than assumed."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, operator_ids)
+
+    def _call_sync(self, tenant: str, operator_ids: tuple[str, ...]) -> dict[str, dict | None]:
         body = json.dumps({"tenant": tenant, "operator_ids": list(operator_ids)}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

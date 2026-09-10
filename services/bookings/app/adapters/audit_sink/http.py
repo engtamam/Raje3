@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -41,6 +42,12 @@ class HttpAuditSink:
         self._backoff = max(0.0, float(backoff))
 
     async def emit(self, event: AuditEvent) -> AuditReceipt:
+        # OFF THE EVENT LOOP — urllib has no async mode, and a blocking call left inline here
+        # would freeze this pod's whole single-worker event loop for the round trip, including
+        # its own /healthz.
+        return await asyncio.to_thread(self._emit_sync, event)
+
+    def _emit_sync(self, event: AuditEvent) -> AuditReceipt:
         payload = event.to_payload()
         # ONE key per action, reused across THIS call's retries. A retried append is recognised by
         # the log (original receipt, nothing appended); a first append that never landed appends
@@ -85,6 +92,8 @@ class HttpAuditSink:
                                     seq=int(receipt.get("seq") or 0), hash=str(receipt["hash"]))
             if not (retryable and attempt + 1 < self._max_attempts):
                 break
-            await asyncio.sleep(self._backoff)
+            # This helper runs off the event loop (see `emit`'s `asyncio.to_thread`), so a
+            # blocking sleep here costs only its own worker thread, not the whole event loop.
+            time.sleep(self._backoff)
         return AuditReceipt(status=FAILED,
                             detail=f"{last} (after {self._max_attempts} attempt(s))")

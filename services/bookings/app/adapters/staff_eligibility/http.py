@@ -8,6 +8,7 @@ chosen set of services.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -25,6 +26,10 @@ class HttpStaffEligibility:
         narrower eligible-staff set than the shop actually configured. A missing key for a given
         service id (peer reachable, service unknown to it) is likewise "no restriction" from the
         caller's point of view, never a refusal."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, service_ids)
+
+    def _call_sync(self, tenant: str, service_ids: tuple[str, ...]) -> dict[str, list[str] | None]:
         body = json.dumps({"tenant": tenant, "service_ids": list(service_ids)}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

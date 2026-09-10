@@ -5,6 +5,7 @@ that fails open would let a booking through on a day the owner never turned the 
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -17,6 +18,10 @@ class HttpPackageOfferable:
         self._timeout = timeout
 
     async def __call__(self, tenant: str, package_id: str, at: int) -> bool:
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, package_id, at)
+
+    def _call_sync(self, tenant: str, package_id: str, at: int) -> bool:
         body = json.dumps({"tenant": tenant, "package_id": package_id, "at": int(at)}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

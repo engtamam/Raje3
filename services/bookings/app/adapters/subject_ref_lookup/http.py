@@ -5,6 +5,7 @@ visit_gateway.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -21,6 +22,10 @@ class HttpSubjectRefLookup:
         empty-string-as-success pseudonym. An empty string IS a valid, deliberate answer from the
         peer (an unknown customer); `None` means we could not ask at all, and the caller must
         treat the two differently (fail closed only on the second)."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, customer_id)
+
+    def _call_sync(self, tenant: str, customer_id: str) -> str | None:
         body = json.dumps({"tenant": tenant, "customer_id": customer_id}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

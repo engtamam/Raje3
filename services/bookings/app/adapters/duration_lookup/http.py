@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -21,6 +22,10 @@ class HttpDurationLookup:
         """`None` on ANY failure — unreachable, malformed, or the peer's own "not configured"
         answer — never a guessed number. A peer outage refusing a booking create is correct: the
         alternative is inventing a duration nobody set."""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, service_ids)
+
+    def _call_sync(self, tenant: str, service_ids: tuple[str, ...]) -> int | None:
         body = json.dumps({"tenant": tenant, "service_ids": list(service_ids)}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

@@ -7,6 +7,7 @@ and folding both into one class would make every caller pass an unused field eit
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -19,6 +20,10 @@ class HttpPackageDurationLookup:
         self._timeout = timeout
 
     async def __call__(self, tenant: str, package_id: str) -> int | None:
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._call_sync, tenant, package_id)
+
+    def _call_sync(self, tenant: str, package_id: str) -> int | None:
         body = json.dumps({"tenant": tenant, "package_id": package_id}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

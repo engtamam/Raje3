@@ -29,6 +29,7 @@ a shop that cannot create a booking for an hour has lost an hour.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -87,6 +88,10 @@ class HttpLicence:
         already holds."""
         if not tenant:
             return False
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._allowed_sync, tenant)
+
+    def _allowed_sync(self, tenant: str) -> bool:
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})
         req = urllib.request.Request(f"{self._url}?{query}",
                                      headers={"X-Internal-Token": self._token})

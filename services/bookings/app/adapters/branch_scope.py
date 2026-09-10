@@ -16,6 +16,7 @@ unscoped, and somebody their own shop has stopped is refused outright.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -49,6 +50,10 @@ class BranchScope:
         # for a shop that has one place.
         if not self._url or not tenant or not subject:
             return ""
+        # OFF THE EVENT LOOP — urllib has no async mode.
+        return await asyncio.to_thread(self._scope_sync, tenant, subject)
+
+    def _scope_sync(self, tenant: str, subject: str) -> Any:
         body = json.dumps({"tenant": tenant, "subject": subject}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",
