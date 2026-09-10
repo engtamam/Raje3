@@ -53,6 +53,19 @@ async def admin_ping() -> dict:
     return {"status": "ok"}
 
 
+@router.get("/assistant/features", dependencies=[Depends(rate_limit)])
+async def assistant_features(principal: Principal = Depends(_PRICING_READ)) -> dict:
+    """«ايش فيه هذا التطبيق فعلاً» — the app-store card's own content (core/features.py). Reuses
+    `_PRICING_READ` deliberately: same posture as `/assistant/pricing/current` right below — "a
+    shop reading a fact about their own subscription, not our internals" — never a subscription
+    check itself, since a shop deciding whether to BUY this app has to be able to read what it
+    would get.
+    """
+    from app.core.features import public_features
+
+    return {"features": public_features()}
+
+
 @router.get("/assistant/pricing/current", dependencies=[Depends(rate_limit)])
 async def pricing_current(request: Request,
                           principal: Principal = Depends(_PRICING_READ)) -> dict:

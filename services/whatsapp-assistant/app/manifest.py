@@ -86,6 +86,10 @@ def build_manifest(settings: Settings, ports: list[dict[str, str]] | None = None
             {"path": "/api/v1/assistant/operator/pricing/pending/{}", "tier": "user", "method": "DELETE"},
             # THE SHOP'S OWN READ — see this file's own note on "whatsapp_assistant.pricing_read"
             # above and app/api/v1/__init__.py's route docstring.
+            # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — same posture as pricing/
+            # current right below: a shop reading a fact about their own subscription, never a
+            # purchase check.
+            {"path": "/api/v1/assistant/features", "tier": "user", "method": "GET"},
             {"path": "/api/v1/assistant/pricing/current", "tier": "user", "method": "GET"},
             # محلّي's own "أثر الذكاء الاصطناعي" card, joined 2026-09-07 — reuses the same
             # capability as the price read above (same "owner/manager reading their own AI

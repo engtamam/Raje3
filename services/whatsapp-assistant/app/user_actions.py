@@ -16,6 +16,12 @@ from typing import Any
 
 USER_ACTIONS: list[dict[str, Any]] = [
     {
+        "id": "whatsapp_assistant.features", "label": "مميزات المساعد الذكي", "method": "GET",
+        "path": "/api/v1/assistant/features", "capability": "whatsapp_assistant.pricing_read",
+        "group": "التطبيقات",
+        "help": "قائمة المميزات الحقيقية اللي يوفّرها المساعد الذكي عبر واتساب، بصياغة تسويقية قصيرة.",
+    },
+    {
         "id": "whatsapp_assistant.pricing_current", "label": "سعر الذكاء الاصطناعي", "method": "GET",
         "path": "/api/v1/assistant/pricing/current", "capability": "whatsapp_assistant.pricing_read",
         "group": "التطبيقات",
