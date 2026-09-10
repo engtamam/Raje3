@@ -30,11 +30,12 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, Clock, Package, RefreshCw } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, CircleAlert, Clock, Package, RefreshCw } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
 import { KpiCard } from './../rj-ui/KpiCard';
+import { Table, type TableColumn } from './../rj-ui/Table';
 import { Input, Select } from './../rj-ui/Field';
 import { req, type AdminSession } from './api';
 import type { AdminCatalog } from './catalog';
@@ -178,6 +179,12 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+/** minor units (halalas) to a "12.34 SAR" string — the one place this file formats money, so every
+ *  amount on this tab reads the same way. */
+function money(minor: number, currency: string): string {
+  return `${(minor / 100).toFixed(2)} ${currency}`;
+}
+
 function BillingTab({ session, tenant, catalog, planNames }: {
   session: AdminSession; tenant: Tenant; catalog: AdminCatalog; planNames: Map<string, string>;
 }) {
@@ -199,42 +206,53 @@ function BillingTab({ session, tenant, catalog, planNames }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
   }, [tenant.id]);
 
+  // مؤشرات حقيقية من نفس البيانات المجلوبة هنا — لا استدعاء إضافي، لا رقم مُلفَّق. العملة تُقرأ من
+  // أول فاتورة موجودة (كلها بنفس العملة لمنشأة واحدة) بدل افتراض "ريال" دائماً.
+  const invRows = Array.isArray(invoices) ? invoices : [];
+  const currency = invRows[0]?.currency ?? 'SAR';
+  const overdue = invRows.filter((i) => i.status === 'open' || i.status === 'partially_paid');
+  const overdueTotal = overdue.reduce((sum, i) => sum + i.total_minor, 0);
+  const paidTotal = invRows.filter((i) => i.status === 'paid').reduce((sum, i) => sum + i.total_minor, 0);
+  const activeApps = Array.isArray(subs) ? subs.filter((s) => s.status === 'active').length : 0;
+
+  const subColumns: TableColumn<Subscription>[] = [
+    { key: 'app', header: 'التطبيق', render: (s) => planNames.get(s.plan_id) ?? s.plan_id },
+    { key: 'status', header: 'الحالة', render: (s) => (
+      <Badge tone={SUB_STATUS_META[s.status]?.tone ?? 'neutral'}>{SUB_STATUS_META[s.status]?.label ?? s.status}</Badge>
+    ) },
+  ];
+  const invColumns: TableColumn<Invoice>[] = [
+    { key: 'number', header: 'الفاتورة', render: (inv) => <span dir="ltr" className="font-mono">{inv.number || inv.id}</span> },
+    { key: 'amount', header: 'المبلغ', render: (inv) => <span dir="ltr">{money(inv.total_minor, inv.currency)}</span> },
+    { key: 'status', header: 'الحالة', render: (inv) => (
+      <Badge tone={INVOICE_STATUS_META[inv.status]?.tone ?? 'neutral'}>{INVOICE_STATUS_META[inv.status]?.label ?? inv.status}</Badge>
+    ) },
+    { key: 'created', header: 'التاريخ', hideOnCard: true, render: (inv) => <span dir="ltr" className="text-label text-text-secondary">{inv.created?.slice(0, 10)}</span> },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <KpiCard icon={<Package size={18} />} label="تطبيقات نشطة" value={activeApps}
+                tone={activeApps > 0 ? 'success' : 'warning'} />
+        <KpiCard icon={<CircleAlert size={18} />} label="مستحق غير مدفوع" value={money(overdueTotal, currency)}
+                tone={overdueTotal > 0 ? 'danger' : 'neutral'} hint={overdue.length ? `${overdue.length} فاتورة` : undefined} />
+        <KpiCard icon={<CheckCircle2 size={18} />} label="محصَّل" value={money(paidTotal, currency)} tone="success" />
+      </div>
+
       <div>
         <h3 className="mb-2 font-medium">التطبيقات المفعّلة</h3>
-        {!subsAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p>
-         : subs === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-         : subs === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
-         : subs.length === 0 ? <p className="text-sm text-text-muted">بلا تطبيقات مفعّلة.</p>
-         : (
-          <div className="flex flex-col gap-2">
-            {subs.map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-lg bg-surface-2 p-3 text-sm">
-                <span>{planNames.get(s.plan_id) ?? s.plan_id}</span>
-                <Badge tone={SUB_STATUS_META[s.status]?.tone ?? 'neutral'}>{SUB_STATUS_META[s.status]?.label ?? s.status}</Badge>
-              </div>
-            ))}
-          </div>
+        {!subsAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+          <Table columns={subColumns} rows={subs} getRowId={(s) => s.id}
+                emptyTitle="بلا تطبيقات مفعّلة" failedTitle="تعذّرت قراءة التطبيقات" />
         )}
       </div>
 
       <div>
         <h3 className="mb-2 font-medium">الفواتير</h3>
-        {!invAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p>
-         : invoices === 'loading' ? <p className="text-sm text-text-secondary">جارٍ التحميل…</p>
-         : invoices === 'failed' ? <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>
-         : invoices.length === 0 ? <p className="text-sm text-text-muted">بلا فواتير.</p>
-         : (
-          <div className="flex flex-col gap-2">
-            {invoices.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-lg bg-surface-2 p-3 text-sm">
-                <span dir="ltr" className="font-mono">{inv.number || inv.id}</span>
-                <span dir="ltr">{(inv.total_minor / 100).toFixed(2)} {inv.currency}</span>
-                <Badge tone={INVOICE_STATUS_META[inv.status]?.tone ?? 'neutral'}>{INVOICE_STATUS_META[inv.status]?.label ?? inv.status}</Badge>
-              </div>
-            ))}
-          </div>
+        {!invAction ? <p className="text-sm text-text-secondary">لا صلاحية.</p> : (
+          <Table columns={invColumns} rows={invoices} getRowId={(inv) => inv.id}
+                emptyTitle="بلا فواتير" failedTitle="تعذّرت قراءة الفواتير" />
         )}
       </div>
 

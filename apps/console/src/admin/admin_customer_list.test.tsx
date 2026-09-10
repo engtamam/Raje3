@@ -403,4 +403,41 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     render(<AdminCustomers session={SESSION} />);
     await waitFor(() => expect(screen.getByText('هذه الشاشة ليست ضمن صلاحياتك')).toBeTruthy());
   });
+
+  it('billing tab computes real KPIs from the fetched subscriptions/invoices, not fabricated', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/subscriptions')) {
+        return Promise.resolve({ subscriptions: [
+          { id: 's1', tenant: 't1', plan_id: 'p1', status: 'active', current_period_end: 0, trial_end: 0 },
+          { id: 's2', tenant: 't1', plan_id: 'p2', status: 'canceled', current_period_end: 0, trial_end: 0 },
+        ] });
+      }
+      if (path.includes('/admin/invoices')) {
+        return Promise.resolve({ invoices: [
+          { id: 'i1', tenant: 't1', number: 'INV-1', status: 'open', total_minor: 5000, currency: 'SAR', created: '2026-01-01' },
+          { id: 'i2', tenant: 't1', number: 'INV-2', status: 'paid', total_minor: 12000, currency: 'SAR', created: '2026-01-02' },
+          { id: 'i3', tenant: 't1', number: 'INV-3', status: 'paid', total_minor: 8000, currency: 'SAR', created: '2026-01-03' },
+        ] });
+      }
+      return Promise.resolve({ subscriptions: [] });
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+    fireEvent.click(screen.getByText('التطبيقات والفوترة'));
+
+    // 1 active app (the canceled one does not count), 50.00 SAR still owed (the one "open"
+    // invoice), 200.00 SAR collected (the two "paid" invoices summed: 120 + 80).
+    // getAllByText — rj-ui's own Table renders a desktop table AND a mobile card list at once
+    // (see AdminSignals's own note on this), and 50.00 SAR is also the "open" invoice row's own
+    // amount, so these figures legitimately appear more than once.
+    await waitFor(() => expect(screen.getByText('تطبيقات نشطة')).toBeTruthy());
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('50.00 SAR').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('200.00 SAR').length).toBeGreaterThan(0);
+  });
 });
