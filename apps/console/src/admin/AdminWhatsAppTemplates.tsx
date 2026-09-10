@@ -21,6 +21,7 @@ import {
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Select, Textarea } from '../rj-ui/Field';
 import { Badge } from '../rj-ui/Badge';
+import { KpiCard } from '../rj-ui/KpiCard';
 import { Segmented } from '../rj-ui/Segmented';
 import { Drawer } from '../rj-ui/Drawer';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
@@ -139,11 +140,11 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
     : {};
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold leading-tight tracking-tight">قوالب واتساب</h1>
-          <p className="mt-1 max-w-xl text-sm text-text-secondary">
+          <h2 className="font-medium">قوالب واتساب</h2>
+          <p className="mt-1 max-w-xl text-label text-text-secondary">
             أي رسالة نبدأها نحن (مثل رمز تحقق التسجيل) تحتاج قالباً معتمَداً من ميتا مسبقاً — بدونه
             الإرسال يُرفض. حالة كل قالب هنا واضحة دائماً، وسبب الرفض إن وُجد، بلا أي غموض.
           </p>
@@ -159,6 +160,22 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
           ) : null}
         </div>
       </div>
+
+      {/* KpiCard summary by status — same tones as STATUS_META (Badge), so a colour reads the
+         same whether it is on the card here, the filter strip below, or a template's own badge. */}
+      {Array.isArray(templates) && templates.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {(Object.keys(STATUS_META) as TemplateStatus[]).map((status) => {
+            const meta = STATUS_META[status];
+            const Icon = meta.icon;
+            return (
+              <KpiCard key={status} icon={<Icon size={18} />} label={meta.label}
+                      value={counts[status] ?? 0} tone={(counts[status] ?? 0) > 0 ? meta.tone : 'neutral'}
+                      testId={`kpi-wa-tpl-${status}`} />
+            );
+          })}
+        </div>
+      ) : null}
 
       {testSendAction ? (
         <TestSendPanel session={session} action={testSendAction}

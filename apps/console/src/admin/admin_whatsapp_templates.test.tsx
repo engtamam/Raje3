@@ -60,8 +60,9 @@ describe('AdminWhatsAppTemplates', () => {
     await waitFor(() => expect(screen.getByText('auth.otp')).toBeTruthy());
     // "قيد الإعداد" not "قيد المراجعة": the server has no field distinguishing "never sent" from
     // "edited after rejection, not yet resent" -- both are status=pending, so the label must not
-    // claim either with false certainty (see displayMeta's own comment).
-    expect(screen.getByText('قيد الإعداد')).toBeTruthy();
+    // claim either with false certainty (see displayMeta's own comment). Appears twice now (the
+    // template card's own badge AND the KpiCard summary above it) -- both real, both correct.
+    expect(screen.getAllByText('قيد الإعداد').length).toBe(2);
     expect(screen.getByText('أرسل للمراجعة')).toBeTruthy();
     // never called on its own — only a real click does
     expect(reqMock).not.toHaveBeenCalledWith(
@@ -90,7 +91,8 @@ describe('AdminWhatsAppTemplates', () => {
     });
 
     render(<AdminWhatsAppTemplates session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('مرفوض')).toBeTruthy());
+    // "مرفوض" appears twice now: the template card's own badge AND the KpiCard summary above it.
+    await waitFor(() => expect(screen.getAllByText('مرفوض').length).toBe(2));
     expect(screen.getByText(/التصنيف لا يطابق المحتوى/)).toBeTruthy();
     expect(screen.queryByText('أرسل للمراجعة')).toBeNull();
   });
@@ -149,7 +151,10 @@ describe('AdminWhatsAppTemplates', () => {
     await waitFor(() => expect(screen.getByText('auth.otp')).toBeTruthy());
     expect(screen.getByText('welcome')).toBeTruthy();
 
-    fireEvent.click(screen.getAllByText(/^معتمد/)[0]);
+    // /^معتمد \(/ -- the filter strip's own option carries a count ("معتمد (1)"); the KpiCard
+    // summary above it repeats the bare label ("معتمد") with no count, so the plain prefix alone
+    // would now match both.
+    fireEvent.click(screen.getAllByText(/^معتمد \(/)[0]);
     await waitFor(() => expect(screen.queryByText('auth.otp')).toBeNull());
     expect(screen.getByText('welcome')).toBeTruthy();
   });

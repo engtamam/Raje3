@@ -5,6 +5,10 @@
  * «مفاتيح المزوّدين» انتقلت لقسمها الخاص «المزوّدين الخارجيين» بالشريط — كانت هنا
  * تبويباً فرعياً وسط تسعة غيرها، وصارت طويلة بما يكفي تستاهل قسماً قائماً بذاته. انظر
  * AdminProviderSecrets.tsx's own header وAdminNav.tsx's own note على القرار.
+ *
+ * «قوالب واتساب» انتقلت لنفس القسم «المزوّدين الخارجيين» ← فئة Meta، كثالث بطاقة بعد «الأسرار»
+ * و«حالة واتساب المنصة» — قرار ميتا/واتساب لا إعداد منصّة عام، وفئة Meta هناك أصلاً مبنية لتجمع
+ * كل ما يخص ميتا بمكان واحد. انظر AdminProviderSecrets.tsx's own render لفئة meta.
  */
 import { Segmented } from '../rj-ui/Segmented';
 import { useState } from 'react';
@@ -13,14 +17,13 @@ import { AdminConfig } from './AdminConfig';
 import { AdminSecrets } from './AdminSecrets';
 import { AdminLegal } from './AdminLegal';
 import { AdminDisputeReports } from './AdminDisputeReports';
-import { AdminWhatsAppTemplates } from './AdminWhatsAppTemplates';
 import { AdminTeam } from './AdminTeam';
 import { AdminCompliance } from './AdminCompliance';
 import { AdminSignals } from './AdminSignals';
 import type { AdminSession } from './api';
 
 type SubTab =
-  | 'config' | 'secrets' | 'wa_templates' | 'legal' | 'disputes' | 'team' | 'audit' | 'compliance'
+  | 'config' | 'secrets' | 'legal' | 'disputes' | 'team' | 'audit' | 'compliance'
   | 'signals';
 
 export function AdminPlatform({ session }: { session: AdminSession }) {
@@ -34,7 +37,6 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
           options={[
             { value: 'config', label: 'الإعدادات الحيّة' },
             { value: 'secrets', label: 'الأسرار' },
-            { value: 'wa_templates', label: 'قوالب واتساب' },
             { value: 'legal', label: 'المستندات القانونية' },
             { value: 'disputes', label: 'تقارير الدفاع النزاعي' },
             { value: 'team', label: 'فريق الإدارة' },
@@ -49,7 +51,6 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
       </div>
       {sub === 'config' ? <AdminConfig session={session} /> : null}
       {sub === 'secrets' ? <AdminSecrets session={session} /> : null}
-      {sub === 'wa_templates' ? <AdminWhatsAppTemplates session={session} /> : null}
       {sub === 'legal' ? <AdminLegal session={session} /> : null}
       {sub === 'disputes' ? <AdminDisputeReports session={session} /> : null}
       {sub === 'team' ? <AdminTeam session={session} /> : null}

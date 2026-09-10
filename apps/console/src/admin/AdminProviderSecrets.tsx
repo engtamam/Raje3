@@ -36,6 +36,7 @@ import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
 import { NoActionAvailable } from './NoActionAvailable';
+import { AdminWhatsAppTemplates } from './AdminWhatsAppTemplates';
 
 interface SecretRow {
   key: string;
@@ -310,6 +311,14 @@ export function AdminProviderSecrets({ session, initialOpenProvider }: {
                             rows={activeRows} session={session} updateAction={updateAction}
                             onSaved={() => listAction && reload(listAction)} />
               </div>
+              {/* "قوالب واتساب" — ثالث قسم بفئة meta، بعد الأسرار والحالة عمداً: بلا الأسرار لا شي
+                 يتصل بميتا أصلاً، وبلا الحالة صحّة الاتصال نفسها غير معروفة؛ القوالب هي ما فعلياً
+                 يُرسَل بمجرد أن الاثنين قبلها سليمَين. انتقلت من «المنصّة والفريق» (كانت تبويباً
+                 فرعياً وسط ثمانية غيرها بلا علاقة مباشرة بميتا) — انظر AdminPlatform.tsx's own
+                 header. المكوّن ذاته لم يتغيّر، فقط مكان عرضه. */}
+              {active === 'meta' ? (
+                <AdminWhatsAppTemplates session={session} />
+              ) : null}
             </div>
           )}
         </>
