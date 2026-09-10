@@ -94,6 +94,10 @@ def build_manifest(
             {"path": "/api/v1/campaigns", "tier": "user", "method": "GET"},
             {"path": "/api/v1/campaigns/{}/runs", "tier": "user", "method": "GET"},
             {"path": "/api/v1/campaigns/{}/pause", "tier": "user", "method": "POST"},
+            # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — no `campaigns.*`
+            # capability, deliberately: a shop deciding whether to buy this app has to read what
+            # it would get.
+            {"path": "/api/v1/campaigns/features", "tier": "user", "method": "GET"},
             # OURS. The audience ceiling is not an establishment's to raise: a twenty-thousand
             # recipient burst is a volume signal Meta reads against every number we hold.
             {"path": "/api/v1/campaigns/platform/audience-cap", "tier": "user", "method": "GET"},

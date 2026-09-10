@@ -46,6 +46,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
     # test for which file a route belongs in is whose data it is: `platform.*` is ours;
     # everything else belongs to the establishment.
     {
+        "id": "campaigns.features", "label": "مميزات تطبيق الحملات", "method": "GET",
+        "path": "/api/v1/campaigns/features", "capability": "campaigns.read",
+        "group": "التطبيقات",
+        # لا يتحقق من الاشتراك إطلاقاً (app/api/v1/features.py's own docstring) — بطاقة المتجر
+        # تُقرأ قبل الشراء.
+        "help": "قائمة المميزات الحقيقية اللي يوفّرها تطبيق الحملات، بصياغة تسويقية قصيرة.",
+    },
+    {
         "id": "campaigns.goals", "label": "أهداف الحملات", "method": "GET",
         "path": "/api/v1/campaigns/goals", "capability": "campaigns.read", "group": "الحملات",
         # The five cards, with their locks and their reasons. The screen renders what this returns
