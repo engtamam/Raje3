@@ -68,6 +68,7 @@ from his shop. The measurement is the thing we are willing to lose.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 # The key the plans carry at -1 (spec §16.4.1). One name, defined once: a typo would create a
@@ -163,9 +164,10 @@ class HttpQuota:
         decision, not a message allowance.
         """
         try:
-            status, out = self._post(self._consume, {"tenant": tenant, "key": KEY,
-                                                     "amount": amount,
-                                                     "idempotency_key": idempotency_key})
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, out = await asyncio.to_thread(
+                self._post, self._consume, {"tenant": tenant, "key": KEY, "amount": amount,
+                                            "idempotency_key": idempotency_key})
         except QuotaError:
             # UNREACHABLE FAILS OPEN — see the module docstring. We lose the measurement, not the
             # message.
@@ -199,8 +201,10 @@ class HttpQuota:
         this hands Meta a submission the shop did not buy, against a name that cannot be reused.
         """
         try:
-            status, out = self._post(self._consume, {"tenant": tenant, "key": key, "amount": 1,
-                                                     "idempotency_key": idempotency_key})
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            status, out = await asyncio.to_thread(
+                self._post, self._consume, {"tenant": tenant, "key": key, "amount": 1,
+                                            "idempotency_key": idempotency_key})
         except QuotaError as exc:
             raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.") from exc
         # THE VERDICT FIRST, WHATEVER STATUS CARRIES IT. billing answers the unsubscribed
@@ -236,8 +240,10 @@ class HttpQuota:
         which is the direction nobody reports.
         """
         try:
-            self._post(self._release, {"tenant": tenant, "key": key, "amount": amount,
-                                       "idempotency_key": idempotency_key})
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            await asyncio.to_thread(
+                self._post, self._release, {"tenant": tenant, "key": key, "amount": amount,
+                                            "idempotency_key": idempotency_key})
         except QuotaError:
             # Deliberately swallowed. The send has already failed and is being rescheduled; the
             # caller must not fail a second time over an accounting call, and the worst case is
@@ -252,7 +258,8 @@ class HttpQuota:
 
         url = f"{self._check}?tenant={tenant}&key={KEY}&amount=0"
         try:
-            out = internal_http.get_json(url, self._token, self._timeout)
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            out = await asyncio.to_thread(internal_http.get_json, url, self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return {}
         return {"limit": out.get("limit"), "current": out.get("current"),

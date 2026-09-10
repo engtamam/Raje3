@@ -73,6 +73,7 @@ def examples_for(template: dict) -> list[str]:
                 f"template whose placeholder carries none")
         out.append(value)
     return out
+import asyncio
 import base64
 import copy
 import urllib.error
@@ -189,11 +190,14 @@ class HttpLibrary:
             body["flow_button"] = flow_button
         carousel = template.get("carousel")
         if carousel:
-            resolved = self._resolve_carousel(tenant, carousel)
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Its own
+            # placeholder upload (`_upload_placeholder_handle` -> `self._post`) is plain urllib,
+            # called from a chain of plain sync methods with no offload of its own until now.
+            resolved = await asyncio.to_thread(self._resolve_carousel, tenant, carousel)
             if resolved is None:
                 return False
             body["carousel"] = resolved
-        status, _ = self._post(self._register, body)
+        status, _ = await asyncio.to_thread(self._post, self._register, body)
         return status < 400
 
     async def drain(self, tenant: str) -> dict[str, Any]:
@@ -203,7 +207,8 @@ class HttpLibrary:
         id, so a tick that overlaps the previous one cannot ask twice about the same template.
         """
         query = urllib.parse.urlencode({"tenant": tenant})
-        status, out = self._post(f"{self._drain}?{query}", None)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, out = await asyncio.to_thread(self._post, f"{self._drain}?{query}", None)
         if status >= 400:
             return {"ok": False, "reason": str(out.get("detail", ""))[:160]}
         return {"ok": True, **(out if isinstance(out, dict) else {})}

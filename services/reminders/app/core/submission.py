@@ -16,6 +16,7 @@ was never registered is a 404 from the peer, and the owner would read it as a re
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -94,7 +95,8 @@ class HttpSubmitter:
         """
         name = str(template.get("name", ""))
         language = str(template.get("language") or "ar")
-        status, out = self._post(self._register, {
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, out = await asyncio.to_thread(self._post, self._register, {
             "tenant": tenant, "name": name, "language": language,
             "category": _category(str(template.get("cls", "service"))),
             "body": str(template.get("body", "")),
@@ -117,7 +119,8 @@ class HttpSubmitter:
 
         path = self._submit.format(name=urllib.parse.quote(name),
                                    language=urllib.parse.quote(language))
-        status, out = self._post(path, {"tenant": tenant})
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, out = await asyncio.to_thread(self._post, path, {"tenant": tenant})
         if status >= 400:
             return {"ok": False, "reason": _sentence(out, "رفضت واتساب استقبال النص.")}
         return {"ok": True, "status": str(out.get("status", "pending"))}
