@@ -415,6 +415,11 @@ jobs:
       # more sites), both times after the fact. This is what stops a next one landing unnoticed.
       - name: no async def blocks the event loop on a direct urlopen() call
         run: python3 ci/check_no_blocking_call_inside_async_def.py
+      # A separate gate, on purpose: open()/a slow KDF are not "always wrong" the way urlopen is
+      # (most calls to either are cheap and harmless), so this one names specific known-heavy
+      # operations rather than flagging every call to a common builtin.
+      - name: no async def does unoffloaded file I/O or a slow KDF
+        run: python3 ci/check_no_heavy_sync_work_inside_async_def.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services
