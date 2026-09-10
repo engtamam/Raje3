@@ -260,6 +260,12 @@ def build_container(settings: Settings) -> Container:
     # right above. See `api/v1/platform.py::whatsapp_platform_status`.
     from app.adapters.platform_status import build_platform_status
     container.platform_status = build_platform_status(settings)
+    # ONE SHOP'S OWN CONNECTED NUMBER — two-step PIN set/rotate, subscribed webhook fields, business
+    # verification, and messaging-limit tier (platform v0.19.9). Sits next to `whatsapp_diagnostics`
+    # above: same per-shop scope, same internal-token peer shape. See `api/v1/platform.py`'s new
+    # `whatsapp/two-step-pin` / `subscribed-fields` / `business-verification` / `messaging-limit`.
+    from app.adapters.whatsapp_admin import build_whatsapp_admin
+    container.whatsapp_admin = build_whatsapp_admin(settings)
     # WHAT EACH SHOP ACTUALLY PAID US — the one input a commission statement takes. Unconfigured
     # in a local run, and then the monthly sweep issues nothing and says why, rather than issuing
     # a statement of zero that a partner would read and believe.

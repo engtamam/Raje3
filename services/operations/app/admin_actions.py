@@ -132,6 +132,41 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "حالة اتصال كل رقم، ومعدّل نجاح/فشل الإرسال الحقيقي، وعدد الأرقام المربوطة، وعدد "
                 "من ألغى اشتراكه التسويقي — أسرار المنصة نفسها لا أي محل.",
     },
+    # ── one shop's own connected WhatsApp number (platform v0.19.9) — next to whatsapp_diagnostics
+    # above, same per-shop scope, never the platform's own Meta identity ──────────────────────
+    {
+        "id": "operations.whatsapp_messaging_limit", "label": "سقف الإرسال اليومي لمحل", "method": "GET",
+        "path": "/api/v1/platform/whatsapp/messaging-limit", "capability": "platform.operations",
+        "group": "المنصة",
+        "params": [{"name": "tenant", "in": "query", "type": "string", "required": True}],
+        "help": "درجة السقف اليومي (tier) وتقييم الجودة عند ميتا لرقم هذا المحل.",
+    },
+    {
+        "id": "operations.whatsapp_subscribed_fields", "label": "أحداث الواتساب المشترَكة لمحل",
+        "method": "GET", "path": "/api/v1/platform/whatsapp/subscribed-fields",
+        "capability": "platform.operations", "group": "المنصة",
+        "params": [{"name": "tenant", "in": "query", "type": "string", "required": True}],
+        "help": "أي أحداث فعلياً يرسلها ميتا لهذا المحل — عرض فقط، تعديلها يصير من لوحة مطوّري ميتا لا هنا.",
+    },
+    {
+        "id": "operations.whatsapp_business_verification", "label": "تحقّق النشاط التجاري لمحل",
+        "method": "GET", "path": "/api/v1/platform/whatsapp/business-verification",
+        "capability": "platform.operations", "group": "المنصة",
+        "params": [{"name": "tenant", "in": "query", "type": "string", "required": True}],
+        "help": "حالة تحقّق ميتا من النشاط التجاري لهذا المحل — تتحكّم بسرعة مراجعة القوالب وسقف الإرسال.",
+    },
+    {
+        "id": "operations.whatsapp_set_two_step_pin", "label": "تعيين رمز التحقّق بخطوتين لمحل",
+        "method": "POST", "path": "/api/v1/platform/whatsapp/two-step-pin",
+        "capability": "platform.operations", "group": "المنصة", "confirm": True, "danger": True,
+        "params": [
+            {"name": "tenant", "in": "body", "type": "string", "required": True},
+            {"name": "phone_number_id", "in": "body", "type": "string", "required": False},
+            {"name": "pin", "in": "body", "type": "string", "required": True,
+             "help": "6 أرقام بالضبط — لا يُعرَض بعد الحفظ أبداً."},
+        ],
+        "help": "يغيّر رمز التحقّق بخطوتين لرقم واتساب هذا المحل عند ميتا مباشرة — تغيير حي بلا رجعة.",
+    },
     {
         "id": "operations.customer_by_phone", "label": "ابحث عن عميل برقم جواله", "method": "GET",
         "path": "/api/v1/platform/customers/by-phone", "capability": "platform.operations",

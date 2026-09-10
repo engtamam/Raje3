@@ -508,6 +508,45 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "still worth naming who looked, same reasoning as whatsapp_diagnostics_viewed above.",
     },
     {
+        "action": "platform.whatsapp_messaging_limit_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp:{tenant}",
+        "why": "an operator read one shop's own messaging-limit tier and quality rating (platform "
+               "v0.19.9's `/internal/whatsapp/messaging-limit`, newly wired to this admin screen). "
+               "Not critical (a missed record does not undo the read), same reasoning as "
+               "whatsapp_diagnostics_viewed above.",
+    },
+    {
+        "action": "platform.whatsapp_subscribed_fields_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp:{tenant}",
+        "why": "an operator read which webhook fields Meta is actually sending for one shop's WABA "
+               "— read-only always (Meta has no per-WABA write for this). Not critical, same "
+               "reasoning as whatsapp_diagnostics_viewed above.",
+    },
+    {
+        "action": "platform.whatsapp_business_verification_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp:{tenant}",
+        "why": "an operator read one shop's WABA business-verification status — gates template-"
+               "review speed and throughput, so worth naming who checked it. Not critical, same "
+               "reasoning as whatsapp_diagnostics_viewed above.",
+    },
+    {
+        "action": "platform.whatsapp_two_step_pin_set",
+        "source": "admin",
+        "critical": True,
+        "resource": "whatsapp:{tenant}",
+        "why": "an operator rotated a shop's own WhatsApp two-step-verification PIN — a live "
+               "credential change on Meta's side, recorded write-ahead (before the call, same "
+               "discipline as secrets.update) since a call that fails halfway must still be "
+               "visible as attempted. The PIN value itself is never in this row, on purpose — "
+               "matching the peer route's own write-only guarantee.",
+    },
+    {
         "action": "compliance.evidence_exported",
         "source": "internal",
         "critical": True,

@@ -656,6 +656,109 @@ async def whatsapp_platform_status(request: Request,
     }
 
 
+# ── ONE SHOP'S OWN CONNECTED WHATSAPP NUMBER (platform v0.19.9) — sits next to `whatsapp_diagnostics`
+# above, same per-shop scope: `tenant`'s OWN number, never the platform's own Meta identity. All four
+# peer through `container.whatsapp_admin` (see that adapter's own header). ─────────────────────────
+
+@router.get("/whatsapp/messaging-limit", dependencies=[Depends(rate_limit)])
+async def whatsapp_messaging_limit(request: Request, tenant: str,
+                                   principal: Principal = Depends(_PLATFORM)) -> dict:
+    """This shop's WhatsApp messaging-limit tier + quality rating — a real gap this closes: the
+    peer route existed before this batch (platform v0.19.x) but was never wired to any admin
+    screen. Placed alongside diagnostics: "why is this shop's WhatsApp broken" often IS a spent
+    daily limit, not a delivery failure."""
+    if not tenant:
+        return _refuse("مرّر tenant.")
+    await request.app.state.auditor.record(
+        "platform.whatsapp_messaging_limit_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant, resource=f"whatsapp:{tenant}",
+        ip=request.client.host if request.client else "")
+    out = await request.app.state.container.whatsapp_admin.messaging_limit(tenant)
+    if out is None or "_status" in out:
+        return JSONResponse({"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
+                            status_code=502)
+    return out
+
+
+@router.get("/whatsapp/subscribed-fields", dependencies=[Depends(rate_limit)])
+async def whatsapp_subscribed_fields(request: Request, tenant: str,
+                                     principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Which apps (and webhook fields) Meta is ACTUALLY sending for this shop's WABA — read-only,
+    always: Meta configures subscribed fields at the APP level (App Dashboard), never per-WABA, so
+    there is no write route to mirror here and none should ever be added — this exists only to
+    CONFIRM what is really wired, which an operator otherwise cannot see at all."""
+    if not tenant:
+        return _refuse("مرّر tenant.")
+    await request.app.state.auditor.record(
+        "platform.whatsapp_subscribed_fields_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant, resource=f"whatsapp:{tenant}",
+        ip=request.client.host if request.client else "")
+    out = await request.app.state.container.whatsapp_admin.subscribed_fields(tenant)
+    if out is None:
+        return JSONResponse({"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
+                            status_code=502)
+    if "_status" in out:
+        code = out["_status"]
+        reason = "NOT_CONNECTED" if code == 409 else out.get("detail", "META_ERROR")
+        return JSONResponse({"error": "PEER_REFUSED", "reason": reason}, status_code=code)
+    return {"apps": out.get("apps", [])}
+
+
+@router.get("/whatsapp/business-verification", dependencies=[Depends(rate_limit)])
+async def whatsapp_business_verification(request: Request, tenant: str,
+                                         principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The WABA's business_verification_status + overall status — gates template-review speed and
+    throughput upgrades, so an operator should be able to see it rather than guess it from symptoms."""
+    if not tenant:
+        return _refuse("مرّر tenant.")
+    await request.app.state.auditor.record(
+        "platform.whatsapp_business_verification_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant, resource=f"whatsapp:{tenant}",
+        ip=request.client.host if request.client else "")
+    out = await request.app.state.container.whatsapp_admin.business_verification(tenant)
+    if out is None:
+        return JSONResponse({"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
+                            status_code=502)
+    if "_status" in out:
+        code = out["_status"]
+        reason = "NOT_CONNECTED" if code == 409 else out.get("detail", "META_ERROR")
+        return JSONResponse({"error": "PEER_REFUSED", "reason": reason}, status_code=code)
+    return {"business_verification_status": out.get("business_verification_status", ""),
+            "status": out.get("status", "")}
+
+
+class TwoStepPinIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone_number_id: str = Field(default="", max_length=128)
+    # Client-side courtesy only — the peer validates the same 6-digit shape server-side regardless
+    # (notification-service's own `TwoStepPinIn`), so a raw API call cannot bypass this.
+    pin: str = Field(pattern=r"^[0-9]{6}$")
+
+
+@router.post("/whatsapp/two-step-pin", dependencies=[Depends(rate_limit)])
+async def whatsapp_set_two_step_pin(request: Request, body: TwoStepPinIn,
+                                    principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Set/rotate a shop's own WhatsApp two-step-verification PIN — a credential-changing write, so
+    it is audited BEFORE the call (write-ahead, same discipline as `secrets.update`), and the PIN
+    itself never appears in that audit row or in this route's response: `{ok: True}` on success,
+    never an echo of what was just set — matching the peer's own write-only guarantee."""
+    actor = getattr(principal, "subject", "") or ""
+    await request.app.state.auditor.record(
+        "platform.whatsapp_two_step_pin_set", actor=actor, tenant=body.tenant,
+        resource=f"whatsapp:{body.tenant}", ip=request.client.host if request.client else "")
+    out = await request.app.state.container.whatsapp_admin.set_two_step_pin(
+        tenant=body.tenant, phone_number_id=body.phone_number_id, pin=body.pin)
+    if out is None:
+        return JSONResponse({"ok": False, "reason": "UNAVAILABLE"}, status_code=502)
+    if "_status" in out:
+        code = out["_status"]
+        reason = "NOT_CONNECTED" if code == 409 else out.get("reason", "META_ERROR")
+        return JSONResponse({"ok": False, "reason": reason}, status_code=code)
+    if not out.get("ok"):
+        return JSONResponse({"ok": False, "reason": out.get("reason", "META_ERROR")}, status_code=400)
+    return {"ok": True}
+
+
 class CustomerSuccessTenantIn(BaseModel):
     id: str = Field(min_length=1, max_length=128)
     name: str = Field(default="", max_length=256)

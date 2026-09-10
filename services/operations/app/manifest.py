@@ -248,6 +248,12 @@ def build_manifest(
             # THE META CATEGORY'S "STATUS" TAB (Raje3 Meta-panel Phase 1) — platform-wide delivery,
             # bound-numbers and connection-state figures, never one shop's.
             {"path": "/api/v1/platform/whatsapp/platform-status", "tier": "user", "method": "GET"},
+            # ONE SHOP'S OWN CONNECTED NUMBER (platform v0.19.9) — messaging-limit tier, subscribed
+            # webhook fields, business verification, and the two-step PIN set/rotate write.
+            {"path": "/api/v1/platform/whatsapp/messaging-limit", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/whatsapp/subscribed-fields", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/whatsapp/business-verification", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/whatsapp/two-step-pin", "tier": "user", "method": "POST"},
             # The «الامتثال» support screen's own customer lookup, cross-shop: same exact-match
             # weak-role search as the shop's own /api/v1/field/customers/by-phone, gated by
             # platform.operations with an explicit tenant instead of the caller's own claim.
