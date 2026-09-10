@@ -248,6 +248,10 @@ def build_manifest(
             # THE META CATEGORY'S "STATUS" TAB (Raje3 Meta-panel Phase 1) — platform-wide delivery,
             # bound-numbers and connection-state figures, never one shop's.
             {"path": "/api/v1/platform/whatsapp/platform-status", "tier": "user", "method": "GET"},
+            # The «الامتثال» support screen's own customer lookup, cross-shop: same exact-match
+            # weak-role search as the shop's own /api/v1/field/customers/by-phone, gated by
+            # platform.operations with an explicit tenant instead of the caller's own claim.
+            {"path": "/api/v1/platform/customers/by-phone", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},

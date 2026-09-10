@@ -127,12 +127,21 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "id": "operations.whatsapp_platform_status", "label": "حالة واتساب المنصة", "method": "GET",
         "path": "/api/v1/platform/whatsapp/platform-status", "capability": "platform.operations",
         "group": "المنصة",
-        "params": [
-            {"name": "window_hours", "in": "query", "type": "number", "required": False,
-             "help": "نافذة إحصاء الإرسال بالساعات (١-١٦٨)، الافتراضي ٢٤"},
-        ],
+        # No params — the peer's own figures are a capped count over its most-recent rows
+        # (platform v0.19.6), never a clock window, so there is nothing to parameterise here.
         "help": "حالة اتصال كل رقم، ومعدّل نجاح/فشل الإرسال الحقيقي، وعدد الأرقام المربوطة، وعدد "
                 "من ألغى اشتراكه التسويقي — أسرار المنصة نفسها لا أي محل.",
+    },
+    {
+        "id": "operations.customer_by_phone", "label": "ابحث عن عميل برقم جواله", "method": "GET",
+        "path": "/api/v1/platform/customers/by-phone", "capability": "platform.operations",
+        "group": "المنصة",
+        "params": [
+            {"name": "tenant", "in": "query", "type": "string", "required": True,
+             "help": "المنشأة — يُختار صراحة، لا بحث عبر كل المحلات دفعة واحدة"},
+            {"name": "phone", "in": "query", "type": "string", "required": True},
+        ],
+        "help": "مطابقة تامة فقط — يكتب موظف الدعم رقم الجوال كاملاً، لا بحث تقريبي.",
     },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {

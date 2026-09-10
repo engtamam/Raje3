@@ -543,6 +543,37 @@ async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_
     return out
 
 
+@router.get("/customers/by-phone", dependencies=[Depends(rate_limit)])
+async def platform_customer_by_phone(request: Request, tenant: str, phone: str,
+                                     principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The «الامتثال» support screen's own door: a support/compliance operator already knows which
+    ESTABLISHMENT they are helping (they pick it explicitly — never guessed, never every shop
+    searched at once) and needs that one customer's profile to act on.
+
+    SAME CORE LOOKUP AS THE SHOP'S OWN SCREEN (`field.py::customer_by_phone`), under the SAME
+    weak-role search discipline (`Operations.customer_by_phone_searched` — see its own docstring:
+    two steps, the risky "match an arbitrary string against every phone number" half runs under a
+    role that can see nothing else). The only difference here is WHO is asking and WHICH tenant:
+    an explicit `tenant` param, gated by `platform.operations` rather than the caller's own tenant
+    claim — this is the cross-shop admin surface `field.py`'s route deliberately is not.
+
+    AUDITED THE SAME WAY, hit or miss, resource carrying only the last 4 digits — never the full
+    number, never a name — for the exact reason `customer.searched_by_phone` already states: an
+    audit trail that stored the full number would recreate the exact problem it exists to catch.
+    A DISTINCT action (`platform.customer_searched_by_phone`, not that same action) because this is
+    a cross-shop admin read under `platform.operations`, not the shop's own `operations.read` — the
+    two must stay separately answerable, same as every other `platform.*` action in this file.
+    """
+    await request.app.state.auditor.record(
+        "platform.customer_searched_by_phone", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant, resource=f"phone-suffix:{phone[-4:]}",
+        ip=request.client.host if request.client else "")
+    c = await request.app.state.container.operations.customer_by_phone_searched(tenant, phone)
+    if c is None:
+        return {"customer": None}
+    return {"customer": c.public()}
+
+
 @router.get("/whatsapp/platform-status", dependencies=[Depends(rate_limit)])
 async def whatsapp_platform_status(request: Request,
                                    principal: Principal = Depends(_PLATFORM)) -> dict:

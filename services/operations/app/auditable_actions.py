@@ -589,6 +589,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "of, in a second table.",
     },
     {
+        "action": "platform.customer_searched_by_phone",
+        "source": "admin",
+        "critical": False,
+        "resource": "phone-suffix:{last4}",
+        "why": "the cross-shop twin of customer.searched_by_phone above — a support/compliance "
+               "operator, under platform.operations, searching ONE explicitly chosen establishment "
+               "for a customer, not their own shop. Kept as a DISTINCT action (not the same one) so "
+               "the two audiences stay separately answerable: who searched their own customers vs "
+               "who used the platform-wide door into someone else's. Same discipline: last 4 digits "
+               "only, every call witnessed hit or miss.",
+    },
+    {
         "action": "partner.statements_issued",
         "source": "system",
         "critical": True,

@@ -24,6 +24,9 @@ const CATALOG = {
      path: '/api/v1/compliance/data-targets', capability: 'platform.compliance' },
     { id: 'compliance.list_ropa', label: 'x', method: 'GET' as const,
      path: '/api/v1/compliance/ropa', capability: 'platform.compliance' },
+  ] }, { service: 'operations', actions: [
+    { id: 'operations.customer_by_phone', label: 'ابحث عن عميل برقم جواله', method: 'GET' as const,
+     path: '/api/v1/platform/customers/by-phone', capability: 'platform.operations' },
   ] }],
   unreachable: [],
 };
@@ -66,6 +69,42 @@ describe('AdminCompliance', () => {
     await waitFor(() => expect(screen.getAllByText('operations').length).toBeGreaterThan(0));
     // RoPA's own list action must NOT have been called — each tab owns its exact list action.
     expect(reqMock).not.toHaveBeenCalledWith('/api/v1/compliance/ropa', 'GET', undefined, 'tok-1');
+  });
+
+  it('searches a customer by tenant + phone and shows the found profile', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ holds: [] })   // legal holds, initial tab load
+      .mockResolvedValueOnce({
+        customer: { id: 'cus_1', tenant: 'tnt_x', phone: '0501234567', name: 'أحمد',
+                   visit_count: 3, last_visit: 1_700_000_000 },
+      });
+    render(<AdminCompliance session={SESSION} />);
+    await waitFor(() => expect(reqMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByPlaceholderText('tnt_...'), { target: { value: 'tnt_x' } });
+    fireEvent.change(screen.getByPlaceholderText('05xxxxxxxx'), { target: { value: '0501234567' } });
+    fireEvent.click(screen.getByText('بحث'));
+
+    await waitFor(() => expect(screen.getByText('أحمد')).toBeTruthy());
+    expect(reqMock).toHaveBeenLastCalledWith(
+      '/api/v1/platform/customers/by-phone?tenant=tnt_x&phone=0501234567',
+      'GET', undefined, 'tok-1');
+  });
+
+  it('a search that finds nobody says so, not a blank card', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ holds: [] })
+      .mockResolvedValueOnce({ customer: null });
+    render(<AdminCompliance session={SESSION} />);
+    await waitFor(() => expect(reqMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByPlaceholderText('tnt_...'), { target: { value: 'tnt_x' } });
+    fireEvent.change(screen.getByPlaceholderText('05xxxxxxxx'), { target: { value: '0500000000' } });
+    fireEvent.click(screen.getByText('بحث'));
+
+    await waitFor(() => expect(screen.getByText(/لا عميل بهذا الرقم/)).toBeTruthy());
   });
 
   it('a tab the caller cannot read at all is not offered', async () => {
