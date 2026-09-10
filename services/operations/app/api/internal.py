@@ -1119,6 +1119,21 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
            "duplicate": recorded.duplicate}
 
 
+@router.get("/operations/operator-by-person", dependencies=[Depends(require_internal_token)])
+async def internal_operator_by_person(request: Request, tenant: str, person_id: str) -> dict:
+    """The operator row for WHO he actually is at identity, not a name he could type — the second
+    half of whatsapp-assistant's WhatsApp-sender-to-operator resolution (see
+    internal_visit_from_whatsapp's own docstring for the first half). `OperatorStore.get_by_person`
+    already exists for this (built for the console's own membership joins); this only exposes the
+    same read to a peer. Absent-for-both: no operator with this person_id and an unknown tenant
+    both answer 404, an IDOR-safe non-answer rather than confirming which person_id was checked."""
+    op = await OperatorStore(request.app.state.container.datastore).get_by_person(
+        tenant, person_id)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "OPERATOR_NOT_FOUND")
+    return {"operator_id": op.id, "name": op.name}
+
+
 @router.get("/operations/whatsapp-visit-registration",
            dependencies=[Depends(require_internal_token)])
 async def internal_whatsapp_visit_registration_enabled(request: Request, tenant: str) -> dict:

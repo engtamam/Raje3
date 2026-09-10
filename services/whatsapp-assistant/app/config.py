@@ -196,8 +196,26 @@ class Settings(BaseSettings):
     # see core/owner_phone.py).
     IDENTITY_SERVICE_URL: str = ""
     IDENTITY_OWNER_PHONE_PATH: str = "/internal/tenancy/owner-phone"
+    # VISIT-REGISTRATION OVER WHATSAPP's own sender-to-staff resolution, first half: every
+    # member of a tenant, carrying `identifier` (a phone when they registered by phone — see
+    # core/operator_identity.py). Existing route (identity-service's own member directory), not a
+    # new one — this service just reads the same projection every admin/export path already does.
+    IDENTITY_TENANCY_MEMBERS_PATH: str = "/internal/tenancy/members"
 
     OPERATIONS_SERVICE_URL: str = ""
+    # Second half of the same resolution: `Operator.person_id` -> the real Operator row (operations'
+    # own OperatorStore.get_by_person, exposed to this peer — see core/operator_identity.py).
+    OPERATIONS_OPERATOR_BY_PERSON_PATH: str = "/internal/operations/operator-by-person"
+    # Read BEFORE the visit-registration Flow ever opens for an identified staff sender — OFF for
+    # every tenant until its owner opts in explicitly (services/operations' own core/
+    # whatsapp_visit_flag.py has the full reasoning).
+    OPERATIONS_WHATSAPP_VISIT_REGISTRATION_PATH: str = "/internal/operations/whatsapp-visit-registration"
+    # The actual write — see core/flow_visit_backend.py's own docstring.
+    OPERATIONS_VISIT_FROM_WHATSAPP_PATH: str = "/internal/operations/visits/from-whatsapp"
+    # Off until the Flow engine on notification-service's own side exists (see this module's
+    # docstring) — same "opt in, never silently upgrade" posture WALLET_SERVICE_URL and every
+    # other optional peer already take.
+    WHATSAPP_FLOW_VISIT_ENABLED: bool = False
     # ESCALATED: no phone->customer lookup existed anywhere in operations before this service. We
     # added the narrowest possible route, /internal/operations/customer-by-phone (reusing the
     # existing CustomerStore.by_phone — see services/operations/app/api/internal.py), returning a

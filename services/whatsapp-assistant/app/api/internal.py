@@ -412,3 +412,39 @@ async def whatsapp_flow_booking(body: FlowBookingIn, request: Request) -> dict:
         return await backend.reserve(tenant=body.tenant, selection=body.selection,
                                      idempotency_key=body.idempotency_key, customer=body.customer)
     raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown op {body.op!r}")
+
+
+# ── visit-registration over WhatsApp — a second channel alongside the console ──────────────────
+class FlowVisitIn(BaseModel):
+    """core/flow_visit_backend.py's own op contract — see that module's docstring for why it is
+    engine-agnostic (the Flow engine on the other side is not yet built)."""
+    op: str
+    tenant: str = ""
+    customer: str = ""
+    dimension: str = ""
+    chosen: dict[str, Any] = Field(default_factory=dict)
+    selection: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str = ""
+
+
+@router.post("/whatsapp-flow/visit", dependencies=[Depends(require_internal_token)])
+async def whatsapp_flow_visit(body: FlowVisitIn, request: Request) -> dict:
+    """Answers whichever Flow engine ends up driving visit-registration over WhatsApp — see
+    core/flow_visit_backend.py's own module docstring. 404s (a plain refusal, never a stack
+    trace) when WHATSAPP_FLOW_VISIT_ENABLED is off, same posture as the booking route above.
+    """
+    container = getattr(request.app.state, "container", None)
+    backend = getattr(container, "flow_visit_provider", None) if container is not None else None
+    if backend is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "WhatsApp visit registration is not enabled")
+
+    if body.op == "identify":
+        return await backend.identify(tenant=body.tenant, customer=body.customer)
+    if body.op == "options":
+        options = await backend.options(tenant=body.tenant, dimension=body.dimension,
+                                        chosen=body.chosen, customer=body.customer)
+        return {"options": options}
+    if body.op == "reserve":
+        return await backend.reserve(tenant=body.tenant, selection=body.selection,
+                                     idempotency_key=body.idempotency_key, customer=body.customer)
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, f"unknown op {body.op!r}")

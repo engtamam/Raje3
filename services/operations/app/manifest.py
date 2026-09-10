@@ -155,6 +155,10 @@ def build_manifest(
             # Read before the Flow ever opens — see core/whatsapp_visit_flag.py's own docstring.
             {"path": "/internal/operations/whatsapp-visit-registration", "tier": "internal",
              "method": "GET"},
+            # WhatsApp-sender-to-operator resolution's second half — see
+            # internal_operator_by_person's own docstring.
+            {"path": "/internal/operations/operator-by-person", "tier": "internal",
+             "method": "GET"},
             # bookings' one way to carry the pseudonym every peer already needs (§5, §6.5): the
             # DSAR fan-out target and the event this service's own reminders/campaigns key on.
             {"path": "/internal/operations/customers/subject-ref", "tier": "internal", "method": "POST"},

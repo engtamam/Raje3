@@ -135,6 +135,9 @@ class Container:
     runtime_config: Any = None
     booking_provider: Any = None
     flow_booking_provider: Any = None
+    operator_identity: Any = None
+    whatsapp_visit_gate: Any = None
+    flow_visit_provider: Any = None
     points_summary: Any = None
     customer_lookup: Any = None
     branch_directory: Any = None
@@ -283,6 +286,22 @@ def build_container(settings: Settings) -> Container:
             settings, real=container.booking_provider, catalog=container.service_catalog,
             branch_directory=container.branch_directory,
             customer_lookup=container.customer_lookup, points_summary=container.points_summary)
+    # VISIT-REGISTRATION OVER WHATSAPP — a second channel alongside the console's own شاشة تسجيل
+    # الزيارة (see core/flow_visit_backend.py's own docstring for the full design). Built
+    # unconditionally: the resolver is cheap (two peer reads only when actually asked, "null"
+    # answers everywhere without config) and app/core/inbound_ingest.py's own trigger needs it to
+    # even DECIDE whether an inbound sender is staff — that decision happens before any Flow
+    # feature flag is consulted, the same way it happens before any AI channel logic runs.
+    from app.core import operator_identity as OI
+    from app.core import whatsapp_visit_gate as WVG
+
+    container.operator_identity = OI.build(settings)
+    container.whatsapp_visit_gate = WVG.build(settings)
+    if settings.WHATSAPP_FLOW_VISIT_ENABLED:
+        from app.core import flow_visit_backend as FVB
+        container.flow_visit_provider = FVB.build(
+            settings, catalog=container.service_catalog,
+            operator_identity=container.operator_identity)
     # growth/invoice-report's own read — every booking whatsapp-assistant made, for
     # invoice_report.py's average-invoice-value stat. Same Null/Http split as SC/PC just above.
     container.booking_actor_report = BAR.build(settings)
