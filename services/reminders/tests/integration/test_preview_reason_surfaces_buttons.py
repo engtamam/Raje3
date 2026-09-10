@@ -89,7 +89,7 @@ def test_a_flow_carrying_template_surfaces_its_button(client):
     assert r.status_code == 200, r.text
     options = r.json()["options"]
     row = next(o for o in options if o["name"] == "svc_visit_confirmation_rating_warm")
-    assert row["buttons"] == [{"label": "قيّم زيارتك", "kind": "flow"}]
+    assert row["buttons"] == [{"label": "قيّم زيارتك", "kind": "flow", "flow_name": "rating_flow"}]
 
 
 def test_an_ordinary_template_carries_no_buttons_key_at_all(client):

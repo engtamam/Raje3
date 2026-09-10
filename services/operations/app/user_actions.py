@@ -452,6 +452,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "هل تسجيل الزيارة يعرض حقل رقم اللوحة والعدّاد لهذا المحل.",
     },
     {
+        "id": "operations.whatsapp_flow_json", "label": "معاينة فلو واتساب", "method": "GET",
+        "path": "/api/v1/whatsapp/flow-json", "capability": "operations.read", "group": "منشأتي",
+        "params": [{"name": "name", "in": "query", "type": "string", "required": True}],
+        # THE SAME READ «رسائلي» USES to render a Flow's real screens as an interactive preview —
+        # see `connect.py::shop_whatsapp_flow_json`'s own comment on why this is not tenant-scoped.
+        "help": "شاشات الفلو الحقيقية كما توّلدها notification-service — نفس ما يعرضه واتساب "
+                "بالضبط، لمعاينة قالب فيه زر يفتح فلو.",
+    },
+    {
         "id": "operations.set_shop_vehicles", "label": "تغيير العمل على السيارات", "method": "PUT",
         "path": "/api/v1/staff/vehicles", "capability": "operations.manage", "group": "منشأتي",
         "params": [{"name": "tracks_vehicle", "in": "body", "type": "boolean",

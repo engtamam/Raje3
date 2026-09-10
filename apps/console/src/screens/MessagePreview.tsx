@@ -29,6 +29,7 @@ import { Check, ExternalLink, Lock, Sparkles } from 'lucide-react';
 import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { WaFlowScreens, type FlowJson } from '../rj-ui/WhatsAppPreview';
 
 /**
  * ONE BUTTON UNDER THE BUBBLE — Meta draws these OUTSIDE the message, not inside it, and the two
@@ -39,6 +40,11 @@ import type { Session } from '../session';
 export interface MessageButton {
   label: string;
   kind: 'flow' | 'url';
+  /** The Flow's registered name (`booking_flow`, `rating_flow`, …) — present only for `kind:
+   *  'flow'`, snake_case straight off the server like every other field on this row (see
+   *  `owner.py`'s own comment on why this rides along now). Absent means "show the button, but
+   *  it cannot be opened here" rather than a broken fetch. */
+  flow_name?: string;
 }
 
 export interface Option {
@@ -142,6 +148,12 @@ export function MessagePreview({
    */
   const [mine, setMine] = useState<Mine[] | null>([]);
   const [help, setHelp] = useState<HelpRow[] | null>([]);
+  /** THE FLOW BUTTON, OPENED FOR REAL — which option's button is being walked through (its
+   *  `flow_name`), the real screens fetched for it, and either state a fetch can end in. One
+   *  at a time, same discipline as `opened` above: a second bubble open beneath the first would
+   *  ask which Flow a tap belongs to. */
+  const [openFlow, setOpenFlow] = useState<{ name: string; flow: FlowJson } | 'loading' | null>(null);
+  const [flowError, setFlowError] = useState('');
 
   useEffect(() => {
     const id = byGoal ? 'reminders.preview_by_type' : 'reminders.preview_reason';
@@ -250,6 +262,25 @@ export function MessagePreview({
       setError(e instanceof Error ? e.message : 'تعذّر التنفيذ.');
     } finally {
       setSaving('');
+    }
+  };
+
+  /**
+   * OPEN THE REAL FLOW, not a described one. Same engine `AdminWhatsAppTemplates.tsx` uses
+   * (`rj-ui/WhatsAppPreview.tsx`'s `WaFlowScreens`) — the exact screens Meta would render, fetched
+   * through `operations.whatsapp_flow_json`'s shop-facing twin, never a hand-drawn stand-in.
+   */
+  const openFlowButton = async (flowName: string) => {
+    const a = action(catalog, 'operations.whatsapp_flow_json');
+    if (!a || !flowName) return;
+    setFlowError('');
+    setOpenFlow('loading');
+    try {
+      const j = await call<FlowJson>(session, a, { name: flowName });
+      setOpenFlow({ name: flowName, flow: j });
+    } catch (e) {
+      setOpenFlow(null);
+      setFlowError(e instanceof Error ? e.message : 'تعذّر جلب شاشات الفلو.');
     }
   };
 
@@ -383,7 +414,25 @@ export function MessagePreview({
                             </div>
                           ) : null}
                           <Bubble text={o.text} caption={o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone}
-                                  buttons={o.buttons} />
+                                  buttons={o.buttons}
+                                  onPressButton={(b) => { if (b.kind === 'flow' && b.flow_name) void openFlowButton(b.flow_name); }} />
+                          {/* THE FLOW, OPENED FOR REAL — only for the row whose button was
+                              actually pressed; a second row's bubble stays a static preview. */}
+                          {(o.buttons ?? []).some((b) => b.flow_name && (openFlow === 'loading' || openFlow?.name === b.flow_name)) ? (
+                            <div className="flex flex-col items-center gap-2 rounded-card border border-border-subtle bg-surface-1 p-3">
+                              {openFlow === 'loading' ? (
+                                <>
+                                  <Skeleton height={16} width={120} />
+                                  <Skeleton height={80} />
+                                </>
+                              ) : openFlow ? (
+                                <WaFlowScreens flow={openFlow.flow} onDone={() => setOpenFlow(null)} />
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {flowError && (o.buttons ?? []).some((b) => b.kind === 'flow') ? (
+                            <p role="alert" className="text-xs text-danger">{flowError}</p>
+                          ) : null}
                           {/* META'S OWN WORDS when it refused. Re-wording a refusal sends him
                               looking for a problem we invented. */}
                           {o.reason ? (
@@ -507,7 +556,7 @@ export function MessagePreview({
  * inside — a label inside the bubble is text the customer never receives sitting where the text he
  * receives goes.
  */
-export function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: act, buttons }: {
+export function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: act, buttons, onPressButton }: {
   text: string;
   caption: string;
   active?: boolean;
@@ -518,6 +567,9 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
   action?: React.ReactNode;
   /** See `MessageButton`'s own docstring — absent for the vast majority of messages. */
   buttons?: MessageButton[];
+  /** Given only where a Flow button can actually be opened live — see `openFlowButton` above.
+   *  Absent leaves the button exactly as before: a real label, not yet interactive. */
+  onPressButton?: (button: MessageButton) => void;
 }) {
   // THE WHOLE BUBBLE IS THE TARGET, not a button underneath it. He is choosing a sentence, and
   // the sentence is the thing on the screen — a separate «اختر» control asks him to read one
@@ -551,20 +603,26 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
           divided from the one above it — Meta's own layout for more than one. */}
       {buttons && buttons.length > 0 ? (
         <div className="flex flex-col overflow-hidden rounded-2xl ring-1 ring-border-subtle">
-          {buttons.map((b, i) => (
-            <div
-              key={`${b.label}-${i}`}
-              className={[
-                'flex items-center justify-center gap-2 bg-surface-1 px-3 py-2.5 text-sm font-medium text-accent',
-                i > 0 ? 'border-t border-border-subtle' : '',
-              ].join(' ')}
-            >
-              {b.kind === 'flow'
-                ? <Sparkles size={14} aria-hidden />
-                : <ExternalLink size={14} aria-hidden />}
-              <span>{b.label}</span>
-            </div>
-          ))}
+          {buttons.map((b, i) => {
+            const Tag = onPressButton && b.kind === 'flow' && b.flow_name ? 'button' : 'div';
+            return (
+              <Tag
+                key={`${b.label}-${i}`}
+                type={Tag === 'button' ? 'button' : undefined}
+                onClick={Tag === 'button' ? () => onPressButton?.(b) : undefined}
+                className={[
+                  'flex items-center justify-center gap-2 bg-surface-1 px-3 py-2.5 text-sm font-medium text-accent',
+                  i > 0 ? 'border-t border-border-subtle' : '',
+                  Tag === 'button' ? 'w-full transition hover:bg-surface-2 focus-ring' : '',
+                ].join(' ')}
+              >
+                {b.kind === 'flow'
+                  ? <Sparkles size={14} aria-hidden />
+                  : <ExternalLink size={14} aria-hidden />}
+                <span>{b.label}</span>
+              </Tag>
+            );
+          })}
         </div>
       ) : null}
       <figcaption className="flex items-center justify-between gap-2 px-1">

@@ -499,6 +499,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "missed record does not undo the read), but still worth naming who looked and when.",
     },
     {
+        "action": "platform.whatsapp_flow_json_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp-flow:{name}",
+        "why": "an operator opened one Flow's real generated screens to preview it — read-only, no "
+               "shop data involved, still worth naming who looked, same reasoning as "
+               "whatsapp_diagnostics_viewed above.",
+    },
+    {
         "action": "platform.whatsapp_status_viewed",
         "source": "admin",
         "critical": False,

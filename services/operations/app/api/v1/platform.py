@@ -543,6 +543,24 @@ async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_
     return out
 
 
+@router.get("/whatsapp/flow-json", dependencies=[Depends(rate_limit)])
+async def whatsapp_flow_json(request: Request, name: str,
+                             principal: Principal = Depends(_PLATFORM)) -> Any:
+    """The REAL generated screens JSON for one Flow — what `AdminWhatsAppTemplates.tsx`'s preview
+    renders, the exact document Meta itself would show, never a hand-modeled stand-in. See
+    `WhatsAppDiagnostics.flow_json`'s own docstring for why a bad name is a 404, not a 502.
+    """
+    await request.app.state.auditor.record(
+        "platform.whatsapp_flow_json_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant="", resource=f"whatsapp-flow:{name}",
+        ip=request.client.host if request.client else "")
+    desk = request.app.state.container.whatsapp_diagnostics
+    status, out = await desk.flow_json(name)
+    if status != 200:
+        return JSONResponse(out, status_code=status)
+    return out
+
+
 @router.get("/customers/by-phone", dependencies=[Depends(rate_limit)])
 async def platform_customer_by_phone(request: Request, tenant: str, phone: str,
                                      principal: Principal = Depends(_PLATFORM)) -> dict:

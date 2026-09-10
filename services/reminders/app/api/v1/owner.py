@@ -446,7 +446,12 @@ async def _template_options(c, template_type: str, establishment: str, *, tenant
         # Flow-carrying row gets one — `button` sits blank on every ordinary template, and a
         # blank label is not a button.
         if row.get("flow_button") and row.get("button"):
-            option["buttons"] = [{"label": row["button"], "kind": "flow"}]
+            # `flow_name` RIDES ALONG NOW, not just the label — «رسائلي»'s own interactive
+            # preview (WhatsAppTemplatePreview, rj-ui) needs the Flow's registered name to fetch
+            # its real generated screens; the label alone was enough to show a button existed,
+            # never enough to open it.
+            option["buttons"] = [{"label": row["button"], "kind": "flow",
+                                  "flow_name": (row["flow_button"] or {}).get("flow_name", "")}]
         options.append(option)
 
     # WHAT META HAS ACTUALLY APPROVED ON HIS NUMBER. `None` from this reader means NOT KNOWN —

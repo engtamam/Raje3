@@ -469,3 +469,30 @@ async def whatsapp_register(request: Request, body: RegisterIn,
     return JSONResponse(status_code=400, content={
         "registered": False,
         "message": _REGISTER_SENTENCE.get(reason.split(":")[0], _REGISTER_FALLBACK)})
+
+
+# ── ONE FLOW'S REAL SCREENS, FOR «رسائلي»'s OWN PREVIEW (not the platform-admin one — that lives
+# at platform.py::whatsapp_flow_json, gated by `platform.operations`) ─────────────────────────────
+#
+# ANY SIGNED-IN STAFF MEMBER, NOT JUST THE OWNER. `_OWNER` above is right for connecting the
+# shop's own WhatsApp number — a real financial/security act. Looking at what a template's Flow
+# looks like is a read with no side effect, so it takes the same broad `operations.read`
+# every other shop-facing screen read already uses (see `user_actions.py`'s own routes).
+#
+# NOT TENANT-SCOPED, AND DELIBERATELY. The engine's screens (their Arabic text, their fields) come
+# from the platform's own `FlowDefinition` config — identical for every shop that has that Flow
+# cloned, never shop-specific content. Scoping this by tenant would ask for a distinction that does
+# not exist and could never be answered differently per shop.
+_READ = require_capability("operations.read")
+
+
+@router.get("/flow-json", dependencies=[Depends(rate_limit)])
+async def shop_whatsapp_flow_json(request: Request, name: str,
+                                  principal: Principal = Depends(_READ)) -> Any:
+    """Same read as `platform.py::whatsapp_flow_json`, reachable from the shop's own console
+    (`رسائلي`) rather than the admin panel — see `WhatsAppDiagnostics.flow_json`'s own docstring."""
+    desk = request.app.state.container.whatsapp_diagnostics
+    status, out = await desk.flow_json(name)
+    if status != 200:
+        return JSONResponse(out, status_code=status)
+    return out

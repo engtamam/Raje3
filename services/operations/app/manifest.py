@@ -271,6 +271,9 @@ def build_manifest(
             {"path": "/api/v1/platform/whatsapp/subscribed-fields", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/business-verification", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/whatsapp/two-step-pin", "tier": "user", "method": "POST"},
+            # ONE FLOW'S REAL GENERATED SCREENS, for the admin panel's own interactive preview
+            # (`WhatsAppTemplatePreview`, rj-ui) — see `platform.py::whatsapp_flow_json`.
+            {"path": "/api/v1/platform/whatsapp/flow-json", "tier": "user", "method": "GET"},
             # The «الامتثال» support screen's own customer lookup, cross-shop: same exact-match
             # weak-role search as the shop's own /api/v1/field/customers/by-phone, gated by
             # platform.operations with an explicit tenant instead of the caller's own claim.
@@ -316,6 +319,9 @@ def build_manifest(
             # refuses to send until the number is REGISTERED with the business's own 6-digit PIN —
             # which we do not have and must never invent, so it is his act and separate.
             {"path": "/api/v1/whatsapp/connect/register", "tier": "user", "method": "POST"},
+            # ONE FLOW'S REAL GENERATED SCREENS, for «رسائلي»'s own interactive preview — the
+            # shop-facing twin of the admin route above; see `connect.py::shop_whatsapp_flow_json`.
+            {"path": "/api/v1/whatsapp/flow-json", "tier": "user", "method": "GET"},
             # ── the door ──────────────────────────────────────────────────────────────────
             # PUBLIC, and it is the only user-facing surface here that is. One route creates the
             # account a token would come from and the other exchanges a phone and a password for

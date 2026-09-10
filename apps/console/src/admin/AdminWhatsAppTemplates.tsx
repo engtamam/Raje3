@@ -17,6 +17,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import {
   FileText, Clock, CheckCircle2, XCircle, PauseCircle, Ban, Plus, Send, RefreshCw, FlaskConical,
+  Eye,
 } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Select, Textarea } from '../rj-ui/Field';
@@ -27,6 +28,8 @@ import { Drawer } from '../rj-ui/Drawer';
 import { Toggle } from '../rj-ui/Toggle';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
+import { Modal } from '../rj-ui/Modal';
+import { WhatsAppTemplatePreview, type FlowJson } from '../rj-ui/WhatsAppPreview';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { AdminRefused, req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
@@ -121,6 +124,8 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
     ? findAction(catalog, 'notifications.test_send_wa') : undefined;
   const seedRenewalFlowAction = catalog !== 'loading' && catalog !== 'failed'
     ? findAction(catalog, 'operations.seed_subscription_renewal_flow') : undefined;
+  const flowJsonAction = catalog !== 'loading' && catalog !== 'failed'
+    ? findAction(catalog, 'operations.whatsapp_flow_json') : undefined;
 
   function reload() {
     if (!listAction) return;
@@ -215,13 +220,13 @@ export function AdminWhatsAppTemplates({ session }: { session: AdminSession }) {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {shown.map((t) => (
             <TemplateCard key={t.id} template={t} session={session} submitAction={submitAction}
-                         registerAction={registerAction} onChanged={reload} />
+                         registerAction={registerAction} flowJsonAction={flowJsonAction} onChanged={reload} />
           ))}
         </div>
       )}
 
       {registerAction ? (
-        <RegisterDrawer session={session} action={registerAction} open={creating}
+        <RegisterDrawer session={session} action={registerAction} flowJsonAction={flowJsonAction} open={creating}
                        onClose={() => setCreating(false)}
                        onCreated={() => { setCreating(false); reload(); }} />
       ) : null}
@@ -233,13 +238,22 @@ function findAction(catalog: AdminCatalog, id: string): AdminAction | undefined 
   return catalog.services.flatMap((s) => s.actions).find((a) => a.id === id);
 }
 
-function TemplateCard({ template, session, submitAction, registerAction, onChanged }: {
+/** The one injection point `WhatsAppTemplatePreview` needs — built once per action, not per
+ *  render, so `useEffect` deps in the preview engine that reference it stay stable. */
+function makeFlowJsonFetcher(session: AdminSession, action?: AdminAction) {
+  if (!action) return undefined;
+  return (flowName: string) =>
+    req<FlowJson>(`${action.path}?name=${encodeURIComponent(flowName)}`, 'GET', undefined, session.access_token);
+}
+
+function TemplateCard({ template, session, submitAction, registerAction, flowJsonAction, onChanged }: {
   template: Template; session: AdminSession; submitAction?: AdminAction; registerAction?: AdminAction;
-  onChanged: () => void;
+  flowJsonAction?: AdminAction; onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [arm, setArm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState('');
   const meta = displayMeta(template);
   const Icon = meta.icon;
@@ -326,6 +340,9 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
         {registerAction ? (
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}>تعديل</Button>
         ) : null}
+        <Button size="sm" variant="ghost" onClick={() => setPreviewing(true)} className="gap-2">
+          <Eye size={14} /> معاينة على واتساب
+        </Button>
       </div>
 
       <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={doSubmit} busy={busy}
@@ -333,9 +350,25 @@ function TemplateCard({ template, session, submitAction, registerAction, onChang
                     body="لا يمكن التراجع بعد الإرسال — المراجعة تصير عند ميتا نفسها، قد تأخذ ساعات لأيام." />
 
       {registerAction ? (
-        <RegisterDrawer session={session} action={registerAction} open={editing}
+        <RegisterDrawer session={session} action={registerAction} flowJsonAction={flowJsonAction} open={editing}
                        initial={template} onClose={() => setEditing(false)}
                        onCreated={() => { setEditing(false); onChanged(); }} />
+      ) : null}
+
+      {previewing ? (
+        <Modal open={previewing} onClose={() => setPreviewing(false)} title="معاينة على واتساب"
+              subtitle="بالضبط ما يستلمه العميل — الفلو الحقيقي، لا نسخة مقلَّدة.">
+          <WhatsAppTemplatePreview
+            data={{
+              body: template.body,
+              examples: template.examples,
+              flowButton: template.flow_button?.flow_name
+                ? { flowName: template.flow_button.flow_name, text: template.flow_button.text || 'فتح' }
+                : undefined,
+            }}
+            fetchFlowJson={makeFlowJsonFetcher(session, flowJsonAction)}
+          />
+        </Modal>
       ) : null}
     </section>
   );
@@ -581,8 +614,8 @@ function SeedRenewalFlowPanel({ session, action }: { session: AdminSession; acti
  * الأول. بوضع التعديل، الاسم واللغة مقفلان: هما مفتاح هوية القالب عند ميتا، وتغييرهما يسجّل قالباً
  * جديداً منفصلاً بدل تعديل هذا.
  */
-function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: {
-  session: AdminSession; action: AdminAction; open: boolean; initial?: Template;
+function RegisterDrawer({ session, action, flowJsonAction, open, initial, onClose, onCreated }: {
+  session: AdminSession; action: AdminAction; flowJsonAction?: AdminAction; open: boolean; initial?: Template;
   onClose: () => void; onCreated: () => void;
 }) {
   const editingExisting = !!initial;
@@ -719,6 +752,22 @@ function RegisterDrawer({ session, action, open, initial, onClose, onCreated }: 
               </Field>
             </>
           ) : null}
+        </div>
+
+        {/* المعاينة حيّة — تتحدّث مع كل حرف. نفس المحرك (WhatsAppTemplatePreview) يقرأ الفلو
+           الحقيقي المُولَّد لحظياً من notification-service، لا تخيّلاً محلياً لشكله. */}
+        <div className="rounded-lg border border-border-subtle bg-surface-2/50 p-3">
+          <p className="mb-2 text-label font-medium text-text-secondary">معاينة حيّة</p>
+          <WhatsAppTemplatePreview
+            data={{
+              body,
+              examples: variables.map((_v, i) => `مثال ${i + 1}`),
+              flowButton: flowEnabled && flowName.trim()
+                ? { flowName: flowName.trim(), text: flowButtonText.trim() || 'فتح' }
+                : undefined,
+            }}
+            fetchFlowJson={makeFlowJsonFetcher(session, flowJsonAction)}
+          />
         </div>
 
         {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}

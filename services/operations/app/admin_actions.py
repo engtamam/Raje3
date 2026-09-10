@@ -124,6 +124,14 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "سجلّ إرسال واتساب لمحل واحد بسببه — أحد الحقلين مطلوب.",
     },
     {
+        "id": "operations.whatsapp_flow_json", "label": "معاينة فلو واتساب", "method": "GET",
+        "path": "/api/v1/platform/whatsapp/flow-json", "capability": "platform.operations",
+        "group": "المنصة",
+        "params": [{"name": "name", "in": "query", "type": "string", "required": True}],
+        "help": "شاشات الفلو الحقيقية كما توّلدها notification-service — نفس ما يعرضه واتساب "
+                "بالضبط، لمعاينة القالب.",
+    },
+    {
         "id": "operations.whatsapp_platform_status", "label": "حالة واتساب المنصة", "method": "GET",
         "path": "/api/v1/platform/whatsapp/platform-status", "capability": "platform.operations",
         "group": "المنصة",
