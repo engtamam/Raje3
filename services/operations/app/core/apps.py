@@ -126,6 +126,48 @@ CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+# التقييم — THE OWNER'S OWN FRAMING (2026-09-11): "يفهم عميله اللي مكمّل ليه مكمّل، واللي ما يكمل
+# ليه قرر المغادرة... اهم تطبيق عشان يفهم الاحتياج الفعلي لعملاءه وسلوكهم ورغباتهم". Not "collects
+# a star rating" — a direct read on WHY a customer stays or leaves, and a real workflow for acting
+# on it before he actually leaves. Collection lives in `services/reminders` (rating_request.py,
+# rating_settings.py, rating_cta.py); reading and acting on what comes back is this service's own
+# code (`Operations.ratings`/`mark_rating_handled`, core/operations.py:447-468) — both cited below.
+RATING_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "rating.understands_why_they_leave", "title": "يفهم ليه عميلك يرجع ولا يرجع",
+     "detail": "يجمع تقييمه ورأيه الصريح بعد كل زيارة، فتعرف بالضبط وش يرضيه ووش يخلّيه يفكّر يغادر",
+     "icon": "star", "tone": "amber", "shared_with": [], "owned_by": "",
+     # `Visit.rating`/`Visit.feedback_text` (core/models.py:399-409) — stars AND free-text kept
+     # per visit, not a number alone; delivered as a real WhatsApp Flow
+     # (services/reminders/app/core/rating_request.py) replacing the plain confirmation, never a
+     # second message.
+     },
+    {"id": "rating.catches_unhappy_before_they_leave", "title": "يمسك العميل الغاضب قبل يروح لمنافسك",
+     "detail": "كل تقييم يوصلك بشاشة وحدة، وتقدر تعلّمه معالَج — عميل يحس إنك تسمعه ما يترك محلك بسرعة",
+     "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": "",
+     # `Operations.ratings`/`mark_rating_handled` (core/operations.py:447-468) — the console's
+     # «التقييمات» tab: يُفلتَر بالنجوم أو بحالة المعالجة، ويُسجَّل صراحة متى وبأي ملاحظة تعامل
+     # معها إنسان حقيقي — أبداً تلقائياً (Visit.rating_handled_at's own docstring).
+     },
+    {"id": "rating.right_moment_to_ask", "title": "يسأله بالوقت اللي رأيه فيه صادق",
+     "detail": "تحدد أنت كم دقيقة بعد الزيارة يوصله السؤال، فيجاوبك وهو لسه متذكّر تجربته بالضبط",
+     "icon": "clock", "tone": "blue", "shared_with": [], "owned_by": "",
+     # `rating_settings.py` (services/reminders) — `delay_minutes` قابل للتعديل لكل منشأة (1
+     # دقيقة إلى أسبوع)، لا رقم ثابت للمنصة كلها.
+     },
+    {"id": "rating.rewards_honest_feedback", "title": "يشجّعه يجاوبك بصدق لا يتجاهلك",
+     "detail": "تقدر تكافئه بنقاط على كل تقييم يعطيك، فترتفع نسبة اللي فعلاً يردّون عليك",
+     "icon": "gift", "tone": "violet", "shared_with": [], "owned_by": "",
+     # `rating_settings.py`'s own `points` field + `rating_cta.py::line` (services/reminders) —
+     # الحافز يُذكر بلا ربطه برقم نجوم معيّن، عشان ما يحيّز إجابته.
+     },
+    {"id": "rating.weekly_pulse", "title": "نبض رضا عملائك كل أسبوع",
+     "detail": "متوسط تقييمك وعدد الآراء اللي لسه ما رديت عليها، بضغطة عين وحدة كل أسبوع",
+     "icon": "check-circle", "tone": "rose", "shared_with": [], "owned_by": "",
+     # `Operations.ratings_summary` (core/operations.py:470-491) — عدد التقييمات هذا الأسبوع،
+     # المعدل، وكم منها لسه بلا رد — سطر جاهز بالتقرير الأسبوعي، لا حساب يدوي.
+     },
+)
+
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
 #
 # THE KEY IS THE AUTHORITY, NOT THE PLAN NAME (§16.4.1). «الذكية» is a commercial word marketing
@@ -151,7 +193,8 @@ APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.bookings", "name": "الحجوزات", "screen": "bookings",
      "what": "حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً."},
     {"key": "feature.rating", "name": "التقييم", "screen": "ratings",
-     "what": "رسالة تقييم بعد كل زيارة — نجوم وتعليق حر — بدل رسالة التأكيد العادية."},
+     "what": "يفهم ليه عميلك يرجع ولا يقرر يغادر — رأيه الصريح بعد كل زيارة، بدل رسالة التأكيد العادية.",
+     "features": list(RATING_FEATURES)},
     {"key": "feature.whatsapp", "name": "بوت خدمة العملاء الذكي", "screen": "connect",
      "what": "يرد على استفسارات عملائك، يحجز مواعيدهم، يستبدل نقاطهم، ويقترح عليهم خدمة تناسبهم — "
              "على مدار الساعة وبلا انتظار، فيرفع مبيعاتك ويوفر وقت فريقك بدل ما يُستنزف بالردود."},

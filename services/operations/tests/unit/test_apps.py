@@ -16,7 +16,7 @@ import urllib.error
 from unittest.mock import patch
 
 from app.core.apps import (APPS, CANNOT_ASK, CONTACTS_FEATURES, HttpApps, KEYS, NullApps,
-                           VISIT_FEATURES, build_apps, public)
+                           RATING_FEATURES, VISIT_FEATURES, build_apps, public)
 
 
 def run(c):
@@ -67,14 +67,15 @@ def test_the_keys_are_unique():
 
 
 # ── real features, not services (2026-09-11 CTO decision) ───────────────────────────────────────
-def test_visit_and_contacts_apps_carry_their_features_verbatim():
+def test_visit_contacts_and_rating_apps_carry_their_features_verbatim():
     by_key = {a["key"]: a for a in APPS}
     assert by_key["feature.visit"]["features"] == list(VISIT_FEATURES)
     assert by_key["feature.contacts"]["features"] == list(CONTACTS_FEATURES)
+    assert by_key["feature.rating"]["features"] == list(RATING_FEATURES)
 
 
 def test_every_feature_has_a_stable_unique_id_and_a_short_plain_sentence():
-    for feature_list in (VISIT_FEATURES, CONTACTS_FEATURES):
+    for feature_list in (VISIT_FEATURES, CONTACTS_FEATURES, RATING_FEATURES):
         ids = [f["id"] for f in feature_list]
         assert len(ids) == len(set(ids)), "two features in the same app share one id"
         for f in feature_list:
@@ -82,6 +83,15 @@ def test_every_feature_has_a_stable_unique_id_and_a_short_plain_sentence():
             # SHORT, ON PURPOSE — a title reading like a paragraph is a mechanism description
             # wearing a marketing font, not a value line.
             assert len(f["title"]) <= 40, f"{f['id']}'s title reads like a sentence"
+
+
+def test_rating_features_answer_the_owners_own_framing():
+    """The owner's own words (2026-09-11): «يفهم عميله اللي مكمّل ليه مكمّل، واللي ما يكمل ليه
+    قرر المغادرة». Pinned so the lead feature can never regress to a plain "collects a star
+    rating" description."""
+    ids = {f["id"] for f in RATING_FEATURES}
+    assert "rating.understands_why_they_leave" in ids
+    assert "rating.catches_unhappy_before_they_leave" in ids
 
 
 def test_the_shared_reminders_feature_names_its_real_owner_and_matches_bookings():
