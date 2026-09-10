@@ -27,7 +27,7 @@ import { Toggle } from '../rj-ui/Toggle';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { AssistantHint } from '../AssistantHint';
-import { Boxes, ImageOff, Plus, Upload, X } from 'lucide-react';
+import { Boxes, ImageOff, Plus, Upload } from 'lucide-react';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { halalas, riyalsLabel } from '../money';
 import type { Session } from '../session';
@@ -296,22 +296,6 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
     }
   };
 
-  const deletePackageImage = async (id: string) => {
-    const a = action(catalog, 'operations.delete_package_image');
-    if (!a) return;
-    setSaving(true);
-    setError('');
-    try {
-      await call(session, a, { id });
-      setImages((m) => { const n = { ...m }; delete n[id]; return n; });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حذف الصورة الآن.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const toggleService = (id: string) => {
     if (!draft) return;
     const has = draft.serviceIds.includes(id);
@@ -549,23 +533,18 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                       <img src={images[draft.id]} alt="" className="h-full w-full object-cover" />
                     ) : <ImageOff size={20} aria-hidden />}
                   </span>
+                  {/* REPLACE ONLY, NO STANDALONE DELETE — same rule as Services.tsx's own upload
+                      control: picking a file always overwrites the current photo; there is no
+                      action that empties `image_key` on purpose. */}
                   <label className="flex cursor-pointer items-center gap-1 text-sm text-text-secondary">
-                    <Upload size={14} aria-hidden /> رفع صورة
+                    <Upload size={14} aria-hidden />
+                    {packages?.find((x) => x.id === draft.id)?.has_image ? 'استبدال الصورة' : 'رفع صورة'}
                     <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             if (f && draft.id) uploadPackageImage(draft.id, f);
                           }} />
                   </label>
-                  {(() => {
-                    const current = packages?.find((x) => x.id === draft.id);
-                    return current?.has_image ? (
-                      <button type="button" onClick={() => draft.id && deletePackageImage(draft.id)}
-                             className="flex items-center gap-1 text-sm text-danger">
-                        <X size={14} aria-hidden /> حذف الصورة
-                      </button>
-                    ) : null;
-                  })()}
                 </div>
               </div>
             ) : null}

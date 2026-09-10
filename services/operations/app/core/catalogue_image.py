@@ -85,9 +85,3 @@ async def read_image(store: ObjectStore, key: str) -> tuple[bytes, str]:
     ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
     ctype = _EXT_TO_TYPE.get(ext, "application/octet-stream")
     return data, ctype
-
-
-async def delete_image(store: ObjectStore, key: str) -> bool:
-    if not key:
-        return False
-    return await store.delete(key)

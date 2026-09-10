@@ -376,13 +376,6 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يعرض الصورة المرفوعة حالياً، إن وُجدت.",
     },
     {
-        "id": "operations.delete_service_image", "label": "حذف صورة خدمة أو منتج", "method": "DELETE",
-        "path": "/api/v1/staff/services/{id}/image", "capability": "operations.manage_services",
-        "group": "خدماتي ومنتجاتي", "confirm": True,
-        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
-        "help": "يحذف الصورة نهائياً — الخدمة أو المنتج يبقى بلا صورة حتى تُرفع صورة جديدة.",
-    },
-    {
         "id": "operations.upload_package_image", "label": "رفع صورة باقة", "method": "POST",
         "path": "/api/v1/staff/packages/{id}/image", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي",
@@ -395,13 +388,6 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "خدماتي ومنتجاتي",
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "يعرض الصورة المرفوعة حالياً، إن وُجدت.",
-    },
-    {
-        "id": "operations.delete_package_image", "label": "حذف صورة باقة", "method": "DELETE",
-        "path": "/api/v1/staff/packages/{id}/image", "capability": "operations.manage_services",
-        "group": "خدماتي ومنتجاتي", "confirm": True,
-        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
-        "help": "يحذف الصورة نهائياً — الباقة تبقى بلا صورة حتى تُرفع صورة جديدة.",
     },
     {
         "id": "operations.list_operators", "label": "العاملون", "method": "GET",

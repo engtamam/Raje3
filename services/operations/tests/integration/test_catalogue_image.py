@@ -116,21 +116,16 @@ def test_replacing_a_photo_deletes_the_old_object(client):
     assert second_get.content != _PNG_1PX
 
 
-def test_deleting_a_photo_clears_has_image_and_the_read_404s(client):
+def test_there_is_no_standalone_delete_route_only_replace(client):
+    """A photo can only be overwritten (POST), never cleared outright — DELETE is not a route on
+    this path at all, so it 405s rather than doing anything to `image_key`."""
     sid = _new_service(client)
     _upload(client, f"/api/v1/staff/services/{sid}/image")
     r = client.delete(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
-    assert r.status_code == 200
-    assert r.json()["has_image"] is False
+    assert r.status_code == 405
     got = client.get(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
-    assert got.status_code == 404
-
-
-def test_deleting_a_photo_on_a_service_with_none_is_a_quiet_no_op(client):
-    sid = _new_service(client)
-    r = client.delete(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
-    assert r.status_code == 200
-    assert r.json()["has_image"] is False
+    assert got.status_code == 200
+    assert got.content == _PNG_1PX
 
 
 def test_an_unsupported_mime_type_is_refused_with_422_and_sets_nothing(client):
@@ -185,14 +180,6 @@ def test_uploading_a_package_photo_works_the_same_way(client):
     assert got.content == _PNG_1PX
 
 
-def test_deleting_a_package_photo_clears_it(client):
-    pid = _new_package(client)
-    _upload(client, f"/api/v1/staff/packages/{pid}/image")
-    r = client.delete(f"/api/v1/staff/packages/{pid}/image", headers=HEADERS)
-    assert r.status_code == 200
-    assert r.json()["has_image"] is False
-
-
 # ── the audit trail ───────────────────────────────────────────────────────────────────────────
 def test_a_real_upload_is_audited_as_service_image_set(client):
     from unittest.mock import AsyncMock
@@ -207,36 +194,6 @@ def test_a_real_upload_is_audited_as_service_image_set(client):
         client.app.state.auditor.record = original
     actions = [c.args[0] for c in spy.await_args_list]
     assert "service.image_set" in actions
-
-
-def test_a_real_delete_is_audited_as_service_image_cleared(client):
-    from unittest.mock import AsyncMock
-
-    sid = _new_service(client)
-    _upload(client, f"/api/v1/staff/services/{sid}/image")
-    original = client.app.state.auditor.record
-    spy = AsyncMock(side_effect=original)
-    client.app.state.auditor.record = spy
-    try:
-        client.delete(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
-    finally:
-        client.app.state.auditor.record = original
-    actions = [c.args[0] for c in spy.await_args_list]
-    assert "service.image_cleared" in actions
-
-
-def test_a_no_op_delete_is_not_audited(client):
-    from unittest.mock import AsyncMock
-
-    sid = _new_service(client)
-    original = client.app.state.auditor.record
-    spy = AsyncMock(side_effect=original)
-    client.app.state.auditor.record = spy
-    try:
-        client.delete(f"/api/v1/staff/services/{sid}/image", headers=HEADERS)
-    finally:
-        client.app.state.auditor.record = original
-    assert spy.await_args_list == []
 
 
 # ── description ───────────────────────────────────────────────────────────────────────────────
@@ -293,13 +250,6 @@ def test_reading_without_the_capability_is_403(client):
     sid = _new_service(client)
     _upload(client, f"/api/v1/staff/services/{sid}/image")
     r = client.get(f"/api/v1/staff/services/{sid}/image", headers=_auth("operations.read"))
-    assert r.status_code == 403
-
-
-def test_deleting_without_the_capability_is_403(client):
-    sid = _new_service(client)
-    _upload(client, f"/api/v1/staff/services/{sid}/image")
-    r = client.delete(f"/api/v1/staff/services/{sid}/image", headers=_auth("operations.read"))
     assert r.status_code == 403
 
 
@@ -391,8 +341,8 @@ def test_two_services_photos_are_fully_independent(client):
     # s2 never got a photo — its own read must still 404, not accidentally return s1's.
     got = client.get(f"/api/v1/staff/services/{s2}/image", headers=HEADERS)
     assert got.status_code == 404
-    # and deleting s2's (nonexistent) photo must not touch s1's real one.
-    client.delete(f"/api/v1/staff/services/{s2}/image", headers=HEADERS)
+    # and uploading s2's photo must not touch s1's real one.
+    _upload(client, f"/api/v1/staff/services/{s2}/image")
     still_there = client.get(f"/api/v1/staff/services/{s1}/image", headers=HEADERS)
     assert still_there.status_code == 200
     assert still_there.content == _PNG_1PX

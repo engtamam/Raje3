@@ -312,19 +312,7 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "service",
     },
     {
-        "action": "service.image_cleared",
-        "source": "admin",
-        "critical": False,
-        "resource": "service",
-    },
-    {
         "action": "package.image_set",
-        "source": "admin",
-        "critical": False,
-        "resource": "package",
-    },
-    {
-        "action": "package.image_cleared",
         "source": "admin",
         "critical": False,
         "resource": "package",

@@ -14,7 +14,6 @@ const ACTIONS: Record<string, { id: string; label: string; method: string; path:
   'operations.update_package': { id: 'operations.update_package', label: 'x', method: 'PATCH', path: '/packages/{id}' },
   'operations.get_package_image': { id: 'operations.get_package_image', label: 'x', method: 'GET', path: '/packages/{id}/image' },
   'operations.upload_package_image': { id: 'operations.upload_package_image', label: 'x', method: 'POST', path: '/packages/{id}/image' },
-  'operations.delete_package_image': { id: 'operations.delete_package_image', label: 'x', method: 'DELETE', path: '/packages/{id}/image' },
   'loyalty.settings.read': { id: 'loyalty.settings.read', label: 'x', method: 'GET', path: '/settings' },
   'loyalty.settings.package': { id: 'loyalty.settings.package', label: 'x', method: 'PUT', path: '/settings/package/{package_id}' },
 };
@@ -29,7 +28,6 @@ let servicesFail = false;
 const createCalls: unknown[] = [];
 const pointsCalls: unknown[] = [];
 const uploadImageCalls: unknown[] = [];
-const deleteImageCalls: unknown[] = [];
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -47,7 +45,6 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'operations.update_package') { createCalls.push(body); return {}; }
       if (a.id === 'loyalty.settings.package') { pointsCalls.push(body); return {}; }
       if (a.id === 'operations.upload_package_image') { uploadImageCalls.push(body); return {}; }
-      if (a.id === 'operations.delete_package_image') { deleteImageCalls.push(body); return {}; }
       return {};
     },
     downloadUrl: async () => 'blob:fake-image-url',
@@ -407,7 +404,7 @@ describe('الباقات', () => {
     expect(uploadImageCalls[0]).toMatchObject({ id: 'pkg1', content_type: 'image/jpeg' });
   });
 
-  it('deleting a photo is offered only when the package actually has one, and posts the delete', async () => {
+  it('offers replace, never a standalone delete, once the package already has a photo', async () => {
     packagesResponse = [
       { id: 'pkg1', name: 'باقة الصيانة', service_ids: ['svc_a', 'svc_b'], price_minor: 15000,
        active: true, has_image: true },
@@ -415,9 +412,7 @@ describe('الباقات', () => {
     open();
     await waitFor(() => screen.getByText('باقة الصيانة'));
     fireEvent.click(screen.getByRole('button', { name: 'تعديل' }));
-    const del = await screen.findByText('حذف الصورة');
-    fireEvent.click(del);
-    await waitFor(() => expect(deleteImageCalls.length).toBeGreaterThan(0));
-    expect(deleteImageCalls[0]).toMatchObject({ id: 'pkg1' });
+    await screen.findByText('استبدال الصورة');
+    expect(screen.queryByText('حذف الصورة')).toBeNull();
   });
 });

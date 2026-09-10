@@ -23,7 +23,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
-import { Check, CircleHelp, ImageOff, LayoutGrid, List, Pencil, Plus, Power, RotateCcw, SlidersHorizontal, Upload, Wrench, X } from 'lucide-react';
+import { Check, CircleHelp, ImageOff, LayoutGrid, List, Pencil, Plus, Power, RotateCcw, SlidersHorizontal, Upload, Wrench } from 'lucide-react';
 import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
@@ -538,22 +538,6 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         reader.readAsDataURL(file);
       });
       await call(session, a, { id, content_type: file.type, data_base64 });
-      setImages((m) => { const n = { ...m }; delete n[id]; return n; });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('services.error.editSaveFailed'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteServiceImage = async (id: string) => {
-    const a = action(catalog, 'operations.delete_service_image');
-    if (!a) return;
-    setSaving(true);
-    setError('');
-    try {
-      await call(session, a, { id });
       setImages((m) => { const n = { ...m }; delete n[id]; return n; });
       load();
     } catch (e) {
@@ -1480,20 +1464,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                       }}
                       className="h-8 w-full min-w-0 rounded-lg bg-surface-2 px-2 text-xs"
                     />
+                    {/* REPLACE ONLY, NO STANDALONE DELETE — picking a file always overwrites the
+                        current photo (server-side, `store_image` writes the new object before
+                        dropping the old one); there is no action that empties `image_key` on
+                        purpose. A service can end up with no photo (never uploaded one yet), but
+                        never BY clearing one it already had — the placeholder icon above is
+                        already the only "empty" state this screen shows. */}
                     {action(catalog, 'operations.upload_service_image') ? (
-                      <div className="flex items-center gap-1">
-                        <label className="flex cursor-pointer items-center gap-1 text-xs text-text-secondary">
-                          <Upload size={12} aria-hidden /> صورة
-                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
-                        </label>
-                        {svc.has_image ? (
-                          <button type="button" onClick={() => deleteServiceImage(svc.id)}
-                                 className="flex items-center gap-1 text-xs text-danger">
-                            <X size={12} aria-hidden /> حذف الصورة
-                          </button>
-                        ) : null}
-                      </div>
+                      <label className="flex cursor-pointer items-center gap-1 text-xs text-text-secondary">
+                        <Upload size={12} aria-hidden /> {svc.has_image ? 'استبدال الصورة' : 'صورة'}
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
+                      </label>
                     ) : null}
                   </div>
                 ) : (
@@ -1828,19 +1810,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     <ImageOff size={32} aria-hidden />
                   </div>
                 )}
+                {/* REPLACE ONLY — see the table-row upload control's own comment. */}
                 {action(catalog, 'operations.upload_service_image') ? (
                   <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/60 to-transparent p-3">
                     <label className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-surface-1/90 px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm backdrop-blur">
-                      <Upload size={13} aria-hidden /> صورة
+                      <Upload size={13} aria-hidden /> {svc.has_image ? 'استبدال الصورة' : 'صورة'}
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
                     </label>
-                    {svc.has_image ? (
-                      <button type="button" onClick={() => deleteServiceImage(svc.id)}
-                             className="flex items-center gap-1.5 rounded-lg bg-surface-1/90 px-3 py-1.5 text-xs font-medium text-danger shadow-sm backdrop-blur">
-                        <X size={13} aria-hidden /> حذف الصورة
-                      </button>
-                    ) : null}
                   </div>
                 ) : null}
               </div>

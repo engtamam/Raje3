@@ -1472,25 +1472,6 @@ async def upload_service_image(request: Request, service_id: str, body: Catalogu
     return s.public()
 
 
-@router.delete("/services/{service_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def delete_service_image(request: Request, service_id: str,
-                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
-    tenant = _tenant(principal)
-    store = ServiceStore(request.app.state.container.datastore)
-    s = await store.get(tenant, service_id)
-    if s is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
-    if s.image_key:
-        from app.core.catalogue_image import delete_image
-        await delete_image(request.app.state.container.object_store, s.image_key)
-        s.image_key = ""
-        await store.save(s)
-        await request.app.state.auditor.record(
-            "service.image_cleared", actor=principal.subject, tenant=tenant,
-            resource=f"service:{service_id}", ip=request.client.host if request.client else "")
-    return s.public()
-
-
 @router.get("/services/{service_id}/image", dependencies=[Depends(rate_limit)])
 async def get_service_image(request: Request, service_id: str,
                             principal: Principal = Depends(_MANAGE_SERVICES)):
@@ -1742,25 +1723,6 @@ async def upload_package_image(request: Request, package_id: str, body: Catalogu
     await request.app.state.auditor.record(
         "package.image_set", actor=principal.subject, tenant=tenant,
         resource=f"package:{package_id}", ip=request.client.host if request.client else "")
-    return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
-
-
-@router.delete("/packages/{package_id}/image", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def delete_package_image(request: Request, package_id: str,
-                               principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
-    tenant = _tenant(principal)
-    store = PackageStore(request.app.state.container.datastore)
-    p = await store.get(tenant, package_id)
-    if p is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
-    if p.image_key:
-        from app.core.catalogue_image import delete_image
-        await delete_image(request.app.state.container.object_store, p.image_key)
-        p.image_key = ""
-        await store.save(p)
-        await request.app.state.auditor.record(
-            "package.image_cleared", actor=principal.subject, tenant=tenant,
-            resource=f"package:{package_id}", ip=request.client.host if request.client else "")
     return {**p.public(), "offerable_now": SCHED.is_offerable(p, int(time.time()))}
 
 

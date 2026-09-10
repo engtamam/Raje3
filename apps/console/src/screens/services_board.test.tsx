@@ -21,7 +21,6 @@ const ACTIONS: Record<string, { id: string; label: string; method: string; path:
   'operations.update_service': { id: 'operations.update_service', label: 'x', method: 'PATCH', path: '/services/{id}' },
   'operations.get_service_image': { id: 'operations.get_service_image', label: 'x', method: 'GET', path: '/services/{id}/image' },
   'operations.upload_service_image': { id: 'operations.upload_service_image', label: 'x', method: 'POST', path: '/services/{id}/image' },
-  'operations.delete_service_image': { id: 'operations.delete_service_image', label: 'x', method: 'DELETE', path: '/services/{id}/image' },
   'operations.create_service': { id: 'operations.create_service', label: 'x', method: 'POST', path: '/services' },
   'operations.list_operators': { id: 'operations.list_operators', label: 'x', method: 'GET', path: '/operators' },
   'reminders.get_settings': { id: 'reminders.get_settings', label: 'x', method: 'GET', path: '/settings' },
@@ -34,7 +33,6 @@ let servicesResponse: Record<string, unknown>[] = [
 ];
 const patchCalls: unknown[] = [];
 const uploadCalls: unknown[] = [];
-const deleteCalls: unknown[] = [];
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -51,7 +49,6 @@ vi.mock('../catalog', async (importOriginal) => {
       }
       if (a.id === 'operations.update_service') { patchCalls.push(body); return {}; }
       if (a.id === 'operations.upload_service_image') { uploadCalls.push(body); return {}; }
-      if (a.id === 'operations.delete_service_image') { deleteCalls.push(body); return {}; }
       return {};
     },
     downloadUrl: async () => 'blob:fake-image-url',
