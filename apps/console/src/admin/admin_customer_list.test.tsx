@@ -300,7 +300,38 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByText('واتساب'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/platform/whatsapp/diagnostics?tenant=t1'), 'GET', undefined, 'tok-1'));
-    await waitFor(() => expect(screen.getByText('•••1234')).toBeTruthy());
+    // getAllByText — rj-ui's own Table renders a desktop table AND a mobile card list at once.
+    await waitFor(() => expect(screen.getAllByText('•••1234').length).toBeGreaterThan(0));
+  });
+
+  it('whatsapp tab KPIs count real sent/failed from the shown delivery log', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/whatsapp/diagnostics')) {
+        return Promise.resolve({
+          tenant: 't1',
+          deliveries: [
+            { id: 'd1', status: 'delivered', recipient_masked: '•••1111' },
+            { id: 'd2', status: 'sent', recipient_masked: '•••2222' },
+            { id: 'd3', status: 'failed', recipient_masked: '•••3333', error: 'invalid number' },
+          ],
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+    fireEvent.click(screen.getByText('واتساب'));
+
+    await waitFor(() => expect(screen.getByText('وصلت')).toBeTruthy());
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);   // sent + delivered
+    expect(screen.getByText('فشلت')).toBeTruthy();
   });
 
   it('the audit tab queries audit.query scoped to this tenant', async () => {

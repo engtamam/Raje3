@@ -30,7 +30,7 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, Package, RefreshCw, Ticket, Users } from 'lucide-react';
+import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, MessageCircle, Package, RefreshCw, Ticket, Users } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
@@ -588,23 +588,33 @@ function WhatsAppTab({ session, tenant, catalog }: { session: AdminSession; tena
   }, [tenant.id]);
 
   if (!action) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
-  if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
   if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت القراءة.</p>;
-  if (rows.length === 0) return <p className="text-sm text-text-muted">لا رسائل واتساب مسجَّلة لهذا المحل.</p>;
+
+  // مؤشرات من نفس السجل المجلوب — لا استدعاء إضافي. «نجحت» تشمل sent/delivered (نفس تعريف
+  // StatusBadge's own tone success)، حتى تقرأ العين "كم وصل" بنظرة واحدة بدل عدّ الشارات صفاً صفاً.
+  const shown = rows === 'loading' ? [] : rows;
+  const sent = shown.filter((r) => r.status === 'sent' || r.status === 'delivered').length;
+  const failed = shown.filter((r) => r.status === 'failed' || r.status === 'suppressed').length;
+
+  const columns: TableColumn<DeliveryRow>[] = [
+    { key: 'recipient', header: 'المستلم', render: (r) => <span dir="ltr" className="font-mono text-text-muted">{r.recipient_masked ?? '—'}</span> },
+    { key: 'status', header: 'الحالة', render: (r) => <StatusBadge status={r.status} /> },
+    { key: 'receipt', header: 'حالة ميتا', hideOnCard: true, render: (r) => r.receipt_status ? <span className="text-text-secondary">{r.receipt_status}</span> : <span className="text-text-muted">—</span> },
+    { key: 'error', header: 'الخطأ', render: (r) => r.error ? <span className="text-danger">{r.error}</span> : <span className="text-text-muted">—</span> },
+    { key: 'created', header: 'الوقت', render: (r) => r.created ? <span dir="ltr" className="text-label text-text-secondary">{new Date(r.created).toLocaleString('ar-SA')}</span> : '—' },
+  ];
 
   return (
-    <ul className="flex flex-col gap-2">
-      {rows.map((r, i) => (
-        <li key={r.id ?? i} className="flex flex-col gap-1 rounded-card border border-border-subtle bg-surface-2 p-3 text-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span dir="ltr" className="font-mono text-text-muted">{r.recipient_masked ?? '—'}</span>
-            <StatusBadge status={r.status} />
-          </div>
-          {r.receipt_status ? <span className="text-text-secondary">حالة ميتا: {r.receipt_status}</span> : null}
-          {r.error ? <span className="text-danger">{r.error}</span> : null}
-          {r.created ? <span className="text-caption text-text-muted" dir="ltr">{new Date(r.created).toLocaleString('ar-SA')}</span> : null}
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-4">
+      {shown.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <KpiCard icon={<MessageCircle size={18} />} label="المعروضة" value={shown.length} tone="neutral" />
+          <KpiCard icon={<CheckCircle2 size={18} />} label="وصلت" value={sent} tone={sent > 0 ? 'success' : 'neutral'} />
+          <KpiCard icon={<CircleAlert size={18} />} label="فشلت" value={failed} tone={failed > 0 ? 'danger' : 'neutral'} />
+        </div>
+      ) : null}
+      <Table columns={columns} rows={rows} getRowId={(r) => r.id ?? `${r.recipient_masked}-${r.created}`}
+            emptyTitle="لا رسائل واتساب مسجَّلة لهذا المحل" failedTitle="تعذّرت قراءة سجل واتساب" />
+    </div>
   );
 }
