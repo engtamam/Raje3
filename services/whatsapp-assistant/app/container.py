@@ -152,6 +152,7 @@ class Container:
     inbound_feed: Any = None
     coexistence_feed: Any = None
     engine: Any = None
+    renewal_consumer: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         return [
@@ -308,6 +309,15 @@ def build_container(settings: Settings) -> Container:
 
     container.base_entitlement = build_base_entitlement(settings)
     container.sender = build_sender(settings)
+    # THE SUBSCRIPTION-RENEWAL FLOW'S OWN RECEIVE SIDE — mirrors reminders' RatingConsumer exactly
+    # (see app/core/renewal_consumer.py's own docstring): a bus subscriber that turns a Flow
+    # completion into a delivered pay-link template send, back on the same number the Flow opened
+    # on. `handle` is a no-op for every message that is not a recognised renewal reply.
+    from app.core.renewal_consumer import RenewalConsumer
+    from app.core.renewal_request import RenewalRequestStore
+
+    container.renewal_consumer = RenewalConsumer(
+        requests=RenewalRequestStore(container.datastore), sender=container.sender)
     # WAS NEVER ASSIGNED HERE AT ALL — `_CONSENT_GATE`'s registry existed, the field on `Container`
     # existed, and nothing between the two ever ran; `container.consent_gate` stayed the dataclass
     # default (`None`) forever, one line short of doing anything. See app/core/inbound_ingest.py

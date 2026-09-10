@@ -73,6 +73,18 @@ def create_app() -> FastAPI:
         # bus and the catch-up sweep is therefore processed exactly once, not twice.
         async def _on_whatsapp_message(event) -> None:
             payload = getattr(event, "payload", None) or {}
+            # THE SUBSCRIPTION-RENEWAL FLOW'S OWN COMPLETION, INTERCEPTED FIRST. A recognised
+            # renewal reply (core/renewal_reply.py) is a structured signal — deliver the real
+            # pay-link — never a conversational message for the AI to triage, so it is handled
+            # here and never reaches `ingest_inbound_message` below. Every other message (which is
+            # nearly all of them; only a shop that was just sent a renewal Flow ever produces one
+            # of these) falls through unchanged.
+            raw_message = payload.get("message") if isinstance(payload.get("message"), dict) else None
+            if raw_message is not None:
+                from app.core.renewal_reply import parse_renewal_reply
+                if parse_renewal_reply(raw_message) is not None:
+                    await container.renewal_consumer.handle(raw_message)
+                    return
             tenant = str(payload.get("tenant") or "")
             wamid = str(payload.get("wamid") or payload.get("id") or "")
             from_number = str(payload.get("from") or payload.get("from_number") or "")
