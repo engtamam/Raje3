@@ -27,6 +27,7 @@ conversation ever reaches this module.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -118,12 +119,15 @@ class RealBookingProvider:
         """This branch's own active operators, narrowed to whoever is eligible for `service_id` —
         the shared first half of `_pick_operator` below, factored out so the merge call can be
         skipped entirely once the pool is already known empty."""
-        ops = self._branch_operators.call({"tenant": tenant, "branch_id": branch_id})
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        ops = await asyncio.to_thread(
+            self._branch_operators.call, {"tenant": tenant, "branch_id": branch_id})
         candidates = [str(o.get("id")) for o in (ops or {}).get("operators") or []]
         if not candidates:
             raise BookingAssignmentError(f"no active operators at branch {branch_id!r}")
 
-        elig = self._service_eligibility.call({"tenant": tenant, "service_ids": [service_id]})
+        elig = await asyncio.to_thread(
+            self._service_eligibility.call, {"tenant": tenant, "service_ids": [service_id]})
         allowed = (elig or {}).get("eligible_staff_ids", {}).get(service_id)
         # `None` (unrestricted) MEANS EVERY ACTIVE OPERATOR — same contract
         # services/operations/app/api/internal.py::internal_service_eligibility documents; an
@@ -169,7 +173,8 @@ class RealBookingProvider:
             "service_ids": [service_id], "after": after, "max_slots": 1}
         if exclude_booking_id:
             payload["exclude_booking_id"] = exclude_booking_id
-        result = self._nearest_any_real_slot.call(payload)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(self._nearest_any_real_slot.call, payload)
         slots = (result or {}).get("slots") or []
         if not slots:
             raise BookingAssignmentError(
@@ -185,7 +190,9 @@ class RealBookingProvider:
         return picked
 
     async def _resolve_customer_id(self, tenant: str, from_number: str) -> str:
-        result = self._customer_id_by_phone.call({"tenant": tenant, "phone": from_number})
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(
+            self._customer_id_by_phone.call, {"tenant": tenant, "phone": from_number})
         return str((result or {}).get("customer_id") or "")
 
     async def availability(self, *, tenant: str, service_id: str, earliest: int,
@@ -245,7 +252,8 @@ class RealBookingProvider:
                 "idempotency_key": idempotency_key, "created_by": ACTOR}
         if intended_reward_id:
             body["intended_reward_id"] = intended_reward_id
-        result = self._create_booking.call(body)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(self._create_booking.call, body)
         if result is None or not result.get("id"):
             raise BookingAssignmentError("bookings-service refused or was unreachable")
         return result
@@ -263,13 +271,16 @@ class RealBookingProvider:
         """Same "first eligible, deterministic" policy as `_pick_operator` — but "eligible" here
         already accounts for the multi-specialist degradation (operations' own package-eligibility
         route: a genuinely disjoint-specialty package reads as unrestricted, never impossible)."""
-        ops = self._branch_operators.call({"tenant": tenant, "branch_id": branch_id})
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        ops = await asyncio.to_thread(
+            self._branch_operators.call, {"tenant": tenant, "branch_id": branch_id})
         candidates = [str(o.get("id")) for o in (ops or {}).get("operators") or []]
         if not candidates:
             raise BookingAssignmentError(f"no active operators at branch {branch_id!r}")
         if self._package_eligibility is None:
             return sorted(candidates)[0]
-        elig = self._package_eligibility.call({"tenant": tenant, "package_id": package_id})
+        elig = await asyncio.to_thread(
+            self._package_eligibility.call, {"tenant": tenant, "package_id": package_id})
         allowed = (elig or {}).get("eligible_staff_ids")
         eligible_pool = candidates if allowed is None else [c for c in candidates if c in allowed]
         if not eligible_pool:
@@ -291,7 +302,8 @@ class RealBookingProvider:
             "package_id": package_id, "after": earliest}
         if exclude_booking_id:
             payload["exclude_booking_id"] = exclude_booking_id
-        result = self._nearest_real_slot.call(payload)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(self._nearest_real_slot.call, payload)
         starts_at = (result or {}).get("starts_at")
         if not starts_at:
             return []
@@ -318,7 +330,8 @@ class RealBookingProvider:
                 "idempotency_key": idempotency_key, "created_by": ACTOR}
         if intended_reward_id:
             body["intended_reward_id"] = intended_reward_id
-        result = self._create_booking.call(body)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(self._create_booking.call, body)
         if result is None or not result.get("id"):
             raise BookingAssignmentError("bookings-service refused or was unreachable")
         return result
@@ -342,7 +355,9 @@ class RealBookingProvider:
         customer_id = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
-        result = self._bookings_for_customer.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(
+            self._bookings_for_customer.call,
             {"tenant": tenant, "customer_id": customer_id, "branch_id": branch_id})
         return list((result or {}).get("bookings") or [])
 
@@ -353,7 +368,9 @@ class RealBookingProvider:
         customer_id = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
-        result = self._cancel_booking.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(
+            self._cancel_booking.call,
             {"tenant": tenant, "customer_id": customer_id, "reason": reason, "branch_id": branch_id},
             path_params={"booking_id": booking_id})
         if result is None:
@@ -367,7 +384,9 @@ class RealBookingProvider:
         customer_id = await self._resolve_customer_id(tenant, from_number)
         if not customer_id:
             raise BookingAssignmentError("could not resolve a real customer for this phone")
-        result = self._reschedule_booking.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        result = await asyncio.to_thread(
+            self._reschedule_booking.call,
             {"tenant": tenant, "customer_id": customer_id, "starts_at": starts_at,
              "branch_id": branch_id},
             path_params={"booking_id": booking_id})

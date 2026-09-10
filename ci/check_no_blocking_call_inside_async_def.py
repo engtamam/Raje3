@@ -56,14 +56,23 @@ synchronous wait inside a coroutine, direct or one call away) with different cor
    just one call further away. The fix is identical: wrap the CALL SITE in `asyncio.to_thread`,
    never touch the helper (it is already correctly synchronous).
 
-NAME-BASED, NOT TYPE-CHECKED — the accepted trade-off. Section 3's helper registry is keyed by the
-plain function/method NAME only (`_post`, `invoke`, `ensure_connection`, ...), not its fully-
-qualified origin, because a real type checker is not available to this gate. A name collision
-(an unrelated `async def` calling a differently-typed method that happens to share a name with a
-real blocking helper) would be a false positive — checked empirically when this section was added
-(zero on this codebase; re-check if a future run of this gate surfaces a name that turns out to be
-an unrelated, already-async-safe call, and narrow the registry then, the same way `subprocess.run`
-was narrowed to a qualified-only match after `run`/`call` alone proved too generic).
+NAME-BASED, NOT TYPE-CHECKED, BUT SCOPED PER FILE — section 3's helper registry is keyed by the
+plain function/method NAME only (`_post`, `invoke`, `ensure_connection`, ...), never its fully-
+qualified origin (no real type checker is available to this gate), BUT each registry entry is
+built and consulted ONE FILE AT A TIME, never merged across the whole services/ tree. That is the
+fix for a real defect this section shipped with once: a GLOBAL registry treated any sync `_post`
+anywhere in services/ as proof that every async function calling anything named `_post` was
+calling a blocking one, which both false-positived on `direct.py`'s own already-offloaded async
+`_post` (a same-named but unrelated, already-safe method elsewhere) AND, when a blocklist was
+added to silence that, blinded the gate to REAL bugs sharing the `_post` name in other files
+(`core/library.py`'s `register()`/`drain()`, `core/quota.py`'s `consume()`/`take()`/`release()`,
+`core/submission.py`'s `submit()` — all found by manual audit only after the blocklist hid them
+from this gate). Scoping the registry per file removes the cross-file collision that caused every
+false positive seen so far, without hiding a single true positive: a name only counts as
+"known-blocking" for an async function in the SAME FILE as the sync definition that earned it.
+A same-file collision (two genuinely different things sharing both a name AND a file) remains
+theoretically possible and has never been observed — if one ever is, exclude that ONE name from
+`_TOO_GENERIC_FOR_HELPER_REGISTRY` below with the specific evidence, never widen it by guessing.
 
 SCOPE. `services/*/app/**/*.py` — this product's own services, never `platform/` (vendored,
 read-only, and already holds the correct pattern throughout). Test files are excluded: a test's own
@@ -97,39 +106,15 @@ _SUBPROCESS_QUALIFIED = {("subprocess", "run"), ("subprocess", "call"),
 _REQUESTS_QUALIFIED = {("requests", m) for m in
                        ("get", "post", "put", "patch", "delete", "head", "request")}
 _SLEEP_NAMES = {"sleep"}
-#: NAMES TOO GENERIC TO REGISTER as a section-3 "known-blocking helper", even when a real sync
-#: function with this exact name genuinely reaches blocking I/O somewhere in the tree — checked
-#: empirically the day section 3 was added: `send`/`read` (this codebase's own
-#: `adapters/internal_http.py::send/read`, the ESTABLISHED correct helper, called via
-#: `internal_http.send(...)`) matched dozens of unrelated ASYNC methods across other services
-#: simply named `.send(...)`/`.read(...)` for something else entirely; `_get`/`call`/`request`
-#: collided with unrelated base-store/API-client methods the same way. Same "qualify or exclude"
-#: discipline as `subprocess.run`/`requests.get` above — a name this generic needs a real type
-#: checker to resolve safely, which this gate does not have.
-#: DEMONSTRATED COLLISIONS ONLY — checked empirically the day section 3 was added (see the
-#: no-longer-true 58-finding run in this commit's own history if this list is ever revisited): a
-#: WIDE blocklist of every generic-sounding verb ALSO suppressed real findings (`wallet_balance.py`
-#: `.reserve()`/`.confirm()`/`.release()` all call an entirely unrelated, genuinely-blocking
-#: `self._post(...)` — "post" is a perfectly specific, non-colliding name in this codebase and
-#: belongs in the registry). So this list holds ONLY the names actually shown, by running the
-#: gate, to match TWO OR MORE unrelated functions (one genuinely async-safe, one genuinely
-#: blocking) sharing the same name:
-#:   get/_get   — `core/stores.py`'s `_Base._get` (awaited, async-safe) vs. an unrelated blocking
-#:                `_get` elsewhere (`adapters/search/__init__.py`, `core/places_client.py`, ...).
-#:   send/read/_send/_read — `adapters/internal_http.py`'s OWN established `send`/`read` helpers
-#:                (correctly synchronous, called via `internal_http.send(...)`) collided with
-#:                unrelated ASYNC methods elsewhere simply named `.send(...)`/`.read(...)`.
-#:   call/_call/request/_request — same shape, `k8s_client.py`'s `request` and various `_call`s.
-#:   post/_post — checked: `direct.py`'s own ASYNC `_post` (already offloaded internally via a
-#:                `_post_sync` helper) collided with several UNRELATED, genuinely-blocking sync
-#:                `_post`s (wallet_balance.py, search/__init__.py, quota.py, library.py, ...).
-#: A name added here trades away real detection for that exact spelling — narrow this list, never
-#: widen it by guessing, the same "qualify or exclude, checked not assumed" discipline
-#: `subprocess.run`/`requests.get` above already follow.
-_TOO_GENERIC_FOR_HELPER_REGISTRY = {
-    "get", "_get", "send", "_send", "read", "_read", "call", "_call", "request", "_request",
-    "post", "_post",
-}
+#: NAMES TO EXCLUDE FROM THE PER-FILE REGISTRY even so — empty today. Per-file scoping (see the
+#: module docstring's "NAME-BASED, NOT TYPE-CHECKED, BUT SCOPED PER FILE" section) already removes
+#: every collision actually observed (`get`/`_get`/`send`/`read`/`_send`/`_read`/`call`/`_call`/
+#: `request`/`_request`/`post`/`_post` all turned out to be CROSS-FILE collisions, not same-file
+#: ones, and per-file scoping resolves those by construction with no blocklist needed). Add a name
+#: here only for a demonstrated SAME-FILE collision — two genuinely different functions, one
+#: async-safe and one blocking, sharing both a name and a file — with the specific evidence in a
+#: comment beside it; never pre-emptively, and never by guessing which names sound generic.
+_TOO_GENERIC_FOR_HELPER_REGISTRY: set[str] = set()
 #: `threading.Lock(...)`/`threading.RLock(...)` — flagged at CONSTRUCTION, not at `.acquire()`
 #: (which would need data-flow tracking of which object came from a Lock() call). Building one
 #: inside `async def` is already the smell: the fix is `asyncio.Lock()`, not a differently-placed
@@ -299,12 +284,27 @@ def main() -> int:
             return 1
 
     # ── PASS 1 (section 3): name every plain `def` that reaches blocking I/O directly ───────────
-    blocking_helper_names: set[str] = set()
-    for tree in trees.values():
+    #
+    # SCOPED PER FILE, NOT GLOBALLY — the fix for the false-positive class the blocklist below used
+    # to paper over. `_call_name` matches by bare name only (no receiver-type resolution: `x.get()`
+    # and `dict.get()` and `self.get()` all read as "get"), so a GLOBAL registry treated any sync
+    # `_post` anywhere in the whole services/ tree as evidence that EVERY async function calling
+    # ANYTHING named `_post` was calling a blocking one — which blinded the gate to real bugs
+    # sharing that name with an unrelated, already-safe `_post` elsewhere (library.py's own
+    # HttpLibrary.register()/drain() were missed this exact way once `_post` was blocklisted to
+    # silence a DIFFERENT file's false positive). A per-file registry means a name only counts as
+    # "known-blocking" for async functions IN THE SAME FILE as the sync definition that earned it
+    # — cross-file collisions (the actual source of every false positive found so far) cannot occur
+    # by construction, and no name needs blocklisting away to fix them.
+    blocking_helper_names: dict[pathlib.Path, set[str]] = {}
+    for f, tree in trees.items():
+        names: set[str] = set()
         for fn in _walk_functions(tree):
             if (isinstance(fn, ast.FunctionDef) and fn.name not in _TOO_GENERIC_FOR_HELPER_REGISTRY
                     and _sync_function_reaches_blocking_io(fn)):
-                blocking_helper_names.add(fn.name)
+                names.add(fn.name)
+        if names:
+            blocking_helper_names[f] = names
 
     # ── PASS 2: every async def, checked against both the direct (section 1/2) and the
     # indirect-via-a-named-helper (section 3) shapes ───────────────────────────────────────────
@@ -324,7 +324,7 @@ def main() -> int:
                 io_hits.append(f"{rel}:{fn.lineno}: async def {fn.name}() calls blocking "
                                f"network/process I/O directly, with no asyncio.to_thread/"
                                f"run_in_threadpool in the same function")
-            elif not offloads and _calls_blocking_helper(fn, blocking_helper_names):
+            elif not offloads and _calls_blocking_helper(fn, blocking_helper_names.get(f, set())):
                 # `elif` — a function already flagged above (direct + unoffloaded) is not also
                 # double-reported here for calling a second, indirect helper.
                 indirect_hits.append(

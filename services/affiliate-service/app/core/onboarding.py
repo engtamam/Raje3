@@ -21,6 +21,7 @@
 # =============================================================================
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import urllib.error
@@ -146,10 +147,14 @@ class OnboardingService:
         """
         if self._tenant_ready or not self._tenants:
             return
-        status, _ = self._http.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve (operations'
+        # own module, same idiom copied service to service).
+        status, _ = await asyncio.to_thread(
+            self._http.call,
             f"{self._tenants}/internal/tenants/{self._tenant}", method="GET", internal=True)
         if status != 200:
-            status, body = self._http.call(
+            status, body = await asyncio.to_thread(
+                self._http.call,
                 f"{self._tenants}/internal/tenants", method="POST", internal=True,
                 body={"slug": self._tenant, "name": "برنامج المسوّقين بالعمولة"})
             # 409 = another approval won this exact race a moment ago — not a failure.
@@ -158,7 +163,8 @@ class OnboardingService:
                     "تعذّرت الموافقة — تهيئة النظام غير مكتملة.", reason="tenant_provision_failed")
 
         if self._authz:
-            status, _ = self._http.call(
+            status, _ = await asyncio.to_thread(
+                self._http.call,
                 f"{self._authz}/internal/authz/tenants/{self._tenant}/bootstrap", method="POST",
                 internal=True,
                 body={"roles": [
@@ -224,7 +230,10 @@ class OnboardingService:
         # the number is already taken, not whether the referral code is real. See __init__'s own
         # note on the two flags — a no-op today, a hard gate the moment both are flipped on.
         if self._require_otp:
-            self._spend_code(canonical, code)
+            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+            # `_spend_code` stays a plain sync method (correct — it is the offload TARGET, not a
+            # coroutine); the offload belongs here, at its one caller.
+            await asyncio.to_thread(self._spend_code, canonical, code)
 
         now = int(time.time())
         app_row = Application(
@@ -257,7 +266,9 @@ class OnboardingService:
             raise OnboardingRefused(
                 "إرسال رمز التحقق غير مُفعَّل بعد — عُطل لدينا لا في رقمك. تواصل معنا وسنكمل معك.",
                 reason="undeliverable")
-        status, body = self._http.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, body = await asyncio.to_thread(
+            self._http.call,
             f"{self._identity}/api/v1/otp/request", method="POST",
             body={"identifier": canonical, "purpose": "verify"})
         if status == 429:
@@ -440,7 +451,9 @@ class OnboardingService:
             # than half-done, same principle as operations' own hire().
             raise OnboardingRefused("تعذّرت الموافقة — أعد الطلب.", reason="secret_missing")
 
-        status, body = self._http.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, body = await asyncio.to_thread(
+            self._http.call,
             f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
             body={"tenant": self._tenant, "identifier": app_row.phone, "roles": [role],
                   "password": password})
@@ -454,7 +467,8 @@ class OnboardingService:
             # SAME REDEMPTION AS operations.hire() — an admin approving is vouching for this
             # person exactly as an owner hiring his own staff does; there is no second party to
             # mail a link to.
-            st, _ = self._http.call(
+            st, _ = await asyncio.to_thread(
+                self._http.call,
                 f"{self._identity}/api/v1/auth/person/claim", method="POST",
                 body={"token": invite, "password": password})
             if st != 200:
@@ -509,7 +523,9 @@ class OnboardingService:
         if affiliate.status == SUSPENDED:
             return {"already_suspended": True}
 
-        status, _ = self._http.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, _ = await asyncio.to_thread(
+            self._http.call,
             f"{self._identity}/internal/tenancy/membership/{self._tenant}::{affiliate.person_id}",
             method="DELETE", internal=True)
         if status not in (200, 204, 404):
@@ -533,7 +549,9 @@ class OnboardingService:
         if affiliate.status == ACTIVE:
             return {"already_active": True}
 
-        status, body = self._http.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, body = await asyncio.to_thread(
+            self._http.call,
             f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
             body={"tenant": self._tenant, "identifier": affiliate.phone, "roles": [affiliate.role]})
         if status not in (200, 201):
@@ -570,8 +588,9 @@ class OnboardingService:
             "tenant": self._tenant, "username": canonical, "password": password}
         if code:
             payload["code"] = code
-        status, body = self._http.call(
-            f"{self._identity}/api/v1/auth/tenant", method="POST", body=payload)
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, body = await asyncio.to_thread(
+            self._http.call, f"{self._identity}/api/v1/auth/tenant", method="POST", body=payload)
         if status != 200:
             raise OnboardingRefused("رقم الجوال أو كلمة المرور غير صحيحة.")
         return body
@@ -584,7 +603,9 @@ class OnboardingService:
         response body verbatim, so the access_token the console holds was never re-minted by us —
         which is what lets this be a pure pass-through: identity re-verifies the token and answers
         for the exact person it names, never a person `self` merely claims to be."""
-        status, body = self._http.call(
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        status, body = await asyncio.to_thread(
+            self._http.call,
             f"{self._identity}/api/v1/auth/change-password", method="POST",
             body={"old_password": old_password, "new_password": new_password}, bearer=bearer)
         if status != 200:
