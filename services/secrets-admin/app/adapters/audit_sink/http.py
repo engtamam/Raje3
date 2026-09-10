@@ -18,6 +18,7 @@ gets FAILED and the failure policy decides whether the action may proceed unwitn
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -34,6 +35,11 @@ class HttpAuditSink:
         self._timeout = timeout
 
     async def emit(self, event: AuditEvent) -> AuditReceipt:
+        # OFF THE EVENT LOOP — urllib has no async mode, so a blocking call here would freeze
+        # this pod's single-worker event loop for the round trip.
+        return await asyncio.to_thread(self._emit_sync, event)
+
+    def _emit_sync(self, event: AuditEvent) -> AuditReceipt:
         body = json.dumps(event.to_payload()).encode()
         headers = {"Content-Type": "application/json"}
         if self._token:
