@@ -15,7 +15,8 @@ import json
 import urllib.error
 from unittest.mock import patch
 
-from app.core.apps import APPS, CANNOT_ASK, HttpApps, KEYS, NullApps, build_apps, public
+from app.core.apps import (APPS, CANNOT_ASK, CONTACTS_FEATURES, HttpApps, KEYS, NullApps,
+                           VISIT_FEATURES, build_apps, public)
 
 
 def run(c):
@@ -63,6 +64,34 @@ def test_every_app_carries_what_it_does_in_arabic():
 
 def test_the_keys_are_unique():
     assert len(set(KEYS)) == len(KEYS)
+
+
+# ── real features, not services (2026-09-11 CTO decision) ───────────────────────────────────────
+def test_visit_and_contacts_apps_carry_their_features_verbatim():
+    by_key = {a["key"]: a for a in APPS}
+    assert by_key["feature.visit"]["features"] == list(VISIT_FEATURES)
+    assert by_key["feature.contacts"]["features"] == list(CONTACTS_FEATURES)
+
+
+def test_every_feature_has_a_stable_unique_id_and_a_short_plain_sentence():
+    for feature_list in (VISIT_FEATURES, CONTACTS_FEATURES):
+        ids = [f["id"] for f in feature_list]
+        assert len(ids) == len(set(ids)), "two features in the same app share one id"
+        for f in feature_list:
+            assert f["title"].strip() and f["detail"].strip()
+            # SHORT, ON PURPOSE — a title reading like a paragraph is a mechanism description
+            # wearing a marketing font, not a value line.
+            assert len(f["title"]) <= 40, f"{f['id']}'s title reads like a sentence"
+
+
+def test_the_shared_reminders_feature_names_its_real_owner_and_matches_bookings():
+    """`reminders.learns_each_customer` is not this service's own code (see the module docstring)
+    — pinned so it can never silently drift into an unattributed visit-registration claim, and so
+    it stays byte-identical to bookings-service's own copy of the same entry."""
+    shared = next(f for f in VISIT_FEATURES if f["id"] == "reminders.learns_each_customer")
+    assert shared["owned_by"] == "reminders"
+    assert shared["shared_with"] == ["bookings"]
+    assert shared["title"] == "يتابع كل عميل لحاله"
 
 
 # ── asking ─────────────────────────────────────────────────────────────────────────────────────

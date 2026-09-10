@@ -36,6 +36,86 @@ from typing import Any
 from app.core.subscribe import is_base
 from app.adapters import internal_http
 
+# ── real, separately-nameable features (2026-09-11 CTO decision: "features, not services") ─────
+#
+# EVERY ENTRY IS REAL CODE, CITED TO THE EXACT MECHANISM — never a marketing adjective invented
+# for this file. Same discipline, same wire shape (id/title/detail/icon/tone/shared_with/
+# owned_by), as bookings-service's own `core/features.py` (the first pilot app) — see that file's
+# docstring for the four tests a candidate feature has to pass. `shared_with`/`owned_by` are how a
+# capability that is not this app's own code (the reminders engine) still renders the identical
+# sentence wherever it is granted, from one authored source.
+VISIT_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "visit.no_duplicates", "title": "ما تتكرر الزيارة أبداً",
+     "detail": "لو موظفك ضغط \"حفظ\" مرتين بالغلط، تنسجل زيارة وحدة بس",
+     "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": "",
+     # `Operations.record_visit`'s own idempotency-key read (core/operations.py:282-302) — one
+     # indexed read, before the customer is even resolved, so a retried request never creates a
+     # second visit OR a second customer.
+     },
+    {"id": "visit.works_offline", "title": "قطع النت ما يوقفك",
+     "detail": "تسجّل الزيارة عادي حتى بدون نت، وترسل وحدها أول ما يرجع الاتصال",
+     "icon": "cloud", "tone": "blue", "shared_with": [], "owned_by": "",
+     # The field screen queues locally through an outage and sends the REAL time the operator
+     # pressed save; `_sane_occurred_at` (core/operations.py:692) clamps a claimed timestamp that
+     # is in the future or older than `max_backdate` (default 90 days) rather than trusting a bad
+     # device clock, which would otherwise corrupt reminder scheduling and win-back logic.
+     },
+    {"id": "visit.finds_by_plate", "title": "يلقى السيارة برقم لوحتها",
+     "detail": "مو لازم تعرف رقم جوال العميل عشان تلقاه",
+     "icon": "car", "tone": "violet", "shared_with": [], "owned_by": "",
+     # `_resolve_asset` (core/operations.py:428-441) — a visit looked up/created by plate SCOPED
+     # WITHIN the customer (two customers can share a transcribed plate), and every recorded visit
+     # returns the customer's FULL list of known plates so the next search finds either car.
+     },
+    {"id": "visit.invoice_computed", "title": "الفاتورة تُحسب لحالها",
+     "detail": "ما تحتاج تجمع الأسعار بيدك",
+     "icon": "receipt", "tone": "amber", "shared_with": [], "owned_by": "",
+     # `record_visit`'s own catalogue-priced total (core/operations.py:346-359) — summed from the
+     # shop's own priced services when no till sends a total, retiring the old rule that
+     # invoice-value point-earning needed a till integration at all (2026-09-08).
+     },
+    {"id": "visit.never_loses_a_visit", "title": "ما نخسر ولا زيارة",
+     "detail": "حتى لو الموظف اختار خدمة مو مسجّلة بكتالوجك، الزيارة تنحفظ",
+     "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": "",
+     # `record_visit`'s unknown-service absorption (core/operations.py:307-335, integration path
+     # only) — an unrecognised service id is folded into the tenant's catch-all and its real label
+     # preserved, rather than the whole visit being refused: losing the visit loses the CUSTOMER
+     # relationship entirely — no reminder, no points, ever — which is the worse loss by far.
+     },
+    {"id": "visit.instant_search", "title": "يبحث وهو تكتب",
+     "detail": "أول ما تكتب رقم أو اسم، تطلع لك الأسماء المقترحة فوراً",
+     "icon": "search", "tone": "blue", "shared_with": [], "owned_by": "",
+     # `GET /field/customers/suggest` (api/v1/field.py:418+) — a real prefix-match (terms) +
+     # whole-token search (people) merged into one autocomplete list, branch-scoped from the
+     # caller's own token rather than a filter the browser could choose for itself.
+     },
+    {"id": "reminders.learns_each_customer", "title": "يتابع كل عميل لحاله",
+     "detail": "يعرف كل عميل يرجع كل قد ايش بالضبط، ويرسله تذكير بنفس وقته هو",
+     "icon": "bell", "tone": "rose", "shared_with": ["bookings"], "owned_by": "reminders",
+     # NOT THIS SERVICE'S OWN CODE — same shared entry as bookings-service's own
+     # `reminders.learns_each_customer` (its `core/features.py`), byte-identical on purpose: the
+     # engine lives in `services/reminders/app/core/adaptive.py`/`engagement.py`, and a shop
+     # owning EITHER تسجيل زيارة or الحجوزات gets the exact same one (reminders' own
+     # `subscribed_write` ORs `visit_licence`/`bookings_licence`).
+     },
+)
+
+CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
+    {"id": "contacts.register_anywhere", "title": "يسجّل عميلك من أي مكان",
+     "detail": "برقم جواله بس، بلا حاجة يكون سوّى زيارة",
+     "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
+     # `Operations.ensure_customer` (core/operations.py:577-590) — resolve-or-create by phone,
+     # the SAME backend act `record_visit` uses, built so `bookings` (and this free app) can get a
+     # real customer id before there is any visit to attach one to.
+     },
+    {"id": "contacts.findable_immediately", "title": "يصير قابل للبحث فوراً",
+     "detail": "من ثانية ما تسجّله، تقدر تلقاه بالبحث — مو بعد أول زيارة",
+     "icon": "search", "tone": "blue", "shared_with": [], "owned_by": "",
+     # `ensure_customer` indexes the new customer for search IMMEDIATELY (api/v1/field.py:342-348),
+     # unlike a customer who only appears once a first visit is recorded elsewhere.
+     },
+)
+
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
 #
 # THE KEY IS THE AUTHORITY, NOT THE PLAN NAME (§16.4.1). «الذكية» is a commercial word marketing
@@ -65,6 +145,18 @@ APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.whatsapp", "name": "بوت خدمة العملاء الذكي", "screen": "connect",
      "what": "يرد على استفسارات عملائك، يحجز مواعيدهم، يستبدل نقاطهم، ويقترح عليهم خدمة تناسبهم — "
              "على مدار الساعة وبلا انتظار، فيرفع مبيعاتك ويوفر وقت فريقك بدل ما يُستنزف بالردود."},
+    # ADDED 2026-09-11 — ci/check_listed_apps_are_wired.py caught these two the same way it was
+    # built to catch feature.rating/feature.whatsapp: both plan rows flipped to `listed: true`
+    # (plans.json) the day «تسجيل زيارة»/«جهات الاتصال» shipped as standalone apps, and this tuple
+    # was never updated to match — no shop, no admin, could see either existed to buy. Also the
+    # first two rows here to carry a real `features` list (see `VISIT_FEATURES`/`CONTACTS_FEATURES`
+    # above) — the older rows keep their single `what` line for now, unchanged in this pass.
+    {"key": "feature.visit", "name": "تسجيل زيارة", "screen": "field",
+     "what": "يسجّل زيارة كل عميل، فوراً وبلا تكرار — حتى بدون نت.",
+     "features": list(VISIT_FEATURES)},
+    {"key": "feature.contacts", "name": "جهات الاتصال", "screen": "field",
+     "what": "يسجّل بيانات عميلك برقم جواله، من أي مكان بالمحل — بلا حاجة لزيارة.",
+     "features": list(CONTACTS_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's
