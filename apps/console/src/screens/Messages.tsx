@@ -510,8 +510,8 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink }: 
 }
 
 export function MessagesScreen(
-  { session, catalog, owned }:
-  { session: Session; catalog: Catalog; owned?: Loading<Owned> },
+  { session, catalog, owned, branch }:
+  { session: Session; catalog: Catalog; owned?: Loading<Owned>; branch?: string },
 ) {
   // ARRIVING FROM ANOTHER SCREEN WITH THE DECISION ALREADY MADE — محلّي's «يستحقون متابعتك» card
   // links here with `?tab=campaigns&launch=win_back` rather than a plain link to «رسائلي», because
@@ -559,8 +559,18 @@ export function MessagesScreen(
   // «لا شيء في السجل بعد» about messages that did go out.
   const [logFailed, setLogFailed] = useState(false);
   const [only, setOnly] = useState<'' | 'sent' | 'suppressed'>('');
-  /** Which branch's messages he is reading. '' is all of them; '_none' is the ones with none. */
-  const [logBranch, setLogBranch] = useState('');
+  /** Which branch's messages he is reading. '' is all of them; '_none' is the ones with none.
+   *  DEFAULTS TO THE RAIL'S OWN «الفرع المعروض» — an owner who already narrowed the whole console
+   *  to one branch must not land here reading every branch's log by default, the exact
+   *  «comparing two different shops» BranchSwitch.tsx's own docstring warns about. He can still
+   *  widen it back to «كل الفروع» right here, or pick «بلا فرع محدَّد» — a finer-grained choice
+   *  than the rail's own control offers, which is why this stays a real, separate field rather
+   *  than being replaced by `branch` outright. */
+  const [logBranch, setLogBranch] = useState(branch || '');
+  // FOLLOWS THE RAIL, LIVE — switching the console's own branch while already on this screen
+  // re-narrows the log the same way arriving here fresh now does, rather than leaving a now-stale
+  // selection in place until he happens to notice and change it back himself.
+  useEffect(() => setLogBranch(branch || ''), [branch]);
   const [branches, setBranches] = useState<{ id: string; name: string }[] | null>([]);
   const [schedule, setSchedule] = useState<Schedule | null | undefined>(undefined);
   const [campaigns, setCampaigns] = useState<Campaign[] | null | undefined>(undefined);
