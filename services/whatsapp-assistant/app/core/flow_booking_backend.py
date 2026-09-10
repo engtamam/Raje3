@@ -45,6 +45,7 @@ customer with nothing to redeem never sees the step at all.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as _dt
 import json
 import urllib.error
@@ -100,6 +101,10 @@ class FlowBookingBackend:
         # {"op": ...} POST shape, because it reaches bookings-service's own pre-existing
         # `/internal/working-hours` route directly (built for the console, reused here) rather
         # than a Phase-5-specific endpoint.
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._working_hours_sync, tenant)
+
+    def _working_hours_sync(self, tenant: str) -> dict[str, Any]:
         import urllib.parse
         url = self._wh_url + "?" + urllib.parse.urlencode({"tenant": tenant})
         req = urllib.request.Request(

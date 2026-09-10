@@ -10,6 +10,7 @@ this call, never a crash, never a silently wrong number.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -33,6 +34,12 @@ class HttpBookingActorReport:
         self._timeout = timeout
 
     async def by_actor(self, tenant: str, created_by: str, *, branch_id: str = "",
+                       since: int | None = None, until: int | None = None) -> dict[str, Any]:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(
+            self._by_actor_sync, tenant, created_by, branch_id=branch_id, since=since, until=until)
+
+    def _by_actor_sync(self, tenant: str, created_by: str, *, branch_id: str = "",
                        since: int | None = None, until: int | None = None) -> dict[str, Any]:
         body: dict[str, Any] = {"tenant": tenant, "created_by": created_by}
         if branch_id:

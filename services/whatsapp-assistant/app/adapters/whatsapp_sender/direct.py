@@ -16,6 +16,7 @@ constraints, rather than re-enforcing (and risking drifting from) a second copy 
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -87,6 +88,10 @@ class InteractiveNotifySender:
         return await self._post(payload)
 
     async def _post(self, payload: dict[str, Any]) -> str:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._post_sync, payload)
+
+    def _post_sync(self, payload: dict[str, Any]) -> str:
         req = urllib.request.Request(
             self._notify, data=json.dumps(payload).encode(), method="POST",
             headers={"Content-Type": "application/json", "X-Internal-Token": self._token})

@@ -23,6 +23,7 @@ everything else.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -58,7 +59,12 @@ class HttpBaseEntitlement:
     async def allowed(self, tenant: str) -> bool:
         """True only when billing SAYS yes. A refusal, an error, or an outage all answer False —
         fail closed toward the narrower (standalone) experience, never toward leaking a lapsed
-        shop's old operations data."""
+        shop's old operations data.
+
+        OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve."""
+        return await asyncio.to_thread(self._allowed_sync, tenant)
+
+    def _allowed_sync(self, tenant: str) -> bool:
         if not tenant:
             return False
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})

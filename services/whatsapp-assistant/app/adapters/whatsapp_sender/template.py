@@ -12,6 +12,7 @@ WhatsApp conversation, in the inbound message it was handed.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -45,6 +46,13 @@ class TemplateSender:
 
     async def send_template(self, *, tenant: str, to: str, template_name: str,
                              variables: list[str], idempotency_key: str) -> str:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(
+            self._send_template_sync, tenant=tenant, to=to, template_name=template_name,
+            variables=variables, idempotency_key=idempotency_key)
+
+    def _send_template_sync(self, *, tenant: str, to: str, template_name: str,
+                            variables: list[str], idempotency_key: str) -> str:
         body = json.dumps({
             "recipient": to,
             "channel": "whatsapp",

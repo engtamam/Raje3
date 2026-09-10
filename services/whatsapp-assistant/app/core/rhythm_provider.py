@@ -9,6 +9,7 @@ sends-for-subject uses there) rather than forcing a POST body onto a route that 
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -34,6 +35,10 @@ class HttpRhythmProvider:
         self._timeout = timeout
 
     async def for_subject(self, *, tenant: str, subject_ref: str) -> list[RhythmEntry]:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._for_subject_sync, tenant=tenant, subject_ref=subject_ref)
+
+    def _for_subject_sync(self, *, tenant: str, subject_ref: str) -> list[RhythmEntry]:
         qs = urllib.parse.urlencode({"tenant": tenant, "subject_ref": subject_ref})
         req = urllib.request.Request(
             f"{self._base}?{qs}", method="GET", headers={"X-Internal-Token": self._token})

@@ -16,6 +16,7 @@ this one.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -66,6 +67,10 @@ class HttpShopIdentity:
         self._timeout = timeout
 
     async def resolve(self, tenant: str) -> ShopContext:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._resolve_sync, tenant)
+
+    def _resolve_sync(self, tenant: str) -> ShopContext:
         body = json.dumps({"tenant": tenant}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",

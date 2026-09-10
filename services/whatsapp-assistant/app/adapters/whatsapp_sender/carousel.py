@@ -17,6 +17,7 @@ proposed something invalid.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -80,6 +81,15 @@ class CarouselSender:
         return str(result.get("media_id") or "") or None
 
     async def send_carousel(self, *, tenant: str, to: str, template_name: str, language: str,
+                            cards: list[CatalogCard], idempotency_key: str) -> str:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. The whole
+        # multi-step control flow (image fetch + media upload per card, then the carousel POST)
+        # runs as ONE synchronous unit in the thread, not offloaded call-by-call.
+        return await asyncio.to_thread(
+            self._send_carousel_sync, tenant=tenant, to=to, template_name=template_name,
+            language=language, cards=cards, idempotency_key=idempotency_key)
+
+    def _send_carousel_sync(self, *, tenant: str, to: str, template_name: str, language: str,
                             cards: list[CatalogCard], idempotency_key: str) -> str:
         built: list[dict[str, Any]] = []
         for c in cards:

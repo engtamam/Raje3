@@ -15,6 +15,7 @@ uses. This module only ever READS a customer's real offers now; it never spends 
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -45,6 +46,10 @@ class HttpPointsSummary:
         self._timeout = timeout
 
     async def _balance(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._balance_sync, tenant, subject_ref)
+
+    def _balance_sync(self, tenant: str, subject_ref: str) -> dict[str, Any]:
         query = urllib.parse.urlencode({"tenant": tenant, "subject_ref": subject_ref})
         req = urllib.request.Request(
             f"{self._base}{self._balance_path}?{query}", method="GET",

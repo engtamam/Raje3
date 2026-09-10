@@ -20,6 +20,7 @@ refusal during a billing outage is a customer told to wait, which resolves itsel
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -58,7 +59,12 @@ class HttpLicence:
 
     async def allowed(self, tenant: str) -> bool:
         """True only when billing SAYS yes. A refusal, an error, or an outage all answer False —
-        the caller (conversation.py) decides what the customer reads for that."""
+        the caller (conversation.py) decides what the customer reads for that.
+
+        OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve."""
+        return await asyncio.to_thread(self._allowed_sync, tenant)
+
+    def _allowed_sync(self, tenant: str) -> bool:
         if not tenant:
             return False
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})

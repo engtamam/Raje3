@@ -16,6 +16,7 @@ indicator gets an empty list here too, same as on the dashboard.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -40,6 +41,10 @@ class HttpRelatedServices:
         self._timeout = timeout
 
     async def related_to(self, tenant: str, service_id: str) -> list[str]:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._related_to_sync, tenant, service_id)
+
+    def _related_to_sync(self, tenant: str, service_id: str) -> list[str]:
         qs = urllib.parse.urlencode({"tenant": tenant, "service_id": service_id})
         req = urllib.request.Request(
             f"{self._url}?{qs}", method="GET", headers={"X-Internal-Token": self._token})

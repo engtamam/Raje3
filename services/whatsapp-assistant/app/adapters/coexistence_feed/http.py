@@ -9,6 +9,7 @@ number; see app/core/coexistence_poll.py for what this service does with one.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.parse
@@ -29,6 +30,10 @@ class HttpCoexistenceEchoFeed:
         return bool(self._url)
 
     async def echoes(self, *, after: str = "") -> dict[str, Any]:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._echoes_sync, after)
+
+    def _echoes_sync(self, after: str) -> dict[str, Any]:
         if not self._url:
             return {}
         query = urllib.parse.urlencode({"after": after or "", "limit": self._page})

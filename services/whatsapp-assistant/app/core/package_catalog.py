@@ -10,6 +10,7 @@ Package.price_minor docstring), so naming it here is reading a fact, not inventi
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -32,6 +33,10 @@ class HttpPackageCatalog:
         self._timeout = timeout
 
     async def list_active(self, tenant: str) -> list[dict[str, Any]]:
+        # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+        return await asyncio.to_thread(self._list_active_sync, tenant)
+
+    def _list_active_sync(self, tenant: str) -> list[dict[str, Any]]:
         body = json.dumps({"tenant": tenant}).encode()
         req = urllib.request.Request(
             self._url, data=body, method="POST",
