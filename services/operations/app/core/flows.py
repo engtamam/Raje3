@@ -53,6 +53,19 @@ BOOKING_FLOW_NAME = "booking_flow"
 #: The one category Meta's fixed set has for exactly this purpose.
 BOOKING_FLOW_CATEGORIES = ["APPOINTMENT_BOOKING"]
 
+#: A FOURTH FLOW, a hand-authored static-screen JSON like rating/report (deploy/seed/
+#: subscription-renewal-flow.json — SELECT/CONFIRM/SUCCESS) but DYNAMIC like booking (data_exchange,
+#: driven live by operations' own `renewal_provider.py` through platform v0.19.12's
+#: LoyaltyEngine(name="subscription_renewal")) — so it needs the same `endpoint_uri` a shop's
+#: booking Flow does, at .../webhooks/whatsapp/flow/{tenant}/subscription_renewal (the THIRD
+#: route segment picks the named handler; booking's own callback has none because it is this
+#: WABA's default handler).
+SUBSCRIPTION_RENEWAL_FLOW_NAME = "subscription_renewal"
+#: Meta's fixed category set has none named for billing; SIGN_UP/SIGN_IN et al. all mean something
+#: else. LEAD_GENERATION and OTHER are the two honest fits documented for "neither of the above" —
+#: this is a payment collection, not a lead, so OTHER.
+SUBSCRIPTION_RENEWAL_FLOW_CATEGORIES = ["OTHER"]
+
 
 class NullFlows:
     """No notification-service peer configured. Says so, provisions nothing.

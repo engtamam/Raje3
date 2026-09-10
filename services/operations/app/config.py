@@ -374,6 +374,11 @@ class Settings(BaseSettings):
     # THE SAME PATTERN, A THIRD FLOW — the WhatsApp booking Flow (Phase 5), minted once by
     # deploy/seed/bootstrap-booking-flow.sh. See MASTER_RATING_FLOW_ID's own comment above.
     MASTER_BOOKING_FLOW_ID: str = ""
+    # THE SAME PATTERN, A FOURTH FLOW — subscription renewal (deploy/seed/
+    # subscription-renewal-flow.json), minted once by
+    # deploy/seed/bootstrap-subscription-renewal-flow.sh. See MASTER_RATING_FLOW_ID's own comment
+    # above; DYNAMIC like booking (needs its own endpoint_uri at connect time, below).
+    MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID: str = ""
     # WHERE META CALLS BACK — unlike rating_flow/report_flow (static, no server round-trip ever
     # needed), the booking Flow is DYNAMIC and MUST tell Meta a real endpoint per shop's own clone
     # (notification-service's `/webhooks/whatsapp/flow/{tenant}` resolves which shop's sealed key

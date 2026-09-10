@@ -250,6 +250,25 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         background.add_task(provision_shop_flow, c.flows, tenant, master_booking_flow_id,
                             flow_name=BOOKING_FLOW_NAME, categories=BOOKING_FLOW_CATEGORIES,
                             endpoint_uri=booking_endpoint_uri)
+        # THE SAME CLONE-AT-CONNECT-TIME PATTERN, A FOURTH FLOW — subscription renewal
+        # (deploy/seed/subscription-renewal-flow.json, deploy/seed/
+        # bootstrap-subscription-renewal-flow.sh). Hand-authored screens like rating/report, but
+        # DYNAMIC like booking — same reasoning, same endpoint_uri need, just its own path segment
+        # (notification-service's `/webhooks/whatsapp/flow/{tenant}/subscription_renewal` — the
+        # THIRD route segment routes to the named FlowRegistry handler; booking's own callback has
+        # none because it is this WABA's DEFAULT handler).
+        from app.core.flows import (SUBSCRIPTION_RENEWAL_FLOW_CATEGORIES,
+                                    SUBSCRIPTION_RENEWAL_FLOW_NAME)
+        master_renewal_flow_id = await rc.get(
+            tenant="", key="MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID",
+            default=s.MASTER_SUBSCRIPTION_RENEWAL_FLOW_ID)
+        renewal_endpoint_uri = (
+            f"{s.PUBLIC_BASE_URL}/webhooks/whatsapp/flow/{tenant}/{SUBSCRIPTION_RENEWAL_FLOW_NAME}"
+            if s.PUBLIC_BASE_URL else "")
+        background.add_task(provision_shop_flow, c.flows, tenant, master_renewal_flow_id,
+                            flow_name=SUBSCRIPTION_RENEWAL_FLOW_NAME,
+                            categories=SUBSCRIPTION_RENEWAL_FLOW_CATEGORIES,
+                            endpoint_uri=renewal_endpoint_uri)
         # THE FLOW'S OTHER HALF — a sealed per-tenant encryption key and its public half
         # registered with Meta (base-services v0.18.55). No longer escalated: this closes the
         # one gap that was genuinely outside our hands. Idempotent on notification-service's own

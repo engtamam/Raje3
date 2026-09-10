@@ -59,10 +59,11 @@ def test_provision_shop_flow_is_scheduled_before_publish(client, monkeypatch):
     calls: list[str] = []
 
     async def _fake_provision(flows, tenant, master_flow_id, **_kwargs):
-        # THREE CLONE CALLS NOW (rating, the weekly report, and Phase 5's booking Flow) — all
-        # still queued before the library publish, which is the property this test actually
-        # protects. `**_kwargs` absorbs the newer `flow_name`/`categories` args without caring
-        # which Flow this particular call is for.
+        # FOUR CLONE CALLS NOW (rating, the weekly report, Phase 5's booking Flow, and
+        # subscription renewal) — all still queued before the library publish, which is the
+        # property this test actually protects. `**_kwargs` absorbs the newer
+        # `flow_name`/`categories`/`endpoint_uri` args without caring which Flow this particular
+        # call is for.
         calls.append("flow")
         return {"ok": False, "reason": "test double"}
 
@@ -83,8 +84,8 @@ def test_provision_shop_flow_is_scheduled_before_publish(client, monkeypatch):
         "phone_number_id": "pn_order", "business_id": "biz_order",
     }, headers=_headers())
     assert r.status_code == 200, r.text
-    # THE ORDER IS THE ASSERTION. All four are background tasks queued during the same request;
+    # THE ORDER IS THE ASSERTION. All five are background tasks queued during the same request;
     # a background task added later still runs after ones added earlier (BackgroundTasks is
-    # FIFO), so this only holds if connect.py schedules ALL THREE Flow clones before the library
+    # FIFO), so this only holds if connect.py schedules ALL FOUR Flow clones before the library
     # publish that references them by name.
-    assert calls == ["flow", "flow", "flow", "library"], calls
+    assert calls == ["flow", "flow", "flow", "flow", "library"], calls
