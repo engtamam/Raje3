@@ -45,6 +45,7 @@ not our call.
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib as _contextlib
 from typing import Any
 from app.adapters import internal_http
@@ -146,6 +147,11 @@ class HttpGauges:
         property of reporting a value rather than a delta, and the reason a delta was never an
         option here.
         """
+        # OFF THE EVENT LOOP (urllib has no async mode) — a blocking call here freezes this pod's
+        # entire single-worker event loop for the round trip, including its own /healthz.
+        await asyncio.to_thread(self._report_sync, tenant, key, value)
+
+    def _report_sync(self, tenant: str, key: str, value: int) -> None:
         import json
         import urllib.error
         import urllib.request
