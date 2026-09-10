@@ -30,7 +30,7 @@
  * محلية بالمتصفح على قائمة مجتزَأة، ولا سقف وهمي 50 بلا وسيلة تشوف الباقي.
  */
 import { useEffect, useState } from 'react';
-import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, MessageCircle, Package, RefreshCw, Ticket, Users } from 'lucide-react';
+import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Clock, History, MessageCircle, Package, RefreshCw, Ticket, Users } from 'lucide-react';
 import { Badge } from './../rj-ui/Badge';
 import { Segmented } from './../rj-ui/Segmented';
 import { Button } from './../rj-ui/Button';
@@ -270,38 +270,114 @@ interface AuditEvent {
   actor: string; resource: string; ip: string;
 }
 
+/** لون الفعل من نوعه — بلا خريطة أفعال ثابتة (الأفعال حرة، مصدرها 20+ خدمة، لا تعداد يُحصى).
+ *  نفس أسلوب statusTone/severityTone بهذا الملف: تصنيف من جزء الكلمة، لا مطابقة تامة. حذف/سحب/
+ *  رفض أحمر (فعل ناقض)، منح/إنشاء/تأكيد أخضر (فعل بنّاء)، قراءة/تصدير/عرض أزرق معلوماتي (لا
+ *  تغيير)، الباقي محايد. */
+function auditTone(action: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  const a = action.toLowerCase();
+  if (/delet|revok|refus|reject|suspend|remov|withdr|release/.test(a)) return 'danger';
+  if (/grant|creat|placed?|approv|confirm|set_|_set|regist/.test(a)) return 'success';
+  if (/view|read|query|export|scan|search/.test(a)) return 'info';
+  return 'neutral';
+}
+
+interface AuditFilters { actor: string; action: string; service: string; hours: string; }
+const AUDIT_EMPTY_FILTERS: AuditFilters = { actor: '', action: '', service: '', hours: '' };
+
 /**
+ * سجل التدقيق — أعيد بناؤه ليكون مفهوماً لغير التقني: كل فعل بلونه حسب نوعه (لا نص خام يحتاج
+ * خبرة تقنية يفسّره)، وفلاتره الثلاثة (الفاعل/الفعل/الخدمة) قوائم اختيار من القيم الحقيقية
+ * الظاهرة بالصفحة — لا كتابة يدوية، ولا فلتر بلا معنى (اختيار قيمة غير موجودة أصلاً). المدة
+ * الزمنية وحدها تبقى قائمة مدد جاهزة (نفس نمط AdminSignals.tsx's own HOUR_PRESETS) بدل تاريخ
+ * حرّ يحتاج فهم صيغة.
+ *
  * audit.query يدعم فلتر tenant فعلاً بالخادم (services/audit-service's own admin_actions.py) —
  * على عكس ما ذكرته أول مرة بالاقتراح (كنت أفترض فجوة هنا، والفحص المباشر للكود نفى ذلك). هذا
- * التبويب إذن جاهز بالكامل من أول مرحلة 2، بلا أي عمل خلفي جديد.
+ * التبويب إذن جاهز بالكامل من أول مرحلة 2، بلا أي عمل خلفي جديد — والفلاتر الأربعة (actor/action/
+ * service/since) فعلية بالخادم أيضاً (audit-service's own admin_actions.py، مُعلَنة صراحة).
  */
 function AuditTab({ session, tenant, catalog }: { session: AdminSession; tenant: Tenant; catalog: AdminCatalog }) {
   const [events, setEvents] = useState<AuditEvent[] | 'loading' | 'failed'>('loading');
+  const [filters, setFilters] = useState<AuditFilters>(AUDIT_EMPTY_FILTERS);
   const action = findCustomerAction(catalog, 'audit.query');
 
   useEffect(() => {
     if (!action) { setEvents('failed'); return; }
-    req<{ events: AuditEvent[] }>(
-      `${action.path}?tenant=${encodeURIComponent(tenant.id)}&limit=100`, 'GET', undefined, session.access_token)
+    setEvents('loading');
+    const p = new URLSearchParams({ tenant: tenant.id, limit: '100' });
+    if (filters.actor) p.set('actor', filters.actor);
+    if (filters.action) p.set('action', filters.action);
+    if (filters.service) p.set('service', filters.service);
+    if (filters.hours) p.set('since', new Date(Date.now() - Number(filters.hours) * 3600_000).toISOString());
+    req<{ events: AuditEvent[] }>(`${action.path}?${p.toString()}`, 'GET', undefined, session.access_token)
       .then((r) => setEvents(r.events)).catch(() => setEvents('failed'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per opened tenant
-  }, [tenant.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetches on tenant AND any filter change
+  }, [tenant.id, filters]);
 
   if (!action) return <p className="text-sm text-text-secondary">لا صلاحية.</p>;
-  if (events === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
   if (events === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة السجل.</p>;
-  if (events.length === 0) return <p className="text-sm text-text-muted">لا أحداث بعد على هذا العميل.</p>;
+
+  const shown = events === 'loading' ? [] : events;
+  const distinct = (key: 'actor' | 'action' | 'service'): string[] => {
+    const vals = new Set<string>(shown.map((e) => e[key]).filter(Boolean));
+    if (filters[key]) vals.add(filters[key]);
+    return Array.from(vals).sort();
+  };
+  const critical = shown.filter((e) => auditTone(e.action) === 'danger').length;
+  const hasActiveFilter = filters.actor || filters.action || filters.service || filters.hours;
+
+  const columns: TableColumn<AuditEvent>[] = [
+    { key: 'ts', header: 'الوقت', render: (e) => <span dir="ltr" className="text-label text-text-secondary">{new Date(e.ts).toLocaleString('ar-SA-u-nu-latn')}</span> },
+    { key: 'action', header: 'الفعل', render: (e) => <Badge tone={auditTone(e.action)}>{e.action}</Badge> },
+    { key: 'service', header: 'الخدمة', hideOnCard: true, render: (e) => <span dir="ltr" className="text-text-secondary">{e.service}</span> },
+    { key: 'actor', header: 'الفاعل', render: (e) => <span dir="ltr" className="font-mono text-label text-text-muted">{e.actor || '—'}</span> },
+    { key: 'resource', header: 'العنصر', hideOnCard: true, render: (e) => <span dir="ltr" className="font-mono text-label text-text-muted">{e.resource || '—'}</span> },
+  ];
 
   return (
-    <div className="flex flex-col gap-2">
-      {events.map((e) => (
-        <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 p-3 text-sm">
-          <span dir="ltr" className="text-label text-text-muted">{new Date(e.ts).toLocaleString('ar-SA')}</span>
-          <span className="font-medium">{e.action}</span>
-          <span dir="ltr" className="text-label text-text-secondary">{e.service}</span>
-          <span dir="ltr" className="text-label text-text-muted">{e.actor || '—'}</span>
+    <div className="flex flex-col gap-4">
+      {shown.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+          <KpiCard icon={<History size={18} />} label="أحداث معروضة" value={shown.length} tone="neutral" />
+          <KpiCard icon={<CircleAlert size={18} />} label="أفعال حسّاسة (حذف/سحب/رفض)" value={critical}
+                  tone={critical > 0 ? 'danger' : 'neutral'} />
         </div>
-      ))}
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={filters.actor} onChange={(e) => setFilters((f) => ({ ...f, actor: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالفاعل">
+          <option value="">كل الفاعلين</option>
+          {distinct('actor').map((a) => <option key={a} value={a}>{a}</option>)}
+        </Select>
+        <Select value={filters.action} onChange={(e) => setFilters((f) => ({ ...f, action: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالفعل">
+          <option value="">كل الأفعال</option>
+          {distinct('action').map((a) => <option key={a} value={a}>{a}</option>)}
+        </Select>
+        <Select value={filters.service} onChange={(e) => setFilters((f) => ({ ...f, service: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالخدمة">
+          <option value="">كل الخدمات</option>
+          {distinct('service').map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
+        <Select value={filters.hours} onChange={(e) => setFilters((f) => ({ ...f, hours: e.target.value }))}
+               className="w-auto min-w-32" aria-label="فلترة بالمدة">
+          <option value="">كل المدة</option>
+          <option value="24">آخر 24 ساعة</option>
+          <option value="168">آخر أسبوع</option>
+          <option value="720">آخر 30 يوم</option>
+        </Select>
+        {hasActiveFilter ? (
+          <button type="button" onClick={() => setFilters(AUDIT_EMPTY_FILTERS)} className="text-label text-brand">
+            مسح الفلاتر
+          </button>
+        ) : null}
+      </div>
+
+      <Table columns={columns} rows={events} getRowId={(e) => e.id}
+            emptyTitle={hasActiveFilter ? 'لا أحداث تطابق هذي الفلاتر' : 'لا أحداث بعد على هذا العميل'}
+            failedTitle="تعذّرت قراءة السجل" />
     </div>
   );
 }

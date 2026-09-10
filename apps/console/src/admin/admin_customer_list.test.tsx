@@ -357,7 +357,44 @@ describe('CustomerList (via AdminCustomers, default tab)', () => {
     fireEvent.click(screen.getByText('السجل والتدقيق'));
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/audit?tenant=t1'), 'GET', undefined, 'tok-1'));
-    await waitFor(() => expect(screen.getByText('billing.plan_changed')).toBeTruthy());
+    // getAllByText — rj-ui's own Table renders a desktop table AND a mobile card list at once.
+    await waitFor(() => expect(screen.getAllByText('billing.plan_changed').length).toBeGreaterThan(0));
+  });
+
+  it('audit tab: picking an actor from the dropdown (never typed) re-queries the server', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/v1/tenants') return Promise.resolve({ tenants: [tenant()] });
+      if (path.includes('/admin/invoices')) return Promise.resolve({ invoices: [] });
+      if (path.includes('/admin/subscriptions')) return Promise.resolve({ subscriptions: [] });
+      if (path.includes('/api/v1/audit')) {
+        return Promise.resolve({ events: [
+          { id: 'e1', seq: 1, ts: '2026-09-01T00:00:00Z', service: 'billing-service',
+           action: 'billing.plan_changed', actor: 'op-1', resource: 'sub:s1' },
+          { id: 'e2', seq: 2, ts: '2026-09-01T01:00:00Z', service: 'compliance-service',
+           action: 'legal_hold.placed', actor: 'op-2', resource: 'subject:x' },
+          { id: 'e3', seq: 3, ts: '2026-09-01T02:00:00Z', service: 'compliance-service',
+           action: 'dsar.deleted', actor: 'op-2', resource: 'dsar:d1' },
+        ] });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<AdminCustomers session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('محل الأول')).toBeTruthy());
+    fireEvent.click(screen.getByText('محل الأول'));
+    await waitFor(() => expect(screen.getByText('shop-one')).toBeTruthy());
+    fireEvent.click(screen.getByText('السجل والتدقيق'));
+
+    // real KPIs from the shown page: 3 events, 1 "حسّاسة" (dsar.deleted — matches /delet/).
+    await waitFor(() => expect(screen.getByText('أحداث معروضة')).toBeTruthy());
+    expect(screen.getAllByText('3').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+
+    // actor is a real <select> built from the values actually seen — never a typed field.
+    fireEvent.change(screen.getByLabelText('فلترة بالفاعل'), { target: { value: 'op-2' } });
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      expect.stringContaining('actor=op-2'), 'GET', undefined, 'tok-1'));
   });
 
   it('the tickets tab lists this tenant\'s tickets, then opens full detail with the reply thread', async () => {
