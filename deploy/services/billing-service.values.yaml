@@ -244,6 +244,28 @@ env:
   # actually configured.
   EGRESS_ALLOWED_HOSTS: "onboarding-prod.tuwaiqpay.com.sa"
 
+  # ── Invoice pay-by-link (billing-service v0.19.10) — the WhatsApp renewal answer for TuwaiqPay,
+  # which has no recurring/token charge at all (see the block above): a fresh hosted link per
+  # cycle, sent out of band. NOT LIVE — depends on PAYMENT_GATEWAY_DRIVER above, still "null".
+  #
+  # ⚠ BILLING_PAY_LINK_ALLOWED_HOSTS IS A GUESS, NOT A CONFIRMED VALUE. TuwaiqPay's own docs
+  # (platform/docs/integrations/tuwaiqpay-api-reference.md) only ever show a sample link on their
+  # UAT host — "uat-payment.tuwaiqpay.com.sa" — never a production one; nothing in the docs states
+  # the production hosted-page host by name. This value assumes production follows the same
+  # "<env>-payment.tuwaiqpay.com.sa" pattern, which is unverified.
+  #
+  # BEFORE TuwaiqPay GOES LIVE: create one real bill against the production API (once
+  # PAYMENT_API_KEY/PAYMENT_EXTRA_SECRET are in billing-service-secrets) and read the actual host
+  # out of the `link` field it returns — or ask TuwaiqPay's own support directly. Only then flip
+  # this from a guess to a confirmed value; if it turns out to differ, the redirector stays
+  # fail-closed (503) rather than misroute, so leaving this wrong costs nothing except the
+  # redirector not working yet — never a wrong destination.
+  BILLING_PAY_LINK_ALLOWED_HOSTS: "payment.tuwaiqpay.com.sa"
+  # Empty until we register a WhatsApp template with a fixed-base URL button and decide the actual
+  # pay domain this redirector answers on (e.g. "https://pay.raje3.sa/pay/") — a separate,
+  # deliberate product decision, not implied by turning the redirector's allow-list on.
+  BILLING_PAY_LINK_BASE_URL: ""
+
 # cycle-due bills every subscription whose period has ended; dunning retries what failed.
 # Without cycle-due nobody is ever invoiced — the product would run for free and look healthy
 # doing it. Without dunning a failed card is never retried and the customer is simply lost.
