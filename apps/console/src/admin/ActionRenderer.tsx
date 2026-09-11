@@ -60,6 +60,14 @@ function fmtEpoch(v: unknown): string {
   });
 }
 
+/** `true`/`false`, or the string shape a JSON API sometimes answers with ("true"/"false") — every
+ *  other value reads as itself, never silently swallowed into "لا". */
+function fmtBool(v: unknown): string {
+  if (v === true || v === 'true') return 'نعم';
+  if (v === false || v === 'false') return 'لا';
+  return truncate(v);
+}
+
 /** A DEFAULT icon by shape, when the caller names none for this specific action (`actionMeta`
  *  below) — a generic engine covering hundreds of actions across the whole catalog cannot ask
  *  every caller to pick one for each. Guessed from the verb the method/danger pair usually means:
@@ -81,7 +89,7 @@ export interface ActionMeta {
 }
 
 export function ActionListGroup({ session, listAction, rowActions, extraQuery, columnLabels,
-                                 hiddenColumns, dateColumns, actionMeta }: {
+                                 hiddenColumns, dateColumns, booleanColumns, valueLabels, actionMeta }: {
   session: AdminSession;
   listAction: AdminAction;
   /** Mutating actions from the same catalog group — offered per row when their path param
@@ -101,6 +109,13 @@ export function ActionListGroup({ session, listAction, rowActions, extraQuery, c
   /** Raw response keys that carry an epoch-seconds number — rendered via `fmtEpoch` instead of
    *  the raw digits (`1799712000` read at a glance means nothing; a date does). */
   dateColumns?: string[];
+  /** Raw response keys that carry a real boolean — rendered as «نعم»/«لا» instead of the raw
+   *  `true`/`false`/`"true"` a status-code-shaped API answers with. */
+  booleanColumns?: string[];
+  /** Raw response key → {raw value → Arabic label} — an enum-shaped column (`status: "pending"`,
+   *  `type: "erasure"`) read in English otherwise, since it comes straight off the wire. A value
+   *  with no entry falls back to itself, same posture as `columnLabels`. */
+  valueLabels?: Record<string, Record<string, string>>;
   /** Per action id — an Arabic label and/or icon, read instead of `defaultIcon`/the catalog's own
    *  (often English) label. See `ActionMeta`'s own docstring. */
   actionMeta?: Record<string, ActionMeta>;
@@ -182,7 +197,9 @@ export function ActionListGroup({ session, listAction, rowActions, extraQuery, c
     : [
         ...dataKeys.map((key): TableColumn<Row> => ({
           key, header: columnLabels?.[key] ?? key,
-          render: (r) => (dateColumns ?? []).includes(key) ? fmtEpoch(r[key]) : truncate(r[key]),
+          render: (r) => (dateColumns ?? []).includes(key) ? fmtEpoch(r[key])
+            : (booleanColumns ?? []).includes(key) ? fmtBool(r[key])
+            : valueLabels?.[key]?.[String(r[key])] ?? truncate(r[key]),
           width: dataColCount > 0 ? `calc((100% - ${actionsColWidth}px) / ${dataColCount})` : undefined,
         })),
         ...(rowActions.length > 0 ? [{

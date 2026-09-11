@@ -96,6 +96,29 @@ const DATE_COLUMNS: Record<TabId, string[]> = {
   breach: ['detected_at', 'notified_at'],
 };
 
+const BOOLEAN_COLUMNS: Record<TabId, string[]> = {
+  legal_hold: ['active'],
+  dsar: ['verified', 'dispatched'],
+  consent: ['granted'],
+  data_targets: ['active'],
+  ropa: [],
+  breach: ['notified'],
+};
+
+// الحالة/النوع أرقام تعداد إنجليزية على السلك مباشرة (`status: "pending"`) — لا ترجمة تلقائية
+// ممكنة (مو مفتاح كتالوج، قيمة بيانات حقيقية)، فتُذكر هنا يدوياً لكل قيمة معروفة.
+const VALUE_LABELS: Record<TabId, Record<string, Record<string, string>>> = {
+  legal_hold: {},
+  dsar: {
+    status: { pending: 'قيد الانتظار', in_progress: 'قيد التنفيذ', completed: 'مكتمل', refused: 'مرفوض' },
+    type: { erasure: 'حذف', export: 'تصدير', access: 'اطّلاع', correction: 'تصحيح' },
+  },
+  consent: {},
+  data_targets: {},
+  ropa: {},
+  breach: { severity: { low: 'منخفضة', medium: 'متوسطة', high: 'عالية', critical: 'حرجة' } },
+};
+
 const ACTION_META: Record<TabId, Record<string, ActionMeta>> = {
   legal_hold: {
     'compliance.place_legal_hold': { label: 'حظر حذف جديد', icon: ShieldOff },
@@ -203,6 +226,7 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
         <ActionListGroup session={session} listAction={listAction} rowActions={rowActions}
                          extraQuery={extraQuery} columnLabels={COLUMN_LABELS[realActive]}
                          hiddenColumns={HIDDEN_COLUMNS[realActive]} dateColumns={DATE_COLUMNS[realActive]}
+                         booleanColumns={BOOLEAN_COLUMNS[realActive]} valueLabels={VALUE_LABELS[realActive]}
                          actionMeta={ACTION_META[realActive]} />
       ) : (
         <NoActionAvailable catalog={catalog} permissionTitle={`لا صلاحية لديك لقراءة «${active.label}».`} />
