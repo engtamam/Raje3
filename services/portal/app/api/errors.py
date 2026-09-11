@@ -83,6 +83,13 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception):
-        # Log full type server-side; return a generic body to the client.
-        _logger.error("unhandled_exception", extra={"exc_type": type(exc).__name__})
+        # Log full type AND the real failure server-side; return a generic body to the client.
+        # `exc_info=True` was missing (a QA audit found this, 2026-09-12) — the log carried only
+        # `type(exc).__name__`, so an on-call engineer diagnosing a production 500 had a class
+        # name and nothing else: no message, no stack trace, no file/line the error actually came
+        # from. `exc_info=True` is safe here specifically because it goes to the SERVER-SIDE log
+        # only — the response body below is untouched, still the bare `INTERNAL_ERROR` a client
+        # ever sees (CWE-209 unaffected).
+        _logger.error("unhandled_exception", extra={"exc_type": type(exc).__name__},
+                     exc_info=exc)
         return _json("INTERNAL_ERROR", 500)

@@ -44,16 +44,6 @@ def test_the_shipped_examples_are_valid():
     validate(AUDITABLE_ACTIONS, "portal")
 
 
-def test_the_template_shows_the_most_missed_source():
-    """internal actions are the category people forget — "this service erased a person's data
-    because a DSAR told it to" appears in no panel and no catalog. The example must show one."""
-    assert any(a["source"] == "internal" for a in AUDITABLE_ACTIONS)
-
-
-def test_the_template_shows_both_criticalities():
-    assert {a["critical"] for a in AUDITABLE_ACTIONS} == {True, False}
-
-
 # ── validation ────────────────────────────────────────────────────────────────
 def test_a_flat_action_name_is_refused():
     # The dot lets an investigator query a whole family. A flat name is findable only if you

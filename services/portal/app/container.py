@@ -147,6 +147,13 @@ class Container:
     identity: Any = None
     operations: Any = None
     reminders: Any = None
+    # DECLARED, NOT LEFT IMPLICIT — fixed 2026-09-12, a real gap a QA audit found. `build_peers()`
+    # below has always unpacked its 4-tuple into `container.loyalty` too; it only ever worked
+    # because this dataclass has no `slots=True` yet (a hardening pattern already used elsewhere
+    # in this codebase), so the assignment silently created an ad hoc instance attribute — invisible
+    # to describe()/health_probes() and to static type checking, and a guaranteed AttributeError at
+    # boot the day this class adopts slots.
+    loyalty: Any = None
     composer: Any = None
 
     def describe(self) -> list[dict[str, str]]:

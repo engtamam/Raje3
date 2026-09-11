@@ -125,26 +125,4 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "started refusing — and that history is unavailable anywhere else. Not critical: "
                "refusing to change a retention period because the log is down protects nothing",
     },
-    # ── Delete these examples and declare your own ────────────────────────────
-    {
-        "action": "example.thing_created",
-        "source": "user",
-        "critical": False,
-        "resource": "thing",
-    },
-    {
-        "action": "example.permission_granted",
-        "source": "admin",
-        "critical": True,
-        "resource": "grant",
-        "why": "an unattributable permission grant is indistinguishable from an attacker's",
-    },
-    {
-        "action": "example.subject_erased",
-        "source": "internal",
-        "critical": True,
-        "resource": "subject",
-        "why": "erasure is irreversible; without a record we cannot prove we honoured the DSAR, "
-               "and the data itself is gone so nothing else can show it",
-    },
 ]

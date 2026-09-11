@@ -33,10 +33,19 @@ _CONFIG = require_capability("platform.config")
 
 def _actor(principal: Principal) -> str:
     """A pseudonym. An audit row naming the operator is still personal data, and this one lands in
-    an append-only chain."""
+    an append-only chain.
+
+    REFUSES ON AN EMPTY SALT, NOW — fixed 2026-09-12, a real gap a QA audit found. Production
+    already refuses to boot with no PII_SALT (config.py's own guard), so this is reachable only in
+    a misconfigured dev/local run — but silently returning "" there meant every privileged config
+    change in that state got audited with NO actor at all, destroying forensic traceability for
+    exactly the mutations this file's own module docstring calls "write-ahead AND critical". Same
+    "refuse rather than silently degrade" posture core.pii.subject_ref itself already takes on an
+    empty salt.
+    """
     s = get_settings()
     if not s.PII_SALT:
-        return ""
+        raise RuntimeConfigError("PII_SALT غير مُهيَّأ — تعذّر تسجيل من قام بهذا التغيير")
     return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
 
 
@@ -79,7 +88,14 @@ class ConfigIn(BaseModel):
 
 
 # ── policy ────────────────────────────────────────────────────────────────────
-@router.get("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+# RATE_LIMIT BEFORE THE CAPABILITY CHECK, ON ALL THREE ROUTES BELOW — fixed 2026-09-12, a real
+# gap a QA audit found. FastAPI resolves top-level `dependencies=[...]` in the order listed; with
+# `_CONFIG` (require_capability -> require_user -> full JWT verification) listed first, every
+# request — no token, a garbage token, an insufficiently-privileged one — paid for a complete
+# token verification and raised its own 401/403 before `rate_limit` ever ran, on the highest-
+# privilege runtime-config surface this service exposes. Listing the limiter first means an
+# unthrottled flood of invalid-auth requests is throttled before the token verifier ever sees it.
+@router.get("/config", dependencies=[Depends(rate_limit), Depends(_CONFIG)])
 async def effective_config(request: Request, tenant: str = "",
                            principal: Principal = Depends(require_user)) -> dict:
     """Every knob an operator may change, with its current effective value.
@@ -91,17 +107,21 @@ async def effective_config(request: Request, tenant: str = "",
     return {"config": await rc.effective(tenant=tenant, settings=get_settings())}
 
 
-@router.put("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+@router.put("/config", dependencies=[Depends(rate_limit), Depends(_CONFIG)])
 async def set_config(request: Request, body: ConfigIn,
                      principal: Principal = Depends(require_user)) -> dict:
     """Override one policy value. Refused if the boot guard would refuse it."""
+    try:
+        actor = _actor(principal)
+    except RuntimeConfigError as exc:
+        return _refuse(str(exc))
     await request.app.state.auditor.record(
-        "operator.config_changed", actor=_actor(principal), tenant=body.tenant or "",
+        "operator.config_changed", actor=actor, tenant=body.tenant or "",
         resource=f"config:{body.key}", ip=request.client.host if request.client else "",
         metadata={"key": body.key})     # the KEY is not a secret; settable knobs never are
     try:
         o = await _runtime_config(request).set(
-            tenant=body.tenant, key=body.key, value=body.value, actor_ref=_actor(principal))
+            tenant=body.tenant, key=body.key, value=body.value, actor_ref=actor)
     except RuntimeConfigError as exc:
         return _refuse(str(exc))
     # The tenant is NOT echoed. The caller supplied it, so returning it adds nothing, and a
@@ -112,12 +132,16 @@ async def set_config(request: Request, body: ConfigIn,
     return {"key": o.key, "value": o.value}
 
 
-@router.delete("/config/{key}", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+@router.delete("/config/{key}", dependencies=[Depends(rate_limit), Depends(_CONFIG)])
 async def clear_config(request: Request, key: str, tenant: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """Drop an override so the configured default applies again."""
+    try:
+        actor = _actor(principal)
+    except RuntimeConfigError as exc:
+        return _refuse(str(exc))
     await request.app.state.auditor.record(
-        "operator.config_changed", actor=_actor(principal), tenant=tenant,
+        "operator.config_changed", actor=actor, tenant=tenant,
         resource=f"config:{key}", ip=request.client.host if request.client else "",
         metadata={"key": key, "cleared": True})
     return {"cleared": await _runtime_config(request).clear(tenant=tenant, key=key)}

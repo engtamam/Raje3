@@ -94,6 +94,25 @@ def test_a_deploy_time_knob_is_refused(client, operator_auth):
         assert r.status_code == 400, f"{key} was accepted at runtime"
 
 
+def test_set_config_refuses_rather_than_audit_with_no_actor_when_pii_salt_is_unset():
+    """portal-003 (QA audit, 2026-09-12): _actor() used to silently return "" when PII_SALT was
+    empty, so a privileged config change in that (dev-only — production's own boot guard already
+    refuses an empty PII_SALT) misconfiguration got audited with NO attribution at all. Now
+    refuses outright, same "fail closed" posture core.pii.subject_ref itself takes."""
+    saved = dict(os.environ)
+    try:
+        client = _make_app(PII_SALT="")
+        r = client.put("/api/v1/portal/operator/config",
+                       json={"key": "SOME_KEY", "value": "x"}, headers=_auth("platform.config"))
+        assert r.status_code == 400
+        assert "PII_SALT" in r.json().get("reason", "")
+    finally:
+        os.environ.clear()
+        os.environ.update(saved)
+        from app.config import get_settings
+        get_settings.cache_clear()
+
+
 def test_the_config_view_never_carries_a_credential(client, operator_auth):
     view = client.get("/api/v1/portal/operator/config", headers=operator_auth).json()["config"]
     for banned in ("SECRETS_KEK", "INTERNAL_SERVICE_TOKEN", "PII_SALT", "DATASTORE_DSN"):
