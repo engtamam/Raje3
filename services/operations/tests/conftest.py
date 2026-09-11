@@ -13,6 +13,10 @@ os.environ.setdefault("ENV", "test")
 os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "t" * 40)
 os.environ.setdefault("BODY_LIMIT_BYTES", "2048")
 os.environ.setdefault("REQUEST_TIMEOUT_MS", "30000")
+# A DEFAULT ONLY — any test file setting its own value (most of the ones that actually create a
+# customer do, module-scoped, via os.environ.update) still wins; this just keeps a bare `client`
+# fixture from this file from hitting core/pii.py's own "empty salt" refusal.
+os.environ.setdefault("PII_SALT", "s" * 32)
 
 import asyncio  # noqa: E402
 

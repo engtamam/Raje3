@@ -546,7 +546,8 @@ class Operations:
             "has_services_no_visits": has_services and not has_visits,
         }
 
-    async def _resolve_customer(self, tenant: str, phone: str, name: str) -> tuple[Customer, bool]:
+    async def _resolve_customer(self, tenant: str, phone: str, name: str,
+                                source: str = "manual") -> tuple[Customer, bool]:
         """Find this phone's customer, or build a new (UNSAVED) one. Returns (customer, created).
 
         EXTRACTED FROM `record_visit`, WHICH USED TO BE THE ONLY CALLER — and this is the whole
@@ -555,6 +556,10 @@ class Operations:
         (docs/خطة-تنفيذ-الحجوزات.md §6.2: "نفس الفعل الخلفي الذي يستعمله VisitIn, لا إعادة
         تنفيذ"), and duplicating this logic for that path is exactly the kind of copy-and-drift
         this file itself is the one place meant to prevent.
+
+        `source` ONLY EVER APPLIES ON THE BRANCH THAT CREATES A ROW — an existing customer keeps
+        whatever channel first brought him in, no matter who resolves him next (see Customer.source's
+        own docstring on why this must never move after creation).
 
         NOT SAVED HERE. The caller decides when: `record_visit` saves once, at the end, together
         with the visit-count update; `ensure_customer` below saves immediately because there is no
@@ -566,7 +571,7 @@ class Operations:
             customer = Customer(
                 id=new_id("cus"), tenant=tenant, phone=phone,
                 subject_ref=subject_ref(self._salt, tenant, phone),
-                name=name.strip(), created=_now())
+                name=name.strip(), created=_now(), source=source or "manual")
         elif name.strip() and not customer.name:
             # A name arriving later fills a blank, but never overwrites one already there. The
             # operator typing today does not know what the operator typed last month, and the
@@ -574,9 +579,11 @@ class Operations:
             customer.name = name.strip()
         return customer, created
 
-    async def ensure_customer(self, tenant: str, phone: str, name: str = "") -> Customer:
+    async def ensure_customer(self, tenant: str, phone: str, name: str = "",
+                              source: str = "manual") -> Customer:
         """Resolve or create a customer by phone, with NO visit attached — the booking console's
-        one call into this service before it has a `customer_id` to hand `bookings` (§6.2).
+        one call into this service before it has a `customer_id` to hand `bookings` (§6.2), and
+        whatsapp-assistant's own auto-register call (`/internal/operations/customer-id-by-phone`).
 
         SAVED IMMEDIATELY, unlike `record_visit`'s deferred save: there is no visit-count update to
         batch it with, and a customer resolved-or-created here must exist the moment this returns —
@@ -585,7 +592,7 @@ class Operations:
         phone = _normalise_phone(phone)
         if not phone:
             raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
-        customer, _ = await self._resolve_customer(tenant, phone, name)
+        customer, _ = await self._resolve_customer(tenant, phone, name, source)
         await self._customers.save(customer)
         return customer
 

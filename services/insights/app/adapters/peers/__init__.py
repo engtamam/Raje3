@@ -115,6 +115,9 @@ class NullPeers:
     async def consented(self, tenant: str) -> int:
         return int(self.extras.get("consented") or 0)
 
+    async def customer_conversion(self, tenant: str) -> dict[str, Any]:
+        return dict(self.extras.get("customer_conversion") or {})
+
 
 class HttpPeers:
     driver = "http"
@@ -125,6 +128,7 @@ class HttpPeers:
                  operators_path: str = "/internal/operations/operators",
                  scope_path: str = "/internal/operations/branch-scope",
                  ratings_summary_path: str = "/internal/operations/ratings-summary",
+                 customer_conversion_path: str = "/internal/operations/customer-conversion",
                  tenants_path: str = "/internal/operations/tenants-with-visits",
                  reminders_url: str, send_path: str, consent_count_path: str,
                  ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
@@ -140,6 +144,7 @@ class HttpPeers:
         self._operators_url = operations_url.rstrip("/") + operators_path
         self._scope_url = operations_url.rstrip("/") + scope_path
         self._ratings_summary_url = operations_url.rstrip("/") + ratings_summary_path
+        self._customer_conversion_url = operations_url.rstrip("/") + customer_conversion_path
         self._tenants_url = operations_url.rstrip("/") + tenants_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
@@ -312,6 +317,19 @@ class HttpPeers:
             return {"sent": False, "reason": f"تعذّر الوصول لخدمة التذكيرات: {exc}"}
 
 
+    async def customer_conversion(self, tenant: str) -> dict[str, Any]:
+        """Every channel that ever created a customer, and how many of those became a real visit.
+
+        NOT FATAL, same posture as `branches`/`operators` above: this costs the dashboard one
+        indicator (`lead_conversion` simply does not appear — see tick.py's own "ask for, not
+        demand" note), never the whole snapshot.
+        """
+        try:
+            return _get(self._customer_conversion_url + "?" +
+                       urllib.parse.urlencode({"tenant": tenant}), self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return {}
+
     async def entitled(self, tenant: str, key: str) -> bool:
         """Does this establishment's SUBSCRIPTION include this feature?
 
@@ -466,6 +484,7 @@ def build_peers(settings) -> Any:
                      operators_path=settings.OPERATIONS_OPERATORS_PATH,
                      scope_path=settings.OPERATIONS_SCOPE_PATH,
                      ratings_summary_path=settings.OPERATIONS_RATINGS_SUMMARY_PATH,
+                     customer_conversion_path=settings.OPERATIONS_CUSTOMER_CONVERSION_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,

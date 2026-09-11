@@ -99,11 +99,21 @@ class Customer:
     # counted by id», and the very next visit stamps it. Nothing is recomputed retroactively —
     # the counters those customers carry are the ones they already had.
     counted_visit_id: str = ""
+    # WHERE THIS ROW FIRST CAME FROM — "manual" (the console, a visit, a till) unless a specific
+    # channel created it. STAMPED ONCE, AT CREATION, NEVER OVERWRITTEN (`_resolve_customer` only
+    # sets it on the branch that builds a brand-new row) — a customer who first reached the shop
+    # through WhatsApp stays a WhatsApp lead in this field even after his first real visit is
+    # recorded through the till. AN OPEN SET OF VALUES ON PURPOSE, not an enum: today only
+    # "whatsapp" (whatsapp-assistant's own auto-register, see core/whatsapp_auto_register.py)
+    # writes a non-default value, and a future channel (a booking widget, another chat app) adds
+    # its own string here with no shape change to this row.
+    source: str = "manual"
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "phone": self.phone, "name": self.name,
                 "created": self.created, "last_visit": self.last_visit,
-                "visit_count": self.visit_count, "last_branch_id": self.last_branch_id}
+                "visit_count": self.visit_count, "last_branch_id": self.last_branch_id,
+                "source": self.source}
 
     def peer_view(self) -> dict[str, Any]:
         """What leaves this service toward another one: the ref, never the number."""

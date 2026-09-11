@@ -1159,6 +1159,18 @@ async def internal_whatsapp_auto_register_enabled(request: Request, tenant: str)
     return {"tenant": tenant, "enabled": enabled}
 
 
+@router.get("/operations/customer-conversion", dependencies=[Depends(require_internal_token)])
+async def internal_customer_conversion(request: Request, tenant: str) -> dict:
+    """Every source that ever created a customer row, and how many of those rows ever became a
+    real visit — insights' own `lead_conversion` indicator reads exactly this shape (see
+    CustomerStore.conversion_by_source's own docstring for how "converted" is decided). An
+    aggregate, never a list of who — same posture as every other cross-tenant count this file
+    hands to insights."""
+    c = request.app.state.container
+    by_source = await CustomerStore(c.datastore).conversion_by_source(tenant)
+    return {"tenant": tenant, "by_source": by_source}
+
+
 class VisitFromWhatsAppIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     phone: str = Field(min_length=3, max_length=32)
@@ -1959,7 +1971,11 @@ async def customer_id_by_phone(request: Request, body: CustomerIdByPhoneIn,
     """
     c = request.app.state.container
     try:
-        cust = await c.operations.ensure_customer(body.tenant, body.phone)
+        # SOURCE="WHATSAPP" — this route has exactly one caller (whatsapp-assistant, see its own
+        # docstring above), so every row it creates genuinely first reached this shop over
+        # WhatsApp. An already-existing customer keeps his real original source (Customer.source's
+        # own docstring), so a return visitor resolved here through a booking never gets relabeled.
+        cust = await c.operations.ensure_customer(body.tenant, body.phone, source="whatsapp")
     except OperationError as exc:
         return {"customer_id": "", "reason": str(exc)}
     # SAME BACKGROUND SEAM `/api/v1/field/customers/ensure` fires — a customer resolved here for

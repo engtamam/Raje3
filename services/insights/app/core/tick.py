@@ -143,6 +143,18 @@ class Tick:
                                          operator_names=operator_names,
                                          pkg_components=pkg_components, pkg_names=pkg_names)
 
+        # THE SHOP'S OWN LEAD-CONVERSION NUMBER — a property of the establishment, not of a
+        # branch (a customer belongs to the shop, never to a branch — same reasoning
+        # `Customer.last_branch_id`'s own docstring gives), so this is set only on the whole-shop
+        # snapshot, never recomputed per branch. ASKED FOR, NOT DEMANDED: an older operations
+        # behind a rolling deploy simply has no `customer_conversion` peer method, and the
+        # dashboard's lead-conversion card renders "not yet" rather than the snapshot failing.
+        ask_conv = getattr(self.peers, "customer_conversion", None)
+        if ask_conv:
+            by_source = (await ask_conv(tenant)).get("by_source")
+            if by_source:
+                snap.values["lead_conversion"] = by_source
+
         branches = sorted({str(v.get("branch_id") or "") for v in visits if v.get("branch_id")})
         # ONLY FOR A SHOP WITH MORE THAN ONE. A single-branch establishment gets no branch
         # snapshots and no switch — "filter by your only branch" is a control that does nothing

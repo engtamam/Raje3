@@ -462,6 +462,8 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const operatorRows = data.values['operator_rows'] as OperatorRow[] | undefined;
   const operatorUnknown = data.values['operator_unknown'] as number | undefined;
   const operatorCanRank = data.values['operator_can_rank'] as boolean | undefined;
+  const leadConversion = data.values['lead_conversion'] as
+    Record<string, { total?: number; converted?: number }> | undefined;
   const serviceDayRows = topEntitiesByDay(serviceDayGrid, serviceNames, 6);
   const branchDayRows = topEntitiesByDay(branchDayGrid, branchNames, 6);
   // EACH ONE RENDERED IN ITS OWN INDICATOR'S SLOT NOW, NOT COLLECTED INTO A SEPARATE LIST — direct
@@ -520,6 +522,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           to maintain, and `break-inside-avoid` keeps each card from splitting across the seam. */}
       <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
         <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} session={session} /></div>
+
+        {/* NEVER MUTED WHEN ABSENT, UNLIKE THE CARDS BELOW — same reasoning `AIImpactCard`'s own
+            `aiEntitled` gate follows. A shop that has never turned on a lead channel (WhatsApp
+            auto-register or a future one) has no lead-conversion QUESTION to answer yet, and a
+            "لا توجد بيانات بعد" card about a feature nobody opted into would read as a nag rather
+            than information — `LeadConversionCard` itself renders nothing in that case. */}
+        <div className="mb-3 break-inside-avoid"><LeadConversionCard bySource={leadConversion} session={session} /></div>
 
         {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} session={session} /></div>
           : <div className="mb-3 break-inside-avoid">{muted(t('shop.week.mutedTitle'), t('shop.week.mutedNote'))}</div>}
@@ -963,6 +972,44 @@ function SurroundingKpis({ values, session }: { values: Record<string, unknown>;
                session={session} helpAnchor={h.helpAnchor} />
         );
       })}
+    </div>
+  );
+}
+
+/** How many customers a channel other than the shop's own staff brought in, and how many of them
+ *  ever became a real visit — see operations' own CustomerStore.conversion_by_source docstring
+ *  for how "converted" is decided (an attended booking already counts, it is a Visit by the time
+ *  it reaches that store).
+ *
+ *  "manual" IS EXCLUDED FROM THE RATE ON PURPOSE — it is every customer a staff member typed in
+ *  himself (already a real visit or about to be one), not a lead who might or might not convert.
+ *  This card is about the channels that bring in someone BEFORE anyone on staff has met them —
+ *  WhatsApp auto-register today, whatever else joins that list later (Customer.source's own
+ *  docstring on why the field itself never needed to change to add one).
+ */
+function LeadConversionCard({ bySource, session }:
+    { bySource?: Record<string, { total?: number; converted?: number }>; session: Session }) {
+  const { t } = useOperatorI18n();
+  const leadSources = Object.entries(bySource || {}).filter(([src]) => src !== 'manual');
+  if (!leadSources.length) return null;
+  const total = leadSources.reduce((sum, [, v]) => sum + (v.total ?? 0), 0);
+  const converted = leadSources.reduce((sum, [, v]) => sum + (v.converted ?? 0), 0);
+  if (total <= 0) return null;
+  const rate = Math.round((converted / total) * 100);
+  return (
+    <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="mb-2 flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
+        {t('shop.leadConversion.title')}
+        {session ? <AssistantHint session={session} anchor="shop.lead_conversion" /> : null}
+      </h3>
+      <div className="flex items-baseline gap-2">
+        <span dir="ltr" className="text-[32px] font-extrabold" style={{ color: 'var(--sh-ink)', fontVariantNumeric: 'tabular-nums' }}>
+          {rate}%
+        </span>
+        <span className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
+          {tf(t, 'shop.leadConversion.detail', { converted, total })}
+        </span>
+      </div>
     </div>
   );
 }

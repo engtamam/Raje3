@@ -154,6 +154,27 @@ class CustomerStore(_Base):
         rows = await drain(self._s, self.collection, {"tenant": tenant}, sort=("created", "asc"))
         return [Customer(**r) for r in rows]
 
+    async def conversion_by_source(self, tenant: str) -> dict[str, dict[str, int]]:
+        """How many customers each channel brought in, and how many of them ever became a real
+        visit — the one question behind insights' own lead-conversion indicator
+        (services/insights/app/core/tick.py's own `lead_conversion`).
+
+        `visit_count > 0` IS "CONVERTED", NOT A SEPARATE BOOKING CHECK. An attended booking is
+        already a Visit by the time it reaches this store — bookings-service's own
+        `VisitGateway.record` is the ONLY path that ever produces one (see its own docstring) —
+        so this single counter already answers "ever visited OR ever attended a booking" without
+        this service needing to ask a peer anything.
+        """
+        rows = await drain(self._s, self.collection, {"tenant": tenant}, sort=("created", "asc"))
+        out: dict[str, dict[str, int]] = {}
+        for r in rows:
+            src = str(r.get("source") or "manual")
+            bucket = out.setdefault(src, {"total": 0, "converted": 0})
+            bucket["total"] += 1
+            if int(r.get("visit_count") or 0) > 0:
+                bucket["converted"] += 1
+        return out
+
 
 class AssetStore(_Base):
     collection = ASSETS

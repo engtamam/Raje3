@@ -161,6 +161,10 @@ def build_manifest(
              "method": "GET"},
             # `/internal/operations/customer-id-by-phone` already covers the actual write this flag
             # gates — see that route's own docstring; nothing new to declare here for the create.
+            # insights' own lead-conversion indicator — see internal_customer_conversion's own
+            # docstring and CustomerStore.conversion_by_source's.
+            {"path": "/internal/operations/customer-conversion", "tier": "internal",
+             "method": "GET"},
             # WhatsApp-sender-to-operator resolution's second half — see
             # internal_operator_by_person's own docstring.
             {"path": "/internal/operations/operator-by-person", "tier": "internal",

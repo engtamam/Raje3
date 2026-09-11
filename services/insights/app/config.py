@@ -259,6 +259,10 @@ class Settings(BaseSettings):
     # unhandled count over the reported week. Absent means "no rating app / peer down", and the
     # line simply drops (see core/digest.py) — same degrade-by-omission as every other extra.
     OPERATIONS_RATINGS_SUMMARY_PATH: str = "/internal/operations/ratings-summary"
+    # The dashboard's own `lead_conversion` value — how many customers each channel (WhatsApp
+    # auto-register today, more later) brought in, and how many ever became a real visit. See
+    # operations' own CustomerStore.conversion_by_source docstring.
+    OPERATIONS_CUSTOMER_CONVERSION_PATH: str = "/internal/operations/customer-conversion"
     REMINDERS_SERVICE_URL: str = ""
     # THE ONLY WAY THIS SERVICE SENDS ANYTHING — the weekly digest and nothing else.
     REMINDERS_SEND_PATH: str = "/internal/reminders/send"

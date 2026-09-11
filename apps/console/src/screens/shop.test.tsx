@@ -29,6 +29,7 @@ function Wrap({ children }: { children: ReactNode }) {
 // below adjust these refs before rendering rather than needing a second mock module entirely.
 const mockState = vi.hoisted(() => ({
   entitlements: ['feature.insights.engine'] as string[],
+  leadConversion: undefined as Record<string, { total?: number; converted?: number }> | undefined,
   nextStep: {
     primary: {
       id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
@@ -68,7 +69,8 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'insights.dashboard') {
         return {
           computing: false,
-          values: { return_rate: 0.42, active_customers: 30 },
+          values: { return_rate: 0.42, active_customers: 30,
+                   ...(mockState.leadConversion ? { lead_conversion: mockState.leadConversion } : {}) },
           as_of_hours_ago: 17,
           // THE ENTRY PLAN, ON PURPOSE: this is the shop whose page carried a locked surface above
           // its own retention rate. If the lock ever climbs back over the ring, this test is the
@@ -93,6 +95,7 @@ const { IndicatorsPanel: LocalScreen } = await import('./Shop');
 afterEach(() => {
   cleanup();
   mockState.entitlements = ['feature.insights.engine'];
+  mockState.leadConversion = undefined;
   mockState.nextStep = {
     primary: {
       id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
@@ -229,5 +232,31 @@ describe('«محلّي» — one page, and the number first', () => {
     render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText(/وضعك ثابت/)).toBeTruthy());
     expect(screen.queryByText('✨')).toBeNull();
+  });
+
+  // ── lead conversion card — operations' own customer-source-conversion read ────────────────────
+  it('shows the real conversion rate, excluding manually-added customers from it', async () => {
+    mockState.leadConversion = {
+      whatsapp: { total: 8, converted: 2 },
+      manual: { total: 50, converted: 50 },   // must never dilute or shrink the rate below
+    };
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
+    await waitFor(() => expect(screen.getByText('25%')).toBeTruthy());   // 2/8, not 52/58
+    expect(screen.getByText('2 من 8 تحوّل لزيارة حقيقية')).toBeTruthy();
+  });
+
+  it('renders no card at all when nobody has ever come through a lead channel', async () => {
+    // Default mockState.leadConversion is undefined — the ordinary case for a shop that never
+    // turned on WhatsApp auto-register (or any future lead channel).
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
+    await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
+    expect(screen.queryByText('تحوّل من تواصلوا معك أول مرة')).toBeNull();
+  });
+
+  it('renders no card when every bucket present is "manual" — nothing to call a lead yet', async () => {
+    mockState.leadConversion = { manual: { total: 12, converted: 9 } };
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
+    await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
+    expect(screen.queryByText('تحوّل من تواصلوا معك أول مرة')).toBeNull();
   });
 });

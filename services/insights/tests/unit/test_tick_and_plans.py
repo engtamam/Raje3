@@ -48,6 +48,37 @@ def test_the_sweep_is_bounded_and_says_when_more_remain():
     assert res["computed"] == 2 and res["more"] is True
 
 
+# ── lead_conversion — operations' own customer_conversion peer read ─────────────────────────────
+def test_lead_conversion_reaches_the_whole_shop_snapshot():
+    store = MemoryDataStore()
+    peers = NullPeers(visits=visits(5))
+    peers.extras["customer_conversion"] = {
+        "by_source": {"whatsapp": {"total": 4, "converted": 1}, "manual": {"total": 9, "converted": 9}}}
+    snap = run(Tick(store, peers, batch=2).compute(T, now=NOW))
+    assert snap.values["lead_conversion"] == {
+        "whatsapp": {"total": 4, "converted": 1}, "manual": {"total": 9, "converted": 9}}
+
+
+def test_lead_conversion_is_absent_when_the_peer_answers_nothing():
+    """No `by_source` key (or an empty one) at all — the ordinary state for a shop with no
+    customers yet — never becomes a fake empty entry on the snapshot."""
+    store, _, tick = build_tick(visits(5))
+    snap = run(tick.compute(T, now=NOW))
+    assert "lead_conversion" not in snap.values
+
+
+def test_lead_conversion_is_absent_with_a_peers_driver_that_predates_the_method():
+    """An older `peers` object with no `customer_conversion` at all — same "ask for, not demand"
+    degrade every other optional peer read in this file already gets. `None`, not a missing
+    attribute, so this stays a plain instance rather than needing a second fake class — `getattr`
+    with a default reads either shape identically."""
+    old = NullPeers(visits=visits(5))
+    old.customer_conversion = None
+    store = MemoryDataStore()
+    snap = run(Tick(store, old, batch=2).compute(T, now=NOW))
+    assert "lead_conversion" not in snap.values
+
+
 def test_one_tenants_failure_does_not_stop_the_sweep():
     """Otherwise one bad shop freezes the dashboards of everybody after it alphabetically."""
     store = MemoryDataStore()
