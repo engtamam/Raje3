@@ -3,19 +3,20 @@
 اللغات أو في لغة ناقصة" — catch every UI string that doesn't support every locale the console
 declares, and every screen that carries visible Arabic text with no translation hookup at all.
 
-TWO HALVES, TWO SEVERITIES — because they answer different questions and one of them is a
-regression a commit can introduce today, while the other is the honest size of a rollout still in
-progress (operator-i18n.tsx's own header: "CURRENT PHASE covers field-operator screens only").
+TWO HALVES, BOTH FAIL THE BUILD — the owner's own explicit call (2026-09-11), made with the real
+consequence stated out loud first and confirmed anyway: at the moment this flipped, 87 of 95
+screens carried Arabic text with no translation hookup at all, so THIS GATE BLOCKS EVERY SHIP
+(console and platform both, via ship.sh's own pre-flight) until every one of them is migrated onto
+operator-i18n across all five locales. No allowlist, no partial exemption — a full stop, not a
+staged one, by explicit instruction over the staged alternative offered at the time.
 
-  PART A (FAILS THE BUILD) — every screen that HAS already opted into the translation system
+  PART A — every screen that HAS already opted into the translation system
   (`registerOperatorStrings`) must answer EVERY key in EVERY locale `operator-i18n.tsx` declares.
   A screen that ships an Arabic string today and forgets the Urdu one is a real drift a commit
-  just introduced — this half exists to make that impossible to ship silently.
+  just introduced.
 
-  PART B (REPORTS, NEVER FAILS) — every OTHER screen: real Arabic text in its JSX, never routed
-  through `t()`/`useOperatorI18n()` at all. This is not a regression (the whole product has
-  always been built this way) — it is the map of what "كل الشاشات" still means, so the owner's
-  own next request ("رحّل شاشة كذا") can be answered against real numbers instead of a guess.
+  PART B — every OTHER screen with real Arabic text, never routed through
+  `t()`/`useOperatorI18n()` at all — the migration backlog itself, and now a build-blocking one.
 
 WHY REGEX, NOT A TS/JSX PARSER. This project's own CI has no JS/TS toolchain dependency for a
 Python script to invoke, and every OTHER lightweight text gate in this ci/ directory already
@@ -163,9 +164,6 @@ def part_b() -> tuple[int, int, list[tuple[Path, int]]]:
 
 
 def main() -> int:
-    quiet = "--quiet-report" in sys.argv[1:]  # Part B's per-file top-15 dump, skipped when wired
-    # into every ship (ship.sh's own step 0) — the two summary lines stay either way; a real
-    # regression (Part A) is never affected by this flag, only the informational breakdown is.
     a_problems = part_a()
     total, uncovered_count, uncovered = part_b()
 
@@ -177,20 +175,23 @@ def main() -> int:
         print("    \033[32m✔ every key registered in ar is answered in en/ur/ha/fil, and none are orphaned\033[0m")
 
     print()
-    print("\033[1m  ▸ Part B — screens with real Arabic text, by translation coverage (report only)\033[0m")
-    print(f"    {total - uncovered_count} / {total} screens route their Arabic text through operator-i18n")
-    print(f"    {uncovered_count} screens carry Arabic text with no translation hookup at all — the real size of \"كل الشاشات\"")
-    if uncovered and not quiet:
-        print("    heaviest first, top 15:")
-        for rel, hits in sorted(uncovered, key=lambda x: -x[1])[:15]:
-            print(f"      {hits:>4}  {rel}")
+    print("\033[1m  ▸ Part B — every screen with real Arabic text must route it through operator-i18n\033[0m")
+    print(f"    {total - uncovered_count} / {total} screens do")
+    if uncovered:
+        # ALWAYS THE FULL LIST, NEVER TRIMMED — this half now blocks the build, and a failure that
+        # only says "87 screens" with no names is not actionable. Heaviest (most Arabic text, the
+        # rough cost to migrate) first, so the list itself suggests a sane order to work through it.
+        print(f"    \033[31m✗ {uncovered_count} screen(s) carry Arabic text with no translation hookup at all:\033[0m")
+        for rel, hits in sorted(uncovered, key=lambda x: -x[1]):
+            print(f"      \033[31m✗\033[0m {hits:>5}  {rel}")
 
-    if a_problems:
+    if a_problems or uncovered:
         print()
-        print(f"\033[31m  ✗ {len(a_problems)} problem(s) in Part A — nothing here is a false positive worth ignoring\033[0m")
+        print(f"\033[31m  ✗ {len(a_problems)} problem(s) in Part A, {uncovered_count} screen(s) failing Part B"
+              " — nothing here is a false positive worth ignoring\033[0m")
         return 1
     print()
-    print("\033[32m  ✔ Part A is clean\033[0m — Part B is a report, not a failure: translating the rest is tracked work, not a regression this gate blocks on.")
+    print("\033[32m  ✔ every screen with visible Arabic text routes it through operator-i18n, in every declared locale\033[0m")
     return 0
 
 

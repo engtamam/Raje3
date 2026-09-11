@@ -362,14 +362,14 @@ ship_many() {
   python3 "$ROOT/ci/check_deploy_wiring.py" || {
     red "deploy wiring: problems found above — nothing built, nothing shipped"; return 1; }
 
-  # A SCREEN THAT SHIPS ARABIC TEXT ON A KEY ANOTHER LOCALE NEVER GOT (a real regression, not the
-  # broader "not every screen translates yet" rollout) — the same fail-the-build posture as the
-  # wiring check just above. `--quiet-report` keeps this from dumping its own 80+-line inventory
-  # on every ship; the two summary counts still print, the pass/fail on Part A is unaffected.
+  # EVERY SCREEN WITH VISIBLE ARABIC TEXT MUST ROUTE IT THROUGH operator-i18n, IN EVERY DECLARED
+  # LOCALE — the owner's own explicit call (2026-09-11), made after the real consequence was
+  # stated out loud: at the moment this gate went build-blocking, 87 of 95 screens were not yet
+  # migrated, so THIS BLOCKS EVERY SHIP until they are. Confirmed knowingly over a staged
+  # alternative that was offered at the time.
   say "operator-i18n coverage"
-  python3 "$ROOT/ci/check_operator_i18n_coverage.py" --quiet-report || {
-    red "operator-i18n coverage: a locale is missing a key another one already has — nothing built, nothing shipped"
-    return 1; }
+  python3 "$ROOT/ci/check_operator_i18n_coverage.py" || {
+    red "operator-i18n coverage: problems found above — nothing built, nothing shipped"; return 1; }
 
   # ── 1. tests ────────────────────────────────────────────────────────────────────────────────
   for svc in "${ours[@]}"; do
