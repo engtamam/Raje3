@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { createElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const asked: string[] = [];
 let recentOverride: { id: string; phone: string; name?: string; last_visit?: number; visit_count?: number }[] = [];
@@ -50,10 +51,13 @@ const { CustomersScreen } = await import('./Customers');
 
 function open() {
   return render(
-    createElement(MemoryRouter, null,
-      // «كل الفروع» — the default scope, and the one this test is about: the list is not
-      // narrowed here, so what it asserts is the overdue join and nothing else.
-      createElement(CustomersScreen, { session: {} as never, catalog: {} as never, branch: '' })),
+    createElement(OperatorI18nProvider, {
+      session: {} as never,
+      children: createElement(MemoryRouter, null,
+        // "All branches" — the default scope, and the one this test is about: the list is not
+        // narrowed here, so what it asserts is the overdue join and nothing else.
+        createElement(CustomersScreen, { session: {} as never, catalog: {} as never, branch: '' })),
+    }),
   );
 }
 

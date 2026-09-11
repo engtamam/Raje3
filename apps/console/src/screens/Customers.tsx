@@ -35,6 +35,8 @@ import { scopeQuery } from '../branch-scope';
 import { asLocal } from '../phone';
 import { AssistantHint } from '../AssistantHint';
 import { RatingsTab } from './RatingsTab';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './customers-i18n';
 
 const MIN_PREFIX = 3;
 
@@ -45,19 +47,20 @@ interface Due { subject_ref?: string; due_at?: number }
 interface PrivacyAsk { id: string; type: string; at: number; subject_ref?: string }
 
 /** How long ago, in the words an owner uses — the clock started then, and that is the point. */
-function ago(at: number): string {
+function ago(at: number, t: (key: string) => string): string {
   const days = Math.floor((Date.now() / 1000 - at) / 86_400);
-  if (days <= 0) return 'اليوم';
-  if (days === 1) return 'أمس';
-  if (days === 2) return 'قبل يومين';
-  return `قبل ${days} أيام`;
+  if (days <= 0) return t('customers.ago.today');
+  if (days === 1) return t('customers.ago.yesterday');
+  if (days === 2) return t('customers.ago.twoDaysAgo');
+  return tf(t, 'customers.ago.daysAgo', { n: days });
 }
 
 export function CustomersScreen(
   { session, catalog, branch }: { session: Session; catalog: Catalog; branch: string },
 ) {
+  const { t } = useOperatorI18n();
   // THE SCOPE THE RAIL CHOSE, sent with every read on this screen. Before the switcher moved out
-  // of «محلّي», this list was ALWAYS the whole chain while the numbers next door might be one
+  // of "My Shop", this list was ALWAYS the whole chain while the numbers next door might be one
   // branch — and an owner reading both was reading two different shops with nothing saying so.
   const navigate = useNavigate();
   const [tab, setTab] = useState<'all' | 'overdue' | 'ratings'>('all');
@@ -208,7 +211,7 @@ export function CustomersScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <PageHeader icon={Users} title="عملائي" />
+      <PageHeader icon={Users} title={t('customers.title')} />
 
       {/* ── what his customers asked him for ────────────────────────────────────────────────
           FIRST, AND ONLY WHEN THERE IS ONE. A customer tapped «اطلب حذف بياناتي» on his own page;
@@ -219,11 +222,10 @@ export function CustomersScreen(
         <section className="flex flex-col gap-2 rounded-card border border-warning/40 bg-warning-soft p-4 text-warning-on-soft shadow-sm">
           <h2 className="flex items-center gap-1.5 text-sm font-medium">
             <ShieldAlert size={16} aria-hidden />
-            طلبات على البيانات ({asks.length})
+            {tf(t, 'customers.asks.title', { n: asks.length })}
           </h2>
           <p className="text-sm text-warning-on-soft/80">
-            عملاء طلبوا نسخة من بياناتهم أو حذفها من صفحاتهم. الرد عليهم مسؤوليتك نظاماً، خلال
-            ثلاثين يوماً من تاريخ الطلب.
+            {t('customers.asks.body')}
           </p>
           {asks.map((a) => (
             <PrivacyAskRow
@@ -245,13 +247,13 @@ export function CustomersScreen(
           pill on a track), so a page never reads as two identical bars stacked on each other. */}
       <TabBar
         fullWidth
-        ariaLabel="أقسام العملاء"
+        ariaLabel={t('customers.tabsAriaLabel')}
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'all', label: 'عملائي' },
-          { value: 'overdue', label: 'من تأخّر' },
-          ...(action(catalog, 'operations.ratings') ? [{ value: 'ratings' as const, label: 'التقييمات' }] : []),
+          { value: 'all', label: t('customers.tab.all') },
+          { value: 'overdue', label: t('customers.tab.overdue') },
+          ...(action(catalog, 'operations.ratings') ? [{ value: 'ratings' as const, label: t('customers.tab.ratings') }] : []),
         ]}
       />
 
@@ -259,12 +261,12 @@ export function CustomersScreen(
 
       {tab === 'overdue' ? (
         <div className="flex items-center gap-1 text-sm text-text-secondary">
-          <span>من تأخّر عن موعده المعتاد</span>
+          <span>{t('customers.overdueHint')}</span>
           <AssistantHint session={session} anchor="customers.overdueTab" />
         </div>
       ) : null}
 
-      {/* THE SEARCH BELONGS TO THE LIST, NOT TO THE SCREEN. Typing a number while «من تأخّر» is
+      {/* THE SEARCH BELONGS TO THE LIST, NOT TO THE SCREEN. Typing a number while "overdue" is
           open would search everybody and quietly leave the tab he is looking at. */}
       {tab === 'all' ? (
       <label className="relative block">
@@ -272,7 +274,7 @@ export function CustomersScreen(
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث برقم الجوال أو الاسم"
+          placeholder={t('customers.searchPlaceholder')}
           className="h-12 w-full rounded-xl bg-surface-1 ps-10 pe-4 shadow-sm placeholder:text-text-muted"
         />
       </label>
@@ -288,14 +290,14 @@ export function CustomersScreen(
         // make it when we actually read.
         <EmptyState
           icon={<AlertTriangle size={20} aria-hidden />}
-          title="تعذّرت القراءة"
-          description="لم نستطع جلب القائمة الآن — والخلل عندنا لا في محلك. أعد المحاولة بعد قليل."
+          title={t('customers.readError.title')}
+          description={t('customers.readError.desc')}
         />
       ) : denied ? (
         <EmptyState
           icon={<Lock size={20} aria-hidden />}
-          title={tab === 'overdue' ? 'لا يشمل دورك متابعة المتأخرين' : 'لا يشمل دورك قائمة العملاء'}
-          description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
+          title={tab === 'overdue' ? t('customers.denied.overdueTitle') : t('customers.denied.allTitle')}
+          description={t('customers.denied.desc')}
         />
       ) : showing.length === 0 ? (
         // THREE DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. "No customer matched" is a
@@ -305,33 +307,33 @@ export function CustomersScreen(
         tab === 'overdue' ? (
           <EmptyState
             icon={<PartyPopper size={20} aria-hidden />}
-            title="لا أحد متأخر"
-            description="كل عميل إما زار في وقته أو تذكيره لم يحن بعد."
+            title={t('customers.emptyOverdue.title')}
+            description={t('customers.emptyOverdue.desc')}
           />
         ) : searching ? (
           <EmptyState
             icon={<SearchX size={20} aria-hidden />}
-            title="لا نتائج"
-            description="تأكد من الرقم، أو سجّل زيارة جديدة لهذا العميل."
+            title={t('customers.emptySearch.title')}
+            description={t('customers.emptySearch.desc')}
           />
         ) : (
           <EmptyState
             icon={<UserPlus size={20} aria-hidden />}
-            title="لا يوجد عملاء بعد"
-            description="سجّل أول زيارة من «تسجيل زيارة» — العميل يُنشأ بزيارته."
+            title={t('customers.emptyNone.title')}
+            description={t('customers.emptyNone.desc')}
           />
         )
       ) : (
         <>
         {tab === 'all' && overdueIds.size > 0 ? (
           <p className="flex items-center gap-1 text-xs text-text-secondary">
-            الوسم في القائمة يعني: متأخر عن موعده المعتاد
+            {t('customers.legend.overdue')}
             <AssistantHint session={session} anchor="customers.overdueBadge" />
           </p>
         ) : null}
         {tab === 'all' && showing.some((c) => c.marketing === false) ? (
           <p className="flex items-center gap-1 text-xs text-text-secondary">
-            الوسم في القائمة يعني: أوقف استقبال التسويق
+            {t('customers.legend.marketingOff')}
             <AssistantHint session={session} anchor="customers.marketingOffBadge" />
           </p>
         ) : null}
@@ -361,7 +363,7 @@ export function CustomersScreen(
                   `dir` — text-align is not a flex property and does not inherit that ambiguity. */}
               <div className="flex flex-1 flex-col text-right">
                 <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
-                <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
+                <span className="text-sm text-text-secondary">{c.name || t('customers.noName')}</span>
                 {/* FREE ON THIS ROW'S OWN DATA — `last_visit`/`visit_count` are denormalised on
                     the Customer record itself (services/operations `Customer.public()`), no
                     extra join. ABSENT, not zero, on a search-result row (the search index does
@@ -375,8 +377,8 @@ export function CustomersScreen(
                     consequence of it was not. */}
                 {typeof c.last_visit === 'number' && c.last_visit > 0 ? (
                   <span className="text-xs text-text-muted">
-                    آخر زيارة {ago(c.last_visit)}
-                    {typeof c.visit_count === 'number' ? ` · ${c.visit_count} زيارة` : ''}
+                    {tf(t, 'customers.lastVisit', { ago: ago(c.last_visit, t) })}
+                    {typeof c.visit_count === 'number' ? tf(t, 'customers.visitCount', { n: c.visit_count }) : ''}
                   </span>
                 ) : (
                   <span className="text-xs invisible" aria-hidden="true">—</span>
@@ -392,10 +394,10 @@ export function CustomersScreen(
                     only: every row on «من تأخّر» is already this by definition, and a whole tab
                     of the same badge on every line is noise, not information. */}
                 {tab === 'all' && overdueIds.has(c.id) ? (
-                  <Badge tone="warning">متأخر</Badge>
+                  <Badge tone="warning">{t('customers.overdueBadge')}</Badge>
                 ) : null}
                 {c.marketing === false ? (
-                  <Badge tone="neutral">أوقف التسويق</Badge>
+                  <Badge tone="neutral">{t('customers.marketingOffBadge')}</Badge>
                 ) : null}
                 {/* RTL: the chevron points the way the page will move, which is leftwards. */}
                 <ChevronLeft size={18} className="shrink-0 text-text-muted" aria-hidden />
@@ -438,6 +440,7 @@ function PrivacyAskRow({ session, ask, who, whoFailed, close, onDone, onOpen }: 
   onDone: () => void;
   onOpen: (customerId: string) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [busy, setBusy] = useState(false);
   const erasure = ask.type === 'erase';
 
@@ -450,25 +453,25 @@ function PrivacyAskRow({ session, ask, who, whoFailed, close, onDone, onOpen }: 
               need the sentence read to tell which is which. */}
           <span className="flex items-center gap-1.5 text-sm">
             {erasure ? <Trash2 size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
-            {erasure ? 'طلب حذف بياناته' : 'طلب نسخة من بياناته'}
+            {erasure ? t('customers.ask.erasureType') : t('customers.ask.copyType')}
           </span>
           {/* WHO ASKED. Three different answers, and none of them may borrow another's words: a
               name we have, a lookup that failed, and a shop that genuinely holds no such customer
               — the last of which usually means his data is already gone. */}
           <span className="text-xs text-text-secondary" dir={who?.name ? undefined : 'ltr'}>
             {who ? (who.name || asLocal(who.phone))
-              : whoFailed ? 'تعذّر التعرّف على صاحب الطلب'
-              : who === null ? 'لا يوجد عميل بهذا المرجع في سجلاتك'
-              : '…'}
+              : whoFailed ? t('customers.ask.lookupFailed')
+              : who === null ? t('customers.ask.noSuchCustomer')
+              : t('customers.ask.resolving')}
           </span>
-          {/* THE DATE IS THE POINT: the clock started on it, and «قبل يومين» is what tells him
+          {/* THE DATE IS THE POINT: the clock started on it, and "two days ago" is what tells him
               whether this is urgent without arithmetic. */}
-          <span className="text-xs text-text-secondary">{ago(ask.at)}</span>
+          <span className="text-xs text-text-secondary">{ago(ask.at, t)}</span>
         </span>
         <span className="flex flex-wrap gap-2">
           {who ? (
             <Button onClick={() => onOpen(who.id)}>
-              {erasure ? 'افتح سجله لتنفيذ الحذف' : 'افتح سجله'}
+              {erasure ? t('customers.ask.openForErasure') : t('customers.ask.open')}
             </Button>
           ) : null}
           {close ? (
@@ -481,14 +484,14 @@ function PrivacyAskRow({ session, ask, who, whoFailed, close, onDone, onOpen }: 
                 onDone();
               }}
             >
-              تم الرد
+              {t('customers.ask.markAnswered')}
             </Button>
           ) : null}
         </span>
       </div>
       {erasure ? (
         <p className="text-xs text-text-secondary">
-          «تم الرد» يسجّل أنك أجبته، ولا يحذف شيئاً. الحذف من صفحة العميل نفسه.
+          {t('customers.ask.erasureNote')}
         </p>
       ) : null}
     </div>
