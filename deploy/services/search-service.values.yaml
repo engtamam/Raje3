@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/search-service
-  digest: "sha256:8bc58f8689b6c66d0b93c333a8022eca13e540b9f13cb65bdcc3d5e4aabd0234"   # v0.19.27
+  digest: "sha256:be0d036ba7aac2d6d090939af58a172c8e392a5464dc39138ebee8a60e1e4362"   # v0.19.28
 
 replicas: 1
 
