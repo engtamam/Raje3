@@ -28,8 +28,10 @@ import { Button } from '../rj-ui/Button';
 import { TabBar } from '../rj-ui/TabBar';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { Badge } from '../rj-ui/Badge';
+import { Modal } from '../rj-ui/Modal';
+import { Field, Input } from '../rj-ui/Field';
 import { action, call, type Catalog } from '../catalog';
-import { suggestByPrefix, type CustomerHit } from '../api';
+import { suggestByPrefix, ensureCustomer, type CustomerHit } from '../api';
 import type { Session } from '../session';
 import { scopeQuery } from '../branch-scope';
 import { asLocal } from '../phone';
@@ -78,13 +80,48 @@ export function CustomersScreen(
    */
   const [asks, setAsks] = useState<PrivacyAsk[] | null>([]);
 
-  useEffect(() => {
+  const loadRecent = () => {
     const a = action(catalog, 'operations.recent');
     if (!a) { setRecent(DENIED); return; }
     call<{ customers: CustomerHit[] }>(session, a, { limit: 50, ...scopeQuery(branch) })
       .then((x) => setRecent(x.customers))
       .catch(() => setRecent(null));
-  }, [session, catalog]);
+  };
+  useEffect(loadRecent, [session, catalog]);      // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * «إضافة عميل» — جهات الاتصال's own door, finally on a real screen.
+   *
+   * UNTIL THIS BUTTON EXISTED, the app that sells «تسجيل بيانات عميلك من أي مكان، حتى بلا زيارة»
+   * had no place on the console an owner could actually press to do that — the one route built
+   * for it (`ensure_customer`, resolve-or-create by phone with no visit attached) was reachable
+   * only from inside BookingDialog, one step before a booking. A shop holding جهات الاتصال and
+   * nothing else had no way to use the one thing it bought.
+   *
+   * GATED ON THE REAL ACTION, not shown-and-refused — `operations.ensure_customer` is the same
+   * capability (`operations.record`) every field write already needs, so this follows the exact
+   * lock discipline every other control on this screen already holds.
+   */
+  const [addOpen, setAddOpen] = useState(false);
+  const [addPhone, setAddPhone] = useState('');
+  const [addName, setAddName] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState('');
+
+  const submitAdd = async () => {
+    setAddBusy(true); setAddError('');
+    try {
+      const out = await ensureCustomer(session, addPhone.trim(), addName.trim());
+      if (!out.customer) { setAddError(out.reason || t('customers.addCustomer.genericError')); return; }
+      setAddOpen(false); setAddPhone(''); setAddName('');
+      loadRecent();
+      navigate(`/customers/${out.customer.id}`);
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : t('customers.addCustomer.genericError'));
+    } finally {
+      setAddBusy(false);
+    }
+  };
 
   /**
    * WHO IS OVERDUE — two calls, and neither of them decides what "overdue" means.
@@ -211,7 +248,42 @@ export function CustomersScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <PageHeader icon={Users} title={t('customers.title')} />
+      <PageHeader
+        icon={Users}
+        title={t('customers.title')}
+        action={action(catalog, 'operations.ensure_customer') ? (
+          <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
+            <UserPlus size={16} aria-hidden /> {t('customers.addCustomer')}
+          </Button>
+        ) : undefined}
+      />
+
+      <Modal
+        open={addOpen}
+        onClose={() => { setAddOpen(false); setAddError(''); }}
+        title={t('customers.addCustomer.title')}
+        footer={(
+          <div className="flex gap-2">
+            <Button type="button" disabled={addBusy || !addPhone.trim()} onClick={() => void submitAdd()}>
+              {t('customers.addCustomer.submit')}
+            </Button>
+            <Button type="button" variant="ghost" disabled={addBusy}
+                    onClick={() => { setAddOpen(false); setAddError(''); }}>
+              {t('customers.addCustomer.cancel')}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="flex flex-col gap-3">
+          <Field label={t('customers.addCustomer.phone')} required error={addError || undefined}>
+            <Input value={addPhone} onChange={(e) => setAddPhone(e.target.value)}
+                   type="tel" dir="ltr" autoFocus />
+          </Field>
+          <Field label={t('customers.addCustomer.name')}>
+            <Input value={addName} onChange={(e) => setAddName(e.target.value)} />
+          </Field>
+        </div>
+      </Modal>
 
       {/* ── what his customers asked him for ────────────────────────────────────────────────
           FIRST, AND ONLY WHEN THERE IS ONE. A customer tapped «اطلب حذف بياناتي» on his own page;

@@ -31,6 +31,14 @@ registerOperatorStrings({
 
     'customers.searchPlaceholder': 'ابحث برقم الجوال أو الاسم',
 
+    'customers.addCustomer': 'إضافة عميل',
+    'customers.addCustomer.title': 'إضافة عميل جديد',
+    'customers.addCustomer.phone': 'رقم الجوال',
+    'customers.addCustomer.name': 'الاسم (اختياري)',
+    'customers.addCustomer.submit': 'إضافة',
+    'customers.addCustomer.cancel': 'تراجع',
+    'customers.addCustomer.genericError': 'تعذّرت الإضافة. حاول بعد قليل.',
+
     'customers.readError.title': 'تعذّرت القراءة',
     'customers.readError.desc': 'لم نستطع جلب القائمة الآن — والخلل عندنا لا في محلك. أعد المحاولة بعد قليل.',
     'customers.denied.overdueTitle': 'لا يشمل دورك متابعة المتأخرين',
@@ -80,6 +88,14 @@ registerOperatorStrings({
     'customers.overdueHint': 'Overdue on their usual cycle',
 
     'customers.searchPlaceholder': 'Search by phone number or name',
+
+    'customers.addCustomer': 'Add customer',
+    'customers.addCustomer.title': 'Add a new customer',
+    'customers.addCustomer.phone': 'Phone number',
+    'customers.addCustomer.name': 'Name (optional)',
+    'customers.addCustomer.submit': 'Add',
+    'customers.addCustomer.cancel': 'Cancel',
+    'customers.addCustomer.genericError': "Couldn't add the customer. Try again shortly.",
 
     'customers.readError.title': "Couldn't read",
     'customers.readError.desc': "We couldn't fetch the list right now — the fault is ours, not your shop's. Try again shortly.",
@@ -131,6 +147,14 @@ registerOperatorStrings({
 
     'customers.searchPlaceholder': 'موبائل نمبر یا نام سے تلاش کریں',
 
+    'customers.addCustomer': 'نیا کسٹمر شامل کریں',
+    'customers.addCustomer.title': 'نیا کسٹمر شامل کریں',
+    'customers.addCustomer.phone': 'موبائل نمبر',
+    'customers.addCustomer.name': 'نام (اختیاری)',
+    'customers.addCustomer.submit': 'شامل کریں',
+    'customers.addCustomer.cancel': 'واپس',
+    'customers.addCustomer.genericError': 'شامل نہیں ہو سکا۔ تھوڑی دیر بعد کوشش کریں۔',
+
     'customers.readError.title': 'نہیں پڑھ سکے',
     'customers.readError.desc': 'ابھی فہرست حاصل نہیں کر سکے — یہ ہماری خرابی ہے، آپ کی دکان کی نہیں۔ تھوڑی دیر بعد کوشش کریں۔',
     'customers.denied.overdueTitle': 'آپ کے کردار میں تاخیر والوں کی نگرانی شامل نہیں',
@@ -181,6 +205,14 @@ registerOperatorStrings({
 
     'customers.searchPlaceholder': 'Nemi ta lambar waya ko suna',
 
+    'customers.addCustomer': 'Ƙara abokin ciniki',
+    'customers.addCustomer.title': 'Ƙara sabon abokin ciniki',
+    'customers.addCustomer.phone': 'Lambar waya',
+    'customers.addCustomer.name': 'Suna (na zaɓi)',
+    'customers.addCustomer.submit': 'Ƙara',
+    'customers.addCustomer.cancel': 'Koma',
+    'customers.addCustomer.genericError': "Ba a iya ƙarawa ba. Gwada nan da ɗan lokaci.",
+
     'customers.readError.title': 'Ba a iya karantawa ba',
     'customers.readError.desc': 'Ba mu iya samun jerin yanzu ba — laifi namu ne, ba na shagonka ba. Sake gwadawa bayan ɗan lokaci.',
     'customers.denied.overdueTitle': "Matsayinka ba ya haɗa da bin waɗanda suka makara",
@@ -230,6 +262,14 @@ registerOperatorStrings({
     'customers.overdueHint': 'Huli sa karaniwang cycle nila',
 
     'customers.searchPlaceholder': 'Maghanap gamit ang numero o pangalan',
+
+    'customers.addCustomer': 'Magdagdag ng customer',
+    'customers.addCustomer.title': 'Magdagdag ng bagong customer',
+    'customers.addCustomer.phone': 'Numero ng telepono',
+    'customers.addCustomer.name': 'Pangalan (opsyonal)',
+    'customers.addCustomer.submit': 'Idagdag',
+    'customers.addCustomer.cancel': 'Bumalik',
+    'customers.addCustomer.genericError': 'Hindi maidagdag. Subukan ulit sandali.',
 
     'customers.readError.title': 'Hindi mabasa',
     'customers.readError.desc': "Hindi namin makuha ang listahan ngayon — kasalanan namin ito, hindi ng tindahan mo. Subukan ulit mamaya.",
