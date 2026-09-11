@@ -287,12 +287,12 @@ interface BotToolCard {
   label: string;
   when: string;
   interactive: boolean;
+  // الحجز والتأجيل كلاهما له معاينة فلو حيّة فعلياً — `operations.whatsapp_flow_json`
+  // (notification-service v0.19.30's own `build_flow_preview_json` dispatcher) يرسم شاشات
+  // RescheduleEngine بنفس مولّد شاشات BookingEngine؛ الاختلاف الوحيد `routing_model`، والمحرّك
+  // العام (`WaFlowScreens`) لا يحتاج تمييزاً خاصاً لأيّ منهما.
   preview: { kind: 'text'; text: string }
     | { kind: 'carousel'; intro: string; cards: WaCarouselCard[] }
-    // الحجز فقط له معاينة فلو حيّة فعلياً اليوم — `operations.whatsapp_flow_json` (شوف
-    // `MessagePreview.tsx`'s الخاص بـ`openFlowButton`) يرفض أي محرّك غير BookingEngine
-    // (`platform.py::whatsapp_flow_json`), والتأجيل (reschedule) محرّك مختلف — معاينته الحيّة
-    // ليست متاحة عبر هذا الطريق اليوم، فتُعرض كنص وصفي بدل معاينة مكسورة.
     | { kind: 'flow'; flowName: string; intro: string };
 }
 
@@ -341,8 +341,8 @@ const BOT_TOOL_CARDS: BotToolCard[] = [
   },
   {
     id: 'propose_reschedule_booking', label: 'اقتراح تأجيل حجز', interactive: true,
-    when: 'يقترح نقل حجز قائم لوقت جديد فاضٍ فعلياً — يفتح شاشات تفاعلية (معاينتها الحيّة غير متاحة هنا بعد)',
-    preview: { kind: 'text', text: 'تحب أأجّل حجزك ليوم السبت الساعة 5:00 م بدل الخميس؟' },
+    when: 'يقترح نقل حجز قائم لوقت جديد فاضٍ فعلياً — يفتح شاشات الحجز الحقيقية',
+    preview: { kind: 'flow', flowName: 'reschedule', intro: 'تحب أأجّل حجزك ليوم السبت الساعة 5:00 م بدل الخميس؟' },
   },
   {
     id: 'list_packages', label: 'عرض الباقات', interactive: false,
