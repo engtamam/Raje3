@@ -362,6 +362,15 @@ ship_many() {
   python3 "$ROOT/ci/check_deploy_wiring.py" || {
     red "deploy wiring: problems found above — nothing built, nothing shipped"; return 1; }
 
+  # A SCREEN THAT SHIPS ARABIC TEXT ON A KEY ANOTHER LOCALE NEVER GOT (a real regression, not the
+  # broader "not every screen translates yet" rollout) — the same fail-the-build posture as the
+  # wiring check just above. `--quiet-report` keeps this from dumping its own 80+-line inventory
+  # on every ship; the two summary counts still print, the pass/fail on Part A is unaffected.
+  say "operator-i18n coverage"
+  python3 "$ROOT/ci/check_operator_i18n_coverage.py" --quiet-report || {
+    red "operator-i18n coverage: a locale is missing a key another one already has — nothing built, nothing shipped"
+    return 1; }
+
   # ── 1. tests ────────────────────────────────────────────────────────────────────────────────
   for svc in "${ours[@]}"; do
     say "$svc · 1/4 tests"
