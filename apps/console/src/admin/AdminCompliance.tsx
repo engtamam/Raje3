@@ -24,13 +24,13 @@ const FOUND_NOTE = 'التبويبات أدناه مصفّاة الآن على �
 
 type TabId = 'legal_hold' | 'dsar' | 'consent' | 'data_targets' | 'ropa' | 'breach';
 
-/** TABS THAT SCOPE BY `tenant` — without a searched customer, the list defaults to the
- *  OPERATOR'S OWN token tenant (compliance.py's own `_tenant(principal, tenant)`), which for a
- *  PLATFORM operator is a literal `_platform` tenant no real shop ever holds. A request that
- *  genuinely arrived (a real "201 Created" in compliance-service's own log, confirmed live for the
- *  owner's own report) then reads back as "لا نتائج" with nothing explaining why — indistinguishable
- *  from the request never having arrived at all. Named here once so the hint below and any future
- *  reader agree on exactly which tabs this applies to. */
+/** TABS THAT SCOPE BY `tenant` — compliance-service v0.19.29 fixed the real gap this session
+ *  found (owner's own report: a DSAR that genuinely arrived read back as "لا نتائج" with nothing
+ *  explaining why): a platform.compliance caller with NO `tenant` param now gets every tenant's
+ *  still-OPEN/ACTIVE rows (`scope: "all_open"`/`"all_active"` on the response), not a silent read
+ *  of the operator's own meaningless `_platform` tenant. Searching a customer still narrows to
+ *  ONE shop — that behaviour is unchanged, just no longer required to see anything at all. Named
+ *  here once so the note below and any future reader agree on exactly which tabs this applies to. */
 const TENANT_SCOPED_TABS = new Set<TabId>(['legal_hold', 'dsar']);
 
 const TABS: { id: TabId; label: string; hint: string }[] = [
@@ -123,13 +123,14 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
       />
       <p className="text-sm text-text-secondary">{active.hint}</p>
 
-      {/* WITHOUT THIS, «لا نتائج» READS AS «الطلب ما وصل» — and it did arrive; it is just scoped
-          to your own operator tenant until you search. Shown ONLY on the two tabs that actually
-          scope this way, and only before a search narrows them. */}
+      {/* NEUTRAL, NOT A WARNING — compliance-service v0.19.29 fixed the actual gap (see
+          TENANT_SCOPED_TABS's own note): the list below already shows everything, this just says
+          so and names the narrowing search as optional. Shown ONLY on the two tabs that scope this
+          way, and only before a search narrows them to one shop. */}
       {TENANT_SCOPED_TABS.has(realActive) && !foundCustomer ? (
-        <p className="rounded-card bg-warning-soft px-3 py-2 text-sm text-warning-on-soft">
-          القائمة أدناه تعرض طلبات منشأتك أنت فقط حتى الآن — ابحث عن العميل برقم جواله أعلاه لعرض
-          طلبات منشأته هو، حتى لو وصلك أنه أرسل طلباً فعلاً ولا تراه هنا.
+        <p className="rounded-card bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+          القائمة أدناه تعرض كل الطلبات المفتوحة من كل المحلات، الأقدم أولاً — ابحث عن عميل برقم
+          جواله أعلاه لو تبي تضيّقها لمحل واحد بعينه.
         </p>
       ) : null}
 
