@@ -984,24 +984,16 @@ export function PlansPane({
     // catalog action absent from a role.
     const preview = action(catalog, 'billing.discount_preview');
     if (preview) {
-      // SHAPE-DEFENSIVE ON PURPOSE — `x.previews` is either the ORIGINAL flat
-      // {plan_id: {percent, owning_key}} (an older billing-service, applied-only) or the NEWER
-      // {applied: {...same as before...}, potential: {...teasers...}} sibling shape
-      // (base-services' own follow-up). Checked by presence of either key rather than a version
-      // number this screen has no way to read, so a rollback or a mid-rollout mismatch degrades
-      // to "no teaser badges" instead of misreading a plan id literally named "applied"/"potential".
+      // `potential` (billing-service v0.19.25) is a NEW SIBLING field next to the original
+      // `previews`, not nested inside it — `previews` itself is unchanged (still the flat
+      // {plan_id: {percent, owning_key}} APPLIED map every earlier version already returned), so
+      // an older billing-service simply never sends `potential` and this degrades to no teaser
+      // badges, same as any other optional field absent from a role/version.
       type DiscountInfo = { percent: number; owning_key: string };
-      call<{ previews: Record<string, DiscountInfo> | { applied?: Record<string, DiscountInfo>; potential?: Record<string, DiscountInfo> } }>(session, preview)
+      call<{ previews: Record<string, DiscountInfo>; potential?: Record<string, DiscountInfo> }>(session, preview)
         .then((x) => {
-          const raw = x.previews ?? {};
-          if (raw && typeof raw === 'object' && ('applied' in raw || 'potential' in raw)) {
-            const shaped = raw as { applied?: Record<string, DiscountInfo>; potential?: Record<string, DiscountInfo> };
-            setDiscountPreviews(shaped.applied ?? {});
-            setPotentialDiscounts(shaped.potential ?? {});
-          } else {
-            setDiscountPreviews(raw as Record<string, DiscountInfo>);
-            setPotentialDiscounts({});
-          }
+          setDiscountPreviews(x.previews ?? {});
+          setPotentialDiscounts(x.potential ?? {});
         })
         .catch(() => { setDiscountPreviews({}); setPotentialDiscounts({}); });
     }
