@@ -66,6 +66,17 @@ def test_a_shop_with_no_purchase_still_reads_the_catalog(client):
     assert "whatsapp.escalates_when_frustrated" in ids
 
 
+def test_a_caller_with_no_capability_at_all_still_reads_the_catalog(client):
+    # `require_user` ALONE now, not `whatsapp_assistant.pricing_read` — found live: an admin/
+    # platform token (no TENANT-role capability at all; that one is granted to a shop's own
+    # owner/manager, never to the platform) got 403'd here, leaving this app's own admin-panel
+    # card permanently empty while every other app's worked. Same catalog for every caller.
+    r = client.get(PATH, headers=_auth())
+    assert r.status_code == 200, r.text
+    ids = {f["id"] for f in r.json()["features"]}
+    assert "whatsapp.escalates_when_frustrated" in ids
+
+
 def test_an_unauthenticated_request_is_refused(client):
     r = client.get(PATH)
     assert r.status_code in (401, 403), r.text

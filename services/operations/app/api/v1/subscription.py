@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.api.auth import require_user
 from app.api.authz import require_capability
 from app.config import get_settings
 from app.core import apps as app_catalogue
@@ -108,6 +109,27 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
                         "renews_at": row.get("current_period_end", 0)}
                 break
     return app_catalogue.public(held, checked, base, renewals)
+
+
+@router.get("/apps/static-features", dependencies=[Depends(rate_limit)])
+async def apps_static_features(principal=Depends(require_user)) -> dict:
+    """«ايش فيه» — تسجيل زيارة/جهات الاتصال/التقييم's own catalog, the ONE gap the other five
+    services' `.../features` routes never had: `/apps` just above answers a TENANT's own held
+    apps, and there was no standalone, tenant-free read of these three apps' feature lists at
+    all — bookings/loyalty/campaigns/insights/whatsapp-assistant each got a real `.../features`
+    route, but operations only ever spread `VISIT_FEATURES`/`CONTACTS_FEATURES`/`RATING_FEATURES`
+    inline into `public()`'s per-shop answer, which needs `held`/`checked` neither of which the
+    admin panel — no shop, no tenant — can ever supply. Found live: PlanCards.tsx fell back to
+    the raw boolean-limit list for these three specifically, one lone card among a shelf of rich
+    ones (owner's own screenshot). Same posture as every sibling route: `require_user` only, no
+    capability, no subscription check — the content is identical for every caller regardless of
+    tenant, same as the constants it reads.
+    """
+    return {
+        "visit": list(app_catalogue.VISIT_FEATURES),
+        "contacts": list(app_catalogue.CONTACTS_FEATURES),
+        "rating": list(app_catalogue.RATING_FEATURES),
+    }
 
 
 @router.post("", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])

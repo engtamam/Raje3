@@ -364,7 +364,11 @@ def _whatsapp_ai_teaser(ctx: NextStepCtx) -> NextStepResult | None:
         return None
     return NextStepResult(
         "بوت واتساب يردّ على عملائك ويحجز لهم تلقائياً حتى وأنت نايم — جرّبه على محلك.",
-        cta_label="جرّب بوت واتساب", cta_link="/plans?highlight=whatsapp", tone="info")
+        # «/store» — متجر التطبيقات's own real address (apps/console/src/nav.ts::STORE_PATH).
+        # This used to point at «/plans», a route that stopped existing when شرائي's own screens
+        # were renamed/consolidated — found live from a screenshot: the CTA rendered fine and led
+        # nowhere real.
+        cta_label="جرّب بوت واتساب", cta_link="/store", tone="info")
 
 
 def _bundles_locked(ctx: NextStepCtx) -> NextStepResult | None:

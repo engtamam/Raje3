@@ -310,6 +310,7 @@ def build_manifest(
             {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/payment", "tier": "user", "method": "GET"},
             {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/subscription/apps/static-features", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
             # WHAT THE CONSOLE NEEDS TO EVEN OPEN THE POPUP — App ID/Config ID, read live from

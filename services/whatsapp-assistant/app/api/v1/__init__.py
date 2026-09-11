@@ -54,12 +54,21 @@ async def admin_ping() -> dict:
 
 
 @router.get("/assistant/features", dependencies=[Depends(rate_limit)])
-async def assistant_features(principal: Principal = Depends(_PRICING_READ)) -> dict:
-    """«ايش فيه هذا التطبيق فعلاً» — the app-store card's own content (core/features.py). Reuses
-    `_PRICING_READ` deliberately: same posture as `/assistant/pricing/current` right below — "a
-    shop reading a fact about their own subscription, not our internals" — never a subscription
-    check itself, since a shop deciding whether to BUY this app has to be able to read what it
-    would get.
+async def assistant_features(principal: Principal = Depends(require_user)) -> dict:
+    """«ايش فيه هذا التطبيق فعلاً» — the app-store card's own content (core/features.py).
+
+    `require_user` ALONE, NOT `_PRICING_READ` — this shipped reusing that capability on the
+    (wrong) theory that it was the same posture as `/assistant/pricing/current` below. It is not:
+    that route reads THIS shop's own billing fact, so it needs to know who the caller's shop even
+    is; this one is the SAME static catalog for every caller, tenant or not — identical to how
+    bookings/loyalty/campaigns/insights's own `.../features` routes are gated (`require_user`
+    only, see bookings' `app/api/v1/features.py` docstring). Found live: an admin/platform token
+    (which holds no TENANT-role capability at all — `whatsapp_assistant.pricing_read` is granted
+    to a shop's owner/manager role, never to the platform) got 403'd trying to read this from the
+    admin panel, rendering the card's own feature list permanently empty there while every other
+    app's admin card worked (owner's own screenshot). A shop deciding whether to buy — or an
+    operator reviewing what is sold — both just need to be signed in, same as every other catalog
+    read on this fleet.
     """
     from app.core.features import public_features
 

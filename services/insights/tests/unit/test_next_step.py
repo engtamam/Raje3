@@ -297,7 +297,7 @@ def test_whatsapp_ai_teaser_fires_only_when_not_subscribed():
     out2 = ns.pick(not_subscribed, {}, now=NOW)
     assert out2["primary"]["id"] == "whatsapp_ai_teaser"
     assert out2["primary"]["category"] == ns.CATEGORY_PLAN
-    assert out2["primary"]["cta_link"] == "/plans?highlight=whatsapp"
+    assert out2["primary"]["cta_link"] == "/store"
 
 
 def test_whatsapp_ai_teaser_never_outranks_a_real_urgent_signal():

@@ -293,6 +293,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "التطبيقات التي اشتريتها وما تفعله، ليعرف كل قسم أيعرض أم يقفل.",
     },
     {
+        "id": "subscription.apps_static_features", "label": "مميزات تسجيل زيارة/جهات الاتصال/التقييم",
+        "method": "GET", "path": "/api/v1/subscription/apps/static-features",
+        "capability": "billing.self", "group": "الاشتراك",
+        # NOT TENANT-SCOPED — same catalog for every caller (Depends(require_user) only, no
+        # capability actually enforced), unlike its sibling `subscription.apps` right above which
+        # answers what THIS shop owns. See the route's own docstring for why it exists: the admin
+        # panel has no tenant to ask `/apps` about, and these three apps' features had no
+        # standalone read the way the other five services' `.../features` routes already do.
+        "help": "قائمة المميزات الحقيقية لتسجيل زيارة وجهات الاتصال والتقييم، بصياغة تسويقية قصيرة.",
+    },
+    {
         # `subscription.activate`, NOT `billing.subscribe` — which is what billing-service calls
         # ITS OWN subscribe action. Two services declaring one id is a collision the catalogue
         # cannot express: the console keys on the id, so one of them silently wins and the loser
