@@ -294,10 +294,18 @@ class Operations:
                 # Guarded by the visit's own id, so the ordinary case — a double tap, a retried
                 # request that already succeeded — reads the stamp and changes nothing.
                 if customer is not None and customer.counted_visit_id != existing.id:
-                    customer.last_visit = max(customer.last_visit, existing.occurred_at)
-                    customer.visit_count += 1
-                    customer.counted_visit_id = existing.id
-                    await self._customers.save(customer)
+                    # LOCKED — a real gap a QA audit found (2026-09-12): two concurrent retries
+                    # for the same crashed visit could both observe `counted_visit_id != existing.id`
+                    # before either saved, and both increment — an over-count. See
+                    # core/customer_counter_lock.py's own module docstring.
+                    from app.core.customer_counter_lock import CustomerCounterLock
+                    async with CustomerCounterLock(self._cache, tenant, customer.id):
+                        customer = await self._customers.get(tenant, existing.customer_id)
+                        if customer is not None and customer.counted_visit_id != existing.id:
+                            customer.last_visit = max(customer.last_visit, existing.occurred_at)
+                            customer.visit_count += 1
+                            customer.counted_visit_id = existing.id
+                            await self._customers.save(customer)
                 return RecordedVisit(visit=existing, customer=customer, created_customer=False,
                                      duplicate=True)
 
@@ -400,20 +408,43 @@ class Operations:
         # success finds its own id already stamped and changes nothing.
         await self._visits.save(visit)
 
-        moved_forward = visit.occurred_at >= customer.last_visit
-        customer.last_visit = max(customer.last_visit, visit.occurred_at)
-        customer.visit_count += 1
-        customer.counted_visit_id = visit.id
-        # THE BRANCH FOLLOWS THE SAME CLOCK AS `last_visit`, and only when the visit is the newest
-        # one. A batch replayed from last month must not tell a campaign that this customer's
-        # branch is the one they left — the field means «آخر فرع», so a stale visit may not set it.
-        #
-        # An empty branch does not overwrite a known one either: a till that sends no branch is
-        # saying nothing about where the customer is, not that they are now nowhere.
-        if moved_forward and visit.branch_id:
-            customer.last_branch_id = visit.branch_id
-
-        await self._customers.save(customer)
+        # LOCKED WHEN THE CUSTOMER ALREADY EXISTED — a real gap a QA audit found (2026-09-12):
+        # two genuinely distinct visits for the SAME customer (two operators, two branches, near-
+        # simultaneously) could both read the same `visit_count`, both increment locally, and the
+        # later `save()` silently overwrite the earlier one — an undercount with no reconciliation
+        # sweep. See core/customer_counter_lock.py's own module docstring. NOT needed for a
+        # customer THIS call just created (`created_customer`): no other caller can reference an
+        # id that does not exist anywhere else yet, so there is nothing to race.
+        if created_customer:
+            moved_forward = visit.occurred_at >= customer.last_visit
+            customer.last_visit = max(customer.last_visit, visit.occurred_at)
+            customer.visit_count += 1
+            customer.counted_visit_id = visit.id
+            if moved_forward and visit.branch_id:
+                customer.last_branch_id = visit.branch_id
+            await self._customers.save(customer)
+        else:
+            from app.core.customer_counter_lock import CustomerCounterLock
+            async with CustomerCounterLock(self._cache, tenant, customer.id):
+                # RE-READ INSIDE THE LOCK — `customer` above was fetched before the lock was
+                # taken, and may already be stale if another writer finished in between.
+                fresh = await self._customers.get(tenant, customer.id)
+                customer = fresh if fresh is not None else customer
+                # THE BRANCH FOLLOWS THE SAME CLOCK AS `last_visit`, and only when the visit is
+                # the newest one. A batch replayed from last month must not tell a campaign that
+                # this customer's branch is the one they left — the field means «آخر فرع», so a
+                # stale visit may not set it.
+                #
+                # An empty branch does not overwrite a known one either: a till that sends no
+                # branch is saying nothing about where the customer is, not that they are now
+                # nowhere.
+                moved_forward = visit.occurred_at >= customer.last_visit
+                customer.last_visit = max(customer.last_visit, visit.occurred_at)
+                customer.visit_count += 1
+                customer.counted_visit_id = visit.id
+                if moved_forward and visit.branch_id:
+                    customer.last_branch_id = visit.branch_id
+                await self._customers.save(customer)
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
                              unknown_services=unknown,

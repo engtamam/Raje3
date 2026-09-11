@@ -119,6 +119,19 @@ def test_a_bad_day_is_refused_with_the_day_named(client):
     assert "الأربعاء" in r.json()["message"]
 
 
+def test_a_non_numeric_start_minute_is_a_clean_400_not_a_500(client):
+    """operations-003 (QA audit, 2026-09-12): int() on an unvalidated value used to raise an
+    uncaught ValueError — this route's own established discipline is to always return a
+    structured refusal, never raise."""
+    oid = _seed_operator(client)
+    week = dict(FULL_WEEK)
+    week["1"] = {"closed": False, "start_minute": "abc", "end_minute": 600}
+    r = client.put(f"/api/v1/staff/operators/{oid}/working-hours",
+                  json={"weekly": week}, headers=_auth("operations.manage"))
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "BAD_HOURS"
+
+
 def test_an_unknown_operator_is_404(client):
     r = client.put("/api/v1/staff/operators/opr_missing/working-hours",
                   json={"weekly": FULL_WEEK}, headers=_auth("operations.manage"))

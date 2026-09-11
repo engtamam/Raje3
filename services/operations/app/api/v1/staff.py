@@ -487,8 +487,17 @@ async def set_operator_working_hours(request: Request, operator_id: str, body: O
     for d in range(7):
         entry = body.weekly.get(str(d)) or {}
         closed = bool(entry.get("closed", False))
-        start = int(entry.get("start_minute", 0) or 0)
-        end = int(entry.get("end_minute", 0) or 0)
+        # A NON-NUMERIC start_minute/end_minute (Pydantic's own `dict[str, dict[str, Any]]`
+        # constrains nothing about the VALUES) used to raise an uncaught ValueError here — a real
+        # 500 a QA audit found, breaking this route's own "never raise, always return" discipline
+        # that BAD_HOURS/EXCEEDS_SHOP_HOURS right below already follow. Same refusal, same shape.
+        try:
+            start = int(entry.get("start_minute", 0) or 0)
+            end = int(entry.get("end_minute", 0) or 0)
+        except (TypeError, ValueError):
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                "error": "BAD_HOURS",
+                "message": f"وقت دوام يوم {_WEEKDAY_NAMES_AR[d]} غير صحيح"})
         # RETURNED, NOT RAISED — the platform's own error handler strips an HTTPException's
         # `detail` before it reaches the caller (see `create_operator`'s `SEAT_LIMIT` note above),
         # so a message meant to tell an owner exactly which day is wrong must not be raised.
