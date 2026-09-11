@@ -37,7 +37,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
-import { Minus, Plus, Crown } from 'lucide-react';
+import { Minus, Plus, Crown, Zap } from 'lucide-react';
 import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { action, call, type Catalog } from '../catalog';
 import { isDenied, isReady, type Loading } from '../loading';
@@ -586,16 +586,28 @@ function AppCard({
           {price.includes_tax && !compact ? (
             <span className="text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
           ) : null}
-          {/* «يشمل X وحدة» — only ever present on a plan that opted into the percent-of-price
-              allowance (today, بوت خدمة العملاء الذكي). Silent while the rate is still loading or
-              unreadable, same "a card that could not read a fact still sells" posture as
-              AppFeatureList's own — a missing line here costs nothing the price line hasn't
-              already said. */}
-          {price.included_credit_minor != null && unitsPerHalala !== null ? (
-            <span className={isGold ? 'text-sm font-medium text-accent' : 'text-sm font-medium text-text-secondary'}>
-              يشمل {unitsLabel(price.included_credit_minor, unitsPerHalala)} ذكاء اصطناعي شهرياً
+        </div>
+      ) : null}
+
+      {/* «يشمل X وحدة» — its OWN badge, deliberately PURPLE against the card's gold (owner's own
+          instruction: "لون مختلف تماماً") — a second accent reads as a distinct gift riding on
+          top of the plan, never as part of the gold identity itself. Only ever present on a plan
+          that opted into the percent-of-price allowance (today, بوت خدمة العملاء الذكي); silent
+          while the rate is still loading or unreadable — same "a card that could not read a fact
+          still sells" posture as AppFeatureList's own. */}
+      {price?.included_credit_minor != null && unitsPerHalala !== null ? (
+        <div className="relative flex items-center gap-3 overflow-hidden rounded-xl bg-gradient-to-l from-[#7c3aed] via-[#9333ea] to-[#a855f7] p-3 shadow-[0_4px_18px_-4px_rgba(147,51,234,0.55)]">
+          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-white">
+            <Zap size={18} />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-lg font-bold leading-tight text-white">
+              {unitsLabel(price.included_credit_minor, unitsPerHalala)}
             </span>
-          ) : null}
+            <span className="text-xs font-medium leading-snug text-white/85">
+              ذكاء اصطناعي مجاناً كل شهر — هدية مع اشتراكك
+            </span>
+          </div>
         </div>
       ) : null}
 

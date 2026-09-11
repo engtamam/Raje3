@@ -56,6 +56,14 @@ export function AdminApps({ session }: { session: AdminSession }) {
   const createRuleAction = byId('billing.create_discount_rule');
   const updateRuleAction = byId('billing.update_discount_rule');
   const deleteRuleAction = byId('billing.delete_discount_rule');
+  // SCOPED TO billing-service SPECIFICALLY, not `byId` — `operator.get_config`/`set_config` are
+  // declared by EVERY service that carries a runtime-editable setting (see AdminConfig.tsx's own
+  // per-service grouping), so the first match across the whole flat catalog could just as easily
+  // be reminders' or whatsapp-assistant's own config route. `PLAN_CREDIT_PERCENT` is billing's own
+  // knob (deploy/seed/plans.json's own note on it), so this reads billing-service's row by name.
+  const billingSvc = catalog.services.find((s) => s.service === 'billing-service');
+  const configGetAction = billingSvc?.actions.find((a) => a.id === 'operator.get_config');
+  const configSetAction = billingSvc?.actions.find((a) => a.id === 'operator.set_config');
 
   if (!plansList && !couponsList && !rulesList) {
     return <NoActionAvailable catalog={catalog} permissionTitle="حسابك لا يحمل صلاحية القراءة هنا — لا تطبيقات ولا كوبونات ولا قواعد خصم لعرضها لك." />;
@@ -75,7 +83,8 @@ export function AdminApps({ session }: { session: AdminSession }) {
       {sub === 'plans' ? (
         plansList
           ? <PlansPane session={session} listAction={plansList} availabilityAction={availabilityAction}
-                      updateAction={updatePlanAction} />
+                      updateAction={updatePlanAction}
+                      configGetAction={configGetAction} configSetAction={configSetAction} />
           : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
       ) : null}
 
@@ -98,9 +107,9 @@ export function AdminApps({ session }: { session: AdminSession }) {
   );
 }
 
-function PlansPane({ session, listAction, availabilityAction, updateAction }: {
+function PlansPane({ session, listAction, availabilityAction, updateAction, configGetAction, configSetAction }: {
   session: AdminSession; listAction: AdminAction; availabilityAction?: AdminAction;
-  updateAction?: AdminAction;
+  updateAction?: AdminAction; configGetAction?: AdminAction; configSetAction?: AdminAction;
 }) {
   const [rows, setRows] = useState<unknown[] | 'loading' | 'failed'>('loading');
 
@@ -118,7 +127,8 @@ function PlansPane({ session, listAction, availabilityAction, updateAction }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the catalog's own AdminAction
   // carries no response schema (only request params) — see catalog.ts's own note on why.
   return <PlanCards session={session} listAction={listAction} availabilityAction={availabilityAction}
-                    updateAction={updateAction} plans={rows as any} onReload={reload} />;
+                    updateAction={updateAction} plans={rows as any} onReload={reload}
+                    configGetAction={configGetAction} configSetAction={configSetAction} />;
 }
 
 function CouponsPane({ session, listAction, plansListAction, createAction, updateAction, deleteAction }: {

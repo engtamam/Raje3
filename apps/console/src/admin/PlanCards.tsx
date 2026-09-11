@@ -38,7 +38,7 @@
  * it. Full editing (`update_plan`) and creating a new app (`create_plan`) still need a real form
  * — deferred to a later screen, same call as before, still correct.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Package, Check, X, Power, Pencil, Users, GitBranch, Plug,
   MessageSquare, FileText, Eye, EyeOff, CheckCircle2, PauseCircle,
@@ -96,6 +96,10 @@ interface Price { type: string; currency: string; interval: string; amount_minor
 interface Plan {
   id: string; name: string; active: boolean; listed: boolean;
   prices: Price[]; limits: Record<string, LimitEntry>; trial_days: number;
+  /** billing-service v0.19.20 — opted into the percent-of-price AI-credit allowance. Present on
+   *  every plan's own `asdict()` read regardless of value, so `false`/absent both mean "not opted
+   *  in" for this screen's purposes. */
+  credit_percent_of_price?: boolean;
 }
 
 // The icon for a NON-APP limit (a seat, a branch, the message meter) — the small remainder that
@@ -159,9 +163,16 @@ function amountLine(entry: LimitEntry): string {
 
 const INTERVAL_LABEL: Record<string, string> = { month: 'شهرياً', year: 'سنوياً' };
 
-export function PlanCards({ session, listAction, availabilityAction, updateAction, plans, onReload }: {
+export function PlanCards({ session, listAction, availabilityAction, updateAction, plans, onReload,
+                           configGetAction, configSetAction }: {
   session: AdminSession; listAction: AdminAction; availabilityAction?: AdminAction;
   updateAction?: AdminAction; plans: Plan[]; onReload: () => void;
+  /** billing-service's own `operator.get_config`/`set_config` (platform.config) — needed ONLY by
+   *  a plan carrying `credit_percent_of_price`, to edit `PLAN_CREDIT_PERCENT` right on that plan's
+   *  own card instead of a separate, generic "Live Settings" screen (owner's own instruction,
+   *  2026-09-11: "خليه على نفس كرت التطبيق"). A GLOBAL knob, still — editing it here changes it
+   *  for every plan that has opted in, today just this one. */
+  configGetAction?: AdminAction; configSetAction?: AdminAction;
 }) {
   if (plans.length === 0) {
     return <EmptyState title="لا تطبيقات مضبوطة بعد" />;
@@ -170,15 +181,17 @@ export function PlanCards({ session, listAction, availabilityAction, updateActio
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {plans.map((p) => (
         <PlanCard key={p.id} session={session} plan={p} availabilityAction={availabilityAction}
-                 updateAction={updateAction} onReload={onReload} />
+                 updateAction={updateAction} onReload={onReload}
+                 configGetAction={configGetAction} configSetAction={configSetAction} />
       ))}
     </div>
   );
 }
 
-function PlanCard({ session, plan, availabilityAction, updateAction, onReload }: {
+function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
+                   configGetAction, configSetAction }: {
   session: AdminSession; plan: Plan; availabilityAction?: AdminAction; updateAction?: AdminAction;
-  onReload: () => void;
+  onReload: () => void; configGetAction?: AdminAction; configSetAction?: AdminAction;
 }) {
   const [busy, setBusy] = useState(false);
   const [armActive, setArmActive] = useState(false);
@@ -408,7 +421,8 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
       {updateAction ? (
         <PlanEditDrawer session={session} plan={plan} updateAction={updateAction} open={editing}
                        onClose={() => setEditing(false)}
-                       onSaved={() => { setEditing(false); onReload(); }} />
+                       onSaved={() => { setEditing(false); onReload(); }}
+                       configGetAction={configGetAction} configSetAction={configSetAction} />
       ) : null}
     </section>
   );
@@ -419,9 +433,11 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
  *  a brand-new limit key or a second price/interval still needs a schema-aware form — out of
  *  scope here, same as create_plan; this edits what an app already has, thoroughly, not what it
  *  could have. */
-function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }: {
+function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved,
+                         configGetAction, configSetAction }: {
   session: AdminSession; plan: Plan; updateAction: AdminAction;
   open: boolean; onClose: () => void; onSaved: () => void;
+  configGetAction?: AdminAction; configSetAction?: AdminAction;
 }) {
   const [name, setName] = useState(plan.name);
   const [priceText, setPriceText] = useState(plan.prices[0] ? riyals(plan.prices[0].amount_minor) : '0');
@@ -430,6 +446,27 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
   const [limits, setLimits] = useState<Record<string, LimitEntry>>(() => structuredClone(plan.limits));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // «نسبة الوحدات المضمنة» — ONLY for a plan that opted into the percent-of-price allowance
+  // (owner's own instruction, 2026-09-11: on this SAME card, not a separate "Live Settings"
+  // screen). `PLAN_CREDIT_PERCENT` is billing's own GLOBAL knob (deploy/seed/plans.json's own
+  // note), read once when the drawer opens rather than kept in sync with every other admin who
+  // might also have it open — the same "read on open, not polled" posture every edit form here
+  // already holds.
+  const showPercent = plan.credit_percent_of_price && configGetAction;
+  const [percentText, setPercentText] = useState('');
+  const [percentLoaded, setPercentLoaded] = useState(false);
+  useEffect(() => {
+    if (!open || !showPercent) return;
+    setPercentLoaded(false);
+    req<{ config: Record<string, string | number | boolean> }>(
+      configGetAction!.path, 'GET', undefined, session.access_token,
+    ).then((body) => {
+      setPercentText(String(body.config['PLAN_CREDIT_PERCENT'] ?? '0'));
+      setPercentLoaded(true);
+    }).catch(() => setPercentLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-read only when the drawer opens
+  }, [open]);
 
   function setLimitValue(key: string, patch: Partial<LimitEntry>) {
     setLimits((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
@@ -440,6 +477,13 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
     if (amount === null || amount < 0) { setError('سعر غير صحيح.'); return; }
     const days = Number(trialDays);
     if (!Number.isInteger(days) || days < 0) { setError('عدد أيام التجربة غير صحيح.'); return; }
+    let percent = 0;
+    if (showPercent) {
+      percent = Number(percentText);
+      if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
+        setError('نسبة الوحدات المضمنة يجب أن تكون بين 0 و100.'); return;
+      }
+    }
 
     setBusy(true);
     setError('');
@@ -450,6 +494,11 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
         limits,
         trial_days: days,
       }, session.access_token);
+      if (showPercent && configSetAction) {
+        await req(configSetAction.path, 'PUT',
+                  { key: 'PLAN_CREDIT_PERCENT', value: String(percent), tenant: '' },
+                  session.access_token);
+      }
       onSaved();
     } catch (err) {
       setError(sentenceFor(err, 'تعذّر حفظ التطبيق.'));
@@ -489,6 +538,24 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
           <Input id="plan-trial" dir="ltr" inputMode="numeric" value={trialDays}
                 onChange={(e) => setTrialDays(e.target.value)} />
         </Field>
+
+        {showPercent ? (
+          <Field label="نسبة الوحدات المضمنة من السعر (%)" htmlFor="plan-credit-percent">
+            {percentLoaded ? (
+              <Input id="plan-credit-percent" dir="ltr" inputMode="numeric" value={percentText}
+                    onChange={(e) => setPercentText(e.target.value)} />
+            ) : (
+              <p className="text-xs text-text-muted">جارٍ التحميل…</p>
+            )}
+            {/* A GLOBAL knob, still — editing it here changes it for every plan that has opted
+                in, today just this one. Kept on this card because it is the only place an
+                operator naturally thinks to look for "how many free AI units does this plan
+                include", not because the setting itself is scoped to this plan. */}
+            <p className="mt-1 text-xs text-text-muted">
+              إعداد عام لكل التطبيقات المفعَّلة لهذه الميزة — تعديله هنا يغيّره للجميع.
+            </p>
+          </Field>
+        ) : null}
 
         {Object.keys(limits).length > 0 ? (
           <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
