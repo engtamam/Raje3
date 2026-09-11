@@ -378,7 +378,7 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
           // be the identical flat grey, so a press that quietly turns off sales read as harmless as
           // a press that opens an edit form.
           <Button type="button" size="sm" disabled={busy}
-                  variant={plan.active ? 'danger' : undefined}
+                  variant={plan.active ? 'danger' : 'ghost'}
                   className={plan.active
                     ? 'flex flex-1 items-center justify-center gap-2'
                     : 'flex flex-1 items-center justify-center gap-2 bg-success-soft text-success-on-soft hover:opacity-90'}
@@ -395,7 +395,15 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
           // إظهار (success-soft — a calm, restorative action, same tone تفعيل already uses for
           // the same reason). Both used warning-soft regardless of state before this — the owner's
           // own screenshot: "اخفاء واظهار مافيها تمايز لوني" (no colour distinction between them).
-          <Button type="button" size="sm" disabled={busy}
+          //
+          // `variant="ghost"` EXPLICITLY, ON BOTH BUTTONS ABOVE AND HERE — left unset, `Button`'s
+          // own default is `solid` (bg-accent + `shadow-sm`), which neither إخفاء/إظهار nor تفعيل
+          // ever meant to carry: the row sat one button with a real drop shadow next to two flat
+          // ones (`تعديل`'s own `outline` and `إيقاف`'s own `danger`, neither shadowed), reading as
+          // a crooked row rather than a flat one. `ghost`'s own light fill is itself overridden by
+          // the tone classes below, so this only removes the stray shadow — the colours are
+          // unchanged.
+          <Button type="button" size="sm" disabled={busy} variant="ghost"
                   className={plan.listed
                     ? 'flex flex-1 items-center justify-center gap-2 bg-warning-soft text-warning-on-soft hover:opacity-90'
                     : 'flex flex-1 items-center justify-center gap-2 bg-success-soft text-success-on-soft hover:opacity-90'}
