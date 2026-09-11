@@ -35,6 +35,8 @@ import { partitionOffers, remaining, type Offer } from '../offers';
 import type { Session } from '../session';
 import { western } from '../digits';
 import { AssistantHint } from '../AssistantHint';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './customer-i18n';
 
 interface Record {
   customer: { id: string; phone: string; name?: string; subject_ref?: string; visits?: number };
@@ -60,13 +62,19 @@ interface Send { at?: number; template_type?: string; outcome?: string; reason?:
  * the first thing on the page for every customer who came in today — which is exactly the customer
  * an owner is most likely to be looking at.
  */
-export function ago(days: number, seen: boolean): string {
-  if (!seen) return '—';
-  if (days <= 0) return 'اليوم';
-  if (days === 1) return 'أمس';
-  if (days === 2) return 'قبل يومين';
-  if (days <= 10) return `قبل ${days} أيام`;
-  return `قبل ${days} يوماً`;
+const AGO_DEFAULT_T = (k: string) => ({
+  'customer.ago.never': '—', 'customer.ago.today': 'اليوم', 'customer.ago.yesterday': 'أمس',
+  'customer.ago.twoDaysAgo': 'قبل يومين', 'customer.ago.fewDaysAgo': 'قبل {n} أيام',
+  'customer.ago.manyDaysAgo': 'قبل {n} يوماً',
+}[k] ?? k);
+
+export function ago(days: number, seen: boolean, t: (key: string) => string = AGO_DEFAULT_T): string {
+  if (!seen) return t('customer.ago.never');
+  if (days <= 0) return t('customer.ago.today');
+  if (days === 1) return t('customer.ago.yesterday');
+  if (days === 2) return t('customer.ago.twoDaysAgo');
+  if (days <= 10) return tf(t, 'customer.ago.fewDaysAgo', { n: days });
+  return tf(t, 'customer.ago.manyDaysAgo', { n: days });
 }
 
 /** A date an owner reads. Western digits, and the shop's own timezone rather than the browser's. */
@@ -88,14 +96,13 @@ function when(epoch: number): string {
  * «أخرى» KEEPS THE DOOR OPEN, because a fixed list always meets the case nobody predicted — and a
  * screen that refuses the unusual reason teaches the operator to pick the nearest lie.
  */
-const ADJUST_REASONS = [
-  'تعويض عن خطأ في تسجيل الزيارة',
-  'تعويض عن خدمة لم تُنفَّذ كما يجب',
-  'نقاط ترحيبية',
-  'تصحيح رصيد بعد جرد',
-  'استبدال تمّ يدوياً في المحل',
-  'إلغاء استبدال',
+const ADJUST_REASON_KEYS = [
+  'customer.adjustReason.0', 'customer.adjustReason.1', 'customer.adjustReason.2',
+  'customer.adjustReason.3', 'customer.adjustReason.4', 'customer.adjustReason.5',
 ] as const;
+function adjustReasons(t: (key: string) => string): string[] {
+  return ADJUST_REASON_KEYS.map((k) => t(k));
+}
 
 /**
  * One learned interval — HIS, for one service.
@@ -115,6 +122,8 @@ interface Rule {
 }
 
 export function CustomerScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
+  const ADJUST_REASONS = adjustReasons(t);
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [record, setRecord] = useState<Record | null | undefined>(undefined);
@@ -192,16 +201,16 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
 
   // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
   // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
-  if (record === undefined) return <Waiting what="نفتح صفحة عميلك" />;
+  if (record === undefined) return <Waiting what={t('customer.waiting')} />;
 
   if (record === null) {
     return (
       <div className="p-4">
         <EmptyState
-          title="تعذّر فتح سجل العميل"
-          description="قد يكون العميل غير موجود، أو تعذّر الوصول إلى الخدمة. حاول بعد قليل."
+          title={t('customer.notFoundTitle')}
+          description={t('customer.notFoundDesc')}
         />
-        <Button variant="ghost" onClick={() => navigate('/customers')}>رجوع إلى عملائي</Button>
+        <Button variant="ghost" onClick={() => navigate('/customers')}>{t('customer.backToCustomers')}</Button>
       </div>
     );
   }
@@ -256,10 +265,10 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             dir={c.name ? 'ltr' : undefined}
             className="text-sm text-text-secondary tabular-nums"
           >
-            {c.name ? asLocal(c.phone) : 'بلا اسم'}
+            {c.name ? asLocal(c.phone) : t('customer.noName')}
           </span>
         </span>
-        <Button variant="ghost" onClick={() => navigate('/customers')}>رجوع</Button>
+        <Button variant="ghost" onClick={() => navigate('/customers')}>{t('customer.back')}</Button>
       </header>
 
       {/* HIS THREE NUMBERS, ABOVE EVERYTHING. They are what the owner opened this page to learn,
@@ -267,9 +276,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           data he cannot see. */}
       <section className="grid grid-cols-3 gap-2">
         {[
-          { k: 'زياراته', v: String(c.visits ?? times.length) },
-          { k: 'آخر زيارة', v: ago(sinceDays, Boolean(lastSeen)) },
-          { k: 'كل كم يوماً', v: everyDays ? String(everyDays) : '—' },
+          { k: t('customer.stat.visits'), v: String(c.visits ?? times.length) },
+          { k: t('customer.stat.lastVisit'), v: ago(sinceDays, Boolean(lastSeen), t) },
+          { k: t('customer.stat.everyDays'), v: everyDays ? String(everyDays) : '—' },
         ].map((x) => (
           // EQUAL HEIGHT AND ONE LINE EACH. Three cards that size themselves to their own text
           // read as three unrelated boxes; the label sits under the value at a fixed height so the
@@ -281,7 +290,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             <div className="truncate text-lg font-semibold tabular-nums">{x.v}</div>
             <div className="flex items-center gap-0.5 text-xs text-text-secondary">
               <span>{x.k}</span>
-              {x.k === 'كل كم يوماً' ? (
+              {x.k === t('customer.stat.everyDays') ? (
                 <AssistantHint session={session} anchor="customers.statFrequency" />
               ) : null}
             </div>
@@ -291,13 +300,13 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
 
       {overdue ? (
         <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning-on-soft">
-          تأخّر عن دورته المعتادة — يزور كل {everyDays} يوماً، وآخر زيارة قبل {sinceDays}.
+          {tf(t, 'customer.overdue', { every: everyDays, since: sinceDays })}
         </p>
       ) : null}
 
       {(record.assets ?? []).length > 0 ? (
         <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-          <h2 className="mb-2 text-sm text-text-secondary">سياراته</h2>
+          <h2 className="mb-2 text-sm text-text-secondary">{t('customer.vehicles')}</h2>
           <ul className="flex flex-wrap gap-2">
             {(record.assets ?? []).map((a) => (
               <li key={a.id} className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm">
@@ -319,18 +328,18 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         // page is broken. «حسابي» has five tabs and needs the sliding row; four fit, so they get
         // the width instead — the same component, sized to what it holds.
         className="flex w-full flex-nowrap [&>button]:min-w-0 [&>button]:flex-1 [&>button]:truncate [&>button]:px-1 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm"
-        ariaLabel="أقسام العميل"
+        ariaLabel={t('customer.tabsAriaLabel')}
         value={tab}
         onChange={(v: string) => setTab(v as typeof tab)}
         options={[
-          { value: 'overview', label: 'نظرة عامة' },
-          { value: 'points', label: 'نقاطه' },
-          { value: 'messages', label: 'رسائله' },
+          { value: 'overview', label: t('customer.tab.overview') },
+          { value: 'points', label: t('customer.tab.points') },
+          { value: 'messages', label: t('customer.tab.messages') },
           // EVERYTHING THAT CHANGES HIM, IN ONE PLACE. Reading and editing are different errands
           // with different risks: a manager scanning a balance should not have a points field
           // under his thumb, and an owner correcting a name should not have to hunt through three
           // read-only panes to find where the product lets him write.
-          { value: 'manage', label: 'تعديل' },
+          { value: 'manage', label: t('customer.tab.manage') },
         ]}
       />
 
@@ -340,33 +349,33 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         <CustomerBookingHistory session={session} customerId={record.customer.id} />
       ) : null}
       <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-        <h2 className="mb-3 text-sm text-text-secondary">عروضه</h2>
+        <h2 className="mb-3 text-sm text-text-secondary">{t('customer.offers.title')}</h2>
         {isLoading(offers) ? (
           <Skeleton height={90} />
         ) : isDenied(offers) ? (
-          <p className="text-sm text-text-secondary">لا يشمل دورك عروض العملاء.</p>
+          <p className="text-sm text-text-secondary">{t('customer.offers.denied')}</p>
         ) : hasFailed(offers) ? (
-          // «لم يصله أي عرض» IS A FACT ABOUT HIM. Said after a failed read it tells the owner his
-          // customer was never invited to anything, which he may then act on.
+          // "No offer has reached them yet" IS A FACT ABOUT HIM. Said after a failed read it
+          // tells the owner his customer was never invited to anything, which he may then act on.
           <p className="text-sm text-text-secondary">
-            تعذّرت قراءة عروضه الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+            {t('customer.offers.failed')}
           </p>
         ) : offers.length === 0 ? (
           // NOT A FAULT, unlike an empty service catalogue. Nobody seeds a customer an offer — he
           // gets one when the shop runs one, and saying so plainly beats an apology.
-          <p className="text-sm text-text-secondary">لم يصله أي عرض بعد.</p>
+          <p className="text-sm text-text-secondary">{t('customer.offers.empty')}</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {live.map((o) => (
               <li key={`${o.sent_at}-${o.text}`} className="rounded-xl bg-surface-2 p-3">
                 <p className="font-medium">{o.text}</p>
                 <p className="mt-1 text-sm text-text-secondary">
-                  {o.services.length > 0 ? `على: ${o.services.join('، ')}` : 'على كل الخدمات'}
+                  {o.services.length > 0 ? tf(t, 'customer.offers.onServices', { services: o.services.join('، ') }) : t('customer.offers.onAll')}
                 </p>
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                  <Badge tone="success">ساري</Badge>
+                  <Badge tone="success">{t('customer.offers.active')}</Badge>
                   <span className="text-text-secondary">{remaining(o.expires_at)}</span>
-                  <span className="text-text-secondary">· وصله {when(o.sent_at)}</span>
+                  <span className="text-text-secondary">{tf(t, 'customer.offers.receivedAt', { date: when(o.sent_at) })}</span>
                   {/* THE SAME STRING HE IS HOLDING. The owner is often the one who answers when a
                       customer calls to ask about an offer, and «الرمز اللي عندك؟» only works if
                       this screen shows what was sent. */}
@@ -385,7 +394,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               <li key={`${o.sent_at}-${o.text}`} className="rounded-xl bg-surface-2 p-3 opacity-60">
                 <p className="font-medium">{o.text}</p>
                 <p className="mt-2 flex items-center gap-2 text-sm">
-                  <Badge tone="neutral">انتهى</Badge>
+                  <Badge tone="neutral">{t('customer.offers.expired')}</Badge>
                   <span className="text-text-secondary">
                     {when(o.sent_at)} — {when(o.expires_at)}
                   </span>
@@ -397,21 +406,21 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
       </section>
 
       <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-        <h2 className="mb-3 text-sm text-text-secondary">زياراته</h2>
+        <h2 className="mb-3 text-sm text-text-secondary">{t('customer.visits.title')}</h2>
         {record.visits.length === 0 ? (
-          <p className="text-sm text-text-secondary">لا زيارات مسجّلة بعد.</p>
+          <p className="text-sm text-text-secondary">{t('customer.visits.empty')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {record.visits.slice(0, 20).map((v) => (
               <li key={v.id} className="flex items-start justify-between gap-3">
                 <span className="min-w-0">
-                  {v.services || 'زيارة'}
+                  {v.services || t('customer.visits.fallback')}
                   {/* WHAT THE TECHNICIAN TYPED, SHOWN TO THE PERSON WHO ASKED FOR IT. The reading
                       is how a vehicle shop knows whether a service is due by distance rather than
                       by date, and the note is the sentence that explains a visit months later. */}
                   {v.meter ? (
                     <span className="block text-sm tabular-nums text-text-secondary">
-                      العدّاد: {v.meter.toLocaleString('en-US')}
+                      {tf(t, 'customer.visits.meter', { n: v.meter.toLocaleString('en-US') })}
                     </span>
                   ) : null}
                   {v.note ? (
@@ -432,41 +441,41 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           {/* HIS BALANCE, AND WHERE IT WENT. «أين ذهبت نقاطي؟» is asked at the counter, by the
               person whose points they are, and an owner who cannot answer it in front of him has
               a loyalty programme that costs trust instead of earning it. */}
-          <h2 className="mb-3 text-sm text-text-secondary">نقاطه</h2>
+          <h2 className="mb-3 text-sm text-text-secondary">{t('customer.points.title')}</h2>
           {/* ONE SENTENCE FOR TWO CONTRADICTORY STATES, until the states themselves were told
-              apart. «برنامج النقاط غير مفعّل، أو تعذّرت قراءة رصيده» asks the owner to work
-              out which of two entirely different things happened — one he fixes by buying, one he
-              fixes by waiting. The lock for «not in your enabled apps» is drawn elsewhere on this screen;
-              here `undefined` waits and `null` says the read failed. */}
+              apart. "The points program isn't enabled, or its balance couldn't be read" asks the
+              owner to work out which of two entirely different things happened — one he fixes by
+              buying, one he fixes by waiting. The lock for "not in your enabled apps" is drawn
+              elsewhere on this screen; here `undefined` waits and `null` says the read failed. */}
           {isLoading(balance) ? (
             <Skeleton height={70} />
           ) : hasFailed(balance) ? (
             <p className="text-sm text-text-secondary">
-              تعذّرت قراءة رصيده الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+              {t('customer.points.failed')}
             </p>
           ) : (
             <>
               <div className="mb-3 flex items-baseline gap-2">
                 <span className="text-3xl font-semibold tabular-nums">{balance.balance}</span>
-                <span className="text-sm text-text-secondary">نقطة</span>
+                <span className="text-sm text-text-secondary">{t('customer.points.unit')}</span>
               </div>
               {(balance.rewards ?? []).length > 0 ? (
                 <ul className="mb-3 flex flex-col gap-1 text-sm">
                   {(balance.rewards ?? []).map((r) => (
                     <li key={r.id} className="flex justify-between">
                       <span>{r.name}</span>
-                      <span className="tabular-nums text-text-secondary">{r.cost} نقطة</span>
+                      <span className="tabular-nums text-text-secondary">{tf(t, 'customer.points.rewardCost', { cost: r.cost })}</span>
                     </li>
                   ))}
                 </ul>
               ) : null}
-              <h3 className="mb-1 text-sm text-text-secondary">حركة النقاط</h3>
+              <h3 className="mb-1 text-sm text-text-secondary">{t('customer.points.movement')}</h3>
               {isLoading(moves) ? <Skeleton height={60} /> : hasFailed(moves) ? (
                 <p className="text-sm text-text-secondary">
-                  تعذّرت قراءة حركة نقاطه الآن — أعد المحاولة بعد قليل.
+                  {t('customer.points.movementFailed')}
                 </p>
               ) : moves.length === 0 ? (
-                <p className="text-sm text-text-secondary">لا حركة بعد.</p>
+                <p className="text-sm text-text-secondary">{t('customer.points.movementEmpty')}</p>
               ) : (
                 <ul className="flex flex-col gap-1 text-sm">
                   {moves.slice(0, 12).map((m, i) => (
@@ -494,21 +503,20 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               watching a row that said «بلا اسم» for ever. */}
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">اسمه</span>
+              <span className="text-sm font-medium">{t('customer.manage.nameLabel')}</span>
               {/* THE RULE, ONE TAP AWAY. It is true for ever and read once; left on the card it
                   becomes furniture that takes the width the fields need and gets skipped by the
                   eye — so the one time somebody needs it, he has already learned to look past it. */}
-              <Hint label="لماذا لا يُعدَّل الرقم">
-                الرقم هوية العميل عند كل أقسام النظام، ومنه يُشتقّ معرّفه — فتغييره يترك نقاطه
-                وعروضه وتاريخه خلف الرقم القديم. رقمٌ خاطئ يعني عميلاً جديداً ودمجاً، لا تعديلاً.
+              <Hint label={t('customer.manage.whyPhoneLockedLabel')}>
+                {t('customer.manage.whyPhoneLockedBody')}
               </Hint>
             </div>
             <div className="flex gap-2">
               <input
                 value={nameDraft || c.name || ''}
                 onChange={(e) => setNameDraft(e.target.value)}
-                placeholder="اكتب اسمه"
-                aria-label="اسم العميل"
+                placeholder={t('customer.manage.namePlaceholder')}
+                aria-label={t('customer.manage.nameAriaLabel')}
                 className="h-11 min-w-0 flex-1 rounded-xl bg-surface-2 px-3 shadow-sm"
               />
               <Button
@@ -520,20 +528,20 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     const saved = nameDraft.trim();
                     await call(session, a2, { customer_id: c.id, name: saved });
                     // THE PAGE AGREES WITH THE SERVER NOW. Without this the header still showed
-                    // «بلا اسم» beside a field that had just been saved — two truths on one
+                    // "no name" beside a field that had just been saved — two truths on one
                     // screen, and the one he can see is the wrong one.
                     c.name = saved;
-                    setNamingMsg('✓ تم حفظ الاسم');
+                    setNamingMsg(t('customer.manage.nameSaved'));
                     // IT CLEARS ITSELF. A confirmation that stays becomes furniture — after a
                     // minute he cannot tell whether it belongs to the edit he just made or the
                     // one before it, which is worse than no confirmation at all.
                     window.setTimeout(() => setNamingMsg(''), 3000);
                   } catch (e) {
-                    setNamingMsg(e instanceof Error ? e.message : 'تعذّر الحفظ');
+                    setNamingMsg(e instanceof Error ? e.message : t('customer.manage.saveFailed'));
                   }
                 }}
               >
-                حفظ
+                {t('customer.manage.save')}
               </Button>
             </div>
             {/* THE NUMBER IS NOT EDITABLE, and the sentence says why rather than leaving him to
@@ -555,10 +563,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           {action(catalog, 'loyalty.adjust') ? (
             <div className="mb-4 flex flex-col gap-2 rounded-xl bg-surface-2 p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">تعديل رصيده</span>
-                <Hint label="شرح المنح والخصم">
-                  اكتب <span dir="ltr" className="tabular-nums">50</span> لمنحه نقاطاً،
-                  و<span dir="ltr" className="tabular-nums">-50</span> لخصمها منه.
+                <span className="text-sm font-medium">{t('customer.manage.adjustTitle')}</span>
+                <Hint label={t('customer.manage.adjustHintLabel')}>
+                  {t('customer.manage.adjustHintBody')}
                 </Hint>
               </div>
               {/* TWO ROWS, NOT ONE. Everything about this control was correct three attempts
@@ -576,8 +583,8 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   onChange={(e) => setAdjustBy(western(e.target.value).replace(/[^0-9-]/g, ''))}
                   inputMode="numeric"
                   dir="ltr"
-                  placeholder="50"
-                  aria-label="عدد النقاط"
+                  placeholder={t('customer.manage.adjustAmountPlaceholder')}
+                  aria-label={t('customer.manage.adjustAmountAriaLabel')}
                   className="h-11 w-full rounded-xl bg-surface-1 px-3 text-center text-lg tabular-nums shadow-sm"
                 />
               </div>
@@ -610,7 +617,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   className="flex min-h-11 w-full items-center justify-between rounded-xl bg-surface-1 px-3 text-start text-sm shadow-sm"
                 >
                   <span className={adjustNote ? '' : 'text-text-secondary'}>
-                    {adjustNote || 'اختر السبب'}
+                    {adjustNote || t('customer.manage.chooseReason')}
                   </span>
                   <span className="text-text-secondary">▾</span>
                 </button>
@@ -618,8 +625,8 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 <Drawer
                   open={pickingReason}
                   onClose={() => setPickingReason(false)}
-                  title="سبب التعديل"
-                  subtitle="يُحفَظ مع الحركة، ويُقرأ بعد أشهر"
+                  title={t('customer.manage.reasonDrawerTitle')}
+                  subtitle={t('customer.manage.reasonDrawerSubtitle')}
                 >
                   <ul className="flex flex-col gap-1">
                     {ADJUST_REASONS.map((r) => (
@@ -636,7 +643,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                       </li>
                     ))}
                     <li>
-                      {/* «أخرى» STAYS: a closed list always meets the case nobody predicted, and
+                      {/* "Other" STAYS: a closed list always meets the case nobody predicted, and
                           forcing the nearest wrong reason corrupts the record while making it look
                           clean — worse than free text, because it reads as data. */}
                       <button
@@ -644,20 +651,20 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                         onClick={() => { setAdjustNote(''); setPickingReason(false); }}
                         className="min-h-11 w-full rounded-xl bg-surface-2 px-3 text-start text-sm"
                       >
-                        أخرى…
+                        {t('customer.adjustReason.other')}
                       </button>
                     </li>
                   </ul>
                 </Drawer>
 
-              {/* THE FREE FIELD ONLY FOR «أخرى» — the common case is two taps, and the case
+              {/* THE FREE FIELD ONLY FOR "OTHER" — the common case is two taps, and the case
                   nobody predicted is still possible. */}
               {!(ADJUST_REASONS as readonly string[]).includes(adjustNote) ? (
                 <input
                   value={adjustNote}
                   onChange={(e) => setAdjustNote(e.target.value)}
-                  placeholder="اكتب السبب"
-                  aria-label="سبب آخر"
+                  placeholder={t('customer.manage.otherReasonPlaceholder')}
+                  aria-label={t('customer.manage.otherReasonAriaLabel')}
                   className="h-11 rounded-xl bg-surface-1 px-3 text-sm shadow-sm"
                 />
               ) : null}
@@ -683,21 +690,21 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                         idempotency_key: `adj-${ref}-${adjustBy}-${adjustNote.trim()}`,
                       },
                     );
-                    if (r.ok === false) { setAdjustMsg(r.reason || 'تعذّر التعديل'); }
+                    if (r.ok === false) { setAdjustMsg(r.reason || t('customer.manage.adjustFailed')); }
                     else {
                       setBalance((b) => (b ? { ...b, balance: r.balance ?? b.balance } : b));
                       setAdjustBy('');
                       setAdjustNote('');
-                      setAdjustMsg('تم — وسُجّل السبب مع الحركة.');
+                      setAdjustMsg(t('customer.manage.adjustSaved'));
                     }
                   } catch (e) {
-                    setAdjustMsg(e instanceof Error ? e.message : 'تعذّر التعديل');
+                    setAdjustMsg(e instanceof Error ? e.message : t('customer.manage.adjustFailed'));
                   } finally {
                     setAdjusting(false);
                   }
                 }}
               >
-                حفظ التعديل
+                {t('customer.manage.saveAdjustment')}
               </Button>
               {adjustMsg ? <p className="text-sm text-text-secondary">{adjustMsg}</p> : null}
             </div>
@@ -715,27 +722,24 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           {eraseAction ? (
             <div className="mt-6 flex flex-col gap-2 border-t border-border-subtle pt-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">حذف بيانات هذا العميل</span>
+                <span className="text-sm font-medium">{t('customer.erase.title')}</span>
                 <Hint>
-                  حقّ نظامي لعميلك: إذا طلب حذف بياناته فالحذف عليك أنت لا علينا، ونحن ننفّذه
-                  بأمرك. يُحذف اسمه ورقمه وزياراته ونقاطه ورسائله من كل مكان في المنصة — ولا يمكن
-                  التراجع. ويبقى ما يلزمنا القانون بحفظه: الفواتير والسجلّ المحاسبي، لأن حذفها
-                  مخالفة أخرى.
+                  {t('customer.erase.hintBody')}
                 </Hint>
               </div>
 
               {!eraseAsked ? (
                 <div>
                   <Button variant="outline" onClick={() => { setEraseAsked(true); setEraseMsg(''); }}>
-                    حذف بياناته
+                    {t('customer.erase.action')}
                   </Button>
                 </div>
               ) : (
-                /* TWO STEPS, AND THE SECOND ONE NAMES HIM. A confirmation that says «متأكد؟» is a
-                   reflex; one that repeats whose data is about to go is a decision. */
+                /* TWO STEPS, AND THE SECOND ONE NAMES HIM. A confirmation that says "are you
+                   sure?" is a reflex; one that repeats whose data is about to go is a decision. */
                 <div className="flex flex-col gap-2 rounded-card bg-surface-2 p-3">
                   <p className="text-sm">
-                    سيُحذف نهائياً كل ما لدينا عن {record?.customer?.name || 'هذا العميل'} — بلا رجعة.
+                    {tf(t, 'customer.erase.confirm', { name: record?.customer?.name || t('customer.erase.thisCustomer') })}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -746,23 +750,23 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                         try {
                           const r = await call<{ ok?: boolean; reason?: string }>(
                             session, eraseAction, { customer_id: id ?? '' });
-                          if (r?.ok === false) { setEraseMsg(r.reason || 'تعذّر الحذف'); return; }
+                          if (r?.ok === false) { setEraseMsg(r.reason || t('customer.erase.failed')); return; }
                           // AND WE LEAVE THE PAGE. Staying on the record of a person we just
                           // erased would render his name off a copy in the browser's memory —
                           // which is the one place the fan-out cannot reach.
                           navigate('/customers', { replace: true });
                         } catch (e) {
-                          setEraseMsg(e instanceof Error ? e.message : 'تعذّر الحذف');
+                          setEraseMsg(e instanceof Error ? e.message : t('customer.erase.failed'));
                         } finally {
                           setErasing(false);
                         }
                       }}
                     >
-                      نعم، احذف نهائياً
+                      {t('customer.erase.confirmAction')}
                     </Button>
                     <Button variant="outline" disabled={erasing}
                             onClick={() => setEraseAsked(false)}>
-                      تراجع
+                      {t('customer.erase.cancel')}
                     </Button>
                   </div>
                   {eraseMsg ? <p className="text-sm text-danger">{eraseMsg}</p> : null}
@@ -785,10 +789,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
       {tab === 'overview' && cycles.length ? (
         <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm text-text-secondary">دورته عندك</h2>
+            <h2 className="text-sm text-text-secondary">{t('customer.cycles.title')}</h2>
             <Hint>
-              كم يوماً يمرّ عادةً قبل أن يعود لكل خدمة — نتعلّمها من زياراته هو، لا من متوسط عام.
-              وإن كنت تعرف رقمه أفضل منّا فاكتبه، ونتوقّف عن التعديل لهذه الخدمة.
+              {t('customer.cycles.hintBody')}
             </Hint>
           </div>
           {cycles.slice(0, 6).map((r) => (
@@ -799,9 +802,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   {/* STILL AN ESTIMATE, AND IT SAYS SO. `learned` false means the number is the
                       service's default wearing his name. */}
                   {r.learned
-                    ? `تعلّمناها من ${r.observations ?? 0} زيارة`
-                    : 'تقدير مبدئي — لم نتعلّمها بعد'}
-                  {r.pinned ? ' · مثبّتة بيدك' : ''}
+                    ? tf(t, 'customer.cycles.learned', { n: r.observations ?? 0 })
+                    : t('customer.cycles.estimate')}
+                  {r.pinned ? t('customer.cycles.pinnedSuffix') : ''}
                 </span>
               </span>
               <span className="flex items-center gap-2">
@@ -810,7 +813,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   min={1}
                   dir="ltr"
                   defaultValue={String(Math.round(r.interval_days ?? 0))}
-                  aria-label={`دورة ${r.service_name || r.service_id}`}
+                  aria-label={tf(t, 'customer.cycles.intervalAriaLabel', { name: r.service_name || r.service_id || '' })}
                   onBlur={async (e) => {
                     const raw = e.target.value.trim();
                     const n = Number(raw);
@@ -821,14 +824,14 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     try {
                       await call(session, a, { service_id: r.id || r.service_id || '',
                                                interval_days: n });
-                      setPinMsg('ثبّتنا رقمك — ولن نعدّله تلقائياً لهذه الخدمة.');
+                      setPinMsg(t('customer.cycles.pinSaved'));
                     } catch {
-                      setPinMsg('تعذّر الحفظ.');
+                      setPinMsg(t('customer.cycles.pinFailed'));
                     }
                   }}
                   className="h-10 w-20 rounded-lg bg-surface-2 px-2 text-center tabular-nums"
                 />
-                <span className="text-xs text-text-secondary">يوماً</span>
+                <span className="text-xs text-text-secondary">{t('customer.cycles.days')}</span>
               </span>
             </div>
           ))}
@@ -841,21 +844,22 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           {/* WHAT WENT TO HIM, AND WHAT DID NOT — WITH ITS REASON. «لماذا لم تصل رسالة عميلي؟» is
               the only question this engine generates, and every correct refusal (quiet hours, the
               ceiling, consent, an unapproved template) reads as a fault until it is named. */}
-          <h2 className="mb-3 text-sm text-text-secondary">رسائله</h2>
+          <h2 className="mb-3 text-sm text-text-secondary">{t('customer.messages.title')}</h2>
           {isLoading(sends) ? <Skeleton height={80} /> : hasFailed(sends) ? (
-            // «لم يخرج له شيء» ANSWERS THE ONE QUESTION THIS SCREEN EXISTS FOR. Said after a
-            // failed read, the owner concludes the engine never wrote to his customer at all.
+            // "Nothing has gone out to them yet" ANSWERS THE ONE QUESTION THIS SCREEN EXISTS
+            // FOR. Said after a failed read, the owner concludes the engine never wrote to his
+            // customer at all.
             <p className="text-sm text-text-secondary">
-              تعذّرت قراءة رسائله الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+              {t('customer.messages.failed')}
             </p>
           ) : sends.length === 0 ? (
-            <p className="text-sm text-text-secondary">لم يخرج له شيء بعد.</p>
+            <p className="text-sm text-text-secondary">{t('customer.messages.empty')}</p>
           ) : (
             <ul className="flex flex-col gap-2 text-sm">
               {sends.slice(0, 20).map((x, i) => (
                 <li key={i} className="flex items-center justify-between gap-2">
                   <span className="flex flex-col">
-                    <span>{x.template_type || 'رسالة'}</span>
+                    <span>{x.template_type || t('customer.messages.fallback')}</span>
                     {x.reason ? (
                       <span className="text-xs text-text-secondary">{x.reason}</span>
                     ) : null}
@@ -863,8 +867,8 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   <span className="flex items-center gap-2">
                     <span className="text-xs text-text-secondary">{when(x.at ?? 0)}</span>
                     {x.outcome === 'sent'
-                      ? <Badge tone="success">خرجت</Badge>
-                      : <Badge tone="neutral">لم تخرج</Badge>}
+                      ? <Badge tone="success">{t('customer.messages.sent')}</Badge>
+                      : <Badge tone="neutral">{t('customer.messages.suppressed')}</Badge>}
                   </span>
                 </li>
               ))}

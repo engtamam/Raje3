@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
+import { OperatorI18nProvider } from './operator-i18n';
 
 const asked: { fn: string; args: unknown[] }[] = [];
 
@@ -34,8 +35,9 @@ afterEach(() => { asked.length = 0; response = { bookings: [] }; cleanup(); });
 const { CustomerBookingHistory } = await import('./CustomerBookingHistory');
 
 function open() {
-  return render(createElement(CustomerBookingHistory, {
-    session: {} as never, customerId: 'c1',
+  return render(createElement(OperatorI18nProvider, {
+    session: {} as never,
+    children: createElement(CustomerBookingHistory, { session: {} as never, customerId: 'c1' }),
   }));
 }
 
