@@ -215,7 +215,7 @@ describe('AdminApps', () => {
   it('an honest sentence, no sub-tabs, when nothing is readable', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminApps session={SESSION} />);
-    await waitFor(() => expect(screen.getByText(/لا تطبيقات ولا كوبونات لعرضها لك/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/لا تطبيقات ولا كوبونات ولا قواعد خصم لعرضها لك/)).toBeTruthy());
     expect(screen.queryByText('التطبيقات والأسعار')).toBeFalsy();
   });
 });

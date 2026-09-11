@@ -17,11 +17,12 @@ import { useEffect, useState } from 'react';
 import { Segmented } from '../rj-ui/Segmented';
 import { PlanCards } from './PlanCards';
 import { CouponCards } from './CouponCards';
+import { DiscountRuleCards } from './DiscountRuleCards';
 import { allActions, fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
 
-type SubTab = 'plans' | 'coupons';
+type SubTab = 'plans' | 'coupons' | 'discount_rules';
 
 export function AdminApps({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
@@ -51,9 +52,13 @@ export function AdminApps({ session }: { session: AdminSession }) {
   const createCouponAction = byId('billing.create_coupon');
   const updateCouponAction = byId('billing.update_coupon');
   const deleteCouponAction = byId('billing.delete_coupon');
+  const rulesList = byId('billing.list_discount_rules');
+  const createRuleAction = byId('billing.create_discount_rule');
+  const updateRuleAction = byId('billing.update_discount_rule');
+  const deleteRuleAction = byId('billing.delete_discount_rule');
 
-  if (!plansList && !couponsList) {
-    return <NoActionAvailable catalog={catalog} permissionTitle="حسابك لا يحمل صلاحية القراءة هنا — لا تطبيقات ولا كوبونات لعرضها لك." />;
+  if (!plansList && !couponsList && !rulesList) {
+    return <NoActionAvailable catalog={catalog} permissionTitle="حسابك لا يحمل صلاحية القراءة هنا — لا تطبيقات ولا كوبونات ولا قواعد خصم لعرضها لك." />;
   }
 
   return (
@@ -64,6 +69,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
                 options={[
                   { value: 'plans', label: 'التطبيقات والأسعار' },
                   { value: 'coupons', label: 'الخصومات والعروض' },
+                  { value: 'discount_rules', label: 'قواعد الخصم المتسلسل' },
                 ]} />
 
       {sub === 'plans' ? (
@@ -78,6 +84,14 @@ export function AdminApps({ session }: { session: AdminSession }) {
           ? <CouponsPane session={session} listAction={couponsList} plansListAction={plansList}
                         createAction={createCouponAction} updateAction={updateCouponAction}
                         deleteAction={deleteCouponAction} />
+          : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
+      ) : null}
+
+      {sub === 'discount_rules' ? (
+        rulesList
+          ? <DiscountRulesPane session={session} listAction={rulesList}
+                               createAction={createRuleAction} updateAction={updateRuleAction}
+                               deleteAction={deleteRuleAction} />
           : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
       ) : null}
     </div>
@@ -141,4 +155,26 @@ function CouponsPane({ session, listAction, plansListAction, createAction, updat
   return <CouponCards session={session} createAction={createAction} updateAction={updateAction}
                       deleteAction={deleteAction} coupons={rows as any}
                       plans={plans === 'loading' ? [] : plans} onReload={reload} />;
+}
+
+function DiscountRulesPane({ session, listAction, createAction, updateAction, deleteAction }: {
+  session: AdminSession; listAction: AdminAction;
+  createAction?: AdminAction; updateAction?: AdminAction; deleteAction?: AdminAction;
+}) {
+  const [rows, setRows] = useState<unknown[] | 'loading' | 'failed'>('loading');
+
+  const reload = () => {
+    setRows('loading');
+    req<{ discount_rules: unknown[] }>(listAction.path, 'GET', undefined, session.access_token)
+      .then((body) => setRows(body.discount_rules))
+      .catch(() => setRows('failed'));
+  };
+
+  useEffect(reload, [listAction, session]);
+
+  if (rows === 'loading') return <p className="text-sm text-text-secondary">جارٍ التحميل…</p>;
+  if (rows === 'failed') return <p role="alert" className="text-danger text-sm">تعذّرت قراءة قواعد الخصم.</p>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same reason as PlansPane above.
+  return <DiscountRuleCards session={session} createAction={createAction} updateAction={updateAction}
+                            deleteAction={deleteAction} rules={rows as any} onReload={reload} />;
 }
