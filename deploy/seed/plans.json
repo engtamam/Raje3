@@ -122,10 +122,21 @@
       "name": "الحملات",
       "amount": 9900,
       "trial_days": 30,
+      "_requires_any": [
+        "CONFIRMED FIX (2026-09-11 audit) — same reasoning as برنامج النقاط's own `requires_any`",
+        "note below: a campaign that measures WHO CAME BACK is a promise with no way to be kept on",
+        "a shop holding neither تسجيل زيارة nor الحجوزات (no touchpoint to measure against at all).",
+        "Plans.tsx's own `DEPENDENT_KEYS` already assumed this row declared the dependency; it did",
+        "not, until now — an unfinished edit, not a deliberate exemption."
+      ],
       "limits": {
         "feature.campaigns": {
           "kind": "boolean",
           "limit": 1
+        },
+        "plan.requires_any": {
+          "kind": "list",
+          "list": ["feature.visit", "feature.bookings"]
         }
       }
     },

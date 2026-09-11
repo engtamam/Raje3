@@ -113,8 +113,12 @@ def worded() -> set[str]:
     tomorrow and it is enforced everywhere, priced into the plan, and invisible on the page where
     somebody decides to buy it. Nothing fails. It is the severed wire again, wearing a price tag.
     """
+    # RENAMED `LIMIT_WORDS` -> `LIMIT_KEYS` (2026-09-11, operator-i18n migration) — the object's
+    # own KEYS (what this function reads) are unchanged; only its VALUES moved from literal
+    # Arabic sentences to translation keys resolved through plans-i18n.ts. A key present here is
+    # still exactly "the pricing page has a sentence for it somewhere", which is all this asks.
     text = (ROOT / "apps" / "console" / "src" / "screens" / "Plans.tsx").read_text(encoding="utf-8")
-    block = text.split("LIMIT_WORDS", 1)[-1].split("};", 1)[0]
+    block = text.split("LIMIT_KEYS", 1)[-1].split("};", 1)[0]
     # COUNTERS TOO, and the same reasoning exactly. A limit with no sentence is not rendered —
     # so a shop comparing plans sees no seat count, no branch count and no message cap, while all
     # three are charged for and enforced. Note `branches` is written unquoted in that object, so
