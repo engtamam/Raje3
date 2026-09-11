@@ -79,9 +79,10 @@ from typing import Any
 # second counter with no entitlement behind it, which resolves deny-by-default and would refuse
 # every send — the one way this file can still stop a shop.
 KEY = "messages.monthly"
-# The other metered thing this service owns: a text the shop wrote and we submitted to Meta on its
-# behalf. Counted at SUBMISSION and never at draft — a draft costs nobody anything.
-CUSTOM_TEMPLATE_KEY = "templates.custom"
+# CUSTOM_TEMPLATE_KEY / `take()` USED TO LIVE HERE — the other metered thing this service owns, a
+# text the shop wrote and submitted to Meta. Moved out entirely (2026-09-11, core/template_quota.py)
+# once the owner retired billing this per app: it is now a flat, local, system-wide ceiling, never
+# a billing-service call, so this file no longer has any business naming it.
 
 
 class QuotaError(Exception):
@@ -100,12 +101,6 @@ class NullQuota:
     def __init__(self) -> None:
         self.consumed: list[dict[str, Any]] = []
         self.released: list[dict[str, Any]] = []
-
-    async def take(self, *, tenant: str, key: str, idempotency_key: str) -> None:
-        """No billing wired: nothing is metered, and nothing is refused for a plan that is not
-        being read. The strict direction would refuse every custom template in a deployment
-        without billing, which is a development environment, not a shop."""
-        return
 
     async def consume(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
         self.consumed.append({"tenant": tenant, "idempotency_key": idempotency_key,
@@ -194,54 +189,15 @@ class HttpQuota:
             # we cannot explain to the owner would be worse than not counting it.
             return
 
-    async def take(self, *, tenant: str, key: str, idempotency_key: str) -> None:
-        """Spend one unit of a counter that IS a limit — and refuse when it is exhausted.
-
-        THE OPPOSITE OF `consume` ABOVE, deliberately. Messages are measured and never refused,
-        because we do not own the ceiling. `templates.custom` we DO sell: 0, 1, 9 (plans.json),
-        unlimited — and a plan limit that fails open is not a plan limit, it is a label.
-
-        UNREACHABLE REFUSES HERE. Failing open on a message loses a measurement; failing open on
-        this hands Meta a submission the shop did not buy, against a name that cannot be reused.
-        """
-        try:
-            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
-            status, out = await asyncio.to_thread(
-                self._post, self._consume, {"tenant": tenant, "key": key, "amount": 1,
-                                            "idempotency_key": idempotency_key})
-        except QuotaError as exc:
-            raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.") from exc
-        # THE VERDICT FIRST, WHATEVER STATUS CARRIES IT. billing answers the unsubscribed
-        # establishment with NOT_ENTITLED, and a gateway in front of it can hand that same body
-        # back under a 402 or a 403. It is the one refusal we can name to the owner precisely, so
-        # it is read before anything else decides for him.
-        if str(out.get("error") or "") == "NOT_ENTITLED":
-            raise QuotaError("لا يوجد اشتراك فعّال.")
-        # THEN «DID BILLING ANSWER AT ALL» — ON ITS OWN LINE, and that separation is the whole
-        # point rather than a style. `_post` hands back an EMPTY body when the call failed, so a
-        # status test joined by `or` to a body test lets `{}` decide the sentence: every 500
-        # billing ever returned told the owner «بلغت حدّ باقتك من النصوص الخاصة هذا الشهر» about a
-        # limit he had not approached, and he telephoned support about a package rather than about
-        # an outage — the support call that costs us the customer and teaches us nothing.
-        #
-        # It still REFUSES: a submission we cannot verify is one we do not hand Meta (see the
-        # docstring). Only the sentence changes, and the sentence has to be true.
-        if status >= 400:
-            raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.")
-        if not out.get("allowed"):
-            # BILLING ANSWERED, AND THE ANSWER IS «NO». A 200 that says `allowed: false` without
-            # naming an error IS the counter being spent, and this owner really has hit his limit.
-            raise QuotaError("بلغت حدّ باقتك من النصوص الخاصة هذا الشهر.")
-
     async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1,
                       key: str = KEY) -> None:
         """Give the unit back after a send that did not happen. Best-effort, never raises.
 
-        THE KEY IS AN ARGUMENT NOW, and it was a constant. This service meters two different
-        things — `messages.monthly`, which is measured and never refused, and `templates.custom`,
-        which IS a limit — so a release that always credited the first would have handed a shop a
-        message allowance back for a template Meta rejected. Silently, and in the shop's favour,
-        which is the direction nobody reports.
+        THE KEY STAYS AN ARGUMENT even though `messages.monthly` is the only value ever passed
+        now — `templates.custom`'s own release moved out entirely (2026-09-11,
+        core/template_quota.py, once the owner retired billing it per app for a flat local
+        ceiling). A default here would silently be wrong the day this service meters a second
+        billed counter.
         """
         try:
             # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.

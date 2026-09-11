@@ -212,27 +212,6 @@ def test_an_http_fault_with_no_verdict_in_it_loses_the_measurement_not_the_messa
     run(quota(f).consume(tenant=T, idempotency_key="a"))          # must not raise
 
 
-def test_a_broken_billing_is_not_told_to_the_owner_as_his_own_limit():
-    """`take` DOES refuse on a fault — a submission we cannot verify is one we do not hand Meta —
-    but the sentence has to be true. A 500 carries no verdict, and «you used up your custom texts
-    this month» is a number about his own plan that we cannot defend and that sends him looking
-    for a fault in himself."""
-    f = FakeBilling()
-    f.post = lambda url, body: (500, {})
-    with pytest.raises(Q.QuotaError) as exc:
-        run(quota(f).take(tenant=T, key=Q.CUSTOM_TEMPLATE_KEY, idempotency_key="a"))
-    assert "تعذّر التحقق" in str(exc.value)
-
-
-def test_a_real_exhausted_plan_still_says_so():
-    """The other half: narrowing the sentence above must not blunt the true one."""
-    f = FakeBilling()
-    f.post = lambda url, body: (200, {"allowed": False, "error": "LIMIT_REACHED"})
-    with pytest.raises(Q.QuotaError) as exc:
-        run(quota(f).take(tenant=T, key=Q.CUSTOM_TEMPLATE_KEY, idempotency_key="a"))
-    assert "بلغت حدّ باقتك" in str(exc.value)
-
-
 def test_the_body_of_a_4xx_is_read_rather_than_discarded():
     """THE LINE UNDER ALL FOUR ABOVE. `_post` returned `(code, {})` for every HTTPError, so the
     verdict never reached the caller at all and no amount of care in `consume` could have found
@@ -256,28 +235,6 @@ def test_the_body_of_a_4xx_is_read_rather_than_discarded():
     finally:
         urllib.request.urlopen = original
     assert status == 402 and out["error"] == "NOT_ENTITLED"
-# ── billing broken is not «you reached your limit» (هـ-4) ──────────────────────────────────────
-def test_a_billing_outage_is_not_read_to_the_owner_as_his_plan_limit():
-    """THE SENTENCE IS THE DEFECT. `take` refuses a custom template when the plan is spent, and it
-    used to judge the status and the body in one condition — so a 500, whose body is empty, fell
-    to the last branch and told a subscriber he had exhausted an allowance he had not touched. He
-    then rings support about a package, and nobody looks at the outage."""
-    f = FakeBilling(limit=3)
-    f.status = 500
-    with pytest.raises(Q.QuotaError) as e:
-        run(quota(f).take(tenant=T, key="templates.custom", idempotency_key="a"))
-    assert "حدّ باقتك" not in str(e.value)
-    assert "تعذّر" in str(e.value)
-
-
-def test_the_plan_limit_sentence_still_reaches_the_owner_who_did_reach_it():
-    """The other half: a real refusal is HTTP 200 with `allowed: false`, and it must still say
-    what he can act on. A fix that turned every refusal into «try again later» would hide the one
-    message that sells him the next plan."""
-    f = FakeBilling(limit=0)
-    with pytest.raises(Q.QuotaError) as e:
-        run(quota(f).take(tenant=T, key="templates.custom", idempotency_key="a"))
-    assert "حدّ باقتك" in str(e.value)
 
 
 def test_the_key_is_one_name_defined_once():

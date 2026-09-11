@@ -684,13 +684,12 @@ async def submit_custom_template(request: Request, name: str,
         # hourly slots to ask about a template Meta has not finished reading.
         return {"ok": False, "error": "هذا النص مرفوع بالفعل."}
 
-    # ── THE PLAN LIMIT, SPENT BEFORE THE SUBMISSION AND NOT AFTER ────────────────────────────
+    # ── THE SYSTEM CEILING, SPENT BEFORE THE SUBMISSION AND NOT AFTER ────────────────────────
     #
-    # `templates.custom` is sold: 0, then 1, 9, unlimited — the figures in deploy/seed/plans.json,
-    # which is the only place they live. This comment said «10» and named a tier we retired, so
-    # support promised a tenth template and the door refused it. `Quota.take` was written
-    # for it — refusing when exhausted, and refusing when it cannot reach billing, both on purpose
-    # — and NOTHING EVER CALLED IT. A shop on the entry plan could submit unlimited texts to Meta.
+    # `templates.custom` USED TO BE SOLD PER APP through billing-service (الحملات: 1/month,
+    # فرصي: 9/month) — the owner's own call (2026-09-11) retired that entirely: every shop gets
+    # the SAME flat allowance now, regardless of which apps it owns, enforced locally rather than
+    # billed (core/template_quota.py's own header explains the whole shape).
     #
     # AND THE COST IS NOT OURS ALONE. Every submission goes to Meta under the establishment's own
     # WhatsApp account and counts against OUR quality standing as its Tech Provider; a rejected
@@ -699,14 +698,14 @@ async def submit_custom_template(request: Request, name: str,
     #
     # BEFORE, because after is a limit that has already been exceeded. The unit is released below
     # if Meta refuses, so a rejection does not cost him a slot he never got the use of.
-    from app.core.quota import CUSTOM_TEMPLATE_KEY, QuotaError
+    from app.core.template_quota import QuotaError, TemplateQuota
 
-    idem = f"tpl:{_tenant(principal)}:{name}:{row.get('version') or 0}"
+    template_quota = TemplateQuota(c.datastore)
     try:
-        await c.quota.take(tenant=_tenant(principal), key=CUSTOM_TEMPLATE_KEY, idempotency_key=idem)
+        await template_quota.take(_tenant(principal))
     except QuotaError as exc:
-        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «بلغت حدّ باقتك من
-        # النصوص الخاصة» is the whole answer.
+        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «بلغت حدّ النظام من
+        # القوالب الخاصة» is the whole answer.
         return {"ok": False, "error": str(exc)}
 
     # HIS SHOP'S OWN NAME, NOT META'S PLACEHOLDER (ح-8). `submission._examples` fills the
@@ -719,8 +718,7 @@ async def submit_custom_template(request: Request, name: str,
     if not out.get("ok"):
         # HIS SLOT BACK. Meta refused the wording, and charging him a monthly allowance for a text
         # that never reached anybody would make the limit punish the attempt rather than the use.
-        await c.quota.release(tenant=_tenant(principal), idempotency_key=idem,
-                              key=CUSTOM_TEMPLATE_KEY)
+        await template_quota.release(_tenant(principal))
     status = PENDING if out.get("ok") else REJECTED
     try:
         row = await store.mark(_tenant(principal), name, status=status,
