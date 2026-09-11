@@ -15,13 +15,14 @@
  * hand-built screen to catch up.
  */
 import { useEffect, useState } from 'react';
+import { Check, Play, RotateCcw, Trash2, type LucideIcon } from 'lucide-react';
 import { Table, type TableColumn } from '../rj-ui/Table';
-import { Button } from '../rj-ui/Button';
+import { Field, Input } from '../rj-ui/Field';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { EmptyState } from '../rj-ui/EmptyState';
 import type { AdminAction, AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
-import { resolvePath, runAction, rowLabel } from './actionApi';
+import { extraParamsOf, resolvePath, runAction, rowLabel, targetsRow } from './actionApi';
 import { NoActionAvailable } from './NoActionAvailable';
 import { sentenceFor } from '../api';
 
@@ -48,7 +49,39 @@ function truncate(v: unknown): string {
   return s.length > 60 ? `${s.slice(0, 57)}…` : s;
 }
 
-export function ActionListGroup({ session, listAction, rowActions, extraQuery }: {
+/** A raw epoch-seconds number (`0` reads as "never set", not 1970) into a date a human reads at a
+ *  glance — the generic engine used to print these as bare numbers (`1799712000`), same value,
+ *  unreadable, exactly the complaint a screenshot showed for this table. */
+function fmtEpoch(v: unknown): string {
+  const n = Number(v);
+  if (!n) return '—';
+  return new Date(n * 1000).toLocaleDateString('ar-SA-u-nu-latn', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+}
+
+/** A DEFAULT icon by shape, when the caller names none for this specific action (`actionMeta`
+ *  below) — a generic engine covering hundreds of actions across the whole catalog cannot ask
+ *  every caller to pick one for each. Guessed from the verb the method/danger pair usually means:
+ *  a destructive POST/DELETE reads as Trash2, a plain POST as Play (fire it), PUT/PATCH as
+ *  RotateCcw (change something), GET as Check (a read-only confirm, e.g. "verify"). */
+function defaultIcon(a: AdminAction): LucideIcon {
+  if (a.danger) return Trash2;
+  if (a.method === 'GET') return Check;
+  if (a.method === 'PUT' || a.method === 'PATCH') return RotateCcw;
+  return Play;
+}
+
+export interface ActionMeta {
+  /** Arabic label — replaces the catalog's own (often English) `label` on the button's tooltip,
+   *  the confirm dialog title, and the error sentence. The catalog value is never mutated; this
+   *  is display-only, read by this component alone. */
+  label?: string;
+  icon?: LucideIcon;
+}
+
+export function ActionListGroup({ session, listAction, rowActions, extraQuery, columnLabels,
+                                 hiddenColumns, dateColumns, actionMeta }: {
   session: AdminSession;
   listAction: AdminAction;
   /** Mutating actions from the same catalog group — offered per row when their path param
@@ -59,9 +92,22 @@ export function ActionListGroup({ session, listAction, rowActions, extraQuery }:
    *  (that stays the caller's own screen, same as `AdminCompliance.tsx`'s customer lookup). Never
    *  read from the catalog itself — only ever what the caller explicitly passes. */
   extraQuery?: Record<string, string>;
+  /** Raw response key → Arabic header, e.g. `{status: 'الحالة'}`. A key with no entry falls back
+   *  to its raw name (still shown — an untranslated column beats a silently dropped one). */
+  columnLabels?: Record<string, string>;
+  /** Raw response keys to drop from the table entirely — technical fields with nothing to show a
+   *  human (an empty `subject_kind` on every row, say). Never drops `id`/whatever `getRowId` uses. */
+  hiddenColumns?: string[];
+  /** Raw response keys that carry an epoch-seconds number — rendered via `fmtEpoch` instead of
+   *  the raw digits (`1799712000` read at a glance means nothing; a date does). */
+  dateColumns?: string[];
+  /** Per action id — an Arabic label and/or icon, read instead of `defaultIcon`/the catalog's own
+   *  (often English) label. See `ActionMeta`'s own docstring. */
+  actionMeta?: Record<string, ActionMeta>;
 }) {
   const [rows, setRows] = useState<Row[] | 'loading' | 'failed'>('loading');
-  const [confirming, setConfirming] = useState<{ action: AdminAction; row: Row } | null>(null);
+  const [confirming, setConfirming] = useState<{ action: AdminAction; row: Row | null } | null>(null);
+  const [extraValues, setExtraValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -77,68 +123,153 @@ export function ActionListGroup({ session, listAction, rowActions, extraQuery }:
   // eslint-disable-next-line react-hooks/exhaustive-deps -- qs is derived from extraQuery each render
   useEffect(load, [session, listAction.path, qs]);
 
+  // ONLY AN ACTION THAT ACTUALLY NAMES THIS ROW — see `targetsRow`'s own docstring: a create or a
+  // query/body-only action used to pass this filter trivially (nothing to fail resolving) and
+  // show up as a button on every row despite having nothing to do with any one of them.
   const usableRowActions = (row: Row) => rowActions.filter((a) => {
+    if (!targetsRow(a)) return false;
     try { resolvePath(a, row); return true; } catch { return false; }
   });
 
+  // THE OTHER HALF OF THAT SAME SPLIT — an action with NO path param never targets an existing
+  // row at all; it is a CREATE (a new DSAR, a new legal hold, …). Offered once, above the table,
+  // never per-row — the confusion `targetsRow` exists to remove in the first place.
+  const createActions = rowActions.filter((a) => !targetsRow(a));
+
+  const labelOf = (a: AdminAction) => actionMeta?.[a.id]?.label ?? a.label;
+  const iconOf = (a: AdminAction) => actionMeta?.[a.id]?.icon ?? defaultIcon(a);
+
+  function openConfirm(action: AdminAction, row: Row | null) {
+    setExtraValues({});
+    setError('');
+    setConfirming({ action, row });
+  }
+
   async function confirmAndRun() {
     if (!confirming) return;
+    const missing = extraParamsOf(confirming.action)
+      .filter((p) => p.required && !(extraValues[p.name] ?? '').trim());
+    if (missing.length > 0) {
+      setError(`الحقل «${missing[0].name}» مطلوب.`);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      await runAction(session, confirming.action, confirming.row);
+      await runAction(session, confirming.action, confirming.row, undefined, extraValues);
       setConfirming(null);
       load();
     } catch (err) {
-      setError(sentenceFor(err, `تعذّر تنفيذ «${confirming.action.label}»`));
+      setError(sentenceFor(err, `تعذّر تنفيذ «${labelOf(confirming.action)}»`));
     } finally {
       setBusy(false);
     }
   }
 
+  const dataKeys = rows === 'loading' || rows === 'failed' || rows.length === 0
+    ? []
+    : Object.keys(rows[0]).filter((k) => !(hiddenColumns ?? []).includes(k)).slice(0, 6);
+
+  // SMART WIDTH: a fixed-percent grid, computed from however many columns actually survive —
+  // fewer, wider columns (a technical id truncates fine; a status/type word needs room to read at
+  // a glance) instead of every column claiming an equal, cramped slice regardless of count. The
+  // actions column (when present) gets a fixed floor, never squeezed by the count.
+  const dataColCount = dataKeys.length;
+  const actionsColWidth = rowActions.length > 0 ? 108 : 0;
+
   const columns: TableColumn<Row>[] = rows === 'loading' || rows === 'failed' || rows.length === 0
     ? []
     : [
-        ...Object.keys(rows[0]).slice(0, 6).map((key): TableColumn<Row> => ({
-          key, header: key, render: (r) => truncate(r[key]),
+        ...dataKeys.map((key): TableColumn<Row> => ({
+          key, header: columnLabels?.[key] ?? key,
+          render: (r) => (dateColumns ?? []).includes(key) ? fmtEpoch(r[key]) : truncate(r[key]),
+          width: dataColCount > 0 ? `calc((100% - ${actionsColWidth}px) / ${dataColCount})` : undefined,
         })),
         ...(rowActions.length > 0 ? [{
           key: '__actions',
           header: 'إجراءات',
+          width: actionsColWidth,
           render: (r: Row) => (
-            <div className="flex flex-wrap gap-1.5">
-              {usableRowActions(r).map((a) => (
-                <Button key={a.id} type="button" size="sm"
-                       variant={a.danger ? 'danger' : 'outline'}
-                       onClick={(e) => { e.stopPropagation(); setConfirming({ action: a, row: r }); }}>
-                  {a.label}
-                </Button>
-              ))}
+            <div className="flex flex-wrap gap-1">
+              {usableRowActions(r).map((a) => {
+                const Icon = iconOf(a);
+                return (
+                  <button key={a.id} type="button" title={labelOf(a)} aria-label={labelOf(a)}
+                         onClick={(e) => { e.stopPropagation(); openConfirm(a, r); }}
+                         className={[
+                           'grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition',
+                           a.danger
+                             ? 'border-danger-soft bg-danger-soft text-danger hover:opacity-80'
+                             : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2',
+                         ].join(' ')}>
+                    <Icon size={14} aria-hidden />
+                  </button>
+                );
+              })}
             </div>
           ),
           hideOnCard: false,
         } satisfies TableColumn<Row>] : []),
       ];
 
-  if (rows !== 'loading' && rows !== 'failed' && rows.length === 0) {
-    return <EmptyState title={`لا نتائج — ${listAction.label}`} />;
-  }
+  const extraFields = confirming ? extraParamsOf(confirming.action) : [];
+  const empty = rows !== 'loading' && rows !== 'failed' && rows.length === 0;
 
   return (
     <div className="flex flex-col gap-3">
-      <Table columns={columns} rows={rows} getRowId={(r) => String(r.id ?? JSON.stringify(r))}
-            emptyTitle={listAction.label} failedTitle={`تعذّرت قراءة "${listAction.label}"`} />
+      {/* CREATE ACTIONS — offered ONCE here, never per-row (see `createActions`'s own note above).
+         Shown even on an empty list: the first row has to come from somewhere. */}
+      {createActions.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {createActions.map((a) => {
+            const Icon = iconOf(a);
+            return (
+              <button key={a.id} type="button" onClick={() => openConfirm(a, null)}
+                     className={[
+                       'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition',
+                       a.danger
+                         ? 'border-danger-soft bg-danger-soft text-danger hover:opacity-80'
+                         : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2',
+                     ].join(' ')}>
+                <Icon size={14} aria-hidden /> {labelOf(a)}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {empty ? (
+        <EmptyState title={`لا نتائج — ${listAction.label}`} />
+      ) : (
+        <Table columns={columns} rows={rows} getRowId={(r) => String(r.id ?? JSON.stringify(r))}
+              emptyTitle={listAction.label} failedTitle={`تعذّرت قراءة "${listAction.label}"`} />
+      )}
 
       {confirming ? (
         <ConfirmDialog
           open onClose={() => { if (!busy) setConfirming(null); }}
           onConfirm={confirmAndRun}
-          title={confirming.action.label}
+          title={labelOf(confirming.action)}
           body={confirming.action.help}
           danger={confirming.action.danger}
           busy={busy}
-          confirmText={confirming.action.danger ? rowLabel(confirming.row) : undefined}
+          confirmText={confirming.row && confirming.action.danger ? rowLabel(confirming.row) : undefined}
         >
+          {/* ANY EXTRA FIELD THE ACTION DECLARES (beyond the row it already targets) — a plain
+             text input per one, so an action like «تحقق من الطلب» (needs the code the customer
+             reads back) is actually operable here instead of always failing silently with the
+             field missing. */}
+          {extraFields.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {extraFields.map((f) => (
+                <Field key={f.name} label={f.name} htmlFor={`extra-${f.name}`}>
+                  <Input id={`extra-${f.name}`} dir="ltr"
+                        value={extraValues[f.name] ?? ''}
+                        onChange={(e) => setExtraValues((v) => ({ ...v, [f.name]: e.target.value }))} />
+                </Field>
+              ))}
+            </div>
+          ) : null}
           {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
         </ConfirmDialog>
       ) : null}

@@ -53,8 +53,13 @@ describe('AdminCompliance', () => {
     });
     render(<AdminCompliance session={SESSION} />);
     await waitFor(() => expect(screen.getAllByText('نزاع قضائي').length).toBeGreaterThan(0));
-    expect(screen.getAllByText('وضع حظر').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('رفع الحظر').length).toBeGreaterThan(0);
+    // «place_legal_hold» carries NO path param — never a per-row button (it targets no existing
+    // row, it CREATES one) — offered once, above the table, with its own Arabic override label.
+    expect(screen.getAllByText('حظر حذف جديد').length).toBeGreaterThan(0);
+    // «release_legal_hold» DOES target a row (path param `id`) — a real row action, rendered
+    // icon-only (see ActionListGroup's own header note on smart width) — its Arabic label lives
+    // in the button's own tooltip/aria-label, not as visible text.
+    expect(screen.getAllByTitle('رفع الحظر').length).toBeGreaterThan(0);
   });
 
   it('switching to «جهات البيانات» does not also render the RoPA list (group collision avoided)', async () => {

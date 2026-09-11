@@ -26,6 +26,12 @@ export interface TableColumn<T> {
   /** Hidden on the phone card layout — for columns only useful at a glance on a wide screen
    *  (an internal id, a raw timestamp already shown elsewhere as a relative label). */
   hideOnCard?: boolean;
+  /** A CSS width (any valid value — `'120px'`, `'20%'`, a `calc()` expression) for the desktop
+   *  table only. Omitted means the browser's own default column sizing, same as before this
+   *  existed. `ActionRenderer.tsx`'s own generic engine uses this to keep a narrow actions column
+   *  from claiming the same slice as a wide status/type column, rather than every column getting
+   *  an identical, cramped share regardless of how many there are. */
+  width?: string | number;
 }
 
 export interface TablePagination {
@@ -79,11 +85,12 @@ export function Table<T>({
     <div className="flex flex-col gap-3">
       {/* DESKTOP/TABLET — a real table, md and up. */}
       <div className="hidden overflow-x-auto rounded-card border border-border-subtle md:block">
-        <table className="w-full min-w-full text-start text-sm">
+        <table className="w-full min-w-full text-start text-sm" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="border-b border-border-subtle bg-surface-1 text-text-secondary">
               {columns.map((col) => (
-                <th key={col.key} className={`px-3 py-2.5 text-start font-medium ${col.className ?? ''}`}>
+                <th key={col.key} style={col.width !== undefined ? { width: col.width } : undefined}
+                   className={`truncate px-3 py-2.5 text-start font-medium ${col.className ?? ''}`}>
                   {col.header}
                 </th>
               ))}
@@ -99,7 +106,8 @@ export function Table<T>({
                 }`}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className={`px-3 py-2.5 text-text-primary ${col.className ?? ''}`}>
+                  <td key={col.key} style={col.width !== undefined ? { width: col.width } : undefined}
+                     className={`truncate px-3 py-2.5 text-text-primary ${col.className ?? ''}`}>
                     {cell(col, row)}
                   </td>
                 ))}

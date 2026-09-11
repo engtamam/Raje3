@@ -8,11 +8,12 @@
  * إحداهما. هنا كل تبويب يُمرَّر قائمته وأفعال صفّه بالاسم مباشرة، فلا تصادم.
  */
 import { useEffect, useState } from 'react';
+import { Ban, Check, FileSearch, PlayCircle, Plus, ShieldOff, UserCheck, UserX } from 'lucide-react';
 import { Segmented } from '../rj-ui/Segmented';
 import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
-import { ActionListGroup } from './ActionRenderer';
+import { ActionListGroup, type ActionMeta } from './ActionRenderer';
 import { CustomerByPhoneLookup, type FoundCustomer } from './CustomerByPhoneLookup';
 
 // العميل الموجود يُصفّي التبويبات الستة أدناه تلقائياً (`onFound`) بمنشأته — الخلل اللي كان
@@ -57,6 +58,70 @@ const ACTION_IDS: Record<TabId, { list: string; row: string[] }> = {
   ropa: { list: 'compliance.list_ropa', row: ['compliance.create_ropa', 'compliance.delete_ropa'] },
   breach: { list: 'compliance.list_breaches',
     row: ['compliance.register_breach', 'compliance.notify_breach'] },
+};
+
+// ── الترجمة، بالكامل — compliance-service's own catalog labels every one منها إنجليزي («Open a
+// DSAR (erase / export)», «Verify a DSAR»…). لا القيمة الحقيقية في الخادم تتغيّر (`action.label`
+// يبقى كما هو، تُقرأ فقط هنا للعرض) — راجع `ActionListGroup`'s الخاص بـ`actionMeta`.
+const COLUMN_LABELS: Record<TabId, Record<string, string>> = {
+  legal_hold: { id: 'رقم الحظر', tenant: 'المنشأة', subject: 'العميل', reason: 'السبب',
+    active: 'قائم الآن', placed_at: 'تاريخ الحظر', released_at: 'تاريخ الرفع' },
+  dsar: { id: 'رقم الطلب', tenant: 'المنشأة', subject: 'العميل', type: 'نوع الطلب',
+    status: 'الحالة', verified: 'موثَّق', created_at: 'تاريخ الفتح', deadline_at: 'الموعد النهائي',
+    completed_at: 'تاريخ الإنجاز', dispatched: 'أُرسل للجهات', refusal_reason: 'سبب الرفض' },
+  consent: { subject: 'العميل', purpose: 'الغرض', tenant: 'المنشأة', granted: 'موافق',
+    notice_version: 'نسخة الإشعار', method: 'الطريقة', created_at: 'التاريخ' },
+  data_targets: { service: 'الخدمة', category: 'الفئة', base_url: 'العنوان', active: 'مفعَّلة' },
+  ropa: { id: 'رقم السجل', activity: 'النشاط', purpose: 'الغرض', tenant: 'المنشأة',
+    created_at: 'تاريخ التسجيل' },
+  breach: { id: 'رقم الحادثة', tenant: 'المنشأة', description: 'الوصف', severity: 'الخطورة',
+    notified: 'أُشعِر عنه', detected_at: 'تاريخ الاكتشاف', notified_at: 'تاريخ الإشعار' },
+};
+
+const HIDDEN_COLUMNS: Record<TabId, string[]> = {
+  legal_hold: [],
+  dsar: ['subject_kind', 'verification_expires', 'targets', 'target_state', 'payload', 'dispatch_at'],
+  consent: ['basis', 'consented_by', 'relation', 'subject_born_at'],
+  data_targets: [],
+  ropa: [],
+  breach: ['authority_notified', 'authority_notified_at'],
+};
+
+const DATE_COLUMNS: Record<TabId, string[]> = {
+  legal_hold: ['placed_at', 'released_at'],
+  dsar: ['created_at', 'deadline_at', 'completed_at'],
+  consent: ['created_at'],
+  data_targets: [],
+  ropa: ['created_at'],
+  breach: ['detected_at', 'notified_at'],
+};
+
+const ACTION_META: Record<TabId, Record<string, ActionMeta>> = {
+  legal_hold: {
+    'compliance.place_legal_hold': { label: 'حظر حذف جديد', icon: ShieldOff },
+    'compliance.release_legal_hold': { label: 'رفع الحظر', icon: Check },
+  },
+  dsar: {
+    'compliance.open_dsar': { label: 'فتح طلب DSAR جديد (حذف/تصدير)', icon: Plus },
+    'compliance.verify_dsar': { label: 'تحقّق من هوية صاحب الطلب', icon: UserCheck },
+    'compliance.process_dsar': { label: 'نفّذ الطلب (أرسله لكل الجهات)', icon: PlayCircle },
+  },
+  consent: {
+    'compliance.grant_consent': { label: 'سجّل موافقة', icon: Check },
+    'compliance.withdraw_consent': { label: 'سجّل سحب موافقة', icon: UserX },
+  },
+  data_targets: {
+    'compliance.register_data_target': { label: 'سجّل جهة بيانات', icon: Plus },
+    'compliance.delete_data_target': { label: 'احذف جهة البيانات', icon: Ban },
+  },
+  ropa: {
+    'compliance.create_ropa': { label: 'سجّل نشاط معالجة', icon: FileSearch },
+    'compliance.delete_ropa': { label: 'احذف السجل', icon: Ban },
+  },
+  breach: {
+    'compliance.register_breach': { label: 'سجّل حادثة اختراق', icon: Plus },
+    'compliance.notify_breach': { label: 'أرسل الإشعار النظامي', icon: PlayCircle },
+  },
 };
 
 export function AdminCompliance({ session }: { session: AdminSession }) {
@@ -136,7 +201,9 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
 
       {listAction ? (
         <ActionListGroup session={session} listAction={listAction} rowActions={rowActions}
-                         extraQuery={extraQuery} />
+                         extraQuery={extraQuery} columnLabels={COLUMN_LABELS[realActive]}
+                         hiddenColumns={HIDDEN_COLUMNS[realActive]} dateColumns={DATE_COLUMNS[realActive]}
+                         actionMeta={ACTION_META[realActive]} />
       ) : (
         <NoActionAvailable catalog={catalog} permissionTitle={`لا صلاحية لديك لقراءة «${active.label}».`} />
       )}

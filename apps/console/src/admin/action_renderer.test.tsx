@@ -52,16 +52,18 @@ describe('ActionCatalogPanel', () => {
       applications: [{ id: 'app-1', name: 'سالم', status: 'pending' }],
     });
     render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, APPROVE_ACTION, REJECT_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
-    await waitFor(() => expect(screen.getAllByText('قبول طلب مسوّق').length).toBeGreaterThan(0));
-    expect(screen.getAllByText('رفض طلب مسوّق').length).toBeGreaterThan(0);
+    // Row actions render icon-only now (smart-width row, see ActionListGroup's own header note)
+    // — the Arabic label lives in the button's tooltip/aria-label, not as visible text.
+    await waitFor(() => expect(screen.getAllByTitle('قبول طلب مسوّق').length).toBeGreaterThan(0));
+    expect(screen.getAllByTitle('رفض طلب مسوّق').length).toBeGreaterThan(0);
   });
 
   it('a danger action (reject) is armed — confirm stays disabled until the row label is typed', async () => {
     reqMock = vi.fn().mockResolvedValue({ applications: [{ id: 'app-1', name: 'سالم' }] });
     render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, REJECT_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
-    await waitFor(() => expect(screen.getAllByText('رفض طلب مسوّق').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByTitle('رفض طلب مسوّق').length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getAllByText('رفض طلب مسوّق')[0]);
+    fireEvent.click(screen.getAllByTitle('رفض طلب مسوّق')[0]);
     const confirmBtn = screen.getAllByText('تأكيد')[0].closest('button') as HTMLButtonElement;
     expect(confirmBtn.disabled).toBe(true);
 
@@ -75,9 +77,9 @@ describe('ActionCatalogPanel', () => {
       .mockResolvedValueOnce({ ok: true })                                       // approve call
       .mockResolvedValueOnce({ applications: [] });                              // reload after
     render(<ActionCatalogPanel session={SESSION} actions={[LIST_ACTION, APPROVE_ACTION]} catalog={CATALOG_ALL_REACHABLE} />);
-    await waitFor(() => expect(screen.getAllByText('قبول طلب مسوّق').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByTitle('قبول طلب مسوّق').length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getAllByText('قبول طلب مسوّق')[0]);
+    fireEvent.click(screen.getAllByTitle('قبول طلب مسوّق')[0]);
     fireEvent.click(screen.getAllByText('تأكيد')[0]);
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
