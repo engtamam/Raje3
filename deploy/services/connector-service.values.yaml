@@ -26,7 +26,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/connector-service
-  digest: "sha256:5652488ef6a6591de4123021db20d0e64a99e30e3023c3424eaecfe8de0d8ff6"   # v0.19.30
+  digest: "sha256:cde82021b8ab306806ebfdd33f016f1b14e409d5e716288c8da6975de49f4fb6"   # v0.19.31
 
 replicas: 1
 

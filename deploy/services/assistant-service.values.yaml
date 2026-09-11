@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/assistant-service
-  digest: "sha256:60ad978c7daa97e8eab2078c5fc5146ff2352013e25b9f269e269a96720b085e"   # v0.19.30
+  digest: "sha256:908df20fa8013fb08315305fea1b0b4fb81063ae9e8b9d10df138416ba263478"   # v0.19.31
 
 replicas: 1
 

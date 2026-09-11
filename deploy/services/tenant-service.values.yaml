@@ -16,7 +16,7 @@ image:
   repository: ghcr.io/engtamam/tenant-service
   # Digest, never a tag: with :latest + IfNotPresent a node silently keeps the image it already
   # has, so a rollback is not a rollback. Replace at publish time.
-  digest: "sha256:ffc286dd786355b53e3142b77c4b491eb45c0cfc35063a4e075f77af5840fe5d"   # v0.19.30
+  digest: "sha256:2384cc2ee6a8d4edab5563abe77445c9c3bcd3f5e00df3b89f40d2e6aa019a52"   # v0.19.31
 
 replicas: 1
 
