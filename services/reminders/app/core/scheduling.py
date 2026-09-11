@@ -56,6 +56,13 @@ class VisitOutcome:
         self.anomalies = self.anomalies or []
 
 
+# Serialises `on_visit` per (tenant, visit_id) — added 2026-09-12, a real gap a QA audit found;
+# see `on_visit`'s own docstring for the full reasoning. Short: the whole method is pure
+# computation and store writes, no peer I/O, so the lock only needs to outlive one such call.
+_VISIT_LOCKS = "reminders_visit_locks"
+VISIT_LOCK_TTL_SECONDS = 15
+
+
 class Scheduler:
     """Turns visits into schedules. Holds no state; every dependency is passed in."""
 
@@ -83,6 +90,45 @@ class Scheduler:
                        confirm_visits: bool = True,
                        rating_eligible: bool = False,
                        message_delay_seconds: int | None = None) -> VisitOutcome:
+        """LOCKED PER (tenant, visit_id) — fixed 2026-09-12, a real gap a QA audit found. The
+        actual work happens in `_on_visit_locked` below; this wrapper only decides whether a
+        concurrent redelivery of the SAME visit gets to run it at all. The dedup check inside
+        (`_seen`) used to be a plain read with the matching write (`_remember`) not landing until
+        the very end of the method — a genuinely concurrent redelivery (the bus redelivers; this
+        module's own docstring already says so) could pass that read on both deliveries before
+        either wrote the marker, double-running `_learn`/`_credit` for one real visit.
+
+        NOT LOCKED WHEN `visit_id` IS EMPTY — same as the dedup check it replaces (`if visit_id
+        and await self._seen(...)`): an event with no visit_id was never deduplicated either, and
+        there is no key to lock on.
+        """
+        tenant = event.get("tenant") or ""
+        visit_id = event.get("visit_id") or ""
+        if not tenant or not visit_id:
+            return await self._on_visit_locked(
+                event, now=now, service_config=service_config, confirm_visits=confirm_visits,
+                rating_eligible=rating_eligible, message_delay_seconds=message_delay_seconds)
+
+        lock_key = f"{tenant}|visit:{visit_id}"
+        took = await self._store.claim(
+            _VISIT_LOCKS, lock_key, {"tenant": tenant, "visit_id": visit_id},
+            ttl_seconds=VISIT_LOCK_TTL_SECONDS, now=now)
+        if not took:
+            # Another delivery of this SAME visit is being processed right now — treated exactly
+            # like the existing "already seen" case below, not an error.
+            return VisitOutcome(scheduled=[], duplicate=True)
+        try:
+            return await self._on_visit_locked(
+                event, now=now, service_config=service_config, confirm_visits=confirm_visits,
+                rating_eligible=rating_eligible, message_delay_seconds=message_delay_seconds)
+        finally:
+            await self._store.delete(_VISIT_LOCKS, lock_key)
+
+    async def _on_visit_locked(self, event: dict[str, Any], *, now: int,
+                               service_config: dict[str, dict[str, Any]] | None = None,
+                               confirm_visits: bool = True,
+                               rating_eligible: bool = False,
+                               message_delay_seconds: int | None = None) -> VisitOutcome:
         """Consume one `operations.visit.recorded`.
 
         `service_config` maps service_id -> {cycle_days, lead_days, follow_up_days, min_days,

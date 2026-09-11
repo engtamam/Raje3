@@ -17,6 +17,7 @@ SPENT AT SUBMISSION, REFUNDED IF META REJECTS — same shape the old billing-bac
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 
 # THE OWNER'S OWN NUMBER (2026-09-11) — one ceiling, every shop, for the shop's whole life,
@@ -24,6 +25,13 @@ from typing import Any
 CUSTOM_TEMPLATE_LIMIT = 2000
 
 COLLECTION = "custom_template_quota"
+
+# Serialises take() per tenant — added 2026-09-12, a real gap a QA audit found: the check and the
+# write below were two separate round trips with nothing between them, so two concurrent
+# submissions near the cap could both read a count under the limit before either wrote the
+# increment, letting a tenant exceed its intended lifetime ceiling by a small amount.
+_QUOTA_LOCKS = "reminders_template_quota_locks"
+_QUOTA_LOCK_TTL_SECONDS = 10
 
 
 class QuotaError(Exception):
@@ -39,12 +47,27 @@ class TemplateQuota:
 
     async def take(self, tenant: str) -> None:
         """Spend one unit — refuses once this tenant has EVER submitted `limit` templates,
-        whatever plans it owns and whatever month it is."""
-        row = await self._s.get(COLLECTION, tenant)
-        current = int(row.get("count") or 0) if row else 0
-        if current >= self._limit:
-            raise QuotaError("بلغت الحدّ الأقصى من القوالب الخاصة.")
-        await self._s.put(COLLECTION, tenant, {"id": tenant, "tenant": tenant, "count": current + 1})
+        whatever plans it owns and whatever month it is.
+
+        LOCKED — see `_QUOTA_LOCKS`'s own comment above.
+        """
+        now = time.time()
+        took = await self._s.claim(
+            _QUOTA_LOCKS, tenant, {"tenant": tenant}, ttl_seconds=_QUOTA_LOCK_TTL_SECONDS, now=now)
+        if not took:
+            # Another submission for this SAME tenant is being accounted for right now — narrow
+            # window, so refuse and let the caller's own retry (template submission is never a
+            # tight loop) land a moment later, rather than silently racing past the cap.
+            raise QuotaError("عملية أخرى قيد التنفيذ على حصة القوالب — أعد المحاولة بعد لحظة.")
+        try:
+            row = await self._s.get(COLLECTION, tenant)
+            current = int(row.get("count") or 0) if row else 0
+            if current >= self._limit:
+                raise QuotaError("بلغت الحدّ الأقصى من القوالب الخاصة.")
+            await self._s.put(COLLECTION, tenant,
+                              {"id": tenant, "tenant": tenant, "count": current + 1})
+        finally:
+            await self._s.delete(_QUOTA_LOCKS, tenant)
 
     async def release(self, tenant: str) -> None:
         """Give the unit back — Meta rejected the submission. Best-effort, never raises: the

@@ -280,6 +280,41 @@ def test_a_redelivered_event_changes_nothing(st, sch):
     assert run(EngagementStore(st).get("t1", "sub_a"))["score"] == before
 
 
+def test_two_genuinely_concurrent_deliveries_of_the_same_visit_never_both_credit(st, sch):
+    """reminders-004 (QA audit, 2026-09-12): the dedup check used to be a plain read, with the
+    matching write not landing until the very end of the method — a genuinely concurrent
+    redelivery (unlike the sequential one above) could pass that read on both deliveries before
+    either wrote the marker, double-crediting engagement for one real visit. Proved with a
+    slow-yielding store wrapper so the two `on_visit` calls genuinely interleave."""
+    class _SlowStore:
+        def __init__(self, inner):
+            self._inner = inner
+
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.get(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    slow_sch = Scheduler(store=_SlowStore(st), cfg=adaptive.AdaptiveConfig(),
+                         eng_cfg=engagement.EngagementConfig())
+
+    async def go():
+        return await asyncio.gather(
+            slow_sch.on_visit(visit(), now=NOW, service_config=CFG),
+            slow_sch.on_visit(visit(), now=NOW, service_config=CFG))
+
+    out = run(go())
+    duplicates = [o for o in out if o.duplicate]
+    real = [o for o in out if not o.duplicate]
+    assert len(real) == 1, f"expected exactly one delivery to actually run, got {out}"
+    assert len(duplicates) == 1
+    # AND THE SCORE REFLECTS EXACTLY ONE CREDIT — the actual regression this closes.
+    row = run(EngagementStore(st).get("t1", "sub_a"))
+    assert row is not None and row["score"] > 0
+
+
 def test_the_interval_is_learned_from_the_gap_before_it_is_overwritten(st, sch):
     """Learning after the update would compare a timestamp to itself and observe zero."""
     run(sch.on_visit(visit(), now=NOW, service_config=CFG))

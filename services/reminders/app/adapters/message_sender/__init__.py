@@ -249,7 +249,13 @@ class HttpSender:
                 payload["flow_action_data"] = action_data
         body = json.dumps(payload).encode()
         # Built in adapters/internal_http.py, the one place this service attaches the token.
-        status, raw = internal_http.send(
+        # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: the recipient lookup
+        # just above was already offloaded, but this call (the actual send — the single most
+        # frequent I/O this engine performs) still ran `urllib.request.urlopen` directly on the
+        # loop, freezing the whole pod for up to `PEER_TIMEOUT_SECONDS` on every message, exactly
+        # the pattern `send_carousel`/`quota.py` already wrap correctly elsewhere in this codebase.
+        status, raw = await asyncio.to_thread(
+            internal_http.send,
             self._notify, timeout=self._timeout, method="POST", body=body,
             content_type=internal_http.JSON, token=self._token)
         if not 200 <= status < 300:
@@ -323,7 +329,9 @@ class HttpSender:
             "idempotency_key": idempotency_key,
             "biz_opaque_callback_data": idempotency_key,
         }).encode()
-        status, raw = internal_http.send(
+        # OFF THE EVENT LOOP — same fix, same reasoning as send()'s own call above.
+        status, raw = await asyncio.to_thread(
+            internal_http.send,
             self._notify_interactive, timeout=self._timeout, method="POST", body=req_body,
             content_type=internal_http.JSON, token=self._token)
         if not 200 <= status < 300:

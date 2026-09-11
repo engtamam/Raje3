@@ -194,6 +194,13 @@ def _own_template(choices: Any, ids: list[str]) -> str:
     return ""
 
 
+# Serialises `_claim()` per schedule row — added 2026-09-12, a real gap a QA audit found; see
+# `_claim()`'s own docstring for the full reasoning. Short: the claim decision itself (a get, a
+# state check, an upsert) takes a handful of milliseconds; this only needs to outlive that.
+_CLAIM_LOCKS = "reminders_row_claim_locks"
+CLAIM_LOCK_TTL_SECONDS = 10
+
+
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
                  batch: int = 100, telemetry=None, quota=None, approved=None,
@@ -1068,34 +1075,59 @@ class Tick:
     async def _claim(self, tenant: str, row: dict[str, Any], now: int) -> bool:
         """Move the row out of `pending` before anything external happens.
 
-        Read-then-write rather than a compare-and-set: the DataStore port has no CAS, and adding
-        one would be a change to base-services. The window is small and the consequence of losing
-        the race is bounded by the idempotency key at the sender — which is the belt this braces.
+        SERIALISED WITH THE DATASTORE'S OWN `claim()` PRIMITIVE — fixed 2026-09-12, a real gap a
+        QA audit found. The docstring here used to say the DataStore port had no CAS and adding
+        one would be a change to base-services; that was stale — `DataStore.claim()` has existed,
+        correctly implemented in both adapters, since the port itself was built for exactly this
+        race, and simply was never wired in here. Two replicas racing the SAME row could both read
+        `state == "pending"` before either wrote `"sending"`, both send, and both append their own
+        SendLog row for one delivered message — inflating every cap `gate.evaluate` computes by
+        counting ledger rows, and occasionally suppressing a later, legitimate message over a
+        limit the customer never actually reached.
+
+        A SEPARATE LOCK COLLECTION, NOT THE SCHEDULE ROW ITSELF — same shape as `SpendLock`/
+        `OfferApplyLock`/`CustomerCounterLock` elsewhere on this platform: the schedule row keeps
+        its own rich `state`/`claimed_at` shape (read by recovery and by every other method here)
+        unchanged; the lock only decides WHO gets to read-modify-write it this instant.
         """
-        fresh = await self._sched.get(_key(row))
-        if fresh is None:
+        lock_key = f"{tenant}|{_key(row)}"
+        took = await self._store.claim(
+            _CLAIM_LOCKS, lock_key, {"tenant": tenant, "row": _key(row)},
+            ttl_seconds=CLAIM_LOCK_TTL_SECONDS, now=now)
+        if not took:
+            # Another replica is deciding this exact row's claim right now — not an error, just
+            # this replica's loss of a race it need not retry: `due()` re-lists the row next tick
+            # if it is genuinely still pending, or the lock's own short TTL clears in seconds if
+            # the other replica's decision already finished.
             return False
-
-        state = fresh.get("state")
-        if state == "sending":
-            # AN ABANDONED CLAIM IS RECLAIMABLE, AND ONLY AFTER THE LEASE. `due()` is what put this
-            # row in front of us, and it only does that once the previous claim is old enough to be
-            # certainly dead. Re-checking here rather than trusting the caller keeps the rule in one
-            # place — and stops a second worker in the same tick from taking a claim seconds old.
-            if now - int(fresh.get("claimed_at") or 0) < CLAIM_LEASE_SECONDS:
+        try:
+            fresh = await self._sched.get(_key(row))
+            if fresh is None:
                 return False
-        elif state != "pending":
-            return False
 
-        fresh["state"] = "sending"
-        # STAMPED, AND THIS IS THE FIELD THE WHOLE RECOVERY HANGS ON. Without it a row in `sending`
-        # is indistinguishable from one claimed a second ago, so nothing can ever safely reclaim
-        # it — which is exactly how the reminder used to be lost for good.
-        fresh["claimed_at"] = now
-        fresh["updated"] = now
-        await self._sched.upsert(tenant, _key(fresh), fresh)
-        row.update(fresh)
-        return True
+            state = fresh.get("state")
+            if state == "sending":
+                # AN ABANDONED CLAIM IS RECLAIMABLE, AND ONLY AFTER THE LEASE. `due()` is what put
+                # this row in front of us, and it only does that once the previous claim is old
+                # enough to be certainly dead. Re-checking here rather than trusting the caller
+                # keeps the rule in one place — and stops a second worker in the same tick from
+                # taking a claim seconds old.
+                if now - int(fresh.get("claimed_at") or 0) < CLAIM_LEASE_SECONDS:
+                    return False
+            elif state != "pending":
+                return False
+
+            fresh["state"] = "sending"
+            # STAMPED, AND THIS IS THE FIELD THE WHOLE RECOVERY HANGS ON. Without it a row in
+            # `sending` is indistinguishable from one claimed a second ago, so nothing can ever
+            # safely reclaim it — which is exactly how the reminder used to be lost for good.
+            fresh["claimed_at"] = now
+            fresh["updated"] = now
+            await self._sched.upsert(tenant, _key(fresh), fresh)
+            row.update(fresh)
+            return True
+        finally:
+            await self._store.delete(_CLAIM_LOCKS, lock_key)
 
     async def _ladder(self, tenant: str, row: dict[str, Any], subject: str, *,
                       now: int, cls: str) -> None:

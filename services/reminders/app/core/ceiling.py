@@ -103,6 +103,7 @@ class HttpCeiling:
         self._timeout = timeout
 
     async def read(self, tenant: str) -> Ceiling:
+        import asyncio
         import urllib.error
         import urllib.parse
 
@@ -111,8 +112,13 @@ class HttpCeiling:
         query = urllib.parse.urlencode({"tenant": tenant})
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out: dict[str, Any] = internal_http.get_json(
-                f"{self._url}?{query}", self._token, self._timeout)
+            # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: this fires once
+            # per TENANT per tick, before any per-row work begins (tick.py's own `read()` call),
+            # so a slow/degraded notification-service used to stall the whole pod's event loop —
+            # every other tenant's pass, every concurrent request — earlier and more often than
+            # even the per-message send calls this same fix was needed for.
+            out: dict[str, Any] = await asyncio.to_thread(
+                internal_http.get_json, f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
             # UNREACHABLE IS UNKNOWN, not zero. Planning stops; sending does not.
             return Ceiling(error=str(exc)[:120])

@@ -1196,6 +1196,45 @@ def test_two_replicas_racing_over_one_send_agree_on_the_idempotency_key(st):
         "duplicate barrier sees two unrelated messages and the customer gets both")
 
 
+def test_two_replicas_sharing_one_store_never_both_win_the_same_claim(st):
+    """reminders-001 (QA audit, 2026-09-12): `_claim()` used to be a plain read-then-write with no
+    lock at all — two replicas SHARING the same store (unlike the idempotency-key test above,
+    which deliberately uses two separate stores to prove a different property) could both read
+    `state == "pending"` before either wrote `"sending"`, both proceed to send, and both append
+    their own SendLog row for one delivered message. Proved with a slow-yielding store wrapper so
+    the two `_claim()` calls genuinely interleave, the same technique every other race test on
+    this platform uses."""
+    from app.core.stores import ScheduleStore
+
+    s = sched(st)
+    row = run(ScheduleStore(st).get(s.key))
+
+    class _SlowStore:
+        def __init__(self, inner):
+            self._inner = inner
+
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.get(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    slow = _SlowStore(st)
+    engine = tick(slow, FakeSender())
+
+    async def race():
+        return await asyncio.gather(
+            engine._claim("t1", dict(row), at(10)),
+            engine._claim("t1", dict(row), at(10)))
+
+    out = run(race())
+
+    assert sorted(out) == [False, True], f"expected exactly one winner, got {out}"
+    stored = run(ScheduleStore(st).get(s.key))
+    assert stored["state"] == "sending"
+
+
 def test_a_later_send_of_the_same_reminder_gets_its_own_key(st):
     """The other half, and without it the fix above is satisfiable by a constant.
 

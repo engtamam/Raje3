@@ -43,6 +43,36 @@ def test_the_default_limit_is_the_owners_own_number():
     assert CUSTOM_TEMPLATE_LIMIT == 2000
 
 
+def test_two_concurrent_submissions_near_the_cap_never_both_pass():
+    """reminders-006 (QA audit, 2026-09-12): the check-then-write used to be two separate round
+    trips with nothing between them — two concurrent submissions AT the cap could both read a
+    count under the limit before either wrote the increment. Proved with a slow-yielding store
+    wrapper so the two `take()` calls genuinely interleave."""
+    class _SlowStore:
+        def __init__(self, inner):
+            self._inner = inner
+
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.get(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    store = MemoryDataStore()
+    q = TemplateQuota(_SlowStore(store), limit=1)
+
+    async def go():
+        return await asyncio.gather(q.take(T), q.take(T), return_exceptions=True)
+
+    out = run(go())
+    ok = [o for o in out if o is None]
+    refused = [o for o in out if isinstance(o, QuotaError)]
+    assert len(ok) == 1, f"expected exactly one submission to succeed, got {out}"
+    assert len(refused) == 1
+    assert run(TemplateQuota(store, limit=1).remaining(T))["current"] == 1
+
+
 def test_exhausting_the_limit_refuses_the_next_submission():
     q = quota(limit=2)
     run(q.take(T))
