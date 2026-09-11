@@ -86,7 +86,15 @@ class UrllibTransport:
             # turns each into its own sentence; raising here would collapse them into "unreachable".
             return exc.code, exc.read()
         except (urllib.error.URLError, OSError, ssl.SSLError) as exc:
-            raise K8sError(f"the cluster API server is unreachable: {exc}") from exc
+            # A CLEAN, BOUNDED MESSAGE — fixed 2026-09-12, a real gap a QA audit found. `str(exc)`
+            # on a URLError/SSLError can hold raw socket/TLS diagnostic text (hostnames, connection
+            # internals) with no bound and no review — unlike every other K8sError raised in this
+            # file, which already says something specific and clean (a status code, "no such
+            # object"). set_secret's own route embeds this exact message straight into its 400
+            # response body (a deliberate, documented exception to the platform's CWE-209 policy,
+            # for operator usability) — the low-level exception stays `from exc` for whoever reads
+            # the SERVER-SIDE log, never for the response an owner reads.
+            raise K8sError("the cluster API server is unreachable") from exc
 
 
 class K8sClient:

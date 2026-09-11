@@ -283,6 +283,38 @@ def test_a_saved_value_whose_restart_failed_says_saved_but_not_applied(built):
     assert k8s.patches, "the value WAS saved — that is what the message says"
 
 
+def test_a_failed_restart_leaves_a_second_audit_entry_naming_the_incomplete_rollout(built):
+    """secrets-admin-003 (QA audit, 2026-09-12): the write-ahead audit record only ever said
+    "changed" — an investigator reading the hash chain later could not tell a fully-applied
+    rotation from one where the old pods kept running on the previous credential."""
+    client, k8s, auditor = built
+    k8s.fail_restart = True
+    client.post("/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL", json={"value": LIVE_VALUE},
+               headers=_auth(CAP))
+    changed = [e for e in auditor.events if e["action"] == "platform.secret_changed"]
+    assert len(changed) == 2, "the write-ahead record AND the corrective one must both be there"
+    assert changed[-1]["metadata"]["outcome"] == "saved_not_restarted"
+
+
+def test_k8s_error_detail_never_reaches_the_response_body(built):
+    """secrets-admin-002 (QA audit, 2026-09-12): every other error path in this service redacts
+    exception detail (CWE-209) — set_secret used to be the one exception, embedding str(exc)
+    (which can carry raw RBAC/network/SSL diagnostic text) straight into the response."""
+    client, k8s, _ = built
+
+    def boom(namespace, name, *, data, annotations):
+        from app.adapters.k8s_client import K8sError
+        raise K8sError("the cluster API server is unreachable: [Errno -2] Name or service "
+                       "not known — internal-cluster-hostname-leaked.svc")
+
+    k8s.patch_secret = boom
+    r = client.post("/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL", json={"value": LIVE_VALUE},
+                    headers=_auth(CAP))
+    assert r.status_code == 400
+    assert "internal-cluster-hostname-leaked" not in r.text
+    assert "Errno" not in r.text
+
+
 def test_there_is_no_route_that_reads_a_value_back(built):
     """Not «it returns 404 today» — that no such handler is mounted at all.
 

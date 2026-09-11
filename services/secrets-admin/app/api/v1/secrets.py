@@ -22,6 +22,7 @@ work and changes nothing until the next unrelated deploy.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as _dt
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -30,8 +31,10 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
+from app.api.deps import get_guard
 from app.api.ratelimit import rate_limit
 from app.adapters.k8s_client import K8sError
+from app.observability.logging import get_logger
 from app.core.secret_registry import (
     BY_KEY,
     SECRETS,
@@ -43,6 +46,8 @@ from app.core.secret_registry import (
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
 router = APIRouter(prefix="/secrets", tags=["secrets"])
+
+_logger = get_logger("app.secrets")
 
 # NARROWER THAN `platform.operations`, DELIBERATELY. Editing a message template and replacing the
 # credential that every WhatsApp message in the product is sent with are not the same privilege,
@@ -80,7 +85,8 @@ class SecretIn(BaseModel):
 
 
 @router.get("", dependencies=[Depends(rate_limit)])
-async def list_secrets(request: Request, principal: Principal = Depends(_OWNER)) -> dict:
+async def list_secrets(request: Request, principal: Principal = Depends(_OWNER),
+                       guard=Depends(get_guard)) -> dict:
     """What is configured, and what is not — read from ANNOTATIONS, never from `data`.
 
     THIS HANDLER CANNOT RETURN A SECRET VALUE, and that is a property of its shape rather than a
@@ -106,7 +112,14 @@ async def list_secrets(request: Request, principal: Principal = Depends(_OWNER))
         addr = (entry.namespace, entry.secret)
         if addr not in seen:
             try:
-                seen[addr] = k8s.read_secret_annotations(entry.namespace, entry.secret)
+                # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: K8sClient's
+                # own transport is a plain blocking `urllib.request.urlopen` call, and this route
+                # called it directly. This service already knows the fix (audit_sink/http.py's own
+                # `asyncio.to_thread` wrap, same comment word for word) — it was simply missed
+                # here. A slow/unreachable API server used to freeze this pod's whole event loop —
+                # /healthz and /readyz included — for up to K8S_TIMEOUT_SECONDS.
+                seen[addr] = await asyncio.to_thread(
+                    k8s.read_secret_annotations, entry.namespace, entry.secret)
             except K8sError:
                 seen[addr] = None
         anns = seen[addr]
@@ -129,12 +142,26 @@ async def list_secrets(request: Request, principal: Principal = Depends(_OWNER))
             "updated_by": anns.get(updated_by_annotation(entry)) or None,
             "unreadable": False,
         })
+    # THE SAME SELF-GUARD `whoami` ALREADY RUNS — fixed 2026-09-12, a real gap a QA audit found.
+    # This response is built out of data connected to real provider credentials (unlike whoami's
+    # own subject/caps/tenant, which has no realistic path to a secret); its safety used to rest
+    # solely on this handler's own code shape (never assigning a decoded value to a variable),
+    # with no automated check running at response time to catch a future regression.
+    #
+    # SCANS `rows` ITSELF, NOT THE `{"secrets": rows}` WRAPPER — NoSecretLeakCheck matches on
+    # FIELD NAMES containing a marker substring, and "secrets" (the honest, correct name for what
+    # this route returns) itself contains "secret". Scanning the rows directly checks exactly what
+    # the guard exists to catch (a future leaked value inside one of them) without a false
+    # positive on this route's own domain word.
+    async with guard.step("respond") as step:
+        step.result = rows
     return {"secrets": rows}
 
 
 @router.post("/{key}", dependencies=[Depends(rate_limit)])
 async def set_secret(request: Request, key: str, body: SecretIn,
-                     principal: Principal = Depends(_OWNER)) -> dict:
+                     principal: Principal = Depends(_OWNER),
+                     guard=Depends(get_guard)) -> dict:
     """Replace one credential and roll the service that reads it.
 
     THE ORDER IS WRITE THEN RESTART, AND A FAILED RESTART IS REPORTED RATHER THAN SWALLOWED. If the
@@ -175,24 +202,58 @@ async def set_secret(request: Request, key: str, body: SecretIn,
     last4 = last4_of(value)
     k8s = request.app.state.container.k8s
     try:
-        k8s.patch_secret(entry.namespace, entry.secret,
-                         data={entry.key: value},
-                         annotations={last4_annotation(entry): last4,
-                                      updated_at_annotation(entry): at,
-                                      updated_by_annotation(entry): actor})
+        # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found; see
+        # read_secret_annotations' own call above for the full reasoning. Up to two blocking
+        # round trips happen in this one route (patch, then restart) — up to ~2x
+        # K8S_TIMEOUT_SECONDS the whole pod's event loop used to freeze for.
+        await asyncio.to_thread(
+            k8s.patch_secret, entry.namespace, entry.secret,
+            data={entry.key: value},
+            annotations={last4_annotation(entry): last4,
+                        updated_at_annotation(entry): at,
+                        updated_by_annotation(entry): actor})
     except K8sError as exc:
-        return _refuse(f"تعذّر حفظ المفتاح في العنقود: {exc}")
+        # THE FULL DETAIL IS LOGGED SERVER-SIDE, NEVER RETURNED TO THE CALLER — fixed 2026-09-12,
+        # a real gap a QA audit found. `str(exc)` used to be embedded straight into the response
+        # body; every other error path in this service redacts exception detail (CWE-209), and an
+        # owner-facing refusal naming which rule was broken does not need the cluster's own
+        # RBAC/network diagnostic text to do that.
+        _logger.error("k8s_patch_secret_failed",
+                      extra={"key": entry.key, "namespace": entry.namespace}, exc_info=exc)
+        return _refuse("تعذّر حفظ المفتاح في العنقود. راجع سجلّ الخدمة لمعرفة السبب.")
 
     try:
-        k8s.restart_deployment(entry.namespace, entry.deployment, at=at)
+        await asyncio.to_thread(k8s.restart_deployment, entry.namespace, entry.deployment, at=at)
     except K8sError as exc:
+        _logger.error("k8s_restart_deployment_failed",
+                      extra={"deployment": entry.deployment, "namespace": entry.namespace},
+                      exc_info=exc)
+        # THE AUDIT TRAIL NOW SAYS SO TOO — fixed 2026-09-12, a real gap a QA audit found. The
+        # write-ahead record above only ever said "changed"; an investigator reading the hash
+        # chain later could not tell a fully-applied rotation from one where the old pods kept
+        # running on the previous credential. A second, corrective entry — same append-only
+        # discipline as every other write-ahead correction on this platform — says the rollout
+        # itself did not complete.
+        await request.app.state.auditor.record(
+            "platform.secret_changed", actor=actor, tenant="",
+            resource=f"secret:{entry.secret}:{entry.key}",
+            ip=request.client.host if request.client else "",
+            metadata={"namespace": entry.namespace, "deployment": entry.deployment,
+                     "outcome": "saved_not_restarted"})
         # SAVED, NOT APPLIED — and the difference is the whole message. Retrying the save would
         # rewrite a value that is already correct; what is needed is a restart.
         return JSONResponse(
             {"error": "BAD_REQUEST",
-             "reason": f"حُفظ المفتاح، ولم تُعد تشغيل الخدمة ({entry.deployment}): {exc}. "
-                       f"القيمة الجديدة لن تُقرأ حتى إعادة التشغيل.",
+             "reason": f"حُفظ المفتاح، ولم تُعد تشغيل الخدمة ({entry.deployment}). "
+                       f"القيمة الجديدة لن تُقرأ حتى إعادة التشغيل. راجع سجلّ الخدمة لمعرفة السبب.",
              "key": entry.key, "last4": last4, "updated_at": at, "restarted": False},
             status_code=400)
 
-    return {"key": entry.key, "last4": last4, "updated_at": at, "restarted": True}
+    # SAME SELF-GUARD AS list_secrets ABOVE — see its own comment. This response is built out of
+    # `last4`/timestamps derived from the real value just handed to this route, the highest-risk
+    # response body in the service; the guard is a defense-in-depth check at the exact point a
+    # future regression (an accidentally-added `value` field, say) would ship silently otherwise.
+    async with guard.step("respond") as step:
+        result = {"key": entry.key, "last4": last4, "updated_at": at, "restarted": True}
+        step.result = result
+    return result
