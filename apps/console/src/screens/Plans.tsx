@@ -222,6 +222,14 @@ export const REQUIRES_ANY_LABELS: Record<string, string> = {
   'feature.contacts': 'جهات الاتصال',
 };
 
+/** THE SAME PAIR `plan.requires_any` NAMES for برنامج النقاط/التقييم/فرصي/الحملات — real
+ *  sales-recording apps, the only ones these four are actually useful under. `requires_any`
+ *  already refuses BUYING one of the four without holding one of these at purchase time; the
+ *  owner's own follow-on rule (2026-09-11) is the same dependency enforced going FORWARD —
+ *  losing both cancels every one of the four with it. See `cancelApp`'s own cascade below. */
+const PREREQ_KEYS = ['feature.visit', 'feature.bookings'];
+const DEPENDENT_KEYS = ['feature.loyalty', 'feature.rating', 'feature.insights.engine', 'feature.campaigns'];
+
 /** The OTHER feature keys this plan's own row says at least one of must already be held —
  * `services/operations/app/core/subscribe.py::requires_any` reads the SAME field, off the same
  * shape, purchase-time. Never merged, never a tenant's held entitlements — the candidate plan's
@@ -917,16 +925,52 @@ export function PlansPane({
     }
   };
 
+  /** WHICH DEPENDENT APPS WOULD CASCADE if this subscription is cancelled right now — read by
+   *  both the confirm dialog (so he is told BEFORE pressing, never surprised after) and `cancelApp`
+   *  itself (so the two never compute it two different ways and drift). Empty unless the sub being
+   *  cancelled is تسجيل زيارة/الحجوزات AND the shop would then hold neither. */
+  const cascadeTargets = (subId: string): Plan[] => {
+    const cancelledPlan = apps.find((p) => appSubs.some((s) => s.id === subId && s.plan_id === p.id));
+    const cancelledKey = cancelledPlan ? appKey(cancelledPlan) : '';
+    if (!PREREQ_KEYS.includes(cancelledKey)) return [];
+    const stillHasPrereq = PREREQ_KEYS.some((k) => {
+      if (k === cancelledKey) return false;
+      const p = apps.find((pp) => appKey(pp) === k);
+      return p ? activeAppSubs.some((s) => s.plan_id === p.id && s.id !== subId) : false;
+    });
+    if (stillHasPrereq) return [];
+    return activeAppSubs
+      .filter((s) => s.id !== subId)
+      .map((s) => apps.find((p) => p.id === s.plan_id))
+      .filter((p): p is Plan => p != null && DEPENDENT_KEYS.includes(appKey(p)));
+  };
+
   /** «إيقاف تجديد هذا التطبيق» — an app's own, independent cancellation. Never touches the base or
    *  any other app; the reverse direction (base takes every app with it) is `cancelBase` above.
    *  Only ever fired from `confirmingCancelApp`'s own confirm button — never directly from the
-   *  card, same discipline the base already had and the app was missing. */
+   *  card, same discipline the base already had and the app was missing.
+   *
+   *  CASCADES TO FOUR DEPENDENT APPS when the one being cancelled was تسجيل زيارة or الحجوزات AND
+   *  the shop now holds NEITHER — owner's own product rule (2026-09-11): برنامج النقاط/التقييم/
+   *  فرصي/الحملات are all logically dependent on a real sales-recording app existing under them
+   *  (`plan.requires_any` already refuses BUYING one without a prerequisite; this is the same rule
+   *  enforced going forward, not just at purchase). Same client-driven cascade `cancelBase` already
+   *  uses for "base takes every app with it" — billing-service does not cascade cancellations on
+   *  its own, so the caller states the whole cascade explicitly, one `billing.cancel` per row. */
   const cancelApp = async (subId: string) => {
     const a = action(catalog, 'billing.cancel');
     if (!a) return;
     setCancelingAppId(subId); setAppCancelError('');
     try {
+      // COMPUTED BEFORE the cancel call, off the pre-cancel `appSubs`/`activeAppSubs` snapshot —
+      // `cascadeTargets` itself already excludes `subId`, so this is the same answer the confirm
+      // dialog just showed him, not a re-derivation that could disagree with it.
+      const targets = cascadeTargets(subId);
       await call(session, a, { id: subId });
+      await Promise.all(targets.map((p) => {
+        const s = appSubs.find((x) => x.plan_id === p.id);
+        return s ? call(session, a, { id: s.id }) : Promise.resolve();
+      }));
       setConfirmingCancelApp(null);
       load();
     } catch (e) {
@@ -1295,6 +1339,20 @@ export function PlansPane({
                   : `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد بعدها.`;
               })()}
             </p>
+            {/* THE CASCADE, SAID BEFORE HE PRESSES — never discovered after. برنامج النقاط/
+                التقييم/فرصي/الحملات are all logically dependent on تسجيل زيارة/الحجوزات; losing
+                the last one standing takes them with it, named here rather than silently. */}
+            {(() => {
+              const targets = cascadeTargets(confirmingCancelApp.subId);
+              if (targets.length === 0) return null;
+              const names = targets.map((p) => p.name).join('، ');
+              return (
+                <p className="rounded-md bg-warning-soft p-3 text-sm text-warning-on-soft">
+                  محلك ما راح يملك تسجيل زيارة ولا الحجوزات بعد هذا — و{names} يعتمد عليهما،
+                  فيتوقف تجديدهم معه تلقائياً بنفس الشرط أعلاه.
+                </p>
+              );
+            })()}
             {appCancelError ? <p className="text-sm text-danger">{appCancelError}</p> : null}
             <div className="flex gap-2">
               <Button type="button" variant="danger" disabled={cancelingAppId === confirmingCancelApp.subId}
