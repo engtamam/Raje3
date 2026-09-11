@@ -224,6 +224,7 @@ env:
       {"prefix":"/api/v1/service-accounts","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/till","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/field","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/account","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/operations","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/staff","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/partner","upstream":"http://operations:8000","auth":"required","strip_prefix":false},

@@ -530,6 +530,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
 # Routes deliberately NOT rendered as app controls, each with the reason. The wiring gate reads
 # this list and refuses an entry without a `why`.
 UNDECLARED_ROUTES: list[dict[str, str]] = [
+    {"method": "GET", "path": "/api/v1/account/me/locale",
+     "why": "the platform-wide language preference (api/v1/__init__.py) needs NO capability at "
+            "all — require_user only, deliberately, so an owner (who holds no operations.* "
+            "capability of his own) can reach it too. Every entry below states a real capability "
+            "the console's own action catalogue filters on; declaring one here would be false "
+            "documentation of a check this route does not make. The console calls it directly "
+            "(api.ts's getMyLocale), same as the two routes right below it"},
+    {"method": "PATCH", "path": "/api/v1/account/me/locale",
+     "why": "same reasoning as the GET immediately above — setMyLocale, no capability required"},
     {"method": "POST", "path": "/api/v1/signup",
      "why": "it creates the account a token would come from — an action is fetched WITH a token, "
             "so a signed-in owner's control list is the one place this must never appear"},
