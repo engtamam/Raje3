@@ -190,7 +190,7 @@ function InvoicesPanel({ session, action, settleAction, settlementsAction, rever
     { key: 'status', header: 'الحالة', render: (r) => <InvoiceStatusBadge status={r.status} /> },
     { key: 'total_minor', header: 'الإجمالي', render: (r) => riyalsLabel(r.total_minor) },
     { key: 'refunded_minor', header: 'المسترجَع', render: (r) => (r.refunded_minor ? riyalsLabel(r.refunded_minor) : '—'), hideOnCard: true },
-    { key: 'created', header: 'التاريخ', render: (r) => new Date(r.created).toLocaleDateString('ar-SA') },
+    { key: 'created', header: 'التاريخ', render: (r) => new Date(r.created).toLocaleDateString('ar-SA-u-nu-latn') },
   ];
   if (settleAction) {
     columns.push({
@@ -490,8 +490,8 @@ function SubscriptionsPanel({ session, action, forceSuspendAction }: {
     { key: 'plan_id', header: 'التطبيق' },
     { key: 'status', header: 'الحالة' },
     { key: 'payment_gateway', header: 'بوابة الدفع', render: (r) => r.payment_gateway || '—' },
-    { key: 'created', header: 'بدأ', render: (r) => new Date(r.created).toLocaleDateString('ar-SA') },
-    { key: 'canceled_at', header: 'انتهى', render: (r) => r.canceled_at ? new Date(r.canceled_at).toLocaleDateString('ar-SA') : '—' },
+    { key: 'created', header: 'بدأ', render: (r) => new Date(r.created).toLocaleDateString('ar-SA-u-nu-latn') },
+    { key: 'canceled_at', header: 'انتهى', render: (r) => r.canceled_at ? new Date(r.canceled_at).toLocaleDateString('ar-SA-u-nu-latn') : '—' },
   ];
   if (forceSuspendAction) {
     columns.push({

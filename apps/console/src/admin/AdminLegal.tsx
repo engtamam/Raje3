@@ -299,7 +299,7 @@ export function AdminLegal({ session }: { session: AdminSession }) {
                         </Badge>
                         {v.published_at ? (
                           <span className="text-xs text-text-secondary">
-                            {new Date(v.published_at * 1000).toLocaleDateString('ar-SA')}
+                            {new Date(v.published_at * 1000).toLocaleDateString('ar-SA-u-nu-latn')}
                           </span>
                         ) : null}
                         <button type="button" className="ms-auto text-xs text-text-secondary hover:underline"

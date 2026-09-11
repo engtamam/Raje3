@@ -52,7 +52,10 @@ function fromDateInput(value: string): number | undefined {
 }
 function dateLine(epoch?: number): string {
   if (!epoch) return '—';
-  return new Date(epoch * 1000).toLocaleDateString('ar-SA');
+  // `-u-nu-latn` forces WESTERN digits — plain `ar-SA` renders Arabic-Indic numerals instead,
+  // which every other date on this console deliberately avoids (Customer.tsx/Shop.tsx/Plans.tsx's
+  // own `-u-nu-latn` dates) — found live from an admin screenshot of a coupon card.
+  return new Date(epoch * 1000).toLocaleDateString('ar-SA-u-nu-latn');
 }
 
 export function CouponCards({ session, createAction, updateAction, deleteAction, coupons, plans, onReload }: {
