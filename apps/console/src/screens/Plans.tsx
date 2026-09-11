@@ -519,6 +519,12 @@ function AppCard({
             if (!a) return Promise.reject(new Error('لا صلاحية لقراءة مميزات هذا التطبيق'));
             return call(session, a);
           }}
+          // ONLY AN OWNED CARD COLLAPSES — this is a receipt for something already bought, sitting
+          // in a row next to other owned cards (شرائي's own «التطبيقات» grid): a 7-feature app used
+          // to tower over its 1-feature neighbour and the row read as an uneven wall of text
+          // (owner's own screenshot: "طويلة لهذي الدرجة"). A card still arguing for a purchase
+          // (`has` false) keeps showing every feature — see AppFeatureList's own note on why.
+          collapseAt={has ? 3 : undefined}
         />
       ) : null}
 

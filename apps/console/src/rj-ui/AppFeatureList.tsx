@@ -127,7 +127,7 @@ function FeatureRowSkeleton() {
  * caller passes whichever `apps.ts`'s own `AppRow`/`Owned.apps[]` actually gave it.
  */
 export function AppFeatureList({
-  features, actionId, fetcher,
+  features, actionId, fetcher, collapseAt,
 }: {
   /** Already-known features (operations' own apps() response) — skips the fetch entirely. */
   features?: AppFeature[];
@@ -138,9 +138,18 @@ export function AppFeatureList({
    *  `action(catalog, id)` + `call(session, action)` pair (or the admin panel's `req()`
    *  equivalent), injected so this component never has to know which catalog or session it is. */
   fetcher?: (actionId: string) => Promise<{ features: AppFeature[] }>;
+  /** Show only the first N rows behind a «عرض الكل» toggle — an OWNED card sitting in a row next
+   *  to other owned cards (شرائي's own «التطبيقات» grid) used to print every feature's full
+   *  title+detail regardless of how many the app carried, so a 7-feature app towered over its
+   *  1-feature neighbour and the whole row read as uneven and text-heavy (owner's own screenshot:
+   *  "طويلة لهذي الدرجة"). UNSET ON PURPOSE for a locked/upsell card — see Locked.tsx's own note
+   *  on why that one shows every feature, never trimmed: a card arguing you should buy something
+   *  must not hide the argument, but a card you already bought is a receipt, not a pitch. */
+  collapseAt?: number;
 }) {
   const [fetched, setFetched] = useState<AppFeature[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (features || !actionId || !fetcher) return;
@@ -170,9 +179,20 @@ export function AppFeatureList({
   // of this console's own store screen already holds for a billing read that failed.
   if (!rows || rows.length === 0) return null;
 
+  const collapsed = collapseAt != null && rows.length > collapseAt && !expanded;
+  const visible = collapsed ? rows.slice(0, collapseAt) : rows;
+
   return (
     <ul className="flex flex-col gap-3 border-t border-border-subtle pt-3">
-      {rows.map((f) => <FeatureRow key={f.id} feature={f} />)}
+      {visible.map((f) => <FeatureRow key={f.id} feature={f} />)}
+      {collapsed ? (
+        <li>
+          <button type="button" onClick={() => setExpanded(true)}
+                  className="text-xs font-medium text-accent hover:underline">
+            عرض كل الميزات ({rows.length})
+          </button>
+        </li>
+      ) : null}
     </ul>
   );
 }

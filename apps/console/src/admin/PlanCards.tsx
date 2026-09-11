@@ -57,7 +57,26 @@ import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
 import { LIMIT_WORDS, REQUIRES_ANY_LABELS, isStandalone, kindOf, appKey } from '../screens/Plans';
 import { APP_ROWS } from '../apps';
-import { appIcon, toneClasses } from '../rj-ui/AppFeatureList';
+import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
+
+// THE SAME REAL CATALOG THE STORE READS, HIT DIRECTLY — an admin's own sign-in mints an ordinary
+// signed JWT through the SAME identity pipeline as any shop's (api.ts::signIn posts to
+// `/api/v1/auth/tenant`, tenant=`_platform`), so `require_user` on each of these routes verifies
+// it exactly like a shop's token; nothing here needs a platform capability of its own EXCEPT
+// whatsapp-assistant's own route (see its own `_PRICING_READ` guard) — a platform token missing
+// that one capability degrades to no list rather than a crash, same as any other failed read
+// (`AppFeatureList`'s own "a card that could not read its own features still sells" posture).
+// Keyed by `AppRow.key` (never the plan id, which can be renamed) — a plan whose key has no entry
+// here (رات/تسجيل زيارة/جهات الاتصال, only ever served inline per-tenant by operations, or a
+// capacity/base/enterprise row with no catalog of its own) falls through to the raw limit list
+// below instead, rather than a blank card.
+const FEATURES_PATH: Record<string, string> = {
+  'feature.bookings': '/api/v1/bookings/features',
+  'feature.loyalty': '/api/v1/loyalty/features',
+  'feature.campaigns': '/api/v1/campaigns/features',
+  'feature.insights.engine': '/api/v1/insights/features',
+  'feature.whatsapp': '/api/v1/assistant/features',
+};
 
 interface LimitEntry { kind: 'boolean' | 'gauge' | 'counter' | string; limit: number | 'unlimited'; period?: string }
 interface Price { type: string; currency: string; interval: string; amount_minor: number }
@@ -179,6 +198,12 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
     : kind === 'base' ? APP_ROWS.find((a) => a.id === 'base')
     : APP_ROWS.find((a) => a.key === appKey(plan as never));
   const CardIcon = kind === 'capacity' ? Boxes : matchedApp ? appIcon(matchedApp.icon) : Package;
+  // THE SAME CARD THE STORE SHOWS — a real catalog path means this row is one of the five apps
+  // with a standalone `GET .../features` route (see `FEATURES_PATH`'s own note); everything else
+  // (رات/تسجيل زيارة/جهات الاتصال — inline-only, per-tenant, no standalone route to hit from here
+  // — plus capacity/base/enterprise rows) keeps the raw boolean/counted limit list below, which is
+  // the only shape that ever applied to those anyway.
+  const featuresPath = matchedApp ? FEATURES_PATH[matchedApp.key ?? ''] : undefined;
 
   async function toggleActive() {
     if (!availabilityAction) return;
@@ -251,7 +276,20 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
         ) : null}
       </div>
 
-      {booleans.length > 0 ? (
+      {featuresPath ? (
+        // THE SAME CARD THE STORE SHOWS, ON PURPOSE (owner's own complaint: "لازم يصير نفس تصميم
+        // البطايق حق المحل"). The plan's own feature.* flag is never repeated below as a raw
+        // boolean — this card IS that app — and `plan.standalone` already surfaced as the "تُشترى
+        // وحدها" badge above; only a REAL extra limit this app's own plan still carries beyond its
+        // one feature flag (فرصي/الحملات's own `templates.custom` counter, rendered below via the
+        // SAME raw counted-limit list every other card falls back to) keeps its own line.
+        <AppFeatureList
+          actionId={featuresPath}
+          fetcher={(path) => req<{ features: import('../apps').AppFeature[] }>(
+            path, 'GET', undefined, session.access_token)}
+          collapseAt={3}
+        />
+      ) : booleans.length > 0 ? (
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
           {booleans.map(([key, entry]) => {
             const Icon = limitIcon(key);
