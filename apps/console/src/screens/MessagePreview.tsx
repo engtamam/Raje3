@@ -30,6 +30,8 @@ import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { WaFlowScreens, WhatsAppTemplatePreview, type FlowJson } from '../rj-ui/WhatsAppPreview';
+import { useOperatorI18n } from '../operator-i18n';
+import './message-preview-i18n';
 
 /**
  * ONE BUTTON UNDER THE BUBBLE — Meta draws these OUTSIDE the message, not inside it, and the two
@@ -63,15 +65,27 @@ export interface Option {
   buttons?: MessageButton[];
 }
 
-/** What a row says about itself, in his words — never Meta's status names. */
-export function standing(o: Option): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } | null {
-  if (o.mine && o.status === 'rejected') return { label: 'رفضها واتساب', tone: 'danger' };
-  if (o.mine && o.status === 'pending') return { label: 'عند واتساب للمراجعة', tone: 'warning' };
-  if (o.mine && o.status === 'draft') return { label: 'لم تُرفَع بعد', tone: 'neutral' };
-  // NOT KNOWN DRAWS NOTHING. «ليست جاهزة» about a wording we simply could not ask about is the
-  // same defect as «تُراجَع لدى واتساب» about one that was never submitted, one row smaller.
-  if (o.approved === true) return { label: 'جاهزة للإرسال', tone: 'success' };
-  if (o.approved === false) return { label: 'بانتظار اعتماد واتساب', tone: 'warning' };
+/** What a row says about itself, in his words — never Meta's status names. Defaults `t` to the
+ *  Arabic original (see BookingDialog.tsx's own `blockedSentence` for the same pattern) so this
+ *  stays a plain, hook-free function callable outside a component tree; real render call sites
+ *  pass the live translator instead. */
+export function standing(
+  o: Option,
+  t: (key: string) => string = (k) => ({
+    'messagePreview.status.rejected': 'رفضها واتساب',
+    'messagePreview.status.pendingReview': 'عند واتساب للمراجعة',
+    'messagePreview.status.notSubmitted': 'لم تُرفَع بعد',
+    'messagePreview.status.ready': 'جاهزة للإرسال',
+    'messagePreview.status.awaitingApproval': 'بانتظار اعتماد واتساب',
+  }[k] ?? k),
+): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } | null {
+  if (o.mine && o.status === 'rejected') return { label: t('messagePreview.status.rejected'), tone: 'danger' };
+  if (o.mine && o.status === 'pending') return { label: t('messagePreview.status.pendingReview'), tone: 'warning' };
+  if (o.mine && o.status === 'draft') return { label: t('messagePreview.status.notSubmitted'), tone: 'neutral' };
+  // NOT KNOWN DRAWS NOTHING. "not ready" about a wording we simply could not ask about is the
+  // same defect as "under WhatsApp review" about one that was never submitted, one row smaller.
+  if (o.approved === true) return { label: t('messagePreview.status.ready'), tone: 'success' };
+  if (o.approved === false) return { label: t('messagePreview.status.awaitingApproval'), tone: 'warning' };
   return null;
 }
 
@@ -100,10 +114,9 @@ const STATUS: Record<string, string> = {
  * per subscriber and read throughout core/reasons.py; renaming the wire value is a data migration,
  * not a label fix, and every subscriber's real choice keeps working unchanged either way. Only
  * what an owner reads on this screen changes. */
-const TONE: Record<string, string> = {
-  warm: 'مذكر',
-  feminine: 'مؤنث',
-};
+function toneLabel(t: (key: string) => string, tone: string): string {
+  return tone === 'warm' ? t('messagePreview.tone.warm') : tone === 'feminine' ? t('messagePreview.tone.feminine') : tone;
+}
 
 export function MessagePreview({
   session, catalog, reasonId, templateType, label, when, canRetext, onClose, onChosen,
@@ -125,6 +138,7 @@ export function MessagePreview({
   onClose: () => void;
   onChosen: () => void;
 }) {
+  const { t } = useOperatorI18n();
   // A REASON HAS ONE, A BARE TEMPLATE TYPE DOES NOT — his own texts, submitting, «ساعدوني»,
   // switching the shop's chosen wording, all key off a reason id that does not exist here.
   const byGoal = !reasonId && Boolean(templateType);
@@ -235,7 +249,7 @@ export function MessagePreview({
       setTone(next);
       onChosen();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حفظ النبرة.');
+      setError(e instanceof Error ? e.message : t('messagePreview.toneSaveError'));
     } finally {
       setSaving('');
     }
@@ -251,7 +265,7 @@ export function MessagePreview({
       if (out?.error) setError(out.error);
       else { setChosen(option.name); onChosen(); }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+      setError(e instanceof Error ? e.message : t('messagePreview.saveError'));
     } finally {
       setSaving('');
     }
@@ -276,7 +290,7 @@ export function MessagePreview({
       if (out?.error) setError(out.error);
       else onChosen();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر التنفيذ.');
+      setError(e instanceof Error ? e.message : t('messagePreview.actionError'));
     } finally {
       setSaving('');
     }
@@ -297,7 +311,7 @@ export function MessagePreview({
       setOpenFlow({ name: flowName, flow: j });
     } catch (e) {
       setOpenFlow(null);
-      setFlowError(e instanceof Error ? e.message : 'تعذّر جلب شاشات الفلو.');
+      setFlowError(e instanceof Error ? e.message : t('messagePreview.flowFetchError'));
     }
   };
 
@@ -310,7 +324,7 @@ export function MessagePreview({
       setChosen('');
       onChosen();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+      setError(e instanceof Error ? e.message : t('messagePreview.saveError'));
     } finally {
       setSaving('');
     }
@@ -332,12 +346,12 @@ export function MessagePreview({
             <Skeleton height={96} /><Skeleton height={96} />
           </div>
         ) : isDenied(options) ? (
-          <p className="text-sm text-text-secondary">لا يشمل دورك تحرير نصوص الرسائل.</p>
+          <p className="text-sm text-text-secondary">{t('messagePreview.noPermission')}</p>
         ) : optionsFailed || hasFailed(options) ? (
           // OURS, AND SAID SO. This sentence was already the honest one; it is now shown for the
           // failure ALONE, so the case below can say something different and true.
           <p className="text-sm text-text-secondary">
-            تعذّر عرض نصّ هذه الرسالة الآن — والخلل عندنا. حاول بعد قليل.
+            {t('messagePreview.loadFailed')}
           </p>
         ) : !isReady(options) || options.length === 0 ? (
           /* THREE REASONS, THREE SENTENCES — and one of them used to be shown for all three.
@@ -348,10 +362,10 @@ export function MessagePreview({
              The server names the state; this only chooses the words. */
           <p className="text-sm text-text-secondary">
             {emptyBecause === 'unread'
-              ? 'تعذّرت قراءة صيغنا الآن — والخلل عندنا، لا عندك. حاول بعد قليل.'
+              ? t('messagePreview.empty.unread')
               : emptyBecause === 'pending'
-                ? 'نصّك مُرسَل إلى واتساب للمراجعة، وقد تستغرق ساعات. سنعلمك فور اعتماده.'
-                : 'لا توجد صيغة جاهزة لهذه الرسالة بعد — وهذا نقصٌ عندنا نعمل عليه.'}
+                ? t('messagePreview.empty.pending')
+                : t('messagePreview.empty.none')}
           </p>
         ) : (
           <>
@@ -372,9 +386,9 @@ export function MessagePreview({
                 is the whole reason this screen exists and the one thing a table must not replace. */}
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-sm font-medium">الصيغ المتاحة</h3>
+                <h3 className="text-sm font-medium">{t('messagePreview.availableWordings')}</h3>
                 <span className="text-xs text-text-secondary">
-                  اضغط الصيغة لتقرأ قالبها كما هو مكتوب، ومثالاً كما يصل عميلك.
+                  {t('messagePreview.tapHint')}
                 </span>
               </div>
 
@@ -392,7 +406,7 @@ export function MessagePreview({
                         className="flex items-center gap-3 px-3 py-2.5 text-right"
                       >
                         <span className="w-20 shrink-0 text-xs text-text-secondary">
-                          {o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone}
+                          {o.mine ? t('messagePreview.yourText') : toneLabel(t, o.tone)}
                         </span>
                         {/* THE OPENING WORDS, NOT THE WHOLE MESSAGE. A row that wraps to four
                             lines is not a row, and the full text is one press away. */}
@@ -400,7 +414,7 @@ export function MessagePreview({
                         {sending ? (
                           <Badge tone="info">
                             <Check size={12} aria-hidden className="me-1" />
-                            تُرسَل الآن
+                            {t('messagePreview.sendingNow')}
                           </Badge>
                         ) : null}
                         {/* NO BADGE AT ALL when we could not ask — see `standing`. */}
@@ -423,14 +437,14 @@ export function MessagePreview({
                               puts on its chips, so one word describes a blank everywhere. */}
                           {o.template && o.template !== o.text ? (
                             <div className="flex flex-col gap-1">
-                              <span className="text-xs text-text-secondary">القالب كما هو مكتوب</span>
+                              <span className="text-xs text-text-secondary">{t('messagePreview.templateAsWritten')}</span>
                               <p className="whitespace-pre-wrap rounded-card bg-surface-1 px-3 py-2
                                             text-sm text-text-secondary">
                                 {o.template}
                               </p>
                             </div>
                           ) : null}
-                          <Bubble text={o.text} caption={o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone}
+                          <Bubble text={o.text} caption={o.mine ? t('messagePreview.yourText') : toneLabel(t, o.tone)}
                                   buttons={o.buttons}
                                   onPressButton={(b) => { if (b.kind === 'flow' && b.flow_name) void openFlowButton(b.flow_name); }} />
                           {/* THE FLOW, OPENED FOR REAL — only for the row whose button was
@@ -460,33 +474,33 @@ export function MessagePreview({
                                 bar, WhatsApp header, wallpaper), not just the bare green bubble
                                 above. */}
                             <Button variant="ghost" onClick={() => setPhonePreview(o)} className="gap-2">
-                              <Eye size={14} /> معاينة على واتساب
+                              <Eye size={14} /> {t('messagePreview.previewOnWhatsapp')}
                             </Button>
                             {sending ? (
                               <span className="text-xs text-text-secondary">
-                                هذه الصيغة هي ما يخرج باسمك لهذه الرسالة.
+                                {t('messagePreview.thisIsSendingNote')}
                               </span>
                             ) : o.mine ? (
                               <Button variant="ghost" disabled={saving === o.name}
                                       onClick={() => pick(o)}>
-                                استعملها
+                                {t('messagePreview.useIt')}
                               </Button>
                             ) : chosen ? (
                               <Button variant="ghost" disabled={saving === 'ours'}
                                       onClick={useOurs}>
-                                العودة إلى صياغتنا
+                                {t('messagePreview.backToOurs')}
                               </Button>
                             ) : (
                               <Button variant="ghost" disabled={saving === o.tone}
                                       onClick={() => { void chooseTone(o.tone); }}>
-                                اجعلها نبرتي
+                                {t('messagePreview.makeMyTone')}
                               </Button>
                             )}
                             {o.mine && o.status === 'draft'
                               && action(catalog, 'reminders.submit_template') ? (
                               <Button variant="ghost" disabled={saving === o.name}
                                       onClick={() => act('reminders.submit_template', o.name, o.name)}>
-                                ارفعه إلى واتساب
+                                {t('messagePreview.submitToWhatsapp')}
                               </Button>
                             ) : null}
                             {o.mine && o.status === 'rejected'
@@ -494,7 +508,7 @@ export function MessagePreview({
                               <Button variant="ghost" disabled={saving === `help:${o.name}`}
                                       onClick={() =>
                                         act('reminders.template_help', o.name, `help:${o.name}`)}>
-                                ساعدوني
+                                {t('messagePreview.helpMe')}
                               </Button>
                             ) : null}
                             {/* OUR ANSWER, ON THE SCREEN HE ASKED FROM. A reply that lives only in
@@ -506,7 +520,7 @@ export function MessagePreview({
                               </span>
                             ) : (help ?? []).some((h) => h.name === o.name && h.status === 'open') ? (
                               <span className="text-xs text-text-secondary">
-                                طلبك وصلنا — نرد عليك هنا.
+                                {t('messagePreview.requestReceived')}
                               </span>
                             ) : null}
                           </div>
@@ -519,8 +533,8 @@ export function MessagePreview({
 
               <p className="text-xs text-text-secondary">
                 {chosen
-                  ? 'نصّك هو ما يُرسَل لهذه الرسالة — والنبرة تحكم بقية رسائلك.'
-                  : 'نبرتك تُطبَّق على كل رسائلك، لا على هذه وحدها.'}
+                  ? t('messagePreview.footerChosen')
+                  : t('messagePreview.footerTone')}
               </p>
             </section>
 
@@ -529,9 +543,9 @@ export function MessagePreview({
             {!byGoal && canRetext && action(catalog, 'reminders.write_template') ? (
               <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
                 <span className="text-sm text-text-secondary">
-                  تبي صياغتك أنت؟ اكتبها ونرفعها لواتساب باسمك.
+                  {t('messagePreview.writeYourOwnPrompt')}
                 </span>
-                <Button variant="ghost" onClick={() => setWriting(true)}>اكتب نصّك</Button>
+                <Button variant="ghost" onClick={() => setWriting(true)}>{t('messagePreview.writeYourText')}</Button>
               </div>
             ) : null}
 
@@ -564,7 +578,7 @@ export function MessagePreview({
             {!byGoal && !canRetext ? (
               <p className="flex items-center gap-2 border-t border-border-subtle pt-4 text-sm text-text-secondary">
                 <Lock size={14} aria-hidden />
-                هذه الرسالة تُرسَل بصياغتنا — نصّها مرتبط بحقٍّ نظامي لعميلك.
+                {t('messagePreview.cannotWriteNote')}
               </p>
             ) : null}
           </>
@@ -577,8 +591,8 @@ export function MessagePreview({
           stays on `@base-ui/design-system/Modal`: its stacking registry is exactly what lets a
           second dialog open on top of the first without either losing Escape/focus handling. */}
       {phonePreview ? (
-        <Modal open onClose={() => setPhonePreview(null)} title="معاينة على واتساب"
-              subtitle="بالضبط ما يستلمه العميل — الفلو الحقيقي، لا نسخة مقلَّدة.">
+        <Modal open onClose={() => setPhonePreview(null)} title={t('messagePreview.previewOnWhatsapp')}
+              subtitle={t('messagePreview.previewSubtitle')}>
           <WhatsAppTemplatePreview
             data={{
               // ALREADY-RESOLVED text (real example values, not `{{1}}` placeholders) — no
@@ -594,7 +608,7 @@ export function MessagePreview({
             }}
             fetchFlowJson={(flowName) => {
               const a = action(catalog, 'operations.whatsapp_flow_json');
-              if (!a) return Promise.reject(new Error('لا صلاحية لقراءة شاشات الفلو'));
+              if (!a) return Promise.reject(new Error(t('messagePreview.noFlowPermission')));
               return call<FlowJson>(session, a, { name: flowName });
             }}
           />
@@ -624,6 +638,7 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
    *  Absent leaves the button exactly as before: a real label, not yet interactive. */
   onPressButton?: (button: MessageButton) => void;
 }) {
+  const { t } = useOperatorI18n();
   // THE WHOLE BUBBLE IS THE TARGET, not a button underneath it. He is choosing a sentence, and
   // the sentence is the thing on the screen — a separate «اختر» control asks him to read one
   // element and press another. A real <button> rather than a div with a handler: the keyboard,
@@ -695,7 +710,7 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
               {activeLabel}
             </span>
           ) : null}
-          {busy ? <span>يُحفظ…</span> : null}
+          {busy ? <span>{t('messagePreview.savingEllipsis')}</span> : null}
         </span>
         {act}
       </figcaption>

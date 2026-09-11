@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const calls: { id: string; params: unknown }[] = [];
 
@@ -38,9 +39,11 @@ const catalog = { services: [], unreachable: [] } as never;
 
 describe('MessagePreview — templateType mode (no reason id)', () => {
   it('reads reminders.preview_by_type by template_type, not preview_reason', async () => {
-    render(<MessagePreview session={session} catalog={catalog}
-                           templateType="mkt_announcement" label="أعلن جديدك" when="متى شئت"
-                           canRetext={false} onClose={() => {}} onChosen={() => {}} />);
+    render(<OperatorI18nProvider session={session}>
+      <MessagePreview session={session} catalog={catalog}
+                     templateType="mkt_announcement" label="أعلن جديدك" when="متى شئت"
+                     canRetext={false} onClose={() => {}} onChosen={() => {}} />
+    </OperatorI18nProvider>);
     await screen.findByText(/خبر جديد من محلّك/);
     expect(calls.some((c) => c.id === 'reminders.preview_by_type'
       && (c.params as { template_type: string }).template_type === 'mkt_announcement')).toBe(true);
@@ -49,9 +52,11 @@ describe('MessagePreview — templateType mode (no reason id)', () => {
   });
 
   it('never offers to write his own text in this mode — no reason to attach it to', async () => {
-    render(<MessagePreview session={session} catalog={catalog}
-                           templateType="mkt_announcement" label="أعلن جديدك" when="متى شئت"
-                           canRetext={false} onClose={() => {}} onChosen={() => {}} />);
+    render(<OperatorI18nProvider session={session}>
+      <MessagePreview session={session} catalog={catalog}
+                     templateType="mkt_announcement" label="أعلن جديدك" when="متى شئت"
+                     canRetext={false} onClose={() => {}} onChosen={() => {}} />
+    </OperatorI18nProvider>);
     await screen.findByText(/خبر جديد من محلّك/);
     expect(screen.queryByText('اكتب نصّك')).toBeNull();
     expect(screen.queryByText(/حقٍّ نظامي/)).toBeNull();

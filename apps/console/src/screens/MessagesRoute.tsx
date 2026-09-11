@@ -8,12 +8,12 @@ import type { Session } from '../session';
 
 export function Messages() {
   // `owned` ALONGSIDE THE CATALOGUE, never instead of it: the catalogue says what this PERSON may
-  // do and `owned` says what the SHOP bought. «رسائلي» needs both — the reasons table is the base
-  // and belongs to every subscriber, and only the campaigns tab is an app he buys.
+  // do and `owned` says what the SHOP bought. "My Messages" needs both — the reasons table is the
+  // base and belongs to every subscriber, and only the campaigns tab is an app he buys.
   //
-  // `branch` (the rail's own «الفرع المعروض»), NEWLY THREADED THROUGH — this screen used to read
-  // its own branch list and default its delivery-log filter to «كل الفروع» regardless of what the
-  // rest of the console was already narrowed to, the exact «comparing two different shops»
+  // `branch` (the rail's own "branch shown"), NEWLY THREADED THROUGH — this screen used to read
+  // its own branch list and default its delivery-log filter to "all branches" regardless of what
+  // the rest of the console was already narrowed to, the exact "comparing two different shops"
   // BranchSwitch's own module docstring warns about. See MessagesScreen's own note on where this
   // is actually used (the log tab's filter only — the campaigns tab has no branch field at all;
   // a campaign's audience is a choice made per-launch, never the viewing scope — see
