@@ -264,3 +264,95 @@ button.bg-transparent.text-text-secondary:hover {
 }
 .legal-figure img { border-radius: 0.75rem; border: 1px solid var(--border-subtle); }
 .legal-figure figcaption { font-size: 0.8125rem; color: var(--text-secondary); text-align: center; }
+
+/* ── «بوت خدمة العملاء الذكي» — THE ONE CARD IN THE STORE THAT WEARS ITS OWN LOOK ─────────────
+ * Owner's own words (2026-09-11): «فخمة ملكية ذهبية، تصاميم خرافية، جنونية ملفتة». A committed
+ * dark/gold palette, never swapped per light/dark theme — a VIP card owns one look on purpose,
+ * same allowance `artifact-design`'s own rule gives a deliberate single-world treatment.
+ *
+ * THE WHOLE TRICK: redefine the SAME semantic vars every rj-ui component already reads
+ * (surface/text/border/accent/tone-soft pairs) inside this one element's own scope. Nothing
+ * downstream — Badge, Button, AppFeatureList's own icon tones — needs a single line of gold-
+ * specific code; they already resolve `bg-accent-soft`/`text-text-secondary`/etc. to `var(--x)`,
+ * so redefining the variable IS restyling every child, cheaply, with the token system doing the
+ * actual work rather than a parallel gold stylesheet duplicating every component. */
+.rj-gold-card {
+  position: relative;
+  isolation: isolate;
+  --surface-0: #140e07;
+  --surface-1: #1c140b;
+  --surface-2: #241a0e;
+  --surface-3: #2c2010;
+  --text-primary: #f7e7c1;
+  --text-secondary: #d8b978;
+  --text-muted: #a6884f;
+  --border-subtle: rgba(212, 175, 55, 0.35);
+  --border-strong: rgba(212, 175, 55, 0.6);
+  --accent: #d4af37;
+  --accent-hover: #e6c34f;
+  --accent-contrast: #1c140b;
+  --accent-soft: rgba(212, 175, 55, 0.18);
+  --accent-on-soft: #f0d98c;
+  --success: #d4af37;
+  --success-soft: rgba(212, 175, 55, 0.2);
+  --success-on-soft: #f4e2a4;
+  --warning-soft: rgba(212, 175, 55, 0.18);
+  --warning-on-soft: #f0d98c;
+  --danger-soft: rgba(212, 175, 55, 0.14);
+  --danger-on-soft: #e8c98a;
+  --info-soft: rgba(212, 175, 55, 0.18);
+  --info-on-soft: #f0d98c;
+  background: radial-gradient(130% 150% at 12% -15%, #3d2c13 0%, #1c140b 55%, #100b05 100%);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.45), 0 18px 42px -14px rgba(0, 0, 0, 0.7);
+}
+/* THE SHEEN — a diagonal band of light sweeping the card, the one animated flourish on this whole
+ * screen (every other card holds still). `isolation: isolate` above keeps it from bleeding onto
+ * siblings; `pointer-events: none` keeps it from ever intercepting the buy button under it. */
+.rj-gold-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 238, 190, 0.3) 48%, transparent 62%);
+  background-size: 240% 240%;
+  animation: rj-gold-sheen 5s ease-in-out infinite;
+}
+.rj-gold-card > * { position: relative; z-index: 1; }
+@keyframes rj-gold-sheen {
+  0% { background-position: 200% 0%; }
+  55%, 100% { background-position: -80% 0%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rj-gold-card::before { animation: none; }
+}
+
+/* ── THE DISCOUNT-PREVIEW BADGE — a small gold pill, not a whole gold card ──────────────────────
+ * A shop qualifying for a cross-app discount (billing's own `discount-preview` read) gets a
+ * ribbon on the card it does NOT own yet, naming the percent and which app earned it. Full-card
+ * gold is reserved for «بوت خدمة العملاء الذكي» alone — every discount-eligible card wearing the
+ * whole VIP treatment would flatten that one app's own distinction into background noise, so this
+ * is the same palette at badge scale: eye-catching, still recognisably "gold", never the backdrop.
+ */
+.rj-gold-badge {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(135deg, #b8860b 0%, #d4af37 45%, #f0d98c 70%, #d4af37 100%);
+  color: #241a0e;
+  box-shadow: 0 2px 8px -2px rgba(212, 175, 55, 0.6);
+}
+.rj-gold-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.55) 48%, transparent 62%);
+  background-size: 240% 240%;
+  animation: rj-gold-sheen 3.2s ease-in-out infinite;
+}
+.rj-gold-badge > * { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .rj-gold-badge::before { animation: none; }
+}

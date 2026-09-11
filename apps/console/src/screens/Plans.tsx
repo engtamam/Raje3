@@ -37,7 +37,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Crown } from 'lucide-react';
 import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { action, call, type Catalog } from '../catalog';
 import { isDenied, isReady, type Loading } from '../loading';
@@ -340,6 +340,13 @@ function renewalDay(epoch: number | null | undefined): string {
 }
 
 
+/** The app's own Arabic name for a `feature.*`/`plan.*` key — same registry, same fallback (the
+ *  raw key itself) as `DiscountRuleCards.tsx`'s own `appName`, so a discount badge and the admin
+ *  screen that defines the rule behind it never disagree about what to call an app. */
+function appName(key: string): string {
+  return APP_ROWS.find((a) => a.key === key)?.name ?? key;
+}
+
 // «تطبيقات، لا باقات» — راجِع does not sell subscription TIERS of one
 // product; it sells INDEPENDENT APPS a shop adds to its base, each with its own price, its own
 // subscription, its own cancel. `الأساس` is itself one of them — the one every other app needs
@@ -349,7 +356,7 @@ function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, lockedNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
-  onUndoCancel, undoingCancel, session, catalog, ownedFeatures,
+  onUndoCancel, undoingCancel, session, catalog, ownedFeatures, discount,
 }: {
   /** Only for the "?" beside a status badge that genuinely needs one (trial/past-due/paused) —
    *  every other passive label on this card is already said in plain Arabic right on it. */
@@ -361,6 +368,10 @@ function AppCard({
    *  inline (see `Owned.apps[].features`); every other app fetches its own via
    *  `AppRow.featuresAction` instead, inside `AppFeatureList` itself. */
   ownedFeatures?: AppFeature[];
+  /** billing's own cross-app discount preview (`GET .../discount-preview`, v0.19.21) — present
+   *  only when a rule currently applies to THIS shop for THIS plan; absent means no badge, never
+   *  a zero. `owning_key` is which app of his already earned it, named in the badge's own text. */
+  discount?: { percent: number; owning_key: string };
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
   owned: boolean | null;
@@ -431,6 +442,11 @@ function AppCard({
   // as the ring/hairline above it. The app's OWN tone only distinguishes cards among each other
   // while a shop is still deciding what to buy.
   const badgeTone = has ? 'success' : (app?.tone ?? '');
+  // «بوت خدمة العملاء الذكي» WEARS ITS OWN LOOK — the owner's own request for a "فخمة ملكية
+  // ذهبية" card that stands out from every other app on the shelf. `.rj-gold-card` (index.css)
+  // does the actual work by redefining the same semantic vars every element below already reads,
+  // so nothing else in this component needs a gold-specific branch.
+  const isGold = app?.id === 'whatsapp' && !compact;
   return (
     <article
       className={[
@@ -441,7 +457,9 @@ function AppCard({
         // app cards should read as a store with pressable things in it, not a page of printed
         // tiles.
         'transition-[transform,box-shadow] duration-200',
-        has
+        isGold
+          ? ['rj-gold-card', has ? '' : 'hover:-translate-y-1'].join(' ')
+          : has
           // OWNED READS AS SETTLED, NOT AS SOLD. A ring rather than a fill: a card he already owns
           // must not compete for attention with the ones he might buy.
           ? 'bg-surface-1 shadow-sm ring-1 ring-success-soft'
@@ -449,8 +467,22 @@ function AppCard({
       ].join(' ')}
     >
       {/* A HAIRLINE OF ACCENT ALONG THE TOP of what he owns - the whole decoration budget of this
-          screen. Anything louder turns a shop into an advertisement. */}
-      {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-success" /> : null}
+          screen. Anything louder turns a shop into an advertisement. Skipped on the gold card —
+          its own top-right crown ribbon already carries that job. */}
+      {has && !isGold ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-success" /> : null}
+
+      {/* THE ONE RIBBON ON THE ONE CARD THAT GETS ONE — named, not decorative alone: a shop
+          scanning the shelf should know in half a second this app is being sold differently than
+          its neighbours. `pointer-events-none` keeps it from ever sitting on top of the buy
+          button on a narrow card. */}
+      {isGold ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-8 top-3 flex w-32 -rotate-45 items-center justify-center gap-1 bg-accent py-0.5 text-[11px] font-semibold text-accent-contrast shadow-sm"
+        >
+          <Crown size={11} /> VIP
+        </span>
+      ) : null}
 
       <header className="flex items-start justify-between gap-2">
         <div className={compact ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
@@ -465,6 +497,9 @@ function AppCard({
               className={[
                 'grid h-10 w-10 shrink-0 place-items-center rounded-full',
                 toneClasses(badgeTone),
+                // A THIN GOLD RING + GLOW — the same badge every other card wears, lifted once
+                // for the one card that is meant to look like a medallion, not a flat icon chip.
+                isGold ? 'ring-1 ring-accent/70 shadow-[0_0_14px_-2px_rgba(212,175,55,0.65)]' : '',
               ].join(' ')}
             >
               <Icon size={18} />
@@ -494,9 +529,10 @@ function AppCard({
       {price?.amount_minor ? (
         <div className="flex flex-col gap-0.5">
           <div className="flex items-baseline gap-1.5">
-            <span className={compact
-              ? 'text-xl font-semibold tabular-nums leading-none'
-              : 'text-3xl font-semibold tabular-nums leading-none'}>
+            <span className={[
+              compact ? 'text-xl font-semibold tabular-nums leading-none' : 'text-3xl font-semibold tabular-nums leading-none',
+              isGold ? 'text-accent drop-shadow-[0_0_10px_rgba(212,175,55,0.55)]' : '',
+            ].join(' ')}>
               {riyals(price.amount_minor)}
             </span>
             <span className="text-sm text-text-secondary">ريال / شهر</span>
@@ -508,6 +544,16 @@ function AppCard({
             <span className="text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
           ) : null}
         </div>
+      ) : null}
+
+      {/* THE DISCOUNT-PREVIEW BADGE — NEVER on a card he already owns (a discount is an argument
+          FOR buying, not a receipt), never on the gold card either (its own VIP ribbon already
+          owns that corner and a second gold flourish would compete with it, not add to it). */}
+      {!has && !isGold && discount ? (
+        <span className="rj-gold-badge inline-flex w-fit items-center gap-1.5 rounded-pill px-3 py-1 text-xs font-semibold">
+          <Crown size={12} />
+          خصم {discount.percent}% — لأنك تملك {appName(discount.owning_key)}
+        </span>
       ) : null}
 
       {!compact ? (
@@ -713,6 +759,13 @@ export function PlansPane({
   onGoConnect: () => void;
 }) {
   const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
+  /** plan_id -> {percent, owning_key} — billing's own cross-app discount preview (v0.19.21),
+   *  ownership-only, computed live, nothing charged. `{}` on a failed/empty read: no badge is a
+   *  far smaller failure than a card that cannot render at all — same "degrade quietly" posture
+   *  `AppFeatureList` already holds for its own read. No catalog action exists for this route yet
+   *  (it shipped after user_actions.py was last touched), so it is called by its own known path
+   *  directly — same pattern PlanCards.tsx's own `FEATURES_PATH` already established. */
+  const [discountPreviews, setDiscountPreviews] = useState<Record<string, { percent: number; owning_key: string }>>({});
   /** EVERY subscription he holds, not just one. A shop with a base and two apps holds three rows,
    *  and cancelling the RIGHT one — the base, ending the relationship, not an app, dropping a
    *  feature — needs the whole list rather than whichever row billing happened to return first. */
@@ -807,6 +860,13 @@ export function PlansPane({
         .catch(() => setSubs(null));
     } else {
       setSubs(null);
+    }
+    if (canBrowse) {
+      call<{ previews: Record<string, { percent: number; owning_key: string }> }>(
+        session,
+        { id: 'billing.discount_preview', label: '', method: 'GET',
+          path: '/api/v1/billing/discount-preview', capability: 'billing.self' },
+      ).then((x) => setDiscountPreviews(x.previews ?? {})).catch(() => setDiscountPreviews({}));
     }
   };
 
@@ -1519,6 +1579,7 @@ export function PlansPane({
                     catalog={catalog}
                     owned={owns(owned ?? null, appKey(p))}
                     ownedFeatures={answer?.apps.find((a) => a.key === appKey(p))?.features}
+                    discount={discountPreviews[p.id]}
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && canMintToken
                                      && (hasBase !== false || isStandalone(p)) && !lockedNote)}
