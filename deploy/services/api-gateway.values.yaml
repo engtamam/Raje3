@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:b21404ee0493b7672342e9c2f0a58d2a3b0e1e281e7fe9028b246b00957425e9"   # v0.19.33
+  digest: "sha256:2bcdc0f96c2d65858451f53debe3ef66d608c3722af8a212f0452b2cd5b9e8b3"   # v0.19.34
 
 replicas: 1
 
