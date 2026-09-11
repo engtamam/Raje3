@@ -42,6 +42,8 @@ import { AssistantHint } from '../AssistantHint';
 import { Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
+import { Modal } from '../rj-ui/Modal';
+import { WhatsAppTemplatePreview, type FlowJson, type WaCarouselCard } from '../rj-ui/WhatsAppPreview';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -205,13 +207,18 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
 /** THE FIVE SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the three `cls` values the reasons
  *  registry already uses, then the two that exist only for campaign goals with no automatic
  *  counterpart at all. */
-const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers'] as const;
+// «bot» LAST ON PURPOSE — every section before it is a message this shop's own settings shaped
+// (scheduled or launched by hand); the bot's own live tool replies are a different kind of thing
+// entirely (composed fresh per conversation, never stored or edited here), so they read as an
+// appendix, not mixed in among the shop's own configured messages.
+const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers', 'bot'] as const;
 const SECTION_LABEL: Record<string, string> = {
   service: 'خدمية',
   personal: 'شخصية',
   marketing: 'تسويقية',
   tips: 'وعي ونصائح',
   offers: 'عروض',
+  bot: 'أدوات المساعد الذكي',
 };
 
 /** Which section a GOAL-ONLY card lands under (win_back/occasion/reward_loyal are reason cards,
@@ -267,6 +274,93 @@ const INTERACTIVE_TEMPLATE_TYPES = new Set([
   'svc_visit_confirmation_rating',
 ]);
 
+/**
+ * أدوات المساعد الذكي (phase 3) — لا قالب من reminders يمثّلها: هي ردود حيّة يركّبها البوت أثناء
+ * محادثة حقيقية، مو رسالة مجدولة ثابتة. وصفها هنا مأخوذ حرفياً من نفس الوصف الحقيقي اللي يُعطى
+ * للذكاء الاصطناعي (`adapters/llm/assistant_service.py`'s الخاص بـ`_TOOL_SCHEMAS`)، مترجم لجملة
+ * قصيرة — لا مخترعة. `check_availability` غائبة عمداً — أداة سحب بيانات داخلية لا ترسل شي بشكلها
+ * الخاص (تُغذّي `propose_booking` فقط)، بالضبط الاستثناء اللي طلبه المالك: "كل اداة في ارسال مو
+ * سحب بيانات".
+ */
+interface BotToolCard {
+  id: string;
+  label: string;
+  when: string;
+  interactive: boolean;
+  preview: { kind: 'text'; text: string }
+    | { kind: 'carousel'; intro: string; cards: WaCarouselCard[] }
+    // الحجز فقط له معاينة فلو حيّة فعلياً اليوم — `operations.whatsapp_flow_json` (شوف
+    // `MessagePreview.tsx`'s الخاص بـ`openFlowButton`) يرفض أي محرّك غير BookingEngine
+    // (`platform.py::whatsapp_flow_json`), والتأجيل (reschedule) محرّك مختلف — معاينته الحيّة
+    // ليست متاحة عبر هذا الطريق اليوم، فتُعرض كنص وصفي بدل معاينة مكسورة.
+    | { kind: 'flow'; flowName: string; intro: string };
+}
+
+const BOT_TOOL_CARDS: BotToolCard[] = [
+  {
+    id: 'propose_booking', label: 'اقتراح حجز موعد', interactive: true,
+    when: 'يقترح البوت وقتاً محدداً لخدمة أو باقة — اقتراح لا تأكيد، ويفتح شاشات الحجز الحقيقية',
+    preview: { kind: 'flow', flowName: 'booking', intro: 'شوف، عندنا وقت فاضي — تحب أحجزه لك؟' },
+  },
+  {
+    id: 'suggest_services_carousel', label: 'كاروسيل الخدمات', interactive: true,
+    when: 'يعرض بطاقات صور حقيقية لبعض خدمات/باقات المحل — فقط لما العميل يستكشف بلا طلب محدد',
+    preview: {
+      kind: 'carousel', intro: 'شوف بعض خدماتنا:',
+      cards: [
+        { id: 's1', kind: 'service', name: 'قص شعر', priceMinor: 5000, buttonLabel: 'احجز الآن' },
+        { id: 's2', kind: 'service', name: 'حلاقة ذقن', priceMinor: 3000, buttonLabel: 'احجز الآن' },
+        { id: 's3', kind: 'package', name: 'باقة العناية', priceMinor: 12000, buttonLabel: 'احجز الآن' },
+      ],
+    },
+  },
+  {
+    id: 'get_customer_points_summary', label: 'ملخص نقاط العميل', interactive: false,
+    when: 'يعرض للعميل نمط رصيده من النقاط — بلا أي بيانات شخصية خام',
+    preview: { kind: 'text', text: 'عندك 320 نقطة — تقدر تستبدلها بخصم أو هدية من عروضنا.' },
+  },
+  {
+    id: 'suggest_redeemable_offer', label: 'اقتراح استبدال نقاط', interactive: false,
+    when: 'يسمّي هدية يقدر العميل يستبدلها برصيده الحالي فقط — لا يستبدل شي بنفسه',
+    preview: { kind: 'text', text: 'عندك نقاط تكفي لهدية مجانية! تبي أضيفها لحجزك القادم؟' },
+  },
+  {
+    id: 'suggest_related_service', label: 'اقتراح خدمة مكمّلة', interactive: false,
+    when: 'يذكّر بخدمة تُحجز غالباً مع الخدمة اللي يناقشها العميل الآن',
+    preview: { kind: 'text', text: 'غالباً اللي يحجزون قص الشعر يحبون معه تهذيب اللحية — تحب تضيفها؟' },
+  },
+  {
+    id: 'list_my_bookings', label: 'عرض حجوزاتي', interactive: false,
+    when: 'يسرد حجوزات العميل الحالية والقادمة، وحجوزاته القديمة إذا سأل عنها تحديداً',
+    preview: { kind: 'text', text: 'حجوزاتك القادمة:\nقص شعر — الخميس 4:00 م\nتهذيب لحية — بعد أسبوعين' },
+  },
+  {
+    id: 'propose_cancel_booking', label: 'اقتراح إلغاء حجز', interactive: false,
+    when: 'يقترح إلغاء حجز قائم للعميل — اقتراح لا إلغاء فعلي',
+    preview: { kind: 'text', text: 'تأكيد: تبي تلغي حجزك يوم الخميس الساعة 4:00 م؟' },
+  },
+  {
+    id: 'propose_reschedule_booking', label: 'اقتراح تأجيل حجز', interactive: true,
+    when: 'يقترح نقل حجز قائم لوقت جديد فاضٍ فعلياً — يفتح شاشات تفاعلية (معاينتها الحيّة غير متاحة هنا بعد)',
+    preview: { kind: 'text', text: 'تحب أأجّل حجزك ليوم السبت الساعة 5:00 م بدل الخميس؟' },
+  },
+  {
+    id: 'list_packages', label: 'عرض الباقات', interactive: false,
+    when: 'يسرد باقات المحل الحقيقية المتاحة للحجز قريباً، بأسعارها الحقيقية',
+    preview: { kind: 'text', text: 'باقاتنا الحالية:\nباقة العناية الكاملة — 150 ريال\nباقة العريس — 300 ريال' },
+  },
+  {
+    id: 'list_due_services', label: 'خدمات حان وقتها', interactive: false,
+    when: 'يقترح خدمة اعتاد العميل عليها بدورته الخاصة — اقتراح طبيعي بلا ذكر أنه "متأخر"',
+    preview: { kind: 'text', text: 'وقتها حان! قص الشعر يناسبك هالأسبوع — تحب تحجز؟' },
+  },
+  {
+    id: 'list_lapsed_services', label: 'خدمات توقّف عنها', interactive: false,
+    when: 'يقترح خدمة توقّف العميل عن حجزها بوضوح — دعوة طبيعية بلا ذكر أنه "توقف"',
+    preview: { kind: 'text', text: 'اشتقناك! تحب نحجز لك موعد قص شعر قريب؟' },
+  },
+];
+
 /** One entry in «القوالب» — a reason, a goal, or (for the three that are both) one card carrying
  *  both capabilities, never shown twice. */
 interface TemplateCard {
@@ -276,9 +370,11 @@ interface TemplateCard {
   cls: string;
   clsLabel: string;
   /** 'auto' when a reason fires this without anybody pressing anything; 'manual' when it is a
-   *  goal the owner launches himself from «حملاتي». A card carrying both is the three shared
-   *  ones — REASON_GOAL's own three. */
-  tags: ('auto' | 'manual')[];
+   *  goal the owner launches himself from «حملاتي»; 'bot' when it is a live AI-assistant tool
+   *  reply, never a scheduled/reminders template at all — see `BOT_TOOL_CARDS`. A card carrying
+   *  both 'auto' and 'manual' is the three shared ones — REASON_GOAL's own three; 'bot' never
+   *  combines with either. */
+  tags: ('auto' | 'manual' | 'bot')[];
   reason?: ReasonRow;
   /** Set whenever a goal is attached — either because THIS card came from `goals` directly (a
    *  goal with no reason), or because a reason card shares one via REASON_GOAL. Used for the
@@ -286,8 +382,14 @@ interface TemplateCard {
   goal?: string;
   templateType?: string;
   lockAppId?: string;
-  /** يفتح شاشات فلو حقيقية داخل واتساب، لا نص يُقرأ فقط — see `INTERACTIVE_TEMPLATE_TYPES`. */
+  /** يفتح شاشات فلو حقيقية داخل واتساب، لا نص يُقرأ فقط — see `INTERACTIVE_TEMPLATE_TYPES`
+   *  (reminders' own cards) and `BOT_TOOL_CARDS` (each names its own). */
   interactive: boolean;
+  /** ONLY on a bot-tool card — no `reason`/`templateType` to fetch a server preview against
+   *  (nothing is stored; the bot composes it live), so `reading.botPreview` opens
+   *  `WhatsAppTemplatePreview` directly with this local data instead of `MessagePreview`'s own
+   *  server round trip. */
+  botPreview?: BotToolCard['preview'];
 }
 
 /** THE GOAL → REASON MAP, THE OTHER DIRECTION FROM `REASON_GOAL` above — so a goal read from
@@ -320,6 +422,13 @@ export function templateCards(reasons: ReasonRow[], goals: GoalRow[]): TemplateC
       cls, clsLabel: SECTION_LABEL[cls] ?? cls,
       tags: ['manual'], goal: g.goal, templateType,
       interactive: Boolean(templateType && INTERACTIVE_TEMPLATE_TYPES.has(templateType)),
+    });
+  }
+  for (const t of BOT_TOOL_CARDS) {
+    out.push({
+      key: `bot:${t.id}`, label: t.label, when: t.when,
+      cls: 'bot', clsLabel: SECTION_LABEL.bot,
+      tags: ['bot'], interactive: t.interactive, botPreview: t.preview,
     });
   }
   return out;
@@ -453,10 +562,48 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
 
 /** THE TAG, IN HIS WORDS — the owner's own explicit ask: whether a card fires by itself, whether
  *  he presses it himself, or both, must be visible on the card, never buried in a modal. */
-const TAG_LABEL: Record<'auto' | 'manual', string> = {
+const TAG_LABEL: Record<'auto' | 'manual' | 'bot', string> = {
   auto: 'تلقائي',
   manual: 'أنت ترسلها',
+  bot: 'رسائل البوت',
 };
+
+/**
+ * A BOT-TOOL CARD'S OWN PREVIEW — no `reminders.preview_reason`/`preview_by_type` round trip
+ * (nothing is stored server-side to fetch), so this builds `WaTemplateData` locally from
+ * `BOT_TOOL_CARDS`'s own sample content and hands it straight to the SAME phone-mockup engine
+ * every other preview in the product uses (`WhatsAppTemplatePreview`), reused rather than a
+ * fourth rendering path. `fetchFlowJson` is wired only for `kind: 'flow'` — the same
+ * `operations.whatsapp_flow_json` route `MessagePreview.tsx`'s own `openFlowButton` already calls.
+ */
+function BotToolPreviewModal({ session, catalog, card, preview, onClose }: {
+  session: Session; catalog: Catalog; card: TemplateCard; preview: BotToolCard['preview'];
+  onClose: () => void;
+}) {
+  const data = preview.kind === 'carousel'
+    ? { body: preview.intro, carousel: preview.cards }
+    : preview.kind === 'flow'
+      ? { body: preview.intro, flowButton: { flowName: preview.flowName, text: 'فتح' } }
+      : { body: preview.text };
+  return (
+    <Modal open onClose={onClose} title={card.label} subtitle={card.when}>
+      <div className="flex flex-col gap-3">
+        <p className="text-xs text-text-secondary">
+          مثال تقريبي — الذكاء الاصطناعي يركّب الرد فعلياً وقت المحادثة، فقد يختلف نصّه عن هذا
+          المثال بالضبط.
+        </p>
+        <WhatsAppTemplatePreview
+          data={data}
+          fetchFlowJson={preview.kind === 'flow' ? (flowName) => {
+            const a = action(catalog, 'operations.whatsapp_flow_json');
+            if (!a) return Promise.reject(new Error('لا صلاحية لقراءة شاشات الفلو'));
+            return call<FlowJson>(session, a, { name: flowName });
+          } : undefined}
+        />
+      </div>
+    </Modal>
+  );
+}
 
 /**
  * ONE CARD, WHATEVER IT IS BACKED BY. `card.reason` present means a switch, a «بنصّك أنت» badge
@@ -711,7 +858,7 @@ export function MessagesScreen(
   /** الفلتر الذكي — رقائق قابلة للتراكم (كلاهما معاً يعني "تلقائية وتفاعلية"، لا أحدهما فقط)،
    *  فوق التقسيم إلى أقسام (SECTION_ORDER) لا بدلاً عنه — القسم يبقى التنظيم الأساسي، الفلتر يضيّق
    *  داخله. */
-  type CardFilter = 'auto' | 'interactive';
+  type CardFilter = 'auto' | 'interactive' | 'bot';
   const [activeFilters, setActiveFilters] = useState<Set<CardFilter>>(new Set());
   const toggleFilter = (f: CardFilter) => setActiveFilters((prev) => {
     const next = new Set(prev);
@@ -720,6 +867,7 @@ export function MessagesScreen(
   });
   const filteredCards = useMemo(() => cards.filter((c) =>
     (!activeFilters.has('auto') || c.tags.includes('auto'))
+    && (!activeFilters.has('bot') || c.tags.includes('bot'))
     && (!activeFilters.has('interactive') || c.interactive)), [cards, activeFilters]);
 
   // THE SUMMARY, ONCE, WITH THE SCREEN. Cheap by its own design (owner.py's docstring: one call
@@ -935,6 +1083,14 @@ export function MessagesScreen(
                          : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
                 تفاعلية فقط
               </button>
+              <button type="button" onClick={() => toggleFilter('bot')}
+                     aria-pressed={activeFilters.has('bot')}
+                     className={['rounded-pill border px-3 py-1 text-xs font-medium transition',
+                       activeFilters.has('bot')
+                         ? 'border-accent bg-accent-soft text-accent-on-soft'
+                         : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
+                رسائل البوت فقط
+              </button>
               {activeFilters.size > 0 ? (
                 <button type="button" onClick={() => setActiveFilters(new Set())}
                        className="text-xs text-text-secondary underline">
@@ -1013,7 +1169,10 @@ export function MessagesScreen(
             </>
           )}
           {reading ? (
-            reading.reason ? (
+            reading.botPreview ? (
+              <BotToolPreviewModal session={session} catalog={catalog} card={reading}
+                                   preview={reading.botPreview} onClose={() => setReading(null)} />
+            ) : reading.reason ? (
               <MessagePreview
                 session={session}
                 catalog={catalog}
