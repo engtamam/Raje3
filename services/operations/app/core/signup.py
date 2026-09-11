@@ -358,24 +358,31 @@ class SignupService:
         await self._seed_main_branch(tenant, shop_name=shop.shop_name)
 
         # HIS FREE MONTH, STARTED NOW — not left for him to find «متجر التطبيقات» and press
-        # «فعّل الأساس» himself first. Every write in the product (`subscribed_write`) refuses
-        # until the base subscription (or its trial) is live, and until this call a fresh signup
-        # held NEITHER — so a shop that had just registered was told «انتهى اشتراكك» (the exact
-        # sentence for a LAPSED month) on the very first thing he tried to do, even though
-        # «وهو عنده فترة تجربة شهر كامل».
+        # «أضِف» on every app himself first.
+        #
+        # CONFIRMED BROKEN, 2026-09-11 — THE FIX BELOW REPLACES A DEAD PATH. This used to open the
+        # base subscription's own trial first, then every other trialling app inside ITS success
+        # branch (`_start_base_trial` -> `_start_app_trials`). الأساس was retired 2026-09-10 — no
+        # plan row has carried `messages.monthly` since — so `base_plan_id()` (which reads exactly
+        # that) has returned "" for every signup since that day, `_start_base_trial` refused with
+        # «لم يُعثر على باقة أساسية واحدة واضحة.» every single time, and `_start_app_trials`
+        # — nested inside its success branch — never ran at all. EVERY shop that signed up in that
+        # window received NO trial whatsoever, silently (`trial_started: False` reads as "nothing
+        # to show" on the welcome screen, never as a failure needing an audit row — see this
+        # function's own docstring on that call). `_start_trials` below opens a trial for every
+        # LISTED plan that carries one, directly, with no base to find or depend on first.
         #
         # NEVER UNDONE ON FAILURE, same trade as the data map and the two stamps below: an account
         # that works and is missing a trial is repairable from «متجر التطبيقات» in one tap; deleting
         # a working shop over one unreachable peer is the worse trade by a wide margin.
-        trial_started, trial_error, trial_end = await self._start_base_trial(tenant)
+        trial_started, trial_error, trial_end = await self._start_trials(tenant)
 
         # THE ONE APP EVERY SHOP HOLDS FROM DAY ONE, WHATEVER ELSE IT BUYS OR LETS LAPSE.
-        # «جهات الاتصال» is free and standalone (plans.json's own note on the row) — a shop
-        # able to register a customer must not depend on الأساس's trial staying alive, and must
-        # not need an owner to find «متجر التطبيقات» and press a button for a door that costs him
-        # nothing. Granted ALONGSIDE the base trial above, never instead of it: this changes
-        # nothing about what a fresh signup already receives, it only adds the one grant that
-        # used to depend on الأساس being active.
+        # «جهات الاتصال» is free and standalone (plans.json's own note on the row) — a shop able
+        # to register a customer must not need an owner to find «متجر التطبيقات» and press a
+        # button for a door that costs him nothing. Granted ALONGSIDE the trials above, never
+        # instead of them: this changes nothing about what a fresh signup already receives, it
+        # only adds the one grant that carries no trial of its own to begin with.
         #
         # NEVER UNDONE ON FAILURE, same trade as every other best-effort seed in this saga: an
         # account that works and is missing this one grant is repairable from «متجر التطبيقات»
@@ -539,71 +546,86 @@ class SignupService:
         """
         return await self._register_data_map(tenant)
 
-    async def _start_base_trial(self, tenant: str) -> tuple[bool, str, float]:
-        """Open the base subscription's trial for a shop that just opened, never raises — and,
-        once the base is open, every app that also carries a trial (`_start_app_trials` below):
-        a shop should not have to find «متجر التطبيقات» and press «أضِف» four times just to try
-        what it already signed up to evaluate.
+    async def _start_trials(self, tenant: str) -> tuple[bool, str, float]:
+        """Open a trial for every LISTED plan that carries one, for a shop that just opened —
+        never raises. Replaces `_start_base_trial`/`_start_app_trials` (2026-09-11): those found
+        "the base" first and opened every other trial only inside its own success branch, which
+        depended on a base row existing to find. الأساس was retired 2026-09-10 — no plan row
+        carries `messages.monthly` any more — so that lookup had returned "" for every signup
+        since, and NOTHING here ever ran. No base concept survives this function at all now: every
+        trial-carrying plan is its own, independent subscribe, exactly like `_start_contacts_grant`
+        already treats «جهات الاتصال» as needing nothing else first.
 
-        `(False, "", 0.0)` ON A DEPLOYMENT WITHOUT `billing_plans` WIRED — tests, a local run —
-        and that is deliberately NOT an error: `trial_started` in the response and the console's
-        own welcome screen both read it as "nothing to show," not as a failure needing an audit
-        row.
+        `(False, "", 0.0)` ON A DEPLOYMENT WITHOUT `billing_plans` WIRED (tests, a local run) OR
+        WHEN NOTHING ON THE PRICE LIST CARRIES A TRIAL AT ALL — both deliberately NOT an error:
+        `trial_started` in the response and the console's own welcome screen both read it as
+        "nothing to show," not as a failure needing an audit row.
 
-        ONE PLAN, FOUND BY WHAT IT IS, NEVER BY A CONFIGURED ID. A second config knob naming a
-        specific plan id would be a second copy of the price list, stale the day billing's own
-        catalogue changes — `HttpPlans.base_plan_id()` reads the one LISTED plan carrying the
-        message meter, the exact same rule `console`'s own «متجر التطبيقات» uses to tell a base
-        card from an app card (Plans.tsx's `kindOf`).
+        NO `payment_token` ON ANY OF THESE — a trial owes nothing, and asking a person who has not
+        typed a card number yet for one would refuse a signup that never should have been asked.
 
-        NO `payment_token` — the trial owes nothing, and asking a person who has not typed a card
-        number yet for one would refuse a signup that never should have been asked.
-
-        `trial_end` TRAVELS BACK RAW, NEVER A HARDCODED «شهر» IN EITHER SERVICE. How long a trial
-        runs is billing's own decision (a plan's `trial_days`, editable without a deploy) — the
-        marketing page's own rule (marketing/index.html) is that no duration is ever promised in
-        text that outlives the setting behind it. The welcome screen reads the real date instead.
+        `trial_end` TRAVELS BACK RAW, FROM WHICHEVER SUBSCRIBE SUCCEEDED FIRST, NEVER A HARDCODED
+        «شهر» IN EITHER SERVICE. How long a trial runs is billing's own decision (a plan's
+        `trial_days`, editable without a deploy) — the marketing page's own rule
+        (marketing/index.html) is that no duration is ever promised in text that outlives the
+        setting behind it. The welcome screen reads the real date instead. Every trial-carrying
+        plan opens the same moment with the platform's own default trial length unless a plan
+        overrides it, so the first success's own date stands for "when your trial ends" even
+        though every row keeps its own independent subscription and its own independent lapse.
         """
         if self._plans is None:
             return False, "", 0.0
         try:
-            plan_id = await self._plans.base_plan_id()
-            if not plan_id:
-                return False, "لم يُعثر على باقة أساسية واحدة واضحة.", 0.0
-            status, out = await self._plans.subscribe(tenant=tenant, plan_id=plan_id)
+            plan_ids = await self._plans.list_trial_plans()
         except Exception as exc:                                              # noqa: BLE001
             return False, str(exc)[:200], 0.0
-        if status not in (200, 201):
-            error = str((out or {}).get("detail") or f"status {status}")[:200]
+        if not plan_ids:
+            return False, "", 0.0
+
+        started_end = 0.0
+        last_error = ""
+        any_started = False
+        for plan_id in plan_ids:
+            try:
+                status, out = await self._plans.subscribe(tenant=tenant, plan_id=plan_id)
+            except Exception as exc:                                          # noqa: BLE001
+                status, out = 0, {"detail": str(exc)[:200]}
+            if status in (200, 201):
+                any_started = True
+                if not started_end:
+                    started_end = float((out or {}).get("trial_end") or 0.0)
+                continue
+            last_error = str((out or {}).get("detail") or f"status {status}")[:200]
             if self._telemetry is not None:
                 try:
-                    self._telemetry.event("signup_trial_failed", tenant=tenant, reason=error)
+                    self._telemetry.event(
+                        "signup_app_trial_failed", tenant=tenant, plan=plan_id, reason=last_error)
                 except Exception:                                              # noqa: BLE001
                     pass    # a telemetry failure must not fail a signup
-            return False, error, 0.0
 
-        # AND EVERY APP THAT ALSO CARRIES A TRIAL, THE SAME MONTH — «كل التطبيقات تُفعَّل
-        # تجريبياً تلقائياً عند التسجيل». Best-effort and never reflected in this call's own
-        # return value: the welcome screen answers for the BASE alone (one date, one sentence),
-        # and one app's subscribe failing must not read as "your trial did not start" when it
-        # plainly did.
-        await self._start_app_trials(tenant, base_plan_id=plan_id)
-        return True, "", float((out or {}).get("trial_end") or 0.0)
+        if any_started:
+            return True, "", started_end
+        # EVERY SINGLE ONE FAILED — reported once, not once per plan, same "one sentence, not a
+        # log dump" posture the welcome screen already holds for this field.
+        if self._telemetry is not None:
+            try:
+                self._telemetry.event("signup_trial_failed", tenant=tenant, reason=last_error)
+            except Exception:                                                  # noqa: BLE001
+                pass
+        return False, last_error, 0.0
 
     async def _start_contacts_grant(self, tenant: str) -> None:
         """Subscribe this fresh shop to «جهات الاتصال», the one free standalone app every shop
-        gets on day one — regardless of الأساس, its trial, or whether it is ever bought at all.
+        gets on day one — regardless of whether any trial starts, or whether it is ever bought
+        at all.
 
-        WHY THIS IS SEPARATE FROM `_start_base_trial`/`_start_app_trials` ABOVE, AND NOT ONE MORE
-        ENTRY THOSE ALREADY WALK. Both of those only run when the base trial itself opened
-        (`_start_base_trial` calls `_start_app_trials` from inside its own success branch) — and
+        WHY THIS IS SEPARATE FROM `_start_trials` ABOVE, AND NOT ONE MORE ENTRY IT ALREADY WALKS.
         `list_trial_plans` only returns plans that carry a trial. «جهات الاتصال» carries none
         (plans.json: `trial_days: 0`, subscribed at amount 0 with `interval='once'`) precisely
         because it never lapses and is never a trial to begin with, so it would never appear on
-        either list. Folding it into `_start_app_trials` would make this grant depend on the base
-        trial succeeding first, which is the one dependency this task exists to remove: a shop
-        must hold this even the day its base trial fails to start or its base subscription later
-        lapses.
+        that list. Folding it in would make this grant depend on `_start_trials` succeeding first,
+        which is exactly the dependency this split removes: a shop must hold this even the day
+        every trial-carrying plan fails to subscribe.
 
         FOUND BY WHAT IT IS, never a configured id — `HttpPlans.contacts_plan_id()` reads the one
         listed, free plan carrying `feature.contacts`, the same rule `base_plan_id()` uses for the
@@ -625,33 +647,6 @@ class SignupService:
                     reason=str((out or {}).get("detail") or f"status {status}")[:200])
             except Exception:                                                  # noqa: BLE001
                 pass    # a telemetry failure must not fail a signup
-
-    async def _start_app_trials(self, tenant: str, *, base_plan_id: str) -> None:
-        """Every OTHER listed plan carrying a trial, subscribed the same moment the base's own
-        opens. Never raises, never undoes the base trial it follows, and failing on one app must
-        not stop the rest — a shop is not denied its loyalty trial because campaigns' subscribe
-        call timed out a second earlier.
-        """
-        if self._plans is None:
-            return
-        try:
-            plan_ids = await self._plans.list_trial_plans()
-        except Exception:                                                     # noqa: BLE001
-            return
-        for plan_id in plan_ids:
-            if plan_id == base_plan_id:
-                continue          # already subscribed above
-            try:
-                status, out = await self._plans.subscribe(tenant=tenant, plan_id=plan_id)
-            except Exception as exc:                                          # noqa: BLE001
-                status, out = 0, {"detail": str(exc)[:200]}
-            if status not in (200, 201) and self._telemetry is not None:
-                try:
-                    self._telemetry.event(
-                        "signup_app_trial_failed", tenant=tenant, plan=plan_id,
-                        reason=str((out or {}).get("detail") or f"status {status}")[:200])
-                except Exception:                                              # noqa: BLE001
-                    pass    # a telemetry failure must not fail a signup
 
     async def _register_data_map(self, tenant: str) -> str:
         """Tell compliance which services hold this tenant's data. Never raises.

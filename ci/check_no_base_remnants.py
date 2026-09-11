@@ -58,6 +58,17 @@ PATTERNS = [
     re.compile(r"\bisBase\b"),
     re.compile(r"feature\.base\b"),
     re.compile(r"\bbaseSub\b"),
+    # ADDED 2026-09-11, SECOND PASS — `base_plan_id()` (subscribe.py) is `is_base` under a
+    # different name: "the one plan row carrying messages.monthly". The FIRST pass's regex list
+    # never caught it, and it stayed live in signup.py's `_start_base_trial` — which now finds no
+    # base row (correctly, none exists) and refuses the trial for EVERY new signup, silently,
+    # since the day الأساس was retired. Found only by hand, days later. Caught by name now.
+    re.compile(r"\bbase_plan_id\b"),
+    re.compile(r"\bbasePlanId\b"),
+    # THE TRIAL-GRANT FUNCTIONS THEMSELVES — named after the concept they still assume exists,
+    # even at a call site that does not literally say "base". A function named `_start_base_trial`
+    # is itself a remnant worth a reviewer's eyes, whatever its body does today.
+    re.compile(r"_start_base_trial\b"),
 ]
 
 #: {relative_path: {line_number: "why this exact line is still allowed"}}

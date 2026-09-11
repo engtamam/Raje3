@@ -141,24 +141,22 @@ async def test_a_bad_affiliate_id_is_reported_but_does_not_cost_the_owner_his_sh
 
 
 # ── the free trial, opened at signup, not left for the owner to find and press himself ─────────
+#
+# NO BASE PLAN ANY MORE (2026-09-11 fix) — `_start_trials` treats every trial-carrying plan
+# identically; there is no privileged "the base" row to find first. `subscribe_answers` maps a
+# plan id to its own (status, body) answer, defaulting every unmapped id to a plain success —
+# a test only names the ids whose answer it actually cares about.
 class FakePlans:
-    def __init__(self, *, base_id="plan_base",
-                subscribe_answer=(201, {"status": "trialing", "trial_end": 1800000000.0}),
-                trial_plan_ids=None, app_subscribe_answer=(201, {"status": "trialing"}),
+    def __init__(self, *, trial_plan_ids=None, subscribe_answers=None,
+                default_subscribe_answer=(201, {"status": "trialing", "trial_end": 1800000000.0}),
                 # DEFAULTS EMPTY — a test that does not care about the free contacts grant sees
                 # no extra subscribe call at all; one testing it passes its own id.
                 contacts_id=""):
-        self.base_id = base_id
-        self.subscribe_answer = subscribe_answer
-        # DEFAULTS TO "JUST THE BASE" — a test that wants app trials too passes its own list;
-        # one that does not care about that half of the behaviour is unaffected by its existence.
-        self.trial_plan_ids = trial_plan_ids if trial_plan_ids is not None else [base_id]
-        self.app_subscribe_answer = app_subscribe_answer
+        self.trial_plan_ids = trial_plan_ids if trial_plan_ids is not None else ["plan_trial_1"]
+        self.subscribe_answers = subscribe_answers or {}
+        self.default_subscribe_answer = default_subscribe_answer
         self.contacts_id = contacts_id
         self.subscribe_calls: list[tuple[str, str]] = []
-
-    async def base_plan_id(self) -> str:
-        return self.base_id
 
     async def list_trial_plans(self) -> list[str]:
         return list(self.trial_plan_ids)
@@ -169,7 +167,7 @@ class FakePlans:
     async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
                         payment_token: str = ""):
         self.subscribe_calls.append((tenant, plan_id))
-        return self.subscribe_answer if plan_id == self.base_id else self.app_subscribe_answer
+        return self.subscribe_answers.get(plan_id, self.default_subscribe_answer)
 
 
 def build_with_plans(http, plans, **kw):
@@ -179,15 +177,15 @@ def build_with_plans(http, plans, **kw):
 
 
 @pytest.mark.anyio
-async def test_signup_opens_the_base_trial_on_the_new_tenant():
+async def test_signup_opens_a_trial_on_the_new_tenant_for_every_trial_carrying_plan():
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans()
+    plans = FakePlans(trial_plan_ids=["plan_visit"])
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["trial_started"] is True
     assert out["trial_error"] == ""
     assert out["trial_end"] == 1800000000
-    assert plans.subscribe_calls == [("t-1", "plan_base")]
+    assert plans.subscribe_calls == [("t-1", "plan_visit")]
 
 
 @pytest.mark.anyio
@@ -204,7 +202,8 @@ async def test_a_billing_outage_does_not_cost_the_owner_his_shop():
     """Same trade as the data map and the two stamps above: the account is real and repairable
     from «متجر التطبيقات» either way."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(subscribe_answer=(503, {"detail": "unreachable"}))
+    plans = FakePlans(trial_plan_ids=["plan_visit"],
+                      default_subscribe_answer=(503, {"detail": "unreachable"}))
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["tenant"] == "t-1"                     # the shop still opened
@@ -213,27 +212,26 @@ async def test_a_billing_outage_does_not_cost_the_owner_his_shop():
 
 
 @pytest.mark.anyio
-async def test_an_ambiguous_catalogue_skips_the_trial_rather_than_guessing():
-    """No single, clear base plan (`base_plan_id` empty) — never the first row found, which a
-    newly-opened shop has no way to notice was the wrong guess."""
+async def test_no_plan_on_the_price_list_carries_a_trial_skips_it_rather_than_erroring():
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(base_id="")
+    plans = FakePlans(trial_plan_ids=[])
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["trial_started"] is False
+    assert out["trial_error"] == ""
     assert plans.subscribe_calls == []
 
 
 @pytest.mark.anyio
-async def test_every_app_that_carries_a_trial_is_subscribed_alongside_the_base():
-    """«كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل» — not just the base plan."""
+async def test_every_app_that_carries_a_trial_is_subscribed_independently():
+    """«كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل» — no plan is privileged over another."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(trial_plan_ids=["plan_base", "plan_bookings", "plan_loyalty"])
+    plans = FakePlans(trial_plan_ids=["plan_visit", "plan_bookings", "plan_loyalty"])
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
-    assert out["trial_started"] is True             # the base's own answer is unaffected
+    assert out["trial_started"] is True
     assert plans.subscribe_calls == [
-        ("t-1", "plan_base"), ("t-1", "plan_bookings"), ("t-1", "plan_loyalty")]
+        ("t-1", "plan_visit"), ("t-1", "plan_bookings"), ("t-1", "plan_loyalty")]
 
 
 @pytest.mark.anyio
@@ -241,56 +239,67 @@ async def test_a_plan_with_no_trial_at_all_is_never_subscribed():
     """`list_trial_plans` is the only source of truth — a capacity pack or a zero-trial app
     simply never appears in it, and nothing here invents a reason to add it anyway."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(trial_plan_ids=["plan_base"])          # no app rows at all
+    plans = FakePlans(trial_plan_ids=["plan_visit"])          # no other rows at all
     await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
-    assert plans.subscribe_calls == [("t-1", "plan_base")]
+    assert plans.subscribe_calls == [("t-1", "plan_visit")]
 
 
 @pytest.mark.anyio
 async def test_one_apps_failed_trial_does_not_stop_the_rest_or_the_welcome():
     """A shop is not denied its loyalty trial because campaigns' subscribe call failed a second
-    earlier — and the base's own success is what the welcome screen answers for, regardless."""
+    earlier — and any one success is what the welcome screen answers for."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(trial_plan_ids=["plan_base", "plan_campaigns", "plan_loyalty"],
-                      app_subscribe_answer=(503, {"detail": "unreachable"}))
+    plans = FakePlans(trial_plan_ids=["plan_visit", "plan_campaigns", "plan_loyalty"],
+                      subscribe_answers={"plan_campaigns": (503, {"detail": "unreachable"})})
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["trial_started"] is True
     assert plans.subscribe_calls == [
-        ("t-1", "plan_base"), ("t-1", "plan_campaigns"), ("t-1", "plan_loyalty")]
+        ("t-1", "plan_visit"), ("t-1", "plan_campaigns"), ("t-1", "plan_loyalty")]
+
+
+@pytest.mark.anyio
+async def test_trial_started_is_false_only_when_every_single_plan_failed():
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans(trial_plan_ids=["plan_visit", "plan_campaigns"],
+                      default_subscribe_answer=(503, {"detail": "unreachable"}))
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["trial_started"] is False
+    assert "unreachable" in out["trial_error"]
+    assert plans.subscribe_calls == [("t-1", "plan_visit"), ("t-1", "plan_campaigns")]
 
 
 @pytest.mark.anyio
 async def test_a_fresh_signup_holds_the_free_contacts_grant_from_day_one():
-    """«جهات الاتصال» is granted alongside الأساس's own trial — not instead of it, and not
-    only when a shop later buys or trials something else."""
+    """«جهات الاتصال» is granted alongside every trial — not instead of them, and not only when
+    a shop later buys or trials something else."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(contacts_id="plan_contacts")
+    plans = FakePlans(trial_plan_ids=["plan_visit"], contacts_id="plan_contacts")
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
-    assert out["trial_started"] is True                          # الأساس's own trial, unaffected
+    assert out["trial_started"] is True                          # the trials above, unaffected
     assert ("t-1", "plan_contacts") in plans.subscribe_calls
 
 
 @pytest.mark.anyio
 async def test_no_contacts_plan_found_means_no_grant_and_no_error():
-    """An ambiguous or unreachable catalogue skips the grant rather than guessing, same rule as
-    `base_plan_id`'s own empty answer."""
+    """An ambiguous or unreachable catalogue skips the grant rather than guessing."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans()                                          # contacts_id defaults to ""
+    plans = FakePlans(trial_plan_ids=["plan_visit"])              # contacts_id defaults to ""
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["tenant"] == "t-1"
-    assert plans.subscribe_calls == [("t-1", "plan_base")]       # no extra call made
+    assert plans.subscribe_calls == [("t-1", "plan_visit")]       # no extra call made
 
 
 @pytest.mark.anyio
-async def test_the_contacts_grant_survives_a_failed_base_trial():
-    """The whole point of pulling this out of `_start_app_trials`: it must not depend on the base
-    trial having started at all."""
+async def test_the_contacts_grant_survives_every_trial_failing():
+    """The whole point of `_start_contacts_grant` being separate from `_start_trials`: it must
+    not depend on any trial having started at all."""
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(base_id="", contacts_id="plan_contacts")   # ambiguous catalogue: no base trial
+    plans = FakePlans(trial_plan_ids=[], contacts_id="plan_contacts")   # nothing to trial at all
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["trial_started"] is False
@@ -300,8 +309,8 @@ async def test_the_contacts_grant_survives_a_failed_base_trial():
 @pytest.mark.anyio
 async def test_a_failed_contacts_grant_does_not_cost_the_owner_his_shop():
     http = FakeHttp(list(_HAPPY_PATH))
-    plans = FakePlans(contacts_id="plan_contacts",
-                      app_subscribe_answer=(503, {"detail": "unreachable"}))
+    plans = FakePlans(trial_plan_ids=["plan_visit"], contacts_id="plan_contacts",
+                      subscribe_answers={"plan_contacts": (503, {"detail": "unreachable"})})
     out = await build_with_plans(http, plans).open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert out["tenant"] == "t-1"
