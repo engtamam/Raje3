@@ -155,6 +155,12 @@ def build_manifest(
             # Read before the Flow ever opens — see core/whatsapp_visit_flag.py's own docstring.
             {"path": "/internal/operations/whatsapp-visit-registration", "tier": "internal",
              "method": "GET"},
+            # Read by whatsapp-assistant before every auto-registration attempt — see
+            # core/whatsapp_auto_register.py's own docstring.
+            {"path": "/internal/operations/whatsapp-auto-register", "tier": "internal",
+             "method": "GET"},
+            # `/internal/operations/customer-id-by-phone` already covers the actual write this flag
+            # gates — see that route's own docstring; nothing new to declare here for the create.
             # WhatsApp-sender-to-operator resolution's second half — see
             # internal_operator_by_person's own docstring.
             {"path": "/internal/operations/operator-by-person", "tier": "internal",
@@ -237,6 +243,8 @@ def build_manifest(
             # core/whatsapp_visit_flag.py's own docstring.
             {"path": "/api/v1/staff/whatsapp-visit-registration", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/whatsapp-visit-registration", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/staff/whatsapp-auto-register", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/whatsapp-auto-register", "tier": "user", "method": "PUT"},
             # What the owner told the WhatsApp AI assistant about his own shop — see ai_notes.py.
             {"path": "/api/v1/staff/ai-notes", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/ai-notes", "tier": "user", "method": "PUT"},

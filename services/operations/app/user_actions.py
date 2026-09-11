@@ -496,6 +496,21 @@ USER_ACTIONS: list[dict[str, Any]] = [
                "كل مرة.",
     },
     {
+        "id": "operations.whatsapp_auto_register", "label": "تسجيل جهات الاتصال تلقائياً عبر واتساب",
+        "method": "GET", "path": "/api/v1/staff/whatsapp-auto-register",
+        "capability": "operations.read", "group": "منشأتي",
+        "help": "هل يسجّل النظام تلقائياً أي رقم جديد يتواصل مع واتسابك ضمن جهات اتصالك.",
+    },
+    {
+        "id": "operations.set_whatsapp_auto_register",
+        "label": "تفعيل تسجيل جهات الاتصال تلقائياً عبر واتساب", "method": "PUT",
+        "path": "/api/v1/staff/whatsapp-auto-register", "capability": "operations.manage",
+        "group": "منشأتي",
+        "params": [{"name": "enabled", "in": "body", "type": "boolean", "required": True}],
+        "confirm": True,
+        "help": "أي رقم جديد يراسل واتسابك يُحفظ تلقائياً ضمن جهات اتصالك، حتى بلا زيارة أو حجز.",
+    },
+    {
         "id": "operations.list_branches", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
         "help": "فروعك، وكم فرعاً تسمح به باقتك.",

@@ -49,6 +49,7 @@ from app.core import seats as S
 from app.core import shop_mode as SM
 from app.core import vehicles as V
 from app.core import whatsapp_visit_flag as WVF
+from app.core import whatsapp_auto_register as WAR
 from app.core.signup import SignupRefused
 from app.core.stores import BranchStore, OperatorStore, PackageStore, ServiceStore, new_id
 from app.api.subscribed import no_subscription_needed, subscribed_write
@@ -768,6 +769,41 @@ async def set_whatsapp_visit_registration(
     await request.app.state.auditor.record(
         "shop.whatsapp_visit_registration_changed", actor=principal.subject, tenant=tenant,
         resource="shop_whatsapp_visit_registration",
+        ip=request.client.host if request.client else "")
+    return row
+
+
+@router.get("/whatsapp-auto-register", dependencies=[Depends(rate_limit)])
+async def read_whatsapp_auto_register(
+        request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Has the owner switched on automatic contact registration over WhatsApp — every new number
+    the shop's assistant hears from becomes a real جهات الاتصال row (`core/whatsapp_auto_register
+    .py`'s own docstring has the full reasoning: OFF is the default for every shop, on purpose,
+    until the owner opts in explicitly)."""
+    enabled = await WAR.WhatsAppAutoRegisterFlagStore(request.app.state.container.datastore).enabled(
+        _tenant(principal))
+    return {"enabled": enabled}
+
+
+class WhatsAppAutoRegisterIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/whatsapp-auto-register",
+           dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_whatsapp_auto_register(
+        request: Request, body: WhatsAppAutoRegisterIn,
+        principal: Principal = Depends(_MANAGE)) -> dict:
+    """Turn automatic WhatsApp contact registration on or off — `_MANAGE`, not `_READ`: this is
+    the owner's own data-collection decision (core/whatsapp_auto_register.py's own docstring),
+    never a plain operator's to flip. Both directions, same as the visit-registration switch next
+    door: a shop that turns it on and regrets it can turn it back off — no one-way ratchet."""
+    tenant = _tenant(principal)
+    row = await WAR.WhatsAppAutoRegisterFlagStore(request.app.state.container.datastore).set(
+        tenant, body.enabled)
+    await request.app.state.auditor.record(
+        "shop.whatsapp_auto_register_changed", actor=principal.subject, tenant=tenant,
+        resource="shop_whatsapp_auto_register_contacts",
         ip=request.client.host if request.client else "")
     return row
 

@@ -30,6 +30,7 @@ from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorSto
                              PrivacyRequestStore, ServiceStore, VisitStore, new_id)
 from app.core.operations import OperationError, RecordedVisit
 from app.core.whatsapp_visit_flag import WhatsAppVisitFlagStore
+from app.core.whatsapp_auto_register import WhatsAppAutoRegisterFlagStore
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -1143,6 +1144,18 @@ async def internal_whatsapp_visit_registration_enabled(request: Request, tenant:
     fail-toward-off posture `WhatsAppVisitFlagStore.enabled()` itself already holds; this route
     adds nothing beyond exposing that same read to a peer."""
     enabled = await WhatsAppVisitFlagStore(request.app.state.container.datastore).enabled(tenant)
+    return {"tenant": tenant, "enabled": enabled}
+
+
+@router.get("/operations/whatsapp-auto-register",
+           dependencies=[Depends(require_internal_token)])
+async def internal_whatsapp_auto_register_enabled(request: Request, tenant: str) -> dict:
+    """Has this tenant's owner opted in to automatic جهات الاتصال registration over WhatsApp — read
+    by whatsapp-assistant on every turn from a number it does not already recognise, BEFORE it
+    ever calls `/internal/operations/customer-id-by-phone` for real (see
+    core/whatsapp_auto_register.py's own docstring for why this defaults OFF). Same fail-toward-
+    off posture as the visit-registration read right above this one."""
+    enabled = await WhatsAppAutoRegisterFlagStore(request.app.state.container.datastore).enabled(tenant)
     return {"tenant": tenant, "enabled": enabled}
 
 

@@ -33,7 +33,7 @@ import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
 import { AppGate } from './Locked';
 import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane,
-        WhatsAppVisitRegistrationCard } from './AccountPanes';
+        WhatsAppVisitRegistrationCard, WhatsAppAutoRegisterCard } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { WalletPane } from './Wallet';
 import { TeamScreen } from './Team';
@@ -317,6 +317,9 @@ export function AccountScreen(
                    عبر واتساب needs تسجيل زيارة itself too. Silently absent rather than a second
                    LockedCard stacked inside this tab — see the card's own header note. */}
                 <WhatsAppVisitRegistrationCard session={session} catalog={catalog} owned={owned} />
+                {/* ITS OWN, SECOND ownership check inside (feature.contacts) — same reasoning as
+                   تسجيل الزيارة عبر واتساب right above: واتساب alone doesn't imply جهات الاتصال. */}
+                <WhatsAppAutoRegisterCard session={session} catalog={catalog} owned={owned} />
               </AppGate>
             </div>
           ) : null}

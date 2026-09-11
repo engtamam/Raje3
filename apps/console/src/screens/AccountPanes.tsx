@@ -468,6 +468,85 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
 }
 
 /**
+ * تسجيل جهات الاتصال تلقائياً عبر واتساب — أول رسالة من رقم غير معروف تسجّله كصف جهة اتصال حقيقي
+ * (بلا زيارة مرفقة)، فعل حتمي بالسيرفر نفسه لا أداة يقررها الذكاء الاصطناعي — راجع
+ * `services/whatsapp-assistant/app/core/conversation.py`'s الخاص بـ`_context_block` وتعليقه.
+ * موقوف افتراضياً لكل محل، وتفعيله قرار ثقة المالك وحده (`operations.manage`) لأنه يعني جمع بيانات
+ * حقيقية عن كل من يراسل الرقم ولو رسالة واحدة — راجع
+ * `services/operations/app/core/whatsapp_auto_register.py`'s الخاص لسبب هذا الافتراض.
+ *
+ * ONLY WHEN THIS SHOP OWNS «جهات الاتصال» نفسه — الفعل الفعلي (إنشاء عميل) هو نفس الفعل اللي
+ * `ensureCustomer` يسويه بشاشة العملاء، فلا معنى لهذا الإعداد بدون التطبيق اللي يملك تلك البيانات.
+ */
+export function WhatsAppAutoRegisterCard({ session, catalog, owned }: {
+  session: Session; catalog: Catalog; owned: Loading<Owned>;
+}) {
+  const { t } = useOperatorI18n();
+  const ownsContacts = owns(owned, 'feature.contacts');
+  const read = action(catalog, 'operations.whatsapp_auto_register');
+  const write = action(catalog, 'operations.set_whatsapp_auto_register');
+  const [enabled, setEnabled] = useState<boolean | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!read || !ownsContacts) { setEnabled(null); return; }
+    call<{ enabled?: boolean }>(session, read)
+      .then((x) => setEnabled(x.enabled === true))
+      .catch(() => setEnabled(null));
+  }, [session, catalog, ownsContacts]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!ownsContacts || !read || enabled === null) return null;
+  if (enabled === undefined) return <Skeleton height={100} />;
+
+  async function flip(next: boolean) {
+    if (!write) return;
+    setBusy(true);
+    setError('');
+    try {
+      const row = await call<{ enabled?: boolean }>(session, write, { enabled: next });
+      setEnabled(row.enabled === true);
+    } catch (err) {
+      // THE OLD VALUE STAYS ON THE SCREEN — same reasoning WhatsAppVisitRegistrationCard's own
+      // comment states: a toggle that moves on a failed write claims a data-collection surface
+      // that was never actually widened (or narrowed).
+      setError(err instanceof Error ? err.message : t('accountPanes.waAutoRegister.saveFailed'));
+    } finally {
+      setBusy(false);
+      setConfirming(null);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span className="text-sm font-medium">{t('accountPanes.waAutoRegister.title')}</span>
+          <span className="text-xs text-text-secondary">
+            {t('accountPanes.waAutoRegister.desc')}
+          </span>
+        </span>
+        <Toggle checked={enabled === true} disabled={busy || !write}
+               onChange={(next) => setConfirming(next)}
+               ariaLabel={t('accountPanes.waAutoRegister.title')} testId="whatsapp-auto-register-toggle" />
+      </div>
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      <ConfirmDialog open={confirming !== null} onClose={() => setConfirming(null)}
+                    onConfirm={() => confirming !== null && void flip(confirming)}
+                    busy={busy} danger={confirming === true}
+                    title={confirming
+                      ? t('accountPanes.waAutoRegister.confirmEnableTitle')
+                      : t('accountPanes.waAutoRegister.confirmDisableTitle')}
+                    body={confirming
+                      ? t('accountPanes.waAutoRegister.confirmEnableBody')
+                      : t('accountPanes.waAutoRegister.confirmDisableBody')} />
+    </section>
+  );
+}
+
+/**
  * THE MARK AND THE COLOUR HIS CUSTOMER SEES — with a default, so nobody has to decide.
  *
  * WHY NO FILE SERVICE STANDS BEHIND THIS. There was one, and the logo was the only file in the

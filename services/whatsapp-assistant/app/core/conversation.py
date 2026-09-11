@@ -701,6 +701,19 @@ class ConversationEngine:
                 known = bool(looked_up.get("found"))
             except Exception:
                 known = False
+            # A FEATURE, NOT A TOOL THE MODEL MUST REMEMBER TO CALL (owner's own instruction,
+            # 2026-09-11) — the same "act deterministically at the point that already knows the
+            # fact" posture Plans.tsx's own orphaned-subscription self-heal follows. A stranger's
+            # number is registered as a real جهات الاتصال row the moment his FIRST message is
+            # answered, never left to the model to notice and invoke a tool for. OFF for every
+            # tenant until its owner opts in (`register()` itself checks the flag fresh, every
+            # time — see its own docstring); best-effort and never allowed to slow or break this
+            # turn's actual reply, exactly like the catalogue/offers reads around it.
+            if not known:
+                try:
+                    await self._customer_lookup.register(tenant, from_number)
+                except Exception:
+                    pass
 
         offers: list[dict[str, Any]] = []
         if has_any_app and known:

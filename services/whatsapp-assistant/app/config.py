@@ -221,6 +221,12 @@ class Settings(BaseSettings):
     # existing CustomerStore.by_phone — see services/operations/app/api/internal.py), returning a
     # pseudonym and a visit-count/last-visit PATTERN only — never the phone or name back to us.
     OPERATIONS_CUSTOMER_BY_PHONE_PATH: str = "/internal/operations/customer-by-phone"
+    # Read on every turn from a number `customer-by-phone` does not already recognise, BEFORE ever
+    # calling OPERATIONS_CUSTOMER_ID_BY_PHONE_PATH below for real — OFF for every tenant until its
+    # owner opts in explicitly (services/operations' own core/whatsapp_auto_register.py has the
+    # full reasoning). Same "opt in, never silently widen who gets written into the customer book"
+    # posture as OPERATIONS_WHATSAPP_VISIT_REGISTRATION_PATH above, for a different write.
+    OPERATIONS_WHATSAPP_AUTO_REGISTER_PATH: str = "/internal/operations/whatsapp-auto-register"
     # NOT DECLARED: a "customer-visits" path was published here once, alongside this one, and
     # nothing in this service ever called it — `customer_lookup.py` only ever asks
     # OPERATIONS_CUSTOMER_BY_PHONE_PATH above (which already returns visit_count_90d bundled in

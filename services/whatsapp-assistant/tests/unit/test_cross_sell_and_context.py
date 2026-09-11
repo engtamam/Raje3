@@ -53,9 +53,14 @@ class _FakeCustomerLookup:
 
     def __init__(self, found: bool) -> None:
         self._found = found
+        self.register_calls: list[tuple[str, str]] = []
 
     async def resolve(self, tenant: str, phone: str) -> dict:
         return {"found": self._found, "subject_ref": SUBJECT if self._found else ""}
+
+    async def register(self, tenant: str, phone: str) -> bool:
+        self.register_calls.append((tenant, phone))
+        return True
 
 
 class _FakePointsWithOffers:
@@ -398,6 +403,67 @@ async def test_a_known_customer_in_one_tenant_is_not_treated_as_known_in_another
     assert "غسيل مجاني" in block_home
     assert "غسيل مجاني" not in block_other
     assert "جديد" in block_other
+
+
+# ── auto-register: _context_block calls register() only for a stranger, never a known customer ──
+
+async def test_context_block_registers_an_unknown_number_exactly_once():
+    lookup = _FakeCustomerLookup(found=False)
+    engine = ConversationEngine(
+        store=MemoryDataStore(), llm=StubLlm(), booking_provider=_provider(MemoryDataStore()),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED, customer_lookup=lookup)
+    await engine._context_block(TENANT, SUBJECT, "+966511110000", True)
+    assert lookup.register_calls == [(TENANT, "+966511110000")]
+
+
+async def test_context_block_never_registers_a_customer_it_already_knows():
+    lookup = _FakeCustomerLookup(found=True)
+    engine = ConversationEngine(
+        store=MemoryDataStore(), llm=StubLlm(), booking_provider=_provider(MemoryDataStore()),
+        points_summary=_FakePointsWithOffers(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED, customer_lookup=lookup)
+    await engine._context_block(TENANT, SUBJECT, "+9665", True)
+    assert lookup.register_calls == []
+
+
+async def test_context_block_never_registers_without_has_any_app():
+    """No app at all bought — the same data-isolation skip _context_block already applies to
+    catalogue/offers/packages must apply here too: a standalone shop with nothing bought gets no
+    customer written on its behalf."""
+    lookup = _FakeCustomerLookup(found=False)
+    engine = ConversationEngine(
+        store=MemoryDataStore(), llm=StubLlm(), booking_provider=_provider(MemoryDataStore()),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED, customer_lookup=lookup)
+    await engine._context_block(TENANT, SUBJECT, "+966511110000", False)
+    assert lookup.register_calls == []
+
+
+async def test_a_raising_register_never_breaks_the_turns_actual_reply():
+    class _ExplodingLookup:
+        driver = "fake"
+        async def resolve(self, tenant: str, phone: str) -> dict:
+            return {"found": False, "subject_ref": ""}
+        async def register(self, tenant: str, phone: str) -> bool:
+            raise RuntimeError("operations is restarting")
+
+    store = MemoryDataStore()
+    llm = StubLlm()
+    llm.queue_text("تمام!")
+    engine = ConversationEngine(
+        store=store, llm=llm, booking_provider=_provider(store),
+        points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
+        raw_window_messages=12, allowed_tools=_ALLOWED,
+        service_catalog=_FakeCatalog({TENANT: _catalog()}), customer_lookup=_ExplodingLookup())
+    await engine.handle_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="hi", now=1000)
+    await engine.handle_triage_selection(tenant=TENANT, subject_ref=SUBJECT,
+                                         reply_id="triage:inquiry", now=1001)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="مرحبا", now=1002)
+    plan = await engine.compose_reply(TENANT, SUBJECT, now=1200)
+    assert plan.kind == "text"          # the reply still went out despite register() raising
 
 
 # ── deep robustness pass on packages (100-test confidence sweep) ────────────────────────────────
