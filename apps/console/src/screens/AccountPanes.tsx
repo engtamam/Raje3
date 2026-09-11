@@ -27,6 +27,8 @@ import { owns, type Owned } from '../apps';
 // ONE DEFINITION, RENDERED WHERE IT BELONGS. The card was written for «فريقي» and stayed there
 // when it moved; importing it keeps a single implementation rather than a second copy that drifts.
 import { VehiclesCard } from './Team';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './account-panes-i18n';
 
 interface Tenant {
   id?: string;
@@ -49,6 +51,7 @@ interface Tenant {
  * place the thing his customer reads is set.
  */
 export function ShopPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t: tr } = useOperatorI18n();
   const [t, setT] = useState<Tenant | null | undefined>(undefined);
   // NO `saving` HERE. The save is delegated to `BrandCard`, which owns its own busy state — this
   // pane held a second one that nothing ever set and nothing ever read, so a reviewer looking for
@@ -91,10 +94,10 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
   }, [session, catalog]);
 
   if (t === undefined) return <Skeleton height={160} />;
-  if (!t) return <Quiet>لا تملك صلاحية عرض بيانات المنشأة.</Quiet>;
+  if (!t) return <Quiet>{tr('accountPanes.noReadPermission')}</Quiet>;
 
   const saveBranding = async (branding: { logo_url: string; accent: string }) => {
-    if (!canBrand) throw new Error('لا تملك صلاحية تعديل الهوية.');
+    if (!canBrand) throw new Error(tr('accountPanes.noBrandPermission'));
     // MERGED, NOT REPLACED. `branding` is a free-form record on the tenant and other things live
     // in it; sending our two fields alone would quietly drop whatever else is there.
     //
@@ -115,7 +118,7 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
    */
   const saveName = async (name: string) => {
     const a = action(catalog, 'operations.set_shop_name');
-    if (!a) throw new Error('لا تملك صلاحية تغيير اسم المحل.');
+    if (!a) throw new Error(tr('accountPanes.noNamePermission'));
     await call(session, a, { name });
     load();
   };
@@ -133,18 +136,18 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           of «label ………… value» read as a form he has to fill; four cells read as a card about his
           shop, which is what they are: not one of them is editable here. */}
       <section className="grid grid-cols-2 gap-2">
-        <Fact icon={<Building2 size={16} />} label="اسم المنشأة" value={t.name || '—'} wide />
-        <Fact label="حالة الحساب"
+        <Fact icon={<Building2 size={16} />} label={tr('accountPanes.fact.name')} value={t.name || '—'} wide />
+        <Fact label={tr('accountPanes.fact.status')}
               value={<Badge tone={t.status === 'active' ? 'success' : 'neutral'}>
-                       {t.status === 'active' ? 'فعّال' : (t.status || '—')}
+                       {t.status === 'active' ? tr('accountPanes.status.active') : (t.status || '—')}
                      </Badge>}
               hint={<AssistantHint anchor="account.tenant_status" session={session} />} />
         {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
             timezone; reading the device's would schedule an owner travelling abroad into his
             customers' small hours. */}
-        <Fact icon={<Clock size={16} />} label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
-        <Fact icon={<CalendarDays size={16} />} label="التقويم"
-              value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
+        <Fact icon={<Clock size={16} />} label={tr('accountPanes.fact.timezone')} value={t.config?.timezone || 'Asia/Riyadh'} />
+        <Fact icon={<CalendarDays size={16} />} label={tr('accountPanes.fact.calendar')}
+              value={t.config?.calendar === 'hijri' ? tr('accountPanes.calendar.hijri') : tr('accountPanes.calendar.gregorian')} wide />
       </section>
 
       {/* WHAT THIS SHOP DOES, BESIDE WHO IT IS. It stood among the branch settings, which made it
@@ -171,15 +174,15 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
               <MessageCircle size={18} />
             </span>
             <span className="flex flex-col">
-              <span className="text-sm">تقريري الأسبوعي على واتساب</span>
+              <span className="text-sm">{tr('accountPanes.digest.title')}</span>
               <span className="text-xs text-text-secondary">
-                صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
+                {tr('accountPanes.digest.desc')}
               </span>
             </span>
           </span>
           <Toggle
             checked={digest}
-            ariaLabel="تقريري الأسبوعي على واتساب"
+            ariaLabel={tr('accountPanes.digest.title')}
             testId="digest-toggle"
             onChange={async (on) => {
               setDigest(on);
@@ -198,9 +201,9 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
 // The categories `redact()` (services/operations/app/core/redaction.py) may report — Arabic
 // labels for the transient "تم الحفظ" confirmation, so an owner learns WHAT was stripped without
 // either of us ever handling the actual value a second time to tell him.
-const REDACTED_LABELS: Record<string, string> = {
-  iban: 'رقم حساب بنكي (آيبان)', card: 'رقم بطاقة', email: 'بريد إلكتروني',
-  national_id: 'رقم هوية/إقامة', phone: 'رقم جوال', secret: 'مفتاح سرّي',
+const REDACTED_KEYS: Record<string, string> = {
+  iban: 'accountPanes.redacted.iban', card: 'accountPanes.redacted.card', email: 'accountPanes.redacted.email',
+  national_id: 'accountPanes.redacted.national_id', phone: 'accountPanes.redacted.phone', secret: 'accountPanes.redacted.secret',
 };
 
 const AI_NOTES_MAX = 2000;
@@ -215,6 +218,7 @@ const AI_NOTES_MAX = 2000;
  * a real button costs.
  */
 export function AiNotesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const read = action(catalog, 'operations.ai_notes');
   const write = action(catalog, 'operations.set_ai_notes');
   const [text, setText] = useState<string | null | undefined>(undefined);
@@ -226,7 +230,7 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
   useEffect(() => {
     if (!read) { setText(null); return; }
     call<{ text?: string }>(session, read)
-      .then((x) => { const t = x.text || ''; setText(t); setDraft(t); })
+      .then((x) => { const loadedText = x.text || ''; setText(loadedText); setDraft(loadedText); })
       .catch(() => setText(null));
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -244,15 +248,15 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
     try {
       const out = await call<{ text?: string; redacted?: string[] }>(
         session, write, { text: draft });
-      const t = out.text || '';
-      setText(t);
-      setDraft(t);
-      const hits = (out.redacted || []).map((c) => REDACTED_LABELS[c] || c);
+      const savedText = out.text || '';
+      setText(savedText);
+      setDraft(savedText);
+      const hits = (out.redacted || []).map((c) => (REDACTED_KEYS[c] ? t(REDACTED_KEYS[c]) : c));
       setSaved(hits.length
-        ? `تم الحفظ — حذفنا تلقائياً: ${hits.join('، ')} (لا يُكتب هنا أي بيانات شخصية).`
-        : 'تم الحفظ.');
+        ? tf(t, 'accountPanes.saved.redacted', { items: hits.join('، ') })
+        : t('accountPanes.saved.plain'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ الملاحظات. حاول بعد قليل.');
+      setError(err instanceof Error ? err.message : t('accountPanes.aiNotes.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -261,27 +265,25 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       <span className="flex flex-col">
-        <span className="text-sm font-medium">ملاحظات المساعد الذكي عبر واتساب</span>
+        <span className="text-sm font-medium">{t('accountPanes.aiNotes.title')}</span>
         <span className="text-xs text-text-secondary">
-          مثال: مواعيد الدوام، سياسة الدفع، تفاصيل خدمة معيّنة — أي شيء يساعد المساعد يجاوب عملاءك
-          بدقّة أكثر. لا تكتب هنا بيانات شخصية لعملائك (أرقام جوال، حسابات بنكية) — يُستخدم هذا
-          النص مباشرة لتوجيه الذكاء الاصطناعي.
+          {t('accountPanes.aiNotes.desc')}
         </span>
       </span>
 
       {write ? (
         <Field
-          error={overCap ? `النص أطول من ${AI_NOTES_MAX} حرفاً — اختصره.` : undefined}
+          error={overCap ? tf(t, 'accountPanes.aiNotes.tooLong', { max: AI_NOTES_MAX }) : undefined}
           hint={!overCap ? `${draft.length} / ${AI_NOTES_MAX}` : undefined}
         >
           <Textarea
             dir="rtl" rows={6} value={draft} disabled={busy}
-            aria-label="ملاحظات المساعد الذكي عبر واتساب"
+            aria-label={t('accountPanes.aiNotes.title')}
             onChange={(e) => { setDraft(e.target.value); setSaved(''); }}
           />
         </Field>
       ) : (
-        <p className="text-sm text-text-secondary">لا تملك صلاحية تعديل هذه الملاحظات.</p>
+        <p className="text-sm text-text-secondary">{t('accountPanes.noEditPermission')}</p>
       )}
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -290,7 +292,7 @@ export function AiNotesCard({ session, catalog }: { session: Session; catalog: C
       {write ? (
         <Button type="button" size="sm" className="self-start"
                disabled={!dirty || overCap || busy} onClick={save}>
-          {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+          {busy ? t('accountPanes.saving') : t('accountPanes.save')}
         </Button>
       ) : null}
     </section>
@@ -306,6 +308,7 @@ const MSG_WORD_LIMIT_DEFAULT = 100;
  * اختصارها — بلا أي استدعاء للذكاء الاصطناعي.
  */
 export function MsgWordLimitCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const read = action(catalog, 'operations.msg_word_limit');
   const write = action(catalog, 'operations.set_msg_word_limit');
   const [limit, setLimit] = useState<number | null | undefined>(undefined);
@@ -339,7 +342,7 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
       setDraft(n);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ. حاول بعد قليل.');
+      setError(err instanceof Error ? err.message : t('accountPanes.wordLimit.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -348,38 +351,37 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       <span className="flex flex-col">
-        <span className="text-sm font-medium">حد كلمات رسالة العميل</span>
+        <span className="text-sm font-medium">{t('accountPanes.wordLimit.title')}</span>
         <span className="text-xs text-text-secondary">
-          رسالة أطول من هذا الحد تُرفض تلقائياً بأسلوب مؤدب يطلب من العميل اختصارها، بلا أي تكلفة
-          ذكاء اصطناعي.
+          {t('accountPanes.wordLimit.desc')}
         </span>
       </span>
 
       {write ? (
         <Field
           error={!inRange
-            ? `القيمة يجب أن تكون بين ${MSG_WORD_LIMIT_MIN} و${MSG_WORD_LIMIT_MAX} كلمة.`
+            ? tf(t, 'accountPanes.wordLimit.range', { min: MSG_WORD_LIMIT_MIN, max: MSG_WORD_LIMIT_MAX })
             : undefined}
         >
           <input
             type="number" dir="ltr" inputMode="numeric"
             min={MSG_WORD_LIMIT_MIN} max={MSG_WORD_LIMIT_MAX} value={draft} disabled={busy}
-            aria-label="حد كلمات رسالة العميل"
+            aria-label={t('accountPanes.wordLimit.title')}
             onChange={(e) => { setDraft(Number(e.target.value) || 0); setSaved(false); }}
             className="h-11 w-32 rounded-xl bg-surface-2 px-3"
           />
         </Field>
       ) : (
-        <p className="text-sm text-text-secondary">لا تملك صلاحية تعديل هذا الحد.</p>
+        <p className="text-sm text-text-secondary">{t('accountPanes.noLimitEditPermission')}</p>
       )}
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
-      {saved && !dirty ? <p className="text-sm text-text-secondary">تم الحفظ.</p> : null}
+      {saved && !dirty ? <p className="text-sm text-text-secondary">{t('accountPanes.saved.plain')}</p> : null}
 
       {write ? (
         <Button type="button" size="sm" className="self-start"
                disabled={!dirty || !inRange || busy} onClick={save}>
-          {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+          {busy ? t('accountPanes.saving') : t('accountPanes.save')}
         </Button>
       ) : null}
     </section>
@@ -400,6 +402,7 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
 export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
   session: Session; catalog: Catalog; owned: Loading<Owned>;
 }) {
+  const { t } = useOperatorI18n();
   const ownsVisit = owns(owned, 'feature.visit');
   const read = action(catalog, 'operations.whatsapp_visit_registration');
   const write = action(catalog, 'operations.set_whatsapp_visit_registration');
@@ -429,7 +432,7 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
       // THE OLD VALUE STAYS ON THE SCREEN — same reasoning VehiclesCard's own comment states: a
       // toggle that moves on a failed write claims a permission surface that was never actually
       // widened (or narrowed).
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ الاختيار. حاول بعد قليل.');
+      setError(err instanceof Error ? err.message : t('accountPanes.waRegistration.saveFailed'));
     } finally {
       setBusy(false);
       setConfirming(null);
@@ -440,15 +443,14 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
     <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
-          <span className="text-sm font-medium">تسجيل الزيارة عبر واتساب</span>
+          <span className="text-sm font-medium">{t('accountPanes.waRegistration.title')}</span>
           <span className="text-xs text-text-secondary">
-            إن فعّلته، أي موظف عنده حساب دخول يقدر يسجّل زيارة من رقم واتسابه الخاص مباشرة، بدون
-            كلمة مرور في تلك اللحظة — بالإضافة لشاشة تسجيل الزيارة العادية، لا بدلاً عنها.
+            {t('accountPanes.waRegistration.desc')}
           </span>
         </span>
         <Toggle checked={enabled === true} disabled={busy || !write}
                onChange={(next) => setConfirming(next)}
-               ariaLabel="تسجيل الزيارة عبر واتساب" testId="whatsapp-visit-registration-toggle" />
+               ariaLabel={t('accountPanes.waRegistration.title')} testId="whatsapp-visit-registration-toggle" />
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
@@ -456,11 +458,11 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
                     onConfirm={() => confirming !== null && void flip(confirming)}
                     busy={busy} danger={confirming === true}
                     title={confirming
-                      ? 'تفعيل تسجيل الزيارة عبر واتساب؟'
-                      : 'إيقاف تسجيل الزيارة عبر واتساب؟'}
+                      ? t('accountPanes.waRegistration.confirmEnableTitle')
+                      : t('accountPanes.waRegistration.confirmDisableTitle')}
                     body={confirming
-                      ? 'أي موظف عنده حساب دخول يقدر يسجّل زيارة من رقم واتسابه، بدون كلمة مرور في تلك اللحظة — قرار ثقة توسّع مين يقدر ينسب زيارة لاسمه.'
-                      : 'موظفوك لن يقدروا بعدها يسجّلون زيارة إلا من شاشة تسجيل الزيارة العادية.'} />
+                      ? t('accountPanes.waRegistration.confirmEnableBody')
+                      : t('accountPanes.waRegistration.confirmDisableBody')} />
     </section>
   );
 }
@@ -485,6 +487,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
     { tenant: Tenant;
       onSave: (b: { logo_url: string; accent: string }) => Promise<void>;
       onSaveName: (name: string) => Promise<void> }) {
+  const { t } = useOperatorI18n();
   /**
    * THE NAME HIS CUSTOMER READS, and it could not be edited anywhere.
    *
@@ -510,7 +513,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
     } catch {
       // NAMED, NOT GENERIC. It fails when the file is not an image or the browser cannot decode
       // it, and either way he is otherwise left looking at an unchanged square.
-      setError('تعذّر قراءة الصورة. اختر صورة بصيغة PNG أو JPG.');
+      setError(t('accountPanes.imageReadFailed'));
     }
   };
 
@@ -522,9 +525,9 @@ function BrandCard({ tenant, onSave, onSaveName }:
       // fix, and if the branding call fails he must not be told the name did not save either.
       if (name.trim() && name.trim() !== (tenant.name ?? '')) await onSaveName(name.trim());
       await onSave({ logo_url: logo, accent: colour });
-      setSaid('حُفظ. هذا ما يراه عميلك.');
+      setSaid(t('accountPanes.identitySaved'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(err instanceof Error ? err.message : t('accountPanes.identitySaveFailed'));
     } finally {
       setBusy(false);
     }
@@ -532,7 +535,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4 rounded-card bg-surface-1 p-4 shadow-sm">
-      <h3 className="text-sm text-text-secondary">هويّتك كما يراها عميلك</h3>
+      <h3 className="text-sm text-text-secondary">{t('accountPanes.brandTitle')}</h3>
 
       {/* THE PREVIEW IS THE CUSTOMER'S HEADER, not a swatch beside a button. The first version put
           a 64px tile next to «ارفع شعارك» and the shop's name overflowed it — because that tile
@@ -544,19 +547,19 @@ function BrandCard({ tenant, onSave, onSaveName }:
         style={{ background: colour }}
       >
         {logo ? (
-          <img src={logo} alt="شعار منشأتك"
+          <img src={logo} alt={t('accountPanes.logoAlt')}
                className="size-14 rounded-2xl bg-white/15 object-contain" />
         ) : null}
         <span className="max-w-full truncate text-lg font-semibold text-white">
-          {name || tenant.name || 'محلّك'}
+          {name || tenant.name || t('accountPanes.defaultShopName')}
         </span>
-        <span className="text-xs text-white/75">صفحتك لدى المتجر</span>
+        <span className="text-xs text-white/75">{t('accountPanes.storePage')}</span>
       </div>
 
       {/* THE NAME, DIRECTLY UNDER THE PREVIEW THAT SHOWS IT. Editing a field and watching the
           band above it change is the whole explanation of what this name is for. */}
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-text-secondary">اسم محلّك كما يراه عميلك</span>
+        <span className="text-sm text-text-secondary">{t('accountPanes.shopNameLabel')}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -572,7 +575,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
           it needs rather than half the row — the two are not equals. */}
       <div className="flex flex-wrap items-center gap-2">
         <label className="grid min-h-11 flex-1 cursor-pointer place-items-center rounded-xl bg-surface-2 px-3 text-sm">
-          {logo ? 'تغيير الشعار' : 'ارفع شعارك'}
+          {logo ? t('accountPanes.changeLogo') : t('accountPanes.uploadLogo')}
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -583,11 +586,11 @@ function BrandCard({ tenant, onSave, onSaveName }:
         {logo ? (
           <button type="button" onClick={() => setLogo('')}
                   className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm text-text-secondary">
-            إزالة
+            {t('accountPanes.removeLogo')}
           </button>
         ) : null}
         <p className="basis-full text-xs text-text-secondary">
-          بلا شعار يظهر اسم محلّك — وهذا كافٍ، لا شيء ناقص.
+          {t('accountPanes.noLogoNote')}
         </p>
       </div>
 
@@ -600,11 +603,11 @@ function BrandCard({ tenant, onSave, onSaveName }:
           THE NATIVE PICKER IS THE ONE CONTROL HERE BETTER THAN ANYTHING WE WOULD DRAW: it knows
           the platform's own colour UI, and it accepts a pasted hex from his brand book. */}
       <div className="flex flex-col gap-2">
-        <span className="text-sm text-text-secondary">لون علامتك</span>
+        <span className="text-sm text-text-secondary">{t('accountPanes.brandColor')}</span>
         <div className="flex items-center gap-3">
           <label className="relative size-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-border-subtle"
                  style={{ background: colour }}>
-            <input type="color" value={colour} aria-label="اختر لون علامتك"
+            <input type="color" value={colour} aria-label={t('accountPanes.pickColorAriaLabel')}
                    className="absolute inset-0 cursor-pointer opacity-0"
                    onChange={(e) => setColour(e.target.value)} />
           </label>
@@ -613,7 +616,7 @@ function BrandCard({ tenant, onSave, onSaveName }:
               missing «#» or lower case does not read as a different colour to the preview. */}
           <input
             value={colour}
-            aria-label="رمز اللون"
+            aria-label={t('accountPanes.colorCodeAriaLabel')}
             dir="ltr"
             maxLength={7}
             onChange={(e) => {
@@ -628,14 +631,14 @@ function BrandCard({ tenant, onSave, onSaveName }:
             onClick={() => setColour(DEFAULT_COLOUR)}
             className="min-h-11 rounded-xl px-3 text-sm text-text-secondary"
           >
-            العودة للافتراضي
+            {t('accountPanes.resetToDefault')}
           </button>
         </div>
       </div>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {said ? <p className="text-sm text-text-secondary">{said}</p> : null}
-      <div><Button type="submit" disabled={busy}>حفظ</Button></div>
+      <div><Button type="submit" disabled={busy}>{t('accountPanes.save')}</Button></div>
     </form>
   );
 }
@@ -709,6 +712,7 @@ function Fact({ label, value, wide, hint, icon }:
  * pane exists to put it one tap from where he already is.
  */
 export function DataPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [busy, setBusy] = useState('');
   const [said, setSaid] = useState('');
   const [error, setError] = useState('');
@@ -746,10 +750,10 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
       // target on this cluster, so a dispatch would find nobody to ask. Saying «نردّ خلال 30
       // يوماً» was a promise nothing behind it could keep.
       setSaid(codeSent
-        ? `سجّلنا طلبك: ${label}. أرسلنا رمز تأكيد على واتساب رقمك — أدخله لنبدأ التنفيذ.`
-        : `سجّلنا طلبك: ${label}. نتواصل معك لتأكيد هويتك قبل تنفيذه — لا تخرج أي بيانات شخصية قبل هذا التأكيد.`);
+        ? tf(t, 'accountPanes.dsar.recordedWithCode', { label })
+        : tf(t, 'accountPanes.dsar.recordedNoCode', { label }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر تسجيل الطلب.');
+      setError(e instanceof Error ? e.message : t('accountPanes.dsar.requestFailed'));
     } finally {
       setBusy('');
     }
@@ -758,37 +762,36 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <h3 className="mb-1">الاحتفاظ بالبيانات</h3>
+        <h3 className="mb-1">{t('accountPanes.retention.title')}</h3>
         <p className="text-sm text-text-secondary">
-          زيارات عملائك وسجلّ رسائلهم محفوظة داخل المملكة. تبقى ما دام حسابك فعّالاً، وتُحذف بعد
-          إغلاقه وفق المدة المعلنة في سياسة الخصوصية.
+          {t('accountPanes.retention.desc')}
         </p>
       </Card>
 
       {canAsk ? (
         <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-          <h3>حقوقك في بياناتك</h3>
+          <h3>{t('accountPanes.dsar.title')}</h3>
           <p className="text-sm text-text-secondary">
-            نظام حماية البيانات الشخصية يمنحك هذه الطلبات، وهذه أزرارها — لا عنوان بريد تراسله.
+            {t('accountPanes.dsar.desc')}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('access', 'الاطّلاع على بياناتي')}>
-              الاطّلاع على بياناتي
+                    onClick={() => ask('access', t('accountPanes.dsar.access'))}>
+              {t('accountPanes.dsar.access')}
             </Button>
             <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('export', 'تصدير نسخة')}>
-              تصدير نسخة
+                    onClick={() => ask('export', t('accountPanes.dsar.export'))}>
+              {t('accountPanes.dsar.export')}
             </Button>
             <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('correction', 'تصحيح بيان')}>
-              تصحيح بيان
+                    onClick={() => ask('correction', t('accountPanes.dsar.correction'))}>
+              {t('accountPanes.dsar.correction')}
             </Button>
             {/* ERASURE SITS APART AND IS NOT STYLED AS DANGER — it is a right, not an accident.
                 What it must not be is adjacent to a routine button by a few pixels. */}
             <Button type="button" variant="ghost" disabled={Boolean(busy)}
-                    onClick={() => ask('erasure', 'حذف بياناتي')}>
-              حذف بياناتي
+                    onClick={() => ask('erasure', t('accountPanes.dsar.erasure'))}>
+              {t('accountPanes.dsar.erasure')}
             </Button>
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -797,18 +800,17 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
       ) : null}
 
       <Card>
-        <h3 className="mb-1">الاتفاقيات</h3>
+        <h3 className="mb-1">{t('accountPanes.agreements.title')}</h3>
         <p className="text-sm text-text-secondary">
-          شروط الاستخدام، سياسة الخصوصية، واتفاقية معالجة البيانات — وافقت عليها عند فتح المحل،
-          وهي متاحة لك في أي وقت.
+          {t('accountPanes.agreements.desc')}
         </p>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
-          <a className="underline" href={legalUrl('terms')} target="_blank" rel="noreferrer">شروط الاستخدام</a>
-          <a className="underline" href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer">سياسة الخصوصية</a>
+          <a className="underline" href={legalUrl('terms')} target="_blank" rel="noreferrer">{t('accountPanes.agreements.terms')}</a>
+          <a className="underline" href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer">{t('accountPanes.agreements.privacy')}</a>
           {/* THE DPA HAS NO PAGE OF ITS OWN — it is an annex to the Terms (`publication: reference`,
               never published standalone) and accepting the Terms accepts it, so its text lives at
               the same URL rather than at a route that would otherwise 404. */}
-          <a className="underline" href={legalUrl('terms')} target="_blank" rel="noreferrer">اتفاقية معالجة البيانات (ضمن الشروط)</a>
+          <a className="underline" href={legalUrl('terms')} target="_blank" rel="noreferrer">{t('accountPanes.agreements.dpa')}</a>
         </div>
       </Card>
     </div>
@@ -862,6 +864,7 @@ interface Invoice {
  * actually issued — the one case where a second, different paper genuinely exists to ask for.
  */
 export function InvoicesPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [rows, setRows] = useState<Loading<Invoice[]>>(undefined);
   const [downloading, setDownloading] = useState('');
   const [downloadError, setDownloadError] = useState('');
@@ -878,7 +881,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
     } catch {
       // NO SENTENCE FROM THE SERVER TO SHOW — a PDF route answers with a status, not a body. One
       // fixed sentence here beats printing a raw HTTP code at an owner looking for his invoice.
-      setDownloadError('تعذّر تنزيل المستند الآن. حاول بعد قليل.');
+      setDownloadError(t('accountPanes.invoices.downloadFailed'));
     } finally {
       setDownloading('');
     }
@@ -899,21 +902,21 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
 
   return (
     <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-      <h3 className="text-sm text-text-secondary">فواتيري</h3>
+      <h3 className="text-sm text-text-secondary">{t('accountPanes.invoices.title')}</h3>
       {isDenied(rows) ? (
-        // A ROLE ANSWER, AND IT SAYS WHICH. «لا فواتير بعد» to somebody whose role simply
-        // excludes billing is a fact about the shop that is not his to be given (م · 2).
-        <p className="text-sm text-text-secondary">لا يشمل دورك فواتير المحل.</p>
+        // A ROLE ANSWER, AND IT SAYS WHICH. "No invoices yet" to somebody whose role simply
+        // excludes billing is a fact about the shop that is not his to be given.
+        <p className="text-sm text-text-secondary">{t('accountPanes.invoices.noPermission')}</p>
       ) : hasFailed(rows) ? (
-        // HE CAME HERE FOR HIS ACCOUNTANT. «لا فواتير بعد» to a shop that has been paying for
+        // HE CAME HERE FOR HIS ACCOUNTANT. "No invoices yet" to a shop that has been paying for
         // months is a sentence that sends him looking for a receipt he will not find.
         <p className="text-sm text-text-secondary">
-          تعذّرت قراءة فواتيرك الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+          {t('accountPanes.invoices.readFailed')}
         </p>
       ) : rows.length === 0 ? (
         // NOT AN APOLOGY. No invoices before the first subscription is the correct state, and
-        // «لا توجد فواتير» dressed as an empty-state illustration would imply something failed.
-        <p className="text-sm text-text-secondary">لا فواتير بعد — تصدر أول فاتورة مع أول اشتراك.</p>
+        // "no invoices" dressed as an empty-state illustration would imply something failed.
+        <p className="text-sm text-text-secondary">{t('accountPanes.invoices.empty')}</p>
       ) : (
         <>
           {downloadError ? <p className="text-sm text-danger">{downloadError}</p> : null}
@@ -930,7 +933,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
                       {v.total_minor ? riyalsLabel(v.total_minor) : '—'}
                     </span>
                     <Badge tone={v.status === 'paid' ? 'success' : 'warning'}>
-                      {v.status === 'paid' ? 'مدفوعة' : 'غير مدفوعة'}
+                      {v.status === 'paid' ? t('accountPanes.invoices.paid') : t('accountPanes.invoices.unpaid')}
                     </Badge>
                   </span>
                 </div>
@@ -940,7 +943,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
                   {canDocument ? (
                     <Button variant="ghost" size="sm" disabled={downloading === `doc:${v.id}`}
                             onClick={() => void download(canDocument, `doc:${v.id}`, v.id)}>
-                      {downloading === `doc:${v.id}` ? 'يُنزَّل…' : 'تنزيل المستند'}
+                      {downloading === `doc:${v.id}` ? t('accountPanes.invoices.downloading') : t('accountPanes.invoices.downloadDocument')}
                     </Button>
                   ) : null}
                   {/* THE SECOND PAPER, ONLY WHEN IT GENUINELY EXISTS: a tax invoice was issued for
@@ -949,7 +952,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
                   {canReceipt && v.doc_type === 'tax_invoice' && v.status === 'paid' ? (
                     <Button variant="ghost" size="sm" disabled={downloading === `receipt:${v.id}`}
                             onClick={() => void download(canReceipt, `receipt:${v.id}`, v.id)}>
-                      {downloading === `receipt:${v.id}` ? 'يُنزَّل…' : 'تنزيل الإيصال'}
+                      {downloading === `receipt:${v.id}` ? t('accountPanes.invoices.downloading') : t('accountPanes.invoices.downloadReceipt')}
                     </Button>
                   ) : null}
                 </div>
@@ -973,13 +976,13 @@ interface MachineAccount {
   caps?: string[];
 }
 
-function whenAgo(ts?: number): string {
-  if (!ts) return 'لم يُستعمل قط';
+function whenAgo(ts: number | undefined, t: (key: string) => string): string {
+  if (!ts) return t('accountPanes.neverUsed');
   const days = Math.floor((Date.now() / 1000 - ts) / 86_400);
-  if (days <= 0) return 'اليوم';
-  if (days === 1) return 'أمس';
-  if (days < 30) return `قبل ${days} يوماً`;
-  return `قبل ${Math.floor(days / 30)} شهراً`;
+  if (days <= 0) return t('accountPanes.today');
+  if (days === 1) return t('accountPanes.yesterday');
+  if (days < 30) return tf(t, 'accountPanes.daysAgo', { n: days });
+  return tf(t, 'accountPanes.monthsAgo', { n: Math.floor(days / 30) });
 }
 
 /**
@@ -997,6 +1000,7 @@ function whenAgo(ts?: number): string {
  * this is not a daily errand — it is the one thing that survives him.
  */
 export function KeysPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [rows, setRows] = useState<Loading<MachineAccount[]>>(undefined);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -1029,9 +1033,9 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
     // says the one thing that is true either way and blames nobody — «ours, not yours» is the safe
     // side of that uncertainty, because the owner DOES have the right today.
     if (!canList) {
-      return <Quiet>عرض مفاتيح الربط لم يُفتح بعد من طرفنا. وإصدار المفاتيح وسحبها يتمّان معنا مباشرةً حتى ذلك الحين.</Quiet>;
+      return <Quiet>{t('accountPanes.keys.notOpenedYet')}</Quiet>;
     }
-    return <Quiet>تعذّر عرض مفاتيح الربط الآن. أعد المحاولة بعد قليل.</Quiet>;
+    return <Quiet>{t('accountPanes.keys.readFailed')}</Quiet>;
   }
 
   const revoke = async (row: MachineAccount) => {
@@ -1042,7 +1046,7 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
       await call(session, canRevoke, { client_id: row.client_id });
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر السحب.');
+      setError(err instanceof Error ? err.message : t('accountPanes.keys.revokeFailed'));
     } finally {
       setBusy('');
     }
@@ -1051,14 +1055,13 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
   return (
     <section className="flex flex-col gap-3">
       <p className="text-sm text-text-secondary">
-        برامج تكتب زيارات باسم محلك — نظام الكاشير مثلاً. المفتاح لا ينتهي بمرور الوقت،
-        فاسحب ما لم يعد يُستعمل.
+        {t('accountPanes.keys.desc')}
       </p>
 
       {isDenied(rows) ? (
-        <Quiet>لا يشمل دورك مفاتيح الأنظمة المرتبطة.</Quiet>
+        <Quiet>{t('accountPanes.keys.noPermission')}</Quiet>
       ) : !isReady(rows) || rows.length === 0 ? (
-        <Quiet>لا يوجد برنامج مرتبط بمحلك. تُصدَر المفاتيح عند ربط نظام الكاشير.</Quiet>
+        <Quiet>{t('accountPanes.keys.empty')}</Quiet>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((row) => (
@@ -1069,17 +1072,17 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
                 <span className="text-sm text-text-secondary">
                   {/* LAST USED IS THE WHOLE POINT. «صدر في 2024» tells him nothing he can act on;
                       «لم يُستعمل منذ 4 أشهر» is a key to revoke this afternoon. */}
-                  آخر استعمال: {whenAgo(row.last_used_at)}
+                  {tf(t, 'accountPanes.keys.lastUsed', { ago: whenAgo(row.last_used_at, t) })}
                 </span>
               </span>
               <span className="flex items-center gap-2">
                 {row.status && row.status !== 'active'
-                  ? <Badge tone="neutral">موقوف</Badge>
+                  ? <Badge tone="neutral">{t('accountPanes.keys.stopped')}</Badge>
                   : null}
                 {canRevoke && row.status !== 'revoked' ? (
                   <Button variant="danger" disabled={busy === row.client_id}
                           onClick={() => revoke(row)}>
-                    سحب المفتاح
+                    {t('accountPanes.keys.revoke')}
                   </Button>
                 ) : null}
               </span>

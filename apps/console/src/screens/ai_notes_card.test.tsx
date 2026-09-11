@@ -6,7 +6,9 @@
  * this way, with no code path here that assumes it exists).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 let callImpl: (session: unknown, a: { id: string }, body?: unknown) => Promise<unknown>;
 let actionIds: Set<string>;
@@ -27,6 +29,12 @@ afterEach(() => { cleanup(); });
 
 const catalog = { services: [], unreachable: [] } as never;
 const session = {} as never;
+
+// AiNotesCard now reads `useOperatorI18n()` — wrap once so every existing `render(<...>)` call
+// site below stays unchanged.
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={session}>{ui}</OperatorI18nProvider>);
+}
 
 function withNotesActions(extra: string[] = []) {
   actionIds = new Set(['tenant.view_self', 'operations.ai_notes', 'operations.set_ai_notes', ...extra]);

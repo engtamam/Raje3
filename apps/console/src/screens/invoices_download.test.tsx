@@ -3,7 +3,9 @@
  * 2026-08-22). Three routes were built, tested and served for months with no console call.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const downloadCalls: Array<{ id: string; invoiceId: string }> = [];
 
@@ -38,6 +40,12 @@ afterEach(() => { cleanup(); downloadCalls.length = 0; });
 
 const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
+
+// InvoicesPane now reads `useOperatorI18n()` — wrap once so every existing `render(<...>)` call
+// site below stays unchanged.
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={session}>{ui}</OperatorI18nProvider>);
+}
 
 function open() {
   return render(<InvoicesPane session={session} catalog={catalog} />);
@@ -77,7 +85,13 @@ describe('«فواتيري» — real downloads', () => {
     });
     vi.resetModules();
     const { InvoicesPane: Fresh } = await import('./AccountPanes');
-    render(<Fresh session={session} catalog={catalog} />);
+    // `vi.resetModules()` above means `./AccountPanes` (and everything it imports, including
+    // operator-i18n's own `createContext`) is now a DIFFERENT module instance than the one
+    // `OperatorI18nProvider` imported at this file's top — a provider from the old instance
+    // cannot satisfy a `useOperatorI18n()` call reading the new instance's context. Re-import
+    // the provider fresh too, from the same module graph `Fresh` was just pulled from.
+    const { OperatorI18nProvider: FreshProvider } = await import('../operator-i18n');
+    rtlRender(<FreshProvider session={session}><Fresh session={session} catalog={catalog} /></FreshProvider>);
     fireEvent.click(await screen.findByRole('button', { name: 'تنزيل المستند' }));
     expect(await screen.findByText('تعذّر تنزيل المستند الآن. حاول بعد قليل.')).toBeTruthy();
   });
