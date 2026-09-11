@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import asyncio
 
+from app.adapters.cache.memory import MemoryCache
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.expiry import DAY, Expiry
 from app.core.ledger import Ledger
 from app.core.models import BALANCES, ENTRIES
+from app.core.spend_lock import SpendLock
 
 T = "shop"
 S = "ref_abcdef123456"
@@ -17,15 +19,34 @@ def run(c):
     return asyncio.run(c)
 
 
-def build(days=365, warn=14):
+def build(days=365, warn=14, cache=None):
     store = MemoryDataStore()
     ledger = Ledger(store)
-    return store, ledger, Expiry(store, ledger, days=days, warn_days=warn)
+    return store, ledger, Expiry(store, ledger, days=days, warn_days=warn, cache=cache)
 
 
 def earn(ledger, at, points=100, source="v1", subject=S):
     run(ledger.post(tenant=T, subject_ref=subject, delta=points, reason="earn",
                     source=source, now=at))
+
+
+def test_a_subject_whose_spend_lock_is_held_is_skipped_this_pass_not_lost():
+    """loyalty-004 (QA audit, 2026-09-12): the expiry writer used to call Ledger.post unlocked,
+    racing a redemption/earn for the same subject holding SpendLock. A subject whose lock is
+    already held right now must be skipped for this pass — not crash the sweep, and not expire
+    the balance against a lock that says someone else is mid-write."""
+    cache = MemoryCache()
+    store, ledger, exp = build(cache=cache)
+    earn(ledger, NOW - 400 * DAY)
+
+    async def go():
+        async with SpendLock(cache, T, S):   # simulates a redemption in flight right now
+            return await exp.sweep(now=NOW)
+
+    res = run(go())
+    assert res["expired"] == 0
+    # THE BALANCE IS UNTOUCHED — the busy skip must not have quietly zeroed it anyway.
+    assert run(ledger.balance(T, S)).points == 100
 
 
 def test_a_lapsed_balance_expires_and_says_so_in_the_ledger():

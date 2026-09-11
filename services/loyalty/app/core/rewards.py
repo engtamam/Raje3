@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core.models import (REWARDS, REWARD_TYPES, LoyaltyError, Reward)
 
 # What a reward's name may contain. Arabic, Latin, digits, spaces and the handful of separators a
@@ -103,9 +104,13 @@ class Rewards:
         return _row_to_reward(row)
 
     async def list(self, tenant: str, *, active_only: bool = True) -> list[Reward]:
-        rows, _ = await self.store.find(REWARDS, {"tenant": tenant}, limit=500,
-                                        sort=("created_at", "asc"))
-        rows = rows or []
+        """EVERY reward this tenant has ever created — fixed 2026-09-12, a real gap a QA audit
+        found. A single `limit=500` page with the cursor discarded meant a shop with more than 500
+        rewards ever made (including retired ones — `active_only` filters in Python, AFTER the
+        fetch) silently lost some from this list, `affordable()`'s list, and `/loyalty/rewards`,
+        with nothing anywhere saying so. `drain()` is the same paging primitive `report.py`/
+        `Ledger.reconcile` already use for this exact class of bug."""
+        rows = await drain(self.store, REWARDS, {"tenant": tenant}, sort=("created_at", "asc"))
         out = [_row_to_reward(r) for r in rows]
         if active_only:
             out = [r for r in out if r.active]

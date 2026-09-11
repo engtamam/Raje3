@@ -27,6 +27,7 @@ from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import REDEMPTIONS, LoyaltyError, Overdraft
 from app.core.notify import to_next_reward
 from app.core.redeem import needs_approval
+from app.core.spend_lock import SpendBusy, SpendLock
 
 router = APIRouter(prefix="/loyalty", tags=["loyalty"])
 
@@ -158,10 +159,21 @@ async def redeem(request: Request, body: RedeemIn,
     branch_id = ""
     resolver = getattr(c, "branch_scope", None)
     if resolver is not None:
-        branch_id = await resolver.scope(tenant, actor)
-        if branch_id in DENIED:
+        scope = await resolver.scope(tenant, actor)
+        if scope in DENIED:
             return _refuse("تعذّر التحقق من فرعك الآن. أعد المحاولة بعد قليل.",
                            status.HTTP_503_SERVICE_UNAVAILABLE)
+        # A SUPERVISOR OVER SEVERAL BRANCHES RESOLVES TO A `frozenset`, NOT A SINGLE ID —
+        # `BranchScope.scope()`'s own docstring says so (`branches.py`'s multi-branch reading), but
+        # this route used to assign it straight into `branch_id: str` unchanged. It then flowed
+        # into `Redemption`/`Ledger.post`, both plain dataclasses Python does not enforce the type
+        # of, all the way to `store.put(...)` — which cannot JSON-serialize a frozenset, crashing
+        # AFTER the ledger had already deducted the points, with no redemption receipt ever
+        # written (a QA audit found this, 2026-09-12). There is no single "right" branch to guess
+        # for a multi-branch redemption with nothing else naming one, so it files as unscoped —
+        # the same "" a shop with no branches at all already gets — rather than crashing or
+        # silently attributing the spend to one branch out of several.
+        branch_id = scope if isinstance(scope, str) else ""
 
     await request.app.state.auditor.record(
         "loyalty.redeemed", actor=actor, tenant=tenant, resource="redemption",
@@ -317,21 +329,34 @@ async def adjust(request: Request, body: AdjustIn,
     if body.delta == 0:
         return {"ok": False, "reason": "لا يمكن أن يكون التعديل صفراً"}
 
-    # NEVER BELOW ZERO. A negative balance is a number no screen in this product can explain, and
-    # a customer who reads «-30 نقطة» concludes the shop is charging him for loyalty.
-    bal = await c.ledger.balance(tenant, body.subject_ref)
-    if body.delta < 0 and bal.points + body.delta < 0:
-        return {"ok": False,
-                "reason": f"رصيده {bal.points} نقطة — لا يمكن خصم أكثر من ذلك"}
+    # THE SAME LANE `redeem`/`earn` ALREADY HOLD — fixed 2026-09-12, a real gap a QA audit found.
+    # `Ledger.post` is a read-then-write with no compare-and-set (its own docstring says so
+    # plainly); `adjust` used to call it with no lock at all, so a manager correcting a balance at
+    # the exact moment that SAME customer's phone was earning or redeeming (a different lane)
+    # could interleave with that lane's own locked read+write — whichever read the balance first
+    # had its delta silently overwritten by the other's final write, rather than being additive.
+    try:
+        async with SpendLock(c.cache, tenant, body.subject_ref):
+            # NEVER BELOW ZERO, read INSIDE the lock — an unlocked read here would be exactly
+            # the same race one layer up: another writer's balance change landing between this
+            # check and `post()` below.
+            bal = await c.ledger.balance(tenant, body.subject_ref)
+            if body.delta < 0 and bal.points + body.delta < 0:
+                return {"ok": False,
+                        "reason": f"رصيده {bal.points} نقطة — لا يمكن خصم أكثر من ذلك"}
 
-    await request.app.state.auditor.record(
-        "loyalty.adjusted", actor=actor, tenant=tenant, resource=f"subject:{body.subject_ref}",
-        ip=request.client.host if request.client else "",
-        metadata={"delta": body.delta, "note": body.note[:120]})
+            await request.app.state.auditor.record(
+                "loyalty.adjusted", actor=actor, tenant=tenant,
+                resource=f"subject:{body.subject_ref}",
+                ip=request.client.host if request.client else "",
+                metadata={"delta": body.delta, "note": body.note[:120]})
 
-    entry = await c.ledger.post(
-        tenant=tenant, subject_ref=body.subject_ref, delta=body.delta, reason="adjust",
-        source=body.idempotency_key, actor=actor, note=body.note)
+            entry = await c.ledger.post(
+                tenant=tenant, subject_ref=body.subject_ref, delta=body.delta, reason="adjust",
+                source=body.idempotency_key, actor=actor, note=body.note)
+    except SpendBusy as exc:
+        return _refuse(str(exc), status.HTTP_409_CONFLICT)
+
     if entry is None:
         # ALREADY DONE, NOT FAILED. The same key twice is one intention; report the balance as it
         # stands so the screen agrees with the ledger either way.

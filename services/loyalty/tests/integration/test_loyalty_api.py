@@ -466,6 +466,27 @@ def test_a_redemption_records_the_branch_the_PERSON_works_at(client, owner, oper
     assert spend["branch_id"] == "riyadh-north"
 
 
+def test_a_supervisor_over_several_branches_redeems_without_crashing(
+        client, owner, operator, monkeypatch):
+    """loyalty-001/002 (QA audit, 2026-09-12): `BranchScope.scope()` returns a `frozenset` for a
+    supervisor over more than one branch — the route used to pass that straight through into
+    `Redemption.branch_id`, crashing on JSON serialization AFTER the ledger had already deducted
+    the points, with no receipt ever written. Files as unscoped ("") instead — a real answer, not
+    a crash — and, critically, the points are actually spent exactly once."""
+    monkeypatch.setattr(client.app.state.container, "branch_scope",
+                        _Scope(frozenset({"riyadh-north", "jeddah-south"})), raising=False)
+    rid = _reward(client, owner, name="عصير", cost=10)
+    _earn(client, points=100, visit="v-multibranch", subject="ref_multibranch01")
+    r = client.post("/api/v1/loyalty/redeem",
+                    json={"subject_ref": "ref_multibranch01", "reward_id": rid,
+                          "idempotency_key": "k-multibranch"},
+                    headers=operator)
+    assert r.status_code == 200, r.text
+    assert r.json()["redemption"]["branch_id"] == ""
+    balance = client.get("/api/v1/loyalty/balance/ref_multibranch01", headers=operator).json()
+    assert balance["points"] == 90
+
+
 def test_an_unreadable_branch_refuses_the_spend_rather_than_filing_it_nowhere(
         client, owner, operator, monkeypatch):
     """«تعذّر أن نسأل» ليست «بلا فرع». A spend filed under «غير محدَّد» is invisible to the
@@ -496,6 +517,34 @@ def test_a_stopped_employee_cannot_spend_a_customers_points(client, owner, opera
                           "idempotency_key": "k-revoked"},
                     headers=operator)
     assert r.status_code == 503, r.text
+
+
+def test_adjust_is_refused_while_a_redemption_holds_the_same_subjects_lock(client, owner):
+    """loyalty-005 (QA audit, 2026-09-12): adjust used to call Ledger.post with no lock at all,
+    so it could race a redeem/earn's own locked read-modify-write for the same subject and
+    silently lose one of the two writes. Proved by holding the SAME lane redeem()/earn() use,
+    directly, and confirming adjust() is refused rather than allowed to interleave."""
+    import asyncio
+
+    from app.core.spend_lock import SpendLock
+
+    subject = "ref_adjustlock01"
+    _earn(client, points=50, visit="v-adjustlock", subject=subject)
+
+    async def go():
+        cache = client.app.state.container.cache
+        async with SpendLock(cache, TENANT, subject):
+            return client.post("/api/v1/loyalty/adjust",
+                               json={"subject_ref": subject, "delta": 10,
+                                     "note": "تعديل أثناء عملية أخرى",
+                                     "idempotency_key": "adj-lock-race"},
+                               headers=owner)
+
+    r = asyncio.run(go())
+    assert r.status_code == 409, r.text
+    # AND THE BALANCE IS UNCHANGED — the refusal must not have partially applied anyway.
+    balance = client.get(f"/api/v1/loyalty/balance/{subject}", headers=owner).json()
+    assert balance["points"] == 50
 
 
 def test_a_till_that_sends_no_branch_still_records_the_redemption(client, owner):

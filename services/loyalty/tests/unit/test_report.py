@@ -83,3 +83,15 @@ def test_one_tenants_report_never_reads_another_tenants_entries():
     out = run(report.build(store, T))
     assert out["granted"] == 100
     assert out["customers"] == 1
+
+
+def test_the_report_reads_past_a_single_page_of_entries():
+    """loyalty-003 (QA audit, 2026-09-12): a single unpaged `find()` used to silently compute
+    every number from only the oldest page — 600 entries here, well past drain()'s own 500-row
+    page size, all must be counted."""
+    store, ledger = build()
+    for i in range(600):
+        run(ledger.post(tenant=T, subject_ref=f"c{i}", delta=10, reason="earn", source=f"v{i}"))
+    out = run(report.build(store, T))
+    assert out["granted"] == 6000
+    assert out["customers"] == 600

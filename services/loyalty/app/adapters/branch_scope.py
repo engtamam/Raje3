@@ -35,7 +35,11 @@ DENIED = frozenset({UNREADABLE, REVOKED})
 
 
 class BranchScope:
-    """`scope(tenant, subject)` → the branch id, `""` for unscoped, `_unreadable` when we cannot ask."""
+    """`scope(tenant, subject)` → the branch id, `""` for unscoped, `_unreadable` when we cannot
+    ask — OR a `frozenset[str]` for a supervisor over more than one branch (see the multi-branch
+    reading below). The return type says `str` for the common case; a caller that writes this
+    value onto a stored row (e.g. Redemption.branch_id) MUST check `isinstance(..., str)` first —
+    see loyalty.py's own redeem() route for why this was not always true."""
 
     def __init__(self, *, url: str, path: str, token: str, timeout: int = 5) -> None:
         self._url = (url.rstrip("/") + path) if url else ""
@@ -46,7 +50,7 @@ class BranchScope:
     def configured(self) -> bool:
         return bool(self._url)
 
-    async def scope(self, tenant: str, subject: str) -> str:
+    async def scope(self, tenant: str, subject: str) -> str | frozenset[str]:
         # NOT CONFIGURED IS NOT THE SAME AS UNREADABLE. A deployment that never wired operations
         # has no branches to isolate either; refusing every read there would take the send log down
         # for a shop that has one place.

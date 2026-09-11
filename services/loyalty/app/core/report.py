@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core.models import ENTRIES, REDEMPTIONS
 
 
@@ -27,10 +28,17 @@ from app.core.models import ENTRIES, REDEMPTIONS
 # LEDGER, never from a counter kept alongside it" above) — not a change to make without touching
 # `post`/`redeem`'s correctness-critical write paths, which was explicitly out of scope for this
 # pass. Revisit if report reads become a measured hot path.
-async def build(store: Any, tenant: str, *, limit: int = 100000) -> dict:
-    entries, _ = await store.find(ENTRIES, {"tenant": tenant}, limit=limit,
-                                  sort=("created_at", "asc"))
-    rows = list(entries or [])
+#
+# BUT A SINGLE UNPAGED find() WAS A SEPARATE BUG, NOT THE SAME TRADE-OFF — fixed 2026-09-12 (a
+# QA audit found it): `limit=100000` with the cursor discarded meant a tenant past 100k ledger
+# rows got every number here silently computed from only the OLDEST 100k — granted, consumed,
+# expired, outstanding, expired_share all wrong, with nothing saying so. `drain()` is the same
+# primitive `Ledger.reconcile` already uses for exactly this collection, and it REFUSES rather
+# than truncates once a tenant is too large to read at once — this module's own quoted worry
+# ("a bug there would corrupt a number this module exists to keep honest") is exactly why an
+# honest refusal beats a silently wrong report.
+async def build(store: Any, tenant: str) -> dict:
+    rows = await drain(store, ENTRIES, {"tenant": tenant}, sort=("created_at", "asc"))
 
     # ONE PASS, NOT FIVE. `rows` can be up to `limit` (100000) entries, and the four sums plus the
     # `customers` set below used to each walk the whole list separately — five full passes over
@@ -50,9 +58,7 @@ async def build(store: Any, tenant: str, *, limit: int = 100000) -> dict:
             adjusted += delta
         customers.add(r.get("subject_ref"))
 
-    red_rows, _ = await store.find(REDEMPTIONS, {"tenant": tenant}, limit=limit,
-                                   sort=("created_at", "asc"))
-    reds = list(red_rows or [])
+    reds = await drain(store, REDEMPTIONS, {"tenant": tenant}, sort=("created_at", "asc"))
     by_type: dict[str, int] = {}
     by_reward: dict[str, int] = {}
     for r in reds:

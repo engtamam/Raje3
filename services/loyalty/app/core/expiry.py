@@ -28,6 +28,7 @@ from typing import Any
 
 from app.core.ledger import Ledger
 from app.core.models import BALANCES
+from app.core.spend_lock import SpendBusy, SpendLock
 
 # The sweep's own position. Same collection the catch-up cursor uses (core/recovery),
 # under a different key: both are «where did this walker get to».
@@ -52,11 +53,19 @@ DAY = 86400
 
 class Expiry:
     def __init__(self, store: Any, ledger: Ledger, *, days: int = 365,
-                 warn_days: int = 14) -> None:
+                 warn_days: int = 14, cache: Any = None) -> None:
         self.store = store
         self.ledger = ledger
         self.days = days
         self.warn_days = warn_days
+        # THE SAME LANE `Redeemer.redeem`/`Earner.from_visit` ALREADY HOLD — fixed 2026-09-12, a
+        # real gap a QA audit found: `Ledger.post` is a read-then-write with no compare-and-set
+        # (its own docstring says so plainly), and the expiry writer used to call it unlocked
+        # while a redemption/earn for the SAME subject held `SpendLock` against every OTHER
+        # writer but not this one. A tick that reads a subject's balance at the same moment a
+        # redemption is in flight could compute `after` from the same starting point as that
+        # redemption, and one write silently loses the other.
+        self.cache = cache
 
     def due_at(self, balance_row: dict) -> int:
         """When this balance dies. Zero means never — an establishment with expiry switched off."""
@@ -116,16 +125,32 @@ class Expiry:
                 continue
 
             if now >= due:
-                entry = await self.ledger.post(
-                    tenant=row["tenant"], subject_ref=row["subject_ref"], delta=-points,
-                    reason="expire",
-                    # KEYED ON THE LAPSE, not on the calendar day. One lapse expires exactly once,
-                    # ever: any real movement gives the balance a new `last_movement_at` and
-                    # therefore a new cycle to lapse from. A day key looked equivalent and was
-                    # not — a stale visit landing after an expiry had run reopened the same day
-                    # and was refused, so points sat expired-but-present until midnight.
-                    source=f"expire:{row['subject_ref']}:{row.get('last_movement_at', 0)}",
-                    now=now)
+                # LOCKED — see __init__'s own note on `self.cache`. A redemption/earn for this
+                # SAME subject in flight right now holds this exact lane, so the expiry write
+                # waits its turn rather than racing it; `SpendLock`'s own busy-refuse posture
+                # means a rare genuine collision just skips this subject for THIS pass (picked up
+                # again next sweep, same as any other row this loop already `continue`s past),
+                # never a lost or double-counted write.
+                try:
+                    async with SpendLock(self.cache, row["tenant"], row["subject_ref"]):
+                        entry = await self.ledger.post(
+                            tenant=row["tenant"], subject_ref=row["subject_ref"], delta=-points,
+                            reason="expire",
+                            # KEYED ON THE LAPSE, not on the calendar day. One lapse expires
+                            # exactly once, ever: any real movement gives the balance a new
+                            # `last_movement_at` and therefore a new cycle to lapse from. A day
+                            # key looked equivalent and was not — a stale visit landing after an
+                            # expiry had run reopened the same day and was refused, so points sat
+                            # expired-but-present until midnight.
+                            source=f"expire:{row['subject_ref']}:{row.get('last_movement_at', 0)}",
+                            now=now)
+                except SpendBusy:
+                    # A redemption is genuinely in
+                    # flight for this subject right now. Skipped for THIS pass only: the row is
+                    # still due next time the cursor cycles back to it (the sweep's own "eventually
+                    # sees everybody" design, module docstring above), with whatever balance is
+                    # left once the redemption settles — never silently lost or double-counted.
+                    entry = None
                 # COUNTED ONLY WHEN IT HAPPENED. Incrementing regardless made the tick report
                 # work it had not done — the quietest kind of wrong number, because it is the
                 # number an operator would use to decide the sweep was healthy.

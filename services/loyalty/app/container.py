@@ -278,7 +278,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_licence
     container.licence = build_licence(settings)
     container.expiry = Expiry(container.datastore, container.ledger,
-                              days=settings.EXPIRY_DAYS, warn_days=settings.EXPIRY_WARN_DAYS)
+                              days=settings.EXPIRY_DAYS, warn_days=settings.EXPIRY_WARN_DAYS,
+                              cache=container.cache)
     container.notifier = Notifier(container.sender)
 
     # WHERE A REDEMPTION HAPPENED. Resolved from the person's own operator row at operations —
