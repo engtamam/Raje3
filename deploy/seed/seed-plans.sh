@@ -117,8 +117,13 @@ have = {p.get("name"): p for p in (out.get("plans") or [])}
 created = corrected = same = failed = 0
 for plan in LIB["plans"]:
     name = plan["name"]
+    # OPT-IN, NOT DEFAULTED — `credit_percent_of_price` (billing-service v0.19.20) turns on the
+    # percent-of-price included-allowance grant for THIS plan only; a plan that never sets it
+    # keeps its previous behaviour (a static `credits` limit, or none) untouched. Read as `False`
+    # for every plan that has never named it, so an old row with no opinion never drifts.
     want = {"name": name, "prices": price_of(plan), "limits": plan["limits"],
-            "trial_days": plan.get("trial_days", 0)}
+            "trial_days": plan.get("trial_days", 0),
+            "credit_percent_of_price": bool(plan.get("credit_percent_of_price", False))}
     cur = have.get(name)
     if cur is None:
         if dry:
@@ -149,6 +154,8 @@ for plan in LIB["plans"]:
         drift.append("price")
     if int(cur.get("trial_days") or 0) != int(want["trial_days"]):
         drift.append("trial")
+    if bool(cur.get("credit_percent_of_price", False)) != want["credit_percent_of_price"]:
+        drift.append("credit_percent_of_price")
     if not drift:
         print("  = " + name + " matches the file")
         same += 1
@@ -159,7 +166,8 @@ for plan in LIB["plans"]:
         continue
     s, res = call("/api/v1/billing/plans/" + cur["id"],
                   {"prices": want["prices"], "limits": want["limits"],
-                   "trial_days": want["trial_days"]}, method="PATCH")
+                   "trial_days": want["trial_days"],
+                   "credit_percent_of_price": want["credit_percent_of_price"]}, method="PATCH")
     if s < 400:
         print("  ^ " + name + " corrected: " + ", ".join(drift))
         corrected += 1
