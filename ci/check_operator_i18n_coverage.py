@@ -129,12 +129,18 @@ def part_a() -> list[str]:
     return problems
 
 
-# ── PART B — REPORT ONLY ──────────────────────────────────────────────────────────────────────
+# ── PART B ────────────────────────────────────────────────────────────────────────────────────
 _ARABIC = re.compile(r"[؀-ۿ]")
 # rj-ui/ IS EXCLUDED ON PURPOSE — a kit component (Button, Badge, Modal…) renders whatever text a
 # CALLER passes it; the Arabic lives at the call site, not in the component, so counting it here
 # would double-count every screen that uses one and say nothing about the kit itself.
-_EXCLUDE_DIRS = {"rj-ui"}
+#
+# admin/ AND affiliates/ ARE EXCLUDED ENTIRELY, NOT JUST TRACKED — the owner's own explicit call
+# (2026-09-11): these two serve OUR OWN platform team and marketing partners, not shop staff or
+# owners — the whole reason ur/ha/fil exist at all (the guest-labour languages a shop's own field
+# workers actually speak — operator-i18n.tsx's own header). Arabic-only there, by design, for
+# ever — not a rollout gap this gate should ever ask to close.
+_EXCLUDE_DIRS = {"rj-ui", "admin", "affiliates"}
 
 
 def part_b() -> tuple[int, int, list[tuple[Path, int]]]:
@@ -151,7 +157,8 @@ def part_b() -> tuple[int, int, list[tuple[Path, int]]]:
     for path in sorted(SRC.rglob("*.tsx")):
         if ".test." in path.name:
             continue
-        if any(part in _EXCLUDE_DIRS for part in path.relative_to(SRC).parts):
+        parts = path.relative_to(SRC).parts
+        if any(part in _EXCLUDE_DIRS for part in parts):
             continue
         text = path.read_text(encoding="utf-8")
         arabic_hits = len(_ARABIC.findall(text))
