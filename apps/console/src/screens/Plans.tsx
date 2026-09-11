@@ -576,12 +576,11 @@ function AppCard({
             if (!a) return Promise.reject(new Error('لا صلاحية لقراءة مميزات هذا التطبيق'));
             return call(session, a);
           }}
-          // ONLY AN OWNED CARD COLLAPSES — this is a receipt for something already bought, sitting
-          // in a row next to other owned cards (شرائي's own «التطبيقات» grid): a 7-feature app used
-          // to tower over its 1-feature neighbour and the row read as an uneven wall of text
-          // (owner's own screenshot: "طويلة لهذي الدرجة"). A card still arguing for a purchase
-          // (`has` false) keeps showing every feature — see AppFeatureList's own note on why.
-          collapseAt={has ? 3 : undefined}
+          // EVERY CARD COLLAPSES NOW, owned or not (owner's own instruction, 2026-09-11 — the
+          // earlier "only owned collapses" rule read backwards once every card in a row needed
+          // the same height discipline, store included, not just شرائي's own «التطبيقات» grid).
+          // «عرض كل الميزات» never hides anything permanently, only behind one press.
+          collapseAt={3}
         />
       ) : null}
 
@@ -1568,7 +1567,10 @@ export function PlansPane({
           {hasBase === false && apps.some((p) => !isStandalone(p)) ? (
             <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
           ) : null}
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/* CAPPED AT 3 ACROSS, NEVER 4 (owner's own instruction, 2026-09-11) — same reasoning
+              PlanCards.tsx's own grid already held (`sm:grid-cols-2 xl:grid-cols-3`): a fourth
+              column made a row of already-tall feature cards cramped rather than dense. */}
+          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {apps.map((p) => {
               // «كل تطبيق له إدارة اشتراكه الخاص» — an app cancels
               // independently of every other app and of the base; only the reverse (base takes

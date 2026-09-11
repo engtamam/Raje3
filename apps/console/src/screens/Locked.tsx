@@ -66,6 +66,11 @@ export function LockedCard({ appId, session, catalog, owned }: {
           if (!a) return Promise.reject(new Error('لا صلاحية لقراءة مميزات هذا التطبيق'));
           return call(session, a);
         }}
+        // SAME COLLAPSE EVERY OTHER CARD NOW HAS (owner's own instruction, 2026-09-11) — an
+        // earlier decision held this ONE card exempt ("لا تعتيم على قائمة الميزات") on the theory
+        // that a card arguing for a purchase must never hide its argument; a collapse behind one
+        // press is not that — the full list is still one tap away, never gone.
+        collapseAt={3}
       />
 
       {/* THE BUTTON GOES TO THE PLACE THAT SELLS, and it is a LINK rather than a call: buying
