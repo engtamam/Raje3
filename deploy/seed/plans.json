@@ -122,6 +122,7 @@
       "name": "الحملات",
       "amount": 9900,
       "trial_days": 30,
+      "listed": true,
       "_requires_any": [
         "CONFIRMED FIX (2026-09-11 audit) — same reasoning as برنامج النقاط's own `requires_any`",
         "note below: a campaign that measures WHO CAME BACK is a promise with no way to be kept on",
@@ -156,6 +157,7 @@
       "name": "برنامج النقاط",
       "amount": 9900,
       "trial_days": 30,
+      "listed": true,
       "limits": {
         "feature.loyalty": {
           "kind": "boolean",
@@ -171,6 +173,7 @@
       "name": "صفقات",
       "amount": 9900,
       "trial_days": 30,
+      "listed": true,
       "limits": {
         "feature.insights.engine": {
           "kind": "boolean",
