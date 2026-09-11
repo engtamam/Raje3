@@ -25,11 +25,11 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
-import { Check, ExternalLink, Lock, Sparkles } from 'lucide-react';
+import { Check, ExternalLink, Eye, Lock, Sparkles } from 'lucide-react';
 import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
-import { WaFlowScreens, type FlowJson } from '../rj-ui/WhatsAppPreview';
+import { WaFlowScreens, WhatsAppTemplatePreview, type FlowJson } from '../rj-ui/WhatsAppPreview';
 
 /**
  * ONE BUTTON UNDER THE BUBBLE — Meta draws these OUTSIDE the message, not inside it, and the two
@@ -166,6 +166,11 @@ export function MessagePreview({
    *  ask which Flow a tap belongs to. */
   const [openFlow, setOpenFlow] = useState<{ name: string; flow: FlowJson } | 'loading' | null>(null);
   const [flowError, setFlowError] = useState('');
+  /** THE SAME PHONE MOCKUP THE ADMIN PANEL USES (AdminWhatsAppTemplates.tsx's own "معاينة على
+   *  واتساب") — which option, if any, is open in it. Additive to the compact bubble row above (he
+   *  still compares wordings side by side there); this is the "show me exactly what he receives,
+   *  full chrome and all" button for whichever one he wants to look closer at. */
+  const [phonePreview, setPhonePreview] = useState<Option | null>(null);
 
   useEffect(() => {
     const id = byGoal ? 'reminders.preview_by_type' : 'reminders.preview_reason';
@@ -451,6 +456,12 @@ export function MessagePreview({
                             <p className="text-xs text-text-secondary">{o.reason}</p>
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2">
+                            {/* THE SAME MOCKUP لوحة الإدارة يستخدمها — full phone chrome (status
+                                bar, WhatsApp header, wallpaper), not just the bare green bubble
+                                above. */}
+                            <Button variant="ghost" onClick={() => setPhonePreview(o)} className="gap-2">
+                              <Eye size={14} /> معاينة على واتساب
+                            </Button>
                             {sending ? (
                               <span className="text-xs text-text-secondary">
                                 هذه الصيغة هي ما يخرج باسمك لهذه الرسالة.
@@ -559,6 +570,36 @@ export function MessagePreview({
           </>
         )}
       </div>
+
+      {/* THE SAME MOCKUP لوحة الإدارة يستخدمها — same engine, same chrome, same "بالضبط ما يستلمه
+          العميل" promise, for whichever wording he pressed «معاينة على واتساب» on. Nested INSIDE
+          this screen's own Modal on purpose — see this file's own header note on why this screen
+          stays on `@base-ui/design-system/Modal`: its stacking registry is exactly what lets a
+          second dialog open on top of the first without either losing Escape/focus handling. */}
+      {phonePreview ? (
+        <Modal open onClose={() => setPhonePreview(null)} title="معاينة على واتساب"
+              subtitle="بالضبط ما يستلمه العميل — الفلو الحقيقي، لا نسخة مقلَّدة.">
+          <WhatsAppTemplatePreview
+            data={{
+              // ALREADY-RESOLVED text (real example values, not `{{1}}` placeholders) — no
+              // `examples` array needed, `fillPlaceholders` no-ops on a body with nothing left to
+              // fill.
+              body: phonePreview.text,
+              flowButton: phonePreview.buttons?.find((b) => b.kind === 'flow' && b.flow_name)
+                ? (() => {
+                    const b = phonePreview.buttons!.find((x) => x.kind === 'flow' && x.flow_name)!;
+                    return { flowName: b.flow_name!, text: b.label };
+                  })()
+                : undefined,
+            }}
+            fetchFlowJson={(flowName) => {
+              const a = action(catalog, 'operations.whatsapp_flow_json');
+              if (!a) return Promise.reject(new Error('لا صلاحية لقراءة شاشات الفلو'));
+              return call<FlowJson>(session, a, { name: flowName });
+            }}
+          />
+        </Modal>
+      ) : null}
     </Modal>
   );
 }
