@@ -38,8 +38,8 @@ class Feature:
 WHATSAPP_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="whatsapp.speaks_your_shop_tone",
-        title="يبيع بصوت محلّك، لا بصوت آلة",
-        detail="يرد بأسلوبك أنت ويعرف تفاصيل محلك من ملاحظاتك، فيثق فيه عميلك ويشتري أسرع",
+        title="يبيع بصوت محلّك أنت",
+        detail="يرد بأسلوبك ويعرف تفاصيل محلك من ملاحظاتك، فيثق به عميلك ويشتري بسرعة",
         icon="message-circle",
         tone=TONE_VIOLET,
         # `build_system_prompt` (core/conversation.py:193-332) — the persona is a FUNCTION of the
@@ -49,8 +49,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.books_without_double_booking",
-        title="يقفل الحجز فوراً، قبل ما يروح لمنافس",
-        detail="يحجز له من نفس المحادثة بلا خطأ ولا تعارض مواعيد يحرجك قدامه",
+        title="يقفل حجز عميلك فوراً",
+        detail="يتم الحجز من نفس المحادثة، بمواعيد دقيقة تحفظ لك ثقته",
         icon="calendar",
         tone=TONE_BLUE,
         # `propose_booking`/`execute_confirmed_proposal` (core/tools.py:48, 571-611) — the model
@@ -60,8 +60,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.fair_staff_assignment",
-        title="يشغّل فريقك كله، لا موظف واحد بس",
-        detail="يوزّع حجوزات الشات بعدل بين موظفينك، فتستفيد من طاقة محلك كاملة لا نص طاقتها",
+        title="يستثمر طاقة فريقك كاملة",
+        detail="يوزّع حجوزات المحادثات بعدل بين موظفيك",
         icon="users",
         tone=TONE_AMBER,
         # `core/booking_assignment.py::RealBookingProvider` — reuses the SAME merge-and-rank
@@ -72,8 +72,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.smart_upsell",
-        title="يرفع فاتورة كل عميل، بلا ما توظّف بائع",
-        detail="يقترح له خدمة أو باقة تكمّل طلبه بذوق، فتبيع أكثر من نفس المحادثة",
+        title="يرفع فاتورة كل عميل",
+        detail="يقترح عليه خدمة أو باقة تكمّل طلبه بذوق، فتبيع أكثر من نفس المحادثة",
         icon="gift",
         tone=TONE_ROSE,
         # The `upsell`/`growth` persona sections (core/conversation.py:254-278) — bounded by
@@ -84,8 +84,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.remembers_without_saying",
-        title="يقنعه يرجع من أول رسالة",
-        detail="يعرف وش يناسب كل عميل بالضبط ويقترحه بالوقت الصح، فيزيد رجوعه لمحلك",
+        title="يقنع عميلك بالعودة من أول رسالة",
+        detail="يعرف ما يناسبه بالضبط ويقترحه في الوقت المناسب، فيزداد ارتباطه بمحلك",
         icon="star",
         tone=TONE_VIOLET,
         # `personalization` persona section (core/conversation.py:280-294) — what this service
@@ -95,8 +95,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.escalates_when_frustrated",
-        title="ما يخسّرك عميل غاضب",
-        detail="أي شكوى أو إلحاح توصل لفريقك فوراً، قبل لا يروح يشتكي أو يروح لمنافسك",
+        title="يحافظ لك على عميلك الغاضب",
+        detail="أي شكوى أو إلحاح تصل فريقك فوراً، فتحتويها بنفسك في وقتها",
         icon="shield-check",
         tone=TONE_TEAL,
         # `detect_frustration`/`_requests_human` (core/frustration.py:23-52,
@@ -106,8 +106,8 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="whatsapp.stops_pushing",
-        title="ما ينفّر عميلك بالإلحاح",
-        detail="لو رفض عرضين، يوقف عن البيع عليه ويخليه مرتاح — عميل مرتاح يرجع، عميل مزعوج لا",
+        title="يمنح عميلك راحته",
+        detail="يتوقف عن عرض المزيد بعد رفضين، فيبقى عميلك مرتاحاً وراجعاً إليك",
         icon="check-circle",
         tone=TONE_BLUE,
         # `is_decline` (core/soft_decline.py:30-38) — after `soft_decline_threshold` short,

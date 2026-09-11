@@ -45,19 +45,19 @@ from app.adapters import internal_http
 # capability that is not this app's own code (the reminders engine) still renders the identical
 # sentence wherever it is granted, from one authored source.
 VISIT_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "visit.no_duplicates", "title": "يحميك من غلطة تخرب تقاريرك",
-     "detail": "لو موظفك ضغط \"حفظ\" مرتين بالغلط، ما تنسجل زيارة وهمية زيادة",
+    {"id": "visit.no_duplicates", "title": "يحافظ على دقة سجلاتك وتقاريرك",
+     "detail": "لا تتكرر الزيارة نفسها حتى لو ضغط موظفك \"حفظ\" مرتين، فتبقى أرقامك موثوقة دائماً",
      "icon": "check-circle", "tone": "teal", "shared_with": [], "owned_by": "",
      # `Operations.record_visit`'s own idempotency-key read (core/operations.py:282-302) — one
      # indexed read, before the customer is even resolved, so a retried request never creates a
      # second visit OR a second customer.
      },
-    {"id": "visit.works_offline", "title": "ما يفوّتك زبون بسبب انقطاع النت",
+    {"id": "visit.works_offline", "title": "يواصل العمل معك أينما انقطع الاتصال",
      # NOT "افتح التطبيق بلا نت أبداً" — the page itself still needs a connection to load once.
      # What this is: the tablet's signal drops for thirty seconds several times a day in a
      # workshop/بنشر, mid-shift, and work must not stop for it — see console's own
      # `queue.ts` module docstring for the same distinction stated to a developer.
-     "detail": "لو النت قطع وأنت تسجّل، تكمل عادي وتحفظ — وترسل لحالها أول ما يرجع الاتصال",
+     "detail": "يحفظ الزيارة فور تسجيلها ويرسلها تلقائياً بمجرد عودة الاتصال",
      "icon": "cloud", "tone": "blue", "shared_with": [], "owned_by": "",
      # `apps/console/src/queue.ts` — a LOCAL WRITE FIRST, a request second: the screen confirms
      # "تم الحفظ ✓" the instant the visit lands in a local (browser-storage) queue, never when the
@@ -67,37 +67,37 @@ VISIT_FEATURES: tuple[dict[str, Any], ...] = (
      # timestamp that is in the future or older than `max_backdate` (default 90 days) rather than
      # trusting a device clock that drifted while offline.
      },
-    {"id": "visit.finds_by_plate", "title": "يخدم عميلك أسرع، بلا ما ينتظر",
-     "detail": "يلقاه برقم لوحة سيارته، مو لازم تعرف رقم جواله",
+    {"id": "visit.finds_by_plate", "title": "يتعرّف على عميلك من أول لحظة",
+     "detail": "يبحث عنه برقم لوحة سيارته مباشرة، فتختصر عليه وعلى نفسك وقت الانتظار",
      "icon": "car", "tone": "violet", "shared_with": [], "owned_by": "",
      # `_resolve_asset` (core/operations.py:428-441) — a visit looked up/created by plate SCOPED
      # WITHIN the customer (two customers can share a transcribed plate), and every recorded visit
      # returns the customer's FULL list of known plates so the next search finds either car.
      },
-    {"id": "visit.invoice_computed", "title": "يحسب فاتورتك بلا غلط",
-     "detail": "يجمع لك السعر تلقائياً من كتالوجك، فما تخسر ريال بغلطة حساب يدوي",
+    {"id": "visit.invoice_computed", "title": "يحفظ لك كل ريال من فاتورتك",
+     "detail": "يجمع السعر تلقائياً من كتالوج خدماتك، فتبقى فاتورتك دقيقة دون حساب يدوي",
      "icon": "receipt", "tone": "amber", "shared_with": [], "owned_by": "",
      # `record_visit`'s own catalogue-priced total (core/operations.py:346-359) — summed from the
      # shop's own priced services when no till sends a total, retiring the old rule that
      # invoice-value point-earning needed a till integration at all (2026-09-08).
      },
-    {"id": "visit.never_loses_a_visit", "title": "ما يفوّتك ولا مبيعة",
-     "detail": "حتى لو خدمة جديدة مو مسجّلة بكتالوجك، الزيارة تنحفظ وتضيفها بعدين",
+    {"id": "visit.never_loses_a_visit", "title": "يحفظ لك كل عملية بيع",
+     "detail": "حتى خدمة جديدة لم تُسجَّل بكتالوجك بعد، تُحفظ زيارتها فوراً وتضيفها لاحقاً",
      "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": "",
      # `record_visit`'s unknown-service absorption (core/operations.py:307-335, integration path
      # only) — an unrecognised service id is folded into the tenant's catch-all and its real label
      # preserved, rather than the whole visit being refused: losing the visit loses the CUSTOMER
      # relationship entirely — no reminder, no points, ever — which is the worse loss by far.
      },
-    {"id": "visit.instant_search", "title": "يخدم عميلك بلا ما ينتظر",
-     "detail": "أول ما تكتب رقم أو اسم، تطلع لك الأسماء فوراً — تقلّل وقت وقوفه قدامك",
+    {"id": "visit.instant_search", "title": "يختصر وقت وقوف عميلك أمامك",
+     "detail": "تظهر النتائج فور كتابة أول حرف من اسمه أو رقمه",
      "icon": "search", "tone": "blue", "shared_with": [], "owned_by": "",
      # `GET /field/customers/suggest` (api/v1/field.py:418+) — a real prefix-match (terms) +
      # whole-token search (people) merged into one autocomplete list, branch-scoped from the
      # caller's own token rather than a filter the browser could choose for itself.
      },
-    {"id": "reminders.learns_each_customer", "title": "يرجّع لك عميلك بلا ما تتعب",
-     "detail": "يعرف امتى كل عميل يرجع عادة، ويذكّره بوقته — حجز إضافي بلا أي مجهود منك",
+    {"id": "reminders.learns_each_customer", "title": "يعيد إليك عميلك دون أي جهد منك",
+     "detail": "يتعلّم موعد عودة كل عميل المعتاد، ويذكّره به في وقته تلقائياً",
      "icon": "bell", "tone": "rose", "shared_with": ["bookings"], "owned_by": "reminders",
      # NOT THIS SERVICE'S OWN CODE — the engine lives in `services/reminders/app/core/
      # adaptive.py`/`engagement.py`, and a shop owning EITHER تسجيل زيارة or الحجوزات gets the
@@ -111,15 +111,15 @@ VISIT_FEATURES: tuple[dict[str, Any], ...] = (
 )
 
 CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "contacts.register_anywhere", "title": "يفتح لك باب عميل جديد فوراً",
-     "detail": "تسجّله برقمه بس، حتى قبل أول زيارة — ما تفوّت فرصة تواصل معه",
+    {"id": "contacts.register_anywhere", "title": "يوسّع قاعدة عملائك من أول لحظة",
+     "detail": "يكفي رقم جواله لتسجيله، حتى قبل أول زيارة له",
      "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
      # `Operations.ensure_customer` (core/operations.py:577-590) — resolve-or-create by phone,
      # the SAME backend act `record_visit` uses, built so `bookings` (and this free app) can get a
      # real customer id before there is any visit to attach one to.
      },
-    {"id": "contacts.findable_immediately", "title": "تقدر تخدمه من ثانيته",
-     "detail": "يصير قابل للبحث فور تسجيله، بلا ما تنتظر أول زيارة",
+    {"id": "contacts.findable_immediately", "title": "يجعله جاهزاً للخدمة فوراً",
+     "detail": "يصبح قابلاً للبحث لحظة تسجيله، قبل أول زيارة له",
      "icon": "search", "tone": "blue", "shared_with": [], "owned_by": "",
      # `ensure_customer` indexes the new customer for search IMMEDIATELY (api/v1/field.py:342-348),
      # unlike a customer who only appears once a first visit is recorded elsewhere.
@@ -133,35 +133,35 @@ CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
 # rating_settings.py, rating_cta.py); reading and acting on what comes back is this service's own
 # code (`Operations.ratings`/`mark_rating_handled`, core/operations.py:447-468) — both cited below.
 RATING_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "rating.understands_why_they_leave", "title": "يفهم ليه عميلك يرجع ولا يرجع",
-     "detail": "يجمع تقييمه ورأيه الصريح بعد كل زيارة، فتعرف بالضبط وش يرضيه ووش يخلّيه يفكّر يغادر",
+    {"id": "rating.understands_why_they_leave", "title": "يكشف لك سبب رجوع عميلك أو رحيله",
+     "detail": "يجمع رأيه الصريح بعد كل زيارة، فتعرف بدقة ما يرضيه وما يستدعي تدخلك",
      "icon": "star", "tone": "amber", "shared_with": [], "owned_by": "",
      # `Visit.rating`/`Visit.feedback_text` (core/models.py:399-409) — stars AND free-text kept
      # per visit, not a number alone; delivered as a real WhatsApp Flow
      # (services/reminders/app/core/rating_request.py) replacing the plain confirmation, never a
      # second message.
      },
-    {"id": "rating.catches_unhappy_before_they_leave", "title": "يمسك العميل الغاضب قبل يروح لمنافسك",
-     "detail": "كل تقييم يوصلك بشاشة وحدة، وتقدر تعلّمه معالَج — عميل يحس إنك تسمعه ما يترك محلك بسرعة",
+    {"id": "rating.catches_unhappy_before_they_leave", "title": "يمسك العميل المستاء قبل مغادرته",
+     "detail": "يصل كل تقييم إلى شاشة واحدة تتيح لك معالجته فوراً، فيشعر عميلك أن صوته مسموع",
      "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": "",
      # `Operations.ratings`/`mark_rating_handled` (core/operations.py:447-468) — the console's
      # «التقييمات» tab: يُفلتَر بالنجوم أو بحالة المعالجة، ويُسجَّل صراحة متى وبأي ملاحظة تعامل
      # معها إنسان حقيقي — أبداً تلقائياً (Visit.rating_handled_at's own docstring).
      },
-    {"id": "rating.right_moment_to_ask", "title": "يسأله بالوقت اللي رأيه فيه صادق",
-     "detail": "تحدد أنت كم دقيقة بعد الزيارة يوصله السؤال، فيجاوبك وهو لسه متذكّر تجربته بالضبط",
+    {"id": "rating.right_moment_to_ask", "title": "يسأل عميلك في اللحظة الأصدق",
+     "detail": "تحدد بنفسك عدد الدقائق بعد الزيارة التي يصله فيها السؤال، فيجيبك ورأيه لا يزال طازجاً",
      "icon": "clock", "tone": "blue", "shared_with": [], "owned_by": "",
      # `rating_settings.py` (services/reminders) — `delay_minutes` قابل للتعديل لكل منشأة (1
      # دقيقة إلى أسبوع)، لا رقم ثابت للمنصة كلها.
      },
-    {"id": "rating.rewards_honest_feedback", "title": "يشجّعه يجاوبك بصدق لا يتجاهلك",
-     "detail": "تقدر تكافئه بنقاط على كل تقييم يعطيك، فترتفع نسبة اللي فعلاً يردّون عليك",
+    {"id": "rating.rewards_honest_feedback", "title": "يرفع نسبة استجابة عملائك لك",
+     "detail": "تكافئه بنقاط على كل تقييم يشاركك به، فيتحول رأيه الصادق إلى عادة متكررة",
      "icon": "gift", "tone": "violet", "shared_with": [], "owned_by": "",
      # `rating_settings.py`'s own `points` field + `rating_cta.py::line` (services/reminders) —
      # الحافز يُذكر بلا ربطه برقم نجوم معيّن، عشان ما يحيّز إجابته.
      },
-    {"id": "rating.weekly_pulse", "title": "نبض رضا عملائك كل أسبوع",
-     "detail": "متوسط تقييمك وعدد الآراء اللي لسه ما رديت عليها، بضغطة عين وحدة كل أسبوع",
+    {"id": "rating.weekly_pulse", "title": "يمنحك نبض رضا عملائك أسبوعياً",
+     "detail": "متوسط تقييمك وعدد الآراء التي تنتظر ردك، بنظرة واحدة كل أسبوع",
      "icon": "check-circle", "tone": "rose", "shared_with": [], "owned_by": "",
      # `Operations.ratings_summary` (core/operations.py:470-491) — عدد التقييمات هذا الأسبوع،
      # المعدل، وكم منها لسه بلا رد — سطر جاهز بالتقرير الأسبوعي، لا حساب يدوي.
@@ -185,19 +185,22 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
 # rather than bought. A row here would draw a buy button for something nobody can buy.
 APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.campaigns", "name": "الحملات", "screen": "messages",
-     "what": "ترسل عرضاً أو خبراً لمجموعة من عملائك، ويقيس النظام مَن رجع بسببه."},
+     "what": "يعيد إليك عملاءك على وشك مغادرتك، فيكبر إيرادك من قاعدة عملائك الحالية بدل الاعتماد "
+             "على زبون جديد فقط."},
     {"key": "feature.loyalty", "name": "برنامج النقاط", "screen": "points",
-     "what": "نقاطٌ على كل زيارة، ومكافآت يستبدلها العميل من صفحته أو عند الصندوق."},
+     "what": "يبني ولاء عميلك لمحلك نفسه، لا لموظف بعينه — فيضمن رجوعه إليك دائماً أياً كان من "
+             "يخدمه."},
     {"key": "feature.insights.engine", "name": "صفقات", "screen": "local",
-     "what": "يقول لك أين الفرصة: أي خدمتين تُطلبان معاً، ومن كان سيشتري أكثر، وأثر رسائلك."},
+     "what": "يحوّل بيانات محلك اليومية إلى نصيحة واضحة بمستوى محلل مبيعات مختص، يقودك كل يوم "
+             "لأعلى فرصة ترفع دخلك."},
     {"key": "feature.bookings", "name": "الحجوزات", "screen": "bookings",
-     "what": "حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً."},
+     "what": "يستثمر كل دقيقة في جدولك، فيرفع عدد العملاء الذين تخدمهم بنفس عدد موظفيك وساعاتهم."},
     {"key": "feature.rating", "name": "التقييم", "screen": "ratings",
-     "what": "يفهم ليه عميلك يرجع ولا يقرر يغادر — رأيه الصريح بعد كل زيارة، بدل رسالة التأكيد العادية.",
+     "what": "يحميك من خسارة عملاء دون علمك — يكشف مشكلة بموظف أو خدمة وتعالجها قبل أن تتفاقم.",
      "features": list(RATING_FEATURES)},
     {"key": "feature.whatsapp", "name": "بوت خدمة العملاء الذكي", "screen": "connect",
-     "what": "يرد على استفسارات عملائك، يحجز مواعيدهم، يستبدل نقاطهم، ويقترح عليهم خدمة تناسبهم — "
-             "على مدار الساعة وبلا انتظار، فيرفع مبيعاتك ويوفر وقت فريقك بدل ما يُستنزف بالردود."},
+     "what": "يحوّل واتساب إلى مندوب مبيعات يعرف ذوق كل عميل، ويقترح عليه باقاتك وعروضك ونقاطه في "
+             "الوقت المناسب، فيرفع متوسط فاتورتك."},
     # ADDED 2026-09-11 — ci/check_listed_apps_are_wired.py caught these two the same way it was
     # built to catch feature.rating/feature.whatsapp: both plan rows flipped to `listed: true`
     # (plans.json) the day «تسجيل زيارة»/«جهات الاتصال» shipped as standalone apps, and this tuple
@@ -205,10 +208,10 @@ APPS: tuple[dict[str, Any], ...] = (
     # first two rows here to carry a real `features` list (see `VISIT_FEATURES`/`CONTACTS_FEATURES`
     # above) — the older rows keep their single `what` line for now, unchanged in this pass.
     {"key": "feature.visit", "name": "تسجيل زيارة", "screen": "field",
-     "what": "يسجّل زيارة كل عميل، فوراً وبلا تكرار — حتى بدون نت.",
+     "what": "يجعل بيانات عملائك ملكاً لمحلك، تكبر معك مهما تغيّر فريق العمل.",
      "features": list(VISIT_FEATURES)},
     {"key": "feature.contacts", "name": "جهات الاتصال", "screen": "field",
-     "what": "يسجّل بيانات عميلك برقم جواله، من أي مكان بالمحل — بلا حاجة لزيارة.",
+     "what": "يبني لك قاعدة عملاء حقيقية من أول يوم لافتتاح محلك، تصبح أصلاً تسوّق عليه متى شئت.",
      "features": list(CONTACTS_FEATURES)},
 )
 

@@ -48,8 +48,8 @@ class Feature:
 CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="campaigns.smart_targeting",
-        title="يرجّع لك زباينك القدام",
-        detail="يعرف مين ابتعد عنك فعلاً حسب عادته هو، فيصل عرضك بالوقت الصح ويرجع",
+        title="يعيد إليك عملاءك القدامى",
+        detail="يتعرّف على من ابتعد عنك وفق عادته الخاصة، فيصله عرضك في الوقت المناسب",
         icon="users",
         tone=TONE_VIOLET,
         # `audience.resolve`'s own `win_back` rule (core/audience.py:1-140) — no visit for longer
@@ -60,8 +60,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.wont_pitch_too_early",
-        title="ما يحرق عليك عرضك",
-        detail="ما يعرض عليه خدمة أخذها قريب، فيوصل عرضك مؤثر لما فعلاً يحتاجه",
+        title="يوصل عرضك في لحظته المؤثرة",
+        detail="يعرض على عميلك خدمة يحتاجها فعلاً الآن، وفق دورته الخاصة بها",
         icon="clock",
         tone=TONE_BLUE,
         # `_too_early` (core/audience.py:94-113) — a real cycle-lock: an offer on a service reaches
@@ -71,8 +71,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.paced_sending",
-        title="يوصّل عرضك لكل عملائك، بلا استثناء",
-        detail="يحسب أيام الإرسال قبل ما تضغط، ويحذّرك لو عرضك بينتهي قبل ما يوصل الكل",
+        title="يوصّل عرضك لكل عملائك",
+        detail="يحسب أيام الإرسال قبل إطلاق حملتك، ليضمن وصولها للجميع في وقتها",
         icon="cloud",
         tone=TONE_TEAL,
         # `spread.plan` (core/spread.py:72+) — divides only the campaign's OWN share of the daily
@@ -83,8 +83,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.no_double_launch",
-        title="يحميك من دفع فلوسك مرتين",
-        detail="لو ضغطت \"أطلق\" مرتين بالغلط، ما ترسل الحملة مرتين وتدفع مرتين على عملاء بلا داعي",
+        title="يحمي ميزانيتك من إرسال مكرر",
+        detail="يضمن أن حملتك تُطلق مرة واحدة بالضبط، مهما ضغطت زر الإطلاق",
         icon="check-circle",
         tone=TONE_ROSE,
         # `Press` (core/press.py) — the claim key is built from what the OWNER chose (goal, text,
@@ -94,8 +94,8 @@ CAMPAIGNS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="campaigns.booking_in_message",
-        title="يحوّل رسالتك لحجز فوري",
-        detail="لو عندك تطبيق الحجوزات، عميلك يحجز من نفس الرسالة بلا ما يتصل أو ينسى",
+        title="يحوّل رسالتك إلى حجز فوري",
+        detail="يتيح لعميلك الحجز من داخل رسالتك نفسها، متى ما امتلكت تطبيق الحجوزات",
         icon="calendar",
         tone=TONE_AMBER,
         # `shape.py` — NOT a shared-feature entry (this is campaigns' OWN decision, not another

@@ -68,8 +68,8 @@ class Feature:
 BOOKINGS_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="bookings.instant_slot",
-        title="ما يفوّتك حجز وأنت مشغول",
-        detail="بضغطة وحدة يطلع لك أقرب وقت فاضي، فيحجز العميل عندك — لا يقفل ويحجز عند غيرك",
+        title="يضمن لك كل حجز محتمل",
+        detail="يعرض بضغطة واحدة أقرب وقت متاح، فيحجز العميل عندك فوراً",
         icon="clock",
         tone=TONE_BLUE,
         # `BookingOperations.nearest_slot` (app/core/operations.py:732-800) — the pure derivation
@@ -81,8 +81,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.fair_distribution",
-        title="يشغّل فريقك كله، لا موظف واحد بس",
-        detail="يوزّع الحجوزات بعدل بينهم، فتستفيد من طاقة محلك كاملة لا نص طاقتها",
+        title="يستثمر طاقة فريقك كاملة",
+        detail="يوزّع الحجوزات بعدل بين موظفيك، فتعمل بكامل طاقة محلك",
         icon="users",
         tone=TONE_VIOLET,
         # `BookingOperations.nearest_slots_any` (operations.py:802-868) + `app/core/
@@ -95,8 +95,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.no_show_warning",
-        title="يحميك من موعد فاضي يكلّفك فلوس",
-        detail='يقلّك "هذا عادة يتغيب" قبل ما يحجز، فتطلب عربون وتضمن وقت موظفك',
+        title="يحفظ لك وقت موظفك من الهدر",
+        detail="ينبّهك إلى عميل معتاد على التغيّب قبل تأكيد حجزه، فتطلب عربوناً يضمن لك وقتك",
         icon="alert-triangle",
         tone=TONE_AMBER,
         # `BookingOperations.no_show_risk` (operations.py:635-658) — a real percentage, not a
@@ -109,8 +109,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.visit_auto_open",
-        title="يسجّل لك المبيعة تلقائياً",
-        detail="لحظة يوصل العميل تنفتح زيارته وتدخل بمبيعاتك، بلا ما تنسى تسجّلها بنفسك",
+        title="يسجّل لك كل عملية بيع تلقائياً",
+        detail="تُفتح زيارة عميلك لحظة وصوله وتدخل مبيعاتك مباشرة",
         icon="check-badge",
         tone=TONE_TEAL,
         # `BookingOperations.attend` (operations.py:560-614) — marking a booking attended is the
@@ -123,8 +123,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.safe_reschedule",
-        title="يحفظ حجزك من الضياع",
-        detail="لو موظفتين عدّلوا نفس الموعد بنفس اللحظة، يحفظه صح — ما يضيع عليك حجز أبداً",
+        title="يحفظ لك كل حجز من الضياع",
+        detail="لو عدّل أكثر من موظف نفس الموعد باللحظة نفسها، يحفظه بدقة تامة",
         icon="move",
         tone=TONE_VIOLET,
         # `BookingOperations.reschedule`/`_claim_and_save`/`_refuse_if_conflicting`
@@ -138,8 +138,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="bookings.right_staff_only",
-        title="يحميك من خطأ يكلّفك رضا عميلك",
-        detail="خدمة تحتاج تدريب خاص، ما ياخذها إلا اللي يتقنها — تحافظ على جودة شغلك وسمعتك",
+        title="يحافظ على جودة خدمتك وسمعتك",
+        detail="يوجّه كل خدمة تحتاج تدريباً خاصاً إلى الموظف المؤهل لها وحده",
         icon="shield-check",
         tone=TONE_BLUE,
         # `_refuse_if_ineligible`/`_refuse_if_ineligible_for_booking` (operations.py:242-276) —
@@ -150,8 +150,8 @@ BOOKINGS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="reminders.learns_each_customer",
-        title="يرجّع لك عميلك بلا ما تتعب",
-        detail="يعرف امتى كل عميل يرجع عادة، ويذكّره بوقته — حجز إضافي بلا أي مجهود منك",
+        title="يعيد إليك عميلك دون أي جهد منك",
+        detail="يتعلّم موعد عودة كل عميل المعتاد، ويذكّره به في وقته تلقائياً",
         icon="bell",
         tone=TONE_ROSE,
         # NOT THIS SERVICE'S OWN CODE — the reminders engine (per-customer learned visit rhythm,

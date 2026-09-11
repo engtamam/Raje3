@@ -46,8 +46,8 @@ class Feature:
 LOYALTY_FEATURES: tuple[Feature, ...] = (
     Feature(
         id="loyalty.earn_per_visit",
-        title="يخلي عميلك يرجع لك، لا للمنافس",
-        detail="نقطة تلقائية كل زيارة، بلا أي خطوة من موظفك — وهذا يشجّعه يكمّل يجمع عندك",
+        title="يبني ولاء عميلك تلقائياً",
+        detail="يمنحه نقطة على كل زيارة دون أي خطوة من موظفك، فيتحمّس ليجمع رصيده عندك",
         icon="star",
         tone=TONE_AMBER,
         # `Earner.from_visit` (core/earn.py:37-107) — ONE ledger entry per visit (never one per
@@ -58,8 +58,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.only_affordable_rewards",
-        title="ما يحرج موظفك قدام الزبون",
-        detail="يعرض له بس الجوايز اللي رصيده يكفيها، فتضمن تجربة مريحة تخليه يرجع",
+        title="يمنح عميلك تجربة استبدال مريحة",
+        detail="يعرض له الجوائز التي يكفيها رصيده فقط، فيرجع إليك مرتاحاً",
         icon="gift",
         tone=TONE_VIOLET,
         # `Rewards.affordable` (core/rewards.py:114-127) — not the full menu with the
@@ -68,8 +68,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.manager_approval",
-        title="يحميك من خسارة فلوس بمكافآت كبيرة",
-        detail="تحدد أنت الحد، وأي مكافأة فوقه ما تُسلَّم إلا باعتماد مدير حقيقي — يحفظ لك أرباحك",
+        title="يحفظ لك أرباحك من المكافآت الكبيرة",
+        detail="تحدد أنت السقف، وأي مكافأة فوقه تحتاج اعتماد مدير حقيقي قبل تسليمها",
         icon="shield-check",
         tone=TONE_BLUE,
         # `needs_approval`/`Redeemer._redeem_locked` (core/redeem.py:34-45, 92-130) — a real,
@@ -79,8 +79,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.expiry_warning",
-        title="يرجّع لك عميلك قبل ما يفوتك",
-        detail="يحذّره قبل انتهاء نقاطه بأسبوعين — تنبيه يصير سبب زيارة إضافية",
+        title="يعيد إليك عميلك في وقته",
+        detail="يحذّره قبل انتهاء نقاطه بأسبوعين، فيتحول التنبيه إلى زيارة إضافية",
         icon="clock",
         tone=TONE_ROSE,
         # `Expiry` (core/expiry.py:53-90) — measured from the customer's own LAST MOVEMENT, not
@@ -90,8 +90,8 @@ LOYALTY_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="loyalty.fraud_receipt",
-        title="يحميك من غش موظفينك",
-        detail="أي تلاعب بنقاط عميل يوصله إشعار فوري يفضحه، فتحمي أرباحك",
+        title="يحمي أرباحك من تلاعب موظفيك",
+        detail="أي تعديل على رصيد عميل يصله إشعار فوري به، فيبقى حسابك دقيقاً",
         icon="shield-check",
         tone=TONE_TEAL,
         # `core/notify.py`'s own stated purpose (module docstring) — the redemption receipt is not

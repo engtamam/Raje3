@@ -108,7 +108,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'campaigns',
     key: 'feature.campaigns',
     name: 'الحملات',
-    what: 'ترسل عرضاً أو خبراً لمجموعة من عملائك، ويقيس النظام مَن رجع بسببه.',
+    what: 'يعيد إليك عملاءك على وشك مغادرتك، فيكبر إيرادك من قاعدة عملائك الحالية بدل الاعتماد على زبون جديد فقط.',
     section: 'messages',
     onCustomer: 'العروض التي وصلته، وما استهلكه منها',
     icon: 'megaphone', tone: 'danger',
@@ -118,7 +118,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'loyalty',
     key: 'feature.loyalty',
     name: 'برنامج النقاط',
-    what: 'نقاطٌ على كل زيارة، ومكافآت يستبدلها العميل من صفحته أو عند الصندوق.',
+    what: 'يبني ولاء عميلك لمحلك نفسه، لا لموظف بعينه — فيضمن رجوعه إليك دائماً أياً كان من يخدمه.',
     section: 'points',
     onCustomer: 'رصيده، وما يستطيع استبداله',
     icon: 'gift', tone: 'warning',
@@ -128,7 +128,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'bookings',
     key: 'feature.bookings',
     name: 'الحجوزات',
-    what: 'حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً.',
+    what: 'يستثمر كل دقيقة في جدولك، فيرفع عدد العملاء الذين تخدمهم بنفس عدد موظفيك وساعاتهم.',
     section: 'bookings',
     onCustomer: '',
     icon: 'calendar', tone: 'accent',
@@ -138,7 +138,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'insights',
     key: 'feature.insights.engine',
     name: 'صفقات',
-    what: 'يقول لك أين الفرصة: أي خدمتين تُطلبان معاً، ومن كان سيشتري أكثر، وأثر رسائلك.',
+    what: 'يحوّل بيانات محلك اليومية إلى نصيحة واضحة بمستوى محلل مبيعات مختص، يقودك كل يوم لأعلى فرصة ترفع دخلك.',
     // NO SECTION OF ITS OWN, and that is the pattern to copy. «محلّي» is free for every shop —
     // it is what sells everything else — and the engine locks three cards INSIDE it. An app that
     // hid the whole section would hide the argument for buying it.
@@ -156,7 +156,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'rating',
     key: 'feature.rating',
     name: 'التقييم',
-    what: 'رسالة تقييم بالنجوم والتعليق بعد كل زيارة، بدل رسالة التأكيد العادية — بلا رسالة إضافية.',
+    what: 'يحميك من خسارة عملاء دون علمك — يكشف مشكلة بموظف أو خدمة وتعالجها قبل أن تتفاقم.',
     // Adds a tab to the EXISTING customer-list screen ("عملائي"), not a rail section of its own —
     // see the plan's own note on this being a deliberate, small extension of `onCustomer`'s usual
     // meaning (inside ONE customer's page) rather than a silent assumption.
@@ -174,7 +174,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'contacts',
     key: 'feature.contacts',
     name: 'جهات الاتصال',
-    what: 'يفتح باب تسجيل العميل برقمه من أي مكان في المحل، حتى بلا اشتراك أساسي.',
+    what: 'يبني لك قاعدة عملاء حقيقية من أول يوم لافتتاح محلك، تصبح أصلاً تسوّق عليه متى شئت.',
     section: '',
     onCustomer: '',
     icon: 'user-plus', tone: 'accent',
@@ -188,7 +188,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'visit',
     key: 'feature.visit',
     name: 'تسجيل زيارة',
-    what: 'يفتح تسجيل زيارة العميل وحده، بلا بقية الأساس.',
+    what: 'يجعل بيانات عملائك ملكاً لمحلك، تكبر معك مهما تغيّر فريق العمل.',
     section: '',
     onCustomer: '',
     icon: 'check-circle', tone: 'success',
@@ -205,7 +205,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'whatsapp',
     key: 'feature.whatsapp',
     name: 'المساعد الذكي عبر واتساب',
-    what: 'يردّ على عملائك ويحجز لهم عبر واتساب بذكاء اصطناعي، بأسلوب محلّك.',
+    what: 'يحوّل واتساب إلى مندوب مبيعات يعرف ذوق كل عميل، ويقترح عليه باقاتك وعروضك ونقاطه في الوقت المناسب، فيرفع متوسط فاتورتك.',
     section: '',
     onCustomer: '',
     icon: 'message-circle', tone: 'accent',

@@ -38,8 +38,8 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
     # closing it.
     Feature(
         id="insights.tells_you_exactly_what_to_do",
-        title="يقولك بالضبط وش تسوي اليوم",
-        detail="من بين كل مؤشراتك، يختار لك خطوة وحدة أهم شي تسويها الآن — لا قائمة مؤشرات تايهة",
+        title="يقودك لأهم خطوة تسويها اليوم",
+        detail="يختار لك من بين كل مؤشرات محلك خطوة واحدة، هي الأجدر باهتمامك الآن",
         icon="shield-check",
         tone=TONE_VIOLET,
         # `core/next_step.py` — a real priority queue over named rules (visits/messages/at-risk/
@@ -49,8 +49,8 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="insights.finds_real_bundles",
-        title="يلقى لك صفقات جاهزة تبيعها",
-        detail="يعرف أي خدمتين عملاءك فعلاً ياخذونها مع بعض، وتسوّي منهم باقة تربح أكثر بلا تخمين",
+        title="يكتشف لك صفقات جاهزة للبيع",
+        detail="يتعرّف على الخدمات التي يطلبها عملاؤك معاً فعلاً، ليحوّلها إلى باقة ترفع أرباحك",
         icon="star",
         tone=TONE_AMBER,
         # `core/associations.py` — the product's own IP: lift measured on TWO axes (within one
@@ -63,7 +63,7 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
         # REWORDED (2026-09-11, owner's own note): «فايتاك» read as slang, not a professional
         # sentence on a page that sells a paid app. Same value stated plainly instead.
         title="يكشف لك صفقة ناقصة عند عميلك",
-        detail="عميل أخذ نص الصفقة بس، يعطيك اسمه فوراً عشان تكمّل البيع بدل ما يفوتك",
+        detail="يمنحك اسم العميل الذي أخذ نصف الصفقة فقط، لتكمل له البيع في وقته",
         icon="gift",
         tone=TONE_ROSE,
         # `core/bundles.py::build`/`associations.py::missed_opportunities` — customers who hold one
@@ -73,8 +73,8 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="insights.proves_your_messages_work",
-        title="يثبت لك إن رسائلك ترجّع عملاء فعلاً",
-        detail="يقارن مين رجع من اللي وصلته رسالة بمين ما وصلته، بالأرقام لا بالتخمين",
+        title="يثبت لك أن رسائلك تعيد عملاءك فعلاً",
+        detail="يقارن بالأرقام من رجع بعد وصول رسالتك بمن لم تصله، فتعرف قيمتها الحقيقية",
         icon="check-circle",
         tone=TONE_TEAL,
         # `core/indicators.py::holdout_comparison`/`returned_after_reminder` — the one number in
@@ -84,8 +84,8 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="insights.weekly_shop_pulse",
-        title="ملخص محلك كل أسبوع، بلا ما تحسب شي",
-        detail="زياراتك، عملاؤك الجدد، اللي بيغادرونك، وأهم فرصة ضايعة — برسالة وحدة على واتساب",
+        title="يمنحك ملخص محلك كل أسبوع",
+        detail="زياراتك، عملاؤك الجدد، من يغادرك، وأهم فرصة ضائعة — برسالة واحدة على واتساب",
         icon="clock",
         tone=TONE_BLUE,
         # `core/digest.py` — most owners never open a dashboard, so this is the highest-leverage
