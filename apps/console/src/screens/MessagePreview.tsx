@@ -87,10 +87,22 @@ const STATUS: Record<string, string> = {
   retired: 'استبدلتها بنسخة أحدث',
 };
 
-/** The two voices, named for an owner rather than for a library. */
+/** The two voices, named for an owner rather than for a library.
+ *
+ * A REAL PAIR, NOT A MISMATCHED ONE — this used to read {warm: 'ودّية', feminine: 'مؤنثة'}: a
+ * STYLE word ("friendly") set against a GRAMMATICAL-GENDER word ("feminine"), which is not the
+ * axis it looks like on screen (owner's own screenshot: two cards captioned «ودية» and «مؤنثة»,
+ * which reads as two different scales, not one choice). The two templates only ever differ in
+ * which gender they address the customer as (reasons.py's own note: the feminine tone conjugates
+ * every verb — «نوّرتِنا», «أخذتِ»), so the labels now say exactly that: مذكر/مؤنث.
+ *
+ * THE CODE VALUES STAY `warm`/`feminine` — reminders' own `tone` field, already the shape stored
+ * per subscriber and read throughout core/reasons.py; renaming the wire value is a data migration,
+ * not a label fix, and every subscriber's real choice keeps working unchanged either way. Only
+ * what an owner reads on this screen changes. */
 const TONE: Record<string, string> = {
-  warm: 'ودّية',
-  feminine: 'مؤنثة',
+  warm: 'مذكر',
+  feminine: 'مؤنث',
 };
 
 export function MessagePreview({
@@ -584,7 +596,12 @@ export function Bubble({ text, caption, active, activeLabel, busy, onChoose, act
         disabled={onChoose ? busy : undefined}
         aria-pressed={onChoose ? false : undefined}
         className={[
-          'relative w-full rounded-2xl rounded-ss-sm bg-surface-2 p-3 text-sm leading-relaxed',
+          // WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — never the theme's `bg-surface-2` (owner's
+          // own instruction: "خلي المثال ثابت في رسالة خضراء مثل الواتساب"). A brand colour, not a
+          // semantic one — same literal `#DCF8C6`/`#111b21` pair `rj-ui/WhatsAppPreview.tsx`'s own
+          // phone-mockup bubble already uses, so a shop sees the identical bubble whether it is
+          // reading this one-off preview or the full interactive phone mockup.
+          'relative w-full rounded-2xl rounded-ss-sm bg-[#DCF8C6] p-3 text-sm leading-relaxed text-[#111b21]',
           'text-start shadow-sm ring-1 transition',
           active
             ? 'ring-accent shadow'

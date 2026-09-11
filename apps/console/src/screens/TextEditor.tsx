@@ -260,7 +260,11 @@ export function TextEditor({
         {/* ── what the customer reads ──────────────────────────────────────────────────── */}
         <section className="flex flex-col gap-2">
           <h3 className="text-xs text-text-secondary">كما تصل عميلك</h3>
-          <div className="rounded-2xl rounded-ss-sm bg-surface-2 p-3 text-sm leading-relaxed shadow-sm">
+          {/* WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — same literal colours as MessagePreview.tsx's
+              own `Bubble` and rj-ui/WhatsAppPreview.tsx's phone mockup, never the theme's
+              `bg-surface-2` (owner's own instruction: "خلي المثال ثابت في رسالة خضراء مثل
+              الواتساب"). A brand colour, not a semantic one. */}
+          <div className="rounded-2xl rounded-ss-sm bg-[#DCF8C6] p-3 text-sm leading-relaxed text-[#111b21] shadow-sm">
             {sample || '…'}
           </div>
         </section>
