@@ -833,8 +833,21 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
   const [inputMargin, setInputMargin] = useState('5');
   const [outputMargin, setOutputMargin] = useState('2');
   const [usdToSar, setUsdToSar] = useState('3.75');
-  const [modelCostsJson, setModelCostsJson] = useState(
-    '{"gemini-3.1-flash-lite": {"input_usd_per_million": 0.25, "output_usd_per_million": 1.50}}');
+  // A ROW PER MODEL, PICKED FROM MODEL_OPTIONS — not a raw JSON textarea an operator has to hand-
+  // edit (model id typos, unbalanced braces). `costRows` is the only source of truth for this
+  // section; `modelCostsJson` below is DERIVED from it purely to feed the same wire shape/preview
+  // math the backend and AiUnitConsumptionPreview already expect (core/ai_unit_pricing.py's own
+  // {model_id: {input_usd_per_million, output_usd_per_million}} shape, unchanged).
+  const [costRows, setCostRows] = useState<{ modelId: string; input: string; output: string }[]>([
+    { modelId: 'gemini-3.1-flash-lite', input: '0.25', output: '1.50' },
+  ]);
+  const modelCostsJson = JSON.stringify(Object.fromEntries(
+    costRows.filter((r) => r.modelId).map((r) => [r.modelId, {
+      input_usd_per_million: Number(r.input) || 0, output_usd_per_million: Number(r.output) || 0,
+    }]),
+  ));
+  const wiredModelIds = MODEL_OPTIONS.filter((m) => m.wired).map((m) => m.id);
+  const pickedModelIds = new Set(costRows.map((r) => r.modelId));
   const [aiUnitEffectiveInDays, setAiUnitEffectiveInDays] = useState('15');
   const [aiUnitScheduling, setAiUnitScheduling] = useState(false);
   const [aiUnitScheduleError, setAiUnitScheduleError] = useState('');
@@ -845,9 +858,9 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
     setAiUnitScheduling(true); setAiUnitScheduleError(''); setAiUnitScheduleDone(false);
     const days_ = Number(aiUnitEffectiveInDays) || 0;
     try {
-      let parsedCosts: unknown;
-      try { parsedCosts = JSON.parse(modelCostsJson); } catch { throw new Error('صيغة تكلفة النماذج ليست JSON صحيحاً.'); }
-      if (typeof parsedCosts !== 'object' || parsedCosts === null) throw new Error('صيغة تكلفة النماذج ليست JSON صحيحاً.');
+      if (costRows.filter((r) => r.modelId).length === 0) {
+        throw new Error('أضف نموذجاً واحداً على الأقل بسعره.');
+      }
       const fields: [string, string | number][] = [
         ['PRICING_AI_UNIT_UNITS_PER_HALALA', Math.round(Number(unitsPerHalala) || 0)],
         ['PRICING_AI_UNIT_INPUT_MARGIN_MULTIPLIER', Number(inputMargin) || 0],
@@ -951,17 +964,63 @@ function AIPricingCalculator({ session, reportAction, pendingAction, scheduleAct
             </p>
           </Field>
         </div>
-        <Field label="تكلفة جوجل الحقيقية لكل نموذج (JSON)" htmlFor="calc-model-costs">
-          <textarea id="calc-model-costs" dir="ltr"
-                   className="w-full rounded-input border border-border-subtle bg-surface-0 p-2 font-mono text-sm"
-                   rows={3} value={modelCostsJson}
-                   onChange={(e) => setModelCostsJson(e.target.value)} />
+        <div className="flex flex-col gap-2">
+          <span className="text-label font-medium text-text-secondary">تكلفة جوجل الحقيقية لكل نموذج</span>
           <p className="text-label text-text-secondary">
             السعر الحقيقي كما هو من فاتورة جوجل الفعلية أو صفحة تسعيرها الرسمية لكل نموذج — بالدولار لكل
             مليون توكن، دخل وخرج منفصلين — بلا أي هامش إقليمي مضاف هنا، الرقم المُدخَل هو التكلفة
             الحقيقية كما هي. نموذج غير مذكور هنا يُحتسَب بمعدّل احتياطي صفري بدل إيقاف المساعد.
           </p>
-        </Field>
+          <div className="flex flex-col gap-2">
+            {costRows.map((row, i) => (
+              <div key={i} className="flex flex-wrap items-end gap-2 rounded-card border border-border-subtle p-2">
+                <div className="min-w-[10rem] flex-1">
+                  <label className="text-label text-text-secondary" htmlFor={`calc-model-${i}`}>النموذج</label>
+                  <Select id={`calc-model-${i}`} dir="ltr" value={row.modelId}
+                         onChange={(e) => setCostRows((prev) => prev.map((r, j) => j === i ? { ...r, modelId: e.target.value } : r))}>
+                    {/* THE STORED VALUE MAY NOT BE IN MODEL_OPTIONS AT ALL (an id typed before this
+                       screen existed, or a model retired since) — added as its own visible option
+                       rather than lost silently, same posture as ASSISTANT_MODEL_NAME's own row above. */}
+                    {!wiredModelIds.includes(row.modelId) && row.modelId ? (
+                      <option value={row.modelId}>{row.modelId} (قيمة حالية غير مدرجة)</option>
+                    ) : null}
+                    {Object.entries(MODEL_PROVIDER_META).map(([provider, providerLabel]) => (
+                      <optgroup key={provider} label={providerLabel}>
+                        {MODEL_OPTIONS.filter((m) => m.provider === provider).map((m) => (
+                          <option key={m.id} value={m.id} disabled={!m.wired}>
+                            {m.label}{m.wired ? '' : ` — ${m.disabledReason ?? 'غير مدعوم'}`}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </Select>
+                </div>
+                <div className="w-28">
+                  <label className="text-label text-text-secondary" htmlFor={`calc-model-input-${i}`}>دخل $/مليون</label>
+                  <Input id={`calc-model-input-${i}`} dir="ltr" type="number" step="0.01" value={row.input}
+                        onChange={(e) => setCostRows((prev) => prev.map((r, j) => j === i ? { ...r, input: e.target.value } : r))} />
+                </div>
+                <div className="w-28">
+                  <label className="text-label text-text-secondary" htmlFor={`calc-model-output-${i}`}>خرج $/مليون</label>
+                  <Input id={`calc-model-output-${i}`} dir="ltr" type="number" step="0.01" value={row.output}
+                        onChange={(e) => setCostRows((prev) => prev.map((r, j) => j === i ? { ...r, output: e.target.value } : r))} />
+                </div>
+                <Button type="button" size="sm" variant="ghost"
+                       onClick={() => setCostRows((prev) => prev.filter((_, j) => j !== i))}>
+                  حذف
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button type="button" size="sm" variant="outline"
+                 disabled={wiredModelIds.every((id) => pickedModelIds.has(id))}
+                 onClick={() => {
+                   const next = wiredModelIds.find((id) => !pickedModelIds.has(id)) ?? wiredModelIds[0];
+                   setCostRows((prev) => [...prev, { modelId: next, input: '', output: '' }]);
+                 }}>
+            + إضافة نموذج
+          </Button>
+        </div>
         <AiUnitConsumptionPreview report={report} unitsPerHalala={unitsPerHalala}
                                   inputMargin={inputMargin} outputMargin={outputMargin}
                                   usdToSar={usdToSar} modelCostsJson={modelCostsJson} />
