@@ -36,7 +36,7 @@ import type { Session } from '../session';
  *  always worth this many units, whatever model is actually running. `null` unitsPerHalala (the
  *  read failed, or the shop has no AI-pricing capability) falls back to riyals rather than
  *  guessing a rate — the same ABSENT-MEANS-ABSENT posture the rest of this file already keeps. */
-function unitsLabel(minorHalalas: number, unitsPerHalala: number | null): string {
+export function unitsLabel(minorHalalas: number, unitsPerHalala: number | null): string {
   if (unitsPerHalala === null) return riyalsLabel(minorHalalas);
   const units = Math.round(minorHalalas * unitsPerHalala);
   return `${units.toLocaleString('en-US')} وحدة`;

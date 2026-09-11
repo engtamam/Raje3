@@ -42,6 +42,7 @@ import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { action, call, type Catalog } from '../catalog';
 import { isDenied, isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type AppFeature, type Owned } from '../apps';
+import { unitsLabel } from './Wallet';
 import type { Session } from '../session';
 import { riyals } from '../money';
 import { AssistantHint } from '../AssistantHint';
@@ -72,7 +73,14 @@ const SECTION_LABEL: Record<string, string> = {
 };
 
 
-interface Price { type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean }
+interface Price {
+  type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean;
+  /** billing-service v0.19.24 — present ONLY on a plan that opted into the percent-of-price AI-
+   *  credit allowance (today, only بوت خدمة العملاء الذكي). Halalas, same unit as `amount_minor`,
+   *  computed live off the CURRENT operator-set percent — never stored, never a value this screen
+   *  could go stale on. Absent means "this plan carries no such allowance", never zero. */
+  included_credit_minor?: number;
+}
 /** `limit` is a NUMBER OR THE WORD `unlimited` — billing's own sentinel, which its merge treats as
  *  beating every arithmetic. We used to seed -1 for the same idea; billing read that as a plain
  *  number and SUMMED it, so a base-shaped row plus a capacity pack came out at 9 seats instead of
@@ -455,6 +463,22 @@ function AppCard({
   // does the actual work by redefining the same semantic vars every element below already reads,
   // so nothing else in this component needs a gold-specific branch.
   const isGold = app?.id === 'whatsapp' && !compact;
+  // «يشمل X وحدة ذكاء اصطناعي» — read ONLY for the one card that can ever carry
+  // `included_credit_minor` (billing-service v0.19.24), and converted through the SAME fixed
+  // scale Wallet.tsx's own `unitsLabel` already uses — one function, so this line and the wallet
+  // balance it will later show never disagree about what a halala is worth in units.
+  const [unitsPerHalala, setUnitsPerHalala] = useState<number | null>(null);
+  useEffect(() => {
+    if (price?.included_credit_minor == null) return;
+    const a = action(catalog, 'whatsapp_assistant.pricing_current');
+    if (!a) return;
+    let live = true;
+    call<{ ai_unit_units_per_halala: number }>(session, a)
+      .then((x) => { if (live) setUnitsPerHalala(x.ai_unit_units_per_halala); })
+      .catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-fetch only if this card's own included amount changes
+  }, [price?.included_credit_minor]);
   return (
     <article
       className={[
@@ -561,6 +585,16 @@ function AppCard({
               would be the longest line on a card whose whole point is to stay short. */}
           {price.includes_tax && !compact ? (
             <span className="text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
+          ) : null}
+          {/* «يشمل X وحدة» — only ever present on a plan that opted into the percent-of-price
+              allowance (today, بوت خدمة العملاء الذكي). Silent while the rate is still loading or
+              unreadable, same "a card that could not read a fact still sells" posture as
+              AppFeatureList's own — a missing line here costs nothing the price line hasn't
+              already said. */}
+          {price.included_credit_minor != null && unitsPerHalala !== null ? (
+            <span className={isGold ? 'text-sm font-medium text-accent' : 'text-sm font-medium text-text-secondary'}>
+              يشمل {unitsLabel(price.included_credit_minor, unitsPerHalala)} ذكاء اصطناعي شهرياً
+            </span>
           ) : null}
         </div>
       ) : null}
