@@ -861,12 +861,14 @@ export function PlansPane({
     } else {
       setSubs(null);
     }
-    if (canBrowse) {
-      call<{ previews: Record<string, { percent: number; owning_key: string }> }>(
-        session,
-        { id: 'billing.discount_preview', label: '', method: 'GET',
-          path: '/api/v1/billing/discount-preview', capability: 'billing.self' },
-      ).then((x) => setDiscountPreviews(x.previews ?? {})).catch(() => setDiscountPreviews({}));
+    // NOW A REAL CATALOG ACTION (billing-service v0.19.22, base-services' own follow-up) — the
+    // hand-built literal this used at v0.19.21 (no `billing.discount_preview` entry existed yet)
+    // is gone; a shop whose role somehow cannot reach it just sees no badges, same as any other
+    // catalog action absent from a role.
+    const preview = action(catalog, 'billing.discount_preview');
+    if (preview) {
+      call<{ previews: Record<string, { percent: number; owning_key: string }> }>(session, preview)
+        .then((x) => setDiscountPreviews(x.previews ?? {})).catch(() => setDiscountPreviews({}));
     }
   };
 
