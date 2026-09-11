@@ -55,7 +55,8 @@ import { riyals, riyalsLabel, halalas } from '../money';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
 import { sentenceFor } from '../api';
-import { LIMIT_WORDS, REQUIRES_ANY_LABELS, isStandalone, kindOf, appKey } from '../screens/Plans';
+import { LIMIT_KEYS, REQUIRES_ANY_KEYS, isStandalone, kindOf, appKey } from '../screens/Plans';
+import { translate } from '../operator-i18n';
 import { APP_ROWS } from '../apps';
 import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 
@@ -115,12 +116,16 @@ const LIMIT_ICON: Record<string, typeof Users> = {
   'plan.standalone': Boxes,
 };
 
-// technical key -> Arabic label (from `Plans.tsx`'s own `LIMIT_WORDS`) + icon. A key with no
-// sentence there falls back to `REQUIRES_ANY_LABELS` (for `plan.requires_any` itself, which
+// technical key -> Arabic label (from `Plans.tsx`'s own `LIMIT_KEYS`) + icon. A key with no
+// sentence there falls back to `REQUIRES_ANY_KEYS` (for `plan.requires_any` itself, which
 // `Plans.tsx` deliberately never prints as a line) and finally to the raw key — never hidden,
 // never breaking the screen, but the raw-key fallback should now be dead code in practice.
+// ADMIN SCREEN, ALWAYS ARABIC — `translate('ar', …)` reads `Plans.tsx`'s own i18n dictionary
+// directly rather than through `useOperatorI18n()`, since this file is outside the operator-i18n
+// coverage gate (admin/ is permanently excluded) and never switches locale.
 function limitLabel(key: string): string {
-  return LIMIT_WORDS[key]?.label ?? REQUIRES_ANY_LABELS[key] ?? key;
+  const k = LIMIT_KEYS[key]?.label ?? REQUIRES_ANY_KEYS[key];
+  return k ? translate('ar', k) : key;
 }
 function limitIcon(key: string): typeof Users {
   // A `feature.*` key IS an app, and `apps.ts` already names its icon — reading it here instead

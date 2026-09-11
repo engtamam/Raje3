@@ -6,7 +6,9 @@
  * only the label, the confirmation text, and what happens on confirm differ.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 // `hasBase` inside Plans.tsx reads from THIS prop (the entitlements view), not from
 // billing.my_subscriptions — a shop with a real base subscription still needs `checked: true`
@@ -70,6 +72,12 @@ afterEach(() => {
 });
 
 const session = {} as never;
+
+// PlansPane now reads `useOperatorI18n()` — wrap once so every existing `render(<...>)` call
+// site below stays unchanged.
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={session}>{ui}</OperatorI18nProvider>);
+}
 const catalog = { services: [], unreachable: [] } as never;
 
 function open() {

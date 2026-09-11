@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 // THE SOURCE AS A STRING, through Vite rather than `node:fs` — this app's tsconfig has no node
 // types, and adding them so a test can read a file would be the tail wagging the build.
 import customerSrc from './screens/Customer.tsx?raw';
+import customerI18nSrc from './screens/customer-i18n.ts?raw';
 import doorSrc from './screens/Door.tsx?raw';
 import editorSrc from './screens/TextEditor.tsx?raw';
 import localSrc from './screens/Shop.tsx?raw';
@@ -132,7 +133,9 @@ describe('أ-9 · what the operator typed, shown to the person who asked for it'
     // Both doors accept `meter` and `note`, the visit row stores them, `public()` emits them —
     // and no screen in the product ever showed them. That is daily typing on the one screen
     // whose whole budget is five seconds, thrown away.
-    expect(customerSrc).toContain('العدّاد:');
+    // The label is now a translation key on the screen, routed through operator-i18n — the
+    // Arabic word itself moved to `customer-i18n.ts`'s own dictionary.
+    expect(customerI18nSrc).toContain('العدّاد:');
     expect(customerSrc).toContain('{v.note}');
   });
 });

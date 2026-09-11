@@ -9,7 +9,7 @@
  * subscription id with a new `quantity` — no second row, ever.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen } from '@testing-library/react';
 
 const PLANS = [
   { id: 'base', name: 'الأساس', active: true, listed: true,
@@ -61,8 +61,17 @@ async function open() {
   vi.resetModules();
   vi.stubEnv('VITE_MOYASAR_PUBLISHABLE_KEY', 'pk_test_abc');
   const { PlansPane } = await import('./Plans');
-  return render(<PlansPane session={{} as never} catalog={{ services: [], unreachable: [] } as never}
-                           owned={OWNED} onGoConnect={() => {}} />);
+  // `vi.resetModules()` above means `./Plans` (and everything it imports, including operator-i18n's
+  // own `createContext`) is a DIFFERENT module instance — a provider imported at this file's top
+  // cannot satisfy `useOperatorI18n()` inside the freshly-imported `PlansPane`. Re-import the
+  // provider fresh too, from the same module graph `PlansPane` was just pulled from.
+  const { OperatorI18nProvider } = await import('../operator-i18n');
+  return rtlRender(
+    <OperatorI18nProvider session={{} as never}>
+      <PlansPane session={{} as never} catalog={{ services: [], unreachable: [] } as never}
+                 owned={OWNED} onGoConnect={() => {}} />
+    </OperatorI18nProvider>,
+  );
 }
 
 beforeEach(() => { seatSub = null; });

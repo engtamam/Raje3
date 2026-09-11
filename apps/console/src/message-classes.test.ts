@@ -19,6 +19,7 @@
 import { describe, expect, it } from 'vitest';
 
 import messagesSrc from './screens/Messages.tsx?raw';
+import i18nSrc from './screens/messages-i18n.ts?raw';
 
 describe('the class of every reason reaches the screen', () => {
   it('the row carries a badge fed by the server, not by a guess', () => {
@@ -48,7 +49,9 @@ describe('the class of every reason reaches the screen', () => {
     // «القوالب» replaced the flat list's own count sentence with SECTION HEADERS — an owner
     // scanning by class now reads one section at a time. The count itself is no longer a single
     // sentence over a table; the grouping answers the same question the sentence used to.
-    expect(messagesSrc).toContain('SECTION_LABEL');
-    expect(messagesSrc).toContain('حملاتي');
+    // The label is now a translation KEY on the screen (`SECTION_KEY`), routed through
+    // operator-i18n — the Arabic word itself moved to `messages-i18n.ts`'s own dictionary.
+    expect(messagesSrc).toContain('SECTION_KEY');
+    expect(i18nSrc).toContain('حملاتي');
   });
 });

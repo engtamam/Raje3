@@ -8,7 +8,7 @@
  * payment.test.ts and card_form.test.tsx.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen } from '@testing-library/react';
 
 const PLANS = [
   { id: 'base', name: 'الأساس', active: true, listed: true,
@@ -47,7 +47,14 @@ async function open() {
   vi.resetModules();
   const { DENIED } = await import('../loading');
   const { PlansPane } = await import('./Plans');
-  return render(<PlansPane session={session} catalog={catalog} owned={DENIED} onGoConnect={() => {}} />);
+  // `vi.resetModules()` above means `./Plans` is a DIFFERENT module instance than any
+  // `OperatorI18nProvider` imported at this file's top — re-import it fresh from the same graph.
+  const { OperatorI18nProvider } = await import('../operator-i18n');
+  return rtlRender(
+    <OperatorI18nProvider session={session}>
+      <PlansPane session={session} catalog={catalog} owned={DENIED} onGoConnect={() => {}} />
+    </OperatorI18nProvider>,
+  );
 }
 
 beforeEach(() => {

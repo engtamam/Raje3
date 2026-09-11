@@ -5,7 +5,9 @@
  * for confirmation before acting, and the screen reflects a pending cancellation honestly.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 import { DENIED } from '../loading';
 
 const PLANS = [
@@ -46,6 +48,12 @@ const { PlansPane } = await import('./Plans');
 afterEach(cleanup);
 
 const session = {} as never;
+
+// PlansPane now reads `useOperatorI18n()` — wrap once so every existing `render(<...>)` call
+// site below stays unchanged.
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={session}>{ui}</OperatorI18nProvider>);
+}
 const catalog = { services: [], unreachable: [] } as never;
 
 function open() {

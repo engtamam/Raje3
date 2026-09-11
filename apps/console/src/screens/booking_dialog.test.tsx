@@ -5,8 +5,9 @@
  * nobody was ever told the read had failed (م · النمط 1).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import type { CustomerHit } from '../api';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 let earnMock: () => Promise<unknown>;
 let customerByPhoneMock: () => Promise<unknown>;
@@ -33,8 +34,10 @@ const SERVICES = [
   { id: 'svc1', name: 'قص شعر', duration_minutes: 30, price_minor: 5000, active: true },
 ];
 
+// BookingDialog now reads `useOperatorI18n()` — wrap once so `open()` stays unchanged.
 function open() {
-  return render(
+  return rtlRender(
+    <OperatorI18nProvider session={{} as never}>
     <BookingDialog
       session={{} as never}
       branchId="brn1"
@@ -44,7 +47,8 @@ function open() {
       staff={[]}
       onClose={() => {}}
       onCreated={() => {}}
-    />,
+    />
+    </OperatorI18nProvider>,
   );
 }
 

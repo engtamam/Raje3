@@ -14,7 +14,9 @@
  * catalogue of apps: a person arriving for a receipt scrolled past things to buy.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const calls: { id: string; body?: unknown }[] = [];
 let digestState: Record<string, unknown> = { on: true, decided: true };
@@ -40,6 +42,12 @@ afterEach(() => { cleanup(); calls.length = 0; });
 
 const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
+
+// AccountScreen (and PlansPane/InvoicesPane inside it) now read `useOperatorI18n()` — wrap once
+// so every existing `render(<...>)` call site below stays unchanged.
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={session}>{ui}</OperatorI18nProvider>);
+}
 
 describe('«حسابي» — the tab that went, and where its parts landed', () => {
   it('offers no «دخولي» tab any more', async () => {

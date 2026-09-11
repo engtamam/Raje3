@@ -6,7 +6,9 @@
  * dependent app with it, in the same request — never a silent orphaned subscription still billing.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 import { DENIED } from '../loading';
 
 const VISIT = { id: 'plan_visit', name: 'تسجيل زيارة', active: true, listed: true,
@@ -62,6 +64,12 @@ const { PlansPane } = await import('./Plans');
 afterEach(cleanup);
 
 const session = {} as never;
+
+// PlansPane now reads `useOperatorI18n()` — wrap once so every existing `render(<...>)` call
+// site below stays unchanged.
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={session}>{ui}</OperatorI18nProvider>);
+}
 const catalog = { services: [], unreachable: [] } as never;
 
 describe('cancelling the last prerequisite cascades to its dependent apps', () => {

@@ -70,7 +70,9 @@ export function registerOperatorStrings(byLocale: Partial<Record<OperatorLocale,
   }
 }
 
-function translate(locale: OperatorLocale, key: string): string {
+/** Exported ONLY for pure functions elsewhere that need an ar-default `t` for their own optional-t
+ *  parameter (e.g. Plans.tsx's `planLines`) — every render site still gets its `t` from context. */
+export function translate(locale: OperatorLocale, key: string): string {
   return CATALOGS[locale]?.[key] ?? CATALOGS.ar?.[key] ?? key;
 }
 

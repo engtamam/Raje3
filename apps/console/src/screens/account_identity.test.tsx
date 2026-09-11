@@ -4,7 +4,9 @@
  * («منشأتي» is gated on capabilities a field operator never holds).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -33,22 +35,29 @@ afterEach(() => { cleanup(); });
 
 const catalog = { services: [], unreachable: [] } as never;
 
+// AccountScreen now reads `useOperatorI18n()` — wrap once so every existing `render(<...>)` call
+// site below stays unchanged. Each test's own `session` is also this provider's session; that is
+// fine, `OperatorI18nProvider` only reads it for the account's own locale preference.
+function render(ui: ReactElement, session: unknown) {
+  return rtlRender(<OperatorI18nProvider session={session as never}>{ui}</OperatorI18nProvider>);
+}
+
 describe('«حسابي» — who he is, and where he works', () => {
   it('shows his own name, always, regardless of which tabs his role can reach', async () => {
     const session = { operatorName: 'سالم العتيبي', operator: 'op_1' } as never;
-    render(<AccountScreen session={session} catalog={catalog} />);
+    render(<AccountScreen session={session} catalog={catalog} />, session);
     await screen.findByText('سالم العتيبي');
   });
 
   it('falls back to the bare operator id when no display name was set', async () => {
     const session = { operatorName: '', operator: 'op_2' } as never;
-    render(<AccountScreen session={session} catalog={catalog} />);
+    render(<AccountScreen session={session} catalog={catalog} />, session);
     await screen.findByText('op_2');
   });
 
   it('resolves his own branch via the bookings-side id a field operator actually holds', async () => {
     const session = { operatorName: 'سالم العتيبي', operator: 'op_1' } as never;
-    render(<AccountScreen session={session} catalog={catalog} />);
+    render(<AccountScreen session={session} catalog={catalog} />, session);
     await screen.findByText('الفرع الرئيسي');
   });
 
@@ -59,7 +68,7 @@ describe('«حسابي» — who he is, and where he works', () => {
   it('says his branch read failed rather than silently showing nothing, same as an unresolved one would', async () => {
     (globalThis as any).__branchReadFails = true;
     const session = { operatorName: 'سالم العتيبي', operator: 'op_1' } as never;
-    render(<AccountScreen session={session} catalog={catalog} />);
+    render(<AccountScreen session={session} catalog={catalog} />, session);
     await screen.findByText('تعذّرت قراءة فرعك');
     (globalThis as any).__branchReadFails = false;
   });

@@ -46,14 +46,30 @@ import { unitsLabel } from './Wallet';
 import type { Session } from '../session';
 import { riyals } from '../money';
 import { AssistantHint } from '../AssistantHint';
+import { useOperatorI18n, tf, translate } from '../operator-i18n';
+import './plans-i18n';
 
-/** The anchor for one status badge's plain-language explanation, or none for the states that
- *  already say what happens next right on the card (cancelling, active, stopped). */
-function statusAnchor(label?: string): string | undefined {
-  if (label === 'تجريبي') return 'store.trialStatus';
-  if (label === 'متأخر الدفع') return 'store.pastDueStatus';
-  if (label === 'موقوف مؤقتاً') return 'store.pausedStatus';
+type Translator = (key: string) => string;
+
+/** A STATUS KEY, NEVER TRANSLATED TEXT — `statusLabel` below is already the translated word by
+ *  the time a card reads it, so matching against it here would compare a Turkish/English word
+ *  against an Arabic literal on every non-Arabic locale. The key is computed once alongside the
+ *  label (see `baseStatusKey`) and threaded through untranslated for this to match on. */
+function statusAnchor(key?: string): string | undefined {
+  if (key === 'trialing') return 'store.trialStatus';
+  if (key === 'pastDue') return 'store.pastDueStatus';
+  if (key === 'paused') return 'store.pausedStatus';
   return undefined;
+}
+
+/** The base subscription's honest status, as a KEY — five real statuses, `stopped` the fallback. */
+function baseStatusKey(baseSub?: Subscription): string {
+  if (baseSub?.cancel_at_period_end) return 'cancelling';
+  if (baseSub?.status === 'past_due') return 'pastDue';
+  if (baseSub?.status === 'trialing') return 'trialing';
+  if (baseSub?.status === 'paused') return 'paused';
+  if (baseSub?.status === 'active') return 'active';
+  return 'stopped';
 }
 
 /**
@@ -63,14 +79,18 @@ function statusAnchor(label?: string): string | undefined {
  * purchase, and the registry already knows the answer as a section id — this is the one place that
  * turns that id into the label he actually reads on the left of his screen.
  */
-const SECTION_LABEL: Record<string, string> = {
-  messages: 'رسائلي',
-  points: 'نقاطي',
-  bookings: 'الحجوزات',
-  team: 'فريقي',
-  account: 'حسابي',
-  shop: 'محلّي',
+const SECTION_KEY: Record<string, string> = {
+  messages: 'plans.section.messages',
+  points: 'plans.section.points',
+  bookings: 'plans.section.bookings',
+  team: 'plans.section.team',
+  account: 'plans.section.account',
+  shop: 'plans.section.shop',
 };
+function sectionLabel(t: Translator, section: string): string {
+  const key = SECTION_KEY[section];
+  return key ? t(key) : section;
+}
 
 
 interface Price {
@@ -120,42 +140,42 @@ export interface Subscription {
  * period; `boolean` is a capability that is on or off. The renderer below reads `kind` rather than
  * guessing from the key, so a new gauge needs a sentence here and nothing else.
  */
-export const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
-  'staff.seats': { label: 'مقاعد للموظفين', unit: 'مقعد' },
-  branches: { label: 'فروع', unit: 'فرع' },
-  'messages.monthly': { label: 'رسائل في الشهر', unit: 'رسالة' },
-  'templates.custom': { label: 'قوالب خاصة بك', unit: 'قالب' },
-  'feature.loyalty': { label: 'نقاط ومكافآت' },
-  'feature.campaigns': { label: 'حملات على شرائح عملائك' },
-  'feature.insights.engine': { label: 'فرصي: أين الفرصة في محلّك' },
-  'feature.api': { label: 'ربط برمجي مع أنظمتك' },
+export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
+  'staff.seats': { label: 'plans.limit.staffSeats.label', unit: 'plans.limit.staffSeats.unit' },
+  branches: { label: 'plans.limit.branches.label', unit: 'plans.limit.branches.unit' },
+  'messages.monthly': { label: 'plans.limit.messagesMonthly.label', unit: 'plans.limit.messagesMonthly.unit' },
+  'templates.custom': { label: 'plans.limit.templatesCustom.label', unit: 'plans.limit.templatesCustom.unit' },
+  'feature.loyalty': { label: 'plans.limit.loyalty.label' },
+  'feature.campaigns': { label: 'plans.limit.campaigns.label' },
+  'feature.insights.engine': { label: 'plans.limit.insightsEngine.label' },
+  'feature.api': { label: 'plans.limit.api.label' },
   // BUILT AND LIVE (2026-08-19, plans.json's own note on this row). GRANTS THE REMINDERS ENGINE
   // TOO — adaptive per-customer rhythm and engagement scoring bundled in, not a second purchase
   // (2026-09-10, retiring الأساس) — said explicitly here so the card's own value is legible.
-  'feature.bookings': { label: 'نظام الحجوزات ومواعيد العملاء، ورسائل ذكية تلقائية تفهم سلوك كل عميل وتذكّره في وقته' },
+  'feature.bookings': { label: 'plans.limit.bookings.label' },
   // BUILT (verified 2026-09-08, full pipeline audit — see plans.json's own note on this row) —
   // NOT in ci/check_entitlements.py's SOLD_UNBUILT (that dict is empty). `listed: false` in
   // plans.json is a pure go-live decision now; this sentence is ready and simply never prints
   // until that flips, since `Plans.tsx` never offers an unlisted plan for purchase.
-  'feature.rating': { label: 'تقييم العملاء بعد الزيارة' },
-  'feature.whatsapp': { label: 'مساعد ذكي يرد على عملائك عبر واتساب' },
+  'feature.rating': { label: 'plans.limit.rating.label' },
+  'feature.whatsapp': { label: 'plans.limit.whatsapp.label' },
   // THE ONE APP SOLD WITHOUT الأساس UNDERNEATH IT (see plans.json's own note on this plan row) —
   // a real, customer-meaningful fact worth a line on the card, not an internal implementation
   // detail: a shop with no other subscription reads this and knows it can buy this one alone.
-  'plan.standalone': { label: 'يُشترى وحده، بلا حاجة لاشتراك أساسي' },
+  'plan.standalone': { label: 'plans.limit.standalone.label' },
   // `plan.requires_any` (services/operations/app/core/subscribe.py) NEVER ACTUALLY PRINTS: its
   // value is `{ kind: 'list', list: [...] }`, never a positive `limit`, so `planLines` below
   // never pushes this label — the entry exists only so `ci/check_entitlements.py` finds the
   // wording it demands for every sold limit. The reader-facing sentence for THIS key lives beside
   // the "needs base first" note ("التطبيقات تُضاف…" above the apps grid), which names the actual
   // missing app(s) — see `missingRequirement` and its render site just below.
-  'plan.requires_any': { label: 'يحتاج تطبيقاً آخر مفعّلاً أولاً' },
+  'plan.requires_any': { label: 'plans.limit.requiresAny.label' },
   // جهات الاتصال — the FREE app (see plans.json's own note on the row). Grants exactly one
   // door: resolving or creating a customer by phone with no visit attached.
-  'feature.contacts': { label: 'تسجيل بيانات العملاء وحفظها' },
+  'feature.contacts': { label: 'plans.limit.contacts.label' },
   // تسجيل زيارة — the visit register itself, sold on its own. GRANTS THE REMINDERS ENGINE TOO —
   // same reasoning as feature.bookings above (2026-09-10, retiring الأساس).
-  'feature.visit': { label: 'تسجيل الزيارات وتأكيدها، ورسائل ذكية تلقائية تفهم سلوك كل عميل وتذكّره في وقته' },
+  'feature.visit': { label: 'plans.limit.visit.label' },
 };
 
 // Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so an
@@ -178,22 +198,26 @@ function ordered(plans: Plan[]): Plan[] {
  * printed under its price, reads as a warning label. The comparison between apps comes from the
  * lines that are present, which is how a person actually reads three cards side by side.
  */
-export function planLines(p: Plan): string[] {
+// `t` DEFAULTS TO THE PRODUCT'S OWN ARABIC — `plans_rating_wording.test.ts`/`plans_requires_any
+// .test.ts` call this single-arg and assert the literal Arabic sentences, same pattern as every
+// other screen's optional-t-default this pass (BookingDialog.tsx's `blockedSentence`, etc).
+export function planLines(p: Plan, t: Translator = (k) => translate('ar', k)): string[] {
   const out: string[] = [];
   for (const [key, lim] of Object.entries(p.limits ?? {})) {
-    const words = LIMIT_WORDS[key];
+    const words = LIMIT_KEYS[key];
     if (!words) continue;                       // no sentence for it → it is not shown
+    const label = t(words.label);
     const raw = lim.limit ?? 0;
     // THE SENTINEL IS A WORD, AND IT IS CHECKED BEFORE ANYTHING NUMERIC. `-1` is kept as a reading
     // only so a row seeded before the change still renders «بلا حد» rather than nothing at all.
     const unlimited = raw === 'unlimited' || (typeof raw === 'number' && raw < 0);
     const n = typeof raw === 'number' ? raw : 0;
     if (lim.kind === 'boolean') {
-      if (unlimited || n > 0) out.push(words.label);
+      if (unlimited || n > 0) out.push(label);
       continue;
     }
-    if (unlimited) out.push(`${words.label}: بلا حد`);
-    else if (n > 0) out.push(`${words.label}: ${n}`);
+    if (unlimited) out.push(tf(t, 'plans.limit.unlimited', { label }));
+    else if (n > 0) out.push(tf(t, 'plans.limit.withCount', { label, n }));
   }
   return out;
 }
@@ -224,10 +248,10 @@ export function isStandalone(plan: Plan): boolean {
  * A key missing from this map falls back to its raw name rather than crashing — a future
  * dependency works (both the purchase refusal and this note) the moment its plans.json row
  * carries `requires_any`; adding it here is a readability improvement, not a precondition. */
-export const REQUIRES_ANY_LABELS: Record<string, string> = {
-  'feature.visit': 'تسجيل زيارة',
-  'feature.bookings': 'الحجوزات',
-  'feature.contacts': 'جهات الاتصال',
+export const REQUIRES_ANY_KEYS: Record<string, string> = {
+  'feature.visit': 'plans.requiresAny.visit',
+  'feature.bookings': 'plans.requiresAny.bookings',
+  'feature.contacts': 'plans.requiresAny.contacts',
 };
 
 /** THE SAME PAIR `plan.requires_any` NAMES for برنامج النقاط/التقييم/فرصي/الحملات — real
@@ -251,13 +275,15 @@ export function requiresAny(plan: Plan): string[] {
  * keys yet — empty when the plan declares no dependency, when the read has not settled or could
  * not be asked, or when he is DENIED the read entirely (same "show the surface, not a lock" rule
  * `owns` follows), so the card never flashes a lock it cannot yet justify. */
-export function missingRequirement(plan: Plan, owned: Loading<Owned>): string {
+export function missingRequirement(
+  plan: Plan, owned: Loading<Owned>, t: Translator = (k) => translate('ar', k),
+): string {
   const need = requiresAny(plan);
   if (!need.length) return '';
   if (isDenied(owned) || !isReady(owned) || !owned.checked) return '';
   if (need.some((k) => owned.keys.includes(k))) return '';
-  const names = need.map((k) => REQUIRES_ANY_LABELS[k] ?? k).join(' أو ');
-  return `يحتاج تفعيل ${names} أولاً.`;
+  const names = need.map((k) => (REQUIRES_ANY_KEYS[k] ? t(REQUIRES_ANY_KEYS[k]) : k)).join(` ${t('plans.or')} `);
+  return tf(t, 'plans.missingRequirement', { names });
 }
 
 export function kindOf(plan: Plan): Kind {
@@ -293,7 +319,7 @@ export function appKey(plan: Plan): string {
  * and another where the lock is drawn.
  *
  * AND THE LIMITS ARE STILL THE SERVER'S. The lines under the price are the app's own `limits`,
- * worded by LIMIT_WORDS and nothing else; a number typed here would be a second price list.
+ * worded by LIMIT_KEYS and nothing else; a number typed here would be a second price list.
  */
 /**
  * MAY THIS PRESS BUY ANYTHING? (د-15)
@@ -371,7 +397,7 @@ function appName(key: string): string {
 function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, lockedNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
-  canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
+  canceling, statusLabel, statusKey, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
   onUndoCancel, undoingCancel, session, catalog, ownedFeatures, discount, potentialDiscount,
 }: {
   /** Only for the "?" beside a status badge that genuinely needs one (trial/past-due/paused) —
@@ -433,6 +459,8 @@ function AppCard({
    *  (فعّال/متأخر الدفع/قيد الإلغاء) the deleted top summary card used to carry alone. Apps stay
    *  on the default success badge (`ownedLabel`) — an app has no `past_due` of its own to report. */
   statusLabel?: string;
+  /** UNTRANSLATED — for `statusAnchor` only, which must match a key, never the localized word. */
+  statusKey?: string;
   statusTone?: 'success' | 'warning' | 'danger';
   /** THE BASE CARD ONLY (v0.16.33) — a SCHEDULED DOWNGRADE, taking effect at the next renewal.
    *  Shown instead of the cancel control on the OWNED card (the subscription he still has, in full, until
@@ -449,6 +477,7 @@ function AppCard({
   onUndoCancel?: () => void;
   undoingCancel?: boolean;
 }) {
+  const { t } = useOperatorI18n();
   const price = monthly(plan);
   // THE BASE HAS NO PURCHASE KEY IN THE REGISTRY — `owns()` treats it as always held, which is
   // what stops «الأساس» being drawn locked while an entitlement read is still in flight. So it is
@@ -559,7 +588,7 @@ function AppCard({
         {has && statusLabel ? (
           <span className="flex items-center gap-1">
             <Badge tone={statusTone ?? 'success'}>{statusLabel}</Badge>
-            {statusAnchor(statusLabel) ? <AssistantHint anchor={statusAnchor(statusLabel)!} session={session} /> : null}
+            {statusAnchor(statusKey) ? <AssistantHint anchor={statusAnchor(statusKey)!} session={session} /> : null}
           </span>
         ) : has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
       </header>
@@ -589,7 +618,7 @@ function AppCard({
               ].join(' ')}>
                 {riyals(Math.round(price.amount_minor * (100 - discount.percent) / 100))}
               </span>
-              <span className="text-sm text-text-secondary">ريال / شهر</span>
+              <span className="text-sm text-text-secondary">{t('plans.riyalPerMonth')}</span>
             </div>
           ) : (
             <div className="flex items-baseline gap-1.5">
@@ -599,14 +628,14 @@ function AppCard({
               ].join(' ')}>
                 {riyals(price.amount_minor)}
               </span>
-              <span className="text-sm text-text-secondary">ريال / شهر</span>
+              <span className="text-sm text-text-secondary">{t('plans.riyalPerMonth')}</span>
             </div>
           )}
           {/* SAID, NOT ASSUMED - the server's own flag. A shop owner reading a price without it
               budgets the wrong number. Skipped in the compact card: a capacity row's tax note
               would be the longest line on a card whose whole point is to stay short. */}
           {price.includes_tax && !compact ? (
-            <span className="text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
+            <span className="text-xs text-text-secondary">{t('plans.includesTax')}</span>
           ) : null}
         </div>
       ) : null}
@@ -627,7 +656,7 @@ function AppCard({
               {unitsLabel(price.included_credit_minor, unitsPerHalala)}
             </span>
             <span className="text-xs font-medium leading-snug text-white/85">
-              ذكاء اصطناعي مجاناً كل شهر — هدية مع اشتراكك
+              {t('plans.aiFreeMonthly')}
             </span>
           </div>
         </div>
@@ -642,7 +671,7 @@ function AppCard({
       {!has && discount ? (
         <span className="inline-flex w-fit items-center gap-1.5 rounded-pill bg-success-soft px-3 py-1 text-xs font-semibold text-success-on-soft">
           <Crown size={12} />
-          خصم {discount.percent}% — لأنك تملك {appName(discount.owning_key)}
+          {tf(t, 'plans.discountBadge', { percent: discount.percent, app: appName(discount.owning_key) })}
         </span>
       ) : null}
 
@@ -660,10 +689,10 @@ function AppCard({
           </span>
           <div className="flex min-w-0 flex-col">
             <span className="text-sm font-bold leading-tight text-[#f4e2a4]">
-              وفّر {potentialDiscount.percent}% على هذا التطبيق
+              {tf(t, 'plans.potentialDiscount.title', { percent: potentialDiscount.percent })}
             </span>
             <span className="text-xs font-medium leading-snug text-[#d4af37]/80">
-              فعّل «{appName(potentialDiscount.owning_key)}» واحصل على الخصم تلقائياً
+              {tf(t, 'plans.potentialDiscount.desc', { app: appName(potentialDiscount.owning_key) })}
             </span>
           </div>
         </div>
@@ -675,7 +704,7 @@ function AppCard({
           actionId={app?.featuresAction}
           fetcher={(actionId) => {
             const a = action(catalog, actionId);
-            if (!a) return Promise.reject(new Error('لا صلاحية لقراءة مميزات هذا التطبيق'));
+            if (!a) return Promise.reject(new Error(t('plans.noFeaturesPermission')));
             return call(session, a);
           }}
           // EVERY CARD COLLAPSES NOW, owned or not (owner's own instruction, 2026-09-11 — the
@@ -693,9 +722,9 @@ function AppCard({
           glance, not two lines he has to read separately to notice they are related. */}
       {has && (renewalDay(renewsAt) || app?.section) ? (
         <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-text-secondary">
-          {renewalDay(renewsAt) ? <span>يتجدّد في {renewalDay(renewsAt)}</span> : null}
+          {renewalDay(renewsAt) ? <span>{tf(t, 'plans.renewsOn', { date: renewalDay(renewsAt) })}</span> : null}
           {renewalDay(renewsAt) && app?.section ? <span aria-hidden className="text-text-muted">·</span> : null}
-          {app?.section ? <span>يظهر في «{SECTION_LABEL[app.section] ?? app.section}»</span> : null}
+          {app?.section ? <span>{tf(t, 'plans.appearsIn', { section: sectionLabel(t, app.section) })}</span> : null}
         </p>
       ) : null}
 
@@ -711,11 +740,11 @@ function AppCard({
           cancelPending ? (
             <div className="flex flex-col gap-1.5">
               <p className="text-xs text-text-secondary">
-                {cancelPendingNote || 'لن يتجدّد بعد نهاية الفترة.'}
+                {cancelPendingNote || t('plans.cancelPendingDefault')}
               </p>
               {onUndoCancel ? (
                 <Button type="button" variant="ghost" size="sm" disabled={undoingCancel} onClick={onUndoCancel}>
-                  {undoingCancel ? 'يُرجَع…' : 'تراجع عن إيقاف التجديد'}
+                  {undoingCancel ? t('plans.undoing') : t('plans.undoCancelRenewal')}
                 </Button>
               ) : null}
             </div>
@@ -724,7 +753,7 @@ function AppCard({
               <p className="text-xs text-text-secondary">{switchPendingNote}</p>
               {onCancelSwitch ? (
                 <Button type="button" variant="ghost" size="sm" disabled={cancelingSwitch} onClick={onCancelSwitch}>
-                  {cancelingSwitch ? 'يُلغى…' : 'تراجع عن التبديل'}
+                  {cancelingSwitch ? t('plans.cancellingSwitch') : t('plans.undoSwitch')}
                 </Button>
               ) : null}
             </div>
@@ -734,12 +763,12 @@ function AppCard({
             // every other card. Colour is the fastest signal a glance reads; a destructive action
             // wearing the same tone as a neutral one is a colour that is not saying anything.
             <Button type="button" variant="danger" size="sm" disabled={canceling} onClick={onCancel}>
-              {canceling ? 'يُوقَف…' : (cancelLabel || 'إيقاف التجديد')}
+              {canceling ? t('plans.stopping') : (cancelLabel || t('plans.cancelRenewalDefault'))}
             </Button>
           ) : null
         ) : onSwitch ? (
           <Button type="button" variant="outline" disabled={busy || switching} onClick={onSwitch}>
-            {switching ? 'يُبدَّل…' : switchLabel}
+            {switching ? t('plans.switching') : switchLabel}
           </Button>
         ) : (
           // FULL WIDTH, LIKE THE CARD'S OWN «إيقاف التجديد» BUTTON BELOW IT — «أضِفه» is four
@@ -763,7 +792,7 @@ function AppCard({
             problem. */}
         {owned === null ? (
           <p className="mt-2 text-xs text-text-secondary">
-            {unreadNote || 'جارٍ التحقق من اشتراكك…'}
+            {unreadNote || t('plans.checkingSubscription')}
           </p>
         ) : null}
         {/* `plan.requires_any` — this shop holds none of the app(s) this plan needs yet. Said
@@ -781,15 +810,15 @@ function AppCard({
  *  gauge limit key, never guessed from its name. Falls back to a generic word rather than the raw
  *  machine key, matching `planLines`' own rule: a key we have no sentence for says nothing sooner
  *  than it says something wrong. */
-function capacityUnitWord(plan: Plan): string {
+function capacityUnitWord(plan: Plan, t: Translator): string {
   for (const [key, lim] of Object.entries(plan.limits ?? {})) {
     if (lim.kind === 'boolean') continue;
     if ((typeof lim.limit === 'number' && lim.limit > 0) || lim.limit === 'unlimited') {
-      const word = LIMIT_WORDS[key]?.unit;
-      if (word) return word;
+      const unitKey = LIMIT_KEYS[key]?.unit;
+      if (unitKey) return t(unitKey);
     }
   }
-  return 'وحدة';
+  return t('plans.genericUnit');
 }
 
 /**
@@ -821,8 +850,9 @@ function CapacityAddonCard({
   onChangeQuantity: (quantity: number) => void;
   onRemoveLast: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const price = monthly(plan);
-  const unit = capacityUnitWord(plan);
+  const unit = capacityUnitWord(plan, t);
   const qty = sub?.quantity ?? 0;
   const unitMinor = price?.amount_minor ?? 0;
   return (
@@ -830,25 +860,25 @@ function CapacityAddonCard({
       <h3 className="text-sm font-medium leading-tight">{plan.name}</h3>
       {unitMinor ? (
         <p className="text-xs text-text-secondary">
-          {riyals(unitMinor)} ريال / شهر لكل {unit}
+          {tf(t, 'plans.capacity.pricePerUnit', { price: riyals(unitMinor), unit })}
         </p>
       ) : null}
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
-        <div className="flex items-center gap-2" role="group" aria-label={`عدد ${plan.name}`}>
-          <Button type="button" variant="outline" size="sm" aria-label={`إنقاص ${unit}`}
+        <div className="flex items-center gap-2" role="group" aria-label={tf(t, 'plans.capacity.countAriaLabel', { name: plan.name })}>
+          <Button type="button" variant="outline" size="sm" aria-label={tf(t, 'plans.capacity.decreaseAriaLabel', { unit })}
                   disabled={busy || !sellable || qty === 0}
                   onClick={() => (qty > 1 ? onChangeQuantity(qty - 1) : onRemoveLast())}>
             <Minus size={14} />
           </Button>
           <span className="min-w-[1.5rem] text-center text-sm font-medium tabular-nums">{qty}</span>
-          <Button type="button" variant="outline" size="sm" aria-label={`زيادة ${unit}`}
+          <Button type="button" variant="outline" size="sm" aria-label={tf(t, 'plans.capacity.increaseAriaLabel', { unit })}
                   disabled={busy || !sellable}
                   onClick={() => (qty === 0 ? onBuyFirst() : onChangeQuantity(qty + 1))}>
             <Plus size={14} />
           </Button>
         </div>
         {qty > 0 && unitMinor ? (
-          <span className="text-sm font-semibold tabular-nums">{riyals(unitMinor * qty)} ريال</span>
+          <span className="text-sm font-semibold tabular-nums">{tf(t, 'plans.capacity.totalRiyals', { amount: riyals(unitMinor * qty) })}</span>
         ) : null}
       </div>
       {unreadNote ? <p className="text-xs text-text-secondary">{unreadNote}</p> : null}
@@ -870,6 +900,7 @@ export function PlansPane({
   /** Takes him to the connection pane. Passed in, because this pane does not own the navigation. */
   onGoConnect: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
   /** plan_id -> {percent, owning_key} — billing's own cross-app discount preview (v0.19.21),
    *  ownership-only, computed live, nothing charged. `{}` on a failed/empty read: no badge is a
@@ -1028,7 +1059,7 @@ export function PlansPane({
       setConfirmingCancel(false);
       load();
     } catch (e) {
-      setCancelError(e instanceof Error ? e.message : 'تعذّر إلغاء الاشتراك.');
+      setCancelError(e instanceof Error ? e.message : t('plans.error.cancelSubscription'));
     } finally {
       setCancelBusy(false);
     }
@@ -1083,7 +1114,7 @@ export function PlansPane({
       setConfirmingCancelApp(null);
       load();
     } catch (e) {
-      setAppCancelError(e instanceof Error ? e.message : 'تعذّر إيقاف تجديد التطبيق.');
+      setAppCancelError(e instanceof Error ? e.message : t('plans.error.cancelApp'));
     } finally {
       setCancelingAppId('');
     }
@@ -1109,19 +1140,17 @@ export function PlansPane({
         session, a, { id: baseSub.id, plan_id: confirmingChange.id });
       setConfirmingChange(null);
       if (out?.applied === 'scheduled_downgrade') {
-        setChangeNotice(
-          `سيتحول اشتراكك إلى «${confirmingChange.name}» عند نهاية الفترة الحالية، بالسعر الكامل ` +
-          'للفترة الجديدة — لن يُخصم أو يُضاف أي فرق قبل ذلك.');
+        setChangeNotice(tf(t, 'plans.notice.scheduledDowngrade', { name: confirmingChange.name }));
       } else {
         const d = out?.proration_minor;
         setChangeNotice(
           typeof d === 'number' && d > 0
-            ? `تم تبديل اشتراكك إلى «${confirmingChange.name}». حُصِّل ${riyals(d)} ريال فرق السعر لبقية هذه الفترة.`
-            : `تم تبديل اشتراكك إلى «${confirmingChange.name}».`);
+            ? tf(t, 'plans.notice.switchedWithProration', { name: confirmingChange.name, amount: riyals(d) })
+            : tf(t, 'plans.notice.switched', { name: confirmingChange.name }));
       }
       load();
     } catch (e) {
-      setChangeError(e instanceof Error ? e.message : 'تعذّر تبديل الاشتراك.');
+      setChangeError(e instanceof Error ? e.message : t('plans.error.changePlan'));
     } finally {
       setChangeBusy(false);
     }
@@ -1144,7 +1173,7 @@ export function PlansPane({
       await call(session, a, { id: sub.id, plan_id: plan.id, quantity });
       load();
     } catch (e) {
-      setCapacityError(e instanceof Error ? e.message : 'تعذّر تعديل العدد.');
+      setCapacityError(e instanceof Error ? e.message : t('plans.error.changeQuantity'));
     } finally {
       setCapacityBusyPlanId('');
     }
@@ -1161,7 +1190,7 @@ export function PlansPane({
       await call(session, a, { id: baseSub.id });
       load();
     } catch (e) {
-      setCancelSwitchError(e instanceof Error ? e.message : 'تعذّر التراجع عن التبديل.');
+      setCancelSwitchError(e instanceof Error ? e.message : t('plans.error.undoSwitch'));
     } finally {
       setCancelSwitchBusy(false);
     }
@@ -1180,7 +1209,7 @@ export function PlansPane({
       await call(session, a, { id: subId });
       load();
     } catch (e) {
-      setUndoCancelError(e instanceof Error ? e.message : 'تعذّر التراجع عن إيقاف التجديد.');
+      setUndoCancelError(e instanceof Error ? e.message : t('plans.error.undoCancelRenewal'));
     } finally {
       if (which === 'base') setUndoBaseCancelBusy(false); else setUndoingAppCancelId('');
     }
@@ -1236,7 +1265,7 @@ export function PlansPane({
       setCardFormPending(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر تفعيل الاشتراك.');
+      setError(e instanceof Error ? e.message : t('plans.error.activateSubscription'));
     } finally {
       setBusy(false);
     }
@@ -1252,10 +1281,10 @@ export function PlansPane({
     try {
       await call(session, a, { id: subscriptionId, payment_token });
       setCardFormPending(null);
-      setNotice('تم تحديث بطاقة الدفع.');
+      setNotice(t('plans.paymentMethodUpdated'));
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر تحديث البطاقة.');
+      setError(e instanceof Error ? e.message : t('plans.error.updateCard'));
     } finally {
       setBusy(false);
     }
@@ -1351,7 +1380,7 @@ export function PlansPane({
           past-due APP subscription is just as real a billing problem as a past-due base. */}
       {(subs ?? []).some((s) => s.status === 'past_due') ? (
         <div className="flex flex-col gap-2 rounded-card border border-danger/30 bg-danger-soft p-4">
-          <p className="text-sm text-danger">آخر محاولة سحب لم تنجح. حدّث بطاقتك حتى لا يتوقف اشتراكك.</p>
+          <p className="text-sm text-danger">{t('plans.pastDue.title')}</p>
           {/* «تحديث بطاقة الدفع» — audit #3's other half, the one that closes the involuntary-
               churn loop: `dunning_sweep` on the backend keeps retrying the SAME stored token
               forever, and this was the only way that token could ever change. Reachable only
@@ -1363,7 +1392,7 @@ export function PlansPane({
               <Button type="button" variant="danger" size="sm"
                       onClick={() => setCardFormPending({ kind: 'update_payment_method',
                                                           subscriptionId: baseSub.id })}>
-                تحديث بطاقة الدفع
+                {t('plans.updatePaymentMethod')}
               </Button>
             </div>
           ) : null}
@@ -1387,7 +1416,7 @@ export function PlansPane({
       ) : null}
 
       {resolvingReturn ? (
-        <p className="text-sm text-text-secondary">نتحقق من بطاقتك…</p>
+        <p className="text-sm text-text-secondary">{t('plans.verifyingCard')}</p>
       ) : null}
 
       {/* THE CONFIRMATION — never a silent press. He is ending a paid relationship, and the one
@@ -1401,31 +1430,32 @@ export function PlansPane({
           regardless of where its trigger sits. */}
       <Modal open={confirmingCancel && Boolean(baseSub)}
             onClose={() => { setConfirmingCancel(false); setCancelError(''); }}
-            title="تأكيد إيقاف تجديد الاشتراك">
+            title={t('plans.confirmCancelTitle')}>
         {baseSub ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-text-secondary">
               {renewalDay(baseSub.current_period_end)
-                ? `يستمر محلّك يعمل بلا أي تغيير حتى ${renewalDay(baseSub.current_period_end)}، ولن يتجدّد الاشتراك بعدها. لن نخصم منك شيئاً إضافياً.`
-                : 'يستمر محلّك يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد الاشتراك بعدها.'}
+                ? tf(t, 'plans.cancelBody.withDate', { date: renewalDay(baseSub.current_period_end) })
+                : t('plans.cancelBody.noDate')}
             </p>
             {/* NO APP SURVIVES ITS BASE — stated plainly, not discovered a month later on a
                 statement he did not expect. No app exists without the base under it, so cancelling
                 it takes every app with it, on the same schedule. */}
             {activeAppSubs.length > 0 ? (
               <p className="text-sm text-text-secondary">
-                يتوقف معه أيضاً: {activeAppSubs.map((s) => apps.find((p) => p.id === s.plan_id)?.name ?? 'تطبيق').join('، ')}
-                — على نفس الموعد.
+                {tf(t, 'plans.cancelBody.alsoStops', {
+                  names: activeAppSubs.map((s) => apps.find((p) => p.id === s.plan_id)?.name ?? t('plans.appFallback')).join('، '),
+                })}
               </p>
             ) : null}
             {cancelError ? <p className="text-sm text-danger">{cancelError}</p> : null}
             <div className="flex gap-2">
               <Button type="button" variant="danger" disabled={cancelBusy} onClick={() => void cancelBase()}>
-                تأكيد إيقاف التجديد
+                {t('plans.confirmCancelRenewal')}
               </Button>
               <Button type="button" variant="ghost" disabled={cancelBusy}
                       onClick={() => { setConfirmingCancel(false); setCancelError(''); }}>
-                تراجع
+                {t('plans.back')}
               </Button>
             </div>
           </div>
@@ -1437,15 +1467,15 @@ export function PlansPane({
           the exact date before anything happens. Same modal fix as the base's, above. */}
       <Modal open={Boolean(confirmingCancelApp)}
             onClose={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}
-            title={confirmingCancelApp ? `تأكيد إيقاف تجديد «${confirmingCancelApp.name}»` : ''}>
+            title={confirmingCancelApp ? tf(t, 'plans.confirmCancelAppTitle', { name: confirmingCancelApp.name }) : ''}>
         {confirmingCancelApp ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-text-secondary">
               {(() => {
                 const s = appSubs.concat(capacitySubs).find((x) => x.id === confirmingCancelApp.subId);
                 return renewalDay(s?.current_period_end)
-                  ? `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى ${renewalDay(s?.current_period_end)}، ولن يتجدّد بعدها. لن نخصم منك شيئاً إضافياً.`
-                  : `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد بعدها.`;
+                  ? tf(t, 'plans.cancelAppBody.withDate', { name: confirmingCancelApp.name, date: renewalDay(s?.current_period_end) })
+                  : tf(t, 'plans.cancelAppBody.noDate', { name: confirmingCancelApp.name });
               })()}
             </p>
             {/* THE CASCADE, SAID BEFORE HE PRESSES — never discovered after. برنامج النقاط/
@@ -1457,8 +1487,7 @@ export function PlansPane({
               const names = targets.map((p) => p.name).join('، ');
               return (
                 <p className="rounded-md bg-warning-soft p-3 text-sm text-warning-on-soft">
-                  محلك ما راح يملك تسجيل زيارة ولا الحجوزات بعد هذا — و{names} يعتمد عليهما،
-                  فيتوقف تجديدهم معه تلقائياً بنفس الشرط أعلاه.
+                  {tf(t, 'plans.cascadeWarning', { names })}
                 </p>
               );
             })()}
@@ -1466,11 +1495,11 @@ export function PlansPane({
             <div className="flex gap-2">
               <Button type="button" variant="danger" disabled={cancelingAppId === confirmingCancelApp.subId}
                       onClick={() => void cancelApp(confirmingCancelApp.subId)}>
-                تأكيد إيقاف التجديد
+                {t('plans.confirmCancelRenewal')}
               </Button>
               <Button type="button" variant="ghost" disabled={cancelingAppId === confirmingCancelApp.subId}
                       onClick={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}>
-                تراجع
+                {t('plans.back')}
               </Button>
             </div>
           </div>
@@ -1487,23 +1516,23 @@ export function PlansPane({
           guess: this is exactly what billing-service now does. */}
       <Modal open={Boolean(confirmingChange)}
             onClose={() => { setConfirmingChange(null); setChangeError(''); }}
-            title={confirmingChange ? `تأكيد التبديل إلى «${confirmingChange.name}»` : ''}>
+            title={confirmingChange ? tf(t, 'plans.confirmChangeTitle', { name: confirmingChange.name }) : ''}>
         {confirmingChange ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-text-secondary">
               {(monthly(confirmingChange)?.amount_minor ?? 0)
                 >= (baseSub ? monthly(bases.find((b) => b.id === baseSub.plan_id) ?? confirmingChange)?.amount_minor ?? 0 : 0)
-                ? 'حدود اشتراكك الجديد تسري فوراً، بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك.'
-                : 'يستمر اشتراكك الحالي كما هو حتى نهاية الفترة الحالية — لا يُخصم شيء الآن. عند التجديد القادم يبدأ سعر وحدود «' + confirmingChange.name + '».'}
+                ? t('plans.changeBody.upgrade')
+                : tf(t, 'plans.changeBody.downgrade', { name: confirmingChange.name })}
             </p>
             {changeError ? <p className="text-sm text-danger">{changeError}</p> : null}
             <div className="flex gap-2">
               <Button type="button" disabled={changeBusy} onClick={() => void changeBase()}>
-                تأكيد التبديل
+                {t('plans.confirmSwitch')}
               </Button>
               <Button type="button" variant="ghost" disabled={changeBusy}
                       onClick={() => { setConfirmingChange(null); setChangeError(''); }}>
-                تراجع
+                {t('plans.back')}
               </Button>
             </div>
           </div>
@@ -1512,9 +1541,9 @@ export function PlansPane({
 
       {changeNotice ? (
         <div className="rounded-card border border-success-soft bg-success-soft/40 p-5 shadow-sm">
-          <p className="mb-1 font-medium">تم التبديل ✓</p>
+          <p className="mb-1 font-medium">{t('plans.switched.title')}</p>
           <p className="mb-4 text-sm text-text-secondary">{changeNotice}</p>
-          <Button type="button" variant="ghost" onClick={() => setChangeNotice('')}>تمام</Button>
+          <Button type="button" variant="ghost" onClick={() => setChangeNotice('')}>{t('plans.ok')}</Button>
         </div>
       ) : null}
 
@@ -1526,25 +1555,25 @@ export function PlansPane({
           decides, read from the server, with no edit here and no rebuild. */}
       {pay?.enabled && !canMintToken ? (
         <div className="rounded-card border border-border-subtle bg-surface-2 p-5 text-center">
-          <p className="mb-1 font-medium">الدفع بالبطاقة قريباً</p>
+          <p className="mb-1 font-medium">{t('plans.cardSoon.title')}</p>
           <p className="text-sm text-text-secondary">{NO_CARD_FORM}</p>
         </div>
       ) : null}
 
       {pay && !pay.enabled && pay.message ? (
         <div className="rounded-card border border-border-subtle bg-surface-2 p-5 text-center">
-          <p className="mb-1 font-medium">الدفع مغلق مؤقتاً</p>
+          <p className="mb-1 font-medium">{t('plans.paymentClosed.title')}</p>
           <p className="text-sm text-text-secondary">{pay.message}</p>
         </div>
       ) : null}
 
       {notice ? (
         <div className="rounded-card border border-success-soft bg-success-soft/40 p-5 shadow-sm">
-          <p className="mb-1 font-medium">تم الاشتراك ✓</p>
+          <p className="mb-1 font-medium">{t('plans.subscribed.title')}</p>
           <p className="mb-4 text-sm text-text-secondary">{notice}</p>
           <div className="flex gap-2">
-            <Button type="button" onClick={onGoConnect}>اربط واتسابي الآن</Button>
-            <Button type="button" variant="ghost" onClick={() => setNotice('')}>لاحقاً</Button>
+            <Button type="button" onClick={onGoConnect}>{t('plans.connectWhatsappNow')}</Button>
+            <Button type="button" variant="ghost" onClick={() => setNotice('')}>{t('plans.later')}</Button>
           </div>
         </div>
       ) : null}
@@ -1573,7 +1602,7 @@ export function PlansPane({
           {bases.length ? (
             <section className="flex flex-col gap-2">
               <h2 className="flex items-center gap-1 text-sm text-text-secondary">
-                الاشتراك الأساسي
+                {t('plans.section.base')}
                 <AssistantHint anchor="store.baseSection" session={session} />
               </h2>
               <ul className="grid gap-3">
@@ -1616,19 +1645,14 @@ export function PlansPane({
                   // «متوقف» for every other status — including a brand-new, perfectly healthy
                   // trial subscription — while every app card beside it correctly read «مفعّل»
                   // off the entitlements roll-up instead. Named honestly now, one word per status.
-                  const statusLabel = isBaseSubRow
-                    ? (baseSub?.cancel_at_period_end ? 'قيد الإلغاء'
-                      : baseSub?.status === 'past_due' ? 'متأخر الدفع'
-                      : baseSub?.status === 'trialing' ? 'تجريبي'
-                      : baseSub?.status === 'paused' ? 'موقوف مؤقتاً'
-                      : baseSub?.status === 'active' ? 'فعّال' : 'متوقف')
-                    : undefined;
+                  const statusKey = isBaseSubRow ? baseStatusKey(baseSub) : undefined;
+                  const statusLabel = statusKey ? t(`plans.status.${statusKey}`) : undefined;
                   const statusTone = isBaseSubRow
-                    ? (baseSub?.cancel_at_period_end ? 'warning'
-                      : baseSub?.status === 'past_due' ? 'danger'
-                      : baseSub?.status === 'trialing' ? 'success'
-                      : baseSub?.status === 'paused' ? 'warning'
-                      : baseSub?.status === 'active' ? 'success' : 'warning')
+                    ? (statusKey === 'cancelling' ? 'warning'
+                      : statusKey === 'pastDue' ? 'danger'
+                      : statusKey === 'trialing' ? 'success'
+                      : statusKey === 'paused' ? 'warning'
+                      : statusKey === 'active' ? 'success' : 'warning')
                     : undefined;
                   // A SCHEDULED DOWNGRADE, NAMED (v0.16.33) - shown only on the card he still owns
                   // (the subscription he keeps, in full, until the switch happens), never on the target -
@@ -1649,25 +1673,26 @@ export function PlansPane({
                         sellable={Boolean(canSubscribe && pay?.enabled && canMintToken)}
                         onBuy={() => choose(p)}
                         unreadNote={unreadNote}
-                        ownedLabel="اشتراكك"
-                        buyLabel="فعّل الأساس"
+                        ownedLabel={t('plans.base.ownedLabel')}
+                        buyLabel={t('plans.base.buyLabel')}
                         onSwitch={canSwitchToThis ? () => setConfirmingChange(p) : undefined}
-                        switchLabel={isUpgrade ? 'بدّل إلى هذه' : 'جدولة التبديل عند التجديد'}
+                        switchLabel={isUpgrade ? t('plans.base.switchUpgrade') : t('plans.base.switchDowngrade')}
                         switching={changeBusy && confirmingChange?.id === p.id}
                         statusLabel={statusLabel}
+                        statusKey={statusKey}
                         statusTone={statusTone}
-                        cancelLabel="إيقاف تجديد الاشتراك"
+                        cancelLabel={t('plans.base.cancelLabel')}
                         onCancel={isBaseSubRow && action(catalog, 'billing.cancel')
                           ? () => setConfirmingCancel(true) : undefined}
                         cancelPending={isBaseSubRow && Boolean(baseSub?.cancel_at_period_end)}
                         cancelPendingNote={baseSub && renewalDay(baseSub.current_period_end)
-                          ? `اشتراكك يعمل حتى ${renewalDay(baseSub.current_period_end)} ولن يتجدّد بعدها.`
-                          : 'اشتراكك لن يتجدّد بعد نهاية الفترة الحالية.'}
+                          ? tf(t, 'plans.base.cancelPendingWithDate', { date: renewalDay(baseSub.current_period_end) })
+                          : t('plans.base.cancelPendingNoDate')}
                         canceling={cancelBusy}
                         switchPending={switchPending}
                         switchPendingNote={pendingPlan && renewalDay(baseSub?.current_period_end)
-                          ? `سيتحوّل إلى «${pendingPlan.name}» في ${renewalDay(baseSub?.current_period_end)}، بالسعر الكامل.`
-                          : pendingPlan ? `سيتحوّل إلى «${pendingPlan.name}» عند نهاية الفترة الحالية.` : undefined}
+                          ? tf(t, 'plans.base.switchPendingWithDate', { name: pendingPlan.name, date: renewalDay(baseSub?.current_period_end) })
+                          : pendingPlan ? tf(t, 'plans.base.switchPendingNoDate', { name: pendingPlan.name }) : undefined}
                         onCancelSwitch={switchPending && action(catalog, 'billing.cancel_scheduled_change')
                           ? () => void cancelScheduledChange() : undefined}
                         cancelingSwitch={cancelSwitchBusy}
@@ -1688,7 +1713,7 @@ export function PlansPane({
           {capacity.length ? (
             <section className="flex flex-col gap-2">
               <h2 className="flex items-center gap-1 text-sm text-text-secondary">
-                السعة
+                {t('plans.section.capacity')}
                 <AssistantHint anchor="store.capacitySection" session={session} />
               </h2>
               {capacityError ? <p className="text-sm text-danger">{capacityError}</p> : null}
@@ -1723,7 +1748,7 @@ export function PlansPane({
       {apps.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="flex items-center gap-1 text-sm text-text-secondary">
-            التطبيقات
+            {t('plans.section.apps')}
             <AssistantHint anchor="store.appsSection" session={session} />
           </h2>
           {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
@@ -1732,7 +1757,7 @@ export function PlansPane({
               app sold with no base at all, so the note beneath it is never shown and its own card
               stays purchasable regardless of `hasBase`. */}
           {hasBase === false && apps.some((p) => !isStandalone(p)) ? (
-            <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
+            <p className="text-sm text-text-secondary">{t('plans.needsBaseFirst')}</p>
           ) : null}
           {/* CAPPED AT 3 ACROSS, NEVER 4 (owner's own instruction, 2026-09-11) — same reasoning
               PlanCards.tsx's own grid already held (`sm:grid-cols-2 xl:grid-cols-3`): a fourth
@@ -1748,7 +1773,7 @@ export function PlansPane({
               // subscription defaults to "trialing" the same way the base's does; without this
               // it read as the same flat «مفعّل» a fully-paying app gets, which is a different
               // fact he needs to know before the trial ends and the first real charge lands.
-              const appStatusLabel = appSub?.status === 'trialing' ? 'تجريبي' : undefined;
+              const appStatusLabel = appSub?.status === 'trialing' ? t('plans.status.trialing') : undefined;
               // `plan.requires_any` — an INDEPENDENT gate from the base-required rule just above:
               // an app can need both. Empty when the plan declares no dependency, when the read
               // has not settled, or when the dependency is already satisfied.
@@ -1769,12 +1794,13 @@ export function PlansPane({
                     onBuy={() => choose(p)}
                     unreadNote={unreadNote}
                     lockedNote={lockedNote}
-                    ownedLabel="مفعّل"
+                    ownedLabel={t('plans.app.ownedLabel')}
                     statusLabel={appStatusLabel}
+                    statusKey={appSub?.status === 'trialing' ? 'trialing' : undefined}
                     statusTone={appStatusLabel ? 'success' : undefined}
-                    buyLabel="أضِفه"
+                    buyLabel={t('plans.app.buyLabel')}
                     renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}
-                    cancelLabel="إيقاف تجديد هذا التطبيق"
+                    cancelLabel={t('plans.app.cancelLabel')}
                     cancelPending={appSub?.cancel_at_period_end}
                     onCancel={appSub && action(catalog, 'billing.cancel')
                       ? () => setConfirmingCancelApp({ subId: appSub.id, name: p.name }) : undefined}
