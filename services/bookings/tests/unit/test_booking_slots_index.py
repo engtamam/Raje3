@@ -93,3 +93,24 @@ def test_slots_between_hydrates_with_one_batched_read_not_one_per_row():
     # AND THE ORDER SURVIVES THE BATCH — the index's own bucket/created ordering, not whatever
     # order a dict happens to iterate keys in.
     assert [b.id for b in rows] == [f"bkg_{i}" for i in range(5)]
+
+
+def test_slots_between_still_finds_a_current_range_past_500_older_rows():
+    """bookings-001 (QA audit, 2026-09-12): a single unbounded `find(limit=500, sort=bucket asc)`
+    with no `after` cursor returned only a branch's OLDEST 500 slot rows — so a branch with more
+    history than that answered "no conflict" for its own current/future date range no matter how
+    full it actually was, which is the one re-check the whole double-booking design relies on.
+    600 old rows (all on 2026-01-01, well before the window asked for) plus one real row on
+    2026-08-16 — the old code would drop the 2026-08-16 row from the very first page."""
+    async def run():
+        store = MemoryDataStore()
+        bookings = BookingStore(store)
+        for i in range(600):
+            await bookings.save(_booking(id=f"old_{i}", starts_at=1735689600 + i))  # 2025-01-01, ascending
+        await bookings.save(_booking(id="bkg_real", starts_at=1786860000))          # 2026-08-16
+        return await bookings.slots_between("t1", "b1", start_bucket="2026-08-16",
+                                            end_bucket="2026-08-16")
+
+    rows = asyncio.run(run())
+    assert [b.id for b in rows] == ["bkg_real"], (
+        "the real, in-range row must be found even with 600 older rows ahead of it in the index")

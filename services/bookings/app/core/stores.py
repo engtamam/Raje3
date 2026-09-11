@@ -161,11 +161,36 @@ class BookingStore:
 
         Day buckets are ISO date strings, so lexical comparison IS date comparison — no parsing
         needed to filter the range.
+
+        PAGES THROUGH THE WHOLE INDEX, THE SAME WAY `counts_between` ALREADY DOES — a single
+        unbounded page here (`limit=500`, no `after` cursor) used to return only a branch's
+        OLDEST 500 slot rows, because `find()`'s own sort is ascending on `bucket` and there was
+        no server-side range predicate to narrow it (the store has no `>=`/`<=` operator — see
+        `ports/datastore.py`). A branch past 500 booking_slots rows therefore answered "no
+        conflict" for its own current/future date range no matter how full it actually was — this
+        is `_refuse_if_conflicting`'s ONE re-check, so that silent miss let genuinely overlapping
+        bookings through with zero refusal (found in a QA audit, 2026-09-12). Stops the moment a
+        page's rows run past `end_bucket` — ascending order means nothing after that point can
+        still match, so this does not have to drain a branch's entire history to answer "this
+        week".
         """
-        rows, _ = await self._s.find(
-            BOOKING_SLOTS, {"tenant": tenant, "branch_id": branch_id}, limit=limit,
-            sort=("bucket", "asc"))
-        wanted = [r for r in rows if start_bucket <= str(r.get("bucket") or "") <= end_bucket]
+        wanted: list[dict[str, Any]] = []
+        after: str | None = None
+        while True:
+            rows, after = await self._s.find(
+                BOOKING_SLOTS, {"tenant": tenant, "branch_id": branch_id}, limit=500,
+                after=after, sort=("bucket", "asc"))
+            past_range = False
+            for row in rows:
+                bucket = str(row.get("bucket") or "")
+                if bucket > end_bucket:
+                    past_range = True
+                    break
+                if bucket >= start_bucket:
+                    wanted.append(row)
+            if past_range or not after:
+                break
+        wanted = wanted[:limit]
         # ONE BATCHED READ, NOT ONE `get()` PER SLOT. `nearest_slot` calls this with `limit=500`
         # over up to a 14-day window, and a sequential `get()` per row meant up to 500 awaited
         # Postgres round trips to answer one "أقرب موعد" click. `get_many` keeps the ids in the

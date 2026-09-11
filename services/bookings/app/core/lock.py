@@ -13,6 +13,16 @@ operator must contend for the SAME lane, or the lock is decoration for the race 
 guard. Per-OPERATOR, not per-branch, deliberately: two different staff at the same branch in the
 same minute do not contend.
 
+EVERY BUCKET THE BOOKING'S OWN DURATION SPANS, NOT JUST ITS START — fixed 2026-09-12, a real race
+found by a QA audit. A booking used to claim ONLY its start-time bucket, so a 60-minute service
+starting 10:00 (bucket 10:00) and a second one for the SAME operator starting 10:20 (bucket
+10:15) acquired two DIFFERENT lanes and never contended, even though 10:00-11:00 and 10:20-11:20
+genuinely overlap — `_refuse_if_conflicting`, the only re-check, then ran unserialised in each
+lane and could let both succeed. `claiming()` now claims one lane per 15-minute bucket the
+booking's `[starts_at, starts_at + duration)` span touches, in ascending order (so two callers
+that overlap always contend on their FIRST shared bucket rather than deadlocking on their
+second), and only proceeds once every one of them is held.
+
 THE TWO-STEP SEQUENCE (§2): a fast advisory read from `booking_slots` BEFORE the lock is what
 lets the grid paint live colour while dragging, with no network wait. The lock itself is taken
 only at drop/confirm, and re-checks for REAL conflict inside — the first read was advisory only.
@@ -41,19 +51,46 @@ def starts_at_bucket(starts_at: int) -> int:
     return int(starts_at) - (int(starts_at) % BUCKET_SECONDS)
 
 
+def _span_buckets(starts_at: int, duration_minutes: int) -> list[int]:
+    """Every 15-minute bucket `[starts_at, starts_at + duration_minutes*60)` touches, ascending.
+    Two overlapping real-time spans ALWAYS share at least one bucket once both are quantised to
+    the same grain — this is the whole reason the fix in the module doc works: a real conflict can
+    no longer land in two lanes that never meet.
+
+    `duration_minutes <= 0` still claims exactly one bucket (its own start) — never zero lanes for
+    a degenerate booking; `_refuse_if_conflicting` already treats duration as at least a point in
+    time, and a lock with nothing to claim would be no lock at all.
+    """
+    starts_at = int(starts_at)
+    end = starts_at + max(1, int(duration_minutes) * 60)
+    first, last = starts_at_bucket(starts_at), starts_at_bucket(end - 1)
+    return list(range(first, last + 1, BUCKET_SECONDS))
+
+
 @_contextlib.asynccontextmanager
 async def claiming(datastore: Any, *, tenant: str, branch_id: str, operator_id: str,
-                   starts_at: int, now: float) -> Any:
-    """Hold this operator's booking lane for one confirm. See the module doc for why this exists
-    and why it is per-operator, not per-branch."""
-    lane = f"{tenant}:{branch_id}:{operator_id}:{starts_at_bucket(starts_at)}"
-    if not await datastore.claim(CLAIMS, lane, {"tenant": tenant, "branch_id": branch_id,
-                                                "operator_id": operator_id},
-                                 ttl_seconds=CLAIM_TTL_SECONDS, now=now):
-        raise SlotClaimBusy("تعذّر الحجز — هذا الموعد أصبح محجوزاً، اختر وقتاً آخر")
+                   starts_at: int, duration_minutes: int, now: float) -> Any:
+    """Hold every 15-minute lane this operator's booking spans, for one confirm — see the module
+    doc for why this exists, why it is per-operator not per-branch, and why one lane (the start
+    bucket alone) was not enough."""
+    lanes = [f"{tenant}:{branch_id}:{operator_id}:{b}" for b in _span_buckets(starts_at, duration_minutes)]
+    claimed: list[str] = []
     try:
+        # ASCENDING ORDER, ALWAYS — the same order `_span_buckets` always returns for any two
+        # spans, so two overlapping bookings acquire their shared buckets in the same sequence and
+        # the second one blocks (or fails) on the first shared lane rather than each holding a
+        # different bucket and deadlocking on the other's second.
+        for lane in lanes:
+            if not await datastore.claim(CLAIMS, lane, {"tenant": tenant, "branch_id": branch_id,
+                                                        "operator_id": operator_id},
+                                         ttl_seconds=CLAIM_TTL_SECONDS, now=now):
+                raise SlotClaimBusy("تعذّر الحجز — هذا الموعد أصبح محجوزاً، اختر وقتاً آخر")
+            claimed.append(lane)
         yield
     finally:
         # RELEASED, AND THE TTL IS THE BACKSTOP — a delete that fails (or a pod killed mid-claim)
-        # leaves the lane held for CLAIM_TTL_SECONDS and no longer.
-        await datastore.delete(CLAIMS, lane)
+        # leaves each lane held for CLAIM_TTL_SECONDS and no longer. Only the lanes this call
+        # actually claimed are released — a failed claim partway through must not delete a lane
+        # some OTHER caller is holding.
+        for lane in claimed:
+            await datastore.delete(CLAIMS, lane)

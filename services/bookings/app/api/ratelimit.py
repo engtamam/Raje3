@@ -10,6 +10,8 @@
 # =============================================================================
 from __future__ import annotations
 
+import hashlib
+
 from fastapi import Depends, HTTPException, Request, Response, status
 
 from app.api.auth import Principal, _extract_principal
@@ -66,6 +68,16 @@ async def optional_principal(request: Request) -> "Principal | None":
     try:
         claims = request.app.state.container.token_verifier.verify(token)
     except Exception:
+        # A TOKEN WAS PRESENT AND REJECTED — a different case from no token at all (a genuinely
+        # anonymous request against an unauthenticated route), yet both used to collapse into the
+        # same plain `None` -> IP-only bucket (a QA audit found this, 2026-09-12): every caller
+        # behind one NAT sending a malformed or expired token shared ONE counter instead of one
+        # each. Keyed apart by the rejected token's own hash — never the token itself, this is a
+        # rate-limit bucket key, not a credential — so garbage tokens from different callers no
+        # longer spend each other's shared IP budget. The request is still correctly 401'd
+        # afterward by whichever auth dependency the route actually uses; this only changes which
+        # counter it was rate-limited against on the way there.
+        request.state.rl_bad_token_key = hashlib.sha256(token.encode()).hexdigest()[:16]
         return None
     return _extract_principal(claims)
 
@@ -75,7 +87,10 @@ async def rate_limit(request: Request, response: Response,
     limiter = request.app.state.container.rate_limiter
     policy = _policy(request)
     cls = policy.classify(request.url.path)
-    subject = getattr(principal, "subject", None) if principal else None
+    # A REJECTED-BUT-PRESENT TOKEN KEYS BY ITS OWN HASH, NOT BY IP — see `optional_principal`'s
+    # own comment on the exact request this closes.
+    subject = (getattr(principal, "subject", None) if principal
+              else getattr(request.state, "rl_bad_token_key", None))
     tenant = getattr(principal, "tenant", None) if principal else None
     ip = request.client.host if request.client else None
     key = policy.key(cls, subject=subject, ip=ip, tenant=tenant)

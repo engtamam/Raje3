@@ -930,7 +930,8 @@ class BookingOperations:
         `save()` always did.
         """
         async with claiming(self._store, tenant=booking.tenant, branch_id=booking.branch_id,
-                            operator_id=booking.operator_id, starts_at=booking.starts_at, now=now):
+                            operator_id=booking.operator_id, starts_at=booking.starts_at,
+                            duration_minutes=booking.duration_minutes, now=now):
             await self._refuse_if_conflicting(booking)
             return await self._bookings.save_if_unchanged(booking, expected_rev=booking.rev)
 

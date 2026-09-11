@@ -88,6 +88,34 @@ def test_only_one_of_two_simultaneous_bookings_wins():
     assert str(refused[0]).strip(), "an empty message is a 500 wearing a status code"
 
 
+def test_staggered_but_overlapping_starts_still_contend_for_the_same_operator():
+    """THE RACE bookings-002 (QA audit, 2026-09-12) found: two starts a full 15-minute BUCKET
+    apart used to claim two different lock lanes and never contend, even though a 30-minute
+    service starting at each genuinely overlaps for 10 minutes. `svc1` is 30 minutes long
+    (`_lookup` above), so [+0min, +30min) and [+20min, +50min) really do collide — this must
+    refuse the second exactly like the same-bucket case above, not let both through."""
+    async def run():
+        store = _SlowStore(MemoryDataStore())
+        ops = _ops(store)
+        out = await asyncio.gather(
+            ops.create(tenant="t1", branch_id="b1", operator_id="op1", customer_id="c1",
+                      service_ids=["svc1"], starts_at=1786860000),
+            ops.create(tenant="t1", branch_id="b1", operator_id="op1", customer_id="c2",
+                      service_ids=["svc1"], starts_at=1786860000 + 20 * 60),   # different 15-min
+                                                                              # bucket, same operator,
+                                                                              # genuinely overlapping
+            return_exceptions=True)
+        created = [o for o in out if not isinstance(o, Exception)]
+        refused = [o for o in out if isinstance(o, Exception)]
+        return created, refused
+
+    created, refused = asyncio.run(run())
+
+    assert len(created) == 1, "staggered but overlapping bookings for one operator both succeeded"
+    assert len(refused) == 1, "the loser must be told, not silently dropped"
+    assert isinstance(refused[0], (SlotClaimBusy, OperationError))
+
+
 def test_different_operators_do_not_queue_behind_each_other():
     """ONE LANE PER OPERATOR — a lock shared across staff would refuse a booking for operator B
     because operator A's slot is being confirmed at the same instant."""
