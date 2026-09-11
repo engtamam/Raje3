@@ -182,11 +182,10 @@ async def subscribe(request: Request, body: SubscribeIn,
                      "message": "تعذّر التحقق من اشتراكك الحالي. أعد المحاولة بعد قليل — "
                                 "لم يُخصم شيء."})
     if plan_limits is not None and rows is not None:
-        addition = may_add(plan_limits=plan_limits, held=held_keys(rows),
-                           has_base=any(is_base(r.get("limits_snapshot")) for r in rows),
-                           standalone_plans_enabled=getattr(
-                               request.app.state.container_settings,
-                               "STANDALONE_PLANS_ENABLED", True))
+        # الأساس RETIRED (2026-09-10) — `may_add` no longer takes `has_base`/
+        # `standalone_plans_enabled`; every app stands on its own, gated only by
+        # `plan.requires_any` (checked inside `may_add` itself) and duplicate-purchase.
+        addition = may_add(plan_limits=plan_limits, held=held_keys(rows))
         if not addition.allowed:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT,
                                 content={"error": "ALREADY_SUBSCRIBED",

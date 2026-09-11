@@ -1,12 +1,14 @@
-"""One base per shop, and an app bought once.
+"""An app bought once, and a dependency honoured when the plan declares one.
 
 NEITHER RULE IS EXPRESSIBLE IN BILLING, which is why they are ours. `subscribe` always creates a
-row — it has no notion of "one base per tenant" or "you already own this", because neither is true
-of every product built on the platform.
+row — it has no notion of "you already own this" or "this needs that other app first", because
+neither is true of every product built on the platform.
 
-AND THE FIRST ONE IS NOT ABOUT DOUBLE CHARGING. Entitlements MERGE across live subscriptions and
-numbers SUM, so two bases make `messages.monthly` -1 + -1 = -2: «unlimited» silently becomes a
-number that means nothing, and the meter that exists to catch our own runaway loop is gone.
+الأساس RETIRED (2026-09-10, plans.json's own header note) — this file used to also pin "one base
+per shop" and "an app needs a base underneath it"; both rules were removed from `may_add` along
+with the concept they gated, since no plan row carries `messages.monthly` any more and `is_base`
+can never be true against real seed data. `is_base`/`is_standalone` stay tested here as PURE
+READERS (still real, still used elsewhere) — only the purchase-time base gate itself is gone.
 """
 from __future__ import annotations
 
@@ -71,52 +73,36 @@ def test_what_a_shop_holds_is_the_union_of_its_own_snapshots():
     assert held_keys(None) == set()
 
 
-# ── the base ──────────────────────────────────────────────────────────────────────────────────
-def test_a_first_base_is_allowed():
-    assert may_add(plan_limits=BASE, held=set(), has_base=False).allowed is True
-
-
-def test_a_second_base_is_refused_because_it_breaks_the_message_meter():
-    d = may_add(plan_limits=BASE, held=set(), has_base=True)
-    assert d.allowed is False
-    # The sentence points at the action that helps — changing the subscription he has.
-    assert "اشتراك" in d.reason
-
-
-# ── the apps ──────────────────────────────────────────────────────────────────────────────────
-def test_an_app_needs_a_base_under_it():
-    """Otherwise he pays for campaigns with no product to run them in — no meter, no seats, no
-    branch — and billing would take the money."""
-    d = may_add(plan_limits=CAMPAIGNS, held=set(), has_base=False)
-    assert d.allowed is False and "الأساس" in d.reason
-
-
-def test_an_app_on_a_base_is_allowed():
-    assert may_add(plan_limits=CAMPAIGNS, held=set(), has_base=True).allowed is True
+# ── the apps — no base underneath any of them any more ──────────────────────────────────────────
+def test_an_app_needs_no_base_any_more():
+    """CONFIRMED FIX (2026-09-11) — `may_add` used to refuse this unconditionally (`has_base`
+    could never be true against real seed data once الأساس was retired, so every app without its
+    own `plan.standalone` marker was unsellable). Every app stands on its own now."""
+    assert may_add(plan_limits=CAMPAIGNS, held=set()).allowed is True
 
 
 def test_the_same_app_is_not_sold_twice():
     """Two invoices for one thing, every month, until somebody notices."""
-    d = may_add(plan_limits=CAMPAIGNS, held={"feature.campaigns"}, has_base=True)
+    d = may_add(plan_limits=CAMPAIGNS, held={"feature.campaigns"})
     assert d.allowed is False and "مفعّل" in d.reason
 
 
 def test_holding_a_different_app_does_not_block_this_one():
-    assert may_add(plan_limits=CAMPAIGNS, held={"feature.loyalty"}, has_base=True).allowed is True
+    assert may_add(plan_limits=CAMPAIGNS, held={"feature.loyalty"}).allowed is True
 
 
 # ── capacity ──────────────────────────────────────────────────────────────────────────────────
 def test_a_capacity_pack_may_be_bought_again_and_again():
     """It is HOW a shop gets twenty more seats. The duplicate rule is about apps, and refusing
     this would be refusing the sale."""
-    assert may_add(plan_limits=SEATS, held={"feature.campaigns"}, has_base=True).allowed is True
+    assert may_add(plan_limits=SEATS, held={"feature.campaigns"}).allowed is True
 
 
-def test_a_capacity_pack_still_needs_a_base():
-    assert may_add(plan_limits=SEATS, held=set(), has_base=False).allowed is False
+def test_a_capacity_pack_needs_no_base_either():
+    assert may_add(plan_limits=SEATS, held=set()).allowed is True
 
 
-# ── the one app sold without a base underneath it ──────────────────────────────────────────────
+# ── `plan.standalone` — still readable, no longer decides anything in `may_add` ─────────────────
 def test_is_standalone_reads_the_plans_own_marker():
     assert is_standalone(WHATSAPP_STANDALONE) is True
     assert is_standalone(CAMPAIGNS) is False
@@ -128,27 +114,13 @@ def test_a_declared_zero_standalone_marker_is_not_standalone():
     assert is_standalone({"plan.standalone": {"kind": "boolean", "limit": 0}}) is False
 
 
-def test_a_standalone_plan_may_be_bought_with_no_base_at_all():
-    d = may_add(plan_limits=WHATSAPP_STANDALONE, held=set(), has_base=False)
-    assert d.allowed is True
+def test_a_standalone_plan_may_still_be_bought():
+    assert may_add(plan_limits=WHATSAPP_STANDALONE, held=set()).allowed is True
 
 
 def test_a_standalone_plan_still_refuses_a_second_copy():
-    d = may_add(plan_limits=WHATSAPP_STANDALONE, held={"feature.whatsapp"}, has_base=False)
+    d = may_add(plan_limits=WHATSAPP_STANDALONE, held={"feature.whatsapp"})
     assert d.allowed is False and "مفعّل" in d.reason
-
-
-def test_the_kill_switch_makes_a_standalone_plan_need_a_base_too():
-    """STANDALONE_PLANS_ENABLED=False — existing subscribers are untouched by this test's own
-    scope (it is a pure purchase-eligibility function); only a NEW purchase is refused."""
-    d = may_add(plan_limits=WHATSAPP_STANDALONE, held=set(), has_base=False,
-               standalone_plans_enabled=False)
-    assert d.allowed is False and "الأساس" in d.reason
-
-
-def test_an_ordinary_app_is_unaffected_by_the_standalone_marker_being_absent():
-    """No regression: a plan with no `plan.standalone` key at all behaves exactly as before."""
-    assert may_add(plan_limits=CAMPAIGNS, held=set(), has_base=False).allowed is False
 
 
 # ── `plan.requires_any` — نقاطي needs a touchpoint app first ───────────────────────────────────
@@ -157,30 +129,23 @@ LOYALTY = {"feature.loyalty": {"kind": "boolean", "limit": 1},
 
 
 def test_requires_any_refuses_with_neither_dependency_held():
-    d = may_add(plan_limits=LOYALTY, held=set(), has_base=True)
+    d = may_add(plan_limits=LOYALTY, held=set())
     assert d.allowed is False
     assert "تسجيل زيارة" in d.reason and "الحجوزات" in d.reason
 
 
 def test_requires_any_allows_with_only_visit_held():
-    d = may_add(plan_limits=LOYALTY, held={"feature.visit"}, has_base=True)
+    d = may_add(plan_limits=LOYALTY, held={"feature.visit"})
     assert d.allowed is True
 
 
 def test_requires_any_allows_with_only_bookings_held():
-    d = may_add(plan_limits=LOYALTY, held={"feature.bookings"}, has_base=True)
+    d = may_add(plan_limits=LOYALTY, held={"feature.bookings"})
     assert d.allowed is True
-
-
-def test_requires_any_still_refuses_with_neither_even_when_a_base_is_held():
-    """AN INDEPENDENT GATE, NOT A SUBSTITUTE FOR THE BASE RULE. Holding a base satisfies the
-    base-required rule but not this one — the two are separate checks and both must pass."""
-    d = may_add(plan_limits=LOYALTY, held={"feature.campaigns"}, has_base=True)
-    assert d.allowed is False
 
 
 def test_a_plan_with_no_requires_any_is_completely_unaffected():
     """REGRESSION CHECK. Every existing app with no `plan.requires_any` key behaves exactly as
-    before — the new gate never fires for it."""
-    d = may_add(plan_limits=CAMPAIGNS, held=set(), has_base=True)
+    before — the gate never fires for it."""
+    d = may_add(plan_limits=CAMPAIGNS, held=set())
     assert d.allowed is True

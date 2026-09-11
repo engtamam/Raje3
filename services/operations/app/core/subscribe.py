@@ -195,27 +195,18 @@ def requires_any(plan_limits: dict[str, Any] | None) -> list[str]:
     return []
 
 
-def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: bool,
-           standalone_plans_enabled: bool = True) -> Decision:
+def may_add(*, plan_limits: dict[str, Any] | None, held: set[str]) -> Decision:
     """May this establishment buy THIS plan, given what it already holds?
 
-    NEITHER RULE IS EXPRESSIBLE IN BILLING, and that is why they are here. `subscribe` always
-    creates a row: it has no notion of "one base per tenant" and no notion of "you already own
-    this app", because neither is true of every product built on the platform. Ours are:
+    الأساس RETIRED (2026-09-10, plans.json's own header note) — every real capability now has its
+    own separately-priced app, and no plan row carries `messages.monthly` any more. `has_base`/
+    `standalone_plans_enabled` used to gate every purchase here ("an app needs a base underneath
+    it") and are GONE FROM THIS SIGNATURE, not just unused — the concept they served no longer
+    exists, and carrying dead parameters only invites the next reader to wire one back in. What
+    this function still enforces:
 
-    A SECOND BASE IS A BROKEN METER, not just a double charge. Entitlements MERGE across live
-    subscriptions and numbers SUM, so two bases make `messages.monthly` -1 + -1 = -2 — and
-    "unlimited" quietly becomes a number that means nothing. The owner would see two invoices; the
-    engine would see a ceiling nobody wrote.
-
-    AN APP WITHOUT A BASE is a shop paying for campaigns with no product to run them in: no
-    message meter, no seats, no branch. Billing would take the money. **UNLESS THE PLAN ITSELF
-    SAYS OTHERWISE** (`plan.standalone`, e.g. "واتساب الذكي (مستقل)") — a small, explicit,
-    data-driven exemption rather than a plan name hardcoded here, so a second standalone product
-    later needs only a new plans.json row, not a second edit to this file. Gated on
-    `standalone_plans_enabled` (operations/app/config.py's `STANDALONE_PLANS_ENABLED`) so selling
-    every standalone plan can be paused at once without touching plans.json — existing
-    subscribers are unaffected, only new purchases are refused while it is off.
+    A DEPENDENCY, WHEN THE PLAN DECLARES ONE (`plan.requires_any`, e.g. نقاطي needs a real
+    touchpoint app first) — data-driven off the CANDIDATE plan's own row, checked below.
 
     AND AN APP BOUGHT TWICE is two invoices for one thing, every month, until somebody notices.
     Capacity packs are deliberately NOT covered by that rule — buying a second seat pack is how a
@@ -225,23 +216,10 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: boo
     """
     grants = granted_keys(plan_limits)
 
-    # AN INDEPENDENT, ADDITIONAL GATE — NOT A REPLACEMENT FOR THE BASE-REQUIRED RULE BELOW. An
-    # app can need both a base-equivalent AND a specific sibling app (loyalty needs الأساس, and
-    # loyalty ALSO needs something that actually earns a point), so this is checked regardless of
-    # `has_base`/`is_standalone` and does not return early out of their branches.
     dependency = requires_any(plan_limits)
     if dependency and not (set(dependency) & held):
         names = " أو ".join(_REQUIRES_ANY_LABELS.get(k, k) for k in dependency)
         return Decision(False, reason=f"هذا التطبيق يحتاج تفعيل {names} أولاً.")
-
-    if is_base(plan_limits):
-        if has_base:
-            return Decision(False, reason="عندك اشتراك أساسي فعّال. لتغييره، عدّل اشتراكك الحالي "
-                                          "بدل شراء اشتراك ثانٍ.")
-        return Decision(True)
-
-    if not has_base and not (standalone_plans_enabled and is_standalone(plan_limits)):
-        return Decision(False, reason="التطبيقات تُضاف إلى الاشتراك الأساسي — فعّل الأساس أولاً.")
 
     already = sorted(grants & held)
     if already:

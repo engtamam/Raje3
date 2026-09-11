@@ -624,28 +624,19 @@ def _holding(client, plans, rows):
     return plans
 
 
-def test_a_second_base_is_refused_before_billing_is_touched(client):
-    """NOT ABOUT DOUBLE CHARGING. Entitlements merge and numbers SUM, so two bases make
-    `messages.monthly` -1 + -1 = -2 — «unlimited» becomes a number that means nothing, and the
-    meter that catches our own runaway loop is gone."""
-    plans = _wire(client, connected=True, trial=0, limits=_BASE_LIMITS)
-    _holding(client, plans, [{"limits_snapshot": _BASE_LIMITS}])
-    r = client.post("/api/v1/subscription",
-                    json={"plan_id": "plan_base", "payment_token": "tok_1"},
-                    headers=_auth("billing.self", tenant="t1"))
-    assert r.status_code == 409
-    assert r.json()["message"]
-    assert plans.subscribed == [], "nothing may reach billing when the pair is impossible"
-
-
-def test_an_app_without_a_base_is_refused(client):
+def test_an_app_needs_no_base_any_more(client):
+    """CONFIRMED FIX (2026-09-11) — الأساس was retired from plans.json (2026-09-10) but
+    `may_add`'s own base-required gate was left in place, and since no plan row anywhere still
+    carries `messages.monthly`, `has_base` could never be true again: every app without its own
+    `plan.standalone` marker had become permanently unsellable. Caught here at the real route,
+    not just in `test_may_add.py`'s own unit tests."""
     plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
     _holding(client, plans, [])
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
-    assert r.status_code == 409 and "الأساس" in r.json()["message"]
-    assert plans.subscribed == []
+    assert r.status_code == 201
+    assert plans.subscribed == [("t1", "plan_campaigns", "month")]
 
 
 def test_the_same_app_is_not_sold_twice(client):
