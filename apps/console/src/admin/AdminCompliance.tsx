@@ -24,6 +24,15 @@ const FOUND_NOTE = 'التبويبات أدناه مصفّاة الآن على �
 
 type TabId = 'legal_hold' | 'dsar' | 'consent' | 'data_targets' | 'ropa' | 'breach';
 
+/** TABS THAT SCOPE BY `tenant` — without a searched customer, the list defaults to the
+ *  OPERATOR'S OWN token tenant (compliance.py's own `_tenant(principal, tenant)`), which for a
+ *  PLATFORM operator is a literal `_platform` tenant no real shop ever holds. A request that
+ *  genuinely arrived (a real "201 Created" in compliance-service's own log, confirmed live for the
+ *  owner's own report) then reads back as "لا نتائج" with nothing explaining why — indistinguishable
+ *  from the request never having arrived at all. Named here once so the hint below and any future
+ *  reader agree on exactly which tabs this applies to. */
+const TENANT_SCOPED_TABS = new Set<TabId>(['legal_hold', 'dsar']);
+
 const TABS: { id: TabId; label: string; hint: string }[] = [
   { id: 'legal_hold', label: 'حظر الحذف',
     hint: 'حسابات يُمنع تنفيذ طلب حذفها الآن — لأسباب قانونية أو نزاع قائم' },
@@ -113,6 +122,16 @@ export function AdminCompliance({ session }: { session: AdminSession }) {
         options={visibleTabs.map((t) => ({ value: t.id, label: t.label }))}
       />
       <p className="text-sm text-text-secondary">{active.hint}</p>
+
+      {/* WITHOUT THIS, «لا نتائج» READS AS «الطلب ما وصل» — and it did arrive; it is just scoped
+          to your own operator tenant until you search. Shown ONLY on the two tabs that actually
+          scope this way, and only before a search narrows them. */}
+      {TENANT_SCOPED_TABS.has(realActive) && !foundCustomer ? (
+        <p className="rounded-card bg-warning-soft px-3 py-2 text-sm text-warning-on-soft">
+          القائمة أدناه تعرض طلبات منشأتك أنت فقط حتى الآن — ابحث عن العميل برقم جواله أعلاه لعرض
+          طلبات منشأته هو، حتى لو وصلك أنه أرسل طلباً فعلاً ولا تراه هنا.
+        </p>
+      ) : null}
 
       {listAction ? (
         <ActionListGroup session={session} listAction={listAction} rowActions={rowActions}
