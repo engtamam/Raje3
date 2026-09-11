@@ -44,7 +44,7 @@ import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
 import { FlowPreviewModal } from './FlowPreview';
 import { APP_ROWS, owns, type Owned } from '../apps';
-import { action, call, type Catalog } from '../catalog';
+import { action, call, type Action, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 
@@ -539,11 +539,16 @@ export function MessagesScreen(
   const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>(
     params.get('tab') === 'campaigns' ? 'campaigns' : 'reasons');
 
-  // THE FLOW PREVIEW TRIGGER — see FlowPreview.tsx's own header: `flowPreviewAction` is not a real
-  // catalog action yet (an owner-facing route was requested, not yet shipped), so `action()` here
-  // returns undefined and the whole row below renders nothing until it lands — the same silent-
-  // degrade contract every other conditional feature in this screen already holds.
-  const flowPreviewAction = action(catalog, 'notification.flow_preview_booking');
+  // THE FLOW PREVIEW TRIGGER — notification-service v0.19.27 shipped the owner-facing route
+  // (`GET /api/v1/whatsapp/flows/{name}/preview-json`, require_user) but did not add a catalog
+  // entry for it (its own user_actions.py only lists the notifications-inbox actions) — same
+  // "called by its own known path directly" pattern PlanCards.tsx's own FEATURES_PATH already
+  // established for a route absent from the catalog. Always present (no capability gate beyond
+  // being signed in), unlike a real catalog lookup that could come back undefined.
+  const flowPreviewAction: Action = {
+    id: 'notification.flow_preview_booking', label: 'Booking flow preview', method: 'GET',
+    path: '/api/v1/whatsapp/flows/booking/preview-json', capability: 'notifications.self',
+  };
   const [flowPreviewOpen, setFlowPreviewOpen] = useState(false);
 
   /**

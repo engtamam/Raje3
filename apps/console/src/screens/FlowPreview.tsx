@@ -6,14 +6,13 @@
  * an APPROXIMATION, never the real thing (WhatsApp itself is the only place a Flow truly runs),
  * same honesty `FlowScreenRenderer.tsx`'s own header states.
  *
- * `previewAction` IS NOT YET A REAL CATALOG ACTION — the owner-facing route (`require_user`,
- * tenant-scoped) was requested from base-services (session note, 2026-09-11) as the twin of
- * notification-service's existing `require_internal_token`-only `flow-json-for` route; this
- * component is built ahead of that route landing so wiring it later is a one-line change at the
- * call site (passing the real `AdminAction`/`Action` once the id is known) rather than a second
- * build. Until then `previewAction` is simply absent wherever this is used, and the trigger that
- * would open it renders nothing — same "an action missing from the catalog degrades silently"
- * contract every other conditional feature in this console already holds.
+ * `previewAction` points at `GET /api/v1/whatsapp/flows/{name}/preview-json`
+ * (notification-service v0.19.27) — `require_user`, no special capability, same JSON every tenant
+ * gets today (generated from the platform's own config definition, not per-shop). NOT a real
+ * catalog entry (that service's own `user_actions.py` never registered one) — built by hand at
+ * the call site, same "call a route by its own known path" pattern PlanCards.tsx's `FEATURES_PATH`
+ * already established for a route absent from the catalog. `previewAction` stays optional here
+ * purely so a caller CAN still gate on it if a future flow name is genuinely conditional.
  */
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';

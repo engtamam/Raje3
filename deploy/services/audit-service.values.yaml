@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/audit-service
-  digest: "sha256:e0a443537be1ae573874c9b4178fd59f353becf8fe58de65d9117bc2a0304476"   # v0.19.26
+  digest: "sha256:e0a443537be1ae573874c9b4178fd59f353becf8fe58de65d9117bc2a0304476"   # v0.19.27
 
 replicas: 1
 
