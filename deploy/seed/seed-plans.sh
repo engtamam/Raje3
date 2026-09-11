@@ -1,23 +1,36 @@
 #!/usr/bin/env bash
 # Seed the price list into billing-service.
 #
-#   ./deploy/seed/seed-plans.sh              # create what is missing, correct what has drifted
-#   ./deploy/seed/seed-plans.sh --dry-run    # print the differences, change nothing
+#   ./deploy/seed/seed-plans.sh                 # create what is missing ONLY — never touches
+#                                                # a plan already on the cluster, matched or not
+#   ./deploy/seed/seed-plans.sh --sync          # ALSO correct any existing plan that has drifted
+#                                                # from the file (prices/limits/trial/etc.)
+#   ./deploy/seed/seed-plans.sh --dry-run       # preview a create-only pass, change nothing
+#   ./deploy/seed/seed-plans.sh --sync --dry-run  # preview a create+correct pass, change nothing
+#   ./deploy/seed/seed-plans.sh --retire-strays # ALSO unlist a listed plan the file no longer
+#                                                # names (independent of --sync; nothing deleted)
 #
 # WHY A SCRIPT AND NOT A MIGRATION — the same reason as roles and templates. Pricing is content:
 # somebody wants a different message allowance on a Tuesday because a customer asked. A migration
 # makes that a deploy, and a price that needs a deploy is a price nobody changes.
 #
-# AND THIS ONE CORRECTS RATHER THAN SKIPS, which is the opposite of seed-roles.sh — deliberately.
-# A role is customised in the console by design, so overwriting one destroys somebody's work. A
-# plan is not: the file IS the price list, and a plan on the cluster that disagrees with it is
-# drift, not a customisation. Correcting it is the point of running this again.
+# --sync IS OPT-IN NOW, AND THAT IS A REVERSAL — the owner's own report (2026-09-11): the console
+# grew a real live-edit path for a plan's price/limits/trial/credit_percent_of_price
+# (apps/console/src/admin/PlanCards.tsx's own edit drawer, built well after this script's original
+# "the file IS the price list, correcting is the point" reasoning) — so a plan the cluster
+# disagrees with the file on is no longer reliably drift; it might be exactly the live edit an
+# operator just made through the console, and the DEFAULT bare run used to silently revert it on
+# the next seed. The default is now the safe half only (create what plans.json adds that the
+# cluster has never heard of at all — a genuinely new plan is never a live edit, there is nothing
+# to conflict with); reconciling plans.json back onto the cluster is now a deliberate act, behind
+# its own flag, exactly so nobody's live pricing tweak gets quietly overwritten by running this
+# for an unrelated reason (a new plan, a stray retirement).
 #
-# NOBODY WHO ALREADY BOUGHT IS REPRICED. billing snapshots price and limits onto the subscription
-# at signup and GRANDFATHER defaults to on, so changing a plan here changes what NEW subscribers
-# get. Moving an existing customer is a separate, deliberate act (migrate_terms) — as it should be:
-# silently changing what somebody already agreed to pay is the failure customers escalate rather
-# than report.
+# NOBODY WHO ALREADY BOUGHT IS REPRICED, either pass. billing snapshots price and limits onto the
+# subscription at signup and GRANDFATHER defaults to on, so changing a plan here changes what NEW
+# subscribers get. Moving an existing customer is a separate, deliberate act (migrate_terms) — as
+# it should be: silently changing what somebody already agreed to pay is the failure customers
+# escalate rather than report.
 set -uo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
@@ -25,17 +38,25 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NS="${NS:-base-services}"
 
-DRY=0
-[ "${1:-}" = "--dry-run" ] && DRY=1
-# UNLIST WHAT WE NO LONGER SELL. Separate from the seed and never implied by it: a listed plan is
-# a thing a shop can still buy, and hiding one is a commercial decision — so it is a flag somebody
-# types, not a side effect of correcting a price. It UNLISTS and never deletes: an establishment
-# already subscribed keeps its plan, its limits and its invoice; it simply stops being on offer.
-RETIRE=0
-[ "${1:-}" = "--retire-strays" ] && RETIRE=1
-
 red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
+
+DRY=0
+SYNC=0
+RETIRE=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    --sync) SYNC=1 ;;
+    # UNLIST WHAT WE NO LONGER SELL. Separate from --sync and never implied by it: a listed plan
+    # is a thing a shop can still buy, and hiding one is a commercial decision — so it is its own
+    # flag, not a side effect of correcting a price. It UNLISTS and never deletes: an
+    # establishment already subscribed keeps its plan, its limits and its invoice; it simply
+    # stops being on offer.
+    --retire-strays) RETIRE=1 ;;
+    *) red "unknown argument: $arg (expected --dry-run / --sync / --retire-strays)"; exit 2 ;;
+  esac
+done
 
 FILE="$HERE/plans.json"
 [ -f "$FILE" ] || { red "no $FILE"; exit 2; }
@@ -81,9 +102,9 @@ echo "seeding plans.json into billing-service"
 # NO BACKTICKS AND NO COMMAND SUBSTITUTION ANYWHERE BELOW THIS LINE, INCLUDING IN COMMENTS.
 # The heredoc is unquoted because it interpolates the file, so the SHELL evaluates any it finds
 # before python ever sees it. This has happened, mid-seed, from a word in a comment.
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$DRY" "$RETIRE" <<PY
+kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$DRY" "$RETIRE" "$SYNC" <<PY
 import json, sys, urllib.error, urllib.request
-token, dry, retire = sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1"
+token, dry, retire, sync = sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1", sys.argv[4] == "1"
 H = "http://localhost:8000"
 LIB = json.loads('''$(cat "$FILE")''')
 CURRENCY = LIB["currency"]
@@ -159,6 +180,12 @@ for plan in LIB["plans"]:
     if not drift:
         print("  = " + name + " matches the file")
         same += 1
+        continue
+    # WITHOUT --sync, A DRIFTED PLAN IS ONLY NAMED, NEVER TOUCHED — it might be a live console
+    # edit (PlanCards.tsx), not a stale file. See this script's own header on why the default
+    # stopped correcting existing plans.
+    if not sync:
+        print("  ? " + name + " differs: " + ", ".join(drift) + " — left as-is (run --sync to correct)")
         continue
     if dry:
         print("  ~ " + name + " differs: " + ", ".join(drift))
