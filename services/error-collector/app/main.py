@@ -45,6 +45,12 @@ def create_app() -> FastAPI:
     settings.assert_audit_config_ok()
     settings.assert_pii_config_ok()
     settings.assert_cors_config_ok()
+    # FIXED 2026-09-12, a real gap a QA audit found: this guard existed (same fail-fast shape as
+    # the three above) but was never actually called from here — the exact silent-misconfiguration
+    # class its own docstring warns about ("consent-check ran for four phases with no callers and
+    # nothing ever went red") was reachable in THIS service too, the day CONSENT_GATED is ever set
+    # here with no real gate wired.
+    settings.assert_consent_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
 

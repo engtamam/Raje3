@@ -77,11 +77,17 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     """
     c = request.app.state.container
     s = get_settings()
+    from app.api.deps import get_runtime_config
+
+    # THE ACK NAMES THE EFFECTIVE RETENTION, NOT THE DEPLOY'S DEFAULT — same fix as
+    # _signal_store's own read above: an owner who raised SIGNAL_RETENTION_DAYS through the panel
+    # needs the DSAR receipt to state the number that is actually true, not the env value it
+    # started as.
+    retention_days = await get_runtime_config(request).get(
+        tenant="", key="SIGNAL_RETENTION_DAYS", default=s.SIGNAL_RETENTION_DAYS)
     eraser = TemplateErasure(store=c.datastore, pii_salt=s.PII_SALT,
                              max_scan=s.ERASURE_MAX_SCAN,
-                             # The ack names this number in its `retained` basis. Read from config
-                             # rather than restated, so the sentence cannot outlive the setting.
-                             retention_days=s.SIGNAL_RETENTION_DAYS)
+                             retention_days=retention_days)
     return await eraser.erase(body.tenant, body.subject)
 
 
@@ -178,10 +184,20 @@ async def backup_import(request: Request, body: BackupImportIn,
 # in-cluster infrastructure can reach is what this is.
 
 
-def _signal_store(request: Request, settings: Settings) -> SignalStore:
+async def _signal_store(request: Request, settings: Settings) -> SignalStore:
+    """RETENTION/REAP NOW RESOLVE THROUGH RuntimeConfig — same fix, same reasoning as
+    api/v1/signals.py's own `_store`; see its docstring for the full context (a QA audit found the
+    operator config panel advertised these as its only two settings while nothing actually read
+    an override)."""
+    from app.api.deps import get_runtime_config
+
+    rc = get_runtime_config(request)
+    retention_days = await rc.get(tenant="", key="SIGNAL_RETENTION_DAYS",
+                                  default=settings.SIGNAL_RETENTION_DAYS)
+    reap_limit = await rc.get(tenant="", key="SIGNAL_REAP_LIMIT",
+                              default=settings.SIGNAL_REAP_LIMIT)
     return SignalStore(request.app.state.container.datastore,
-                       retention_days=settings.SIGNAL_RETENTION_DAYS,
-                       reap_limit=settings.SIGNAL_REAP_LIMIT)
+                       retention_days=retention_days, reap_limit=reap_limit)
 
 
 @router.post("/signals/ingest", dependencies=[Depends(require_internal_token)])
@@ -206,7 +222,7 @@ async def ingest_signal(request: Request, body: SignalIn | list[SignalIn],
     verified subject; an audit row per log line would be a second, larger log.
     """
     items = body if isinstance(body, list) else [body]
-    store = _signal_store(request, settings)
+    store = await _signal_store(request, settings)
     ids = [(await store.record(item))["id"] for item in items]
     return {"stored": len(ids), "ids": ids}
 
@@ -235,5 +251,6 @@ async def reap_signals(request: Request, body: ReapIn = ReapIn(),
     cron, or an operator during an incident — simply calls again.
     """
     limit = body.limit or None
-    removed = await _signal_store(request, settings).reap(limit=limit)
+    store = await _signal_store(request, settings)
+    removed = await store.reap(limit=limit)
     return {"removed": removed}

@@ -37,9 +37,17 @@ async def whoami(
     return body
 
 
-@router.get("/signals/admin/ping", dependencies=[Depends(require_capability("platform.observability"))])
+@router.get("/signals/admin/ping",
+           dependencies=[Depends(rate_limit), Depends(require_capability("platform.observability"))])
 async def admin_ping() -> dict:
     """What a client calls to confirm its token is accepted at all.
+
+    RATE-LIMITED NOW, LIKE EVERY OTHER ROUTE — fixed 2026-09-12, a real gap a QA audit found: this
+    was the one route in the service with no `rate_limit` dependency at all, so a caller (or a
+    replayed token) could hit it without limit and never received the RateLimit-* headers a well-
+    behaved client uses to pace itself. Listed BEFORE the capability check, same reasoning as
+    portal's own operator-config fix: an invalid-auth flood is throttled before the token verifier
+    ever runs, not after.
 
     KEPT FROM THE SCAFFOLD, AND RE-GATED. The generated route required a bare `admin` capability
     that this platform does not issue — nobody holds it, so the route was permanently unreachable

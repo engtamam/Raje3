@@ -158,18 +158,40 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
         assert banned not in view
 
 
-def test_the_scaffold_declares_no_runtime_policy_so_it_offers_none(client, operator_auth):
-    """The template deliberately declares nothing, and the surface must reflect that rather than
-    advertising every settable field.
-
-    A generated service adds a key to RUNTIME_POLICY in the same change that wires the read. Until
-    then the knob is unavailable, which is honest — an advertised knob nothing consults reports a
-    change that never happened, with an audit entry to prove it.
-    """
+def test_only_the_two_declared_signal_settings_are_offered(client, operator_auth):
+    """error-collector-001 (QA audit, 2026-09-12): RUNTIME_POLICY used to stay the template's
+    empty frozenset() while admin_actions.py's own help text already called these two "the only
+    two settings today" — the panel rendered empty and every PUT was refused, contradicting the
+    very screen it was on. Fixed: exactly these two are offered, with their configured defaults,
+    and an undeclared knob (RATELIMIT_MAX — deploy-time wiring, never settable here) is still
+    refused, same as before."""
     h = {"headers": operator_auth}
-    assert client.get("/api/v1/operator/config", **h).json()["config"] == {}
+    config = client.get("/api/v1/operator/config", **h).json()["config"]
+    assert config == {"SIGNAL_RETENTION_DAYS": 10, "SIGNAL_REAP_LIMIT": 5000}
     r = client.put("/api/v1/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"
+
+
+def test_setting_the_signal_retention_actually_moves_what_ingest_reads(client, operator_auth):
+    """The whole point of the fix: a saved override must not be a receipt for a change that never
+    happened. Proved end to end — set through the panel, then read back through the SAME route a
+    real ingest/reap call resolves its retention_days/reap_limit through."""
+    from app.api.deps import get_runtime_config
+
+    h = {"headers": operator_auth}
+    r = client.put("/api/v1/operator/config",
+                   json={"key": "SIGNAL_RETENTION_DAYS", "value": 45}, **h)
+    assert r.status_code == 200, r.text
+    config = client.get("/api/v1/operator/config", **h).json()["config"]
+    assert config["SIGNAL_RETENTION_DAYS"] == 45
+
+    async def read_effective():
+        request = type("R", (), {"app": client.app})()
+        rc = get_runtime_config(request)
+        return await rc.get(tenant="", key="SIGNAL_RETENTION_DAYS", default=10)
+
+    import asyncio
+    assert asyncio.run(read_effective()) == 45
 
 
 # ── availability ──────────────────────────────────────────────────────────────

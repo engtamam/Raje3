@@ -16,10 +16,10 @@ volume, not privilege.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
-from starlette.responses import JSONResponse
 
 from app.api.auth import Principal, require_user
 from app.api.authz import require_capability
+from app.api.deps import get_runtime_config
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.pii import subject_ref
@@ -32,22 +32,19 @@ router = APIRouter(prefix="/signals", tags=["signals"])
 _OBSERVE = require_capability("platform.observability")
 
 
-def _refuse(reason: str, status_code: int = 400) -> JSONResponse:
-    """A refusal the operator can read — returned, not raised.
-
-    The platform's error handler strips `detail` from every HTTPException on purpose (CWE-209),
-    which is right for a stack trace and wrong for a sentence we wrote ourselves: raised, it
-    arrives as `{"error": "BAD_REQUEST"}` and the reason is gone. THE STATUS IS KEPT, so a caller
-    checking `response.ok` behaves exactly as before; only the body gains the sentence.
-    """
-    return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=status_code)
-
-
-def _store(request: Request) -> SignalStore:
+async def _store(request: Request) -> SignalStore:
+    """RETENTION/REAP NOW RESOLVE THROUGH RuntimeConfig — fixed 2026-09-12, a real gap a QA audit
+    found: the operator config panel advertised these two as its "only two settings today" while
+    every actual reader took them straight off `settings`, so a saved override never did anything.
+    `default=` keeps the deploy's own env value as the fallback the first time nobody has set an
+    override yet — unchanged behaviour for every shop that never opens this screen."""
     s = get_settings()
+    rc = get_runtime_config(request)
+    retention_days = await rc.get(tenant="", key="SIGNAL_RETENTION_DAYS",
+                                  default=s.SIGNAL_RETENTION_DAYS)
+    reap_limit = await rc.get(tenant="", key="SIGNAL_REAP_LIMIT", default=s.SIGNAL_REAP_LIMIT)
     return SignalStore(request.app.state.container.datastore,
-                       retention_days=s.SIGNAL_RETENTION_DAYS,
-                       reap_limit=s.SIGNAL_REAP_LIMIT)
+                       retention_days=retention_days, reap_limit=reap_limit)
 
 
 def _split(values: list[str] | None) -> list[str]:
@@ -99,7 +96,7 @@ async def list_signals(
     what broke. `tenant`/`subject_ref` narrow it, they do not turn it into one: no message text
     named a person before this filter existed, and this filter does not add any.
     """
-    store = _store(request)
+    store = await _store(request)
     rows, next_cursor = await store.browse(
         sources=_split(source), severities=_split(severity), service=service.strip(),
         tenant=tenant.strip(), subject_ref=subject_ref.strip() if tenant.strip() else "",
@@ -133,5 +130,6 @@ async def report_signal(request: Request, body: SignalIn,
     # An empty ref makes the row unattributed, which is honest, and the boot guard is what stops a
     # production deploy from being in this state at all.
     ref = subject_ref(s.PII_SALT, tenant, subject) if (s.PII_SALT and tenant and subject) else ""
-    row = await _store(request).record(body, tenant=tenant, subject_ref=ref)
+    store = await _store(request)
+    row = await store.record(body, tenant=tenant, subject_ref=ref)
     return {"id": row["id"], "received_at": row["received_at"]}
