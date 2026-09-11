@@ -387,13 +387,18 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
           </Button>
         ) : null}
         {availabilityAction ? (
-          // ITS OWN, DISTINCT, LESS ALARMING TONE — show/hide only changes what the STORE lists;
-          // existing subscribers are never touched (see the ConfirmDialog body below, and the
-          // entitlement-resolver trace in the comment further down). A warning-soft tint says
-          // "worth a second look" without borrowing إيقاف's red, which means "this costs someone
-          // something" — hiding a plan costs nobody anything already bought.
+          // ITS OWN, DISTINCT, LESS ALARMING TONE THAN إيقاف — show/hide only changes what the
+          // STORE lists; existing subscribers are never touched (see the ConfirmDialog body
+          // below, and the entitlement-resolver trace in the comment further down). BUT the two
+          // states must still read apart from EACH OTHER, same as تفعيل/إيقاف above: إخفاء
+          // (warning-soft — "worth a second look" before it disappears from the store) versus
+          // إظهار (success-soft — a calm, restorative action, same tone تفعيل already uses for
+          // the same reason). Both used warning-soft regardless of state before this — the owner's
+          // own screenshot: "اخفاء واظهار مافيها تمايز لوني" (no colour distinction between them).
           <Button type="button" size="sm" disabled={busy}
-                  className="flex flex-1 items-center justify-center gap-2 bg-warning-soft text-warning-on-soft hover:opacity-90"
+                  className={plan.listed
+                    ? 'flex flex-1 items-center justify-center gap-2 bg-warning-soft text-warning-on-soft hover:opacity-90'
+                    : 'flex flex-1 items-center justify-center gap-2 bg-success-soft text-success-on-soft hover:opacity-90'}
                   onClick={() => setArmListed(true)}>
             {plan.listed ? <EyeOff size={14} /> : <Eye size={14} />} {plan.listed ? 'إخفاء' : 'إظهار'}
           </Button>
