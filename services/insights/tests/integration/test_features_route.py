@@ -1,4 +1,4 @@
-"""`GET /api/v1/insights/features` — reachable BEFORE a shop owns فرصي at all."""
+"""`GET /api/v1/insights/features` — reachable BEFORE a shop owns صفقات at all."""
 from __future__ import annotations
 
 import datetime as dt

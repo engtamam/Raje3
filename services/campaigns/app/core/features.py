@@ -11,7 +11,7 @@ TWO TEMPTING CANDIDATES, CHECKED DIRECTLY AND EXCLUDED — same discipline as lo
 - "يقيس مين رجع بسببك" (attribution/return measurement) is NOT this service's own code either —
   `core/report.py` reports SEND-TIME delivery outcomes only (matched/sent/suppressed/failed). The
   real "did they come back because of this" number (`holdout_comparison`/`returned_after_reminder`)
-  is `services/insights/app/core/indicators.py`'s own work, surfaced through فرصي's own future
+  is `services/insights/app/core/indicators.py`'s own work, surfaced through صفقات's own future
   catalog, not claimed here even though this app's own `apps.ts`-style description used to imply it.
 
 REWRITTEN 2026-09-11, SAME DAY AS BOOKINGS' OWN — the first pass named what the code DOES; the

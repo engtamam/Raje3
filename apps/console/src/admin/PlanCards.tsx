@@ -312,7 +312,7 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload,
         // البطايق حق المحل"). The plan's own feature.* flag is never repeated below as a raw
         // boolean — this card IS that app — and `plan.standalone` already surfaced as the "تُشترى
         // وحدها" badge above; only a REAL extra limit this app's own plan still carries beyond its
-        // one feature flag (فرصي/الحملات's own `templates.custom` counter, rendered below via the
+        // one feature flag (صفقات/الحملات's own `templates.custom` counter, rendered below via the
         // SAME raw counted-limit list every other card falls back to) keeps its own line.
         <AppFeatureList
           actionId={featuresPath}

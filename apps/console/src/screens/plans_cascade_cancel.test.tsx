@@ -1,6 +1,6 @@
 /**
  * «تطبيقات تتبع تسجيل زيارة/الحجوزات منطقياً» — owner's own rule (2026-09-11): برنامج النقاط/
- * التقييم/فرصي/الحملات are useless without a real sales-recording app under them, and
+ * التقييم/صفقات/الحملات are useless without a real sales-recording app under them, and
  * `plan.requires_any` already refuses BUYING one without holding one of the two first. This pins
  * the follow-on half: cancelling the LAST prerequisite an owner holds cascades to cancel every
  * dependent app with it, in the same request — never a silent orphaned subscription still billing.

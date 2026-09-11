@@ -245,7 +245,7 @@ export const REQUIRES_ANY_KEYS: Record<string, string> = {
   'feature.contacts': 'plans.requiresAny.contacts',
 };
 
-/** THE SAME PAIR `plan.requires_any` NAMES for برنامج النقاط/التقييم/فرصي/الحملات — real
+/** THE SAME PAIR `plan.requires_any` NAMES for برنامج النقاط/التقييم/صفقات/الحملات — real
  *  sales-recording apps, the only ones these four are actually useful under. `requires_any`
  *  already refuses BUYING one of the four without holding one of these at purchase time; the
  *  owner's own follow-on rule (2026-09-11) is the same dependency enforced going FORWARD —
@@ -1022,7 +1022,7 @@ export function PlansPane({
    *
    *  CASCADES TO FOUR DEPENDENT APPS when the one being cancelled was تسجيل زيارة or الحجوزات AND
    *  the shop now holds NEITHER — owner's own product rule (2026-09-11): برنامج النقاط/التقييم/
-   *  فرصي/الحملات are all logically dependent on a real sales-recording app existing under them
+   *  صفقات/الحملات are all logically dependent on a real sales-recording app existing under them
    *  (`plan.requires_any` already refuses BUYING one without a prerequisite; this is the same rule
    *  enforced going forward, not just at purchase). billing-service does not cascade cancellations
    *  on its own, so the caller states the whole cascade explicitly, one `billing.cancel` per row. */
@@ -1312,7 +1312,7 @@ export function PlansPane({
               })()}
             </p>
             {/* THE CASCADE, SAID BEFORE HE PRESSES — never discovered after. برنامج النقاط/
-                التقييم/فرصي/الحملات are all logically dependent on تسجيل زيارة/الحجوزات; losing
+                التقييم/صفقات/الحملات are all logically dependent on تسجيل زيارة/الحجوزات; losing
                 the last one standing takes them with it, named here rather than silently. */}
             {(() => {
               const targets = cascadeTargets(confirmingCancelApp.subId);

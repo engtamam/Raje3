@@ -22,11 +22,11 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
     # test for which file a route belongs in is whose data it is: `platform.*` is ours;
     # everything else belongs to the establishment.
     {
-        "id": "insights.features", "label": "مميزات تطبيق فرصي", "method": "GET",
+        "id": "insights.features", "label": "مميزات تطبيق صفقات", "method": "GET",
         "path": "/api/v1/insights/features", "capability": "insights.read", "group": "التطبيقات",
         # لا يتحقق من الاشتراك إطلاقاً (app/api/v1/features.py's own docstring) — بطاقة المتجر
         # تُقرأ قبل الشراء.
-        "help": "قائمة المميزات الحقيقية اللي يوفّرها تطبيق فرصي، بصياغة تسويقية قصيرة.",
+        "help": "قائمة المميزات الحقيقية اللي يوفّرها تطبيق صفقات، بصياغة تسويقية قصيرة.",
     },
     {
         "id": "insights.dashboard", "label": "لوحة المؤشرات", "method": "GET",

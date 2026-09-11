@@ -1,7 +1,7 @@
 """The custom-template ceiling — a flat, system-wide LIFETIME cap, never sold per plan.
 
 WHAT THIS REPLACES. `templates.custom` used to be a billed MONTHLY counter, sold PER APP through
-billing-service (الحملات: 1/month, فرصي: 9/month, deploy/seed/plans.json). The owner's own call
+billing-service (الحملات: 1/month, صفقات: 9/month, deploy/seed/plans.json). The owner's own call
 (2026-09-11, corrected the same day from an initial monthly reading): abolish that entirely —
 every shop gets the SAME allowance regardless of which apps it owns, and it is a TOTAL ceiling,
 never a monthly one — «2000 قالب كأقصى حد» means 2000 templates ever, not 2000 a month. Once a

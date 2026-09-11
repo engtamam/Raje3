@@ -1,4 +1,5 @@
-"""What فرصي actually does for a shop owner — one catalog, written as VALUE, not mechanism.
+"""What صفقات (renamed from فرصي, 2026-09-11 — same app, same key, new name) actually does for a
+shop owner — one catalog, written as VALUE, not mechanism.
 Same discipline as bookings-service's own `core/features.py` (the first pilot of the "features,
 not services" architecture, 2026-09-11 CTO decision) — see that file's own docstring for the four
 tests a candidate feature has to pass, and the owner's own framing that redirected every title in
@@ -32,6 +33,20 @@ class Feature:
 
 
 INSIGHTS_FEATURES: tuple[Feature, ...] = (
+    # MOVED TO FIRST (2026-09-11, owner's own instruction) — the daily "what do I do right now"
+    # card is the single most actionable thing this app says; it now leads the shelf instead of
+    # closing it.
+    Feature(
+        id="insights.tells_you_exactly_what_to_do",
+        title="يقولك بالضبط وش تسوي اليوم",
+        detail="من بين كل مؤشراتك، يختار لك خطوة وحدة أهم شي تسويها الآن — لا قائمة مؤشرات تايهة",
+        icon="shield-check",
+        tone=TONE_VIOLET,
+        # `core/next_step.py` — a real priority queue over named rules (visits/messages/at-risk/
+        # loyalty/services/staff), never a random pick: exactly one primary card and at most one
+        # secondary from a DIFFERENT category, with a real cooldown so a rule that keeps matching
+        # without being acted on stops repeating itself once it becomes wallpaper.
+    ),
     Feature(
         id="insights.finds_real_bundles",
         title="يلقى لك صفقات جاهزة تبيعها",
@@ -45,7 +60,9 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
     ),
     Feature(
         id="insights.catches_missed_upsell",
-        title="يوريك فلوس فايتاك كل يوم",
+        # REWORDED (2026-09-11, owner's own note): «فايتاك» read as slang, not a professional
+        # sentence on a page that sells a paid app. Same value stated plainly instead.
+        title="يكشف لك صفقة ناقصة عند عميلك",
         detail="عميل أخذ نص الصفقة بس، يعطيك اسمه فوراً عشان تكمّل البيع بدل ما يفوتك",
         icon="gift",
         tone=TONE_ROSE,
@@ -74,17 +91,6 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
         # `core/digest.py` — most owners never open a dashboard, so this is the highest-leverage
         # surface the app has: at most eight lines, degrades to complete SILENCE on a week with
         # nothing real to say (never "0 visits, 0 customers" — a verdict on his week dressed as data).
-    ),
-    Feature(
-        id="insights.tells_you_exactly_what_to_do",
-        title="يقولك بالضبط وش تسوي اليوم",
-        detail="من بين كل مؤشراتك، يختار لك خطوة وحدة أهم شي تسويها الآن — لا قائمة مؤشرات تايهة",
-        icon="shield-check",
-        tone=TONE_VIOLET,
-        # `core/next_step.py` — a real priority queue over named rules (visits/messages/at-risk/
-        # loyalty/services/staff), never a random pick: exactly one primary card and at most one
-        # secondary from a DIFFERENT category, with a real cooldown so a rule that keeps matching
-        # without being acted on stops repeating itself once it becomes wallpaper.
     ),
 )
 

@@ -687,7 +687,7 @@ async def submit_custom_template(request: Request, name: str,
     # ── THE SYSTEM CEILING, SPENT BEFORE THE SUBMISSION AND NOT AFTER ────────────────────────
     #
     # `templates.custom` USED TO BE SOLD PER APP through billing-service (الحملات: 1/month,
-    # فرصي: 9/month) — the owner's own call (2026-09-11) retired that entirely: every shop gets
+    # صفقات: 9/month) — the owner's own call (2026-09-11) retired that entirely: every shop gets
     # the SAME flat allowance now, regardless of which apps it owns, enforced locally rather than
     # billed (core/template_quota.py's own header explains the whole shape).
     #

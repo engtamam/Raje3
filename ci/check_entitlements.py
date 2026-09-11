@@ -46,7 +46,7 @@ def sold() -> set[str]:
 # A COUNTER IS SOLD EXACTLY LIKE A SWITCH, AND WAS INVISIBLE TO THIS GUARD.
 #
 # Everything above matched `feature.*` only. `templates.custom` — limit 0 on الأساس, 1 on الحملات,
-# 9 on فرصي — was therefore structurally unseeable here, and it was enforced by NOTHING: the submit
+# 9 on صفقات — was therefore structurally unseeable here, and it was enforced by NOTHING: the submit
 # route wrote the template and never asked. Every shop got unlimited custom templates it had not
 # bought, and the counter in the price list was a number with no consequence anywhere.
 #
