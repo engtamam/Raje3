@@ -348,6 +348,9 @@ class NullPlans:
     async def contacts_plan_id(self) -> str:
         return ""
 
+    async def cancel(self, *, tenant: str, sub_id: str, at_period_end: bool = True) -> bool:
+        return False
+
 
 class HttpPlans:
     """billing-service, for the two things this path needs and nothing else.
@@ -547,6 +550,24 @@ class HttpPlans:
         rows = [p for p in (out.get("plans") or [])
                if "feature.contacts" in granted_keys(p.get("limits")) and _free(p)]
         return str(rows[0].get("id") or "") if len(rows) == 1 else ""
+
+    async def cancel(self, *, tenant: str, sub_id: str, at_period_end: bool = True) -> bool:
+        """Cancel a subscription SERVICE-TO-SERVICE — billing-service's own internal cancel route
+        (`/internal/billing/subscriptions/{id}/cancel`), built for exactly this: its own docstring
+        names "a dependent app that requires visit/bookings must be REALLY cancelled, not just
+        blocked, once both are gone" as the intended caller. `tenant` is billing's own IDOR guard —
+        a subscription whose tenant does not match is reported absent, never cancelled for another
+        establishment. Used by `apps.py`'s own self-heal check (see `apps()`'s own note) so a
+        dependent subscription left orphaned by ANY cancellation path — not just the console's own
+        cascade button — is caught the next time anything reads this tenant's own apps, rather than
+        by a server-wide scheduled sweep.
+
+        `False` on any failure — an unreachable billing-service must not raise and break the
+        ordinary read this rides along on; the orphan is simply caught again next time."""
+        status, _out = self._request(
+            f"{self._subscriptions}/{sub_id}/cancel",
+            {"tenant": tenant, "at_period_end": at_period_end})
+        return status < 400
 
 
 def build_connections(settings) -> Any:

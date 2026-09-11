@@ -97,6 +97,16 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
     # renewal date, so the screen can say «يتجدّد في …» — the first thing an owner opening this
     # page wants, and something an entitlement check could never answer.
     rows = await c.billing_plans.subscriptions(tenant)
+    # SELF-HEALING, NOT A SWEEP (owner's own instruction, 2026-09-11) — a dependent app
+    # (برنامج النقاط/التقييم/فرصي/الحملات) left orphaned by its prerequisite (تسجيل زيارة/
+    # الحجوزات) being cancelled through ANY path is caught right here, on the read every screen
+    # already makes, rather than by a new recurring job scanning every tenant. Failures are
+    # swallowed by `cancel()` itself (returns `False`, never raises) — an unreachable billing-
+    # service must not break the ordinary read this rides along on; the orphan is caught again
+    # the next time this tenant's own apps are read.
+    if rows and checked:
+        for sub_id in app_catalogue.orphaned_dependents(rows, held):
+            await c.billing_plans.cancel(tenant=tenant, sub_id=sub_id)
     # EVERY ROW, NOT THE BASE'S ALONE. This list arrived whole and left with one date in it: the
     # apps a shop pays for renew on their own days — the day each was bought — and no screen said
     # so, so the second and third charges of the month arrived unannounced.

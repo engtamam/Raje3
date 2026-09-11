@@ -284,6 +284,10 @@ class FakePlans:
         self.tokens = getattr(self, "tokens", []) + [payment_token]
         return 201, {"id": "sub_1", "tenant": tenant, "plan_id": plan_id}
 
+    async def cancel(self, *, tenant, sub_id, at_period_end=True):
+        self.cancelled = getattr(self, "cancelled", []) + [(tenant, sub_id, at_period_end)]
+        return True
+
 
 class FakeConnections:
     def __init__(self, connected: bool):
@@ -478,6 +482,52 @@ def test_it_answers_about_the_caller_s_own_establishment_only(client):
     client.app.state.container.apps = seen
     client.get("/api/v1/subscription/apps", headers=_auth("billing.self", tenant="shop_9"))
     assert seen.asked == ["shop_9"]
+
+
+# ── self-healing an orphaned dependent app — a FEATURE, not a sweep (2026-09-11) ────────────────
+def test_a_dependent_app_orphaned_by_any_cancellation_path_is_cancelled_on_read(client):
+    """برنامج النقاط cancelled through no path this console owns (a direct API call, dunning
+    elsewhere, a support action) — the very next read of this tenant's own apps must catch and
+    cancel it itself, exactly as if the console's own cascade button had done it."""
+    _apps(client, owned=set())  # neither تسجيل زيارة nor الحجوزات held
+    plans = _wire(client, connected=True, trial=0)
+    plans.held = [
+        {"id": "sub_loyalty", "plan_id": "plan_loyalty", "status": "active",
+         "cancel_at_period_end": False,
+         "limits_snapshot": {"feature.loyalty": {"kind": "boolean", "limit": 1},
+                             "plan.requires_any": {"kind": "list",
+                                                   "list": ["feature.visit", "feature.bookings"]}}},
+    ]
+    r = client.get("/api/v1/subscription/apps", headers=_auth("billing.self", tenant="t_orphan"))
+    assert r.status_code == 200
+    assert plans.cancelled == [("t_orphan", "sub_loyalty", True)]
+
+
+def test_a_dependent_app_with_its_prerequisite_still_held_is_left_alone(client):
+    _apps(client, owned={"feature.visit"})
+    plans = _wire(client, connected=True, trial=0)
+    plans.held = [
+        {"id": "sub_loyalty", "plan_id": "plan_loyalty", "status": "active",
+         "cancel_at_period_end": False,
+         "limits_snapshot": {"plan.requires_any": {"kind": "list",
+                                                   "list": ["feature.visit", "feature.bookings"]}}},
+    ]
+    client.get("/api/v1/subscription/apps", headers=_auth("billing.self", tenant="t_ok"))
+    assert getattr(plans, "cancelled", []) == []
+
+
+def test_the_self_heal_never_fires_during_a_billing_outage(client):
+    """`checked=False` means the held-keys read itself failed — cancelling off an untrustworthy
+    answer would orphan-cancel a perfectly healthy subscription the moment billing hiccups."""
+    _apps(client, owned=set(), reachable=False)
+    plans = _wire(client, connected=True, trial=0)
+    plans.held = [
+        {"id": "sub_loyalty", "plan_id": "plan_loyalty", "status": "active",
+         "cancel_at_period_end": False,
+         "limits_snapshot": {"plan.requires_any": {"kind": "list", "list": ["feature.visit"]}}},
+    ]
+    client.get("/api/v1/subscription/apps", headers=_auth("billing.self", tenant="t_outage"))
+    assert getattr(plans, "cancelled", []) == []
 
 
 # ── the till, and `feature.api` ────────────────────────────────────────────────────────────────

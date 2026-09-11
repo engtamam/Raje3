@@ -326,6 +326,33 @@ def renewals_by_key(rows: list[dict[str, Any]] | None) -> dict[str, dict[str, An
     return out
 
 
+def orphaned_dependents(rows: list[dict[str, Any]] | None, held: set[str]) -> list[str]:
+    """Which subscription ids declare `plan.requires_any` and hold NONE of it any more — a
+    dependent app (برنامج النقاط/التقييم/فرصي/الحملات) whose prerequisite (تسجيل زيارة/الحجوزات)
+    was cancelled by ANY path, not just the console's own cascade button.
+
+    A FEATURE, NOT A TASK (owner's own instruction, 2026-09-11) — deliberately NOT a scheduled,
+    server-wide sweep. `apps()` (subscription.py) calls this on every ordinary read of a tenant's
+    own apps — which is nearly every screen a shop opens — and cancels whatever this names right
+    there. One tenant, the one already being read, at the moment somebody is actually looking; no
+    new recurring job scanning every tenant whether or not anyone is.
+
+    Skips a row already `cancel_at_period_end` — no point re-cancelling a cancellation already in
+    flight, and it keeps this idempotent across repeated reads before billing's own sweep finishes
+    the schedule.
+    """
+    from app.core.subscribe import requires_any
+    out: list[str] = []
+    for row in rows or ():
+        if row.get("status") == "canceled" or row.get("cancel_at_period_end"):
+            continue
+        need = requires_any(row.get("limits_snapshot"))
+        sub_id = str(row.get("id") or "")
+        if need and sub_id and not (set(need) & held):
+            out.append(sub_id)
+    return out
+
+
 def public(held: set[str], checked: bool, base: dict[str, Any] | None = None,
            renewals: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """The shape the console renders.

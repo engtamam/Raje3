@@ -278,3 +278,58 @@ def test_the_refusal_names_the_key_and_the_way_out():
     from app.core.licence import NOT_INCLUDED
 
     assert "feature.api" in NOT_INCLUDED and "الباقات" in NOT_INCLUDED
+
+
+# ── orphaned_dependents — the self-heal check, not a sweep ──────────────────────────────────────
+def test_a_dependent_app_with_neither_prerequisite_held_is_named():
+    from app.core.apps import orphaned_dependents
+
+    rows = [
+        {"id": "sub_loyalty", "status": "active", "cancel_at_period_end": False,
+         "limits_snapshot": {"feature.loyalty": {"kind": "boolean", "limit": 1},
+                             "plan.requires_any": {"kind": "list",
+                                                   "list": ["feature.visit", "feature.bookings"]}}},
+    ]
+    assert orphaned_dependents(rows, held=set()) == ["sub_loyalty"]
+
+
+def test_holding_either_prerequisite_clears_it():
+    from app.core.apps import orphaned_dependents
+
+    rows = [
+        {"id": "sub_loyalty", "status": "active", "cancel_at_period_end": False,
+         "limits_snapshot": {"plan.requires_any": {"kind": "list",
+                                                   "list": ["feature.visit", "feature.bookings"]}}},
+    ]
+    assert orphaned_dependents(rows, held={"feature.visit"}) == []
+    assert orphaned_dependents(rows, held={"feature.bookings"}) == []
+
+
+def test_a_row_with_no_requires_any_is_never_named():
+    from app.core.apps import orphaned_dependents
+
+    rows = [{"id": "sub_campaigns", "status": "active", "cancel_at_period_end": False,
+            "limits_snapshot": {"feature.campaigns": {"kind": "boolean", "limit": 1}}}]
+    assert orphaned_dependents(rows, held=set()) == []
+
+
+def test_an_already_pending_cancellation_is_not_re_cancelled():
+    """Idempotent across repeated reads — no point re-cancelling a cancellation already in
+    flight, before billing's own sweep has finished the schedule."""
+    from app.core.apps import orphaned_dependents
+
+    rows = [
+        {"id": "sub_loyalty", "status": "active", "cancel_at_period_end": True,
+         "limits_snapshot": {"plan.requires_any": {"kind": "list", "list": ["feature.visit"]}}},
+    ]
+    assert orphaned_dependents(rows, held=set()) == []
+
+
+def test_an_already_canceled_row_is_never_named():
+    from app.core.apps import orphaned_dependents
+
+    rows = [
+        {"id": "sub_loyalty", "status": "canceled", "cancel_at_period_end": False,
+         "limits_snapshot": {"plan.requires_any": {"kind": "list", "list": ["feature.visit"]}}},
+    ]
+    assert orphaned_dependents(rows, held=set()) == []
