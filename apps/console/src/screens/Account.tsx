@@ -32,7 +32,8 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
 import { AppGate } from './Locked';
-import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane } from './AccountPanes';
+import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane,
+        WhatsAppVisitRegistrationCard } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { WalletPane } from './Wallet';
 import { TeamScreen } from './Team';
@@ -311,6 +312,11 @@ export function AccountScreen(
               <AppGate appId="whatsapp" owned={owned} session={session} catalog={catalog}>
                 <AiNotesCard session={session} catalog={catalog} />
                 <MsgWordLimitCard session={session} catalog={catalog} />
+                {/* ITS OWN, SECOND ownership check inside (feature.visit) — this shop already
+                   proved it owns واتساب to get this far (the AppGate above), but تسجيل الزيارة
+                   عبر واتساب needs تسجيل زيارة itself too. Silently absent rather than a second
+                   LockedCard stacked inside this tab — see the card's own header note. */}
+                <WhatsAppVisitRegistrationCard session={session} catalog={catalog} owned={owned} />
               </AppGate>
             </div>
           ) : null}

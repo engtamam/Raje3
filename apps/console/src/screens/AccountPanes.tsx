@@ -16,12 +16,14 @@ import { riyalsLabel } from '../money';
 import { Button } from '../rj-ui/Button';
 import { Toggle } from '../rj-ui/Toggle';
 import { Field, Textarea } from '../rj-ui/Field';
+import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { legalUrl } from '../legal/url';
 import type { Session } from '../session';
 import { AssistantHint } from '../AssistantHint';
+import { owns, type Owned } from '../apps';
 // ONE DEFINITION, RENDERED WHERE IT BELONGS. The card was written for «فريقي» and stayed there
 // when it moved; importing it keeps a single implementation rather than a second copy that drifts.
 import { VehiclesCard } from './Team';
@@ -380,6 +382,85 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
           {busy ? 'جارٍ الحفظ…' : 'حفظ'}
         </Button>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * تسجيل الزيارة عبر واتساب — يوسّع مين يقدر يسجّل زيارة باسم موظف حقيقي (رقم واتساب الموظف نفسه،
+ * بلا كلمة مرور في تلك اللحظة)، فهو قرار ثقة المالك وحده (`operations.manage`، لا `operations.read`
+ * — نفس التمييز اللي شاشة تسجيل الزيارة العادية تطلبه). مُسجَّل بسجل التدقيق كـ«حرج» (critical) —
+ * راجع `services/operations/app/auditable_actions.py`'s الخاص بـ
+ * `shop.whatsapp_visit_registration_changed` — فتغيير هنا يمرّ بخطوة تأكيد صريحة، لا مجرد نقرة.
+ *
+ * ONLY WHEN THIS SHOP OWNS «تسجيل زيارة» نفسه — لا معنى لهذا الإعداد لمحل ما اشترى تطبيق تسجيل
+ * الزيارة أصلاً. يتجاهل الفحص بصمت (لا بطاقة أبداً) بدل بطاقة قفل تُقحَم داخل تبويب واتساب —
+ * نفس أسلوب «الحد» و«الملاحظات» جنبها: غياب الصلاحية يعني غياب البطاقة، لا رسالة عن غيابها.
+ */
+export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
+  session: Session; catalog: Catalog; owned: Loading<Owned>;
+}) {
+  const ownsVisit = owns(owned, 'feature.visit');
+  const read = action(catalog, 'operations.whatsapp_visit_registration');
+  const write = action(catalog, 'operations.set_whatsapp_visit_registration');
+  const [enabled, setEnabled] = useState<boolean | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!read || !ownsVisit) { setEnabled(null); return; }
+    call<{ enabled?: boolean }>(session, read)
+      .then((x) => setEnabled(x.enabled === true))
+      .catch(() => setEnabled(null));
+  }, [session, catalog, ownsVisit]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!ownsVisit || !read || enabled === null) return null;
+  if (enabled === undefined) return <Skeleton height={100} />;
+
+  async function flip(next: boolean) {
+    if (!write) return;
+    setBusy(true);
+    setError('');
+    try {
+      const row = await call<{ enabled?: boolean }>(session, write, { enabled: next });
+      setEnabled(row.enabled === true);
+    } catch (err) {
+      // THE OLD VALUE STAYS ON THE SCREEN — same reasoning VehiclesCard's own comment states: a
+      // toggle that moves on a failed write claims a permission surface that was never actually
+      // widened (or narrowed).
+      setError(err instanceof Error ? err.message : 'تعذّر حفظ الاختيار. حاول بعد قليل.');
+    } finally {
+      setBusy(false);
+      setConfirming(null);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span className="text-sm font-medium">تسجيل الزيارة عبر واتساب</span>
+          <span className="text-xs text-text-secondary">
+            إن فعّلته، أي موظف عنده حساب دخول يقدر يسجّل زيارة من رقم واتسابه الخاص مباشرة، بدون
+            كلمة مرور في تلك اللحظة — بالإضافة لشاشة تسجيل الزيارة العادية، لا بدلاً عنها.
+          </span>
+        </span>
+        <Toggle checked={enabled === true} disabled={busy || !write}
+               onChange={(next) => setConfirming(next)}
+               ariaLabel="تسجيل الزيارة عبر واتساب" testId="whatsapp-visit-registration-toggle" />
+      </div>
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      <ConfirmDialog open={confirming !== null} onClose={() => setConfirming(null)}
+                    onConfirm={() => confirming !== null && void flip(confirming)}
+                    busy={busy} danger={confirming === true}
+                    title={confirming
+                      ? 'تفعيل تسجيل الزيارة عبر واتساب؟'
+                      : 'إيقاف تسجيل الزيارة عبر واتساب؟'}
+                    body={confirming
+                      ? 'أي موظف عنده حساب دخول يقدر يسجّل زيارة من رقم واتسابه، بدون كلمة مرور في تلك اللحظة — قرار ثقة توسّع مين يقدر ينسب زيارة لاسمه.'
+                      : 'موظفوك لن يقدروا بعدها يسجّلون زيارة إلا من شاشة تسجيل الزيارة العادية.'} />
     </section>
   );
 }
