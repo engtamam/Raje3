@@ -53,23 +53,14 @@ type Translator = (key: string) => string;
 
 /** A STATUS KEY, NEVER TRANSLATED TEXT — `statusLabel` below is already the translated word by
  *  the time a card reads it, so matching against it here would compare a Turkish/English word
- *  against an Arabic literal on every non-Arabic locale. The key is computed once alongside the
- *  label (see `baseStatusKey`) and threaded through untranslated for this to match on. */
+ *  against an Arabic literal on every non-Arabic locale. Today only an app's own trial status
+ *  reaches this (see `appStatusLabel`'s own render site) — الأساس's own five-status badge was
+ *  retired with the base subscription concept itself (2026-09-11). */
 function statusAnchor(key?: string): string | undefined {
   if (key === 'trialing') return 'store.trialStatus';
   if (key === 'pastDue') return 'store.pastDueStatus';
   if (key === 'paused') return 'store.pausedStatus';
   return undefined;
-}
-
-/** The base subscription's honest status, as a KEY — five real statuses, `stopped` the fallback. */
-function baseStatusKey(baseSub?: Subscription): string {
-  if (baseSub?.cancel_at_period_end) return 'cancelling';
-  if (baseSub?.status === 'past_due') return 'pastDue';
-  if (baseSub?.status === 'trialing') return 'trialing';
-  if (baseSub?.status === 'paused') return 'paused';
-  if (baseSub?.status === 'active') return 'active';
-  return 'stopped';
 }
 
 /**
@@ -922,14 +913,7 @@ export function PlansPane({
   const [error, setError] = useState('');
   /** What the server says is still owed after a successful subscription. Never an error. */
   const [notice, setNotice] = useState('');
-  /** «إلغاء الاشتراك» — its own dialog, its own busy flag, its own error. Kept apart from `busy`/
-   *  `error` above: those belong to BUYING, and a cancel in flight must not grey out every app
-   *  card on the screen as if a purchase were happening. */
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
-  const [cancelBusy, setCancelBusy] = useState(false);
-  const [cancelError, setCancelError] = useState('');
-  /** Which APP's own cancel is in flight — separate from `cancelBusy` (the base's), since either
-   *  can happen while the other is untouched. */
+  /** Which app's own cancel is in flight. */
   const [cancelingAppId, setCancelingAppId] = useState('');
   const [appCancelError, setAppCancelError] = useState('');
   /** THE APP'S OWN CONFIRMATION — same discipline the base already has, asked for directly: a
@@ -942,30 +926,12 @@ export function PlansPane({
    *  first + (nothing owned yet) has no subscription id to key on, only the plan being bought. */
   const [capacityBusyPlanId, setCapacityBusyPlanId] = useState('');
   const [capacityError, setCapacityError] = useState('');
-  /** THE CARD FORM, OPEN FOR ONE OF TWO REASONS — buying an app, or replacing the card on the
-   *  base subscription. `null` is closed; it is not a screen of its own, same as `reading` on
-   *  «رسائلي». Which reason decides what a resolved token is handed to next. */
+  /** `null` is closed; it is not a screen of its own, same as `reading` on «رسائلي». */
   const [cardFormPending, setCardFormPending] = useState<PendingPayment | null>(null);
   /** True only while resolving a token AFTER the 3DS redirect brought him back — a distinct wait
    *  from `busy`, because there is no form and no button to grey out at that moment. */
   const [resolvingReturn, setResolvingReturn] = useState(false);
-  /** «تبديل الاشتراك الأساسي» (audit #5) — its own dialog, its own busy flag, its own error, same
-   *  reasoning as cancel's: switching in flight must not grey out the whole apps grid. */
-  const [confirmingChange, setConfirmingChange] = useState<Plan | null>(null);
-  const [changeBusy, setChangeBusy] = useState(false);
-  const [changeError, setChangeError] = useState('');
-  /** Its own banner, not `notice` — that one is titled «تم الاشتراك ✓» and offers «اربط واتسابي
-   *  الآن», neither of which is true of a SUBSCRIPTION SWITCH on an already-connected shop. */
-  const [changeNotice, setChangeNotice] = useState('');
-  /** «تراجع عن التبديل» (v0.16.33) — undoing a SCHEDULED downgrade before its renewal, a distinct
-   *  action from `changeBusy`/`changeError` above (those cover the confirm dialog picking a new
-   *  subscription; this covers cancelling one already picked). */
-  const [cancelSwitchBusy, setCancelSwitchBusy] = useState(false);
-  const [cancelSwitchError, setCancelSwitchError] = useState('');
-  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoing an already-scheduled cancel, on either the base
-   *  or an app. One flag per kind rather than a shared boolean: the base and an app can each have
-   *  their own pending cancel at once, and undoing one must not grey out the other's button. */
-  const [undoBaseCancelBusy, setUndoBaseCancelBusy] = useState(false);
+  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoing an already-scheduled cancel on an app. */
   const [undoingAppCancelId, setUndoingAppCancelId] = useState('');
   const [undoCancelError, setUndoCancelError] = useState('');
   /**
@@ -1030,41 +996,6 @@ export function PlansPane({
     }
   };
 
-  // «إلغاء الاشتراك» — THE BUTTON THAT DID NOT EXIST (audit finding #2, 2026-08-22). The route was
-  // whole: cancel-at-period-end, tested, declared in the manifest — and nothing in this console
-  // ever called it. A customer wanting to end the relationship had no self-service path at all,
-  // which the audit rightly called a regulatory exposure, not a missing convenience.
-  //
-  // AT PERIOD END, ALWAYS, NOT A CHOICE HERE. `POST .../cancel` defaults to `at_period_end=true`
-  // server-side (billing.py's own default) — service keeps working through what he already paid
-  // for, and nothing charges again after it. An immediate/forfeit cancel is a support conversation,
-  // deliberately: it is the destructive, rarer path, and a self-service button for it belongs next
-  // to a real refund policy, not bundled into this pass.
-  // CANCELLING THE BASE TAKES EVERY APP WITH IT — stated plainly in the confirmation dialog
-  // below, and ACTUALLY DONE here rather than left for the backend to infer: nothing in
-  // billing-service cascades a subscription cancellation to any other row, so a base-only cancel
-  // would leave every app subscription billing on, independently, while its whole reason for
-  // existing (the base under it) is gone. Each app's own cancel is idempotent to call twice —
-  // billing.cancel is a no-op on an already-pending or already-canceled row — so this is safe even
-  // the day base-services DOES add a cascade of its own.
-  const cancelBase = async () => {
-    const a = action(catalog, 'billing.cancel');
-    if (!a || !baseSub) return;
-    setCancelBusy(true); setCancelError('');
-    try {
-      await Promise.all([
-        call(session, a, { id: baseSub.id }),
-        ...activeAppSubs.map((s) => call(session, a, { id: s.id })),
-      ]);
-      setConfirmingCancel(false);
-      load();
-    } catch (e) {
-      setCancelError(e instanceof Error ? e.message : t('plans.error.cancelSubscription'));
-    } finally {
-      setCancelBusy(false);
-    }
-  };
-
   /** WHICH DEPENDENT APPS WOULD CASCADE if this subscription is cancelled right now — read by
    *  both the confirm dialog (so he is told BEFORE pressing, never surprised after) and `cancelApp`
    *  itself (so the two never compute it two different ways and drift). Empty unless the sub being
@@ -1085,18 +1016,16 @@ export function PlansPane({
       .filter((p): p is Plan => p != null && DEPENDENT_KEYS.includes(appKey(p)));
   };
 
-  /** «إيقاف تجديد هذا التطبيق» — an app's own, independent cancellation. Never touches the base or
-   *  any other app; the reverse direction (base takes every app with it) is `cancelBase` above.
-   *  Only ever fired from `confirmingCancelApp`'s own confirm button — never directly from the
-   *  card, same discipline the base already had and the app was missing.
+  /** «إيقاف تجديد هذا التطبيق» — an app's own, independent cancellation. Never touches any other
+   *  app. Only ever fired from `confirmingCancelApp`'s own confirm button — never directly from
+   *  the card.
    *
    *  CASCADES TO FOUR DEPENDENT APPS when the one being cancelled was تسجيل زيارة or الحجوزات AND
    *  the shop now holds NEITHER — owner's own product rule (2026-09-11): برنامج النقاط/التقييم/
    *  فرصي/الحملات are all logically dependent on a real sales-recording app existing under them
    *  (`plan.requires_any` already refuses BUYING one without a prerequisite; this is the same rule
-   *  enforced going forward, not just at purchase). Same client-driven cascade `cancelBase` already
-   *  uses for "base takes every app with it" — billing-service does not cascade cancellations on
-   *  its own, so the caller states the whole cascade explicitly, one `billing.cancel` per row. */
+   *  enforced going forward, not just at purchase). billing-service does not cascade cancellations
+   *  on its own, so the caller states the whole cascade explicitly, one `billing.cancel` per row. */
   const cancelApp = async (subId: string) => {
     const a = action(catalog, 'billing.cancel');
     if (!a) return;
@@ -1120,44 +1049,8 @@ export function PlansPane({
     }
   };
 
-  /** «تبديل الاشتراك الأساسي» (audit #5) — THE ACTION THAT DID NOT EXIST. billing-service's `/change` route is
-   *  whole, proration and all; nothing in this console ever called it, so switching base tiers
-   *  meant a second «شراء» - a second subscription rather than a swap.
-   *
-   *  THE STRIPE-STYLE SPLIT (no negative balance or refund, ever — fixed
-   *  upstream v0.16.33): an UPGRADE is charged the prorated difference FIRST and takes effect only
-   *  once that charge clears - `applied: "upgraded"`. A DOWNGRADE touches nothing now; the shop
-   *  keeps its current, already-paid subscription at full value until the period ends, and the new one is
-   *  SCHEDULED for the next renewal at full price - `applied: "scheduled_downgrade"`, never a
-   *  credit line, never a negative balance. The two need two different sentences, because they are
-   *  two different promises: one says "already happened", the other says "will start". */
-  const changeBase = async () => {
-    const a = action(catalog, 'billing.change_plan');
-    if (!a || !baseSub || !confirmingChange) return;
-    setChangeBusy(true); setChangeError('');
-    try {
-      const out = await call<{ applied?: string; proration_minor?: number }>(
-        session, a, { id: baseSub.id, plan_id: confirmingChange.id });
-      setConfirmingChange(null);
-      if (out?.applied === 'scheduled_downgrade') {
-        setChangeNotice(tf(t, 'plans.notice.scheduledDowngrade', { name: confirmingChange.name }));
-      } else {
-        const d = out?.proration_minor;
-        setChangeNotice(
-          typeof d === 'number' && d > 0
-            ? tf(t, 'plans.notice.switchedWithProration', { name: confirmingChange.name, amount: riyals(d) })
-            : tf(t, 'plans.notice.switched', { name: confirmingChange.name }));
-      }
-      load();
-    } catch (e) {
-      setChangeError(e instanceof Error ? e.message : t('plans.error.changePlan'));
-    } finally {
-      setChangeBusy(false);
-    }
-  };
-
-  /** THE CAPACITY STEPPER'S +/- — same route as `changeBase` (`billing.change_plan`), same
-   *  plan id on both sides, only `quantity` moves. Server-side this is `change_plan()` editing
+  /** THE CAPACITY STEPPER'S +/- — `billing.change_plan`, same plan id on both sides, only
+   *  `quantity` moves. Server-side this is `change_plan()` editing
    *  `sub.quantity` IN PLACE on the one row he already holds: raising it charges the prorated
    *  difference now (an upgrade, by price), lowering it schedules the smaller amount for the next
    *  renewal (a downgrade) — never a second subscription, never a refund line here.
@@ -1179,31 +1072,13 @@ export function PlansPane({
     }
   };
 
-  /** «تراجع عن التبديل» (v0.16.33) — undoes a SCHEDULED downgrade before its renewal. Idempotent on
-   *  the server (a no-op when nothing is scheduled), so a stale button or a double click is
-   *  harmless rather than an error. */
-  const cancelScheduledChange = async () => {
-    const a = action(catalog, 'billing.cancel_scheduled_change');
-    if (!a || !baseSub) return;
-    setCancelSwitchBusy(true); setCancelSwitchError('');
-    try {
-      await call(session, a, { id: baseSub.id });
-      load();
-    } catch (e) {
-      setCancelSwitchError(e instanceof Error ? e.message : t('plans.error.undoSwitch'));
-    } finally {
-      setCancelSwitchBusy(false);
-    }
-  };
-
-  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoes an already-scheduled cancel (base or app, same
-   *  route: billing.undo_cancel is idempotent and never resurrects an already-ended subscription,
-   *  so calling it on a stale button is harmless). One function, two callers below — same shape
-   *  `cancelApp`/`cancelBase` already split into. */
-  const undoCancel = async (subId: string, which: 'base' | 'app') => {
+  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoes an already-scheduled cancel on an app.
+   *  Idempotent on the server (billing.undo_cancel never resurrects an already-ended subscription),
+   *  so calling it on a stale button is harmless. */
+  const undoCancel = async (subId: string) => {
     const a = action(catalog, 'billing.undo_cancel');
     if (!a) return;
-    if (which === 'base') setUndoBaseCancelBusy(true); else setUndoingAppCancelId(subId);
+    setUndoingAppCancelId(subId);
     setUndoCancelError('');
     try {
       await call(session, a, { id: subId });
@@ -1211,7 +1086,7 @@ export function PlansPane({
     } catch (e) {
       setUndoCancelError(e instanceof Error ? e.message : t('plans.error.undoCancelRenewal'));
     } finally {
-      if (which === 'base') setUndoBaseCancelBusy(false); else setUndoingAppCancelId('');
+      setUndoingAppCancelId('');
     }
   };
 
@@ -1325,21 +1200,14 @@ export function PlansPane({
 
   // ── GROUPED BY WHAT A ROW GRANTS, never by its name or its position in a list ─────────────
   // This is what makes the next app free to add: invoicing and CRM arrive as rows in the price
-  // list and land in the right section without a line here.
-  const bases = plans?.filter((p) => kindOf(p) === 'base') ?? [];
+  // list and land in the right section without a line here. NO BASE ROW EXISTS ANY MORE (retired
+  // 2026-09-10) — `kindOf()` can never classify a row as `'base'` against real seed data, so that
+  // branch is not read here at all.
   const apps = plans?.filter((p) => kindOf(p) === 'app') ?? [];
   const capacity = plans?.filter((p) => kindOf(p) === 'capacity') ?? [];
-  // THE ONE ROW «إلغاء الاشتراك» ACTS ON — matched by which PLAN it is a subscription TO, never
-  // by position: `subs[0]` is whichever row billing happened to return first, and an app row
-  // bought after the base would have been cancelled instead of the base itself. The bare
-  // `subs?.[0]` this file used to keep around for the status badge and the past-due alert carried
-  // exactly that same position bug into two more places — removed rather than fixed-in-place,
-  // so it cannot regrow a third use.
-  const baseSub = (subs ?? []).find((s) => bases.some((p) => p.id === s.plan_id));
-  // EVERY APP'S OWN SUBSCRIPTION ROW — matched the same way (by which row it IS, never by
-  // position). Each app is independently cancellable — «كل تطبيق له إدارة
-  // اشتراكه الخاص» — but none of them exists without the base, so cancelling the base is stated
-  // plainly as cancelling all of them together, never a silent side effect.
+  // EVERY APP'S OWN SUBSCRIPTION ROW — matched by which row it IS, never by position (`subs[0]`
+  // is whichever row billing happened to return first). Each app is independently cancellable —
+  // «كل تطبيق له إدارة اشتراكه الخاص».
   const appSubs = (subs ?? []).filter((s) => apps.some((p) => p.id === s.plan_id));
   const activeAppSubs = appSubs.filter((s) => s.status !== 'canceled' && !s.cancel_at_period_end);
   // A CAPACITY ROW'S OWN SUBSCRIPTION — same matching rule as `appSubs`, one row per plan (its
@@ -1347,17 +1215,20 @@ export function PlansPane({
   // at every call site below, same as `appSub` above never guesses at a missing app subscription.
   const capacitySubs = (subs ?? []).filter((s) => capacity.some((p) => p.id === s.plan_id))
     .filter((s) => s.status !== 'canceled' && !s.cancel_at_period_end);
-  // FOUR ANSWERS NOW, and none of them is «he has not bought». The read may be in flight
+  // THREE ANSWERS NOW, and none of them is «he has not bought». The read may be in flight
   // (`undefined`), have failed (`null`), be one his role cannot make (DENIED), or have arrived
   // with `checked: false` because billing itself could not be asked. The sections claim nothing
   // in every one of those cases — telling a paying shop it has not paid is the mistake this pane
   // exists to avoid.
   const answer = isReady(owned) ? owned : null;
-  const hasBase = !answer || !answer.checked ? null : Boolean(answer.base);
   // WHAT BILLING SAID WHEN IT COULD NOT ANSWER — its sentence, not ours. Empty while the read is
   // still in flight, so the cards below can tell «ما زلنا نقرأ» from «سألنا ولم نصل» instead of
   // printing one line for both.
   const unreadNote = unreadSentence(answer);
+  // THE FIRST SUBSCRIPTION (BASE OR APP) BILLING SAYS IS PAST DUE — used only to target the
+  // «تحديث بطاقة الدفع» button at the right row; the alert banner itself fires for ANY past-due
+  // row regardless.
+  const pastDueSub = (subs ?? []).find((s) => s.status === 'past_due');
 
   if (plans === null || subs === undefined) {
     return (
@@ -1370,15 +1241,12 @@ export function PlansPane({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* «متأخر الدفع» — ITS OWN ALERT, NOT BURIED IN A CARD. The aggregate
-          «اشتراكك: الأساس + N تطبيقات» summary card is gone entirely — each subscription now
-          carries its own status and its own cancel control on its own card, base included, below.
-          A failing charge is the loudest thing an owner needs to see the moment he opens this
-          screen, not a detail he finds by scrolling to the base card among the others.
-          ANY SUBSCRIPTION, NOT JUST THE FIRST ONE IN THE ARRAY — same bug class as the base badge
-          fix beside it: `subs?.[0]` is an arbitrary row, and a
-          past-due APP subscription is just as real a billing problem as a past-due base. */}
-      {(subs ?? []).some((s) => s.status === 'past_due') ? (
+      {/* «متأخر الدفع» — ITS OWN ALERT, NOT BURIED IN A CARD. Each subscription carries its own
+          status and its own cancel control on its own card, below. A failing charge is the
+          loudest thing an owner needs to see the moment he opens this screen.
+          ANY SUBSCRIPTION, NOT JUST THE FIRST ONE IN THE ARRAY — `subs?.[0]` is an arbitrary row,
+          and any past-due row is a real billing problem regardless of which app it is. */}
+      {pastDueSub ? (
         <div className="flex flex-col gap-2 rounded-card border border-danger/30 bg-danger-soft p-4">
           <p className="text-sm text-danger">{t('plans.pastDue.title')}</p>
           {/* «تحديث بطاقة الدفع» — audit #3's other half, the one that closes the involuntary-
@@ -1387,11 +1255,11 @@ export function PlansPane({
               once `billing.update_payment_method` exists in the catalogue AND this build can
               actually mint a token (`canMintToken` — false until Ops sets the Moyasar
               publishable key) — never rendered-and-refused. */}
-          {baseSub && action(catalog, 'billing.update_payment_method') && canMintToken ? (
+          {action(catalog, 'billing.update_payment_method') && canMintToken ? (
             <div>
               <Button type="button" variant="danger" size="sm"
                       onClick={() => setCardFormPending({ kind: 'update_payment_method',
-                                                          subscriptionId: baseSub.id })}>
+                                                          subscriptionId: pastDueSub.id })}>
                 {t('plans.updatePaymentMethod')}
               </Button>
             </div>
@@ -1419,52 +1287,17 @@ export function PlansPane({
         <p className="text-sm text-text-secondary">{t('plans.verifyingCard')}</p>
       ) : null}
 
-      {/* THE CONFIRMATION — never a silent press. He is ending a paid relationship, and the one
-          thing he must know before he presses again is that nothing is taken from him: the shop
-          keeps working exactly as it does today, until the day already printed above.
+      {/* THE APP'S OWN CONFIRMATION — never a silent press. He is ending a paid relationship, and
+          the one thing he must know before he presses again is that nothing is taken from him:
+          the app keeps working exactly as it does today, until the day already printed above. He
+          never fires this from the card itself, only opens this dialog, which names the exact app
+          and the exact date before anything happens.
           A REAL MODAL, NOT A DIV IN THE PAGE FLOW — CONFIRMED BUG (screenshot): this used to
           render inline, at the TOP of the screen, while the button that opens it lives on a card
           inside the apps grid further down the page. Pressing "إيقاف التجديد" on any app near the
           bottom opened a dialog off-screen above — invisible without scrolling up, which reads
           exactly like the press did nothing at all. A portal-to-body modal is always visible
           regardless of where its trigger sits. */}
-      <Modal open={confirmingCancel && Boolean(baseSub)}
-            onClose={() => { setConfirmingCancel(false); setCancelError(''); }}
-            title={t('plans.confirmCancelTitle')}>
-        {baseSub ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary">
-              {renewalDay(baseSub.current_period_end)
-                ? tf(t, 'plans.cancelBody.withDate', { date: renewalDay(baseSub.current_period_end) })
-                : t('plans.cancelBody.noDate')}
-            </p>
-            {/* NO APP SURVIVES ITS BASE — stated plainly, not discovered a month later on a
-                statement he did not expect. No app exists without the base under it, so cancelling
-                it takes every app with it, on the same schedule. */}
-            {activeAppSubs.length > 0 ? (
-              <p className="text-sm text-text-secondary">
-                {tf(t, 'plans.cancelBody.alsoStops', {
-                  names: activeAppSubs.map((s) => apps.find((p) => p.id === s.plan_id)?.name ?? t('plans.appFallback')).join('، '),
-                })}
-              </p>
-            ) : null}
-            {cancelError ? <p className="text-sm text-danger">{cancelError}</p> : null}
-            <div className="flex gap-2">
-              <Button type="button" variant="danger" disabled={cancelBusy} onClick={() => void cancelBase()}>
-                {t('plans.confirmCancelRenewal')}
-              </Button>
-              <Button type="button" variant="ghost" disabled={cancelBusy}
-                      onClick={() => { setConfirmingCancel(false); setCancelError(''); }}>
-                {t('plans.back')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
-
-      {/* THE APP'S OWN CONFIRMATION — same discipline as the base's, one app at a time: he never
-          fires this from the card itself, only opens this dialog, which names the exact app and
-          the exact date before anything happens. Same modal fix as the base's, above. */}
       <Modal open={Boolean(confirmingCancelApp)}
             onClose={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}
             title={confirmingCancelApp ? tf(t, 'plans.confirmCancelAppTitle', { name: confirmingCancelApp.name }) : ''}>
@@ -1505,47 +1338,6 @@ export function PlansPane({
           </div>
         ) : null}
       </Modal>
-
-      {/* «تبديل الاشتراك الأساسي» CONFIRMATION — same discipline as cancel's: he is changing what he pays, and
-          the one thing he must know before pressing again is what actually happens NOW.
-          TWO DIFFERENT PROMISES (v0.16.33: «مافي رصيد سالب أو استرداد إطلاقاً»): an
-          UPGRADE charges the prorated difference immediately and switches only once that clears —
-          said as something about to be charged, not a fact already true. A DOWNGRADE changes
-          NOTHING today; the current, already-paid subscription keeps working in full until the period
-          ends, and only then does the new one — and its new price — begin. Neither sentence is a
-          guess: this is exactly what billing-service now does. */}
-      <Modal open={Boolean(confirmingChange)}
-            onClose={() => { setConfirmingChange(null); setChangeError(''); }}
-            title={confirmingChange ? tf(t, 'plans.confirmChangeTitle', { name: confirmingChange.name }) : ''}>
-        {confirmingChange ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary">
-              {(monthly(confirmingChange)?.amount_minor ?? 0)
-                >= (baseSub ? monthly(bases.find((b) => b.id === baseSub.plan_id) ?? confirmingChange)?.amount_minor ?? 0 : 0)
-                ? t('plans.changeBody.upgrade')
-                : tf(t, 'plans.changeBody.downgrade', { name: confirmingChange.name })}
-            </p>
-            {changeError ? <p className="text-sm text-danger">{changeError}</p> : null}
-            <div className="flex gap-2">
-              <Button type="button" disabled={changeBusy} onClick={() => void changeBase()}>
-                {t('plans.confirmSwitch')}
-              </Button>
-              <Button type="button" variant="ghost" disabled={changeBusy}
-                      onClick={() => { setConfirmingChange(null); setChangeError(''); }}>
-                {t('plans.back')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
-
-      {changeNotice ? (
-        <div className="rounded-card border border-success-soft bg-success-soft/40 p-5 shadow-sm">
-          <p className="mb-1 font-medium">{t('plans.switched.title')}</p>
-          <p className="mb-4 text-sm text-text-secondary">{changeNotice}</p>
-          <Button type="button" variant="ghost" onClick={() => setChangeNotice('')}>{t('plans.ok')}</Button>
-        </div>
-      ) : null}
 
       {/* WHAT IS LEFT, AFTER THE SUBSCRIPTION SUCCEEDED. Not a refusal and not styled as one: the
           payment went through, and this is the one step between him and messages going out. It is
@@ -1589,129 +1381,13 @@ export function PlansPane({
           AND IT IS WHAT MAKES THE NEXT APP CHEAP TO ADD. Invoicing and CRM arrive as rows in the
           price list; this screen groups by what a row GRANTS, so neither needs a line here. */}
       {undoCancelError ? <p className="text-sm text-danger">{undoCancelError}</p> : null}
-      {cancelSwitchError ? <p className="text-sm text-danger">{cancelSwitchError}</p> : null}
 
-      {/* ── THE BASE, WIDE, WITH ITS CAPACITY BESIDE IT ────────────────────────────────────
-          ONE ROW, NOT A STACK BELOW A STACK. The base is what he already pays for; «السعة» is
-          what he adds to THAT subscription — a second branch, more seats. They are one decision,
-          so they share a row: the base takes the wide two-thirds a real card needs to breathe,
-          capacity the narrow third beside it. Below `lg` both fall back to one column, because on
-          a phone there is no beside. */}
-      {bases.length || capacity.length ? (
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
-          {bases.length ? (
-            <section className="flex flex-col gap-2">
-              <h2 className="flex items-center gap-1 text-sm text-text-secondary">
-                {t('plans.section.base')}
-                <AssistantHint anchor="store.baseSection" session={session} />
-              </h2>
-              <ul className="grid gap-3">
-                {bases.map((p) => {
-                  // WHICH BASE, NOT JUST WHETHER ONE - `hasBase` alone used to mark EVERY base
-                  // card owned the moment he had any one of them (audit #5's other half of the
-                  // same bug: a shop on the cheap tier saw every tier badged as already his).
-                  const isThisOne = hasBase === true ? baseSub?.plan_id === p.id : hasBase;
-                  // UPGRADE OR SCHEDULED DOWNGRADE, NEVER A CREDIT (fixed
-                  // upstream v0.16.33): billing-service now splits change_plan itself - an
-                  // upgrade charges the difference and flips immediately, a downgrade schedules
-                  // the same target for the next renewal at full price and touches nothing now.
-                  // Both directions are safe to offer; only the label and the confirmation text
-                  // differ, because they are two different promises to make him before he presses.
-                  const currentBase = bases.find((b) => b.id === baseSub?.plan_id);
-                  const isUpgrade = (monthly(p)?.amount_minor ?? 0)
-                    >= (currentBase ? monthly(currentBase)?.amount_minor ?? 0 : 0);
-                  const canSwitchToThis = hasBase === true && !isThisOne
-                    && Boolean(action(catalog, 'billing.change_plan'));
-                  // THE BASE'S OWN CARD NOW CARRIES WHAT THE DELETED SUMMARY CARD USED TO SAY:
-                  // its honest status (including the متأخر الدفع fourth
-                  // state, audit #3) and its own cancel control, exactly as an app card carries
-                  // its. GATED ON THE SUBSCRIPTION ROW ITSELF, not on `isThisOne`/`hasBase`: the
-                  // deleted summary card read `baseSub` straight off `billing.my_subscriptions`,
-                  // never off the entitlements roll-up, so a viewer whose role can't check
-                  // entitlements (`hasBase === null`) could still see and use billing controls -
-                  // cancel must keep working for that viewer exactly as it did before.
-                  const isBaseSubRow = baseSub?.plan_id === p.id;
-                  // READ FROM baseSub, NOT sub — CONFIRMED BUG: `sub`
-                  // is `subs?.[0]`, an arbitrary FIRST row of whatever order billing.my_subscriptions
-                  // happened to return, not necessarily the base's own row. A shop with the base
-                  // active and an app subscription first in the array read the base's badge as
-                  // «متوقف» while every app card correctly read «مفعّل» — the base's status must
-                  // come from the base's own subscription record, same as `cancel_at_period_end`
-                  // two lines above already correctly does.
-                  // FIVE REAL STATUSES, NOT TWO — CONFIRMED BUG (screenshot): billing-service's
-                  // Subscription.status is trialing|active|past_due|paused|canceled (models.py),
-                  // and a subscription DEFAULTS to "trialing" until its first run_cycle bills it
-                  // active. This card only ever recognised "active" as working and printed
-                  // «متوقف» for every other status — including a brand-new, perfectly healthy
-                  // trial subscription — while every app card beside it correctly read «مفعّل»
-                  // off the entitlements roll-up instead. Named honestly now, one word per status.
-                  const statusKey = isBaseSubRow ? baseStatusKey(baseSub) : undefined;
-                  const statusLabel = statusKey ? t(`plans.status.${statusKey}`) : undefined;
-                  const statusTone = isBaseSubRow
-                    ? (statusKey === 'cancelling' ? 'warning'
-                      : statusKey === 'pastDue' ? 'danger'
-                      : statusKey === 'trialing' ? 'success'
-                      : statusKey === 'paused' ? 'warning'
-                      : statusKey === 'active' ? 'success' : 'warning')
-                    : undefined;
-                  // A SCHEDULED DOWNGRADE, NAMED (v0.16.33) - shown only on the card he still owns
-                  // (the subscription he keeps, in full, until the switch happens), never on the target -
-                  // buying that card outright is still a different action from the one already
-                  // scheduled toward it.
-                  const pendingPlan = baseSub?.pending_plan_id
-                    ? bases.find((b) => b.id === baseSub.pending_plan_id) : undefined;
-                  const switchPending = isBaseSubRow && !baseSub?.cancel_at_period_end
-                    && Boolean(pendingPlan);
-                  return (
-                    <li key={p.id}>
-                      <AppCard
-                        plan={p}
-                        session={session}
-                        catalog={catalog}
-                        owned={isBaseSubRow ? true : isThisOne}
-                        busy={busy}
-                        sellable={Boolean(canSubscribe && pay?.enabled && canMintToken)}
-                        onBuy={() => choose(p)}
-                        unreadNote={unreadNote}
-                        ownedLabel={t('plans.base.ownedLabel')}
-                        buyLabel={t('plans.base.buyLabel')}
-                        onSwitch={canSwitchToThis ? () => setConfirmingChange(p) : undefined}
-                        switchLabel={isUpgrade ? t('plans.base.switchUpgrade') : t('plans.base.switchDowngrade')}
-                        switching={changeBusy && confirmingChange?.id === p.id}
-                        statusLabel={statusLabel}
-                        statusKey={statusKey}
-                        statusTone={statusTone}
-                        cancelLabel={t('plans.base.cancelLabel')}
-                        onCancel={isBaseSubRow && action(catalog, 'billing.cancel')
-                          ? () => setConfirmingCancel(true) : undefined}
-                        cancelPending={isBaseSubRow && Boolean(baseSub?.cancel_at_period_end)}
-                        cancelPendingNote={baseSub && renewalDay(baseSub.current_period_end)
-                          ? tf(t, 'plans.base.cancelPendingWithDate', { date: renewalDay(baseSub.current_period_end) })
-                          : t('plans.base.cancelPendingNoDate')}
-                        canceling={cancelBusy}
-                        switchPending={switchPending}
-                        switchPendingNote={pendingPlan && renewalDay(baseSub?.current_period_end)
-                          ? tf(t, 'plans.base.switchPendingWithDate', { name: pendingPlan.name, date: renewalDay(baseSub?.current_period_end) })
-                          : pendingPlan ? tf(t, 'plans.base.switchPendingNoDate', { name: pendingPlan.name }) : undefined}
-                        onCancelSwitch={switchPending && action(catalog, 'billing.cancel_scheduled_change')
-                          ? () => void cancelScheduledChange() : undefined}
-                        cancelingSwitch={cancelSwitchBusy}
-                        onUndoCancel={isBaseSubRow && baseSub?.cancel_at_period_end && action(catalog, 'billing.undo_cancel')
-                          ? () => void undoCancel(baseSub.id, 'base') : undefined}
-                        undoingCancel={undoBaseCancelBusy}
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ) : null}
-
-          {/* THE ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a two-branch
-              shop that wanted nothing else had to buy a whole tier for the second branch. They are
-              bought AGAIN rather than owned: each purchase adds to what he has. */}
-          {capacity.length ? (
-            <section className="flex flex-col gap-2">
+      {/* ── SEATS/BRANCHES, THEIR OWN ROW ───────────────────────────────────────────────────
+          THE ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a two-branch
+          shop that wanted nothing else had to buy a whole tier for the second branch. They are
+          bought AGAIN rather than owned: each purchase adds to what he has. */}
+      {capacity.length ? (
+          <section className="flex flex-col gap-2">
               <h2 className="flex items-center gap-1 text-sm text-text-secondary">
                 {t('plans.section.capacity')}
                 <AssistantHint anchor="store.capacitySection" session={session} />
@@ -1736,15 +1412,12 @@ export function PlansPane({
                   );
                 })}
               </ul>
-            </section>
-          ) : null}
-        </div>
+          </section>
       ) : null}
 
-      {/* ── THE APPS, BELOW BOTH, FULL WIDTH ───────────────────────────────────────────────
+      {/* ── THE APPS ────────────────────────────────────────────────────────────────────────
           A SHELF, NOT A HALF-COLUMN. These are what he is actually choosing between, so they get
-          the screen's full width to lay out three and four across instead of competing for a
-          half-width column beside the base. */}
+          the screen's full width to lay out three and four across. */}
       {apps.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="flex items-center gap-1 text-sm text-text-secondary">
@@ -1798,7 +1471,7 @@ export function PlansPane({
                       ? () => setConfirmingCancelApp({ subId: appSub.id, name: p.name }) : undefined}
                     canceling={cancelingAppId === appSub?.id}
                     onUndoCancel={appSub?.cancel_at_period_end && action(catalog, 'billing.undo_cancel')
-                      ? () => void undoCancel(appSub.id, 'app') : undefined}
+                      ? () => void undoCancel(appSub.id) : undefined}
                     undoingCancel={undoingAppCancelId === appSub?.id}
                   />
                 </li>

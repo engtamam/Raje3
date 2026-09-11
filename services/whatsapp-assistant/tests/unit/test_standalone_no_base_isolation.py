@@ -122,7 +122,7 @@ async def test_a_standalone_tenant_never_sees_old_customer_history_that_still_ex
     call = await _reply(engine)
 
     # _StillHasOldCustomerData/_StillHasOldOffers/_StillHasOldPackages all return real data —
-    # proving the skip is deliberate (has_base gating), not "the fakes happen to be empty".
+    # proving the skip is deliberate (has_any_app gating), not "the fakes happen to be empty".
     assert "غسيل مجاني" not in call["context_block"]
     assert "باقة العروسة" not in call["context_block"]
 
@@ -138,8 +138,8 @@ async def test_an_ordinary_subscriber_keeps_every_tool_and_every_data_source():
     assert call["allowed_tools"] == _ALLOWED
     assert "غسيل مجاني" in call["context_block"]
     # NOT packages here — build_context_block's own upsell eligibility filter (context_builder.py)
-    # is a separate concern from has_base gating and is not what this test exercises; the "never
-    # leaks old data" test above already proves _StillHasOldPackages is reachable when has_base.
+    # is a separate concern from has_any_app gating and is not what this test exercises; the "never
+    # leaks old data" test above already proves _StillHasOldPackages is reachable when has_any_app.
 
 
 async def test_no_entitlement_wired_at_all_degrades_open_same_as_every_other_optional_peer():

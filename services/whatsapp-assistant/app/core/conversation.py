@@ -606,10 +606,11 @@ class ConversationEngine:
         # at the ONE call site that refuses an over-long message, `handle_inbound_text`, never
         # inside `_shop_context` itself.
         self._msg_word_limit_enabled = msg_word_limit_enabled
-        # WHETHER THIS TENANT HOLDS THE CORE PLATFORM SUBSCRIPTION AT ALL (feature.base) — see
-        # core/base_entitlement.py's own docstring. None (the pre-existing test-constructor
-        # default) means "behave as a full-service tenant", same degrade-open posture as every
-        # other optional peer here (`self._wallet is None`, `self._shop_identity is None`, ...).
+        # WHETHER THIS TENANT HOLDS ANY APP-LEVEL ENTITLEMENT AT ALL — see
+        # core/base_entitlement.py's own docstring (no `feature.base`/base subscription any more;
+        # the module's name is legacy). None (the pre-existing test-constructor default) means
+        # "behave as a full-service tenant", same degrade-open posture as every other optional
+        # peer here (`self._wallet is None`, `self._shop_identity is None`, ...).
         self._base_entitlement = base_entitlement
         # NOT constructor-required: app/main.py builds the Auditor AFTER build_container() (it
         # needs the container to build), so this is wired via `set_auditor` right after — see
@@ -672,13 +673,13 @@ class ConversationEngine:
         return (await self._shop_context(tenant)).name
 
     async def _context_block(self, tenant: str, subject_ref: str, from_number: str,
-                             has_base: bool) -> str:
+                             has_any_app: bool) -> str:
         """The shop's real priced catalogue and this customer's real personal offers, fetched
         fresh every turn — a price list can change between messages and a stale one is a wrong
         quote. Any peer failure degrades to an empty section, never a guess (see the callers' own
         docstrings for why each empty case is written out explicitly rather than left silent).
 
-        `has_base` GATES EVERYTHING HERE EXCEPT THE CATALOGUE. A standalone WhatsApp buyer (no
+        `has_any_app` GATES EVERYTHING HERE EXCEPT THE CATALOGUE. A standalone WhatsApp buyer (no
         `feature.base` at all) may still write his own service catalogue in operations — product
         decision, this session — so `self._catalog` stays unconditional. Customer records, loyalty
         offers and packages are all operations/loyalty data that requires the base (or an app that
@@ -694,7 +695,7 @@ class ConversationEngine:
                 catalog = []
 
         known = False
-        if has_base and self._customer_lookup is not None and from_number:
+        if has_any_app and self._customer_lookup is not None and from_number:
             try:
                 looked_up = await self._customer_lookup.resolve(tenant, from_number)
                 known = bool(looked_up.get("found"))
@@ -702,14 +703,14 @@ class ConversationEngine:
                 known = False
 
         offers: list[dict[str, Any]] = []
-        if has_base and known:
+        if has_any_app and known:
             try:
                 offers = await self._points.offers(tenant=tenant, subject_ref=subject_ref)
             except Exception:
                 offers = []
 
         packages: list[dict[str, Any]] = []
-        if has_base and self._package_catalog is not None:
+        if has_any_app and self._package_catalog is not None:
             try:
                 packages = await self._package_catalog.list_active(tenant)
             except Exception:
@@ -1192,12 +1193,12 @@ class ConversationEngine:
         # docstring for why a cancelled app must degrade THIS turn, not eventually). None-safe
         # default True for pre-existing test constructors, matching every other optional peer's
         # degrade-open shape.
-        has_base = True
+        has_any_app = True
         if self._base_entitlement is not None:
             try:
-                has_base = await self._base_entitlement.allowed(tenant)
+                has_any_app = await self._base_entitlement.allowed(tenant)
             except Exception:
-                has_base = False
+                has_any_app = False
 
         # A conversation already holding an unresolved proposal must not be offered a NEW
         # state-changing tool until the customer answers the one on the table — narrowing what
@@ -1206,7 +1207,7 @@ class ConversationEngine:
         # EVERY TOOL BUT PLAIN CONVERSATION IS OPERATIONS/LOYALTY DATA, so a tenant with no base
         # gets none of them — the same "no base" data isolation `_context_block` enforces, applied
         # to what the model may even attempt rather than only what it is told.
-        allowed = self._allowed_tools if has_base else frozenset()
+        allowed = self._allowed_tools if has_any_app else frozenset()
         if conv.pending_proposal_id:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer",
@@ -1244,7 +1245,7 @@ class ConversationEngine:
         shop_ctx = await self._shop_context(tenant)
         owner_notes = shop_ctx.ai_notes if self._shop_notes_enabled else ""
         system_prompt = build_system_prompt(shop_ctx.name, owner_notes)
-        context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_base)
+        context_block = await self._context_block(tenant, subject_ref, conv.from_number, has_any_app)
 
         # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s
         # docstring. `self._wallet is not None` gates whether this service is wallet-gated at all
