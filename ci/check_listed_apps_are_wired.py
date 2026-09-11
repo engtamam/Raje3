@@ -20,9 +20,9 @@
 # checked it until now.
 #
 # THE RULE: every plan row in plans.json with `listed: true` and EXACTLY ONE `feature.*` key
-# (a single-feature app or standalone product — never a bundle like الأساس/المؤسسات, which sell
-# every feature key at once and are never meant to appear as one app tile) must have that key
-# present in apps.py's APPS tuple.
+# (a single-feature app or standalone product — never a bundle-everything row like الأساس or
+# المؤسسات, both retired, which sold every feature key at once and were never meant to appear as
+# one app tile) must have that key present in apps.py's APPS tuple.
 #
 # ONE DIRECTION ONLY, DELIBERATELY. The reverse — a row in APPS with no matching standalone
 # listed plan — is NOT automatically a bug: feature.campaigns/feature.loyalty/

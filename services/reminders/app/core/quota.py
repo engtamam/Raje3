@@ -5,11 +5,15 @@ plans sold. They no longer sell one: the establishment contracts with Meta direc
 it per delivered message, on a card in its own account. We neither buy the messages nor resell
 them, so selling "1,000 a month" was selling what we do not own.
 
-THE CODE SURVIVED THE DECISION INTACT; only its purpose moved. Every plan now carries
-`messages.monthly` at `unlimited` — the WORD, never -1, and `deploy/seed/plans.json` spends a
-paragraph on why: billing merges its own sentinel by beating every arithmetic, so two plans
-carrying -1 sum to -2, and -2 refuses every send. This sentence said «-1» until 2026-08-17, which
-taught every reader of this file the one value the price list forbids.
+THE CODE SURVIVED THE DECISION INTACT; only its purpose moved. No sold plan carries
+`messages.monthly` at all any more (المؤسسات, the one row that ever did, was retired 2026-09-11 —
+the enterprise-shop idea did not fit this product) — and that is fine, because `consume()` below
+never gates a send on this key regardless of what it resolves to. The rule that mattered while a
+plan DID carry it still holds should one ever need to again: the value must be the WORD
+`unlimited`, never -1 — `deploy/seed/plans.json` spends a paragraph on why: billing merges its own
+sentinel by beating every arithmetic, so two plans carrying -1 would sum to -2, and -2 refuses
+every send. This sentence said «-1» until 2026-08-17, which taught every reader of this file the
+one value the price list forbids.
 
 And unlimited still INCREMENTS the counter in billing — so every send is measured and none is
 refused for a ceiling of ours. What it buys:

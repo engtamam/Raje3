@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 # =============================================================================
-# check_plans_shape.py — the price list is a BASE plus APPS, and it stays that way.
+# check_plans_shape.py — the price list is APPS, standalone, and it stays that way.
 #
-# WHY A GUARD FOR A DATA FILE. Because entitlements MERGE across every live subscription and
-# numbers SUM, the shape of this file is load-bearing in a way a reader would not guess:
+# NO BASE EXISTS ANY MORE — retired twice over: الأساس (2026-09-10, "apps only" decision) and
+# المؤسسات (2026-09-11, the enterprise-shop shape rejected outright — "غير مناسب لوضعنا ولا طريقة
+# عملينا"). Every plan left is bought on its own, and `messages.monthly` — the OLD marker that once
+# made a row "a base" (operations' `core/subscribe.py::is_base` read it that way off a
+# subscription's own snapshot) — is granted by NOTHING here now, and that is not a gap to close:
+# billing's `consume()` never gates a send on this key regardless of what it resolves to
+# (services/reminders/app/core/quota.py's own header). This gate used to require at least one
+# base row to exist; it no longer does, because the product it was guarding no longer exists.
 #
-#   TWO ROWS CARRYING -1 FOR ONE KEY  a shop holding both gets -1 + -1 = -2. `messages.monthly`
-#                                     stops meaning «unlimited» and starts meaning nothing. The
-#                                     failure appears months later as a refused message, or as a
-#                                     meter that never catches our own runaway loop.
+# WHY A GUARD FOR A DATA FILE STILL, THEN. Because entitlements MERGE across every live
+# subscription and numbers SUM, the shape of this file is still load-bearing in ways a reader
+# would not guess:
 #
-#   AN APP REPEATING A CAPACITY KEY   `staff.seats` on an app row adds its number to the base's
-#                                     every time somebody buys that app. Nobody would notice a
-#                                     shop quietly gaining five seats; the invoice does not change.
+#   TWO ROWS CARRYING -1 FOR THE SAME KEY  a shop holding both gets -1 + -1 = -2, and a value
+#                                          meant to read «unlimited» starts meaning nothing.
 #
-#   AN APP THAT CARRIES THE METER  `messages.monthly` is what MAKES a row a base — operations reads
-#                                  it that way (core/subscribe.py `is_base`) off the subscription's
-#                                  own snapshot. An app carrying it would be sold as an app and
-#                                  counted as a base, so a shop could hold two meters and no rule
-#                                  anywhere would object.
+#   AN APP ROW REPEATING A CAPACITY KEY    `staff.seats`/`branches` sum by design (that is how the
+#                                          capacity add-ons work) — a FEATURE row must never also
+#                                          carry one, or buying that feature quietly adds seats.
 #
 # Every one of these is silent. Nothing errors, nothing logs, and the price list still looks right.
 #
@@ -36,12 +38,8 @@ UNLIMITED = "unlimited"
 ROOT = Path(__file__).resolve().parent.parent
 PLANS = ROOT / "deploy" / "seed" / "plans.json"
 
-# WHAT MAKES A ROW A BASE. The meter, not a flag and not a name: an app may never repeat
-# `messages.monthly` (that is the -1 + -1 = -2 defect below), so carrying it and being a whole
-# subscription are the same fact. operations decides the same way, from the same field.
-METER = "messages.monthly"
 # Keys that describe CAPACITY rather than a feature. They sum by design — that is how a seat pack
-# works — which is exactly why an app must never mention one.
+# works — which is exactly why a feature row must never mention one.
 CAPACITY = ("staff.seats", "branches")
 
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
@@ -60,19 +58,13 @@ def main() -> int:
     rows = [p for p in data["plans"] if isinstance(p, dict) and p.get("name")]
     problems: list[str] = []
 
-    bases = [p for p in rows if METER in (p.get("limits") or {})]
-    apps = [p for p in rows if p not in bases]
-
-    if not bases:
-        problems.append(f"no plan carries {METER} — nothing is a base, so every purchase rule that "
-                        f"asks «has this shop got one?» answers no and nothing can ever be bought")
+    # EVERY ROW IS AN APP NOW — no base concept survives (see this file's own header). A "base"
+    # variable stays out of this function entirely rather than an always-empty list some later
+    # line might start branching on again by habit.
+    apps = rows
 
     # ── a value of -1 belongs to exactly one row a shop can hold at a time ────────────────────
     #
-    # BASES ARE EXEMPT FROM EACH OTHER, and only because `may_add` in operations refuses a second
-    # base — الأساس and المؤسسات are alternatives, never a pair, so both may carry -1. That is a
-    # dependency between a data file and a rule in code, and it is stated here so the day somebody
-    # relaxes that rule this line is what tells them what else it was holding up.
     # THE SENTINEL IS billing'S OWN WORD, AND THIS CHECK WENT BLIND THE DAY WE ADOPTED IT.
     #
     # It hunted `-1`, which is what we used to seed. billing's merge does not know that number: it
@@ -96,16 +88,9 @@ def main() -> int:
 
     unlimited: dict[str, list[str]] = {}
     for plan in rows:
-        if plan in bases:
-            continue
         for key, value in (plan.get("limits") or {}).items():
             if is_unlimited(value):
                 unlimited.setdefault(key, []).append(plan["name"])
-    # An app row carrying -1 for a key a base also grants is the pair that CAN be held together.
-    base_unlimited = {k for p in bases for k, v in (p.get("limits") or {}).items()
-                      if is_unlimited(v)}
-    for key in sorted(base_unlimited & set(unlimited)):
-        unlimited[key] = unlimited[key] + ["a base"]
     for key, names in sorted(unlimited.items()):
         if len(names) > 1:
             problems.append(f"{key} is unlimited in {len(names)} rows ({', '.join(names)}) — a shop "
@@ -129,22 +114,12 @@ def main() -> int:
             problems.append(f"{plan['name']}: grants nothing at all — it can be bought and changes "
                             f"nothing about what the shop may do")
 
-    # ── every base carries every feature key, so 0 means DENY rather than silence ─────────────
-    sold = {k for p in rows for k in (p.get("limits") or {}) if k.startswith("feature.")}
-    for plan in bases:
-        missing = sorted(sold - set(plan.get("limits") or {}))
-        if missing:
-            problems.append(f"{plan['name']}: does not carry {missing[0]} even as 0 — a key missing "
-                            f"everywhere answers NOT_ENTITLED with no reason to show, so the "
-                            f"console cannot tell 'not bought' from 'never heard of it'")
-
     for p in problems:
         print(f"{C_R}  ✗ {p}{C_N}")
     if problems:
         print(f"\n{C_R}  ✗ {len(problems)} problem(s) in the price list's shape{C_N}")
         return 1
-    print(f"{C_G}  ✔ {len(bases)} base(s) and {len(apps)} app(s): nothing sums twice, and every "
-          f"base answers for every key{C_N}")
+    print(f"{C_G}  ✔ {len(apps)} plan(s), every one standalone: nothing sums twice{C_N}")
     return 0
 
 

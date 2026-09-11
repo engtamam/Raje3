@@ -81,7 +81,7 @@
   ],
   "currency": "SAR",
   "limit_keys": {
-    "messages.monthly": "measured, never sold — see the note above. Uncapped, and only ever on ONE row at a time (المؤسسات today — no other row grants it)",
+    "messages.monthly": "measured, never sold — see the note above. No row grants it any more (المؤسسات, the one row that did, was retired 2026-09-11 — the enterprise-shop idea did not fit how this product actually sells); billing's own consume() never gates a send on this key regardless, so nothing here changes what any shop can send",
     "staff.seats": "people who can sign in; operations owns the count and reports it",
     "branches": "branches; operations owns the count and reports it",
     "feature.campaigns": "the campaign builder (§10)",
@@ -394,87 +394,6 @@
       "limits": {
         "branches": {
           "kind": "gauge",
-          "limit": 1
-        }
-      }
-    },
-    {
-      "_": [
-        "THE ENTERPRISE SHAPE — priced per conversation, never on the pricing page.",
-        "",
-        "listed=false, so it is invisible to the public list and still subscribable. That is the",
-        "whole mechanism: a negotiated customer is moved onto this plan from our panel with an",
-        "amount agreed with him, and no code anywhere learns it exists.",
-        "",
-        "IT IS A WHOLE SUBSCRIPTION, NOT AN APP — it carries every key including messages.monthly,",
-        "and it is sold INSTEAD of every other row rather than beside them. A shop holding both",
-        "this and another app would sum two message meters into a smaller one, which is why",
-        "`subscription.activate` refuses it. GRANTS `feature.visit`/`feature.contacts` explicitly",
-        "(2026-09-10, replacing the retired `feature.base` this row used to carry) — an enterprise",
-        "subscriber's write access must not depend on a key that no longer exists anywhere else.",
-        "",
-        "The amount here is a PLACEHOLDER, not a price. It is what the plan costs when nobody has",
-        "negotiated anything, and the panel overwrites it per subscription."
-      ],
-      "name": "المؤسسات",
-      "amount": 0,
-      "trial_days": 30,
-      "listed": false,
-      "limits": {
-        "messages.monthly": {
-          "kind": "counter",
-          "limit": "unlimited",
-          "period": "billing_period",
-          "overage": "allow_and_bill"
-        },
-        "staff.seats": {
-          "kind": "gauge",
-          "limit": "unlimited"
-        },
-        "branches": {
-          "kind": "gauge",
-          "limit": "unlimited"
-        },
-        "feature.campaigns": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "feature.loyalty": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "feature.insights.engine": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "feature.api": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "templates.custom": {
-          "kind": "counter",
-          "limit": "unlimited",
-          "period": "month",
-          "overage": "block"
-        },
-        "feature.bookings": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.rating": {
-          "kind": "boolean",
-          "limit": 0
-        },
-        "feature.whatsapp": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "feature.contacts": {
-          "kind": "boolean",
-          "limit": 1
-        },
-        "feature.visit": {
-          "kind": "boolean",
           "limit": 1
         }
       }

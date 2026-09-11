@@ -2,10 +2,12 @@
  * The screen says what the services now enforce — and stays quiet about what it does not know.
  *
  * WHAT THIS PINS. `owned.base` — a whole subscription row (plan_id/status/renews_at), never a
- * boolean flag — is what `baseState`/`daysLeft`/`SubscriptionBar` read; المؤسسات is the one plan
- * that still populates it today (الأساس itself retired entirely, 2026-09-10). The mechanism this
- * test pins is unchanged by that retirement: a shop holding no base-shaped subscription at all
- * simply reads `baseState → 'none'` and the bar stays silent, same as before.
+ * boolean flag — is what `baseState`/`daysLeft`/`SubscriptionBar` read. NO PLAN POPULATES IT AT
+ * ALL any more (الأساس retired 2026-09-10, المؤسسات — the one row still carrying the base-shaped
+ * `messages.monthly` meter — retired 2026-09-11, "غير مناسب لوضعنا"): every shop's `owned.base`
+ * now reads `null` forever. The mechanism this test pins is exactly what that needs: a shop
+ * holding no base-shaped subscription simply reads `baseState → 'none'` and the bar stays silent
+ * — this file tests the fixtures below directly rather than assume a real plan still exercises it.
  *
  * THE COUNTDOWN IS READ, NEVER COMPUTED. Thirty days is a number on a subscription; a screen that
  * derived «30 - days since signup» would disagree with billing the first time anybody changed the

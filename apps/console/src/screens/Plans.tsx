@@ -75,8 +75,8 @@ const SECTION_LABEL: Record<string, string> = {
 interface Price { type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean }
 /** `limit` is a NUMBER OR THE WORD `unlimited` — billing's own sentinel, which its merge treats as
  *  beating every arithmetic. We used to seed -1 for the same idea; billing read that as a plain
- *  number and SUMMED it, so «المؤسسات» plus a capacity pack came out at 9 seats instead of no
- *  limit, and two bases summed to -2 messages — which refuses every send. */
+ *  number and SUMMED it, so a base-shaped row plus a capacity pack came out at 9 seats instead of
+ *  no limit, and two base-shaped rows summed to -2 messages — which refuses every send. */
 interface Limit { kind?: string; limit?: number | string; period?: string; overage?: string }
 export interface Plan {
   id: string;
@@ -496,16 +496,27 @@ function AppCard({
               aria-hidden
               className={[
                 'grid h-10 w-10 shrink-0 place-items-center rounded-full',
-                toneClasses(badgeTone),
-                // A THIN GOLD RING + GLOW — the same badge every other card wears, lifted once
-                // for the one card that is meant to look like a medallion, not a flat icon chip.
-                isGold ? 'ring-1 ring-accent/70 shadow-[0_0_14px_-2px_rgba(212,175,55,0.65)]' : '',
+                // A SOLID MEDALLION, NOT A SOFT TINT — the ordinary `bg-accent-soft/text-accent-
+                // on-soft` pair is two close shades of the SAME gold sitting on an already-dark
+                // gold backdrop, which is exactly why the icon read as "just the card's own
+                // colour" rather than a distinct badge (owner's own screenshot: "مو واضح بشكل
+                // كويس مع لون التطبيق"). Solid accent fill + its own contrast colour is the same
+                // separation Button already gives its filled variant.
+                isGold ? 'bg-accent text-accent-contrast ring-2 ring-[#f0d98c]/80 shadow-[0_0_14px_-2px_rgba(212,175,55,0.75)]'
+                       : toneClasses(badgeTone),
               ].join(' ')}
             >
               <Icon size={18} />
             </span>
           )}
-          <h3 className={compact ? 'text-sm font-medium leading-tight' : 'text-base font-medium leading-tight'}>
+          <h3 className={[
+            compact ? 'text-sm font-medium leading-tight' : 'text-base font-medium leading-tight',
+            // EXPLICIT COLOUR + A DARK HALO — every other card leaves this to inherited body
+            // colour, which reads fine on a plain surface but not against a moving gold gradient;
+            // named here instead of assumed, plus a soft dark shadow so the cream text stays
+            // legible even where the sheen sweeps brightest.
+            isGold ? 'text-text-primary font-semibold [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]' : '',
+          ].join(' ')}>
             {plan.name}
           </h3>
         </div>
