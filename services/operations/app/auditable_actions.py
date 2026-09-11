@@ -254,6 +254,21 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
               "unfamiliar visit would need first.",
     },
     {
+        # Fixed 2026-09-12 — found undeclared by ci/check_audit_actions.py (the route itself
+        # already emitted it; this was a missing declaration, not a missing audit call). Same
+        # posture as shop.whatsapp_visit_registration_changed right above: the owner's own
+        # security/data-collection decision — see core/whatsapp_auto_register.py's own docstring
+        # on why this defaults off. CRITICAL for the same reason: it widens who gets written into
+        # the customer book, not just what a screen shows.
+        "action": "shop.whatsapp_auto_register_changed",
+        "source": "admin",
+        "critical": True,
+        "resource": "shop_whatsapp_auto_register",
+        "why": "who widened (or narrowed) automatic جهات الاتصال registration for every new "
+              "WhatsApp number that messages the shop, and when — a data-collection decision an "
+              "owner disputing what got recorded about a stranger would need to explain.",
+    },
+    {
         # What the owner told the WhatsApp AI assistant about his own shop. Not critical: this is
         # a routine profile edit, redacted and length-capped before it is ever written, and refusing
         # to change it because the log is down protects nothing a customer would notice.

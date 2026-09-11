@@ -42,6 +42,46 @@ async def test_a_second_stamp_on_the_same_tenant_never_overwrites_the_first():
 
 
 @pytest.mark.anyio
+async def test_two_concurrent_stamps_for_the_same_tenant_only_one_wins():
+    """affiliate-service-003 (QA audit, 2026-09-12): the read-then-write shape used to have no
+    lock between them, so two genuinely concurrent stamp() calls for one tenant could both read
+    `existing is None` and the second `put()` would silently overwrite the first. Proved with a
+    slow-yielding store wrapper — the same technique bookings' own double-booking race test uses —
+    so the two coroutines actually interleave rather than merely running one after the other."""
+    import asyncio
+
+    class _SlowStore:
+        def __init__(self, inner):
+            self._inner = inner
+
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.get(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    store = MemoryDataStore()
+    slow = _SlowStore(store)
+    reg = ReferralRegistry(store=slow, commission_amount_halalas=4000, conversion_window_days=90)
+    await _seed_affiliate(store, affiliate_id="aff-1")
+    await _seed_affiliate(store, affiliate_id="aff-2")
+
+    out = await asyncio.gather(
+        reg.stamp(tenant="t-race", affiliate_id="aff-1"),
+        reg.stamp(tenant="t-race", affiliate_id="aff-2"),
+        return_exceptions=True)
+    winners = [o for o in out if not isinstance(o, Exception)]
+    losers = [o for o in out if isinstance(o, ReferralError)]
+    assert len(winners) == 1, f"expected exactly one winner, got {out}"
+    assert len(losers) == 1
+
+    # AND THE STORED ROW MATCHES THE WINNER — no silent overwrite by whichever call finished last.
+    stored = await reg.of_tenant("t-race")
+    assert stored.affiliate_id == winners[0]["affiliate_id"]
+
+
+@pytest.mark.anyio
 async def test_an_unknown_affiliate_id_is_refused_not_silently_dropped():
     reg, _store = build()
     with pytest.raises(ReferralError):

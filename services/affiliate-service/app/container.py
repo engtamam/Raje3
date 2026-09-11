@@ -270,6 +270,7 @@ def build_container(settings: Settings) -> Container:
         authz_url=settings.AUTHZ_SERVICE_URL,
         otp_deliverable=settings.AFFILIATE_OTP_DELIVERABLE,
         require_otp=settings.AFFILIATE_REQUIRE_OTP,
+        secrets_kek=settings.SECRETS_KEK,
     )
     # Which establishment this affiliate brought (spec §4) — see core/referrals.py for why this
     # is not operations' own partners.py reused.

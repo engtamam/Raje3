@@ -170,6 +170,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "at the platform actually decided to suspend him",
     },
     {
+        "action": "affiliate.subject_erased",
+        "source": "internal",
+        "critical": True,
+        "resource": "subject",
+        "why": "added 2026-09-12, a real gap a QA audit found: erasing a data subject's "
+               "identifying fields platform-wide (the DSAR fan-out compliance-service triggers) "
+               "left NO entry anywhere in this service's own append-only audit chain, even though "
+               "it is one of the most legally significant, irreversible actions this service ever "
+               "performs. Critical, same posture as `affiliate.suspended` — an unwitnessed "
+               "erasure is indistinguishable from one nobody actually authorised",
+    },
+    {
         "action": "affiliate.commissions_synced",
         "source": "internal",
         "critical": False,

@@ -80,6 +80,41 @@ async def test_billing_not_configured_is_reported_not_raised():
 
 
 @pytest.mark.anyio
+async def test_two_concurrent_syncs_for_the_same_tenant_only_one_actually_runs():
+    """affiliate-service-009 (QA audit, 2026-09-12): two overlapping sweep runs reconciling the
+    SAME tenant used to have no lock between them — an unguarded concurrent read-modify-write on
+    `_reconcile_refund`'s refund math. `claim()` itself never yields (see lock.py's own note on
+    the same shape elsewhere), so a genuine yield has to be injected downstream for two `gather`ed
+    calls to actually interleave rather than just run one after the other — same technique every
+    other race test in this service uses."""
+    import asyncio
+
+    class _SlowStore:
+        def __init__(self, inner):
+            self._inner = inner
+
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.get(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    store = _SlowStore(MemoryDataStore())
+    referrals = await _seed(store)
+    http = FakeBillingHttp([{"id": "inv-1", "paid_sequence": 1, "amount_minor": 10000,
+                            "refunded_minor": 0, "paid_at": _iso(int(time.time()))}])
+    engine = CommissionEngine(store=store, http=http, billing_url="http://billing:8000",
+                              referrals=referrals)
+
+    out = await asyncio.gather(engine.sync(TENANT), engine.sync(TENANT))
+    synced = [o for o in out if o.get("synced")]
+    busy = [o for o in out if o.get("reason") == "sync_in_progress"]
+    assert len(synced) == 1, f"expected exactly one sync to actually run, got {out}"
+    assert len(busy) == 1
+
+
+@pytest.mark.anyio
 async def test_a_conversion_inside_the_window_creates_a_pending_commission():
     store = MemoryDataStore()
     referrals = await _seed(store, commission_amount=4000)

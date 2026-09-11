@@ -22,7 +22,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -101,7 +104,7 @@ class OnboardingService:
                  terms_version: str = "v1",
                  tenants_url: str = "", authz_url: str = "",
                  otp_deliverable: bool = False, require_otp: bool = False,
-                 phone_search_ro: Any = None) -> None:
+                 phone_search_ro: Any = None, secrets_kek: str = "") -> None:
         self._store = store
         self._http = http
         self._identity = identity_url.rstrip("/")
@@ -110,6 +113,12 @@ class OnboardingService:
         self._promoter_role = promoter_role
         self._cc = default_cc
         self._salt = pii_salt
+        # SEALS THE ONE PENDING CREDENTIAL apply() EVER WRITES — see _seal_pending_password's own
+        # module-level docstring. Same "refuse rather than silently degrade" posture SecretStore
+        # itself takes on an empty KEK; enforced lazily, at the one call site that actually needs
+        # it (apply()), rather than at construction — a deployment that never touches this feature
+        # (a test, a script hitting other routes) must not fail to boot over a KEK it never needed.
+        self._kek = secrets_kek
         self._terms_version = terms_version
         # THE PHONE-OWNERSHIP GATE ("لما يجي يسجل... النظام يعرف انه هذا الحساب
         # هو نفس من رقم الجوال ويربط على طول تحت المدير"). Two independent knobs, same shape as
@@ -207,52 +216,83 @@ class OnboardingService:
         if not agreed:
             raise OnboardingRefused("وافق على الشروط وسياسة الخصوصية للمتابعة.", reason="must_agree")
 
-        # ONE ATTEMPT AT A TIME PER NUMBER. A second apply while the first is still pending is not
-        # a new person — refusing it here is what stops an admin's inbox from filling with
-        # duplicates of the same applicant retrying a slow connection.
-        existing = await self._find_application_by_phone(canonical)
-        if existing is not None and existing.status == PENDING:
+        # ONE ATTEMPT AT A TIME PER NUMBER, ENFORCED BY A REAL LOCK — fixed 2026-09-12, a real
+        # gap a QA audit found: the "no pending application for this phone" check and the write
+        # that follows used to be two separate round trips with nothing between them, the exact
+        # TOCTOU shape `_PAYOUT_LOCKS`/`_WAFA_LOCKS`/`_EMPLOYMENT_LOCKS` were each added to close
+        # elsewhere in this same service. A double-tapped submit button (or a retry over a slow
+        # connection — the scenario the dedupe check's own comment above already names) could
+        # both pass the check and both write a PENDING row for the same person.
+        now0 = int(time.time())
+        took = await self._store.claim(
+            _APPLY_LOCKS, canonical, {"phone": canonical, "at": now0},
+            ttl_seconds=_APPLY_LOCK_TTL_SECONDS, now=now0)
+        if not took:
             raise OnboardingRefused(
-                "طلبك السابق ما زال قيد المراجعة.", reason="already_pending")
-        if await self._affiliate_by_phone(canonical) is not None:
-            raise OnboardingRefused(
-                "لهذا الرقم حساب مسوّق بالفعل — سجّل الدخول.", reason="already_affiliate")
+                "طلبك قيد المعالجة الآن، حاول بعد لحظات.", reason="already_pending")
+        try:
+            existing = await self._find_application_by_phone(canonical)
+            if existing is not None and existing.status == PENDING:
+                raise OnboardingRefused(
+                    "طلبك السابق ما زال قيد المراجعة.", reason="already_pending")
+            if await self._affiliate_by_phone(canonical) is not None:
+                raise OnboardingRefused(
+                    "لهذا الرقم حساب مسوّق بالفعل — سجّل الدخول.", reason="already_affiliate")
 
-        parent_id = ""
-        if referral_code.strip():
-            parent = await self._store.get(AFFILIATES, referral_code.strip())
-            if parent is None or parent.get("status") != ACTIVE:
-                raise OnboardingRefused("كود الإحالة غير صحيح.", reason="bad_referral")
-            parent_id = str(parent["id"])
+            parent_id = ""
+            if referral_code.strip():
+                parent = await self._store.get(AFFILIATES, referral_code.strip())
+                if parent is None or parent.get("status") != ACTIVE:
+                    raise OnboardingRefused("كود الإحالة غير صحيح.", reason="bad_referral")
+                parent_id = str(parent["id"])
 
-        # PHONE-OWNERSHIP PROOF, LAST — after every other refusal, so a stranger holding somebody
-        # else's number and a wrong code learns nothing beyond "the code was wrong": not whether
-        # the number is already taken, not whether the referral code is real. See __init__'s own
-        # note on the two flags — a no-op today, a hard gate the moment both are flipped on.
-        if self._require_otp:
-            # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
-            # `_spend_code` stays a plain sync method (correct — it is the offload TARGET, not a
-            # coroutine); the offload belongs here, at its one caller.
-            await asyncio.to_thread(self._spend_code, canonical, code)
+            # PHONE-OWNERSHIP PROOF, LAST — after every other refusal, so a stranger holding
+            # somebody else's number and a wrong code learns nothing beyond "the code was wrong":
+            # not whether the number is already taken, not whether the referral code is real. See
+            # __init__'s own note on the two flags — a no-op today, a hard gate the moment both
+            # are flipped on.
+            if self._require_otp:
+                # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
+                # `_spend_code` stays a plain sync method (correct — it is the offload TARGET, not
+                # a coroutine); the offload belongs here, at its one caller.
+                await asyncio.to_thread(self._spend_code, canonical, code)
 
-        now = int(time.time())
-        app_row = Application(
-            id=new_id(), phone=canonical, name=name.strip(), parent_id=parent_id,
-            status=PENDING, created_at=now, subject_ref=self._ref(canonical),
-            agreed_terms_version=self._terms_version, agreed_at=now,
-            cv_url=cv_url.strip()[:500],
-        )
-        # THE PASSWORD IS NOT STORED HERE. Only identity ever holds a credential — this row is a
-        # request to be judged, and a plaintext password sitting in a pending-applications table
-        # for however long an admin takes to look at it is exactly the kind of "we'll get to it"
-        # PII debt this whole platform has spent this session closing everywhere else.
-        await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
-        # THE ONE EXCEPTION: kept in a SEPARATE, short-lived row so approval can still mint the
-        # account with the password the applicant actually chose — never a generated one he was
-        # never told, which would just lock him out on his first sign-in.
-        await self._store.put(_PENDING_SECRET, app_row.id,
-                              {"id": app_row.id, "password": password})
-        return {"application_id": app_row.id, "status": PENDING}
+            # CHECKED BEFORE ANYTHING IS WRITTEN — the applicant's password must be sealed, not
+            # stored plain (see _seal_pending_password's own docstring), and a missing KEK must
+            # refuse the whole application rather than leave an Application row with no matching
+            # sealed secret behind it (a half-written apply() that never mints an account either
+            # way).
+            if not self._kek:
+                raise OnboardingRefused(
+                    "تعذّرت الموافقة — تهيئة النظام غير مكتملة.", reason="secrets_kek_missing")
+
+            now = int(time.time())
+            app_row = Application(
+                id=new_id(), phone=canonical, name=name.strip(), parent_id=parent_id,
+                status=PENDING, created_at=now, subject_ref=self._ref(canonical),
+                agreed_terms_version=self._terms_version, agreed_at=now,
+                cv_url=cv_url.strip()[:500],
+            )
+            # THE PASSWORD IS NOT STORED HERE. Only identity ever holds a credential — this row
+            # is a request to be judged, and a plaintext password sitting in a pending-
+            # applications table for however long an admin takes to look at it is exactly the
+            # kind of "we'll get to it" PII debt this whole platform has spent this session
+            # closing everywhere else.
+            await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
+            # THE ONE EXCEPTION: kept in a SEPARATE, short-lived row so approval can still mint
+            # the account with the password the applicant actually chose — never a generated one
+            # he was never told, which would just lock him out on his first sign-in. SEALED, not
+            # plaintext — see _seal_pending_password's own docstring for why this row needed the
+            # same protection every other credential on this platform already gets.
+            await self._store.put(
+                _PENDING_SECRET, app_row.id,
+                {"id": app_row.id, "sealed": _seal_pending_password(self._kek, password)})
+            return {"application_id": app_row.id, "status": PENDING}
+        finally:
+            # RELEASED HERE, NOT LEFT TO THE TTL — same reasoning `request_withdrawal`'s own
+            # `finally` gives: the TTL is only a crash safety net, and a legitimate next attempt
+            # (after this one is refused) must not wait it out for no reason.
+            await self._store.delete(_APPLY_LOCKS, canonical)
 
     # ── the phone-ownership code itself — same idiom as operations' own send_code/_spend_code ──
     async def request_otp(self, phone: str) -> dict[str, Any]:
@@ -444,7 +484,8 @@ class OnboardingService:
         server-side, exactly as before this branch existed. The account is ACTIVE the moment
         approval finishes; there is nobody else who needs to do anything."""
         secret = await self._store.get(_PENDING_SECRET, app_row.id)
-        password = str((secret or {}).get("password") or "")
+        sealed = str((secret or {}).get("sealed") or "")
+        password = _open_pending_password(self._kek, sealed) if sealed and self._kek else ""
         if not password:
             # THE SECRET ROW IS GONE OR WAS NEVER WRITTEN. Minting a membership with no password
             # the applicant knows would hand him an account he cannot sign into — refused rather
@@ -623,6 +664,46 @@ class OnboardingService:
 #: A separate collection, deliberately — see apply()'s note on why a chosen password is never
 #: written into the same row an admin's dashboard lists and reads from.
 _PENDING_SECRET = "affiliate_pending_secret"
+
+#: Serialises apply() per-phone — added 2026-09-12, a real gap a QA audit found, same shape as
+#: payouts.py's own `_PAYOUT_LOCKS`. The whole locked section is a handful of in-memory reads/
+#: writes; this exists only to cover THAT window, never to be a human-facing wait.
+_APPLY_LOCKS = "affiliate_apply_locks"
+_APPLY_LOCK_TTL_SECONDS = 20
+
+# ── sealing the one credential this collection ever holds ──────────────────────────────────────
+#
+# FIXED 2026-09-12, a real gap a QA audit found: the applicant's OWN password used to sit in
+# `_PENDING_SECRET` unencrypted for the entire pending-approval window — every other credential
+# this platform ever handles (SecretStore's operator secrets) is AES-256-GCM sealed under a KEK
+# specifically because "storing the credential anyway is the one outcome that must never happen"
+# (secret_store.py's own words), and this one row was the exception.
+#
+# A KEY DERIVED FROM THE SAME `SECRETS_KEK`, A DIFFERENT SALT — deliberately never the identical
+# derived key `SecretStore` uses for operator credentials. Two different purposes sharing one KEK
+# is fine (that is the whole point of a KEK: many secrets, one root); two different purposes
+# sharing the SAME derived key is not, because a bug that ever logged or leaked one derived key
+# would then also cover the other.
+_PENDING_PASSWORD_SALT = b"affiliate-pending-password-v1"
+
+
+def _seal_pending_password(kek: str, password: str) -> str:
+    """AES-256-GCM, same primitive `secret_store.py` uses — `cryptography`'s AESGCM is a thin,
+    constant-time C binding (OpenSSL), the right tool for one-shot authenticated encryption of a
+    single short string rather than anything hand-rolled."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    key = hashlib.scrypt(kek.encode("utf-8"), salt=_PENDING_PASSWORD_SALT, n=2**14, r=8, p=1, dklen=32)
+    iv = os.urandom(12)
+    return base64.b64encode(iv + AESGCM(key).encrypt(iv, password.encode("utf-8"), None)).decode("ascii")
+
+
+def _open_pending_password(kek: str, sealed: str) -> str:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    key = hashlib.scrypt(kek.encode("utf-8"), salt=_PENDING_PASSWORD_SALT, n=2**14, r=8, p=1, dklen=32)
+    blob = base64.b64decode(sealed)
+    return AESGCM(key).decrypt(blob[:12], blob[12:], None).decode("utf-8")
 
 
 def _member_error(status: int, body: dict) -> str:

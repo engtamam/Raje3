@@ -14,6 +14,12 @@ SECRET = "h" * 40
 ISS = "iss"
 AUD = "aud"
 
+# A REAL PNG SIGNATURE, PREFIXED — file_sniff.py now checks actual bytes, not the client's
+# declared content_type (affiliate-service-010, QA audit 2026-09-12), so a test upload must
+# genuinely start with the magic bytes it claims to be. The sniffer only ever checks the prefix,
+# so appending distinguishing suffix bytes below still lets these tests tell two uploads apart.
+PNG_SIG = b"\x89PNG\r\n\x1a\n"
+
 
 def _make_app() -> TestClient:
     from app.config import get_settings
@@ -213,44 +219,67 @@ def test_uploading_an_unsupported_file_type_is_refused(client):
     assert r.status_code == 400
 
 
+def test_bytes_that_do_not_match_the_declared_type_are_refused(client):
+    """affiliate-service-010 (QA audit, 2026-09-12): the OLD code trusted `content_type` alone —
+    plain text bytes declared as `image/png` used to sail straight through."""
+    aff_id, wd_id = _seed_withdrawal(client)
+    r = client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
+                    files={"file": ("r.png", b"this is not really a png", "image/png")})
+    assert r.status_code == 400
+
+
+def test_a_pdf_declared_as_png_is_still_accepted_and_served_as_the_real_type(client):
+    """The sniff corrects a wrong-but-harmless label, it does not just refuse mismatches — a
+    genuinely valid PDF mislabelled `image/png` by the browser is stored and served as the PDF it
+    actually is."""
+    aff_id, wd_id = _seed_withdrawal(client)
+    up = client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
+                     files={"file": ("r.png", b"%PDF-1.4 fake", "image/png")})
+    assert up.status_code == 200, up.text
+    down = client.get(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE)
+    assert down.headers["content-type"] == "application/pdf"
+
+
 def test_uploading_a_receipt_then_downloading_it_as_admin(client):
     aff_id, wd_id = _seed_withdrawal(client)
     up = client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
-                     files={"file": ("r.png", b"\x89PNG-fake-bytes", "image/png")})
+                     files={"file": ("r.png", PNG_SIG + b"fake-bytes", "image/png")})
     assert up.status_code == 200, up.text
     assert up.json()["receipt_reference"] == f"object:withdrawals/{wd_id}/receipt"
 
     down = client.get(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE)
     assert down.status_code == 200
-    assert down.content == b"\x89PNG-fake-bytes"
+    assert down.content == PNG_SIG + b"fake-bytes"
     assert down.headers["content-type"] == "image/png"
+    # THE FIX'S OTHER HALF — never served inline under a trusted-looking type.
+    assert down.headers["content-disposition"].startswith("attachment;")
 
 
 def test_uploading_replaces_the_previous_receipt_not_accumulates(client):
     aff_id, wd_id = _seed_withdrawal(client)
     client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
-               files={"file": ("first.png", b"first", "image/png")})
+               files={"file": ("first.png", PNG_SIG + b"first", "image/png")})
     client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
-               files={"file": ("second.png", b"second", "image/png")})
+               files={"file": ("second.png", PNG_SIG + b"second", "image/png")})
     down = client.get(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE)
-    assert down.content == b"second"
+    assert down.content == PNG_SIG + b"second"
 
 
 def test_the_marketer_can_download_his_own_uploaded_receipt(client):
     aff_id, wd_id = _seed_withdrawal(client)
     person_id = aff_id.replace("aff-r", "p-r")
     client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
-               files={"file": ("r.png", b"proof", "image/png")})
+               files={"file": ("r.png", PNG_SIG + b"proof", "image/png")})
     down = client.get(f"/api/v1/affiliates/me/withdrawals/{wd_id}/receipt",
                       headers={"Authorization": f"Bearer {_token(sub=person_id)}"})
     assert down.status_code == 200
-    assert down.content == b"proof"
+    assert down.content == PNG_SIG + b"proof"
 
 
 def test_a_marketer_cannot_download_someone_elses_receipt(client):
     aff_id, wd_id = _seed_withdrawal(client)
     client.post(f"/api/v1/admin/withdrawals/{wd_id}/receipt", headers=FINANCE,
-               files={"file": ("r.png", b"proof", "image/png")})
+               files={"file": ("r.png", PNG_SIG + b"proof", "image/png")})
     down = client.get(f"/api/v1/affiliates/me/withdrawals/{wd_id}/receipt",
                       headers={"Authorization": f"Bearer {_token(sub='somebody-else')}"})
     assert down.status_code == 404

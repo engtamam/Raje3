@@ -83,7 +83,18 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     s = get_settings()
     eraser = AffiliateErasure(store=c.datastore, pii_salt=s.PII_SALT,
                              max_scan=s.ERASURE_MAX_SCAN)
-    return await eraser.erase(body.tenant, body.subject)
+    result = await eraser.erase(body.tenant, body.subject)
+    # AUDITED — added 2026-09-12, a real gap a QA audit found: this action left no trace anywhere
+    # in this service's own append-only chain despite being one of the most legally significant
+    # ones it performs. AFTER the act, not before — unlike a write-ahead critical action, an
+    # erasure that could not be witnessed must still have happened (the DSAR clock does not wait
+    # on the audit sink); the resource is the subject's own pseudonym, never a phone or name.
+    await request.app.state.auditor.record(
+        "affiliate.subject_erased", actor="", tenant=body.tenant,
+        resource=f"subject:{result.get('subject_ref', '')}",
+        ip=request.client.host if request.client else "",
+        metadata={"erased": result.get("erased") or [], "truncated": bool(result.get("truncated"))})
+    return result
 
 
 class ReferralStampIn(BaseModel):

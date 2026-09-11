@@ -37,6 +37,17 @@ from typing import Any
 # once for a manager with a very large team/referral list.
 _REVENUE_FANOUT = 10
 
+# Serialises sync() per-tenant — added 2026-09-12, a real gap a QA audit found: two overlapping
+# sweep runs (a slow sweep still going when the next scheduled tick fires, or a misconfigured
+# CronJob schedule) reconciling the SAME tenant at once could each read a Commission's
+# pre-refund amount_halalas in `_reconcile_refund`, both compute a reduction from the same
+# original amount, and the loser's `put()` silently overwrite the winner's — self-correcting
+# today (both compute the identical target value) but an unguarded concurrent read-modify-write
+# on money data all the same. Same shape as `_PAYOUT_LOCKS`/`_WAFA_LOCKS`/`_EMPLOYMENT_LOCKS`
+# elsewhere in this service.
+_SYNC_LOCKS = "affiliate_commission_sync_locks"
+_SYNC_LOCK_TTL_SECONDS = 30
+
 from app.core.models import (
     CONFIRMED,
     CONVERSION,
@@ -62,48 +73,64 @@ class CommissionEngine:
 
     async def sync(self, tenant: str) -> dict[str, Any]:
         """Reconcile ONE tenant's commissions against billing's own paid-invoice history. Safe to
-        call repeatedly — see the module docstring on why every write here is idempotent."""
+        call repeatedly — see the module docstring on why every write here is idempotent.
+
+        LOCKED PER TENANT, so two overlapping calls for the SAME tenant (see `_SYNC_LOCKS`'s own
+        comment) never run their read-then-write refund reconciliation concurrently. The loser
+        waits nothing and is not queued behind the winner — it simply reports `sync_in_progress`
+        and the caller (a scheduled sweep, already built to run again next tick) picks it up on
+        its own next pass.
+        """
         if not self._billing:
             # No billing integration configured — a local/dev run, or a deployment that has not
             # wired this yet. Reported, not raised: the caller (an admin action, or a future
             # webhook) should see "nothing happened and here is why" rather than a 500.
             return {"synced": False, "reason": "billing_not_configured"}
 
-        referral = await self._referrals.of_tenant(tenant)
-        if referral is None:
-            return {"synced": False, "reason": "no_referral"}
-        if referral.status == REVOKED:
-            # An admin already decided this referral earns nothing. No further reads, no further
-            # commissions — same finality REJECTED gives an Application.
-            return {"synced": False, "reason": "referral_revoked"}
+        now0 = int(time.time())
+        took = await self._store.claim(
+            _SYNC_LOCKS, tenant, {"tenant": tenant, "at": now0},
+            ttl_seconds=_SYNC_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            return {"synced": False, "reason": "sync_in_progress"}
+        try:
+            referral = await self._referrals.of_tenant(tenant)
+            if referral is None:
+                return {"synced": False, "reason": "no_referral"}
+            if referral.status == REVOKED:
+                # An admin already decided this referral earns nothing. No further reads, no
+                # further commissions — same finality REJECTED gives an Application.
+                return {"synced": False, "reason": "referral_revoked"}
 
-        status, body = self._http.call(
-            f"{self._billing}/internal/billing/invoices?tenant={tenant}&status=paid",
-            method="GET", internal=True)
-        if status != 200:
-            return {"synced": False, "reason": f"billing_unreachable:{status}"}
-        invoices = list((body or {}).get("invoices") or [])
+            status, body = self._http.call(
+                f"{self._billing}/internal/billing/invoices?tenant={tenant}&status=paid",
+                method="GET", internal=True)
+            if status != 200:
+                return {"synced": False, "reason": f"billing_unreachable:{status}"}
+            invoices = list((body or {}).get("invoices") or [])
 
-        created: list[str] = []
-        voided: list[str] = []
-        reduced: list[str] = []
+            created: list[str] = []
+            voided: list[str] = []
+            reduced: list[str] = []
 
-        for inv in invoices:
-            if int(inv.get("paid_sequence", 0)) == 1:
-                out = await self._sync_conversion(tenant, referral, inv)
-            else:
-                continue
-            if out == "created":
-                created.append(str(inv.get("id", "")))
-            elif out == "voided":
-                voided.append(str(inv.get("id", "")))
-            elif out == "reduced":
-                # A PARTIAL refund — surfaced separately from "voided" so an operator reading a
-                # sync report can tell "this one still owes something" from "this one owes
-                # nothing now", rather than both silently reading as "nothing happened".
-                reduced.append(str(inv.get("id", "")))
+            for inv in invoices:
+                if int(inv.get("paid_sequence", 0)) == 1:
+                    out = await self._sync_conversion(tenant, referral, inv)
+                else:
+                    continue
+                if out == "created":
+                    created.append(str(inv.get("id", "")))
+                elif out == "voided":
+                    voided.append(str(inv.get("id", "")))
+                elif out == "reduced":
+                    # A PARTIAL refund — surfaced separately from "voided" so an operator reading
+                    # a sync report can tell "this one still owes something" from "this one owes
+                    # nothing now", rather than both silently reading as "nothing happened".
+                    reduced.append(str(inv.get("id", "")))
 
-        return {"synced": True, "created": created, "voided": voided, "reduced": reduced}
+            return {"synced": True, "created": created, "voided": voided, "reduced": reduced}
+        finally:
+            await self._store.delete(_SYNC_LOCKS, tenant)
 
     async def _sync_conversion(self, tenant: str, referral, inv: dict) -> str:
         existing = await self._store.get(COMMISSIONS, str(inv.get("id", "")))

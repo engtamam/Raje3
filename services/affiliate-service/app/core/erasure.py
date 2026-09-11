@@ -92,12 +92,22 @@ class AffiliateErasure:
         }
 
     async def _blank(self, collection: str, ref: str) -> tuple[int, bool]:
+        """PAGES WITH THE STORE'S OWN CURSOR NOW — fixed 2026-09-12, a real gap a QA audit found.
+        Blanking phone/name never changes `subject_ref`, so every call used to re-fetch the exact
+        same {subject_ref: ref} FIRST page (no `after` was ever threaded through), and the
+        already-blanked skip below made that page a no-op the second time around — a subject with
+        200+ matching rows in one collection (e.g. a repeat `affiliate_applications` submitter)
+        burned the whole `self._max` scan budget re-reading page one and never reached row 201,
+        then reported `truncated: true` as if more scanning would have helped. `after` now
+        advances exactly like every other paged store read in this codebase.
+        """
         touched = 0
         scanned = 0
         truncated = False
+        after: str | None = None
         while True:
-            rows, _ = await self._store.find(collection, {"subject_ref": ref}, limit=200,
-                                             sort=("created_at", "asc"))
+            rows, after = await self._store.find(collection, {"subject_ref": ref}, limit=200,
+                                                 after=after, sort=("created_at", "asc"))
             rows = list(rows or [])
             if not rows:
                 break
@@ -112,6 +122,6 @@ class AffiliateErasure:
             if scanned >= self._max:
                 truncated = True
                 break
-            if len(rows) < 200:
+            if not after:
                 break
         return touched, truncated

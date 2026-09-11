@@ -33,6 +33,7 @@ def _make_app() -> TestClient:
         "PII_SALT": "s" * 16,
         "IDENTITY_SERVICE_URL": "http://identity:8000",
         "AFFILIATE_TENANT": "raje3-affiliates",
+        "SECRETS_KEK": "k" * 32,
     }
     os.environ.update(env)
     get_settings.cache_clear()

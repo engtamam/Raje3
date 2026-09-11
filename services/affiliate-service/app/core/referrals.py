@@ -34,6 +34,17 @@ class ReferralError(Exception):
 
 _DAY = 24 * 60 * 60
 
+# Serialises stamp() per-tenant — added 2026-09-12, a real gap a QA audit found: the same TOCTOU
+# shape `_PAYOUT_LOCKS`/`_WAFA_LOCKS`/`_EMPLOYMENT_LOCKS` were each added to close, here left open
+# even though this module's own docstring calls "first wins, permanent" the whole point of the
+# mechanism. Two concurrent stamp() calls for one tenant (a retried webhook from operations, or
+# two affiliate links clicked in quick succession right at signup) could both read `existing is
+# None` and both `put()` on the SAME deterministic id (`referral.id = tenant`) — the second write
+# silently overwriting the first, so whichever finished last won rather than whichever link was
+# genuinely clicked first.
+_REFERRAL_LOCKS = "affiliate_referral_locks"
+_REFERRAL_LOCK_TTL_SECONDS = 10
+
 
 class ReferralRegistry:
     def __init__(self, *, store, commission_amount_halalas: int = 0,
@@ -50,48 +61,68 @@ class ReferralRegistry:
         if not affiliate_id:
             raise ReferralError("cannot stamp without an affiliate id")
 
-        existing = await self.of_tenant(tenant)
-        if existing is not None:
-            # ALREADY DECIDED — see the module docstring. Returned as-is, whether the affiliate id
-            # matches or not; a mismatch is not an error, it is exactly the scenario the rule
-            # exists to resolve (a second marketer's link, touched after the first already won).
-            return existing.to_dict()
+        # THE LOCK, BEFORE THE FIRST READ — see `_REFERRAL_LOCKS`'s own comment above. A second
+        # concurrent stamp() for the SAME tenant finds this held and simply waits its turn (a
+        # bounded retry, below) rather than racing the read-then-write past it.
+        now0 = int(time.time())
+        took = await self._s.claim(
+            _REFERRAL_LOCKS, tenant, {"tenant": tenant, "at": now0},
+            ttl_seconds=_REFERRAL_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            # NOT AN ERROR — the loser of this race did not do anything wrong; the caller (a
+            # signup webhook, already built to retry on ReferralError per its own docstring) tries
+            # again a moment later and finds `existing` this time, same as if it had simply lost
+            # the OLD, unlocked race by a few milliseconds.
+            raise ReferralError(f"referral stamp for {tenant} is being decided right now — retry")
+        try:
+            existing = await self.of_tenant(tenant)
+            if existing is not None:
+                # ALREADY DECIDED — see the module docstring. Returned as-is, whether the
+                # affiliate id matches or not; a mismatch is not an error, it is exactly the
+                # scenario the rule exists to resolve (a second marketer's link, touched after the
+                # first already won).
+                return existing.to_dict()
 
-        row = await self._s.get(AFFILIATES, affiliate_id)
-        affiliate = Affiliate.from_dict(row) if row else None
-        if affiliate is None or affiliate.status != ACTIVE:
-            # AN UNKNOWN OR INACTIVE AFFILIATE ID IS REFUSED, never silently treated as "no
-            # referral" — same reasoning as partners.py's own resolve(): a stale or mistyped link
-            # must be visible as a fault, not swallowed into a shop that looks directly-acquired
-            # when someone genuinely tried to refer it.
-            raise ReferralError(f"unknown or inactive affiliate: {affiliate_id}")
+            row = await self._s.get(AFFILIATES, affiliate_id)
+            affiliate = Affiliate.from_dict(row) if row else None
+            if affiliate is None or affiliate.status != ACTIVE:
+                # AN UNKNOWN OR INACTIVE AFFILIATE ID IS REFUSED, never silently treated as "no
+                # referral" — same reasoning as partners.py's own resolve(): a stale or mistyped
+                # link must be visible as a fault, not swallowed into a shop that looks
+                # directly-acquired when someone genuinely tried to refer it.
+                raise ReferralError(f"unknown or inactive affiliate: {affiliate_id}")
 
-        # SELF-REFERRAL, spec §2: "يُتحقق أن رقم جوال صاحب المحل ≠ رقم جوال المسوّق نفسه" — a
-        # marketer opening a shop on his own number and crediting himself is a fabricated
-        # commission, not a real referral. Both numbers folded the SAME way (app/core/phone.py)
-        # before comparing, or two spellings of one number pass this check by accident.
-        #
-        # UNCONDITIONAL NOW — fixed 2026-09-07. This used to run only `if shop_owner_phone:`, an
-        # outer gate a QA audit found was a real, if narrow, gap: it made the whole check silently
-        # optional rather than something the inner comparison already handles correctly on its
-        # own. `canonical_phone("")` (or any un-canonicalizable value) is falsy, so `if owner and
-        # marketer` below already refuses to compare when either side cannot be resolved — the
-        # exact "must not manufacture a false refusal for an unprovable case" property the outer
-        # gate existed for, kept, without ALSO silently skipping the real check whenever a future
-        # caller (or a bug in today's one) forgets to populate the field.
-        owner = canonical_phone(shop_owner_phone, default_cc=self._cc)
-        marketer = canonical_phone(affiliate.phone, default_cc=self._cc)
-        if owner and marketer and owner == marketer:
-            raise ReferralError("an affiliate cannot refer their own establishment")
+            # SELF-REFERRAL, spec §2: "يُتحقق أن رقم جوال صاحب المحل ≠ رقم جوال المسوّق نفسه" — a
+            # marketer opening a shop on his own number and crediting himself is a fabricated
+            # commission, not a real referral. Both numbers folded the SAME way (app/core/phone.py)
+            # before comparing, or two spellings of one number pass this check by accident.
+            #
+            # UNCONDITIONAL NOW — fixed 2026-09-07. This used to run only `if shop_owner_phone:`,
+            # an outer gate a QA audit found was a real, if narrow, gap: it made the whole check
+            # silently optional rather than something the inner comparison already handles
+            # correctly on its own. `canonical_phone("")` (or any un-canonicalizable value) is
+            # falsy, so `if owner and marketer` below already refuses to compare when either side
+            # cannot be resolved — the exact "must not manufacture a false refusal for an
+            # unprovable case" property the outer gate existed for, kept, without ALSO silently
+            # skipping the real check whenever a future caller (or a bug in today's one) forgets
+            # to populate the field.
+            owner = canonical_phone(shop_owner_phone, default_cc=self._cc)
+            marketer = canonical_phone(affiliate.phone, default_cc=self._cc)
+            if owner and marketer and owner == marketer:
+                raise ReferralError("an affiliate cannot refer their own establishment")
 
-        now = int(time.time())
-        referral = Referral(
-            id=tenant, tenant=tenant, affiliate_id=affiliate_id, shop_name=shop_name,
-            commission_amount_halalas=self._amount, stamped_at=now,
-            expires_at=now + self._window * _DAY,
-        )
-        await self._s.put(REFERRALS, referral.id, referral.to_dict())
-        return referral.to_dict()
+            now = int(time.time())
+            referral = Referral(
+                id=tenant, tenant=tenant, affiliate_id=affiliate_id, shop_name=shop_name,
+                commission_amount_halalas=self._amount, stamped_at=now,
+                expires_at=now + self._window * _DAY,
+            )
+            await self._s.put(REFERRALS, referral.id, referral.to_dict())
+            return referral.to_dict()
+        finally:
+            # RELEASED HERE, NOT LEFT TO THE TTL — same reasoning `request_withdrawal`'s own
+            # `finally` gives: the TTL is only a crash safety net.
+            await self._s.delete(_REFERRAL_LOCKS, tenant)
 
     async def lapse_if_expired(self, tenant: str, *, now: int | None = None) -> Referral | None:
         """Called by the COMMISSION ENGINE (a later slice) the moment a shop's subscription

@@ -187,7 +187,18 @@ class SecretStore:
                           rotating=bool(prev and until and self._now() < float(until)))
 
     async def list_info(self, *, tenant: str) -> list[SecretInfo]:
+        """SAME WINDOW CHECK `info()` ALREADY MAKES — fixed 2026-09-12, a real bug a QA audit
+        found: this used to read `rotating=bool(r.get("previous"))` alone, true forever once a
+        credential had EVER been rotated even once, because `set()` never clears `previous`/
+        `previous_until` after the rotation window lapses — they just go stale. The panel's own
+        credential LIST therefore kept claiming "still rotating" long after `accepted()` had
+        already stopped honouring the old value, while the single-credential `info()` read right
+        above got this right from the start. One `now()` call, reused across every row — cheaper
+        than a scrypt-derived key check and the only per-row cost this method needs.
+        """
         rows, _ = await self._s.find(_COLL, {"tenant": tenant}, limit=200, sort=("name", "asc"))
+        now = self._now()
         return [SecretInfo(name=r["name"], hint=r.get("hint", ""), set_at=r.get("set_at", ""),
                            set_by=r.get("set_by", ""),
-                           rotating=bool(r.get("previous"))) for r in rows]
+                           rotating=bool(r.get("previous") and r.get("previous_until")
+                                        and now < float(r["previous_until"]))) for r in rows]

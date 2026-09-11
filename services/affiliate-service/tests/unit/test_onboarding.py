@@ -40,13 +40,13 @@ class FakeHttp:
 
 def build(http=None, salt="s" * 16, tenants_url="", authz_url="",
          otp_deliverable=False, require_otp=False, terms_version="v1",
-         store=None, phone_search_ro=None) -> OnboardingService:
+         store=None, phone_search_ro=None, secrets_kek="k" * 32) -> OnboardingService:
     return OnboardingService(
         store=store if store is not None else MemoryDataStore(), http=http or FakeHttp([]),
         identity_url="http://identity:8000", tenant=TENANT, pii_salt=salt,
         tenants_url=tenants_url, authz_url=authz_url,
         otp_deliverable=otp_deliverable, require_otp=require_otp, terms_version=terms_version,
-        phone_search_ro=phone_search_ro)
+        phone_search_ro=phone_search_ro, secrets_kek=secrets_kek)
 
 
 @pytest.mark.parametrize("written", ["0501234567", "+966501234567", "966501234567",
@@ -188,6 +188,82 @@ async def test_the_chosen_password_does_not_outlive_the_decision():
 
     await svc.approve(out["application_id"], decided_by="admin1")
     assert await svc._store.get(_PENDING_SECRET, out["application_id"]) is None
+
+
+@pytest.mark.anyio
+async def test_the_pending_password_is_sealed_at_rest_not_plaintext():
+    """affiliate-service-002 (QA audit, 2026-09-12): the applicant's own password used to sit in
+    `_PENDING_SECRET` unencrypted for the whole pending-approval window. Proves the ACTUAL STORED
+    ROW never carries the plaintext anywhere in it — not under "password", not anywhere else."""
+    from app.core.onboarding import _PENDING_SECRET
+
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http)
+    real_password = "hunter2hunter2"
+    out = await svc.apply(phone="0501234567", name="سالم", password=real_password, agreed=True)
+    row = await svc._store.get(_PENDING_SECRET, out["application_id"])
+    assert row is not None
+    assert "password" not in row
+    assert real_password not in str(row)
+    assert row["sealed"] and row["sealed"] != real_password
+
+    # AND STILL REDEEMABLE — approval must mint the account with the SAME password the applicant
+    # actually chose, not a different or empty one, once it is unsealed server-side.
+    await svc.approve(out["application_id"], decided_by="admin1")
+    assert http.bodies[-1]["password"] == real_password
+
+
+@pytest.mark.anyio
+async def test_apply_is_refused_without_a_secrets_kek_configured():
+    """Refuse rather than silently fall back to plaintext — same posture SecretStore itself takes
+    on an empty KEK (secret_store.py's own docstring: "a store that silently accepted an empty
+    key would write plaintext-equivalent rows while every check reported encrypted")."""
+    svc = build(secrets_kek="")
+    with pytest.raises(OnboardingRefused, match="تهيئة النظام غير مكتملة"):
+        await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    # AND NOTHING WAS LEFT HALF-WRITTEN — no orphaned Application row with no matching secret.
+    from app.core.models import APPLICATIONS
+    rows, _ = await svc._store.find(APPLICATIONS, {"phone": "+966501234567"})
+    assert rows == []
+
+
+@pytest.mark.anyio
+async def test_two_concurrent_applies_for_the_same_phone_only_one_wins():
+    """affiliate-service-006 (QA audit, 2026-09-12): the "no pending application" check and the
+    write that follows used to be two separate round trips with no lock between them — a real
+    TOCTOU gap, same class `_PAYOUT_LOCKS` was added to close on the payout side. Proved with a
+    slow-yielding store wrapper, the same technique bookings' own double-booking race test uses —
+    two real coroutines actually interleaved, not just two sequential calls."""
+    import asyncio
+
+    class _SlowStore:
+        def __init__(self, inner):
+            self._inner = inner
+
+        async def find(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.find(*a, **kw)
+
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0)
+            return await self._inner.get(*a, **kw)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    store = _SlowStore(MemoryDataStore())
+    svc = build(http, store=store)
+
+    out = await asyncio.gather(
+        svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True),
+        svc.apply(phone="0501234567", name="سالم الثاني", password="anotherOne123!", agreed=True),
+        return_exceptions=True)
+    created = [o for o in out if not isinstance(o, Exception)]
+    refused = [o for o in out if isinstance(o, Exception)]
+    assert len(created) == 1, "two concurrent applies for one phone both created an application"
+    assert len(refused) == 1
+    assert isinstance(refused[0], OnboardingRefused)
 
 
 @pytest.mark.anyio

@@ -74,6 +74,16 @@ def _payout_refused(exc: PayoutError) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
+async def _audit_refused(request: Request, action: str, *, resource: str, actor: str,
+                        exc: PayoutError) -> None:
+    """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real bug a
+    QA audit found; see admin_payouts.py's own `_audit_refused` for the full reasoning."""
+    await request.app.state.auditor.record(
+        action, actor=actor, tenant="", resource=resource,
+        ip=request.client.host if request.client else "",
+        metadata={"outcome": "refused", "reason": getattr(exc, "reason", "") or str(exc)})
+
+
 def _wafa_refused(exc: WafaError) -> JSONResponse:
     body: dict[str, Any] = {"ok": False, "message": str(exc)}
     if getattr(exc, "reason", ""):
@@ -265,6 +275,8 @@ async def set_payout_method(request: Request, body: PayoutMethodIn,
             affiliate_id, channel=body.channel, channel_name=body.channel_name,
             account_ref=body.account_ref)
     except PayoutError as exc:
+        await _audit_refused(request, "affiliate.payout_method_changed",
+                             resource=f"affiliate:{affiliate_id}", actor=affiliate_id, exc=exc)
         return _payout_refused(exc)
     return {"ok": True, **out}
 

@@ -55,6 +55,20 @@ def _actor(principal: Principal) -> str:
     return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
 
 
+async def _audit_refused(request: Request, action: str, *, resource: str, tenant: str,
+                        actor: str, reason: str) -> None:
+    """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real bug a
+    QA audit found: the write-ahead record above (deliberate — a change the log cannot take must
+    not happen) used to be the only entry, so a refused-for-an-ordinary-reason attempt (an
+    unknown config key, an empty credential value) read as a completed rotation/change forever
+    after. Append-only, so this is a correction an investigator reads alongside the attempt,
+    never an edit to it."""
+    await request.app.state.auditor.record(
+        action, actor=actor, tenant=tenant, resource=resource,
+        ip=request.client.host if request.client else "",
+        metadata={"outcome": "refused", "reason": reason})
+
+
 def _secret_store(request: Request) -> SecretStore:
     s = get_settings()
     if not s.SECRETS_KEK:
@@ -129,6 +143,8 @@ async def set_secret(request: Request, body: SecretIn,
         info = await _secret_store(request).set(
             tenant=body.tenant, name=body.name, value=body.value, actor_ref=_actor(principal))
     except SecretError as exc:
+        await _audit_refused(request, "operator.secret_set", resource=f"secret:{body.name}",
+                             tenant=body.tenant or "", actor=_actor(principal), reason=str(exc))
         return _refuse(str(exc))
     return {"name": info.name, "hint": info.hint, "rotating": info.rotating}
 
@@ -168,6 +184,8 @@ async def set_config(request: Request, body: ConfigIn,
         o = await _runtime_config(request).set(
             tenant=body.tenant, key=body.key, value=body.value, actor_ref=_actor(principal))
     except RuntimeConfigError as exc:
+        await _audit_refused(request, "operator.config_changed", resource=f"config:{body.key}",
+                             tenant=body.tenant or "", actor=_actor(principal), reason=str(exc))
         return _refuse(str(exc))
     # The tenant is NOT echoed. The caller supplied it, so returning it adds nothing, and a
     # response field named "tenant" is indistinguishable — to a reader and to the tenancy gate —

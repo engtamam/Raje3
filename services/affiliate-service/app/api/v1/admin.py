@@ -62,6 +62,19 @@ def _refused(exc: OnboardingRefused) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
+async def _audit_refused(request: Request, action: str, *, resource: str, actor: str,
+                        exc: OnboardingRefused) -> None:
+    """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real bug a
+    QA audit found. Write-ahead (this module's own docstring) exists so a critical decision
+    cannot happen unwitnessed; it was never meant to claim SUCCESS for a refusal that never
+    touched anything (bad input, wrong state, already-decided). Append-only, so this is a
+    correction an investigator reads alongside the attempt, never an edit to it."""
+    await request.app.state.auditor.record(
+        action, actor=actor, tenant="", resource=resource,
+        ip=request.client.host if request.client else "",
+        metadata={"outcome": "refused", "reason": getattr(exc, "reason", "") or str(exc)})
+
+
 @router.get("", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
 async def list_pending(request: Request,
                        principal: Principal = Depends(require_user)) -> dict:
@@ -78,6 +91,8 @@ async def approve(request: Request, application_id: str,
     try:
         out = await _svc(request).approve(application_id, decided_by=_actor(principal))
     except OnboardingRefused as exc:
+        await _audit_refused(request, "affiliate.application_approved",
+                             resource=f"application:{application_id}", actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out}
 
@@ -94,6 +109,8 @@ async def reject(request: Request, application_id: str, body: RejectIn,
         out = await _svc(request).reject(
             application_id, decided_by=_actor(principal), reason=body.reason)
     except OnboardingRefused as exc:
+        await _audit_refused(request, "affiliate.application_rejected",
+                             resource=f"application:{application_id}", actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out}
 
@@ -109,6 +126,8 @@ async def suspend(request: Request, affiliate_id: str,
     try:
         out = await _svc(request).suspend(affiliate_id, decided_by=_actor(principal))
     except OnboardingRefused as exc:
+        await _audit_refused(request, "affiliate.suspended",
+                             resource=f"affiliate:{affiliate_id}", actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out}
 
@@ -123,6 +142,8 @@ async def reactivate(request: Request, affiliate_id: str,
     try:
         out = await _svc(request).reactivate(affiliate_id, decided_by=_actor(principal))
     except OnboardingRefused as exc:
+        await _audit_refused(request, "affiliate.reactivated",
+                             resource=f"affiliate:{affiliate_id}", actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out}
 
@@ -139,6 +160,8 @@ async def set_platform_revenue(request: Request, affiliate_id: str, body: Platfo
     try:
         out = await _svc(request).set_platform_revenue_visibility(affiliate_id, enabled=body.enabled)
     except OnboardingRefused as exc:
+        await _audit_refused(request, "affiliate.platform_revenue_visibility_changed",
+                             resource=f"affiliate:{affiliate_id}", actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out}
 

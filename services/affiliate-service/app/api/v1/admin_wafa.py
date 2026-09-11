@@ -48,6 +48,16 @@ def _refused(exc: WafaError) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
+async def _audit_refused(request: Request, action: str, *, resource: str, actor: str,
+                        exc: WafaError) -> None:
+    """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real bug a
+    QA audit found; see admin_payouts.py's own `_audit_refused` for the full reasoning."""
+    await request.app.state.auditor.record(
+        action, actor=actor, tenant="", resource=resource,
+        ip=request.client.host if request.client else "",
+        metadata={"outcome": "refused", "reason": getattr(exc, "reason", "") or str(exc)})
+
+
 @router.get("", dependencies=[Depends(_FINANCE), Depends(rate_limit)])
 async def list_pending(request: Request,
                        principal: Principal = Depends(require_user)) -> dict:
@@ -71,5 +81,7 @@ async def decide(request: Request, wafa_id: str, body: DecideIn,
         out = await _svc(request).admin_decide(
             wafa_id, decision=body.decision, decided_by=_actor(principal), reason=body.reason)
     except WafaError as exc:
+        await _audit_refused(request, "affiliate.wafa_decided",
+                             resource=f"wafa:{wafa_id}", actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out.to_dict()}
