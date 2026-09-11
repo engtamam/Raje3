@@ -571,15 +571,33 @@ function AppCard({
           line reads as a footnote OF the price above it, not a stray sentence near it. */}
       {price?.amount_minor ? (
         <div className="flex flex-col gap-0.5">
-          <div className="flex items-baseline gap-1.5">
-            <span className={[
-              compact ? 'text-xl font-semibold tabular-nums leading-none' : 'text-3xl font-semibold tabular-nums leading-none',
-              isGold ? 'text-accent drop-shadow-[0_0_10px_rgba(212,175,55,0.55)]' : '',
-            ].join(' ')}>
-              {riyals(price.amount_minor)}
-            </span>
-            <span className="text-sm text-text-secondary">ريال / شهر</span>
-          </div>
+          {/* THE ACTUAL DISCOUNTED NUMBER, NOT JUST A BADGE MENTIONING ONE — a "خصم 100%" that
+              still shows the full price above it reads as a broken promise, not an offer. Only
+              ever computed for a card he does not already own (a discount is an argument FOR
+              buying) — applies on the gold card too now: the whole point of a cross-app rule is
+              that it can reach any app, VIP included. */}
+          {!has && discount ? (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm text-text-muted line-through">{riyals(price.amount_minor)}</span>
+              <span className={[
+                compact ? 'text-xl font-semibold tabular-nums leading-none' : 'text-3xl font-semibold tabular-nums leading-none',
+                'text-success',
+              ].join(' ')}>
+                {riyals(Math.round(price.amount_minor * (100 - discount.percent) / 100))}
+              </span>
+              <span className="text-sm text-text-secondary">ريال / شهر</span>
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-1.5">
+              <span className={[
+                compact ? 'text-xl font-semibold tabular-nums leading-none' : 'text-3xl font-semibold tabular-nums leading-none',
+                isGold ? 'text-accent drop-shadow-[0_0_10px_rgba(212,175,55,0.55)]' : '',
+              ].join(' ')}>
+                {riyals(price.amount_minor)}
+              </span>
+              <span className="text-sm text-text-secondary">ريال / شهر</span>
+            </div>
+          )}
           {/* SAID, NOT ASSUMED - the server's own flag. A shop owner reading a price without it
               budgets the wrong number. Skipped in the compact card: a capacity row's tax note
               would be the longest line on a card whose whole point is to stay short. */}
@@ -611,11 +629,14 @@ function AppCard({
         </div>
       ) : null}
 
-      {/* THE DISCOUNT-PREVIEW BADGE — NEVER on a card he already owns (a discount is an argument
-          FOR buying, not a receipt), never on the gold card either (its own VIP ribbon already
-          owns that corner and a second gold flourish would compete with it, not add to it). */}
-      {!has && !isGold && discount ? (
-        <span className="rj-gold-badge inline-flex w-fit items-center gap-1.5 rounded-pill px-3 py-1 text-xs font-semibold">
+      {/* WHY THE PRICE ABOVE IS STRUCK — the number itself already changed (see the price block),
+          this only explains it. `success-soft`/`success-on-soft` rather than `.rj-gold-badge`:
+          plain semantic tone tokens that `.rj-gold-card` (index.css) already redefines to gold
+          for every component inside it, so the gold card gets its own consistent gold reskin for
+          free, and a non-gold card gets the ordinary green success badge — no `isGold` branch
+          needed here, same "component never knows it is gold" pattern the whole card follows. */}
+      {!has && discount ? (
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-pill bg-success-soft px-3 py-1 text-xs font-semibold text-success-on-soft">
           <Crown size={12} />
           خصم {discount.percent}% — لأنك تملك {appName(discount.owning_key)}
         </span>
