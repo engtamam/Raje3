@@ -39,8 +39,9 @@ const CEILING = { known: true, unlimited: false, limit: 100, reached_today: 3, r
 
 function open(messages: Record<string, unknown>) {
   today = { can_send: true, blocked: '', messages, ceiling: CEILING };
-  return render(createElement(OperatorI18nProvider, { session },
-    createElement(TodayStrip, { session, catalog })));
+  return render(createElement(OperatorI18nProvider, {
+    session, children: createElement(TodayStrip, { session, catalog }),
+  }));
 }
 
 describe('«هل كل شيء يعمل؟» — what is stuck is said out loud', () => {

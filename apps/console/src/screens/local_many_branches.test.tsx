@@ -62,8 +62,9 @@ function Host() {
   });
 }
 
-const open = () => render(createElement(OperatorI18nProvider, { session: {} as never },
-  createElement(MemoryRouter, null, createElement(Host))));
+const open = () => render(createElement(OperatorI18nProvider, {
+  session: {} as never, children: createElement(MemoryRouter, null, createElement(Host)),
+}));
 
 describe('«محلّي» for a supervisor over several branches', () => {
   it('offers his branches by name instead of reporting a failure', async () => {

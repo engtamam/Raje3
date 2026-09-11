@@ -1,5 +1,5 @@
 /**
- * Month view (docs/خطة-تصميم-تقويم-الحجوزات.md §2) — a 7×5/6 grid, each day cell showing the day
+ * Month view (see the calendar design doc, §2) — a 7×5/6 grid, each day cell showing the day
  * number and a real booking-COUNT indicator, never details. Fed only by `/bookings/counts`
  * (`fetchBookingCounts`) — the SAME lesson the backend side of this plan already paid for on the
  * affiliate side of this codebase: a screen that only needs a number per day must never pull a

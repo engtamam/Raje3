@@ -1,12 +1,13 @@
 /**
- * Year view (docs/خطة-تصميم-تقويم-الحجوزات.md §2) — 12 mini-months, same idea as
- * `BookingsMonthView` at a smaller scale ("زي لقطة المنافس الأولى: 12 تقويماً صغيراً بنقاط"):
- * density DOTS, not numbers — a whole year of numbers in a grid this small is noise, a dot per
- * booked day is the same "something happened here" signal the competitor screenshot showed.
+ * Year view (see the calendar design doc, §2) — 12 mini-months, same idea as
+ * `BookingsMonthView` at a smaller scale (the brief: "like the first competitor screenshot —
+ * 12 small calendars with dots"): density DOTS, not numbers — a whole year of numbers in a grid
+ * this small is noise, a dot per booked day is the same "something happened here" signal the
+ * competitor screenshot showed.
  *
  * ONE FETCH FOR THE WHOLE YEAR, not 12 — `/bookings/counts` is a single cheap index count
- * regardless of range (docs/خطة-تصميم-تقويم-الحجوزات.md §1's whole point), so there is no reason
- * to split it into 12 network round trips just because the screen happens to draw 12 grids.
+ * regardless of range (the calendar design doc's §1 whole point), so there is no reason to split
+ * it into 12 network round trips just because the screen happens to draw 12 grids.
  *
  * Clicking a day jumps straight to day view; clicking a month's own label switches to month view
  * for that month — two different targets, both reachable from the same mini-calendar.

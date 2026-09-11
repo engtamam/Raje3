@@ -40,6 +40,8 @@ import { newIdempotencyKey } from '../queue';
 import { ServiceGrid } from '../ServiceGrid';
 import { pyWeekday } from './Bookings';
 import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './booking-dialog-i18n';
 
 export interface BookingDialogProps {
   session: Session;
@@ -94,12 +96,11 @@ function addDays(dateStr: string, delta: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
-const WEEKDAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-function humanDay(dateStr: string): string {
-  if (dateStr === todayStr()) return 'اليوم';
-  if (dateStr === addDays(todayStr(), 1)) return 'غداً';
+function humanDay(dateStr: string, t: (key: string) => string): string {
+  if (dateStr === todayStr()) return t('bookingDialog.today');
+  if (dateStr === addDays(todayStr(), 1)) return t('bookingDialog.tomorrow');
   const d = new Date(`${dateStr}T00:00:00Z`);
-  return `${WEEKDAYS_AR[d.getUTCDay()]} ${d.getUTCDate()}`;
+  return tf(t, 'bookingDialog.weekdayAndDate', { weekday: t(`bookingDialog.weekday.${d.getUTCDay()}`), day: d.getUTCDate() });
 }
 
 interface Slot { operatorId: string; startsAt: number }
@@ -111,6 +112,7 @@ export function BookingDialog(
    initialServiceIds, services, staff, weekly, onClose, onCreated,
    editingBooking, editingCustomerLabel }: BookingDialogProps,
 ) {
+  const { t } = useOperatorI18n();
   const editing = editingBooking ?? null;
   const [phone, setPhone] = useState(initialCustomer?.phone ?? '');
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
@@ -339,7 +341,7 @@ export function BookingDialog(
           setSlots(r.slots.map((s) => ({ operatorId: s.operator_id, startsAt: s.starts_at })));
         }
       } catch (e) {
-        if (!stale) { setSlots([]); setSlotsError(sentenceFor(e, 'تعذّر البحث عن مواعيد.')); }
+        if (!stale) { setSlots([]); setSlotsError(sentenceFor(e, t('bookingDialog.slotsSearchError'))); }
       }
     }
     run();
@@ -393,12 +395,12 @@ export function BookingDialog(
           best = { operatorId: opId, startsAt: r.starts_at };
         }
       }
-      if (best === null) { setSlotsError('لا موعد قريب خلال أسبوعين.'); return; }
+      if (best === null) { setSlotsError(t('bookingDialog.noNearSlot')); return; }
       setDay(dayOfEpoch(best.startsAt));
       setTime(timeOfEpoch(best.startsAt));
       if (!operatorId) setOperatorId(best.operatorId);
     } catch (e) {
-      setSlotsError(sentenceFor(e, 'تعذّر البحث عن موعد.'));
+      setSlotsError(sentenceFor(e, t('bookingDialog.slotSearchError')));
     } finally {
       setJumping(false);
     }
@@ -431,7 +433,7 @@ export function BookingDialog(
       }
       onCreated(booking);
     } catch (e) {
-      setError(sentenceFor(e, 'تعذّر حفظ التعديل.'));
+      setError(sentenceFor(e, t('bookingDialog.saveEditError')));
     } finally {
       setSaving(false);
     }
@@ -452,7 +454,7 @@ export function BookingDialog(
         // A REFUSAL RETURNED, NOT THROWN — the route answers 200 with `customer: null` on
         // failure (`reason` is author-written, safe to show), so this is checked explicitly
         // rather than relying on the catch block below to ever see it.
-        if (!ensured.customer) { setError(ensured.reason || 'تعذّر الحجز.'); return; }
+        if (!ensured.customer) { setError(ensured.reason || t('bookingDialog.bookingError')); return; }
         c = ensured.customer;
       }
       const booking = await createBooking(session, {
@@ -478,25 +480,25 @@ export function BookingDialog(
     } catch (e) {
       const status = e instanceof ApiError ? e.status : (e as { status?: number })?.status;
       setError(status === 402
-        ? sentenceFor(e, 'الحجوزات ليست في اشتراكك.')
-        : sentenceFor(e, 'تعذّر الحجز.'));
+        ? sentenceFor(e, t('bookingDialog.notSubscribed'))
+        : sentenceFor(e, t('bookingDialog.bookingError')));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} title={editing ? 'تعديل الحجز' : 'حجز جديد'}
-          subtitle={`فرعك، ${humanDay(day)}`} size="lg">
+    <Modal open onClose={onClose} title={editing ? t('bookingDialog.title.edit') : t('bookingDialog.title.create')}
+          subtitle={tf(t, 'bookingDialog.subtitle', { day: humanDay(day, t) })} size="lg">
       <div className="flex flex-col gap-4">
-        {/* ── العميل — ثابتٌ في التعديل، لا PATCH يغيّره ─────────────────────────────────── */}
+        {/* ── customer — fixed once editing, no PATCH ever changes who a booking is for ──────── */}
         {editing ? (
           <p className="text-sm text-text-secondary">
-            العميل: <span className="font-semibold text-text-primary">{editingCustomerLabel || '—'}</span>
+            {t('bookingDialog.customerLabel')} <span className="font-semibold text-text-primary">{editingCustomerLabel || '—'}</span>
           </p>
         ) : (
-        <Field label="جوّال العميل" required htmlFor="bkg-phone"
-              error={attempted && phoneMissing ? 'الجوال مطلوب' : undefined}>
+        <Field label={t('bookingDialog.phoneLabel')} required htmlFor="bkg-phone"
+              error={attempted && phoneMissing ? t('bookingDialog.phoneRequired') : undefined}>
           <Input
             id="bkg-phone"
             value={phone}
@@ -528,7 +530,7 @@ export function BookingDialog(
         {customer ? (
           <div className="flex flex-col gap-1">
             <p className="flex items-center gap-1.5 text-sm">
-              <Badge tone="success">عميل معروف</Badge>
+              <Badge tone="success">{t('bookingDialog.knownCustomer')}</Badge>
               {customer.name ? <span>{customer.name}</span> : null}
             </p>
             {/* A NUMBER, NEVER A VERDICT (§2.6) — the staff member reads it and decides: confirm
@@ -536,37 +538,39 @@ export function BookingDialog(
                 MADE TO BE UNDERSTOOD, NOT JUST NOTICED — the screen must be clear, not just a
                 badge whose meaning is unknown — the sentence names the actual percentage against
                 the shop's own configured cutoff, and offers the one action §5.3 names for this
-                exact number: "قرار طلب العربون ممن تكرّر منه", one tap away instead of a
+                exact number: request a deposit from a repeat no-show, one tap away instead of a
                 separate trip to the payment section below. */}
             {risk?.risky ? (
               <div className="flex flex-col gap-1.5 rounded-xl bg-warning-soft p-3">
                 <p className="text-sm font-semibold text-warning-on-soft">
-                  ⚠️ نسبة عدم حضوره مرتفعة: غاب عن {risk.no_shows} من آخر {risk.considered} موعداً
-                  ({Math.round((risk.no_shows / risk.considered) * 100)}٪، والحد {risk.threshold_percent}٪)
+                  {tf(t, 'bookingDialog.riskWarning', {
+                    noShows: risk.no_shows, considered: risk.considered,
+                    pct: Math.round((risk.no_shows / risk.considered) * 100), threshold: risk.threshold_percent,
+                  })}
                 </p>
                 <p className="text-xs text-warning-on-soft">
-                  يُنصح بطلب عربون لتأكيد هذا الحجز — القرار لك، والنظام لا يفرضه.
+                  {t('bookingDialog.riskAdvice')}
                 </p>
                 {paymentStatus !== 'deposit' ? (
                   <button type="button" onClick={() => setPaymentStatus('deposit')}
                          className="self-start rounded-full bg-warning px-3 py-1 text-xs font-bold text-white">
-                    فعّل العربون الآن
+                    {t('bookingDialog.enableDepositNow')}
                   </button>
                 ) : null}
               </div>
             ) : null}
           </div>
         ) : phone.length >= 3 ? (
-          <Field label="اسمها (اختياري)" htmlFor="bkg-name">
+          <Field label={t('bookingDialog.nameLabel')} htmlFor="bkg-name">
             <Input id="bkg-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
         ) : null}
 
-        {/* ── الخدمات ─────────────────────────────────────────────────────────────────── */}
+        {/* ── services ────────────────────────────────────────────────────────────────── */}
         <div>
-          <h3 className="mb-2 text-sm text-text-secondary">الخدمات</h3>
+          <h3 className="mb-2 text-sm text-text-secondary">{t('bookingDialog.servicesHeading')}</h3>
           {attempted && servicesMissing ? (
-            <p className="mb-2 text-sm text-danger">اختر خدمة واحدة على الأقل</p>
+            <p className="mb-2 text-sm text-danger">{t('bookingDialog.servicesRequired')}</p>
           ) : null}
           {/* A FAILED READ, NAMED — earn/offer/balance used to fail into `null` from the same
               starting `null` a load-in-progress uses, so a customer with a live offer or reward
@@ -574,7 +578,7 @@ export function BookingDialog(
               save still worked, and nobody was ever told his points or offer could not be read. */}
           {customer && (earn === null || offer === null || balance === null) ? (
             <p className="mb-2 text-xs text-danger">
-              تعذّرت قراءة نقاط هذا العميل وعروضه — الحجز نفسه غير متأثر
+              {t('bookingDialog.perksReadError')}
             </p>
           ) : null}
           <ServiceGrid services={services} selected={chosen}
@@ -599,54 +603,58 @@ export function BookingDialog(
                 ))}
               </div>
             ) : (
-              <p className="mt-1 text-sm text-text-secondary">المدة الإجمالية: {durationTotal} دقيقة</p>
+              <p className="mt-1 text-sm text-text-secondary">{tf(t, 'bookingDialog.totalDuration', { n: durationTotal })}</p>
             )
           ) : null}
         </div>
 
-        {/* ── الموظف — قبل الوقت، لا بعده: «أي متاح» هو الخيار الأول والافتراضي ───────────
-            القائمة نفسها بلا تغيير لمحل لم يخصّص شيئاً قط — تضيق فقط حين خدمة مختارة فعلاً
-            مقيّدة بموظفين بعينهم (§3 من خطة الحجوزات الذكية: بساطة افتراضية، عمق عند الحاجة).
+        {/* ── staff — before time, not after: "anyone available" is the first, default option ──
+            Same list a shop that never customized anything sees — it only narrows once a chosen
+            service is actually restricted to specific staff (§3 of the smart-scheduling plan:
+            simple by default, deep when needed).
 
-            مخفي تماماً حين كل الخدمات المختارة «تلقائي» (`assignment_mode`، المرحلة 3) — لا خدمة
-            متبقية تسأل «مع مين» أصلاً، فالسؤال نفسه يسقط بدل ما يُعرض بخيار وحيد لا معنى له.
-            `operatorId` يبقى فارغاً طوال الوقت (نفس سلوك «أي متاح» الحالي بالضبط)، ومنتقي المواعيد
-            تحته يعبّئه فعلياً لحظة اختيار رقاقة — العميل ما يسأل، بس التخصيص الفعلي يصير كالمعتاد. */}
+            Hidden entirely when every chosen service is "auto" (`assignment_mode`, phase 3) — no
+            remaining service ever asks "with whom" at all, so the question itself drops instead of
+            showing a single meaningless option. `operatorId` stays empty the whole time (exactly
+            today's "anyone available" behaviour), and the slot picker below fills it in the moment
+            a chip is actually chosen — the customer never asks, but real assignment still happens
+            as usual. */}
         {anyNamed ? (
-          <Field label="الموظف" required htmlFor="bkg-op"
-                error={attempted && (operatorMissing || operatorIneligible) ? 'اختر موظفاً' : undefined}>
+          <Field label={t('bookingDialog.staffLabel')} required htmlFor="bkg-op"
+                error={attempted && (operatorMissing || operatorIneligible) ? t('bookingDialog.staffRequired') : undefined}>
             <Select
               id="bkg-op"
               value={operatorIneligible ? '' : operatorId}
               onChange={(e) => setOperatorId(e.target.value)}
             >
-              <option value="">أي متاح</option>
+              <option value="">{t('bookingDialog.anyAvailable')}</option>
               {eligibleStaff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </Select>
           </Field>
         ) : null}
 
-        {/* لا موظف واحد يغطي كل الخدمات المختارة معاً — حالة حقيقية، لا خطأ في البيانات. */}
+        {/* No single staff member covers all chosen services together — a real state, not a data error. */}
         {noCommonOperator ? (
           <p className="text-sm text-danger">
-            لا يوجد موظف واحد يقدر يسوّي كل هذه الخدمات معاً. احجزها في مواعيد منفصلة، أو أزل إحداها.
+            {t('bookingDialog.noCommonOperator')}
           </p>
         ) : null}
 
-        {/* ── الوقت — منتقي مواعيد واحد، لا حقلين خام وزر منفصل ─────────────────────────────
-            كل رقاقة موعد حقيقي فاضٍ؛ الضغط عليها يعبّئ الوقت (والموظف، لو كان «أي متاح») مباشرة. */}
+        {/* ── time — one merged slot picker, not two raw fields and a separate button ────────
+            Every chip is a real, actually-open slot; tapping it fills the time (and the staff
+            member, if "anyone available") directly. */}
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-sm text-text-secondary">الوقت</h3>
+            <h3 className="text-sm text-text-secondary">{t('bookingDialog.timeHeading')}</h3>
             {!editing ? (
               <div className="flex items-center gap-1">
-                <button type="button" aria-label="اليوم السابق" disabled={day <= todayStr()}
+                <button type="button" aria-label={t('bookingDialog.prevDay')} disabled={day <= todayStr()}
                        onClick={() => { setDay(addDays(day, -1)); setTime(''); }}
                        className="grid size-8 place-items-center rounded-full text-text-secondary disabled:opacity-30">
                   <ChevronRight size={16} aria-hidden />
                 </button>
-                <span className="min-w-16 text-center text-sm font-medium">{humanDay(day)}</span>
-                <button type="button" aria-label="اليوم التالي"
+                <span className="min-w-16 text-center text-sm font-medium">{humanDay(day, t)}</span>
+                <button type="button" aria-label={t('bookingDialog.nextDay')}
                        onClick={() => { setDay(addDays(day, 1)); setTime(''); }}
                        className="grid size-8 place-items-center rounded-full text-text-secondary">
                   <ChevronLeft size={16} aria-hidden />
@@ -657,19 +665,19 @@ export function BookingDialog(
 
           {firstSlotIsShopOpening ? (
             <p className="mb-2 text-xs text-text-secondary">
-              المحل مغلق الآن — هذا أقرب وقت فاضي فعلاً.
+              {t('bookingDialog.shopClosedNote')}
             </p>
           ) : null}
 
           {chosen.length === 0 || missingDuration || noCommonOperator ? null
             : slots === null ? (
-              <p className="text-sm text-text-secondary">نبحث عن مواعيد فاضية…</p>
+              <p className="text-sm text-text-secondary">{t('bookingDialog.searchingSlots')}</p>
             ) : slots.length === 0 ? (
               <div className="flex flex-col gap-2">
-                <p className="text-sm text-text-secondary">لا موعد فاضٍ هذا اليوم.</p>
+                <p className="text-sm text-text-secondary">{t('bookingDialog.noSlotsToday')}</p>
                 <Button type="button" variant="ghost" disabled={jumping} onClick={jumpToNearestDay}
                        className="self-start">
-                  {jumping ? 'يبحث…' : 'أقرب يوم فيه موعد'}
+                  {jumping ? t('bookingDialog.jumping') : t('bookingDialog.nearestDay')}
                 </Button>
               </div>
             ) : (
@@ -691,28 +699,28 @@ export function BookingDialog(
                         picked ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-primary hover:bg-surface-3'
                       }`}
                     >
-                      {timeOfEpoch(s.startsAt)}{opName ? ` — مع ${opName}` : ''}
+                      {timeOfEpoch(s.startsAt)}{opName ? tf(t, 'bookingDialog.withOperator', { name: opName }) : ''}
                     </button>
                   );
                 })}
               </div>
             )}
           {slotsError ? <p className="mt-1 text-sm text-danger">{slotsError}</p> : null}
-          {attempted && timeMissing ? <p className="mt-1 text-sm text-danger">الوقت مطلوب</p> : null}
+          {attempted && timeMissing ? <p className="mt-1 text-sm text-danger">{t('bookingDialog.timeRequired')}</p> : null}
 
-          {/* المسار اليدوي الاحتياطي — مطويّ افتراضياً: تعديل حجز بتاريخ ماضٍ، أو أي استثناء
-              لا يغطيه شريط الرقائق. */}
+          {/* The manual fallback path — folded by default: editing a past-dated booking, or any
+              exception the chip strip doesn't cover. */}
           <button type="button" className="mt-2 text-xs text-text-secondary underline underline-offset-2"
                  onClick={() => setManualEntry((v) => !v)}>
-            {manualEntry ? 'إخفاء الإدخال اليدوي' : 'إدخال يدوي'}
+            {manualEntry ? t('bookingDialog.hideManual') : t('bookingDialog.showManual')}
           </button>
           {manualEntry ? (
             <div className="mt-2 grid grid-cols-2 gap-3">
-              <Field label="اليوم" htmlFor="bkg-day">
+              <Field label={t('bookingDialog.dayLabel')} htmlFor="bkg-day">
                 <Input id="bkg-day" type="date" value={day} dir="ltr"
                       onChange={(e) => setDay(e.target.value)} />
               </Field>
-              <Field label="الوقت" htmlFor="bkg-time">
+              <Field label={t('bookingDialog.timeHeading')} htmlFor="bkg-time">
                 <Input id="bkg-time" type="time" value={time} dir="ltr"
                       onChange={(e) => setTime(e.target.value)} />
               </Field>
@@ -720,17 +728,17 @@ export function BookingDialog(
           ) : null}
         </div>
 
-        {/* ── تفاصيل إضافية — مطويّة، تُفتح تلقائياً فقط حين تحتاج انتباهه فعلاً ──────────── */}
+        {/* ── extra details — folded, opens automatically only when it genuinely needs attention ── */}
         <details open={detailsOpen || detailsForcedOpen}
                  onToggle={(e) => setDetailsOpen(e.currentTarget.open)}
                  className="rounded-card border border-border-subtle">
           <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-text-secondary">
-            تفاصيل الدفع
+            {t('bookingDialog.paymentDetails')}
           </summary>
           <div className="flex flex-col gap-3 border-t border-border-subtle p-3">
-            {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً ───────────── */}
+            {/* ── price — for this booking alone, unless explicitly saved ───────────── */}
             {!editing && chosen.length > 0 ? (
-              <Field label="السعر (اختياري، ريال)" htmlFor="bkg-price">
+              <Field label={t('bookingDialog.priceLabel')} htmlFor="bkg-price">
                 <Input
                   id="bkg-price"
                   value={priceText}
@@ -743,26 +751,26 @@ export function BookingDialog(
                   <label className="mt-1.5 flex items-center gap-2 text-sm text-text-secondary">
                     <input type="checkbox" checked={saveToCatalog}
                           onChange={(e) => setSaveToCatalog(e.target.checked)} />
-                    احفظه كسعر ثابت لهذه الخدمة (لكل الحجوزات القادمة)
+                    {t('bookingDialog.saveAsCatalogPrice')}
                   </label>
                 ) : null}
               </Field>
             ) : null}
 
-            {/* ── حالة الدفع — ثلاث حالات حصرية، مقياس Segmented الجاهز ────────────────────── */}
-            <Field label="حالة الدفع">
+            {/* ── payment status — three exclusive states, the ready-made Segmented gauge ────── */}
+            <Field label={t('bookingDialog.paymentStatusLabel')}>
               <Segmented
-                ariaLabel="حالة الدفع"
+                ariaLabel={t('bookingDialog.paymentStatusLabel')}
                 value={paymentStatus}
                 onChange={setPaymentStatus}
                 options={PAYMENT_ORDER.map((s) => ({ value: s, label: PAYMENT_LABEL[s] }))}
                 className="w-full [&>button]:flex-1"
               />
             </Field>
-            {/* «مدفوع» يتّكئ على حقل السعر أعلاه؛ «عربون» وحده يحتاج رقماً — إجباري، لا يُخمَّن. */}
+            {/* "paid" leans on the price field above; "deposit" alone needs its own number — required, never guessed. */}
             {paymentStatus === 'deposit' ? (
-              <Field label="مبلغ العربون (ريال)" required htmlFor="bkg-deposit"
-                    error={attempted && depositAmountMissing ? 'مبلغ العربون مطلوب' : undefined}>
+              <Field label={t('bookingDialog.depositAmountLabel')} required htmlFor="bkg-deposit"
+                    error={attempted && depositAmountMissing ? t('bookingDialog.depositRequired') : undefined}>
                 <Input
                   id="bkg-deposit"
                   value={depositAmountText}
@@ -774,19 +782,19 @@ export function BookingDialog(
               </Field>
             ) : null}
 
-            {/* ── نيّة استبدال — تُختار الآن، تُصرف عند «حضر» فقط ──────────── */}
+            {/* ── redemption intent — chosen now, spent only on "attended" ──────────── */}
             {(balance?.rewards ?? []).length > 0 ? (
-              <Field label="جائزة يريد استبدالها (اختياري)" htmlFor="bkg-reward"
-                    hint="لا تُخصم نقاطه الآن — تُصرف تلقائياً عند تسجيل حضوره.">
+              <Field label={t('bookingDialog.rewardLabel')} htmlFor="bkg-reward"
+                    hint={t('bookingDialog.rewardHint')}>
                 <Select
                   id="bkg-reward"
                   value={intendedRewardId}
                   onChange={(e) => setIntendedRewardId(e.target.value)}
                 >
-                  <option value="">بدون</option>
+                  <option value="">{t('bookingDialog.noneOption')}</option>
                   {(balance?.rewards ?? []).map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name} ({r.cost}){r.needs_approval ? ' — تحتاج موافقة مشرف' : ''}
+                      {tf(t, 'bookingDialog.rewardOption', { name: r.name, cost: r.cost })}{r.needs_approval ? t('bookingDialog.needsApproval') : ''}
                     </option>
                   ))}
                 </Select>
@@ -795,16 +803,16 @@ export function BookingDialog(
           </div>
         </details>
 
-        <Field label="ملاحظة (اختياري)" htmlFor="bkg-note">
+        <Field label={t('bookingDialog.noteLabel')} htmlFor="bkg-note">
           <Input id="bkg-note" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
 
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
-          <Button variant="ghost" onClick={onClose}>إلغاء</Button>
+          <Button variant="ghost" onClick={onClose}>{t('bookingDialog.cancel')}</Button>
           <Button disabled={saving} onClick={save} className="shadow-glow">
-            {saving ? 'جارٍ الحفظ…' : editing ? 'حفظ التعديل' : 'احجز'}
+            {saving ? t('bookingDialog.saving') : editing ? t('bookingDialog.saveEdit') : t('bookingDialog.bookNow')}
           </Button>
         </div>
       </div>
@@ -812,8 +820,8 @@ export function BookingDialog(
   );
 }
 
-/** ONE ROW, THE SAME ACT «خدماتي ومنتجاتي» OFFERS — a number and a save, right where the refusal
- *  was noticed, so fixing it costs one tap and a keystroke instead of a whole other screen. */
+/** ONE ROW, THE SAME ACT "My Services & Products" OFFERS — a number and a save, right where the
+ *  refusal was noticed, so fixing it costs one tap and a keystroke instead of a whole other screen. */
 function MissingDurationFix({
   session, serviceId, serviceName, onSet,
 }: {
@@ -822,6 +830,7 @@ function MissingDurationFix({
   serviceName: string;
   onSet: (minutes: number) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [minutes, setMinutes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -829,7 +838,7 @@ function MissingDurationFix({
   const save = async () => {
     const n = Number(minutes);
     if (!minutes.trim() || !Number.isFinite(n) || n <= 0) {
-      setError('اكتب رقماً أكبر من صفر.');
+      setError(t('bookingDialog.enterPositiveNumber'));
       return;
     }
     setSaving(true);
@@ -838,7 +847,7 @@ function MissingDurationFix({
       await setServiceDuration(session, serviceId, n);
       onSet(n);
     } catch (e) {
-      setError(sentenceFor(e, 'تعذّر الحفظ.'));
+      setError(sentenceFor(e, t('bookingDialog.saveFailedGeneric')));
     } finally {
       setSaving(false);
     }
@@ -846,18 +855,18 @@ function MissingDurationFix({
 
   return (
     <div className="flex items-center gap-2 rounded-xl bg-danger/5 p-2">
-      <span className="flex-1 truncate text-sm text-danger">{serviceName} — بلا مدة مضبوطة</span>
+      <span className="flex-1 truncate text-sm text-danger">{tf(t, 'bookingDialog.noDurationSet', { name: serviceName })}</span>
       <Input
         value={minutes}
         onChange={(e) => setMinutes(e.target.value.replace(/[^\d]/g, ''))}
         dir="ltr"
         inputMode="numeric"
         placeholder="15"
-        aria-label={`مدة ${serviceName} بالدقائق`}
+        aria-label={tf(t, 'bookingDialog.durationAriaLabel', { name: serviceName })}
         className="w-16 text-center"
       />
       <Button type="button" disabled={saving} onClick={save}>
-        {saving ? '...' : 'حفظ'}
+        {saving ? t('bookingDialog.savingDots') : t('bookingDialog.save')}
       </Button>
       {error ? <span className="text-xs text-danger">{error}</span> : null}
     </div>

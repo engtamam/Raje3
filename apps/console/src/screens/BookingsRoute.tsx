@@ -4,8 +4,9 @@ import { BookingsScreen } from './Bookings';
 import { AppGate } from './Locked';
 
 /**
- * الحجوزات — قسمٌ كامل مغلَق بالتطبيق، مثل «نقاطي». محلٌّ لم يشترِ نظام الحجوزات يرى بطاقة
- * الترقية هنا فقط؛ ولا يفقد شيئاً في «تسجيل زيارة» أو «عملائي» — القاعدة نفسها في كل تطبيق.
+ * Bookings — a whole section gated by the app, same as "My Points". A shop that hasn't bought
+ * the bookings system sees only the upgrade card here; nothing is lost on "Record Visit" or "My
+ * Customers" — the same rule every app follows.
  */
 export function Bookings() {
   const { session, catalog, owned, branch, branches, setBranch } = useOutletContext<ShellContext>();
