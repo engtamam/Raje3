@@ -234,6 +234,39 @@ const REASON_APP: Record<string, string> = {
   rating_requested: 'rating',
 };
 
+/** EVERY REASON'S OWN `template_type` — `reasons.py`'s own REASONS tuple, mirrored by hand (same
+ *  posture `GOAL_TEMPLATE_TYPE` above already holds: a table this small drifting is a one-line fix,
+ *  not worth a network round trip). Needed here for exactly one thing: resolving whether a reason
+ *  card's message is INTERACTIVE (see `INTERACTIVE_TEMPLATE_TYPES` below) — a reason card never
+ *  carried its own `templateType` before this, only goal-only cards did. */
+const REASON_TEMPLATE_TYPE: Record<string, string> = {
+  visit_recorded: 'svc_visit_confirmation',
+  rating_requested: 'svc_visit_confirmation_rating',
+  booking_confirmed: 'svc_booking_confirmation',
+  visit_redeemed: 'svc_visit_redeemed',
+  service_due: 'svc_service_reminder',
+  after_visit: 'svc_follow_up',
+  no_response: 'svc_service_reminder',
+  balance_changed: 'per_account_notice',
+  points_expiring: 'per_points_expiring',
+  reward_within_reach: 'mkt_loyalty_activation',
+  gone_missing: 'mkt_winback',
+  loyal_customer: 'mkt_loyalty_activation',
+  personal_occasion: 'mkt_personal_occasion',
+  weekly_digest: 'per_weekly_digest',
+  privacy_code: 'per_dsar_code',
+};
+
+/** تفاعلي = يفتح شاشات حقيقية داخل واتساب (فلو)، لا مجرد نص يُقرأ. مأخوذة يدوياً من
+ *  `operations/data/templates.seed.json`'s الفعلي (أي صف فيه `flow_button`) — نفس أسلوب
+ *  `REASON_TEMPLATE_TYPE` أعلاه، جدول صغير يُحدَّث يدوياً بدل استدعاء شبكة لأجل حقيقة نادراً ما
+ *  تتغيّر. مرحلة ١ فقط: القوالب المجدولة الموجودة اليوم — كاروسيل البوت وأدواته الحيّة (المرحلة ٣)
+ *  ليست هنا بعد، لأنها أصلاً ليست بطاقات بهذي الشاشة اليوم. */
+const INTERACTIVE_TEMPLATE_TYPES = new Set([
+  'mkt_offer', 'mkt_personal_occasion', 'mkt_winback', 'per_weekly_digest',
+  'svc_visit_confirmation_rating',
+]);
+
 /** One entry in «القوالب» — a reason, a goal, or (for the three that are both) one card carrying
  *  both capabilities, never shown twice. */
 interface TemplateCard {
@@ -253,6 +286,8 @@ interface TemplateCard {
   goal?: string;
   templateType?: string;
   lockAppId?: string;
+  /** يفتح شاشات فلو حقيقية داخل واتساب، لا نص يُقرأ فقط — see `INTERACTIVE_TEMPLATE_TYPES`. */
+  interactive: boolean;
 }
 
 /** THE GOAL → REASON MAP, THE OTHER DIRECTION FROM `REASON_GOAL` above — so a goal read from
@@ -266,21 +301,25 @@ export function templateCards(reasons: ReasonRow[], goals: GoalRow[]): TemplateC
   const out: TemplateCard[] = [];
   for (const r of reasons) {
     const linked = REASON_GOAL[r.id];
+    const templateType = REASON_TEMPLATE_TYPE[r.id];
     out.push({
       key: `reason:${r.id}`, label: r.label, when: r.when,
       cls: r.cls ?? '', clsLabel: r.cls_label ?? '',
       tags: linked ? ['auto', 'manual'] : ['auto'],
-      reason: r, goal: linked?.goal,
+      reason: r, goal: linked?.goal, templateType,
       lockAppId: REASON_APP[r.id],
+      interactive: Boolean(templateType && INTERACTIVE_TEMPLATE_TYPES.has(templateType)),
     });
   }
   for (const g of goals) {
     if (GOAL_HAS_REASON.has(g.goal)) continue; // already carried by its reason card, above
     const cls = GOAL_SECTION[g.goal] ?? 'marketing';
+    const templateType = GOAL_TEMPLATE_TYPE[g.goal];
     out.push({
       key: `goal:${g.goal}`, label: g.title, when: g.line,
       cls, clsLabel: SECTION_LABEL[cls] ?? cls,
-      tags: ['manual'], goal: g.goal, templateType: GOAL_TEMPLATE_TYPE[g.goal],
+      tags: ['manual'], goal: g.goal, templateType,
+      interactive: Boolean(templateType && INTERACTIVE_TEMPLATE_TYPES.has(templateType)),
     });
   }
   return out;
@@ -462,6 +501,9 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
           ) : (
             <Badge tone="neutral">{TAG_LABEL[card.tags[0]]}</Badge>
           )}
+          {/* تفاعلي — يفتح شاشات فلو حقيقية داخل واتساب، لا مجرد نص. لا شارة عكسية لغير التفاعلي
+             (نفس منطق "بنصّك أنت" جمبها — الاستثناء يُعلَّم، لا القاعدة). */}
+          {card.interactive ? <Badge tone="info">تفاعلي</Badge> : null}
           {r?.template_status && r.template_status !== 'unknown' ? (
             <Badge tone={TEMPLATE_STATUS_META[r.template_status].tone}>
               {TEMPLATE_STATUS_META[r.template_status].label}
@@ -666,6 +708,20 @@ export function MessagesScreen(
     [reasons, goals],
   );
 
+  /** الفلتر الذكي — رقائق قابلة للتراكم (كلاهما معاً يعني "تلقائية وتفاعلية"، لا أحدهما فقط)،
+   *  فوق التقسيم إلى أقسام (SECTION_ORDER) لا بدلاً عنه — القسم يبقى التنظيم الأساسي، الفلتر يضيّق
+   *  داخله. */
+  type CardFilter = 'auto' | 'interactive';
+  const [activeFilters, setActiveFilters] = useState<Set<CardFilter>>(new Set());
+  const toggleFilter = (f: CardFilter) => setActiveFilters((prev) => {
+    const next = new Set(prev);
+    if (next.has(f)) next.delete(f); else next.add(f);
+    return next;
+  });
+  const filteredCards = useMemo(() => cards.filter((c) =>
+    (!activeFilters.has('auto') || c.tags.includes('auto'))
+    && (!activeFilters.has('interactive') || c.interactive)), [cards, activeFilters]);
+
   // THE SUMMARY, ONCE, WITH THE SCREEN. Cheap by its own design (owner.py's docstring: one call
   // rather than four, exactly so a status screen is never briefly wrong) — and silent on failure
   // or denial rather than a second error box: it is a bonus answer layered over a screen that
@@ -857,6 +913,37 @@ export function MessagesScreen(
               place both live — every card carrying its own tags, its own class, and, for the
               three that are both, both capabilities on one card rather than two. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
+
+          {/* الفلتر الذكي — رقاقتان تتراكمان، لا قائمة منسدلة: الاختيار هنا ثنائي بسيط (فيه/مو
+             فيه) لبعدين، مو تصنيفاً متعدد القيم يحتاج نموذجاً أثقل. */}
+          {isReady(reasons) && reasons.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-text-secondary">فلترة:</span>
+              <button type="button" onClick={() => toggleFilter('auto')}
+                     aria-pressed={activeFilters.has('auto')}
+                     className={['rounded-pill border px-3 py-1 text-xs font-medium transition',
+                       activeFilters.has('auto')
+                         ? 'border-accent bg-accent-soft text-accent-on-soft'
+                         : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
+                مؤتمتة فقط
+              </button>
+              <button type="button" onClick={() => toggleFilter('interactive')}
+                     aria-pressed={activeFilters.has('interactive')}
+                     className={['rounded-pill border px-3 py-1 text-xs font-medium transition',
+                       activeFilters.has('interactive')
+                         ? 'border-accent bg-accent-soft text-accent-on-soft'
+                         : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
+                تفاعلية فقط
+              </button>
+              {activeFilters.size > 0 ? (
+                <button type="button" onClick={() => setActiveFilters(new Set())}
+                       className="text-xs text-text-secondary underline">
+                  مسح الفلتر
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           {isLoading(reasons) ? (
             <Skeleton height={200} />
           ) : isDenied(reasons) ? (
@@ -874,10 +961,15 @@ export function MessagesScreen(
               title="لا دواعي إرسال بعد"
               description="تظهر هنا حالما يبدأ محلك في تسجيل الزيارات."
             />
+          ) : activeFilters.size > 0 && filteredCards.length === 0 ? (
+            <EmptyState
+              title="ما فيه قوالب تطابق الفلتر"
+              description="جرّب رقاقة ثانية، أو امسح الفلتر لعرض الكل."
+            />
           ) : (
             <>
               {SECTION_ORDER.map((section) => {
-                const inSection = cards.filter((c) => c.cls === section);
+                const inSection = filteredCards.filter((c) => c.cls === section);
                 if (inSection.length === 0) return null;
                 return (
                   <div key={section} className="flex flex-col gap-2">
