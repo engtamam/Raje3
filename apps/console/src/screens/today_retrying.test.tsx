@@ -11,6 +11,8 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { createElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 let today: Record<string, unknown> = {};
 
@@ -37,7 +39,8 @@ const CEILING = { known: true, unlimited: false, limit: 100, reached_today: 3, r
 
 function open(messages: Record<string, unknown>) {
   today = { can_send: true, blocked: '', messages, ceiling: CEILING };
-  return render(<TodayStrip session={session} catalog={catalog} />);
+  return render(createElement(OperatorI18nProvider, { session },
+    createElement(TodayStrip, { session, catalog })));
 }
 
 describe('«هل كل شيء يعمل؟» — what is stuck is said out loud', () => {

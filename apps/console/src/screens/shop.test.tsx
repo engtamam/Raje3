@@ -13,8 +13,17 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { SECTIONS } from '../nav';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// A THIN WRAPPER, NOT REPEATED AT EVERY CALL SITE — every render below needs the provider now
+// that Shop.tsx reads `useOperatorI18n()`; `session` is the same `{} as never` fixture already
+// used throughout this file.
+function Wrap({ children }: { children: ReactNode }) {
+  return <OperatorI18nProvider session={session}>{children}</OperatorI18nProvider>;
+}
 
 // MUTABLE, PER-TEST STATE — `vi.mock` runs once at module scope, so the AI-impact/next_step tests
 // below adjust these refs before rendering rather than needing a second mock module entirely.
@@ -112,7 +121,7 @@ describe('«محلّي» — one page, and the number first', () => {
 
   it('draws the retention ring BEFORE any heading, caption or lock', async () => {
     const { container } = render(
-      <MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>,
+      <Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>,
     );
     await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
 
@@ -130,7 +139,7 @@ describe('«محلّي» — one page, and the number first', () => {
   });
 
   it('never draws the old «يحتاج تصرّفاً منك» heading, and never goes silent either', async () => {
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
     // A section demanding action, about the one thing he cannot act on, is a heading he learns to
     // stop reading — the old heading is gone for good.
@@ -144,7 +153,7 @@ describe('«محلّي» — one page, and the number first', () => {
 
   // ── packages feature: the bundle card's own action link ───────────────────────────────────────
   it('an extend_package suggestion links to the existing package, not a new one', async () => {
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('أضفها لهذه الباقة')).toBeTruthy());
     const link = screen.getByRole('link', { name: 'أضفها لهذه الباقة' });
     const href = link.getAttribute('href') ?? '';
@@ -153,7 +162,7 @@ describe('«محلّي» — one page, and the number first', () => {
   });
 
   it('a bundle suggestion pre-fills a brand-new package with both services', async () => {
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('اجعلها باقة — تحدّد سعرها أنت')).toBeTruthy());
     const link = screen.getByRole('link', { name: 'اجعلها باقة — تحدّد سعرها أنت' });
     const href = link.getAttribute('href') ?? '';
@@ -162,7 +171,7 @@ describe('«محلّي» — one page, and the number first', () => {
   });
 
   it('both links route through /services?tab=packages', async () => {
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('أضفها لهذه الباقة')).toBeTruthy());
     const extend = screen.getByRole('link', { name: 'أضفها لهذه الباقة' }).getAttribute('href') ?? '';
     const bundle = screen.getByRole('link', { name: 'اجعلها باقة — تحدّد سعرها أنت' }).getAttribute('href') ?? '';
@@ -171,7 +180,7 @@ describe('«محلّي» — one page, and the number first', () => {
   });
 
   it('a reminder-verdict bundle (no action_label) renders no link at all', async () => {
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('أضفها لهذه الباقة')).toBeTruthy());
     // Neither bundle in this test's own mock is a "reminder" card, so no reminder text/link
     // should ever appear here — a real absence-of-regression check for the branch that renders
@@ -182,7 +191,7 @@ describe('«محلّي» — one page, and the number first', () => {
   // ── AI-impact card — the second-tier grid slot ────────────────────────────────────────────────
   it('a subscribed shop sees its own real AI-impact numbers, side by side with AtRiskCard', async () => {
     mockState.entitlements = ['feature.insights.engine', 'feature.whatsapp'];
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText(/أثر الذكاء الاصطناعي/)).toBeTruthy());
     // The real numbers from the mocked route, never invented client-side.
     expect(screen.getByText('20')).toBeTruthy();          // conversations tile
@@ -193,7 +202,7 @@ describe('«محلّي» — one page, and the number first', () => {
   it('an un-subscribed shop gets no AI-impact card at all — no card with nothing real to show', async () => {
     // Default mockState.entitlements has no 'feature.whatsapp' — the marketing for this case
     // lives in «الخطوة التالية» instead (the luxury-teaser test below), never a second, empty card.
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
     expect(screen.queryByText(/أثر الذكاء الاصطناعي/)).toBeNull();
   });
@@ -208,7 +217,7 @@ describe('«محلّي» — one page, and the number first', () => {
       },
       secondary: null,
     };
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText(/بوت واتساب يردّ/)).toBeTruthy());
     const link = screen.getByRole('link', { name: 'جرّب بوت واتساب' });
     expect(link.getAttribute('href')).toBe('/plans?highlight=whatsapp');
@@ -217,7 +226,7 @@ describe('«محلّي» — one page, and the number first', () => {
   });
 
   it('an ordinary next_step rule never gets the luxury frame', async () => {
-    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText(/وضعك ثابت/)).toBeTruthy());
     expect(screen.queryByText('✨')).toBeNull();
   });

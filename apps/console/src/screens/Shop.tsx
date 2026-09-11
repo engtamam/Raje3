@@ -36,6 +36,8 @@ import { asLocal } from '../phone';
 import { outsideVisits } from '../branch-scope';
 import { AssistantHint } from '../AssistantHint';
 import { riyalsLabel } from '../money';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './shop-i18n';
 
 export { outsideVisits };
 
@@ -76,8 +78,9 @@ interface Blocked {
   indicator: string; lost?: string; why?: string; do?: string; owner?: string; request?: string;
   progress?: { have?: number; need?: number };
 }
-const BLOCKED_OWNER: Record<string, string> = {
-  pos_vendor: 'على مزوّد الكاشير', establishment: 'عليك أنت', time: 'على الوقت', unknown: 'غير محدّد',
+const BLOCKED_OWNER_KEY: Record<string, string> = {
+  pos_vendor: 'shop.owner.pos_vendor', establishment: 'shop.owner.establishment',
+  time: 'shop.owner.time', unknown: 'shop.owner.unknown',
 };
 interface Effect { ready?: boolean; reason?: string; visits?: number; window_days?: number; partial?: boolean }
 interface OptOut {
@@ -130,17 +133,18 @@ interface ShopImpact {
   upsell_acceptance_rate: number | null; truncated: boolean;
 }
 
-export function blockedSentence(b: Blocked): string {
+export function blockedSentence(b: Blocked, t: (key: string) => string = () => '{why} — {have} من {need}.'): string {
   const why = (b.why ?? '').trim();
   if (!why) return '';
   const have = b.progress?.have, need = b.progress?.need;
-  if (typeof have === 'number' && typeof need === 'number' && need > 0) return `${why} — ${have} من ${need}.`;
+  if (typeof have === 'number' && typeof need === 'number' && need > 0) return tf(t, 'shop.blockedProgress', { why, have, need });
   return why;
 }
 
 /* ── the whole screen ──────────────────────────────────────────────────────────────────────────── */
 export function ShopScreen() {
   const { session, catalog, branch, setBranch } = useOutletContext<ShellContext>();
+  const { t } = useOperatorI18n();
 
   return (
     // A FIXED SIDE COLUMN WAS THE SAME MISTAKE IN A NEW SHAPE — today's pulse and the recent list
@@ -163,7 +167,7 @@ export function ShopScreen() {
           all, going straight into TodayPulse. Colour is left to inherit `--sh-ink` from `TOKENS`
           above rather than the generic `text-text-secondary` PageHeader defaults to elsewhere —
           this screen's own bespoke palette, not the plain one every other screen uses. */}
-      <PageHeader icon={TrendingUp} title="محلّي" />
+      <PageHeader icon={TrendingUp} title={t('shop.title')} />
       <TodayPulse session={session} catalog={catalog} />
       <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
     </div>
@@ -172,6 +176,7 @@ export function ShopScreen() {
 
 /* ── ① what stops the shop, and today's pulse — own fetch, own three states ─────────────────────── */
 export function TodayPulse({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [today, setToday] = useState<Today | null | undefined>(undefined);
   const [connected, setConnected] = useState<{ state: string; message: string; can_send?: boolean } | null | undefined>(undefined);
 
@@ -188,16 +193,16 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
   // "minutes" and still had to go find «حسابي» himself. Dropped the estimate, added the real link.
   const warning: { text: string; href?: string } | null = (() => {
     if (connected && connected.state !== 'connected' && connected.state !== '') return { text: connected.message };
-    if (connected && connected.state === '') return { text: 'واتساب غير مربوط — رسائلك لا تُرسل بعد.', href: '/account?tab=whatsapp' };
-    if (connected && connected.can_send === false) return { text: 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.', href: '/account?tab=whatsapp' };
-    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return { text: 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.' };
+    if (connected && connected.state === '') return { text: t('shop.today.waNotConnected'), href: '/account?tab=whatsapp' };
+    if (connected && connected.can_send === false) return { text: t('shop.today.waNotVerified'), href: '/account?tab=whatsapp' };
+    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return { text: t('shop.today.ceilingReached') };
     return null;
   })();
 
   if (today === null) {
     return (
       <p className="rounded-2xl px-4 py-3 text-sm" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>
-        تعذّرت قراءة حالة اليوم — حسابك سليم، والأرقام أدناه صحيحة.
+        {t('shop.today.readError')}
       </p>
     );
   }
@@ -213,17 +218,17 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
                      boxShadow: '0 10px 24px -10px rgba(255,107,82,.5)' }}>
           <div className="flex items-center gap-2 text-[15px] font-bold">
             <span className="size-2 shrink-0 rounded-full bg-white" style={{ boxShadow: '0 0 0 4px rgba(255,255,255,.3)' }} />
-            رسائلك متوقّفة الآن
+            {t('shop.today.blockedTitle')}
           </div>
           <p className="text-[13px] leading-relaxed opacity-95">{today.blocked}</p>
-          <a href="/app/account" className="mt-0.5 w-fit text-[13px] font-semibold underline underline-offset-2">افتح «حسابي» ←</a>
+          <a href="/app/account" className="mt-0.5 w-fit text-[13px] font-semibold underline underline-offset-2">{t('shop.today.openAccount')}</a>
         </div>
       ) : null}
 
       {(today.messages.retrying ?? 0) > 0 ? (
         <div className="flex flex-col gap-1 rounded-2xl px-4 py-3"
              style={{ background: 'var(--sh-coral-soft)', color: 'var(--sh-coral-deep)' }}>
-          <span className="font-semibold text-[14px]">{today.messages.retrying} رسالة تحاول الخروج</span>
+          <span className="font-semibold text-[14px]">{tf(t, 'shop.today.retrying', { n: today.messages.retrying ?? 0 })}</span>
           {today.messages.retrying_reason ? <span className="text-[13px]">{today.messages.retrying_reason}</span> : null}
         </div>
       ) : null}
@@ -232,19 +237,19 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px]" style={{ background: '#fdf0dc', color: '#8a5a12' }}>
           <span>{warning.text}</span>
           {warning.href ? (
-            <Link to={warning.href} className="shrink-0 font-semibold underline underline-offset-2">اربطه الآن ←</Link>
+            <Link to={warning.href} className="shrink-0 font-semibold underline underline-offset-2">{t('shop.today.connectNow')}</Link>
           ) : null}
         </div>
       ) : null}
 
       <div className="grid grid-cols-3 gap-2">
-        <Tile label="رسائل خرجت اليوم" value={String(today.messages.sent_today)} tone="violet"
+        <Tile label={t('shop.tile.sentToday')} value={String(today.messages.sent_today)} tone="violet"
              session={session} helpAnchor="shop.messages_sent_today" />
-        <Tile label="بانتظار الإرسال" value={String(today.messages.waiting)} tone="flat"
+        <Tile label={t('shop.tile.waiting')} value={String(today.messages.waiting)} tone="flat"
              session={session} helpAnchor="shop.messages_waiting" />
         <Tile
-          label="سقفك المتبقي اليوم"
-          value={!today.ceiling.known ? '—' : today.ceiling.unlimited ? 'بلا حدّ' : String(today.ceiling.remaining)}
+          label={t('shop.tile.ceilingRemaining')}
+          value={!today.ceiling.known ? '—' : today.ceiling.unlimited ? t('shop.unlimited') : String(today.ceiling.remaining)}
           tone={!today.ceiling.known || today.ceiling.unlimited ? 'flat' : today.ceiling.remaining <= 0 ? 'coral' : 'teal'}
           session={session} helpAnchor="shop.ceiling_remaining"
         />
@@ -288,6 +293,7 @@ function Tile({ label, value, tone, delta, empty, href, hint, session, helpAncho
     : tone === 'coral' ? 'var(--sh-coral-soft)' : 'var(--sh-surface-2)';
   const fg = tone === 'violet' ? 'var(--sh-violet-deep)' : tone === 'teal' ? 'var(--sh-teal-deep)'
     : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink)';
+  const { t } = useOperatorI18n();
   const diff = delta ? delta.current - delta.previous : null;
   const good = delta && diff !== null ? (delta.goodIsUp === false ? diff <= 0 : diff >= 0) : null;
   const body = (
@@ -307,7 +313,10 @@ function Tile({ label, value, tone, delta, empty, href, hint, session, helpAncho
           color: diff === 0 ? 'var(--sh-ink-faint)' : good ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
           fontVariantNumeric: 'tabular-nums',
         }}>
-          {diff === 0 ? '= عن الشهر اللي فات' : `${diff > 0 ? '↑' : '↓'} ${delta!.percent ? `${Math.abs(Math.round(diff * 100))}%` : Math.abs(diff)} عن الشهر اللي فات`}
+          {diff === 0 ? t('shop.tile.sameAsLastMonth') : tf(t, 'shop.tile.deltaVsLastMonth', {
+            arrow: diff! > 0 ? '↑' : '↓',
+            value: delta!.percent ? `${Math.abs(Math.round(diff! * 100))}%` : Math.abs(diff!),
+          })}
         </span>
       ) : null}
     </div>
@@ -319,6 +328,7 @@ function Tile({ label, value, tone, delta, empty, href, hint, session, helpAncho
 export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   session: Session; catalog: Catalog; branch: string; onBranch: (id: string) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [data, setData] = useState<Dashboard | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const [mustChoose, setMustChoose] = useState<string[]>([]);
@@ -349,7 +359,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           if (!a2) return;
           call<any>(session, a2).then(take).catch((e) => {
             if (e instanceof ApiError && e.status === 402) {
-              setLocked((was) => ({ ...was, [key]: sentenceFor(e, 'غير مشمول بباقتك.') }));
+              setLocked((was) => ({ ...was, [key]: sentenceFor(e, t('shop.notInPlan')) }));
               return;
             }
             take(null);
@@ -367,13 +377,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
       });
   }, [session, catalog, branch]);
 
-  if (failed) return <div className="p-4"><EmptyState title="تعذّر قراءة المؤشرات" description="حاول بعد قليل." /></div>;
+  if (failed) return <div className="p-4"><EmptyState title={t('shop.indicators.readErrorTitle')} description={t('shop.indicators.readErrorDesc')} /></div>;
 
   if (mustChoose.length) {
     const named = branches?.rows ?? [];
     return (
       <div className="flex flex-col items-center gap-3 p-4">
-        <EmptyState title="لوحتك تغطي أكثر من فرع" description="اختر فرعاً لتقرأ مؤشراته. لوحة واحدة تجمع فروعك غير متاحة بعد." />
+        <EmptyState title={t('shop.multiBranch.title')} description={t('shop.multiBranch.desc')} />
         <div className="flex flex-wrap items-center justify-center gap-2">
           {mustChoose.map((id) => (
             <button key={id} type="button" onClick={() => onBranch(id)}
@@ -386,7 +396,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     );
   }
 
-  if (!data) return <Waiting what="نقرأ مؤشرات محلّك" />;
+  if (!data) return <Waiting what={t('shop.waiting.indicators')} />;
 
   const refreshNow = async () => {
     const a = action(catalog, 'insights.refresh');
@@ -397,7 +407,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
       const r = await call<{ ok?: boolean; message?: string }>(session, a);
       if (r?.message) setNote(r.message);
       setData(await call<Dashboard>(session, d, branch ? { branch_id: branch } : {}));
-    } catch { setNote('تعذّر التحديث الآن — حاول بعد قليل.'); }
+    } catch { setNote(t('shop.refresh.error')); }
     finally { setRefreshing(false); }
   };
 
@@ -415,14 +425,14 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     finally { setDismissingStep(false); }
   };
 
-  if (data.empty_branch) return <div className="p-4"><EmptyState title="فرعك لم يبدأ بعد" description={data.message || ''} /></div>;
+  if (data.empty_branch) return <div className="p-4"><EmptyState title={t('shop.emptyBranch.title')} description={data.message || ''} /></div>;
 
   if (data.computing) {
     return (
       <div className="flex flex-col items-center gap-3 p-4">
-        <EmptyState title="نحسب مؤشرات محلك" description={data.message || ''} />
+        <EmptyState title={t('shop.computing.title')} description={data.message || ''} />
         {action(catalog, 'insights.refresh') ? (
-          <Button disabled={refreshing} onClick={refreshNow}>{refreshing ? 'نحسب…' : 'احسبها الآن'}</Button>
+          <Button disabled={refreshing} onClick={refreshNow}>{refreshing ? t('shop.compute.loading') : t('shop.compute.action')}</Button>
         ) : null}
         {note ? <p className="text-sm" style={{ color: 'var(--sh-ink-soft)' }}>{note}</p> : null}
       </div>
@@ -477,7 +487,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           sampleSize={typeof data.values['active_customers'] === 'number' ? data.values['active_customers'] as number : undefined}
           session={session}
         />
-      ) : muted('نسبة عودة عملائك', 'ما نقدر نحسبها بعد — تحتاج زيارات حقيقية أولاً.')}
+      ) : muted(t('shop.retention.title'), t('shop.retention.mutedNote'))}
 
       {/* THE SECOND-TIER LEAD ROW — side by side on a wide screen, never a THIRD full-width card
           stacked under the hero above (direct feedback: "سرد بطاقات بطل تحت بعض مو كويس"). Only
@@ -495,7 +505,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             // instead — still always shown, never a silently missing card.
             : atRisk ? (
               <div className="rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)', color: 'var(--sh-teal-deep)' }}>
-                <p className="text-[12.5px] font-medium">ولا عميل متأخر عن دورته المعتادة الآن — وضعك جيد.</p>
+                <p className="text-[12.5px] font-medium">{t('shop.atRisk.allGood')}</p>
               </div>
             ) : null}
         </div>
@@ -512,10 +522,10 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} session={session} /></div>
 
         {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} session={session} /></div>
-          : <div className="mb-3 break-inside-avoid">{muted('زياراتك آخر أيام', 'ما نقدر نقرأ نافذة الأسبوع الآن.')}</div>}
+          : <div className="mb-3 break-inside-avoid">{muted(t('shop.week.mutedTitle'), t('shop.week.mutedNote'))}</div>}
         {split && (split.new + split.returning) > 0
           ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} session={session} /></div>
-          : <div className="mb-3 break-inside-avoid">{muted('عملاء جدد وعائدون', 'ما فيه زيارات كافية هذا الشهر لنقسمها بعد.')}</div>}
+          : <div className="mb-3 break-inside-avoid">{muted(t('shop.newReturning.mutedTitle'), t('shop.newReturning.mutedNote'))}</div>}
 
         {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
           <div className="mb-3 grid gap-2 break-inside-avoid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -523,18 +533,18 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
                 average (round(x, 2), e.g. 1.5) and stays exact on the wire; a KPI tile reading
                 "1.5" beside a whole count of visits reads as a typo rather than a statistic, so
                 the tile shows the nearest whole number a shop owner can act on. */}
-            {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={Math.round(perVisit).toLocaleString('en-US')} tone="flat" session={session} helpAnchor="shop.services_per_visit" /> : null}
-            {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" session={session} helpAnchor="shop.expected_flow" /> : null}
-            {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" session={session} helpAnchor="shop.cycle_completion" /> : null}
+            {typeof perVisit === 'number' ? <Tile label={t('shop.tile.servicesPerVisit')} value={Math.round(perVisit).toLocaleString('en-US')} tone="flat" session={session} helpAnchor="shop.services_per_visit" /> : null}
+            {typeof flow === 'number' ? <Tile label={t('shop.tile.expectedNextWeek')} value={String(Math.round(flow))} tone="violet" session={session} helpAnchor="shop.expected_flow" /> : null}
+            {typeof cycleCompletion === 'number' ? <Tile label={t('shop.tile.cycleCompletion')} value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" session={session} helpAnchor="shop.cycle_completion" /> : null}
           </div>
         ) : (
-          <div className="mb-3 break-inside-avoid">{muted('خدماتك لكل زيارة، والالتزام بالدورة', 'تحتاج زياراتٍ حقيقية أولاً لتُحسب.')}</div>
+          <div className="mb-3 break-inside-avoid">{muted(t('shop.muted.perVisitCycleTitle'), t('shop.muted.perVisitCycleNote'))}</div>
         )}
 
         {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} session={session} /></div>
-          : <div className="mb-3 break-inside-avoid">{muted('أثر رسائلك', 'ما وصلنا سجل الرسائل بعد.')}</div>}
+          : <div className="mb-3 break-inside-avoid">{muted(t('shop.messageFlow.title'), t('shop.muted.messageFlowNote'))}</div>}
         {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} session={session} /></div>
-          : <div className="mb-3 break-inside-avoid">{muted('أثر الرسائل، مقيساً', 'يحتاج مجموعتين حقيقيتين للمقارنة — لسا ما تكوّنتا.')}</div>}
+          : <div className="mb-3 break-inside-avoid">{muted(t('shop.holdout.title'), t('shop.muted.holdoutNote'))}</div>}
 
         {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison
             asked for by name, and it must ALWAYS draw itself, muted when thin (never absent —
@@ -545,7 +555,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         <div className="mb-3 break-inside-avoid">
           {branches ? <BranchCompare branches={branches} session={session} />
             : branchBlocked ? <BlockedStamp b={branchBlocked} />
-            : muted('مقارنة الفروع', 'ما نقدر نقرأ فروعك الآن.')}
+            : muted(t('shop.branchCompare.title'), t('shop.branchCompare.mutedNote'))}
         </div>
         <div className="mb-3 break-inside-avoid">
           {operatorRows ? (
@@ -554,42 +564,42 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             // THE ONE STAMP WITH A REAL LINK — a team he can invite into the product is the actual
             // fix for "visits arrive with nobody's name on them", unlike the other two (both
             // `owner: 'time'`, which genuinely have nowhere to send him).
-            <BlockedStamp b={staffBlocked} cta={action(catalog, 'operations.list_operators') ? { label: 'فريقي', href: '/team' } : undefined} />
-          ) : muted('مقارنة الموظفين', 'ما نقدر نقارن الموظفين بهذا العرض الآن.')}
+            <BlockedStamp b={staffBlocked} cta={action(catalog, 'operations.list_operators') ? { label: t('shop.team.label'), href: '/team' } : undefined} />
+          ) : muted(t('shop.staffCompare.title'), t('shop.staffCompare.mutedNote'))}
         </div>
 
         <div className="mb-3 break-inside-avoid">
-          <Section title="خدماتك">
+          <Section title={t('shop.section.services')}>
             {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} session={session} /> : null}
             {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} session={session} /> : null}
             {!(popularity && popularity.length > 0) && !(weak && weak.length > 0)
-              ? muted('خدماتك', 'ما فيه بيانات خدمات كافية بعد — سجّل بضع زيارات وتبدأ تظهر.') : null}
+              ? muted(t('shop.section.services'), t('shop.services.mutedNote')) : null}
           </Section>
         </div>
 
         {peak?.grid && Object.keys(peak.grid).length > 0 ? (
           <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} session={session} /></div>
         ) : (
-          <div className="mb-3 break-inside-avoid">{muted('أكثر أوقاتك ازدحامًا', 'تحتاج زياراتٍ موزّعة على أيام وساعات كافية لنرسمها.')}</div>
+          <div className="mb-3 break-inside-avoid">{muted(t('shop.peak.title'), t('shop.peak.mutedNote'))}</div>
         )}
 
         {serviceDayRows.length > 0 ? (
           <div className="mb-3 break-inside-avoid">
             <EntityDayHeatmap
-              title="خدماتك حسب يوم الأسبوع"
+              title={t('shop.entityDay.servicesTitle')}
               hue="teal"
               rows={serviceDayRows}
-              hint="أي خدمة تُطلب بيوم معيّن أكثر — يساعدك تجهّز الطاقم المناسب ذاك اليوم."
+              hint={t('shop.entityDay.servicesHint')}
             />
           </div>
         ) : (
-          <div className="mb-3 break-inside-avoid">{muted('خدماتك حسب يوم الأسبوع', 'تحتاج زياراتٍ موزّعة على أيام كافية لنرسمها.')}</div>
+          <div className="mb-3 break-inside-avoid">{muted(t('shop.entityDay.servicesTitle'), t('shop.entityDay.servicesMutedNote'))}</div>
         )}
 
         {/* واحدة تتصدّر دائماً، من محرك حقيقي (services/insights/app/core/next_step.py) — لا
             سلسلة if/else يدوية. أي قاعدة تختارها المنصة تُعرض كما هي، بلا اختراع نص هنا. */}
         <div className="mb-3 break-inside-avoid">
-          <Section title="الخطوة التالية" session={session} helpAnchor="shop.next_step">
+          <Section title={t('shop.section.nextStep')} session={session} helpAnchor="shop.next_step">
             {data.next_step ? (
               <NextStepView step={data.next_step} onDismiss={dismissNextStep} busy={dismissingStep} />
             ) : null}
@@ -599,25 +609,25 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {branchDayRows.length > 0 ? (
           <div className="mb-3 break-inside-avoid">
             <EntityDayHeatmap
-              title="فروعك حسب يوم الأسبوع"
+              title={t('shop.entityDay.branchesTitle')}
               hue="violet"
               rows={branchDayRows}
-              hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
+              hint={t('shop.entityDay.branchesHint')}
             />
           </div>
         ) : (
-          <div className="mb-3 break-inside-avoid">{muted('فروعك حسب يوم الأسبوع', 'تحتاج فرعاً ثانياً وزياراتٍ موزّعة على أيام كافية لنرسمها.')}</div>
+          <div className="mb-3 break-inside-avoid">{muted(t('shop.entityDay.branchesTitle'), t('shop.entityDay.branchesMutedNote'))}</div>
         )}
 
         {/* ما يُطلب معًا وباقاته — كل حالة بمكانها، لا قائمة منفصلة مجمّعة آخر الصفحة. باقات مقترحة
             نفسها مبنية من نفس الاقترانات (`_bundles.build(pairs, …)` في insights.py)، فسكوتها هو
             نفس سكوت الاقترانات — لا حاجة لختم ثانٍ يكرّر نفس السبب. */}
         {locked.bundles ? (
-          <div className="mb-3 break-inside-avoid"><LockedLine title="باقات مقترحة" text={locked.bundles} /></div>
+          <div className="mb-3 break-inside-avoid"><LockedLine title={t('shop.bundles.title')} text={locked.bundles} /></div>
         ) : bundles && bundles.length ? (
           <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
-              باقات مقترحة
+              {t('shop.bundles.title')}
               <AssistantHint session={session} anchor="shop.bundles" />
             </h3>
             {bundles.slice(0, 4).map((b, i) => {
@@ -644,22 +654,22 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
                     ) : b.action_label ? (
                       <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span>
                     ) : <span />}
-                    <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+                    <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{tf(t, 'shop.bundles.opportunity', { n: b.customers ?? 0 })}</span>
                   </div>
                 </div>
               );
             })}
           </div>
         ) : bundles ? (
-          <div className="mb-3 break-inside-avoid">{muted('باقات مقترحة', 'ما فيه اقترانات كافية بعد لنقترح باقة منها.')}</div>
+          <div className="mb-3 break-inside-avoid">{muted(t('shop.bundles.title'), t('shop.bundles.mutedNote'))}</div>
         ) : null}
 
         {locked.associations ? (
-          <div className="mb-3 break-inside-avoid"><LockedLine title="ما يُطلب معًا" text={locked.associations} /></div>
+          <div className="mb-3 break-inside-avoid"><LockedLine title={t('shop.associations.title')} text={locked.associations} /></div>
         ) : pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
           <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
-              ما يُطلب معًا
+              {t('shop.associations.title')}
               <AssistantHint session={session} anchor="shop.associations" />
             </h3>
             {/* `p.a`/`p.b` ARE SERVICE IDS, NOT NAMES — `associations.build` derives every pair
@@ -669,7 +679,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             {(pairs.pairs ?? []).slice(0, 6).map((p) => (
               <div key={`${p.a}|${p.b}`} className="flex items-center justify-between gap-3 pt-2 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
                 <span className="text-[13px]">{serviceNames[p.a] || p.a} + {serviceNames[p.b] || p.b}</span>
-                <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{p.customers} عميلاً</span>
+                <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{tf(t, 'shop.customersCount', { n: p.customers ?? 0 })}</span>
               </div>
             ))}
           </div>
@@ -677,9 +687,9 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           <div className="mb-3 break-inside-avoid">
             <BlockedStamp b={{
               indicator: 'associations_learning',
-              lost: 'ما نعرف بعد ما الذي يُطلب مع ماذا',
-              why: 'التعرّف على الاقترانات يحتاج زياراتٍ أكثر ليصير الاستنتاج صحيحاً لا صدفة.',
-              do: 'لا شيء عليك — يكتمل وحده مع زيارات محلّك.',
+              lost: t('shop.associationsLearning.lost'),
+              why: t('shop.associationsLearning.why'),
+              do: t('shop.associationsLearning.do'),
               owner: 'time',
               progress: { have: pairs.have ?? 0, need: pairs.need ?? 0 },
             }} />
@@ -698,7 +708,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} />
           </div>
         ) : missed ? (
-          <div className="mb-3 break-inside-avoid">{muted('فرص فائتة', 'لا عملاء واضحين بعد ناقصين خدمة تُشترى عادة مع خدماتهم.')}</div>
+          <div className="mb-3 break-inside-avoid">{muted(t('shop.missedOpportunities.mutedTitle'), t('shop.missedOpportunities.mutedNote'))}</div>
         ) : null}
       </div>
 
@@ -715,12 +725,12 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
       <RecentVisits session={session} catalog={catalog} />
 
       <div className="flex flex-wrap items-center justify-center gap-2 py-1 text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
-        <span>{data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}</span>
-        {data.stale ? <span className="rounded-full px-2 py-0.5" style={{ background: '#fdf0dc', color: '#8a5a12' }}>قديمة</span> : null}
+        <span>{data.as_of_hours_ago === 0 ? t('shop.computedNow') : tf(t, 'shop.computedHoursAgo', { n: data.as_of_hours_ago ?? 0 })}</span>
+        {data.stale ? <span className="rounded-full px-2 py-0.5" style={{ background: '#fdf0dc', color: '#8a5a12' }}>{t('shop.stale')}</span> : null}
         {action(catalog, 'insights.refresh') ? (
           <button type="button" disabled={refreshing} onClick={refreshNow}
                  className="rounded-full px-3 py-1 font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
-            ↻ {refreshing ? 'نحدّث…' : 'حدّث الآن'}
+            ↻ {refreshing ? t('shop.refresh.loading') : t('shop.refresh.action')}
           </button>
         ) : null}
         {note ? <span>{note}</span> : null}
@@ -764,6 +774,7 @@ export function retentionStreak(
  *  actually just me and my one customer»; he reads it as ten real people. Below a real floor we
  *  say the true, small count instead of a projection dressed as one. */
 function RetentionHero({ pct, series, sampleSize, session }: { pct: number; series?: Series; sampleSize?: number; session?: Session }) {
+  const { t } = useOperatorI18n();
   const SAMPLE_FLOOR = 10;
   const tooSmall = typeof sampleSize === 'number' && sampleSize < SAMPLE_FLOOR;
   const deltaPts = series ? Math.round(((series.last ?? 0) - (series.first ?? 0)) * 100) : null;
@@ -771,10 +782,10 @@ function RetentionHero({ pct, series, sampleSize, session }: { pct: number; seri
   const sentence = tooSmall
     ? (() => {
         const returned = Math.round(pct * (sampleSize as number));
-        const base = sampleSize === 1 ? 'عميل واحد' : `${sampleSize} عملاء`;
+        const base = sampleSize === 1 ? t('shop.oneCustomer') : tf(t, 'shop.nCustomers', { n: sampleSize as number });
         return (
           <>
-            من أصل {base} زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{returned}</b> يرجعون لك مرة ثانية.
+            {tf(t, 'shop.retention.smallPrefix', { base })} <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{returned}</b> {t('shop.retention.suffix')}
           </>
         );
       })()
@@ -790,7 +801,7 @@ function RetentionHero({ pct, series, sampleSize, session }: { pct: number; seri
         const of10 = Math.round(pct * 10).toLocaleString('en-US');
         return (
           <>
-            من كل 10 عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
+            {t('shop.retention.prefix')} <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> {t('shop.retention.suffix')}
           </>
         );
       })();
@@ -802,17 +813,17 @@ function RetentionHero({ pct, series, sampleSize, session }: { pct: number; seri
       boxShadow: '0 6px 14px rgba(19,18,38,.08), 0 26px 50px -18px rgba(19,18,38,.3)',
     }}>
       <div className="flex items-center gap-1 text-[11.5px] font-semibold opacity-75">
-        نسبة عودة عملائك
+        {t('shop.retention.title')}
         {session ? <AssistantHint session={session} anchor="shop.retention_hero" /> : null}
       </div>
       <p className="mt-2 text-[20px] font-medium leading-relaxed">{sentence}</p>
       {tooSmall ? (
-        <p className="mt-1 text-[12px] opacity-75">العدد يعتبر صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
+        <p className="mt-1 text-[12px] opacity-75">{t('shop.retention.smallSampleNote')}</p>
       ) : null}
       {deltaPts !== null && series?.months ? (
         <div className="mt-3 flex items-center gap-2">
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
-            {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts)}+ عن {series.months} أشهر
+            {deltaPts! >= 0 ? '↑' : '↓'} {tf(t, 'shop.retention.deltaOverMonths', { delta: Math.abs(deltaPts!), months: series.months })}
           </span>
           {/* THE STREAK, BESIDE THE BADGE — a real, computed thing (three or more consecutive
               points moving the same way in `retention_series.points`), not invented to feel like a
@@ -820,7 +831,7 @@ function RetentionHero({ pct, series, sampleSize, session }: { pct: number; seri
               working, lately, or did it work once a while back?" */}
           {streak ? (
             <span className="text-[11.5px] font-medium" style={{ color: streak.rising ? '#baf5da' : '#ffd3c9' }}>
-              {streak.rising ? '📈' : '📉'} {streak.rising ? 'تتحسّن' : 'تتراجع'} منذ {streak.length} فترات
+              {streak.rising ? '📈' : '📉'} {streak.rising ? t('shop.trend.up') : t('shop.trend.down')} {tf(t, 'shop.retention.sincePeriods', { n: streak.length })}
             </span>
           ) : null}
         </div>
@@ -846,6 +857,7 @@ function RetentionHero({ pct, series, sampleSize, session }: { pct: number; seri
  *  the shop changing, not the method changing. A point with `value: null` is a gap in the curve —
  *  too few customers in that window to trust — never bridged into a false continuity. */
 function RetentionTrend({ points }: { points: { at: number; customers: number; value: number | null }[] }) {
+  const { t } = useOperatorI18n();
   const W = 300, H = 84, PAD_X = 4, PAD_TOP = 10, PAD_BOTTOM = 4;
   const drawn = points.map((p) => p.value).filter((v): v is number => v !== null);
   if (drawn.length < 2) return null;
@@ -907,7 +919,7 @@ function RetentionTrend({ points }: { points: { at: number; customers: number; v
           Real dates from the same points the curve is drawn from, never invented. */}
       <div dir="ltr" className="flex items-center justify-between px-1 text-[10px] font-medium" style={{ color: 'rgba(255,255,255,.55)' }}>
         <span>{fmt(oldestAt)}</span>
-        <span>الآن</span>
+        <span>{t('shop.now')}</span>
       </div>
     </div>
   );
@@ -916,6 +928,7 @@ function RetentionTrend({ points }: { points: { at: number; customers: number; v
 /** The three that surround the hero — absent is not zero: a key the plan withheld or the snapshot
  *  could not compute is skipped entirely rather than drawn as 0. */
 function SurroundingKpis({ values, session }: { values: Record<string, unknown>; session: Session }) {
+  const { t } = useOperatorI18n();
   // A SHOP WITH ZERO ACTIVE CUSTOMERS HAS NOT REALLY STARTED — churn and return-cycle are both
   // undefined on nobody, so all three tiles fall back to the dashed "empty" treatment together
   // rather than reading as three unrelated zeros.
@@ -927,10 +940,10 @@ function SurroundingKpis({ values, session }: { values: Record<string, unknown>;
     // high or low today. A size that swung with the number itself would be a second, competing
     // way of saying "this matters," on top of colour — one signal per idea, not two fighting
     // each other.
-    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3, href: '/visit', hint: 'سجّل أول زيارة', helpAnchor: 'shop.active_customers' },
-    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat', hint: 'تُحسب تلقائياً بعد أول زيارات', helpAnchor: 'shop.return_cycle_days' },
+    { key: 'active_customers', label: t('shop.kpi.activeCustomers'), tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3, href: '/visit', hint: t('shop.registerFirstVisit'), helpAnchor: 'shop.active_customers' },
+    { key: 'return_cycle_days', label: t('shop.kpi.returnCycle'), suffix: t('shop.days'), tone: 'flat', hint: t('shop.kpi.returnCycleHint'), helpAnchor: 'shop.return_cycle_days' },
     // MORE TSARRUB IS WORSE — `goodIsUp: false`, so a rising number still shades coral, never teal.
-    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false, hint: 'لا عملاء بعد ليُحسب منهم', helpAnchor: 'shop.churn_rate' },
+    { key: 'churn_rate', label: t('shop.kpi.churnRate'), percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false, hint: t('shop.kpi.churnHint'), helpAnchor: 'shop.churn_rate' },
   ];
   const shown = items.filter((h) => typeof values[h.key] === 'number');
   if (!shown.length) return null;
@@ -956,21 +969,22 @@ function SurroundingKpis({ values, session }: { values: Record<string, unknown>;
 
 /** What the messages moved, and what they cost — a flow, not two boxes. */
 function MessageFlow({ eff, opt, session }: { eff?: Effect; opt?: OptOut; session?: Session }) {
+  const { t } = useOperatorI18n();
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="mb-2 flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
-        أثر رسائلك
+        {t('shop.messageFlow.title')}
         {session ? <AssistantHint session={session} anchor="shop.message_flow" /> : null}
       </h3>
       <div className="flex items-center gap-2">
         <FlowNode
           value={eff?.ready ? String(eff.visits ?? 0) : '—'}
-          label={eff?.ready ? `زيارة عادت خلال ${eff.window_days ?? 30} يومًا${eff.partial ? ' — على الأقل' : ''}` : 'لم نستطع قراءة سجل الرسائل بعد'}
+          label={eff?.ready ? tf(t, 'shop.messageFlow.returned', { n: eff.visits ?? 0, days: eff.window_days ?? 30, partial: eff.partial ? t('shop.atLeastSuffix') : '' }) : t('shop.messageFlow.noData')}
         />
         <div className="h-[3px] flex-1 rounded" style={{ background: 'linear-gradient(90deg,var(--sh-violet-soft),var(--sh-teal-soft))' }} />
         <FlowNode
           value={opt?.ready ? String(opt.rate ?? 0) : '—'}
-          label={opt?.ready ? `إيقافًا لكل ألف رسالة${(opt.rate ?? 0) > 20 ? ' — راجع حملاتك' : ''}` : 'قياس الإزعاج يبدأ بعد رسائل أكثر'}
+          label={opt?.ready ? tf(t, 'shop.messageFlow.optOutRate', { n: opt.rate ?? 0, warn: (opt.rate ?? 0) > 20 ? t('shop.reviewCampaignsSuffix') : '' }) : t('shop.messageFlow.optOutNoData')}
           warn={opt?.ready && (opt.rate ?? 0) > 20}
         />
       </div>
@@ -988,34 +1002,35 @@ function FlowNode({ value, label, warn }: { value: string; label: string; warn?:
 
 /** Two real cards, the winner visibly warmer — never two numbers with nothing between them. */
 function HoldoutCard({ h, session }: { h: Holdout; session?: Session }) {
+  const { t } = useOperatorI18n();
   if (!h?.ready) {
     if (h?.reason === 'holdout_off') {
-      return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>قياس أثر الرسائل غير مُفعَّل — كل عملائك يصلهم كل شيء، فلا مجموعة نقارن بها.</p>;
+      return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>{t('shop.holdout.off')}</p>;
     }
     const held = h?.held ?? 0, reached = h?.reached ?? 0, need = h?.need ?? 15;
     if (!held && !reached) return null;
-    return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>ما زلنا نقيس أثر الرسائل على محلّك — {Math.min(held, reached)} من {need} في أصغر المجموعتين.</p>;
+    return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>{tf(t, 'shop.holdout.measuring', { min: Math.min(held, reached), need })}</p>;
   }
   const pct = (v?: number) => `${Math.round((v ?? 0) * 100)}%`;
   const better = (h.gap ?? 0) > 0;
   return (
     <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="flex items-center gap-1 text-[13px] font-semibold">
-        أثر الرسائل، مقيساً
+        {t('shop.holdout.title')}
         {session ? <AssistantHint session={session} anchor="shop.holdout" /> : null}
       </h3>
       <div className="flex items-stretch gap-2">
         <div className="flex flex-1 flex-col items-center gap-0.5 rounded-xl p-3" style={{ background: 'var(--sh-surface-2)' }}>
           <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct(h.held_rate)}</span>
-          <span className="text-center text-[10.5px] leading-tight" style={{ color: 'var(--sh-ink-soft)' }}>بلا رسائل<br />({h.held} عميلاً)</span>
+          <span className="text-center text-[10.5px] leading-tight" style={{ color: 'var(--sh-ink-soft)' }}>{t('shop.holdout.noMessagesLabel')}<br />({tf(t, 'shop.customersCount', { n: h.held ?? 0 })})</span>
         </div>
         <div className="flex flex-1 flex-col items-center gap-0.5 rounded-xl p-3" style={{ background: better ? 'var(--sh-teal-soft)' : 'var(--sh-surface-2)', color: better ? 'var(--sh-teal-deep)' : 'inherit' }}>
           <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct(h.reached_rate)}</span>
-          <span className="text-center text-[10.5px] leading-tight opacity-80">وصلتهم رسائلك<br />({h.reached} عميلاً)</span>
+          <span className="text-center text-[10.5px] leading-tight opacity-80">{t('shop.holdout.reachedLabel')}<br />({tf(t, 'shop.customersCount', { n: h.reached ?? 0 })})</span>
         </div>
       </div>
       <p className="text-[11px] leading-relaxed" style={{ color: 'var(--sh-ink-soft)' }}>
-        نترك {Math.round(((h.held ?? 0) / ((h.held ?? 0) + (h.reached ?? 1))) * 100)}% من عملائك بلا حملات ولا عروض — لتقارن بنفسك، لا لتصدّقنا.
+        {tf(t, 'shop.holdout.explain', { pct: Math.round(((h.held ?? 0) / ((h.held ?? 0) + (h.reached ?? 1))) * 100) })}
       </p>
     </div>
   );
@@ -1025,6 +1040,7 @@ function HoldoutCard({ h, session }: { h: Holdout; session?: Session }) {
  *  life mislabelled as «this week». `previous` is null, not 0, when the history does not reach
  *  back — a triumph invented out of the signup date is worse than no comparison at all. */
 function WeekPulse({ week, session }: { week: WeekWindow; session?: Session }) {
+  const { t } = useOperatorI18n();
   const delta = week.previous === null ? null : week.visits - week.previous;
   // A SHOP WITH ZERO VISITS AND NOTHING TO COMPARE AGAINST IS NOT "MISSING A COMPARISON" — it has
   // not started. Same dashed/linked treatment `Tile` now gives that exact case, so this card stops
@@ -1035,10 +1051,10 @@ function WeekPulse({ week, session }: { week: WeekWindow; session?: Session }) {
       <Link to="/visit" className="flex items-center justify-between gap-3 rounded-2xl p-4"
            style={{ background: 'var(--sh-surface)', border: '1.5px dashed var(--sh-line)' }}>
         <div className="flex flex-col">
-          <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>زياراتك آخر {week.window_days} أيام</span>
+          <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{tf(t, 'shop.week.title', { n: week.window_days })}</span>
           <span dir="ltr" className="text-[22px] font-extrabold" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>0</span>
         </div>
-        <span className="text-[11px] font-semibold" style={{ color: 'var(--sh-violet-deep)' }}>سجّل أول زيارة ←</span>
+        <span className="text-[11px] font-semibold" style={{ color: 'var(--sh-violet-deep)' }}>{t('shop.registerFirstVisitArrow')}</span>
       </Link>
     );
   }
@@ -1046,7 +1062,7 @@ function WeekPulse({ week, session }: { week: WeekWindow; session?: Session }) {
     <div className="flex items-center justify-between rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <div className="flex flex-col">
         <span className="flex items-center gap-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
-          زياراتك آخر {week.window_days} أيام
+          {tf(t, 'shop.week.title', { n: week.window_days })}
           {session ? <AssistantHint session={session} anchor="shop.week_pulse" /> : null}
         </span>
         <span dir="ltr" className="text-[22px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{week.visits}</span>
@@ -1056,10 +1072,10 @@ function WeekPulse({ week, session }: { week: WeekWindow; session?: Session }) {
           background: delta >= 0 ? 'var(--sh-teal-soft)' : 'var(--sh-coral-soft)',
           color: delta >= 0 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
         }}>
-          {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)} عن الأسبوع اللي قبله
+          {tf(t, 'shop.week.delta', { arrow: delta >= 0 ? '↑' : '↓', n: Math.abs(delta) })}
         </span>
       ) : (
-        <span className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لسه ما عندنا أسبوع كامل نقارنه</span>
+        <span className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{t('shop.week.noCompare')}</span>
       )}
     </div>
   );
@@ -1067,16 +1083,17 @@ function WeekPulse({ week, session }: { week: WeekWindow; session?: Session }) {
 
 /** Who came for the first time this month, against who came back — a split, not two lone numbers. */
 function NewVsReturning({ split, session }: { split: { new: number; returning: number }; session?: Session }) {
+  const { t } = useOperatorI18n();
   const total = Math.max(1, split.new + split.returning);
   const newPct = Math.round((split.new / total) * 100);
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <div className="flex items-center justify-between text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
         <span className="flex items-center gap-1">
-          عملاء جدد هذا الشهر — {split.new}
+          {tf(t, 'shop.newReturning.newLabel', { n: split.new })}
           {session ? <AssistantHint session={session} anchor="shop.new_vs_returning" /> : null}
         </span>
-        <span>عائدون — {split.returning}</span>
+        <span>{tf(t, 'shop.newReturning.returningLabel', { n: split.returning })}</span>
       </div>
       <div className="flex h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
         <div className="h-full" style={{ width: `${newPct}%`, background: 'var(--sh-violet)' }} />
@@ -1091,6 +1108,7 @@ function NewVsReturning({ split, session }: { split: { new: number; returning: n
  *  indicator never held a phone number); resolved the same way «من تأخّر» resolves one on
  *  عملائي, via `operations.customers_by_refs`. */
 function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Catalog; rows: AtRiskRow[] }) {
+  const { t } = useOperatorI18n();
   const [who, setWho] = useState<Record<string, CustomerHitLite> | null | undefined>(undefined);
 
   useEffect(() => {
@@ -1110,7 +1128,7 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
     <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-violet-soft)' }}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1 text-[13px] font-bold" style={{ color: 'var(--sh-violet-deep)' }}>
-          {rows.length === 1 ? 'عميل واحد يستحق متابعتك الآن' : `${rows.length} عملاء يستحقون متابعتك الآن`}
+          {rows.length === 1 ? t('shop.atRisk.oneTitle') : tf(t, 'shop.atRisk.nTitle', { n: rows.length })}
           <AssistantHint session={session} anchor="shop.at_risk" />
         </h3>
         {/* THE LIST WAS THE DEAD END. `win_back` already exists as a full campaign goal — the same
@@ -1124,7 +1142,7 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
             className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
             style={{ background: 'var(--sh-violet)', color: '#ffffff' }}
           >
-            أرسل رسالة رجوع
+            {t('shop.atRisk.sendWinback')}
           </Link>
         ) : null}
       </div>
@@ -1135,10 +1153,10 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
             return (
               <li key={r.subject_ref} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: 'var(--sh-surface)' }}>
                 <span dir={c?.name ? undefined : 'ltr'} className="text-[13px] font-medium">
-                  {c ? (c.name || asLocal(c.phone)) : 'عميل'}
+                  {c ? (c.name || asLocal(c.phone)) : t('shop.customerFallback')}
                 </span>
                 <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>
-                  متأخر {r.days_overdue} يومًا عن دورته المعتادة
+                  {tf(t, 'shop.atRisk.overdue', { n: r.days_overdue })}
                 </span>
               </li>
             );
@@ -1155,6 +1173,7 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
  *  «الخطوة التالية» instead (NextStepView's own `whatsapp_ai_teaser` special-case below), shown
  *  as a suggestion, not a permanent fixture. Self-fetches, same pattern as `AtRiskCard`. */
 function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [data, setData] = useState<ShopImpact | null | undefined>(undefined);
 
   useEffect(() => {
@@ -1172,27 +1191,27 @@ function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog
     <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)' }}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1 text-[13px] font-bold" style={{ color: 'var(--sh-teal-deep)' }}>
-          أثر الذكاء الاصطناعي — آخر {data.days} يوماً
+          {tf(t, 'shop.ai.title', { n: data.days })}
           <AssistantHint session={session} anchor="shop.ai_impact" />
         </h3>
       </div>
       {pct === null ? (
         <p className="text-[12.5px]" style={{ color: 'var(--sh-teal-deep)' }}>
-          ما بدأت محادثات كافية بعد لنحسب معدل التحويل — يبدأ يتكوّن مع أول رسائل عملائك.
+          {t('shop.ai.noData')}
         </p>
       ) : (
         <p className="text-[13px] leading-relaxed" style={{ color: 'var(--sh-teal-deep)' }}>
-          من كل 10 محادثات مع البوت، <b dir="ltr" className="mx-0.5 inline-block text-[26px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round((data.conversion_rate as number) * 10)}</b> تنتهي بحجز حقيقي.
+          {t('shop.ai.prefix')} <b dir="ltr" className="mx-0.5 inline-block text-[26px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round((data.conversion_rate as number) * 10)}</b> {t('shop.ai.suffix')}
         </p>
       )}
       <div className="grid grid-cols-3 gap-2">
-        <Tile label="محادثات" value={String(data.conversations)} tone="teal" session={session} />
-        <Tile label="متوسط الفاتورة" value={data.avg_invoice_value_minor !== null ? riyalsLabel(data.avg_invoice_value_minor) : '—'} tone="teal"
-             empty={data.avg_invoice_value_minor === null} hint={data.avg_invoice_value_minor === null ? 'يحتاج حجوزات حضرها العميل' : undefined} />
-        <Tile label="قبول الباقات المقترحة"
+        <Tile label={t('shop.tile.conversations')} value={String(data.conversations)} tone="teal" session={session} />
+        <Tile label={t('shop.tile.avgInvoice')} value={data.avg_invoice_value_minor !== null ? riyalsLabel(data.avg_invoice_value_minor) : '—'} tone="teal"
+             empty={data.avg_invoice_value_minor === null} hint={data.avg_invoice_value_minor === null ? t('shop.ai.avgInvoiceHint') : undefined} />
+        <Tile label={t('shop.tile.upsellAcceptance')}
              value={data.upsell_acceptance_rate !== null ? `${Math.round(data.upsell_acceptance_rate * 100)}%` : '—'}
              tone="teal" empty={data.upsell_acceptance_rate === null}
-             hint={data.upsell_acceptance_rate === null ? 'يحتاج اقتراح باقة أولاً' : undefined} />
+             hint={data.upsell_acceptance_rate === null ? t('shop.ai.upsellHint') : undefined} />
       </div>
     </div>
   );
@@ -1207,6 +1226,7 @@ function AIImpactCard({ session, catalog }: { session: Session; catalog: Catalog
 function MissedOpportunities({ session, catalog, rows, names }: {
   session: Session; catalog: Catalog; rows: MissedOpp[]; names: Record<string, string>;
 }) {
+  const { t } = useOperatorI18n();
   const [who, setWho] = useState<Record<string, CustomerHitLite> | null | undefined>(undefined);
 
   useEffect(() => {
@@ -1225,7 +1245,7 @@ function MissedOpportunities({ session, catalog, rows, names }: {
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
-        عملاء ما جرّبوا كل اللي يناسبهم
+        {t('shop.missed.title')}
         <AssistantHint session={session} anchor="shop.missed_opportunities" />
       </h3>
       {who === undefined ? <Skeleton height={40} /> : (
@@ -1234,9 +1254,9 @@ function MissedOpportunities({ session, catalog, rows, names }: {
             const c = who?.[r.subject_ref];
             return (
               <li key={`${r.subject_ref}|${r.missing}`} className="flex items-center justify-between gap-3 pt-2 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
-                <span dir={c?.name ? undefined : 'ltr'} className="text-[13px]">{c ? (c.name || asLocal(c.phone)) : 'عميل'}</span>
+                <span dir={c?.name ? undefined : 'ltr'} className="text-[13px]">{c ? (c.name || asLocal(c.phone)) : t('shop.customerFallback')}</span>
                 <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
-                  عنده {names[r.has] || r.has} — ما جرّب {names[r.missing] || r.missing}
+                  {tf(t, 'shop.missed.row', { has: names[r.has] || r.has, missing: names[r.missing] || r.missing })}
                 </span>
               </li>
             );
@@ -1255,12 +1275,13 @@ function MissedOpportunities({ session, catalog, rows, names }: {
  *  enough rows to earn its own shape. One hue only (share of demand is a magnitude, not a
  *  category), rounded ends, a hairline gap from the track — the marks this list's siblings use. */
 function ServicePopularity({ rows, names, session }: { rows: { service_id: string; count: number; share: number }[]; names: Record<string, string>; session?: Session }) {
+  const { t } = useOperatorI18n();
   const top = rows.slice(0, 8);
   const max = Math.max(1, ...top.map((r) => r.count));
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="flex items-center gap-1 text-[13px] font-semibold">
-        الأكثر طلبًا عندك
+        {t('shop.popularity.title')}
         {session ? <AssistantHint session={session} anchor="shop.service_popularity" /> : null}
       </h3>
       <ul className="flex flex-col gap-2.5">
@@ -1276,7 +1297,7 @@ function ServicePopularity({ rows, names, session }: { rows: { service_id: strin
                     "طُلبت 2 مرة" came out as "2 مرة طُلبت". Only the digits need `dir="ltr"`; the
                     words around them stay in the page's own RTL flow. */}
                 <span className="shrink-0" style={{ color: 'var(--sh-ink-faint)' }}>
-                  طُلبت <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{r.count}</span> مرة
+                  {t('shop.popularity.orderedTimes').split('{n}')[0]}<span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>{t('shop.popularity.orderedTimes').split('{n}')[1]}
                   {' · '}
                   <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(r.share * 100)}%</span>
                 </span>
@@ -1300,10 +1321,11 @@ function ServicePopularity({ rows, names, session }: { rows: { service_id: strin
  *  summary with no names attached and once as this list of names with no sentence attached. One
  *  card, both halves: what to do, then which services it's about. */
 function WeakServices({ ids, names, session }: { ids: string[]; names: Record<string, string>; session?: Session }) {
+  const { t } = useOperatorI18n();
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="flex items-center gap-1 text-[13px] font-semibold">
-        خدمات ما تُطلب كثيرًا
+        {t('shop.weak.title')}
         {session ? <AssistantHint session={session} anchor="shop.weak_services" /> : null}
       </h3>
       {/* "WEAK" IS RELATIVE TO HIS OWN CATALOGUE, NEVER A FIXED NUMBER — insights-service ranks
@@ -1311,7 +1333,7 @@ function WeakServices({ ids, names, session }: { ids: string[]; names: Record<st
           A car wash and a body shop cannot share one absolute threshold, so this says exactly
           what the list means instead of leaving him to guess at a percentage or a zero. */}
       <p className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>
-        أقلّ خُمس خدماتك طلبًا — رَوِّج لها أو راجع سعرها.
+        {t('shop.weak.note')}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {ids.slice(0, 8).map((id) => (
@@ -1324,8 +1346,14 @@ function WeakServices({ ids, names, session }: { ids: string[]; names: Record<st
   );
 }
 
-const DAY_LETTERS = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
-const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+/** Localized day names/letters, Sun..Sat, read once per render from the active locale's own
+ *  `shop.day.N.short`/`shop.day.N.full` keys rather than a single hardcoded Arabic array. */
+function dayLetters(t: (key: string) => string): string[] {
+  return [0, 1, 2, 3, 4, 5, 6].map((i) => t(`shop.day.${i}.short`));
+}
+function dayNames(t: (key: string) => string): string[] {
+  return [0, 1, 2, 3, 4, 5, 6].map((i) => t(`shop.day.${i}.full`));
+}
 
 /** WHEN HE'S ACTUALLY BUSY — not "the shop's own city, on a real map" (nothing here is
  *  geographic), but the same visual idea the request asked for: a grid where colour depth alone
@@ -1334,6 +1362,9 @@ const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأر
  *  offset into Riyadh time already happened in `peak_map` itself, deliberately, so a UTC grid never
  *  puts a Saudi evening rush at three in the afternoon here. */
 function PeakHeatmap({ grid, busiest, session }: { grid: Record<string, number>; busiest?: string; session?: Session }) {
+  const { t } = useOperatorI18n();
+  const DAY_LETTERS = dayLetters(t);
+  const DAY_NAMES = dayNames(t);
   const cells: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   let max = 0;
   for (const [key, count] of Object.entries(grid)) {
@@ -1342,12 +1373,12 @@ function PeakHeatmap({ grid, busiest, session }: { grid: Record<string, number>;
   }
   if (max <= 0) return null;
   const [bd, bh] = (busiest ?? '').split(':').map(Number);
-  const busiestName = Number.isFinite(bd) && DAY_NAMES[bd] ? `${DAY_NAMES[bd]} حوالي الساعة ${bh}:00` : '';
+  const busiestName = Number.isFinite(bd) && DAY_NAMES[bd] ? tf(t, 'shop.peak.busiestTime', { day: DAY_NAMES[bd], h: bh }) : '';
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="flex items-center gap-1 text-[13px] font-semibold">
-        أكثر أوقاتك ازدحامًا
+        {t('shop.peak.title')}
         {session ? <AssistantHint session={session} anchor="shop.peak_heatmap" /> : null}
       </h3>
       <div dir="ltr" className="flex flex-col gap-[2px]">
@@ -1357,7 +1388,7 @@ function PeakHeatmap({ grid, busiest, session }: { grid: Record<string, number>;
             {row.map((v, h) => (
               <div
                 key={h}
-                title={v ? `${DAY_NAMES[d]} ${h}:00 — ${v} زيارة` : undefined}
+                title={v ? tf(t, 'shop.peak.cellTitle', { day: DAY_NAMES[d], h, v }) : undefined}
                 className="h-3 flex-1 rounded-[2px]"
                 style={{ background: v ? `color-mix(in srgb, var(--sh-violet) ${Math.round(12 + (v / max) * 78)}%, white)` : 'var(--sh-surface-2)' }}
               />
@@ -1365,7 +1396,7 @@ function PeakHeatmap({ grid, busiest, session }: { grid: Record<string, number>;
           </div>
         ))}
       </div>
-      {busiestName ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-soft)' }}>أكثر وقت زحمة عندك: {busiestName}.</p> : null}
+      {busiestName ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-soft)' }}>{tf(t, 'shop.peak.busiestNote', { name: busiestName })}</p> : null}
     </div>
   );
 }
@@ -1378,6 +1409,9 @@ function EntityDayHeatmap({ title, hue, rows, hint }: {
   title: string; hue: 'violet' | 'teal'; hint?: string;
   rows: { label: string; days: number[] }[]; // days[0..6] = Sun..Sat
 }) {
+  const { t } = useOperatorI18n();
+  const DAY_LETTERS = dayLetters(t);
+  const DAY_NAMES = dayNames(t);
   if (!rows.length) return null;
   const max = Math.max(1, ...rows.flatMap((r) => r.days));
   const color = hue === 'violet' ? 'var(--sh-violet)' : 'var(--sh-teal)';
@@ -1398,7 +1432,7 @@ function EntityDayHeatmap({ title, hue, rows, hint }: {
             {r.days.map((v, d) => (
               <div
                 key={d}
-                title={v ? `${DAY_NAMES[d]} — ${v}` : undefined}
+                title={v ? tf(t, 'shop.entityDay.cellTitle', { day: DAY_NAMES[d], v }) : undefined}
                 className="h-4 flex-1 rounded-[2px]"
                 style={{ background: v ? `color-mix(in srgb, ${color} ${Math.round(12 + (v / max) * 78)}%, white)` : 'var(--sh-surface-2)' }}
               />
@@ -1441,6 +1475,7 @@ function NextStepView({ step, onDismiss, busy }: {
   onDismiss: (id: string) => void;
   busy: boolean;
 }) {
+  const { t } = useOperatorI18n();
   // «info» USED TO STAY PLAIN WHITE — the one card the screen guarantees always has something to
   // say read as the flattest one on it ("الشاشة كلها بياض"). It now takes the
   // same tint language every other card on the screen already uses.
@@ -1506,11 +1541,11 @@ function NextStepView({ step, onDismiss, busy }: {
         className="self-start text-[11px] underline underline-offset-2"
         style={{ color: 'var(--sh-ink-faint)' }}
       >
-        ليس الآن
+        {t('shop.nextStep.dismiss')}
       </button>
       {step.secondary ? (
         <p className="px-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
-          وأيضاً: {step.secondary.message}
+          {tf(t, 'shop.nextStep.also', { msg: step.secondary.message })}
         </p>
       ) : null}
     </div>
@@ -1533,9 +1568,10 @@ function LockedLine({ title, text }: { title: string; text: string }) {
  *  chart/list card AND the standalone placeholder alike («كلها تظهر بشكلها الفعلي بالكامل
  *  بس بلون باهت شوية … زي الختم»). One visual vocabulary for "this is real, just not full yet". */
 function StampBadge() {
+  const { t } = useOperatorI18n();
   return (
     <span dir="ltr" className="absolute -top-1 left-3 z-10 rotate-[-6deg] rounded-b-md px-2.5 py-1 text-[9.5px] font-bold tracking-wide" style={{ background: 'var(--sh-ink-faint)', color: 'var(--sh-surface)' }}>
-      قيد التكوّن
+      {t('shop.stamp.forming')}
     </span>
   );
 }
@@ -1571,16 +1607,17 @@ function MutedIndicator({ title, note }: { title: string; note: string }) {
  *  this stamp's own trigger (a coverage RATIO) never fired for a single, fully-attributed
  *  operator. Two different thresholds guarding the same missing card is how it went dark twice. */
 function BlockedStamp({ b, cta }: { b: Blocked; cta?: { label: string; href: string } }) {
+  const { t } = useOperatorI18n();
   const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
-  const headline = (b.lost ?? '').trim() || blockedSentence(b);
+  const headline = (b.lost ?? '').trim() || blockedSentence(b, t);
   if (!headline) return null;
-  const owner = BLOCKED_OWNER[b.owner ?? 'unknown'];
+  const owner = t(BLOCKED_OWNER_KEY[b.owner ?? 'unknown']);
   const have = b.progress?.have, need = b.progress?.need;
   const showBar = typeof have === 'number' && typeof need === 'number' && need > 0;
   return (
     <div className="relative flex flex-col gap-2 overflow-hidden rounded-2xl p-4" style={{ background: 'var(--sh-surface-2)', border: '1.5px dashed var(--sh-ink-faint)' }}>
       <span dir="ltr" className="absolute -top-1 left-3 rotate-[-6deg] rounded-b-md px-2.5 py-1 text-[9.5px] font-bold tracking-wide" style={{ background: 'var(--sh-ink-faint)', color: 'var(--sh-surface)' }}>
-        قيد التكوّن
+        {t('shop.stamp.forming')}
       </span>
       <div className="flex flex-wrap items-center gap-2 pt-2">
         <span className="text-[13px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>{headline}</span>
@@ -1592,7 +1629,7 @@ function BlockedStamp({ b, cta }: { b: Blocked; cta?: { label: string; href: str
           <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface)' }}>
             <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%`, background: 'var(--sh-ink-faint)' }} />
           </div>
-          <span dir="ltr" className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{have} من {need}</span>
+          <span dir="ltr" className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{tf(t, 'shop.progressOf', { have: have!, need: need! })}</span>
         </div>
       ) : null}
       {b.do ? <span className="text-[12.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.do}</span> : null}
@@ -1607,7 +1644,7 @@ function BlockedStamp({ b, cta }: { b: Blocked; cta?: { label: string; href: str
           if (!write) { setCopied('failed'); return; }
           write.then(() => setCopied('ok')).catch(() => setCopied('failed'));
         }} className="self-start rounded-full px-3 py-1.5 text-[11px] font-semibold" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>
-          {copied === 'ok' ? 'نُسخت — أرسلها له' : copied === 'failed' ? 'تعذّر النسخ — ظلّلها بإصبعك وانسخها' : 'انسخ الرسالة لمزوّد الكاشير'}
+          {copied === 'ok' ? t('shop.copy.done') : copied === 'failed' ? t('shop.copy.failed') : t('shop.copy.action')}
         </button>
       ) : null}
       {b.request && copied === 'failed' ? <p className="select-all rounded-lg p-2 text-[11px]" style={{ background: 'var(--sh-surface)' }}>{b.request}</p> : null}
@@ -1668,6 +1705,7 @@ function GhostRow({ label }: { label: string }) {
  *  WHOLE CARD mutes (opacity + a touch of grayscale) and carries the stamp + a plain explanation,
  *  its real shape still fully visible underneath — «تظهر بشكلها الفعلي بالكامل بس بلون باهت شوية». */
 function BranchCompare({ branches, session }: { branches: Branches; session?: Session }) {
+  const { t } = useOperatorI18n();
   const rows = (branches.rows ?? []).slice(0, 6);
   const max = Math.max(1, ...rows.map((r) => r.visits ?? 0));
   const thin = rows.length < 2;
@@ -1678,7 +1716,7 @@ function BranchCompare({ branches, session }: { branches: Branches; session?: Se
     }}>
       {thin ? <StampBadge /> : null}
       <h3 className="flex items-center gap-1 text-[13px] font-semibold pt-2">
-        مقارنة الفروع
+        {t('shop.branchCompare.title')}
         {session ? <AssistantHint session={session} anchor="shop.branch_compare" /> : null}
       </h3>
       <ul className="flex flex-col gap-2.5">
@@ -1689,29 +1727,28 @@ function BranchCompare({ branches, session }: { branches: Branches; session?: Se
               <div className="flex items-center justify-between text-[12.5px]">
                 <span className="flex items-center gap-1.5 font-medium">
                   <RankBadge n={i + 1} />
-                  {r.name || r.branch_id || 'بلا اسم'}
+                  {r.name || r.branch_id || t('shop.noName')}
                   {/* THE AGGREGATE HERO NUMBER, PER BRANCH — a chain reading 46% overall can be
                       one branch at 70% carrying one at 20%, invisible until it is broken out. Same
                       colour language «التسرّب» already uses: coral means low, teal means high. */}
-                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label="عودة" /> : null}
+                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label={t('shop.rate.returnLabel')} /> : null}
                 </span>
-                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
+                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{tf(t, 'shop.visitCustomerCount', { visits: r.visits ?? 0, customers: r.customers ?? 0 })}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--sh-violet),var(--sh-teal))' }} />
               </div>
             </li>
           );
-        }) : <GhostRow label="لا فروع مسجَّلة بعد" />}
+        }) : <GhostRow label={t('shop.branchCompare.noneYet')} />}
       </ul>
-      {branches.unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{branches.unknown} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.</p> : null}
+      {branches.unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{tf(t, 'shop.branchCompare.unassigned', { n: branches.unknown })}</p> : null}
       {thin ? (
         <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
-          {rows.length === 0 ? 'لا نقارن الفروع بعد — يحتاج فرعان فأكثر بزيارات حقيقية.'
-            : 'فرع واحد فعّال حتى الآن — المقارنة تحتاج فرعاً ثانياً بزيارات حقيقية.'}
+          {rows.length === 0 ? t('shop.branchCompare.needTwo') : t('shop.branchCompare.needSecond')}
         </p>
       ) : branches.can_rank === false ? (
-        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p>
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{t('shop.branchCompare.tooShort')}</p>
       ) : null}
     </div>
   );
@@ -1723,6 +1760,7 @@ function BranchCompare({ branches, session }: { branches: Branches; session?: Se
  *  customer came back to THIS person specifically, not to the shop in general. Fairness was the
  *  point of asking. */
 function StaffCompare({ rows, unknown, canRank, session }: { rows: OperatorRow[]; unknown?: number; canRank?: boolean; session?: Session }) {
+  const { t } = useOperatorI18n();
   const top = [...rows].sort((a, b) => (b.visits ?? 0) - (a.visits ?? 0)).slice(0, 6);
   const max = Math.max(1, ...top.map((r) => r.visits ?? 0));
   const thin = top.length < 2;
@@ -1733,14 +1771,14 @@ function StaffCompare({ rows, unknown, canRank, session }: { rows: OperatorRow[]
     }}>
       {thin ? <StampBadge /> : null}
       <h3 className="flex items-center gap-1 text-[13px] font-semibold pt-2">
-        مقارنة الموظفين
+        {t('shop.staffCompare.title')}
         {session ? <AssistantHint session={session} anchor="shop.staff_compare" /> : null}
       </h3>
       <ul className="flex flex-col gap-2.5">
         {top.length ? top.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
-          const label = (r.name || r.operator_id || 'بلا اسم').trim();
-          const initial = label ? label[0] : '؟';
+          const label = (r.name || r.operator_id || t('shop.noName')).trim();
+          const initial = label ? label[0] : t('shop.unknownInitial');
           return (
             <li key={r.operator_id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-[12.5px]">
@@ -1751,25 +1789,24 @@ function StaffCompare({ rows, unknown, canRank, session }: { rows: OperatorRow[]
                     {initial}
                   </span>
                   {label}
-                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label="عودة له" /> : null}
+                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label={t('shop.rate.returnToLabel')} /> : null}
                 </span>
-                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
+                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{tf(t, 'shop.visitCustomerCount', { visits: r.visits ?? 0, customers: r.customers ?? 0 })}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
                 <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--sh-violet),var(--sh-teal))' }} />
               </div>
             </li>
           );
-        }) : <GhostRow label="لا موظفون منسوبون بعد" />}
+        }) : <GhostRow label={t('shop.staffCompare.noneYet')} />}
       </ul>
-      {unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{unknown} زيارة بلا موظف محدَّد — لا تُحتسب لأحد.</p> : null}
+      {unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{tf(t, 'shop.staffCompare.unassigned', { n: unknown })}</p> : null}
       {thin ? (
         <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
-          {top.length === 0 ? 'لا نقارن الموظفين بعد — يحتاج موظفان فأكثر بزيارات منسوبة لهم.'
-            : 'موظف واحد منسوب حتى الآن — المقارنة تحتاج موظفاً ثانياً بزيارات حقيقية.'}
+          {top.length === 0 ? t('shop.staffCompare.needTwo') : t('shop.staffCompare.needSecond')}
         </p>
       ) : canRank === false ? (
-        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p>
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{t('shop.staffCompare.tooShort')}</p>
       ) : null}
     </div>
   );
@@ -1811,6 +1848,7 @@ function Section({ title, hint, children, folded = false, session, helpAnchor }:
 
 /* ── ③ reassurance, last — «آخر الزيارات» ─────────────────────────────────────────────────────── */
 function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [recent, setRecent] = useState<CustomerRow[] | null | undefined>(undefined);
 
   useEffect(() => {
@@ -1823,14 +1861,14 @@ function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog
   return (
     <section className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h2 className="mb-3 flex items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>
-        آخر الزيارات
+        {t('shop.recent.title')}
         <AssistantHint session={session} anchor="shop.recent_visits" />
       </h2>
       {isLoading(recent) ? <Skeleton height={64} />
-      : hasFailed(recent) ? <EmptyState title="تعذّرت قراءة آخر الزيارات" description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل." />
+      : hasFailed(recent) ? <EmptyState title={t('shop.recent.errorTitle')} description={t('shop.recent.errorDesc')} />
       : recent.length === 0 ? (
-        <EmptyState title="لم تُسجَّل زيارة بعد" description="من هنا تبدأ كل مؤشرات الصفحة تتكوّن."
-                    action={<Link to="/visit" className="rounded-full px-4 py-2 text-[12.5px] font-semibold text-white" style={{ background: 'var(--sh-violet)' }}>سجّل أول زيارة</Link>} />
+        <EmptyState title={t('shop.recent.emptyTitle')} description={t('shop.recent.emptyDesc')}
+                    action={<Link to="/visit" className="rounded-full px-4 py-2 text-[12.5px] font-semibold text-white" style={{ background: 'var(--sh-violet)' }}>{t('shop.registerFirstVisit')}</Link>} />
       )
       : (
         <ul className="flex flex-col gap-2">
