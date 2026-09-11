@@ -40,9 +40,9 @@ import { AlertTriangle, Gauge, Lock } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { AssistantHint } from '../AssistantHint';
 import { Launch } from './Launch';
-import { AppGate, LockedCard } from './Locked';
+import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
-import { owns, type Owned } from '../apps';
+import { APP_ROWS, owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
@@ -426,18 +426,24 @@ const TAG_LABEL: Record<'auto' | 'manual', string> = {
  * rather than inventing new chrome (see LockedCard in Locked.tsx, the establishment this pass
  * borrows its visual language from).
  */
-function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink }: {
+function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, locked }: {
   card: TemplateCard;
   session: Session;
   busy: string;
   onOpen: () => void;
   onFlip?: (on: boolean) => void;
   onCrossLink: () => void;
+  /** THE APP THIS REASON BELONGS TO ISN'T BOUGHT YET — never hides the card any more (that was
+   *  the bug: `AppGate` used to swap the WHOLE card for a generic upsell, so pressing it could
+   *  never open the real preview — owner's own words: "حتى لو مقفلة العرض المفروض يكون متاح بحيث
+   *  يشوفها ويجربها ويتحمس يشتريها"). `onOpen` stays live either way; only the switch — which
+   *  would turn on a send he cannot pay for — is replaced. */
+  locked?: boolean;
 }) {
   const r = card.reason;
   return (
     <div className={['flex items-center gap-3 rounded-card border border-border-subtle',
-                     'bg-surface-1 p-3 shadow-sm', r && !r.on ? 'opacity-70' : ''].join(' ')}>
+                     'bg-surface-1 p-3 shadow-sm', (r && !r.on) || locked ? 'opacity-70' : ''].join(' ')}>
       {/* THE ICON CIRCLE — the product's own idiom, not a new one. */}
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2">
         <MessageSquare size={16} className="text-text-secondary" aria-hidden />
@@ -485,23 +491,32 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink }: 
           presses «أطلق حملة» in «حملاتي», never by itself. */}
       {r ? (
         <span className="flex w-24 shrink-0 items-center justify-end gap-2">
-          <span className="text-xs text-text-secondary">
-            {r.can_switch ? (r.on ? 'مفعّلة' : 'موقوفة') : ''}
-          </span>
-          {r.can_switch && onFlip ? (
-            <span className="[&_label>span]:sr-only">
-              <Toggle
-                label={card.label}
-                checked={r.on}
-                disabled={busy === r.id}
-                onChange={onFlip}
-              />
-            </span>
-          ) : (
+          {locked ? (
             <span className="flex items-center gap-1 text-xs text-text-secondary">
               <Lock size={14} aria-hidden />
-              حقٌّ لعميلك
+              بعد الشراء
             </span>
+          ) : (
+            <>
+              <span className="text-xs text-text-secondary">
+                {r.can_switch ? (r.on ? 'مفعّلة' : 'موقوفة') : ''}
+              </span>
+              {r.can_switch && onFlip ? (
+                <span className="[&_label>span]:sr-only">
+                  <Toggle
+                    label={card.label}
+                    checked={r.on}
+                    disabled={busy === r.id}
+                    onChange={onFlip}
+                  />
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-text-secondary">
+                  <Lock size={14} aria-hidden />
+                  حقٌّ لعميلك
+                </span>
+              )}
+            </>
           )}
         </span>
       ) : null}
@@ -870,25 +885,31 @@ export function MessagesScreen(
                       {SECTION_LABEL[section]}
                     </h3>
                     <ul className="flex flex-col gap-2">
-                      {inSection.map((c) => (
-                        <li key={c.key}>
-                          {c.lockAppId ? (
-                            <AppGate appId={c.lockAppId} owned={owned} session={session} catalog={catalog}>
-                              <TemplateCardItem card={c} session={session} busy={busy}
-                                                onOpen={() => setReading(c)}
-                                                onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
-                                                onCrossLink={() => c.goal
-                                                  && navigate(`?tab=campaigns&launch=${c.goal}`)} />
-                            </AppGate>
-                          ) : (
+                      {inSection.map((c) => {
+                        // NEVER SWAP THE WHOLE CARD FOR A LOCK ANY MORE — `AppGate` used to
+                        // replace it outright, which meant pressing a locked reason could never
+                        // open the real preview at all (owner's own words: "حتى لو مقفلة العرض
+                        // المفروض يكون متاح بحيث يشوفها ويجربها ويتحمس يشتريها"). The card itself
+                        // (and its `onOpen`) always renders; only the switch is replaced, and the
+                        // app's own real feature list + buy link render ALONGSIDE it, never
+                        // instead of it.
+                        const lockedRow = c.lockAppId
+                          ? owns(owned, APP_ROWS.find((a) => a.id === c.lockAppId)?.key ?? null) === false
+                          : false;
+                        return (
+                          <li key={c.key} className="flex flex-col gap-2">
                             <TemplateCardItem card={c} session={session} busy={busy}
                                               onOpen={() => setReading(c)}
                                               onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
                                               onCrossLink={() => c.goal
-                                                && navigate(`?tab=campaigns&launch=${c.goal}`)} />
-                          )}
-                        </li>
-                      ))}
+                                                && navigate(`?tab=campaigns&launch=${c.goal}`)}
+                                              locked={lockedRow} />
+                            {lockedRow ? (
+                              <LockedCard appId={c.lockAppId!} session={session} catalog={catalog} owned={owned} />
+                            ) : null}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 );

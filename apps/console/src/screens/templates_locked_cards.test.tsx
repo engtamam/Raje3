@@ -1,8 +1,13 @@
 /**
- * «القوالب» — a card for an app the shop has NOT bought renders LOCKED (Locked.tsx's own
- * `AppGate`/`LockedCard`), never hidden. `booking_confirmed` needs `feature.bookings`;
- * `rating_requested` needs `feature.rating` — neither reason's OWN `source` field alone was
- * enough for `rating_requested` (it carries none), so Messages.tsx names its app by hand.
+ * «القوالب» — a card for an app the shop has NOT bought stays FULLY VISIBLE and previewable, with
+ * the app's own real feature list + buy link (Locked.tsx's own `LockedCard`) ALONGSIDE it — never
+ * swapped away for a generic upsell card, which is what this used to do (owner's own words:
+ * "حتى لو مقفلة العرض المفروض يكون متاح بحيث يشوفها ويجربها ويتحمس يشتريها"). Only the on/off
+ * switch is replaced, since turning on a send he cannot pay for makes no sense; the card's own
+ * label, its preview button, and the buy-this-app pitch all show at once.
+ * `booking_confirmed` needs `feature.bookings`; `rating_requested` needs `feature.rating` —
+ * neither reason's OWN `source` field alone was enough for `rating_requested` (it carries none),
+ * so Messages.tsx names its app by hand.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -47,22 +52,28 @@ function open() {
   );
 }
 
-describe('«القوالب» — locked cards for an app the shop has not bought', () => {
-  it('locks the booking-confirmation card, offering the store link rather than the text', async () => {
+describe('«القوالب» — a locked card stays visible and previewable, with the pitch beside it', () => {
+  it('shows the booking-confirmation card itself AND the store pitch, never one instead of the other', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    expect(screen.queryByText('تأكيد حجز')).toBeNull();
+    // THE CARD ITSELF — still there, still readable, still openable for a real preview.
+    expect(await screen.findByText('تأكيد حجز')).toBeTruthy();
+    // AND THE PITCH TO BUY IT — same card row, not a substitute for it.
     expect(screen.getAllByText('أضِفه من متجر التطبيقات').length).toBeGreaterThan(0);
+    // THE SWITCH IS WHAT ACTUALLY LOCKS — turning on a send he cannot pay for makes no sense.
+    expect(screen.getAllByText('بعد الشراء').length).toBeGreaterThan(0);
   });
 
-  it('locks the rating-request card the same way', async () => {
+  it('shows the rating-request card the same way', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    expect(screen.queryByText('طُلب تقييم')).toBeNull();
+    expect(await screen.findByText('طُلب تقييم')).toBeTruthy();
   });
 
-  it('never locks an ordinary card that needs no extra app', async () => {
+  it('never shows the store pitch beside an ordinary card that needs no extra app', async () => {
     open();
-    expect(await screen.findAllByText('سُجّلت زيارة')).toBeTruthy();
+    await screen.findAllByText('سُجّلت زيارة');
+    // Only two locked cards on this shop (booking + rating) — سُجّلت زيارة itself needs nothing.
+    expect(screen.getAllByText('أضِفه من متجر التطبيقات').length).toBe(2);
   });
 });
