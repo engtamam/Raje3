@@ -704,7 +704,7 @@ async def submit_custom_template(request: Request, name: str,
     try:
         await template_quota.take(_tenant(principal))
     except QuotaError as exc:
-        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «بلغت حدّ النظام من
+        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «بلغت الحدّ الأقصى من
         # القوالب الخاصة» is the whole answer.
         return {"ok": False, "error": str(exc)}
 
@@ -716,7 +716,7 @@ async def submit_custom_template(request: Request, name: str,
     shop = await c.identity.get(_tenant(principal))
     out = await c.submitter.submit(_tenant(principal), {**row, "establishment": shop.name})
     if not out.get("ok"):
-        # HIS SLOT BACK. Meta refused the wording, and charging him a monthly allowance for a text
+        # HIS SLOT BACK. Meta refused the wording, and charging him a lifetime slot for a text
         # that never reached anybody would make the limit punish the attempt rather than the use.
         await template_quota.release(_tenant(principal))
     status = PENDING if out.get("ok") else REJECTED
