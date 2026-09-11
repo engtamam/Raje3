@@ -1726,7 +1726,7 @@ export function PlansPane({
                         plan={p}
                         sub={sub}
                         busy={capacityBusyPlanId === p.id}
-                        sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}
+                        sellable={Boolean(canSubscribe && pay?.enabled && canMintToken)}
                         unreadNote={unreadNote}
                         onBuyFirst={() => choose(p, 1)}
                         onChangeQuantity={(quantity) => sub && void changeCapacityQuantity(p, sub, quantity)}
@@ -1751,14 +1751,6 @@ export function PlansPane({
             {t('plans.section.apps')}
             <AssistantHint anchor="store.appsSection" session={session} />
           </h2>
-          {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
-              after he presses. operations refuses the pair regardless; this is so he never meets
-              that refusal. EXCEPT a `plan.standalone` row (e.g. بوت خدمة العملاء الذكي) — the one
-              app sold with no base at all, so the note beneath it is never shown and its own card
-              stays purchasable regardless of `hasBase`. */}
-          {hasBase === false && apps.some((p) => !isStandalone(p)) ? (
-            <p className="text-sm text-text-secondary">{t('plans.needsBaseFirst')}</p>
-          ) : null}
           {/* CAPPED AT 3 ACROSS, NEVER 4 (owner's own instruction, 2026-09-11) — same reasoning
               PlanCards.tsx's own grid already held (`sm:grid-cols-2 xl:grid-cols-3`): a fourth
               column made a row of already-tall feature cards cramped rather than dense. */}
@@ -1774,9 +1766,10 @@ export function PlansPane({
               // it read as the same flat «مفعّل» a fully-paying app gets, which is a different
               // fact he needs to know before the trial ends and the first real charge lands.
               const appStatusLabel = appSub?.status === 'trialing' ? t('plans.status.trialing') : undefined;
-              // `plan.requires_any` — an INDEPENDENT gate from the base-required rule just above:
-              // an app can need both. Empty when the plan declares no dependency, when the read
-              // has not settled, or when the dependency is already satisfied.
+              // `plan.requires_any` — the only purchase-time dependency left now that الأساس is
+              // retired (2026-09-10): an app may need a sibling app already held. Empty when the
+              // plan declares no dependency, when the read has not settled, or when it is
+              // already satisfied.
               const lockedNote = missingRequirement(p, owned);
               return (
                 <li key={p.id}>
@@ -1789,8 +1782,7 @@ export function PlansPane({
                     discount={discountPreviews[p.id]}
                     potentialDiscount={potentialDiscounts[p.id]}
                     busy={busy}
-                    sellable={Boolean(canSubscribe && pay?.enabled && canMintToken
-                                     && (hasBase !== false || isStandalone(p)) && !lockedNote)}
+                    sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && !lockedNote)}
                     onBuy={() => choose(p)}
                     unreadNote={unreadNote}
                     lockedNote={lockedNote}
