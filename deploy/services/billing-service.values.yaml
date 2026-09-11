@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/billing-service
-  digest: "sha256:0100be0365efac2fadfa0a818c869f61da3aa0bf2404df989b9df2afa517bccc"   # v0.19.25
+  digest: "sha256:5324f35b3e445e85f5a8237b515e8edb565df9194b960d03ffe0aa6e2316d56a"   # v0.19.26
 
 replicas: 1
 
@@ -172,6 +172,14 @@ env:
   # one caveat worth remembering if a future plan ever wants its own included credit to accumulate
   # instead.
   PLAN_CREDIT_GRANT_MODE: "reset"
+
+  # ON, not the platform's default OFF (billing-service v0.19.26): a percent-of-price plan's
+  # included allowance is based on the price the shop ACTUALLY PAYS this cycle (after any cross-
+  # app discount rule or coupon), not the raw list price. Owner's own bug report: a 100%-off rule
+  # on بوت خدمة العملاء الذكي paid 0 SAR and still granted the full-price allowance (~3M units,
+  # for free) — turning this on closes that hole for good, platform-wide. Still runtime-editable
+  # (operator config, same as PLAN_CREDIT_PERCENT) if a future case ever needs it toggled live.
+  BILLING_CREDIT_DISCOUNT_AWARE: "true"
 
   # ── Renewal invoicing shape (billing-service v0.19.11) — CONSOLIDATED, not the default: a shop
   # with several apps due at once gets ONE invoice (one line per app, one charge, one WhatsApp
