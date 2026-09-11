@@ -20,7 +20,7 @@ import { Plus, Pencil, ArrowLeftRight } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
-import { Drawer } from '../rj-ui/Drawer';
+import { Modal } from '../rj-ui/Modal';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Toggle } from '../rj-ui/Toggle';
@@ -222,7 +222,7 @@ function DiscountRuleEditDrawer({ session, action, mode, rule, open, onClose, on
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={mode === 'create' ? 'قاعدة خصم جديدة' : 'تعديل قاعدة الخصم'}
+    <Modal open={open} onClose={onClose} title={mode === 'create' ? 'قاعدة خصم جديدة' : 'تعديل قاعدة الخصم'}
            footer={
              <>
                <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
@@ -269,6 +269,6 @@ function DiscountRuleEditDrawer({ session, action, mode, rule, open, onClose, on
 
         {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
       </div>
-    </Drawer>
+    </Modal>
   );
 }

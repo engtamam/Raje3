@@ -9,7 +9,7 @@ import { Plus, Pencil } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
-import { Drawer } from '../rj-ui/Drawer';
+import { Modal } from '../rj-ui/Modal';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Toggle } from '../rj-ui/Toggle';
@@ -229,7 +229,7 @@ function CouponEditDrawer({ session, action, mode, coupon, plans, open, onClose,
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={mode === 'create' ? 'كوبون جديد' : `تعديل "${coupon?.code}"`}
+    <Modal open={open} onClose={onClose} title={mode === 'create' ? 'كوبون جديد' : `تعديل "${coupon?.code}"`}
            footer={
              <>
                <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
@@ -291,6 +291,6 @@ function CouponEditDrawer({ session, action, mode, coupon, plans, open, onClose,
 
         {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
       </div>
-    </Drawer>
+    </Modal>
   );
 }

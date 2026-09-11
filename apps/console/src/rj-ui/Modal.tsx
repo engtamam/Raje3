@@ -26,7 +26,7 @@ const SIZE = {
 } as const;
 
 export function Modal({
-  open, onClose, title, subtitle, size = 'md', children,
+  open, onClose, title, subtitle, size = 'md', children, footer,
 }: {
   open: boolean;
   onClose: () => void;
@@ -34,6 +34,9 @@ export function Modal({
   subtitle?: ReactNode;
   size?: keyof typeof SIZE;
   children: ReactNode;
+  /** Same shape as Drawer's own `footer` — a bottom action bar (إلغاء/حفظ), pinned below the
+   *  scrollable body instead of scrolling away with a tall form. */
+  footer?: ReactNode;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -68,6 +71,9 @@ export function Modal({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+        {footer != null ? (
+          <div className="flex items-center gap-2 border-t border-border-subtle p-4">{footer}</div>
+        ) : null}
       </div>
     </div>,
     document.body,

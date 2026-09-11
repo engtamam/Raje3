@@ -47,7 +47,7 @@ import {
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
-import { Drawer } from '../rj-ui/Drawer';
+import { Modal } from '../rj-ui/Modal';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Toggle } from '../rj-ui/Toggle';
@@ -67,8 +67,7 @@ import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 // that one capability degrades to no list rather than a crash, same as any other failed read
 // (`AppFeatureList`'s own "a card that could not read its own features still sells" posture).
 // Keyed by `AppRow.key` (never the plan id, which can be renamed) — a plan whose key has no entry
-// here (رات/تسجيل زيارة/جهات الاتصال, only ever served inline per-tenant by operations, or a
-// capacity/base/enterprise row with no catalog of its own) falls through to the raw limit list
+// here (a capacity/enterprise row with no catalog of its own) falls through to the raw limit list
 // below instead, rather than a blank card.
 const FEATURES_PATH: Record<string, string> = {
   'feature.bookings': '/api/v1/bookings/features',
@@ -76,6 +75,20 @@ const FEATURES_PATH: Record<string, string> = {
   'feature.campaigns': '/api/v1/campaigns/features',
   'feature.insights.engine': '/api/v1/insights/features',
   'feature.whatsapp': '/api/v1/assistant/features',
+  // تسجيل زيارة/جهات الاتصال/التقييم — operations' own STATIC catalog (added 2026-09-11, the one
+  // gap the other five services never had): they used to be served ONLY inline per-tenant
+  // (`Owned.apps[].features`, via `GET /subscription/apps`), which an admin token can never ask
+  // for (no tenant to ask about) — this card fell back to the raw boolean-limit list, the one
+  // stale card on an otherwise-redesigned shelf (owner's own screenshot). The THREE keys share
+  // ONE route returning `{visit, contacts, rating}`; `STATIC_FEATURES_SUBKEY` below says which
+  // array is this plan's own.
+  'feature.visit': '/api/v1/subscription/apps/static-features',
+  'feature.contacts': '/api/v1/subscription/apps/static-features',
+  'feature.rating': '/api/v1/subscription/apps/static-features',
+};
+
+const STATIC_FEATURES_SUBKEY: Record<string, 'visit' | 'contacts' | 'rating'> = {
+  'feature.visit': 'visit', 'feature.contacts': 'contacts', 'feature.rating': 'rating',
 };
 
 interface LimitEntry { kind: 'boolean' | 'gauge' | 'counter' | string; limit: number | 'unlimited'; period?: string }
@@ -285,8 +298,18 @@ function PlanCard({ session, plan, availabilityAction, updateAction, onReload }:
         // SAME raw counted-limit list every other card falls back to) keeps its own line.
         <AppFeatureList
           actionId={featuresPath}
-          fetcher={(path) => req<{ features: import('../apps').AppFeature[] }>(
-            path, 'GET', undefined, session.access_token)}
+          fetcher={async (path) => {
+            const subKey = matchedApp ? STATIC_FEATURES_SUBKEY[matchedApp.key ?? ''] : undefined;
+            if (subKey) {
+              // ONE COMBINED ROUTE, THREE CARDS — each reads its own slice rather than the whole
+              // `{visit, contacts, rating}` object AppFeatureList expects as `{features}`.
+              const all = await req<Record<'visit' | 'contacts' | 'rating', import('../apps').AppFeature[]>>(
+                path, 'GET', undefined, session.access_token);
+              return { features: all[subKey] ?? [] };
+            }
+            return req<{ features: import('../apps').AppFeature[] }>(
+              path, 'GET', undefined, session.access_token);
+          }}
           collapseAt={3}
         />
       ) : booleans.length > 0 ? (
@@ -436,7 +459,7 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title={`تعديل "${plan.name}"`}
+    <Modal open={open} onClose={onClose} title={`تعديل "${plan.name}"`}
            footer={
              <>
                <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
@@ -516,6 +539,6 @@ function PlanEditDrawer({ session, plan, updateAction, open, onClose, onSaved }:
 
         {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
       </div>
-    </Drawer>
+    </Modal>
   );
 }
