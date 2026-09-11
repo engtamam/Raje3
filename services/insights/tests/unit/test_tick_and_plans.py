@@ -40,6 +40,44 @@ def test_a_snapshot_is_stored_and_carries_its_as_of_time():
     assert run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]["return_rate"] is not None
 
 
+def test_one_branchs_write_failure_never_stops_the_others_and_is_recorded():
+    """insights-005 (QA audit, 2026-09-12): a store failure partway through a multi-branch
+    tenant's branch snapshots used to propagate straight out of compute() — the whole-shop
+    snapshot (already written moments earlier) was left with nothing saying one of its branches
+    is now stale. Proved with a store wrapper that fails ONE specific branch's write."""
+    rows = visits(6, ref_prefix="a", services=("wash",), branch_id="b1") + \
+        visits(6, ref_prefix="b", services=("wash",), branch_id="b2")
+    store = MemoryDataStore()
+    peers = NullPeers(visits=rows, catalogue=[{"id": "wash", "name": "غسيل", "cycle_days": 30}])
+    tick = Tick(store, peers, batch=2)
+
+    real_put = store.put
+    calls = {"count": 0}
+
+    async def flaky_put(collection, key, value):
+        if collection == SNAPSHOTS and key == f"{T}|b2":
+            calls["count"] += 1
+            raise RuntimeError("datastore pool exhausted")
+        return await real_put(collection, key, value)
+
+    store.put = flaky_put
+
+    snap = run(tick.compute(T, now=NOW))   # must not raise
+
+    assert calls["count"] == 1
+    assert snap.values["branches_partial"] == ["b2"]
+    # b1's own snapshot still got written this pass.
+    assert run(store.get(SNAPSHOTS, f"{T}|b1")) is not None
+    # b2's was never written this pass (the fake raised before the real put ran) — the PREVIOUS
+    # run's row (none exists yet in this fresh store) stays whatever it was, not silently updated
+    # and not silently deleted either.
+    assert run(store.get(SNAPSHOTS, f"{T}|b2")) is None
+    # AND THE WHOLE-SHOP ROW ITSELF CARRIES THE FLAG — re-read from the store, not just the
+    # in-memory return value, proving the corrected row was actually persisted.
+    stored_all = run(store.get(SNAPSHOTS, f"{T}|_all"))
+    assert stored_all["values"]["branches_partial"] == ["b2"]
+
+
 def test_the_sweep_is_bounded_and_says_when_more_remain():
     """A run that grows with the product until it times out and retries from the beginning is a
     failure that arrives months after the decision that caused it."""
@@ -593,6 +631,19 @@ def test_subscriptions_are_per_person_not_per_establishment():
     run(subs.set(T, "manager-2", on=True))
     run(subs.set(T, "manager-2", on=False))
     assert run(subs.recipients(T)) == ["owner-1"]
+
+
+def test_recipients_pages_past_the_first_200():
+    """insights-003 (QA audit, 2026-09-12): a single limit=200 page with the cursor discarded
+    meant every subject sorted past the 200th by id silently never got the digest — no error, a
+    normal-looking short list every week. 250 subscribed subjects here; all 250 must come back."""
+    store = MemoryDataStore()
+    subs = Subscriptions(store)
+    for i in range(250):
+        run(subs.set(T, f"subject-{i:04d}", on=True))
+    out = run(subs.recipients(T))
+    assert len(out) == 250
+    assert "subject-0000" in out and "subject-0249" in out
 
 
 # ── the branch as a workspace (spec §10.6.4) ───────────────────────────────────────────────────

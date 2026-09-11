@@ -7,6 +7,7 @@
 # =============================================================================
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -42,7 +43,16 @@ async def require_user(request: Request) -> Principal:
     token = auth[7:]
     verifier = request.app.state.container.token_verifier
     try:
-        claims = verifier.verify(token)
+        # OFF THE EVENT LOOP — fixed 2026-09-12, a real bug a QA audit found (and jwks.py's own
+        # constructor already documented living with, unfixed): `JWKSVerifier.verify()` can hit
+        # the network on a signing-key cache miss, and it ran synchronously inside this `async def`
+        # dependency with nothing wrapping it. Every authenticated route goes through here, so a
+        # JWKS cache miss or a slow provider used to freeze this pod's WHOLE event loop —
+        # /healthz included — for up to the client's 5s timeout. `HS256Verifier.verify()` (the
+        # other driver) is a pure, fast local HMAC check with no I/O at all; dispatching it onto a
+        # thread too costs a negligible context switch and keeps this call site correct for
+        # whichever driver is actually configured, rather than special-casing one of them.
+        claims = await asyncio.to_thread(verifier.verify, token)
     except InvalidToken:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="INVALID_TOKEN")
     principal = _extract_principal(claims)

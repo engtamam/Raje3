@@ -371,15 +371,6 @@ def _whatsapp_ai_teaser(ctx: NextStepCtx) -> NextStepResult | None:
         cta_label="جرّب بوت واتساب", cta_link="/store", tone="info")
 
 
-def _bundles_locked(ctx: NextStepCtx) -> NextStepResult | None:
-    # THE SPECIFIC 402 THIS SERVICE SEES ON `insights.bundles` LIVES ON THE CONSOLE SIDE
-    # (Shop.tsx's own `locked.bundles`, caught from that separate route's own response) — this
-    # service has no read of it here, so this rule intentionally stays a stub returning None
-    # until bundles' own lock state travels through the dashboard response too. Kept declared
-    # (not deleted) so its slot in the category is visible rather than silently missing.
-    return None
-
-
 # ── ⑩ الصحة العامة — الحارسة الأخيرة، تطابق دائماً ────────────────────────────────────────────
 def _all_is_well(ctx: NextStepCtx) -> NextStepResult | None:
     # "وضعك ثابت" (things are stable) is a verdict on HISTORY — said to a shop with zero visits
@@ -432,7 +423,12 @@ RULES: tuple[NextStepRule, ...] = (
 
     NextStepRule("associations_teaser", CATEGORY_PLAN, 30, _associations_teaser),
     NextStepRule("audience_ready", CATEGORY_PLAN, 50, _audience_ready),
-    NextStepRule("bundles_locked", CATEGORY_PLAN, 30, _bundles_locked),
+    # "bundles_locked" REMOVED 2026-09-12 (a QA audit flagged it) — it was a permanent no-op stub
+    # (`return None` unconditionally) registered under CATEGORY_PLAN, because the specific 402
+    # this service would need to see on `insights.bundles` lives only on the console side
+    # (Shop.tsx's own `locked.bundles`). A rule that can never fire is dead weight in this list,
+    # not a documented gap worth a permanent slot — re-add it for real once this service actually
+    # reads that lock state, rather than reserving a place for it now.
     NextStepRule("whatsapp_ai_teaser", CATEGORY_PLAN, 35, _whatsapp_ai_teaser),
 
     # THE ONLY RULE THAT ALWAYS MATCHES — priority far below every real rule's worst-case cooled

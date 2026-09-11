@@ -15,6 +15,7 @@ a check.
 """
 from __future__ import annotations
 
+import asyncio
 import urllib.error
 import urllib.parse
 from typing import Any
@@ -42,8 +43,23 @@ PAGE_BUDGET = 60
 # attaches the internal token. `_get` is named here for the first time: the five GETs below each
 # hand-rolled the same Request beside a `_post` that already existed, which is precisely how the
 # token came to be spelled out at six separate sites in one file.
-_post = internal_http.post_json
-_get = internal_http.get_json
+#
+# BOTH OFF THE EVENT LOOP — fixed 2026-09-12, a real bug a QA audit found: `internal_http.post_json`/
+# `get_json` are thin synchronous wrappers over a blocking `urllib.request.urlopen`, and every
+# `HttpPeers` method below is `async def` but called them directly with no `asyncio.to_thread`.
+# This service already knows the fix — `adapters/audit_sink/http.py` and
+# `adapters/consent_gate/http.py` both wrap the identical kind of call in `asyncio.to_thread` — it
+# was simply never applied here. `Tick.compute()` calls up to seven of these per tenant, and a
+# slow/degraded peer during a nightly sweep used to freeze THIS POD'S WHOLE EVENT LOOP for the
+# call's timeout — including its own /healthz and every unrelated tenant's dashboard read.
+# Wrapped ONCE, here, so every call site below stays a plain `await _post(...)`/`await _get(...)`
+# rather than repeating `asyncio.to_thread` seventeen times.
+async def _post(url: str, body: dict[str, Any], token: str, timeout: float) -> dict[str, Any]:
+    return await asyncio.to_thread(internal_http.post_json, url, body, token, timeout)
+
+
+async def _get(url: str, token: str, timeout: float) -> dict[str, Any]:
+    return await asyncio.to_thread(internal_http.get_json, url, token, timeout)
 
 
 class NullPeers:
@@ -189,7 +205,7 @@ class HttpPeers:
         # descending and says whether more stood behind them; the budget above is no longer spent
         # walking a decade to reach last week.
         out = VisitPage()
-        data = _post(self._visits_url,
+        data = await _post(self._visits_url,
                      {"tenant": tenant, "since": 0, "limit": limit, "newest_first": True},
                      self._token, self._timeout)
         out.extend(data.get("visits") or [])
@@ -200,7 +216,7 @@ class HttpPeers:
 
     async def catalogue(self, tenant: str) -> list[dict]:
         try:
-            return (_post(self._catalogue_url, {"tenant": tenant},
+            return (await _post(self._catalogue_url, {"tenant": tenant},
                           self._token, self._timeout)).get("services") or []
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # NOT fatal. Without the catalogue we lose service NAMES and cycle completion, and
@@ -210,7 +226,7 @@ class HttpPeers:
 
     async def packages(self, tenant: str) -> list[dict]:
         try:
-            return (_post(self._packages_url, {"tenant": tenant},
+            return (await _post(self._packages_url, {"tenant": tenant},
                           self._token, self._timeout)).get("packages") or []
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # NOT fatal, same posture as `catalogue` above. Without this a package visit is simply
@@ -233,7 +249,7 @@ class HttpPeers:
         own, and it refuses exactly where an unreadable scope does.
         """
         try:
-            out = _post(self._scope_url, {"tenant": tenant, "subject": subject},
+            out = await _post(self._scope_url, {"tenant": tenant, "subject": subject},
                         self._token, self._timeout)
             if out.get("revoked"):
                 return REVOKED
@@ -256,7 +272,7 @@ class HttpPeers:
         already hold, and taking a dashboard down to protect a label is the wrong trade.
         """
         try:
-            return (_post(self._branches_url, {"tenant": tenant},
+            return (await _post(self._branches_url, {"tenant": tenant},
                           self._token, self._timeout)).get("branches") or []
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return []
@@ -269,7 +285,7 @@ class HttpPeers:
         already hold.
         """
         try:
-            return (_post(self._operators_url, {"tenant": tenant},
+            return (await _post(self._operators_url, {"tenant": tenant},
                           self._token, self._timeout)).get("operators") or []
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return []
@@ -292,7 +308,7 @@ class HttpPeers:
         # The question is «who exists», and its answer is a few hundred strings no matter how many
         # millions of visits stand behind them. Asking it through a page of visits is what let the
         # size of one shop hide every other shop.
-        data = _post(self._tenants_url, {}, self._token, self._timeout)
+        data = await _post(self._tenants_url, {}, self._token, self._timeout)
         return sorted(str(x) for x in (data.get("tenants") or []) if x)
 
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
@@ -310,7 +326,7 @@ class HttpPeers:
             if flow_action_data:
                 body["flow_action_data"] = dict(flow_action_data)
         try:
-            return _post(self._send_url, body, self._token, self._timeout)
+            return await _post(self._send_url, body, self._token, self._timeout)
         except urllib.error.HTTPError as exc:
             return {"sent": False, "reason": f"رفض الإرسال ({exc.code})"}
         except (urllib.error.URLError, OSError) as exc:
@@ -325,7 +341,7 @@ class HttpPeers:
         demand" note), never the whole snapshot.
         """
         try:
-            return _get(self._customer_conversion_url + "?" +
+            return await _get(self._customer_conversion_url + "?" +
                        urllib.parse.urlencode({"tenant": tenant}), self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return {}
@@ -347,7 +363,7 @@ class HttpPeers:
         """
         url = self._entitlement_url + "?" + urllib.parse.urlencode({"tenant": tenant, "key": key})
         try:
-            return bool(_get(url, self._token, self._timeout).get("allowed"))
+            return bool((await _get(url, self._token, self._timeout)).get("allowed"))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return False
 
@@ -361,8 +377,8 @@ class HttpPeers:
         him to upgrade on.
         """
         try:
-            return int(_post(self._consent_url, {"tenant": tenant},
-                             self._token, self._timeout).get("granted") or 0)
+            return int((await _post(self._consent_url, {"tenant": tenant},
+                             self._token, self._timeout)).get("granted") or 0)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return 0
 
@@ -383,7 +399,7 @@ class HttpPeers:
         """
         try:
             q = urllib.parse.urlencode({"tenant": tenant, "since": since})
-            data = _get(self._reminders_url + self._effect_path + "?" + q,
+            data = await _get(self._reminders_url + self._effect_path + "?" + q,
                         self._token, self._timeout)
             # `ok` LAST, so a peer that one day sends its own `ok: false` cannot make a read
             # that plainly succeeded look like a failure. What arrived is what we read.
@@ -406,7 +422,7 @@ class HttpPeers:
         # printing a gap.
         try:
             path = self._tenant_path.replace("{id}", urllib.parse.quote(tenant, safe=""))
-            data = _get(self._tenant_url + path, self._token, self._timeout)
+            data = await _get(self._tenant_url + path, self._token, self._timeout)
             branding = data.get("branding") or {}
             out["shop"] = str(data.get("name") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
@@ -415,7 +431,7 @@ class HttpPeers:
         # The message quota — the quietest outage this product has: the engine stops mid-month and
         # nothing tells him until a customer mentions they stopped hearing from him.
         try:
-            usage = _get(self._usage_url + "?" + urllib.parse.urlencode({"tenant": tenant}),
+            usage = await _get(self._usage_url + "?" + urllib.parse.urlencode({"tenant": tenant}),
                          self._token, self._timeout)
             for row in (usage.get("usage") or usage.get("items") or []):
                 if str(row.get("key")) == "messages.monthly":
@@ -431,8 +447,8 @@ class HttpPeers:
         # it costs no message and no unit; a notice of its own would come out of the same ceiling
         # it is reporting on, at the moment there is none left.
         try:
-            rows = _get(self._pressure_url + "?" + urllib.parse.urlencode({"limit": 1000}),
-                        self._token, self._timeout).get("establishments") or []
+            rows = (await _get(self._pressure_url + "?" + urllib.parse.urlencode({"limit": 1000}),
+                        self._token, self._timeout)).get("establishments") or []
             for row in rows:
                 if str(row.get("tenant")) == tenant:
                     out["ceiling_missed"] = int(row.get("missed") or 0)
@@ -443,15 +459,15 @@ class HttpPeers:
         # How many customers currently allow this shop's offers. A COUNT and never a list — the
         # peer's route has no shape that could return who (spec §8.5).
         try:
-            out["consented"] = int(_post(self._consent_url, {"tenant": tenant},
-                                         self._token, self._timeout).get("granted") or 0)
+            out["consented"] = int((await _post(self._consent_url, {"tenant": tenant},
+                                         self._token, self._timeout)).get("granted") or 0)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass
 
         # Points redeemed this week. AGGREGATES ONLY — the peer's route returns totals and never
         # who, because a report builder has no business receiving a customer list.
         try:
-            rep = _post(self._loyalty_url, {"tenant": tenant, "since": since},
+            rep = await _post(self._loyalty_url, {"tenant": tenant, "since": since},
                         self._token, self._timeout)
             out["points_redeemed"] = int(rep.get("redeemed_since") or 0)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
@@ -462,7 +478,7 @@ class HttpPeers:
         # line simply never appears (see core/digest.py's own zero-drops-the-line rule), same as
         # a peer that is genuinely down.
         try:
-            rat = _post(self._ratings_summary_url, {"tenant": tenant, "since": since},
+            rat = await _post(self._ratings_summary_url, {"tenant": tenant, "since": since},
                        self._token, self._timeout)
             out["ratings_count"] = int(rat.get("count") or 0)
             out["ratings_average"] = float(rat.get("average") or 0.0)

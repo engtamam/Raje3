@@ -10,6 +10,8 @@
 # =============================================================================
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import Depends, HTTPException, Request, Response, status
 
 from app.api.auth import Principal, _extract_principal
@@ -64,7 +66,9 @@ async def optional_principal(request: Request) -> "Principal | None":
     if scheme.lower() != "bearer" or not token:
         return None
     try:
-        claims = request.app.state.container.token_verifier.verify(token)
+        # OFF THE EVENT LOOP — same fix, same reasoning as auth.py's own require_user; see there
+        # for the full note on why a JWKS cache miss must never block synchronously here.
+        claims = await asyncio.to_thread(request.app.state.container.token_verifier.verify, token)
     except Exception:
         return None
     return _extract_principal(claims)

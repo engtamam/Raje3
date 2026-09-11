@@ -323,8 +323,21 @@ class Subscriptions:
         return None if row is None else bool(row.get("on"))
 
     async def recipients(self, tenant: str) -> list[str]:
+        """Every subscribed subject for this tenant — PAGED to the store's own end, fixed
+        2026-09-12 (a real gap a QA audit found): a single `limit=200` page with the cursor
+        discarded meant an establishment with more than 200 distinct subscribed subjects (a chain
+        with many branch managers, or simply one that accumulated subscribers over time) silently
+        and permanently never sent the digest to anyone sorted past the 200th by id — no error,
+        no log line, just a normal-looking short list every week. Same paging shape as every other
+        "every row, not a screenful" reader in this codebase (e.g. payouts.py's own `_all_commissions`
+        in the sibling affiliate-service)."""
         from app.core.models import SUBSCRIPTIONS
 
-        rows, _ = await self.store.find(SUBSCRIPTIONS, {"tenant": tenant}, limit=200,
-                                        sort=("id", "asc"))
-        return [r["subject"] for r in (rows or []) if r.get("on")]
+        out: list[str] = []
+        after: str | None = None
+        while True:
+            rows, after = await self.store.find(SUBSCRIPTIONS, {"tenant": tenant}, limit=200,
+                                                after=after, sort=("id", "asc"))
+            out.extend(r["subject"] for r in (rows or []) if r.get("on"))
+            if not after:
+                return out

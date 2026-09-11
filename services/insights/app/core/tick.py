@@ -160,6 +160,7 @@ class Tick:
         # snapshots and no switch — "filter by your only branch" is a control that does nothing
         # and a question the owner has to think about (spec §10.6.4).
         if len(branches) > 1:
+            failed_branches: list[str] = []
             for b in branches:
                 # THE BRANCH INHERITS THE SHOP'S TRUNCATION. Filtering makes a plain list, and a
                 # branch computed from a partial history is exactly as partial as the shop it was
@@ -168,10 +169,31 @@ class Tick:
                 scoped = VisitPage(v for v in visits
                                    if str(v.get("branch_id") or "") == b)
                 scoped.truncated = bool(getattr(visits, "truncated", False))
-                await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
-                                          effect=effect, branch_names=branch_names,
-                                          operator_names=operator_names,
-                                          pkg_components=pkg_components, pkg_names=pkg_names)
+                # ONE BRANCH AT A TIME, ISOLATED — fixed 2026-09-12, a real gap a QA audit found.
+                # The whole-shop snapshot above is already written by the time this loop runs; a
+                # store failure partway through (pool exhaustion, a timeout) used to propagate
+                # straight out of compute() and get caught by run()'s own per-TENANT try, marking
+                # the whole tenant "failed" for this tick — while the whole-shop snapshot it wrote
+                # moments earlier stayed, now describing a shop whose OWN branch table is stale
+                # from the previous run, with nothing anywhere saying so. Same "one failure must
+                # not stop the rest" posture run() already applies to tenants, applied one scope
+                # down: the other branches still get their fresh snapshot this pass.
+                try:
+                    await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
+                                              effect=effect, branch_names=branch_names,
+                                              operator_names=operator_names,
+                                              pkg_components=pkg_components, pkg_names=pkg_names)
+                except Exception as exc:                                    # noqa: BLE001
+                    failed_branches.append(b)
+                    if self.telemetry:
+                        self.telemetry.event("insights_branch_snapshot_failed", tenant=tenant,
+                                             branch_id=b, error=str(exc)[:200])
+            if failed_branches:
+                # RECORDED ON THE ALREADY-WRITTEN WHOLE-SHOP SNAPSHOT, so a reader of that row
+                # (or a future dashboard banner) can tell "all branches reconcile" from "one or
+                # more are stale from last pass" without cross-referencing anything else.
+                snap.values["branches_partial"] = failed_branches
+                await self.store.put(SNAPSHOTS, snap.key, snap.to_dict())
         return snap
 
     async def _compute_scope(self, tenant: str, visits: list[dict], catalogue: list[dict],

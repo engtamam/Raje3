@@ -551,7 +551,11 @@ async def dispute_report(request: Request, body: DisputeReportIn,
         "dispute_report.generated", actor=getattr(principal, "subject", ""),
         tenant=result.tenant, resource=f"dispute_report:{body.scenario}",
         ip=request.client.host if request.client else "",
-        metadata={"format": body.file_format, "item_count": len(result.items)})
+        metadata={"format": body.file_format, "item_count": len(result.items),
+                 # SURFACED, NOT SWALLOWED — a real gap a QA audit found: `result.errors` used to
+                 # be read by nobody, so a partial report (a source down, a bad URL) looked
+                 # identical, in both the audit trail and the document itself, to a complete one.
+                 "source_errors": result.errors})
 
     render_items = [RenderItem(ts_label=_fmt_report_ts(it.ts), source=it.source, label=it.label)
                     for it in result.items]
@@ -559,7 +563,8 @@ async def dispute_report(request: Request, body: DisputeReportIn,
     tmp_dir = Path(tempfile.mkdtemp(prefix="dispute_report_"))
     docx_path = tmp_dir / f"dispute_{body.scenario}_{result.tenant}.docx"
     build_docx(scenario_title=result.title, tenant=result.tenant, items=render_items,
-              out_path=docx_path, generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
+              out_path=docx_path, generated_at_label=now.strftime("%Y-%m-%d %H:%M"),
+              warnings=result.errors or None)
 
     if body.file_format == "docx":
         return FileResponse(docx_path, media_type=

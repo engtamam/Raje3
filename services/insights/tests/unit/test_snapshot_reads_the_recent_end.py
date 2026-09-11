@@ -76,7 +76,9 @@ def _drive(feed: AscendingFeed, limit: int) -> VisitPage:
 
     real_post = peers._post                                                   # noqa: SLF001
 
-    def fake_post(url, body, token, timeout):
+    # ASYNC NOW — `_post` itself became `async def` (offloaded onto a thread; see peers/__init__.py's
+    # own note on why), so a stub standing in for it must match the same shape.
+    async def fake_post(url, body, token, timeout):
         return feed.read(int(body["since"]), int(body["limit"]),
                          bool(body.get("newest_first")))
 

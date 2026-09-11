@@ -205,10 +205,18 @@ class RenderItem:
 
 def build_docx(*, scenario_title: str, tenant: str, items: list[RenderItem],
                out_path: str | Path, logo_path: str | Path | None = None,
-               generated_at_label: str = "") -> Path:
+               generated_at_label: str = "", warnings: list[str] | None = None) -> Path:
     """Build the branded .docx. `logo_path` is optional — `brand/logo/` holds no actual image
     file yet (checked: only a `.gitkeep`), so a missing/absent logo degrades to a text-only
-    header rather than failing the whole report."""
+    header rather than failing the whole report.
+
+    `warnings` — added 2026-09-12, a real gap a QA audit found: `RunResult.errors` (one string per
+    source that failed to answer, e.g. "legal: compliance-service unreachable") used to be read by
+    nobody. The document itself now says so, in its own visible block, before anything else — a
+    report that looks complete and authoritative while silently missing a whole evidence category
+    is exactly the wrong failure mode for a LEGAL/COMPLIANCE document, where an unnoticed gap
+    matters most.
+    """
     doc = Document()
 
     sec = doc.sections[0]
@@ -244,6 +252,15 @@ def build_docx(*, scenario_title: str, tenant: str, items: list[RenderItem],
     arabic_run(subtitle_p, ltr(tenant), size=11)
 
     _horizontal_rule(doc)
+
+    if warnings:
+        warn_p = doc.add_paragraph()
+        arabic_run(warn_p, "⚠ مصادر تعذّر الوصول إليها — هذا التقرير قد يكون ناقصاً:",
+                  size=11, bold=True)
+        for w in warnings:
+            item_p = doc.add_paragraph()
+            arabic_run(item_p, f"• {w}", size=10)
+        _horizontal_rule(doc)
 
     if not items:
         p = doc.add_paragraph()
