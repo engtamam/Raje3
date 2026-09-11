@@ -15,6 +15,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { OperatorI18nProvider } from '../operator-i18n';
 import { vi } from 'vitest';
 
 const rows = (label: string) => screen.queryAllByText(label).length;
@@ -58,7 +59,11 @@ const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
 
 function open() {
-  return render(<MemoryRouter><MessagesScreen session={session} catalog={catalog} /></MemoryRouter>);
+  return render(
+    <OperatorI18nProvider session={session}>
+      <MemoryRouter><MessagesScreen session={session} catalog={catalog} /></MemoryRouter>
+    </OperatorI18nProvider>,
+  );
 }
 
 describe('«القوالب» — every template, once, grouped and tagged', () => {

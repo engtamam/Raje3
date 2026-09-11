@@ -48,6 +48,8 @@ import { APP_ROWS, owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './messages-i18n';
 
 /**
  * A campaign as the service answers with it. `state` is one of `draft|active|paused|done` — and
@@ -57,33 +59,41 @@ import { digitsOnly } from '../digits';
  */
 interface Campaign { id: string; goal?: string; state?: string; sent?: number }
 
-/** A goal's name, so a row reads «رجّع اللي غابوا» rather than `win_back`. */
-const GOAL_TITLE: Record<string, string> = {
-  win_back: 'رجّع اللي غابوا',
-  reward_loyal: 'كافئ المخلصين',
-  announce: 'أعلن جديدك',
-  occasion: 'هنّئ في مناسبة',
-  awareness: 'وعِّ عملاءك',
-  service_offer: 'عرض على خدمة',
+/** A goal's own key → translation key, so a row reads a real title rather than `win_back`. */
+const GOAL_KEY: Record<string, string> = {
+  win_back: 'messages.goal.win_back',
+  reward_loyal: 'messages.goal.reward_loyal',
+  announce: 'messages.goal.announce',
+  occasion: 'messages.goal.occasion',
+  awareness: 'messages.goal.awareness',
+  service_offer: 'messages.goal.service_offer',
   // The two goals goals.py added after this map was first written — a campaign of either kind
   // fell back to `c.goal` (the raw English key) in the list below until this was caught live
   // against campaigns.goals: an owner would have read "seasonal_care" instead of its own title.
-  seasonal_care: 'نصيحة موسمية',
+  seasonal_care: 'messages.goal.seasonal_care',
   // KEPT DELIBERATELY — `safety` was removed from `CARDS`/`GOAL_TEMPLATE` (goals.py) whole, so
   // no NEW campaign can ever carry this goal again, but a shop that already launched one before
   // the removal still has that row in its own history here. Without this entry that OLD row
   // would fall back to the raw key ("safety") instead of a real title — a real record made to
   // look broken by a feature removal it had nothing to do with.
-  safety: 'نبّه عن خطر',
+  safety: 'messages.goal.safety',
 };
+function goalTitle(t: (key: string) => string, goal: string): string | undefined {
+  const key = GOAL_KEY[goal];
+  return key ? t(key) : undefined;
+}
 
 /** The four states, in his words rather than ours. */
-const STATE: Record<string, string> = {
-  active: 'تعمل',
-  paused: 'موقوفة',
-  done: 'انتهت',
-  draft: 'مسودّة',
+const STATE_KEY: Record<string, string> = {
+  active: 'messages.state.active',
+  paused: 'messages.state.paused',
+  done: 'messages.state.done',
+  draft: 'messages.state.draft',
 };
+function stateLabel(t: (key: string) => string, state: string): string | undefined {
+  const key = STATE_KEY[state];
+  return key ? t(key) : undefined;
+}
 
 /** One line of the send log. `reason` is the service's own sentence — never re-worded here. */
 interface LogRow {
@@ -103,13 +113,13 @@ interface LogRow {
   cls?: string;
   subject_ref?: string;
 }
-/** When it happened, in the words an owner uses. Same shape as «عملائي» — one habit, not two. */
-function when(at: number): string {
+/** When it happened, in the words an owner uses. Same shape as "My Customers" — one habit, not two. */
+function when(at: number, t: (key: string) => string): string {
   if (!at) return '';
   const days = Math.floor((Date.now() / 1000 - at) / 86_400);
-  if (days <= 0) return 'اليوم';
-  if (days === 1) return 'أمس';
-  return `قبل ${days} أيام`;
+  if (days <= 0) return t('messages.when.today');
+  if (days === 1) return t('messages.when.yesterday');
+  return tf(t, 'messages.when.daysAgo', { n: days });
 }
 
 interface Run { at?: number; sent?: number; suppressed?: number; reason?: string }
@@ -212,14 +222,17 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
 // entirely (composed fresh per conversation, never stored or edited here), so they read as an
 // appendix, not mixed in among the shop's own configured messages.
 const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers', 'bot'] as const;
-const SECTION_LABEL: Record<string, string> = {
-  service: 'خدمية',
-  personal: 'شخصية',
-  marketing: 'تسويقية',
-  tips: 'وعي ونصائح',
-  offers: 'عروض',
-  bot: 'أدوات المساعد الذكي',
+const SECTION_KEY: Record<string, string> = {
+  service: 'messages.section.service',
+  personal: 'messages.section.personal',
+  marketing: 'messages.section.marketing',
+  tips: 'messages.section.tips',
+  offers: 'messages.section.offers',
+  bot: 'messages.section.bot',
 };
+function sectionLabel(t: (key: string) => string, section: string): string {
+  return t(SECTION_KEY[section] ?? section);
+}
 
 /** Which section a GOAL-ONLY card lands under (win_back/occasion/reward_loyal are reason cards,
  *  never built from this — see `templateCards`). `announce` sits with the marketing reasons: it
@@ -296,70 +309,74 @@ interface BotToolCard {
     | { kind: 'flow'; flowName: string; intro: string };
 }
 
-const BOT_TOOL_CARDS: BotToolCard[] = [
-  {
-    id: 'propose_booking', label: 'اقتراح حجز موعد', interactive: true,
-    when: 'يقترح البوت وقتاً محدداً لخدمة أو باقة — اقتراح لا تأكيد، ويفتح شاشات الحجز الحقيقية',
-    preview: { kind: 'flow', flowName: 'booking', intro: 'شوف، عندنا وقت فاضي — تحب أحجزه لك؟' },
-  },
-  {
-    id: 'suggest_services_carousel', label: 'كاروسيل الخدمات', interactive: true,
-    when: 'يعرض بطاقات صور حقيقية لبعض خدمات/باقات المحل — فقط لما العميل يستكشف بلا طلب محدد',
-    preview: {
-      kind: 'carousel', intro: 'شوف بعض خدماتنا:',
-      cards: [
-        { id: 's1', kind: 'service', name: 'قص شعر', priceMinor: 5000, buttonLabel: 'احجز الآن' },
-        { id: 's2', kind: 'service', name: 'حلاقة ذقن', priceMinor: 3000, buttonLabel: 'احجز الآن' },
-        { id: 's3', kind: 'package', name: 'باقة العناية', priceMinor: 12000, buttonLabel: 'احجز الآن' },
-      ],
+/** Every bot-tool card, translated — built once per render from the active locale rather than a
+ *  single hardcoded Arabic array (same move Shop.tsx's own `dayLetters`/`dayNames` make). */
+function botToolCards(t: (key: string) => string): BotToolCard[] {
+  return [
+    {
+      id: 'propose_booking', label: t('messages.bot.propose_booking.label'), interactive: true,
+      when: t('messages.bot.propose_booking.when'),
+      preview: { kind: 'flow', flowName: 'booking', intro: t('messages.bot.propose_booking.intro') },
     },
-  },
-  {
-    id: 'get_customer_points_summary', label: 'ملخص نقاط العميل', interactive: false,
-    when: 'يعرض للعميل نمط رصيده من النقاط — بلا أي بيانات شخصية خام',
-    preview: { kind: 'text', text: 'عندك 320 نقطة — تقدر تستبدلها بخصم أو هدية من عروضنا.' },
-  },
-  {
-    id: 'suggest_redeemable_offer', label: 'اقتراح استبدال نقاط', interactive: false,
-    when: 'يسمّي هدية يقدر العميل يستبدلها برصيده الحالي فقط — لا يستبدل شي بنفسه',
-    preview: { kind: 'text', text: 'عندك نقاط تكفي لهدية مجانية! تبي أضيفها لحجزك القادم؟' },
-  },
-  {
-    id: 'suggest_related_service', label: 'اقتراح خدمة مكمّلة', interactive: false,
-    when: 'يذكّر بخدمة تُحجز غالباً مع الخدمة اللي يناقشها العميل الآن',
-    preview: { kind: 'text', text: 'غالباً اللي يحجزون قص الشعر يحبون معه تهذيب اللحية — تحب تضيفها؟' },
-  },
-  {
-    id: 'list_my_bookings', label: 'عرض حجوزاتي', interactive: false,
-    when: 'يسرد حجوزات العميل الحالية والقادمة، وحجوزاته القديمة إذا سأل عنها تحديداً',
-    preview: { kind: 'text', text: 'حجوزاتك القادمة:\nقص شعر — الخميس 4:00 م\nتهذيب لحية — بعد أسبوعين' },
-  },
-  {
-    id: 'propose_cancel_booking', label: 'اقتراح إلغاء حجز', interactive: false,
-    when: 'يقترح إلغاء حجز قائم للعميل — اقتراح لا إلغاء فعلي',
-    preview: { kind: 'text', text: 'تأكيد: تبي تلغي حجزك يوم الخميس الساعة 4:00 م؟' },
-  },
-  {
-    id: 'propose_reschedule_booking', label: 'اقتراح تأجيل حجز', interactive: true,
-    when: 'يقترح نقل حجز قائم لوقت جديد فاضٍ فعلياً — يفتح شاشات الحجز الحقيقية',
-    preview: { kind: 'flow', flowName: 'reschedule', intro: 'تحب أأجّل حجزك ليوم السبت الساعة 5:00 م بدل الخميس؟' },
-  },
-  {
-    id: 'list_packages', label: 'عرض الباقات', interactive: false,
-    when: 'يسرد باقات المحل الحقيقية المتاحة للحجز قريباً، بأسعارها الحقيقية',
-    preview: { kind: 'text', text: 'باقاتنا الحالية:\nباقة العناية الكاملة — 150 ريال\nباقة العريس — 300 ريال' },
-  },
-  {
-    id: 'list_due_services', label: 'خدمات حان وقتها', interactive: false,
-    when: 'يقترح خدمة اعتاد العميل عليها بدورته الخاصة — اقتراح طبيعي بلا ذكر أنه "متأخر"',
-    preview: { kind: 'text', text: 'وقتها حان! قص الشعر يناسبك هالأسبوع — تحب تحجز؟' },
-  },
-  {
-    id: 'list_lapsed_services', label: 'خدمات توقّف عنها', interactive: false,
-    when: 'يقترح خدمة توقّف العميل عن حجزها بوضوح — دعوة طبيعية بلا ذكر أنه "توقف"',
-    preview: { kind: 'text', text: 'اشتقناك! تحب نحجز لك موعد قص شعر قريب؟' },
-  },
-];
+    {
+      id: 'suggest_services_carousel', label: t('messages.bot.suggest_services_carousel.label'), interactive: true,
+      when: t('messages.bot.suggest_services_carousel.when'),
+      preview: {
+        kind: 'carousel', intro: t('messages.bot.suggest_services_carousel.intro'),
+        cards: [
+          { id: 's1', kind: 'service', name: t('messages.bot.carousel.haircut'), priceMinor: 5000, buttonLabel: t('messages.bot.bookNowButton') },
+          { id: 's2', kind: 'service', name: t('messages.bot.carousel.beardShave'), priceMinor: 3000, buttonLabel: t('messages.bot.bookNowButton') },
+          { id: 's3', kind: 'package', name: t('messages.bot.carousel.careBundle'), priceMinor: 12000, buttonLabel: t('messages.bot.bookNowButton') },
+        ],
+      },
+    },
+    {
+      id: 'get_customer_points_summary', label: t('messages.bot.get_customer_points_summary.label'), interactive: false,
+      when: t('messages.bot.get_customer_points_summary.when'),
+      preview: { kind: 'text', text: t('messages.bot.get_customer_points_summary.text') },
+    },
+    {
+      id: 'suggest_redeemable_offer', label: t('messages.bot.suggest_redeemable_offer.label'), interactive: false,
+      when: t('messages.bot.suggest_redeemable_offer.when'),
+      preview: { kind: 'text', text: t('messages.bot.suggest_redeemable_offer.text') },
+    },
+    {
+      id: 'suggest_related_service', label: t('messages.bot.suggest_related_service.label'), interactive: false,
+      when: t('messages.bot.suggest_related_service.when'),
+      preview: { kind: 'text', text: t('messages.bot.suggest_related_service.text') },
+    },
+    {
+      id: 'list_my_bookings', label: t('messages.bot.list_my_bookings.label'), interactive: false,
+      when: t('messages.bot.list_my_bookings.when'),
+      preview: { kind: 'text', text: t('messages.bot.list_my_bookings.text') },
+    },
+    {
+      id: 'propose_cancel_booking', label: t('messages.bot.propose_cancel_booking.label'), interactive: false,
+      when: t('messages.bot.propose_cancel_booking.when'),
+      preview: { kind: 'text', text: t('messages.bot.propose_cancel_booking.text') },
+    },
+    {
+      id: 'propose_reschedule_booking', label: t('messages.bot.propose_reschedule_booking.label'), interactive: true,
+      when: t('messages.bot.propose_reschedule_booking.when'),
+      preview: { kind: 'flow', flowName: 'reschedule', intro: t('messages.bot.propose_reschedule_booking.intro') },
+    },
+    {
+      id: 'list_packages', label: t('messages.bot.list_packages.label'), interactive: false,
+      when: t('messages.bot.list_packages.when'),
+      preview: { kind: 'text', text: t('messages.bot.list_packages.text') },
+    },
+    {
+      id: 'list_due_services', label: t('messages.bot.list_due_services.label'), interactive: false,
+      when: t('messages.bot.list_due_services.when'),
+      preview: { kind: 'text', text: t('messages.bot.list_due_services.text') },
+    },
+    {
+      id: 'list_lapsed_services', label: t('messages.bot.list_lapsed_services.label'), interactive: false,
+      when: t('messages.bot.list_lapsed_services.when'),
+      preview: { kind: 'text', text: t('messages.bot.list_lapsed_services.text') },
+    },
+  ];
+}
 
 /** One entry in «القوالب» — a reason, a goal, or (for the three that are both) one card carrying
  *  both capabilities, never shown twice. */
@@ -399,7 +416,9 @@ const GOAL_HAS_REASON = new Set(Object.values(REASON_GOAL).map((r) => r.goal));
 /** Every template in the product, once — reasons first (their own order), then the goals with no
  *  reason of their own, grouped by section and never duplicated. Pure, so a test can hold the
  *  rule without rendering anything. */
-export function templateCards(reasons: ReasonRow[], goals: GoalRow[]): TemplateCard[] {
+export function templateCards(
+  reasons: ReasonRow[], goals: GoalRow[], t: (key: string) => string = (k) => k,
+): TemplateCard[] {
   const out: TemplateCard[] = [];
   for (const r of reasons) {
     const linked = REASON_GOAL[r.id];
@@ -419,16 +438,16 @@ export function templateCards(reasons: ReasonRow[], goals: GoalRow[]): TemplateC
     const templateType = GOAL_TEMPLATE_TYPE[g.goal];
     out.push({
       key: `goal:${g.goal}`, label: g.title, when: g.line,
-      cls, clsLabel: SECTION_LABEL[cls] ?? cls,
+      cls, clsLabel: sectionLabel(t, cls),
       tags: ['manual'], goal: g.goal, templateType,
       interactive: Boolean(templateType && INTERACTIVE_TEMPLATE_TYPES.has(templateType)),
     });
   }
-  for (const t of BOT_TOOL_CARDS) {
+  for (const c of botToolCards(t)) {
     out.push({
-      key: `bot:${t.id}`, label: t.label, when: t.when,
-      cls: 'bot', clsLabel: SECTION_LABEL.bot,
-      tags: ['bot'], interactive: t.interactive, botPreview: t.preview,
+      key: `bot:${c.id}`, label: c.label, when: c.when,
+      cls: 'bot', clsLabel: sectionLabel(t, 'bot'),
+      tags: ['bot'], interactive: c.interactive, botPreview: c.preview,
     });
   }
   return out;
@@ -450,20 +469,24 @@ interface Who { id: string; name?: string; phone?: string; subject_ref?: string 
  * does not appear here — which is the safe direction: a missed row is a gap, an invented one is a
  * promise the engine does not keep.
  */
-const OCCASION: Record<string, string> = {
-  reminder: 'تذكير موعد',
-  follow_up: 'اطمئنان بعد الزيارة',
-  review_request: 'طلب تقييم',
-  campaign: 'حملة',
+const OCCASION_KEY: Record<string, string> = {
+  reminder: 'messages.occasion.reminder',
+  follow_up: 'messages.occasion.follow_up',
+  review_request: 'messages.occasion.review_request',
+  campaign: 'messages.occasion.campaign',
 };
+function occasionLabel(t: (key: string) => string, kind: string): string {
+  const key = OCCASION_KEY[kind];
+  return key ? t(key) : t('messages.occasion.fallback');
+}
 
-/** How far off it is, in the words he would use — «بعد 3 أيام», not a date he has to subtract. */
-function dueIn(at: number): string {
+/** How far off it is, in the words he would use — "in 3 days", not a date he has to subtract. */
+function dueIn(at: number, t: (key: string) => string): string {
   const days = Math.round((at - Date.now() / 1000) / 86_400);
-  if (days < 0) return 'تأخّرت';
-  if (days === 0) return 'اليوم';
-  if (days === 1) return 'بكرة';
-  return `بعد ${days} أيام`;
+  if (days < 0) return t('messages.due.overdue');
+  if (days === 0) return t('messages.due.today');
+  if (days === 1) return t('messages.due.tomorrow');
+  return tf(t, 'messages.due.inDays', { n: days });
 }
 
 /** 966xxxxxxxxx → 05xxxxxxxx. The form he reads on his own phone. */
@@ -492,7 +515,13 @@ interface Today {
 /** GREEN | YELLOW | RED | NA | UNKNOWN — Meta's own scale (services/reminders/core/ceiling.py).
  *  The last two are deliberately unmapped: a quality we could not read is not «متوسطة», it is
  *  nothing to say at all. */
-const QUALITY_LABEL: Record<string, string> = { GREEN: 'ممتازة', YELLOW: 'متوسطة', RED: 'ضعيفة' };
+const QUALITY_KEY: Record<string, string> = {
+  GREEN: 'messages.quality.GREEN', YELLOW: 'messages.quality.YELLOW', RED: 'messages.quality.RED',
+};
+function qualityLabel(t: (key: string) => string, quality: string): string | undefined {
+  const key = QUALITY_KEY[quality];
+  return key ? t(key) : undefined;
+}
 
 /** One number, named. Three of these make the whole «هل كل شيء يعمل؟» answer scannable in the
  *  half-second an owner actually spends on it. */
@@ -518,12 +547,13 @@ function Stat({ label, value, warn }: { label: string; value: number; warn?: boo
  * quiet line under them rather than a fourth number competing for attention.
  */
 function TodayCard({ today, session }: { today: Today; session: Session }) {
+  const { t } = useOperatorI18n();
   // DEFENSIVE ALL THE WAY DOWN. `today` arrives from one network call, same as every other
   // reader in this file — `messages` or `ceiling` missing from a malformed or partial answer
   // must not crash the screen it decorates; it should just draw the parts that did arrive.
   const messages = today.messages ?? { sent_today: 0, waiting: 0, retrying: 0, retrying_reason: '' };
   const ceiling = today.ceiling ?? { known: false, unlimited: false };
-  const quality = QUALITY_LABEL[ceiling.quality ?? ''];
+  const quality = qualityLabel(t, ceiling.quality ?? '');
   return (
     <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
       {today.blocked ? (
@@ -534,9 +564,9 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
       ) : (
         <div className="flex flex-col gap-1">
           <div className="flex items-stretch divide-x divide-border-subtle rtl:divide-x-reverse">
-            <Stat label="خرجت اليوم" value={messages.sent_today ?? 0} />
-            <Stat label="بانتظار الخروج" value={messages.waiting ?? 0} />
-            <Stat label="تعيد المحاولة" value={messages.retrying ?? 0} warn />
+            <Stat label={t('messages.stat.sentToday')} value={messages.sent_today ?? 0} />
+            <Stat label={t('messages.stat.waiting')} value={messages.waiting ?? 0} />
+            <Stat label={t('messages.stat.retrying')} value={messages.retrying ?? 0} warn />
           </div>
           <div className="flex justify-center">
             <AssistantHint session={session} anchor="messages.todayStats" />
@@ -550,9 +580,9 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
         <p className="flex items-center gap-1.5 border-t border-border-subtle pt-3 text-xs text-text-secondary">
           <Gauge size={13} className="shrink-0" aria-hidden />
           <span className="tabular-nums">
-            {`سقف واتساب اليوم: ${ceiling.remaining ?? 0} متبقٍّ من ${ceiling.limit ?? 0}`}
+            {tf(t, 'messages.ceiling.line', { remaining: ceiling.remaining ?? 0, limit: ceiling.limit ?? 0 })}
           </span>
-          {quality ? ` · جودة الحساب: ${quality}` : ''}
+          {quality ? tf(t, 'messages.ceiling.quality', { quality }) : ''}
           <AssistantHint session={session} anchor="messages.ceiling" />
         </p>
       ) : null}
@@ -562,11 +592,14 @@ function TodayCard({ today, session }: { today: Today; session: Session }) {
 
 /** THE TAG, IN HIS WORDS — the owner's own explicit ask: whether a card fires by itself, whether
  *  he presses it himself, or both, must be visible on the card, never buried in a modal. */
-const TAG_LABEL: Record<'auto' | 'manual' | 'bot', string> = {
-  auto: 'تلقائي',
-  manual: 'أنت ترسلها',
-  bot: 'رسائل البوت',
+const TAG_KEY: Record<'auto' | 'manual' | 'bot', string> = {
+  auto: 'messages.tag.auto',
+  manual: 'messages.tag.manual',
+  bot: 'messages.tag.bot',
 };
+function tagLabel(t: (key: string) => string, tag: 'auto' | 'manual' | 'bot'): string {
+  return t(TAG_KEY[tag]);
+}
 
 /**
  * A BOT-TOOL CARD'S OWN PREVIEW — no `reminders.preview_reason`/`preview_by_type` round trip
@@ -580,23 +613,23 @@ function BotToolPreviewModal({ session, catalog, card, preview, onClose }: {
   session: Session; catalog: Catalog; card: TemplateCard; preview: BotToolCard['preview'];
   onClose: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const data = preview.kind === 'carousel'
     ? { body: preview.intro, carousel: preview.cards }
     : preview.kind === 'flow'
-      ? { body: preview.intro, flowButton: { flowName: preview.flowName, text: 'فتح' } }
+      ? { body: preview.intro, flowButton: { flowName: preview.flowName, text: t('messages.botPreviewOpen') } }
       : { body: preview.text };
   return (
     <Modal open onClose={onClose} title={card.label} subtitle={card.when}>
       <div className="flex flex-col gap-3">
         <p className="text-xs text-text-secondary">
-          مثال تقريبي — الذكاء الاصطناعي يركّب الرد فعلياً وقت المحادثة، فقد يختلف نصّه عن هذا
-          المثال بالضبط.
+          {t('messages.botPreviewApprox')}
         </p>
         <WhatsAppTemplatePreview
           data={data}
           fetchFlowJson={preview.kind === 'flow' ? (flowName) => {
             const a = action(catalog, 'operations.whatsapp_flow_json');
-            if (!a) return Promise.reject(new Error('لا صلاحية لقراءة شاشات الفلو'));
+            if (!a) return Promise.reject(new Error(t('messages.noFlowPermission')));
             return call<FlowJson>(session, a, { name: flowName });
           } : undefined}
         />
@@ -626,6 +659,7 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
    *  would turn on a send he cannot pay for — is replaced. */
   locked?: boolean;
 }) {
+  const { t } = useOperatorI18n();
   const r = card.reason;
   return (
     <div className={['flex items-center gap-3 rounded-card border border-border-subtle',
@@ -644,13 +678,14 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
           ) : null}
           {/* THE TAG(S) — BOTH, ON ONE CARD, FOR THE THREE THAT ARE BOTH. */}
           {card.tags.length === 2 ? (
-            <Badge tone="neutral">تلقائي + يمكن إطلاقه يدوياً</Badge>
+            <Badge tone="neutral">{t('messages.tag.both')}</Badge>
           ) : (
-            <Badge tone="neutral">{TAG_LABEL[card.tags[0]]}</Badge>
+            <Badge tone="neutral">{tagLabel(t, card.tags[0])}</Badge>
           )}
-          {/* تفاعلي — يفتح شاشات فلو حقيقية داخل واتساب، لا مجرد نص. لا شارة عكسية لغير التفاعلي
-             (نفس منطق "بنصّك أنت" جمبها — الاستثناء يُعلَّم، لا القاعدة). */}
-          {card.interactive ? <Badge tone="info">تفاعلي</Badge> : null}
+          {/* INTERACTIVE — opens real Flow screens inside WhatsApp, not just text. No inverse
+             badge for the non-interactive case (same logic as "your own text" beside it — the
+             exception is marked, not the rule). */}
+          {card.interactive ? <Badge tone="info">{t('messages.tag.interactive')}</Badge> : null}
           {r?.template_status && r.template_status !== 'unknown' ? (
             <Badge tone={TEMPLATE_STATUS_META[r.template_status].tone}>
               {TEMPLATE_STATUS_META[r.template_status].label}
@@ -658,7 +693,7 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
           ) : null}
           {r?.template ? (
             <>
-              <Badge tone="neutral">بنصّك أنت</Badge>
+              <Badge tone="neutral">{t('messages.customTextBadge')}</Badge>
               <AssistantHint session={session} anchor="messages.customTextBadge" />
             </>
           ) : null}
@@ -672,7 +707,7 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
       {card.goal ? (
         <button type="button" onClick={onCrossLink}
                className="shrink-0 whitespace-nowrap text-xs text-text-secondary underline underline-offset-2 hover:text-text-primary">
-          {`أطلقها من «${GOAL_TITLE[card.goal] ?? 'حملاتي'}»`}
+          {tf(t, 'messages.crossLink', { goal: goalTitle(t, card.goal) ?? t('messages.goal.fallback') })}
         </button>
       ) : null}
 
@@ -683,12 +718,12 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
           {locked ? (
             <span className="flex items-center gap-1 text-xs text-text-secondary">
               <Lock size={14} aria-hidden />
-              بعد الشراء
+              {t('messages.afterPurchase')}
             </span>
           ) : (
             <>
               <span className="text-xs text-text-secondary">
-                {r.can_switch ? (r.on ? 'مفعّلة' : 'موقوفة') : ''}
+                {r.can_switch ? (r.on ? t('messages.reasonOn') : t('messages.reasonOff')) : ''}
               </span>
               {r.can_switch && onFlip ? (
                 <span className="[&_label>span]:sr-only">
@@ -702,7 +737,7 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
               ) : (
                 <span className="flex items-center gap-1 text-xs text-text-secondary">
                   <Lock size={14} aria-hidden />
-                  حقٌّ لعميلك
+                  {t('messages.customerRight')}
                 </span>
               )}
             </>
@@ -717,10 +752,12 @@ export function MessagesScreen(
   { session, catalog, owned, branch }:
   { session: Session; catalog: Catalog; owned?: Loading<Owned>; branch?: string },
 ) {
-  // ARRIVING FROM ANOTHER SCREEN WITH THE DECISION ALREADY MADE — محلّي's «يستحقون متابعتك» card
-  // links here with `?tab=campaigns&launch=win_back` rather than a plain link to «رسائلي», because
-  // a plain link still makes him find the tab, press «أطلق حملة», and pick the one goal he already
-  // came here for. Read once, on mount — a tab change afterwards is his own choice to keep.
+  const { t } = useOperatorI18n();
+  // ARRIVING FROM ANOTHER SCREEN WITH THE DECISION ALREADY MADE — "My Shop"'s "deserve your
+  // follow-up" card links here with `?tab=campaigns&launch=win_back` rather than a plain link to
+  // "My Messages", because a plain link still makes him find the tab, press "launch campaign",
+  // and pick the one goal he already came here for. Read once, on mount — a tab change
+  // afterwards is his own choice to keep.
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const launchGoal = params.get('launch') || undefined;
@@ -851,13 +888,13 @@ export function MessagesScreen(
    *  something to say; a goal read that has not arrived yet must not make the three shared cards
    *  flicker from "both" to "automatic only" and back. */
   const cards = useMemo(
-    () => templateCards(isReady(reasons) ? reasons : [], goals ?? []),
-    [reasons, goals],
+    () => templateCards(isReady(reasons) ? reasons : [], goals ?? [], t),
+    [reasons, goals, t],
   );
 
-  /** الفلتر الذكي — رقائق قابلة للتراكم (كلاهما معاً يعني "تلقائية وتفاعلية"، لا أحدهما فقط)،
-   *  فوق التقسيم إلى أقسام (SECTION_ORDER) لا بدلاً عنه — القسم يبقى التنظيم الأساسي، الفلتر يضيّق
-   *  داخله. */
+  /** THE SMART FILTER — stackable chips (both together means "automated AND interactive", not
+   *  either alone), on top of the section split (SECTION_ORDER) rather than instead of it — the
+   *  section stays the primary organization, the filter narrows within it. */
   type CardFilter = 'auto' | 'interactive' | 'bot';
   const [activeFilters, setActiveFilters] = useState<Set<CardFilter>>(new Set());
   const toggleFilter = (f: CardFilter) => setActiveFilters((prev) => {
@@ -906,7 +943,7 @@ export function MessagesScreen(
       setReasons((rows) => (isReady(rows)
         ? rows.map((r) => (r.id === row.id ? { ...r, on: !on } : r))
         : rows));
-      setSwitchError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+      setSwitchError(e instanceof Error ? e.message : t('messages.switchSaveError'));
     } finally {
       setBusy('');
     }
@@ -1027,7 +1064,7 @@ export function MessagesScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <PageHeader icon={MessageSquare} title="رسائلي" />
+      <PageHeader icon={MessageSquare} title={t('messages.title')} />
 
       {isLoading(today) ? (
         <Skeleton height={76} radius="card" />
@@ -1041,14 +1078,14 @@ export function MessagesScreen(
         // ragged block half the screen wide. It takes a className and merges with
         // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
         className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-        ariaLabel="أقسام الرسائل"
+        ariaLabel={t('messages.tabsAriaLabel')}
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'reasons', label: 'القوالب' },
-          { value: 'auto', label: 'بانتظار الخروج' },
-          { value: 'campaigns', label: 'حملاتي' },
-          { value: 'log', label: 'السجل' },
+          { value: 'reasons', label: t('messages.tab.reasons') },
+          { value: 'auto', label: t('messages.tab.auto') },
+          { value: 'campaigns', label: t('messages.tab.campaigns') },
+          { value: 'log', label: t('messages.tab.log') },
         ]}
       />
 
@@ -1062,18 +1099,18 @@ export function MessagesScreen(
               three that are both, both capabilities on one card rather than two. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
 
-          {/* الفلتر الذكي — رقاقتان تتراكمان، لا قائمة منسدلة: الاختيار هنا ثنائي بسيط (فيه/مو
-             فيه) لبعدين، مو تصنيفاً متعدد القيم يحتاج نموذجاً أثقل. */}
+          {/* THE SMART FILTER — two stackable chips, not a dropdown: the choice here is a simple
+             binary (has it/doesn't) for now, not a multi-value taxonomy that needs a heavier form. */}
           {isReady(reasons) && reasons.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-text-secondary">فلترة:</span>
+              <span className="text-xs text-text-secondary">{t('messages.filter.label')}</span>
               <button type="button" onClick={() => toggleFilter('auto')}
                      aria-pressed={activeFilters.has('auto')}
                      className={['rounded-pill border px-3 py-1 text-xs font-medium transition',
                        activeFilters.has('auto')
                          ? 'border-accent bg-accent-soft text-accent-on-soft'
                          : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
-                مؤتمتة فقط
+                {t('messages.filter.autoOnly')}
               </button>
               <button type="button" onClick={() => toggleFilter('interactive')}
                      aria-pressed={activeFilters.has('interactive')}
@@ -1081,7 +1118,7 @@ export function MessagesScreen(
                        activeFilters.has('interactive')
                          ? 'border-accent bg-accent-soft text-accent-on-soft'
                          : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
-                تفاعلية فقط
+                {t('messages.filter.interactiveOnly')}
               </button>
               <button type="button" onClick={() => toggleFilter('bot')}
                      aria-pressed={activeFilters.has('bot')}
@@ -1089,12 +1126,12 @@ export function MessagesScreen(
                        activeFilters.has('bot')
                          ? 'border-accent bg-accent-soft text-accent-on-soft'
                          : 'border-border-subtle bg-surface-1 text-text-secondary hover:bg-surface-2'].join(' ')}>
-                رسائل البوت فقط
+                {t('messages.filter.botOnly')}
               </button>
               {activeFilters.size > 0 ? (
                 <button type="button" onClick={() => setActiveFilters(new Set())}
                        className="text-xs text-text-secondary underline">
-                  مسح الفلتر
+                  {t('messages.filter.clear')}
                 </button>
               ) : null}
             </div>
@@ -1104,23 +1141,23 @@ export function MessagesScreen(
             <Skeleton height={200} />
           ) : isDenied(reasons) ? (
             <EmptyState
-              title="لا يشمل دورك دواعي الإرسال"
-              description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
+              title={t('messages.reasons.deniedTitle')}
+              description={t('messages.reasons.deniedDesc')}
             />
           ) : hasFailed(reasons) ? (
             <EmptyState
-              title="تعذّر قراءة رسائلك"
-              description="حسابك سليم، والخلل عندنا. حاول بعد قليل."
+              title={t('messages.reasons.failedTitle')}
+              description={t('messages.reasons.failedDesc')}
             />
           ) : reasons.length === 0 ? (
             <EmptyState
-              title="لا دواعي إرسال بعد"
-              description="تظهر هنا حالما يبدأ محلك في تسجيل الزيارات."
+              title={t('messages.reasons.emptyTitle')}
+              description={t('messages.reasons.emptyDesc')}
             />
           ) : activeFilters.size > 0 && filteredCards.length === 0 ? (
             <EmptyState
-              title="ما فيه قوالب تطابق الفلتر"
-              description="جرّب رقاقة ثانية، أو امسح الفلتر لعرض الكل."
+              title={t('messages.reasons.filterEmptyTitle')}
+              description={t('messages.reasons.filterEmptyDesc')}
             />
           ) : (
             <>
@@ -1130,7 +1167,7 @@ export function MessagesScreen(
                 return (
                   <div key={section} className="flex flex-col gap-2">
                     <h3 className="px-1 text-sm font-medium text-text-secondary">
-                      {SECTION_LABEL[section]}
+                      {sectionLabel(t, section)}
                     </h3>
                     <ul className="flex flex-col gap-2">
                       {inSection.map((c) => {
@@ -1163,8 +1200,7 @@ export function MessagesScreen(
                 );
               })}
               <p className="px-1 text-xs text-text-secondary">
-                الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
-                التسويقية تنطلق وحدها؛ ما تُطلقه أنت بنفسك ففي «حملاتي».
+                {t('messages.reasons.footnote')}
               </p>
             </>
           )}
@@ -1218,18 +1254,18 @@ export function MessagesScreen(
           // HE CAME TO STOP ONE. «ما في رسائل بانتظار الخروج» after a failed read closes the
           // screen for him, reassured, while the message he wanted to stop goes out on time.
           <EmptyState
-            title="تعذّرت قراءة الرسائل المجدولة"
-            description="والخلل عندنا. أعد المحاولة بعد قليل — لم يُلغَ شيء."
+            title={t('messages.schedule.failedTitle')}
+            description={t('messages.schedule.failedDesc')}
           />
         ) : (schedule.schedule ?? []).length === 0 ? (
           <EmptyState
-            title="ما في رسائل بانتظار الخروج"
-            description="كل زيارة تُسجَّل تجدول تذكيرها واطمئنانها — وتظهر هنا قبل أن تخرج، فتوقف ما تريد."
+            title={t('messages.schedule.emptyTitle')}
+            description={t('messages.schedule.emptyDesc')}
           />
         ) : (
           <>
             <p className="px-1 text-sm text-text-secondary">
-              {`${schedule.schedule.length} رسالة بانتظار الخروج — أوقف أياً منها قبل موعدها.`}
+              {tf(t, 'messages.schedule.summary', { n: schedule.schedule.length })}
             </p>
             <ul className="flex flex-col gap-2">
               {[...schedule.schedule]
@@ -1245,11 +1281,11 @@ export function MessagesScreen(
                             pseudonym. Names are optional at the counter (§4.3), so the phone is
                             the fallback that always identifies somebody. */}
                         <span className="truncate font-medium">
-                          {person?.name || (person?.phone ? asLocal(person.phone) : 'عميل')}
+                          {person?.name || (person?.phone ? asLocal(person.phone) : t('messages.customerFallback'))}
                         </span>
                         <span className="truncate text-sm text-text-secondary">
-                          {OCCASION[r.kind ?? ''] ?? 'رسالة'}
-                          {r.due_at ? ` · ${dueIn(r.due_at)}` : ''}
+                          {occasionLabel(t, r.kind ?? '')}
+                          {r.due_at ? ` · ${dueIn(r.due_at, t)}` : ''}
                         </span>
                       </span>
                       {/* CANCELS THE MESSAGE, NOT THE RULE — the route's own words, repeated here
@@ -1267,7 +1303,7 @@ export function MessagesScreen(
                             loadSchedule();
                           }}
                         >
-                          {cancelBusy === r.id ? 'تُوقَف…' : 'أوقفها'}
+                          {cancelBusy === r.id ? t('messages.cancel.busy') : t('messages.cancel.action')}
                         </Button>
                       ) : null}
                     </li>
@@ -1275,7 +1311,7 @@ export function MessagesScreen(
                 })}
             </ul>
             <p className="px-1 text-xs text-text-secondary">
-              الإيقاف يوقف هذه الرسالة وحدها — والزيارة القادمة تجدول واحدة جديدة.
+              {t('messages.schedule.footnote')}
             </p>
           </>
         )}
@@ -1291,39 +1327,39 @@ export function MessagesScreen(
                 the same "why is a message missing" explanation this tab always carried, just
                 placed where it now also does the job of keeping the two strips apart. */}
             <p className="flex flex-wrap items-center gap-1 px-1 text-sm text-text-secondary">
-              كل رسالة لم تخرج، ومعها سببها — لا شيء يُمنع بصمت.
+              {t('messages.log.intro')}
               <AssistantHint session={session} anchor="messages.deliveryStatus" />
             </p>
             <Segmented
               className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-              ariaLabel="تصفية السجل"
+              ariaLabel={t('messages.log.filterAriaLabel')}
               value={only}
               onChange={(v) => setOnly(v as '' | 'sent' | 'suppressed')}
               options={[
-                { value: '', label: 'الكل' },
-                { value: 'sent', label: 'خرجت' },
+                { value: '', label: t('messages.log.filter.all') },
+                { value: 'sent', label: t('messages.log.filter.sent') },
                 // THE ONE HE CAME FOR. Named by what happened to the message rather than by our
-                // word for it: «مكبوحة» is a term from the engine, and he is asking why his
+                // word for it: "suppressed" is a term from the engine, and he is asking why his
                 // customer heard nothing.
-                { value: 'suppressed', label: 'لم تخرج' },
+                { value: 'suppressed', label: t('messages.log.filter.suppressed') },
               ]}
             />
-            {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE. «صفِّ حسب فرعك الوحيد» is a control
-                that does nothing, and one more thing to read past. */}
+            {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE. "Filter by your only branch" is a
+                control that does nothing, and one more thing to read past. */}
             {(branches ?? []).length > 1 ? (
               <label className="flex items-center gap-2 px-1 text-sm">
-                <span className="text-text-secondary">الفرع</span>
+                <span className="text-text-secondary">{t('messages.log.branchLabel')}</span>
                 <select
                   className="min-h-11 flex-1 rounded-xl bg-surface-2 px-3 text-sm"
                   value={logBranch}
-                  aria-label="تصفية السجل حسب الفرع"
+                  aria-label={t('messages.log.branchAriaLabel')}
                   onChange={(e) => setLogBranch(e.target.value)}
                 >
-                  <option value="">كل الفروع</option>
+                  <option value="">{t('messages.log.allBranches')}</option>
                   {(branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   {/* A GROUP, NOT A LEFTOVER: campaign sends have no visit behind them, and rows
                       from before we carried the field will never have one. */}
-                  <option value="_none">بلا فرع محدَّد</option>
+                  <option value="_none">{t('messages.log.noBranch')}</option>
                 </select>
               </label>
             ) : null}
@@ -1333,24 +1369,24 @@ export function MessagesScreen(
             <Skeleton height={120} />
           ) : isDenied(log) ? (
             <EmptyState
-              title="لا يشمل دورك سجلّ الإرسال"
-              description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
+              title={t('messages.log.deniedTitle')}
+              description={t('messages.log.deniedDesc')}
             />
           ) : logFailed || hasFailed(log) ? (
-            // OURS, NOT HIS. «لا شيء في السجل بعد» is a statement about his shop, and we may only
-            // make it once we have actually read the log — otherwise an owner whose messages did
-            // go out is told they did not, on the one screen whose whole job is to say what left
-            // in his name.
+            // OURS, NOT HIS. "Nothing in the log yet" is a statement about his shop, and we may
+            // only make it once we have actually read the log — otherwise an owner whose messages
+            // did go out is told they did not, on the one screen whose whole job is to say what
+            // left in his name.
             <EmptyState
-              title="تعذّرت قراءة السجل"
-              description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+              title={t('messages.log.failedTitle')}
+              description={t('messages.log.failedDesc')}
             />
           ) : !isReady(log) || log.length === 0 ? (
             // NOT AN APOLOGY AND NOT A FAULT. A shop whose engine has not had to refuse anything
             // yet is a shop working correctly, and the sentence says which.
             <EmptyState
-              title="لا شيء في السجل بعد"
-              description="حين تخرج رسالة أو تُمنع، تجدها هنا بسببها."
+              title={t('messages.log.emptyTitle')}
+              description={t('messages.log.emptyDesc')}
             />
           ) : (
             <ul className="flex flex-col gap-2">
@@ -1365,11 +1401,11 @@ export function MessagesScreen(
                         {(() => {
                           const person = r.subject_ref ? who[r.subject_ref] : undefined;
                           return person?.name
-                            || (person?.phone ? asLocal(person.phone) : 'عميل');
+                            || (person?.phone ? asLocal(person.phone) : t('messages.customerFallback'));
                         })()}
                       </span>
                       <span className="text-xs text-text-secondary tabular-nums">
-                        {r.at ? `${when(r.at)} · ${OCCASION[r.cls ?? ''] ?? 'رسالة'}` : ''}
+                        {r.at ? `${when(r.at, t)} · ${occasionLabel(t, r.cls ?? '')}` : ''}
                       </span>
                     </span>
                     {/* THREE STATES, NOT TWO — and «خرجت» was doing the work of all three.
@@ -1385,8 +1421,8 @@ export function MessagesScreen(
                         otherwise think every recent message had failed. */}
                     <Badge tone={r.outcome !== 'sent' ? 'warning'
                       : r.read_at ? 'success' : 'neutral'}>
-                      {r.outcome !== 'sent' ? 'لم تخرج'
-                        : r.read_at ? 'قرأها' : r.delivered_at ? 'وصلت' : 'خرجت'}
+                      {r.outcome !== 'sent' ? t('messages.log.outcome.suppressed')
+                        : r.read_at ? t('messages.log.outcome.read') : r.delivered_at ? t('messages.log.outcome.delivered') : t('messages.log.outcome.sent')}
                     </Badge>
                   </div>
                   {/* THE SERVICE'S OWN SENTENCE, WORD FOR WORD. Every refusal in the engine
@@ -1414,8 +1450,8 @@ export function MessagesScreen(
         <LockedCard appId="campaigns" session={session} catalog={catalog} owned={owned} />
       ) : campaignsFailed ? (
         <EmptyState
-          title="تعذّرت قراءة حملاتك"
-          description="لم نستطع جلب القائمة الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+          title={t('messages.campaigns.failedTitle')}
+          description={t('messages.campaigns.failedDesc')}
         />
       ) : isLoading(campaigns) ? (
         // A DIFFERENT ABSENCE, KEPT SEPARATE: the shop HAS campaigns and this person may not use
@@ -1423,8 +1459,8 @@ export function MessagesScreen(
         <section className="rounded-card bg-surface-1 p-4 text-center shadow-sm">
           <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
           <EmptyState
-            title="الحملات ليست من صلاحياتك"
-            description="اطلب من المالك أن يفتحها لك."
+            title={t('messages.campaigns.roleLockedTitle')}
+            description={t('messages.campaigns.roleLockedDesc')}
           />
         </section>
       ) : (
@@ -1437,20 +1473,20 @@ export function MessagesScreen(
             <Launch session={session} catalog={catalog} initialGoalId={launchGoal}
                     onDone={() => { setLaunching(false); loadCampaigns(); }} />
           ) : action(catalog, 'campaigns.create') ? (
-            <div><Button onClick={() => setLaunching(true)}>أطلق حملة</Button></div>
+            <div><Button onClick={() => setLaunching(true)}>{t('messages.campaigns.launch')}</Button></div>
           ) : null}
 
           {hasFailed(campaigns) ? (
-            // «لم تُطلق حملة بعد» IS A FACT ABOUT HIS SHOP. Said after a failed read it tells an
-            // owner mid-campaign that nothing of his is running.
+            // "Haven't launched a campaign yet" IS A FACT ABOUT HIS SHOP. Said after a failed
+            // read it tells an owner mid-campaign that nothing of his is running.
             <EmptyState
-              title="تعذّرت قراءة حملاتك"
-              description="لم نستطع جلبها الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+              title={t('messages.campaigns.failedTitle')}
+              description={t('messages.campaigns.failedDesc')}
             />
           ) : (campaigns ?? []).length === 0 ? (
             <EmptyState
-              title="لم تُطلق حملة بعد"
-              description="اختر شريحة من عملائك الموافقين وأرسل لهم عرضاً."
+              title={t('messages.campaigns.emptyTitle')}
+              description={t('messages.campaigns.emptyDesc')}
             />
           ) : (
             // ONE ROW SHAPE, EVERYWHERE ON THIS SCREEN. This used to hash the name, the sent
@@ -1463,25 +1499,25 @@ export function MessagesScreen(
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate font-medium">
-                        {GOAL_TITLE[c.goal ?? ''] || c.goal || 'حملة'}
+                        {goalTitle(t, c.goal ?? '') || c.goal || t('messages.campaigns.fallbackName')}
                       </span>
                       {typeof c.sent === 'number' ? (
                         <span className="text-sm text-text-secondary tabular-nums">
-                          {c.sent} أُرسلت
+                          {tf(t, 'messages.campaigns.sentCount', { n: c.sent })}
                         </span>
                       ) : null}
                     </span>
                     {c.state ? (
                       <Badge tone={c.state === 'active' ? 'info' : 'neutral'}>
-                        {STATE[c.state] ?? c.state}
+                        {stateLabel(t, c.state) ?? c.state}
                       </Badge>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* «ماذا حدث» — THE MOST IMPORTANT ROUTE THIS SERVICE HAS, by its own note:
-                        "it didn't arrive" is the only complaint this product generates, and every
-                        correct refusal (consent, the ceiling, quiet hours) reads as a fault until
-                        it is named. It was declared and called by nothing. */}
+                    {/* "WHAT HAPPENED" — THE MOST IMPORTANT ROUTE THIS SERVICE HAS, by its own
+                        note: "it didn't arrive" is the only complaint this product generates, and
+                        every correct refusal (consent, the ceiling, quiet hours) reads as a fault
+                        until it is named. It was declared and called by nothing. */}
                     {action(catalog, 'campaigns.runs') ? (
                       <Button
                         variant="ghost"
@@ -1490,7 +1526,7 @@ export function MessagesScreen(
                         aria-expanded={runsFor === c.id}
                         onClick={() => void openRuns(c.id)}
                       >
-                        {campaignBusy === `runs:${c.id}` ? 'يُحمَّل…' : 'ماذا حدث'}
+                        {campaignBusy === `runs:${c.id}` ? t('messages.runs.loading') : t('messages.runs.button')}
                       </Button>
                     ) : null}
                     {/* STOPPING A STANDING RULE, not deleting its history. Only while it runs —
@@ -1509,7 +1545,7 @@ export function MessagesScreen(
                           loadCampaigns();
                         }}
                       >
-                        {campaignBusy === `pause:${c.id}` ? 'تُوقَف…' : 'أوقفها'}
+                        {campaignBusy === `pause:${c.id}` ? t('messages.cancel.busy') : t('messages.cancel.action')}
                       </Button>
                     ) : null}
                   </div>
@@ -1520,19 +1556,19 @@ export function MessagesScreen(
                   {runsFor === c.id && runs ? (
                     <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
                       {runs.length === 0 ? (
-                        <p className="text-sm text-text-secondary">لم تخرج إرسالة بعد.</p>
+                        <p className="text-sm text-text-secondary">{t('messages.runs.empty')}</p>
                       ) : (
                         runs.map((r, i) => (
                           <div key={i} className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
                             <span className="flex flex-col">
                               <span className="text-sm tabular-nums">
-                                {r.sent ?? 0} وصلت · {r.suppressed ?? 0} امتنعت
+                                {tf(t, 'messages.runs.summary', { sent: r.sent ?? 0, suppressed: r.suppressed ?? 0 })}
                               </span>
                               {r.reason ? (
                                 <span className="text-xs text-text-secondary">{r.reason}</span>
                               ) : null}
                             </span>
-                            <span className="text-xs text-text-secondary">{when(r.at ?? 0)}</span>
+                            <span className="text-xs text-text-secondary">{when(r.at ?? 0, t)}</span>
                           </div>
                         ))
                       )}

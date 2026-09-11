@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DENIED } from '../loading';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const TODAY_OK = {
   can_send: true,
@@ -54,9 +55,11 @@ const catalog = { services: [], unreachable: [] } as never;
 
 function open() {
   return render(
-    <MemoryRouter initialEntries={['/?tab=campaigns']}>
-      <MessagesScreen session={session} catalog={catalog} owned={DENIED} />
-    </MemoryRouter>,
+    <OperatorI18nProvider session={session}>
+      <MemoryRouter initialEntries={['/?tab=campaigns']}>
+        <MessagesScreen session={session} catalog={catalog} owned={DENIED} />
+      </MemoryRouter>
+    </OperatorI18nProvider>,
   );
 }
 

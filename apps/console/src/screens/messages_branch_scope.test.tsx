@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DENIED } from '../loading';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const logCalls: Array<{ branch_id?: string }> = [];
 
@@ -41,9 +42,11 @@ const catalog = { services: [], unreachable: [] } as never;
 
 function openLogTab(branch?: string) {
   const result = render(
-    <MemoryRouter initialEntries={['/']}>
-      <MessagesScreen session={session} catalog={catalog} owned={DENIED} branch={branch} />
-    </MemoryRouter>,
+    <OperatorI18nProvider session={session}>
+      <MemoryRouter initialEntries={['/']}>
+        <MessagesScreen session={session} catalog={catalog} owned={DENIED} branch={branch} />
+      </MemoryRouter>
+    </OperatorI18nProvider>,
   );
   // `?tab=log` is never read on mount (only `?tab=campaigns` is special-cased) — a real click on
   // the tab itself is what actually opens it, same as an owner would.

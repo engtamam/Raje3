@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DENIED } from '../loading';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -35,9 +36,11 @@ const catalog = { services: [], unreachable: [] } as never;
 describe('«رسائلي»\'s log tab never stacks its filter directly under the top strip', () => {
   it('renders real content (the explanatory sentence) between the two radiogroups', async () => {
     render(
-      <MemoryRouter initialEntries={['/']}>
-        <MessagesScreen session={session} catalog={catalog} owned={DENIED} />
-      </MemoryRouter>,
+      <OperatorI18nProvider session={session}>
+        <MemoryRouter initialEntries={['/']}>
+          <MessagesScreen session={session} catalog={catalog} owned={DENIED} />
+        </MemoryRouter>
+      </OperatorI18nProvider>,
     );
     fireEvent.click(screen.getByRole('radio', { name: 'السجل' }));
 

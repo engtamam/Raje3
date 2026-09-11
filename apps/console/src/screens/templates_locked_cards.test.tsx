@@ -12,6 +12,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 const REASONS = [
   { id: 'booking_confirmed', label: 'تأكيد حجز', when: 'بعد الحجز',
@@ -48,7 +49,9 @@ const owned = {
 
 function open() {
   return render(
-    <MemoryRouter><MessagesScreen session={session} catalog={catalog} owned={owned} /></MemoryRouter>,
+    <OperatorI18nProvider session={session}>
+      <MemoryRouter><MessagesScreen session={session} catalog={catalog} owned={owned} /></MemoryRouter>
+    </OperatorI18nProvider>,
   );
 }
 
