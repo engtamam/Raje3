@@ -42,9 +42,8 @@ import { AssistantHint } from '../AssistantHint';
 import { Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
-import { FlowPreviewModal } from './FlowPreview';
 import { APP_ROWS, owns, type Owned } from '../apps';
-import { action, call, type Action, type Catalog } from '../catalog';
+import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 
@@ -539,18 +538,6 @@ export function MessagesScreen(
   const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>(
     params.get('tab') === 'campaigns' ? 'campaigns' : 'reasons');
 
-  // THE FLOW PREVIEW TRIGGER — notification-service v0.19.27 shipped the owner-facing route
-  // (`GET /api/v1/whatsapp/flows/{name}/preview-json`, require_user) but did not add a catalog
-  // entry for it (its own user_actions.py only lists the notifications-inbox actions) — same
-  // "called by its own known path directly" pattern PlanCards.tsx's own FEATURES_PATH already
-  // established for a route absent from the catalog. Always present (no capability gate beyond
-  // being signed in), unlike a real catalog lookup that could come back undefined.
-  const flowPreviewAction: Action = {
-    id: 'notification.flow_preview_booking', label: 'Booking flow preview', method: 'GET',
-    path: '/api/v1/whatsapp/flows/booking/preview-json', capability: 'notifications.self',
-  };
-  const [flowPreviewOpen, setFlowPreviewOpen] = useState(false);
-
   /**
    * WHAT SENDS IN HIS NAME — the question this whole section is named after, and the one it could
    * not answer. «رسائلي» listed a queue and a log: what is about to go and what already went. It
@@ -870,20 +857,6 @@ export function MessagesScreen(
               place both live — every card carrying its own tags, its own class, and, for the
               three that are both, both capabilities on one card rather than two. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
-
-          {flowPreviewAction ? (
-            <div className="flex items-center justify-between gap-2 rounded-card border border-border-subtle bg-surface-1 p-3">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">فلو الحجز التفاعلي</span>
-                <span className="text-xs text-text-secondary">
-                  شاهد شكل الشاشات اللي يرسلها البوت خطوة بخطوة
-                </span>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => setFlowPreviewOpen(true)}>
-                معاينة
-              </Button>
-            </div>
-          ) : null}
           {isLoading(reasons) ? (
             <Skeleton height={200} />
           ) : isDenied(reasons) ? (
@@ -1320,9 +1293,6 @@ export function MessagesScreen(
           )}
         </section>
       )}
-
-      <FlowPreviewModal session={session} previewAction={flowPreviewAction} flowLabel="فلو الحجز"
-                       open={flowPreviewOpen} onClose={() => setFlowPreviewOpen(false)} />
     </div>
   );
 }
