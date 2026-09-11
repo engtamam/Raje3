@@ -36,6 +36,8 @@ import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 import { isShortGoogleMapsLink, parseGoogleMapsLink } from '../googleMapsLink';
 import { AssistantHint } from '../AssistantHint';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './team-i18n';
 
 interface DayHours { closed?: boolean; start_minute?: number; end_minute?: number }
 
@@ -54,9 +56,9 @@ interface Operator {
 // نفس ترتيب العرض وتسمية الأيام في BookingSettingsDialog.tsx — الأحد أولاً، ونفس ترقيم weekday()
 // المخزَّن فعلياً بلا أي ترجمة.
 const HOURS_DISPLAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
-const HOURS_DAY_LABEL: Record<number, string> = {
-  6: 'الأحد', 0: 'الاثنين', 1: 'الثلاثاء', 2: 'الأربعاء', 3: 'الخميس', 4: 'الجمعة', 5: 'السبت',
-};
+function hoursDayLabel(t: (key: string) => string, day: number): string {
+  return t(`team.day.${day}`);
+}
 function hoursMinutesToTime(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
@@ -77,14 +79,16 @@ function hoursTimeToMinutes(t: string): number {
  * «مشرف وردية» is not choosing a word, he is choosing what that person may touch — and a name
  * with no consequence beside it is a guess.
  */
-const ROLES: { value: string; label: string; can: string; icon: typeof UserRound }[] = [
-  // "يسجّل الزيارات فقط" كانت صحيحة قبل الحجوزات — الدور نفسه في roles.json يحمل
-  // bookings.read/bookings.write منذ ذلك الحين — الوصف الظاهر لا بد أن يبقى دقيقاً.
-  { value: 'operator', label: 'موظف ميداني', can: 'يسجّل الزيارات ويحجز', icon: UserRound },
-  { value: 'supervisor', label: 'مشرف وردية', can: 'الزيارات والحجوزات وعملاء ورديته والتقارير', icon: ShieldCheck },
-  { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات', icon: Megaphone },
-  { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب', icon: UserCog },
-];
+function roles(t: (key: string) => string): { value: string; label: string; can: string; icon: typeof UserRound }[] {
+  // "Records visits only" was true before bookings existed — the same role in roles.json has
+  // carried bookings.read/bookings.write ever since — the visible description must stay accurate.
+  return [
+    { value: 'operator', label: t('team.role.operator.label'), can: t('team.role.operator.can'), icon: UserRound },
+    { value: 'supervisor', label: t('team.role.supervisor.label'), can: t('team.role.supervisor.can'), icon: ShieldCheck },
+    { value: 'marketer', label: t('team.role.marketer.label'), can: t('team.role.marketer.can'), icon: Megaphone },
+    { value: 'manager', label: t('team.role.manager.label'), can: t('team.role.manager.can'), icon: UserCog },
+  ];
+}
 interface Branch { id: string; name: string; active?: boolean; lat?: number; lng?: number; city?: string }
 
 /** Just enough of a service to list it as a candidate — mirrors Services.tsx's own reading of
@@ -122,6 +126,7 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
    *  itself already returns for an unresolved limit. */
   onBranchGateChange?: (gate: ReturnType<typeof branchGate>) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [internalTab, setInternalTab] = useState<'people' | 'branches'>('people');
   const tab = controlledTab ?? internalTab;
   const setTab = onChangeTab ?? setInternalTab;
@@ -237,15 +242,15 @@ export function TeamScreen({ session, catalog, tab: controlledTab, onChangeTab, 
           // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
-            { value: 'people', label: 'العاملون' },
+            { value: 'people', label: t('team.tab.people') },
             // THE LOCK IS VISIBLE BEFORE HE PRESSES, not after — a tab that looks pressable and
             // then refuses is worse than one that says so. It marks BOTH kinds of closed door —
-            // «not yours» and «not in your enabled apps» — and the panel says which. Through
+            // "not yours" and "not in your enabled apps" — and the panel says which. Through
             // Segmented's own `badge`/`badgeTone`, same as Account.tsx's controlled-mode copy of
             // this exact tab, not a raw emoji glued onto the label text.
-            { value: 'branches', label: 'الفروع',
+            { value: 'branches', label: t('team.tab.branches'),
              ...(branchGate(Boolean(listBranches), branchLimit) !== 'open'
-               ? { badge: 'مقفل', badgeTone: 'partial' as const } : {}) },
+               ? { badge: t('team.locked'), badgeTone: 'partial' as const } : {}) },
           ]}
           value={tab}
           onChange={setTab}
@@ -301,6 +306,8 @@ export function People({ session, operators, branches, add, edit, hire, setHours
   pinKind: boolean;
   onChanged: () => void;
 }) {
+  const { t } = useOperatorI18n();
+  const ROLES = roles(t);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
@@ -360,7 +367,7 @@ export function People({ session, operators, branches, add, edit, hire, setHours
     } catch (err) {
       // THE SERVER'S SENTENCE, WHICH IS WHERE THE SEAT LIMIT LIVES. It names the number; a message
       // written here would be a second copy of an entitlement we do not hold.
-      setError(err instanceof Error ? err.message : 'تعذّر إضافة الموظف.');
+      setError(err instanceof Error ? err.message : t('team.addFailed'));
     } finally {
       setBusy(false);
     }
@@ -375,14 +382,14 @@ export function People({ session, operators, branches, add, edit, hire, setHours
         // it is an instruction to redo work, on the screen that decides who sees whose data.
         <EmptyState
           icon={<UserRound size={20} aria-hidden />}
-          title="تعذّرت قراءة فريقك"
-          description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+          title={t('team.people.failedTitle')}
+          description={t('team.people.failedDesc')}
         />
       ) : operators.length === 0 ? (
         <EmptyState
           icon={<UserRound size={20} aria-hidden />}
-          title="لا يوجد موظفون بعد"
-          description="أضف موظفيك ليسجّلوا الزيارات بحساباتهم."
+          title={t('team.people.emptyTitle')}
+          description={t('team.people.emptyDesc')}
         />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -398,13 +405,13 @@ export function People({ session, operators, branches, add, edit, hire, setHours
           that asks for an action it does not provide, found by using it. */}
       {add && !open ? (
         <Button className="flex items-center justify-center gap-1.5" onClick={() => setOpen(true)}>
-          <UserPlus size={16} aria-hidden /> إضافة موظف
+          <UserPlus size={16} aria-hidden /> {t('team.addOperator')}
         </Button>
       ) : null}
 
       {add && open ? (
         <form onSubmit={submit} className="flex flex-col gap-3 border-t border-border-subtle pt-3">
-          <Field label="الاسم" required htmlFor="op-name">
+          <Field label={t('team.form.name')} required htmlFor="op-name">
             <Input id="op-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
 
@@ -417,12 +424,12 @@ export function People({ session, operators, branches, add, edit, hire, setHours
             <div className="flex items-center gap-2">
               <Segmented
                 className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-                ariaLabel="نوع الإضافة"
+                ariaLabel={t('team.addKindAriaLabel')}
                 value={kind}
                 onChange={(v) => setKind(v as 'pin' | 'login')}
                 options={[
-                  { value: 'pin', label: 'رمز على الجهاز' },
-                  { value: 'login', label: 'حساب يدخل به' },
+                  { value: 'pin', label: t('team.addKind.pin') },
+                  { value: 'login', label: t('team.addKind.login') },
                 ]}
               />
               <AssistantHint anchor="team.add_kind" session={session} />
@@ -431,13 +438,13 @@ export function People({ session, operators, branches, add, edit, hire, setHours
 
           {kind === 'login' ? (
             <>
-              <Field label="جوّاله" required htmlFor="op-phone">
+              <Field label={t('team.form.phone')} required htmlFor="op-phone">
                 <Input id="op-phone" value={phone} inputMode="tel" dir="ltr"
                        onChange={(e) => setPhone(e.target.value)} />
               </Field>
               {/* HE CHANGES IT LATER; THE OWNER CHOOSES IT NOW. A temporary password the manager
                   says out loud beats an invite link a shop employee never opens. */}
-              <Field label="كلمة مرور مؤقتة" required htmlFor="op-pw">
+              <Field label={t('team.form.tempPassword')} required htmlFor="op-pw">
                 <Input id="op-pw" value={password} type="password"
                        onChange={(e) => setPassword(e.target.value)} />
               </Field>
@@ -458,24 +465,24 @@ export function People({ session, operators, branches, add, edit, hire, setHours
               touched it — a pre-selected first option would be the same silent default in a
               different shape. */}
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-text-secondary">فرعه</span>
-            <Select value={branchId} aria-label="فرع الموظف" required
+            <span className="text-text-secondary">{t('team.form.branch')}</span>
+            <Select value={branchId} aria-label={t('team.form.branchAriaLabel')} required
                    onChange={(e) => setBranchId(e.target.value)}>
-              <option value="" disabled>اختر الفرع…</option>
+              <option value="" disabled>{t('team.form.chooseBranch')}</option>
               {(branches ?? []).filter((b) => b.active !== false).map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>
             <span className="text-xs text-text-secondary">
               {kind === 'pin'
-                ? 'الزيارات التي يسجّلها تُنسب لهذا الفرع.'
-                : 'من له فرع يرى بيانات فرعه وحده، وزياراته تُنسب إليه.'}
+                ? t('team.form.branchHintPin')
+                : t('team.form.branchHintLogin')}
             </span>
           </label>
           {/* FOUR DIGITS, AND THE SERVER SAYS FOUR. A longer PIN is not meaningfully safer for what
               it protects and IS meaningfully slower to type a hundred times a day. */}
           {kind === 'pin' ? (
-          <Field label="رمز الدخول (4 أرقام)" required htmlFor="op-pin">
+          <Field label={t('team.form.pin')} required htmlFor="op-pin">
             <Input
               id="op-pin" value={pin} inputMode="numeric" dir="ltr" maxLength={4}
               onChange={(e) => setPin(digitsOnly(e.target.value).slice(0, 4))}
@@ -493,10 +500,10 @@ export function People({ session, operators, branches, add, edit, hire, setHours
                 ordinary `<div>` right above the fieldset instead — same visual placement, valid
                 nesting either way. */}
             <div className="mb-1 flex items-center gap-1 text-sm text-text-secondary">
-              الدور
+              {t('team.form.roleLabel')}
               <AssistantHint anchor="team.roles" session={session} />
             </div>
-            <legend className="sr-only">الدور</legend>
+            <legend className="sr-only">{t('team.form.roleLabel')}</legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {ROLES.map((r) => {
                 const selected = role === r.value;
@@ -537,10 +544,10 @@ export function People({ session, operators, branches, add, edit, hire, setHours
                 || (kind === 'pin' ? pin.length !== 4
                     : phone.trim().length < 6 || password.length < 8)}
             >
-              {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+              {busy ? t('team.form.saving') : t('team.form.save')}
             </Button>
             <Button type="button" variant="ghost" onClick={() => { setOpen(false); setError(''); }}>
-              إلغاء
+              {t('team.form.cancel')}
             </Button>
           </div>
         </form>
@@ -571,6 +578,8 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
   updateService?: ReturnType<typeof action>;
   onChanged: () => void;
 }) {
+  const { t } = useOperatorI18n();
+  const ROLES = roles(t);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(o.name);
   const [role, setRole] = useState(o.role ?? 'operator');
@@ -604,7 +613,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       setHoursOpen(false);
       onChanged();
     } catch (err) {
-      setHoursError(err instanceof Error ? err.message : 'تعذّر حفظ الدوام.');
+      setHoursError(err instanceof Error ? err.message : t('team.row.hoursSaveFailed'));
     } finally {
       setHoursBusy(false);
     }
@@ -619,7 +628,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       setHoursOpen(false);
       onChanged();
     } catch (err) {
-      setHoursError(err instanceof Error ? err.message : 'تعذّر إعادة الدوام.');
+      setHoursError(err instanceof Error ? err.message : t('team.row.hoursResetFailed'));
     } finally {
       setHoursBusy(false);
     }
@@ -653,7 +662,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       await call(session, updateService, { id: svc.id, eligible_staff_ids });
       onChanged();
     } catch (err) {
-      setServicesError(err instanceof Error ? err.message : 'تعذّر حفظ التعديل.');
+      setServicesError(err instanceof Error ? err.message : t('team.row.servicesSaveFailed'));
     } finally {
       setServicesBusy(false);
     }
@@ -697,7 +706,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       setEditing(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(err instanceof Error ? err.message : t('team.row.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -715,7 +724,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
       await call(session, edit, { id: o.id, active: o.active === false });
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+      setError(err instanceof Error ? err.message : t('team.row.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -731,7 +740,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
               touch the billing", never "how many employees do I have". */}
           <span className="text-sm text-text-secondary">
             {ROLES.find((r) => r.value === o.role)?.label ?? o.role ?? ''}
-            {o.active === false ? ' · موقوف' : ''}
+            {o.active === false ? t('team.row.stopped') : ''}
           </span>
         </span>
 
@@ -739,11 +748,11 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" className="text-sm"
                     onClick={() => { setName(o.name); setRole(o.role ?? 'operator'); setEditing((v) => !v); }}>
-              تعديل
+              {t('team.row.edit')}
             </Button>
             <Button type="button" variant="ghost" className="text-sm text-danger"
                     disabled={busy} onClick={toggleActive}>
-              {o.active === false ? 'إعادة تفعيل' : 'إيقاف'}
+              {o.active === false ? t('team.row.reactivate') : t('team.row.stop')}
             </Button>
           </div>
         ) : null}
@@ -751,17 +760,17 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
 
       {editing ? (
         <div className="flex flex-wrap items-end gap-2 rounded-xl bg-surface-2 p-2">
-          <Field label="الاسم" htmlFor={`op-name-${o.id}`}>
+          <Field label={t('team.form.name')} htmlFor={`op-name-${o.id}`}>
             <Input id={`op-name-${o.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-text-secondary">الدور</span>
+            <span className="text-text-secondary">{t('team.form.roleLabel')}</span>
             <Select value={role} onChange={(e) => setRole(e.target.value)}>
               {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
             </Select>
           </label>
-          <Button type="button" disabled={busy} onClick={save}>حفظ</Button>
-          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>إلغاء</Button>
+          <Button type="button" disabled={busy} onClick={save}>{t('team.form.save')}</Button>
+          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>{t('team.form.cancel')}</Button>
         </div>
       ) : null}
 
@@ -778,11 +787,11 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
            a real branch to clear it, same as adding somebody new. */
         edit ? (
           <label className="flex items-center gap-2 text-sm">
-            <span className="shrink-0 text-text-secondary">فرعه</span>
+            <span className="shrink-0 text-text-secondary">{t('team.form.branch')}</span>
             <Select
               className="w-auto"
               value={o.branch_id ?? ''}
-              aria-label={`فرع ${o.name}`}
+              aria-label={tf(t, 'team.row.branchAriaLabel', { name: o.name })}
               onChange={async (e) => {
                 if (!e.target.value) return;
                 await call(session, edit, { id: o.id, branch_id: e.target.value })
@@ -790,7 +799,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
                 onChanged();
               }}
             >
-              {o.branch_id ? null : <option value="" disabled>فرع غير محدَّد — اختره الآن</option>}
+              {o.branch_id ? null : <option value="" disabled>{t('team.row.branchUnset')}</option>}
               {(branches ?? []).filter((b) => b.active !== false).map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
@@ -806,8 +815,8 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           a grant. */}
       {o.active !== false && (branches ?? []).length > 1 && edit ? (
         <fieldset className="flex flex-wrap items-center gap-2 text-sm">
-          <legend className="sr-only">{`ما يراه ${o.name}`}</legend>
-          <span className="text-text-secondary">يرى</span>
+          <legend className="sr-only">{tf(t, 'team.row.seesAriaLabel', { name: o.name })}</legend>
+          <span className="text-text-secondary">{t('team.row.seesLabel')}</span>
           <AssistantHint anchor="team.branch_visibility" session={session} />
           <label className="flex items-center gap-1">
             <input
@@ -820,7 +829,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
                 onChanged();
               }}
             />
-            <span>كل الفروع</span>
+            <span>{t('team.row.allBranches')}</span>
           </label>
           {o.visible_all === true ? null : (branches ?? [])
             .filter((b) => b.active !== false)
@@ -858,7 +867,7 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           <span className="inline-flex items-center gap-1">
             <button type="button" className="text-text-secondary underline underline-offset-2"
                     onClick={() => { setHoursDraft(o.working_hours ?? {}); setHoursOpen((v) => !v); }}>
-              {customised ? 'دوام مخصص لهذا الموظف' : 'تخصيص دوام'}
+              {customised ? t('team.row.customHours') : t('team.row.customizeHours')}
             </button>
             <AssistantHint anchor="team.custom_hours" session={session} />
           </span>
@@ -871,25 +880,25 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
                 return (
                   <div key={day} className="flex items-center gap-3">
                     <span className="w-16 shrink-0 text-xs font-semibold">
-                      {HOURS_DAY_LABEL[day]}
+                      {hoursDayLabel(t, day)}
                     </span>
                     <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-secondary">
                       <input type="checkbox" checked={!d.closed}
                             onChange={(e) => setDay(day, { closed: !e.target.checked })} />
-                      مفتوح
+                      {t('team.row.open')}
                     </label>
                     {!d.closed ? (
                       <div className="flex flex-1 items-center gap-2">
                         <input type="time" value={hoursMinutesToTime(d.start_minute ?? 480)}
                               onChange={(e) => setDay(day, { start_minute: hoursTimeToMinutes(e.target.value) })}
                               className="h-9 rounded-lg bg-surface-1 px-2 text-xs" dir="ltr" />
-                        <span className="text-text-secondary">إلى</span>
+                        <span className="text-text-secondary">{t('team.row.to')}</span>
                         <input type="time" value={hoursMinutesToTime(d.end_minute ?? 1320)}
                               onChange={(e) => setDay(day, { end_minute: hoursTimeToMinutes(e.target.value) })}
                               className="h-9 rounded-lg bg-surface-1 px-2 text-xs" dir="ltr" />
                       </div>
                     ) : (
-                      <span className="flex-1 text-xs text-text-muted">مغلق</span>
+                      <span className="flex-1 text-xs text-text-muted">{t('team.row.closed')}</span>
                     )}
                   </div>
                 );
@@ -901,15 +910,15 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
                 {customised ? (
                   <Button type="button" variant="ghost" className="text-xs" disabled={hoursBusy}
                           onClick={resetHours}>
-                    الرجوع لدوام المحل
+                    {t('team.row.backToShopHours')}
                   </Button>
                 ) : null}
                 <Button type="button" variant="ghost" className="text-xs"
                         onClick={() => setHoursOpen(false)}>
-                  إلغاء
+                  {t('team.form.cancel')}
                 </Button>
                 <Button type="button" className="text-xs" disabled={hoursBusy} onClick={saveHours}>
-                  حفظ
+                  {t('team.form.save')}
                 </Button>
               </div>
             </div>
@@ -925,14 +934,14 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
         <div>
           <div className="flex items-center gap-1">
             <FilterMenu
-              label="أي خدمات يسوّيها"
+              label={t('team.row.eligibleServices')}
               options={activeServices.map((s) => ({ value: s.id, label: s.name }))}
               selected={eligibleServiceIds}
               onChange={onServicesChange}
             />
             <AssistantHint anchor="team.eligible_services" session={session} />
           </div>
-          {servicesBusy ? <p className="mt-1 text-xs text-text-secondary">جارٍ الحفظ…</p> : null}
+          {servicesBusy ? <p className="mt-1 text-xs text-text-secondary">{t('team.row.savingEllipsis')}</p> : null}
           {servicesError ? <p role="alert" className="mt-1 text-xs text-danger">{servicesError}</p> : null}
         </div>
       ) : null}
@@ -959,6 +968,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   mayAdd: boolean | undefined;
   onChanged: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const [open, setOpen] = useState(false);
   // HE PRESSED THE BUTTON AND THE OFFER ANSWERED. The cap used to REMOVE the button and leave
   // a grey sentence in its place, which reads as «this shop cannot have another branch» — and
@@ -1002,8 +1012,8 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
     return (
       <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
         <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
-        <p className="text-text-primary">الفروع ليست من صلاحياتك</p>
-        <p className="mt-1 text-sm text-text-secondary">اطلب من المالك أن يفتحها لك.</p>
+        <p className="text-text-primary">{t('team.branches.roleLockedTitle')}</p>
+        <p className="mt-1 text-sm text-text-secondary">{t('team.branches.roleLockedDesc')}</p>
       </section>
     );
   }
@@ -1013,9 +1023,9 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
     return (
       <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
         <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
-        <p className="text-text-primary">الفروع متاحة كتطبيق إضافي من متجر التطبيقات</p>
+        <p className="text-text-primary">{t('team.branches.planLockedTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">
-          افتح فرعاً ثانياً وتابع كل فرع على حدة.
+          {t('team.branches.planLockedDesc')}
         </p>
         {/* THE SAME DOOR AS THE CAP BELOW. This screen sold branches and left him to find where
             they are sold — and the name it would have printed did not exist in the console until
@@ -1024,7 +1034,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
           to={STORE_PATH}
           className="mt-3 inline-block rounded-control bg-surface-3 px-3 py-1.5 text-sm text-text-primary"
         >
-          افتح متجر التطبيقات
+          {t('team.branches.openStore')}
         </Link>
       </section>
     );
@@ -1039,9 +1049,9 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
     if (locationRequired && !parsedLocation) {
       setError(mapsLink.trim()
         ? (isShortGoogleMapsLink(mapsLink)
-          ? 'هذا رابط مختصر — الصق الرابط الكامل من خرائط جوجل (بعد فتحه بالمتصفح).'
-          : 'ما قدرنا نحدد الموقع من هذا الرابط — تأكد إنه رابط خرائط جوجل صحيح.')
-        : 'حدّد موقع الفرع على خرائط جوجل — لازم من الفرع الثاني فأكثر.');
+          ? t('team.branches.shortLink')
+          : t('team.branches.badLink'))
+        : t('team.branches.locationRequired'));
       return;
     }
     setBusy(true);
@@ -1058,7 +1068,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
       setOpen(false);
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر إضافة الفرع.');
+      setError(err instanceof Error ? err.message : t('team.branches.addFailed'));
     } finally {
       setBusy(false);
     }
@@ -1104,7 +1114,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
         // from signup, and the read repairs a shop that somehow has none — so nothing left here
         // means the request did not answer, and «أضف فرعاً حين تفتح الثاني» would be us blaming
         // his shop for our outage.
-        <EmptyState title="تعذّر قراءة الفروع" description="حاول بعد قليل." />
+        <EmptyState title={t('team.branches.readFailedTitle')} description={t('team.branches.readFailedDesc')} />
       ) : (
         <ul className="flex flex-col gap-2">
           {branches.map((b) => (
@@ -1132,30 +1142,31 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
         // it at the cap opens the offer instead of the form; `=== false` on purpose, so an
         // answer that never came still opens the form rather than selling him something.
         <Button onClick={() => (mayAdd === false ? setCapped(true) : setOpen(true))}>
-          إضافة فرع
+          {t('team.branches.addBranch')}
         </Button>
       ) : null}
       {add && capped ? (
-        // AN OFFER, WITH THE DOOR IN IT. The sentence named «متجر التطبيقات» and left him to
+        // AN OFFER, WITH THE DOOR IN IT. The sentence named the App Store and left him to
         // find it — and until this cycle that name existed nowhere in the product: no row, no
         // tab, no address. Now it is a place, and this is a link to it rather than an
         // instruction.
         <div className="flex flex-col items-start gap-2 rounded-card bg-surface-2 p-3">
-          {/* Not «اشتراكك الحالي» (singular) — the branch cap is the SUM of the base's own gauge plus
-              every «فرع إضافي» add-on subscription he holds (billing-service merges gauge limits
-              across every live subscription), never one subscription's own number. */}
+          {/* Not "your current subscription" (singular) — the branch cap is the SUM of the base's
+              own gauge plus every "extra branch" add-on subscription he holds (billing-service
+              merges gauge limits across every live subscription), never one subscription's own
+              number. */}
           <p className="text-sm">
-            وصلت إلى عدد الفروع المسموح به حالياً. أضِف فروعاً أكثر من متجر التطبيقات.
+            {t('team.branches.capReached')}
           </p>
           <div className="flex items-center gap-2">
             <Link
               to={STORE_PATH}
               className="rounded-control bg-surface-3 px-3 py-1.5 text-sm text-text-primary"
             >
-              افتح متجر التطبيقات
+              {t('team.branches.openStore')}
             </Link>
             <Button type="button" variant="ghost" onClick={() => setCapped(false)}>
-              ليس الآن
+              {t('team.branches.notNow')}
             </Button>
           </div>
         </div>
@@ -1163,41 +1174,41 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
 
       {add && open ? (
         <form onSubmit={submit} className="flex flex-col gap-3 border-t border-border-subtle pt-3">
-          <Field label="اسم الفرع" required htmlFor="br-name">
+          <Field label={t('team.branches.name')} required htmlFor="br-name">
             <Input id="br-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
           {/* OPTIONAL ON THE FIRST BRANCH (a one-branch shop has no ambiguity), REQUIRED FROM THE
               SECOND — the `required` prop is only cosmetic (a red asterisk); the real gate is
               `locationRequired` in `submit()` above and, regardless of what this form does, the
               server's own refusal. */}
-          <Field label="رابط الموقع من خرائط جوجل" required={locationRequired} htmlFor="br-maps">
+          <Field label={t('team.branches.mapsLink')} required={locationRequired} htmlFor="br-maps">
             <Input id="br-maps" dir="ltr" placeholder="https://maps.google.com/…"
                   value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} />
           </Field>
           {mapsLink.trim() ? (
             parsedLocation ? (
               <p className="text-sm text-success">
-                ✓ الموقع محدَّد ({parsedLocation.lat.toFixed(4)}, {parsedLocation.lng.toFixed(4)})
+                {tf(t, 'team.branches.locationSet', { lat: parsedLocation.lat.toFixed(4), lng: parsedLocation.lng.toFixed(4) })}
               </p>
             ) : (
               <p className="text-sm text-text-secondary">
                 {isShortGoogleMapsLink(mapsLink)
-                  ? 'رابط مختصر — افتحه بالمتصفح والصق الرابط الكامل من شريط العنوان.'
-                  : 'لسه ما قدرنا نحدد الموقع من هذا الرابط.'}
+                  ? t('team.branches.shortLinkHint')
+                  : t('team.branches.stillUnresolved')}
               </p>
             )
           ) : null}
-          <Field label="المدينة (اختياري)" htmlFor="br-city">
+          <Field label={t('team.branches.city')} htmlFor="br-city">
             <Input id="br-city" value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
           {error ? <p role="alert" className="text-danger">{error}</p> : null}
           <div className="flex gap-2">
             <Button type="submit" disabled={busy || name.trim().length === 0}>
-              {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+              {busy ? t('team.form.saving') : t('team.form.save')}
             </Button>
             <Button type="button" variant="ghost"
                    onClick={() => { setOpen(false); setError(''); setMapsLink(''); setCity(''); }}>
-              إلغاء
+              {t('team.form.cancel')}
             </Button>
           </div>
         </form>
@@ -1220,6 +1231,7 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
  * than writing the truth once.
  */
 export function VehiclesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const read = action(catalog, 'operations.shop_vehicles');
   const write = action(catalog, 'operations.set_shop_vehicles');
   const [tracks, setTracks] = useState<boolean | null | undefined>(undefined);
@@ -1244,7 +1256,7 @@ export function VehiclesCard({ session, catalog }: { session: Session; catalog: 
     } catch (err) {
       // THE OLD VALUE STAYS ON THE SCREEN. A checkbox that moves on a failed write tells him the
       // plate page is on when the server still says off.
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ الاختيار. حاول بعد قليل.');
+      setError(err instanceof Error ? err.message : t('team.vehicles.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -1256,14 +1268,13 @@ export function VehiclesCard({ session, catalog }: { session: Session; catalog: 
     <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
-          <span className="text-sm font-medium">العمل على السيارات</span>
+          <span className="text-sm font-medium">{t('team.vehicles.title')}</span>
           <span className="text-xs text-text-secondary">
-            إن فعّلته ظهرت صفحة رقم اللوحة والعدّاد في «تسجيل زيارة»، وارتبطت الدورة بالسيارة لا
-            بصاحبها وحده. غيّره متى تغيّر عملك.
+            {t('team.vehicles.desc')}
           </span>
         </span>
         <Toggle checked={tracks === true} disabled={busy || !write} onChange={flip}
-               ariaLabel="عملي يتم على السيارات" testId="vehicles-toggle" />
+               ariaLabel={t('team.vehicles.ariaLabel')} testId="vehicles-toggle" />
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
     </section>
@@ -1283,6 +1294,7 @@ export function VehiclesCard({ session, catalog }: { session: Session; catalog: 
  * after the fact is a worse place to learn that than the button itself.
  */
 function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const read = action(catalog, 'operations.shop_mode');
   const write = action(catalog, 'operations.set_shop_mode');
   const [mode, setMode] = useState<Mode | null | undefined>(undefined);
@@ -1303,7 +1315,7 @@ function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) 
       setMode(await call<Mode>(session, write, { mode: 'per_branch' }));
       setAsking(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر تغيير نظام الفروع.');
+      setError(err instanceof Error ? err.message : t('team.mode.switchFailed'));
     } finally {
       setBusy(false);
     }
@@ -1315,37 +1327,36 @@ function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) 
 
   return (
     <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-      <h3 className="font-medium">نظام إدارة الفروع</h3>
+      <h3 className="font-medium">{t('team.mode.title')}</h3>
       <p className="text-sm text-text-secondary">
         {per
-          ? 'لكلّ فرع رقمه الخاص، والعميل يراسل فرعه. والإدارة تبقى مركزية: القوالب والخدمات والحملات والعملاء والنقاط تُعدّ مرة وترثها الفروع.'
-          : 'رقم واحد للمنشأة كلها. والفروع أماكن يُسجَّل فيها العمل، وكل رسالة تخرج من الرقم الذي يعرفه عميلك.'}
+          ? t('team.mode.perBranchDesc')
+          : t('team.mode.oneNumberDesc')}
       </p>
       {per || !write ? null : mode.available ? (
         asking ? (
           <div className="flex flex-col gap-2 border-t border-border-subtle pt-2">
             <p className="text-sm">
-              بعد التحوّل لا يمكن الرجوع من الشاشة: أرقام الفروع وقوالبها المعتمدة وعملاؤها لا
-              تُلغى بضغطة. متأكد؟
+              {t('team.mode.confirmSwitch')}
             </p>
             <div className="flex gap-2">
               <Button onClick={move} disabled={busy}>
-                {busy ? 'جارٍ التحويل…' : 'نعم، رقم لكل فرع'}
+                {busy ? t('team.mode.switching') : t('team.mode.confirmYes')}
               </Button>
               <Button variant="ghost" onClick={() => { setAsking(false); setError(''); }}>
-                إلغاء
+                {t('team.form.cancel')}
               </Button>
             </div>
           </div>
         ) : (
           <Button variant="ghost" onClick={() => setAsking(true)}>
-            التحوّل إلى رقم لكل فرع
+            {t('team.mode.switchTo')}
           </Button>
         )
       ) : (
         <p className="flex items-center gap-2 text-sm text-text-secondary">
           <Lock size={14} aria-hidden />
-          «رقم لكل فرع» قيد التجهيز. سنبلغك حين تجهز.
+          {t('team.mode.comingSoon')}
         </p>
       )}
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
@@ -1379,6 +1390,7 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
   stat: BranchStat | null;
   onChanged: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(branch.name);
   const [mapsLink, setMapsLink] = useState('');
@@ -1400,7 +1412,7 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
       setMapsLink('');
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر حفظ التعديل.');
+      setError(err instanceof Error ? err.message : t('team.branchRow.editSaveFailed'));
     } finally {
       setBusy(false);
     }
@@ -1420,7 +1432,7 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
             });
           }}
         >
-          <Field label="اسم الفرع" required htmlFor={`br-${branch.id}`}>
+          <Field label={t('team.branches.name')} required htmlFor={`br-${branch.id}`}>
             <Input id={`br-${branch.id}`} value={name} autoFocus
                    onChange={(e) => setName(e.target.value)} />
           </Field>
@@ -1428,7 +1440,7 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
               already-open branch's location is a fix an owner makes when he gets to it, never a
               form he is blocked from saving without). Leaving the link blank keeps whatever
               location the branch already has (or still has none) — this never clears one. */}
-          <Field label={hasLocation ? 'تحديث رابط الموقع (اختياري)' : 'رابط الموقع من خرائط جوجل (اختياري)'}
+          <Field label={hasLocation ? t('team.branchRow.updateMapsLink') : t('team.branchRow.mapsLinkOptional')}
                 htmlFor={`br-maps-${branch.id}`}>
             <Input id={`br-maps-${branch.id}`} dir="ltr" placeholder="https://maps.google.com/…"
                   value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} />
@@ -1436,23 +1448,23 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
           {mapsLink.trim() && !parsedLocation ? (
             <p className="text-sm text-text-secondary">
               {isShortGoogleMapsLink(mapsLink)
-                ? 'رابط مختصر — افتحه بالمتصفح والصق الرابط الكامل من شريط العنوان.'
-                : 'لسه ما قدرنا نحدد الموقع من هذا الرابط.'}
+                ? t('team.branches.shortLinkHint')
+                : t('team.branches.stillUnresolved')}
             </p>
           ) : null}
-          <Field label="المدينة (اختياري)" htmlFor={`br-city-${branch.id}`}>
+          <Field label={t('team.branches.city')} htmlFor={`br-city-${branch.id}`}>
             <Input id={`br-city-${branch.id}`} value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
           <div className="flex gap-2">
             <Button type="submit" disabled={busy || name.trim().length === 0}>
-              {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+              {busy ? t('team.form.saving') : t('team.form.save')}
             </Button>
             <Button type="button" variant="ghost"
                     onClick={() => {
                       setRenaming(false); setName(branch.name); setError('');
                       setMapsLink(''); setCity(branch.city ?? '');
                     }}>
-              إلغاء
+              {t('team.form.cancel')}
             </Button>
           </div>
         </form>
@@ -1462,24 +1474,24 @@ function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
             <span>{branch.name}</span>
             {/* CLOSED IS SAID, NOT GREYED. A branch that only looks faint reads as a rendering
                 accident; the word is what tells him why it is absent from the pickers. */}
-            {!live ? <span className="text-xs text-text-secondary">مغلق</span> : null}
-            {main ? <span className="text-xs text-text-secondary">الفرع الرئيسي — لا يُغلق</span> : null}
+            {!live ? <span className="text-xs text-text-secondary">{t('team.branchRow.closed')}</span> : null}
+            {main ? <span className="text-xs text-text-secondary">{t('team.branchRow.mainBranch')}</span> : null}
             {/* THE FIGURES, AND ONLY THE ONES WE HAVE. Each is dropped on its own when its read
-                failed - a card saying «0 زيارة» about a branch we could not count is a lie that
+                failed - a card saying "0 visits" about a branch we could not count is a lie that
                 looks like a report. */}
             <span className="flex flex-wrap gap-x-3 text-xs text-text-secondary">
-              {staff === null ? null : <span>{staff} موظفاً</span>}
-              {stat === null ? null : <span>{stat.visits ?? 0} زيارة</span>}
-              {stat === null ? null : <span>{stat.customers ?? 0} عميلاً</span>}
+              {staff === null ? null : <span>{tf(t, 'team.branchRow.staffCount', { n: staff })}</span>}
+              {stat === null ? null : <span>{tf(t, 'team.branchRow.visitCount', { n: stat.visits ?? 0 })}</span>}
+              {stat === null ? null : <span>{tf(t, 'team.branchRow.customerCount', { n: stat.customers ?? 0 })}</span>}
             </span>
           </span>
           {edit ? (
             <span className="flex gap-2">
-              <Button variant="ghost" onClick={() => setRenaming(true)}>تسمية</Button>
+              <Button variant="ghost" onClick={() => setRenaming(true)}>{t('team.branchRow.rename')}</Button>
               {main ? null : (
                 <Button variant="ghost" disabled={busy}
                         onClick={() => save({ active: !live })}>
-                  {live ? 'إغلاق' : 'إعادة فتح'}
+                  {live ? t('team.branchRow.close') : t('team.branchRow.reopen')}
                 </Button>
               )}
             </span>

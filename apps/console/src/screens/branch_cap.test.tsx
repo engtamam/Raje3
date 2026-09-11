@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { STORE_PATH } from '../nav';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -27,6 +28,7 @@ const may = { id: 'operations.create_branch', label: 'x', method: 'POST', path: 
 
 function open(mayAdd: boolean | undefined) {
   return render(
+    <OperatorI18nProvider session={session}>
     <MemoryRouter>
       <Branches
         session={session}
@@ -40,7 +42,8 @@ function open(mayAdd: boolean | undefined) {
         mayAdd={mayAdd}
         onChanged={() => {}}
       />
-    </MemoryRouter>,
+    </MemoryRouter>
+    </OperatorI18nProvider>,
   );
 }
 
