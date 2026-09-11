@@ -127,8 +127,8 @@ vi.mock('../api', async (importOriginal) => {
     // THE OPERATOR-LOCALE PROVIDER'S OWN READ — irrelevant to this suite's assertions (every
     // fixture is written in Arabic, the default), so it stays absent rather than answered, the
     // same "not this person at all" case `OperatorI18nProvider` already falls back to Arabic for.
-    getMyOperator: async () => { throw new Error('not mocked'); },
-    setMyOperatorLocale: async () => ({}),
+    getMyLocale: async () => { throw new Error('not mocked'); },
+    setMyLocale: async () => ({}),
   };
 });
 

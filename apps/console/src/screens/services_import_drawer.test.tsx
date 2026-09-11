@@ -33,8 +33,8 @@ vi.mock('../catalog', async (importOriginal) => {
 // is written in Arabic, the default), so it stays absent rather than answered, the same "not this
 // person at all" case `OperatorI18nProvider` already falls back to Arabic for.
 vi.mock('../api', () => ({
-  getMyOperator: async () => { throw new Error('not mocked'); },
-  setMyOperatorLocale: async () => ({}),
+  getMyLocale: async () => { throw new Error('not mocked'); },
+  setMyLocale: async () => ({}),
 }));
 
 afterEach(() => vi.clearAllMocks());

@@ -1,17 +1,19 @@
 /**
- * Language for the operator's day-to-day screens (Visit, Bookings, Services, …) — a SEPARATE
- * surface from `./i18n.ts` (the owner's Arabic-only sign-in/legal kit) and from
- * `@base-ui/i18n` (the shared auth-kit base catalog). CURRENT PHASE covers field-operator
- * screens only — the owner's own admin screens stay Arabic-only for now too, but that is this
- * phase's scope, not a permanent split (do not assume it stays that way).
+ * Language for the console's screens — a SEPARATE surface from `./i18n.ts` (the owner's
+ * Arabic-only sign-in/legal kit) and from `@base-ui/i18n` (the shared auth-kit base catalog).
+ * CURRENT PHASE covers the operator-facing screens (Visit, Bookings, Services, «الاشتراك», …)
+ * only — some admin-only screens stay Arabic-only for now too, but that is this phase's scope,
+ * not a permanent split (do not assume it stays that way).
  *
- * A HIRED OPERATOR HAS HIS OWN LOGIN (`PIN_OPERATORS_ENABLED=false` is this deployment's live
- * default — see services/operations/app/api/v1/staff.py's own header: "the shared-tablet
- * employee is switched off... every employee gets an account on his own phone"). So this is a
- * PER-ACCOUNT preference, stored on his own `Operator` row (`Operator.locale`,
- * `GET/PATCH /api/v1/staff/operators/me...`) — never `localStorage`. A device-local setting
- * would reset the moment he signs in on a different phone or the shop hands him a new tablet;
- * his account is the one thing that follows him.
+ * PLATFORM-WIDE NOW, ANY LOGGED-IN ACCOUNT, THE OWNER INCLUDED (2026-09-11). This used to be a
+ * PER-Operator-ROW preference (`Operator.locale`, `GET/PATCH /api/v1/staff/operators/me/locale`)
+ * — real for a hired operator (he has his own login, `PIN_OPERATORS_ENABLED=false` is this
+ * deployment's live default: "every employee gets an account on his own phone"), but structurally
+ * unreachable for the owner, who holds no `Operator` row at all. `GET/PATCH
+ * /api/v1/account/me/locale` replaces it, keyed by the account itself rather than by an Operator
+ * row — see `getMyLocale`/`setMyLocale` in api.ts. Never `localStorage` either way: a device-local
+ * setting would reset the moment he signs in on a different phone or the shop hands him a new
+ * tablet; his account is the one thing that follows him.
  *
  * DIRECTION IS A TABLE, NOT A TERNARY. `@base-ui/i18n`'s `applyDir` hardcodes ar→rtl/else→ltr,
  * which breaks the moment a second RTL language exists. Urdu is RTL (Perso-Arabic script);
@@ -19,7 +21,7 @@
  * script (Ajami) tradition — the modern standard "Boko" orthography used here is Latin.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { getMyOperator, setMyOperatorLocale } from './api';
+import { getMyLocale, setMyLocale } from './api';
 import type { Session } from './session';
 
 export type OperatorLocale = 'ar' | 'en' | 'ur' | 'ha' | 'fil';
@@ -79,21 +81,11 @@ export function translate(locale: OperatorLocale, key: string): string {
 interface Ctx {
   locale: OperatorLocale;
   /** `undefined` while the account's own preference is still loading — screens that read `t()`
-   *  before this settles get the Arabic default, same as an operator whose account has never
-   *  set one (`Operator.locale === ""`). */
+   *  before this settles get the Arabic default, same as an account that has never set one. */
   ready: boolean;
-  /** DOES THIS ACCOUNT HAVE AN Operator ROW AT ALL. The owner does not (§10.6 — he is not an
-   *  `Operator`), and `PATCH .../operators/me/locale` 404s NOT_AN_OPERATOR for exactly that
-   *  reason. `setLocale` used to be offered to him anyway: he picked a language, the screen
-   *  flipped for an instant, and the silent revert-on-404 below put it straight back — with
-   *  nothing on screen ever saying why, so it read as the control being broken rather than as
-   *  "there is nowhere to save this for you". A control that can only ever fail for a whole
-   *  class of user should not be shown to that user; `OperatorLocaleSwitcher` reads this. */
-  hasOperatorRow: boolean;
   setLocale: (l: OperatorLocale) => void;
-  /** Set only when a REAL operator's save itself failed (a network hiccup, a rate limit) — never
-   *  for the no-row case above, which is not a failure to report, just nothing to offer. Cleared
-   *  on the next attempt. */
+  /** Set only when a save itself failed (a network hiccup, a rate limit). Cleared on the next
+   *  attempt. */
   saveError: boolean;
   t: (key: string) => string;
 }
@@ -103,23 +95,18 @@ const OperatorI18nContext = createContext<Ctx | null>(null);
 export function OperatorI18nProvider({ session, children }: { session: Session; children: ReactNode }) {
   const [locale, setLocaleState] = useState<OperatorLocale>('ar');
   const [ready, setReady] = useState(false);
-  const [hasOperatorRow, setHasOperatorRow] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
     let live = true;
-    getMyOperator(session)
+    getMyLocale(session)
       .then((row) => {
         if (!live) return;
-        if (row) {
-          setHasOperatorRow(true);
-          if (isKnownLocale(row.locale)) setLocaleState(row.locale);
-        }
+        if (isKnownLocale(row.locale)) setLocaleState(row.locale);
         setReady(true);
       })
-      // ANY failure — including the owner's real, expected 404 (he has no Operator row) — is
-      // still Arabic default, still `ready`: a signed-in owner must never sit on a loading
-      // screen waiting for a preference his account structurally cannot have.
+      // Any failure is still Arabic default, still `ready`: a signed-in account must never sit
+      // on a loading screen waiting for a preference read that did not come back.
       .catch(() => { if (live) setReady(true); });
     return () => { live = false; };
   }, [session]);
@@ -130,11 +117,11 @@ export function OperatorI18nProvider({ session, children }: { session: Session; 
     const prev = locale;
     setSaveError(false);
     setLocaleState(l); // optimistic — the switch must feel instant, not wait on a round trip
-    setMyOperatorLocale(session, l).catch(() => { setLocaleState(prev); setSaveError(true); });
+    setMyLocale(session, l).catch(() => { setLocaleState(prev); setSaveError(true); });
   }
 
   const value: Ctx = {
-    locale, ready, hasOperatorRow, setLocale, saveError, t: (key: string) => translate(locale, key),
+    locale, ready, setLocale, saveError, t: (key: string) => translate(locale, key),
   };
   return <OperatorI18nContext.Provider value={value}>{children}</OperatorI18nContext.Provider>;
 }

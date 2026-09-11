@@ -19,8 +19,9 @@ from typing import Any
 
 from app.adapters.datastore.drain import drain
 from app.core import privacy_requests as PR
-from app.core.models import (ASSETS, BRANCHES, CUSTOMERS, OPERATORS, PACKAGES, SERVICES, VISITS,
-                             Asset, Branch, Customer, Operator, Package, Service, Visit)
+from app.core.models import (ACCOUNT_SETTINGS, ASSETS, BRANCHES, CUSTOMERS, OPERATORS, PACKAGES,
+                             SERVICES, VISITS, Asset, Branch, Customer, Operator, Package, Service,
+                             Visit)
 
 _PAGE = 100
 
@@ -360,6 +361,26 @@ class OperatorStore(_Base):
     async def save(self, o: Operator) -> Operator:
         await self._put(o.tenant, o.id, o.__dict__.copy())
         return o
+
+
+class AccountSettingsStore(_Base):
+    """Platform-wide account preferences — TODAY, ONLY `locale` — keyed by the JWT subject
+    directly (`{tenant}|{subject}`, same key layout `_Base` already uses everywhere else), never
+    by an `Operator` row. That is the whole point of this store existing separately from
+    `OperatorStore`: an owner has no Operator row and never will (see `Operator`'s own docstring),
+    so a preference keyed on one structurally excludes him. A JWT subject exists for every
+    logged-in account regardless of role."""
+
+    collection = ACCOUNT_SETTINGS
+
+    async def get_by_subject(self, tenant: str, subject: str) -> dict[str, Any] | None:
+        return await self._get(tenant, subject)
+
+    async def set_locale(self, tenant: str, subject: str, locale: str) -> dict[str, Any]:
+        row = await self.get_by_subject(tenant, subject) or {}
+        row["locale"] = locale
+        await self._put(tenant, subject, row)
+        return row
 
 
 class BranchStore(_Base):

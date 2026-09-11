@@ -626,26 +626,25 @@ export async function listOperators(session: Session): Promise<FieldOperator[]> 
   return (out.operators ?? []).filter((o) => o.active && o.has_pin);
 }
 
-// ── لغة شاشات المشغّل (operator-i18n.tsx) ───────────────────────────────────────────────────────
+// ── لغة الحساب (operator-i18n.tsx) — PLATFORM-WIDE, أي حساب مسجّل دخول، المالك ضمناً ───────────
+//
+// USED TO BE OPERATOR-ONLY (`getMyOperator`/`setMyOperatorLocale` against
+// `/api/v1/staff/operators/me/locale`) — an owner holds no Operator row at all, so that route
+// 404s for him structurally, and the console had to hide its own language switch for him because
+// of it (2026-09-11 audit finding). `/api/v1/account/me/locale` needs nothing but a valid token —
+// no capability, no Operator row — and the backend carries forward an already-saved operator
+// locale the first time it is read, so nobody's existing preference resets silently.
 
-interface MyOperatorRow {
+interface MyLocaleRow {
   locale?: string;
 }
 
-/** The signed-in person's OWN operator row, or `null` for an owner (he has none — a real,
- *  expected 404, not a fault). Never throws on that specific case; any other failure still does,
- *  same as every other read here. */
-export async function getMyOperator(session: Session): Promise<MyOperatorRow | null> {
-  try {
-    return await call<MyOperatorRow>(session, '/api/v1/staff/operators/me');
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return null;
-    throw e;
-  }
+export async function getMyLocale(session: Session): Promise<MyLocaleRow> {
+  return call<MyLocaleRow>(session, '/api/v1/account/me/locale');
 }
 
-export async function setMyOperatorLocale(session: Session, locale: string): Promise<void> {
-  await call(session, '/api/v1/staff/operators/me/locale', {
+export async function setMyLocale(session: Session, locale: string): Promise<void> {
+  await call(session, '/api/v1/account/me/locale', {
     method: 'PATCH', body: JSON.stringify({ locale }),
   });
 }

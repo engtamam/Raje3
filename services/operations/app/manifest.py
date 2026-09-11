@@ -184,6 +184,11 @@ def build_manifest(
              # that did not happen.
              "erasure_category": "subject"},
             {"path": "/api/v1/operations/whoami", "tier": "user", "method": "GET"},
+            # PLATFORM-WIDE LANGUAGE PREFERENCE — any logged-in account, owner included (see
+            # api/v1/__init__.py's own note; supersedes /staff/operators/me/locale below, which an
+            # owner could never reach).
+            {"path": "/api/v1/account/me/locale", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/account/me/locale", "tier": "user", "method": "PATCH"},
             # ── the field screen — the product, as far as the shop floor is concerned ──────
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/visits/{}/offer", "tier": "user", "method": "POST"},

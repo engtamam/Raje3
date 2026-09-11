@@ -280,13 +280,13 @@ export function App() {
       // simply does not render for him, same as every other role-gated control in this shell.
       onSupport={sections.some((s) => s.id === 'support') ? () => navigate(SUPPORT_PATH) : undefined}
       onSignOut={() => { signOut(); navigate('/'); }}
-      // THE LANGUAGE SWITCH ITSELF, IN THE RAIL — not per-screen any more. It used to live inside
-      // Visit.tsx alone, when Visit was the only screen that read useOperatorI18n(); Bookings,
-      // Points and Services all read it now too, so a control duplicated onto each of them (or
-      // missing from the rest) was the wrong shape. `railSlot` is the shell's own extension point
-      // for exactly this — a widget above the user block, alongside `projectSwitcher` above —
-      // and `OperatorLocaleSwitcher` already renders nothing for an account with no Operator row
-      // (the owner), so the rail gains no empty gap for him.
+      // THE LANGUAGE SWITCH ITSELF, IN THE RAIL — not per-screen any more, and now visible to the
+      // owner too (2026-09-11 — the preference moved off Operator rows onto a platform-wide
+      // one). It used to live inside Visit.tsx alone, when Visit was the only screen that read
+      // useOperatorI18n(); Bookings, Points, Services and «الاشتراك» all read it now too, so a
+      // control duplicated onto each of them (or missing from the rest) was the wrong shape.
+      // `railSlot` is the shell's own extension point for exactly this — a widget above the user
+      // block, alongside `projectSwitcher` above.
       railSlot={<OperatorLocaleSwitcher />}
     >
       {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.

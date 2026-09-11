@@ -568,10 +568,11 @@ async def list_operators(request: Request, principal: Principal = Depends(_READ_
     }
 
 
-# THE OPERATOR SCREENS' LANGUAGE (Visit, Bookings, Services, ...) — current phase covers field
-# operators only (see Operator.locale's own note). Self-service, not `_MANAGE`: an operator sets
-# HIS OWN language, never anyone else's, and needs nothing more than the read he already holds to
-# see «فريقي» — the same gate `list_operators` above uses.
+# SUPERSEDED (2026-09-11) BY THE PLATFORM-WIDE `/api/v1/account/me/locale` (api/v1/__init__.py) —
+# THIS ROUTE IS KEPT ONLY AS A ONE-TIME READ FALLBACK for whichever operator already had a value
+# saved here before the switch (see that route's own carry-forward note), and is no longer written
+# by the console. It structurally excludes the owner (see `get_my_operator_row` just above) — which
+# is exactly the gap the new route exists to close: an operator has this row, the owner never will.
 _VALID_OPERATOR_LOCALES = {"ar", "en", "ur", "ha", "fil"}
 
 

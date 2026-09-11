@@ -12,8 +12,8 @@ import { OperatorI18nProvider } from '../operator-i18n';
 // irrelevant to this suite — same "not this person at all" fallback to Arabic as
 // services_import_drawer.test.tsx uses.
 vi.mock('../api', () => ({
-  getMyOperator: async () => { throw new Error('not mocked'); },
-  setMyOperatorLocale: async () => ({}),
+  getMyLocale: async () => { throw new Error('not mocked'); },
+  setMyLocale: async () => ({}),
 }));
 
 const ACTIONS: Record<string, { id: string; label: string; method: string; path: string }> = {

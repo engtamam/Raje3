@@ -1,8 +1,7 @@
 /**
- * OperatorLocaleSwitcher — hidden entirely for an account with no Operator row (the owner,
- * chiefly), because `PATCH .../operators/me/locale` structurally 404s for one and the switch
- * used to flip and instantly, silently revert for him with nothing said anywhere. A real
- * operator sees the switch, and a genuine save failure is said out loud, not just rolled back.
+ * OperatorLocaleSwitcher — visible to any account, the owner included (2026-09-11), since it
+ * now reads/writes a platform-wide preference that needs no Operator row at all. A genuine save
+ * failure is said out loud, not just rolled back silently.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -12,15 +11,15 @@ import type { Session } from './session';
 
 const SESSION = { token: 'tok-1' } as Session;
 
-let getMyOperatorMock: ReturnType<typeof vi.fn>;
-let setMyOperatorLocaleMock: ReturnType<typeof vi.fn>;
+let getMyLocaleMock: ReturnType<typeof vi.fn>;
+let setMyLocaleMock: ReturnType<typeof vi.fn>;
 
 vi.mock('./api', async (importOriginal) => {
   const real = await importOriginal<typeof import('./api')>();
   return {
     ...real,
-    getMyOperator: (...args: unknown[]) => getMyOperatorMock(...args),
-    setMyOperatorLocale: (...args: unknown[]) => setMyOperatorLocaleMock(...args),
+    getMyLocale: (...args: unknown[]) => getMyLocaleMock(...args),
+    setMyLocale: (...args: unknown[]) => setMyLocaleMock(...args),
   };
 });
 
@@ -33,24 +32,21 @@ function open() {
 }
 
 describe('OperatorLocaleSwitcher', () => {
-  it('renders nothing for an account with no operator row — the owner', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue(null);
+  it('renders the switch for an owner account (no operator row, no preference saved yet)', async () => {
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: '' });
     open();
-    // Give the provider's own read a turn to settle before asserting absence.
-    await waitFor(() => expect(getMyOperatorMock).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByLabelText('Language / اللغة')).toBeNull();
+    await waitFor(() => expect(screen.getByLabelText('Language / اللغة')).toBeTruthy());
   });
 
-  it('renders the switch for a real operator', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ar' });
+  it('renders the switch for a real operator too', async () => {
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'ar' });
     open();
     await waitFor(() => expect(screen.getByLabelText('Language / اللغة')).toBeTruthy());
   });
 
   it('says the save failed rather than reverting silently with nothing shown', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ar' });
-    setMyOperatorLocaleMock = vi.fn().mockRejectedValue(new Error('refused'));
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'ar' });
+    setMyLocaleMock = vi.fn().mockRejectedValue(new Error('refused'));
     open();
     await waitFor(() => expect(screen.getByLabelText('Language / اللغة')).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Language / اللغة'), { target: { value: 'en' } });

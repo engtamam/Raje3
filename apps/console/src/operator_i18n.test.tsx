@@ -1,7 +1,8 @@
 /**
  * operator-i18n.tsx — the fallback chain must land on Arabic (never English, never a blank),
  * direction must be a table (Urdu is RTL too, not just Arabic), and the preference must come
- * from the operator's own account, never localStorage.
+ * from the account's own platform-wide setting, never localStorage — and now reaches the owner
+ * too (2026-09-11), not just a hired operator.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -13,15 +14,15 @@ import type { Session } from './session';
 
 const SESSION = { token: 'tok-1' } as Session;
 
-let getMyOperatorMock: ReturnType<typeof vi.fn>;
-let setMyOperatorLocaleMock: ReturnType<typeof vi.fn>;
+let getMyLocaleMock: ReturnType<typeof vi.fn>;
+let setMyLocaleMock: ReturnType<typeof vi.fn>;
 
 vi.mock('./api', async (importOriginal) => {
   const real = await importOriginal<typeof import('./api')>();
   return {
     ...real,
-    getMyOperator: (...args: unknown[]) => getMyOperatorMock(...args),
-    setMyOperatorLocale: (...args: unknown[]) => setMyOperatorLocaleMock(...args),
+    getMyLocale: (...args: unknown[]) => getMyLocaleMock(...args),
+    setMyLocale: (...args: unknown[]) => setMyLocaleMock(...args),
   };
 });
 
@@ -33,12 +34,11 @@ registerOperatorStrings({
 });
 
 function Probe() {
-  const { t, locale, setLocale, ready, hasOperatorRow, saveError } = useOperatorI18n();
+  const { t, locale, setLocale, ready, saveError } = useOperatorI18n();
   return (
     <div>
       <span data-testid="locale">{locale}</span>
       <span data-testid="ready">{String(ready)}</span>
-      <span data-testid="has-row">{String(hasOperatorRow)}</span>
       <span data-testid="save-error">{String(saveError)}</span>
       <span data-testid="only-ar">{t('x.only.ar')}</span>
       <span data-testid="both">{t('x.both')}</span>
@@ -70,7 +70,7 @@ describe('isRtl / applyOperatorDir', () => {
 
 describe('translate fallback chain', () => {
   it('falls back to Arabic, never English, for a key missing in the current locale', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'en' });
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'en' });
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
     await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
     expect(screen.getByTestId('locale').textContent).toBe('en');
@@ -80,7 +80,7 @@ describe('translate fallback chain', () => {
   });
 
   it('an unknown key returns the key itself, never a crash or a blank', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue(null);
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: '' });
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
     await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
     expect(screen.getByTestId('unknown').textContent).toBe('x.totally.unknown.key');
@@ -88,23 +88,30 @@ describe('translate fallback chain', () => {
 });
 
 describe('account-backed preference, not localStorage', () => {
-  it('reads the locale from the operator’s own account row on mount', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ur' });
+  it('reads the locale from the account’s own platform-wide setting on mount', async () => {
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'ur' });
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
     await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ur'));
-    expect(getMyOperatorMock).toHaveBeenCalledWith(SESSION);
+    expect(getMyLocaleMock).toHaveBeenCalledWith(SESSION);
   });
 
-  it('the owner (404 / no operator row) still becomes ready, with Arabic default', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue(null);
+  it('an account with no preference saved yet still becomes ready, with Arabic default', async () => {
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: '' });
+    render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
+    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
+    expect(screen.getByTestId('locale').textContent).toBe('ar');
+  });
+
+  it('a failed read still becomes ready, with Arabic default — never a stuck loading screen', async () => {
+    getMyLocaleMock = vi.fn().mockRejectedValue(new Error('network'));
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
     await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
     expect(screen.getByTestId('locale').textContent).toBe('ar');
   });
 
   it('changing locale writes it to the account, not to localStorage', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ar' });
-    setMyOperatorLocaleMock = vi.fn().mockResolvedValue(undefined);
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'ar' });
+    setMyLocaleMock = vi.fn().mockResolvedValue(undefined);
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
 
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
@@ -112,14 +119,14 @@ describe('account-backed preference, not localStorage', () => {
 
     fireEvent.click(screen.getByText('ur'));
     await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('ur'));
-    expect(setMyOperatorLocaleMock).toHaveBeenCalledWith(SESSION, 'ur');
+    expect(setMyLocaleMock).toHaveBeenCalledWith(SESSION, 'ur');
     expect(setItemSpy).not.toHaveBeenCalled();
     setItemSpy.mockRestore();
   });
 
   it('rolls back the optimistic switch if the account write is refused', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ar' });
-    setMyOperatorLocaleMock = vi.fn().mockRejectedValue(new Error('refused'));
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'ar' });
+    setMyLocaleMock = vi.fn().mockRejectedValue(new Error('refused'));
 
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
     await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
@@ -133,15 +140,14 @@ describe('account-backed preference, not localStorage', () => {
     expect(screen.getByTestId('save-error').textContent).toBe('true');
   });
 
-  it('a real operator has a row, and a fresh attempt clears a previous save error', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue({ locale: 'ar' });
-    setMyOperatorLocaleMock = vi.fn()
+  it('a fresh attempt clears a previous save error', async () => {
+    getMyLocaleMock = vi.fn().mockResolvedValue({ locale: 'ar' });
+    setMyLocaleMock = vi.fn()
       .mockRejectedValueOnce(new Error('refused'))
       .mockResolvedValueOnce(undefined);
 
     render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
     await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
-    expect(screen.getByTestId('has-row').textContent).toBe('true');
 
     fireEvent.click(screen.getByText('ur'));
     await waitFor(() => expect(screen.getByTestId('save-error').textContent).toBe('true'));
@@ -149,13 +155,6 @@ describe('account-backed preference, not localStorage', () => {
     fireEvent.click(screen.getByText('en'));
     await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('en'));
     expect(screen.getByTestId('save-error').textContent).toBe('false');
-  });
-
-  it('an account with no operator row at all is never offered the switch — nothing to save it to', async () => {
-    getMyOperatorMock = vi.fn().mockResolvedValue(null);
-    render(<OperatorI18nProvider session={SESSION}><Probe /></OperatorI18nProvider>);
-    await waitFor(() => expect(screen.getByTestId('ready').textContent).toBe('true'));
-    expect(screen.getByTestId('has-row').textContent).toBe('false');
   });
 });
 

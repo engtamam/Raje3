@@ -59,6 +59,11 @@ PACKAGES = "packages"
 VISITS = "visits"
 OPERATORS = "operators"
 BRANCHES = "branches"
+# PLATFORM-WIDE, NOT AN Operator ROW — the language preference used to live only on `Operator`
+# (below), which structurally excludes the owner (he holds no Operator row at all). Keyed by the
+# JWT subject directly (`AccountSettingsStore.get_by_subject`), so an owner and a staff operator
+# both get one row, regardless of role.
+ACCOUNT_SETTINGS = "account_settings"
 
 
 @dataclass
