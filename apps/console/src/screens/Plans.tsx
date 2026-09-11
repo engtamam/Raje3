@@ -37,7 +37,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
-import { Minus, Plus, Crown, Zap } from 'lucide-react';
+import { Minus, Plus, Crown, Zap, Tag } from 'lucide-react';
 import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { action, call, type Catalog } from '../catalog';
 import { isDenied, isReady, type Loading } from '../loading';
@@ -372,7 +372,7 @@ function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, lockedNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
-  onUndoCancel, undoingCancel, session, catalog, ownedFeatures, discount,
+  onUndoCancel, undoingCancel, session, catalog, ownedFeatures, discount, potentialDiscount,
 }: {
   /** Only for the "?" beside a status badge that genuinely needs one (trial/past-due/paused) —
    *  every other passive label on this card is already said in plain Arabic right on it. */
@@ -388,6 +388,10 @@ function AppCard({
    *  only when a rule currently applies to THIS shop for THIS plan; absent means no badge, never
    *  a zero. `owning_key` is which app of his already earned it, named in the badge's own text. */
   discount?: { percent: number; owning_key: string };
+  /** billing's own TEASER half of the same preview (base-services' own follow-up) — a rule that
+   *  WOULD apply if he bought `owning_key`, shown to sell that app, never present alongside
+   *  `discount` above (an already-applied discount needs no teaser advertising the same rule). */
+  potentialDiscount?: { percent: number; owning_key: string };
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
   owned: boolean | null;
@@ -642,6 +646,29 @@ function AppCard({
         </span>
       ) : null}
 
+      {/* THE TEASER HALF — a rule he does not qualify for YET, sold as an offer rather than stated
+          as a fact (contrast `discount` above: "خصم X%" is a receipt; this is a pitch). Deliberately
+          THEME-INVARIANT (a fixed dark/gold gradient, not `success-soft`/`.rj-gold-card` tokens) —
+          same "always looks like this regardless of surroundings" choice the purple included-units
+          badge above already made, and exactly what the owner asked for on this one: "فخم وراقي"
+          (luxurious, upscale) everywhere it appears, store card or admin, light theme or dark. Never
+          shown together with `discount` — a rule already applied needs no pitch for itself. */}
+      {!has && !discount && potentialDiscount ? (
+        <div className="relative flex items-center gap-3 overflow-hidden rounded-xl border border-[#d4af37]/40 bg-gradient-to-l from-[#120d05] via-[#2a1d0a] to-[#41300f] p-3 shadow-[0_4px_18px_-4px_rgba(212,175,55,0.35)]">
+          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d4af37]/15 text-[#f4e2a4]">
+            <Tag size={16} />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="text-sm font-bold leading-tight text-[#f4e2a4]">
+              وفّر {potentialDiscount.percent}% على هذا التطبيق
+            </span>
+            <span className="text-xs font-medium leading-snug text-[#d4af37]/80">
+              فعّل «{appName(potentialDiscount.owning_key)}» واحصل على الخصم تلقائياً
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {!compact ? (
         <AppFeatureList
           features={ownedFeatures}
@@ -851,6 +878,11 @@ export function PlansPane({
    *  (it shipped after user_actions.py was last touched), so it is called by its own known path
    *  directly — same pattern PlanCards.tsx's own `FEATURES_PATH` already established. */
   const [discountPreviews, setDiscountPreviews] = useState<Record<string, { percent: number; owning_key: string }>>({});
+  /** The TEASER half of the same preview (base-services' own follow-up, ships alongside/after
+   *  v0.19.21+) — a rule he does not qualify for yet, per plan. `{}` the same "degrade quietly"
+   *  way `discountPreviews` above does — an older billing-service that has not shipped this half
+   *  yet simply never populates it, no badge shown, nothing breaks. */
+  const [potentialDiscounts, setPotentialDiscounts] = useState<Record<string, { percent: number; owning_key: string }>>({});
   /** EVERY subscription he holds, not just one. A shop with a base and two apps holds three rows,
    *  and cancelling the RIGHT one — the base, ending the relationship, not an app, dropping a
    *  feature — needs the whole list rather than whichever row billing happened to return first. */
@@ -952,8 +984,26 @@ export function PlansPane({
     // catalog action absent from a role.
     const preview = action(catalog, 'billing.discount_preview');
     if (preview) {
-      call<{ previews: Record<string, { percent: number; owning_key: string }> }>(session, preview)
-        .then((x) => setDiscountPreviews(x.previews ?? {})).catch(() => setDiscountPreviews({}));
+      // SHAPE-DEFENSIVE ON PURPOSE — `x.previews` is either the ORIGINAL flat
+      // {plan_id: {percent, owning_key}} (an older billing-service, applied-only) or the NEWER
+      // {applied: {...same as before...}, potential: {...teasers...}} sibling shape
+      // (base-services' own follow-up). Checked by presence of either key rather than a version
+      // number this screen has no way to read, so a rollback or a mid-rollout mismatch degrades
+      // to "no teaser badges" instead of misreading a plan id literally named "applied"/"potential".
+      type DiscountInfo = { percent: number; owning_key: string };
+      call<{ previews: Record<string, DiscountInfo> | { applied?: Record<string, DiscountInfo>; potential?: Record<string, DiscountInfo> } }>(session, preview)
+        .then((x) => {
+          const raw = x.previews ?? {};
+          if (raw && typeof raw === 'object' && ('applied' in raw || 'potential' in raw)) {
+            const shaped = raw as { applied?: Record<string, DiscountInfo>; potential?: Record<string, DiscountInfo> };
+            setDiscountPreviews(shaped.applied ?? {});
+            setPotentialDiscounts(shaped.potential ?? {});
+          } else {
+            setDiscountPreviews(raw as Record<string, DiscountInfo>);
+            setPotentialDiscounts({});
+          }
+        })
+        .catch(() => { setDiscountPreviews({}); setPotentialDiscounts({}); });
     }
   };
 
@@ -1720,6 +1770,7 @@ export function PlansPane({
                     owned={owns(owned ?? null, appKey(p))}
                     ownedFeatures={answer?.apps.find((a) => a.key === appKey(p))?.features}
                     discount={discountPreviews[p.id]}
+                    potentialDiscount={potentialDiscounts[p.id]}
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && canMintToken
                                      && (hasBase !== false || isStandalone(p)) && !lockedNote)}
