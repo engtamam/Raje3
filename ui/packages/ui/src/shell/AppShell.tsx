@@ -353,12 +353,6 @@ export function AppShell({
           ))}
         </nav>
 
-        {/* optional channel-injected rail widget (e.g. cloud's wallet chip), shown above the user block
-            only when expanded — collapsed rails stay icon-only */}
-        {railSlot && !collapsed && (
-          <div className="border-t border-border-subtle px-3 py-3" data-testid="rail-slot">{railSlot}</div>
-        )}
-
         {/* logged-in user + role. REDESIGNED — the account/sign-out pair used to be two bare
             ghost buttons floating in empty space (no visible boundary of their own), and both
             shared the exact same neutral hover, so "leaving the account" and "opening it" read
@@ -472,6 +466,16 @@ export function AppShell({
             </div>
           )}
         </div>
+
+        {/* optional channel-injected rail widget (e.g. cloud's wallet chip). MOVED BELOW the
+            user block, right beside the theme/language/palette icon row rather than above it —
+            it used to sit as its own full-width band between the nav and the account/sign-out
+            icons, reading as a stray control floating apart from the rest of the settings-style
+            row it belongs with. Still expanded-only: a collapsed rail has no room for a widget
+            with a label (console's own language `<select>`, for instance). */}
+        {railSlot && !collapsed && (
+          <div className="border-t border-border-subtle px-3 py-3" data-testid="rail-slot">{railSlot}</div>
+        )}
 
         {/* theme + language + palette hint */}
         <div

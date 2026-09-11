@@ -30,6 +30,7 @@ function Wrap({ children }: { children: ReactNode }) {
 const mockState = vi.hoisted(() => ({
   entitlements: ['feature.insights.engine'] as string[],
   leadConversion: undefined as Record<string, { total?: number; converted?: number }> | undefined,
+  retentionValues: { return_rate: 0.42, active_customers: 30 } as Record<string, unknown>,
   nextStep: {
     primary: {
       id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
@@ -69,7 +70,7 @@ vi.mock('../catalog', async (importOriginal) => {
       if (a.id === 'insights.dashboard') {
         return {
           computing: false,
-          values: { return_rate: 0.42, active_customers: 30,
+          values: { ...mockState.retentionValues,
                    ...(mockState.leadConversion ? { lead_conversion: mockState.leadConversion } : {}) },
           as_of_hours_ago: 17,
           // THE ENTRY PLAN, ON PURPOSE: this is the shop whose page carried a locked surface above
@@ -96,6 +97,7 @@ afterEach(() => {
   cleanup();
   mockState.entitlements = ['feature.insights.engine'];
   mockState.leadConversion = undefined;
+  mockState.retentionValues = { return_rate: 0.42, active_customers: 30 };
   mockState.nextStep = {
     primary: {
       id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
@@ -258,5 +260,18 @@ describe('«محلّي» — one page, and the number first', () => {
     render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
     await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
     expect(screen.queryByText('تحوّل من تواصلوا معك أول مرة')).toBeNull();
+  });
+
+  // ── retention hero — a brand-new shop with zero visitors ever ─────────────────────────────────
+  it('a brand-new shop with zero customers gets a real first-step message, not «من أصل 0 عملاء»', async () => {
+    mockState.retentionValues = { return_rate: 0, active_customers: 0 };
+    render(<Wrap><MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter></Wrap>);
+    await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
+    expect(screen.getByText(/سجّل أول زيارة، ومن هناك نبدأ/)).toBeTruthy();
+    // THE OLD SENTENCE, GONE — «من أصل 0 عملاء زاروك، 0 يرجعون لك مرة ثانية» found directly on a
+    // real new shop's own page, the small-sample branch fed a literal zero into every slot.
+    expect(screen.queryByText(/من أصل/)).toBeNull();
+    const cta = screen.getByRole('link', { name: 'سجّل أول زيارة' });
+    expect(cta.getAttribute('href')).toBe('/visit');
   });
 });

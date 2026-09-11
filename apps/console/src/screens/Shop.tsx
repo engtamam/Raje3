@@ -784,6 +784,32 @@ export function retentionStreak(
  *  say the true, small count instead of a projection dressed as one. */
 function RetentionHero({ pct, series, sampleSize, session }: { pct: number; series?: Series; sampleSize?: number; session?: Session }) {
   const { t } = useOperatorI18n();
+  // A SHOP WITH ZERO VISITORS IS NOT A SMALL SAMPLE OF A RETURN RATE — it has no rate at all.
+  // The small-sample math below still ran for it («من أصل 0 عملاء زاروك، 0 يرجعون لك مرة ثانية»,
+  // found directly on a brand-new shop's own page) because `pct` (0/0, `return_rate`'s own default
+  // for an empty visit list) and `sampleSize === 0` both satisfy `typeof ... === 'number'` just as
+  // well as a real reading does. A genuine first-step message, not that sentence with a zero
+  // plugged into every slot.
+  if (sampleSize === 0) {
+    return (
+      <div className="rounded-3xl p-6 pb-5 text-white" style={{
+        background: 'radial-gradient(120% 90% at 15% 0%, #8f6bff 0%, transparent 55%),'
+          + 'radial-gradient(110% 100% at 100% 100%, #0fb897 0%, transparent 50%),'
+          + 'linear-gradient(160deg,#4c34c4,#2a1f7a)',
+        boxShadow: '0 6px 14px rgba(19,18,38,.08), 0 26px 50px -18px rgba(19,18,38,.3)',
+      }}>
+        <div className="flex items-center gap-1 text-[11.5px] font-semibold opacity-75">
+          {t('shop.retention.title')}
+          {session ? <AssistantHint session={session} anchor="shop.retention_hero" /> : null}
+        </div>
+        <p className="mt-2 text-[20px] font-medium leading-relaxed">{t('shop.retention.brandNew')}</p>
+        <Link to="/visit" className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold"
+             style={{ background: 'rgba(255,255,255,.16)' }}>
+          {t('shop.registerFirstVisit')}
+        </Link>
+      </div>
+    );
+  }
   const SAMPLE_FLOOR = 10;
   const tooSmall = typeof sampleSize === 'number' && sampleSize < SAMPLE_FLOOR;
   const deltaPts = series ? Math.round(((series.last ?? 0) - (series.first ?? 0)) * 100) : null;
