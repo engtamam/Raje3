@@ -142,9 +142,16 @@ async def set_secret(request: Request, body: SecretIn,
     try:
         info = await _secret_store(request).set(
             tenant=body.tenant, name=body.name, value=body.value, actor_ref=_actor(principal))
-    except SecretError as exc:
+    # BOTH CAUGHT HERE NOW — fixed 2026-09-12, a real gap a QA audit found: `_secret_store()`
+    # itself raises `HTTPException(503)` when SECRETS_KEK is unset, and that used to escape this
+    # `except SecretError` entirely — the write-ahead record above still claimed "changed" while
+    # the global error handler answered 503 with no correction ever written.
+    except (SecretError, HTTPException) as exc:
+        reason = str(exc.detail) if isinstance(exc, HTTPException) else str(exc)
         await _audit_refused(request, "operator.secret_set", resource=f"secret:{body.name}",
-                             tenant=body.tenant or "", actor=_actor(principal), reason=str(exc))
+                             tenant=body.tenant or "", actor=_actor(principal), reason=reason)
+        if isinstance(exc, HTTPException):
+            raise
         return _refuse(str(exc))
     return {"name": info.name, "hint": info.hint, "rotating": info.rotating}
 
@@ -156,7 +163,17 @@ async def clear_secret(request: Request, name: str, tenant: str = "",
     await request.app.state.auditor.record(
         "operator.secret_cleared", actor=_actor(principal), tenant=tenant,
         resource=f"secret:{name}", ip=request.client.host if request.client else "")
-    return {"cleared": await _secret_store(request).clear(tenant=tenant, name=name)}
+    # A SECOND, CORRECTIVE ENTRY ON FAILURE — fixed 2026-09-12, a real gap a QA audit found: this
+    # route had no try/except at all, so ANY failure (most commonly `_secret_store()` itself
+    # raising when SECRETS_KEK is unset) left the write-ahead record claiming the secret was
+    # cleared with nothing to say it wasn't.
+    try:
+        cleared = await _secret_store(request).clear(tenant=tenant, name=name)
+    except HTTPException as exc:
+        await _audit_refused(request, "operator.secret_cleared", resource=f"secret:{name}",
+                             tenant=tenant, actor=_actor(principal), reason=str(exc.detail))
+        raise
+    return {"cleared": cleared}
 
 
 # ── policy ────────────────────────────────────────────────────────────────────

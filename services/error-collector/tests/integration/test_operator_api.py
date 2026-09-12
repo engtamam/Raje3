@@ -208,3 +208,33 @@ def test_without_a_kek_the_surface_refuses_rather_than_storing_in_the_clear(env_
     # And the read side refuses identically, rather than reporting an empty credential set —
     # "no secrets configured" and "secrets unreadable" must not look the same to an operator.
     assert c.get("/api/v1/operator/secrets", headers=_auth("platform.secrets")).status_code == 503
+
+
+def test_a_kek_less_set_secret_corrects_its_own_write_ahead_audit_entry(env_guard):
+    """error-collector-r2-001 (QA audit, 2026-09-12): `_secret_store()` raising HTTPException(503)
+    (no SECRETS_KEK) used to escape `except SecretError` entirely — the write-ahead
+    "operator.secret_set" entry stood uncorrected while the caller got a 503. A second, corrective
+    entry must land in the same sink."""
+    c = _make_app(SECRETS_KEK="")
+    sink = c.app.state.auditor._sink
+    sink.events.clear()
+    r = c.put("/api/v1/operator/secrets", json={"name": "k", "value": "v"},
+              headers=_auth("platform.secrets"))
+    assert r.status_code == 503
+    actions = [e.action for e in sink.events]
+    assert actions.count("operator.secret_set") == 2
+    refused = sink.events[-1]
+    assert refused.metadata.get("outcome") == "refused"
+
+
+def test_a_kek_less_clear_secret_corrects_its_own_write_ahead_audit_entry(env_guard):
+    """Same gap, the OTHER route: clear_secret had no try/except at all."""
+    c = _make_app(SECRETS_KEK="")
+    sink = c.app.state.auditor._sink
+    sink.events.clear()
+    r = c.delete("/api/v1/operator/secrets/k", headers=_auth("platform.secrets"))
+    assert r.status_code == 503
+    actions = [e.action for e in sink.events]
+    assert actions.count("operator.secret_cleared") == 2
+    refused = sink.events[-1]
+    assert refused.metadata.get("outcome") == "refused"
