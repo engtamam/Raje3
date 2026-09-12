@@ -47,6 +47,16 @@ def test_announce_and_awareness_match_everyone():
         assert ok and why == "كل العملاء"
 
 
+def test_package_offer_matches_everyone_same_as_broadcast():
+    # 2026-09-12 regression — this goal was missing from `_MATCHERS` entirely, so every
+    # package_offer campaign matched zero candidates (`_matches` falls back to `(False, "")` for
+    # any goal not in the dict). It shares `_match_broadcast`, deliberately: no cycle lock (the
+    # cycle lock only ever engages when `service_id` is set, which a package_offer campaign
+    # never carries), same as `announce`/`awareness`.
+    ok, why = _matches("package_offer", {}, now=NOW, window_days=14, min_visits=2)
+    assert ok and why == "كل العملاء"
+
+
 def test_service_offer_requires_a_service_id():
     ok, _ = _matches("service_offer", {}, now=NOW, window_days=14, min_visits=2, service_id="")
     assert not ok

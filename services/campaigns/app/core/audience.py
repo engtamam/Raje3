@@ -232,6 +232,15 @@ _MATCHERS: dict[str, Any] = {
     "announce": _match_broadcast,
     "awareness": _match_broadcast,
     "service_offer": _match_service_offer,
+    # A PACKAGE OFFER SHARES `_match_broadcast`, NOT A MATCHER OF ITS OWN — this was missing
+    # entirely until 2026-09-12, and every package_offer campaign matched nobody as a result
+    # (`_matches()` returns `(False, "")` for any goal absent from this dict). `models.py`'s own
+    # GOAL_TEMPLATE comment already documented the intended behaviour ("falls to the same plain
+    # whole-shop/branch audience an announcement uses, no cycle lock") — the code just never
+    # implemented it. `resolve()`'s own cycle-lock guard is `if service_id:`, which a
+    # package_offer campaign never carries (it carries `package_id` instead), so this goal was
+    # always meant to skip that lock too — exactly what `_match_broadcast` already does.
+    "package_offer": _match_broadcast,
     "occasion": _match_occasion,
 }
 

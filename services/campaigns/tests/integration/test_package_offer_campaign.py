@@ -123,3 +123,22 @@ def test_the_message_names_the_package_not_a_service(client):
     r = http.post("/api/v1/campaigns/preview", json=_body(), headers=_auth())
     assert r.status_code == 200, r.text
     assert "باقة الصيانة" in r.json()["message"]
+
+
+def test_it_actually_reaches_real_customers(client):
+    # 2026-09-12 regression — `package_offer` was missing from `audience.py::_MATCHERS`, so
+    # `_matches()` fell back to `(False, "")` for every candidate and a package_offer campaign
+    # reached exactly nobody, silently, regardless of how many real customers the shop had.
+    app, http = client
+    from app.adapters.peers import NullAudience
+
+    app.state.container.package_offerable = _FixedOfferable(offerable=True)
+    # THE FACADE WRAPS WHATEVER `peers["audience"]` IS — see container.py's `_AudienceFacade`.
+    # Swapping the client it holds, not the facade, keeps `resolve_for`'s own wiring untouched.
+    app.state.container.audience._c = NullAudience(rows=[
+        {"subject_ref": "ref_1", "last_visit": 0, "visit_count": 0},
+        {"subject_ref": "ref_2", "last_visit": 0, "visit_count": 0},
+    ])
+    r = http.post("/api/v1/campaigns/preview", json=_body(), headers=_auth())
+    assert r.status_code == 200, r.text
+    assert r.json()["reaches"] == 2
