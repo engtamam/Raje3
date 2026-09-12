@@ -19,6 +19,16 @@ import asyncio
 
 import pytest
 
+# THE `postgres` EXTRA IS OPTIONAL AT THE PACKAGE LEVEL (lean base, install only what a
+# deployment actually runs), so a plain `pip install .[dev]`/`uv run --extra dev` environment —
+# ship.sh's own test gate among them — never has `asyncpg` on the path. `PostgresDataStore.__init__`
+# imports it eagerly (`adapters/lazy.py::load`) rather than only at the first real connection, so
+# even THIS test — which never opens one, by design — cannot construct the store without it. Skip
+# rather than error: the validation this file proves runs identically wherever asyncpg IS present
+# (every real postgres deployment, and any environment that installs the extra), and a missing
+# optional driver is not a defect in the sort-field guard this file exists to prove.
+asyncpg = pytest.importorskip("asyncpg")
+
 from app.adapters.datastore.postgres import PostgresDataStore
 from app.ports.errors import ConfigError
 
