@@ -42,6 +42,11 @@ class NullTemplates:
                 return t
         return None
 
+    async def pick_for_preview(self, tenant: str, template_type: str) -> dict[str, Any] | None:
+        # LOCAL/TEST DEFAULT — every seeded type is already sendable here (see `statuses` below),
+        # so there is nothing a preview-only fallback would ever add over `pick` itself.
+        return await self.pick(tenant, template_type)
+
     async def enabled_types(self, tenant: str) -> set[str]:
         return {t.get("type", "") for t in self._lib}
 
@@ -106,9 +111,27 @@ class HttpTemplates:
     async def pick(self, tenant: str, template_type: str) -> dict[str, Any] | None:
         """The row this shop would send for this type, or None.
 
-        None is what makes «لا يوجد قالب مفعّل لهذا الهدف» true rather than decorative.
+        None is what makes «لا يوجد قالب مفعّل لهذا الهدف» true rather than decorative. Used by
+        `create()` — the one place that must never see a not-yet-approved row as if it were
+        sendable.
         """
         return dict((await self._raw(tenant)).get("templates") or {}).get(template_type)
+
+    async def pick_for_preview(self, tenant: str, template_type: str) -> dict[str, Any] | None:
+        """The row `/preview` shows, and it is allowed to be one Meta has not approved yet
+        (2026-09-13): the sendable row if there is one, else reminders' own `preview_only`
+        fallback — the exact words the send will use once approval lands, tagged so the screen
+        can grey the launch button out without hiding the message itself. `None` only when
+        neither exists, i.e. this type was never seeded at all.
+        """
+        raw = await self._raw(tenant)
+        row = dict(raw.get("templates") or {}).get(template_type)
+        if row is not None:
+            return {**row, "meta_approved": True}
+        preview_row = dict(raw.get("preview_only") or {}).get(template_type)
+        if preview_row is not None:
+            return {**preview_row, "meta_approved": False}
+        return None
 
     async def enabled_types(self, tenant: str) -> set[str]:
         return set(dict((await self._raw(tenant)).get("templates") or {}))

@@ -129,6 +129,12 @@ interface Preview {
    *  the place a confirmation goes is a refusal nobody reads as one. */
   spread?: { days?: number; per_day?: number; total?: number; refused?: string };
   why?: string[];
+  /** THE MESSAGE MAY BE REAL WHILE IT IS NOT YET SENDABLE (2026-09-13) — a template still under
+   *  Meta's review, or never submitted at all, still has real words, a real audience, and real
+   *  blanks he can fill; only pressing launch is refused. `undefined`/`true` both read as sendable
+   *  (an older server that never sent this field never blocked anything either). */
+  template_active?: boolean;
+  template_inactive_reason?: string;
 }
 
 /**
@@ -599,7 +605,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               {preview.too_recent ? (
                 <p className="text-xs text-text-secondary">{tf(t, 'launch.tooRecentNote', { n: preview.too_recent })}</p>
               ) : null}
-              {preview.spread?.refused ? (
+              {/* THE ONE THING THIS STATUS ACTUALLY FORBIDS IS THE PRESS BELOW, NOT THE WORDS
+                  ABOVE (2026-09-13) — the message, the reach count and every field on this screen
+                  stay real and usable while a template is still under Meta's review or never
+                  submitted; only the launch button reads this. */}
+              {preview.template_active === false ? (
+                <p className="text-sm text-warning">{preview.template_inactive_reason}</p>
+              ) : preview.spread?.refused ? (
                 <p className="text-sm text-danger">{preview.spread.refused}</p>
               ) : preview.spread_says ? (
                 <p className="text-sm text-success">{preview.spread_says}</p>
@@ -620,9 +632,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       onClick={() => void ask(picked)}>{t('launch.previewButton')}</Button>
             ) : (
               <Button
-                disabled={busy || !createAction || Boolean(preview.spread?.refused)}
+                disabled={busy || !createAction || Boolean(preview.spread?.refused)
+                          || preview.template_active === false}
                 onClick={async () => {
-                  if (!createAction || preview.spread?.refused) return;
+                  if (!createAction || preview.spread?.refused || preview.template_active === false) return;
                   setBusy(true); setError('');
                   try {
                     await call(session, createAction, {

@@ -29,6 +29,11 @@ class _DivergingTemplates:
     async def pick(self, tenant: str, template_type: str) -> dict[str, Any] | None:
         return None
 
+    async def pick_for_preview(self, tenant: str, template_type: str) -> dict[str, Any] | None:
+        # SAME DISAGREEMENT, THE PREVIEW-ONLY DOOR: nothing here either, so `/preview` still
+        # refuses — this fake exists to prove the refusal, not to grow a fallback of its own.
+        return None
+
     async def enabled_types(self, tenant: str) -> set[str]:
         return {"mkt_winback"}
 

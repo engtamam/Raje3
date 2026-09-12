@@ -182,7 +182,10 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": str(exc)})
 
-    template = await c.templates.pick(_tenant(principal), spec["template_type"])
+    # `pick_for_preview` — NOT `pick` — because this screen is allowed to show the words even
+    # before Meta has approved them (2026-09-13); `template.get("meta_approved")` says which.
+    # `create()` below still calls the strict `pick`.
+    template = await c.templates.pick_for_preview(_tenant(principal), spec["template_type"])
     if template is None:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
@@ -234,6 +237,16 @@ async def preview(request: Request, body: CampaignIn,
     # we plan it or not, and an owner who expected an afternoon and got a week will say the
     # product is broken. He will be right to: nothing told him.
     out = vars(p)
+
+    # THE MESSAGE MAY BE SHOWN EVEN WHILE IT CANNOT BE SENT — the owner's own instruction
+    # (2026-09-13): a template still under Meta's review (or never submitted) is not yet a
+    # sendable message, but its exact wording, its blanks, and the audience it would reach are
+    # all real facts he can see and act on right now. Only the one thing this status actually
+    # forbids — pressing launch — stays refused, by `create()`'s own guard below and by the
+    # console reading this flag to grey the button out.
+    out["template_active"] = bool(template.get("meta_approved", True))
+    if not out["template_active"]:
+        out["template_inactive_reason"] = "لا يوجد قالب مفعّل لهذا الهدف بعد — فعّله لتقدر تُطلق."
 
     # WHAT THE NUMBER DOES NOT INCLUDE, IN HIS WORDS. Two different truncations reach this screen
     # and until now neither was ever spoken: `truncated` means our own audience cap stopped the
@@ -321,6 +334,9 @@ async def create(request: Request, body: CampaignIn,
 
     # Validated BEFORE the campaign exists. Creating it and then refusing the text would leave a
     # draft the owner did not ask for, in a list they now have to clean.
+    # THE STRICT `pick` — NEVER `pick_for_preview` — because a not-yet-approved row that only
+    # `/preview` is allowed to show as a courtesy (2026-09-13) must stay None here regardless of
+    # what the console sent: this is the one place that actually decides whether anything goes out.
     template = await c.templates.pick(_tenant(principal), spec["template_type"])
     if template is None:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,

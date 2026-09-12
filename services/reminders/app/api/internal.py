@@ -1261,6 +1261,15 @@ async def sendable(request: Request, tenant: str) -> dict:
     customs = CustomTemplateStore(c.datastore)
 
     out: dict[str, dict] = {}
+    # A SEPARATE ANSWER FROM `out`, DELIBERATELY (2026-09-13) — `out`/`types`/`count` are THE
+    # SENDABLE CONTRACT this route has always kept (`test_sendable.py`'s own name for it): a type
+    # missing from them means the send itself refuses it, and more than one caller (campaigns'
+    # `create()`, the reasons screen) trusts that absence as the whole answer. Widening `out`
+    # itself to include a not-yet-approved fallback broke exactly that — an unapproved type came
+    # back inside `templates`/`types`, which is the one thing this endpoint must never say. The
+    # preview screen's own need (show the words even before Meta approves them) is answered here
+    # instead, in a field nothing else reads.
+    preview_only: dict[str, dict] = {}
     blocked: dict[str, str] = {}
     statuses: dict[str, str] = {}
     for template_type in sorted({str(t.get("type") or "") for t in library} - {""}):
@@ -1277,11 +1286,27 @@ async def sendable(request: Request, tenant: str) -> dict:
             # «still under review» from «never seeded»: one resolves itself in an hour and the
             # other is ours to fix, and the owner is entitled to know which he is waiting on.
             blocked[template_type] = str(exc)
+            # STILL HANDED OVER FOR A PREVIEW, under its own name — an owner composing a campaign
+            # whose template is still under Meta's review (or never submitted at all) is entitled
+            # to see the exact words it will use the moment it is approved, and to fill in his own
+            # blanks and see the count of people it reaches, while the one thing this status
+            # actually forbids — pressing launch — stays refused (campaigns' own `create()` reads
+            # `blocked`/`meta_approved`, never this field). `approved=None` skips the approval
+            # filter entirely, so this is any active library row in the shop's tone, the same one
+            # the send will use once approval lands — never invented text. `own` is deliberately
+            # left OUT of this fallback: a shop's own re-written wording that Meta has not (yet)
+            # approved is not ours to preview as if it were about to go out under his name.
+            try:
+                preview_row = R.choose(template_type=template_type, tone=tone, library=library,
+                                       approved=None)
+                preview_only[template_type] = preview_row
+            except R.RenderError:
+                pass
             continue
         if row:
             out[template_type] = row
     return {"templates": out, "types": sorted(out), "blocked": blocked, "count": len(out),
-            "statuses": statuses}
+            "statuses": statuses, "preview_only": preview_only}
 
 
 class RhythmsIn(BaseModel):
