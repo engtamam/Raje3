@@ -564,6 +564,21 @@ class Operations:
         """The join reminders cannot make: pseudonyms to customers, inside one establishment."""
         return await self._customers.by_refs(tenant, refs)
 
+    async def customers_by_ids(self, tenant: str, ids: set[str]) -> dict[str, Customer]:
+        """The ratings list's own enrichment — each rating names the customer who left it, by
+        their own `Visit.customer_id`, not a pseudonym. See `CustomerStore.get_many`'s own note on
+        why this is direct gets rather than `customers_by_refs`'s full-table drain."""
+        return await self._customers.get_many(tenant, ids)
+
+    async def operator_names(self, tenant: str, ids: set[str]) -> dict[str, str]:
+        """Same lookup `staff_performance` already makes (`self._operators.list` + a name dict),
+        lifted out so the ratings list can name who served each customer too, without listing
+        every operator this shop has ever had for a caller that only needs a handful of names."""
+        if not ids:
+            return {}
+        operators = await self._operators.list(tenant)
+        return {op.id: op.name for op in operators if op.id in ids}
+
     async def customer_by_phone(self, tenant: str, phone: str) -> Customer | None:
         return await self._customers.by_phone(tenant, _normalise_phone(phone))
 

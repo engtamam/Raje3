@@ -12,6 +12,7 @@ the filter is the control, the key layout is what catches the day the filter is 
 """
 from __future__ import annotations
 
+import asyncio
 import time
 
 import uuid
@@ -110,6 +111,20 @@ class CustomerStore(_Base):
     async def get(self, tenant: str, ident: str) -> Customer | None:
         row = await self._get(tenant, ident)
         return Customer(**row) if row else None
+
+    async def get_many(self, tenant: str, ids: set[str]) -> dict[str, Customer]:
+        """A page of ratings' own enrichment — the rating app's «التقييمات» tab shows who left
+        each one, so it can be answered or reached, never just an anonymous `customer_id`.
+
+        DIRECT KEY GETS, ONE PER ID, NOT `by_refs`'s FULL-TABLE DRAIN — a ratings page is at most
+        a hundred rows (the route's own `limit` cap), so a hundred direct-key reads is a fraction
+        of `by_refs`'s cost, which exists only because IT has no key to get by (a pseudonym is not
+        this store's own id). Concurrent, since each is an independent read with nothing to order.
+        """
+        if not ids:
+            return {}
+        found = await asyncio.gather(*(self.get(tenant, i) for i in ids))
+        return {c.id: c for c in found if c is not None}
 
     async def by_phone(self, tenant: str, phone: str) -> Customer | None:
         """The lookup the field screen makes on every save. Exact match — the PREFIX search that

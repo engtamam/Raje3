@@ -79,6 +79,32 @@ def test_lists_a_rated_visit_with_its_real_fields(client):
     assert rows[0]["feedback_text"] == "ممتاز"
 
 
+def test_names_the_customer_and_the_operator_who_served_them(client):
+    from app.core.models import Customer, Operator
+    from app.core.stores import CustomerStore, OperatorStore
+
+    ds = client.app.state.container.datastore
+    asyncio.run(CustomerStore(ds).save(
+        Customer(id="cus_1", tenant="tnt_ratings", phone="+966500000001",
+                 subject_ref="ref1", name="ريم الحربي")))
+    asyncio.run(OperatorStore(ds).save(
+        Operator(id="op_1", tenant="tnt_ratings", name="فهد")))
+    _seed(client, visit_id="vis1", rating=2, rated_at=1_000, operator_id="op_1")
+    r = client.get("/api/v1/field/ratings", headers=_auth("operations.read"))
+    row = r.json()["ratings"][0]
+    assert row["customer_name"] == "ريم الحربي"
+    assert row["customer_phone"] == "+966500000001"
+    assert row["operator_name"] == "فهد"
+
+
+def test_a_rating_from_a_customer_no_longer_on_file_still_lists_fine(client):
+    _seed(client, visit_id="vis_gone", rating=3, rated_at=1_000, customer_id="cus_ghost")
+    r = client.get("/api/v1/field/ratings", headers=_auth("operations.read"))
+    row = r.json()["ratings"][0]
+    assert row["customer_name"] == ""
+    assert row["customer_phone"] == ""
+
+
 def test_an_unrated_visit_never_appears(client):
     _seed(client, visit_id="vis_unrated", rating=0)
     r = client.get("/api/v1/field/ratings", headers=_auth("operations.read"))

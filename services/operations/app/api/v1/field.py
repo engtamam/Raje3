@@ -269,6 +269,21 @@ async def ratings(request: Request, stars: int = 0, handled: str = "", branch_id
     scope = await branch_scope(request.app.state.container.datastore, principal)
     kept = SCOPE.visible([v.public() for v in rows], SCOPE.narrow(scope, branch_id),
                          field="branch_id")
+    # WHO LEFT IT AND WHO SERVED THEM — the console's own dedicated التقييم screen shows the
+    # customer's name and phone (a real way to reach out, not just a `customer_id`) and the
+    # operator's name beside every card, so this is filled in for the whole page at once rather
+    # than one extra round trip per row.
+    svc = _svc(request)
+    tenant = _tenant(principal)
+    customer_ids = {r["customer_id"] for r in kept if r.get("customer_id")}
+    operator_ids = {r["operator_id"] for r in kept if r.get("operator_id")}
+    customers = await svc.customers_by_ids(tenant, customer_ids)
+    operator_names = await svc.operator_names(tenant, operator_ids)
+    for r in kept:
+        customer = customers.get(r.get("customer_id", ""))
+        r["customer_name"] = customer.name if customer else ""
+        r["customer_phone"] = customer.phone if customer else ""
+        r["operator_name"] = operator_names.get(r.get("operator_id", ""), "")
     return {"ratings": kept, "next_cursor": cursor}
 
 
