@@ -133,32 +133,52 @@ CONTACTS_FEATURES: tuple[dict[str, Any], ...] = (
 # rating_settings.py, rating_cta.py); reading and acting on what comes back is this service's own
 # code (`Operations.ratings`/`mark_rating_handled`, core/operations.py:447-468) — both cited below.
 RATING_FEATURES: tuple[dict[str, Any], ...] = (
-    {"id": "rating.understands_why_they_leave", "title": "يكشف لك سبب رجوع عميلك أو رحيله",
-     "detail": "يجمع رأيه الصريح بعد كل زيارة، فتعرف بدقة ما يرضيه وما يستدعي تدخلك",
+    {"id": "rating.understands_why_they_leave", "title": "يفهم ليش عميلك يرجع أو يهرب",
+     "detail": "يسمع رأيه الصريح بعد كل زيارة، فتعرف بالضبط وين تكسب رضاه ووين تخسره",
      "icon": "star", "tone": "amber", "shared_with": [], "owned_by": "",
      # `Visit.rating`/`Visit.feedback_text` (core/models.py:399-409) — stars AND free-text kept
      # per visit, not a number alone; delivered as a real WhatsApp Flow
      # (services/reminders/app/core/rating_request.py) replacing the plain confirmation, never a
      # second message.
      },
-    {"id": "rating.catches_unhappy_before_they_leave", "title": "يمسك العميل المستاء قبل مغادرته",
-     "detail": "يصل كل تقييم إلى شاشة واحدة تتيح لك معالجته فوراً، فيشعر عميلك أن صوته مسموع",
+    {"id": "rating.catches_unhappy_before_they_leave", "title": "يحافظ لك على عميلك القلقان",
+     "detail": "أي تقييم سيئ يوصلك فوراً فتحتويه بنفسك، فيشعر عميلك أن صوته مسموع ويرجع لك",
      "icon": "shield-check", "tone": "teal", "shared_with": [], "owned_by": "",
      # `Operations.ratings`/`mark_rating_handled` (core/operations.py:447-468) — the console's
      # «التقييمات» tab: يُفلتَر بالنجوم أو بحالة المعالجة، ويُسجَّل صراحة متى وبأي ملاحظة تعامل
      # معها إنسان حقيقي — أبداً تلقائياً (Visit.rating_handled_at's own docstring).
      },
-    {"id": "rating.right_moment_to_ask", "title": "يسأل عميلك في اللحظة الأصدق",
-     "detail": "تحدد بنفسك عدد الدقائق بعد الزيارة التي يصله فيها السؤال، فيجيبك ورأيه لا يزال طازجاً",
+    {"id": "rating.right_moment_to_ask", "title": "يسأل عميلك ورأيه لسه طازج",
+     "detail": "يصله السؤال بعد الزيارة مباشرة، فيجيبك بصدق قبل ما ينسى تفاصيلها",
      "icon": "clock", "tone": "blue", "shared_with": [], "owned_by": "",
      # `rating_settings.py` (services/reminders) — `delay_minutes` قابل للتعديل لكل منشأة (1
      # دقيقة إلى أسبوع)، لا رقم ثابت للمنصة كلها.
      },
     {"id": "rating.rewards_honest_feedback", "title": "يرفع نسبة استجابة عملائك لك",
-     "detail": "تكافئه بنقاط على كل تقييم يشاركك به، فيتحول رأيه الصادق إلى عادة متكررة",
+     "detail": "يكافئ عميلك بنقاط على كل تقييم يشاركك به، فيتحول رأيه الصادق إلى عادة متكررة",
      "icon": "gift", "tone": "violet", "shared_with": [], "owned_by": "",
      # `rating_settings.py`'s own `points` field + `rating_cta.py::line` (services/reminders) —
-     # الحافز يُذكر بلا ربطه برقم نجوم معيّن، عشان ما يحيّز إجابته.
+     # الحافز يُذكر بلا ربطه برقم نجوم معيّن، عشان ما يحيّز إجابته. العميل نفسه يستفيد هنا، لا
+     # الموظف فقط — رأيه يتحول لنقاط تُصرف بمحلك.
+     },
+    {"id": "rating.finds_your_hidden_gems_and_your_real_stars", "title": "يكشف لك نجوم فريقك الحقيقيين",
+     "detail": "يقارن موظفيك بعدل — جودة الخدمة مع نشاطه الفعلي معاً — فتعرف من يستحق المكافأة فعلاً",
+     "icon": "users", "tone": "indigo", "shared_with": [], "owned_by": "",
+     # `Operations.staff_performance` (core/operations.py) + bookings-service's own
+     # `BookingStore.no_show_summary` — GET /api/v1/field/staff/performance, gated
+     # `operations.manage`. THE FAIRNESS ITSELF is the point (owner's own repeated correction this
+     # session: raw-average ranking punishes a busy operator's larger sample unfairly) — quality
+     # AND engagement rate AND volume are three separate numbers here, never blended into one
+     # misleading score.
+     },
+    {"id": "rating.early_warning_before_it_costs_you", "title": "ينبهك بمجرد بدء تراجع أداء موظف",
+     "detail": "يوصلك التنبيه أول ما يبدأ التراجع، فتتدارك الموقف بالتدريب قبل ما تخسر عملاءه",
+     "icon": "bell", "tone": "warning", "shared_with": [], "owned_by": "",
+     # `core/rating_alerts.py` — a rolling window of this operator's own most-recent RATED visits
+     # (never a calendar period, never fewer than a real minimum sample), average below a fixed
+     # threshold, sends an in-app notice (`InAppNotifier`) to whoever manages his branch. An early
+     # signal that opens the door to coaching — never a silent verdict discovered weeks later,
+     # after real customers have already stopped coming back.
      },
     {"id": "rating.weekly_pulse", "title": "يمنحك نبض رضا عملائك أسبوعياً",
      "detail": "متوسط تقييمك وعدد الآراء التي تنتظر ردك، بنظرة واحدة كل أسبوع",
@@ -166,13 +186,12 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
      # `Operations.ratings_summary` (core/operations.py:470-491) — عدد التقييمات هذا الأسبوع،
      # المعدل، وكم منها لسه بلا رد — سطر جاهز بالتقرير الأسبوعي، لا حساب يدوي.
      },
-    {"id": "rating.compares_your_staff", "title": "يقارن لك أداء موظفيك، لا محلك ككل فقط",
-     "detail": "لكل موظف زياراته وتقييماته ونسبة حضور عملائه، بفلتر زمني تختاره — تعرف مين يبني "
-               "سمعتك ومين يستنزفها",
-     "icon": "users", "tone": "indigo", "shared_with": [], "owned_by": "",
-     # `Operations.staff_performance` (core/operations.py) + bookings-service's own
-     # `BookingStore.no_show_summary` — GET /api/v1/field/staff/performance, gated
-     # `operations.manage` (owner/manager only, not every operator on shift).
+    {"id": "rating.exportable_report_for_the_whole_team", "title": "تقرير أداء جاهز تشاركه مع فريقك",
+     "detail": "ملف Word أو PDF بأداء كل موظف، تطبعه لاجتماع الفريق أو ترسله لمن يتخذ القرار",
+     "icon": "receipt", "tone": "blue", "shared_with": [], "owned_by": "",
+     # `POST /api/v1/field/staff/performance/export` (core/staff_performance_render.py +
+     # pdf_convert.py) — نفس أرقام لوحة المقارنة، بصيغة مستند حقيقي قابل للطباعة والمشاركة، لا
+     # تصوير شاشة.
      },
 )
 
