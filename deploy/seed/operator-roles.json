@@ -120,7 +120,10 @@
         "tickets.manage",
         "platform.tickets",
         "platform.assistant",
-        "platform.observability"
+        "platform.observability",
+        "platform.notifications",
+        "platform.files",
+        "platform.zatca"
       ]
     },
     {

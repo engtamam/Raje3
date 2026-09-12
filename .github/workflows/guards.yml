@@ -1200,6 +1200,9 @@ jobs:
       - name: the roles are whole, and the two seeds agree
         run: python3 ci/check_roles.py
 
+      - name: platform-owner holds every platform capability a route actually enforces
+        run: python3 ci/check_platform_owner_holds_every_platform_capability.py
+
       - name: the legal documents are complete
         run: python3 ci/check_legal.py
 
