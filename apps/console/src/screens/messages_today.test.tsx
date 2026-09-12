@@ -1,6 +1,8 @@
 /**
- * «هل كل شيء يعمل؟» — the summary card `reminders.today` finally feeds, and the campaigns tab's
- * «ماذا حدث» panel now opening under its OWN row rather than under the whole list.
+ * «هل كل شيء يعمل؟» — the summary card `reminders.today` finally feeds, and «لوحة الحملات»'s own
+ * detail panel — one panel, pinned by name to whichever campaign it answers for, below the real
+ * table (2026-09-12 rebuild; it used to open under each row individually, back when the list was
+ * a plain `<ul>` rather than a real `Table`).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
@@ -24,7 +26,10 @@ const TODAY_BLOCKED = {
 
 const CAMPAIGNS = [
   { id: 'c1', goal: 'win_back', state: 'active', sent: 40 },
-  { id: 'c2', goal: 'announce', state: 'active', sent: 5 },
+  // PAUSED, DELIBERATELY — an active count of exactly 1 (not 2) keeps this mock from colliding
+  // with «هل كل شيء يعمل؟»'s own "2 retrying" stat now that the management screen's own KPI
+  // tiles (2026-09-12) render a real active-campaign count on the same page.
+  { id: 'c2', goal: 'announce', state: 'paused', sent: 5 },
 ];
 
 let todayResponse: typeof TODAY_OK | typeof TODAY_BLOCKED = TODAY_OK;
@@ -67,11 +72,15 @@ describe('«الحملات» — the status card', () => {
   it('shows the three counts and the ceiling when sending is not blocked', async () => {
     todayResponse = TODAY_OK;
     open();
-    await screen.findByText('12');
-    expect(screen.getByText('3')).toBeTruthy();
-    expect(screen.getByText('2')).toBeTruthy();
-    expect(screen.getByText(/رسائل تحاول الخروج/)).toBeTruthy();
-    expect(screen.getByText(/238 متبقٍّ من 250/)).toBeTruthy();
+    const sentToday = await screen.findByText('12');
+    // SCOPED TO THE CARD ITSELF — «لوحة الحملات»'s own KPI tiles (2026-09-12) render a real
+    // campaign count on the same page, and a plain shop with two campaigns makes "2" ambiguous
+    // read from the whole document.
+    const card = sentToday.closest('section')!;
+    expect(within(card).getByText('3')).toBeTruthy();
+    expect(within(card).getByText('2')).toBeTruthy();
+    expect(within(card).getByText(/رسائل تحاول الخروج/)).toBeTruthy();
+    expect(within(card).getByText(/238 متبقٍّ من 250/)).toBeTruthy();
   });
 
   it('shows the blocked reason instead of any count when sending cannot happen at all', async () => {
@@ -82,33 +91,37 @@ describe('«الحملات» — the status card', () => {
   });
 });
 
-describe('«حملاتي» — «ماذا حدث» opens under its own row', () => {
-  it('opens the right campaign\'s runs, not the other one\'s', async () => {
+describe('«لوحة الحملات» — the detail panel is pinned by name, one at a time', () => {
+  it('shows the right campaign\'s totals when its row (card) is pressed', async () => {
     todayResponse = TODAY_OK;
     open();
     await screen.findAllByText('رجّع اللي غابوا');
+    // THE MOBILE CARD LAYOUT — Table.tsx renders both layouts unconditionally; jsdom has no CSS,
+    // so `listitem` always finds the phone-card `<li>`s regardless of viewport. Each card is ONE
+    // button (the actions column is hidden on the card layout), so no name filter is needed.
     const rows = screen.getAllByRole('listitem');
-    const c1Row = rows.find((r) => within(r).queryByText('رجّع اللي غابوا'));
-    const c2Row = rows.find((r) => within(r).queryByText('أعلن جديدك'));
-    expect(c1Row).toBeTruthy();
-    expect(c2Row).toBeTruthy();
+    const c1Row = rows.find((r) => within(r).queryByText('رجّع اللي غابوا'))!;
+    const c2Row = rows.find((r) => within(r).queryByText('أعلن جديدك'))!;
 
-    fireEvent.click(within(c1Row!).getByRole('button', { name: 'ماذا حدث' }));
-    await within(c1Row!).findByText(/40 وصلت/);
-    // THE OTHER ROW STAYS CLOSED — the whole point of pinning the panel to a row.
-    expect(within(c2Row!).queryByText(/5 وصلت/)).toBeNull();
+    fireEvent.click(within(c1Row).getByRole('button'));
+    await screen.findByText(/رجّع اللي غابوا — التفاصيل/);
+    expect(screen.getByText(/40 وصلت/)).toBeTruthy();
+
+    // PRESSING THE OTHER ROW REPLACES THE PANEL — one campaign's detail at a time, never two.
+    fireEvent.click(within(c2Row).getByRole('button'));
+    await screen.findByText(/أعلن جديدك — التفاصيل/);
+    expect(screen.queryByText(/رجّع اللي غابوا — التفاصيل/)).toBeNull();
   });
 
-  it('closes on a second press of the same row\'s button', async () => {
+  it('closes on a second press of the same row', async () => {
     todayResponse = TODAY_OK;
     open();
     await screen.findAllByText('رجّع اللي غابوا');
     const rows = screen.getAllByRole('listitem');
     const c1Row = rows.find((r) => within(r).queryByText('رجّع اللي غابوا'))!;
-    const btn = within(c1Row).getByRole('button', { name: 'ماذا حدث' });
-    fireEvent.click(btn);
-    await within(c1Row).findByText(/40 وصلت/);
-    fireEvent.click(within(c1Row).getByRole('button', { name: 'ماذا حدث' }));
-    expect(within(c1Row).queryByText(/40 وصلت/)).toBeNull();
+    fireEvent.click(within(c1Row).getByRole('button'));
+    await screen.findByText(/رجّع اللي غابوا — التفاصيل/);
+    fireEvent.click(within(c1Row).getByRole('button'));
+    expect(screen.queryByText(/رجّع اللي غابوا — التفاصيل/)).toBeNull();
   });
 });

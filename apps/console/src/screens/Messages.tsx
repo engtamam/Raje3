@@ -27,16 +27,21 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MessageSquare } from 'lucide-react';
+import {
+  AlertTriangle, BarChart3, CalendarClock, Gauge, Lock, MessageSquare, Megaphone, Pause,
+  Users, X,
+} from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
+import { FilterRail, type FilterRailItem } from '../rj-ui/FilterRail';
+import { KpiCard } from '../rj-ui/KpiCard';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { Segmented } from '../rj-ui/Segmented';
+import { Table, type TableColumn } from '../rj-ui/Table';
 import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { Toggle } from '../rj-ui/Toggle';
-import { AlertTriangle, Gauge, Lock } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { AssistantHint } from '../AssistantHint';
 import { Launch } from './Launch';
@@ -57,7 +62,20 @@ import './messages-i18n';
  * pause button never appeared on a single live campaign and «أوقفها» was unreachable for its
  * whole life. There is no `name` either: a campaign is named by its goal.
  */
-interface Campaign { id: string; goal?: string; state?: string; sent?: number }
+interface Campaign {
+  id: string; goal?: string; state?: string; sent?: number;
+  /** WHEN IT LAUNCHES — a future value with `last_evaluated === 0` means job-service is holding
+   *  this campaign for its exact moment (campaigns' own core/models.py::Campaign), not yet fired
+   *  even once. 0 means "no schedule" — an ordinary manual/standing campaign. */
+  fire_at?: number;
+  last_evaluated?: number;
+  /** THE OWNER'S OWN RECURRING WINDOW — any goal may carry one (2026-09-12). Defaults
+   *  (0, 24, []) mean "no window", the same "" `window_sentence()` itself returns for them. */
+  window_start_hour?: number;
+  window_end_hour?: number;
+  window_weekdays?: number[];
+  created?: number;
+}
 
 /** A goal's own key → translation key, so a row reads a real title rather than `win_back`. */
 const GOAL_KEY: Record<string, string> = {
@@ -85,6 +103,14 @@ const STATE_KEY: Record<string, string> = {
   paused: 'messages.state.paused',
   done: 'messages.state.done',
   draft: 'messages.state.draft',
+  // A DISPLAY-ONLY STATE, NEVER WRITTEN BY THE SERVER — the backend row's own `state` stays
+  // `active` the whole time job-service holds it for a future moment; this is computed
+  // client-side (`isScheduled()`, above) from `fire_at`/`last_evaluated`, the exact fields
+  // campaigns' own core/tick.py already keys its rescue on.
+  scheduled: 'messages.state.scheduled',
+};
+const STATE_TONE: Record<string, 'success' | 'warning' | 'neutral' | 'accent'> = {
+  active: 'success', paused: 'warning', done: 'neutral', draft: 'neutral', scheduled: 'accent',
 };
 function stateLabel(t: (key: string) => string, state: string): string | undefined {
   const key = STATE_KEY[state];
@@ -192,6 +218,11 @@ interface GoalRow {
   title: string;
   line: string;
   template_status?: TemplateStatus;
+  /** THE RAIL'S OWN "استُخدمت N مرة"/"N وصلهم" — campaigns' own side counter
+   *  (core/goal_stats.py, 2026-09-12), never computed here. Used for the management screen's own
+   *  "كم عميل وصلته حملاتك" KPI — a real sum, not an invented one. */
+  uses?: number;
+  reach?: number;
 }
 
 /**
@@ -217,6 +248,11 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
 // entirely (composed fresh per conversation, never stored or edited here), so they read as an
 // appendix, not mixed in among the shop's own configured messages.
 const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers', 'bot'] as const;
+
+/** THE RAIL'S OWN DOT COLOURS, in order — the same rotation GeoMap.tsx's own group legend
+ *  already uses (accent/success/warning/danger/muted), so a category dot reads consistently with
+ *  every other place this product colour-codes a small fixed set of named groups. */
+const RAIL_DOT_COLORS = ['bg-accent', 'bg-info', 'bg-success', 'bg-warning', 'bg-danger', 'bg-text-muted'];
 const SECTION_KEY: Record<string, string> = {
   service: 'messages.section.service',
   personal: 'messages.section.personal',
@@ -481,6 +517,40 @@ function dueIn(at: number, t: (key: string) => string): string {
   if (days === 0) return t('messages.due.today');
   if (days === 1) return t('messages.due.tomorrow');
   return tf(t, 'messages.due.inDays', { n: days });
+}
+
+/** THE RAIL'S OWN URGENCY BUCKET for one queued message — 'soon' (within the hour), 'today', or
+ *  'later'. Three buckets, not a continuous countdown: an owner scanning the rail wants "should I
+ *  worry about this one right now", not a precise minute count for every row. */
+type Urgency = 'soon' | 'today' | 'later';
+function urgencyOf(dueAt: number): Urgency {
+  const secondsLeft = dueAt - Date.now() / 1000;
+  if (secondsLeft <= 3_600) return 'soon';
+  if (secondsLeft <= 86_400) return 'today';
+  return 'later';
+}
+const URGENCY_DOT: Record<Urgency, string> = { soon: 'bg-danger', today: 'bg-warning', later: 'bg-text-muted' };
+
+/** A campaign's own recurring window, as a short chip — or `null` when it carries none (the
+ *  (0, 24, []) defaults `Campaign.window_*` itself uses to mean "no window"). Mirrors
+ *  campaigns' own `window_sentence()` (preview.py) at a glance rather than the full sentence,
+ *  which only the preview screen has room for. */
+function windowChip(c: Campaign): string | null {
+  const start = c.window_start_hour ?? 0;
+  const end = c.window_end_hour ?? 24;
+  const days = c.window_weekdays ?? [];
+  if (start === 0 && end === 24 && days.length === 0) return null;
+  const hours = `${start}–${end}`;
+  if (days.length === 0) return hours;
+  return `${hours} · ${days.length} أيام`;
+}
+
+/** Whether job-service is holding this campaign for a future moment it has not fired even once
+ *  — `fire_at` in the future AND `last_evaluated === 0` (campaigns' own core/tick.py rescue is
+ *  keyed on the exact same field). A campaign already fired at least once is never "scheduled"
+ *  again, however its `fire_at` reads. */
+function isScheduled(c: Campaign): boolean {
+  return Boolean(c.fire_at) && (c.fire_at ?? 0) > Date.now() / 1000 && !c.last_evaluated;
 }
 
 /** 966xxxxxxxxx → 05xxxxxxxx. The form he reads on his own phone. */
@@ -823,6 +893,10 @@ export function MessagesScreen(
    *  one campaign saw «ماذا حدث» open somewhere its own row never pointed to. */
   const [runs, setRuns] = useState<Run[] | null | undefined>(undefined);
   const [runsFor, setRunsFor] = useState('');
+  /** THE SAME ROUTE'S OWN TOTALS — matched/sent/suppressed/redeemed across every run, not
+   *  reconstructed here by summing `runs` (which the route itself may have paginated). Was
+   *  fetched and thrown away before this pass; the detail panel's own KPI tiles need it. */
+  const [runsTotals, setRunsTotals] = useState<Record<string, number> | null>(null);
   /** Which row's «ماذا حدث»/«أوقفها» is mid-request — so a second tap while the first is still in
    *  flight does nothing rather than firing the same call twice. */
   const [campaignBusy, setCampaignBusy] = useState('');
@@ -900,6 +974,18 @@ export function MessagesScreen(
     (!activeFilters.has('auto') || c.tags.includes('auto'))
     && (!activeFilters.has('bot') || c.tags.includes('bot'))
     && (!activeFilters.has('interactive') || c.interactive)), [cards, activeFilters]);
+
+  /** THE RAIL'S OWN CLASS FILTER — narrows which section is shown, on top of `filteredCards`'
+   *  own tag filter above (both apply together: a class AND a tag). '' means every class. */
+  const [classFilter, setClassFilter] = useState<string>('');
+  /** THE QUEUE TAB'S OWN RAIL — same idea, one dimension (urgency) instead of class. */
+  const [urgencyFilter, setUrgencyFilter] = useState<'' | Urgency>('');
+  /** THE LOG TAB'S OWN RAIL — replaces the old `only` Segmented with the same rail shape every
+   *  other tab now uses; `only` itself (still read by the network effect above) is unchanged. */
+  const classFilteredCards = useMemo(
+    () => (classFilter ? filteredCards.filter((c) => c.cls === classFilter) : filteredCards),
+    [filteredCards, classFilter],
+  );
 
   // THE SUMMARY, ONCE, WITH THE SCREEN. Cheap by its own design (owner.py's docstring: one call
   // rather than four, exactly so a status screen is never briefly wrong) — and silent on failure
@@ -1035,15 +1121,18 @@ export function MessagesScreen(
   const openRuns = async (id: string) => {
     // A SECOND TAP CLOSES IT, rather than re-fetching the same answer — the whole point of
     // pinning the panel to a row is that pressing that row's own button again is «hide it».
-    if (runsFor === id) { setRuns(null); setRunsFor(''); return; }
+    if (runsFor === id) { setRuns(null); setRunsTotals(null); setRunsFor(''); return; }
     const a = action(catalog, 'campaigns.runs');
     if (!a) return;
     setRunsFor(id);
     setCampaignBusy(`runs:${id}`);
     // AN EMPTY LIST RATHER THAN A CLOSED PANEL ON FAILURE: he asked a question, and silence is
     // the one answer that sends him to support.
-    setRuns(await call<{ runs: Run[] }>(session, a, { campaign_id: id })
-      .then((r) => r.runs ?? []).catch(() => []));
+    const out = await call<{ runs: Run[]; totals?: Record<string, number> }>(session, a, { campaign_id: id })
+      .then((r) => ({ runs: r.runs ?? [], totals: r.totals ?? null }))
+      .catch(() => ({ runs: [] as Run[], totals: null }));
+    setRuns(out.runs);
+    setRunsTotals(out.totals);
     setCampaignBusy('');
   };
 
@@ -1154,49 +1243,78 @@ export function MessagesScreen(
               description={t('messages.reasons.filterEmptyDesc')}
             />
           ) : (
-            <>
-              {SECTION_ORDER.map((section) => {
-                const inSection = filteredCards.filter((c) => c.cls === section);
-                if (inSection.length === 0) return null;
-                return (
-                  <div key={section} className="flex flex-col gap-2">
-                    <h3 className="px-1 text-sm font-medium text-text-secondary">
-                      {sectionLabel(t, section)}
-                    </h3>
-                    <ul className="flex flex-col gap-2">
-                      {inSection.map((c) => {
-                        // NEVER SWAP THE WHOLE CARD FOR A LOCK ANY MORE — `AppGate` used to
-                        // replace it outright, which meant pressing a locked reason could never
-                        // open the real preview at all (owner's own words: "حتى لو مقفلة العرض
-                        // المفروض يكون متاح بحيث يشوفها ويجربها ويتحمس يشتريها"). The card itself
-                        // (and its `onOpen`) always renders; only the switch is replaced, and the
-                        // app's own real feature list + buy link render ALONGSIDE it, never
-                        // instead of it.
-                        const lockedRow = c.lockAppId
-                          ? owns(owned, APP_ROWS.find((a) => a.id === c.lockAppId)?.key ?? null) === false
-                          : false;
-                        return (
-                          <li key={c.key} className="flex flex-col gap-2">
-                            <TemplateCardItem card={c} session={session} busy={busy}
-                                              onOpen={() => setReading(c)}
-                                              onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
-                                              onCrossLink={() => c.goal
-                                                && navigate(`?tab=campaigns&launch=${c.goal}`)}
-                                              locked={lockedRow} />
-                            {lockedRow ? (
-                              <LockedCard appId={c.lockAppId!} session={session} catalog={catalog} owned={owned} />
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })}
-              <p className="px-1 text-xs text-text-secondary">
-                {t('messages.reasons.footnote')}
-              </p>
-            </>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_1fr]">
+              {/* THE RAIL — every real class this shop's own cards actually carry, never a
+                  hardcoded list that could name a class with nothing in it (or miss one). */}
+              <FilterRail
+                ariaLabel={t('messages.classRailAriaLabel')}
+                active={classFilter}
+                onChange={setClassFilter}
+                items={[
+                  { id: '', label: t('messages.category.all'), count: filteredCards.length },
+                  ...SECTION_ORDER
+                    .map((section, i) => ({
+                      id: section,
+                      label: sectionLabel(t, section),
+                      count: filteredCards.filter((c) => c.cls === section).length,
+                      dotClassName: RAIL_DOT_COLORS[i % RAIL_DOT_COLORS.length],
+                    }))
+                    .filter((it) => it.count > 0),
+                ]}
+              />
+
+              <div className="flex flex-col gap-4">
+                {(classFilter ? [classFilter] : SECTION_ORDER).map((section) => {
+                  const inSection = classFilteredCards.filter((c) => c.cls === section);
+                  if (inSection.length === 0) return null;
+                  return (
+                    <div key={section} className="flex flex-col gap-2">
+                      {!classFilter ? (
+                        <h3 className="px-1 text-sm font-medium text-text-secondary">
+                          {sectionLabel(t, section)}
+                        </h3>
+                      ) : null}
+                      <ul className="flex flex-col gap-2">
+                        {inSection.map((c) => {
+                          // NEVER SWAP THE WHOLE CARD FOR A LOCK ANY MORE — `AppGate` used to
+                          // replace it outright, which meant pressing a locked reason could never
+                          // open the real preview at all (owner's own words: "حتى لو مقفلة العرض
+                          // المفروض يكون متاح بحيث يشوفها ويجربها ويتحمس يشتريها"). The card itself
+                          // (and its `onOpen`) always renders; only the switch is replaced, and the
+                          // app's own real feature list + buy link render ALONGSIDE it, never
+                          // instead of it.
+                          const lockedRow = c.lockAppId
+                            ? owns(owned, APP_ROWS.find((a) => a.id === c.lockAppId)?.key ?? null) === false
+                            : false;
+                          return (
+                            <li key={c.key} className="flex flex-col gap-2">
+                              <TemplateCardItem card={c} session={session} busy={busy}
+                                                onOpen={() => setReading(c)}
+                                                onFlip={c.reason ? (on) => flip(c.reason!, on) : undefined}
+                                                onCrossLink={() => c.goal
+                                                  && navigate(`?tab=campaigns&launch=${c.goal}`)}
+                                                locked={lockedRow} />
+                              {lockedRow ? (
+                                <LockedCard appId={c.lockAppId!} session={session} catalog={catalog} owned={owned} />
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })}
+                {classFilteredCards.length === 0 ? (
+                  <EmptyState
+                    title={t('messages.reasons.filterEmptyTitle')}
+                    description={t('messages.reasons.filterEmptyDesc')}
+                  />
+                ) : null}
+                <p className="px-1 text-xs text-text-secondary">
+                  {t('messages.reasons.footnote')}
+                </p>
+              </div>
+            </div>
           )}
           {reading ? (
             reading.botPreview ? (
@@ -1257,57 +1375,83 @@ export function MessagesScreen(
             description={t('messages.schedule.emptyDesc')}
           />
         ) : (
-          <>
-            <p className="px-1 text-sm text-text-secondary">
-              {tf(t, 'messages.schedule.summary', { n: schedule.schedule.length })}
-            </p>
-            <ul className="flex flex-col gap-2">
-              {[...schedule.schedule]
-                .sort((a, b) => (a.due_at ?? 0) - (b.due_at ?? 0))
-                .slice(0, 100)
-                .map((r, i) => {
-                  const person = r.subject_ref ? who[r.subject_ref] : undefined;
-                  return (
-                    <li key={r.id || i}
-                        className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
-                      <span className="flex min-w-0 flex-col">
-                        {/* THE NAME IF HE WROTE ONE, THE NUMBER IF HE DID NOT — never a
-                            pseudonym. Names are optional at the counter (§4.3), so the phone is
-                            the fallback that always identifies somebody. */}
-                        <span className="truncate font-medium">
-                          {person?.name || (person?.phone ? asLocal(person.phone) : t('messages.customerFallback'))}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_1fr]">
+            <FilterRail
+              ariaLabel={t('messages.urgencyRailAriaLabel')}
+              active={urgencyFilter}
+              onChange={(id) => setUrgencyFilter(id as '' | Urgency)}
+              items={(['soon', 'today', 'later'] as Urgency[])
+                .map((u) => ({
+                  id: u,
+                  label: t(`messages.urgency.${u}`),
+                  dotClassName: URGENCY_DOT[u],
+                  count: schedule.schedule.filter((r) => urgencyOf(r.due_at ?? 0) === u).length,
+                }))
+                .reduce<FilterRailItem[]>((acc, it) => [...acc, it], [
+                  { id: '', label: t('messages.category.all'), count: schedule.schedule.length },
+                ])}
+            />
+            <div className="flex flex-col gap-3">
+              <p className="px-1 text-sm text-text-secondary">
+                {tf(t, 'messages.schedule.summary', { n: schedule.schedule.length })}
+              </p>
+              <ul className="flex flex-col gap-2">
+                {[...schedule.schedule]
+                  .filter((r) => !urgencyFilter || urgencyOf(r.due_at ?? 0) === urgencyFilter)
+                  .sort((a, b) => (a.due_at ?? 0) - (b.due_at ?? 0))
+                  .slice(0, 100)
+                  .map((r, i) => {
+                    const person = r.subject_ref ? who[r.subject_ref] : undefined;
+                    const urgency = urgencyOf(r.due_at ?? 0);
+                    // A REAL LOGICAL-DIRECTION BORDER, RTL-SAFE — the same `border-inline-start`
+                    // property `.legal-callout` (index.css) already uses for this exact "a
+                    // coloured stripe naming urgency" shape; done inline here since it is per-row
+                    // data (which colour), not a shared static rule a stylesheet class can hold.
+                    const urgencyColor = urgency === 'soon' ? 'var(--danger)'
+                      : urgency === 'today' ? 'var(--warning)' : 'var(--border-subtle)';
+                    return (
+                      <li key={r.id || i}
+                          style={{ borderInlineStart: `4px solid ${urgencyColor}` }}
+                          className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
+                        <span className="flex min-w-0 flex-col">
+                          {/* THE NAME IF HE WROTE ONE, THE NUMBER IF HE DID NOT — never a
+                              pseudonym. Names are optional at the counter (§4.3), so the phone is
+                              the fallback that always identifies somebody. */}
+                          <span className="truncate font-medium">
+                            {person?.name || (person?.phone ? asLocal(person.phone) : t('messages.customerFallback'))}
+                          </span>
+                          <span className="truncate text-sm text-text-secondary">
+                            {occasionLabel(t, r.kind ?? '')}
+                            {r.due_at ? ` · ${dueIn(r.due_at, t)}` : ''}
+                          </span>
                         </span>
-                        <span className="truncate text-sm text-text-secondary">
-                          {occasionLabel(t, r.kind ?? '')}
-                          {r.due_at ? ` · ${dueIn(r.due_at, t)}` : ''}
-                        </span>
-                      </span>
-                      {/* CANCELS THE MESSAGE, NOT THE RULE — the route's own words, repeated here
-                          so he is not surprised: the next visit schedules a new one. */}
-                      {action(catalog, 'reminders.cancel') && r.id ? (
-                        <Button
-                          variant="ghost"
-                          disabled={cancelBusy === r.id}
-                          onClick={async () => {
-                            const a2 = action(catalog, 'reminders.cancel');
-                            if (!a2 || !r.id) return;
-                            setCancelBusy(r.id);
-                            await call(session, a2, { id: r.id }).catch(() => null);
-                            setCancelBusy('');
-                            loadSchedule();
-                          }}
-                        >
-                          {cancelBusy === r.id ? t('messages.cancel.busy') : t('messages.cancel.action')}
-                        </Button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-            </ul>
-            <p className="px-1 text-xs text-text-secondary">
-              {t('messages.schedule.footnote')}
-            </p>
-          </>
+                        {/* CANCELS THE MESSAGE, NOT THE RULE — the route's own words, repeated here
+                            so he is not surprised: the next visit schedules a new one. */}
+                        {action(catalog, 'reminders.cancel') && r.id ? (
+                          <Button
+                            variant="ghost"
+                            disabled={cancelBusy === r.id}
+                            onClick={async () => {
+                              const a2 = action(catalog, 'reminders.cancel');
+                              if (!a2 || !r.id) return;
+                              setCancelBusy(r.id);
+                              await call(session, a2, { id: r.id }).catch(() => null);
+                              setCancelBusy('');
+                              loadSchedule();
+                            }}
+                          >
+                            {cancelBusy === r.id ? t('messages.cancel.busy') : t('messages.cancel.action')}
+                          </Button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+              </ul>
+              <p className="px-1 text-xs text-text-secondary">
+                {t('messages.schedule.footnote')}
+              </p>
+            </div>
+          </div>
         )}
       </section>
       ) : tab === 'log' ? (
@@ -1384,8 +1528,16 @@ export function MessagesScreen(
             />
           ) : (
             <ul className="flex flex-col gap-2">
-              {log.map((r) => (
-                <li key={r.id} className="rounded-card bg-surface-1 p-3 shadow-sm">
+              {log.map((r) => {
+                // THE SAME TONE THE BADGE BELOW ALREADY COMPUTES — read once, used twice (the
+                // badge's own fill and this row's own colour-coded stripe), never a second,
+                // independently-guessed colour rule that could disagree with the badge beside it.
+                const outcomeTone = r.outcome !== 'sent' ? 'warning' : r.read_at ? 'success' : 'neutral';
+                const outcomeColor = outcomeTone === 'warning' ? 'var(--warning)'
+                  : outcomeTone === 'success' ? 'var(--success)' : 'var(--border-subtle)';
+                return (
+                <li key={r.id} style={{ borderInlineStart: `4px solid ${outcomeColor}` }}
+                    className="rounded-card bg-surface-1 p-3 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     {/* WHO IT WAS ABOUT, FIRST. A log line that says only «لم تخرج» and a reason
                         leaves the owner unable to act: he cannot call the customer, cannot check
@@ -1413,8 +1565,7 @@ export function MessagesScreen(
                         The third is not a failure and must not be coloured as one: WhatsApp
                         receipts arrive minutes late and a shop reading this at the counter would
                         otherwise think every recent message had failed. */}
-                    <Badge tone={r.outcome !== 'sent' ? 'warning'
-                      : r.read_at ? 'success' : 'neutral'}>
+                    <Badge tone={outcomeTone}>
                       {r.outcome !== 'sent' ? t('messages.log.outcome.suppressed')
                         : r.read_at ? t('messages.log.outcome.read') : r.delivered_at ? t('messages.log.outcome.delivered') : t('messages.log.outcome.sent')}
                     </Badge>
@@ -1428,7 +1579,8 @@ export function MessagesScreen(
                     <p className="mt-1 text-sm text-text-secondary" dir="ltr">{r.template_name}</p>
                   ) : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </section>
@@ -1458,7 +1610,7 @@ export function MessagesScreen(
           />
         </section>
       ) : (
-        <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <section className="flex flex-col gap-4">
           {/* THE BUTTON THAT DID NOT EXIST. The engine — goals with their locks, the audience
               rules, the spread across days, the reserved share, the per-send log — was complete
               and unreachable; this tab listed campaigns and explained what a campaign is for,
@@ -1466,111 +1618,183 @@ export function MessagesScreen(
           {launching ? (
             <Launch session={session} catalog={catalog} initialGoalId={launchGoal} owned={owned}
                     onDone={() => { setLaunching(false); loadCampaigns(); }} />
-          ) : action(catalog, 'campaigns.create') ? (
-            <div><Button onClick={() => setLaunching(true)}>{t('messages.campaigns.launch')}</Button></div>
-          ) : null}
-
-          {hasFailed(campaigns) ? (
-            // "Haven't launched a campaign yet" IS A FACT ABOUT HIS SHOP. Said after a failed
-            // read it tells an owner mid-campaign that nothing of his is running.
-            <EmptyState
-              title={t('messages.campaigns.failedTitle')}
-              description={t('messages.campaigns.failedDesc')}
-            />
-          ) : (campaigns ?? []).length === 0 ? (
-            <EmptyState
-              title={t('messages.campaigns.emptyTitle')}
-              description={t('messages.campaigns.emptyDesc')}
-            />
           ) : (
-            // ONE ROW SHAPE, EVERYWHERE ON THIS SCREEN. This used to hash the name, the sent
-            // count, a badge and two buttons into one horizontal line with nothing to wrap on a
-            // narrow phone — «بانتظار الخروج» already solved this with a stacked card, and a
-            // campaign is exactly as much information as a queued message.
-            <ul className="flex flex-col gap-2">
-              {campaigns.map((c) => (
-                <li key={c.id} className="flex flex-col gap-2 rounded-card bg-surface-1 p-3 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium">
-                        {goalTitle(t, c.goal ?? '') || c.goal || t('messages.campaigns.fallbackName')}
-                      </span>
-                      {typeof c.sent === 'number' ? (
-                        <span className="text-sm text-text-secondary tabular-nums">
-                          {tf(t, 'messages.campaigns.sentCount', { n: c.sent })}
-                        </span>
-                      ) : null}
-                    </span>
-                    {c.state ? (
-                      <Badge tone={c.state === 'active' ? 'info' : 'neutral'}>
-                        {stateLabel(t, c.state) ?? c.state}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* "WHAT HAPPENED" — THE MOST IMPORTANT ROUTE THIS SERVICE HAS, by its own
-                        note: "it didn't arrive" is the only complaint this product generates, and
-                        every correct refusal (consent, the ceiling, quiet hours) reads as a fault
-                        until it is named. It was declared and called by nothing. */}
-                    {action(catalog, 'campaigns.runs') ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={campaignBusy === `runs:${c.id}`}
-                        aria-expanded={runsFor === c.id}
-                        onClick={() => void openRuns(c.id)}
-                      >
-                        {campaignBusy === `runs:${c.id}` ? t('messages.runs.loading') : t('messages.runs.button')}
-                      </Button>
-                    ) : null}
-                    {/* STOPPING A STANDING RULE, not deleting its history. Only while it runs —
-                        a pause button on a finished campaign is a control that does nothing. */}
-                    {c.state === 'active' && action(catalog, 'campaigns.pause') ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={campaignBusy === `pause:${c.id}`}
-                        onClick={async () => {
-                          const a2 = action(catalog, 'campaigns.pause');
-                          if (!a2) return;
-                          setCampaignBusy(`pause:${c.id}`);
-                          await call(session, a2, { campaign_id: c.id }).catch(() => null);
-                          setCampaignBusy('');
-                          loadCampaigns();
-                        }}
-                      >
-                        {campaignBusy === `pause:${c.id}` ? t('messages.cancel.busy') : t('messages.cancel.action')}
-                      </Button>
-                    ) : null}
+            <>
+              {action(catalog, 'campaigns.create') ? (
+                <div><Button onClick={() => setLaunching(true)}>{t('messages.campaigns.launch')}</Button></div>
+              ) : null}
+
+              {hasFailed(campaigns) ? (
+                // "Haven't launched a campaign yet" IS A FACT ABOUT HIS SHOP. Said after a failed
+                // read it tells an owner mid-campaign that nothing of his is running.
+                <EmptyState
+                  title={t('messages.campaigns.failedTitle')}
+                  description={t('messages.campaigns.failedDesc')}
+                />
+              ) : (campaigns ?? []).length === 0 ? (
+                <EmptyState
+                  title={t('messages.campaigns.emptyTitle')}
+                  description={t('messages.campaigns.emptyDesc')}
+                />
+              ) : (
+                <>
+                  {/* THE THREE NUMBERS AN OWNER ACTUALLY WANTS AT A GLANCE — every one real,
+                      never invented: active count and total from the list this tab already
+                      reads, reach summed from the SAME side counter (core/goal_stats.py) the
+                      create screen's own rail already shows per goal — no new network call,
+                      `goals` is already fetched for «القوالب»'s own cross-link cards. A
+                      redemption-rate tile was deliberately left OUT: computing it honestly needs
+                      every campaign's own `/runs` totals, one call each, which does not belong on
+                      a screen that opens on every visit to this tab. */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <KpiCard
+                      icon={<Megaphone size={18} aria-hidden />}
+                      tone="success"
+                      label={t('messages.campaigns.kpi.active')}
+                      value={campaigns.filter((c) => c.state === 'active').length}
+                    />
+                    <KpiCard
+                      icon={<BarChart3 size={18} aria-hidden />}
+                      tone="accent"
+                      label={t('messages.campaigns.kpi.total')}
+                      value={campaigns.length}
+                    />
+                    <KpiCard
+                      icon={<Users size={18} aria-hidden />}
+                      tone="info"
+                      label={t('messages.campaigns.kpi.reach')}
+                      value={(goals ?? []).reduce((sum, g) => sum + (g.reach ?? 0), 0)}
+                    />
                   </div>
 
-                  {/* WHAT ACTUALLY WENT OUT, PER SEND, WITH ITS REASON. Opened under ITS OWN
-                      row — never under the whole list — so a shop with more than one campaign
-                      can actually tell which one the panel is answering for. */}
-                  {runsFor === c.id && runs ? (
-                    <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+                  <Table<Campaign>
+                    columns={[
+                      {
+                        key: 'name', header: t('messages.campaigns.col.name'),
+                        render: (c) => (
+                          <span className="flex flex-col">
+                            <span className="font-medium">
+                              {goalTitle(t, c.goal ?? '') || c.goal || t('messages.campaigns.fallbackName')}
+                            </span>
+                            {isScheduled(c) ? (
+                              <span className="flex items-center gap-1 text-xs text-accent-on-soft">
+                                <CalendarClock size={11} aria-hidden />
+                                {tf(t, 'messages.campaigns.scheduledIn', { when: dueIn(c.fire_at ?? 0, t) })}
+                              </span>
+                            ) : null}
+                          </span>
+                        ),
+                      },
+                      {
+                        key: 'state', header: t('messages.campaigns.col.state'), width: '18%',
+                        render: (c) => {
+                          const st = isScheduled(c) ? 'scheduled' : (c.state || '');
+                          return st ? <Badge tone={STATE_TONE[st] ?? 'neutral'}>{stateLabel(t, st) ?? st}</Badge> : null;
+                        },
+                      },
+                      {
+                        key: 'window', header: t('messages.campaigns.col.window'), width: '22%',
+                        render: (c) => {
+                          const w = windowChip(c);
+                          return w ? (
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-pill bg-accent-soft px-2 py-0.5 text-xs text-accent-on-soft">
+                              <CalendarClock size={11} aria-hidden />{w}
+                            </span>
+                          ) : <span className="text-xs text-text-muted">{t('messages.campaigns.noWindow')}</span>;
+                        },
+                      },
+                      {
+                        key: 'actions', header: '', width: '90px', hideOnCard: true,
+                        render: (c) => (
+                          // STOPPING A STANDING RULE, not deleting its history. Only while it
+                          // runs — a pause button on a finished campaign is a control that does
+                          // nothing. `stopPropagation` so pressing it never also opens/closes
+                          // the row's own detail panel underneath it.
+                          c.state === 'active' && action(catalog, 'campaigns.pause') ? (
+                            <Button
+                              variant="ghost" size="sm"
+                              disabled={campaignBusy === `pause:${c.id}`}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const a2 = action(catalog, 'campaigns.pause');
+                                if (!a2) return;
+                                setCampaignBusy(`pause:${c.id}`);
+                                await call(session, a2, { campaign_id: c.id }).catch(() => null);
+                                setCampaignBusy('');
+                                loadCampaigns();
+                              }}
+                            >
+                              {campaignBusy === `pause:${c.id}` ? t('messages.cancel.busy') : (
+                                <span className="flex items-center gap-1"><Pause size={13} aria-hidden />{t('messages.cancel.action')}</span>
+                              )}
+                            </Button>
+                          ) : null
+                        ),
+                      },
+                    ]}
+                    rows={campaigns}
+                    getRowId={(c) => c.id}
+                    onRowClick={action(catalog, 'campaigns.runs') ? (c) => void openRuns(c.id) : undefined}
+                  />
+
+                  {/* THE DETAIL PANEL — opened under the whole table (never under one row, since
+                      the table itself may re-sort/re-render) but pinned to the campaign it
+                      answers for by name, so a shop with several campaigns never has to guess
+                      which one this is describing. */}
+                  {runsFor && runs ? (
+                    <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-medium">
+                          {tf(t, 'messages.campaigns.detailTitle', {
+                            name: goalTitle(t, campaigns.find((c) => c.id === runsFor)?.goal ?? '')
+                              || t('messages.campaigns.fallbackName'),
+                          })}
+                        </h3>
+                        <button type="button" aria-label={t('messages.campaigns.closeDetail')}
+                               onClick={() => { setRuns(null); setRunsTotals(null); setRunsFor(''); }}
+                               className="text-text-secondary hover:text-text-primary">
+                          <X size={16} aria-hidden />
+                        </button>
+                      </div>
+
+                      {runsTotals ? (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {(['matched', 'sent', 'suppressed', 'redeemed'] as const)
+                            .filter((k) => typeof runsTotals[k] === 'number')
+                            .map((k) => (
+                              <div key={k} className="rounded-lg bg-surface-2 p-2.5 text-center">
+                                <div className="text-lg font-semibold tabular-nums">{runsTotals[k]}</div>
+                                <div className="text-xs text-text-secondary">{t(`messages.campaigns.totals.${k}`)}</div>
+                              </div>
+                            ))}
+                        </div>
+                      ) : null}
+
+                      {/* WHAT ACTUALLY WENT OUT, PER SEND, WITH ITS REASON. */}
                       {runs.length === 0 ? (
                         <p className="text-sm text-text-secondary">{t('messages.runs.empty')}</p>
                       ) : (
-                        runs.map((r, i) => (
-                          <div key={i} className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
-                            <span className="flex flex-col">
-                              <span className="text-sm tabular-nums">
-                                {tf(t, 'messages.runs.summary', { sent: r.sent ?? 0, suppressed: r.suppressed ?? 0 })}
+                        <ul className="flex flex-col gap-2">
+                          {runs.map((r, i) => (
+                            <li key={i} className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+                              <span className="flex flex-col">
+                                <span className="text-sm tabular-nums">
+                                  {tf(t, 'messages.runs.summary', { sent: r.sent ?? 0, suppressed: r.suppressed ?? 0 })}
+                                </span>
+                                {r.reason ? (
+                                  <span className="text-xs text-text-secondary">{r.reason}</span>
+                                ) : null}
                               </span>
-                              {r.reason ? (
-                                <span className="text-xs text-text-secondary">{r.reason}</span>
-                              ) : null}
-                            </span>
-                            <span className="text-xs text-text-secondary">{when(r.at ?? 0, t)}</span>
-                          </div>
-                        ))
+                              <span className="text-xs text-text-secondary">{when(r.at ?? 0, t)}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                   ) : null}
-                </li>
-              ))}
-            </ul>
+                </>
+              )}
+            </>
           )}
         </section>
       )}
