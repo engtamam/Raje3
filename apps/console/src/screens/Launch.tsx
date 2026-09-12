@@ -211,7 +211,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   const [goalsFailed, setGoalsFailed] = useState(false);
   const [picked, setPicked] = useState<Goal | null | undefined>(undefined);
   const [ownerText, setOwnerText] = useState('');
-  const [serviceId, setServiceId] = useState('');
+  // SEVERAL SERVICES, ONE OFFER (2026-09-13) — each becomes its own carousel card at send time
+  // (core/shape.py's existing carousel path); `serviceIds` is the whole selection, in the order
+  // he picked them, which is also the order the cards render in.
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   /**
    * WHEN THE OFFER STOPS. «لا افتراض له» (§10.9.1) — we do not pick a date for him, because a
    * discount whose end we chose is a discount he honours at the till on a day he did not agree to.
@@ -233,7 +236,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   // `package_offer`'s OWN answer for the "catalogue" blank — a package, never a service (packages
   // feature). Fetched the same way `services` is: this service holds no catalogue of its own.
   const [packages, setPackages] = useState<Package[] | null>([]);
-  const [packageId, setPackageId] = useState('');
+  // SEVERAL PACKAGES, SAME REASONING AS `serviceIds` above.
+  const [packageIds, setPackageIds] = useState<string[]>([]);
   // HIS BRANCHES, and the empty list is the common case — one branch, or a role that may not read
   // them. The picker below simply does not render then, which is right: a shop with one place has
   // no targeting decision to make, and a control offering one option is a control that lies about
@@ -412,15 +416,18 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     setBusy(true); setError(''); setPreview(null);
     try {
       setPreview(await call<Preview>(session, previewAction, {
-        goal: goal.goal, owner_text: ownerText, service_id: serviceId,
-        // MUTUALLY EXCLUSIVE WITH `service_id` — only `package_offer` ever sets this.
-        package_id: packageId,
+        goal: goal.goal,
+        owner_text: ownerText,
+        // SEVERAL SERVICES/PACKAGES, ONE OFFER (2026-09-13) — every one selected, in order.
+        // MUTUALLY EXCLUSIVE — only `package_offer` ever sets the package fields.
+        service_ids: serviceIds,
+        package_ids: packageIds,
         // THE BRANCH IS IN THE PREVIEW TOO, and that is the whole point of previewing: the count
         // he decides on must be the count that goes out.
         branch_id: branchId,
         offer_value: offerValue,
-        service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
-        package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
+        service_names: serviceIds.map((id) => (services ?? []).find((x) => x.id === id)?.name ?? ''),
+        package_names: packageIds.map((id) => (packages ?? []).find((x) => x.id === id)?.name ?? ''),
         // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
         // would still be sending after the offer has ended, and that refusal is only useful
         // BEFORE he presses.
@@ -515,7 +522,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                 <button
                   key={g.goal}
                   type="button"
-                  onClick={() => setPicked(g)}
+                  onClick={() => { setPicked(g); setServiceIds([]); setPackageIds([]); }}
                   className={['flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors',
                              active ? 'bg-accent-soft ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-2'].join(' ')}
                 >
@@ -662,12 +669,14 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                   setBusy(true); setError('');
                   try {
                     await call(session, createAction, {
-                      goal: picked.goal, owner_text: ownerText, service_id: serviceId,
-                      package_id: packageId,
+                      goal: picked.goal,
+                      owner_text: ownerText,
+                      service_ids: serviceIds,
+                      package_ids: packageIds,
                       branch_id: branchId,
                       offer_value: offerValue,
-                      service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
-                      package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
+                      service_names: serviceIds.map((id) => (services ?? []).find((x) => x.id === id)?.name ?? ''),
+                      package_names: packageIds.map((id) => (packages ?? []).find((x) => x.id === id)?.name ?? ''),
                       expires_at: expiresAt,
                       fire_at: combinedFireAt,
                       window_start_hour: windowOn ? windowStartHour : 0,
@@ -905,45 +914,77 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           </label>
         ) : null}
 
-        {/* WHICH SERVICE, when the goal is about one. The cycle lock (§10.9.1) holds back whoever
-            took it too recently — and it can only do that if the campaign names the service.
+        {/* WHICH SERVICE(S), when the goal is about them — MORE THAN ONE, now (2026-09-13): each
+            selected service becomes its own carousel card at send time (core/shape.py's existing
+            carousel path), never a plain paragraph naming all of them. The cycle lock (§10.9.1)
+            holds back whoever took EVERY selected one too recently — ready for even one is ready
+            for the offer, since the carousel shows all the chosen cards together regardless of
+            which one applies to him.
             `package_offer` shares this SAME "catalogue" blank kind (one template, `mkt_offer`,
-            approved once for both — see core/models.py's own note) but fills it with a PACKAGE
-            instead: no cycle lock applies to it (a package has no single rhythm to hold anyone
-            back on), so this is purely which package the message names. */}
+            approved once for both — see core/models.py's own note) but fills it with PACKAGES
+            instead: no cycle lock applies to them (a package has no single rhythm to hold anyone
+            back on), so this is purely which packages the carousel names. */}
         {hasBlank(picked, 'catalogue') && picked.goal === 'package_offer' ? (
-          <label className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <span className="text-sm">{t('launch.packagePickLabel')}</span>
-            <select
-              value={packageId}
-              onChange={(e) => { setPackageId(e.target.value); setPreview(null); }}
-              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
-            >
-              <option value="">{t('launch.packagePickPlaceholder')}</option>
-              {(packages ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </label>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.packagePickLabel')}>
+              {(packages ?? []).length === 0 ? (
+                <p className="text-xs text-text-secondary">{t('launch.packagePickPlaceholder')}</p>
+              ) : (packages ?? []).map((p) => {
+                const active = packageIds.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setPackageIds(active ? packageIds.filter((id) => id !== p.id) : [...packageIds, p.id]);
+                      setPreview(null);
+                    }}
+                    className={['rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                               active ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
+                  >
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         ) : hasBlank(picked, 'catalogue') ? (
-          <label className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <span className="text-sm">{t('launch.servicePickLabel')}</span>
             {/* ORDERED LEAST-TAKEN FIRST, SILENTLY — «عرض على خدمة» exists for exactly this: an
                 owner looking for the service that needs a push, not the one that already sells
                 itself. `serviceDemand`'s own comment is why this is chain-wide, never one
-                branch's own count. Plain names only, no count printed on the option itself —
+                branch's own count. Plain names only, no count printed on the chip itself —
                 the ORDER is the feature; a number beside every row is a second thing to read for
                 a picker that should stay a one-glance choice. */}
-            <select
-              value={serviceId}
-              onChange={(e) => { setServiceId(e.target.value); setPreview(null); }}
-              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
-            >
-              <option value="">{t('launch.servicePickPlaceholder')}</option>
-              {(services ?? [])
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.servicePickLabel')}>
+              {(services ?? []).length === 0 ? (
+                <p className="text-xs text-text-secondary">{t('launch.servicePickPlaceholder')}</p>
+              ) : (services ?? [])
                 .slice()
                 .sort((a, b) => (serviceDemand[a.id] ?? 0) - (serviceDemand[b.id] ?? 0))
-                .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </label>
+                .map((s) => {
+                  const active = serviceIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setServiceIds(active ? serviceIds.filter((id) => id !== s.id) : [...serviceIds, s.id]);
+                        setPreview(null);
+                      }}
+                      className={['rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                                 active ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
+                    >
+                      {s.name}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
         ) : null}
 
         {/* WHICH BRANCH — only for a shop that has more than one, and «كل الفروع» stays the

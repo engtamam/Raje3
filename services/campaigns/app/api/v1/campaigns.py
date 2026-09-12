@@ -82,6 +82,10 @@ class CampaignIn(BaseModel):
     # WHICH SERVICES THE OFFER COVERS. Empty is not "unset" — it is "the whole shop", which is a
     # real and common answer ("20% on everything this week"). Bounded because a scope longer than
     # a shop's catalogue is not a scope.
+    #
+    # SUPERSEDED BY `service_ids`/`package_ids` BELOW as the console's own multi-select input
+    # (2026-09-13) — kept, and still folded in (never dropped), for any older/other caller that
+    # only ever knew this field.
     scope_service_ids: list[str] = Field(default_factory=list, max_length=100)
     # WHICH SERVICE THE `service_offer` GOAL IS ABOUT — and it had no way in.
     #
@@ -90,7 +94,19 @@ class CampaignIn(BaseModel):
     # ever set it: every "offer on a service" went out as an untargeted announcement, the lock
     # never engaged once, and the reach number read as proof that it had. A feature complete in
     # the depth and severed at the door.
+    #
+    # KEPT for a console that still sends only one — `service_ids` below is folded in on top of
+    # it, never instead of it.
     service_id: str = Field(default="", max_length=64)
+    # SEVERAL SERVICES, ONE CAMPAIGN (2026-09-13) — the owner picks more than one on the create
+    # screen and every one becomes its own carousel card (core/shape.py's existing carousel path,
+    # never a plain paragraph naming them). Reached if ready for even one (`audience.resolve`'s
+    # own note on why): a shop selling three services under one offer should not hold a customer
+    # back because he took ONE of them yesterday.
+    service_ids: list[str] = Field(default_factory=list, max_length=20)
+    # THE CHOSEN SERVICES' NAMES, in the SAME order as `service_ids` — the screen has the
+    # catalogue, this service does not. Each is sanitised the same way `owner_text` is.
+    service_names: list[str] = Field(default_factory=list, max_length=20)
     # WHICH PACKAGE THE `package_offer` GOAL IS ABOUT — mutually exclusive with `service_id`, same
     # "one or the other, never both" rule the packages feature already applies at every other
     # layer (operations' own Package/Booking). The console fetches its own package list directly
@@ -100,6 +116,11 @@ class CampaignIn(BaseModel):
     # THE CHOSEN PACKAGE'S NAME (and, since it is worth stating, its own price) — same reasoning
     # as `service_name` just above: the screen has it, this service does not.
     package_name: str = Field(default="", max_length=120)
+    # SEVERAL PACKAGES, ONE CAMPAIGN — same reasoning as `service_ids`. A package has no cycle
+    # lock of its own (no single rhythm to hold anyone back on — `_MATCHERS["package_offer"]`'s
+    # own note), so this only ever widens the carousel, never the audience rule.
+    package_ids: list[str] = Field(default_factory=list, max_length=20)
+    package_names: list[str] = Field(default_factory=list, max_length=20)
     # WHICH BRANCH THIS CAMPAIGN IS FOR — empty is the whole establishment, and is the default for
     # every shop that never opened a second one.
     branch_id: str = Field(default="", max_length=64)
@@ -109,6 +130,18 @@ class CampaignIn(BaseModel):
     window_start_hour: int = Field(default=0, ge=0, le=24)
     window_end_hour: int = Field(default=24, ge=0, le=24)
     window_weekdays: list[int] = Field(default_factory=list, max_length=7)
+
+
+def _combine_ids_and_names(single_id: str, ids: list[str], single_name: str,
+                           names: list[str]) -> tuple[list[str], list[str]]:
+    """The full multi-select list (2026-09-13), backward-compatible with a console that still
+    sends only the singular field. `ids`/`names` (the plural, authoritative fields) come first so
+    their own order is what the carousel cards render in; the singular is appended only if it is
+    not already there, never duplicated.
+    """
+    all_ids = list(dict.fromkeys(ids + ([single_id] if single_id else [])))
+    all_names = list(dict.fromkeys(names + ([single_name] if single_name else [])))
+    return all_ids, all_names
 
 
 @router.get("/goals", dependencies=[Depends(rate_limit)])
@@ -212,12 +245,26 @@ async def preview(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST", "reason": window_error})
 
+    # THE FULL MULTI-SELECT LIST (2026-09-13) — the owner may now name several services (or
+    # several packages) under one offer; every one becomes its own carousel card at send time
+    # (core/shape.py's existing carousel path), never a plain paragraph enumerating them.
+    # `scope_service_ids` (the older, more general field) is folded into whichever list applies.
+    service_ids_all, service_names_all = _combine_ids_and_names(
+        body.service_id, list(dict.fromkeys(body.service_ids + (
+            body.scope_service_ids if body.goal != "package_offer" else []))),
+        body.service_name, body.service_names)
+    package_ids_all, package_names_all = _combine_ids_and_names(
+        body.package_id, list(dict.fromkeys(body.package_ids + (
+            body.scope_service_ids if body.goal == "package_offer" else []))),
+        body.package_name, body.package_names)
+
     # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default: the
     # preview exists to tell the owner what will happen, and a preview run under different rules
     # than the send is a number that is worse than no number.
     audience = await c.audience.resolve_for(
         _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
-        already_reached=set(), service_id=body.service_id, branch_id=body.branch_id)
+        already_reached=set(), service_id=body.service_id, service_ids=service_ids_all,
+        branch_id=body.branch_id)
 
     try:
         p = build_preview(
@@ -230,7 +277,10 @@ async def preview(request: Request, body: CampaignIn,
             # the catalogue belongs to operations. «خصم على svc_9f2» is not a message, and an empty
             # name makes the renderer refuse rather than send a hole in a sentence. `package_name`
             # takes over the SAME "catalogue" fill for `package_offer` — one blank kind, two doors.
-            service_text=body.package_name or body.service_name,
+            # SEVERAL NAMES JOIN WITH «، » — this is the flat (non-carousel) fallback text ONLY;
+            # a shop that gets the carousel shows each one on its own card instead, never this
+            # joined sentence.
+            service_text="، ".join(package_names_all or service_names_all),
             when=describe_when(trigger=spec["trigger"],
                                inside_window=c.gate.inside_window(_now()),
                                own_window=window_sentence(
@@ -354,6 +404,17 @@ async def create(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
                                      "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
+    # THE FULL MULTI-SELECT LIST, SAME AS `/preview` (2026-09-13) — computed before sanitising so
+    # every name in it (not only the singular ones) passes through the same filter below.
+    service_ids_all, service_names_raw = _combine_ids_and_names(
+        body.service_id, list(dict.fromkeys(body.service_ids + (
+            body.scope_service_ids if body.goal != "package_offer" else []))),
+        body.service_name, body.service_names)
+    package_ids_all, package_names_raw = _combine_ids_and_names(
+        body.package_id, list(dict.fromkeys(body.package_ids + (
+            body.scope_service_ids if body.goal == "package_offer" else []))),
+        body.package_name, body.package_names)
+
     try:
         from app.core.preview import sanitise_owner_text
         needs = any(f == "owner" for f in (template.get("fills") or []))
@@ -363,31 +424,35 @@ async def create(request: Request, body: CampaignIn,
         # `scope_service_names`, forwarded to reminders as `service_names` and rendered straight
         # into the customer-facing message at send time. A link or phone number here reached the
         # customer under the establishment's own approved template, the exact channel this
-        # sanitiser exists to close.
-        clean_service_name = sanitise_owner_text(body.service_name, required=False)
-        clean_package_name = sanitise_owner_text(body.package_name, required=False)
+        # sanitiser exists to close. APPLIED TO EVERY NAME NOW, not only a single one — a
+        # multi-select offer (2026-09-13) carries several, each its own carousel card's title.
+        clean_service_names = [sanitise_owner_text(n, required=False) for n in service_names_raw]
+        clean_package_names = [sanitise_owner_text(n, required=False) for n in package_names_raw]
     except PreviewError as exc:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
                                      "reason": str(exc)})
 
-    # ── package_offer needs a real, CURRENTLY OFFERABLE package ──────────────────────────────
+    # ── package_offer needs EVERY chosen package to be a real, CURRENTLY OFFERABLE one ───────
     # CHECKED HERE, WHILE HE IS LOOKING AT THE SCREEN — the same "ask fresh, never assume" rule
     # HttpAudience.allows() already applies to the audience gate, and the same reason dispatch.fire()
     # asks again at every pass rather than trusting this answer forever: a package can be turned
-    # off or fall outside its own schedule at any moment after this campaign is created.
+    # off or fall outside its own schedule at any moment after this campaign is created. Checked
+    # for EACH selected package (2026-09-13's own multi-select) — one unofferable package among
+    # several is still a campaign that cannot honestly launch as configured.
     if body.goal == "package_offer":
-        if not body.package_id:
+        if not package_ids_all:
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST",
                                          "reason": "اختر الباقة التي يخصّها هذا العرض."})
         offerable = getattr(c, "package_offerable", None)
-        if offerable is None or not await offerable.offerable(_tenant(principal),
-                                                               body.package_id, now):
-            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"error": "BAD_REQUEST",
-                                         "reason": "هذه الباقة غير متاحة الآن — تحقّق من حالتها "
-                                                   "وجدولتها من «خدماتي ومنتجاتي»."})
+        for pid in package_ids_all:
+            if offerable is None or not await offerable.offerable(_tenant(principal), pid, now):
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                    content={"error": "BAD_REQUEST",
+                                             "reason": "إحدى الباقات المختارة غير متاحة الآن — "
+                                                       "تحقّق من حالتها وجدولتها من «خدماتي "
+                                                       "ومنتجاتي»."})
 
     # AN OFFER WITHOUT AN END IS A PRICE CHANGE NOBODY DECIDED ON — refused here, before anything
     # exists, and with the reason named. It is also what makes "this offer is yours" enforceable:
@@ -485,19 +550,20 @@ async def create(request: Request, body: CampaignIn,
                         window_start_hour=body.window_start_hour,
                         window_end_hour=body.window_end_hour,
                         window_weekdays=list(body.window_weekdays or []),
-                        scope_service_names=([clean_service_name] if clean_service_name else
-                                             ([clean_package_name] if clean_package_name else [])),
-                        # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
-                        # people who are 70% through their cycle for one service; an offer that
-                        # arrived because of a service and then did not cover it would be the
-                        # cruellest version of this feature. `package_offer` has no single service
-                        # of its own to force in this way — the console already sends the
-                        # package's own component ids as `scope_service_ids` directly (it fetched
-                        # them from operations for its own picker), so nothing is force-injected
-                        # here for it.
-                        scope_service_ids=list(dict.fromkeys(
-                            ([body.service_id] if getattr(body, "service_id", "") else [])
-                            + list(body.scope_service_ids))))
+                        # EVERY CHOSEN NAME, empties dropped (a name that sanitised to "" — never
+                        # sent in the first place — is not a card). SEVERAL, since 2026-09-13: one
+                        # per selected service or package, in the order chosen — the same order
+                        # the carousel renders its cards in.
+                        scope_service_names=([n for n in clean_service_names if n] or
+                                             [n for n in clean_package_names if n]),
+                        # THE TARGETED SERVICES/PACKAGES ARE ALWAYS IN THEIR OWN SCOPE (2026-09-13:
+                        # now the full multi-select list, not only one forced in). `service_offer`
+                        # reaches people who are 70% through their cycle for at least one of them;
+                        # an offer that arrived because of a service and then did not cover it
+                        # would be the cruellest version of this feature. `package_offer` has no
+                        # cycle lock of its own, so its own chosen ids simply ARE the scope.
+                        scope_service_ids=(service_ids_all if body.goal != "package_offer"
+                                          else package_ids_all))
 
     await request.app.state.auditor.record(
         "campaign.created", actor=principal.subject, tenant=_tenant(principal),

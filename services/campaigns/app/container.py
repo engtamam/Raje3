@@ -296,6 +296,10 @@ def build_container(settings: Settings) -> Container:
             campaign.get("tenant", ""), goal=campaign.get("goal", ""), now=now,
             already_reached=already_reached, cls=campaign.get("cls", "marketing"),
             service_id=campaign.get("service_id", ""),
+            # THE FULL SELECTION, NOT JUST THE ONE THAT USED TO BE FORCED INTO IT — a multi-service
+            # campaign's stored `scope_service_ids` (2026-09-13) is now the SAME list the cycle
+            # lock reads, not only what the carousel shows.
+            service_ids=list(campaign.get("scope_service_ids") or []),
             branch_id=campaign.get("branch_id", ""))
 
     from app.core.licence import build_licence
@@ -357,7 +361,8 @@ class _AudienceFacade:
 
     async def resolve_for(self, tenant: str, *, goal: str, now: int, cls: str,
                           already_reached=None,
-                          service_id: str = "", branch_id: str = ""):
+                          service_id: str = "", service_ids: list[str] | None = None,
+                          branch_id: str = ""):
         """`cls` HAS NO DEFAULT, AND THAT IS THE FIX (ج-1).
 
         It decides WHICH RULES the audience is resolved under: marketing needs explicit consent and
@@ -380,15 +385,20 @@ class _AudienceFacade:
         that never happened.
         """
         async def _customers(t):
-            # THE SERVICE TRAVELS WITH THE READ. The rhythm joined onto each row is per SERVICE,
+            # THE SERVICE(S) TRAVEL WITH THE READ. The rhythm joined onto each row is per SERVICE,
             # so asking without it returns the customer's rhythm for something else entirely — and
-            # the 70% lock would then hold people back on a cycle that is not this one's.
+            # the 70% lock would then hold people back on a cycle that is not this one's. A
+            # multi-service campaign (2026-09-13) asks for each one and the peer merges them onto
+            # the SAME row under its own `services` key, never one read per service overwriting
+            # the last.
             #
             # AND SO DOES THE BRANCH, for a harder reason: operations applies `limit` in the
             # datastore. Narrowing here instead would mean filtering the 5000 most recent customers
             # of the WHOLE chain down to one branch — an answer that is wrong, plausible, and
             # stable, which is the worst combination a number can have.
-            return await self._c.customers(t, service_id=service_id, branch_id=branch_id)
+            ids = list(dict.fromkeys((service_ids or []) + ([service_id] if service_id else [])))
+            return await self._c.customers(t, service_id=service_id, service_ids=ids,
+                                           branch_id=branch_id)
 
         async def _gate(subject: str) -> bool:
             return await self._c.allows(tenant, subject, cls)
@@ -397,7 +407,7 @@ class _AudienceFacade:
                                    customers=_customers, gate_check=_gate,
                                    already_reached=already_reached or set(),
                                    max_audience=self._max_audience,
-                                   service_id=service_id)
+                                   service_id=service_id, service_ids=service_ids)
 
     async def redeemed(self, tenant: str, reached: list[dict]) -> int:
         """Passthrough to the peer (ط-3) — see `HttpAudience.redeemed` for the join it makes."""

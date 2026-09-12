@@ -116,7 +116,8 @@ def _too_early(row: dict[str, Any], *, now: int, service_id: str,
 async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=None,
                   already_reached: set[str] | None = None,
                   window_days: int = 90, min_visits: int = 3,
-                  service_id: str = "", cycle_threshold: float = CYCLE_THRESHOLD,
+                  service_id: str = "", service_ids: list[str] | None = None,
+                  cycle_threshold: float = CYCLE_THRESHOLD,
                   max_audience: int = DEFAULT_MAX_AUDIENCE) -> Audience:
     """Who this campaign reaches, right now.
 
@@ -128,6 +129,12 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
     the preview's count is the count that actually goes out. Absent, nothing is excluded — which is
     correct for a test and wrong in production, so the caller always supplies it.
     """
+    # THE FULL LIST THIS CAMPAIGN TARGETS (2026-09-13) — `service_id` (singular) stays as the
+    # simple case every existing caller still passes; a multi-service campaign passes
+    # `service_ids` instead and `service_id` is folded in if it is also present, so a caller
+    # migrating one field at a time never loses the other's targeting.
+    ids = list(dict.fromkeys((service_ids or []) + ([service_id] if service_id else [])))
+
     rows = await customers(tenant)
     reached = already_reached or set()
     out = Audience()
@@ -141,7 +148,7 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
             continue
 
         matched, why = _matches(goal, row, now=now, window_days=window_days,
-                                min_visits=min_visits, service_id=service_id)
+                                min_visits=min_visits, service_id=service_id, service_ids=ids)
         if not matched:
             continue
 
@@ -150,10 +157,15 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
         # the permission: he does not read a good intention, he reads a shop that does not know he
         # was there. And it costs the owner money — a discount on a visit that was coming anyway
         # is a sale sold cheaper, not a customer won.
-        if service_id:
-            early, _ = _too_early(row, now=now, service_id=service_id,
-                                  threshold=cycle_threshold, window_days=window_days)
-            if early:
+        #
+        # SEVERAL SERVICES ON ONE CAMPAIGN (2026-09-13): held back only if too early for EVERY
+        # one of them — ready for even one is ready for the campaign, since the carousel this
+        # goal now sends shows all the selected cards together and he may well want the one he
+        # has not just taken.
+        if ids:
+            if all(_too_early(row, now=now, service_id=sid,
+                              threshold=cycle_threshold, window_days=window_days)[0]
+                   for sid in ids):
                 out.too_recent += 1
                 continue
 
@@ -203,17 +215,19 @@ def _match_broadcast(row: dict[str, Any], **_: Any) -> tuple[bool, str]:
     return True, "كل العملاء"
 
 
-def _match_service_offer(row: dict[str, Any], *, service_id: str = "", **_: Any) -> tuple[bool, str]:
-    # AN OFFER ON ONE SERVICE. The rule here is deliberately wide — everyone the gate allows —
-    # because the narrowing that matters is the cycle lock in `resolve`, and putting it here
-    # too would make one decision live in two places.
+def _match_service_offer(row: dict[str, Any], *, service_id: str = "",
+                         service_ids: list[str] | None = None, **_: Any) -> tuple[bool, str]:
+    # AN OFFER ON ONE OR MORE SERVICES (multi-select, 2026-09-13). The rule here is deliberately
+    # wide — everyone the gate allows — because the narrowing that matters is the cycle lock in
+    # `resolve`, and putting it here too would make one decision live in two places.
     #
     # A campaign of this goal WITHOUT a service is refused rather than widened to the whole
     # shop: it would be an announcement sent under a name that promises targeting, and the
     # owner would read the reach number as proof it worked.
-    if not service_id:
+    ids = service_ids if service_ids else ([service_id] if service_id else [])
+    if not ids:
         return False, ""
-    return True, "من قارب موعد هذه الخدمة"
+    return True, ("من قارب موعد هذه الخدمة" if len(ids) == 1 else "من قارب موعد إحدى هذه الخدمات")
 
 
 def _match_occasion(row: dict[str, Any], **_: Any) -> tuple[bool, str]:
@@ -246,11 +260,12 @@ _MATCHERS: dict[str, Any] = {
 
 
 def _matches(goal: str, row: dict[str, Any], *, now: int, window_days: int,
-             min_visits: int, service_id: str = "") -> tuple[bool, str]:
+             min_visits: int, service_id: str = "",
+             service_ids: list[str] | None = None) -> tuple[bool, str]:
     fn = _MATCHERS.get(goal)
     if fn is None:
         return False, ""
     last = int(row.get("last_visit") or 0)
     visits = int(row.get("visit_count") or 0)
     return fn(row, now=now, window_days=window_days, min_visits=min_visits,
-             service_id=service_id, last=last, visits=visits)
+             service_id=service_id, service_ids=service_ids, last=last, visits=visits)

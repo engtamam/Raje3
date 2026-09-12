@@ -169,6 +169,7 @@ class NullAudience:
         self._rows = rows or []
 
     async def customers(self, tenant: str, *, service_id: str = "",
+                        service_ids: list[str] | None = None,
                         branch_id: str = "") -> list[dict[str, Any]]:
         # The fake narrows too, so a test that targets a branch exercises the narrowing rather
         # than passing because everything came back.
@@ -252,6 +253,7 @@ class HttpAudience:
         self._timeout = timeout
 
     async def customers(self, tenant: str, *, service_id: str = "",
+                        service_ids: list[str] | None = None,
                         branch_id: str = "") -> list[dict[str, Any]]:
         """Everyone, with their last visit and their learned interval.
 
@@ -267,6 +269,11 @@ class HttpAudience:
         THE RHYTHM IS THE SOFT HALF. Its absence costs precision, not the campaign: an unreachable
         reminders leaves the rows exactly as they were before this existed, and the rule falls back
         to the window default it used all along.
+
+        SEVERAL SERVICES, ONE ROW EACH (2026-09-13): `service_ids` (a multi-select offer) asks
+        reminders once per service and MERGES every answer onto the same row's `services` dict —
+        never one read per service silently overwriting the last, which is what a naive loop
+        reassigning `r["services"] = {...}` would do.
         """
         # THE BRANCH IS SENT, NOT APPLIED HERE. operations filters before its own 5000 cap; a
         # narrowing done on this side would silently drop the branch's older customers.
@@ -280,25 +287,32 @@ class HttpAudience:
         # sites and every fake in the suite — where the honest answer is always False anyway.
         rows = SourceRows(data.get("customers") or [])
         rows.truncated = bool(data.get("truncated"))
-        if not rows or not self._rhythms:
+        ids = list(dict.fromkeys((service_ids or []) + ([service_id] if service_id else [])))
+        if not rows or not self._rhythms or not ids:
             return rows
-        try:
-            learned = (await _post(self._rhythms,
-                                   {"tenant": tenant, "service_id": service_id, "limit": 5000},
-                                   self._token, self._timeout)).get("rhythms") or {}
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
-            return rows
-        for r in rows:
-            mine = learned.get(r.get("subject_ref") or "")
-            if not mine:
+        by_subject: dict[str, dict[str, Any]] = {r.get("subject_ref") or "": r for r in rows}
+        for sid in ids:
+            try:
+                learned = (await _post(self._rhythms,
+                                       {"tenant": tenant, "service_id": sid, "limit": 5000},
+                                       self._token, self._timeout)).get("rhythms") or {}
+            except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
                 continue
-            r["interval_days"] = mine.get("interval_days") or 0
-            # THE PER-SERVICE SHAPE `_too_early` READS. Written only when the caller named a
-            # service — a rhythm for "anything" is not this service's cycle, and putting it under
-            # the service key would make an unrelated visit look like this one.
-            if service_id:
-                r["services"] = {service_id: {"last_visit": mine.get("last_visit") or 0,
-                                              "interval_days": mine.get("interval_days") or 0}}
+            for subject, mine in learned.items():
+                r = by_subject.get(subject)
+                if r is None:
+                    continue
+                # THE FIRST SERVICE ASKED ALSO SETS THE ROW'S TOP-LEVEL `interval_days` — kept for
+                # every OTHER goal's matcher, which reads it unqualified (a single-service offer
+                # is the common case and the only one those matchers ever look at).
+                if "interval_days" not in r or sid == ids[0]:
+                    r["interval_days"] = mine.get("interval_days") or 0
+                # THE PER-SERVICE SHAPE `_too_early` READS — MERGED, not replaced, across every
+                # service asked for.
+                r.setdefault("services", {})[sid] = {
+                    "last_visit": mine.get("last_visit") or 0,
+                    "interval_days": mine.get("interval_days") or 0,
+                }
         return rows
 
     async def allows(self, tenant: str, subject_ref: str, cls: str) -> bool:

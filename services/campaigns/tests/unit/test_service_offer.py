@@ -111,6 +111,45 @@ async def test_the_lock_applies_to_no_other_goal():
     assert out.count == 1 and out.too_recent == 0
 
 
+@pytest.mark.anyio
+async def test_several_services_ready_for_even_one_is_reached():
+    """A customer too early for "oil" but due for "tires" is exactly who a multi-service offer
+    (2026-09-13) should reach — the carousel shows both cards regardless of which one applies to
+    him, so held-back-for-every-selected-service is the right bar, not held-back-for-any-one."""
+    row = {"subject_ref": "mixed", "last_visit": NOW - 5 * DAY, "visit_count": 4,
+          "services": {"oil": {"last_visit": NOW - 1 * DAY, "interval_days": 90},
+                       "tires": {"last_visit": NOW - 63 * DAY, "interval_days": 90}}}
+    out = await A.resolve(goal="service_offer", tenant="t1", now=NOW,
+                          customers=await rows(row), service_ids=["oil", "tires"])
+
+    assert out.count == 1
+    assert out.too_recent == 0
+
+
+@pytest.mark.anyio
+async def test_several_services_too_early_for_every_one_is_still_held_out():
+    row = {"subject_ref": "fresh_both", "last_visit": NOW - 5 * DAY, "visit_count": 4,
+          "services": {"oil": {"last_visit": NOW - 1 * DAY, "interval_days": 90},
+                       "tires": {"last_visit": NOW - 2 * DAY, "interval_days": 90}}}
+    out = await A.resolve(goal="service_offer", tenant="t1", now=NOW,
+                          customers=await rows(row), service_ids=["oil", "tires"])
+
+    assert out.count == 0
+    assert out.too_recent == 1
+
+
+@pytest.mark.anyio
+async def test_service_id_and_service_ids_combine_without_duplicating():
+    """A caller migrating one field at a time may pass both — the singular must not double up
+    with the plural when they name the same service."""
+    row = {"subject_ref": "due", "last_visit": NOW - 5 * DAY, "visit_count": 4,
+          "services": {"oil": {"last_visit": NOW - 63 * DAY, "interval_days": 90}}}
+    out = await A.resolve(goal="service_offer", tenant="t1", now=NOW,
+                          customers=await rows(row), service_id="oil", service_ids=["oil"])
+
+    assert out.count == 1
+
+
 def test_the_goal_is_declared_everywhere_it_must_be():
     assert "service_offer" in GOALS
     assert "service_offer" in GOAL_TEMPLATE

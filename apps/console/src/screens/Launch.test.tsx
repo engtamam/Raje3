@@ -103,15 +103,14 @@ describe('package_offer', () => {
     expect(screen.getByText('باقة الصيانة')).toBeTruthy();
   });
 
-  it('preview sends package_id, never service_id', async () => {
+  it('preview sends package_ids, never service_ids', async () => {
     previewCalls.length = 0;
     render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="package_offer" />);
     await waitFor(() => screen.getByText('على أي باقة؟'));
 
-    // Only ONE <select> renders for this goal (no service select, no branch select — no branches
-    // in this mock) — the package picker.
-    const packageSelect = document.querySelector('select') as HTMLSelectElement;
-    fireEvent.change(packageSelect, { target: { value: 'pkg1' } });
+    // THE PACKAGE PICKER IS A CHIP GROUP NOW (multi-select, 2026-09-13), not a <select> — press
+    // the one chip this mock's catalogue offers.
+    fireEvent.click(screen.getByRole('button', { name: 'باقة الصيانة' }));
 
     const amountBox = document.querySelector('input[type="number"]') as HTMLInputElement;
     fireEvent.change(amountBox, { target: { value: '20' } });
@@ -120,9 +119,9 @@ describe('package_offer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
     await waitFor(() => expect(previewCalls.length).toBe(1));
-    const body = previewCalls[0] as { package_id: string; service_id: string };
-    expect(body.package_id).toBe('pkg1');
-    expect(body.service_id).toBe('');
+    const body = previewCalls[0] as { package_ids: string[]; service_ids: string[] };
+    expect(body.package_ids).toEqual(['pkg1']);
+    expect(body.service_ids).toEqual([]);
   });
 });
 
@@ -155,9 +154,36 @@ describe('the service picker on «عرض على خدمة»', () => {
   it('orders services least-taken first, chain-wide — never taken sorts ahead of a low real count', async () => {
     render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="service_offer" />);
     await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
-    const options = Array.from(document.querySelectorAll('select option'))
-      .map((o) => o.textContent)
-      .filter((t) => t !== 'اختر خدمة');
-    expect(options).toEqual(['خدمة جديدة', 'تلميع كامل', 'غسلة سريعة']);
+    // THE SERVICE PICKER IS A CHIP GROUP NOW (multi-select, 2026-09-13) — its own `role="group"`
+    // holds one button per service, in the same least-taken-first order the old <select> did.
+    const group = screen.getByRole('group', { name: 'على أي خدمة؟' });
+    const names = Array.from(group.querySelectorAll('button')).map((b) => b.textContent);
+    expect(names).toEqual(['خدمة جديدة', 'تلميع كامل', 'غسلة سريعة']);
+  });
+
+  it('lets him pick more than one service, and sends all of them together', async () => {
+    previewCalls.length = 0;
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="service_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'تلميع كامل' }));
+
+    const amountBox = document.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.change(amountBox, { target: { value: '20' } });
+    const dateBox = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateBox, { target: { value: '2030-01-01' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(previewCalls.length).toBe(1));
+    const body = previewCalls[0] as { service_ids: string[]; service_names: string[] };
+    expect(body.service_ids).toEqual(['svc_popular', 'svc_rare']);
+    expect(body.service_names).toEqual(['غسلة سريعة', 'تلميع كامل']);
+
+    // PRESSING AN ALREADY-CHOSEN CHIP AGAIN REMOVES IT — a real toggle, not a one-way add.
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(previewCalls.length).toBe(2));
+    expect((previewCalls[1] as { service_ids: string[] }).service_ids).toEqual(['svc_rare']);
   });
 });

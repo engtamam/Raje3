@@ -125,6 +125,47 @@ def test_the_message_names_the_package_not_a_service(client):
     assert "باقة الصيانة" in r.json()["message"]
 
 
+def test_several_packages_all_land_in_the_stored_scope(client):
+    """Multi-select packages (2026-09-13) — every chosen one becomes its own carousel card at
+    send time, carried on the campaign row exactly as `dispatch.py` reads it for that purpose."""
+    app, http = client
+    app.state.container.package_offerable = _FixedOfferable(offerable=True)
+    r = http.post("/api/v1/campaigns", json=_body(
+        package_ids=["pkg1", "pkg2"], package_names=["باقة الصيانة", "باقة التلميع"]),
+        headers=_auth())
+    assert r.status_code in (200, 201), r.text
+    cid = (r.json().get("campaign") or r.json()).get("id")
+
+    listed = http.get("/api/v1/campaigns", headers=_auth())
+    row = next(c for c in listed.json()["campaigns"] if c["id"] == cid)
+    assert row["scope_service_ids"] == ["pkg1", "pkg2"]
+    assert row["scope_service_names"] == ["باقة الصيانة", "باقة التلميع"]
+
+
+def test_one_unofferable_package_among_several_refuses_the_whole_launch(client):
+    app, http = client
+
+    class _OneBad:
+        async def offerable(self, tenant: str, package_id: str, at: int) -> bool:
+            return package_id != "pkg2"
+
+    app.state.container.package_offerable = _OneBad()
+    r = http.post("/api/v1/campaigns", json=_body(package_ids=["pkg1", "pkg2"]), headers=_auth())
+    assert r.status_code == 400
+    assert "متاحة" in r.json()["reason"]
+
+
+def test_the_preview_message_joins_several_package_names(client):
+    app, http = client
+    app.state.container.package_offerable = _FixedOfferable(offerable=True)
+    r = http.post("/api/v1/campaigns/preview", json=_body(
+        package_ids=["pkg1", "pkg2"], package_names=["باقة الصيانة", "باقة التلميع"]),
+        headers=_auth())
+    assert r.status_code == 200, r.text
+    assert "باقة الصيانة" in r.json()["message"]
+    assert "باقة التلميع" in r.json()["message"]
+
+
 def test_it_actually_reaches_real_customers(client):
     # 2026-09-12 regression — `package_offer` was missing from `audience.py::_MATCHERS`, so
     # `_matches()` fell back to `(False, "")` for every candidate and a package_offer campaign
