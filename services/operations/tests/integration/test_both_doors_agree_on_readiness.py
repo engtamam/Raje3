@@ -149,11 +149,23 @@ def _set_per_branch(client, tenant):
     asyncio.run(ModeStore(client.app.state.container.datastore).set(tenant, "per_branch", available=True))
 
 
+def _add_branch(client, tenant, branch_id):
+    """A REAL branch row — connect.py now validates `branch_id` against this tenant's actual
+    branches (operations-r2-005, 2026-09-12) before it becomes half of a sealed sending identity,
+    so a test naming a branch that was never created would now see it silently dropped."""
+    import asyncio
+    from app.core.models import Branch
+    from app.core.stores import BranchStore
+    asyncio.run(BranchStore(client.app.state.container.datastore).save(
+        Branch(id=branch_id, tenant=tenant, name="فرع", created=1)))
+
+
 def test_a_branchs_readiness_is_asked_under_its_own_sending_identity(client, monkeypatch):
     """د-16, one door over: the finish route used to ask Meta about the bare tenant even for a
     branch's own connection — sealed under `tenant:branch`, asked about under `tenant` alone, so a
     branch's real registration was invisible to the one check that decides «جاهز للإرسال»."""
     _set_per_branch(client, TENANT)
+    _add_branch(client, TENANT, "brn_jed")
     _exchange_succeeds(monkeypatch)
     reg = _RecordingRegistration("VERIFIED")
     monkeypatch.setattr(connect, "build_registration", lambda s: reg)
@@ -170,6 +182,7 @@ def test_a_branchs_own_status_door_answers_for_that_branch_not_the_establishment
     """The GET door used to accept no `branch_id` at all — a chain's second branch had no way to
     ask «is MY number connected» and always read the establishment's own status (or nothing)."""
     _set_per_branch(client, TENANT)
+    _add_branch(client, TENANT, "brn_jed")
     _exchange_succeeds(monkeypatch)
     monkeypatch.setattr(connect, "build_registration", lambda s: _Registration("VERIFIED"))
 

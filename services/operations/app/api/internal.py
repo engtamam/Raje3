@@ -212,7 +212,8 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 res = await _invoices.resolve(
                     _invoices.parse_lines(item.lines), tenant=item.tenant,
                     service_store=service_store, new_id=new_id,
-                    now=int(time.time()), existing=catalogue_by_tenant[item.tenant])
+                    now=int(time.time()), existing=catalogue_by_tenant[item.tenant],
+                    cache=c.cache)
                 item.service_ids = list(dict.fromkeys(list(item.service_ids) + res.service_ids))
                 # THE COUNT TRAVELS WITH THE IDS, or the group-basket test reads an empty map for
                 # ever — which is what it did: `parse_lines` looked for `quantity` while our own

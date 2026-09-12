@@ -1203,6 +1203,50 @@ def test_a_recurring_plan_cannot_be_bought_once(client):
     assert plans.subscribed == []
 
 
+# ── operations-r2-006 (QA audit round 2, 2026-09-12): `ALREADY_SUBSCRIBED`/`BAD_INTERVAL` used to
+# be the only refusals in this route with no audit row — every other refusal here already had one.
+def test_an_already_subscribed_refusal_is_audited(client):
+    from unittest.mock import AsyncMock
+
+    # `messages.monthly` alone grants nothing in `granted_keys` (only `feature.*` keys count) —
+    # a real app plan is needed to make `may_add` actually refuse the duplicate.
+    plans = _wire(client, connected=True, limits={"feature.campaigns": {"limit": 1}})
+    _holding(client, plans, [{"limits_snapshot": {"feature.campaigns": {"limit": 1}}}])
+    original = client.app.state.auditor.record
+    spy = AsyncMock(side_effect=original)
+    client.app.state.auditor.record = spy
+    try:
+        r = client.post("/api/v1/subscription",
+                        json={"plan_id": "p_campaigns", "interval": "month",
+                              "payment_token": "tok_1"},
+                        headers=_auth("billing.self", tenant="t_dupe"))
+    finally:
+        client.app.state.auditor.record = original
+    assert r.status_code == 409, r.text
+    assert r.json()["error"] == "ALREADY_SUBSCRIBED"
+    actions = [c.args[0] for c in spy.await_args_list]
+    assert "subscription.already_subscribed" in actions
+
+
+def test_a_bad_interval_refusal_is_audited(client):
+    from unittest.mock import AsyncMock
+
+    _wire(client, connected=True, limits={"messages.monthly": {"limit": "unlimited"}})
+    original = client.app.state.auditor.record
+    spy = AsyncMock(side_effect=original)
+    client.app.state.auditor.record = spy
+    try:
+        r = client.post("/api/v1/subscription",
+                        json={"plan_id": "p_base", "interval": "forever", "payment_token": "tok_1"},
+                        headers=_auth("billing.self", tenant="t_bad_int_audit"))
+    finally:
+        client.app.state.auditor.record = original
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "BAD_INTERVAL"
+    actions = [c.args[0] for c in spy.await_args_list]
+    assert "subscription.bad_interval" in actions
+
+
 def test_a_pack_is_still_bought_once(client):
     """The other half: a row that carries no message meter is not a base, and `once` is exactly
     how a capacity pack is sold. The guard must not close that door."""

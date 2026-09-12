@@ -877,19 +877,29 @@ async def set_shop_name(request: Request, body: ShopNameIn,
     if code == status.HTTP_400_BAD_REQUEST:
         # THE REGISTRY'S REFUSAL IS THE REGISTRY'S. A name it rejects is one it can explain;
         # inventing a sentence of our own here would answer for a rule that is not ours.
+        #
+        # THE RAW BODY IS LOGGED, NEVER RETURNED (fixed 2026-09-12, a real gap a QA audit found).
+        # `out` is the REGISTRY's own response — a peer's internals, its field names, whatever
+        # detail it chose to include — and this route is reached over the owner's own token by an
+        # external caller. Every other peer-error path in this service (connect.py's `_can_send`/
+        # `whatsapp_register`, which maps a reason code to one of its own sentences and keeps the
+        # peer's actual words server-side only) sends the clean sentence and nothing else; this
+        # one alone forwarded `out` verbatim in `detail`.
+        request.app.state.container.telemetry.event(
+            "shop_rename_refused", tenant=tenant, status=code, body=str(out)[:400])
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "RENAME_REFUSED",
-                                     "message": "تعذّر حفظ الاسم. جرّب اسماً آخر.",
-                                     "detail": out})
+                                     "message": "تعذّر حفظ الاسم. جرّب اسماً آخر."})
     if code >= 400:
-        # ANYTHING ELSE IS OURS, NOT HIS. He is told to wait rather than to invent, and the code
-        # travels in `detail` so whoever reads the report can tell a stale image from a bad token
-        # without asking him to reproduce it.
+        # ANYTHING ELSE IS OURS, NOT HIS. He is told to wait rather than to invent — same
+        # log-server-side-only fix as the 400 branch above; only the status code, never the
+        # registry's own body, is a fact he or a browser network tab needs.
+        request.app.state.container.telemetry.event(
+            "shop_rename_unavailable", tenant=tenant, status=code, body=str(out)[:400])
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                             content={"error": "RENAME_UNAVAILABLE",
                                      "message": "تعذّر حفظ الاسم الآن — الخلل عندنا لا في الاسم. "
-                                                "حاول بعد قليل.",
-                                     "detail": {"status": code, "body": out}})
+                                                "حاول بعد قليل."})
     await request.app.state.auditor.record(
         "shop.renamed", actor=principal.subject, tenant=tenant, resource="tenant",
         ip=request.client.host if request.client else "")

@@ -130,9 +130,11 @@ def test_a_registry_that_is_not_answering_does_not_blame_his_name(client, monkey
         # HIS NAME IS EXONERATED IN SO MANY WORDS. «حاول بعد قليل» alone still leaves him
         # wondering whether to change it first.
         assert "لا في الاسم" in r.json()["message"]
-        # AND THE CODE TRAVELS, so a stale image is told apart from a bad token in the report
-        # rather than by asking him to reproduce it.
-        assert r.json()["detail"]["status"] == code
+        # THE PEER'S RAW BODY NEVER TRAVELS TO THE CALLER any more (fixed 2026-09-12, a real gap
+        # a QA audit found: `detail` used to carry the registry's own response body verbatim to
+        # an external caller). The status still reaches the report, but only server-side, via
+        # telemetry — never in the JSON handed back over the owner's own token.
+        assert "detail" not in r.json()
 
 
 def test_with_no_registry_configured_it_says_so_rather_than_pretending():

@@ -34,6 +34,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.invoice_service_lock import InvoiceServiceCreateLock
+
 # What a free-item line looks like when the partner does send an id for it: one shared id used with
 # many different labels. Recognised by the CALLER passing it in, because the value differs per POS
 # vendor and hard-coding a list of them is a file nobody updates.
@@ -143,7 +145,7 @@ def parse_lines(raw_lines: list[dict[str, Any]], *,
 
 async def resolve(lines: list[Line], *, tenant: str, service_store,
                   new_id, now: int, auto_create: bool = True,
-                  existing: list | None = None) -> InvoiceResult:
+                  existing: list | None = None, cache: Any = None) -> InvoiceResult:
     """Map invoice lines onto this tenant's own catalogue, creating what is genuinely new.
 
     THE CATALOGUE IS PER TENANT AND ALWAYS HAS BEEN. A service created here belongs to this
@@ -158,6 +160,14 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
     appended (or already reflected — a rename/adopt mutates the SAME object the caller's list
     already holds) so the NEXT item for this tenant in the same batch sees it too, exactly as it
     would if each item still paid for its own fresh read.
+
+    `cache`, WHEN GIVEN, CLOSES THE CROSS-REQUEST RACE `existing` CANNOT (fixed 2026-09-12, a real
+    gap a QA audit found): two invoices for the same brand-new product arriving in two different
+    requests each read their own `existing` snapshot, both see "not found", and both would create
+    a row. The auto-create branch below claims an `InvoiceServiceCreateLock` keyed on
+    `(tenant, product_id)` before creating, and re-checks the store itself (not just the
+    in-memory snapshot) once it holds the claim. `None` (a caller that does not pass it) keeps the
+    store-only behaviour a single-process test still relies on.
     """
     res = InvoiceResult()
     owns_list = existing is None
@@ -223,18 +233,36 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
         # worse than not knowing: a default of 90 days on a coffee is a reminder that reads as
         # nonsense. The adaptive engine learns the real rhythm from repeat visits (spec §5.2), and
         # until it has, the service exists and simply schedules nothing.
-        svc = await service_store.save_new(
-            id=new_id("srv"), tenant=tenant, name=line.name or f"منتج {line.product_id}",
-            cycle_days=0, external_id=line.product_id, created=now)
+        #
+        # THE LOCK, THEN A RE-CHECK AGAINST THE STORE ITSELF (fixed 2026-09-12, a real gap a QA
+        # audit found). `by_ext`/`existing` are a snapshot taken when THIS call started — a
+        # concurrent request for the same tenant and the same brand-new `product_id` has its own
+        # snapshot, also missing the row, and without a claim both requests would create one.
+        # Once this call holds the claim, nobody else can be mid-create for this exact
+        # (tenant, product_id) pair, so re-reading the store now is authoritative.
+        async with InvoiceServiceCreateLock(cache, tenant, line.product_id):
+            svc = await service_store.by_external_id(tenant, line.product_id)
+            if svc is None:
+                svc = await service_store.save_new(
+                    id=new_id("srv"), tenant=tenant, name=line.name or f"منتج {line.product_id}",
+                    cycle_days=0, external_id=line.product_id, created=now)
+                res.created_services.append(svc.id)
+            elif line.name and svc.name != line.name:
+                # LOST THE RACE, NOT THE UPDATE — another request already created it while we
+                # waited for the claim. Same rename handling the FOUND branch above gives an
+                # existing row, so a label change is never dropped just because this call arrived
+                # second.
+                svc.name = line.name
+                await service_store.save(svc)
+                res.renamed_services.append(svc.id)
         by_ext[line.product_id] = svc
         by_name[svc.name] = svc
-        if not owns_list:
+        if not owns_list and svc not in existing:
             # A CALLER-SHARED LIST GETS THE NEW ROW TOO — otherwise the NEXT item for this same
             # tenant in the batch would rebuild `by_ext`/`by_name` from a list that still does not
             # know this service exists, and create a DUPLICATE for the same `product_id`.
             existing.append(svc)
         res.service_ids.append(svc.id)
-        res.created_services.append(svc.id)
         res.quantities[svc.id] = res.quantities.get(svc.id, 0) + max(1, line.quantity)
 
     return res

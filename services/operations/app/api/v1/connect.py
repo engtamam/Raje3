@@ -19,8 +19,10 @@ from app.api.ratelimit import rate_limit
 from app.api import scope as SCOPE
 from app.api.scope import REVOKED, branch_scope
 from app.config import get_settings
+from app.core import branches as B
 from app.core import connect
 from app.core import sending_identity as SI
+from app.core.stores import BranchStore
 from app.api.subscribed import no_subscription_needed, subscribed_write_or_whatsapp
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
@@ -107,9 +109,18 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     # — byte for byte what it has always sent — and `tenant:branch` only for a chain that has
     # deliberately moved to a number per branch (core/shop_mode.py).
     #
+    # THE BRANCH IS VALIDATED AGAINST THIS TENANT'S REAL BRANCHES BEFORE IT NAMES ANYTHING (fixed
+    # 2026-09-12, a real gap a QA audit found). Every other branch-scoped write in this service
+    # checks the id against `branches.known()` (staff.py's hire/update, via `resolve_required`) —
+    # this route alone took `body.branch_id` as-is and let it become half of a sealed credential
+    # key. `B.resolve` (not `_required`) is the right member of that pair here: an empty branch is
+    # a legitimate answer — the establishment's own number — so only an id that names something
+    # that does not exist is dropped, logged, and treated as empty; it is never refused outright.
+    validated_branch_id = await B.resolve(BranchStore(c.datastore), tenant, body.branch_id)
+
     # RESOLVED ONCE, HERE. The branch is dropped for a central shop in that one function, so the
     # row, the seal and the screen cannot disagree about which number this is.
-    identity = await SI.resolve(c.datastore, tenant, body.branch_id)
+    identity = await SI.resolve(c.datastore, tenant, validated_branch_id)
     branch_id = SI.split(identity)[1]
 
     if (body.event or "").upper() == "CANCEL":
@@ -445,7 +456,10 @@ async def whatsapp_register(request: Request, body: RegisterIn,
     s = get_settings()
     store = connect.ConnectionStore(c.datastore)
 
-    identity = await SI.resolve(c.datastore, tenant, body.branch_id)
+    # SAME VALIDATION AS `/connect` ABOVE (fixed 2026-09-12) — otherwise a caller could register a
+    # PIN against a `tenant:branch` identity for a branch that does not exist.
+    validated_branch_id = await B.resolve(BranchStore(c.datastore), tenant, body.branch_id)
+    identity = await SI.resolve(c.datastore, tenant, validated_branch_id)
     branch_id = SI.split(identity)[1]
     attempt = await store.get(tenant, branch_id)
     if attempt is None or attempt.state != connect.STATE_CONNECTED:

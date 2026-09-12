@@ -207,8 +207,18 @@ class ServiceStore(_Base):
         return Service(**row) if row else None
 
     async def list(self, tenant: str, *, active_only: bool = True) -> list[Service]:
-        rows, _ = await self._find(tenant, {"active": True} if active_only else None,
-                                   limit=200, sort=("sort", "asc"))
+        """The WHOLE catalogue, not a page of it (fixed 2026-09-12, a real gap a QA audit found).
+
+        The old `limit=200` silently discarded the cursor: every caller treated the 200 rows it
+        got back as the complete catalogue, and a shop past that size had services `by_external_id`
+        could never find (so an invoice line for its 201st product auto-created a duplicate every
+        time) and a «خدماتي» screen that never showed the rest. `drain` pages until the store is
+        exhausted and raises rather than truncating if a tenant somehow has more than its budget.
+        """
+        where: dict[str, Any] = {"tenant": tenant}
+        if active_only:
+            where["active"] = True
+        rows = await drain(self._s, self.collection, where, sort=("sort", "asc"))
         return [Service(**r) for r in rows]
 
     async def has_any_active(self, tenant: str) -> bool:

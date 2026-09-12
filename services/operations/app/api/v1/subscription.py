@@ -197,6 +197,14 @@ async def subscribe(request: Request, body: SubscribeIn,
         # `plan.requires_any` (checked inside `may_add` itself) and duplicate-purchase.
         addition = may_add(plan_limits=plan_limits, held=held_keys(rows))
         if not addition.allowed:
+            # AUDITED LIKE EVERY OTHER REFUSAL BELOW IT IN THIS ROUTE (fixed 2026-09-12, a real
+            # gap a QA audit found) — `gate_unreadable`, `refused` (payment) and `created` all
+            # already record; a duplicate-purchase attempt is the same kind of fact and was the
+            # one refusal in this file support could not see.
+            await request.app.state.auditor.record(
+                "subscription.already_subscribed", actor=getattr(principal, "subject", ""),
+                tenant=tenant, resource=f"plan:{body.plan_id}",
+                ip=request.client.host if request.client else "")
             return JSONResponse(status_code=status.HTTP_409_CONFLICT,
                                 content={"error": "ALREADY_SUBSCRIBED",
                                          "message": addition.reason})
@@ -245,10 +253,20 @@ async def subscribe(request: Request, body: SubscribeIn,
     # a base. The base is recognised the same way the price list recognises it, by carrying the
     # message meter (ci/check_plans_shape.py) — read off the plan, never guessed from its name.
     if body.interval not in BILLING_INTERVALS:
+        # AUDITED, SAME AS EVERY OTHER REFUSAL IN THIS ROUTE (fixed 2026-09-12, a real gap a QA
+        # audit found) — a request sending an interval billing does not know is exactly the
+        # integration fault support needs to see, and it went unrecorded while every neighbouring
+        # refusal already was.
+        await request.app.state.auditor.record(
+            "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_INTERVAL",
                                      "message": "مدة الاشتراك غير صحيحة."})
     if body.interval == "once" and is_base(plan_limits):
+        await request.app.state.auditor.record(
+            "subscription.bad_interval", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_INTERVAL",
                                      "message": "هذه الباقة تُجدَّد شهرياً ولا تُشترى مرة واحدة."})

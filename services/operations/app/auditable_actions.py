@@ -174,6 +174,28 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "moment are both there",
     },
     {
+        # A duplicate-purchase attempt is the same kind of fact as `subscription.refused` right
+        # above it — a decision of ours about somebody's money — and it was the one refusal in
+        # this route with no row at all (fixed 2026-09-12, a real gap a QA audit found).
+        "action": "subscription.already_subscribed",
+        "source": "admin",
+        "critical": False,
+        "resource": "plan",
+        "why": "an owner (or a second manager) trying to buy an app the shop already holds is "
+               "worth the same record `subscription.refused` already gets, and support could not "
+               "see it before",
+    },
+    {
+        # A request naming an interval billing does not recognise is an integration fault worth
+        # seeing, not a shrug — same posture, and same prior gap, as `already_subscribed` above.
+        "action": "subscription.bad_interval",
+        "source": "admin",
+        "critical": False,
+        "resource": "plan",
+        "why": "billing reads an unknown interval as a silent MONTH rather than refusing it, so "
+               "this refusal is the only place the bad value is ever seen at all",
+    },
+    {
         "action": "operator.created",
         "source": "admin",
         "critical": True,

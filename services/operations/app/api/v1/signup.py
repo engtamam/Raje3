@@ -38,7 +38,12 @@ class OpenShopIn(BaseModel):
     # spends this when `SIGNUP_REQUIRE_OTP` is set, so an unconfigured field costs nothing until
     # that flag flips. See core/signup.py's `open_shop_verified` for why this isn't just `prove`
     # called first: the number must be proven BEFORE the shop exists, not after.
-    code: str = Field(default="", max_length=16)
+    # DIGITS ONLY (fixed 2026-09-12, a real gap a QA audit found) — same convention
+    # `connect.py`'s `RegisterIn.pin` already uses for a code that reaches a peer over the network:
+    # shape-checked here, before it travels, so a malformed value never spends one of the peer's
+    # own limited verification attempts. Empty stays valid — see the note above on why this field
+    # costs nothing until `SIGNUP_REQUIRE_OTP` is on.
+    code: str = Field(default="", max_length=16, pattern=r"^\d*$")
 
 
 class CodeIn(BaseModel):
@@ -47,7 +52,7 @@ class CodeIn(BaseModel):
 
 class ProveIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
-    code: str = Field(min_length=3, max_length=16)
+    code: str = Field(min_length=3, max_length=16, pattern=r"^\d+$")
 
 
 class ClaimIn(BaseModel):
@@ -59,14 +64,14 @@ class ClaimIn(BaseModel):
     """
 
     phone: str = Field(min_length=6, max_length=32)
-    code: str = Field(min_length=3, max_length=16)
+    code: str = Field(min_length=3, max_length=16, pattern=r"^\d+$")
     password: str = Field(min_length=1, max_length=256)
 
 
 class SignInIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
     password: str = Field(min_length=1, max_length=256)
-    code: str = Field(default="", max_length=16)
+    code: str = Field(default="", max_length=16, pattern=r"^\d*$")
 
 
 def _svc(request: Request):
