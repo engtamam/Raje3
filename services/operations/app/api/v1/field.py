@@ -293,14 +293,12 @@ async def mark_rating_handled(request: Request, visit_id: str, body: RatingHandl
     return {"handled": True, "visit": v.public()}
 
 
-@router.get("/staff/performance", dependencies=[Depends(rate_limit)])
-async def staff_performance(request: Request, since: int, until: int, branch_id: str = "",
-                            principal: Principal = Depends(_MANAGE)) -> dict:
-    """The rating app's own comparison report (rating-app-feature.md phase 7) — per operator, over
-    `[since, until]` (epoch seconds): visits handled, how many were rated, the average rating, and
-    the no-show rate on their bookings. `operations.manage` (not `.read`): this is a comparison
-    BETWEEN staff members, the same "owner or manager only" tier the rest of a team's own numbers
-    already sit behind, never `.read`'s "any operator on shift" tier.
+async def _staff_performance_rows(request: Request, principal: Principal, *, since: int,
+                                  until: int, branch_id: str) -> tuple[str, list[dict]]:
+    """The shared computation behind both `/staff/performance` (JSON) and its `/export` twin
+    (docx/pdf) — one merge, two renderers. Returns `("", rows)`, or `(error_message, [])` when
+    the range itself is invalid (the caller decides how to surface that — a JSON error object for
+    the screen, a plain 400 for the export).
 
     BRANCH SCOPE IS APPLIED BY QUERYING PER ALLOWED BRANCH, NOT BY FILTERING ROWS AFTERWARD — a
     result row here is ONE OPERATOR, aggregated across however many branches he worked in the
@@ -311,11 +309,11 @@ async def staff_performance(request: Request, since: int, until: int, branch_id:
     like `/ratings` does above.
     """
     if until < since:
-        return {"error": "BAD_REQUEST", "message": "حدد فترة زمنية صحيحة."}
+        return "حدد فترة زمنية صحيحة.", []
     scope = await branch_scope(request.app.state.container.datastore, principal)
     effective = SCOPE.narrow(scope, branch_id)
     if effective is SCOPE.REVOKED:
-        return {"staff": []}
+        return "", []
     branch_ids = sorted(effective) if isinstance(effective, (set, frozenset)) else [effective or ""]
 
     tenant = _tenant(principal)
@@ -355,7 +353,75 @@ async def staff_performance(request: Request, since: int, until: int, branch_id:
                             if no_show_counts["total"] else 0.0),
         })
     staff.sort(key=lambda r: (r["average_rating"], r["visits"]), reverse=True)
+    return "", staff
+
+
+@router.get("/staff/performance", dependencies=[Depends(rate_limit)])
+async def staff_performance(request: Request, since: int, until: int, branch_id: str = "",
+                            principal: Principal = Depends(_MANAGE)) -> dict:
+    """The rating app's own comparison report (rating-app-feature.md phase 7) — per operator, over
+    `[since, until]` (epoch seconds): visits handled, how many were rated, the average rating, and
+    the no-show rate on their bookings. `operations.manage` (not `.read`): this is a comparison
+    BETWEEN staff members, the same "owner or manager only" tier the rest of a team's own numbers
+    already sit behind, never `.read`'s "any operator on shift" tier.
+    """
+    error, staff = await _staff_performance_rows(
+        request, principal, since=since, until=until, branch_id=branch_id)
+    if error:
+        return {"error": "BAD_REQUEST", "message": error}
     return {"staff": staff}
+
+
+class StaffPerformanceExportIn(BaseModel):
+    since: int
+    until: int
+    branch_id: str = Field(default="", max_length=64)
+    file_format: str = Field(default="pdf", pattern="^(docx|pdf)$")
+
+
+@router.post("/staff/performance/export", dependencies=[Depends(rate_limit)])
+async def staff_performance_export(request: Request, body: StaffPerformanceExportIn,
+                                   principal: Principal = Depends(_MANAGE)):
+    """The same comparison as `/staff/performance`, as a branded document instead of JSON — a
+    download, not a report to read inline. Same capability, same recipient set the JSON route
+    already restricts to (`operations.manage`); no separate gate needed for the export itself.
+    """
+    import datetime as _dt
+    import tempfile
+    from pathlib import Path
+
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+
+    from app.core.pdf_convert import PdfConversionUnavailable, convert_to_pdf
+    from app.core.staff_performance_render import build_staff_performance_docx
+
+    error, staff = await _staff_performance_rows(
+        request, principal, since=body.since, until=body.until, branch_id=body.branch_id)
+    if error:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, error)
+
+    await request.app.state.auditor.record(
+        "staff_performance.exported", actor=principal.subject, tenant=_tenant(principal),
+        resource="staff_performance", ip=request.client.host if request.client else "",
+        metadata={"format": body.file_format, "row_count": len(staff)})
+
+    now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=3)))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="staff_performance_"))
+    docx_path = tmp_dir / f"staff_performance_{_tenant(principal)}.docx"
+    build_staff_performance_docx(
+        tenant=_tenant(principal), rows=staff, out_path=docx_path,
+        generated_at_label=now.strftime("%Y-%m-%d %H:%M"))
+
+    if body.file_format == "docx":
+        return FileResponse(docx_path, media_type=
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           filename=docx_path.name)
+    try:
+        pdf_path = convert_to_pdf(docx_path)
+    except PdfConversionUnavailable as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return FileResponse(pdf_path, media_type="application/pdf", filename=pdf_path.name)
 
 
 @router.get("/customers/by-phone", dependencies=[Depends(rate_limit)])

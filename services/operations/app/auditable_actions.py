@@ -154,6 +154,18 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "accountability any other write to a visit gets",
     },
     {
+        # A READ, not a write — recorded anyway because the export leaves the building as a real
+        # file a person can forward or print, unlike the JSON screen it mirrors. Not critical: an
+        # audit outage must not block a manager from getting his own report right now.
+        "action": "staff_performance.exported",
+        "source": "admin",
+        "critical": False,
+        "resource": "staff_performance",
+        "why": "who pulled a staff-comparison document, in what format and over what window — a "
+               "report that leaves the system as a file deserves the same trail a data export "
+               "anywhere else in this product gets",
+    },
+    {
         "action": "subscription.created",
         "source": "admin",
         "critical": True,

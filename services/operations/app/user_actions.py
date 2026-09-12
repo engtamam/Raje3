@@ -185,6 +185,19 @@ USER_ACTIONS: list[dict[str, Any]] = [
                 "عدم حضور عملائه — تقارن أداء موظفيك ببعض. للمالك والمدير فقط.",
     },
     {
+        "id": "operations.staff_performance_export", "label": "تصدير تقرير أداء الموظفين",
+        "method": "POST", "path": "/api/v1/field/staff/performance/export",
+        "capability": "operations.manage", "group": "الشاشة",
+        "params": [
+            {"name": "since", "in": "body", "type": "integer", "required": True},
+            {"name": "until", "in": "body", "type": "integer", "required": True},
+            {"name": "branch_id", "in": "body", "type": "string", "required": False},
+            {"name": "file_format", "in": "body", "type": "string", "required": False},
+        ],
+        "help": "نفس تقرير أداء الموظفين، كملف Word أو PDF بتصميم البراند بدل شاشة — للمالك "
+                "والمدير فقط.",
+    },
+    {
         "id": "operations.ensure_customer", "label": "تسجيل عميلة برقمها (بلا زيارة)", "method": "POST",
         "path": "/api/v1/field/customers/ensure", "capability": "operations.record",
         "group": "الشاشة",

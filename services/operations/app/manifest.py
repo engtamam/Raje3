@@ -229,6 +229,8 @@ def build_manifest(
             {"path": "/api/v1/field/ratings/{}/handled", "tier": "user", "method": "PATCH"},
             # The rating app's own staff-comparison report (rating-app-feature.md phase 7).
             {"path": "/api/v1/field/staff/performance", "tier": "user", "method": "GET"},
+            # Same report, as a branded document (docx/pdf) instead of JSON (phase 8).
+            {"path": "/api/v1/field/staff/performance/export", "tier": "user", "method": "POST"},
             # ── the back office ───────────────────────────────────────────────────────────
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},

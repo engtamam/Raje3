@@ -118,3 +118,41 @@ def test_another_tenants_operators_never_leak_in(client):
                    headers=_auth("operations.manage"))
     staff = r.json()["staff"]
     assert [s["operator_id"] for s in staff] == ["op_a"]
+
+
+# ── POST /api/v1/field/staff/performance/export — the same report, as a document ────────────────
+def test_export_operations_read_is_not_enough_only_manage(client):
+    r = client.post("/api/v1/field/staff/performance/export",
+                    json={"since": 0, "until": 2000}, headers=_auth("operations.read"))
+    assert r.status_code == 403
+
+
+def test_export_docx_returns_a_real_word_document(client):
+    _seed_operator(client, ident="op_a", name="سارة")
+    _seed_visit(client, visit_id="v1", operator_id="op_a", rating=5, rated_at=1_000)
+
+    r = client.post("/api/v1/field/staff/performance/export",
+                    json={"since": 0, "until": 2000, "file_format": "docx"},
+                    headers=_auth("operations.manage"))
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    assert r.content[:2] == b"PK"   # a docx is a real zip archive
+
+
+def test_export_an_invalid_range_is_refused_before_any_file_is_built(client):
+    r = client.post("/api/v1/field/staff/performance/export",
+                    json={"since": 2000, "until": 0}, headers=_auth("operations.manage"))
+    assert r.status_code == 400
+
+
+def test_export_pdf_without_a_converter_installed_refuses_plainly_not_a_500(client):
+    """This dev/CI environment carries no LibreOffice — the exact case `PdfConversionUnavailable`
+    exists for. Proves the route surfaces that as a real 503, never an unhandled crash."""
+    _seed_operator(client, ident="op_a", name="سارة")
+    r = client.post("/api/v1/field/staff/performance/export",
+                    json={"since": 0, "until": 2000, "file_format": "pdf"},
+                    headers=_auth("operations.manage"))
+    # The global error handler strips HTTPException.detail (CWE-209 hardening, same convention
+    # every other service in this product follows) — the status code IS the whole signal here.
+    assert r.status_code == 503
