@@ -45,6 +45,12 @@ def _is_exempt(line: str) -> bool:
     stripped = line.strip()
     if stripped.startswith("//") or stripped.startswith("*") or stripped.startswith("/*"):
         return True
+    # THE BRAND'S OWN NAME IS NOT UI COPY TO TRANSLATE — same category as a logo asset.
+    # brand/Mark.tsx's `NAME_AR` is the product's Arabic wordmark itself, read by App.tsx as a
+    # plain string constant; it stays Arabic in every locale, the same way "Google" stays "Google"
+    # in a Google product translated into Arabic. Narrow and named, not a general escape hatch.
+    if stripped.startswith("export const NAME_AR"):
+        return True
     # A t('...') CALL ARGUMENT MAY LEGITIMATELY EMBED ARABIC — the key itself, or a literal
     # fallback default the call supplies (`t(x, 'نص افتراضي')`) is authored content already
     # routed through the dictionary lookup, not a bypass of it.

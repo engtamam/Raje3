@@ -31,6 +31,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_operator_screen_localized import scan as _scan_real_arabic  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "apps" / "console" / "src"
 
@@ -130,7 +133,6 @@ def part_a() -> list[str]:
 
 
 # ── PART B ────────────────────────────────────────────────────────────────────────────────────
-_ARABIC = re.compile(r"[؀-ۿ]")
 # rj-ui/ IS EXCLUDED ON PURPOSE — a kit component (Button, Badge, Modal…) renders whatever text a
 # CALLER passes it; the Arabic lives at the call site, not in the component, so counting it here
 # would double-count every screen that uses one and say nothing about the kit itself.
@@ -160,8 +162,12 @@ def part_b() -> tuple[int, int, list[tuple[Path, int]]]:
         parts = path.relative_to(SRC).parts
         if any(part in _EXCLUDE_DIRS for part in parts):
             continue
-        text = path.read_text(encoding="utf-8")
-        arabic_hits = len(_ARABIC.findall(text))
+        # `scan()` is the SAME comment-aware pass check_operator_screen_localized.py runs per file
+        # — a raw whole-text regex counted a comment quoting another screen's own Arabic name
+        # (e.g. «متجر التطبيقات» inside an English header comment, StoreRoute.tsx/main.tsx's own
+        # style throughout this repo) as "real Arabic text needing translation", which it never
+        # was. Reusing the real check keeps the two gates from disagreeing about what counts.
+        arabic_hits = len(_scan_real_arabic(path))
         if arabic_hits == 0:
             continue
         total_screens += 1
