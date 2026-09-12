@@ -167,6 +167,26 @@ class RuntimeConfig:
         """Remove an override so the configured default applies again."""
         return await self._s.delete(_COLL, self._key_of(tenant, key))
 
+    async def _drain(self, where: dict[str, Any]) -> list[dict]:
+        """Every row matching `where`, across as many pages as it takes.
+
+        A scope's rows are bounded by the service's own RUNTIME_POLICY — `set()` refuses any key
+        `settable()` does not allow, so a tenant can never hold more overrides than the service
+        declares knobs for. That is small in every case this codebase has, but a single
+        `find(..., limit=500)` still silently dropped anything past the first page with no signal
+        to the caller — fixed 2026-09-12, a real gap a QA audit found. Draining every page here
+        keeps the read honest without inventing a truncation flag for a collection that is never
+        actually unbounded.
+        """
+        out: list[dict] = []
+        cursor: str | None = None
+        while True:
+            rows, cursor = await self._s.find(_COLL, where, limit=500, sort=("key", "asc"), after=cursor)
+            out.extend(rows)
+            if not cursor or not rows:
+                break
+        return out
+
     # ── read ──────────────────────────────────────────────────────────────────
     async def get(self, *, tenant: str, key: str, default: Any) -> Any:
         """The effective value: tenant override, then platform override, then config."""
@@ -197,10 +217,9 @@ class RuntimeConfig:
         """
         tenant_rows: dict[str, dict] = {}
         if tenant:
-            rows, _ = await self._s.find(_COLL, {"tenant": tenant}, limit=500, sort=("key", "asc"))
+            rows = await self._drain({"tenant": tenant})
             tenant_rows = {r["key"]: r for r in rows}
-        platform_rows_list, _ = await self._s.find(
-            _COLL, {"tenant": ""}, limit=500, sort=("key", "asc"))
+        platform_rows_list = await self._drain({"tenant": ""})
         platform_rows = {r["key"]: r for r in platform_rows_list}
 
         out: dict[str, Any] = {}
@@ -224,7 +243,7 @@ class RuntimeConfig:
         return out
 
     async def overrides(self, *, tenant: str) -> list[Override]:
-        rows, _ = await self._s.find(_COLL, {"tenant": tenant}, limit=500, sort=("key", "asc"))
+        rows = await self._drain({"tenant": tenant})
         out = []
         for r in rows:
             try:

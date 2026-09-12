@@ -76,10 +76,12 @@ def test_an_unknown_and_a_malformed_reference_produce_the_same_shape():
 
 # ── TRAP 4: the page holding something after an erasure ────────────────────────────────────────
 def test_the_service_has_no_storage_for_an_erasure_to_miss():
-    """The strongest form of 'the erasure is complete': there is nothing here to erase, asserted
-    structurally rather than promised in a comment."""
+    """The strongest form of 'the erasure is complete': the one collection this service writes
+    (runtime_config, keyed by tenant and knob — never by data subject) holds nothing a DSAR could
+    reach, asserted structurally rather than promised in a comment."""
     from app.backup_manifest import BACKUP
-    assert BACKUP["collections"] == [] and BACKUP["object_prefix"] == ""
+    names = {c["name"] for c in BACKUP["collections"]}
+    assert names == {"runtime_config"} and BACKUP["object_prefix"] == ""
 
 
 def test_the_erase_ack_is_honest_and_idempotent():

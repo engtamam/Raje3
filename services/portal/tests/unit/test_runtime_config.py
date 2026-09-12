@@ -204,3 +204,45 @@ def test_overrides_are_listed_with_who_set_them():
     run(rc.set(tenant="acme", key="RATELIMIT_MAX", value=42, actor_ref="sub_abc"))
     got = run(rc.overrides(tenant="acme"))
     assert got[0].key == "RATELIMIT_MAX" and got[0].set_by == "sub_abc"
+
+
+# ── more than one page of overrides ────────────────────────────────────────────
+# fixed 2026-09-12, a real gap a QA audit found: `overrides()`/`effective()` called `find(...,
+# limit=500)` once and returned whatever came back, with nothing telling the caller a scope past
+# 500 rows was cut short. Writing directly to the store (rather than through `set()`) simulates
+# that scope without needing 500 distinct policy keys.
+def test_overrides_drains_past_the_first_page_of_five_hundred():
+    store = MemoryDataStore()
+    rc = RuntimeConfig(store, Settings, now=lambda: "2026-01-01T00:00:00Z", policy=POLICY)
+    total = 620
+    for i in range(total):
+        key = f"k{i:04d}"
+        run(store.put("runtime_config", f"acme|{key}",
+                      {"id": f"acme|{key}", "tenant": "acme", "key": key,
+                       "value": "1", "set_by": "", "set_at": ""}))
+    got = run(rc.overrides(tenant="acme"))
+    assert len(got) == total
+
+
+def test_effective_drains_past_the_first_page_of_five_hundred():
+    store = MemoryDataStore()
+    rc = RuntimeConfig(store, Settings, now=lambda: "2026-01-01T00:00:00Z", policy=POLICY)
+    for i in range(620):
+        key = f"AAA{i:04d}"  # sorts before "RATELIMIT_MAX", pushing it past the first page
+        run(store.put("runtime_config", f"|{key}",
+                      {"id": f"|{key}", "tenant": "", "key": key,
+                       "value": "1", "set_by": "", "set_at": ""}))
+    # The two real policy keys still resolve correctly even with 620 unrelated platform rows ahead
+    # of a single-page read's cutoff — proving `effective()` did not silently stop at row 500.
+    run(rc.set(tenant="", key="RATELIMIT_MAX", value=99))
+    out = run(rc.effective(tenant="", settings=_settings()))
+    assert out["RATELIMIT_MAX"] == 99
+
+
+# fixed 2026-09-12, a real gap a QA audit found: backup_manifest.py declared `"collections": []`
+# while this module was actively writing the `runtime_config` collection through `self._s.put`.
+def test_backup_manifest_declares_the_collection_this_module_writes():
+    from app.backup_manifest import BACKUP
+    from app.core.runtime_config import _COLL
+    names = {c["name"] for c in BACKUP["collections"]} | {c["name"] for c in BACKUP["excluded"]}
+    assert _COLL in names

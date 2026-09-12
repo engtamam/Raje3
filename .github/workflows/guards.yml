@@ -447,6 +447,11 @@ jobs:
       # in the same file (campaigns' own list_campaigns and runs routes) by a second QA pass.
       - name: a discarded-cursor page is never reported as a count or total
         run: python3 ci/check_a_discarded_cursors_page_is_not_counted.py
+      # A collection a service actually writes must be declared in its own backup_manifest.py
+      # (backed up or explicitly excluded) — found undeclared in 8 of 11 services by a second QA
+      # pass, after portal's own manifest claimed zero collections while writing runtime_config.
+      - name: every written collection is declared in its own backup_manifest.py
+        run: python3 ci/check_backup_manifest_declares_written_collections.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services
