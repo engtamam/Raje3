@@ -18,6 +18,7 @@ from app.config import Settings, get_settings
 from app.core.erasure import TemplateErasure
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import LoyaltyError, Overdraft
+from app.core.spend_lock import SpendLock
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -436,10 +437,16 @@ async def rating_bonus(request: Request, body: RatingBonusIn) -> dict:
     if body.points <= 0 or not body.subject_ref or not body.visit_id:
         return {"earned": 0, "reason": "nothing to credit"}
 
-    entry = await c.ledger.post(
-        tenant=body.tenant, subject_ref=body.subject_ref, delta=body.points, reason="earn",
-        source=f"rating:{body.visit_id}", actor=body.actor, rule_level="rating",
-        branch_id=body.branch_id)
+    # SAME LANE `earn` ALREADY HOLDS, RIGHT NEXT TO THIS ROUTE — fixed 2026-09-12, a real gap a QA
+    # audit found. `Ledger.post`'s idempotency check (`already_posted`) is a plain read; true
+    # atomicity only exists at this lock, not at the store. Two ratings for the same visit (a retry
+    # from `reminders`, or a rating bonus racing an ordinary `earn`/`redeem`/`adjust` for the same
+    # subject) can otherwise interleave past that read and both post.
+    async with SpendLock(c.cache, body.tenant, body.subject_ref):
+        entry = await c.ledger.post(
+            tenant=body.tenant, subject_ref=body.subject_ref, delta=body.points, reason="earn",
+            source=f"rating:{body.visit_id}", actor=body.actor, rule_level="rating",
+            branch_id=body.branch_id)
     if entry is None:
         return {"earned": 0, "duplicate": True, "reason": "already credited for this rating"}
 

@@ -135,24 +135,39 @@ class HttpIdentity:
         self._timeout = timeout
         self._ttl = ttl
         self._cache: dict[str, tuple[float, str]] = {}
+        # ONE LOCK PER TENANT, IN-PROCESS ONLY — fixed 2026-09-12, a real gap a QA audit found.
+        # `name()` used to be a plain read-check-fetch-write over `self._cache` with no lock at
+        # all: two concurrent lookups past expiry both saw the stale entry, both fetched, and
+        # whichever write landed second silently discarded the other's cache stamp (and, under
+        # real concurrency, raced the dict itself). This cache is per-process and per-instance —
+        # not the cross-replica correctness the datastore's redemption path needs — so a plain
+        # `asyncio.Lock` closes it cheaply; a `store.claim()`-style lease would be the wrong tool
+        # for a value that is only ever a convenience, never a source of truth.
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def _lock_for(self, tenant: str) -> asyncio.Lock:
+        lock = self._locks.get(tenant)
+        if lock is None:
+            lock = self._locks[tenant] = asyncio.Lock()
+        return lock
 
     async def name(self, tenant: str) -> str:
         import time
-        hit = self._cache.get(tenant)
-        now = time.time()
-        if hit and now - hit[0] < self._ttl:
-            return hit[1]
-        path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
-        try:
-            data = await _get(f"{self._url}{path}", self._token, self._timeout)
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+        async with self._lock_for(tenant):
+            hit = self._cache.get(tenant)
+            now = time.time()
+            if hit and now - hit[0] < self._ttl:
+                return hit[1]
+            path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
+            try:
+                data = await _get(f"{self._url}{path}", self._token, self._timeout)
+            except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+                return hit[1] if hit else ""
+            name = str(data.get("name") or "")
+            if name:
+                self._cache[tenant] = (now, name)
+                return name
             return hit[1] if hit else ""
-        branding = data.get("branding") or {}
-        name = str(data.get("name") or "")
-        if name:
-            self._cache[tenant] = (now, name)
-            return name
-        return hit[1] if hit else ""
 
 
 # ── recording a visit, when a service reward is redeemed ───────────────────────────────────────
