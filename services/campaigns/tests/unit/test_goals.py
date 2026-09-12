@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.goals import CARDS, DAY, cards, lock_after_send, resolve_goal
+from app.core.goals import CARDS, DAY, GOAL_CATEGORIES, cards, lock_after_send, resolve_goal
 
 NOW = 1_800_000_000
 
@@ -28,6 +28,13 @@ def test_the_behaviour_is_a_sentence_not_a_type():
 
 def test_all_five_goals_have_a_card():
     assert set(by_goal(cards(now=NOW))) == set(CARDS)
+
+
+def test_every_card_names_a_real_category():
+    """A rail/filter groups cards by `category` — a goal in no bucket, or in a bucket that does
+    not exist, would be invisible under every filter and unreachable except through "الكل"."""
+    for c in cards(now=NOW):
+        assert c.category in GOAL_CATEGORIES, f"{c.goal} has no real category: {c.category!r}"
 
 
 # ── the lock ───────────────────────────────────────────────────────────────────────────────────

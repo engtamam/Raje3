@@ -38,32 +38,44 @@ DAY = 86400
 # the single free blank, where the sentence has nothing but his own words to put in it.
 MANUAL_BLANKS = ("catalogue", "amount", "date", "owner")
 
+# THE GROUPS A RAIL/FILTER CAN ORGANISE THE CARDS BY, in the order they should be offered — not
+# a fourth thing to keep in sync by hand: every CARDS row below names one of these, and this is
+# the one place their order and label live. Four buckets for seven goals today; a new goal picks
+# an existing bucket or, if it truly needs one, adds a line here and the console's filter grows
+# with it — no screen anywhere invents its own grouping.
+GOAL_CATEGORIES = ["عروض وخصومات", "ولاء وعودة", "مناسبات", "إعلانات وتوعية"]
+
 # What each card says. Two words and a line — the owner is choosing, not reading.
 CARDS = {
     "win_back": {
         "title": "رجّع اللي غابوا",
         "line": "من تأخّر عن موعده المعتاد",
         "icon": "return",
+        "category": "ولاء وعودة",
     },
     "reward_loyal": {
         "title": "كافئ المخلصين",
         "line": "الأكثر زيارة عندك",
         "icon": "gift",
+        "category": "ولاء وعودة",
     },
     "announce": {
         "title": "أعلن جديدك",
         "line": "خبر أو عرض للجميع",
         "icon": "megaphone",
+        "category": "إعلانات وتوعية",
     },
     "occasion": {
         "title": "هنّئ في مناسبة",
         "line": "رسالة في يوم يخصّه",
         "icon": "cake",
+        "category": "مناسبات",
     },
     "awareness": {
         "title": "وعِّ عملاءك",
         "line": "نصيحة تخصّ ما أخذوه",
         "icon": "info",
+        "category": "إعلانات وتوعية",
     },
     "service_offer": {
         "title": "عرض على خدمة",
@@ -71,6 +83,7 @@ CARDS = {
         # told who it reaches, and that sentence is the whole of what he needs to trust it.
         "line": "لمن قارب موعد خدمة معيّنة",
         "icon": "tag",
+        "category": "عروض وخصومات",
     },
     "package_offer": {
         "title": "عرض على باقة",
@@ -79,6 +92,7 @@ CARDS = {
         # everyone, the same as an announcement, with the message naming the package itself.
         "line": "روّج لباقة كاملة بسعرها الحقيقي",
         "icon": "tag",
+        "category": "عروض وخصومات",
     },
 }
 
@@ -89,6 +103,10 @@ class Card:
     title: str
     line: str
     icon: str
+    # ONE OF `GOAL_CATEGORIES` — how a rail/filter groups this card, from CARDS' own row. Never
+    # invented on a screen: a console that made up its own grouping would drift from this the
+    # first time a goal moved buckets or a new one arrived in neither's list.
+    category: str = ""
     # Whether it can be pressed right now.
     available: bool = True
     # Why not, in the owner's words, ON the card. Never in a tooltip, never in a modal after they
@@ -149,6 +167,7 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
     out: list[Card] = []
     for goal, meta in CARDS.items():
         card = Card(goal=goal, title=meta["title"], line=meta["line"], icon=meta["icon"],
+                    category=meta.get("category", ""),
                     behaviour=_behaviour(goal), offers=offers_something(goal))
 
         until = int(locks.get(goal) or 0)

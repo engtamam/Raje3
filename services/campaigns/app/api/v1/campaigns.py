@@ -26,7 +26,7 @@ from app.adapters.datastore.drain import drain
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
-from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
+from app.core.goals import CARDS, GOAL_CATEGORIES, cards, lock_after_send, resolve_goal
 from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something, validate_window
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.locks import read_locks, record_lock
@@ -157,7 +157,11 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     return {"goals": [vars(card) for card in
                       cards(now=_now(), fills_by_type=fills, locks=locks,
                             enabled_types=enabled, blocked_reasons=blocked,
-                            statuses=statuses)]}
+                            statuses=statuses)],
+            # THE FILTER CHIPS' OWN ORDER — a rail/filter reads this rather than collecting each
+            # card's own `category` and sorting them itself, which would reorder the moment a
+            # category's first card changed or a goal moved buckets.
+            "categories": GOAL_CATEGORIES}
 
 
 @router.post("/preview", dependencies=[Depends(rate_limit)])
