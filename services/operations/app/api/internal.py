@@ -18,6 +18,7 @@ from app.config import Settings, get_settings
 from app.core.branches import MAIN as MAIN_BRANCH_ID
 from app.core import evidence as EV
 from app.core import privacy_requests as PR
+from app.core import rating_alerts as RA
 from app.core import scheduling
 from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
@@ -1768,6 +1769,16 @@ async def record_visit_rating(request: Request, visit_id: str, body: VisitRating
             await desk.rating_bonus(
                 tenant=body.tenant, subject_ref=body.subject_ref, visit_id=visit.id,
                 points=body.rating_points, actor="reminders")
+    if visit.operator_id:
+        # BEST-EFFORT, SAME AS THE LOYALTY CREDIT ABOVE — see core/rating_alerts.py's own
+        # docstring for the policy (last 10 rated visits, minimum 5 counted, average below 4.5)
+        # and why it fires per qualifying rating rather than once per "state change".
+        operator = await OperatorStore(request.app.state.container.datastore).get(
+            body.tenant, visit.operator_id)
+        await RA.check_and_notify(
+            request.app.state.container, tenant=body.tenant, operator_id=visit.operator_id,
+            operator_name=operator.name if operator else "", branch_id=visit.branch_id,
+            triggering_visit_id=visit.id)
     return {"recorded": True, "changed": True, "visit_id": visit.id}
 
 

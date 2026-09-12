@@ -335,9 +335,46 @@ class VisitStore(_Base):
         await self._put(v.tenant, v.id, v.__dict__.copy())
         return v
 
+    async def staff_performance(self, tenant: str, *, since: int, until: int, branch_id: str = ""
+                                ) -> dict[str, dict[str, int]]:
+        """Per-operator {"visits", "ratings", "rating_sum"} over `[since, until]` (epoch seconds)
+        — the rating app's staff-performance report (a shop owner comparing staff, not one visit).
+
+        DRAINS THE WHOLE TENANT SET rather than reading one capped page like `ratings_summary`
+        does — that method's own docstring accepts undercounting past its `limit` because it feeds
+        a rolling digest number; a report an owner reads to judge a specific employee needs an
+        exact count, not an approximation that quietly gets worse the more that employee works.
+        `where` is equality-only (same limitation `ratings`/`by_actor` already document), so the
+        time window is applied in Python after the full set comes back.
+
+        `occurred_at` (the device-claimed time the service actually happened) is preferred over
+        `created` (our own receipt time) for "which period does this visit belong to" — the two
+        differ when a visit is recorded late, and a report window should follow the work, not the
+        keystroke. Falls back to `created` for the rare row with no `occurred_at` set.
+        """
+        where: dict[str, Any] = {"tenant": tenant}
+        if branch_id:
+            where["branch_id"] = branch_id
+        rows = await drain(self._s, self.collection, where, sort=("created", "desc"))
+        by_operator: dict[str, dict[str, int]] = {}
+        for row in rows:
+            occurred = int(row.get("occurred_at") or 0) or int(row.get("created") or 0)
+            if occurred < since or occurred > until:
+                continue
+            op = str(row.get("operator_id") or "")
+            if not op:
+                continue
+            entry = by_operator.setdefault(op, {"visits": 0, "ratings": 0, "rating_sum": 0})
+            entry["visits"] += 1
+            rating = int(row.get("rating") or 0)
+            if rating:
+                entry["ratings"] += 1
+                entry["rating_sum"] += rating
+        return by_operator
+
     async def ratings(self, tenant: str, *, stars: int | None = None, handled: bool | None = None,
-                      branch_id: str = "", limit: int = 50, after: str | None = None
-                      ) -> tuple[list[Visit], str | None]:
+                      branch_id: str = "", operator_id: str = "", limit: int = 50,
+                      after: str | None = None) -> tuple[list[Visit], str | None]:
         """Every visit a customer actually rated — the console's «التقييمات» tab (rating-app-
         feature.md phase 5). `stars` narrows to one exact rank when given; otherwise "has any
         rating at all", expressed as membership on [1, 2, 3, 4, 5] (0 is the model's own «not yet»
@@ -352,10 +389,16 @@ class VisitStore(_Base):
         owner-facing screen is not paginating thousands of ratings, so this is an acceptable
         approximation rather than a real gap — same "known limit, stated honestly" posture as
         `unseamed`'s own bounded read above.
+
+        `operator_id` — one staff member's own ratings only, sorted newest-first same as everything
+        else here — the rating-drop alert's own read (`core/rating_alerts.py`): "his last N ratings",
+        never a page some OTHER operator's ratings could crowd out.
         """
         where: dict[str, Any] = {"rating": [stars] if stars else [1, 2, 3, 4, 5]}
         if branch_id:
             where["branch_id"] = branch_id
+        if operator_id:
+            where["operator_id"] = operator_id
         if handled is False:
             where["rating_handled_at"] = 0
         rows, cursor = await self._find(tenant, where, limit=limit, after=after,
