@@ -255,6 +255,11 @@ def build_container(settings: Settings) -> Container:
     # header note explains why it is not one-off, feature-specific code).
     from app.adapters.inapp_notify import build_inapp_notifier
     container.inapp_notifier = build_inapp_notifier(settings)
+    # WHO IN A TENANT HOLDS A GIVEN CAPABILITY — the recipient-resolution half of a branch-scoped
+    # in-app alert (core/notify_recipients.py combines this with our OWN branch-visibility rules,
+    # never authz's business alone; see that module's own header note for why).
+    from app.adapters.authz_desk import build_authz_desk
+    container.authz_desk = build_authz_desk(settings)
     # THE ADMIN PANEL'S "ليش واتساب هذا المحل معطّل" READ — an internal-token peer call made ON
     # BEHALF of an operator who holds `platform.operations`, never a capability the browser's own
     # token carries. See `api/v1/platform.py::whatsapp_diagnostics`.
