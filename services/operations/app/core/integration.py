@@ -112,6 +112,11 @@ async def mark_sandbox(store, tenant: str, *, expires_at: int = 0) -> bool:
     """
     if not tenant:
         return False
+    # NOT A RACE WORTH GUARDING. This is a single operator's console action on one tenant — nobody
+    # else writes this row concurrently (the till side only ever sets `integrated`, a different
+    # field, in `note_invoice` below), and two operators clicking "mark sandbox" on the same tenant
+    # in the same instant converge on the identical result either way: `sandbox=True`, the same
+    # expiry. There is no lost update because there is no second writer with a conflicting value.
     row = dict(await store.get(STANDING, tenant) or {})
     row.update({"tenant": tenant, "sandbox": True})
     if expires_at:
@@ -154,6 +159,13 @@ class Integration:
             # every invoice after the first takes.
             return {"changed": False, "retired": 0}
 
+        # NOT A RACE WORTH GUARDING, EVEN THOUGH TWO INVOICE BATCHES FOR THE SAME TENANT CAN
+        # GENUINELY OVERLAP. Two concurrent callers both seeing `is_integrated() == False` both run
+        # `_retire_unused_seeds` and both write `integrated=True` here — but every write in that
+        # path converges on the same end state regardless of who wins: retiring the same seeded,
+        # unused, unclaimed service twice just sets `active=False` twice (idempotent), and both
+        # `put`s below write the identical `integrated: True`. There is no counter here to lose an
+        # increment on and no field one writer could clobber with a stale value of the other's.
         retired = await self._retire_unused_seeds(tenant)
         row = dict(await self._store.get(STANDING, tenant) or {})
         row.update({"tenant": tenant, "integrated": True})

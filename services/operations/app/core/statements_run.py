@@ -89,7 +89,13 @@ async def issue(*, store, settlements_source, period: tuple[int, int] | None = N
             continue
         st = _commission.build(partner_id=pid, period_start=period_start, period_end=period_end,
                                stamps=stamps, settlements=money)
-        row = await statements.save(st)
+        try:
+            row = await statements.save(st)
+        except _commission.StatementBusy:
+            # AN OPERATOR IS WRITING THIS SAME STATEMENT RIGHT NOW (marking it paid or disputed).
+            # Skip it for this run rather than aborting the whole sweep over one partner; the next
+            # scheduled run recomputes it same as any other re-run.
+            continue
         issued.append({"partner_id": pid, "total_minor": row.get("total_minor", 0),
                        "shops": len(st.lines)})
     return {"issued": len(issued), "period_start": period_start, "period_end": period_end,

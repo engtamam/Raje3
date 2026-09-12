@@ -306,7 +306,7 @@ async def mark_statement_paid(request: Request, partner_id: str, period_start: i
     bank statement months later, which is exactly when the question gets asked — and the moment
     the person who pressed the button no longer remembers.
     """
-    from app.core.commission import PAID, StatementStore
+    from app.core.commission import PAID, StatementBusy, StatementStore
     if not body.reference.strip():
         return {"ok": False, "reason": "REFERENCE_REQUIRED",
                 "message": "أدخل مرجع الحوالة — بلا مرجع لا يمكن إثبات الدفع لاحقاً."}
@@ -314,9 +314,13 @@ async def mark_statement_paid(request: Request, partner_id: str, period_start: i
         "partner.statement_paid", actor=principal.subject, tenant="",
         resource=f"statement:{partner_id}:{period_start}",
         ip=request.client.host if request.client else "")
-    row = await StatementStore(request.app.state.container.datastore).set_state(
-        partner_id, period_start, state=PAID, actor=principal.subject,
-        reference=body.reference.strip(), note=body.note.strip(), at=body.paid_at)
+    try:
+        row = await StatementStore(request.app.state.container.datastore).set_state(
+            partner_id, period_start, state=PAID, actor=principal.subject,
+            reference=body.reference.strip(), note=body.note.strip(), at=body.paid_at)
+    except StatementBusy:
+        return {"ok": False, "reason": "BUSY",
+                "message": "يجري تحديث هذا الكشف الآن — أعد المحاولة بعد لحظة."}
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     return {"ok": True, "statement": row}
@@ -333,7 +337,7 @@ async def dispute_statement(request: Request, partner_id: str, period_start: int
     month needs — and the dispute is the reason it was re-run, so clearing it would erase the
     record of why the number changed.
     """
-    from app.core.commission import DISPUTED, StatementStore
+    from app.core.commission import DISPUTED, StatementBusy, StatementStore
     if not body.note.strip():
         return {"ok": False, "reason": "NOTE_REQUIRED",
                 "message": "اكتب سبب الاعتراض — «متنازَع عليه» بلا سبب لا يقود إلى أي إجراء."}
@@ -341,9 +345,13 @@ async def dispute_statement(request: Request, partner_id: str, period_start: int
         "partner.statement_disputed", actor=principal.subject, tenant="",
         resource=f"statement:{partner_id}:{period_start}",
         ip=request.client.host if request.client else "")
-    row = await StatementStore(request.app.state.container.datastore).set_state(
-        partner_id, period_start, state=DISPUTED, actor=principal.subject,
-        note=body.note.strip())
+    try:
+        row = await StatementStore(request.app.state.container.datastore).set_state(
+            partner_id, period_start, state=DISPUTED, actor=principal.subject,
+            note=body.note.strip())
+    except StatementBusy:
+        return {"ok": False, "reason": "BUSY",
+                "message": "يجري تحديث هذا الكشف الآن — أعد المحاولة بعد لحظة."}
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     return {"ok": True, "statement": row}

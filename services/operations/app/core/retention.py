@@ -155,6 +155,14 @@ class LapsedStore:
         """Record that this establishment has no live subscription. Returns the date it started.
 
         Idempotent by design: called on every sweep, it writes only the first time.
+
+        NOT A RACE WORTH GUARDING. `Sweeper.sweep` is one process iterating tenants sequentially,
+        awaiting each `note()` before moving to the next — there is no second concurrent caller for
+        the same tenant within a run. Two overlapping *runs* of the whole nightly sweep would need
+        the previous one to still be going a day later, which the cap on `scan_all` and this
+        service's own timeouts make implausible; and even then, both racers would read "absent" and
+        write nearly the same `since` timestamp (this instant, give or take), which changes the
+        grace clock by seconds against a two-year horizon — not a real consequence either way.
         """
         row = await self._s.get(LAPSED, tenant)
         if row is not None:

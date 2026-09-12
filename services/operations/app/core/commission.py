@@ -28,12 +28,30 @@ deliberately changes it and leaves a record of having done so.
 """
 from __future__ import annotations
 
+import time
+from contextlib import asynccontextmanager
 from decimal import ROUND_DOWN, Decimal
 from dataclasses import dataclass, field
 from typing import Any
 
 STATEMENTS = "commission_statements"
 PLATFORM = "_platform"
+
+# Where the read-modify-write below takes its claim. A statement has two independent writers of
+# the SAME row — the monthly sweep recomputing it (`save`) and an operator marking it paid or
+# disputed (`set_state`) — and both are get-then-put with no compare-and-set. Landing at the same
+# moment, the sweep's write can carry forward a status it read BEFORE the operator's write landed,
+# silently reverting a statement an operator just marked paid back to "issued" — exactly what
+# `save`'s own docstring says must never happen. The claim makes the two indivisible with each
+# other on this one statement, the same idiom `core/seats.py`'s `claiming()` uses for its lane.
+STATEMENT_CLAIMS = "commission_statement_claims"
+CLAIM_TTL_SECONDS = 10.0
+
+
+class StatementBusy(Exception):
+    """Somebody else is writing this same statement right now — the monthly sweep recomputing it
+    and an operator marking it paid or disputed at the same moment, or two operators clicking at
+    once. Try again in a moment; the claim is short-lived."""
 
 # THE THREE THINGS A STATEMENT CAN BE, and the reason it needs any state at all: a figure with no
 # state is a number nobody can act on. We could not answer «did we pay him for June?» from the
@@ -161,6 +179,19 @@ class StatementStore:
     def __init__(self, store) -> None:
         self._s = store
 
+    @asynccontextmanager
+    async def _claimed(self, partner_id: str, period_start: int):
+        """Hold this one statement's lane while it is read and rewritten. See `STATEMENT_CLAIMS`."""
+        key = f"{partner_id}|{period_start}"
+        now = time.time()
+        if not await self._s.claim(STATEMENT_CLAIMS, key, {"partner_id": partner_id},
+                                   ttl_seconds=CLAIM_TTL_SECONDS, now=now):
+            raise StatementBusy(f"statement busy: {key}")
+        try:
+            yield
+        finally:
+            await self._s.delete(STATEMENT_CLAIMS, key)
+
     async def save(self, statement: Statement) -> dict[str, Any]:
         """Persist a statement.
 
@@ -180,15 +211,16 @@ class StatementStore:
         record of why the number changed.
         """
         row = statement.as_row()
-        existing = await self._s.get(STATEMENTS, f"{PLATFORM}|{row['id']}")
-        if existing:
-            if existing.get("status") == PAID:
-                return existing
-            for carried in ("status", "note", "settled_at", "settled_by", "settled_ref"):
-                if existing.get(carried):
-                    row[carried] = existing[carried]
-        await self._s.put(STATEMENTS, f"{PLATFORM}|{row['id']}", row)
-        return row
+        async with self._claimed(statement.partner_id, statement.period_start):
+            existing = await self._s.get(STATEMENTS, f"{PLATFORM}|{row['id']}")
+            if existing:
+                if existing.get("status") == PAID:
+                    return existing
+                for carried in ("status", "note", "settled_at", "settled_by", "settled_ref"):
+                    if existing.get(carried):
+                        row[carried] = existing[carried]
+            await self._s.put(STATEMENTS, f"{PLATFORM}|{row['id']}", row)
+            return row
 
     async def set_state(self, partner_id: str, period_start: int, *, state: str, actor: str,
                         reference: str = "", note: str = "",
@@ -202,18 +234,19 @@ class StatementStore:
         if state not in STATES:
             return None
         key = f"{PLATFORM}|{partner_id}|{period_start}"
-        row = await self._s.get(STATEMENTS, key)
-        if row is None:
-            return None
-        row["status"] = state
-        row["settled_by"] = actor
-        row["settled_at"] = int(at or 0)
-        if reference:
-            row["settled_ref"] = reference
-        if note:
-            row["note"] = note
-        await self._s.put(STATEMENTS, key, row)
-        return row
+        async with self._claimed(partner_id, period_start):
+            row = await self._s.get(STATEMENTS, key)
+            if row is None:
+                return None
+            row["status"] = state
+            row["settled_by"] = actor
+            row["settled_at"] = int(at or 0)
+            if reference:
+                row["settled_ref"] = reference
+            if note:
+                row["note"] = note
+            await self._s.put(STATEMENTS, key, row)
+            return row
 
     async def all_statements(self, *, limit: int = 200,
                              status: str = "") -> list[dict[str, Any]]:

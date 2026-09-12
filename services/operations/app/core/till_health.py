@@ -33,6 +33,13 @@ class TillHealth:
         if not tenant:
             return
         ts = int(now if now is not None else time.time())
+        # NOT A RACE WORTH GUARDING, SAME REASONING AS `till_budget.py`'s COUNTER. Two batches for
+        # the same tenant landing in the same instant can lose an increment to `accepted` /
+        # `rejected` / `duplicate` — but this row is a diagnostic ("is the link alive, and since
+        # when"), not money or a limit: `last_at` still advances correctly (each writer stamps its
+        # own `ts`), so "has this shop gone quiet" is never wrong, only the running totals can be
+        # off by a handful. Locking the hot path every till batch takes to protect a counter nobody
+        # bills against would be a real cost against no real risk.
         row = await self._s.get(TILL_HEALTH, tenant) or {
             "tenant": tenant, "first_at": ts, "accepted": 0, "rejected": 0, "duplicate": 0}
         row["accepted"] = int(row.get("accepted", 0)) + max(0, accepted)

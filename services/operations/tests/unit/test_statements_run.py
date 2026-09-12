@@ -30,6 +30,19 @@ class _Store:
     async def get(self, collection, key):
         return self.rows.get((collection, key))
 
+    async def delete(self, collection, key):
+        return self.rows.pop((collection, key), None) is not None
+
+    async def claim(self, collection, key, value, *, ttl_seconds, now):
+        # Same contract as MemoryDataStore.claim: take the key if nobody holds an unexpired claim.
+        held = self.rows.get((collection, key))
+        if held is not None and float(held.get("expires") or 0) > now:
+            return False
+        row = dict(value)
+        row["expires"] = now + float(ttl_seconds)
+        self.rows[(collection, key)] = row
+        return True
+
     async def find(self, collection, filt=None, *, limit=100, after=None, sort=None):
         def _match(r, k, v):
             # Same equality-or-membership contract the real stores implement: a list value in
