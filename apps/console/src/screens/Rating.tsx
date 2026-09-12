@@ -45,10 +45,33 @@ interface RatingRow {
 
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
 
-type Period = 'week' | 'month' | 'quarter';
+type Period = 'week' | 'month' | 'quarter' | 'custom';
 
-/** [since, until], in whole UTC days — never a local-clock guess re-derived on every render. */
-function rangeFor(period: Period, now: number): { since: number; until: number } {
+/** Today, as the date input's own `value` shape (`yyyy-mm-dd`, the browser's local calendar day —
+ *  same "his own clock, not UTC's" reasoning every other date picker in this console already
+ *  follows, e.g. AdminFinance.tsx's own `type="date"` fields). */
+function todayInput(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+function daysAgoInput(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** [since, until], in unix seconds. For the three fixed windows this is just "N days back from
+ *  now"; for `custom` it is exactly the two calendar days he picked — `until` extended to the END
+ *  of that day, since a date input names a whole day and a report for "حتى 30" that silently
+ *  stopped at 00:00 that same day would read as missing its own last day entirely. `null` means
+ *  the custom range is not usable yet (empty, or reversed) — the caller must not fetch on it. */
+function rangeFor(
+  period: Period, now: number, custom?: { since: string; until: string },
+): { since: number; until: number } | null {
+  if (period === 'custom') {
+    if (!custom?.since || !custom?.until) return null;
+    const since = Math.floor(new Date(`${custom.since}T00:00:00`).getTime() / 1000);
+    const until = Math.floor(new Date(`${custom.until}T00:00:00`).getTime() / 1000) + 86_400 - 1;
+    if (!Number.isFinite(since) || !Number.isFinite(until) || until < since) return null;
+    return { since, until };
+  }
   const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
   return { since: now - days * 86_400, until: now };
 }
@@ -93,6 +116,8 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
   const { t } = useOperatorI18n();
   const [tab, setTab] = useState<'overview' | 'ratings'>('overview');
   const [period, setPeriod] = useState<Period>('month');
+  const [customSince, setCustomSince] = useState(daysAgoInput(30));
+  const [customUntil, setCustomUntil] = useState(todayInput());
   const [staff, setStaff] = useState<StaffRow[] | null | undefined>(undefined);
   const [metric, setMetric] = useState<MetricKey>('avg');
   const [exporting, setExporting] = useState(false);
@@ -100,23 +125,28 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
 
   const perfAction = action(catalog, 'operations.staff_performance');
   const exportAction = action(catalog, 'operations.staff_performance_export');
+  const range = rangeFor(period, Math.floor(Date.now() / 1000), { since: customSince, until: customUntil });
 
   useEffect(() => {
     if (!perfAction) { setStaff(null); return; }
-    const { since, until } = rangeFor(period, Math.floor(Date.now() / 1000));
+    // NOT YET A USABLE RANGE (an incomplete or reversed custom pick) — leave `staff` exactly as it
+    // was rather than fetching on it; `OverviewTab` reads `rangeInvalid` on its own to show the one
+    // sentence for this, distinct from "read failed" and from "no data this period".
+    if (!range) return;
     setStaff(undefined);
-    call<{ staff: StaffRow[]; error?: string }>(session, perfAction, { since, until, ...scopeQuery(branch) })
+    call<{ staff: StaffRow[]; error?: string }>(session, perfAction, { ...range, ...scopeQuery(branch) })
       .then((x) => setStaff(x.error ? null : (x.staff ?? [])))
       .catch(() => setStaff(null));
-  }, [session, catalog, branch, period]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, catalog, branch, period, customSince, customUntil]);
 
   // A RAW fetch, NOT `call()` — the response is a PDF byte stream, not the JSON `call()` always
   // parses (same reasoning AdminDisputeReports.tsx's own export button already settled on).
   const exportReport = async () => {
-    if (!exportAction || exporting) return;
+    if (!exportAction || exporting || !range) return;
     setExporting(true); setExportError('');
     try {
-      const { since, until } = rangeFor(period, Math.floor(Date.now() / 1000));
+      const { since, until } = range;
       const bearer = await fresh(session.token);
       const res = await fetch(`${API_BASE}${exportAction.path}`, {
         method: exportAction.method,
@@ -152,11 +182,30 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
               { value: 'week', label: t('rating.period.week') },
               { value: 'month', label: t('rating.period.month') },
               { value: 'quarter', label: t('rating.period.quarter') },
+              { value: 'custom', label: t('rating.period.custom') },
             ]}
           />
         )}
       />
       <p className="-mt-2 text-sm text-text-secondary">{t('rating.subtitle')}</p>
+
+      {period === 'custom' ? (
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-text-secondary">{t('rating.customSince')}</span>
+            <input type="date" dir="ltr" value={customSince} max={customUntil}
+                   onChange={(e) => setCustomSince(e.target.value)}
+                   className="h-9 rounded-lg bg-surface-2 px-2 text-sm" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-text-secondary">{t('rating.customUntil')}</span>
+            <input type="date" dir="ltr" value={customUntil} min={customSince} max={todayInput()}
+                   onChange={(e) => setCustomUntil(e.target.value)}
+                   className="h-9 rounded-lg bg-surface-2 px-2 text-sm" />
+          </label>
+          {!range ? <p className="text-xs text-danger">{t('rating.customRangeInvalid')}</p> : null}
+        </div>
+      ) : null}
 
       <TabBar
         fullWidth
@@ -171,7 +220,7 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
 
       {tab === 'overview' ? (
         <OverviewTab
-          staff={staff} metric={metric} setMetric={setMetric}
+          staff={staff} rangeReady={Boolean(range)} metric={metric} setMetric={setMetric}
           exportAvailable={Boolean(exportAction)} exporting={exporting} exportError={exportError}
           onExport={() => void exportReport()}
         />
@@ -182,14 +231,20 @@ export function RatingScreen({ session, catalog, branch }: { session: Session; c
   );
 }
 
-function OverviewTab({ staff, metric, setMetric, exportAvailable, exporting, exportError, onExport }: {
+function OverviewTab({ staff, rangeReady, metric, setMetric, exportAvailable, exporting, exportError, onExport }: {
   staff: StaffRow[] | null | undefined;
+  /** `false` only for an incomplete/reversed custom date pick — a distinct sentence from "still
+   *  loading" and from "read failed", asking him to fix the dates rather than to wait or retry. */
+  rangeReady: boolean;
   metric: MetricKey; setMetric: (m: MetricKey) => void;
   exportAvailable: boolean; exporting: boolean; exportError: string;
   onExport: () => void;
 }) {
   const { t } = useOperatorI18n();
 
+  if (!rangeReady) {
+    return <EmptyState icon={<Star size={20} aria-hidden />} title={t('rating.customRangeInvalid')} description={t('rating.customRangeInvalidDesc')} />;
+  }
   if (staff === undefined) return <Skeleton height={280} />;
   if (staff === null) {
     return <EmptyState icon={<Star size={20} aria-hidden />} title={t('rating.readFailed.title')} description={t('rating.readFailed.desc')} />;

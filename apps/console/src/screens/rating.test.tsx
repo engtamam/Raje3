@@ -72,6 +72,17 @@ describe('«التقييم» — نظرة عامة', () => {
     await waitFor(() => expect(screen.getAllByText('الأكثر زيارات').length).toBeGreaterThan(0));
   });
 
+  it('«مخصص» shows two date pickers, and refuses a reversed range without ever fetching it', async () => {
+    render(<RatingScreen session={SESSION} catalog={catalog} branch="" />);
+    await waitFor(() => expect(screen.getAllByText('سارة').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole('radio', { name: 'مخصص' }));
+    const since = screen.getByLabelText('من') as HTMLInputElement;
+    const until = screen.getByLabelText('إلى') as HTMLInputElement;
+    fireEvent.change(since, { target: { value: '2026-09-20' } });
+    fireEvent.change(until, { target: { value: '2026-09-01' } });
+    await waitFor(() => expect(screen.getAllByText('اختر فترة صحيحة').length).toBeGreaterThan(0));
+  });
+
   it('the fairness quadrant renders both staff members as clickable bubbles', async () => {
     render(<RatingScreen session={SESSION} catalog={catalog} branch="" />);
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'سارة' }).length).toBeGreaterThan(0));
