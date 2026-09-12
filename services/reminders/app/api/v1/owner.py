@@ -486,17 +486,17 @@ async def preview_by_type(request: Request, template_type: str,
     """The same preview as `preview_reason`, for a campaign GOAL with no reasons-registry
     counterpart at all.
 
-    THE ASYMMETRY THIS FIXES. Only three of «حملاتي»'s eight goals share a reason id
+    THE ASYMMETRY THIS FIXES. Only three of «حملاتي»'s seven goals share a reason id
     (`win_back`/`occasion`/`reward_loyal`, via Launch.tsx's own `GOAL_REASON_ID`), and only those
-    three ever got «اعرض نص هذه الرسالة، أو عدّله». The other five — announce, awareness,
-    seasonal_care, service_offer, package_offer — have no reason to preview by, so they never got
-    the modal at all. This route asks by template TYPE instead, which every goal already carries
+    three ever got «اعرض نص هذه الرسالة، أو عدّله». The other four — announce, awareness,
+    service_offer, package_offer — have no reason to preview by, so they never got the modal at
+    all. This route asks by template TYPE instead, which every goal already carries
     (campaigns/app/core/models.py's own `GOAL_TEMPLATE`).
 
     NO `reason`, NO `mine`, NO `chosen` — there is no reason row to attach his own texts or his
     switch to; those stay reachable through «متى نرسل» for the three that DO have one. A goal whose
-    type has no active template at all (`awr_seasonal_care` — none seeded yet) answers with an
-    empty `options` list and `empty_because`, exactly like an unwritten reason would.
+    type has no active template at all answers with an empty `options` list and
+    `empty_because`, exactly like an unwritten reason would.
     """
     c = request.app.state.container
     shop = await c.identity.get(_tenant(principal))

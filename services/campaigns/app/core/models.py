@@ -45,7 +45,6 @@ GOAL_TEMPLATE = {
     "announce": ("mkt_announcement", "marketing"),
     "occasion": ("mkt_personal_occasion", "marketing"),
     "awareness": ("awr_care_tip", "awareness"),
-    "seasonal_care": ("awr_seasonal_care", "awareness"),
     # AN OFFER ON ONE SERVICE — and it sends the OFFER template, not the announcement.
     #
     # It borrowed «جديد في {{2}}: {{3}}» for as long as it existed, so a discount reached the

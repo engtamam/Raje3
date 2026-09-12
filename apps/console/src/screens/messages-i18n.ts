@@ -21,7 +21,6 @@ registerOperatorStrings({
     'messages.goal.occasion': 'هنّئ في مناسبة',
     'messages.goal.awareness': 'وعِّ عملاءك',
     'messages.goal.service_offer': 'عرض على خدمة',
-    'messages.goal.seasonal_care': 'نصيحة موسمية',
     'messages.goal.safety': 'نبّه عن خطر',
     'messages.goal.fallback': 'حملاتي',
 
@@ -193,7 +192,6 @@ registerOperatorStrings({
     'messages.goal.occasion': 'Congratulate on an occasion',
     'messages.goal.awareness': 'Educate your customers',
     'messages.goal.service_offer': 'Offer on a service',
-    'messages.goal.seasonal_care': 'Seasonal tip',
     'messages.goal.safety': 'Warn of a risk',
     'messages.goal.fallback': 'My Campaigns',
 
@@ -365,7 +363,6 @@ registerOperatorStrings({
     'messages.goal.occasion': 'موقع پر مبارکباد دیں',
     'messages.goal.awareness': 'اپنے گاہکوں کو آگاہ کریں',
     'messages.goal.service_offer': 'خدمت پر آفر',
-    'messages.goal.seasonal_care': 'موسمی مشورہ',
     'messages.goal.safety': 'خطرے سے خبردار کریں',
     'messages.goal.fallback': 'میری مہمات',
 
@@ -537,7 +534,6 @@ registerOperatorStrings({
     'messages.goal.occasion': 'Taya murna a wani lokaci',
     'messages.goal.awareness': 'Wayar da kan abokan cinikinka',
     'messages.goal.service_offer': 'Tayin kan sabis',
-    'messages.goal.seasonal_care': 'Shawarar yanayi',
     'messages.goal.safety': 'Faɗakarwa kan haɗari',
     'messages.goal.fallback': 'Kamfen Nawa',
 
@@ -709,7 +705,6 @@ registerOperatorStrings({
     'messages.goal.occasion': 'Batiin sa isang okasyon',
     'messages.goal.awareness': 'Turuan ang mga customer mo',
     'messages.goal.service_offer': 'Alok sa isang serbisyo',
-    'messages.goal.seasonal_care': 'Payo ayon sa season',
     'messages.goal.safety': 'Balaan sa panganib',
     'messages.goal.fallback': 'Aking Campaign',
 

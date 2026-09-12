@@ -352,8 +352,8 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   // ── step 2 and 3: what will happen, and the one press ────────────────────────────────────────
   if (picked) {
     // THE MATCHING REASON, IF ONE EXISTS AND HAS ACTUALLY LOADED — absent for the goals with no
-    // automatic counterpart yet (announce, service_offer/package_offer, awareness,
-    // seasonal_care), and absent while `reasons` is still `null` (loading or denied).
+    // automatic counterpart yet (announce, service_offer/package_offer, awareness), and absent
+    // while `reasons` is still `null` (loading or denied).
     const linkedReasonId = GOAL_REASON_ID[picked.goal];
     const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;
     return (

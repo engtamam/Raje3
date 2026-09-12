@@ -1,9 +1,9 @@
 """GET /api/v1/reminders/templates/by-type/{template_type}/preview — the same wording engine as
-`/reasons/{id}/preview`, reached by TEMPLATE TYPE for the five campaign goals with no
-reasons-registry counterpart at all (announce, awareness, seasonal_care, service_offer,
-package_offer — see Launch.tsx's own GOAL_REASON_ID and campaigns/app/core/models.py's
-GOAL_TEMPLATE). Without this route those five goals had no preview/edit modal at all — only the
-three that share a reason id ever got it.
+`/reasons/{id}/preview`, reached by TEMPLATE TYPE for the four campaign goals with no
+reasons-registry counterpart at all (announce, awareness, service_offer, package_offer — see
+Launch.tsx's own GOAL_REASON_ID and campaigns/app/core/models.py's GOAL_TEMPLATE). Without this
+route those four goals had no preview/edit modal at all — only the three that share a reason id
+ever got it.
 """
 from __future__ import annotations
 
@@ -89,10 +89,11 @@ def test_a_goal_with_a_seeded_template_previews_by_type(client):
     assert body["empty_because"] == ""
 
 
-def test_a_goal_with_no_seeded_template_degrades_gracefully(client):
-    # `awr_seasonal_care` — the goal has NO template rows in the library at all yet
-    # (deploy/seed/templates.json's own gap). This must never look like an error.
-    r = client.get("/api/v1/reminders/templates/by-type/awr_seasonal_care/preview",
+def test_a_type_with_no_seeded_template_degrades_gracefully(client):
+    # A template type absent from the library entirely — no goal maps to this synthetic type,
+    # it exists only to exercise the "nothing seeded for this type" branch. This must never
+    # look like an error.
+    r = client.get("/api/v1/reminders/templates/by-type/zzz_unseeded_test_type/preview",
                    headers=_auth())
     assert r.status_code == 200, r.text
     body = r.json()

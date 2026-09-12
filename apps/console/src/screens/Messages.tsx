@@ -67,10 +67,6 @@ const GOAL_KEY: Record<string, string> = {
   occasion: 'messages.goal.occasion',
   awareness: 'messages.goal.awareness',
   service_offer: 'messages.goal.service_offer',
-  // The two goals goals.py added after this map was first written — a campaign of either kind
-  // fell back to `c.goal` (the raw English key) in the list below until this was caught live
-  // against campaigns.goals: an owner would have read "seasonal_care" instead of its own title.
-  seasonal_care: 'messages.goal.seasonal_care',
   // KEPT DELIBERATELY — `safety` was removed from `CARDS`/`GOAL_TEMPLATE` (goals.py) whole, so
   // no NEW campaign can ever carry this goal again, but a shop that already launched one before
   // the removal still has that row in its own history here. Without this entry that OLD row
@@ -158,8 +154,8 @@ interface ReasonRow {
  *  not derived, because a shared `template_type` alone is not enough: `mkt_loyalty_activation`
  *  backs TWO reasons (`reward_within_reach` and `loyal_customer`) and only one of them is the
  *  same occasion «حملاتي»'s own `reward_loyal` goal describes. The remaining goals have no
- *  automatic counterpart at all yet (`announce`, `service_offer`/`package_offer`, `awareness`,
- *  `seasonal_care`) — absent here on purpose, not an oversight. */
+ *  automatic counterpart at all yet (`announce`, `service_offer`/`package_offer`, `awareness`) —
+ *  absent here on purpose, not an oversight. */
 const REASON_GOAL: Record<string, { goal: string; title: string }> = {
   gone_missing: { goal: 'win_back', title: 'رجّع اللي غابوا' },
   personal_occasion: { goal: 'occasion', title: 'هنّئ في مناسبة' },
@@ -209,7 +205,6 @@ interface GoalRow {
 const GOAL_TEMPLATE_TYPE: Record<string, string> = {
   announce: 'mkt_announcement',
   awareness: 'awr_care_tip',
-  seasonal_care: 'awr_seasonal_care',
   service_offer: 'mkt_offer',
   package_offer: 'mkt_offer',
 };
@@ -240,7 +235,6 @@ function sectionLabel(t: (key: string) => string, section: string): string {
 const GOAL_SECTION: Record<string, string> = {
   announce: 'marketing',
   awareness: 'tips',
-  seasonal_care: 'tips',
   service_offer: 'offers',
   package_offer: 'offers',
 };

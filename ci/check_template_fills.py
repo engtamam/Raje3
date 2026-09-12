@@ -69,7 +69,6 @@ C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 # WHAT CHANGED:
 #   · `wrn_safety_notice` is no longer asleep — «نبّه عن خطر» is a manual goal now, which is what
 #     §8.4.1 asked for all along: reviewed case by case, launched by a human, never automatic.
-#   · `awr_seasonal_care` woke the same way — «نصيحة موسمية», manual, no calendar needed.
 #   · `mkt_coupon` was MERGED rather than woken: its code blank now lives in the three offer
 #     wordings that can actually be selected, so a separate template would be two wordings for one
 #     intention.

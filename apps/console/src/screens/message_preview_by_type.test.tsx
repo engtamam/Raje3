@@ -1,6 +1,6 @@
 /**
  * `MessagePreview` in TEMPLATE-TYPE mode — reached by a campaign goal with no reasons-registry
- * counterpart at all (announce, awareness, seasonal_care, service_offer, package_offer). Reads
+ * counterpart at all (announce, awareness, service_offer, package_offer). Reads
  * `reminders.preview_by_type` instead of `reminders.preview_reason`, and drops everything that
  * only makes sense attached to a reason: his own texts, the switch, retexting.
  */

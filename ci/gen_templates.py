@@ -97,7 +97,7 @@ DEFERRALS = ("drop", "defer", "priority")
 def deferral_map(doc: str) -> tuple[dict[str, str], set[str]]:
     """The policy per type, read from the table in the specification (§8.4.3) — and separately,
     the names DELIBERATELY struck through in that same table (`~~name~~`), which is the spec's own
-    way of saying "written, approved in spirit, not yet seeded" (see `awr_seasonal_care`, #389).
+    way of saying "written, approved in spirit, not yet seeded" (#389).
 
     WHY IT IS PARSED AND NOT LISTED HERE. A policy in this file is a policy nobody reviewing the
     product ever sees, and the question it answers — "does this message still make sense tomorrow?"
@@ -112,8 +112,8 @@ def deferral_map(doc: str) -> tuple[dict[str, str], set[str]]:
     correctly, `—` is not a policy — and reported "no deferral policy" as though somebody had
     simply forgotten to fill in a row. The generator has refused to write `deploy/seed/
     templates.json` at all since the day that strikethrough was added, and nothing said so beyond
-    a red exit code nobody connected to `awr_seasonal_care`'s own deliberate omission a few lines
-    above it in the same table.
+    a red exit code nobody connected to the row's own deliberate omission a few lines above it in
+    the same table.
     """
     out: dict[str, str] = {}
     excluded: set[str] = set()
