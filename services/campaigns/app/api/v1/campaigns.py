@@ -151,14 +151,26 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     # THE RAIL'S OWN "استُخدمت N مرة" / "N وصلهم" — a single-key side read (app.core.goal_stats),
     # never a scan of this tenant's whole campaign/run history. Read alongside the template
     # lookups above, not after them: an independent fact, no reason to wait on the other first.
+    # `pick_for_preview`, NOT THE STRICT `pick` (2026-09-13) — the fields this card asks him to
+    # fill (`fills`) must describe the SAME template `/preview` will actually render, which since
+    # the preview-only fallback (services/reminders' own `preview_only`) can now be one Meta has
+    # not approved yet. Using the strict, approval-only `pick` here left a goal whose template was
+    # still under review with an empty middle of the screen — no service picker, no discount, no
+    # end date — with nothing telling the owner why, even though `/preview` would happily show him
+    # the words. `enabled` stays tied to `meta_approved` rather than "a row exists at all", so the
+    # card still locks/unlocks exactly as before and the "never show available then refuse"
+    # invariant (`test_goals_route_never_disagrees_with_preview.py`) holds — now against the exact
+    # same read `/preview` performs, which is a STRONGER guarantee than two independently-timed
+    # calls ever were.
     stats_row, rows = await asyncio.gather(
         read_goal_stats(c.datastore, tenant),
-        asyncio.gather(*(c.templates.pick(tenant, t) for t in types)))
+        asyncio.gather(*(c.templates.pick_for_preview(tenant, t) for t in types)))
     enabled: set[str] = set()
     fills: dict[str, list[str]] = {}
     for template_type, row in zip(types, rows):
         if row:
-            enabled.add(template_type)
+            if row.get("meta_approved", True):
+                enabled.add(template_type)
             fills[template_type] = list(row.get("fills") or [])
     return {"goals": [vars(card) for card in
                       cards(now=_now(), fills_by_type=fills, locks=locks,
