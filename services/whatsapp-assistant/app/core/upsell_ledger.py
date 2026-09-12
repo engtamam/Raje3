@@ -78,6 +78,16 @@ async def record_outcome(store: Any, *, proposal_id: str, outcome: str, now: int
     is called synchronously before the button is ever sent), but a caller here is never trusted to
     assume that; the row it would otherwise clobber might belong to an ordinary, non-package
     proposal that this ledger was never asked to track in the first place."""
+    # This read-modify-write is NOT lock-guarded, and that is safe, not an oversight: both real
+    # callers of this function (core/conversation.py's "cancel" branch for outcome="declined", and
+    # core/tools.py's execute_confirmed_proposal for outcome="accepted") are reachable ONLY from
+    # inside `handle_button_reply`, which wraps its entire body in `self._acquire_conv_lock(tenant,
+    # subject_ref)` — so two button taps for the SAME proposal_id (same conversation) are already
+    # fully serialised before either one gets here. The "accepted" path is additionally serialised a
+    # second time, independently, by execute_confirmed_proposal's own per-proposal_id `_EXECUTE_LOCKS`
+    # claim. There is no code path that reaches this function for the same proposal_id from two
+    # genuinely concurrent, unlocked callers — a lock here would just duplicate protection that
+    # already exists one layer up.
     row = await store.get(UPSELL_LEDGER, proposal_id)
     if row is None:
         return
