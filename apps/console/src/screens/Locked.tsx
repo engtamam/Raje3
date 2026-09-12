@@ -21,10 +21,14 @@ import { Link } from 'react-router-dom';
 import { AppFeatureList, appIcon, toneClasses } from '../rj-ui/AppFeatureList';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
+import { Button } from '../rj-ui/Button';
 import { action, call, type Catalog } from '../catalog';
 import { hasFailed, isReady, type Loading } from '../loading';
 import { STORE_PATH } from '../nav';
 import { APP_ROWS, owns, type Owned } from '../apps';
+import { missingRequirement } from './Plans';
+import { CardForm } from './CardForm';
+import { useSubscribeFlow } from '../subscribeFlow';
 import type { Session } from '../session';
 import { useOperatorI18n } from '../operator-i18n';
 import './locked-i18n';
@@ -42,6 +46,10 @@ export function LockedCard({ appId, session, catalog, owned }: {
 }) {
   const { t } = useOperatorI18n();
   const row = APP_ROWS.find((a) => a.id === appId);
+  // ONE FLOW, EVERY LOCKED CARD — `subscribeFlow.ts`'s own header note explains why this is a
+  // shared hook and not a second copy of `Plans.tsx`'s own subscribe sequence. Called unconditionally
+  // (before the `!row` guard) because hooks must run in the same order on every render.
+  const flow = useSubscribeFlow(session, catalog);
   if (!row) return null;
   const Icon = appIcon(row.icon);
   // INLINE FEATURES, WHEN OPERATIONS ITSELF OWNS THIS APP'S ROW (تسجيل زيارة/جهات الاتصال/
@@ -49,6 +57,13 @@ export function LockedCard({ appId, session, catalog, owned }: {
   // it is drawn here or there.
   const ownedRow = owned && isReady(owned) && owned.checked
     ? owned.apps.find((a) => a.key === row.key) : undefined;
+  const plan = row.key ? flow.planFor(row.key) : undefined;
+  const lockedNote = plan ? missingRequirement(plan, owned ?? null, t) : '';
+  // BUY LIVE, INLINE, RIGHT HERE — when the plan is known, buying is live (`Plans.tsx`'s own
+  // three-fact `canBuy` check, wallet/gateway/token-mint), and nothing else already needs him
+  // elsewhere first (`lockedNote`, تسجيل زيارة/الحجوزات's own prerequisite). Any of those failing
+  // falls back to the store link — never a dead button pretending to buy.
+  const canBuyHere = Boolean(plan) && !lockedNote && flow.live(plan);
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       <header className="flex items-center gap-2.5">
@@ -76,16 +91,49 @@ export function LockedCard({ appId, session, catalog, owned }: {
         collapseAt={3}
       />
 
-      {/* THE BUTTON GOES TO THE PLACE THAT SELLS, and it is a LINK rather than a call: buying
-          runs through `subscription.activate`, which is the only path that enforces the rule
-          that a paid subscription needs WhatsApp connected first. */}
-      <Link
-        to={STORE_PATH}
-        className="rounded-control bg-accent px-3 py-2 text-center text-sm font-medium text-accent-contrast shadow-glow"
-      >
-        {t('locked.addFromStore')}
-      </Link>
+      {lockedNote ? <p className="text-xs text-warning">{lockedNote}</p> : null}
+      {flow.error ? <p className="text-xs text-danger">{flow.error}</p> : null}
+
+      {flow.cardFormPending ? (
+        <SubscribeCardForm flow={flow} />
+      ) : canBuyHere && plan ? (
+        // INLINE, RIGHT HERE — same purchase `Plans.tsx` itself calls
+        // (`subscription.activate`), not a re-implementation of it, and the store link stays one
+        // press away below for the same shop on a screen where this app is not the only thing he
+        // came to buy.
+        <Button type="button" onClick={() => flow.subscribe(plan)} disabled={flow.busy}
+                className="w-full">
+          {flow.busy ? t('locked.subscribing') : t('locked.subscribeNow')}
+        </Button>
+      ) : (
+        // THE FALLBACK — no live gateway, no plan resolved yet, or a prerequisite app still
+        // missing. Never a dead buy button pretending to work; the store screen still explains
+        // and still sells every app, plans and all.
+        <Link
+          to={STORE_PATH}
+          className="rounded-control bg-accent px-3 py-2 text-center text-sm font-medium text-accent-contrast shadow-glow"
+        >
+          {t('locked.addFromStore')}
+        </Link>
+      )}
     </section>
+  );
+}
+
+/** The subscribe card form, inline on the locked card itself — same `CardForm` component
+ *  `Plans.tsx` renders, wired to this card's own flow instance rather than a screen-wide one. */
+function SubscribeCardForm({ flow }: { flow: ReturnType<typeof useSubscribeFlow> }) {
+  if (!flow.cardFormPending) return null;
+  return (
+    <CardForm
+      pending={flow.cardFormPending}
+      onCancel={() => flow.setCardFormPending(null)}
+      onToken={(token) => {
+        if (flow.cardFormPending?.kind === 'subscribe') {
+          void flow.finishSubscribe(flow.cardFormPending.planId, token, flow.cardFormPending.quantity ?? 1);
+        }
+      }}
+    />
   );
 }
 

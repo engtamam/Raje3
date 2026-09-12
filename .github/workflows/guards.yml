@@ -1212,6 +1212,9 @@ jobs:
       - name: every console screen with Arabic text routes it through operator-i18n
         run: python3 ci/check_operator_i18n_coverage.py
 
+      - name: a locked app buys through the one shared subscribe flow, never a copy of it
+        run: python3 ci/check_subscribe_flow_not_duplicated.py
+
       - name: a declared capability is a capability the code actually enforces
         run: python3 ci/check_capability_truth.py
 
