@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core import rating_alerts as RA
 from app.core.models import Operator, Visit
-from app.core.stores import OperatorStore, VisitStore
+from app.core.stores import AccountSettingsStore, OperatorStore, VisitStore
 
 TENANT = "tnt_alpha"
 
@@ -137,3 +137,68 @@ def test_only_the_operators_own_last_ten_ratings_are_considered():
     run(RA.check_and_notify(c, tenant=TENANT, operator_id="op_1", operator_name="سارة",
                             branch_id="", triggering_visit_id=last_id))
     assert c.inapp_notifier.calls == []
+
+
+# ── per-recipient locale ───────────────────────────────────────────────────────────────────────
+def test_a_recipients_own_saved_locale_is_used():
+    store = MemoryDataStore()
+    last_id = run(_seed_ratings(store, "op_1", [4, 4, 4, 4, 3]))
+    run(AccountSettingsStore(store).set_locale(TENANT, "owner_1", "ur"))
+    c = _container(store)
+    run(RA.check_and_notify(c, tenant=TENANT, operator_id="op_1", operator_name="سارة",
+                            branch_id="", triggering_visit_id=last_id))
+    assert c.inapp_notifier.calls[0]["locale"] == "ur"
+
+
+def test_no_saved_locale_falls_back_to_arabic():
+    store = MemoryDataStore()
+    last_id = run(_seed_ratings(store, "op_1", [4, 4, 4, 4, 3]))
+    c = _container(store)
+    run(RA.check_and_notify(c, tenant=TENANT, operator_id="op_1", operator_name="سارة",
+                            branch_id="", triggering_visit_id=last_id))
+    assert c.inapp_notifier.calls[0]["locale"] == "ar"
+
+
+def test_a_locale_outside_the_registered_five_falls_back_to_arabic():
+    """A stale/foreign value (predating this list, or never validated at write time) must not be
+    handed straight to notify() — the template is registered in exactly these five, and an
+    unregistered locale would fail the send outright rather than degrade to Arabic."""
+    store = MemoryDataStore()
+    last_id = run(_seed_ratings(store, "op_1", [4, 4, 4, 4, 3]))
+    run(AccountSettingsStore(store).set_locale(TENANT, "owner_1", "fr"))
+    c = _container(store)
+    run(RA.check_and_notify(c, tenant=TENANT, operator_id="op_1", operator_name="سارة",
+                            branch_id="", triggering_visit_id=last_id))
+    assert c.inapp_notifier.calls[0]["locale"] == "ar"
+
+
+def test_two_recipients_each_get_their_own_locale():
+    store = MemoryDataStore()
+    run(_seed_operator(store, person_id="mgr_1", branch_id="", visible_all=True))
+    last_id = run(_seed_ratings(store, "op_1", [4, 4, 4, 4, 3]))
+    run(AccountSettingsStore(store).set_locale(TENANT, "owner_1", "en"))
+    run(AccountSettingsStore(store).set_locale(TENANT, "mgr_1", "ha"))
+    authz = _FakeAuthzTwo()
+    notifier = _FakeNotifier()
+    c = SimpleNamespace(datastore=store, authz_desk=authz, inapp_notifier=notifier)
+    run(RA.check_and_notify(c, tenant=TENANT, operator_id="op_1", operator_name="سارة",
+                            branch_id="", triggering_visit_id=last_id))
+    by_user = {call["user_id"]: call["locale"] for call in notifier.calls}
+    assert by_user == {"owner_1": "en", "mgr_1": "ha"}
+
+
+class _FakeAuthzTwo:
+    async def list_assignments(self, tenant):
+        return [
+            {"subject": "owner_1", "roles": [], "capabilities": ["operations.manage"]},
+            {"subject": "mgr_1", "roles": [], "capabilities": ["operations.manage"]},
+        ]
+
+    async def effective_capabilities(self, tenant, subject, roles):
+        return set()
+
+
+async def _seed_operator(store, **over) -> None:
+    base = dict(tenant=TENANT, id=f"op_{over.get('person_id', 'x')}", name="x")
+    base.update(over)
+    await OperatorStore(store).save(Operator(**base))

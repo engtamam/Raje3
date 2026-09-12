@@ -27,13 +27,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.notify_recipients import managers_for_branch
-from app.core.stores import VisitStore
+from app.core.stores import AccountSettingsStore, VisitStore
 
 WINDOW = 10
 MIN_SAMPLES = 5
 THRESHOLD = 4.5
 
 TEMPLATE_KEY = "operations.staff_rating_dropped"
+
+# THE FIVE LOCALES THE TEMPLATE IS REGISTERED IN (deploy/seed/notification-templates.json) — same
+# list `operator-i18n.tsx`'s own OPERATOR_LOCALES declares. A recipient's OWN preference
+# (AccountSettingsStore, the platform-wide `/api/v1/account/me/locale` — the CURRENT authority for
+# every account, owner or hired staff alike, see api/v1/__init__.py's own note superseding
+# `Operator.locale`) is used when it names one of these; anything else — never set, or a value from
+# before this list existed — falls back to Arabic, same fallback chain operator-i18n.tsx's own `t()`
+# already uses for a screen not yet translated into a locale.
+_TEMPLATE_LOCALES = frozenset({"ar", "en", "ur", "ha", "fil"})
+_DEFAULT_LOCALE = "ar"
 
 
 @dataclass(frozen=True)
@@ -73,11 +83,20 @@ async def check_and_notify(container, *, tenant: str, operator_id: str, operator
         return
     recipients = await managers_for_branch(
         store=store, authz=container.authz_desk, tenant=tenant, branch_id=branch_id)
+    settings = AccountSettingsStore(store)
     for recipient in recipients:
+        locale = await _locale_for(settings, tenant, recipient)
         # BEST-EFFORT, LIKE EVERY OTHER SEND IN THIS FILE'S OWN NEIGHBOURHOOD (loyalty_desk's
         # rating_bonus, this same route's own credit call above it) — a lost alert does not undo
         # the rating just saved, and does not block the customer's own "thank you" reply either.
         await container.inapp_notifier.send(
             tenant=tenant, user_id=recipient, template_key=TEMPLATE_KEY,
             variables={"name": operator_name, "average": f"{verdict.average:.1f}"},
-            idempotency_key=f"rating_drop:{tenant}:{operator_id}:{triggering_visit_id}:{recipient}")
+            idempotency_key=f"rating_drop:{tenant}:{operator_id}:{triggering_visit_id}:{recipient}",
+            locale=locale)
+
+
+async def _locale_for(settings: AccountSettingsStore, tenant: str, subject: str) -> str:
+    row = await settings.get_by_subject(tenant, subject)
+    locale = str((row or {}).get("locale") or "")
+    return locale if locale in _TEMPLATE_LOCALES else _DEFAULT_LOCALE

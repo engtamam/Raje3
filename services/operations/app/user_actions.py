@@ -173,6 +173,18 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "تسجّل إنك اطّلعت على هذا التقييم وتصرّفت حياله — لا يصير تلقائياً أبداً.",
     },
     {
+        "id": "operations.staff_performance", "label": "أداء الموظفين", "method": "GET",
+        "path": "/api/v1/field/staff/performance", "capability": "operations.manage",
+        "group": "الشاشة",
+        "params": [
+            {"name": "since", "in": "query", "type": "integer", "required": True},
+            {"name": "until", "in": "query", "type": "integer", "required": True},
+            {"name": "branch_id", "in": "query", "type": "string", "required": False},
+        ],
+        "help": "لكل موظف خلال فترة محددة: عدد الزيارات، عدد التقييمات، متوسط تقييمه، ونسبة "
+                "عدم حضور عملائه — تقارن أداء موظفيك ببعض. للمالك والمدير فقط.",
+    },
+    {
         "id": "operations.ensure_customer", "label": "تسجيل عميلة برقمها (بلا زيارة)", "method": "POST",
         "path": "/api/v1/field/customers/ensure", "capability": "operations.record",
         "group": "الشاشة",

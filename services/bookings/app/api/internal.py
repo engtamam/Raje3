@@ -66,6 +66,23 @@ async def internal_working_hours(request: Request, tenant: str) -> dict:
     return {"weekly": await c.booking_ops.working_hours(tenant)}
 
 
+@router.get("/no-show-summary", dependencies=[Depends(require_internal_token)])
+async def internal_no_show_summary(request: Request, tenant: str, since: int, until: int,
+                                   branch_id: str = "") -> dict:
+    """Per-operator {"total", "no_show"} counts over an epoch-second window — operations-service's
+    read for the rating app's staff-performance report (a shop owner comparing staff, not just a
+    single visit's own outcome). `since`/`until` are converted to the same day-bucket range
+    `BookingStore.no_show_summary` already indexes on, so this reuses the derived `booking_slots`
+    index rather than scanning every `Booking` row.
+    """
+    from app.core.stores import day_bucket
+    c = request.app.state.container
+    by_operator = await c.bookings.no_show_summary(
+        tenant, start_bucket=day_bucket(since), end_bucket=day_bucket(until),
+        branch_id=branch_id)
+    return {"by_operator": by_operator}
+
+
 @router.get("/manifest", dependencies=[Depends(require_internal_token)])
 async def internal_manifest(
     request: Request, settings: Settings = Depends(get_settings)

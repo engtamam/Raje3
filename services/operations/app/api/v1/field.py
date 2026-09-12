@@ -293,6 +293,71 @@ async def mark_rating_handled(request: Request, visit_id: str, body: RatingHandl
     return {"handled": True, "visit": v.public()}
 
 
+@router.get("/staff/performance", dependencies=[Depends(rate_limit)])
+async def staff_performance(request: Request, since: int, until: int, branch_id: str = "",
+                            principal: Principal = Depends(_MANAGE)) -> dict:
+    """The rating app's own comparison report (rating-app-feature.md phase 7) — per operator, over
+    `[since, until]` (epoch seconds): visits handled, how many were rated, the average rating, and
+    the no-show rate on their bookings. `operations.manage` (not `.read`): this is a comparison
+    BETWEEN staff members, the same "owner or manager only" tier the rest of a team's own numbers
+    already sit behind, never `.read`'s "any operator on shift" tier.
+
+    BRANCH SCOPE IS APPLIED BY QUERYING PER ALLOWED BRANCH, NOT BY FILTERING ROWS AFTERWARD — a
+    result row here is ONE OPERATOR, aggregated across however many branches he worked in the
+    window, so `SCOPE.visible`'s usual "keep the row if its own branch_id is allowed" shape does
+    not apply (an aggregate row has no single branch_id to check). A manager scoped to more than
+    one branch (`visible_branch_ids`) gets the union, queried and merged one branch at a time; an
+    unnarrowed caller (the owner, or a shop that assigns nobody) queries once, unfiltered, exactly
+    like `/ratings` does above.
+    """
+    if until < since:
+        return {"error": "BAD_REQUEST", "message": "حدد فترة زمنية صحيحة."}
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    effective = SCOPE.narrow(scope, branch_id)
+    if effective is SCOPE.REVOKED:
+        return {"staff": []}
+    branch_ids = sorted(effective) if isinstance(effective, (set, frozenset)) else [effective or ""]
+
+    tenant = _tenant(principal)
+    svc = _svc(request)
+    desk = request.app.state.container.bookings_desk
+    by_operator: dict[str, dict] = {}
+    for bid in branch_ids:
+        rows = await svc.staff_performance(tenant, since=since, until=until, branch_id=bid)
+        for row in rows:
+            entry = by_operator.setdefault(row["operator_id"], {
+                "operator_id": row["operator_id"], "operator_name": row["operator_name"],
+                "visits": 0, "ratings": 0, "_rating_sum": 0.0})
+            entry["visits"] += row["visits"]
+            entry["_rating_sum"] += row["average_rating"] * row["ratings"]
+            entry["ratings"] += row["ratings"]
+        # BEST-EFFORT, LIKE THE DESK ITSELF — an unreachable `bookings` returns {} and the
+        # no-show column is simply absent for this branch's operators, not a failed report.
+        no_show = await desk.no_show_summary(tenant, since=since, until=until, branch_id=bid)
+        for op_id, counts in no_show.items():
+            entry = by_operator.setdefault(op_id, {
+                "operator_id": op_id, "operator_name": "", "visits": 0, "ratings": 0,
+                "_rating_sum": 0.0})
+            entry.setdefault("_no_show", {"total": 0, "no_show": 0})
+            entry["_no_show"]["total"] += counts.get("total", 0)
+            entry["_no_show"]["no_show"] += counts.get("no_show", 0)
+
+    staff: list[dict] = []
+    for entry in by_operator.values():
+        ratings = entry["ratings"]
+        no_show_counts = entry.pop("_no_show", {"total": 0, "no_show": 0})
+        rating_sum = entry.pop("_rating_sum")
+        staff.append({
+            "operator_id": entry["operator_id"], "operator_name": entry["operator_name"],
+            "visits": entry["visits"], "ratings": ratings,
+            "average_rating": round(rating_sum / ratings, 1) if ratings else 0.0,
+            "no_show_rate": (round(no_show_counts["no_show"] / no_show_counts["total"], 2)
+                            if no_show_counts["total"] else 0.0),
+        })
+    staff.sort(key=lambda r: (r["average_rating"], r["visits"]), reverse=True)
+    return {"staff": staff}
+
+
 @router.get("/customers/by-phone", dependencies=[Depends(rate_limit)])
 async def customer_by_phone(request: Request, phone: str,
                             principal: Principal = Depends(_READ)) -> dict:

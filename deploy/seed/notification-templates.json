@@ -1,5 +1,5 @@
 {
-  "_comment": "THE PLATFORM'S GLOBAL in-app/email/sms templates our OWN services send through — one row per (key, locale), upserted by seed-notification-templates.sh on every install. Placeholders use stdlib string.Template ($name, not {name} — see notification-service's own adapters/renderer/safe.py). category is always 'transactional' here: none of these are marketing, so none need a NOTIFY_CONSENT_PURPOSES mapping.",
+  "_comment": "THE PLATFORM'S GLOBAL in-app/email/sms templates our OWN services send through — one row per (key, locale), upserted by seed-notification-templates.sh on every install. Placeholders use stdlib string.Template ($name, not {name} — see notification-service's own adapters/renderer/safe.py). category is always 'transactional' here: none of these are marketing, so none need a NOTIFY_CONSENT_PURPOSES mapping. ar/en are the product's own, written with the same care as the rest of the console; ur/ha/fil are MACHINE-ASSISTED, NOT NATIVE-REVIEWED — same posture apps/console/src/screens/team-i18n.ts already states for the same three languages, and for the same reason (guest-labour staff who read no other locale here at all).",
   "templates": [
     {
       "key": "operations.staff_rating_dropped",
@@ -8,6 +8,22 @@
         "ar": {
           "subject": "انخفاض في تقييم أحد الموظفين",
           "body": "تراجع متوسط تقييم $name إلى $average من 5 خلال آخر تقييماته. يُنصح بمراجعة أدائه في أقرب وقت."
+        },
+        "en": {
+          "subject": "Staff rating drop",
+          "body": "$name's average rating has fallen to $average out of 5 over their recent ratings. Reviewing their performance is recommended."
+        },
+        "ur": {
+          "subject": "عملے کی درجہ بندی میں کمی",
+          "body": "$name کی اوسط درجہ بندی حالیہ جائزوں میں گھٹ کر 5 میں سے $average ہو گئی ہے۔ ان کی کارکردگی کا جائزہ لینے کی سفارش کی جاتی ہے۔"
+        },
+        "ha": {
+          "subject": "Faɗuwar kimar ma'aikaci",
+          "body": "Matsakaicin kimar $name ya faɗi zuwa $average daga 5 a cikin kimace-kimacen kwanan nan. Ana ba da shawarar duba aikinsa."
+        },
+        "fil": {
+          "subject": "Pagbaba ng rating ng empleyado",
+          "body": "Bumaba ang average rating ni $name sa $average sa 5 batay sa mga huling rating. Inirerekomenda ang pagsusuri sa kanyang performance."
         }
       }
     }

@@ -498,6 +498,44 @@ class Operations:
         await self._visits.save(v)
         return v
 
+    async def staff_performance(self, tenant: str, *, since: int, until: int, branch_id: str = ""
+                                ) -> list[dict[str, Any]]:
+        """Per-operator comparison for the rating app's own report (a shop owner asking "who is
+        earning me my reputation, and who is spending it") — one row per operator who recorded at
+        least one visit in `[since, until]`, each carrying `operator_id`, `operator_name`,
+        `visits` (handled in this window), `ratings` (how many of those were rated),
+        `average_rating` (0.0 when `ratings` is 0 — never a divide-by-zero, never a misleading 5.0
+        default). Sorted by `average_rating` descending, ties broken by `visits` descending, so the
+        leaderboard reads correctly without the console re-sorting it.
+
+        NO-SHOW RATE IS NOT HERE — it lives in `bookings`, a different service and a different
+        aggregate root (`Booking`, not `Visit`); the route that serves this report calls
+        `bookings_desk.no_show_summary` separately and merges it in, the same "ask the service that
+        owns the fact" split `_branch_for`'s own operator-vs-device split already follows.
+
+        Every operator this tenant has ever had is named, even one retired or with zero visits in
+        this window is simply absent from the result (not a zero-row) — same "absence is the
+        answer" shape `ratings_summary` uses for an empty week.
+        """
+        by_operator = await self._visits.staff_performance(
+            tenant, since=since, until=until, branch_id=branch_id)
+        if not by_operator:
+            return []
+        operators = await self._operators.list(tenant)
+        names = {op.id: op.name for op in operators}
+        rows: list[dict[str, Any]] = []
+        for op_id, counts in by_operator.items():
+            ratings = counts["ratings"]
+            rows.append({
+                "operator_id": op_id,
+                "operator_name": names.get(op_id, ""),
+                "visits": counts["visits"],
+                "ratings": ratings,
+                "average_rating": round(counts["rating_sum"] / ratings, 1) if ratings else 0.0,
+            })
+        rows.sort(key=lambda r: (r["average_rating"], r["visits"]), reverse=True)
+        return rows
+
     async def ratings_summary(self, tenant: str, *, since: int, limit: int = 500
                               ) -> dict[str, Any]:
         """The weekly digest's own rating line (rating-app-feature.md phase 6) — count, average,

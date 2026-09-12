@@ -227,6 +227,8 @@ def build_manifest(
             # and marking one handled.
             {"path": "/api/v1/field/ratings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/ratings/{}/handled", "tier": "user", "method": "PATCH"},
+            # The rating app's own staff-comparison report (rating-app-feature.md phase 7).
+            {"path": "/api/v1/field/staff/performance", "tier": "user", "method": "GET"},
             # ── the back office ───────────────────────────────────────────────────────────
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},

@@ -17,7 +17,7 @@ import time
 import uuid
 from typing import Any
 
-from app.core.models import BOOKING_SLOTS, BOOKINGS, WORKING_HOURS, Booking
+from app.core.models import BOOKING_SLOTS, BOOKINGS, STATUS_NO_SHOW, WORKING_HOURS, Booking
 from app.core.riyadh import local
 
 # A separate collection from BOOKINGS itself — the mutex must be claimable/expirable on its own
@@ -215,6 +215,50 @@ class BookingStore:
             if row is not None:
                 out.append(_from_row(row))
         return out
+
+    async def no_show_summary(self, tenant: str, *, start_bucket: str, end_bucket: str,
+                              branch_id: str = "") -> dict[str, dict[str, int]]:
+        """Per-operator {"total": N, "no_show": N} over a day-bucket range — the staff-performance
+        report's own read (rating app, phase 2). Reads `BOOKING_SLOTS`, the SAME derived index
+        `counts_between` reads beside this method, for the same reason: it already carries
+        `operator_id` and `status` per row (`save()`'s own slot_row above), so this never has to
+        hydrate a single `Booking` to answer "how many of this operator's bookings were no-shows".
+
+        `branch_id` is OPTIONAL here, unlike `counts_between`/`slots_between` — a staff-performance
+        report is tenant-wide by default (an operator can work more than one branch), so an empty
+        `branch_id` queries every branch's slots for this tenant; a caller that wants one branch's
+        picture passes it same as any other report filter.
+
+        Pages ascending by `bucket` and stops the moment a page runs past `end_bucket`, same
+        early-exit `counts_between` already uses — a report window rarely reaches this tenant's
+        entire slot history.
+        """
+        where: dict[str, Any] = {"tenant": tenant}
+        if branch_id:
+            where["branch_id"] = branch_id
+        totals: dict[str, dict[str, int]] = {}
+        after: str | None = None
+        while True:
+            rows, after = await self._s.find(BOOKING_SLOTS, where, limit=500, after=after,
+                                             sort=("bucket", "asc"))
+            past_range = False
+            for row in rows:
+                bucket = str(row.get("bucket") or "")
+                if bucket > end_bucket:
+                    past_range = True
+                    break
+                if bucket < start_bucket:
+                    continue
+                op = str(row.get("operator_id") or "")
+                if not op:
+                    continue
+                entry = totals.setdefault(op, {"total": 0, "no_show": 0})
+                entry["total"] += 1
+                if row.get("status") == STATUS_NO_SHOW:
+                    entry["no_show"] += 1
+            if past_range or not after:
+                break
+        return totals
 
     async def counts_between(self, tenant: str, branch_id: str, *,
                              start_bucket: str, end_bucket: str) -> dict[str, int]:
