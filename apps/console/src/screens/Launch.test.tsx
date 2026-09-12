@@ -49,6 +49,11 @@ vi.mock('../catalog', async (importOriginal) => {
             { goal: 'service_offer', title: 'عرض على خدمة', line: 'يوصل فقط لمن قارب موعد',
              icon: 'tag', available: true, offers: true,
              blanks: ['amount', 'catalogue', 'date'] },
+            // ITS OWN "catalogue" BLANK (2026-09-13's own carousel expansion) — reward_loyal now
+            // gets the SAME multi-select service/package picker `hasBlank(picked, 'catalogue')`
+            // already draws for the other two, purely because its real template declares one.
+            { goal: 'reward_loyal', title: 'كافئ المخلصين', line: 'الأكثر زيارة عندك',
+             icon: 'gift', available: true, offers: true, blanks: ['catalogue'] },
           ],
         };
       }
@@ -185,5 +190,22 @@ describe('the service picker on «عرض على خدمة»', () => {
     fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
     await waitFor(() => expect(previewCalls.length).toBe(2));
     expect((previewCalls[1] as { service_ids: string[] }).service_ids).toEqual(['svc_rare']);
+  });
+});
+
+describe('the redeemable-item picker on «كافئ المخلصين»', () => {
+  it('offers the same multi-select service picker — its own template also has a catalogue blank', async () => {
+    previewCalls.length = 0;
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'تلميع كامل' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(previewCalls.length).toBe(1));
+    const body = previewCalls[0] as { service_ids: string[]; goal: string };
+    expect(body.goal).toBe('reward_loyal');
+    expect(body.service_ids).toEqual(['svc_popular', 'svc_rare']);
   });
 });
