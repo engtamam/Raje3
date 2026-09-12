@@ -19,7 +19,9 @@ from starlette.concurrency import run_in_threadpool
 
 
 class BookingsDesk:
-    """The one question asked of `bookings`: this tenant's own weekly working-hours policy."""
+    """What operations asks of `bookings`: this tenant's own weekly working-hours policy, and —
+    for the staff-performance report — how many of an operator's bookings in a window ended in a
+    no-show."""
 
     def __init__(self, *, base_url: str, path: str, token: str, timeout: int = 5) -> None:
         self._base = (base_url or "").rstrip("/")
@@ -31,10 +33,10 @@ class BookingsDesk:
     def configured(self) -> bool:
         return bool(self._base)
 
-    def _call(self, tenant: str) -> dict[str, Any] | None:
-        q = f"?tenant={urllib.parse.quote(tenant)}"
+    def _get(self, path: str, query: dict[str, Any]) -> dict[str, Any] | None:
+        q = "&".join(f"{k}={urllib.parse.quote(str(v))}" for k, v in query.items())
         req = urllib.request.Request(
-            self._base + self._path + q, method="GET",
+            f"{self._base}{path}?{q}", method="GET",
             headers={"X-Internal-Token": self._token})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
@@ -52,8 +54,23 @@ class BookingsDesk:
             return None
         # OFF THE EVENT LOOP, same reason `loyalty_desk.py` blocks this way: a staff-hours save is
         # a request another operator's screen is waiting on, not a background job.
-        out = await run_in_threadpool(self._call, tenant)
+        out = await run_in_threadpool(self._get, self._path, {"tenant": tenant})
         return out.get("weekly") if out else None
+
+    async def no_show_summary(self, tenant: str, *, since: int, until: int,
+                              branch_id: str = "") -> dict[str, dict[str, int]]:
+        """Per-operator {"total", "no_show"} over `[since, until]` (epoch seconds) — best-effort,
+        like every other read in this file: an unreachable `bookings` returns `{}`, so the staff-
+        performance report simply omits the no-show column for this call rather than blocking on a
+        peer the rating app's other numbers do not depend on."""
+        if not self.configured:
+            return {}
+        query: dict[str, Any] = {"tenant": tenant, "since": since, "until": until}
+        if branch_id:
+            query["branch_id"] = branch_id
+        # OFF THE EVENT LOOP, same reason `working_hours` blocks this way.
+        out = await run_in_threadpool(self._get, "/internal/no-show-summary", query)
+        return (out or {}).get("by_operator") or {}
 
 
 def build_bookings_desk(settings) -> BookingsDesk:
