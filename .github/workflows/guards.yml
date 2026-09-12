@@ -1209,6 +1209,9 @@ jobs:
       - name: every string the kit renders has Arabic behind it
         run: python3 ci/check_i18n.py
 
+      - name: every console screen with Arabic text routes it through operator-i18n
+        run: python3 ci/check_operator_i18n_coverage.py
+
       - name: a declared capability is a capability the code actually enforces
         run: python3 ci/check_capability_truth.py
 
