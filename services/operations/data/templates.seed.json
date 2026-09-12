@@ -1207,6 +1207,160 @@
       ]
     },
     {
+      "name": "mkt_loyalty_activation_carousel_warm",
+      "type": "mkt_loyalty_activation",
+      "tone": "warm",
+      "label": "تفعيل نقاط الولاء — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}، جمّعت نقاط في {{2}}، وتقدر تستبدلها بهذي 👇 لإيقاف العروض: {{3}} ✋",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "مغسلة السيارات ومن دون حجز واتساب — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل عندما يرفق المالك أكثر من خدمة أو باقة واحدة للاستبدال (2026-09-13) — عدد النقاط والمكافأة نفسها يظهران داخل كل بطاقة على حدة؛ الاسم والمحل ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_loyalty_activation_warm الأفقي. بلا تاريخ انتهاء — القالب الأفقي نفسه لا يحمل واحداً (مكافأة نقاط، لا خصماً بتاريخ صلاحية).",
+      "active": false,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "غسيل خارجي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "استبدل الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تلميع"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "استبدل الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تعقيم داخلي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "استبدل الآن"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_loyalty_activation_carousel_feminine",
+      "type": "mkt_loyalty_activation",
+      "tone": "feminine",
+      "label": "تفعيل نقاط الولاء — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}، جمّعتِ نقاط في {{2}}، وتقدرين تستبدلينها بهذي 👇 لإيقاف العروض: {{3}} ✋",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "نفس منطق النسخة الأخرى (warm) بصيغة المؤنث — انظر شرحها.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "مغسلة النخيل",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "غسيل خارجي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "استبدلي الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تلميع"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "استبدلي الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تعقيم داخلي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "استبدلي الآن"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "name": "mkt_announcement_warm",
       "type": "mkt_announcement",
       "tone": "warm",
@@ -1363,37 +1517,76 @@
       "category": "MARKETING",
       "language": "ar",
       "body": "هلا {{1}}، عندنا لك من {{2}} خصومات على خدماتنا، سارية حتى {{3}}، شوف التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
-      "variables": [1, 2, 3, 4],
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
       "header": "",
       "button": "",
-      "fills": ["system", "system", "date", "stop_link"],
+      "fills": [
+        "system",
+        "system",
+        "date",
+        "stop_link"
+      ],
       "model": "both",
       "model_why": "المحلات بلا حجز واتساب مفعَّل (feature.bookings) — مغاسل السيارات مثلاً — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل تلقائياً فقط لمحل غير مؤهَّل للحجز، ومحرك القوالب هنا (rendering.choose_carousel) يتراجع بصمت للنص العادي إن لم يجد قالباً معتمداً — active:false يمنع اختيار هذا الصف في مسار الإرسال العادي وشاشة اختيار الأهداف. المبلغ والخدمة يظهران داخل كل بطاقة على حدة؛ الاسم والمحل والتاريخ ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_offer_warm الأفقي (rendering.py::render يرفض إرسال أي عرض بلا تاريخ انتهاء — نفس الرفض ينطبق هنا).",
       "active": false,
       "deferral": "defer",
-      "examples": ["محمد", "مغسلة النخيل", "12 سبتمبر", "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"],
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
       "carousel": {
         "cards": [
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["غسيل خارجي", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "غسيل خارجي",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["تلميع", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "تلميع",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["تعقيم داخلي", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "تعقيم داخلي",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           }
         ]
       }
@@ -1407,37 +1600,76 @@
       "category": "MARKETING",
       "language": "ar",
       "body": "هلا {{1}}، عندنا لك من {{2}} خصومات على خدماتنا، سارية حتى {{3}}، شوفي التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
-      "variables": [1, 2, 3, 4],
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
       "header": "",
       "button": "",
-      "fills": ["system", "system", "date", "stop_link"],
+      "fills": [
+        "system",
+        "system",
+        "date",
+        "stop_link"
+      ],
       "model": "both",
       "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
-      "examples": ["سارة", "صالون لمسات", "12 سبتمبر", "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"],
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
       "carousel": {
         "cards": [
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["قص وتشذيب", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "قص وتشذيب",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["صبغة", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "صبغة",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["عناية بالبشرة", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "عناية بالبشرة",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           }
         ]
       }
@@ -1451,37 +1683,76 @@
       "category": "MARKETING",
       "language": "ar",
       "body": "هلا {{1}}، وحشتنا — من {{2}} لك خصم في زيارتك القادمة، ساري حتى {{3}}، شوف التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
-      "variables": [1, 2, 3, 4],
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
       "header": "",
       "button": "",
-      "fills": ["system", "system", "date", "stop_link"],
+      "fills": [
+        "system",
+        "system",
+        "date",
+        "stop_link"
+      ],
       "model": "both",
       "model_why": "نفس شكل mkt_offer_carousel، لنص الاستعادة بدل نص العرض العام.",
       "active": false,
       "deferral": "defer",
-      "examples": ["محمد", "مغسلة النخيل", "12 سبتمبر", "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"],
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
       "carousel": {
         "cards": [
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["غسيل خارجي", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "غسيل خارجي",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["تلميع", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "تلميع",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["تعقيم داخلي", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "تعقيم داخلي",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           }
         ]
       }
@@ -1495,37 +1766,76 @@
       "category": "MARKETING",
       "language": "ar",
       "body": "هلا {{1}}، وحشتِنا — من {{2}} لك خصم في زيارتك القادمة، ساري حتى {{3}}، شوفي التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
-      "variables": [1, 2, 3, 4],
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
       "header": "",
       "button": "",
-      "fills": ["system", "system", "date", "stop_link"],
+      "fills": [
+        "system",
+        "system",
+        "date",
+        "stop_link"
+      ],
       "model": "both",
       "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
-      "examples": ["سارة", "صالون لمسات", "12 سبتمبر", "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"],
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
       "carousel": {
         "cards": [
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["قص وتشذيب", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "قص وتشذيب",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["صبغة", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "صبغة",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["عناية بالبشرة", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "عناية بالبشرة",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           }
         ]
       }
@@ -1539,37 +1849,76 @@
       "category": "MARKETING",
       "language": "ar",
       "body": "كل عام وأنت بخير يا {{1}} 🌿 من {{2}} لك خصم حتى {{3}}، شوف التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
-      "variables": [1, 2, 3, 4],
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
       "header": "",
       "button": "",
-      "fills": ["system", "system", "date", "stop_link"],
+      "fills": [
+        "system",
+        "system",
+        "date",
+        "stop_link"
+      ],
       "model": "both",
       "model_why": "نفس شكل mkt_offer_carousel، لنص المناسبة الشخصية بدل نص العرض العام.",
       "active": false,
       "deferral": "defer",
-      "examples": ["محمد", "مغسلة النخيل", "12 سبتمبر", "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"],
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
       "carousel": {
         "cards": [
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["غسيل خارجي", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "غسيل خارجي",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["تلميع", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "تلميع",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["تعقيم داخلي", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلب الآن"}]
+            "body_examples": [
+              "تعقيم داخلي",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
           }
         ]
       }
@@ -1583,37 +1932,76 @@
       "category": "MARKETING",
       "language": "ar",
       "body": "كل عام وأنتِ بخير يا {{1}} 🌿 من {{2}} لك خصم حتى {{3}}، شوفي التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
-      "variables": [1, 2, 3, 4],
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
       "header": "",
       "button": "",
-      "fills": ["system", "system", "date", "stop_link"],
+      "fills": [
+        "system",
+        "system",
+        "date",
+        "stop_link"
+      ],
       "model": "both",
       "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
-      "examples": ["سارة", "صالون لمسات", "12 سبتمبر", "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"],
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
       "carousel": {
         "cards": [
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["قص وتشذيب", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "قص وتشذيب",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["صبغة", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "صبغة",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           },
           {
             "header_format": "IMAGE",
             "header_example_handle": "",
             "body": "{{1}} — خصم {{2}}",
-            "body_examples": ["عناية بالبشرة", "20%"],
-            "buttons": [{"type": "QUICK_REPLY", "text": "اطلبي الآن"}]
+            "body_examples": [
+              "عناية بالبشرة",
+              "20%"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
           }
         ]
       }

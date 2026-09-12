@@ -42,10 +42,21 @@ from typing import Any
 BOOKINGS_KEY = "feature.bookings"
 
 #: The three marketing texts whose whole point is getting him back through the door, and the only
-#: ones a booking screen belongs under. The other marketing types are deliberately absent:
-#: `mkt_loyalty_activation` and `mkt_cross_sell` are about what he already has rather than when he
-#: comes, and `mkt_announcement` asks for nothing at all.
+#: ones a booking screen belongs under. `mkt_announcement` asks for nothing at all — a booking
+#: screen under an announcement would be advertising an action the message never asked for.
 BOOKING_TYPES = frozenset({"mkt_winback", "mkt_personal_occasion", "mkt_offer"})
+
+#: EVERY MARKETING TEXT THAT MAY SHOW A CAROUSEL, once the owner has actually attached more than
+#: one service or package to feature (2026-09-13 — the owner's own instruction that a multi-select
+#: offer should render as cards, "professionally", never a plain paragraph naming them all).
+#: `mkt_loyalty_activation` JOINS THE THREE BOOKING TYPES here on purpose, even though it never
+#: opens a booking (a reward is not an appointment) — its own "catalogue" blank already lets an
+#: owner name what a loyal customer can redeem, exactly the same shape a carousel card needs.
+#: `mkt_announcement` stays OUT for now: it has no "catalogue" blank at all (its whole content is
+#: the owner's one free line), so there is nothing today's screen collects that a card could show —
+#: giving it one is a real product decision (what does an announcement's card even show?) still
+#: to be made, not a plumbing gap.
+CAROUSEL_TYPES = BOOKING_TYPES | frozenset({"mkt_loyalty_activation"})
 
 #: The Flow's own seed key, as whatsapp-assistant's FlowBookingBackend reads it. Declared empty
 #: and filled with the resolved recipient inside reminders' sender — see the module docstring.
@@ -92,22 +103,28 @@ async def opens_booking_for(tenant: str, template_type: str, *, licence: Any) ->
     return bool(await licence.allowed(tenant))
 
 
-def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = "") -> Shape:
-    """The shape of ONE send. `opens_booking` is `opens_booking_for`'s answer, asked once above.
+def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = "",
+            card_count: int = 0) -> Shape:
+    """The shape of ONE send. `opens_booking` is `opens_booking_for`'s answer, asked once above;
+    `card_count` is how many services/packages THIS campaign actually has attached (its own
+    `scope_service_ids`), also asked once — neither varies per recipient.
 
     NO KEY, NO FLOW. An empty idempotency key would mint an empty token, which `HttpSender.send`
     treats as «no Flow» anyway — answering PLAIN here says so out loud instead of relying on a
     falsy value three services away.
 
-    NEVER BOTH. A shop that owns the book gets the Flow; a shop that does not, and whose text is one
-    of the three that end in «come back», gets a REQUEST for the carousel — mutually exclusive by
-    construction, because `opens_booking` and «not `opens_booking`» cannot both be true. Any other
-    template type (mkt_announcement, mkt_loyalty_activation, mkt_cross_sell) gets neither: they were
-    never carousel-shaped, and forcing one would be advertising a swipeable strip under a message
-    that asks for nothing.
+    THE CAROUSEL TAKES PRIORITY OVER THE BOOKING FLOW (2026-09-13), where it used to be the
+    opposite — a shop that owns the book got the Flow and one that did not got the carousel,
+    mutually exclusive by construction. That rule answered a different question ("can this shop
+    take a booking at all") than the one that now matters more: the OWNER explicitly attached
+    several services or packages to this specific offer, which is a stronger, per-campaign signal
+    than a shop-wide entitlement. Two or more cards (Meta's own carousel minimum — see
+    `HttpSender._send_carousel_sync`) on an eligible type is shown as a carousel regardless of
+    booking ownership; the Flow remains the answer for the ordinary case (0-1 items attached, one
+    of the three "come back" types, a shop that owns the book).
     """
+    if template_type in CAROUSEL_TYPES and card_count >= 2:
+        return Shape(carousel=True)
     if opens_booking and idempotency_key:
         return Shape(flow_token=idempotency_key, flow_action_data={CUSTOMER_SEED: ""})
-    if not opens_booking and template_type in BOOKING_TYPES:
-        return Shape(carousel=True)
     return PLAIN

@@ -200,7 +200,8 @@ class Dispatcher:
             # minted separately. PLAIN (both fields empty) for every send that opens nothing, which
             # reminders' sender omits from the wire body entirely.
             send_shape = shape.for_send(opens_booking=opens_booking, idempotency_key=key,
-                                        template_type=str(campaign.get("template_type") or ""))
+                                        template_type=str(campaign.get("template_type") or ""),
+                                        card_count=len(campaign.get("scope_service_ids") or []))
             try:
                 outcome = await self._sender.send(
                     tenant=tenant,

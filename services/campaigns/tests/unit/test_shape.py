@@ -59,11 +59,14 @@ def campaign(template_type: str = "mkt_winback") -> dict:
             "cls": "marketing", "owner_text": "خصم 20%"}
 
 
-def fire(template_type="mkt_winback", *, licence=None, subjects=("sub_a",)):
+def fire(template_type="mkt_winback", *, licence=None, subjects=("sub_a",), service_ids=()):
     s = Sender()
     d = Dispatcher(store=MemoryDataStore(), sender=s, audience_resolver=resolver(*subjects),
                    bookings_licence=licence)
-    run(d.fire(campaign(template_type), now=NOW))
+    c = campaign(template_type)
+    if service_ids:
+        c["scope_service_ids"] = list(service_ids)
+    run(d.fire(c, now=NOW))
     return s
 
 
@@ -183,28 +186,50 @@ def test_the_peer_client_can_no_longer_carry_a_coupon_code():
 
 
 # ── (d) Phase 2: the carousel REQUEST, for a shop without the book ────────────────────────────
-def test_a_shop_without_bookings_on_a_come_back_type_gets_a_carousel_request():
-    call = fire("mkt_offer", licence=Licence(False)).calls[0]
+def test_a_shop_without_bookings_on_a_come_back_type_with_several_items_gets_a_carousel_request():
+    """2026-09-13: the carousel is requested once the owner has actually attached more than one
+    service/package (Meta's own carousel minimum) — the shop's booking entitlement is no longer
+    what decides it."""
+    call = fire("mkt_offer", licence=Licence(False), service_ids=("svc_1", "svc_2")).calls[0]
     assert call["carousel"] is True
     assert call["flow_token"] == ""
 
 
-def test_a_deployment_with_no_licence_wired_also_gets_the_carousel_request():
-    """None is not «yes, has bookings» — same fail-closed direction as the flow test above, and the
-    carousel request is the natural default for «we do not know he has the book»."""
-    call = fire("mkt_winback", licence=None).calls[0]
+def test_no_licence_wired_and_several_items_also_gets_the_carousel_request():
+    """None is not «yes, has bookings» — same fail-closed direction as the flow test above; the
+    carousel request only ever needed the attached items, never the licence answer."""
+    call = fire("mkt_winback", licence=None, service_ids=("svc_1", "svc_2")).calls[0]
     assert call["carousel"] is True
 
 
-def test_a_bookings_shop_never_gets_both_flow_and_carousel():
+def test_a_come_back_type_with_fewer_than_two_items_falls_back_to_plain_or_flow():
+    """0 or 1 attached item is not enough for Meta's own carousel minimum — the ordinary Flow
+    (bookings shop) or plain text (no bookings) applies exactly as before 2026-09-13."""
+    no_items = fire("mkt_offer", licence=Licence(False)).calls[0]
+    assert no_items["carousel"] is False and no_items["flow_token"] == ""
+
+    one_item = fire("mkt_offer", licence=Licence(False), service_ids=("svc_1",)).calls[0]
+    assert one_item["carousel"] is False
+
+
+def test_the_carousel_now_takes_priority_over_the_flow_for_a_bookings_shop_too():
+    """2026-09-13's real change of direction: several attached items win even for a shop that DOES
+    own the appointment book — the owner's own per-campaign choice to show cards now outranks the
+    shop-wide booking entitlement that used to decide this alone."""
+    call = fire("mkt_personal_occasion", licence=Licence(True), service_ids=("svc_1", "svc_2")).calls[0]
+    assert call["carousel"] is True
+    assert call["flow_token"] == ""
+
+
+def test_a_bookings_shop_with_too_few_items_still_gets_the_flow_not_the_carousel():
     call = fire("mkt_personal_occasion", licence=Licence(True)).calls[0]
     assert call["flow_token"] != "" and call["carousel"] is False
 
 
-def test_a_type_outside_the_three_never_requests_a_carousel_either():
+def test_a_type_outside_the_carousel_set_never_requests_one_either():
     """`mkt_announcement` asks for nothing — no booking screen and no carousel belongs under it,
-    whatever the shop's own entitlement."""
-    call = fire("mkt_announcement", licence=Licence(False)).calls[0]
+    whatever the shop's own entitlement or how many items are attached."""
+    call = fire("mkt_announcement", licence=Licence(False), service_ids=("svc_1", "svc_2")).calls[0]
     assert call["carousel"] is False
 
 
