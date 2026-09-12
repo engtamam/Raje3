@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -56,5 +56,14 @@ registerOperatorStrings({
     'doorLayout.copyright': '© Raje3 — Nakalaan ang lahat ng karapatan',
     'doorLayout.terms': 'Mga Tuntunin',
     'doorLayout.privacy': 'Privacy',
+  },
+  bn: {
+    'doorLayout.backHome': 'হোমপেজে ফিরে যান',
+    'doorLayout.heroTitle': 'আপনার গ্রাহকরা নিজে থেকেই ফিরে আসে।',
+    'doorLayout.heroSubtitle': 'রাজি৩ মনে রাখে প্রতিটি গ্রাহকের পরবর্তী সেবা কখন প্রয়োজন, এবং আপনার দোকানের নামে হোয়াটসঅ্যাপে তাকে মনে করিয়ে দেয় — আপনাকে অ্যাপ না খুলেই।',
+    'doorLayout.heroTag': 'রাজি৩ · সৌদি আরব',
+    'doorLayout.copyright': '© রাজি৩ — সর্বস্বত্ব সংরক্ষিত',
+    'doorLayout.terms': 'শর্তাবলী',
+    'doorLayout.privacy': 'গোপনীয়তা',
   },
 });

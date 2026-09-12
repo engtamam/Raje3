@@ -79,4 +79,20 @@ registerOperatorStrings({
     'rating.quadrant.zone.needsCoaching': 'Kailangan ng coaching — madalas humingi ng rating pero kailangan ng suporta ang kalidad',
     'rating.quadrant.zone.needsSupport': 'Kailangan ng ganap na suporta',
   },
+  // MACHINE-ASSISTED, NOT NATIVE-REVIEWED.
+  bn: {
+    'rating.quadrant.ariaLabel': 'টিম পারফরম্যান্স ম্যাট্রিক্স: মান বনাম সম্পৃক্ততা',
+    'rating.quadrant.xAxis': 'রেটিং অনুরোধের হার বাড়ছে ←',
+    'rating.quadrant.yAxis': '↑ মান',
+    'rating.quadrant.visits': 'ভিজিট',
+    'rating.quadrant.ratings': 'রেটিং',
+    'rating.quadrant.engagementRate': 'সম্পৃক্ততার হার',
+    'rating.quadrant.averageRating': 'গড় রেটিং',
+    'rating.quadrant.emptyDetail': 'পুরো বিবরণ দেখতে যেকোনো বৃত্তে চাপ দিন',
+    'rating.quadrant.hoverLine': '{visits} ভিজিট · {ratings} রেটিং (%{rate}) · গড় {avg}',
+    'rating.quadrant.zone.star': 'আসল তারকা — উচ্চ মান ও উচ্চ সম্পৃক্ততা',
+    'rating.quadrant.zone.hiddenGem': 'লুকানো রত্ন — মান উঁচু, আরও রেটিং অনুরোধে উৎসাহ দিন',
+    'rating.quadrant.zone.needsCoaching': 'প্রশিক্ষণ প্রয়োজন — রেটিং অনুরোধ অনেক করে কিন্তু মানে সহায়তা দরকার',
+    'rating.quadrant.zone.needsSupport': 'পূর্ণ সহায়তা প্রয়োজন',
+  },
 });

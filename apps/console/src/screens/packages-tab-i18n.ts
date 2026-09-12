@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -316,5 +316,66 @@ registerOperatorStrings({
     'packages.form.scheduleIncomplete': 'Kumpletuhin ang detalye ng schedule, o piliin ang "Walang schedule".',
     'packages.form.cancel': 'Kanselahin',
     'packages.form.save': 'I-save',
+  },
+  bn: {
+    'packages.weekday.5': 'শনিবার', 'packages.weekday.6': 'রবিবার', 'packages.weekday.0': 'সোমবার',
+    'packages.weekday.1': 'মঙ্গলবার', 'packages.weekday.2': 'বুধবার', 'packages.weekday.3': 'বৃহস্পতিবার',
+    'packages.weekday.4': 'শুক্রবার',
+
+    'packages.recurrence.none': 'নির্ধারণ নেই',
+    'packages.recurrence.weekly': 'সাপ্তাহিক',
+    'packages.recurrence.monthly': 'মাসিক',
+    'packages.recurrence.yearly': 'বার্ষিক',
+
+    'packages.listSeparator': '، ',
+    'packages.schedule.every': 'প্রতি {days}',
+    'packages.schedule.monthlyDays': 'প্রতি মাসের {days} তারিখ',
+    'packages.schedule.yearlyRange': 'প্রতি বছর {from} থেকে {to} পর্যন্ত',
+    'packages.schedule.from': '{date} থেকে',
+    'packages.schedule.until': '{date} পর্যন্ত',
+
+    'packages.uploadFailed': 'এখন ছবি আপলোড করা যায়নি — আবার চেষ্টা করুন।',
+    'packages.noPermCreate': 'প্যাকেজ তৈরি করার অনুমতি আপনার নেই।',
+    'packages.noPermEdit': 'প্যাকেজ সম্পাদনার অনুমতি আপনার নেই।',
+    'packages.saveFailed': 'এখন প্যাকেজ সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।',
+    'packages.toggleFailed': 'এখন সংরক্ষণ করা যায়নি।',
+    'packages.readFailed': 'প্যাকেজ বা সেবা পড়া যায়নি — আবার চেষ্টা করুন।',
+
+    'packages.emptyTitle': 'এখনো কোনো প্যাকেজ নেই',
+    'packages.emptyDesc': 'দুই বা তার বেশি সেবাকে একটি দাম এবং একটি পয়েন্ট মানের অধীনে একত্র করুন — এটি একটি স্বাধীন সেবার মতোই বুক ও রেকর্ড হয়।',
+    'packages.createFirst': 'আপনার প্রথম প্যাকেজ তৈরি করুন',
+    'packages.newPackage': 'নতুন প্যাকেজ',
+
+    'packages.personCount': ' · {n} জনের জন্য',
+    'packages.suggestedBadge': 'محلّي থেকে প্রস্তাবিত',
+    'packages.notOfferableBadge': 'আজ সক্রিয় নয়',
+    'packages.edit': 'সম্পাদনা',
+    'packages.pause': 'প্যাকেজ বন্ধ করুন',
+    'packages.resume': 'প্যাকেজ সক্রিয় করুন',
+
+    'packages.modal.titleEdit': 'প্যাকেজ সম্পাদনা',
+    'packages.modal.titleNew': 'নতুন প্যাকেজ',
+    'packages.modal.subtitle': 'দাম ও পয়েন্ট সবসময় আপনার দেওয়া — আমরা সেবাগুলোর যোগফল থেকে বের করি না।',
+
+    'packages.form.name': 'প্যাকেজের নাম',
+    'packages.form.namePlaceholder': 'উদাহরণ: সম্পূর্ণ মেইনটেন্যান্স প্যাকেজ',
+    'packages.form.description': 'সংক্ষিপ্ত বিবরণ (ঐচ্ছিক)',
+    'packages.form.descriptionPlaceholder': 'হোয়াটসঅ্যাপ AI সহকারী যে সংক্ষিপ্ত বিবরণ ব্যবহার করে',
+    'packages.form.image': 'প্যাকেজের ছবি (ঐচ্ছিক)',
+    'packages.form.replaceImage': 'ছবি পরিবর্তন করুন',
+    'packages.form.uploadImage': 'ছবি আপলোড করুন',
+    'packages.form.services': 'সেবা ({n} টি নির্বাচিত — কমপক্ষে দুইটি)',
+    'packages.form.price': 'দাম (রিয়াল)',
+    'packages.form.points': 'পয়েন্ট',
+    'packages.form.useSuggestedPoints': 'সেবাগুলোর পয়েন্ট যোগফল ব্যবহার করুন ({n})',
+    'packages.form.personCount': 'মানুষের সংখ্যা (ঐচ্ছিক — শুধু বর্ণনার জন্য)',
+    'packages.form.scheduleTitle': 'প্যাকেজ সময়সূচি',
+    'packages.form.startsAt': 'শুরু (ঐচ্ছিক)',
+    'packages.form.endsAt': 'শেষ (ঐচ্ছিক)',
+    'packages.form.yearlyFrom': 'থেকে (দিন ও মাস)',
+    'packages.form.yearlyTo': 'পর্যন্ত (দিন ও মাস)',
+    'packages.form.scheduleIncomplete': 'সময়সূচির বিবরণ সম্পূর্ণ করুন, অথবা "নির্ধারণ নেই" বেছে নিন।',
+    'packages.form.cancel': 'বাতিল',
+    'packages.form.save': 'সংরক্ষণ করুন',
   },
 });

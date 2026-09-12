@@ -7,7 +7,7 @@
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word in a reward setting is a worse failure than the Arabic fallback it replaces. Review before
- * this reaches a shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * this reaches a shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -431,5 +431,89 @@ registerOperatorStrings({
     'points.customSetting': 'Custom na setting',
     'points.serviceAriaLabel': 'Puntos ng {name}',
     'points.returnToGeneral': 'Bumalik sa general',
+  },
+  bn: {
+    'points.percentValue': '{n}%',
+    'points.type.service.label': 'আমার সেবা থেকে',
+    'points.type.service.hint': 'সে বেছে নেবে আপনার দেওয়া সেবা বা পণ্য থেকে কী পাবে',
+    'points.type.item.label': 'উপহার',
+    'points.type.item.hint': 'আপনার সেবার বাইরের কিছু — শুধু নামই যথেষ্ট',
+    'points.type.discount.label': 'ছাড়',
+    'points.type.discount.hint': 'ভিজিট থেকে কাটা হবে এমন পরিমাণ',
+
+    'points.error.saveFailed': 'সংরক্ষণ করা যায়নি।',
+    'points.error.discountAmount': 'ছাড়ের পরিমাণ রিয়ালে লিখুন — সর্বোচ্চ দুই দশমিক ঘর, যেমন 2.30',
+    'points.error.addFailed': 'পুরস্কার যোগ করা যায়নি।',
+    'points.error.modeChangeFailed': 'হিসাবের পদ্ধতি পরিবর্তন করা যায়নি',
+
+    'points.waiting': 'আপনার পয়েন্ট ও পুরস্কার পড়া হচ্ছে',
+
+    'points.kpi.customers': 'পয়েন্ট সংগ্রহকারী গ্রাহক',
+    'points.kpi.redemptions': 'রিডিম',
+    'points.kpi.outstanding': 'এখনও রিডিম না হওয়া পয়েন্ট',
+    'points.kpi.outstanding.hint': 'যা আপনি প্রতিশ্রুতি দিয়েছেন কিন্তু খরচ হয়নি — এটি আপনার দোকানের ওপর একটি দায়।',
+    'points.kpi.expiredShare': 'প্রদত্ত প্রতিটি পয়েন্টের মধ্যে, রিডিম না হয়ে মেয়াদ শেষ হয়েছে',
+    'points.kpi.expiredShare.hint': 'উচ্চ হার মানে আপনার পুরস্কারের সীমা আপনার গ্রাহকদের নাগালের বাইরে।',
+
+    'points.topRewards.title': 'সবচেয়ে বেশি রিডিম হওয়া',
+    'points.noName': 'নাম নেই',
+
+    'points.tabsAriaLabel': 'পয়েন্টের বিভাগ',
+    'points.tab.rewards': 'পুরস্কার',
+    'points.tab.earning': 'উপার্জন',
+
+    'points.table.title': 'পুরস্কারের তালিকা',
+    'points.table.said': 'আপনার গ্রাহক তার পয়েন্ট দিয়ে যা রিডিম করে — এবং তা আপনার ব্যবসার জন্য আগে থেকে ভরা অবস্থায় আসে।',
+    'points.addReward': 'পুরস্কার যোগ করুন',
+
+    'points.form.name.label': 'পুরস্কারের নাম',
+    'points.form.name.hint': 'গ্রাহককে পাঠানো হোয়াটসঅ্যাপ বার্তায় দেখা যায় — সংক্ষিপ্ত রাখুন',
+    'points.form.cost.label': 'পয়েন্টে মূল্য',
+    'points.form.type.label': 'ধরন',
+    'points.form.riyals.label': 'রিয়ালে ছাড়ের পরিমাণ',
+    'points.form.service.label': 'সে কী পাবে',
+    'points.form.service.hint': 'আপনার সেবা থেকে — সেবা হোক বা পণ্য',
+    'points.save': 'সংরক্ষণ করুন',
+    'points.cancel': 'বাতিল',
+
+    'points.loadFailed.title': 'পুরস্কারের তালিকা পড়া যায়নি',
+    'points.loadFailed.description': 'আমরা এখন এটি আনতে পারিনি, এবং ত্রুটি আমাদের দিক থেকে। একটু পরে আবার চেষ্টা করুন।',
+    'points.empty.title': 'এখনও কোনো পুরস্কার নেই',
+    'points.empty.description': 'আপনার প্রথম পুরস্কার যোগ করুন: একটি সেবা বেছে নিন, আর কত ভিজিটে এটি অর্জিত হবে তা ঠিক করুন।',
+
+    'points.costAriaLabel': '{name}-এর পয়েন্টে মূল্য',
+    'points.pointUnit': 'পয়েন্ট',
+    'points.stoppedBadge': 'বন্ধ',
+    'points.activate': 'সক্রিয় করুন',
+    'points.deactivate': 'নিষ্ক্রিয় করুন — রিডিম তালিকা থেকে সরে যাবে',
+    'points.deactivateShort': 'নিষ্ক্রিয় করুন',
+
+    'points.settingsWaiting.title': 'পয়েন্টের সেটিংস পড়া হচ্ছে',
+    'points.settingsWaiting.description': 'এক মুহূর্ত।',
+    'points.settingsFailed.title': 'পয়েন্টের সেটিংস পড়া যায়নি',
+    'points.settingsFailed.description': 'আমরা এটি দেখাইনি যাতে আপনি ভুলবশত কোনো সংখ্যা তার সঠিক মান থেকে বদলে না ফেলেন — আপনার দোকানের নিয়ম যেমন আছে তেমনই থাকে। আবার চেষ্টা করুন।',
+
+    'points.mode.title': 'হিসাবের পদ্ধতি',
+    'points.mode.said': 'সেবা অনুযায়ী: প্রতিটি সেবার নিজস্ব পয়েন্ট। বিলের মূল্য অনুযায়ী: প্রতি রিয়ালে এক পয়েন্ট।',
+    'points.mode.ariaLabel': 'পয়েন্ট হিসাবের পদ্ধতি',
+    'points.mode.services': 'সেবা অনুযায়ী',
+    'points.mode.invoice': 'বিলের মূল্য অনুযায়ী',
+    'points.mode.needsPricedServices': 'বিলের মূল্য অনুযায়ী হিসাবের জন্য প্রথমে আপনার সব সেবার মূল্য নির্ধারণ থাকতে হবে — «আমার সেবা»-তে সবগুলোর দাম দিন, তারপর চালু করুন।',
+
+    'points.general.label': 'প্রতি ভিজিটে পয়েন্ট (সাধারণ)',
+    'points.general.hint': 'নিজস্ব সংখ্যা নেই এমন প্রতিটি সেবা এই সংখ্যাটিই নেবে।',
+
+    'points.threshold.label': 'এই পয়েন্ট থেকে পুরস্কারে ম্যানেজারের অনুমোদন লাগবে',
+    'points.threshold.hint': 'এই পয়েন্ট বা তার বেশি যেকোনো পুরস্কারে রিডিমের সময় ম্যানেজারের নাম লাগবে। 0 মানে কোনো অনুমোদন লাগবে না।',
+
+    'points.group.title': 'গ্রুপ পয়েন্ট',
+    'points.group.said': 'গ্রুপের প্রতিটি সেবার ওপর প্রযোজ্য যা আলাদাভাবে নির্ধারণ করা হয়নি।',
+    'points.group.ariaLabel': 'গ্রুপ {group}-এর পয়েন্ট',
+
+    'points.perService.title': 'নির্দিষ্ট একটি সেবার পয়েন্ট',
+    'points.perService.said': 'নিজস্ব সংখ্যা যা গ্রুপ ও সাধারণ সেটিংয়ের ওপর অগ্রাধিকার পায়।',
+    'points.customSetting': 'কাস্টম সেটিং',
+    'points.serviceAriaLabel': '{name}-এর পয়েন্ট',
+    'points.returnToGeneral': 'সাধারণে ফিরে যান',
   },
 });

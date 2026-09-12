@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -256,5 +256,54 @@ registerOperatorStrings({
     'messagePreview.previewSubtitle': 'Eksakto ang natatanggap ng customer — ang totoong Flow, hindi tularan.',
 
     'messagePreview.savingEllipsis': 'Sine-save…',
+  },
+  bn: {
+    'messagePreview.status.rejected': 'হোয়াটসঅ্যাপ প্রত্যাখ্যান করেছে',
+    'messagePreview.status.pendingReview': 'হোয়াটসঅ্যাপের কাছে পর্যালোচনার জন্য',
+    'messagePreview.status.notSubmitted': 'এখনো জমা দেওয়া হয়নি',
+    'messagePreview.status.ready': 'পাঠানোর জন্য প্রস্তুত',
+    'messagePreview.status.awaitingApproval': 'হোয়াটসঅ্যাপের অনুমোদনের অপেক্ষায়',
+
+    'messagePreview.tone.warm': 'পুরুষবাচক',
+    'messagePreview.tone.feminine': 'স্ত্রীবাচক',
+
+    'messagePreview.toneSaveError': 'টোন সংরক্ষণ করা যায়নি।',
+    'messagePreview.saveError': 'সংরক্ষণ করা যায়নি।',
+    'messagePreview.actionError': 'সম্পন্ন করা যায়নি।',
+    'messagePreview.flowFetchError': 'ফ্লোর স্ক্রিন আনা যায়নি।',
+    'messagePreview.noFlowPermission': 'ফ্লো স্ক্রিন পড়ার অনুমতি নেই',
+
+    'messagePreview.noPermission': 'আপনার ভূমিকায় বার্তার লেখা সম্পাদনা অন্তর্ভুক্ত নয়।',
+    'messagePreview.loadFailed': 'এখন এই বার্তার লেখা দেখানো যায়নি — এটা আমাদের ত্রুটি। একটু পরে চেষ্টা করুন।',
+    'messagePreview.empty.unread': 'আমাদের লেখাগুলো এখন পড়া যায়নি — এটা আমাদের ত্রুটি, আপনার নয়। একটু পরে চেষ্টা করুন।',
+    'messagePreview.empty.pending': 'আপনার লেখা পর্যালোচনার জন্য হোয়াটসঅ্যাপে পাঠানো হয়েছে, যা কয়েক ঘণ্টা সময় নিতে পারে। অনুমোদন হলেই আপনাকে জানাব।',
+    'messagePreview.empty.none': 'এই বার্তার জন্য এখনো কোনো প্রস্তুত লেখা নেই — এটা আমাদের একটি ঘাটতি যা নিয়ে আমরা কাজ করছি।',
+
+    'messagePreview.availableWordings': 'উপলব্ধ লেখাগুলো',
+    'messagePreview.tapHint': 'কোনো লেখায় ট্যাপ করুন এর টেমপ্লেট যেভাবে লেখা হয়েছে তা পড়তে, এবং আপনার গ্রাহক যেভাবে পাবে তার একটি উদাহরণ দেখতে।',
+    'messagePreview.yourText': 'আপনার লেখা',
+    'messagePreview.sendingNow': 'এখন পাঠানো হচ্ছে',
+    'messagePreview.templateAsWritten': 'টেমপ্লেট যেমন লেখা হয়েছে',
+
+    'messagePreview.previewOnWhatsapp': 'হোয়াটসঅ্যাপে প্রিভিউ',
+    'messagePreview.thisIsSendingNote': 'এই বার্তার জন্য আপনার নামে আসলে এটাই যায়।',
+    'messagePreview.useIt': 'এটি ব্যবহার করুন',
+    'messagePreview.backToOurs': 'আমাদের লেখায় ফিরে যান',
+    'messagePreview.makeMyTone': 'এটি আমার টোন করুন',
+    'messagePreview.submitToWhatsapp': 'হোয়াটসঅ্যাপে জমা দিন',
+    'messagePreview.helpMe': 'আমাকে সাহায্য করুন',
+    'messagePreview.requestReceived': 'আপনার অনুরোধ পেয়েছি — আমরা এখানে উত্তর দেব।',
+
+    'messagePreview.footerChosen': 'এই বার্তার জন্য আপনার লেখাই পাঠানো হয় — টোন আপনার বাকি বার্তাগুলো নিয়ন্ত্রণ করে।',
+    'messagePreview.footerTone': 'আপনার টোন আপনার সব বার্তায় প্রযোজ্য, শুধু এতে নয়।',
+
+    'messagePreview.writeYourOwnPrompt': 'নিজের লেখা চান? এটি লিখুন এবং আমরা আপনার নামে হোয়াটসঅ্যাপে জমা দেব।',
+    'messagePreview.writeYourText': 'আপনার লেখা লিখুন',
+
+    'messagePreview.cannotWriteNote': 'এই বার্তাটি আমাদের লেখা দিয়ে পাঠানো হয় — এর লেখা আপনার গ্রাহকের একটি আইনি অধিকারের সাথে সংযুক্ত।',
+
+    'messagePreview.previewSubtitle': 'গ্রাহক ঠিক যা পায় — আসল ফ্লো, কোনো নকল নয়।',
+
+    'messagePreview.savingEllipsis': 'সংরক্ষণ হচ্ছে…',
   },
 });

@@ -40,7 +40,7 @@ SRC = ROOT / "apps" / "console" / "src"
 # `operator-i18n.tsx`'s own OPERATOR_LOCALES — mirrored by hand (a locale added there and not
 # here would make Part A blind to exactly the gap it exists to catch). Small, rarely-changing
 # list; the mirror is intentional, same posture Messages.tsx's own REASON_TEMPLATE_TYPE holds.
-LOCALES = ["ar", "en", "ur", "ha", "fil"]
+LOCALES = ["ar", "en", "ur", "ha", "fil", "bn"]
 
 _REGISTER_CALL = re.compile(r"registerOperatorStrings\(\s*\{", re.MULTILINE)
 _LOCALE_HEAD = re.compile(r"(\b(?:" + "|".join(LOCALES) + r")\b)\s*:\s*\{")
@@ -185,7 +185,7 @@ def main() -> int:
         for p in a_problems:
             print(f"    \033[31m✗ {p}\033[0m")
     else:
-        print("    \033[32m✔ every key registered in ar is answered in en/ur/ha/fil, and none are orphaned\033[0m")
+        print("    \033[32m✔ every key registered in ar is answered in en/ur/ha/fil/bn, and none are orphaned\033[0m")
 
     print()
     print("\033[1m  ▸ Part B — every screen with real Arabic text must route it through operator-i18n\033[0m")

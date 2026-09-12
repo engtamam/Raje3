@@ -7,7 +7,7 @@
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -166,5 +166,36 @@ registerOperatorStrings({
     'wallet.topup.checkoutUnsupported': "Hindi mabuksan ang payment page ngayon. Subukan ulit mamaya.",
     'wallet.topup.gatewayDown': "Hindi tumutugon ang payment gateway ngayon. Subukan ulit mamaya.",
     'wallet.topup.startFailed': "Hindi masimulan ang top-up.",
+  },
+  bn: {
+    'wallet.unit': 'ইউনিট',
+    'wallet.failedTitle': 'আপনার ওয়ালেট পড়া যায়নি',
+    'wallet.failedDesc': 'আমরা এখন আপনার ব্যালেন্স আনতে পারিনি — ত্রুটি আমাদের দিক থেকে। একটু পরে চেষ্টা করুন।',
+    'wallet.hero.total': 'আপনার মোট ব্যালেন্স',
+    'wallet.hero.desc': 'আপনার ব্যালেন্স উদ্দেশ্য অনুযায়ী ভাগ করা — নিচে বিস্তারিত, প্রতিটির নিজস্ব কার্ড আছে।',
+    'wallet.aiUnits.label': 'এআই ইউনিট',
+    'wallet.aiUnits.includedHint': '{units} আপনার প্ল্যানে অন্তর্ভুক্ত — প্রতি মাসে স্বয়ংক্রিয়ভাবে নবায়ন হয়',
+    'wallet.aiUnits.noTopupHint': 'মাস শেষ হওয়ার আগে অন্তর্ভুক্ত পরিমাণ শেষ হয়ে গেলে ম্যানুয়াল টপ-আপ এটি সচল রাখে',
+    'wallet.aiUnits.topupHint': '+ {units} আপনি ম্যানুয়ালি টপ-আপ করেছেন — শুধু অন্তর্ভুক্ত পরিমাণ শেষ হওয়ার পর ব্যবহৃত হয়',
+    'wallet.aiUnits.topupButton': 'আমার ব্যালেন্স ম্যানুয়ালি টপ-আপ করুন',
+    'wallet.renewal.label': 'সাবস্ক্রিপশন নবায়নের ব্যালেন্স',
+    'wallet.renewal.hintOk': 'প্রতিবার নবায়নে স্বয়ংক্রিয়ভাবে কাটা হয় — এআই ইউনিট কখনও স্পর্শ করে না',
+    'wallet.renewal.hintLow': 'পরবর্তী নবায়নের জন্য আপনার ব্যালেন্স যথেষ্ট নয় — সাবস্ক্রিপশন বন্ধ না হতে আগেই টপ-আপ করুন',
+    'wallet.commission.label': 'পার্টনার হিসেবে আপনার কমিশন',
+    'wallet.commission.hint': 'পার্টনারশিপ স্ক্রিন থেকে উত্তোলনযোগ্য',
+    'wallet.topup.amountLabel': 'পরিমাণ ({step} রিয়ালের গুণিতকে)',
+    'wallet.topup.amountAriaLabel': 'পরিমাণ',
+    'wallet.topup.decreaseAriaLabel': '{step} রিয়াল কমান',
+    'wallet.topup.increaseAriaLabel': '{step} রিয়াল বাড়ান',
+    'wallet.topup.confirmLabel': 'এখনই পরিশোধ করুন',
+    'wallet.topup.title': 'আপনার ব্যালেন্স টপ-আপ করুন',
+    'wallet.topup.body': 'এটি আপনাকে নিরাপদ পেমেন্ট পাতায় নিয়ে যাবে। পেমেন্ট সম্পন্ন হওয়ার সাথে সাথে পরিমাণ আপনার ব্যালেন্সে যোগ হবে, আর টপ-আপের পর তা ফেরতযোগ্য নয়।',
+    'wallet.topup.invalidAmount': 'প্রথমে একটি সঠিক পরিমাণ দিন।',
+    'wallet.topup.checkoutFailed': 'পেমেন্ট পাতা খোলা যায়নি — একটু পরে আবার চেষ্টা করুন।',
+    'wallet.topup.amountExceedsMax': 'এই পরিমাণ ম্যানুয়াল টপ-আপের অনুমোদিত সীমার চেয়ে বেশি।',
+    'wallet.topup.invalidAmountRetry': 'ভুল পরিমাণ — অন্য একটি সংখ্যা চেষ্টা করুন।',
+    'wallet.topup.checkoutUnsupported': 'এখন পেমেন্ট পাতা খোলা যায়নি। একটু পরে চেষ্টা করুন।',
+    'wallet.topup.gatewayDown': 'পেমেন্ট গেটওয়ে এখন সাড়া দিচ্ছে না। একটু পরে চেষ্টা করুন।',
+    'wallet.topup.startFailed': 'টপ-আপ প্রক্রিয়া শুরু করা যায়নি।',
   },
 });

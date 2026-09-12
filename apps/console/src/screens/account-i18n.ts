@@ -5,11 +5,11 @@
  * this file covers only the tab shell and its own sub-tabs and cards (ChangePasswordCard).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -178,5 +178,38 @@ registerOperatorStrings({
     'account.changePassword.success': 'Napalitan na ang password.',
     'account.changePassword.save': 'I-save',
     'account.changePassword.cancel': 'Kanselahin',
+  },
+  bn: {
+    'account.tab.shop.label': 'আমার প্রতিষ্ঠান',
+    'account.tab.shop.hint': 'আপনার পরিচয়, শাখা, দল ও হোয়াটসঅ্যাপ সংযোগ',
+    'account.tab.billing.label': 'অ্যাপ স্টোর',
+    'account.tab.billing.hint': 'আপনার অ্যাপ ও পেমেন্ট পদ্ধতি',
+    'account.tab.wallet.label': 'আমার ওয়ালেট',
+    'account.tab.wallet.hint': 'উদ্দেশ্য অনুযায়ী ভাগ করা আপনার ব্যালেন্স',
+    'account.tab.invoices.label': 'ইনভয়েস',
+    'account.tab.invoices.hint': 'আপনার ইনভয়েস ও রসিদ',
+    'account.tab.data.label': 'আমার ডেটা',
+    'account.tab.data.hint': 'আপনার সাপ্তাহিক রিপোর্ট, ডেটা ধরে রাখা, রপ্তানি, চুক্তিসমূহ',
+
+    'account.subtab.people': 'কর্মীরা',
+    'account.subtab.branches': 'শাখা',
+    'account.subtab.branchesLocked': 'লক করা',
+    'account.subtab.whatsapp': 'হোয়াটসঅ্যাপ সংযোগ',
+    'account.subtab.identity': 'পরিচয় ও সেটিংস',
+
+    'account.pageTitle': 'আমার অ্যাকাউন্ট',
+    'account.myBranchReadFailed': 'আপনার শাখা পড়া যায়নি',
+    'account.tabsAriaLabel': 'অ্যাকাউন্টের বিভাগসমূহ',
+    'account.shopSubtabsAriaLabel': 'আমার প্রতিষ্ঠানের বিভাগসমূহ',
+
+    'account.changePassword.title': 'পাসওয়ার্ড পরিবর্তন করুন',
+    'account.changePassword.mismatch': 'নতুন দুটি পাসওয়ার্ড মিলছে না।',
+    'account.changePassword.failed': 'পাসওয়ার্ড পরিবর্তন করা যায়নি।',
+    'account.changePassword.currentLabel': 'বর্তমান পাসওয়ার্ড',
+    'account.changePassword.newLabel': 'নতুন পাসওয়ার্ড',
+    'account.changePassword.confirmLabel': 'নতুন পাসওয়ার্ড নিশ্চিত করুন',
+    'account.changePassword.success': 'পাসওয়ার্ড পরিবর্তন হয়েছে।',
+    'account.changePassword.save': 'সংরক্ষণ করুন',
+    'account.changePassword.cancel': 'বাতিল',
   },
 });

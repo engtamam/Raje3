@@ -8,11 +8,11 @@
  * `translate()` directly rather than the hook — see the edit for how it is wired.
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
- * — every OTHER migrated screen answers all five locales, and this gate checks every key equally
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
+ * — every OTHER migrated screen answers all six locales, and this gate checks every key equally
  * — but they have NOT been checked by a native speaker. Flagged explicitly rather than shipped
  * silently: a wrong word here is a worse failure than the Arabic fallback it replaces. Review
- * before this reaches a shop that actually has Urdu/Hausa/Filipino-speaking staff or customers.
+ * before this reaches a shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff or customers.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -56,5 +56,13 @@ registerOperatorStrings({
     'legal.notFoundTitle': 'Hindi natagpuan ang dokumento',
     'legal.availableDocs': 'Mga available na dokumento:',
     'legal.unfilled': 'Hindi pa nakumpleto',
+  },
+  bn: {
+    'legal.back': 'ফিরে যান',
+    'legal.switchToEnglish': 'English',
+    'legal.switchToArabic': 'العربية',
+    'legal.notFoundTitle': 'নথিটি পাওয়া যায়নি',
+    'legal.availableDocs': 'উপলব্ধ নথিসমূহ:',
+    'legal.unfilled': 'এখনো সম্পূর্ণ হয়নি',
   },
 });

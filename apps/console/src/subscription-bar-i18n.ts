@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from './operator-i18n';
 
@@ -66,5 +66,16 @@ registerOperatorStrings({
     'subscriptionBar.renewNow': 'I-renew ngayon',
     'subscriptionBar.day.one': '1 araw',
     'subscriptionBar.day.other': '{n} araw',
+  },
+  bn: {
+    'subscriptionBar.baseDefaultName': 'বেসিক',
+    'subscriptionBar.appRenewsIn': 'আপনার {name} সাবস্ক্রিপশন {days} পরে নবায়ন হবে।',
+    'subscriptionBar.storeLink': 'অ্যাপ স্টোর',
+    'subscriptionBar.lapsed': 'আপনার সাবস্ক্রিপশন শেষ হয়ে গেছে — আপনার তথ্য নিরাপদ আছে এবং আপনি তা দেখতে পারবেন, নবায়ন হওয়ার সাথে সাথে ভিজিট রেকর্ড করা আবার চালু হবে।',
+    'subscriptionBar.trialEnding': 'আপনার ফ্রি ট্রায়াল {days} পরে শেষ হচ্ছে — {name} চালু করুন যাতে আপনার কাজ থেমে না যায়।',
+    'subscriptionBar.renewsIn': 'আপনার সাবস্ক্রিপশন {days} পরে নবায়ন হবে।',
+    'subscriptionBar.renewNow': 'এখনই নবায়ন করুন',
+    'subscriptionBar.day.one': '১ দিন',
+    'subscriptionBar.day.other': '{n} দিন',
   },
 });

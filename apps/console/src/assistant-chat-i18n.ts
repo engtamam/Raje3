@@ -3,9 +3,9 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the component itself. ur/ha/fil were produced in this pass to unblock the mechanism end to
+ * as the component itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to
  * end but have NOT been checked by a native speaker. Review before this reaches a shop that
- * actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from './operator-i18n';
 
@@ -49,5 +49,13 @@ registerOperatorStrings({
     'assistantChat.inputAriaLabel': 'Tanong mo',
     'assistantChat.send': 'Ipadala',
     'assistantChat.sendFailed': 'Hindi maipadala ang tanong mo.',
+  },
+  bn: {
+    'assistantChat.intro': 'প্ল্যাটফর্ম সম্পর্কে যা খুশি জিজ্ঞাসা করুন — এটি সরাসরি উত্তর দেবে, আর উত্তর না জানলে অনুমান না করে সরাসরি তা জানিয়ে দেবে।',
+    'assistantChat.emptyPrompt': 'শুরু করতে নিচে আপনার প্রশ্ন লিখুন।',
+    'assistantChat.inputPlaceholder': 'এখানে আপনার প্রশ্ন লিখুন…',
+    'assistantChat.inputAriaLabel': 'আপনার প্রশ্ন',
+    'assistantChat.send': 'পাঠান',
+    'assistantChat.sendFailed': 'আপনার প্রশ্ন পাঠানো যায়নি।',
   },
 });

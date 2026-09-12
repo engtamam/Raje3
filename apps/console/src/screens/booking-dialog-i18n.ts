@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -401,5 +401,83 @@ registerOperatorStrings({
     'bookingDialog.durationAriaLabel': 'Tagal ni {name} sa minuto',
     'bookingDialog.savingDots': '...',
     'bookingDialog.save': 'I-save',
+  },
+  bn: {
+    'bookingDialog.today': 'আজ',
+    'bookingDialog.tomorrow': 'আগামীকাল',
+    'bookingDialog.weekday.0': 'রবিবার', 'bookingDialog.weekday.1': 'সোমবার', 'bookingDialog.weekday.2': 'মঙ্গলবার',
+    'bookingDialog.weekday.3': 'বুধবার', 'bookingDialog.weekday.4': 'বৃহস্পতিবার', 'bookingDialog.weekday.5': 'শুক্রবার',
+    'bookingDialog.weekday.6': 'শনিবার',
+    'bookingDialog.weekdayAndDate': '{weekday} {day}',
+
+    'bookingDialog.title.edit': 'বুকিং সম্পাদনা',
+    'bookingDialog.title.create': 'নতুন বুকিং',
+    'bookingDialog.subtitle': 'আপনার শাখা, {day}',
+
+    'bookingDialog.customerLabel': 'গ্রাহক:',
+    'bookingDialog.phoneLabel': 'গ্রাহকের মোবাইল নম্বর',
+    'bookingDialog.phoneRequired': 'মোবাইল নম্বর আবশ্যক',
+    'bookingDialog.knownCustomer': 'পরিচিত গ্রাহক',
+    'bookingDialog.riskWarning': '⚠️ না-আসার হার বেশি: শেষ {considered} অ্যাপয়েন্টমেন্টের মধ্যে {noShows} বার অনুপস্থিত ({pct}%, সীমা {threshold}%)',
+    'bookingDialog.riskAdvice': 'এই বুকিং নিশ্চিত করতে অগ্রিম নেওয়ার পরামর্শ দেওয়া হয় — সিদ্ধান্ত আপনার, সিস্টেম কখনো বাধ্য করে না।',
+    'bookingDialog.enableDepositNow': 'এখনই অগ্রিম চালু করুন',
+    'bookingDialog.nameLabel': 'তার নাম (ঐচ্ছিক)',
+
+    'bookingDialog.servicesHeading': 'সেবাসমূহ',
+    'bookingDialog.servicesRequired': 'অন্তত একটি সেবা বেছে নিন',
+    'bookingDialog.perksReadError': 'এই গ্রাহকের পয়েন্ট ও অফার পড়া যায়নি — বুকিং নিজে প্রভাবিত হয়নি',
+    'bookingDialog.totalDuration': 'মোট সময়: {n} মিনিট',
+
+    'bookingDialog.staffLabel': 'স্টাফ',
+    'bookingDialog.staffRequired': 'একজন স্টাফ বেছে নিন',
+    'bookingDialog.anyAvailable': 'যে কেউ উপলব্ধ',
+    'bookingDialog.noCommonOperator': 'একজন স্টাফও এই সব সেবা একসঙ্গে করতে পারবে না। এগুলো আলাদা অ্যাপয়েন্টমেন্টে বুক করুন, অথবা একটি বাদ দিন।',
+
+    'bookingDialog.timeHeading': 'সময়',
+    'bookingDialog.prevDay': 'আগের দিন',
+    'bookingDialog.nextDay': 'পরের দিন',
+    'bookingDialog.shopClosedNote': 'দোকান এখন বন্ধ — এটাই সত্যিকারের নিকটতম খোলা সময়।',
+    'bookingDialog.searchingSlots': 'খালি সময় খোঁজা হচ্ছে…',
+    'bookingDialog.noSlotsToday': 'আজকের দিনে কোনো খালি সময় নেই।',
+    'bookingDialog.jumping': 'খোঁজা হচ্ছে…',
+    'bookingDialog.nearestDay': 'সময় আছে এমন নিকটতম দিন',
+    'bookingDialog.withOperator': ' — {name} এর সাথে',
+    'bookingDialog.slotsSearchError': 'সময় খোঁজা যায়নি।',
+    'bookingDialog.timeRequired': 'সময় আবশ্যক',
+    'bookingDialog.hideManual': 'নিজে থেকে লেখা লুকান',
+    'bookingDialog.showManual': 'নিজে থেকে লিখুন',
+    'bookingDialog.dayLabel': 'দিন',
+    'bookingDialog.noNearSlot': 'দুই সপ্তাহের মধ্যে কাছাকাছি কোনো সময় নেই।',
+    'bookingDialog.slotSearchError': 'সময় খোঁজা যায়নি।',
+
+    'bookingDialog.paymentDetails': 'পেমেন্টের বিবরণ',
+    'bookingDialog.priceLabel': 'মূল্য (ঐচ্ছিক, রিয়াল)',
+    'bookingDialog.saveAsCatalogPrice': 'এটি এই সেবার স্থায়ী মূল্য হিসেবে সংরক্ষণ করুন (ভবিষ্যতের সব বুকিংয়ের জন্য)',
+    'bookingDialog.paymentStatusLabel': 'পেমেন্টের অবস্থা',
+    'bookingDialog.depositAmountLabel': 'অগ্রিমের পরিমাণ (রিয়াল)',
+    'bookingDialog.depositRequired': 'অগ্রিমের পরিমাণ আবশ্যক',
+    'bookingDialog.rewardLabel': 'যে পুরস্কার সে ব্যবহার করতে চায় (ঐচ্ছিক)',
+    'bookingDialog.rewardHint': 'তার পয়েন্ট এখনই কাটা হবে না — উপস্থিতি নথিভুক্ত হওয়ার সাথে সাথেই স্বয়ংক্রিয়ভাবে খরচ হবে।',
+    'bookingDialog.noneOption': 'কোনোটিই না',
+    'bookingDialog.needsApproval': ' — ম্যানেজারের অনুমোদন প্রয়োজন',
+    'bookingDialog.rewardOption': '{name} ({cost})',
+
+    'bookingDialog.noteLabel': 'নোট (ঐচ্ছিক)',
+
+    'bookingDialog.cancel': 'বাতিল',
+    'bookingDialog.saving': 'সংরক্ষণ হচ্ছে…',
+    'bookingDialog.saveEdit': 'সম্পাদনা সংরক্ষণ করুন',
+    'bookingDialog.bookNow': 'বুক করুন',
+
+    'bookingDialog.saveEditError': 'সম্পাদনা সংরক্ষণ করা যায়নি।',
+    'bookingDialog.bookingError': 'বুকিং সম্পন্ন করা যায়নি।',
+    'bookingDialog.notSubscribed': 'বুকিং আপনার প্ল্যানে নেই।',
+
+    'bookingDialog.enterPositiveNumber': 'শূন্যের চেয়ে বড় একটি সংখ্যা লিখুন।',
+    'bookingDialog.saveFailedGeneric': 'সংরক্ষণ করা যায়নি।',
+    'bookingDialog.noDurationSet': '{name} — কোনো সময়কাল নির্ধারিত নেই',
+    'bookingDialog.durationAriaLabel': '{name} এর সময়কাল মিনিটে',
+    'bookingDialog.savingDots': '...',
+    'bookingDialog.save': 'সংরক্ষণ করুন',
   },
 });

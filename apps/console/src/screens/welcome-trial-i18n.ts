@@ -3,13 +3,13 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  *
- * ALL FIVE LOCALES ARE REGISTERED HERE for completeness, even though this screen currently reads
+ * ALL SIX LOCALES ARE REGISTERED HERE for completeness, even though this screen currently reads
  * strings through a fixed Arabic `t` (see WelcomeTrial.tsx's own note on why: it can render before
  * `OperatorI18nProvider` mounts, right after a fresh signup, so it cannot safely call
  * `useOperatorI18n()`).
@@ -96,5 +96,21 @@ registerOperatorStrings({
     'welcomeTrial.trialUntil': 'Aktibo ang trial mo hanggang {date}',
     'welcomeTrial.start': 'Simulan na',
     'welcomeTrial.footer': 'Raje3 · Saudi Arabia',
+  },
+  bn: {
+    'welcomeTrial.day.0': 'রবিবার', 'welcomeTrial.day.1': 'সোমবার', 'welcomeTrial.day.2': 'মঙ্গলবার',
+    'welcomeTrial.day.3': 'বুধবার', 'welcomeTrial.day.4': 'বৃহস্পতিবার', 'welcomeTrial.day.5': 'শুক্রবার',
+    'welcomeTrial.day.6': 'শনিবার',
+    'welcomeTrial.month.0': 'জানুয়ারি', 'welcomeTrial.month.1': 'ফেব্রুয়ারি', 'welcomeTrial.month.2': 'মার্চ',
+    'welcomeTrial.month.3': 'এপ্রিল', 'welcomeTrial.month.4': 'মে', 'welcomeTrial.month.5': 'জুন',
+    'welcomeTrial.month.6': 'জুলাই', 'welcomeTrial.month.7': 'আগস্ট', 'welcomeTrial.month.8': 'সেপ্টেম্বর',
+    'welcomeTrial.month.9': 'অক্টোবর', 'welcomeTrial.month.10': 'নভেম্বর', 'welcomeTrial.month.11': 'ডিসেম্বর',
+
+    'welcomeTrial.dialogLabel': 'রাজিʿ-এ স্বাগতম',
+    'welcomeTrial.title': 'রাজিʿ-এ স্বাগতম',
+    'welcomeTrial.subtitle': 'আপনার দোকান প্রস্তুত, আর আপনার ফ্রি ট্রায়াল এখনই শুরু হয়েছে — কোনো সেটআপ ছাড়াই সবকিছু আপনার জন্য খোলা।',
+    'welcomeTrial.trialUntil': 'আপনার ট্রায়াল {date} পর্যন্ত চলবে',
+    'welcomeTrial.start': 'শুরু করি',
+    'welcomeTrial.footer': 'রাজিʿ · সৌদি আরব',
   },
 });

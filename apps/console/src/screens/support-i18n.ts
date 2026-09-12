@@ -7,7 +7,7 @@
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -131,5 +131,29 @@ registerOperatorStrings({
     'support.form.sent': 'Naisumite ang ticket — makikipag-ugnayan sa iyo ang support team.',
     'support.form.sending': 'Isinusumite…',
     'support.form.submit': 'Isumite ang ticket',
+  },
+  bn: {
+    'support.title': 'সহায়তা',
+    'support.tabsAriaLabel': 'সহায়তার বিভাগ',
+    'support.tab.chat': 'গ্রাহক সেবা',
+    'support.tab.tickets': 'সহায়তা',
+    'support.loadFailed': 'আপনার আগের টিকিটগুলো পড়া যায়নি।',
+    'support.waitingTickets': 'আপনার টিকিট',
+    'support.emptyTitle': 'এখনও কোনো টিকিট নেই',
+    'support.emptyDesc': 'আপনার সামনে আসা যেকোনো সমস্যা দাখিল করার সাথে সাথে এখানে দেখা যাবে।',
+    'support.defaultTicketTitle': 'টিকিট',
+
+    'support.form.title': 'নতুন টিকিট',
+    'support.form.typeLabel': 'সমস্যার ধরন',
+    'support.form.typePlaceholder': 'উদাহরণ: বিলিং সমস্যা, কারিগরি ত্রুটি',
+    'support.form.subjectLabel': 'শিরোনাম',
+    'support.form.subjectPlaceholder': 'সমস্যার একটি সংক্ষিপ্ত শিরোনাম',
+    'support.form.bodyLabel': 'বিস্তারিত',
+    'support.form.bodyPlaceholder': 'সমস্যাটি বিস্তারিতভাবে বর্ণনা করুন — ঐচ্ছিক',
+    'support.form.validation': 'অন্তত সমস্যার ধরন ও শিরোনাম লিখুন।',
+    'support.form.submitFailed': 'টিকিট জমা দেওয়া যায়নি। আবার চেষ্টা করুন।',
+    'support.form.sent': 'টিকিট জমা হয়েছে — সহায়তা দল আপনার সাথে যোগাযোগ করবে।',
+    'support.form.sending': 'জমা হচ্ছে…',
+    'support.form.submit': 'টিকিট জমা দিন',
   },
 });

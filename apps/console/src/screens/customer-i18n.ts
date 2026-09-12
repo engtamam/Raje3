@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -551,5 +551,113 @@ registerOperatorStrings({
     'customer.messages.fallback': 'Mensahe',
     'customer.messages.sent': 'Naipadala',
     'customer.messages.suppressed': "Hindi naipadala",
+  },
+  bn: {
+    'customer.ago.never': '—',
+    'customer.ago.today': 'আজ',
+    'customer.ago.yesterday': 'গতকাল',
+    'customer.ago.twoDaysAgo': 'দুই দিন আগে',
+    'customer.ago.fewDaysAgo': '{n} দিন আগে',
+    'customer.ago.manyDaysAgo': '{n} দিন আগে',
+
+    'customer.adjustReason.0': 'ভিজিট রেকর্ডে ভুলের ক্ষতিপূরণ',
+    'customer.adjustReason.1': 'যথাযথভাবে করা হয়নি এমন সেবার ক্ষতিপূরণ',
+    'customer.adjustReason.2': 'স্বাগত পয়েন্ট',
+    'customer.adjustReason.3': 'গণনার পর ব্যালেন্স সংশোধন',
+    'customer.adjustReason.4': 'দোকানে হাতে করা রিডিম',
+    'customer.adjustReason.5': 'রিডিম বাতিল করুন',
+    'customer.adjustReason.other': 'অন্যান্য…',
+
+    'customer.waiting': 'আপনার গ্রাহকের পৃষ্ঠা খোলা হচ্ছে',
+    'customer.notFoundTitle': 'গ্রাহকের রেকর্ড খোলা যায়নি',
+    'customer.notFoundDesc': 'গ্রাহক নাও থাকতে পারে, অথবা সেবাটি পৌঁছানো যাচ্ছে না। একটু পরে আবার চেষ্টা করুন।',
+    'customer.backToCustomers': 'আমার গ্রাহকদের কাছে ফিরে যান',
+    'customer.noName': 'নাম নেই',
+    'customer.back': 'ফিরে যান',
+
+    'customer.stat.visits': 'তার ভিজিট',
+    'customer.stat.lastVisit': 'শেষ ভিজিট',
+    'customer.stat.everyDays': 'কত দিন পরপর',
+    'customer.overdue': 'তার স্বাভাবিক চক্র থেকে দেরি হয়ে গেছে — প্রতি {every} দিনে আসে, শেষ ভিজিট {since} আগে।',
+
+    'customer.vehicles': 'তার গাড়িগুলো',
+
+    'customer.tabsAriaLabel': 'গ্রাহকের বিভাগ',
+    'customer.tab.overview': 'সারসংক্ষেপ',
+    'customer.tab.points': 'পয়েন্ট',
+    'customer.tab.messages': 'বার্তা',
+    'customer.tab.manage': 'সম্পাদনা',
+
+    'customer.offers.title': 'তার অফার',
+    'customer.offers.denied': 'আপনার ভূমিকায় গ্রাহক অফার অন্তর্ভুক্ত নেই।',
+    'customer.offers.failed': 'এখন তার অফার পড়া যায়নি — এটি আমাদের ত্রুটি। একটু পরে আবার চেষ্টা করুন।',
+    'customer.offers.empty': 'এখনো তার কাছে কোনো অফার পৌঁছায়নি।',
+    'customer.offers.onServices': 'এর উপর: {services}',
+    'customer.offers.onAll': 'সব সেবার উপর',
+    'customer.offers.active': 'সক্রিয়',
+    'customer.offers.receivedAt': '· পেয়েছে {date}',
+    'customer.offers.expired': 'মেয়াদোত্তীর্ণ',
+
+    'customer.visits.title': 'তার ভিজিট',
+    'customer.visits.empty': 'এখনো কোনো ভিজিট নথিভুক্ত হয়নি।',
+    'customer.visits.fallback': 'ভিজিট',
+    'customer.visits.meter': 'মিটার: {n}',
+
+    'customer.points.title': 'তার পয়েন্ট',
+    'customer.points.failed': 'এখন তার ব্যালেন্স পড়া যায়নি — এটি আমাদের ত্রুটি। একটু পরে আবার চেষ্টা করুন।',
+    'customer.points.unit': 'পয়েন্ট',
+    'customer.points.rewardCost': '{cost} পয়েন্ট',
+    'customer.points.movement': 'পয়েন্টের কার্যকলাপ',
+    'customer.points.movementFailed': 'এখন তার পয়েন্টের কার্যকলাপ পড়া যায়নি — একটু পরে আবার চেষ্টা করুন।',
+    'customer.points.movementEmpty': 'এখনো কোনো কার্যকলাপ নেই।',
+
+    'customer.manage.nameLabel': 'তার নাম',
+    'customer.manage.whyPhoneLockedLabel': 'নম্বরটি কেন সম্পাদনা করা যায় না',
+    'customer.manage.whyPhoneLockedBody': 'নম্বরটিই সিস্টেমের প্রতিটি অংশে গ্রাহকের পরিচয়, এবং তার আইডি এর থেকেই তৈরি হয় — এটি বদলালে তার পয়েন্ট, অফার ও ইতিহাস পুরনো নম্বরের পিছনে থেকে যায়। ভুল নম্বর মানে নতুন গ্রাহক ও একত্রীকরণ, সম্পাদনা নয়।',
+    'customer.manage.namePlaceholder': 'তার নাম লিখুন',
+    'customer.manage.nameAriaLabel': 'গ্রাহকের নাম',
+    'customer.manage.save': 'সংরক্ষণ করুন',
+    'customer.manage.nameSaved': '✓ নাম সংরক্ষিত হয়েছে',
+    'customer.manage.saveFailed': 'সংরক্ষণ করা যায়নি',
+
+    'customer.manage.adjustTitle': 'তার ব্যালেন্স সামঞ্জস্য করুন',
+    'customer.manage.adjustHintLabel': 'দেওয়া/কাটার ব্যাখ্যা',
+    'customer.manage.adjustHintBody': 'তাকে পয়েন্ট দিতে 50 লিখুন, এবং কাটতে -50।',
+    'customer.manage.adjustAmountPlaceholder': '50',
+    'customer.manage.adjustAmountAriaLabel': 'পয়েন্টের সংখ্যা',
+    'customer.manage.chooseReason': 'কারণ বেছে নিন',
+    'customer.manage.reasonDrawerTitle': 'সামঞ্জস্যের কারণ',
+    'customer.manage.reasonDrawerSubtitle': 'এন্ট্রির সাথে সংরক্ষিত হয়, মাস পরে পড়া হয়',
+    'customer.manage.otherReasonPlaceholder': 'কারণ লিখুন',
+    'customer.manage.otherReasonAriaLabel': 'অন্য কারণ',
+    'customer.manage.saveAdjustment': 'সামঞ্জস্য সংরক্ষণ করুন',
+    'customer.manage.adjustFailed': 'সামঞ্জস্য করা যায়নি',
+    'customer.manage.adjustSaved': 'হয়ে গেছে — কারণটি এন্ট্রির সাথে সংরক্ষিত হয়েছে।',
+
+    'customer.erase.title': 'এই গ্রাহকের তথ্য মুছুন',
+    'customer.erase.hintBody': 'আপনার গ্রাহকের আইনি অধিকার: যদি সে তার তথ্য মুছতে বলে, তবে মোছার দায়িত্ব আপনার, আমাদের নয় — আমরা শুধু আপনার নির্দেশে কার্যকর করি। তার নাম, নম্বর, ভিজিট, পয়েন্ট ও বার্তা প্ল্যাটফর্মের সব জায়গা থেকে মুছে যায় — ফিরিয়ে আনা যায় না। আইন যা রাখতে বাধ্য করে তা থেকে যায়: চালান ও হিসাব রেকর্ড, কারণ সেগুলো মোছা আরেকটি লঙ্ঘন।',
+    'customer.erase.action': 'তার তথ্য মুছুন',
+    'customer.erase.confirm': '{name} সম্পর্কে আমাদের কাছে থাকা সবকিছু চিরতরে মুছে যাবে — আর ফিরিয়ে আনা যাবে না।',
+    'customer.erase.thisCustomer': 'এই গ্রাহক',
+    'customer.erase.confirmAction': 'হ্যাঁ, চিরতরে মুছুন',
+    'customer.erase.cancel': 'ফিরে যান',
+    'customer.erase.failed': 'মোছা যায়নি',
+
+    'customer.cycles.title': 'আপনার সাথে তার চক্র',
+    'customer.cycles.hintBody': 'সাধারণত প্রতিটি সেবার জন্য ফিরে আসার আগে কত দিন পার হয় — তা তার নিজের ভিজিট থেকে শেখা হয়, সাধারণ গড় থেকে নয়। আপনি যদি তার নম্বর আমাদের চেয়ে ভালো জানেন তবে লিখুন, এবং আমরা এই সেবার জন্য স্বয়ংক্রিয়ভাবে সামঞ্জস্য করা বন্ধ করব।',
+    'customer.cycles.learned': '{n}টি ভিজিট থেকে শেখা',
+    'customer.cycles.estimate': 'প্রাথমিক অনুমান — এখনো শেখা হয়নি',
+    'customer.cycles.pinnedSuffix': ' · আপনি পিন করেছেন',
+    'customer.cycles.intervalAriaLabel': '{name} এর চক্র',
+    'customer.cycles.days': 'দিন',
+    'customer.cycles.pinSaved': 'আমরা আপনার নম্বরটি পিন করেছি — এবং এই সেবার জন্য আর স্বয়ংক্রিয়ভাবে সামঞ্জস্য করব না।',
+    'customer.cycles.pinFailed': 'সংরক্ষণ করা যায়নি।',
+
+    'customer.messages.title': 'তার বার্তা',
+    'customer.messages.failed': 'এখন তার বার্তা পড়া যায়নি — এটি আমাদের ত্রুটি। একটু পরে আবার চেষ্টা করুন।',
+    'customer.messages.empty': 'এখনো তার কাছে কিছু যায়নি।',
+    'customer.messages.fallback': 'বার্তা',
+    'customer.messages.sent': 'পাঠানো হয়েছে',
+    'customer.messages.suppressed': 'পাঠানো হয়নি',
   },
 });

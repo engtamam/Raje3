@@ -3,9 +3,9 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the component itself. ur/ha/fil were produced in this pass to unblock the mechanism end to
+ * as the component itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to
  * end but have NOT been checked by a native speaker. Review before this reaches a shop that
- * actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from './operator-i18n';
 
@@ -54,5 +54,14 @@ registerOperatorStrings({
     'whoIsSaving.wrongPin': 'Maling PIN.',
     'whoIsSaving.skip': 'Laktawan',
     'whoIsSaving.confirm': 'Kumpirmahin at i-save',
+  },
+  bn: {
+    'whoIsSaving.title': 'এই ভিজিট কে সেভ করছে?',
+    'whoIsSaving.subtitle': 'আপনার ৪-সংখ্যার পিন লিখুন যাতে এই ভিজিট আপনার নাম ও শাখার অধীনে রেকর্ড হয়।',
+    'whoIsSaving.readFailed': 'এখন টিমের নাম পড়া যায়নি।',
+    'whoIsSaving.pinAriaLabel': 'স্টাফ পিন',
+    'whoIsSaving.wrongPin': 'পিন সঠিক নয়।',
+    'whoIsSaving.skip': 'বাদ দিন',
+    'whoIsSaving.confirm': 'নিশ্চিত করুন ও সেভ করুন',
   },
 });

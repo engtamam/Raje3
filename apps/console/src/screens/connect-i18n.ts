@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -156,5 +156,34 @@ registerOperatorStrings({
     'connect.byBranch.noAccess': "Hindi kasama sa role mo ang seksyong ito",
     'connect.byBranch.readFailed': 'Hindi mabasa ang mga branch mo',
     'connect.byBranch.noBranches': 'Wala pang branch ang tindahan mo — magdagdag ng branch mula sa "Aking Establisemento" para ikonekta ang numero ng WhatsApp para dito.',
+  },
+  bn: {
+    'connect.linkFailed': 'সংযোগ সম্পূর্ণ করা যায়নি।',
+    'connect.title.branch': '{branch} এর হোয়াটসঅ্যাপ',
+    'connect.title.shop': 'আপনার ব্যবসার হোয়াটসঅ্যাপ',
+    'connect.subtitle.branch': 'এই শাখার নিজস্ব নম্বর — এর গ্রাহকরা সরাসরি এতে বার্তা পাঠায়',
+    'connect.subtitle.shop': 'আপনার গ্রাহকদের জন্য রিমাইন্ডার ও ক্যাম্পেইনের চ্যানেল',
+    'connect.status.waiting': 'আমাদের অপেক্ষায়',
+    'connect.status.connected': 'কাজ করছে',
+    'connect.status.disconnected': 'সংযুক্ত নয়',
+    'connect.message.loading': 'সংযোগের অবস্থা পড়া হচ্ছে…',
+    'connect.message.failed': 'এখন সংযোগের অবস্থা পড়া যায়নি — আপনার অ্যাকাউন্টে কিছু বদলায়নি। একটু পরে আবার চেষ্টা করুন।',
+    'connect.message.notStarted': 'সংযোগ এখনো শুরু হয়নি।',
+    'connect.register.activateFailed': 'পাঠানো চালু করা যায়নি।',
+    'connect.register.pinLabel': 'আপনার হোয়াটসঅ্যাপ বিজনেস অ্যাকাউন্টের দুই-ধাপ যাচাইকরণ কোড — ৬ অঙ্কের',
+    'connect.register.pinHint': 'এই কোডটি আপনি নিজেই আপনার বিজনেস অ্যাকাউন্টের সেটিংসে বেছে নেন — আমরা এটি রাখি না বা সংরক্ষণ করি না। হোয়াটসঅ্যাপ প্রতি ৭২ ঘণ্টায় দশটি চেষ্টার অনুমতি দেয়।',
+    'connect.register.activating': 'চালু হচ্ছে…',
+    'connect.register.activate': 'পাঠানো চালু করুন',
+    'connect.popup.unconfigured': 'হোয়াটসঅ্যাপ সংযোগ এখনো চালু নেই — এটি আমাদের ত্রুটি, আপনার অ্যাকাউন্টের নয়। আমাদের সাথে যোগাযোগ করুন, আমরা আপনার সাথে সম্পন্ন করব।',
+    'connect.popup.openFailed': 'হোয়াটসঅ্যাপ উইন্ডো খোলা যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',
+    'connect.button.linking': 'সংযুক্ত হচ্ছে…',
+    'connect.button.preparing': 'হোয়াটসঅ্যাপ উইন্ডো প্রস্তুত হচ্ছে…',
+    'connect.button.unconfigured': 'এখন সংযোগ খোলা যাচ্ছে না',
+    'connect.button.link': 'হোয়াটসঅ্যাপ সংযুক্ত করুন',
+    'connect.unconfiguredNote': 'ত্রুটিটি আমাদের দিক থেকে, আপনার অ্যাকাউন্টের নয় — আমাদের সাথে যোগাযোগ করুন, আমরা আপনার সাথে সংযোগ সম্পন্ন করব।',
+    'connect.startHint': 'মাত্র কয়েক মিনিট, এবং শুরু করতে আপনার ব্যবসা যাচাই করা আবশ্যক নয়।',
+    'connect.byBranch.noAccess': 'আপনার ভূমিকায় এই অংশ অন্তর্ভুক্ত নেই',
+    'connect.byBranch.readFailed': 'আপনার শাখাগুলো পড়া যায়নি',
+    'connect.byBranch.noBranches': 'আপনার দোকানের এখনো কোনো শাখা নেই — এর জন্য হোয়াটসঅ্যাপ নম্বর সংযুক্ত করতে "আমার প্রতিষ্ঠান" থেকে একটি শাখা যোগ করুন।',
   },
 });

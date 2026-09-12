@@ -3,9 +3,9 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the component itself. ur/ha/fil were produced in this pass to unblock the mechanism end to
+ * as the component itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to
  * end but have NOT been checked by a native speaker. Review before this reaches a shop that
- * actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from './operator-i18n';
 
@@ -40,5 +40,11 @@ registerOperatorStrings({
     'assistantHint.questionMark': '?',
     'assistantHint.noEntry': 'Wala pang available na paliwanag para dito.',
     'assistantHint.fetchFailed': 'Hindi makuha ang paliwanag.',
+  },
+  bn: {
+    'assistantHint.label': 'ব্যাখ্যা',
+    'assistantHint.questionMark': '?',
+    'assistantHint.noEntry': 'এর জন্য এখনো কোনো ব্যাখ্যা নেই।',
+    'assistantHint.fetchFailed': 'ব্যাখ্যা আনা যায়নি।',
   },
 });

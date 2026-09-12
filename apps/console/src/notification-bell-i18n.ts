@@ -3,9 +3,9 @@
  * own header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the rest of the console. ur/ha/fil were produced in this pass to unblock the mechanism end to
+ * as the rest of the console. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to
  * end, but have NOT been checked by a native speaker — same posture team-i18n.ts's own header
- * states for the same three languages.
+ * states for the same languages.
  */
 import { registerOperatorStrings } from './operator-i18n';
 
@@ -69,5 +69,17 @@ registerOperatorStrings({
     'notificationBell.ago.hoursAgo': '{n}h ang nakalipas',
     'notificationBell.ago.yesterday': 'Kahapon',
     'notificationBell.ago.daysAgo': '{n}d ang nakalipas',
+  },
+  bn: {
+    'notificationBell.label': 'বিজ্ঞপ্তি',
+    'notificationBell.title': 'বিজ্ঞপ্তি',
+    'notificationBell.markAllRead': 'সব পঠিত হিসেবে চিহ্নিত করুন',
+    'notificationBell.empty': 'এখনো কোনো বিজ্ঞপ্তি নেই।',
+    'notificationBell.loadFailed': 'আপনার বিজ্ঞপ্তি পড়া যায়নি — একটু পরে আবার চেষ্টা করুন।',
+    'notificationBell.ago.justNow': 'এইমাত্র',
+    'notificationBell.ago.minutesAgo': '{n} মিনিট আগে',
+    'notificationBell.ago.hoursAgo': '{n} ঘণ্টা আগে',
+    'notificationBell.ago.yesterday': 'গতকাল',
+    'notificationBell.ago.daysAgo': '{n} দিন আগে',
   },
 });

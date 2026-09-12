@@ -7,7 +7,7 @@
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -81,5 +81,19 @@ registerOperatorStrings({
     'textEditor.approvalNote': 'Nase-save muna sa iyo — hindi ito makikita ng customer mo hanggang aprubahan ng WhatsApp.',
     'textEditor.cancel': 'Kanselahin',
     'textEditor.save': 'I-save',
+  },
+  bn: {
+    'textEditor.error.emptyBody': 'প্রথমে বার্তার লেখা লিখুন।',
+    'textEditor.error.saveFailed': 'সংরক্ষণ করা যায়নি।',
+    'textEditor.title': '«{label}» বার্তার জন্য আপনার লেখা',
+    'textEditor.subtitle': 'আপনার ইচ্ছামতো লিখুন, আর এক ট্যাপে ফাঁকা জায়গা যোগ করুন — আমরা সেগুলো ক্রমিক করি।',
+    'textEditor.addLabel': 'যোগ করুন:',
+    'textEditor.bodyAriaLabel': 'বার্তার লেখা',
+    'textEditor.mandatoryLine': 'আর বার্তার শেষে সবসময়:',
+    'textEditor.mandatoryAriaLabel': '{label} — লক করা',
+    'textEditor.previewTitle': 'আপনার গ্রাহক যেভাবে পড়বে',
+    'textEditor.approvalNote': 'প্রথমে আপনার কাছে সংরক্ষিত হয় — হোয়াটসঅ্যাপ অনুমোদন না দেওয়া পর্যন্ত আপনার গ্রাহক এটি দেখে না।',
+    'textEditor.cancel': 'বাতিল',
+    'textEditor.save': 'সংরক্ষণ করুন',
   },
 });

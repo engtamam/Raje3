@@ -3,11 +3,11 @@
  * for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -226,5 +226,48 @@ registerOperatorStrings({
     'door.error.password': "Hindi natutugunan ng password ang mga kinakailangan sa ibaba",
     'door.error.shopName': 'Ilagay ang pangalan ng tindahan',
     'door.error.mustAgree': 'Pakisang-ayunan ang Mga Tuntunin at Patakaran sa Privacy para magpatuloy.',
+  },
+  bn: {
+    'door.password.show': 'পাসওয়ার্ড দেখান',
+    'door.password.hide': 'পাসওয়ার্ড লুকান',
+
+    'door.tab.signIn': 'সাইন ইন',
+    'door.tab.signUp': 'নতুন নিবন্ধন',
+
+    'door.otp.title': 'আপনার নম্বর নিশ্চিত করুন',
+    'door.otp.sendFailed': 'কোড পাঠানো যায়নি।',
+    'door.otp.genericFailed': 'অনুরোধ সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।',
+
+    'door.field.phone': 'মোবাইল নম্বর',
+    'door.field.password': 'পাসওয়ার্ড',
+
+    'door.signIn.missingFields': 'আপনার মোবাইল নম্বর ও পাসওয়ার্ড লিখুন।',
+    'door.signIn.failed': 'সাইন ইন করা যায়নি।',
+    'door.signIn.title': 'স্বাগতম',
+    'door.signIn.subtitle': 'আপনার মোবাইল নম্বর ও পাসওয়ার্ড।',
+    'door.signIn.busy': 'সাইন ইন হচ্ছে…',
+    'door.signIn.submit': 'সাইন ইন',
+
+    'door.newShop.title': 'আপনার দোকান খুলুন',
+    'door.newShop.shopNameLabel': 'দোকানের নাম',
+    'door.newShop.nameIsPasswordError': 'এটি আপনার দোকানের নাম, যেভাবে আপনার গ্রাহকরা দেখে, এবং এটি আপনার পাসওয়ার্ডের মতো মনে হচ্ছে — দয়া করে দোকানের নাম লিখুন।',
+    'door.newShop.busy': 'তৈরি হচ্ছে…',
+    'door.newShop.submit': 'শুরু করুন',
+    'door.newShop.createFailed': 'অ্যাকাউন্ট তৈরি করা যায়নি।',
+
+    'door.terms.agreePrefix': 'আমি সম্মত',
+    'door.terms.termsLink': 'ব্যবহারের শর্তাবলীতে',
+    'door.terms.and': 'এবং',
+    'door.terms.privacyLink': 'গোপনীয়তা নীতিতে',
+
+    'door.pwRule.minLength': 'কমপক্ষে ১২টি অক্ষর',
+    'door.pwRule.upper': 'একটি বড় হাতের অক্ষর',
+    'door.pwRule.digit': 'একটি সংখ্যা',
+    'door.pwRule.symbol': 'একটি চিহ্ন',
+
+    'door.error.phone': 'একটি সঠিক সৌদি মোবাইল নম্বর লিখুন — যেমন 0501234567',
+    'door.error.password': 'পাসওয়ার্ড নিচের শর্তগুলো পূরণ করে না',
+    'door.error.shopName': 'দোকানের নাম লিখুন',
+    'door.error.mustAgree': 'চালিয়ে যেতে শর্তাবলী ও গোপনীয়তা নীতিতে সম্মত হন।',
   },
 });

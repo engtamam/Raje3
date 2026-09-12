@@ -3,11 +3,11 @@
  * for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -596,5 +596,122 @@ registerOperatorStrings({
     'plans.app.ownedLabel': 'Pinagana',
     'plans.app.buyLabel': 'Idagdag ito',
     'plans.app.cancelLabel': 'Kanselahin ang renewal ng app na ito',
+  },
+  bn: {
+    'plans.section.messages': 'ক্যাম্পেইন', 'plans.section.points': 'আমার পয়েন্ট', 'plans.section.bookings': 'বুকিং',
+    'plans.section.team': 'আমার টিম', 'plans.section.account': 'আমার অ্যাকাউন্ট', 'plans.section.shop': 'আমার দোকান',
+
+    'plans.limit.staffSeats.label': 'স্টাফ আসন', 'plans.limit.staffSeats.unit': 'আসন',
+    'plans.limit.branches.label': 'শাখা', 'plans.limit.branches.unit': 'শাখা',
+    'plans.limit.messagesMonthly.label': 'মাসিক বার্তা', 'plans.limit.messagesMonthly.unit': 'বার্তা',
+    'plans.limit.templatesCustom.label': 'আপনার নিজের টেমপ্লেট', 'plans.limit.templatesCustom.unit': 'টেমপ্লেট',
+    'plans.limit.loyalty.label': 'পয়েন্ট ও পুরস্কার',
+    'plans.limit.campaigns.label': 'আপনার গ্রাহক শ্রেণিতে ক্যাম্পেইন',
+    'plans.limit.insightsEngine.label': 'আপনার দোকানে খুঁজে পাওয়া প্রস্তুত সুবিধা',
+    'plans.limit.api.label': 'আপনার নিজস্ব সিস্টেমের সাথে API সংযোগ',
+    'plans.limit.bookings.label': 'বুকিং সিস্টেম ও গ্রাহকের অ্যাপয়েন্টমেন্ট, সাথে স্বয়ংক্রিয় স্মার্ট বার্তা যা প্রতিটি গ্রাহকের আচরণ শেখে এবং সময়মতো মনে করিয়ে দেয়',
+    'plans.limit.rating.label': 'ভিজিটের পর গ্রাহকের রেটিং',
+    'plans.limit.whatsapp.label': 'একটি স্মার্ট সহকারী যা হোয়াটসঅ্যাপে আপনার গ্রাহকদের উত্তর দেয়',
+    'plans.limit.standalone.label': 'একাই কেনা যায়, মূল সাবস্ক্রিপশনের প্রয়োজন নেই',
+    'plans.limit.requiresAny.label': 'প্রথমে অন্য একটি অ্যাপ চালু থাকা দরকার',
+    'plans.limit.contacts.label': 'গ্রাহকের তথ্য রেকর্ড ও সংরক্ষণ',
+    'plans.limit.visit.label': 'ভিজিট রেকর্ড ও নিশ্চিত করা, সাথে স্বয়ংক্রিয় স্মার্ট বার্তা যা প্রতিটি গ্রাহকের আচরণ শেখে এবং সময়মতো মনে করিয়ে দেয়',
+    'plans.limit.unlimited': '{label}: সীমাহীন',
+    'plans.limit.withCount': '{label}: {n}',
+
+    'plans.requiresAny.visit': 'ভিজিট রেকর্ড', 'plans.requiresAny.bookings': 'বুকিং', 'plans.requiresAny.contacts': 'যোগাযোগ',
+    'plans.missingRequirement': 'প্রথমে {names} চালু থাকা দরকার।',
+    'plans.or': 'অথবা',
+
+    'plans.status.trialing': 'ট্রায়াল', 'plans.status.pastDue': 'পেমেন্ট বকেয়া', 'plans.status.paused': 'সাময়িক বন্ধ',
+    'plans.status.cancelling': 'বাতিল হচ্ছে', 'plans.status.active': 'সক্রিয়', 'plans.status.stopped': 'বন্ধ',
+
+    'plans.riyalPerMonth': 'রিয়াল / মাস',
+    'plans.includesTax': 'ভ্যাটসহ',
+    'plans.aiFreeMonthly': 'প্রতি মাসে বিনামূল্যে AI — আপনার সাবস্ক্রিপশনের সাথে উপহার',
+    'plans.discountBadge': '{percent}% ছাড় — কারণ আপনার কাছে {app} আছে',
+    'plans.potentialDiscount.title': 'এই অ্যাপে {percent}% সাশ্রয় করুন',
+    'plans.potentialDiscount.desc': '"{app}" চালু করুন এবং স্বয়ংক্রিয়ভাবে ছাড় পান',
+    'plans.noFeaturesPermission': 'এই অ্যাপের ফিচার পড়ার অনুমতি নেই',
+    'plans.renewsOn': '{date} তারিখে নবায়ন হবে',
+    'plans.appearsIn': '"{section}"-এ দেখা যায়',
+    'plans.cancelPendingDefault': 'মেয়াদ শেষের পর নবায়ন হবে না।',
+    'plans.undoing': 'ফিরিয়ে নেওয়া হচ্ছে…',
+    'plans.undoCancelRenewal': 'নবায়ন বাতিল ফিরিয়ে নিন',
+    'plans.cancellingSwitch': 'বাতিল হচ্ছে…',
+    'plans.undoSwitch': 'পরিবর্তন ফিরিয়ে নিন',
+    'plans.stopping': 'বন্ধ হচ্ছে…',
+    'plans.cancelRenewalDefault': 'নবায়ন বাতিল করুন',
+    'plans.switching': 'পরিবর্তন হচ্ছে…',
+    'plans.checkingSubscription': 'আপনার সাবস্ক্রিপশন যাচাই করা হচ্ছে…',
+    'plans.genericUnit': 'একক',
+
+    'plans.capacity.pricePerUnit': 'প্রতি {unit} {price} রিয়াল / মাস',
+    'plans.capacity.countAriaLabel': '{name} এর সংখ্যা',
+    'plans.capacity.decreaseAriaLabel': '{unit} কমান',
+    'plans.capacity.increaseAriaLabel': '{unit} বাড়ান',
+    'plans.capacity.totalRiyals': '{amount} রিয়াল',
+
+    'plans.error.cancelSubscription': 'সাবস্ক্রিপশন বাতিল করা যায়নি।',
+    'plans.error.cancelApp': 'অ্যাপের নবায়ন বাতিল করা যায়নি।',
+    'plans.notice.scheduledDowngrade': 'বর্তমান মেয়াদের শেষে আপনার সাবস্ক্রিপশন "{name}"-এ পরিবর্তিত হবে, নতুন মেয়াদের পূর্ণ মূল্যে — এর আগে কোনো পার্থক্য কাটা বা যোগ করা হবে না।',
+    'plans.notice.switchedWithProration': 'আপনার সাবস্ক্রিপশন "{name}"-এ পরিবর্তিত হয়েছে। এই মেয়াদের বাকি অংশের জন্য দামের পার্থক্য {amount} রিয়াল নেওয়া হয়েছে।',
+    'plans.notice.switched': 'আপনার সাবস্ক্রিপশন "{name}"-এ পরিবর্তিত হয়েছে।',
+    'plans.error.changePlan': 'সাবস্ক্রিপশন পরিবর্তন করা যায়নি।',
+    'plans.error.changeQuantity': 'সংখ্যা পরিবর্তন করা যায়নি।',
+    'plans.error.undoSwitch': 'পরিবর্তন ফিরিয়ে নেওয়া যায়নি।',
+    'plans.error.undoCancelRenewal': 'নবায়ন বাতিল ফিরিয়ে নেওয়া যায়নি।',
+    'plans.error.activateSubscription': 'সাবস্ক্রিপশন চালু করা যায়নি।',
+    'plans.paymentMethodUpdated': 'পেমেন্ট কার্ড আপডেট হয়েছে।',
+    'plans.error.updateCard': 'কার্ড আপডেট করা যায়নি।',
+
+    'plans.pastDue.title': 'শেষ পেমেন্ট চেষ্টা ব্যর্থ হয়েছে। আপনার সাবস্ক্রিপশন বন্ধ না হতে আপনার কার্ড আপডেট করুন।',
+    'plans.updatePaymentMethod': 'পেমেন্ট কার্ড আপডেট করুন',
+    'plans.verifyingCard': 'আপনার কার্ড যাচাই করা হচ্ছে…',
+
+    'plans.confirmCancelTitle': 'সাবস্ক্রিপশন নবায়ন বাতিলের নিশ্চিতকরণ',
+    'plans.cancelBody.withDate': 'আপনার দোকান {date} পর্যন্ত কোনো পরিবর্তন ছাড়াই চলতে থাকবে, এরপর সাবস্ক্রিপশন নবায়ন হবে না। আপনার থেকে অতিরিক্ত কিছু কাটা হবে না।',
+    'plans.cancelBody.noDate': 'আপনি যে মেয়াদের টাকা দিয়েছেন তার শেষ পর্যন্ত আপনার দোকান কোনো পরিবর্তন ছাড়াই চলতে থাকবে, এরপর সাবস্ক্রিপশন নবায়ন হবে না।',
+    'plans.cancelBody.alsoStops': 'এর সাথে এগুলোও বন্ধ হবে: {names} — একই তারিখে।',
+    'plans.appFallback': 'অ্যাপ',
+    'plans.confirmCancelRenewal': 'নবায়ন বাতিল নিশ্চিত করুন',
+    'plans.back': 'পেছনে',
+
+    'plans.confirmCancelAppTitle': '"{name}" নবায়ন বাতিলের নিশ্চিতকরণ',
+    'plans.cancelAppBody.withDate': '"{name}" {date} পর্যন্ত কোনো পরিবর্তন ছাড়াই চলতে থাকবে, এরপর নবায়ন হবে না। আপনার থেকে অতিরিক্ত কিছু কাটা হবে না।',
+    'plans.cancelAppBody.noDate': 'আপনি যে মেয়াদের টাকা দিয়েছেন তার শেষ পর্যন্ত "{name}" কোনো পরিবর্তন ছাড়াই চলতে থাকবে, এরপর নবায়ন হবে না।',
+    'plans.cascadeWarning': 'এর পর আপনার দোকানে আর ভিজিট রেকর্ড বা বুকিং থাকবে না — আর {names} এগুলোর ওপর নির্ভরশীল, তাই উপরের একই শর্তে তাদের নবায়নও স্বয়ংক্রিয়ভাবে বন্ধ হবে।',
+
+    'plans.confirmChangeTitle': '"{name}"-এ পরিবর্তনের নিশ্চিতকরণ',
+    'plans.changeBody.upgrade': 'এই মেয়াদের বাকি অংশের দামের পার্থক্য আপনার কার্ড থেকে নেওয়ার পর, আপনার নতুন সাবস্ক্রিপশনের সীমা তাৎক্ষণিকভাবে কার্যকর হবে।',
+    'plans.changeBody.downgrade': 'আপনার বর্তমান সাবস্ক্রিপশন বর্তমান মেয়াদের শেষ পর্যন্ত একই থাকবে — এখন কিছু কাটা হবে না। পরবর্তী নবায়নে "{name}"-এর দাম ও সীমা শুরু হবে।',
+    'plans.confirmSwitch': 'পরিবর্তন নিশ্চিত করুন',
+
+    'plans.switched.title': 'পরিবর্তিত হয়েছে ✓',
+    'plans.ok': 'ঠিক আছে',
+    'plans.cardSoon.title': 'কার্ডে পেমেন্ট শীঘ্রই আসছে',
+    'plans.paymentClosed.title': 'পেমেন্ট সাময়িকভাবে বন্ধ',
+    'plans.subscribed.title': 'সাবস্ক্রাইব হয়েছে ✓',
+    'plans.connectWhatsappNow': 'এখনই আমার হোয়াটসঅ্যাপ সংযুক্ত করুন',
+    'plans.later': 'পরে',
+
+    'plans.section.base': 'মূল সাবস্ক্রিপশন',
+    'plans.section.capacity': 'ক্ষমতা',
+    'plans.section.apps': 'অ্যাপসমূহ',
+    'plans.needsBaseFirst': 'চালু হওয়ার পর মূল সাবস্ক্রিপশনে যোগ হবে।',
+
+    'plans.base.ownedLabel': 'আপনার সাবস্ক্রিপশন',
+    'plans.base.buyLabel': 'মূল সাবস্ক্রিপশন চালু করুন',
+    'plans.base.switchUpgrade': 'এতে পরিবর্তন করুন',
+    'plans.base.switchDowngrade': 'নবায়নে পরিবর্তন নির্ধারণ করুন',
+    'plans.base.cancelLabel': 'সাবস্ক্রিপশন নবায়ন বাতিল করুন',
+    'plans.base.cancelPendingWithDate': 'আপনার সাবস্ক্রিপশন {date} পর্যন্ত চলবে এবং এরপর নবায়ন হবে না।',
+    'plans.base.cancelPendingNoDate': 'বর্তমান মেয়াদ শেষের পর আপনার সাবস্ক্রিপশন নবায়ন হবে না।',
+    'plans.base.switchPendingWithDate': '{date} তারিখে পূর্ণ মূল্যে "{name}"-এ পরিবর্তিত হবে।',
+    'plans.base.switchPendingNoDate': 'বর্তমান মেয়াদ শেষে "{name}"-এ পরিবর্তিত হবে।',
+
+    'plans.app.ownedLabel': 'চালু',
+    'plans.app.buyLabel': 'যোগ করুন',
+    'plans.app.cancelLabel': 'এই অ্যাপের নবায়ন বাতিল করুন',
   },
 });

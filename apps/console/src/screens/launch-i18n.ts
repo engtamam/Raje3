@@ -3,11 +3,11 @@
  * for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -331,5 +331,69 @@ registerOperatorStrings({
     'launch.weekday.fri': 'Biyernes',
     'launch.weekday.sat': 'Sabado',
     'launch.weekday.sun': 'Linggo',
+  },
+  bn: {
+    'launch.freeBlank.announce': 'নতুন কী?',
+    'launch.freeBlank.default': 'বার্তার লেখা',
+    'launch.previewFailed': 'ক্যাম্পেইন প্রিভিউ করা যায়নি।',
+    'launch.waitingGoals': 'ক্যাম্পেইনের লক্ষ্য লোড হচ্ছে…',
+    'launch.sentTitle': 'ক্যাম্পেইন চালু হয়েছে ✓',
+    'launch.done': 'সম্পন্ন',
+    'launch.changeGoal': 'লক্ষ্য পরিবর্তন করুন',
+    'launch.viewOrEditMessage': 'এই বার্তা দেখুন বা সম্পাদনা করুন',
+    'launch.ownerText.placeholder': 'উদাহরণ: আমরা আল-ইয়াসমিনে একটি শাখা খুলেছি',
+    'launch.discountLabel': 'ছাড়ের পরিমাণ',
+    'launch.discountKindAria': 'ছাড়ের ধরন',
+    'launch.discountKind.pct': '%',
+    'launch.discountKind.sar': 'রিয়াল',
+    'launch.discountPreviewNote': 'বার্তায় যেমন আছে তেমনই দেখাবে — {value}।',
+    'launch.offerEndsLabel': 'অফার বৈধ যতদিন',
+    'launch.offerEndsNote': 'আপনার গ্রাহককে বার্তায় ও তার পেজে দেখানো হয়, এবং এরপর নিজে থেকেই বাতিল হয়ে যায়।',
+    'launch.occasionDateLabel': 'উপলক্ষের দিন',
+    'launch.occasionDateNote': 'সেই সকালেই পাঠানো হবে; এখনই পাঠাতে খালি রাখুন।',
+    'launch.packagePickLabel': 'কোন প্যাকেজে?',
+    'launch.packagePickPlaceholder': 'একটি প্যাকেজ বেছে নিন',
+    'launch.servicePickLabel': 'কোন সেবায়?',
+    'launch.servicePickPlaceholder': 'একটি সেবা বেছে নিন',
+    'launch.branchPickLabel': 'কোন শাখার জন্য?',
+    'launch.allBranches': 'সব শাখা',
+    'launch.branchPickNote': 'যারা সর্বশেষ এই শাখায় এসেছিল তাদের কাছে পৌঁছায় — গ্রাহক তার প্রথম ভিজিটে তার শাখার সাথে চলে যায়।',
+    'launch.reaches.prefix': 'পৌঁছায়',
+    'launch.reaches.suffix': 'জন গ্রাহকের কাছে',
+    'launch.excludedNote': '{n} জন মার্কেটিংয়ে রাজি হননি বা আজকের সীমা পূর্ণ করেছেন।',
+    'launch.tooRecentNote': '{n} জন সম্প্রতি এই সেবা নিয়েছেন — তারা যা কিনেছেন তা আমরা আবার তাদের দেখাই না।',
+    'launch.previewButton': 'কী যাবে তা দেখান',
+    'launch.sentSummary': '{n} জন গ্রাহকের কাছে পৌঁছায়।',
+    'launch.launchFailed': 'ক্যাম্পেইন চালু করা যায়নি।',
+    'launch.launchButton': 'ক্যাম্পেইন চালু করুন',
+    'launch.cancel': 'বাতিল',
+    'launch.step1.prompt': 'আপনি কী অর্জন করতে চান?',
+    'launch.goalsReadFailed': 'এখন লক্ষ্যগুলো পড়া যায়নি — এটা আমাদের ত্রুটি। একটু পরে আবার চেষ্টা করুন।',
+    'launch.goalsDenied': 'ক্যাম্পেইন চালু করা আপনার ভূমিকার অংশ নয়।',
+    'launch.noGoalsAvailable': 'এখন কোনো লক্ষ্য নেই।',
+    'launch.search.placeholder': 'একটি লক্ষ্য খুঁজুন…',
+    'launch.category.all': 'সব',
+    'launch.when.title': 'কখন চালু হবে?',
+    'launch.when.now': 'এখনই',
+    'launch.when.later': 'পরের তারিখে',
+    'launch.when.dateLabel': 'তারিখ',
+    'launch.when.hourLabel': 'সময়',
+    'launch.window.title': 'পুনরাবৃত্ত পাঠানোর সময়/দিন (ঐচ্ছিক)',
+    'launch.window.hint': 'এই ক্যাম্পেইন যতদিন চলবে, শুধু এই সময় ও দিনগুলোতেই পাঠানো হবে।',
+    'launch.window.hoursLabel': 'সময়',
+    'launch.window.fromLabel': 'থেকে',
+    'launch.window.toLabel': 'পর্যন্ত',
+    'launch.window.daysLabel': 'দিন',
+    'launch.preview.bookingButton': 'এখনই আপনার অ্যাপয়েন্টমেন্ট বুক করুন',
+    'launch.preview.carouselNote': 'আপনার দোকানে হোয়াটসঅ্যাপ বুকিং চালু নেই — এই বার্তাটি একটি বাবলের বদলে ছবির কার্ড হিসেবে পৌঁছাতে পারে।',
+    'launch.goalStats.uses': '{n} বার ব্যবহৃত হয়েছে',
+    'launch.goalStats.reach': '{n} জনের কাছে পৌঁছেছে',
+    'launch.weekday.mon': 'সোমবার',
+    'launch.weekday.tue': 'মঙ্গলবার',
+    'launch.weekday.wed': 'বুধবার',
+    'launch.weekday.thu': 'বৃহস্পতিবার',
+    'launch.weekday.fri': 'শুক্রবার',
+    'launch.weekday.sat': 'শনিবার',
+    'launch.weekday.sun': 'রবিবার',
   },
 });

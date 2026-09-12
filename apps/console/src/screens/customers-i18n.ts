@@ -3,11 +3,11 @@
  * header for why this is a small per-screen file rather than one giant dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -296,5 +296,62 @@ registerOperatorStrings({
     'customers.ask.open': 'Buksan ang record niya',
     'customers.ask.markAnswered': 'Markahang nasagot',
     'customers.ask.erasureNote': 'Ang "Markahang nasagot" ay nagrerekord na sumagot ka, at walang binubura. Ang pagbura ay nasa sariling page ng customer.',
+  },
+  bn: {
+    'customers.ago.today': 'আজ',
+    'customers.ago.yesterday': 'গতকাল',
+    'customers.ago.twoDaysAgo': 'দুই দিন আগে',
+    'customers.ago.daysAgo': '{n} দিন আগে',
+
+    'customers.title': 'আমার গ্রাহক',
+
+    'customers.asks.title': 'তথ্যের অনুরোধ ({n})',
+    'customers.asks.body': 'গ্রাহকরা তাদের নিজস্ব পৃষ্ঠা থেকে তাদের তথ্যের কপি অথবা মুছে ফেলার অনুরোধ করেছে। এর উত্তর দেওয়া আপনার আইনি দায়িত্ব, অনুরোধের তারিখ থেকে ত্রিশ দিনের মধ্যে।',
+
+    'customers.tabsAriaLabel': 'গ্রাহকের বিভাগ',
+    'customers.tab.all': 'আমার গ্রাহক',
+    'customers.tab.overdue': 'দেরি হয়েছে যাদের',
+    'customers.overdueHint': 'তাদের স্বাভাবিক চক্র থেকে দেরি হয়েছে যাদের',
+
+    'customers.searchPlaceholder': 'মোবাইল নম্বর বা নাম দিয়ে খুঁজুন',
+
+    'customers.addCustomer': 'গ্রাহক যোগ করুন',
+    'customers.addCustomer.title': 'নতুন গ্রাহক যোগ করুন',
+    'customers.addCustomer.phone': 'মোবাইল নম্বর',
+    'customers.addCustomer.name': 'নাম (ঐচ্ছিক)',
+    'customers.addCustomer.submit': 'যোগ করুন',
+    'customers.addCustomer.cancel': 'ফিরে যান',
+    'customers.addCustomer.genericError': 'যোগ করা যায়নি। একটু পরে আবার চেষ্টা করুন।',
+
+    'customers.readError.title': 'পড়া যায়নি',
+    'customers.readError.desc': 'এখন তালিকা আনা যায়নি — এটি আমাদের ত্রুটি, আপনার দোকানের নয়। একটু পরে আবার চেষ্টা করুন।',
+    'customers.denied.overdueTitle': 'আপনার ভূমিকায় দেরি হওয়াদের ট্র্যাকিং অন্তর্ভুক্ত নেই',
+    'customers.denied.allTitle': 'আপনার ভূমিকায় গ্রাহক তালিকা অন্তর্ভুক্ত নেই',
+    'customers.denied.desc': 'এই বিভাগ প্রয়োজন হলে দোকানের মালিকের সাথে যোগাযোগ করুন।',
+    'customers.emptyOverdue.title': 'কারো দেরি হয়নি',
+    'customers.emptyOverdue.desc': 'প্রতিটি গ্রাহক হয় সময়মতো এসেছে অথবা তাদের রিমাইন্ডারের সময় এখনো আসেনি।',
+    'customers.emptySearch.title': 'কোনো ফলাফল নেই',
+    'customers.emptySearch.desc': 'নম্বরটি যাচাই করুন, অথবা এই গ্রাহকের জন্য নতুন ভিজিট নথিভুক্ত করুন।',
+    'customers.emptyNone.title': 'এখনো কোনো গ্রাহক নেই',
+    'customers.emptyNone.desc': '"ভিজিট নথিভুক্ত করুন" থেকে প্রথম ভিজিট নথিভুক্ত করুন — গ্রাহক তার ভিজিটের মাধ্যমে তৈরি হয়।',
+
+    'customers.legend.overdue': 'তালিকার এই ট্যাগের অর্থ: তার স্বাভাবিক চক্র থেকে দেরি',
+    'customers.legend.marketingOff': 'তালিকার এই ট্যাগের অর্থ: মার্কেটিং গ্রহণ বন্ধ করেছে',
+
+    'customers.noName': 'নাম নেই',
+    'customers.lastVisit': 'শেষ ভিজিট {ago}',
+    'customers.visitCount': '· {n}টি ভিজিট',
+    'customers.overdueBadge': 'দেরি',
+    'customers.marketingOffBadge': 'মার্কেটিং বন্ধ',
+
+    'customers.ask.erasureType': 'তার তথ্য মুছতে অনুরোধ করেছে',
+    'customers.ask.copyType': 'তার তথ্যের কপি অনুরোধ করেছে',
+    'customers.ask.lookupFailed': 'অনুরোধকারীকে শনাক্ত করা যায়নি',
+    'customers.ask.noSuchCustomer': 'আপনার রেকর্ডে এই রেফারেন্স দিয়ে কোনো গ্রাহক নেই',
+    'customers.ask.resolving': '…',
+    'customers.ask.openForErasure': 'মুছে ফেলা কার্যকর করতে তার রেকর্ড খুলুন',
+    'customers.ask.open': 'তার রেকর্ড খুলুন',
+    'customers.ask.markAnswered': 'উত্তর দেওয়া হয়েছে চিহ্নিত করুন',
+    'customers.ask.erasureNote': '"উত্তর দেওয়া হয়েছে" শুধু নথিভুক্ত করে যে আপনি জবাব দিয়েছেন, কিছু মোছে না। মোছা হয় গ্রাহকের নিজস্ব পৃষ্ঠা থেকে।',
   },
 });

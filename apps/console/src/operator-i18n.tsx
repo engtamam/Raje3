@@ -18,13 +18,14 @@
  * DIRECTION IS A TABLE, NOT A TERNARY. `@base-ui/i18n`'s `applyDir` hardcodes ar→rtl/else→ltr,
  * which breaks the moment a second RTL language exists. Urdu is RTL (Perso-Arabic script);
  * Hausa and Filipino are LTR (Latin script) despite Hausa historically also having an Arabic-
- * script (Ajami) tradition — the modern standard "Boko" orthography used here is Latin.
+ * script (Ajami) tradition — the modern standard "Boko" orthography used here is Latin. Bengali
+ * (Bangla script) is also LTR.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { getMyLocale, setMyLocale } from './api';
 import type { Session } from './session';
 
-export type OperatorLocale = 'ar' | 'en' | 'ur' | 'ha' | 'fil';
+export type OperatorLocale = 'ar' | 'en' | 'ur' | 'ha' | 'fil' | 'bn';
 
 export const OPERATOR_LOCALES: { value: OperatorLocale; label: string }[] = [
   { value: 'ar', label: 'العربية' },
@@ -32,6 +33,7 @@ export const OPERATOR_LOCALES: { value: OperatorLocale; label: string }[] = [
   { value: 'ur', label: 'اردو' },
   { value: 'ha', label: 'Hausa' },
   { value: 'fil', label: 'Filipino' },
+  { value: 'bn', label: 'বাংলা' },
 ];
 
 const RTL_LOCALES: ReadonlySet<OperatorLocale> = new Set(['ar', 'ur']);

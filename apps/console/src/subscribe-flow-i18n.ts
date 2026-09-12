@@ -19,4 +19,8 @@ registerOperatorStrings({
   fil: {
     'subscribeFlow.error.activate': 'Hindi ma-activate ang subscription — subukang muli.',
   },
+  // MACHINE-ASSISTED, NOT NATIVE-REVIEWED.
+  bn: {
+    'subscribeFlow.error.activate': 'সাবস্ক্রিপশন চালু করা যায়নি — আবার চেষ্টা করুন।',
+  },
 });

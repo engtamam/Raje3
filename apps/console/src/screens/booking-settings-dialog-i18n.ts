@@ -4,11 +4,11 @@
  * dictionary).
  *
  * MACHINE-ASSISTED, NOT NATIVE-REVIEWED. ar/en are the product's own, written with the same care
- * as the screen itself. ur/ha/fil were produced in this pass to unblock the mechanism end to end
+ * as the screen itself. ur/ha/fil/bn were produced in this pass to unblock the mechanism end to end
  * — get a real operator reading his own language today rather than none at all — but they have
  * NOT been checked by a native speaker. Flagged explicitly rather than shipped silently: a wrong
  * word here is a worse failure than the Arabic fallback it replaces. Review before this reaches a
- * shop that actually has Urdu/Hausa/Filipino-speaking staff on the floor.
+ * shop that actually has Urdu/Hausa/Filipino/Bengali-speaking staff on the floor.
  */
 import { registerOperatorStrings } from '../operator-i18n';
 
@@ -182,5 +182,39 @@ registerOperatorStrings({
     'bookingSettings.algo.leastLoaded.hint': 'Pantay na ipinapamahagi — mas pinipili ang staff na may mas kaunting booking sa parehong yugto ng panahon.',
     'bookingSettings.algo.manualOrder.label': 'Manu-manong ayos',
     'bookingSettings.algo.manualOrder.hint': 'Inaayos mo ang staff nang isang beses, at ang una sa ayos ay laging pinipili kapag pantay ang puntos.',
+  },
+  bn: {
+    'bookingSettings.title': 'বুকিং সেটিংস',
+    'bookingSettings.tabsAriaLabel': 'সেটিংস ট্যাব',
+    'bookingSettings.tab.hours': 'কাজের সময়',
+    'bookingSettings.tab.assignment': 'বণ্টন পদ্ধতি',
+    'bookingSettings.cancel': 'বাতিল',
+    'bookingSettings.saving': 'সংরক্ষণ হচ্ছে…',
+    'bookingSettings.save': 'সংরক্ষণ করুন',
+
+    'bookingSettings.day.0': 'সোমবার', 'bookingSettings.day.1': 'মঙ্গলবার',
+    'bookingSettings.day.2': 'বুধবার', 'bookingSettings.day.3': 'বৃহস্পতিবার',
+    'bookingSettings.day.4': 'শুক্রবার', 'bookingSettings.day.5': 'শনিবার',
+    'bookingSettings.day.6': 'রবিবার',
+
+    'bookingSettings.hours.open': 'খোলা',
+    'bookingSettings.hours.to': 'পর্যন্ত',
+    'bookingSettings.hours.closed': 'বন্ধ',
+    'bookingSettings.hours.policyHint': 'সব শাখার জন্য একটাই নীতি — এখানে একবার সেট করুন, প্রয়োজন হলে যেকোনো সময় বদলান।',
+    'bookingSettings.hours.saveFailed': 'কাজের সময় সংরক্ষণ করা যায়নি।',
+
+    'bookingSettings.assignment.algoAriaLabel': 'বণ্টন অ্যালগরিদম',
+    'bookingSettings.assignment.hint': 'শুধু "স্বয়ংক্রিয়" সেবার জন্য — একই সময়ে একাধিক যোগ্য স্টাফ খালি থাকলে অ্যাপয়েন্টমেন্ট কাকে দেওয়া হবে তা ঠিক করে।',
+    'bookingSettings.assignment.noStaff': 'এখনো কোনো সক্রিয় ফিল্ড স্টাফ নেই।',
+    'bookingSettings.assignment.moveUp': '{name} কে উপরে সরান',
+    'bookingSettings.assignment.moveDown': '{name} কে নিচে সরান',
+    'bookingSettings.assignment.saveFailed': 'বণ্টন পদ্ধতি সংরক্ষণ করা যায়নি।',
+
+    'bookingSettings.algo.nearest.label': 'নিকটতম অ্যাপয়েন্টমেন্ট',
+    'bookingSettings.algo.nearest.hint': 'খালি সময় আছে এমন প্রথম যোগ্য স্টাফ — কোনো অতিরিক্ত সেটআপ ছাড়াই, ঠিক আজকের চলমান নিয়ম অনুযায়ী।',
+    'bookingSettings.algo.leastLoaded.label': 'সবচেয়ে কম ব্যস্ত',
+    'bookingSettings.algo.leastLoaded.hint': 'সমানভাবে বণ্টন করা হয় — একই সময়ে যার বুকিং কম, তাকেই প্রাধান্য দেওয়া হয়।',
+    'bookingSettings.algo.manualOrder.label': 'নিজে ক্রম ঠিক করুন',
+    'bookingSettings.algo.manualOrder.hint': 'আপনি একবার স্টাফদের ক্রম ঠিক করে দেন, এবং সমতা হলে সবসময় ক্রমে প্রথম জনকেই প্রাধান্য দেওয়া হয়।',
   },
 });
