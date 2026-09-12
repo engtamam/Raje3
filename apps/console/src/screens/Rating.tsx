@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Star, Users, MessageSquareText, Download, ChevronLeft, ExternalLink, Medal,
+  Star, Users, MessageSquareText, Download, ChevronLeft, ExternalLink,
 } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { KpiCard } from '../rj-ui/KpiCard';
@@ -67,6 +67,25 @@ function StarRow({ n, size = 14 }: { n: number; size?: number }) {
         <Star key={i} size={size} className={i < Math.round(n) ? 'fill-warning text-warning' : 'text-text-muted'} />
       ))}
     </span>
+  );
+}
+
+/** The podium's own medal — real artwork ported verbatim from the approved violet mockup
+ *  (`.rating-medal`/`.rating-podium-card` in index.css), not a simplified stand-in: rank 1's disc
+ *  is brand violet with a sheen sweep across the whole card, ranks 2/3 stay the universal silver/
+ *  bronze every ranking convention already uses (unrelated to brand identity). WESTERN DIGITS in
+ *  the disc — the mockup's own Eastern-Arabic numerals do not survive `ci/check_deploy_wiring.py`'s
+ *  platform-wide "digits are always western" rule, the one deliberate departure from the mockup's
+ *  literal pixels, forced by a real, pre-existing platform constraint rather than by convenience. */
+function RankMedal({ rank }: { rank: 1 | 2 | 3 }) {
+  return (
+    <div className={`rating-medal rank-${rank}`}>
+      <svg className="rating-medal-ribbon" viewBox="0 0 26 30" aria-hidden>
+        <path className="a" d="M4 0h8l6 20-10-6-10 6L4 0Z" />
+        <path className="b" d="M14 0h8l-6 20-4-2 2-18Z" />
+      </svg>
+      <div className="rating-medal-disc">{rank}</div>
+    </div>
   );
 }
 
@@ -263,22 +282,28 @@ function OverviewTab({ staff, metric, setMetric, exportAvailable, exporting, exp
           options={(Object.keys(METRICS) as MetricKey[]).map((k) => ({ value: k, label: t(METRICS[k].labelKey) }))}
         />
 
+        {/* SAME VISUAL ORDER AS THE APPROVED MOCKUP — rank 2 on one side, rank 1 in the middle
+            (raised above its neighbours, same as a real podium), rank 3 on the other. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {podium.map((s, i) => (
-            <div key={s.operator_id}
-                className={
-                  'flex flex-col items-center gap-1.5 rounded-card border p-4 text-center shadow-sm ' +
-                  (i === 0 ? 'border-accent/40 bg-accent-soft' : 'border-border-subtle bg-surface-1')
-                }>
-              <span className={'grid size-11 place-items-center rounded-full text-sm font-bold ' +
-                               (i === 0 ? 'bg-accent text-accent-contrast' : i === 1 ? 'bg-surface-3 text-text-primary' : 'bg-warning-soft text-warning-on-soft')}>
-                {i === 0 ? <Medal size={18} aria-hidden /> : i + 1}
-              </span>
-              <p className="font-bold">{s.operator_name || t('rating.card.noName')}</p>
-              <p className="text-sm text-text-secondary tabular-nums">{tf(t, METRICS[metric].unitKey, { n: metric === 'avg' ? s.average_rating.toFixed(1) : METRICS[metric].value(s) })}</p>
-              <p className="text-[11px] text-text-muted">{t(METRICS[metric].labelKey)}</p>
-            </div>
-          ))}
+          {[podium[1], podium[0], podium[2]].map((s, slot) => {
+            const rank = ([2, 1, 3] as const)[slot];
+            if (!s) return <div key={rank} aria-hidden />;
+            return (
+              <div key={s.operator_id}
+                  className={
+                    'rating-podium-card flex flex-col items-center gap-1.5 rounded-card border p-4 text-center shadow-sm ' +
+                    (rank === 1 ? 'rank-1' : 'border-border-subtle bg-surface-1') +
+                    (rank === 3 ? ' sm:mt-4' : rank === 2 ? ' sm:mt-2' : '')
+                  }>
+                <RankMedal rank={rank} />
+                <p className="font-bold">{s.operator_name || t('rating.card.noName')}</p>
+                <p className={'text-sm tabular-nums ' + (rank === 1 ? 'text-accent' : 'text-text-secondary')}>
+                  {tf(t, METRICS[metric].unitKey, { n: metric === 'avg' ? s.average_rating.toFixed(1) : METRICS[metric].value(s) })}
+                </p>
+                <p className={'text-[11px] ' + (rank === 1 ? 'text-[#b7a8ea]' : 'text-text-muted')}>{t(METRICS[metric].labelKey)}</p>
+              </div>
+            );
+          })}
         </div>
 
         {rest.length > 0 ? (

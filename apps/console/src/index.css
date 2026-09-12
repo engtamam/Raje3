@@ -420,3 +420,89 @@ button.bg-transparent.text-text-secondary:hover {
   border-radius: 3px;
   background: #d4af37;
 }
+
+/* ── «التقييم»'s OWN PODIUM MEDALS — the real artwork from the approved violet mockup
+ * (rating-app-screen-pitch-violet.html), ported verbatim rather than simplified into a plain
+ * numbered badge (an earlier pass did exactly that "to save time" and was rightly rejected —
+ * an approved mockup's visual detail is part of the spec, not an optional flourish to cut when
+ * short on time; see match-approved-designs-exactly.md).
+ *
+ * RANK 1's DISC IS BRAND VIOLET; RANKS 2/3 STAY SILVER/BRONZE — a universal ranking-metal
+ * convention unrelated to brand identity, same distinction this session already drew for the
+ * star-rating glyphs (gold, deliberately, everywhere) versus the brand accent (violet).
+ */
+.rating-podium-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.rating-podium-card.rank-1 {
+  background: linear-gradient(160deg, #241640 0%, #120a24 70%);
+  border-color: rgba(143, 116, 255, 0.5);
+  color: #f6efdd;
+  box-shadow: 0 0 0 1px rgba(143, 116, 255, 0.28), 0 24px 70px -20px rgba(0, 0, 0, 0.6), 0 4px 18px -6px rgba(0, 0, 0, 0.45);
+}
+.rating-podium-card.rank-1::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(220, 210, 255, 0.22) 48%, transparent 62%);
+  background-size: 240% 240%;
+  animation: rj-gold-sheen 5s ease-in-out infinite;
+}
+.rating-podium-card.rank-1 > * { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .rating-podium-card.rank-1::before { animation: none; }
+}
+
+.rating-medal {
+  position: relative;
+  width: 56px;
+  height: 66px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+}
+.rating-medal .rating-medal-ribbon {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 30px;
+  z-index: 0;
+}
+.rating-medal .rating-medal-disc {
+  position: relative;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-top: 14px;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 3px 8px -2px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+.rating-medal.rank-1 .rating-medal-disc {
+  background: radial-gradient(120% 120% at 30% 20%, #c9baff, #8f74ff 55%, #6a4cf5);
+  color: #1c1240;
+}
+.rating-medal.rank-1 .rating-medal-ribbon .a { fill: #4c34b0; }
+.rating-medal.rank-1 .rating-medal-ribbon .b { fill: #6a4cf5; }
+.rating-medal.rank-2 .rating-medal-disc {
+  background: radial-gradient(120% 120% at 30% 20%, #f2efe8, #c7c1b3 55%, #9b9585);
+  color: #3a3627;
+}
+.rating-medal.rank-2 .rating-medal-ribbon .a { fill: #2f4f6b; }
+.rating-medal.rank-2 .rating-medal-ribbon .b { fill: #3f6a8f; }
+.rating-medal.rank-3 .rating-medal-disc {
+  background: radial-gradient(120% 120% at 30% 20%, #e8bd93, #c58a4e 55%, #8f5c28);
+  color: #3a2510;
+}
+.rating-medal.rank-3 .rating-medal-ribbon .a { fill: #274a34; }
+.rating-medal.rank-3 .rating-medal-ribbon .b { fill: #356647; }
