@@ -255,3 +255,45 @@ def test_no_offerable_peer_wired_at_all_never_blocks_a_package_campaign(st):
     d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"))
     res = run(d.fire(PACKAGE_CAMPAIGN, now=NOW))
     assert res.run.sent == 1
+
+
+# ── the owner's own window (2026-09-12) ──────────────────────────────────────────────────────────
+# NOW (1_800_000_000) is 11:00 Riyadh on a Friday (weekday 4) — see test_campaign_core.py's own
+# note pinning this same fact.
+def test_a_campaign_outside_its_own_window_sends_nothing_and_is_not_finished(st):
+    windowed = {**CAMPAIGN, "window_start_hour": 12, "window_end_hour": 20}
+    sender = Sender()
+    d = Dispatcher(store=st, sender=sender, audience_resolver=resolver("a"))
+    res = run(d.fire(windowed, now=NOW))
+    assert res.run.sent == 0
+    assert sender.calls == []
+    assert "خارج نافذة الحملة" in res.run.reasons
+    # NOT FINISHED, DELIBERATELY — unlike a package that stopped being offerable. The window is
+    # not a permanent refusal; the campaign must stay `active` and be retried on the next pass,
+    # not marked `done` the moment one pass happens to land outside it.
+    assert res.finished is False
+
+
+def test_a_campaign_inside_its_own_window_sends_normally(st):
+    windowed = {**CAMPAIGN, "window_start_hour": 8, "window_end_hour": 20}
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"))
+    res = run(d.fire(windowed, now=NOW))
+    assert res.run.sent == 1
+    assert res.finished is True
+
+
+def test_a_campaign_outside_its_own_weekday_sends_nothing():
+    st2 = MemoryDataStore()
+    # NOW is a Friday — narrowing to weekdays that exclude it must refuse, same as an hour miss.
+    windowed = {**CAMPAIGN, "window_weekdays": [0, 1, 2]}
+    d = Dispatcher(store=st2, sender=Sender(), audience_resolver=resolver("a"))
+    res = run(d.fire(windowed, now=NOW))
+    assert res.run.sent == 0
+    assert "خارج نافذة الحملة" in res.run.reasons
+
+
+def test_a_campaign_with_no_window_fields_at_all_is_unaffected(st):
+    """Backward compatible — a stored row from before this field existed carries no
+    `window_start_hour`/`window_end_hour`/`window_weekdays` keys at all, not even the defaults."""
+    res = fire(st, Sender(), resolver("a"))
+    assert res.run.sent == 1

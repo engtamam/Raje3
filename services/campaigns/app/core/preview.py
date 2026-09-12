@@ -202,18 +202,43 @@ def build(*, goal: str, template: dict[str, Any], establishment: str, owner_text
         when=when)
 
 
-def describe_when(*, trigger: str, inside_window: bool, next_open_hour: int = 7) -> str:
+_WEEKDAY_NAMES_AR = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
+
+
+def window_sentence(*, start_hour: int, end_hour: int, weekdays: list[int] | None) -> str:
+    """"بين الساعة 8 و20، أيام السبت والأحد فقط" — or "" when the campaign has no window of its
+    own (the `0, 24`/`[]` defaults) — that "" is what lets `describe_when` below append nothing
+    for every campaign that predates this field, unchanged.
+    """
+    if start_hour == 0 and end_hour == 24 and not weekdays:
+        return ""
+    parts = [f"بين الساعة {start_hour} و{end_hour}"]
+    if weekdays:
+        names = [_WEEKDAY_NAMES_AR[w] for w in sorted(set(weekdays)) if 0 <= w <= 6]
+        if names:
+            parts.append(f"أيام {'، '.join(names)} فقط")
+    return "، ".join(parts)
+
+
+def describe_when(*, trigger: str, inside_window: bool, next_open_hour: int = 7,
+                  own_window: str = "") -> str:
     """What will actually happen, in the owner's words.
 
     The third screen says this after they press send, and this line says it before — because
     "sends tomorrow at 9am" is a thing an owner may want to change their mind about, and learning
     it afterwards is learning it too late.
+
+    `own_window` — this CAMPAIGN's own configured window (`window_sentence()`, above), a separate
+    fact from `inside_window` (the platform's own daily send-window, reminders' `gate.py`). Both
+    can apply at once: a standing campaign still only fires within its own hours, and a scheduled
+    one still only fires within them once its `fire_at` arrives.
     """
+    suffix = f" تُرسَل فقط {own_window}." if own_window else ""
     if trigger == "standing":
-        return "تعمل تلقائياً كل يوم، وتصل من تنطبق عليه."
+        return "تعمل تلقائياً كل يوم، وتصل من تنطبق عليه." + suffix
     if not inside_window:
         return (f"تُرسَل غداً الساعة {next_open_hour} صباحاً — "
-                f"الآن خارج وقت الإرسال المسموح.")
+                f"الآن خارج وقت الإرسال المسموح.") + suffix
     if trigger == "scheduled":
-        return "تُرسَل في الموعد الذي حدّدته."
-    return "تُرسَل الآن."
+        return "تُرسَل في الموعد الذي حدّدته." + suffix
+    return "تُرسَل الآن." + suffix

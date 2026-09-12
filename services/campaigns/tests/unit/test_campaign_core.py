@@ -6,9 +6,11 @@ import asyncio
 import pytest
 
 from app.core.audience import DAY, DEFAULT_MAX_AUDIENCE, resolve
-from app.core.models import GOAL_TEMPLATE, Campaign, Run
+from app.core.models import GOAL_TEMPLATE, Campaign, Run, in_window, validate_window
 
 NOW = 1_800_000_000
+# NOW, in Riyadh local time, is Friday (weekday 4) at 11:00 — pinned here once so every window
+# test below states its own boundary against a fact, not a re-derived guess.
 
 
 def run(c):
@@ -148,3 +150,44 @@ def test_the_same_function_serves_the_preview_and_the_send():
     from app.core import audience as mod
     assert len([n for n in dir(mod) if n.startswith("resolve")]) == 1
     assert "gate_check" in inspect.signature(mod.resolve).parameters
+
+
+# ── the owner's own window (2026-09-12) ──────────────────────────────────────────────────────────
+def test_a_campaign_with_no_window_set_defaults_to_the_whole_day():
+    c = Campaign(tenant="t1", goal="service_offer")
+    assert c.window_start_hour == 0 and c.window_end_hour == 24 and c.window_weekdays == []
+
+
+def test_validate_window_refuses_an_end_before_or_equal_to_the_start():
+    assert validate_window(start_hour=10, end_hour=10, weekdays=None)
+    assert validate_window(start_hour=14, end_hour=8, weekdays=None)
+
+
+def test_validate_window_refuses_hours_outside_0_24():
+    assert validate_window(start_hour=-1, end_hour=10, weekdays=None)
+    assert validate_window(start_hour=8, end_hour=25, weekdays=None)
+
+
+def test_validate_window_refuses_an_unknown_weekday():
+    assert validate_window(start_hour=8, end_hour=20, weekdays=[7])
+
+
+def test_validate_window_accepts_a_coherent_window():
+    assert validate_window(start_hour=8, end_hour=20, weekdays=[4, 5]) == ""
+
+
+def test_a_campaign_with_no_window_is_always_in_window():
+    assert in_window(start_hour=0, end_hour=24, weekdays=None, now=NOW)
+
+
+def test_in_window_checks_the_hour_in_riyadh_local_time():
+    # NOW is 11:00 Riyadh.
+    assert in_window(start_hour=8, end_hour=20, weekdays=None, now=NOW)
+    assert not in_window(start_hour=12, end_hour=20, weekdays=None, now=NOW)
+    assert not in_window(start_hour=0, end_hour=11, weekdays=None, now=NOW)
+
+
+def test_in_window_checks_the_weekday_when_one_is_set():
+    # NOW is a Friday (weekday 4).
+    assert in_window(start_hour=0, end_hour=24, weekdays=[4], now=NOW)
+    assert not in_window(start_hour=0, end_hour=24, weekdays=[0, 1, 2], now=NOW)

@@ -28,6 +28,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.riyadh import local as riyadh_local
+
 CAMPAIGNS = "campaigns"
 RUNS = "campaign_runs"
 
@@ -85,6 +87,51 @@ OFFER_GOALS = ("service_offer", "package_offer", "win_back", "reward_loyal", "oc
 
 def offers_something(goal: str) -> bool:
     return goal in OFFER_GOALS
+
+
+# Same range Python's own `date.weekday()` returns — see `Campaign.window_weekdays`'s own note.
+_WEEKDAY_RANGE = range(0, 7)
+
+
+def validate_window(*, start_hour: int, end_hour: int, weekdays: list[int] | None) -> str:
+    """One Arabic sentence naming what is wrong with a campaign's own time window, or "" when the
+    combination is coherent — same shape and same calling convention as
+    `operations/core/scheduling.py::validate_recurrence`, checked at write time so a malformed
+    window is refused before it is ever stored, never discovered the first time a dispatch pass
+    silently skips every single one of its passes forever.
+    """
+    if not (0 <= start_hour <= 24):
+        return "ساعة البداية يجب أن تكون بين 0 و24"
+    if not (0 <= end_hour <= 24):
+        return "ساعة النهاية يجب أن تكون بين 0 و24"
+    if end_hour <= start_hour:
+        return "ساعة النهاية يجب أن تكون بعد ساعة البداية"
+    if weekdays and any(w not in _WEEKDAY_RANGE for w in weekdays):
+        return "أحد الأيام المختارة غير صحيح"
+    return ""
+
+
+def in_window(*, start_hour: int, end_hour: int, weekdays: list[int] | None, now: int) -> bool:
+    """Is `now` (Riyadh local) inside this window right now?
+
+    PLAIN VALUES, NOT A `Campaign` — every caller in this service (dispatch.py, tick.py) holds a
+    campaign as a raw stored dict, never a real dataclass instance; asking for one here would
+    just be reconstructed on the spot from a partial `.get(...)` sweep, which is the shape this
+    avoids.
+
+    A CAMPAIGN THAT NEVER SET A WINDOW (the `0, 24`/`[]` defaults) IS ALWAYS INSIDE IT — an owner
+    who never touches this field gets exactly the behaviour every campaign already had before
+    this existed. `end_hour == 24` reads as midnight, the true end of the Riyadh calendar day,
+    never a wrap past it — there is no "24:00 to 02:00" window; that shape is simply not
+    representable, the same honest limitation `operations/scheduling.py`'s own yearly-window wrap
+    logic exists specifically to handle for DAYS, not hours (this file does not attempt the hour
+    equivalent — a window that must cross midnight is two campaigns, not one, until a real need
+    for the wrap is reported).
+    """
+    local = riyadh_local(now)
+    if weekdays and local.weekday() not in weekdays:
+        return False
+    return start_hour <= local.hour < end_hour
 
 # Who fires it. Derived from the goal, never asked.
 TRIGGERS = ("manual", "scheduled", "standing")
@@ -199,6 +246,24 @@ class Campaign:
     last_evaluated: int = 0
     # Set when awareness fires. The card shows "available in N days" until it passes (spec §10.9).
     locked_until: int = 0
+    # ── THE OWNER'S OWN WINDOW, FOR AN OFFER CAMPAIGN ONLY (2026-09-12) ───────────────────────────
+    #
+    # WHY ONLY `OFFER_GOALS`. A window means «only true between these hours, on these days» — that
+    # is a fact about an OFFER (the counter can only honour it while it stands), never about an
+    # announcement or a care tip, which have nothing to be "true" only sometimes. Read at every
+    # dispatch pass (`dispatch.py::Dispatcher.fire`) exactly like `package_id`'s own re-check —
+    # never trusted as a one-time decision made at creation.
+    #
+    # `window_start_hour`/`window_end_hour` — Riyadh local hours, `[start, 24)` when `end == 24`
+    # (midnight, "until end of day" — not a magic sentinel, an honest boundary: there is no 24:00
+    # to wrap past). `0, 24` (the default) means "the whole day", i.e. no window at all — an owner
+    # who never touches this field gets exactly today's behaviour, unchanged.
+    window_start_hour: int = 0
+    window_end_hour: int = 24
+    # `[]` means every day. Same encoding operations/core/scheduling.py's `recurrence_weekdays`
+    # already uses (`date.weekday()`: Monday=0 .. Sunday=6) — a second, disagreeing convention for
+    # "which days" is the mistake this campaign is not worth making twice in one product.
+    window_weekdays: list[int] = field(default_factory=list)
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 

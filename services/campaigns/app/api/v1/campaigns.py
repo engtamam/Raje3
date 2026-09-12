@@ -27,11 +27,11 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
-from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something
+from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something, validate_window
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.locks import read_locks, record_lock
 from app.core import press
-from app.core.preview import PreviewError, build as build_preview, describe_when
+from app.core.preview import PreviewError, build as build_preview, describe_when, window_sentence
 from app.core.share import compute as compute_share
 from app.core.spread import plan as plan_spread
 from app.core.spread import sentence as spread_sentence
@@ -102,6 +102,12 @@ class CampaignIn(BaseModel):
     # WHICH BRANCH THIS CAMPAIGN IS FOR — empty is the whole establishment, and is the default for
     # every shop that never opened a second one.
     branch_id: str = Field(default="", max_length=64)
+    # THE OWNER'S OWN WINDOW — offer goals only (`OFFER_GOALS`; see `Campaign.window_*`'s own
+    # note). Defaults are "no window at all", so a console that never sends these three fields
+    # gets exactly today's behaviour, unchanged.
+    window_start_hour: int = Field(default=0, ge=0, le=24)
+    window_end_hour: int = Field(default=24, ge=0, le=24)
+    window_weekdays: list[int] = Field(default_factory=list, max_length=7)
 
 
 @router.get("/goals", dependencies=[Depends(rate_limit)])
@@ -172,6 +178,20 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
 
+    # SAME WINDOW RULES `/campaigns` (create) ENFORCES — checked here too, so a malformed window
+    # is refused on the SCREEN HE IS LOOKING AT rather than only at the moment he presses launch.
+    if not offers_something(body.goal) and (
+        body.window_start_hour != 0 or body.window_end_hour != 24 or body.window_weekdays
+    ):
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": "نافذة الوقت متاحة فقط لحملات العروض."})
+    window_error = validate_window(start_hour=body.window_start_hour, end_hour=body.window_end_hour,
+                                   weekdays=body.window_weekdays)
+    if window_error:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "reason": window_error})
+
     # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default: the
     # preview exists to tell the owner what will happen, and a preview run under different rules
     # than the send is a number that is worse than no number.
@@ -192,7 +212,11 @@ async def preview(request: Request, body: CampaignIn,
             # takes over the SAME "catalogue" fill for `package_offer` — one blank kind, two doors.
             service_text=body.package_name or body.service_name,
             when=describe_when(trigger=spec["trigger"],
-                               inside_window=c.gate.inside_window(_now())))
+                               inside_window=c.gate.inside_window(_now()),
+                               own_window=window_sentence(
+                                   start_hour=body.window_start_hour,
+                                   end_hour=body.window_end_hour,
+                                   weekdays=body.window_weekdays)))
     except PreviewError as exc:
         # 400 WITH THE OWNER'S SENTENCE. Not a code and not a field name: this message is rendered
         # straight onto the screen they are looking at, and it has to be actionable in their words.
@@ -369,6 +393,21 @@ async def create(request: Request, body: CampaignIn,
                                 content={"error": "BAD_REQUEST",
                                          "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
+    # THE OWNER'S OWN WINDOW — same "only an offer can have a window" reasoning as `offers_something`
+    # itself: a non-offer goal sending a non-default window is a screen bug, not an owner choice,
+    # since nothing on that goal's own card ever draws the picker that would produce one.
+    if not offers_something(body.goal) and (
+        body.window_start_hour != 0 or body.window_end_hour != 24 or body.window_weekdays
+    ):
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": "نافذة الوقت متاحة فقط لحملات العروض."})
+    window_error = validate_window(start_hour=body.window_start_hour, end_hour=body.window_end_hour,
+                                   weekdays=body.window_weekdays)
+    if window_error:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "reason": window_error})
+
     # ── one press, one campaign ──────────────────────────────────────────────────────────────
     # See core/press.py for why. In short: everything that stops a customer receiving the same
     # thing twice is keyed on `campaign_id`, and this route minted a new one on every request —
@@ -378,7 +417,8 @@ async def create(request: Request, body: CampaignIn,
         _tenant(principal), goal=body.goal, owner_text=clean, service_id=body.service_id or "",
         branch_id=body.branch_id or "", offer_value=body.offer_value or "",
         expires_at=body.expires_at or 0, fire_at=body.fire_at or 0,
-        package_id=body.package_id or "")
+        package_id=body.package_id or "", window_start_hour=body.window_start_hour,
+        window_end_hour=body.window_end_hour, window_weekdays=body.window_weekdays)
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
         if taken.in_flight:
@@ -415,6 +455,9 @@ async def create(request: Request, body: CampaignIn,
                         package_id=(body.package_id or "").strip(),
                         branch_id=(body.branch_id or "").strip(),
                         offer_value=offer_value,
+                        window_start_hour=body.window_start_hour,
+                        window_end_hour=body.window_end_hour,
+                        window_weekdays=list(body.window_weekdays or []),
                         scope_service_names=([clean_service_name] if clean_service_name else
                                              ([clean_package_name] if clean_package_name else [])),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
@@ -452,26 +495,37 @@ async def create(request: Request, body: CampaignIn,
                                       # must not be overridden. Two facts, two values (ج-3).
                                       daily_share=share.per_day if share.known else None)
         fired = vars(build_report(as_row(out.run)))
-        # STAMPED, AND THE TICK READS IT. `tick._one` now rescues a manual campaign that was
-        # written and never fired — a pod evicted between the `put` above and this send used to
-        # strand it at `active` for ever. That rescue is keyed on `last_evaluated == 0`, so a
-        # campaign that DID fire has to say so here, or the next tick would send it all over
-        # again: the same defect pointed the other way.
-        row = as_row(campaign)
-        row["last_evaluated"] = now
-        # SAME SETTING TICK.PY'S OWN CONTAINER WIRING READS — fixed 2026-09-12, a real gap a QA
-        # audit found: this route used to hardcode 30 days directly, agreeing with the standing
-        # path only because the setting's own default also happens to be 30.
-        until = lock_after_send(body.goal, now=now, sent=out.run.sent,
-                                lock_days=c.settings.AWARENESS_LOCK_DAYS)
-        if until:
-            row["locked_until"] = until
-            row["state"] = "done"
-            # SAME SIDE RECORD AS THE TICK PATH — see app.core.locks. Both places a campaign's
-            # `locked_until` gets written keep this one row current, so `_locks()` never has to
-            # scan campaigns to answer "what is locked right now".
-            await record_lock(c.datastore, campaign.tenant, body.goal, until)
-        await c.datastore.put("campaigns", campaign.key, row)
+        # STAMPED ONLY WHEN THE PASS ACTUALLY FINISHED (2026-09-12 correction — see
+        # `DispatchResult.finished`'s own note in dispatch.py). `tick._one` rescues a manual
+        # campaign that was written and never fired — a pod evicted between the `put` above and
+        # this send used to strand it at `active` for ever. That rescue is keyed on
+        # `last_evaluated == 0`, so a campaign that DID finish has to say so here, or the next
+        # tick would send it all over again.
+        #
+        # BUT A CAMPAIGN CREATED OUTSIDE ITS OWN WINDOW (`Campaign.window_*`) ALSO COMES BACK
+        # `finished=False` from this very first inline call — and stamping `last_evaluated` here
+        # regardless, as this route used to, silenced the rescue for exactly the campaigns that
+        # most need it: it would never fire again, not at the next tick and not ever, since
+        # nothing else re-opens `last_evaluated` back to 0. Leaving it untouched instead means
+        # the ordinary 15-minute tick keeps retrying — through `_one`'s own manual-rescue branch —
+        # until the window opens (or, for the pre-existing large-audience case, until this same
+        # first pass eventually completes).
+        if out.finished:
+            row = as_row(campaign)
+            row["last_evaluated"] = now
+            # SAME SETTING TICK.PY'S OWN CONTAINER WIRING READS — fixed 2026-09-12, a real gap a QA
+            # audit found: this route used to hardcode 30 days directly, agreeing with the standing
+            # path only because the setting's own default also happens to be 30.
+            until = lock_after_send(body.goal, now=now, sent=out.run.sent,
+                                    lock_days=c.settings.AWARENESS_LOCK_DAYS)
+            if until:
+                row["locked_until"] = until
+                row["state"] = "done"
+                # SAME SIDE RECORD AS THE TICK PATH — see app.core.locks. Both places a campaign's
+                # `locked_until` gets written keep this one row current, so `_locks()` never has to
+                # scan campaigns to answer "what is locked right now".
+                await record_lock(c.datastore, campaign.tenant, body.goal, until)
+            await c.datastore.put("campaigns", campaign.key, row)
 
     return {"campaign": as_row(campaign), "run": fired,
             "behaviour": spec["behaviour"]}

@@ -25,7 +25,7 @@ from typing import Any
 from app.adapters.datastore.drain import drain
 from app.core import shape
 from app.core.spread import plan as plan_spread
-from app.core.models import Run, as_row
+from app.core.models import Run, as_row, in_window
 
 
 @dataclass
@@ -98,6 +98,21 @@ class Dispatcher:
                 run.reasons["الباقة لم تعد متاحة"] = 0
                 await self._save(run)
                 return DispatchResult(run=run, finished=True)
+
+        # THE OWNER'S OWN WINDOW (`Campaign.window_*`, offer goals only) — re-checked every pass,
+        # never decided once at creation, the same "ask again" discipline the package re-check
+        # above already follows. `finished=False`, deliberately unlike the package-gone-away
+        # case: the window is not a permanent refusal, only a "not yet, come back next tick" —
+        # the campaign stays active and the next 15-minute pass tries again.
+        if not in_window(
+            start_hour=int(campaign.get("window_start_hour") or 0),
+            end_hour=int(campaign.get("window_end_hour") if campaign.get("window_end_hour") is not None else 24),
+            weekdays=campaign.get("window_weekdays") or None,
+            now=now,
+        ):
+            run.reasons["خارج نافذة الحملة"] = 0
+            await self._save(run)
+            return DispatchResult(run=run, finished=False)
 
         reached = await self._already_reached(tenant, cid)
         audience = await self._resolve(campaign, already_reached=reached, now=now)
