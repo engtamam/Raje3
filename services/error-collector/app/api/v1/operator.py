@@ -15,7 +15,7 @@ is already gone by the time anybody looks.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
@@ -77,8 +77,20 @@ def _secret_store(request: Request) -> SecretStore:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "SECRETS_UNAVAILABLE")
-    return SecretStore(request.app.state.container.datastore, s.SECRETS_KEK,
-                       rotation_window_s=s.SECRETS_ROTATION_WINDOW_SECONDS)
+    # CACHED ON app.state, BUILT ONCE — fixed 2026-09-12, a real gap a QA audit found:
+    # `SecretStore.__init__`'s own comment says the KEK is "derived once. scrypt is deliberately
+    # expensive, and re-deriving per read would make a credential lookup a CPU cost on every
+    # outbound provider call" — but this function built a brand-new `SecretStore` (and re-ran that
+    # scrypt derivation) on EVERY request to every operator secrets route, synchronously, on the
+    # event loop. The KEK and the datastore are both fixed for the process's whole lifetime, so
+    # nothing is lost by building this once.
+    cached = getattr(request.app.state, "secret_store", None)
+    if cached is not None:
+        return cached
+    store = SecretStore(request.app.state.container.datastore, s.SECRETS_KEK,
+                        rotation_window_s=s.SECRETS_ROTATION_WINDOW_SECONDS)
+    request.app.state.secret_store = store
+    return store
 
 
 def _runtime_config(request: Request) -> RuntimeConfig:
@@ -113,7 +125,7 @@ class ConfigIn(BaseModel):
 
 # ── credentials ───────────────────────────────────────────────────────────────
 @router.get("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
-async def list_secrets(request: Request, tenant: str = "",
+async def list_secrets(request: Request, tenant: str = Query(default="", max_length=128),
                        principal: Principal = Depends(require_user)) -> dict:
     """Which credentials are set, and a four-character hint for each.
 
@@ -157,7 +169,7 @@ async def set_secret(request: Request, body: SecretIn,
 
 
 @router.delete("/secrets/{name}", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
-async def clear_secret(request: Request, name: str, tenant: str = "",
+async def clear_secret(request: Request, name: str, tenant: str = Query(default="", max_length=128),
                        principal: Principal = Depends(require_user)) -> dict:
     """Remove a credential so the configured environment value applies again."""
     await request.app.state.auditor.record(
@@ -178,7 +190,7 @@ async def clear_secret(request: Request, name: str, tenant: str = "",
 
 # ── policy ────────────────────────────────────────────────────────────────────
 @router.get("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
-async def effective_config(request: Request, tenant: str = "",
+async def effective_config(request: Request, tenant: str = Query(default="", max_length=128),
                            principal: Principal = Depends(require_user)) -> dict:
     """Every knob an operator may change, with its current effective value.
 
@@ -213,7 +225,7 @@ async def set_config(request: Request, body: ConfigIn,
 
 
 @router.delete("/config/{key}", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
-async def clear_config(request: Request, key: str, tenant: str = "",
+async def clear_config(request: Request, key: str, tenant: str = Query(default="", max_length=128),
                        principal: Principal = Depends(require_user)) -> dict:
     """Drop an override so the configured default applies again."""
     await request.app.state.auditor.record(

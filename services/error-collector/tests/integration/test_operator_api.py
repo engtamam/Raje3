@@ -238,3 +238,23 @@ def test_a_kek_less_clear_secret_corrects_its_own_write_ahead_audit_entry(env_gu
     assert actions.count("operator.secret_cleared") == 2
     refused = sink.events[-1]
     assert refused.metadata.get("outcome") == "refused"
+
+
+# ── error-collector-r2-003/005 ──────────────────────────────────────────────────
+def test_the_kek_derived_secret_store_is_the_same_object_across_requests(client, operator_auth):
+    """r2-003: SecretStore.__init__ runs a deliberately expensive scrypt KDF, and the store used
+    to be rebuilt (re-deriving the key) on every single request. It is now cached on app.state,
+    built once."""
+    client.get("/api/v1/operator/secrets", headers=operator_auth)
+    first = client.app.state.secret_store
+    client.get("/api/v1/operator/secrets", headers=operator_auth)
+    assert client.app.state.secret_store is first
+
+
+@pytest.mark.parametrize("path", [
+    "/api/v1/operator/secrets",
+    "/api/v1/operator/config",
+])
+def test_an_overlong_tenant_query_param_is_refused_not_silently_truncated(path, client, operator_auth):
+    r = client.get(path, params={"tenant": "t" * 200}, headers=operator_auth)
+    assert r.status_code == 422
