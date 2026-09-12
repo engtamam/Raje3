@@ -37,6 +37,18 @@ from typing import Any
 
 from app.core.models import CONVERSATIONS
 
+# SCAN CURSOR, PER TENANT — fixed 2026-09-12, a real gap a QA audit found: the candidate scan below
+# always re-read the same top `batch * 4` rows (sorted oldest-updated-first) with no cursor. A
+# tenant with a backlog of conversations that are OPEN and never get touched again (stuck, never
+# closing) sorts ahead of everything else forever — those rows always fill the page, and any
+# genuinely closed-and-eligible-for-purge conversation behind them in sort order is never reached,
+# so that tenant's purge stalls indefinitely. Paging with a cursor that advances past what this
+# call already scanned (same convention as `conversation.py`'s `_sweep_due_cursor` /
+# `_sweep_timed_out_cursor`) guarantees the scan eventually walks past the stuck backlog instead of
+# sitting on it forever — and keeps this bounded per-call cost from ever growing into an unbounded
+# one, which is what would let one tenant's backlog crowd out every other tenant's share of a tick.
+_SCAN_CURSORS: dict[str, str | None] = {}
+
 
 @dataclass
 class RetentionResult:
@@ -68,8 +80,13 @@ async def run_retention_tick(tenant: str, *, now: int, store: Any, inbound_store
     # transitions in core/conversation.py). An open session — batching, awaiting_confirmation, or
     # one that was reopened by a new inbound message (which resets session_closed_at to 0) — has
     # no close time and can never be a candidate, however old its first message is.
-    rows, _ = await store.find(
-        CONVERSATIONS, {"tenant": tenant}, limit=max(batch * 4, batch), sort=("updated", "asc"))
+    cursor = _SCAN_CURSORS.get(tenant)
+    rows, next_cursor = await store.find(
+        CONVERSATIONS, {"tenant": tenant}, limit=max(batch * 4, batch), after=cursor,
+        sort=("updated", "asc"))
+    # `next_cursor` is None once this page reaches the end of the tenant's rows, which naturally
+    # restarts the next tick's pass from the top rather than sitting on a stale cursor forever.
+    _SCAN_CURSORS[tenant] = next_cursor
     res.scanned = len(rows)
 
     candidates = [

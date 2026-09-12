@@ -55,6 +55,53 @@ async def _seed_message(store, *, tenant, subject, wamid):
     await ims.attach_subject_ref(tenant, wamid, subject)
 
 
+async def test_stuck_open_backlog_does_not_starve_purge_of_eligible_conversations_forever():
+    """Regression: the candidate scan used to always re-read the same top `batch * 4` rows with no
+    cursor. A backlog of conversations that never close (sorted ahead, by `updated`, of everything
+    else) would fill every page forever, so a genuinely closed-and-eligible conversation behind them
+    was never reached — the purge stalled indefinitely for that tenant. The cursor now advances
+    across ticks, so a second tick reaches what the first tick's page could not. Fixed 2026-09-12."""
+    from app.core import retention as retention_mod
+
+    tenant = "t_stuck_backlog"
+    retention_mod._SCAN_CURSORS.pop(tenant, None)  # isolate from any other test's cursor state
+    now = 2_000_000_000
+    old_cutoff_close = now - (RETENTION_DAYS + 1) * DAY
+
+    store = MemoryDataStore()
+    # A backlog of conversations that never close — sorted FIRST (lowest `updated`), ahead of the
+    # one genuinely eligible for purge.
+    for i in range(6):
+        await _seed_conversation(store, tenant=tenant, subject=f"stuck{i}",
+                                 session_closed_at=0, state="batching")
+        row = await store.get(CONVERSATIONS, f"{tenant}|stuck{i}")
+        row["updated"] = i
+        await store.put(CONVERSATIONS, f"{tenant}|stuck{i}", row)
+
+    await _seed_conversation(store, tenant=tenant, subject="eligible",
+                             session_closed_at=old_cutoff_close)
+    row = await store.get(CONVERSATIONS, f"{tenant}|eligible")
+    row["updated"] = 99
+    await store.put(CONVERSATIONS, f"{tenant}|eligible", row)
+
+    inbound = DataStoreInboundMessageStore(store)
+    auditor = _auditor(_RecordingAuditSink())
+
+    # batch=1 -> scan window is `max(batch * 4, batch)` = 4 rows: the first tick's page is entirely
+    # the stuck backlog and purges nothing.
+    res1 = await run_retention_tick(tenant, now=now, store=store, inbound_store=inbound,
+                                    auditor=auditor, retention_days=RETENTION_DAYS, batch=1)
+    assert res1.purged_conversations == 0
+    assert await store.get(CONVERSATIONS, f"{tenant}|eligible") is not None
+
+    # A SECOND tick, with no cursor, would re-read the SAME first four rows forever. With the fix,
+    # it picks up where the first tick left off and reaches the eligible row.
+    res2 = await run_retention_tick(tenant, now=now, store=store, inbound_store=inbound,
+                                    auditor=auditor, retention_days=RETENTION_DAYS, batch=1)
+    assert res2.purged_conversations == 1
+    assert await store.get(CONVERSATIONS, f"{tenant}|eligible") is None
+
+
 async def test_purges_only_sessions_closed_past_the_cutoff():
     store = MemoryDataStore()
     now = 2_000_000_000

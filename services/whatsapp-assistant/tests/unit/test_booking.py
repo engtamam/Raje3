@@ -73,3 +73,39 @@ async def test_hold_and_confirm_rejects_slot_filled_between_read_and_write():
         assert False, "expected SlotNoLongerAvailable"
     except SlotNoLongerAvailable:
         pass
+
+
+async def test_hold_and_confirm_serializes_concurrent_confirms_for_the_same_slot():
+    """Regression for a real race: `hold_and_confirm` used to be a non-atomic read-check-write, so
+    two customers confirming the same slot at nearly the same instant could both pass the capacity
+    check and both get confirmed, exceeding the shop's configured concurrency. The per-slot claim
+    lock closes this — fixed 2026-09-12."""
+    import asyncio
+
+    class SlowFindStore(MemoryDataStore):
+        """Forces a genuine event-loop yield inside the read-check-write window, so concurrent
+        `hold_and_confirm` calls actually interleave instead of running back-to-back with no real
+        contention (a plain in-memory store with no real I/O never yields on its own)."""
+        async def find(self, *a, **kw):
+            await asyncio.sleep(0.01)
+            return await super().find(*a, **kw)
+
+    store = SlowFindStore()
+    provider = ConfigDrivenAvailabilityProvider(store=store, cfg=_cfg(concurrency=1))
+    import time
+    now = int(time.time())
+    slots = await provider.availability(tenant=TENANT, service_id="svc1", earliest=now,
+                                        horizon_days=7)
+    target = slots[0]
+
+    async def _confirm(key: str):
+        try:
+            return await provider.hold_and_confirm(
+                tenant=TENANT, subject_ref=key, service_id="svc1",
+                starts_at=target.starts_at, idempotency_key=key)
+        except SlotNoLongerAvailable:
+            return None
+
+    results = await asyncio.gather(_confirm("a"), _confirm("b"), _confirm("c"))
+    confirmed = [r for r in results if r is not None]
+    assert len(confirmed) == 1, f"concurrency=1 slot over-confirmed: {confirmed}"

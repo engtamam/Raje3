@@ -54,6 +54,32 @@ def test_two_different_invoices_claim_independently():
     assert run(store.claim("inv_b", now=1000)) is True
 
 
+def test_concurrent_claims_for_the_same_invoice_only_one_wins():
+    """Regression: `claim()` used to be a hand-rolled get-then-put — non-atomic despite the store's
+    own atomic `claim()` primitive already existing for exactly this. Two events for the same
+    consolidated invoice arriving within the same instant could both see 'not claimed' and both
+    send. Fixed 2026-09-12 by switching to `store.claim()`."""
+
+    class SlowGetStore(MemoryDataStore):
+        """Forces a real event-loop yield inside the old check-then-act window, so concurrent
+        claims for the same invoice actually interleave rather than running back-to-back."""
+        async def get(self, *a, **kw):
+            await asyncio.sleep(0.01)
+            return await super().get(*a, **kw)
+
+    async def scenario():
+        store = RenewalTriggerStore(SlowGetStore())
+        results = await asyncio.gather(
+            store.claim("inv_shared", now=1000),
+            store.claim("inv_shared", now=1000),
+            store.claim("inv_shared", now=1000),
+        )
+        return results
+
+    results = run(scenario())
+    assert sum(1 for r in results if r) == 1, f"more than one claim won: {results}"
+
+
 # ── RenewalTrigger ───────────────────────────────────────────────────────────────────────────
 def _trigger(phones=None):
     store = MemoryDataStore()

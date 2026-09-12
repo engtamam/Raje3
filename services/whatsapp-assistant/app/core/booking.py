@@ -17,6 +17,7 @@ tapped confirm") and is keyed by `idempotency_key` so a retried confirm cannot d
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 import uuid
@@ -29,6 +30,19 @@ from app.core.models import BOOKINGS, Booking, as_row
 from app.ports.booking_provider import Slot
 
 _DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+# HOLD LOCK, ONE PER SLOT — fixed 2026-09-12, a real gap a QA audit found: `hold_and_confirm` was a
+# non-atomic read-check-write (drain busy rows, count overlap, then `put`), so two customers
+# confirming the same slot within the same instant could both pass the capacity check and both get
+# confirmed, exceeding the shop's configured concurrency. Mirrors `conversation.py`'s
+# `_CONV_LOCKS`/`_acquire_conv_lock` idiom: a short-TTL `store.claim()` keyed on the slot's own
+# identity (tenant + service + start time — the exact thing capacity is counted over), held only
+# for the duration of the re-check-and-write, so confirms for the SAME slot serialize while confirms
+# for different slots never contend.
+_HOLD_LOCKS = "wa_booking_hold_locks"
+_HOLD_LOCK_TTL_SECONDS = 15.0
+_HOLD_LOCK_RETRY_ATTEMPTS = 40
+_HOLD_LOCK_RETRY_DELAY_SECONDS = 0.05
 
 
 @dataclass(frozen=True)
@@ -135,27 +149,61 @@ class ConfigDrivenAvailabilityProvider:
         if existing:
             return existing[0]
 
-        duration = self._cfg.duration_for(service_id)
-        end = starts_at + duration * 60
-        # DRAINED — same reasoning as availability() above: this is the write-time re-check that
-        # decides whether a booking is created at all, so a truncated read here does not just
-        # offer a wrong slot, it double-books one.
-        rows = await drain(
-            self._store, BOOKINGS, {"tenant": tenant, "service_id": service_id, "state": "confirmed"},
-            sort=("starts_at", "asc"))
-        overlapping = sum(1 for r in rows
-                          if int(r["starts_at"]) < end
-                          and int(r["starts_at"]) + int(r["duration_minutes"]) * 60 > starts_at)
-        if overlapping >= self._cfg.concurrency:
+        lock_key = f"{tenant}|{service_id}|{starts_at}"
+        held = await self._acquire_hold_lock(lock_key)
+        if not held:
+            # Another confirm for this SAME slot is mid-flight and did not release in time — treat
+            # it the same as "filled between proposal and confirmation" rather than racing it
+            # unlocked, which is the exact bug this lock exists to close.
             raise SlotNoLongerAvailable(
-                f"slot at {starts_at} for {service_id!r} filled between proposal and confirmation")
+                f"slot at {starts_at} for {service_id!r} is being confirmed by another request")
+        try:
+            # Re-check idempotency INSIDE the lock too — a concurrent retried confirm for the same
+            # key could have been the one that just won the race above.
+            existing, _ = await self._store.find(
+                BOOKINGS, {"tenant": tenant, "idempotency_key": idempotency_key}, limit=1)
+            if existing:
+                return existing[0]
 
-        booking = Booking(id=f"bkg_{uuid.uuid4().hex[:24]}", tenant=tenant, subject_ref=subject_ref,
-                          service_id=service_id, starts_at=starts_at, duration_minutes=duration,
-                          idempotency_key=idempotency_key)
-        row = as_row(booking)
-        await self._store.put(BOOKINGS, booking.id, row)
-        return row
+            duration = self._cfg.duration_for(service_id)
+            end = starts_at + duration * 60
+            # DRAINED — same reasoning as availability() above: this is the write-time re-check that
+            # decides whether a booking is created at all, so a truncated read here does not just
+            # offer a wrong slot, it double-books one.
+            rows = await drain(
+                self._store, BOOKINGS,
+                {"tenant": tenant, "service_id": service_id, "state": "confirmed"},
+                sort=("starts_at", "asc"))
+            overlapping = sum(1 for r in rows
+                              if int(r["starts_at"]) < end
+                              and int(r["starts_at"]) + int(r["duration_minutes"]) * 60 > starts_at)
+            if overlapping >= self._cfg.concurrency:
+                raise SlotNoLongerAvailable(
+                    f"slot at {starts_at} for {service_id!r} filled between proposal and confirmation")
+
+            booking = Booking(
+                id=f"bkg_{uuid.uuid4().hex[:24]}", tenant=tenant, subject_ref=subject_ref,
+                service_id=service_id, starts_at=starts_at, duration_minutes=duration,
+                idempotency_key=idempotency_key)
+            row = as_row(booking)
+            await self._store.put(BOOKINGS, booking.id, row)
+            return row
+        finally:
+            await self._store.delete(_HOLD_LOCKS, lock_key)
+
+    async def _acquire_hold_lock(self, lock_key: str) -> bool:
+        """Wait for the per-slot mutex — bounded, same reasoning as `conversation.py`'s
+        `_acquire_conv_lock`: the TTL alone reclaims a crashed holder's lock, this bound is only a
+        cheap extra safety net so a caller never hangs forever."""
+        now = time.time()
+        for _ in range(_HOLD_LOCK_RETRY_ATTEMPTS):
+            took = await self._store.claim(
+                _HOLD_LOCKS, lock_key, {"held": True},
+                ttl_seconds=_HOLD_LOCK_TTL_SECONDS, now=now)
+            if took:
+                return True
+            await asyncio.sleep(_HOLD_LOCK_RETRY_DELAY_SECONDS)
+        return False
 
 
 class SlotNoLongerAvailable(Exception):

@@ -162,6 +162,20 @@ async def import_archive(datastore, archive: dict[str, Any], *,
     left as-is, because it is not one tenant's to move. The key is rebuilt from the REMAPPED row, so
     a tenant-keyed collection lands under the destination tenant's key, and no-clobber still protects
     whatever already exists there. Empty means restore in place.
+
+    EACH ROW'S get-THEN-put IS NOT ATOMIC, AND THAT IS A DELIBERATE, PROPORTIONAL CHOICE — checked
+    2026-09-12 against a QA audit finding. This route is reached only from `POST
+    /internal/backup/import` (app/api/internal.py), which sits behind the shared internal token —
+    not customer-facing, not called by any scheduled job in this codebase (no cron, no consumer;
+    grep confirms the only caller is backup-service acting on an operator's own restore request).
+    A restore racing ANOTHER restore of the SAME tenant at the SAME instant would need two operators
+    independently triggering it within the same request's lifetime — not a real production
+    scenario, unlike `booking.py`'s `hold_and_confirm` (routinely hit by concurrent customers) or
+    `conversation.py`'s per-conversation lock (routinely hit by rapid-fire inbound messages). A
+    claim()-based lock here would be protection against a race nothing in production actually
+    produces. What no-clobber already protects against — a restore landing on top of a row written
+    AFTER the backup was taken, by ordinary live traffic — is the real risk, and that is already
+    handled: `overwrite=False` (the default) leaves such a row untouched.
     """
     verify(archive)
     templates = _key_templates(declaration)

@@ -19,6 +19,7 @@ and the failure policy decides.
 from __future__ import annotations
 
 from app.ports.audit_sink import ACCEPTED, FAILED, AuditEvent, AuditReceipt
+from app.ports.event_bus import Event
 
 
 class EventBusAuditSink:
@@ -29,8 +30,14 @@ class EventBusAuditSink:
         self._topic = topic
 
     async def emit(self, event: AuditEvent) -> AuditReceipt:
+        # `EventBus.publish` takes an `Event` dataclass (`type` + `payload`), never a bare dict —
+        # fixed 2026-09-12, a real gap a QA audit found: this used to pass `event.to_payload()`
+        # (a dict) straight through, a latent type mismatch that only never broke anything because
+        # this sink is currently unreached (dead code path). Wrapping the dict as the `Event`'s
+        # `payload`, keyed by the audit action, is what every other publisher on this bus does.
         try:
-            await self._bus.publish(self._topic, event.to_payload())
+            await self._bus.publish(
+                self._topic, Event(type=event.action, payload=event.to_payload()))
         except Exception as exc:
             return AuditReceipt(status=FAILED, detail=f"audit publish to {self._topic!r} failed: {exc}")
         return AuditReceipt(

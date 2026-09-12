@@ -182,3 +182,29 @@ async def test_a_message_that_arrives_mid_composition_is_never_lost():
     # The second message waited for compose_reply's own save, so it is batching FRESH — not lost,
     # not silently folded into a conversation compose_reply had already marked idle/closed.
     assert conv.state == "batching"
+
+
+async def test_sweep_due_cursor_reaches_every_batching_conversation_across_ticks():
+    """Regression: sweep_due used to always re-read the same top-`batch` rows with no cursor — a
+    tenant with more due conversations than the page size had its tail starved forever. The cursor
+    now advances across calls so a full sweep pass eventually reaches every row. Fixed 2026-09-12."""
+    from app.core.models import CONVERSATIONS
+
+    store = MemoryDataStore()
+    engine = _engine(store, StubLlm())
+    subjects = [f"sub{i}" for i in range(5)]
+    for i, subject in enumerate(subjects):
+        await store.put(CONVERSATIONS, f"{TENANT}|{subject}", {
+            "tenant": TENANT, "subject_ref": subject, "state": "batching",
+            "batch_deadline": 1, "updated": i, "branch_id": "", "last_activity_at": 0,
+            "session_started_at": 0, "session_closed_at": 0, "triage_resolved": True,
+            "pending_proposal_id": "",
+        })
+
+    # `batch=1` on a set of 5 — with no cursor every call would return only `sub0` forever.
+    seen: set[str] = set()
+    for _ in range(len(subjects)):
+        due = await engine.sweep_due(TENANT, now=1000, batch=1)
+        seen.update(due)
+
+    assert seen == set(subjects), f"sweep_due starved some conversations: only saw {seen}"

@@ -7,18 +7,20 @@ loop, verified against the platform source at repin time) — all of them carryi
 `invoice_id`. Without a claim, a shop with three apps renewing together would get three Flow-
 opening messages, all for the one invoice.
 
-A BENIGN RACE, ACCEPTED. `claim()` is read-then-write, not atomic — the same posture the bus
-consumers elsewhere in this service already hold towards at-most-once delivery (see
-`renewal_consumer.py`'s own docstring). Two events for the same invoice arriving within the same
-instant could both see "not claimed" and both send — a rare, harmless duplicate (the shop gets the
-same renewal Flow message twice), never a missed one. A real atomic claim would need the same
-IdempotencyStore machinery billing-service itself uses; not built here until this gap is shown to
-matter in practice."""
+ATOMIC, VIA THE STORE'S OWN `claim()` — fixed 2026-09-12, a real gap a QA audit found: this used to
+be a hand-rolled get-then-put with the same race a QA audit found and closed elsewhere in this
+codebase (see `app/ports/datastore.py::DataStore.claim`'s own docstring — added 2026-09-07 for
+exactly this class of bug). There was never a reason for this one call site to keep re-inventing a
+non-atomic version of a primitive already available; it now just calls it, same as every other
+`.claim()`-based lock in this service."""
 from __future__ import annotations
 
 from typing import Any
 
 _COLL = "renewal_triggers"
+# No real TTL semantics wanted here — a claim on an invoice_id is permanent (never re-sent for the
+# same invoice), so the TTL is simply "forever" in practical terms.
+_CLAIM_TTL_SECONDS = 10 * 365 * 86400
 
 
 class RenewalTriggerStore:
@@ -30,8 +32,6 @@ class RenewalTriggerStore:
         every call after — already claimed, never resend for the same invoice."""
         if not invoice_id:
             return False
-        existing = await self._s.get(_COLL, invoice_id)
-        if existing is not None:
-            return False
-        await self._s.put(_COLL, invoice_id, {"invoice_id": invoice_id, "claimed_at": now})
-        return True
+        return await self._s.claim(
+            _COLL, invoice_id, {"invoice_id": invoice_id, "claimed_at": now},
+            ttl_seconds=_CLAIM_TTL_SECONDS, now=float(now))

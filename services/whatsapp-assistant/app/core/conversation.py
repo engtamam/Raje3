@@ -601,6 +601,14 @@ class ConversationEngine:
         # This dict is kept only as a FAIL-OPEN FALLBACK: the last name that resolved successfully,
         # used in place of the generic label if a later call fails, never used to skip the call.
         self._shop_last_known_name: dict[str, str] = {}
+        # SWEEP CURSORS, PER TENANT PER SWEEP KIND — fixed 2026-09-12, a real gap a QA audit found:
+        # sweep_due/sweep_timed_out always re-read the same top-`batch` rows with no cursor, so a
+        # tenant with more due/timed-out conversations than `batch` had its tail starved forever.
+        # Kept in-process (not persisted) deliberately: this only needs to advance ACROSS TICKS
+        # within one running instance so a full sweep pass eventually reaches every row; losing it
+        # on a restart just restarts the pass from the top, same as never having made progress yet.
+        self._sweep_due_cursor: dict[str, str | None] = {}
+        self._sweep_timed_out_cursor: dict[str, str | None] = {}
         self._debounce = debounce_seconds
         self._session_timeout = session_timeout_seconds
         self._max_duration = max(0, int(max_duration_seconds))
@@ -1690,8 +1698,14 @@ class ConversationEngine:
         """The tick: find conversations whose debounce window elapsed. Imitates the shape of
         services/reminders/app/core/tick.py's Tick.run — bounded per tenant per pass."""
         now = now if now is not None else int(time.time())
-        rows, _ = await self._store.find(
-            CONVERSATIONS, {"tenant": tenant, "state": "batching"}, limit=batch)
+        cursor = self._sweep_due_cursor.get(tenant)
+        rows, next_cursor = await self._store.find(
+            CONVERSATIONS, {"tenant": tenant, "state": "batching"}, limit=batch, after=cursor,
+            sort=("updated", "asc"))
+        # ADVANCES PAST WHAT WAS HANDLED — `next_cursor` is None once this page reaches the end of
+        # the matching set, which naturally restarts the next tick's pass from the top instead of
+        # sitting forever on a cursor value from a row that no longer exists.
+        self._sweep_due_cursor[tenant] = next_cursor
         return [r["subject_ref"] for r in rows if int(r.get("batch_deadline") or 0) <= now]
 
     async def sweep_timed_out(self, tenant: str, *, now: int | None = None, batch: int = 200
@@ -1704,8 +1718,10 @@ class ConversationEngine:
         quiet (a stuck tool-confirmation loop, a chatty back-and-forth that never triggers the
         silence window) would otherwise never close at all. 0 disables the ceiling."""
         now = now if now is not None else int(time.time())
-        rows, _ = await self._store.find(
-            CONVERSATIONS, {"tenant": tenant}, limit=batch)
+        cursor = self._sweep_timed_out_cursor.get(tenant)
+        rows, next_cursor = await self._store.find(
+            CONVERSATIONS, {"tenant": tenant}, limit=batch, after=cursor, sort=("updated", "asc"))
+        self._sweep_timed_out_cursor[tenant] = next_cursor
         closed = []
         for r in rows:
             if r.get("state") == "closed":

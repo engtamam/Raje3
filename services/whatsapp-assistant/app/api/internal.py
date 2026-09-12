@@ -11,12 +11,24 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from starlette.responses import JSONResponse
 
 from app.backup_manifest import BACKUP
 from app.config import Settings, get_settings
 from app.core import backup as _backup
 from app.core.inbound_ingest import outbound_allowed
 from app.manifest import build_manifest
+
+
+def _refuse(reason: str, status_code: int = 400) -> JSONResponse:
+    """A refusal the CALLER (backup-service) can read — returned, not raised. Fixed 2026-09-12, a
+    real gap a QA audit found: `raise HTTPException(400, str(exc))` looked right but the global
+    handler (app/api/errors.py's `_http_exc`) strips every `HTTPException.detail` on purpose (CWE-209
+    hardening for user-facing responses) and returns only a generic `{"error": "BAD_REQUEST"}` —
+    silently discarding the ONE THING that made the 400 actionable: which archive-specific reason
+    backup-service should log or retry on. Matches `app/api/v1/operator.py`'s own `_refuse` for the
+    identical reason."""
+    return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=status_code)
 
 
 def _now_iso() -> str:
@@ -347,7 +359,7 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
             request.app.state.container.datastore, body.archive,
             unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        return _refuse(str(exc))
 
 
 @router.post("/backup/import", dependencies=[Depends(require_internal_token)])
@@ -362,8 +374,9 @@ async def backup_import(request: Request, body: BackupImportIn,
             declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
-        # match, or a row had no identity. Say which, so an operator can act.
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        # match, or a row had no identity. Say which, so an operator can act. RETURNED, not raised
+        # — see `_refuse`'s own docstring for why raising here used to lose this exact detail.
+        return _refuse(str(exc))
 
 
 # ── PHASE 5 — the WhatsApp Flow booking channel ──────────────────────────────────────────────
