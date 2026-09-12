@@ -452,6 +452,10 @@ jobs:
       # pass, after portal's own manifest claimed zero collections while writing runtime_config.
       - name: every written collection is declared in its own backup_manifest.py
         run: python3 ci/check_backup_manifest_declares_written_collections.py
+      # A postgres sort field spliced unvalidated into ORDER BY — found unfixed in 8 of 10
+      # services after portal's own copy was hardened first.
+      - name: a postgres sort field is validated before it reaches the query
+        run: python3 ci/check_postgres_sort_field_is_validated.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services

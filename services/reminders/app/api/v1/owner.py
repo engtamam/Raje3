@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import time
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
@@ -1092,6 +1094,36 @@ async def suggest_group(request: Request, principal: Principal = Depends(_READ))
     return {"suggestion": await _settings(request).suggest_group(_tenant(principal))}
 
 
+# A page, not a prediction — same page size the tick's own reads use. How big each ask is only
+# affects round trips, never the answer.
+_COUNT_PAGE = 500
+# Big enough that no real establishment's «اليوم» screen reaches it; reaching it is a signal about
+# the data, and the caller is told rather than shown a silent partial count.
+_COUNT_CAP = 5_000
+
+
+async def _counted(store: ScheduleStore, tenant: str, where: dict[str, Any], *,
+                   sort: tuple[str, str]) -> tuple[list[dict], bool]:
+    """Every row matching `where`, paged until exhausted — never a single page mistaken for the
+    total. Unlike `drain()` (app/adapters/datastore/drain.py), which refuses outright past its
+    budget, a status screen must still render something: past `_COUNT_CAP` this stops and reports
+    `truncated=True` rather than raising, so «اليوم» shows an honest, if partial, count instead of
+    failing to load at all.
+    """
+    rows: list[dict] = []
+    cursor: str | None = None
+    truncated = False
+    while True:
+        page, cursor = await store._find(tenant, where, limit=_COUNT_PAGE, after=cursor, sort=sort)
+        rows.extend(page or [])
+        if not cursor:
+            break
+        if len(rows) >= _COUNT_CAP:
+            truncated = True
+            break
+    return rows, truncated
+
+
 @router.get("/today", dependencies=[Depends(rate_limit)])
 async def today(request: Request, principal: Principal = Depends(_READ)) -> dict:
     """Everything «اليوم» needs, in one call.
@@ -1128,8 +1160,14 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
     reached = await Reach(c.datastore, window=_settings().REACH_WINDOW_SECONDS).count(
         tenant, now=int(time.time()))
 
-    pending, _ = await store._find(tenant, {"state": "pending"}, limit=200,
-                                   sort=("due_at", "asc"))
+    # DRAINED, NOT A `limit=200` PAGE READ AS THE TOTAL — fixed 2026-09-12, a real gap a QA audit
+    # found: the same "page treated as a count" bug already found and fixed elsewhere this
+    # session. A shop with more than 200 rows pending or sent had this screen quietly answer for
+    # its first 200 rows and call that the whole picture — a busy establishment is exactly the one
+    # that most needs an honest count. `_counted` pages until exhausted, or until `_COUNT_CAP` for
+    # safety, and says so via `truncated` rather than pretending a partial read is complete.
+    pending, pending_truncated = await _counted(store, tenant, {"state": "pending"},
+                                                sort=("due_at", "asc"))
     # ── WAITING IS NOT THE SAME AS STUCK, AND `pending` HOLDS BOTH ────────────────────────────
     #
     # A row whose pass throws goes back to `pending` an hour out with its `attempts` raised — a
@@ -1142,7 +1180,8 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
     # it was working. This screen already refuses to render an unknown ceiling as a zero and an
     # unreadable name as calm; this is the same rule, one field further along.
     stuck = [r for r in pending if int(r.get("attempts") or 0) > 0]
-    sent, _ = await store._find(tenant, {"state": "sent"}, limit=200, sort=("due_at", "desc"))
+    sent, sent_truncated = await _counted(store, tenant, {"state": "sent"},
+                                          sort=("due_at", "desc"))
 
     now = int(time.time())
     day = now - 86_400
@@ -1181,6 +1220,9 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
             "retrying_reason": (
                 "رسائل تحاول الخروج ولا تنجح — سنعيد المحاولة، وإن لم تنجح ستجدها في سجلّ "
                 "الرسائل بسببها." if stuck else ""),
+            # HONEST ABOUT THE CEILING ON THE COUNT ITSELF. False for every establishment this
+            # product has ever run — the cap exists for the one that would otherwise page forever.
+            "truncated": bool(pending_truncated or sent_truncated),
         },
         "ceiling": {
             # `known` distinguishes "we asked and Meta said unlimited" from "we could not ask".

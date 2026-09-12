@@ -22,6 +22,7 @@ from app.core.erasure import RemindersErasure
 from app.core.models import key_of
 from app.api.v1.prefs import PrefsIn
 from app.core.stores import ScheduleStore, SendLogStore
+from app.core.tick import _CLAIM_LOCKS, CLAIM_LOCK_TTL_SECONDS
 from app.core import backup as _backup
 from app.core import offer_text as OT
 from app.core import rendering as R
@@ -353,21 +354,51 @@ async def redemption(request: Request, body: RedemptionIn) -> dict:
     if row is None:
         return {"merged": False, "reason": "no pending visit confirmation"}
 
-    # A TEMPLATE VARIANT, NOT AN EXTRA SENTENCE. WhatsApp has no optional part, so a confirmation
-    # with three unused slots is not a thing that can exist — the row moves to the template that
-    # declares five and the send engine chooses it by type, exactly as it does for every other.
-    row["template_type"] = "svc_visit_redeemed"
-    row["redeemed_name"] = body.reward_name
-    row["redeemed_cost"] = int(body.cost)
-    row["redeemed_remaining"] = int(body.remaining)
-    row["updated"] = int(time.time())
-    # THE NATURAL KEY, NEVER THE ID. The store writes under whatever key it is handed, and the id
-    # is not that key — passing it created a SECOND row carrying the same id, one on the old
-    # template and one on the new. The customer would then be holding two pending confirmations
-    # for one visit, which is the exact duplication the natural key exists to prevent
-    # (tenant|subject|service|kind — see models.Schedule.key).
-    await store.upsert(body.tenant, _sched_key(row), row)
-    return {"merged": True, "schedule": row.get("id", ""), "template_type": row["template_type"]}
+    # SAME LOCK `Tick._claim()` TAKES ON THIS ROW — fixed 2026-09-12, a real gap a QA audit found.
+    # This handler used to read the pending row and blind-upsert it back with no coordination at
+    # all, racing the exact claim lock `_claim()` added for this same read-modify-write shape: a
+    # tick could claim (`state: sending`) and send this row between our read and our write, and
+    # our upsert would then either stomp its claim mid-send or, worse, revert an already-`sent` row
+    # back to a stale pending copy the customer already received. Keyed identically to `_claim()`
+    # (`tenant|natural key`, in `_CLAIM_LOCKS`) so the two paths serialise against each other, not
+    # just against themselves.
+    now = int(time.time())
+    lock_key = f"{body.tenant}|{_sched_key(row)}"
+    took = await c.datastore.claim(
+        _CLAIM_LOCKS, lock_key, {"tenant": body.tenant, "row": _sched_key(row)},
+        ttl_seconds=CLAIM_LOCK_TTL_SECONDS, now=now)
+    if not took:
+        # A tick is deciding this exact row's claim right now. Not an error — the caller's own
+        # docstring already treats "no pending confirmation" as a legitimate outcome, and this is
+        # the same shape: the row is mid-flight, so there is nothing safe to merge into right now.
+        return {"merged": False, "reason": "row is being claimed"}
+    try:
+        # RE-READ UNDER THE LOCK, NOT THE COPY FROM BEFORE IT. The claim above only tells us we
+        # now hold exclusive access — it says nothing about whether a tick's `_claim()` already
+        # moved the row to `sending` (or further) in the gap between our first read and this lock.
+        fresh = await store._get(_sched_key(row))
+        if fresh is None or fresh.get("state") != "pending":
+            return {"merged": False, "reason": "no pending visit confirmation"}
+        row = fresh
+
+        # A TEMPLATE VARIANT, NOT AN EXTRA SENTENCE. WhatsApp has no optional part, so a
+        # confirmation with three unused slots is not a thing that can exist — the row moves to
+        # the template that declares five and the send engine chooses it by type, exactly as it
+        # does for every other.
+        row["template_type"] = "svc_visit_redeemed"
+        row["redeemed_name"] = body.reward_name
+        row["redeemed_cost"] = int(body.cost)
+        row["redeemed_remaining"] = int(body.remaining)
+        row["updated"] = now
+        # THE NATURAL KEY, NEVER THE ID. The store writes under whatever key it is handed, and the
+        # id is not that key — passing it created a SECOND row carrying the same id, one on the
+        # old template and one on the new. The customer would then be holding two pending
+        # confirmations for one visit, which is the exact duplication the natural key exists to
+        # prevent (tenant|subject|service|kind — see models.Schedule.key).
+        await store.upsert(body.tenant, _sched_key(row), row)
+        return {"merged": True, "schedule": row.get("id", ""), "template_type": row["template_type"]}
+    finally:
+        await c.datastore.delete(_CLAIM_LOCKS, lock_key)
 
 
 _sched_key = key_of

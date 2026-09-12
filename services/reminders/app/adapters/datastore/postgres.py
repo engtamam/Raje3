@@ -6,6 +6,7 @@ services replace this with their own schema/repository behind the same port.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from app.adapters.lazy import load
@@ -184,6 +185,16 @@ class PostgresDataStore:
         field, direction = sort
         if direction not in SORT_DIRECTIONS:
             raise ConfigError(f"sort direction must be one of {SORT_DIRECTIONS}: {direction!r}")
+        # VALIDATED, LIKE `direction` RIGHT ABOVE — fixed 2026-09-12, a real gap a QA audit found.
+        # `field` is f-string-spliced directly into the SQL text below (unlike every actual VALUE
+        # in this file, which is always a bind parameter — Postgres has no placeholder syntax for
+        # an identifier/JSON key). Today's only caller passes a hardcoded field name, so there is
+        # no live exploit path, but a future caller forwarding a client-controlled sort field would
+        # have had a real injection: a value containing a quote breaks out of the JSON-key string
+        # literal it is embedded in. A plain identifier (letters, digits, underscore, not starting
+        # with a digit) is everything a real field name in this codebase ever needs to be.
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", field):
+            raise ConfigError(f"sort field must be a plain identifier: {field!r}")
         limit = max(1, int(limit))
         descending = direction == "desc"
 
