@@ -1,38 +1,49 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { HourRangePicker } from './HourRangePicker';
 
 describe('rj-ui HourRangePicker', () => {
-  it('shows the two hours as western-digit 00:00-shaped options', () => {
+  it('shows the two hours as western-digit 00:00-shaped buttons', () => {
     render(<HourRangePicker startHour={8} endHour={20} onChange={vi.fn()} fromLabel="من" toLabel="إلى" />);
-    const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    expect(selects[0].value).toBe('8');
-    expect(selects[1].value).toBe('20');
-    expect(screen.getAllByText('08:00').length).toBeGreaterThan(0);
+    const buttons = screen.getAllByRole('button', { name: /من|إلى/ });
+    expect(within(buttons[0]).getByText('08:00')).toBeTruthy();
+    expect(within(buttons[1]).getByText('20:00')).toBeTruthy();
   });
 
-  it('the end hour options run through 24 (midnight), the start hour options never reach it', () => {
-    render(<HourRangePicker startHour={0} endHour={24} onChange={vi.fn()} fromLabel="من" toLabel="إلى" />);
-    const [start, end] = screen.getAllByRole('combobox') as HTMLSelectElement[];
-    const startValues = Array.from(start.options).map((o) => o.value);
-    const endValues = Array.from(end.options).map((o) => o.value);
-    expect(startValues).not.toContain('24');
-    expect(endValues).toContain('24');
+  it('the end hour list runs through 24 (midnight), the start hour list never reaches it', () => {
+    const onChange = vi.fn();
+    render(<HourRangePicker startHour={0} endHour={24} onChange={onChange} fromLabel="من" toLabel="إلى" />);
+    const [startBtn, endBtn] = screen.getAllByRole('button', { name: /من|إلى/ });
+    fireEvent.click(startBtn);
+    // THE START LIST STOPS AT 23:00 — its last option (23rd down from 00:00) still reads 23:00,
+    // never a wrapped "24".
+    const startLastOption = screen.getAllByRole('option').at(-1)!;
+    fireEvent.click(startLastOption);
+    expect(onChange).toHaveBeenLastCalledWith(23, 24);
+    fireEvent.click(endBtn);
+    // THE END LIST RUNS ONE HOUR FURTHER — its last option is the true end of the day
+    // (`startHour` is the original, un-rewired prop here — this is a static render).
+    const endLastOption = screen.getAllByRole('option').at(-1)!;
+    fireEvent.click(endLastOption);
+    expect(onChange).toHaveBeenLastCalledWith(0, 24);
   });
 
-  it('calls onChange with the new start, keeping the end untouched', () => {
+  it('calls onChange with the new start, keeping the end untouched, and closes the list', () => {
     const onChange = vi.fn();
     render(<HourRangePicker startHour={8} endHour={20} onChange={onChange} fromLabel="من" toLabel="إلى" />);
-    const [start] = screen.getAllByRole('combobox');
-    fireEvent.change(start, { target: { value: '10' } });
+    const [startBtn] = screen.getAllByRole('button', { name: /من|إلى/ });
+    fireEvent.click(startBtn);
+    fireEvent.click(screen.getByRole('option', { name: '10:00' }));
     expect(onChange).toHaveBeenCalledWith(10, 20);
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('calls onChange with the new end, keeping the start untouched', () => {
     const onChange = vi.fn();
     render(<HourRangePicker startHour={8} endHour={20} onChange={onChange} fromLabel="من" toLabel="إلى" />);
-    const [, end] = screen.getAllByRole('combobox');
-    fireEvent.change(end, { target: { value: '18' } });
+    const [, endBtn] = screen.getAllByRole('button', { name: /من|إلى/ });
+    fireEvent.click(endBtn);
+    fireEvent.click(screen.getByRole('option', { name: '18:00' }));
     expect(onChange).toHaveBeenCalledWith(8, 18);
   });
 });
