@@ -132,6 +132,15 @@ class ConversationState:
     promo_suppressed: bool = False
     input_tokens: int = 0
     output_tokens: int = 0
+    # THE ITEM IDS THIS SESSION WAS ACTUALLY SHOWN in the last carousel/slot-pick list —
+    # fixed 2026-09-12, a real gap a QA audit found: `carousel:{kind}:{item_id}` and
+    # `slotpick:{kind}:{item_id}:{starts_at}` reply-ids used to be parsed and acted on with no
+    # binding to what this conversation was actually shown, unlike every other state-changing
+    # surface here (`pending_proposal_id`). Set the moment a carousel or its slot list is sent,
+    # checked before either reply-id is honoured — see `_handle_carousel_pick`/`_handle_slot_pick`.
+    # Cleared the next time either is (re)shown or the session closes, same "one shot" discipline
+    # a pending proposal already gets.
+    shown_carousel_ids: list[str] = field(default_factory=list)
     updated: int = field(default_factory=lambda: int(time.time()))
 
 

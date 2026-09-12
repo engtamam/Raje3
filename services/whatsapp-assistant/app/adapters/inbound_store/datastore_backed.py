@@ -12,6 +12,7 @@ though wamid alone is already globally unique to Meta.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -22,6 +23,17 @@ from app.core.models import INBOUND_MESSAGES
 # both reach the SAME wamid, independently, at any time apart) while still going away on a genuine
 # privacy erasure (`purge_for_subject` deletes the row outright, which is unaffected by this TTL).
 _DEDUP_TTL_SECONDS = 10 * 365 * 86_400
+
+# A SHORT MUTEX FOR `mark_processed`/`attach_subject_ref` — added 2026-09-12, a QA audit found both
+# were a plain get-then-put on the same row `record_if_new` itself was fixed (2026-09-07) to stop
+# doing, for the identical reason: `mark_processed` runs from a `finally` block, so a slow request
+# whose own `attach_subject_ref` write is still in flight (or a duplicate invocation racing on a
+# retry path) can lose one of the two writes. Short-lived by design — this only needs to cover one
+# get+put round trip, never a human timescale.
+_FIELD_LOCKS = "wa_inbound_field_locks"
+_FIELD_LOCK_TTL_SECONDS = 10.0
+_FIELD_LOCK_RETRY_ATTEMPTS = 40
+_FIELD_LOCK_RETRY_DELAY_SECONDS = 0.05
 
 
 class DataStoreInboundMessageStore:
@@ -50,24 +62,38 @@ class DataStoreInboundMessageStore:
         return await self._store.claim(
             INBOUND_MESSAGES, key, row, ttl_seconds=_DEDUP_TTL_SECONDS, now=time.time())
 
-    async def mark_processed(self, tenant: str, wamid: str) -> None:
+    async def _set_field(self, tenant: str, wamid: str, field: str, value: Any) -> None:
+        """The atomic core `mark_processed`/`attach_subject_ref` both share — see `_FIELD_LOCKS`'
+        own module comment. Locked around the get-then-put so the two can never race and silently
+        drop one of their writes."""
         key = self._key(tenant, wamid)
-        row = await self._store.get(INBOUND_MESSAGES, key)
-        if row is None:
-            return
-        row["processed"] = True
-        await self._store.put(INBOUND_MESSAGES, key, row)
+        mutex_key = f"{tenant}|{wamid}"
+        held = False
+        for _ in range(_FIELD_LOCK_RETRY_ATTEMPTS):
+            held = await self._store.claim(
+                _FIELD_LOCKS, mutex_key, {"held": True},
+                ttl_seconds=_FIELD_LOCK_TTL_SECONDS, now=time.time())
+            if held:
+                break
+            await asyncio.sleep(_FIELD_LOCK_RETRY_DELAY_SECONDS)
+        try:
+            row = await self._store.get(INBOUND_MESSAGES, key)
+            if row is None:
+                return
+            row[field] = value
+            await self._store.put(INBOUND_MESSAGES, key, row)
+        finally:
+            if held:
+                await self._store.delete(_FIELD_LOCKS, mutex_key)
+
+    async def mark_processed(self, tenant: str, wamid: str) -> None:
+        await self._set_field(tenant, wamid, "processed", True)
 
     async def get(self, tenant: str, wamid: str) -> dict[str, Any] | None:
         return await self._store.get(INBOUND_MESSAGES, self._key(tenant, wamid))
 
     async def attach_subject_ref(self, tenant: str, wamid: str, subject_ref: str) -> None:
-        key = self._key(tenant, wamid)
-        row = await self._store.get(INBOUND_MESSAGES, key)
-        if row is None:
-            return
-        row["subject_ref"] = subject_ref
-        await self._store.put(INBOUND_MESSAGES, key, row)
+        await self._set_field(tenant, wamid, "subject_ref", subject_ref)
 
     async def purge_for_subject(self, tenant: str, subject_ref: str, *, max_scan: int = 5000
                                 ) -> tuple[int, bool]:

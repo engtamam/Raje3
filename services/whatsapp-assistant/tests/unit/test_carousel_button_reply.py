@@ -11,6 +11,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core import tools as T
 from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
 from app.core.conversation import ConversationEngine
+from app.core.models import CONVERSATIONS, ConversationState, as_row
 from app.core.points import NullPointsSummary
 from app.ports.booking_provider import Slot
 
@@ -32,6 +33,15 @@ def _engine(provider, **overrides):
                  session_timeout_seconds=2400, raw_window_messages=12, allowed_tools=ALLOWED)
     kwargs.update(overrides)
     return ConversationEngine(**kwargs)
+
+
+async def _shown(store, subject_ref, *item_ids):
+    """Seed the conversation as if a carousel naming these item_ids was just sent — the real
+    precondition `_handle_carousel_pick`/`_handle_slot_pick` now require (whatsapp-assistant-003,
+    QA audit 2026-09-12) before either reply-id is honoured."""
+    conv = ConversationState(tenant=TENANT, subject_ref=subject_ref, state="idle",
+                             shown_carousel_ids=list(item_ids))
+    await store.put(CONVERSATIONS, f"{TENANT}|{subject_ref}", as_row(conv))
 
 
 @dataclass
@@ -56,7 +66,9 @@ class _SingleSlotProvider:
 async def test_a_single_available_slot_skips_straight_to_a_confirm_proposal():
     now = int(time.time())
     provider = _SingleSlotProvider(slot=Slot(starts_at=now + 3600, duration_minutes=30))
-    engine = _engine(provider)
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "srv_1")
 
     plan = await engine.handle_button_reply(
         tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:srv_1", auditor=None)
@@ -70,6 +82,7 @@ async def test_multiple_slots_render_a_list_the_customer_picks_from():
     store = MemoryDataStore()
     provider = ConfigDrivenAvailabilityProvider(store=store, cfg=_cfg())
     engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "svc1")
 
     plan = await engine.handle_button_reply(
         tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:svc1", auditor=None)
@@ -83,6 +96,7 @@ async def test_picking_a_slot_from_the_list_renders_the_same_confirm_proposal():
     store = MemoryDataStore()
     provider = ConfigDrivenAvailabilityProvider(store=store, cfg=_cfg())
     engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "svc1")
     now = int(time.time())
     slots = await provider.availability(tenant=TENANT, service_id="svc1", earliest=now,
                                         horizon_days=7)
@@ -102,6 +116,7 @@ async def test_a_slot_that_is_no_longer_available_is_refused_not_a_crash():
     store = MemoryDataStore()
     provider = ConfigDrivenAvailabilityProvider(store=store, cfg=_cfg())
     engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "svc1")
 
     # 3am is outside the configured 09:00-11:00 business hours — never a real slot.
     fake_starts_at = int(time.time()) - (int(time.time()) % 86400) + 3 * 3600
@@ -117,7 +132,9 @@ async def test_a_slot_that_is_no_longer_available_is_refused_not_a_crash():
 async def test_zero_available_slots_says_so_plainly():
     now = int(time.time())
     provider = _SingleSlotProvider(slot=None)
-    engine = _engine(provider)
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "srv_1")
 
     plan = await engine.handle_button_reply(
         tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:srv_1", auditor=None)
@@ -129,7 +146,9 @@ async def test_zero_available_slots_says_so_plainly():
 async def test_a_package_carousel_pick_uses_availability_for_package():
     now = int(time.time())
     provider = _SingleSlotProvider(package_slot=Slot(starts_at=now + 3600, duration_minutes=30))
-    engine = _engine(provider)
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "pkg_1")
 
     plan = await engine.handle_button_reply(
         tenant=TENANT, subject_ref="sub1", reply_id="carousel:package:pkg_1", auditor=None)
@@ -139,7 +158,9 @@ async def test_a_package_carousel_pick_uses_availability_for_package():
 
 async def test_a_malformed_carousel_id_is_refused_not_an_unhandled_exception():
     provider = _SingleSlotProvider()
-    engine = _engine(provider)
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "svc1")
 
     plan = await engine.handle_button_reply(
         tenant=TENANT, subject_ref="sub1", reply_id="carousel:gadget:x", auditor=None)
@@ -160,3 +181,50 @@ async def test_ordinary_confirm_cancel_replies_are_completely_unaffected():
         tenant=TENANT, subject_ref="sub1", reply_id="prp_nonexistent:confirm", auditor=None)
     assert plan.kind == "text"
     assert plan.text == "هذا الطلب لم يعد صالحًا."
+
+
+# ── whatsapp-assistant-003: the id must be bound to what THIS session was actually shown ────────
+async def test_a_carousel_id_for_an_item_this_session_was_never_shown_is_refused():
+    now = int(time.time())
+    provider = _SingleSlotProvider(slot=Slot(starts_at=now + 3600, duration_minutes=30))
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+    await _shown(store, "sub1", "some_other_service")
+
+    plan = await engine.handle_button_reply(
+        tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:srv_1", auditor=None)
+
+    assert plan.kind == "text"
+    assert plan.text == "هذا الخيار لم يعد صالحًا."
+
+
+async def test_a_carousel_id_probed_before_any_carousel_was_ever_shown_is_refused():
+    """A fresh conversation (never shown any carousel at all — `shown_carousel_ids` empty) must
+    refuse the id exactly the same way as one shown a DIFFERENT item."""
+    now = int(time.time())
+    provider = _SingleSlotProvider(slot=Slot(starts_at=now + 3600, duration_minutes=30))
+    engine = _engine(provider)
+
+    plan = await engine.handle_button_reply(
+        tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:srv_1", auditor=None)
+
+    assert plan.kind == "text"
+    assert plan.text == "هذا الخيار لم يعد صالحًا."
+
+
+async def test_a_slotpick_id_for_an_item_this_session_was_never_shown_is_refused():
+    store = MemoryDataStore()
+    provider = ConfigDrivenAvailabilityProvider(store=store, cfg=_cfg())
+    engine = _engine(provider, store=store)
+    now = int(time.time())
+    slots = await provider.availability(tenant=TENANT, service_id="svc1", earliest=now,
+                                        horizon_days=7)
+    target = slots[0]
+    await _shown(store, "sub1", "some_other_service")
+
+    plan = await engine.handle_button_reply(
+        tenant=TENANT, subject_ref="sub1",
+        reply_id=f"slotpick:service:svc1:{target.starts_at}", auditor=None)
+
+    assert plan.kind == "text"
+    assert plan.text == "هذا الخيار لم يعد صالحًا."

@@ -58,6 +58,7 @@ shop, true for every customer at once, not a signal that this one conversation n
 """
 from __future__ import annotations
 
+import asyncio
 import math
 import re
 import time
@@ -474,6 +475,23 @@ def _estimate_input_tokens(system_prompt: str, context_block: str, summary: str,
     return math.ceil(len(text) / _CHARS_PER_TOKEN_ESTIMATE)
 
 
+# Serialises the whole get-mutate-save span of a ConversationState — added 2026-09-12, a QA audit
+# found the same TOCTOU shape the 2026-09-07 fixes (`record_if_new`, `execute_confirmed_proposal`)
+# were written to close, never applied to this row. `compose_reply` holds `conv` in memory across
+# the LLM call, the wallet hold/confirm and any tool call's peer requests — seconds to tens of
+# seconds — before its single unconditional `_save`; a NEW inbound message on the bus-driven fast
+# path (`on_inbound_text`) can do its own get-append-save in that same window and be silently
+# overwritten. UNLIKE `_EXECUTE_LOCKS` in tools.py (which REFUSES a genuinely concurrent caller),
+# losing a customer's message is not an acceptable failure mode here, so this lock is WAITED FOR,
+# not refused on: `on_inbound_text` retries until it can safely append, and the customer's message
+# is delayed, never dropped. TTL sized for the slow path (LLM + wallet + peer round trips), not the
+# fast one.
+_CONV_LOCKS = "wa_conversation_locks"
+_CONV_LOCK_TTL_SECONDS = 45.0
+_CONV_LOCK_RETRY_ATTEMPTS = 200
+_CONV_LOCK_RETRY_DELAY_SECONDS = 0.25
+
+
 @dataclass
 class ReplyPlan:
     """What core/conversation.py decided to send, for the caller (main.py's tick, or the button-
@@ -634,6 +652,25 @@ class ConversationEngine:
 
     def _key(self, tenant: str, subject_ref: str) -> str:
         return f"{tenant}|{subject_ref}"
+
+    async def _acquire_conv_lock(self, tenant: str, subject_ref: str) -> bool:
+        """Wait for the per-conversation mutex — see `_CONV_LOCKS`' own module comment for why this
+        waits rather than refuses. Bounded: after `_CONV_LOCK_RETRY_ATTEMPTS` a caller proceeds
+        unlocked rather than hang forever on a lock whose holder crashed before its own TTL expiry
+        — the TTL already reclaims that case, this bound is only a second, cheap safety net."""
+        now = time.time()
+        for _ in range(_CONV_LOCK_RETRY_ATTEMPTS):
+            took = await self._store.claim(
+                _CONV_LOCKS, self._key(tenant, subject_ref), {"held": True},
+                ttl_seconds=_CONV_LOCK_TTL_SECONDS, now=now)
+            if took:
+                return True
+            await asyncio.sleep(_CONV_LOCK_RETRY_DELAY_SECONDS)
+        return False
+
+    async def _release_conv_lock(self, tenant: str, subject_ref: str, held: bool) -> None:
+        if held:
+            await self._store.delete(_CONV_LOCKS, self._key(tenant, subject_ref))
 
     async def _get(self, tenant: str, subject_ref: str, branch_id: str = "") -> ConversationState:
         row = await self._store.get(CONVERSATIONS, self._key(tenant, subject_ref))
@@ -891,7 +928,22 @@ class ConversationEngine:
         NEVER passed to `on_inbound_text` — it never touches the batching/LLM machinery at all.
         Only once triage is resolved (`handle_triage_selection`) does text start reaching the
         model.
+
+        LOCKED for its whole get-through-save span — see `_CONV_LOCKS`' own module comment. Held
+        across every triage/branch save AND the final delegation to the batching path, so it can
+        never race `compose_reply`'s own longer hold of the same lock.
         """
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            return await self._handle_inbound_text_locked(
+                tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text,
+                branch_id=branch_id, now=now)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def _handle_inbound_text_locked(self, *, tenant: str, subject_ref: str,
+                                          from_number: str, text: str, branch_id: str = "",
+                                          now: int | None = None) -> ReplyPlan:
         now = now if now is not None else int(time.time())
 
         # AS EARLY AS POSSIBLE — before even the triage list, which is itself part of the AI
@@ -960,9 +1012,11 @@ class ConversationEngine:
         if self._msg_word_limit_enabled and len(text.split()) > (await self._shop_context(tenant)).msg_word_limit:
             return ReplyPlan(kind="text", text=_MESSAGE_TOO_LONG_TEXT)
 
-        # Triage already resolved for this session — normal debounce/batching path.
-        await self.on_inbound_text(tenant=tenant, subject_ref=subject_ref,
-                                   from_number=from_number, text=text, now=now)
+        # Triage already resolved for this session — normal debounce/batching path. Calls the
+        # ALREADY-LOCKED variant directly: this method already holds the same conv lock its
+        # public wrapper would try to re-acquire, and `store.claim()` is not reentrant.
+        await self._on_inbound_text_locked(tenant=tenant, subject_ref=subject_ref,
+                                           from_number=from_number, text=text, now=now)
         return ReplyPlan(kind="none")
 
     async def handle_triage_selection(self, *, tenant: str, subject_ref: str, reply_id: str,
@@ -972,6 +1026,15 @@ class ConversationEngine:
         `handle_button_reply`). "complaint"/"other" go straight to `_escalate_to_human` and never
         touch the LLM/tool-allowlist path at all.
         """
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            return await self._handle_triage_selection_locked(
+                tenant=tenant, subject_ref=subject_ref, reply_id=reply_id, now=now)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def _handle_triage_selection_locked(self, *, tenant: str, subject_ref: str,
+                                              reply_id: str, now: int | None = None) -> ReplyPlan:
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
 
@@ -1019,6 +1082,15 @@ class ConversationEngine:
         Re-validates the picked id against a FRESH branch fetch rather than trusting the id alone
         — a branch closed between the list being sent and the customer's tap must not be
         accepted silently."""
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            return await self._handle_branch_selection_locked(
+                tenant=tenant, subject_ref=subject_ref, reply_id=reply_id, now=now)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def _handle_branch_selection_locked(self, *, tenant: str, subject_ref: str,
+                                              reply_id: str, now: int | None = None) -> ReplyPlan:
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
 
@@ -1103,7 +1175,20 @@ class ConversationEngine:
                               text: str, now: int | None = None) -> None:
         """Record one inbound message and (re-)arm the debounce window. Does NOT call the LLM —
         that only happens when `sweep_due()` finds the debounce window elapsed, so a burst of
-        messages costs one LLM call (design point 3a)."""
+        messages costs one LLM call (design point 3a).
+
+        LOCKED against `compose_reply` — see `_CONV_LOCKS`' own module comment. A message that
+        arrives while a previous batch is still being composed waits for that save rather than
+        racing it and being silently lost."""
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            await self._on_inbound_text_locked(
+                tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text, now=now)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def _on_inbound_text_locked(self, *, tenant: str, subject_ref: str, from_number: str,
+                                      text: str, now: int | None = None) -> None:
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
         conv.from_number = from_number or conv.from_number
@@ -1148,7 +1233,20 @@ class ConversationEngine:
     async def compose_reply(self, tenant: str, subject_ref: str, *, now: int | None = None
                             ) -> ReplyPlan:
         """Called once the debounce window has elapsed for this conversation. Sends the batched
-        messages to the LLM as ONE turn, validates any tool call, and returns what to send."""
+        messages to the LLM as ONE turn, validates any tool call, and returns what to send.
+
+        LOCKED for the whole get-through-save span — see `_CONV_LOCKS`' own module comment. Held
+        across the LLM call, the wallet hold/confirm and any tool call's peer requests so
+        `on_inbound_text` cannot silently lose a message that arrives mid-composition; released in
+        `finally` regardless of how this returns."""
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            return await self._compose_reply_locked(tenant, subject_ref, now=now)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def _compose_reply_locked(self, tenant: str, subject_ref: str, *, now: int | None = None
+                                    ) -> ReplyPlan:
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
         if conv.state != "batching":
@@ -1367,6 +1465,10 @@ class ConversationEngine:
 
             if isinstance(result, T.RenderedCarousel):
                 # NO PendingProposal — presentational, same posture as any other read-only tool.
+                # `shown_carousel_ids` IS THE BINDING a carousel button-reply is checked against —
+                # see `_handle_carousel_pick`'s own docstring; only ids actually rendered here may
+                # ever be picked.
+                conv.shown_carousel_ids = [c.id for c in result.cards]
                 conv.raw_window.append({"role": "assistant",
                                         "text": "[كاروسيل خدمات]", "at": now})
                 conv.state = "idle"
@@ -1438,11 +1540,20 @@ class ConversationEngine:
                                     conv: ConversationState, reply_id: str, now: int) -> ReplyPlan:
         """A carousel card's own button (app/adapters/whatsapp_sender/carousel.py builds the
         payload as "carousel:{kind}:{item_id}") — never the model's decision, the card was built
-        from a real CatalogCard the customer is looking at right now."""
+        from a real CatalogCard the customer is looking at right now.
+
+        BOUND TO WHAT THIS SESSION WAS ACTUALLY SHOWN (`conv.shown_carousel_ids`) — fixed
+        2026-09-12, a real gap a QA audit found: the id used to be trusted purely because it
+        parsed, with no check that this conversation was ever shown that item_id at all, unlike
+        every other state-changing surface here (`pending_proposal_id`). A stale/forged/replayed
+        id for an item this customer was never shown is refused, same posture as
+        `handle_button_reply`'s own proposal-id check."""
         rest = reply_id[len("carousel:"):]
         kind, _, item_id = rest.partition(":")
         if kind not in ("service", "package") or not item_id:
             return ReplyPlan(kind="text", text="لم أفهم هذا الرد.")
+        if item_id not in conv.shown_carousel_ids:
+            return ReplyPlan(kind="text", text="هذا الخيار لم يعد صالحًا.")
         slots = await self._availability_for(tenant=tenant, kind=kind, item_id=item_id,
                                              branch_id=conv.branch_id, earliest=now)
         if not slots:
@@ -1463,7 +1574,12 @@ class ConversationEngine:
                                 reply_id: str, now: int) -> ReplyPlan:
         """A time picked from `_handle_carousel_pick`'s own list — the id is self-describing
         (kind/item_id/starts_at all travel in it), so nothing about "which list this answers"
-        needs to be remembered on the conversation between showing it and this reply."""
+        needs to be remembered on the conversation between showing it and this reply.
+
+        `item_id` STILL BOUND TO `conv.shown_carousel_ids`, same check and same reason as
+        `_handle_carousel_pick` — this list is only ever built from a card that was already in
+        that set, so an id for anything else here is exactly as forged as a raw `carousel:*` one
+        for it would be."""
         rest = reply_id[len("slotpick:"):]
         parts = rest.split(":")
         if len(parts) != 3:
@@ -1471,6 +1587,8 @@ class ConversationEngine:
         kind, item_id, starts_at_s = parts
         if kind not in ("service", "package") or not item_id or not starts_at_s.isdigit():
             return ReplyPlan(kind="text", text="لم أفهم هذا الرد.")
+        if item_id not in conv.shown_carousel_ids:
+            return ReplyPlan(kind="text", text="هذا الخيار لم يعد صالحًا.")
         return await self._propose_slot(tenant=tenant, subject_ref=subject_ref, conv=conv,
                                         kind=kind, item_id=item_id, starts_at=int(starts_at_s),
                                         now=now)
@@ -1485,6 +1603,15 @@ class ConversationEngine:
         {item_id}" (a carousel card's own button) and "slotpick:{kind}:{item_id}:{starts_at}" (a
         time picked from the list the carousel branch may show) — both end at the SAME
         RenderedProposal/confirm-cancel flow below, unchanged."""
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            return await self._handle_button_reply_locked(
+                tenant=tenant, subject_ref=subject_ref, reply_id=reply_id, auditor=auditor, now=now)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def _handle_button_reply_locked(self, *, tenant: str, subject_ref: str, reply_id: str,
+                                          auditor: Any, now: int | None = None) -> ReplyPlan:
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
         if reply_id.startswith("carousel:"):

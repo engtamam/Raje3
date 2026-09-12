@@ -1,9 +1,12 @@
 """core/conversation.py — batching debounce, session timeout, and rolling summary fold."""
+import asyncio
+
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.llm.stub import StubLlm
 from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
 from app.core.conversation import ConversationEngine
 from app.core.points import NullPointsSummary
+from app.ports.llm import LlmReply
 
 TENANT = "t1"
 SUBJECT = "sub1"
@@ -123,3 +126,59 @@ async def test_a_conversation_with_a_pending_proposal_is_not_offered_a_second_st
     allowed = llm.calls[0]["allowed_tools"]
     assert "propose_booking" not in allowed
     assert "suggest_redeemable_offer" not in allowed
+
+
+class _SlowLlm(StubLlm):
+    """An LLM call that does not resolve until told to — widens compose_reply's own in-flight
+    window so a genuinely concurrent on_inbound_text can be raced against it deterministically."""
+
+    def __init__(self, release: asyncio.Event) -> None:
+        super().__init__()
+        self._release = release
+
+    async def respond(self, **kwargs):
+        await self._release.wait()
+        return await super().respond(**kwargs)
+
+
+async def test_a_message_that_arrives_mid_composition_is_never_lost():
+    """whatsapp-assistant-001 (QA audit, 2026-09-12): compose_reply used to hold its own snapshot
+    across the whole LLM round trip and then do an unconditional save — a message on_inbound_text
+    appended to raw_window WHILE that LLM call was still in flight could be silently overwritten by
+    compose_reply's later, stale save. The conv lock must make on_inbound_text wait for
+    compose_reply's save instead of racing it, so the new message survives either way."""
+    store = MemoryDataStore()
+    release = asyncio.Event()
+    llm = _SlowLlm(release)
+    engine = _engine(store, llm)
+    await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                 text="أول رسالة", now=1000)
+
+    async def compose():
+        return await engine.compose_reply(TENANT, SUBJECT, now=1200)
+
+    async def send_second_message():
+        # Give compose_reply a moment to acquire the lock and start waiting on the LLM, then send
+        # a second message — this must be forced to wait for the lock (compose_reply is still
+        # holding it), not race the save.
+        await asyncio.sleep(0.02)
+        await engine.on_inbound_text(tenant=TENANT, subject_ref=SUBJECT, from_number="+9665",
+                                     text="رسالة ثانية أثناء التفكير", now=1201)
+
+    async def release_llm_soon():
+        # Let compose_reply's LLM call keep the lock a while longer — long enough that
+        # send_second_message is genuinely blocked waiting on it — before letting it finish.
+        await asyncio.sleep(0.1)
+        release.set()
+
+    compose_task = asyncio.ensure_future(compose())
+    second_task = asyncio.ensure_future(send_second_message())
+    release_task = asyncio.ensure_future(release_llm_soon())
+    await asyncio.gather(compose_task, second_task, release_task)
+
+    conv = await engine._get(TENANT, SUBJECT)
+    texts = [m["text"] for m in conv.raw_window]
+    assert "رسالة ثانية أثناء التفكير" in texts
+    # The second message waited for compose_reply's own save, so it is batching FRESH — not lost,
+    # not silently folded into a conversation compose_reply had already marked idle/closed.
+    assert conv.state == "batching"
