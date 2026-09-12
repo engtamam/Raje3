@@ -330,7 +330,7 @@ export function AccountScreen(
                 <WhatsAppVisitRegistrationCard session={session} catalog={catalog} owned={owned} />
                 {/* ITS OWN, SECOND ownership check inside (feature.contacts) — same reasoning as
                    تسجيل الزيارة عبر واتساب right above: واتساب alone doesn't imply جهات الاتصال. */}
-                <WhatsAppAutoRegisterCard session={session} catalog={catalog} owned={owned} />
+                <WhatsAppAutoRegisterCard session={session} catalog={catalog} />
               </AppGate>
             </div>
           ) : null}

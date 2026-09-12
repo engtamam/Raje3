@@ -475,14 +475,19 @@ export function WhatsAppVisitRegistrationCard({ session, catalog, owned }: {
  * حقيقية عن كل من يراسل الرقم ولو رسالة واحدة — راجع
  * `services/operations/app/core/whatsapp_auto_register.py`'s الخاص لسبب هذا الافتراض.
  *
- * ONLY WHEN THIS SHOP OWNS «جهات الاتصال» نفسه — الفعل الفعلي (إنشاء عميل) هو نفس الفعل اللي
- * `ensureCustomer` يسويه بشاشة العملاء، فلا معنى لهذا الإعداد بدون التطبيق اللي يملك تلك البيانات.
+ * ONLY BEHIND «المساعد الذكي عبر واتساب» — NOT «جهات الاتصال» (2026-09-12 correction). The
+ * mechanism itself only ever fires from inside a live WhatsApp conversation
+ * (`whatsapp-assistant/core/customer_lookup.py`), so its real dependency was always the paid
+ * assistant, never the free app. Gating it on `feature.contacts` was a no-op in practice — every
+ * shop holds that one for free from day one (`signup.py::_start_contacts_grant`) — so the setting
+ * quietly worked for anyone with WhatsApp connected regardless of whether they had paid for the
+ * assistant. This card renders inside `<AppGate appId="whatsapp">` already (Account.tsx); that
+ * outer gate is now the ONLY gate, so no shop reaches this toggle without holding the paid app.
  */
-export function WhatsAppAutoRegisterCard({ session, catalog, owned }: {
-  session: Session; catalog: Catalog; owned: Loading<Owned>;
+export function WhatsAppAutoRegisterCard({ session, catalog }: {
+  session: Session; catalog: Catalog;
 }) {
   const { t } = useOperatorI18n();
-  const ownsContacts = owns(owned, 'feature.contacts');
   const read = action(catalog, 'operations.whatsapp_auto_register');
   const write = action(catalog, 'operations.set_whatsapp_auto_register');
   const [enabled, setEnabled] = useState<boolean | null | undefined>(undefined);
@@ -491,13 +496,13 @@ export function WhatsAppAutoRegisterCard({ session, catalog, owned }: {
   const [confirming, setConfirming] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!read || !ownsContacts) { setEnabled(null); return; }
+    if (!read) { setEnabled(null); return; }
     call<{ enabled?: boolean }>(session, read)
       .then((x) => setEnabled(x.enabled === true))
       .catch(() => setEnabled(null));
-  }, [session, catalog, ownsContacts]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!ownsContacts || !read || enabled === null) return null;
+  if (!read || enabled === null) return null;
   if (enabled === undefined) return <Skeleton height={100} />;
 
   async function flip(next: boolean) {

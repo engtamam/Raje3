@@ -105,6 +105,22 @@ WHATSAPP_FEATURES: tuple[Feature, ...] = (
         # for "شكوى/اقتراح" that bypasses the model entirely — all route to the same human handoff.
     ),
     Feature(
+        id="whatsapp.builds_your_customer_book",
+        title="يبني لك قاعدة عملاء من كل محادثة",
+        detail="يسجّل رقم أي عميل يراسلك كجهة اتصال حقيقية بموافقتك، فما تفوّتك رسالة واحدة حتى لو لم يزر بعد",
+        icon="user-plus",
+        tone=TONE_TEAL,
+        # `whatsapp-assistant/core/customer_lookup.py` calling `services/operations/app/core/
+        # whatsapp_auto_register.py` — a real, server-side act (resolve-or-create a جهات الاتصال
+        # row by phone), never a tool the model decides to call. OFF by default, the OWNER'S OWN
+        # opt-in (`operations.manage`) — a real data-collection decision, not a technical default.
+        # THIS APP'S OWN FEATURE NOW, NOT «جهات الاتصال»'s (2026-09-12 correction) — the mechanism
+        # only ever fires from inside a live WhatsApp conversation, so gating the console's own
+        # toggle on the free contacts app was a no-op that quietly gave this away for free; the
+        # real dependency was always this app, and the console's own gate now matches it exactly
+        # (AccountPanes.tsx::WhatsAppAutoRegisterCard, behind `<AppGate appId="whatsapp">` alone).
+    ),
+    Feature(
         id="whatsapp.stops_pushing",
         title="يمنح عميلك راحته",
         detail="يتوقف عن عرض المزيد بعد رفضين، فيبقى عميلك مرتاحاً وراجعاً إليك",
