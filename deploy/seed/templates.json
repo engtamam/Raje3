@@ -325,64 +325,6 @@
       ]
     },
     {
-      "name": "mkt_cross_sell",
-      "deferral": "defer",
-      "title": "خدمة مكمّلة",
-      "cls": "marketing",
-      "category": "MARKETING",
-      "header": "",
-      "tones": {
-        "warm": "هلا {{1}}، بما إنك مهتم بـ{{3}}، كثير من عملاء {{2}} يضيفون معها {{4}}. لإيقاف العروض: {{5}} ✋",
-        "feminine": "هلا {{1}}، بما إنك مهتمة بـ{{3}}، كثير من عميلات {{2}} يضفن معها {{4}}. لإيقاف العروض: {{5}} ✋"
-      },
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "catalogue",
-        "stop_link"
-      ]
-    },
-    {
-      "name": "mkt_package",
-      "deferral": "defer",
-      "title": "باقة أو اشتراك",
-      "cls": "marketing",
-      "category": "MARKETING",
-      "header": "",
-      "tones": {
-        "warm": "هلا {{1}}، وفّر أكثر مع باقة {{3}} من {{2}} بـ{{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
-        "feminine": "هلا {{1}}، وفّري أكثر مع باقة {{3}} من {{2}} بـ{{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋"
-      },
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "amount",
-        "date",
-        "stop_link"
-      ]
-    },
-    {
-      "name": "mkt_referral",
-      "deferral": "defer",
-      "title": "إحالة صديق",
-      "cls": "marketing",
-      "category": "MARKETING",
-      "header": "",
-      "tones": {
-        "warm": "هلا {{1}}، إذا عجبتك خدمتنا في {{2}} رشّحنا لصاحبك — لك وله خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋",
-        "feminine": "هلا {{1}}، إذا عجبتك خدمتنا في {{2}} رشّحينا لصاحبتك — لك ولها خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋"
-      },
-      "fills": [
-        "system",
-        "system",
-        "amount",
-        "date",
-        "stop_link"
-      ]
-    },
-    {
       "name": "mkt_announcement",
       "deferral": "defer",
       "title": "جديد",
@@ -414,26 +356,6 @@
       "fills": [
         "system",
         "system",
-        "amount",
-        "date",
-        "stop_link"
-      ]
-    },
-    {
-      "name": "mkt_seasonal",
-      "deferral": "defer",
-      "title": "مناسبة عامة",
-      "cls": "marketing",
-      "category": "MARKETING",
-      "header": "",
-      "tones": {
-        "warm": "كل عام وأنت بخير {{1}}، بمناسبة {{3}} جهزنا لك في {{2}} خصم {{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
-        "feminine": "كل عام وأنتِ بخير {{1}}، بمناسبة {{3}} جهزنا لك في {{2}} خصم {{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋"
-      },
-      "fills": [
-        "system",
-        "system",
-        "owner",
         "amount",
         "date",
         "stop_link"
