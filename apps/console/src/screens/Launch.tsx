@@ -554,21 +554,33 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     // before the count behind it is known, a phone showing a count it never asked for is not.
     const phone = (
       <div className="flex flex-col gap-3 lg:sticky lg:top-4 lg:w-72 lg:shrink-0">
-        <WhatsAppTemplatePreview
-          data={(() => {
-            const data: WaTemplateData = { body: preview?.message ?? '' };
-            if (carouselShaped && hasBookings) {
-              data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
-            }
-            return data;
-          })()}
-          fetchFlowJson={!carouselShaped || !hasBookings ? undefined : (flowName: string) => {
-            const a = action(catalog, 'operations.whatsapp_flow_json');
-            if (!a) return Promise.reject(new Error(t('launch.previewFailed')));
-            return call<FlowJson>(session, a, { name: flowName });
-          }}
-        />
-        {carouselShaped && !hasBookings ? (
+        {/* AN EMPTY BUBBLE READS AS BROKEN, NOT AS "NOTHING YET" — `WhatsAppTemplatePreview` draws
+            whatever `data.body` holds, including nothing at all, and a blank speech bubble inside
+            a real phone chrome looks like a rendering bug rather than an unanswered question. Real
+            text exists only once the server has actually rendered it (`ask()`'s own `preview.message`
+            — this screen composes nothing client-side, see the module's own docstring), so until
+            then the frame holds a plain waiting sentence instead of an empty shape. */}
+        {preview?.message ? (
+          <WhatsAppTemplatePreview
+            data={(() => {
+              const data: WaTemplateData = { body: preview.message ?? '' };
+              if (carouselShaped && hasBookings) {
+                data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
+              }
+              return data;
+            })()}
+            fetchFlowJson={!carouselShaped || !hasBookings ? undefined : (flowName: string) => {
+              const a = action(catalog, 'operations.whatsapp_flow_json');
+              if (!a) return Promise.reject(new Error(t('launch.previewFailed')));
+              return call<FlowJson>(session, a, { name: flowName });
+            }}
+          />
+        ) : (
+          <div className="flex min-h-[280px] flex-col items-center justify-center gap-2 rounded-card border border-dashed border-border-subtle p-6 text-center">
+            <p className="text-sm text-text-secondary">{t('launch.previewPending')}</p>
+          </div>
+        )}
+        {preview?.message && carouselShaped && !hasBookings ? (
           <p className="text-xs text-text-secondary">{t('launch.preview.carouselNote')}</p>
         ) : null}
 
