@@ -28,12 +28,17 @@
  * every existing call site keeps compiling unchanged and only opts into the smaller variant where
  * it explicitly asks for it.
  */
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@base-ui/lib/cn';
 
 export interface RjSegmentedOption<T extends string> {
   value: T;
   label: string;
   hint?: string;
+  /** A LEADING ICON, before the label — for a screen's own top-level tab strip where each tab
+   *  names a whole section (e.g. «الحملات»'s four), never for a nested/secondary strip where an
+   *  icon per option would be one more thing competing with the label at a smaller size. */
+  icon?: LucideIcon;
   /** A trailing count/progress pill (e.g. "2/6") — colour-coded via `badgeTone`, NEVER baked into
    *  `label` as plain text (the exact "(2/6)" with zero colour the owner flagged directly). */
   badge?: string;
@@ -85,6 +90,7 @@ export function Segmented<T extends string>({
     >
       {options.map((opt) => {
         const active = opt.value === value;
+        const Icon = opt.icon;
         return (
           <button
             key={opt.value}
@@ -99,7 +105,7 @@ export function Segmented<T extends string>({
               // min-h-11 (44px) — the accessible touch-target floor, same reasoning platform/ui's
               // own AppShell nav rows and rj-ui/Button's `lg` size already settled on. `sm` still
               // clears it (44px is the hit target, not the visual height) via padding alone.
-              'relative inline-flex min-h-11 items-center justify-center rounded-full font-semibold transition-all duration-200 focus-ring',
+              'relative inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full font-semibold transition-all duration-200 focus-ring',
               sm ? 'px-2.5 py-1 text-[12.5px]' : 'px-3.5 py-2 text-sm',
               disabled && 'cursor-not-allowed',
               active
@@ -119,6 +125,7 @@ export function Segmented<T extends string>({
                 : 'text-text-secondary hover:text-text-primary',
             )}
           >
+            {Icon ? <Icon size={sm ? 13 : 15} aria-hidden /> : null}
             {opt.label}
             {opt.badge ? (
               <span className={cn(

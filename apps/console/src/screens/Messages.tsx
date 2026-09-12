@@ -27,9 +27,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
-  AlertTriangle, BarChart3, CalendarClock, Gauge, Lock, MessageSquare, Megaphone, Pause,
-  Users, X,
+  AlertTriangle, Award, BarChart3, Cake, CalendarClock, ClipboardCheck, Clock, Clock3, Compass,
+  FileBarChart, FileText, Gauge, Gift, Heart, Hourglass, Lightbulb, Lock, Mail, MessageSquare,
+  Megaphone, Pause, RotateCcw, ShieldAlert, ShieldCheck, Star, Tag, Users, Wallet, X, Zap,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { BarCompare } from '../rj-ui/BarCompare';
@@ -209,6 +211,52 @@ const CLASS_TONE: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'd
   marketing: 'warning',
 };
 
+/** THE APPROVED MOCKUP'S OWN CARD LANGUAGE — every class/section gets its own colour, carried on
+ *  BOTH the icon circle and a left stripe on the card itself (`border-inline-start`, RTL-safe,
+ *  same technique the queue/log rows already use), not just a badge. `tips`/`offers`/`bot` are
+ *  SECTION_ORDER's own three extra buckets (goal-only cards, no `CLASS_TONE` entry of their own)
+ *  — mapped here too, so every section this screen can ever show has a real colour, never falling
+ *  back to plain grey. */
+const SECTION_TONE: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'neutral'> = {
+  service: 'info', personal: 'success', marketing: 'warning', awareness: 'neutral',
+  tips: 'accent', offers: 'danger', bot: 'neutral', warning: 'warning',
+};
+const TONE_VAR: Record<string, string> = {
+  info: 'var(--info)', success: 'var(--success)', warning: 'var(--warning)',
+  danger: 'var(--danger)', accent: 'var(--accent)', neutral: 'var(--border-subtle)',
+};
+const TONE_ICON_BG: Record<string, string> = {
+  info: 'bg-info-soft text-info-on-soft', success: 'bg-success-soft text-success-on-soft',
+  warning: 'bg-warning-soft text-warning-on-soft', danger: 'bg-danger-soft text-danger-on-soft',
+  accent: 'bg-accent-soft text-accent-on-soft', neutral: 'bg-surface-2 text-text-secondary',
+};
+/** THE RAIL'S OWN DOT — the SAME tone as the card's own stripe/icon above, never a second,
+ *  independently-assigned colour rotation (that mismatch — the rail picking a colour by POSITION
+ *  while the card picked one by MEANING — is exactly what made the rail's dots disagree with the
+ *  cards they filter). */
+const TONE_DOT: Record<string, string> = {
+  info: 'bg-info', success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger',
+  accent: 'bg-accent', neutral: 'bg-text-muted',
+};
+/** EACH ROW'S OWN ICON, BY THE ONE THING THAT ACTUALLY DIFFERS ACROSS THEM — the reason id, or
+ *  the goal, or the bot-tool id. A single generic envelope for every one of the thirteen-plus rows
+ *  (the previous shape) is exactly what read as "unfinished" beside the mockup's own per-row
+ *  icons. Kept as a lookup, same hand-mirrored posture as `REASON_TEMPLATE_TYPE` above — a table
+ *  this small drifting is a one-line fix. */
+const CARD_ICON: Record<string, LucideIcon> = {
+  visit_recorded: ClipboardCheck, rating_requested: Star, booking_confirmed: CalendarClock,
+  visit_redeemed: Gift, service_due: Clock3, after_visit: Heart, no_response: RotateCcw,
+  balance_changed: Wallet, points_expiring: Hourglass, reward_within_reach: Gift,
+  gone_missing: Compass, loyal_customer: Award, personal_occasion: Cake, weekly_digest: FileBarChart,
+  privacy_code: ShieldCheck,
+  win_back: Compass, reward_loyal: Award, announce: Megaphone, occasion: Cake,
+  awareness: Lightbulb, service_offer: Tag, package_offer: Tag, safety: ShieldAlert,
+};
+function cardIcon(card: TemplateCard): LucideIcon {
+  const key = card.reason?.id ?? card.goal ?? card.key.replace(/^bot:/, '');
+  return CARD_ICON[key] ?? MessageSquare;
+}
+
 /**
  * ONE GOAL CARD, READ FROM `campaigns.goals` — just enough to build the five that have no
  * automatic reason of their own (win_back/occasion/reward_loyal are read from `reasons` instead,
@@ -250,10 +298,6 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
 // appendix, not mixed in among the shop's own configured messages.
 const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers', 'bot'] as const;
 
-/** THE RAIL'S OWN DOT COLOURS, in order — the same rotation GeoMap.tsx's own group legend
- *  already uses (accent/success/warning/danger/muted), so a category dot reads consistently with
- *  every other place this product colour-codes a small fixed set of named groups. */
-const RAIL_DOT_COLORS = ['bg-accent', 'bg-info', 'bg-success', 'bg-warning', 'bg-danger', 'bg-text-muted'];
 const SECTION_KEY: Record<string, string> = {
   service: 'messages.section.service',
   personal: 'messages.section.personal',
@@ -742,12 +786,18 @@ function TemplateCardItem({ card, session, busy, onOpen, onFlip, onCrossLink, lo
 }) {
   const { t } = useOperatorI18n();
   const r = card.reason;
+  // THE MOCKUP'S OWN CARD LANGUAGE — a coloured left stripe and a matching tinted icon circle,
+  // by class/section. `bot` cards share `SECTION_TONE`'s own 'bot' entry same as every other row.
+  const tone = SECTION_TONE[card.cls] ?? 'neutral';
+  const Icon = cardIcon(card);
   return (
-    <div className={['flex items-center gap-3 rounded-card border border-border-subtle',
-                     'bg-surface-1 p-3 shadow-sm', (r && !r.on) || locked ? 'opacity-70' : ''].join(' ')}>
-      {/* THE ICON CIRCLE — the product's own idiom, not a new one. */}
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2">
-        <MessageSquare size={16} className="text-text-secondary" aria-hidden />
+    <div style={{ borderInlineStart: `4px solid ${TONE_VAR[tone]}` }}
+        className={['flex items-center gap-3 rounded-card border border-border-subtle',
+                   'bg-surface-1 p-3 shadow-sm', (r && !r.on) || locked ? 'opacity-70' : ''].join(' ')}>
+      {/* THE ICON CIRCLE — tinted by the same tone as the stripe, one real icon per row rather
+          than a single generic envelope for all of them. */}
+      <span className={['flex h-9 w-9 shrink-0 items-center justify-center rounded-full', TONE_ICON_BG[tone]].join(' ')}>
+        <Icon size={16} aria-hidden />
       </span>
 
       <button type="button" onClick={onOpen}
@@ -1182,10 +1232,20 @@ export function MessagesScreen(
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'reasons', label: t('messages.tab.reasons') },
-          { value: 'auto', label: t('messages.tab.auto') },
-          { value: 'campaigns', label: t('messages.tab.campaigns') },
-          { value: 'log', label: t('messages.tab.log') },
+          {
+            value: 'reasons', label: t('messages.tab.reasons'), icon: FileText,
+            // A REAL COUNT, ONLY ONCE THE READ HAS ACTUALLY ANSWERED — never 0 while it is still
+            // loading or denied, which would read as "nothing sends" about a shop whose engine we
+            // simply have not asked yet.
+            badge: isReady(reasons) ? String(reasons.length) : undefined,
+          },
+          {
+            value: 'auto', label: t('messages.tab.auto'), icon: Clock,
+            badge: isReady(schedule) && Array.isArray(schedule.schedule)
+              ? String(schedule.schedule.length) : undefined,
+          },
+          { value: 'campaigns', label: t('messages.tab.campaigns'), icon: Zap },
+          { value: 'log', label: t('messages.tab.log'), icon: Mail },
         ]}
       />
 
@@ -1270,11 +1330,11 @@ export function MessagesScreen(
                 items={[
                   { id: '', label: t('messages.category.all'), count: filteredCards.length },
                   ...SECTION_ORDER
-                    .map((section, i) => ({
+                    .map((section) => ({
                       id: section,
                       label: sectionLabel(t, section),
                       count: filteredCards.filter((c) => c.cls === section).length,
-                      dotClassName: RAIL_DOT_COLORS[i % RAIL_DOT_COLORS.length],
+                      dotClassName: TONE_DOT[SECTION_TONE[section] ?? 'neutral'],
                     }))
                     .filter((it) => it.count > 0),
                 ]}
