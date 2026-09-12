@@ -69,7 +69,7 @@ export interface SectionState extends Section {
  * «not enough data yet» is the worst first impression available. The merged page answers that by
  * ORDER rather than by address — what is running today is drawn whatever the snapshot holds.
  *
- * And the names are the thing rather than the system: «عملائي» not "the database", «رسائلي» not
+ * And the names are the thing rather than the system: «عملائي» not "the database", «الحملات» not
  * "templates and campaigns".
  */
 export const SECTIONS: Section[] = [
@@ -104,7 +104,7 @@ export const SECTIONS: Section[] = [
   //
   // Hiding it would break the sale it exists to make: «42 عميلاً معرّضون للضياع» is what sells the
   // messages that reach them, so an owner who cannot see it cannot see why he would pay. The
-  // upgrade LINE lives inside «رسائلي», where he is already thinking about reaching people, and
+  // upgrade LINE lives inside «الحملات», where he is already thinking about reaching people, and
   // carries a number from his own shop rather than an advert (spec 10.8).
   //
   // The gate here is the CAPABILITY — a role that may read indicators — which is a different

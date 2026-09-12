@@ -1,5 +1,5 @@
 /**
- * «رسائلي» — what goes out in my name.
+ * «الحملات» — what goes out in my name.
  *
  * IT OPENS ON WHAT IS BEING SENT NOW, never on a setup screen. That is the rule for every section
  * (§10.8), and it matters most here because this is the one an owner opens when he is nervous:
@@ -32,6 +32,7 @@ import {
   Users, X,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
+import { BarCompare } from '../rj-ui/BarCompare';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { FilterRail, type FilterRailItem } from '../rj-ui/FilterRail';
 import { KpiCard } from '../rj-ui/KpiCard';
@@ -553,6 +554,22 @@ function isScheduled(c: Campaign): boolean {
   return Boolean(c.fire_at) && (c.fire_at ?? 0) > Date.now() / 1000 && !c.last_evaluated;
 }
 
+/** THE DETAIL PANEL'S OWN "الإرسال عبر الأيام" — every run this campaign has ever had, grouped by
+ *  the calendar day it fired, so a shop can see at a glance whether sends cluster (a standing
+ *  campaign firing daily) or spread thin (a one-time launch). Real numbers only: `runs` is the
+ *  exact list `/runs` already returned, never re-fetched or estimated. */
+function runsByDay(runs: Run[]): { label: string; value: number }[] {
+  const byDay = new Map<string, number>();
+  for (const r of runs) {
+    if (!r.at) continue;
+    const label = new Date(r.at * 1000).toLocaleDateString('ar', { day: 'numeric', month: 'short' });
+    byDay.set(label, (byDay.get(label) ?? 0) + (r.sent ?? 0));
+  }
+  // OLDEST FIRST — `runs` itself arrives newest-first (the route's own order), and a trend reads
+  // naturally left-to-right in the order it actually happened.
+  return Array.from(byDay.entries()).reverse().map(([label, value]) => ({ label, value }));
+}
+
 /** 966xxxxxxxxx → 05xxxxxxxx. The form he reads on his own phone. */
 function asLocal(phone: string): string {
   const d = digitsOnly(phone || '');
@@ -604,7 +621,7 @@ function Stat({ label, value, warn }: { label: string; value: number; warn?: boo
 }
 
 /**
- * THE CARD THAT DID NOT EXIST. «رسائلي» is the screen an owner opens nervous — something went out
+ * THE CARD THAT DID NOT EXIST. «الحملات» is the screen an owner opens nervous — something went out
  * or did not — and it never said, in one glance, whether sending was even possible today. Sending
  * is blocked entirely (one sentence, in red, above everything else); or it is not, and three
  * numbers say what is happening right now; and the WhatsApp ceiling, when it is close, is the
@@ -830,7 +847,7 @@ export function MessagesScreen(
 
   /**
    * WHAT SENDS IN HIS NAME — the question this whole section is named after, and the one it could
-   * not answer. «رسائلي» listed a queue and a log: what is about to go and what already went. It
+   * not answer. «الحملات» listed a queue and a log: what is about to go and what already went. It
    * never said WHAT THE SYSTEM SENDS AT ALL, so the only way to stop a kind of message was to
    * cancel its rows one at a time, for ever, as they appeared.
    */
@@ -1030,7 +1047,7 @@ export function MessagesScreen(
   };
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
-  // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
+  // the least often wanted — an owner opens «الحملات» to see what is coming, and pays for the log
   // only when he asks why something did not.
   useEffect(() => {
     if (tab !== 'log') return;
@@ -1767,6 +1784,18 @@ export function MessagesScreen(
                                 <div className="text-xs text-text-secondary">{t(`messages.campaigns.totals.${k}`)}</div>
                               </div>
                             ))}
+                        </div>
+                      ) : null}
+
+                      {/* THE TREND — real per-day sums from the same `runs` list below, never a
+                          separate estimate. Only worth drawing once there is more than one day
+                          to compare. */}
+                      {runsByDay(runs).length > 1 ? (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-xs font-medium text-text-secondary">
+                            {t('messages.campaigns.trendLabel')}
+                          </span>
+                          <BarCompare items={runsByDay(runs)} />
                         </div>
                       ) : null}
 

@@ -3,7 +3,7 @@
  *
  * WHY A TAB AND NOT A NEW SECTION IN THE RAIL: a package is a repackaging of the catalogue that
  * already lives here — every field it needs (a name, a price, which services) is a subset of what
- * `Service` already models — never a new domain like الحجوزات or رسائلي. The rail is already
+ * `Service` already models — never a new domain like الحجوزات or الحملات. The rail is already
  * documented as full at nine labels on a phone (nav.ts), and a package is a smaller concern than
  * even فريقي was when IT was demoted to a tab for exactly that reason.
  *

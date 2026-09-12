@@ -1206,7 +1206,7 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
         </h3>
         {/* THE LIST WAS THE DEAD END. `win_back` already exists as a full campaign goal — the same
             1.5×-cycle threshold this card's own rows are built from — but nothing on this screen
-            reached it, so an owner reading twelve overdue names still had to go find «رسائلي»,
+            reached it, so an owner reading twelve overdue names still had to go find «الحملات»,
             press «أطلق حملة», and pick the one goal he already came here for. This carries the
             decision with him instead of asking him to make it twice. */}
         {action(catalog, 'campaigns.create') ? (

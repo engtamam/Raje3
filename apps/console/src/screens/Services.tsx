@@ -90,7 +90,7 @@ interface Settings {
   service_group: Record<string, string>;
 }
 
-/** One row of «رسائلي التلقائية» — this screen reads only the visit confirmation from it. */
+/** One row of «الحملات التلقائية» — this screen reads only the visit confirmation from it. */
 interface ReasonRow { id: string; on: boolean }
 
 /** The one proposal this screen ever makes: several services already share a value. */
@@ -659,7 +659,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * «تأكيد الزيارة» — the one reason this screen owns.
    *
    * IT IS THE TRIGGER STORE, NOT THE SETTINGS TREE. The behaviour has exactly one switch and one
-   * home; the twelve others live in «رسائلي», and this one is repeated here because this is the
+   * home; the twelve others live in «الحملات», and this one is repeated here because this is the
    * screen where an owner asks what happens after a visit.
    */
   const [visitOn, setVisitOn] = useState(true);
@@ -1090,7 +1090,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 AND IT IS A TRIGGER'S SWITCH, not a setting of its own. It lived in the settings
                 tree for a day — which became two switches for one behaviour the moment every
                 message got one, and two switches for one behaviour is one of them quietly doing
-                nothing. The other twelve live in «رسائلي»; this one stays here too because it is
+                nothing. The other twelve live in «الحملات»; this one stays here too because it is
                 where an owner asks "what happens after a visit". */}
             <div className="flex items-start justify-between gap-3 border-t border-border-subtle pt-3">
               <span className="flex min-w-0 flex-col gap-1">

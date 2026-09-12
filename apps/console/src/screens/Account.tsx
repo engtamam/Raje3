@@ -4,7 +4,7 @@
  *
  * THE RULE THAT KEEPS IT WHOLE: only what concerns the RELATIONSHIP between us and him — his
  * subscription, his channel, his identity, his data. A service price belongs to «خدماتي», a
- * template to «رسائلي». Anything proposed here because it "found no place" is refused by that
+ * template to «الحملات». Anything proposed here because it "found no place" is refused by that
  * sentence, and this comment exists so the refusal has something to point at.
  *
  * TABS ACROSS THE TOP, LIKE EVERY OTHER SECTION — and this replaced an index-and-detail layout

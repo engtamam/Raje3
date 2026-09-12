@@ -248,7 +248,7 @@ export function App() {
       // DERIVED, NOT WRITTEN — see nav.ts. An operator's list has one entry and a manager's is
       // missing what the owner keeps, with no role check anywhere in this file.
       // A SECTION WHOSE SERVICE IS DOWN IS NAMED, NOT DELETED (م · النمط 3). The row stays where
-      // his hand expects it and the label says why it will not answer — «رسائلي · متعذّر الآن»
+      // his hand expects it and the label says why it will not answer — «الحملات · متعذّر الآن»
       // rather than a rail that quietly grew shorter and left him counting his own permissions.
       // AND THE ICON, WHICH IS THE ROW'S ONLY FACE WHEN THE RAIL IS COLLAPSED. We passed labels
       // alone, and the shell PERSISTS the collapsed choice per browser — so an owner who once

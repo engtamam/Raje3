@@ -926,7 +926,7 @@ export function PlansPane({
    *  first + (nothing owned yet) has no subscription id to key on, only the plan being bought. */
   const [capacityBusyPlanId, setCapacityBusyPlanId] = useState('');
   const [capacityError, setCapacityError] = useState('');
-  /** `null` is closed; it is not a screen of its own, same as `reading` on «رسائلي». */
+  /** `null` is closed; it is not a screen of its own, same as `reading` on «الحملات». */
   const [cardFormPending, setCardFormPending] = useState<PendingPayment | null>(null);
   /** True only while resolving a token AFTER the 3DS redirect brought him back — a distinct wait
    *  from `busy`, because there is no form and no button to grey out at that moment. */

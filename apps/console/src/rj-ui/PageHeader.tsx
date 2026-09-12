@@ -1,7 +1,7 @@
 /**
  * PageHeader — component #17. Every screen the rail links to needs the same first thing a person
  * sees: the icon that also marks it in the rail, and the page's own name, so a person who just
- * pressed «رسائلي» in the sidebar lands on a page that visibly says «رسائلي» back — not a screen
+ * pressed «الحملات» in the sidebar lands on a page that visibly says «الحملات» back — not a screen
  * that starts straight into its own content with no title at all.
  *
  * WHY THIS EXISTS RATHER THAN A PLAIN `<h1>` PER SCREEN. `Support.tsx` already had this exact
