@@ -1287,3 +1287,11 @@ jobs:
       # own docstring for exactly what it does and does not catch.
       - name: no two tab strips stack in one view
         run: python3 ci/check_no_two_tab_strips_stack_in_one_view.py
+
+      # Written and left unwired since — closing that gap now.
+      - name: every bootstrap seed script is called from bring-up
+        run: python3 ci/check_every_bootstrap_seed_script_is_wired.py
+      - name: no unreviewed «الأساس» remnant survives the rename
+        run: python3 ci/check_no_base_remnants.py
+      - name: every shared feature reads identically everywhere it is granted
+        run: python3 ci/check_shared_features_match.py
