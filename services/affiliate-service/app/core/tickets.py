@@ -22,6 +22,7 @@
 # =============================================================================
 from __future__ import annotations
 
+import asyncio
 import urllib.parse
 from typing import Any
 
@@ -47,8 +48,8 @@ class TicketReader:
         if not self._base:
             return {"available": False, "reason": "ticket_service_not_configured"}
         q = urllib.parse.urlencode({"tenant": tenant, "grantee": grantee})
-        status, body = self._http.call(f"{self._base}/internal/tickets?{q}",
-                                       method="GET", internal=True)
+        status, body = await asyncio.to_thread(
+            self._http.call, f"{self._base}/internal/tickets?{q}", method="GET", internal=True)
         if status == 409:
             # NOT an error — the honest common case before operations-service has wired a share
             # for this (tenant, grantee) pair at signup, or a shop that revoked consent.
@@ -65,8 +66,9 @@ class TicketReader:
             if not tid:
                 continue
             qi = urllib.parse.urlencode({"tenant": tenant, "grantee": grantee})
-            s2, b2 = self._http.call(f"{self._base}/internal/tickets/{tid}?{qi}",
-                                     method="GET", internal=True)
+            s2, b2 = await asyncio.to_thread(
+                self._http.call, f"{self._base}/internal/tickets/{tid}?{qi}",
+                method="GET", internal=True)
             if s2 != 200:
                 continue   # one ticket's own read hiccup — skip it, never abort the whole average
             kpis = (b2 or {}).get("kpis") or {}
@@ -96,8 +98,8 @@ class TicketReader:
         if not self._base:
             raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
         q = urllib.parse.urlencode({"tenant": tenant, "grantee": grantee})
-        status, body = self._http.call(f"{self._base}/internal/tickets?{q}",
-                                       method="GET", internal=True)
+        status, body = await asyncio.to_thread(
+            self._http.call, f"{self._base}/internal/tickets?{q}", method="GET", internal=True)
         if status == 409:
             raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
         if status != 200:
@@ -108,8 +110,9 @@ class TicketReader:
         if not self._base:
             raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
         q = urllib.parse.urlencode({"tenant": tenant, "grantee": grantee})
-        status, body = self._http.call(f"{self._base}/internal/tickets/{ticket_id}?{q}",
-                                       method="GET", internal=True)
+        status, body = await asyncio.to_thread(
+            self._http.call, f"{self._base}/internal/tickets/{ticket_id}?{q}",
+            method="GET", internal=True)
         if status == 409:
             raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
         if status == 404:
@@ -122,7 +125,7 @@ class TicketReader:
     async def reply(self, *, tenant: str, grantee: str, ticket_id: str, body: str) -> dict[str, Any]:
         if not self._base:
             raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
-        status, resp = self._http.call(
+        status, resp = await asyncio.to_thread(self._http.call,
             f"{self._base}/internal/tickets/{ticket_id}/replies", method="POST", internal=True,
             body={"tenant": tenant, "grantee": grantee, "body": body})
         if status == 409:
@@ -139,7 +142,7 @@ class TicketReader:
                           body: str = "", priority: str = "normal") -> dict[str, Any]:
         if not self._base:
             raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
-        status, resp = self._http.call(
+        status, resp = await asyncio.to_thread(self._http.call,
             f"{self._base}/internal/tickets", method="POST", internal=True,
             body={"tenant": tenant, "grantee": grantee, "type": type, "subject": subject,
                  "body": body, "priority": priority})
@@ -160,7 +163,7 @@ class TicketReader:
         entirely core/escalation.py's own, driven by the KPIs this module already reads."""
         if not self._base:
             raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
-        status, resp = self._http.call(
+        status, resp = await asyncio.to_thread(self._http.call,
             f"{self._base}/internal/tickets/{ticket_id}/escalate", method="POST", internal=True,
             body={"tenant": tenant, "grantee": grantee, "assignee": assignee, "level": level,
                  "reason": reason})
@@ -182,7 +185,7 @@ class TicketReader:
         if not self._base:
             raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
         permissions = ["read", "write"] if write else ["read"]
-        status, resp = self._http.call(
+        status, resp = await asyncio.to_thread(self._http.call,
             f"{self._base}/internal/tickets/shares", method="POST", internal=True,
             body={"tenant": tenant, "grantee": grantee, "granted_by": granted_by,
                  "scope": dict(scope or {}), "permissions": permissions})

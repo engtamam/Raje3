@@ -102,7 +102,11 @@ class CommissionEngine:
                 # further commissions — same finality REJECTED gives an Application.
                 return {"synced": False, "reason": "referral_revoked"}
 
-            status, body = self._http.call(
+            # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found:
+            # ci/check_no_blocking_call_via_typed_client.py caught `self._http.call(...)` running
+            # synchronously (a blocking urlopen under the hood) directly inside this `async def`.
+            status, body = await asyncio.to_thread(
+                self._http.call,
                 f"{self._billing}/internal/billing/invoices?tenant={tenant}&status=paid",
                 method="GET", internal=True)
             if status != 200:

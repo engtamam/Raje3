@@ -13,6 +13,7 @@ The shop's name comes from tenant-service, never a second copy, and a stale name
 """
 from __future__ import annotations
 
+import asyncio
 import urllib.error
 import urllib.parse
 from typing import Any
@@ -23,8 +24,21 @@ from app.adapters import internal_http
 # The request itself is built in adapters/internal_http.py — the one place in this service that
 # attaches the internal token. These two names stay because the clients below read well with them
 # and because the failure policy that matters lives at each call site, not in the transport.
-_post = internal_http.post_json
-_get = internal_http.get_json
+#
+# BOTH OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: `internal_http.post_json`/
+# `get_json` are thin synchronous wrappers over a blocking `urllib.request.urlopen`, and every
+# caller below is `async def` but called them directly with no `asyncio.to_thread` — a slow/down
+# billing or reminders peer used to freeze this pod's whole event loop for every tenant, not just
+# the one request. Wrapped ONCE, here, so every call site below stays a plain `await _post(...)`/
+# `await _get(...)` rather than repeating `asyncio.to_thread` at each one.
+async def _post(url: str, body: dict[str, Any], token: str, timeout: float, *,
+               method: str = "POST") -> dict[str, Any]:
+    return await asyncio.to_thread(internal_http.post_json, url, body, token, timeout,
+                                   method=method)
+
+
+async def _get(url: str, token: str, timeout: float) -> dict[str, Any]:
+    return await asyncio.to_thread(internal_http.get_json, url, token, timeout)
 
 
 # ── sending, through the gate ──────────────────────────────────────────────────────────────────
@@ -65,7 +79,7 @@ class HttpSender:
         is the safe direction.
         """
         try:
-            out = _post(self._merge_url, {
+            out = await _post(self._merge_url, {
                 "tenant": tenant, "subject_ref": subject_ref, "reward_name": reward_name,
                 "cost": int(cost), "remaining": int(remaining),
             }, self._token, self._timeout)
@@ -81,7 +95,7 @@ class HttpSender:
         vocabularies for one refusal is how an owner comes to believe there are two problems.
         """
         try:
-            return _post(self._url, {
+            return await _post(self._url, {
                 "tenant": tenant, "subject_ref": subject_ref,
                 "template_type": template_type, "class": cls,
                 "owner_text": owner_text, "idempotency_key": idempotency_key,
@@ -130,7 +144,7 @@ class HttpIdentity:
             return hit[1]
         path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
         try:
-            data = _get(f"{self._url}{path}", self._token, self._timeout)
+            data = await _get(f"{self._url}{path}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return hit[1] if hit else ""
         branding = data.get("branding") or {}
@@ -183,7 +197,7 @@ class HttpServicesPricing:
 
     async def __call__(self, tenant: str) -> bool:
         try:
-            out = _post(self._url, {"tenant": tenant}, self._token, self._timeout)
+            out = await _post(self._url, {"tenant": tenant}, self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
         return bool(out.get("all_priced"))
@@ -206,7 +220,7 @@ class HttpVisits:
     async def record(self, *, tenant: str, subject_ref: str, service_id: str,
                      actor: str, source: str) -> dict[str, Any]:
         try:
-            return _post(self._url, {
+            return await _post(self._url, {
                 "tenant": tenant, "subject_ref": subject_ref, "service_id": service_id,
                 "actor": actor, "source": source, "free": True,
             }, self._token, self._timeout)
@@ -246,7 +260,7 @@ class HttpVisitFeed:
         if not self._url:
             return {}
         try:
-            return _post(self._url, {"tenant": tenant, "since": int(mark), "limit": self._page},
+            return await _post(self._url, {"tenant": tenant, "since": int(mark), "limit": self._page},
                          self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return {}
@@ -267,7 +281,7 @@ class HttpVisitFeed:
         if not self._url:
             return []
         try:
-            page = _post(self._url, {"tenant": "", "since": 0, "limit": int(limit)},
+            page = await _post(self._url, {"tenant": "", "since": 0, "limit": int(limit)},
                          self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return []

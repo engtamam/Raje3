@@ -48,6 +48,7 @@ configuration value we control.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -446,7 +447,10 @@ class Registration:
             body["pin"] = pin
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out = internal_http.post_json(self._register, body, self._token, self._timeout)
+            # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: post_json() is a
+            # blocking urllib call, unwrapped, directly inside this async route.
+            out = await asyncio.to_thread(
+                internal_http.post_json, self._register, body, self._token, self._timeout)
             return bool(out.get("registered")), str(out.get("reason") or "")
         except urllib.error.HTTPError as exc:
             try:
@@ -475,7 +479,9 @@ class Registration:
             {"tenant": tenant, **({"phone_number_id": phone_number_id} if phone_number_id else {})})
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out = internal_http.get_json(f"{self._status}?{query}", self._token, self._timeout)
+            # OFF THE EVENT LOOP — fixed 2026-09-12, same gap as register() just above.
+            out = await asyncio.to_thread(
+                internal_http.get_json, f"{self._status}?{query}", self._token, self._timeout)
             return out if isinstance(out, dict) else {}
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return {}

@@ -32,6 +32,7 @@ cannot award points for an hour has lost an hour.
 
 from __future__ import annotations
 
+import asyncio
 import urllib.error
 import urllib.parse
 from typing import Any
@@ -93,8 +94,12 @@ class HttpLicence:
         query = urllib.parse.urlencode({"tenant": tenant, "key": KEY})
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out: dict[str, Any] = internal_http.get_json(
-                f"{self._url}?{query}", self._token, self._timeout)
+            # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: get_json() is a
+            # blocking urllib call, and every point-of-sale request in this service awaits
+            # `allowed()` before it can grow a customer's balance — a slow billing peer used to
+            # freeze the whole pod, not just this one request.
+            out: dict[str, Any] = await asyncio.to_thread(
+                internal_http.get_json, f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return False
         # `allowed` is billing's own word, and a boolean feature answers it directly. `NOT_ENTITLED`

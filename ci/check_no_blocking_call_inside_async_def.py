@@ -363,11 +363,32 @@ def main() -> int:
     # is exactly the shape this closes. See `_calls_blocking_helper`'s own docstring.
     names_by_module: dict[str, set[str]] = {}
     for f, tree in trees.items():
-        names: set[str] = set()
-        for fn in _walk_functions(tree):
-            if (isinstance(fn, ast.FunctionDef) and fn.name not in _TOO_GENERIC_FOR_HELPER_REGISTRY
-                    and _sync_function_reaches_blocking_io(fn)):
-                names.add(fn.name)
+        plain_fns = [fn for fn in _walk_functions(tree)
+                    if isinstance(fn, ast.FunctionDef)
+                    and fn.name not in _TOO_GENERIC_FOR_HELPER_REGISTRY]
+        names: set[str] = {fn.name for fn in plain_fns
+                           if _sync_function_reaches_blocking_io(fn)}
+        # FIXED-POINT, STILL PER FILE — added 2026-09-12, a real gap a QA audit found: a chain
+        # three calls deep (`Registration.register` -> `internal_http.post_json` ->
+        # `internal_http.read` -> `internal_http.send` -> `urlopen`, the last three all plain
+        # functions in the SAME file) left `post_json` unregistered because it never reaches
+        # `urlopen` directly itself — it only calls `read`, which calls `send`, which does. This
+        # never widens scope past one file (the false-positive class the per-file design itself
+        # exists to avoid): it only lets a name earn "known-blocking" by calling another name
+        # THIS SAME LOOP already gave that status, however many hops deep, within this one file.
+        changed = True
+        while changed:
+            changed = False
+            for fn in plain_fns:
+                if fn.name in names:
+                    continue
+                for node in ast.walk(fn):
+                    if node is fn or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        continue
+                    if _call_name(node) in names:
+                        names.add(fn.name)
+                        changed = True
+                        break
         if names:
             blocking_helper_names[f] = names
             svc, module = _service_and_module(f)

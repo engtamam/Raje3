@@ -191,7 +191,9 @@ class HttpGauges:
         url = f"{self._check}?tenant={tenant}&key={key}&amount=1"
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out = internal_http.get_json(url, self._token, self._timeout)
+            # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: get_json() is a
+            # blocking urllib call, unwrapped, directly inside this async method.
+            out = await asyncio.to_thread(internal_http.get_json, url, self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return True, -1
         if out.get("unlimited"):

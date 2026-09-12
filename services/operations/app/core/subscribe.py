@@ -52,6 +52,7 @@ codebase has learned that twice; it is written down in the playbook and here.
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 from app.adapters import internal_http
@@ -303,8 +304,10 @@ class HttpConnections:
         query = urllib.parse.urlencode({"tenant": tenant})
         try:
             # Built in adapters/internal_http.py, the one place this service attaches the token.
-            out: dict[str, Any] = internal_http.get_json(
-                f"{self._url}?{query}", self._token, self._timeout)
+            # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: get_json() is a
+            # blocking urllib call, unwrapped, directly inside this async method.
+            out: dict[str, Any] = await asyncio.to_thread(
+                internal_http.get_json, f"{self._url}?{query}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             # UNREACHABLE READS AS NOT CONNECTED. See NullConnections: refusing during an outage
             # costs him a retry; allowing costs a refund.

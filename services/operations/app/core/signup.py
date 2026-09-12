@@ -66,6 +66,7 @@ the worse trade by a wide margin.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -281,7 +282,7 @@ class SignupService:
 
         slug = "t-" + uuid.uuid4().hex[:16]
 
-        status, body = self._http.call(
+        status, body = await asyncio.to_thread(self._http.call,
             f"{self._tenants}/internal/tenants", method="POST", internal=True,
             body={"slug": slug, "name": shop.shop_name.strip()})
         if status != 201:
@@ -308,7 +309,7 @@ class SignupService:
         # own chicken-and-egg breaker: a fresh tenant has nobody holding `members:write`, so no
         # user-tier route can add its first admin, and this internal-tier door does — while
         # refusing to overwrite an owner on a tenant that already has one.
-        status, body = self._http.call(
+        status, body = await asyncio.to_thread(self._http.call,
             f"{self._identity}/internal/tenancy/seed-owner", method="POST", internal=True,
             body={"tenant": tenant, "identifier": phone, "roles": [self._owner_role],
                   "password": shop.password,
@@ -317,7 +318,7 @@ class SignupService:
                   "only_if_empty": True})
         if status not in (200, 201):
             # UNDO STEP 1. See the module note: an orphan tenant is invisible and permanent.
-            self._http.call(f"{self._tenants}/internal/tenants/{tenant}",
+            await asyncio.to_thread(self._http.call, f"{self._tenants}/internal/tenants/{tenant}",
                             method="DELETE", internal=True)
             raise SignupRefused(_register_error(status, body))
 
@@ -340,7 +341,7 @@ class SignupService:
                 await self.revoke(tenant, person_id)
             except Exception:                                                 # noqa: BLE001
                 pass
-            self._http.call(f"{self._tenants}/internal/tenants/{tenant}",
+            await asyncio.to_thread(self._http.call, f"{self._tenants}/internal/tenants/{tenant}",
                             method="DELETE", internal=True)
             raise SignupRefused("تعذّر إنشاء الحساب. حاول بعد قليل.")
 
@@ -443,7 +444,7 @@ class SignupService:
         # (core/referrals.py) — this call only hands over the raw fact, once, best-effort.
         affiliate_error = ""
         if self._affiliate and shop.affiliate_ref:
-            status, body = self._http.call(
+            status, body = await asyncio.to_thread(self._http.call,
                 f"{self._affiliate}/internal/referrals/stamp", method="POST", internal=True,
                 body={"tenant": tenant, "affiliate_id": shop.affiliate_ref,
                       "shop_name": shop.shop_name,
@@ -472,7 +473,7 @@ class SignupService:
                 # marketer REPLIES to his shop's tickets and actually engages, not just watches a
                 # KPI number. `permissions` is ticket-service's own vocabulary (ShareGrant) — read
                 # is always implied, write is the explicit extra consent this signup grants.
-                s2, b2 = self._http.call(
+                s2, b2 = await asyncio.to_thread(self._http.call,
                     f"{self._tickets}/internal/tickets/shares", method="POST", internal=True,
                     body={"tenant": tenant, "grantee": shop.affiliate_ref,
                          "granted_by": phone, "scope": scope,
@@ -521,7 +522,7 @@ class SignupService:
             if not code:
                 raise SignupRefused(
                     "أدخل رمز التحقق الذي وصلك.", reason="otp_required")
-            self._spend_code(canonical, code)
+            await self._spend_code(canonical, code)
         out = await self.open_shop(shop)
         if self._require_otp:
             # THE ROW EXISTS NOW — `open_shop`'s own `_remember` just wrote it `verified: False`.
@@ -664,7 +665,7 @@ class SignupService:
             if not service or not category:
                 failed.append(entry)
                 continue
-            status, _body = self._http.call(
+            status, _body = await asyncio.to_thread(self._http.call,
                 f"{self._compliance}/internal/compliance/data-targets", method="POST",
                 internal=True,
                 body={"tenant": tenant, "service": service.strip(),
@@ -729,7 +730,7 @@ class SignupService:
             # and lock him out of the first. Refused plainly rather than half-done.
             raise SignupRefused("هذا الرقم مسجّل في منشأة أخرى.")
 
-        status, body = self._http.call(
+        status, body = await asyncio.to_thread(self._http.call,
             f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
             body={"tenant": tenant, "identifier": canonical, "roles": [role],
                   "password": password})
@@ -755,7 +756,7 @@ class SignupService:
         # seat is counted, the row is in the list, and the man cannot work.
         invite = str(body.get("invite_token") or "")
         if invite:
-            st, cl = self._http.call(
+            st, cl = await asyncio.to_thread(self._http.call,
                 f"{self._identity}/api/v1/auth/person/claim", method="POST",
                 body={"token": invite, "password": password})
             if st != 200:
@@ -790,7 +791,7 @@ class SignupService:
         """
         if not tenant or not person_id:
             return False
-        status, _ = self._http.call(
+        status, _ = await asyncio.to_thread(self._http.call,
             f"{self._identity}/internal/tenancy/membership/{tenant}::{person_id}",
             method="DELETE", internal=True)
         if status not in (200, 204, 404):
@@ -822,7 +823,7 @@ class SignupService:
         """
         if not (self._authz and self._roles and subject):
             return False
-        status, _ = self._http.call(
+        status, _ = await asyncio.to_thread(self._http.call,
             f"{self._authz}/internal/authz/tenants/{tenant}/bootstrap",
             method="POST", internal=True,
             body={
@@ -897,7 +898,7 @@ class SignupService:
         # `_spend_code` RATHER THAN `prove`, because `prove` writes its verdict onto the phone
         # index — and there is no index row yet: the shop does not exist. The verdict is written
         # below, once there is something to write it on.
-        self._spend_code(canonical, code)
+        await self._spend_code(canonical, code)
 
         out = await self.open_shop(NewShop(
             phone=canonical, password=password, shop_name=inv.shop_name,
@@ -939,7 +940,7 @@ class SignupService:
             raise SignupRefused("الرمز غير صحيح أو انتهت صلاحيته.")
 
         canonical = canonical_phone(phone, default_cc=self._cc)
-        self._spend_code(canonical, code)
+        await self._spend_code(canonical, code)
         await self._store.put(PHONE_INDEX, canonical, {**row, "verified": True})
         await self._mark_proven(str(row.get("tenant") or ""), canonical)
         return {"verified": True}
@@ -966,7 +967,7 @@ class SignupService:
             return True
         return bool(row.get("verified"))
 
-    def _spend_code(self, canonical: str, code: str) -> None:
+    async def _spend_code(self, canonical: str, code: str) -> None:
         """Hand the code to identity, which is the only party that holds it.
 
         SHARED BY THE TWO DOORS. `prove` is for a number we already have a row for; the partner
@@ -974,7 +975,7 @@ class SignupService:
         Duplicating the exchange would mean two places that decide what a bad code means, and the
         second one would drift.
         """
-        status, _ = self._http.call(
+        status, _ = await asyncio.to_thread(self._http.call,
             f"{self._identity}/api/v1/otp/verify", method="POST",
             body={"identifier": canonical, "code": code, "purpose": "verify"})
         if status != 200:
@@ -1003,7 +1004,7 @@ class SignupService:
             raise SignupRefused(
                 "إرسال رمز التحقق غير مُفعَّل بعد — عُطل لدينا لا في رقمك. تواصل معنا وسنكمل معك.",
                 reason="undeliverable")
-        status, body = self._http.call(
+        status, body = await asyncio.to_thread(self._http.call,
             f"{self._identity}/api/v1/otp/request", method="POST",
             body={"identifier": canonical_phone(phone, default_cc=self._cc), "purpose": "verify"})
         if status == 429:
@@ -1057,7 +1058,7 @@ class SignupService:
         payload: dict[str, Any] = {"tenant": tenant, "username": canonical, "password": password}
         if code:
             payload["code"] = code
-        status, body = self._http.call(
+        status, body = await asyncio.to_thread(self._http.call,
             f"{self._identity}/api/v1/auth/tenant", method="POST", body=payload)
         if status != 200:
             # ONE SENTENCE FOR EVERY 401, AND A BRANCH WAS TRIED HERE AND REMOVED.

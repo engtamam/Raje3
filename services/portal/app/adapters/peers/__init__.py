@@ -12,6 +12,7 @@ determines exactly one tenant and one subject, and no client here accepts anythi
 """
 from __future__ import annotations
 
+import asyncio
 import urllib.error
 import urllib.parse
 from typing import Any
@@ -22,8 +23,21 @@ from app.adapters import internal_http
 # The request itself is built in adapters/internal_http.py — the one place in this service that
 # attaches the internal token. These two names stay because the clients below read well with them
 # and because the failure policy that matters lives at each call site, not in the transport.
-_post = internal_http.post_json
-_get = internal_http.get_json
+#
+# BOTH OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: `internal_http.post_json`/
+# `get_json` are thin synchronous wrappers over a blocking `urllib.request.urlopen`, and every
+# caller below is `async def` but called them directly with no `asyncio.to_thread` — on a PUBLIC,
+# unauthenticated page (see this module's own docstring), a slow peer used to freeze the whole pod
+# for every visitor, not just the one page load. Wrapped ONCE, here, so every call site below stays
+# a plain `await _post(...)`/`await _get(...)` rather than repeating `asyncio.to_thread` at each one.
+async def _post(url: str, body: dict[str, Any], token: str, timeout: float, *,
+               method: str = "POST") -> dict[str, Any]:
+    return await asyncio.to_thread(internal_http.post_json, url, body, token, timeout,
+                                   method=method)
+
+
+async def _get(url: str, token: str, timeout: float) -> dict[str, Any]:
+    return await asyncio.to_thread(internal_http.get_json, url, token, timeout)
 
 
 # ── tenant-service: who the shop is ────────────────────────────────────────────────────────────
@@ -59,7 +73,7 @@ class HttpIdentity:
         if hit and now - hit[0] < self._ttl:
             return hit[1]
         path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
-        data = _get(f"{self._url}{path}", self._token, self._timeout)
+        data = await _get(f"{self._url}{path}", self._token, self._timeout)
         shop = _Shop(name=str(data.get("name") or ""), branding=data.get("branding") or {})
         self._cache[tenant] = (now, shop)
         return shop
@@ -102,7 +116,7 @@ class HttpOperations:
         self._limit = limit
 
     async def visits_for(self, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
-        data = _post(self._url, {"tenant": tenant, "subject_ref": subject_ref,
+        data = await _post(self._url, {"tenant": tenant, "subject_ref": subject_ref,
                                  "limit": self._limit}, self._token, self._timeout)
         return list(data.get("visits") or [])
 
@@ -114,7 +128,7 @@ class HttpOperations:
         clock in the regulation starts.
         """
         base = self._url.rsplit("/internal/", 1)[0]
-        data = _post(f"{base}/internal/operations/privacy-request",
+        data = await _post(f"{base}/internal/operations/privacy-request",
                      {"tenant": tenant, "subject_ref": subject_ref, "type": kind},
                      self._token, self._timeout)
         return bool(data.get("ok"))
@@ -145,7 +159,7 @@ class HttpLoyalty:
         self._timeout = timeout
 
     async def balance_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
-        return _get(f"{self._url}/internal/loyalty/portal/balance"
+        return await _get(f"{self._url}/internal/loyalty/portal/balance"
                     f"?tenant={urllib.parse.quote(tenant, safe='')}"
                     f"&subject_ref={urllib.parse.quote(subject_ref, safe='')}",
                     self._token, self._timeout)
@@ -187,7 +201,7 @@ class HttpReminders:
         return self._path.replace("{ref}", ref).replace("{}", ref)
 
     async def prefs_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
-        return _get(f"{self._url}{self._ref_path(tenant, subject_ref)}",
+        return await _get(f"{self._url}{self._ref_path(tenant, subject_ref)}",
                     self._token, self._timeout)
 
     async def offers_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
@@ -197,7 +211,7 @@ class HttpReminders:
         different moments; folding them into one response would mean a customer who came to read
         an offer loses it because the preferences store was slow.
         """
-        return _get(f"{self._url}/internal/portal/offers"
+        return await _get(f"{self._url}/internal/portal/offers"
                     f"?tenant={urllib.parse.quote(tenant, safe='')}"
                     f"&subject_ref={urllib.parse.quote(subject_ref, safe='')}",
                     self._token, self._timeout)
@@ -225,7 +239,7 @@ class HttpReminders:
             stopped = sorted(set(existing) | set(stopped))
         url = f"{self._url}{self._ref_path(tenant, subject_ref)}"
         try:
-            body = _post(url, {"stopped": stopped}, self._token, self._timeout, method="PUT")
+            body = await _post(url, {"stopped": stopped}, self._token, self._timeout, method="PUT")
             return bool(body.get("saved"))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             # FALSE, NOT AN EXCEPTION. The caller renders the page without a confirmation, which is
@@ -266,7 +280,7 @@ class HttpReminders:
         # NameError on every real invocation. Never caught by a test that mocks `_post`.
         url = f"{self._url}{self._ref_path(tenant, subject_ref)}"
         try:
-            body = _post(url, {"stopped": stopped}, self._token, self._timeout, method="PUT")
+            body = await _post(url, {"stopped": stopped}, self._token, self._timeout, method="PUT")
             return bool(body.get("saved"))
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
