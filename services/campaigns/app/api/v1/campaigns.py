@@ -178,14 +178,9 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
 
-    # SAME WINDOW RULES `/campaigns` (create) ENFORCES — checked here too, so a malformed window
-    # is refused on the SCREEN HE IS LOOKING AT rather than only at the moment he presses launch.
-    if not offers_something(body.goal) and (
-        body.window_start_hour != 0 or body.window_end_hour != 24 or body.window_weekdays
-    ):
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                            content={"error": "BAD_REQUEST",
-                                     "reason": "نافذة الوقت متاحة فقط لحملات العروض."})
+    # SAME WINDOW RULE `/campaigns` (create) ENFORCES — checked here too, so a malformed window is
+    # refused on the SCREEN HE IS LOOKING AT rather than only at the moment he presses launch.
+    # EVERY GOAL MAY SET ONE (2026-09-12) — no goal-based restriction here any more.
     window_error = validate_window(start_hour=body.window_start_hour, end_hour=body.window_end_hour,
                                    weekdays=body.window_weekdays)
     if window_error:
@@ -393,15 +388,9 @@ async def create(request: Request, body: CampaignIn,
                                 content={"error": "BAD_REQUEST",
                                          "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
-    # THE OWNER'S OWN WINDOW — same "only an offer can have a window" reasoning as `offers_something`
-    # itself: a non-offer goal sending a non-default window is a screen bug, not an owner choice,
-    # since nothing on that goal's own card ever draws the picker that would produce one.
-    if not offers_something(body.goal) and (
-        body.window_start_hour != 0 or body.window_end_hour != 24 or body.window_weekdays
-    ):
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                            content={"error": "BAD_REQUEST",
-                                     "reason": "نافذة الوقت متاحة فقط لحملات العروض."})
+    # THE OWNER'S OWN WINDOW — EVERY GOAL MAY SET ONE (2026-09-12 correction; see
+    # `Campaign.window_*`'s own note). Always optional, always coherence-checked regardless of
+    # goal.
     window_error = validate_window(start_hour=body.window_start_hour, end_hour=body.window_end_hour,
                                    weekdays=body.window_weekdays)
     if window_error:

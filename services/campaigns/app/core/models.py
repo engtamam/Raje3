@@ -248,11 +248,12 @@ class Campaign:
     locked_until: int = 0
     # ── THE OWNER'S OWN WINDOW, FOR AN OFFER CAMPAIGN ONLY (2026-09-12) ───────────────────────────
     #
-    # WHY ONLY `OFFER_GOALS`. A window means «only true between these hours, on these days» — that
-    # is a fact about an OFFER (the counter can only honour it while it stands), never about an
-    # announcement or a care tip, which have nothing to be "true" only sometimes. Read at every
-    # dispatch pass (`dispatch.py::Dispatcher.fire`) exactly like `package_id`'s own re-check —
-    # never trusted as a one-time decision made at creation.
+    # EVERY GOAL MAY SET ONE, NOT ONLY `OFFER_GOALS` (revised 2026-09-12 — the owner's own
+    # correction: «أعلن جديدك» wanting to go out only Thursday/Friday for a weekend opening is as
+    # real a want as an offer's own hours). Always optional — `0, 24, []` (no window) is every
+    # campaign's default whether it offers something or not. Read at every dispatch pass
+    # (`dispatch.py::Dispatcher.fire`) exactly like `package_id`'s own re-check — never trusted as
+    # a one-time decision made at creation.
     #
     # `window_start_hour`/`window_end_hour` — Riyadh local hours, `[start, 24)` when `end == 24`
     # (midnight, "until end of day" — not a magic sentinel, an honest boundary: there is no 24:00

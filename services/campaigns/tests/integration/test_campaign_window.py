@@ -61,13 +61,15 @@ def _offer_body(**over):
     return body
 
 
-def test_a_non_offer_goal_may_not_carry_a_window(client):
+def test_a_non_offer_goal_may_also_carry_a_window(client):
+    # 2026-09-12 revision — the owner's own correction: an announcement wanting to go out only
+    # Thursday/Friday for a weekend opening is as real a want as an offer's own hours. Every goal
+    # may set a window now; only its coherence is checked, never its goal.
     _, http = client
     body = {"goal": "announce", "owner_text": "افتتحنا اليوم", "window_start_hour": 8,
            "window_end_hour": 20}
     r = http.post("/api/v1/campaigns", json=body, headers=_auth())
-    assert r.status_code == 400
-    assert r.json()["error"] == "BAD_REQUEST"
+    assert r.status_code in (200, 201), r.text
 
 
 def test_an_incoherent_window_is_refused_at_creation(client):
