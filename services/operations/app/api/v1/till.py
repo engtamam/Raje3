@@ -603,6 +603,13 @@ async def apply_offer_at_the_counter(request: Request, body: TillOfferIn,
     except OperationError as e:
         # RETURNED, NEVER RAISED — the platform strips a raised detail, and this sentence is read
         # aloud to a customer standing at the counter.
+        #
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed an offer was applied that never actually was.
+        await request.app.state.auditor.record(
+            "offer.applied", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
+            resource=f"visit:{body.visit_id}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(e)})
         return {"applied": False, "reason": str(e)}
 
     if applied is None:

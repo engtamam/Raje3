@@ -75,11 +75,11 @@ def _payout_refused(exc: PayoutError) -> JSONResponse:
 
 
 async def _audit_refused(request: Request, action: str, *, resource: str, actor: str,
-                        exc: PayoutError) -> None:
+                        exc: Exception, tenant: str = "") -> None:
     """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real bug a
     QA audit found; see admin_payouts.py's own `_audit_refused` for the full reasoning."""
     await request.app.state.auditor.record(
-        action, actor=actor, tenant="", resource=resource,
+        action, actor=actor, tenant=tenant, resource=resource,
         ip=request.client.host if request.client else "",
         metadata={"outcome": "refused", "reason": getattr(exc, "reason", "") or str(exc)})
 
@@ -173,6 +173,9 @@ async def change_password(request: Request, body: ChangePasswordIn,
         await _svc(request).change_password(
             bearer=bearer, old_password=body.old_password, new_password=body.new_password)
     except OnboardingRefused as exc:
+        await _audit_refused(request, "affiliate.password_changed",
+                             resource=f"person:{principal.subject}", actor=principal.subject,
+                             exc=exc)
         return _refused(exc)
     return {"ok": True}
 
@@ -492,6 +495,9 @@ async def set_places_api_key(request: Request, body: PlacesApiKeyIn,
         info = await _leads_keys(request).set_key(
             affiliate["id"], value=body.api_key, actor_ref=affiliate["id"])
     except SecretError as exc:
+        await _audit_refused(request, "affiliate.places_api_key_set",
+                             resource=f"affiliate:{affiliate['id']}", actor=affiliate["id"],
+                             exc=exc)
         return JSONResponse(status_code=400, content={"ok": False, "message": str(exc)})
     return {"ok": True, "hint": info.hint, "set_at": info.set_at}
 
@@ -699,6 +705,9 @@ async def link_lead_registration(request: Request, lead_id: str, body: LinkRegis
             lead_id, affiliate_id=affiliate["id"], tenant=body.tenant,
             referrals=request.app.state.container.referrals)
     except LeadError as exc:
+        await _audit_refused(request, "affiliate.lead_registration_linked",
+                             resource=f"lead:{lead_id}", actor=affiliate["id"],
+                             tenant=body.tenant, exc=exc)
         return _lead_refused(exc)
     return {"ok": True, **out.to_dict()}
 

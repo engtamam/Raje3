@@ -186,8 +186,19 @@ async def redeem(request: Request, body: RedeemIn,
             approved_by=body.approved_by, branch_id=branch_id,
             manager_threshold=await _threshold(c, tenant))
     except Overdraft as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed a redemption that never actually happened (insufficient
+        # balance).
+        await request.app.state.auditor.record(
+            "loyalty.redeemed", actor=actor, tenant=tenant, resource="redemption",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return _refuse(str(exc), status.HTTP_409_CONFLICT)
     except LoyaltyError as exc:
+        await request.app.state.auditor.record(
+            "loyalty.redeemed", actor=actor, tenant=tenant, resource="redemption",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return _refuse(str(exc))
 
     bal = await c.ledger.balance(tenant, body.subject_ref)

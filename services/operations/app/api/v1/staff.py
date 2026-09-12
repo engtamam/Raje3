@@ -276,6 +276,14 @@ async def hire_member(request: Request, body: MemberIn,
             except SignupRefused as exc:
                 # RETURNED, NEVER RAISED — the platform strips a raised detail, and «هذا الرقم
                 # مسجّل في منشأة أخرى» is the only part of this answer the owner can act on.
+                #
+                # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+                # write-ahead record above claimed a hire for someone who was never actually given
+                # access.
+                await request.app.state.auditor.record(
+                    "member.hired", actor=principal.subject, tenant=tenant, resource="member",
+                    ip=request.client.host if request.client else "",
+                    metadata={"outcome": "refused", "reason": str(exc)})
                 return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                     content={"error": "NOT_HIRED", "message": str(exc)})
 

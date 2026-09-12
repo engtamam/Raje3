@@ -49,6 +49,20 @@ def _refused(exc: EmploymentError) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
+async def _audit_refused(request: Request, action: str, *, resource: str, actor: str,
+                        exc: Exception) -> None:
+    """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real gap a
+    QA audit found: `decide` records "employment_decided" write-ahead, but a refused decision
+    (an already-resolved request, an invalid transition) used to leave that entry claiming a
+    decision that never actually took effect, with nothing to say so. Append-only, same
+    convention as every other write-ahead correction on this platform — never edits the first
+    entry."""
+    await request.app.state.auditor.record(
+        action, actor=actor, tenant="", resource=resource,
+        ip=request.client.host if request.client else "",
+        metadata={"outcome": "refused", "reason": getattr(exc, "reason", "") or str(exc)})
+
+
 @router.get("", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
 async def list_pending(request: Request,
                        principal: Principal = Depends(require_user)) -> dict:
@@ -68,5 +82,8 @@ async def decide(request: Request, request_id: str, body: DecideIn,
         out = await _svc(request).decide(
             request_id, decision=body.decision, decided_by=_actor(principal), reason=body.reason)
     except EmploymentError as exc:
+        await _audit_refused(request, "affiliate.employment_decided",
+                             resource=f"employment_request:{request_id}",
+                             actor=_actor(principal), exc=exc)
         return _refused(exc)
     return {"ok": True, **out.to_dict()}

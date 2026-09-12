@@ -40,6 +40,20 @@ def _actor(principal: Principal) -> str:
     return subject_ref(s.PII_SALT, principal.tenant or "", principal.subject)
 
 
+async def _audit_refused(request: Request, action: str, *, resource: str, tenant: str,
+                        actor: str, reason: str) -> None:
+    """A second, corrective entry for the SAME action/resource — fixed 2026-09-12, a real gap a
+    QA audit found. The write-ahead record above exists so a config change that cannot be
+    witnessed must not happen at all — it was never meant to claim SUCCESS for a refusal that is
+    refused for an ordinary, expected reason (bad value, unknown/undeclared key) and never
+    touched anything. Append-only, so this is a correction an investigator reads alongside the
+    attempt, never an edit to it."""
+    await request.app.state.auditor.record(
+        action, actor=actor, tenant=tenant, resource=resource,
+        ip=request.client.host if request.client else "",
+        metadata={"outcome": "refused", "reason": reason})
+
+
 def _runtime_config(request: Request) -> RuntimeConfig:
     """The instance wired at boot, so the service's RUNTIME_POLICY applies.
 
@@ -103,6 +117,8 @@ async def set_config(request: Request, body: ConfigIn,
         o = await _runtime_config(request).set(
             tenant=body.tenant, key=body.key, value=body.value, actor_ref=_actor(principal))
     except RuntimeConfigError as exc:
+        await _audit_refused(request, "operator.config_changed", resource=f"config:{body.key}",
+                             tenant=body.tenant or "", actor=_actor(principal), reason=str(exc))
         return _refuse(str(exc))
     # The tenant is NOT echoed. The caller supplied it, so returning it adds nothing, and a
     # response field named "tenant" is indistinguishable — to a reader and to the tenancy gate —

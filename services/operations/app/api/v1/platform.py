@@ -134,6 +134,11 @@ async def upsert_template(request: Request, name: str, body: TemplateIn,
     try:
         return await _lib(request).upsert(body.model_dump(by_alias=True))
     except TemplateError as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found.
+        await request.app.state.auditor.record(
+            "platform.template_changed", actor=principal.subject, tenant="",
+            resource=f"template:{name}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return _refuse(str(exc))
 
 
@@ -195,6 +200,11 @@ async def create_partner(request: Request, body: PartnerIn,
         row, key = await reg.create(name=body.name, commission_rate=body.commission_rate,
                                     contact=body.contact)
     except PartnerError as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found.
+        await request.app.state.auditor.record(
+            "partner.created", actor=principal.subject, tenant="", resource="partner",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return _refuse(str(exc))
     return {"partner": {k: v for k, v in row.items() if k != "key_hash"},
             "key": key,
@@ -226,6 +236,11 @@ async def rotate_partner(request: Request, partner_id: str, body: RotateIn,
     try:
         row, key = await reg.rotate(partner_id, overlap_seconds=body.overlap_days * 86400)
     except PartnerError as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found.
+        await request.app.state.auditor.record(
+            "partner.key_rotated", actor=principal.subject, tenant="",
+            resource=f"partner:{partner_id}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
     return {"partner_id": partner_id, "key": key,
             "old_key_valid_until": row["prev_key_expires"],

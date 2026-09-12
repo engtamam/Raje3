@@ -288,6 +288,13 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 # and must fail loudly.
                 allow_unknown_services=True)
         except OperationError as exc:
+            # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+            # write-ahead record above claimed "recorded" for every item, including this one,
+            # which never actually landed.
+            await request.app.state.auditor.record(
+                "visit.recorded", actor="integration", tenant=item.tenant, resource="visit",
+                ip=request.client.host if request.client else "",
+                metadata={"outcome": "refused", "reason": str(exc)})
             # REJECTED, not retryable. The reason travels back so the SDK can dead-letter it with
             # something a support engineer can read, instead of retrying it into eternity.
             results.append({"index": index, "idempotency_key": item.idempotency_key, "status": "rejected",
@@ -782,6 +789,12 @@ async def partner_stamp(request: Request, body: StampIn) -> dict:
     try:
         row = await reg.stamp(body.tenant, key=body.partner_key)
     except PartnerError as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed "stamped" for a key that turned out invalid/expired.
+        await request.app.state.auditor.record(
+            "partner.stamped", actor="", tenant=body.tenant, resource="partner_stamp",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     # The key never comes back, not even a prefix of it. A response that echoes a credential is a
     # credential in whatever logged the response.
@@ -1662,6 +1675,12 @@ async def record_visit_by_ref(request: Request, body: FreeVisitIn) -> dict:
             free=body.free,
             note="مكافأة ولاء")
     except OperationError as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed "recorded" for a visit that never actually landed.
+        await request.app.state.auditor.record(
+            "visit.recorded", actor=body.actor or "loyalty", tenant=body.tenant, resource="visit",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return {"recorded": False, "reason": str(exc)}
     if not res.duplicate:
         # THE SEAMS RUN HERE TOO (د-20). A free wash is a visit like any other: it must restart

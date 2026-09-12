@@ -432,6 +432,11 @@ jobs:
       # review happened to catch it.
       - name: TokenVerifier.verify() is never called synchronously inside async def
         run: python3 ci/check_token_verify_is_offloaded.py
+      # A write-ahead audit entry for a mutation that then gets REFUSED must be corrected — found
+      # unfixed in 15 files across 9 services by a second QA pass, after only 3 services' own
+      # fixes for the same pattern happened to be caught by the first.
+      - name: a refused write-ahead audit entry is corrected, not left claiming success
+        run: python3 ci/check_a_refused_write_corrects_its_own_audit_entry.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services

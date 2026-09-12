@@ -347,6 +347,12 @@ async def set_reason(request: Request, reason_id: str, body: ReasonIn,
     except ValueError as exc:
         # RETURNED, NOT RAISED. The platform's handler strips an HTTPException's detail, and the
         # sentence is the whole answer here.
+        #
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found.
+        await request.app.state.auditor.record(
+            "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
+            resource=f"reason:{reason_id}", ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return {"ok": False, "error": str(exc)}
     return {"ok": True, "reasons": choices.public()}
 
@@ -383,6 +389,12 @@ async def set_rating_settings(request: Request, body: RatingSettingsIn,
         settings = await store.set(_tenant(principal), enabled=body.enabled,
                                    delay_minutes=body.delay_minutes, points=body.points)
     except ValueError as exc:
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found.
+        await request.app.state.auditor.record(
+            "reminders.rating_settings_changed", actor=principal.subject,
+            tenant=_tenant(principal), resource="rating_settings",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return {"ok": False, "error": str(exc)}
     return {"ok": True, **settings.public()}
 

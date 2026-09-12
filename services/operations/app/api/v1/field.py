@@ -192,6 +192,13 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
         # AND THE SENTENCES THEMSELVES WERE ENGLISH. «a phone number is required» is not a refusal
         # an operator in a workshop can act on even when it does arrive; the five reachable ones in
         # core/operations.py are Arabic now.
+        #
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed "recorded" for a visit that never actually landed.
+        await request.app.state.auditor.record(
+            "visit.recorded", actor=principal.subject, tenant=tenant, resource="visit",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return {"recorded": False, "reason": str(exc)}
 
     # A repeat of the same key is a SUCCESS, not a conflict: the operator's intent was satisfied,
@@ -555,6 +562,15 @@ async def erase_customer(request: Request, customer_id: str, authorization: str 
     except E.EraseFailed as exc:
         # RETURNED, NOT RAISED. The platform strips a refusal's detail on the way out, and «تعذّر»
         # with no reason is what sends an owner to support with a legal deadline running.
+        #
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed an erasure was requested for a fan-out that never
+        # actually ran.
+        await request.app.state.auditor.record(
+            "customer.erasure_requested", actor=principal.subject, tenant=_tenant(principal),
+            resource=f"customer:{customer_id}",
+            ip=request.client.host if request.client else "",
+            metadata={"outcome": "refused", "reason": str(exc)})
         return {"ok": False, "reason": str(exc)}
     return {"ok": True, **result}
 

@@ -220,6 +220,17 @@ async def set_secret(request: Request, key: str, body: SecretIn,
         # RBAC/network diagnostic text to do that.
         _logger.error("k8s_patch_secret_failed",
                       extra={"key": entry.key, "namespace": entry.namespace}, exc_info=exc)
+        # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
+        # write-ahead record above claimed the secret was changed, but the write to the cluster
+        # never actually happened. The ONLY other corrective entry this route wrote covered
+        # restart_deployment failing AFTER a successful patch — this is the missing sibling, for
+        # when the save itself never took.
+        await request.app.state.auditor.record(
+            "platform.secret_changed", actor=actor, tenant="",
+            resource=f"secret:{entry.secret}:{entry.key}",
+            ip=request.client.host if request.client else "",
+            metadata={"namespace": entry.namespace, "deployment": entry.deployment,
+                     "outcome": "refused", "reason": "patch_failed"})
         return _refuse("تعذّر حفظ المفتاح في العنقود. راجع سجلّ الخدمة لمعرفة السبب.")
 
     try:
