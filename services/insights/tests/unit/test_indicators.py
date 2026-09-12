@@ -192,6 +192,34 @@ def test_the_peak_map_is_in_riyadh_time():
     assert got["busiest"].endswith(":3")          # 00:00 UTC is 3am in Riyadh
 
 
+def test_quiet_map_uses_the_campaigns_weekday_convention_not_peak_maps():
+    """peak_map's own «0=Sunday» key vs. campaigns'/operations' «Monday=0..Sunday=6» — the whole
+    reason quiet_map exists as its own function rather than a thin wrapper around peak_map."""
+    utc_midnight = 1_800_000_000 - (1_800_000_000 % DAY)     # 00:00 UTC = 03:00 Riyadh
+    got = ind.quiet_map([{"occurred_at": utc_midnight}])
+    # peak_map's own test above pins this same instant to day=5 (0=Sunday) i.e. Friday —
+    # Monday=0..Sunday=6 puts Friday at 4.
+    assert got["grid"] == {"4:3": 1}
+
+
+def test_quiet_map_never_surfaces_an_hour_with_zero_recorded_visits():
+    """A genuinely dead hour (the shop closed) must never appear as "quiet" — it is simply
+    absent, never present at 0, because a campaign suggestion should never advertise into an
+    hour nobody could ever walk in during."""
+    utc_midnight = 1_800_000_000 - (1_800_000_000 % DAY)
+    got = ind.quiet_map([{"occurred_at": utc_midnight}])
+    assert "4:4" not in got["grid"]     # the very next hour, never visited, is simply absent
+
+
+def test_quietest_slots_ranks_ascending_by_count():
+    grid = {"0:9": 5, "1:14": 1, "2:20": 3}
+    got = ind.quietest_slots(grid, top=2)
+    assert got == [
+        {"weekday": 1, "hour": 14, "visits": 1},
+        {"weekday": 2, "hour": 20, "visits": 3},
+    ]
+
+
 def test_service_day_heatmap_counts_the_visit_toward_every_service_it_held():
     """A three-service visit is one visit on one day, not divided a third to each — the day is a
     fact about the VISIT."""

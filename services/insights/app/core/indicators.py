@@ -287,6 +287,52 @@ def peak_map(visits: list[dict], *, tz_offset_hours: int = 3) -> dict[str, Any]:
     return {"grid": dict(grid), "busiest": max(grid, key=grid.get) if grid else ""}
 
 
+def quiet_map(visits: list[dict], *, tz_offset_hours: int = 3) -> dict[str, Any]:
+    """The same day×hour grid `peak_map` already builds, keyed in a different day convention —
+    feeds a campaign-suggestion feature (campaigns' own owner-set time window, 2026-09-12), never
+    built as a new statistic. Stored in the snapshot exactly like `peak_map` (this file's own
+    "no route computes an indicator on the request path" rule — see this service's own
+    `api/v1/insights.py` header); the route that serves a suggestion to the console reads this
+    grid back and picks the quietest cells from it, never recomputing from raw visits.
+
+    RETURNS THE CAMPAIGNS SERVICE'S OWN WEEKDAY CONVENTION (Monday=0..Sunday=6, Python's own
+    `date.weekday()`, matching `operations/core/scheduling.py`'s `recurrence_weekdays`) — NOT
+    `peak_map`'s "0=Sunday" key shape. The one and only consumer of this grid is the campaigns
+    time-window suggestion, and translating between two disagreeing day-number conventions at the
+    boundary between two services is exactly the kind of seam a bug hides in later, so the
+    conversion happens once, here, rather than at every reader.
+
+    A GENUINELY DEAD HOUR (the shop closed, never a single visit at that hour in the whole
+    history) NEVER APPEARS IN THIS GRID — a `Counter` only holds keys it was actually given, so an
+    hour with zero recorded visits is simply absent rather than present at 0. That is the right
+    answer for this purpose: a "quiet hours" suggestion exists to reach real foot traffic that is
+    merely thin, not to advertise into hours nobody could ever walk in during.
+    """
+    grid: Counter = Counter()
+    for v in visits:
+        ts = int(v.get("occurred_at") or v.get("created_at") or 0)
+        if not ts:
+            continue
+        local = ts + tz_offset_hours * 3600
+        sunday0 = (local // DAY + 4) % 7      # peak_map's own convention, 0 = Sunday
+        weekday = (sunday0 + 6) % 7            # Monday=0..Sunday=6 — Sunday (6) shifts from 0 to 6
+        hour = (local % DAY) // 3600
+        grid[f"{weekday}:{hour}"] += 1
+    return {"grid": dict(grid)}
+
+
+def quietest_slots(grid: dict[str, int], *, top: int = 3) -> list[dict[str, int]]:
+    """`top` ascending-by-count rows from a `quiet_map()`-shaped grid — a cheap in-memory sort
+    over already-aggregated snapshot data, not a recompute over raw visits. Each row:
+    `{"weekday": int, "hour": int, "visits": int}` (weekday: Monday=0..Sunday=6)."""
+    ranked = sorted(grid.items(), key=lambda kv: kv[1])[:max(top, 0)]
+    out = []
+    for slot, count in ranked:
+        wd, h = slot.split(":")
+        out.append({"weekday": int(wd), "hour": int(h), "visits": int(count)})
+    return out
+
+
 def _weekday(ts: int, tz_offset_hours: int = 3) -> int:
     """0 = Sunday, the week's first day here — same convention `peak_map` uses, Riyadh-local."""
     local = ts + tz_offset_hours * 3600

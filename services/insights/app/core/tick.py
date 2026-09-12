@@ -261,6 +261,7 @@ class Tick:
             "service_popularity": indicators.service_popularity(visits),
             "services_per_visit": indicators.services_per_visit(visits),
             "peak_map": indicators.peak_map(visits),
+            "quiet_map": indicators.quiet_map(visits),
             "service_day_heatmap": indicators.service_day_heatmap(visits),
             "expected_flow": indicators.expected_flow(visits, now=now),
             # HOW MUCH OF TODAY'S SENDING CEILING THE ENGINE NEEDS (spec §8.4.3). Computed here
