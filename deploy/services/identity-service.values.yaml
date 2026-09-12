@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:15a86b296c82ca141fd1e1708ed6d718f829fc27c10c0fa0208afa5640fecdd5"   # v0.19.34
+  digest: "sha256:b29f9ed158a31a0a9a555fa5a780b2b57a37b250c17e7a31c5d19d5c2dd04847"   # v0.21.0
 
 replicas: 1
 

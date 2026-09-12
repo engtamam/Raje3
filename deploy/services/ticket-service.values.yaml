@@ -19,7 +19,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/ticket-service
-  digest: "sha256:99c6e5968169d709e842ac9619751abde91f57499b4612a4cd0b9e55c65974bf"   # v0.19.34
+  digest: "sha256:abacda4b4b87ee5048c1bf54fe9f23bf7260246c4bce808285c64b58e7f2a9d3"   # v0.21.0
 
 replicas: 1
 
