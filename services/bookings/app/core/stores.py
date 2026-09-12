@@ -12,11 +12,21 @@ decoration — an index key built without it would make a cross-tenant scan poss
 """
 from __future__ import annotations
 
+import asyncio
+import time
 import uuid
 from typing import Any
 
 from app.core.models import BOOKING_SLOTS, BOOKINGS, WORKING_HOURS, Booking
 from app.core.riyadh import local
+
+# A separate collection from BOOKINGS itself — the mutex must be claimable/expirable on its own
+# terms, not entangled with the row it guards. Short-lived: this only needs to cover one
+# read-then-write round trip, never a human timescale.
+_SAVE_LOCKS = "booking_save_locks"
+_SAVE_LOCK_TTL_SECONDS = 10.0
+_SAVE_LOCK_RETRY_ATTEMPTS = 40
+_SAVE_LOCK_RETRY_DELAY_SECONDS = 0.05
 
 
 def new_id(prefix: str) -> str:
@@ -306,19 +316,41 @@ class BookingStore:
 
     async def save_if_unchanged(self, b: Booking, *, expected_rev: int) -> Booking:
         """`save()`, but refuses when the row moved under the caller between its read and this
-        write — write-if-not-changed, not a real lock: cheap, and correct for the case it exists
-        for (a moderate-frequency two-tab edit of one booking), not for a hot contested path
-        (that is what `lock.py`'s claim lane is for).
+        write — write-if-not-changed.
+
+        ATOMIC NOW — fixed 2026-09-12, a real gap a QA audit found: the rev check and the write
+        used to be two separate awaited steps with nothing between them, the identical
+        check-then-act shape every OTHER guard in this codebase was hardened against. Two writers
+        racing `save_if_unchanged` on the SAME booking (six call sites in operations.py call it
+        directly, with no lock of their own — only three go through `_claim_and_save`'s own
+        branch/operator/time-bucket lock, a DIFFERENT key entirely, so it cannot serialise this)
+        could both read the same `current.rev`, both pass the check, and the second writer's
+        `save()` would silently clobber the first's edit with a stale copy. A short claim-based
+        mutex keyed on the booking's own (tenant, id) closes it — a DIFFERENT key namespace than
+        `claiming()`'s own bucket lock, so nesting inside `_claim_and_save` never deadlocks.
 
         Compares `rev`, never `updated` — a wall-clock second is not fine-grained enough to tell
         two genuinely different edits apart, and a guard that cannot tell them apart is a guard
         that is silently absent exactly when it is needed.
         """
-        current = await self.get(b.tenant, b.id)
-        if current is not None and current.rev != expected_rev:
-            raise ConcurrentEditError(
-                "تعذّر الحفظ — عُدِّل هذا الحجز للتو من مكانٍ آخر. أعد تحميل الحجز وحاول مجدداً")
-        return await self.save(b)
+        mutex_key = f"{b.tenant}|{b.id}"
+        held = False
+        for _ in range(_SAVE_LOCK_RETRY_ATTEMPTS):
+            held = await self._s.claim(
+                _SAVE_LOCKS, mutex_key, {"held": True}, ttl_seconds=_SAVE_LOCK_TTL_SECONDS,
+                now=time.time())
+            if held:
+                break
+            await asyncio.sleep(_SAVE_LOCK_RETRY_DELAY_SECONDS)
+        try:
+            current = await self.get(b.tenant, b.id)
+            if current is not None and current.rev != expected_rev:
+                raise ConcurrentEditError(
+                    "تعذّر الحفظ — عُدِّل هذا الحجز للتو من مكانٍ آخر. أعد تحميل الحجز وحاول مجدداً")
+            return await self.save(b)
+        finally:
+            if held:
+                await self._s.delete(_SAVE_LOCKS, mutex_key)
 
 
 def _from_row(row: dict[str, Any]) -> Booking:
