@@ -437,6 +437,10 @@ jobs:
       # fixes for the same pattern happened to be caught by the first.
       - name: a refused write-ahead audit entry is corrected, not left claiming success
         run: python3 ci/check_a_refused_write_corrects_its_own_audit_entry.py
+      # A page whose cursor was thrown away must never be reported as a count/total — found twice
+      # in the same file (campaigns' own list_campaigns and runs routes) by a second QA pass.
+      - name: a discarded-cursor page is never reported as a count or total
+        run: python3 ci/check_a_discarded_cursors_page_is_not_counted.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services

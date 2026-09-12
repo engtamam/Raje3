@@ -479,8 +479,13 @@ async def list_campaigns(request: Request, state: str = "",
     where = {"tenant": principal.tenant}
     if state:
         where["state"] = state
-    rows, _ = await request.app.state.container.datastore.find(
-        "campaigns", where, limit=200, sort=("created", "desc"))
+    # DRAINED, NOT PAGE-ONE-AND-COUNT — fixed 2026-09-12, a real gap
+    # ci/check_a_discarded_cursors_page_is_not_counted.py found: the old `limit=200` read discarded
+    # its cursor and reported `len(rows)` as `count` anyway, so a shop past 200 campaigns (own
+    # standing rules plus every scheduled/paused one, which never move to state=done) saw a count
+    # that quietly stopped moving.
+    rows = await drain(request.app.state.container.datastore, "campaigns", where,
+                       sort=("created", "desc"))
     return {"campaigns": rows, "count": len(rows)}
 
 
@@ -492,9 +497,12 @@ async def runs(request: Request, campaign_id: str,
     NOT AGGREGATED. Forty runs are forty questions, and an owner asking why it reached nobody last
     Tuesday needs Tuesday — the totals are a separate field for the one place a total belongs.
     """
-    rows, _ = await request.app.state.container.datastore.find(
-        "campaign_runs", {"tenant": principal.tenant, "campaign_id": campaign_id},
-        limit=200, sort=("at", "desc"))
+    # DRAINED, NOT PAGE-ONE-AND-STOP — a manually-confirmed companion to the `list_campaigns` fix
+    # just above: a standing campaign past 200 firings used to have every run before its most
+    # recent 200 permanently unreachable through this route, with no cursor exposed to page
+    # further and no signal that anything was missing.
+    rows = await drain(request.app.state.container.datastore, "campaign_runs",
+                       {"tenant": principal.tenant, "campaign_id": campaign_id}, sort=("at", "desc"))
 
     # WHO THIS CAMPAIGN REACHED, so `redeemed` can ask operations who among them came back and
     # spent an offer (ط-3). `campaign_reached` already names every recipient and when — the piece

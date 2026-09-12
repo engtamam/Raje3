@@ -80,3 +80,37 @@ def test_the_stored_campaign_remembers_its_service_and_its_branch(client):
     row = next(c for c in listed.json()["campaigns"] if c["id"] == cid)
     assert row["branch_id"] == "brn-jed"
     assert row["service_id"] == "svc_oil"
+
+
+def test_a_tenant_with_more_than_the_old_page_size_still_gets_a_true_count(client):
+    """ci/check_a_discarded_cursors_page_is_not_counted.py (QA audit, 2026-09-12): `list_campaigns`
+    used to read at most 200 campaigns and report `len(rows)` as `count` — a shop past 200
+    campaigns (its own standing rules plus every scheduled/paused one, which never move to
+    state=done) saw a count that quietly stopped moving. Seeded directly into the datastore —
+    creating 260 real campaigns through the API would also exercise press/claim locks this test
+    has no need to pay for."""
+    import asyncio
+    from app.core.models import Campaign, as_row
+
+    app = client.app
+    store = app.state.container.datastore
+    tenant = "tnt_branch_bulk"
+
+    async def seed():
+        for i in range(260):
+            c = Campaign(tenant=tenant, goal="win_back", id=f"bulk_{i}", state="active")
+            await store.put("campaigns", c.key, as_row(c))
+
+    asyncio.run(seed())
+
+    caps = CAPS
+    tok_tenant_claims = {"sub": "u1", "tenant": tenant, "caps": caps}
+    import datetime as dt
+    import jwt
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({**tok_tenant_claims, "iss": ISS, "aud": AUD,
+                     "exp": now + dt.timedelta(minutes=5), "iat": now}, SECRET, algorithm="HS256")
+    listed = client.get("/api/v1/campaigns", headers={"Authorization": f"Bearer {tok}"})
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["count"] == 260
+    assert len(listed.json()["campaigns"]) == 260
