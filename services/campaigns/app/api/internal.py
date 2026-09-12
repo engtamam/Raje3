@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.adapters.datastore.drain import drain
 from app.config import Settings, get_settings
 from app.core.erasure import CampaignsErasure
+from app.core.tick import TickResult
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -123,6 +124,55 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
             # The reason counts, not just the totals: "312 suppressed" is an alarm, "312
             # suppressed, all outside the window" is a working system doing its job.
             "reasons": reasons}
+
+
+@router.post("/campaigns/jobs/run", dependencies=[Depends(require_internal_token)])
+async def run_jobs(request: Request) -> dict:
+    """job-service's own claim loop, from this service's side — a CronJob drives THIS at a much
+    tighter cadence than `/campaigns/tick` above (every minute, not every 15), and it can afford
+    to: it claims only what job-service says is actually due right now (an indexed read, never a
+    scan of every campaign this tenant or any other holds), so a tight cadence costs nothing extra
+    here the way it would scanning this service's own datastore that often.
+
+    ONE JOB TYPE TODAY — `campaigns.fire`, a campaign whose owner gave it a future `fire_at`
+    (any goal now, not only «مناسبة عميلك» — 2026-09-12). `NullJobService.claim()` always returns
+    `[]`, so this route is a harmless no-op wherever `JOB_SERVICE_URL` is unset.
+    """
+    import time
+    c = request.app.state.container
+    now = int(time.time())
+    claimed = await c.jobs.claim(worker=f"campaigns-{now}", queue="campaigns", batch=20)
+    fired = requeued = failed = 0
+    for job in claimed:
+        job_id, lease_token = job.get("id", ""), job.get("lease_token", "")
+        payload = job.get("payload") or {}
+        tenant, campaign_id = job.get("tenant", ""), payload.get("campaign_id", "")
+        try:
+            row = await c.datastore.get("campaigns", f"{tenant}|{campaign_id}")
+            if row is None or row.get("state") != "active":
+                # Paused/deleted/already-done between scheduling and now — not a failure, just
+                # nothing left to do. Acked so it never retries a campaign that no longer exists.
+                await c.jobs.ack(job_id, lease_token, {"skipped": "not_active"})
+                continue
+            res = TickResult()
+            finished = await c.tick._fire(row, now=now, res=res)   # same gate/window/audience path
+            fired += res.fired
+            if finished:
+                await c.jobs.ack(job_id, lease_token, {"sent": res.sent, "finished": True})
+            else:
+                # A LARGE AUDIENCE'S FIRST PASS DID NOT FINISH — same bounded-pass shape
+                # dispatch.py already documents. Acked (the attempt itself succeeded) and a follow-
+                # up job takes over the rest shortly, rather than nacking into job-service's own
+                # backoff/retry ladder, which is for FAILURES, not ordinary multi-pass campaigns.
+                await c.jobs.ack(job_id, lease_token, {"sent": res.sent, "finished": False})
+                await c.jobs.enqueue(queue="campaigns", tenant=tenant, type="campaigns.fire",
+                                     payload={"campaign_id": campaign_id}, delay_seconds=900,
+                                     unique_key=f"cmp-fire-cont:{campaign_id}:{now // 900}")
+                requeued += 1
+        except Exception as exc:                                  # noqa: BLE001
+            failed += 1
+            await c.jobs.nack(job_id, lease_token, str(exc)[:200])
+    return {"claimed": len(claimed), "fired": fired, "requeued": requeued, "failed": failed}
 
 
 async def _active_tenants(c) -> list:

@@ -166,6 +166,27 @@ def test_a_manual_campaign_that_already_ran_is_never_fired_again(st):
     assert d.fired == []
 
 
+def test_a_manual_campaign_with_a_future_fire_at_is_not_rescued_early(st):
+    """2026-09-12 — a future `fire_at` (any goal now, delegated to job-service) means this
+    campaign is not «never sent», it is «not due yet». The manual-rescue branch must not race
+    job-service's own delayed job and fire it early just because `last_evaluated == 0`."""
+    c = save(st, Campaign(tenant="t1", goal="announce", state="active", fire_at=at(12)))
+    d = Dispatcher()
+    tick(st, d, at(10))
+    assert d.fired == [], "still before its own fire_at — must wait, not rescue"
+    assert run(st.get("campaigns", c.key))["last_evaluated"] == 0
+
+
+def test_once_its_own_fire_at_passes_the_ordinary_rescue_still_catches_it(st):
+    """The safety net job-service's own absence (or failure) falls back to — unchanged from
+    before this feature existed, just for every goal now instead of only «مناسبة عميلك»."""
+    c = save(st, Campaign(tenant="t1", goal="announce", state="active", fire_at=at(9)))
+    d = Dispatcher()
+    tick(st, d, at(10))
+    assert len(d.fired) == 1
+    assert run(st.get("campaigns", c.key))["last_evaluated"] == at(10)
+
+
 def test_a_paused_campaign_is_not_touched(st):
     save(st, Campaign(tenant="t1", goal="win_back", state="paused"))
     d = Dispatcher()

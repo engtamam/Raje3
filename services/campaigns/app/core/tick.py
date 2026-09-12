@@ -202,6 +202,17 @@ class Tick:
         # NEVER RUN IS THE ONLY CASE PICKED UP, and `last_evaluated` is what says so. A manual
         # campaign that HAS run is finished business — re-firing it here would be this defect's
         # mirror image, sending a second copy to everyone who already got one.
+        # A FUTURE `fire_at` MEANS THIS CAMPAIGN WAS HANDED TO job-service (2026-09-12) — see
+        # api/v1/campaigns.py's own create route and adapters/job_service.py. Rescuing it here too
+        # would be a genuine double-fire: job-service's own delayed job will call
+        # `/internal/campaigns/jobs/run` the moment it is actually due, and this scan must not
+        # race it just because a manual campaign with `last_evaluated == 0` looks "never fired" —
+        # for one with a future `fire_at`, that is exactly the point, not a defect.
+        fire_at = int(campaign.get("fire_at") or 0)
+        if fire_at > now:
+            res.skipped += 1
+            return
+
         if int(campaign.get("last_evaluated") or 0) == 0:
             res.evaluated += 1
             campaign["last_evaluated"] = now      # stamped first, for the reason above

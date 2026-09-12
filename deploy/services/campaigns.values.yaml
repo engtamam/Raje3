@@ -118,6 +118,12 @@ env:
   # configured, so the peer that reads them did not exist and «this will reach everyone in five
   # days» never rendered once.
   INSIGHTS_SERVICE_URL: "http://insights:8000"
+  # THE PLATFORM'S OWN SCHEDULER (platform/services/job-service, base-services-owned) — a campaign
+  # given a future `fire_at` is handed to it as a durable delayed job instead of waiting on this
+  # service's own /internal/campaigns/tick scan to notice the day arrived (2026-09-12). Optional,
+  # like every other peer URL here: empty means NullJobService, and the campaign still gets
+  # created and still fires eventually via the tick's own fallback, just less promptly.
+  JOB_SERVICE_URL: "http://job-service:8000"
   ELIGIBILITY_PATH: "/internal/reminders/eligibility"
   # THE ONLY WAY THIS SERVICE SENDS ANYTHING. There is no WhatsApp client here and no channel
   # config — reminders owns the gate and the send, and a second path would be a second set of
@@ -188,6 +194,16 @@ cronJobs:
   - name: tick
     schedule: "*/15 * * * *"
     path: /internal/campaigns/tick
+  # MUCH TIGHTER THAN THE TICK ABOVE, AND CHEAP ANYWAY (2026-09-12) — this claims only what
+  # job-service says is actually due (an indexed read), never scanning this tenant's or any
+  # other's whole campaign table the way `tick` above does, so a 1-minute cadence costs nothing
+  # extra. Jittered the same 0..30s every other every-minute job in this fleet already carries
+  # (job-service's own scheduler-tick, affiliate-service's leads-tick) — see that precedent's own
+  # note on the stampede a shared exact-minute mark once caused on a 2-vCPU node.
+  - name: jobs-run
+    schedule: "* * * * *"
+    path: /internal/campaigns/jobs/run
+    jitterSeconds: 30
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

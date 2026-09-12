@@ -84,6 +84,10 @@ def build_manifest(
             # THE HEARTBEAT. Without the cron this service is inert and looks healthy: campaigns
             # exist, every probe passes, and nothing ever fires.
             {"path": "/internal/campaigns/tick", "tier": "internal", "method": "POST"},
+            # job-service's own claim loop, from this side (2026-09-12) — a much tighter cadence
+            # than the tick above, affordable because it claims only what job-service says is
+            # actually due, never scanning every campaign this tenant or any other holds.
+            {"path": "/internal/campaigns/jobs/run", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              "erasure_category": "subject"},
             {"path": "/api/v1/campaigns/whoami", "tier": "user", "method": "GET"},

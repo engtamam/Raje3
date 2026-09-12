@@ -470,6 +470,24 @@ async def create(request: Request, body: CampaignIn,
     # leave the claim pointing at nothing while the row is on disk.
     await press.settle(c.datastore, _tenant(principal), press_key, campaign.id, now=now)
 
+    # A FUTURE `fire_at` — ANY GOAL NOW, not only «مناسبة عميلك» (2026-09-12). Best-effort handed
+    # to job-service (platform/services/job-service) so it fires close to the exact moment
+    # instead of waiting on this service's own 15-minute scan to notice the day arrived. Never
+    # BLOCKS creation: `NullJobService`/any transport failure here is swallowed, because
+    # `tick.py`'s own scan (`_one`'s manual-rescue branch, which now itself refuses to touch a
+    # campaign while `fire_at > now`) remains the correct fallback the moment the scheduled time
+    # actually passes — the same safety net this feature relied on before job-service existed,
+    # unchanged, just less prompt without it.
+    if campaign.fire_at and campaign.fire_at > now:
+        try:
+            await c.jobs.enqueue(queue="campaigns", tenant=campaign.tenant, type="campaigns.fire",
+                                 payload={"campaign_id": campaign.id},
+                                 delay_seconds=campaign.fire_at - now,
+                                 unique_key=f"cmp-fire:{campaign.id}")
+        except Exception:      # noqa: BLE001 — best-effort; the tick-scan fallback still applies
+            pass
+        return {"campaign": as_row(campaign), "run": None, "behaviour": spec["behaviour"]}
+
     fired = None
     if campaign.trigger == "manual":
         # INLINE, and bounded by the dispatcher. Letting the tick pick it up means the owner

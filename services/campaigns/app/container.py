@@ -196,6 +196,9 @@ class Container:
     bookings_licence: Any = None
     dispatcher: Any = None
     tick: Any = None
+    # The platform's own durable scheduler — `NullJobService` when `JOB_SERVICE_URL` is unset (see
+    # adapters/job_service.py and config.py's own note).
+    jobs: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -303,6 +306,13 @@ def build_container(settings: Settings) -> Container:
     # into "does this win-back open a booking screen". Two questions, one tested client — see
     # core/licence.py's own note on why the key is a parameter rather than a copied file.
     container.bookings_licence = build_licence(settings, BOOKINGS_KEY)
+
+    from app.adapters.job_service import HttpJobService, NullJobService
+    # OPTIONAL, LIKE EVERY OTHER PEER — see config.py's own note on JOB_SERVICE_URL.
+    container.jobs = (
+        HttpJobService(base_url=settings.JOB_SERVICE_URL, token=settings.INTERNAL_SERVICE_TOKEN)
+        if settings.JOB_SERVICE_URL else NullJobService()
+    )
     container.dispatcher = Dispatcher(store=container.datastore, sender=container.sender,
                                       audience_resolver=_resolver,
                                       package_offerable=container.package_offerable,

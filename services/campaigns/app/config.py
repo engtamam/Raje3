@@ -198,6 +198,21 @@ class Settings(BaseSettings):
     REMINDERS_RHYTHMS_PATH: str = "/internal/reminders/rhythms"
     INSIGHTS_SERVICE_URL: str = ""           # e.g. http://insights:8000
     INSIGHTS_RESERVE_PATH: str = "/internal/insights/engine-reserve"
+
+    # ── job-service — a future fire_at is a durable delayed job, not a poll (2026-09-12) ─────────
+    # THE PLATFORM'S OWN SCHEDULER, ALREADY BUILT (platform/services/job-service), and unused by
+    # any service in this fleet until now: durable enqueue with `delay_seconds`, atomic lease-based
+    # claim, retry with backoff, dead-letter, idempotent unique_key — exactly compliance-service's
+    # own `job-http` orchestrator already relies on for erasure dispatch
+    # (platform/services/compliance-service/app/adapters/orchestrator/job_http.py), copied here for
+    # the identical reason: a campaign scheduled a month out must not need this service to scan
+    # every active campaign every 15 minutes to notice its day arrived.
+    #
+    # OPTIONAL, LIKE EVERY OTHER PEER URL. Empty means `NullJobService` — a campaign with a future
+    # `fire_at` still gets created, still shows the owner its schedule; it simply is never handed
+    # to a scheduler that does not exist in this deployment, and the API refuses rather than
+    # silently pretending it will fire (see api/v1/campaigns.py's own check).
+    JOB_SERVICE_URL: str = ""                # e.g. http://job-service:8000
     TENANT_SERVICE_URL: str = ""
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
