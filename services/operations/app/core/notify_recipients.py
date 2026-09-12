@@ -50,6 +50,14 @@ def _covers(scope: "str | frozenset[str] | None", branch_id: str) -> bool:
         return False
     if not scope:
         return True                                  # unnarrowed: sees every branch
+    # AN ALERT WITH NO BRANCH AT ALL IS EVERYBODY'S TO SEE — same reading `api/scope.py::visible`
+    # already gives a row with no `branch_id`: most shops never assign anybody a branch (§12.2,
+    # `Operator.branch_id`'s own docstring), so an operator working unassigned is not "invisible
+    # to every narrowed manager", he is the common case every one of them still needs to hear
+    # about. Checked AFTER `not scope`, not before: an unnarrowed reader already returned True
+    # above regardless of `branch_id`, so this line only matters for someone who WAS narrowed.
+    if not branch_id:
+        return True
     if isinstance(scope, (set, frozenset)):
         return branch_id in scope
     return scope == branch_id

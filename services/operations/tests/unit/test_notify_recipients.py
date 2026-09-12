@@ -142,6 +142,20 @@ def test_a_direct_capability_grant_never_calls_effective_needlessly():
     assert authz.effective_calls == []
 
 
+def test_an_alert_about_nothing_branch_specific_reaches_a_narrowed_manager_too():
+    """Same reading `api/scope.py::visible` already gives a row with no `branch_id`: an alert with
+    NO branch (e.g. a till sale, or an operator nobody ever assigned a branch to — the common case
+    per `Operator.branch_id`'s own docstring) is not narrowed AWAY from anyone; it belongs to
+    nobody, so it is shown to everybody, same as a branch-less visit already is."""
+    store = MemoryDataStore()
+    run(_seed_operator(store, person_id="mgr_1", branch_id=BRANCH_B))   # scoped to B only
+    authz = _FakeAuthz([
+        {"subject": "mgr_1", "roles": [], "capabilities": ["operations.manage"]},
+    ])
+    out = run(managers_for_branch(store=store, authz=authz, tenant=TENANT, branch_id=""))
+    assert out == ["mgr_1"]
+
+
 def test_another_tenants_assignments_never_leak_in():
     """`list_assignments` is already tenant-scoped by the authz call itself — this proves the
     resolver does not ALSO need to re-filter by tenant on top of what its peer already scoped."""
