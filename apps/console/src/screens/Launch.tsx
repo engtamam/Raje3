@@ -641,9 +641,11 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                 <p key={line} className="text-xs text-text-secondary">{line}</p>
               ))}
             </>
-          ) : (
-            <p className="text-sm text-text-secondary">{t('launch.previewPending')}</p>
-          )}
+          ) : null}
+          {/* NO SECOND "اضغط عرض ما سيصل" HERE — found live, a real duplicate: the phone
+              frame right above this box already carries that same waiting sentence
+              (`preview?.message` gate), so a second copy in this box repeated it back to back on
+              screen for no reason other than both blocks sharing the same `!preview` guard. */}
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <div className="flex flex-wrap gap-2">
             {!preview ? (
