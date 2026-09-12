@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:2bcdc0f96c2d65858451f53debe3ef66d608c3722af8a212f0452b2cd5b9e8b3"   # v0.19.34
+  digest: "sha256:b3540b15d1e0fa0d73925168f9b72b10da15ad4679acdd9bddb30d07c1ae3fca"   # v0.21.0
 
 replicas: 1
 
@@ -200,6 +200,12 @@ env:
   # found live, from a card that could not read its own features (owner's own screenshot) and
   # whatsapp-assistant's own pod logs showing ZERO requests ever reaching it. Added below with the
   # rest, same pattern.
+  #
+  # /api/v1/notifications (-> notification-service) — the in-app notification feed (GET the list,
+  # POST /{id}/read). Any of our services can write one via notification-service's own
+  # POST /internal/notify with channel=inapp; this is the ONE console-facing route that reads them
+  # back, regardless of which service wrote a given item. Plain `auth: required` — every
+  # signed-in operator reads his own feed, no special capability.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -230,6 +236,7 @@ env:
       {"prefix":"/api/v1/partner","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/subscription","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/whatsapp/templates","upstream":"http://notification-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/notifications","upstream":"http://notification-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/operator","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/reminders","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},

@@ -250,6 +250,11 @@ def build_container(settings: Settings) -> Container:
     # — `bookings` intersects defensively at read time regardless of whether this peer answers).
     from app.adapters.bookings_desk import build_bookings_desk
     container.bookings_desk = build_bookings_desk(settings)
+    # THE GENERAL IN-APP NOTIFICATION SEND — any feature in this service that needs to put an item
+    # in an operator's bell-icon feed calls this and only this (app/adapters/inapp_notify.py's own
+    # header note explains why it is not one-off, feature-specific code).
+    from app.adapters.inapp_notify import build_inapp_notifier
+    container.inapp_notifier = build_inapp_notifier(settings)
     # THE ADMIN PANEL'S "ليش واتساب هذا المحل معطّل" READ — an internal-token peer call made ON
     # BEHALF of an operator who holds `platform.operations`, never a capability the browser's own
     # token carries. See `api/v1/platform.py::whatsapp_diagnostics`.
