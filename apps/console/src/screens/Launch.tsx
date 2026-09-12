@@ -26,7 +26,7 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  Cake, Gift, Info, Megaphone, RotateCcw, Search, Tag, type LucideIcon,
+  Cake, Clock, Gift, Info, Megaphone, RotateCcw, Search, Tag, type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
@@ -56,6 +56,27 @@ import './launch-i18n';
  * network round trip for exactly one screen's preview.
  */
 const CAROUSEL_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
+
+/**
+ * EACH GOAL'S OWN COLOUR, hand-mirrored from the approved mockup's own per-goal assignment —
+ * every rail row used to draw the SAME neutral/accent icon regardless of which goal it was,
+ * which is exactly the "no colour differentiation" the owner flagged directly, comparing this
+ * screen against the mockup card by card. Same tone vocabulary/classes Messages.tsx's own
+ * `TONE_ICON_BG` already uses, so a goal's colour reads consistently with everything else in the
+ * product rather than inventing a second palette. A goal missing here (a future addition) simply
+ * falls back to `accent` below, never to a colourless grey.
+ */
+const GOAL_TONE: Record<string, 'accent' | 'warning' | 'danger' | 'info'> = {
+  service_offer: 'accent', package_offer: 'warning', win_back: 'danger',
+  reward_loyal: 'accent', occasion: 'info', announce: 'info', awareness: 'info',
+};
+const GOAL_TONE_ICON_BG: Record<string, string> = {
+  accent: 'bg-accent-soft text-accent-on-soft', warning: 'bg-warning-soft text-warning-on-soft',
+  danger: 'bg-danger-soft text-danger-on-soft', info: 'bg-info-soft text-info-on-soft',
+};
+function goalToneClass(goal: string): string {
+  return GOAL_TONE_ICON_BG[GOAL_TONE[goal] ?? 'accent'];
+}
 
 /** WEEKDAY LABELS, Monday=0..Sunday=6 — `Campaign.window_weekdays`'s own encoding
  *  (operations/core/scheduling.py::recurrence_weekdays). */
@@ -499,7 +520,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                              active ? 'bg-accent-soft ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-2'].join(' ')}
                 >
                   <span className={['flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-                                    active ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                                    goalToneClass(g.goal)].join(' ')}>
                     <Icon size={15} aria-hidden />
                   </span>
                   <span className="flex min-w-0 flex-col gap-0.5">
@@ -671,19 +692,24 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {rail}
       <section className="flex flex-1 flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium">{picked.title}</span>
-          <Button variant="ghost" onClick={() => {
-            setPicked(null); setPreview(null); setError('');
-            setWindowOn(false); setWindowStartHour(9); setWindowEndHour(21); setWindowWeekdays([]);
-            setLaunchLater(false); setLaunchDate(''); setLaunchHour('08:00');
-          }}>
-            {t('launch.changeGoal')}
-          </Button>
+        {/* NO "تغيير الهدف" BUTTON — the rail beside this panel IS the goal switcher now
+            (2026-09-13, matching the approved mockup): every goal already sits one press away on
+            it, always visible, so a second control here duplicated the same choice. */}
+        <div className="flex items-center gap-2.5">
+          <span className={['flex h-9 w-9 shrink-0 items-center justify-center rounded-full', goalToneClass(picked.goal)].join(' ')}>
+
+            {(() => {
+              const Icon = picked.icon ? (GOAL_ICONS[picked.icon] ?? Tag) : Tag;
+              return <Icon size={17} aria-hidden />;
+            })()}
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <span className="font-medium">{picked.title}</span>
+            {picked.behaviour ? (
+              <span className="truncate text-xs text-text-secondary">{picked.behaviour}</span>
+            ) : null}
+          </div>
         </div>
-        {picked.behaviour ? (
-          <p className="text-sm text-text-secondary">{picked.behaviour}</p>
-        ) : null}
 
         {/* THE CROSS-LINK, THE OTHER DIRECTION — «متى نرسل»'s own row for the exact same
             template opens with a link back here (Messages.tsx's own REASON_GOAL); this is the
@@ -942,9 +968,12 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             collapsed by default. Not a second gate on TOP of «متى تُطلق» above: that decides the
             one moment this campaign starts existing; this decides which hours/days it is ever
             allowed to actually SEND on, for as long as it runs. */}
-        <div className="flex flex-col gap-2 rounded-card border border-dashed border-border-subtle p-3">
+        <div className="flex flex-col gap-2 rounded-card border border-dashed border-accent/35 bg-accent-soft/25 p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-medium">{t('launch.window.title')}</span>
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Clock size={15} className="text-accent" aria-hidden />
+              {t('launch.window.title')}
+            </span>
             <Toggle checked={windowOn}
                    ariaLabel={t('launch.window.title')}
                    onChange={(v) => { setWindowOn(v); setPreview(null); }} />
