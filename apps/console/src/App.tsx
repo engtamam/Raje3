@@ -146,7 +146,21 @@ export function App() {
   // this branch — the sessionStorage flag Door.tsx also writes is read-once, at App's own mount,
   // which already happened before he had typed a single character. Without this direct call the
   // welcome only ever showed after a manual refresh remounted App and re-ran that initializer.
-  if (!isSignedIn(session)) return <Door onSignedIn={signedIn} onWelcome={setWelcomeTrialEnd} />;
+  // WRAPPED HERE TOO — a real, live bug (2026-09-12): Door.tsx/DoorLayout.tsx were migrated to
+  // operator-i18n (useOperatorI18n() calls, no fallback) without ever being wrapped in the
+  // provider that migration assumes every screen sits inside. `useOperatorI18n()` THROWS with no
+  // ancestor provider (see its own header note — a deliberate loud failure, not a silent
+  // identity fallback), so every signed-out visitor hit a hard crash on the sign-in page itself.
+  // `session` here is always a real (if empty-token) `Session`, safe to hand the provider exactly
+  // as-is: `getMyLocale` simply fails and falls back to Arabic + `ready` for anyone not signed in
+  // yet, the same graceful path it already takes for any other read failure.
+  if (!isSignedIn(session)) {
+    return (
+      <OperatorI18nProvider session={session}>
+        <Door onSignedIn={signedIn} onWelcome={setWelcomeTrialEnd} />
+      </OperatorI18nProvider>
+    );
+  }
 
   // THE WELCOME, SHOWN EXACTLY ONCE — the flag Door.tsx set the moment his shop (and its trial)
   // opened, cleared the instant he presses through. session-scoped, so it cannot survive past this

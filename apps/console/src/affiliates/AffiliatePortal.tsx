@@ -30,6 +30,7 @@ import { AffiliateSidebar, AffiliateBottomNav, ComingSoon, type Tab } from './Af
 import { AffiliateTeam } from './AffiliateTeam';
 import { AffiliateTools } from './AffiliateTools';
 import { useAffiliateSession } from './session';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 export function AffiliatePortal() {
   const { session, signedIn, signIn, signOut } = useAffiliateSession();
@@ -50,7 +51,16 @@ export function AffiliatePortal() {
   }, [session, signedIn]);
 
   if (!signedIn) {
-    return <AffiliateDoor onSignedIn={signIn} />;
+    // A REAL, LIVE BUG (2026-09-12): `DoorLayout` (shared with the shop door) reads
+    // `useOperatorI18n()` with no fallback, and this portal has no marketer session at all before
+    // sign-in to build a shop `Session` from — a plain stub is enough, since the provider only
+    // ever uses it to ATTEMPT a locale read that fails harmlessly for anyone signed out (same
+    // pattern the shop door's own fix in App.tsx uses).
+    return (
+      <OperatorI18nProvider session={{ tenant: '', operator: '', operatorName: '', token: '' } as never}>
+        <AffiliateDoor onSignedIn={signIn} />
+      </OperatorI18nProvider>
+    );
   }
 
   // A PROMOTER CANNOT LAND ON «فريقي» — the tab does not exist for him in the nav, but `tab` state

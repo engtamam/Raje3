@@ -25,6 +25,7 @@ import { AdminPlatform } from './AdminPlatform';
 import { AdminProviderSecrets } from './AdminProviderSecrets';
 import { AdminTickets } from './AdminTickets';
 import { useAdminSession } from './session';
+import { OperatorI18nProvider } from '../operator-i18n';
 
 // المسار مقابل التبويب — "الرئيسية" هي الجذر، البقية بمسارها الخاص. `legal/:slug` (main.tsx) يبقى
 // المسار الوحيد المحجوز خارج هذي القائمة، فلا تعارض معه.
@@ -49,7 +50,15 @@ export function AdminPortal() {
   const openProvider = (location.state as { openProvider?: string } | null)?.openProvider ?? null;
 
   if (!signedIn) {
-    return <AdminDoor onSignedIn={signIn} />;
+    // SAME REAL, LIVE BUG AS `AffiliatePortal.tsx`'s OWN FIX (2026-09-12): `DoorLayout` reads
+    // `useOperatorI18n()` with no fallback, and there is no admin session yet before sign-in — a
+    // plain stub is enough, since the provider only ever ATTEMPTS a locale read with it, which
+    // fails harmlessly for anyone signed out.
+    return (
+      <OperatorI18nProvider session={{ tenant: '', operator: '', operatorName: '', token: '' } as never}>
+        <AdminDoor onSignedIn={signIn} />
+      </OperatorI18nProvider>
+    );
   }
 
   function openProviderSecrets(provider: string) {
