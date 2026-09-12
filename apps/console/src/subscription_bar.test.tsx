@@ -13,13 +13,22 @@
  * derived «30 - days since signup» would disagree with billing the first time anybody changed the
  * subscription or extended a trial by hand.
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as rtlRender, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { ReactElement } from 'react';
 
 import { SubscriptionBar } from './SubscriptionBar';
 import { baseState, daysLeft, type Owned } from './apps';
 import { DENIED } from './loading';
+import { OperatorI18nProvider } from './operator-i18n';
+
+// SubscriptionBar now reads `useOperatorI18n()` — wrap once here so every existing
+// `render(<...>)` call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const NOW = 1_760_000_000_000;                       // a fixed instant, so no test waits for a day
 const DAY = 86_400;
@@ -77,7 +86,7 @@ describe('the bar an owner reads before he presses anything', () => {
     expect(said).toContain('انتهى اشتراكك');
     // THE HALF THAT STOPS PEOPLE PANICKING, and the half a shorter sentence would drop.
     expect(said).toContain('محفوظة');
-    expect(screen.getByRole('link').textContent).toBe('جدّد الآن');
+    expect(screen.getByRole('link').textContent).toBe('جدِّد الآن');
   });
 
   it('counts a trial down as it nears its end, and says nothing while it is far off', () => {

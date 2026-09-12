@@ -5,7 +5,16 @@
  * of service_id/service_name.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// Launch now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const ACTIONS: Record<string, { id: string; label: string; method: string; path: string }> = {
   'campaigns.goals': { id: 'campaigns.goals', label: 'x', method: 'GET', path: '/goals' },
@@ -109,7 +118,7 @@ describe('package_offer', () => {
     const dateBox = document.querySelector('input[type="date"]') as HTMLInputElement;
     fireEvent.change(dateBox, { target: { value: '2030-01-01' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'اعرض ما سيصل' }));
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
     await waitFor(() => expect(previewCalls.length).toBe(1));
     const body = previewCalls[0] as { package_id: string; service_id: string };
     expect(body.package_id).toBe('pkg1');
@@ -129,13 +138,13 @@ describe('the cross-link to «متى نرسل»', () => {
   it('offers to view/retext the message when the picked goal shares a reason', async () => {
     render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="win_back" />);
     await waitFor(() => expect(screen.getByText('رجّع اللي غابوا')).toBeTruthy());
-    await waitFor(() => expect(screen.getByText('اعرض نص هذه الرسالة، أو عدّله')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('عرض نص هذه الرسالة أو تعديله')).toBeTruthy());
   });
 
   it('offers nothing for a goal with no automatic counterpart', async () => {
     render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="package_offer" />);
     await waitFor(() => expect(screen.getByText('على أي باقة؟')).toBeTruthy());
-    expect(screen.queryByText('اعرض نص هذه الرسالة، أو عدّله')).toBeNull();
+    expect(screen.queryByText('عرض نص هذه الرسالة أو تعديله')).toBeNull();
   });
 });
 

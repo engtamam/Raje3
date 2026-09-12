@@ -3,8 +3,17 @@
  * commission) must never render for a shop it does not apply to.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { ApiError } from '../api';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// WalletPane now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 let actionIds: Set<string>;
 let callImpl: (session: unknown, a: { id: string }, body?: unknown) => Promise<unknown>;
@@ -48,7 +57,7 @@ describe('WalletPane', () => {
     };
     render(<WalletPane session={session} catalog={catalog} />);
     await waitFor(() => expect(screen.getByText('200 ريال')).toBeTruthy());
-    expect(screen.getByText('وحدات الذكاء')).toBeTruthy();
+    expect(screen.getByText('وحدات الذكاء الاصطناعي')).toBeTruthy();
     expect(screen.getByText('123.45 ريال')).toBeTruthy();   // the bundled ai_credit+topup total
   });
 
@@ -71,7 +80,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('رصيد تجديد الاشتراك')).toBeNull();
   });
 
@@ -103,7 +112,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('رصيد تجديد الاشتراك')).toBeNull();
   });
 
@@ -117,7 +126,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('عمولتك كشريك')).toBeNull();
   });
 
@@ -160,7 +169,7 @@ describe('WalletPane', () => {
       return {};
     };
     render(<WalletPane session={session} catalog={catalog} />);
-    await waitFor(() => expect(screen.getByText('وحدات الذكاء')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('وحدات الذكاء الاصطناعي')).toBeTruthy());
     expect(screen.queryByText('شحن رصيدي يدوياً')).toBeNull();
   });
 
@@ -258,7 +267,7 @@ describe('WalletPane', () => {
       fireEvent.click(screen.getByText('الدفع الآن'));
 
       await waitFor(() => expect(
-        screen.getByText('هذا المبلغ أكبر من الحد المسموح للشحن اليدوي.'),
+        screen.getByText('هذا المبلغ أكبر من الحد المسموح به للشحن اليدوي.'),
       ).toBeTruthy());
       expect(screen.queryByText(/AMOUNT_EXCEEDS_MAX/)).toBeNull();
     });

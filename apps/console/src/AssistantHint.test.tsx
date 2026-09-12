@@ -4,9 +4,18 @@
  * anchor yet, the expected state until Phase 4) reads «ما فيه شرح لهذا بعد», never an error.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { AssistantHint } from './AssistantHint';
 import type { Session } from './session';
+import { OperatorI18nProvider } from './operator-i18n';
+
+// AssistantHint now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const SESSION = { token: 'tok-1' } as Session;
 
@@ -43,7 +52,7 @@ describe('AssistantHint', () => {
     fetchMock = vi.fn().mockResolvedValue(null);
     render(<AssistantHint session={SESSION} anchor="operations.something_unwritten" />);
     fireEvent.click(screen.getByRole('button', { name: 'شرح' }));
-    await waitFor(() => expect(screen.getByText('ما فيه شرح لهذا بعد.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('لا يتوفَّر شرح لهذا حالياً.')).toBeTruthy());
   });
 
   it('toggles closed on a second tap without re-fetching', async () => {

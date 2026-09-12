@@ -4,10 +4,19 @@
  * and جهات الاتصال (free, `interval='once'`) must never trigger a banner at all.
  */
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ReactElement } from 'react';
 import { SubscriptionBar } from './SubscriptionBar';
 import type { Owned } from './apps';
+import { OperatorI18nProvider } from './operator-i18n';
+
+// SubscriptionBar now reads `useOperatorI18n()` — wrap once here so every existing
+// `render(<...>)` call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const NOW = 1_700_000_000_000; // ms
 
@@ -25,7 +34,7 @@ describe('SubscriptionBar', () => {
       checked: true, message: '', keys: [], apps: [],
       base: { plan_id: 'p1', status: 'trialing', renews_at: NOW / 1000 + 3 * 86400 },
     });
-    expect(screen.getByText(/فعّل الأساس/)).toBeTruthy();
+    expect(screen.getByText(/فعِّل الأساس/)).toBeTruthy();
   });
 
   it('says nothing for a shop with no base and no standalone app either', () => {

@@ -2,7 +2,16 @@
  * «بوابة المسوّق» — the one property worth a render test: which pane opens, and off what.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// The door screen it renders now reads `useOperatorI18n()` — wrap once here so every existing
+// `render(<...>)` call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 import { AffiliateDoor } from './AffiliateDoor';
 
 function setSearch(qs: string) {

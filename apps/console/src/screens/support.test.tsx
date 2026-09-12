@@ -4,7 +4,16 @@
  * a marketer sees it there and replies.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// SupportScreen now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 let mineResult: Promise<{ tickets: unknown[] }>;
 const calls: { id: string; body?: unknown }[] = [];
@@ -33,7 +42,7 @@ describe('SupportScreen', () => {
   it('shows an honest empty state before any ticket has been raised', async () => {
     mineResult = Promise.resolve({ tickets: [] });
     render(<SupportScreen session={SESSION} catalog={CATALOG} />);
-    await waitFor(() => expect(screen.getByText('لا تذاكر بعد')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('لا توجد تذاكر بعد')).toBeTruthy());
   });
 
   it('lists a previously raised ticket with its status', async () => {
@@ -48,7 +57,7 @@ describe('SupportScreen', () => {
   it('raising a ticket calls tickets.open with the form fields, then reloads the list', async () => {
     mineResult = Promise.resolve({ tickets: [] });
     render(<SupportScreen session={SESSION} catalog={CATALOG} />);
-    await waitFor(() => expect(screen.getByText('لا تذاكر بعد')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('لا توجد تذاكر بعد')).toBeTruthy());
 
     fireEvent.change(screen.getByLabelText('نوع المشكلة', { exact: false }), { target: { value: 'فوترة' } });
     fireEvent.change(screen.getByLabelText('العنوان', { exact: false }), { target: { value: 'فاتورة مكررة' } });
@@ -66,7 +75,7 @@ describe('SupportScreen', () => {
   it('refuses to submit with no type or subject', async () => {
     mineResult = Promise.resolve({ tickets: [] });
     render(<SupportScreen session={SESSION} catalog={CATALOG} />);
-    await waitFor(() => expect(screen.getByText('لا تذاكر بعد')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('لا توجد تذاكر بعد')).toBeTruthy());
     expect((screen.getByRole('button', { name: /رفع التذكرة/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

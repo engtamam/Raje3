@@ -4,9 +4,18 @@
  * app-level error.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { AssistantChat } from './AssistantChat';
 import type { Session } from './session';
+import { OperatorI18nProvider } from './operator-i18n';
+
+// AssistantChat now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const SESSION = { token: 'tok-1' } as Session;
 

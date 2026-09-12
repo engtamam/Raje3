@@ -4,8 +4,17 @@
  * the backend side (test_ratings_api.py, test_rating_fields.py).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// RatingsTab now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 let callImpl: (session: unknown, a: { id: string }, body?: unknown) => Promise<unknown>;
 let actionIds: Set<string>;

@@ -5,7 +5,16 @@
  * the identifier field is labelled for what this deployment actually logs in with (a phone).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, waitFor, fireEvent } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// The door screen it renders now reads `useOperatorI18n()` — wrap once here so every existing
+// `render(<...>)` call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 import { AdminDoor } from './AdminDoor';
 import { AdminRefused } from './api';
 

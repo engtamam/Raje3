@@ -8,11 +8,20 @@
  * went looking found four tabs, none of them the one he had just been sent to.
  */
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ReactElement } from 'react';
 import { SECTIONS, STORE_PATH, visibleSections } from '../nav';
 import { LockedCard } from './Locked';
 import { ANONYMOUS } from '../session';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// LockedCard now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const catalog = (...ids: string[]) => ({
   services: [{ name: 'billing', actions: ids.map((id) => ({ id, label: id, method: 'GET', path: `/${id}` })) }],

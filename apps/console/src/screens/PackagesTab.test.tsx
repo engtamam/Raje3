@@ -3,8 +3,17 @@
  * request shape is covered on the backend side).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from '../operator-i18n';
+
+// PackagesTab now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 
 const ACTIONS: Record<string, { id: string; label: string; method: string; path: string }> = {
   'operations.manage_services': { id: 'operations.manage_services', label: 'x', method: 'GET', path: '/services' },
@@ -335,7 +344,7 @@ describe('الباقات', () => {
     ];
     open();
     await waitFor(() => expect(screen.getByText('باقة من محلّي')).toBeTruthy());
-    expect(screen.getByText('من اقتراح محلّي')).toBeTruthy();
+    expect(screen.getByText('مقترحة من محلّي')).toBeTruthy();
   });
 
   // ── description + photo (services-images-board.md phase 3, mirrored from Services.tsx) ─────

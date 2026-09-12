@@ -14,7 +14,16 @@
  * drawn from the CAPABILITY and never from a role.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { OperatorI18nProvider } from './operator-i18n';
+
+// BranchSwitch now reads `useOperatorI18n()` — wrap once here so every existing `render(<...>)`
+// call site below stays unchanged.
+const SESSION_FOR_I18N = { tenant: 't1', operator: '', operatorName: '', token: 'tok' } as never;
+function render(ui: ReactElement) {
+  return rtlRender(<OperatorI18nProvider session={SESSION_FOR_I18N}>{ui}</OperatorI18nProvider>);
+}
 import { BranchSwitch } from './BranchSwitch';
 import { DENIED } from './loading';
 import type { Catalog } from './catalog';
@@ -57,11 +66,11 @@ describe('the branch control in the rail', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('offers «أضف فرعاً» to whoever may create one, even with a single branch', () => {
+  it('offers «إضافة فرع» to whoever may create one, even with a single branch', () => {
     const onAdd = vi.fn();
     render(<BranchSwitch branches={[{ id: 'b1', name: 'الرياض' }]} branch=""
                          onChange={() => {}} catalog={CAN_ADD} onAdd={onAdd} />);
-    screen.getByText('أضف فرعاً').click();
+    screen.getByText('إضافة فرع').click();
     expect(onAdd).toHaveBeenCalled();
   });
 
@@ -69,6 +78,6 @@ describe('the branch control in the rail', () => {
     render(<BranchSwitch branches={TWO} branch="" onChange={() => {}}
                          catalog={CANNOT_ADD} onAdd={() => {}} />);
     // An offer he cannot take is a small lie repeated every day.
-    expect(screen.queryByText('أضف فرعاً')).toBeNull();
+    expect(screen.queryByText('إضافة فرع')).toBeNull();
   });
 });
