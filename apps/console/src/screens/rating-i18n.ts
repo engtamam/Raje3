@@ -215,7 +215,7 @@ registerOperatorStrings({
   fil: {
     'rating.title': 'Rating',
     'rating.subtitle': 'Ang performance ng iyong team at boses ng iyong mga customer, sa isang lugar',
-    'rating.period.week': 'Lingguhan', 'rating.period.month': 'Buwanan', 'rating.period.quarter': 'Bawat-quarter',
+    'rating.period.week': 'Lingguhan', 'rating.period.month': 'Buwanan', 'rating.period.quarter': 'Quarterly',
     'rating.tab.overview': 'Pangkalahatang-ideya', 'rating.tab.ratings': 'Mga Rating',
     'rating.tile.avgRating': 'Average rating ng tindahan sa panahong ito',
     'rating.tile.staffCount': 'Aktibong staff',
