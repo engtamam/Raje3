@@ -166,6 +166,14 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
      # `Operations.ratings_summary` (core/operations.py:470-491) — عدد التقييمات هذا الأسبوع،
      # المعدل، وكم منها لسه بلا رد — سطر جاهز بالتقرير الأسبوعي، لا حساب يدوي.
      },
+    {"id": "rating.compares_your_staff", "title": "يقارن لك أداء موظفيك، لا محلك ككل فقط",
+     "detail": "لكل موظف زياراته وتقييماته ونسبة حضور عملائه، بفلتر زمني تختاره — تعرف مين يبني "
+               "سمعتك ومين يستنزفها",
+     "icon": "users", "tone": "indigo", "shared_with": [], "owned_by": "",
+     # `Operations.staff_performance` (core/operations.py) + bookings-service's own
+     # `BookingStore.no_show_summary` — GET /api/v1/field/staff/performance, gated
+     # `operations.manage` (owner/manager only, not every operator on shift).
+     },
 )
 
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
