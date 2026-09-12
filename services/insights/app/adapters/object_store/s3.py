@@ -87,13 +87,30 @@ class S3ObjectStore:
         because the s3 adapter had no param in the ObjectStore contract, so nothing ever compared
         the two.
         """
+        # FIXED 2026-09-12, a real gap a QA audit found: head_object and delete_object were two
+        # separate round trips with nothing pinning them to the same object. Between the two, a
+        # concurrent writer could replace this key with a brand-new object, and delete_object (which
+        # targets whatever is CURRENTLY at the key, not what head_object saw) would destroy that new
+        # write while this call still returned True for "deleted the object I checked" — a
+        # compliance receipt for the wrong object.
+        #
+        # head_object's VersionId pins the delete to the exact object version this call observed
+        # (on a versioned bucket): delete_object(VersionId=...) removes that version specifically,
+        # so a write that lands after the check is never the thing destroyed. On a bucket with
+        # versioning off, S3 has no atomic check-then-act primitive at all — VersionId is absent and
+        # the race is inherent to the store, not this adapter; this is the safest primitive S3
+        # offers for the case it can be closed.
         k = validate_key(key)
         async with self._client() as s3:
             try:
-                await s3.head_object(Bucket=self._bucket, Key=k)
+                head = await s3.head_object(Bucket=self._bucket, Key=k)
             except Exception:
                 return False
-            await s3.delete_object(Bucket=self._bucket, Key=k)
+            version_id = head.get("VersionId")
+            if version_id:
+                await s3.delete_object(Bucket=self._bucket, Key=k, VersionId=version_id)
+            else:
+                await s3.delete_object(Bucket=self._bucket, Key=k)
         return True
 
     async def exists(self, key: str) -> bool:

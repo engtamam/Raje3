@@ -34,6 +34,25 @@ BACKUP: dict[str, Any] = {
         # Who asked for the weekly report. Small, and impossible to reconstruct: nothing else
         # records that a manager subscribed.
         {"name": "insight_digest_subs", "tenant_scoped": True},
+        # FIXED 2026-09-12, a real gap a QA audit found: three collections the service actually
+        # writes (app/api/v1/insights.py, app/core/rollup.py, app/core/runtime_config.py) were
+        # declared nowhere — neither backed up nor excluded, the exact silent hole this file's own
+        # docstring says must never exist.
+        #
+        # "Next step" suggestion state per tenant — losing it resets which suggestions an owner has
+        # already dismissed, and nothing else records that.
+        {"name": "insight_next_step_state", "tenant_scoped": True},
+        # An operator's runtime policy overrides. NOT tenant_scoped, even though most rows carry a
+        # real tenant: a platform-wide override lives in the SAME collection under tenant="" (see
+        # core/runtime_config.py's own `set()`), and a per-tenant restore that only pulled one
+        # tenant's rows would miss every platform-wide row that tenant's own resolution falls back
+        # to — the same reasoning portal's identical runtime_config collection is declared under.
+        {"name": "runtime_config", "tenant_scoped": False},
     ],
-    "excluded": [],
+    "excluded": [
+        # A single cross-tenant row, fully recomputed by the scheduled rollup (core/rollup.py) from
+        # each tenant's own already-backed-up snapshot — losing it costs one rollup cycle, not data.
+        {"name": "insight_platform_summary",
+         "reason": "recomputed nightly from insight_snapshots; not a source of truth"},
+    ],
 }

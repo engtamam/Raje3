@@ -190,6 +190,10 @@ _SOURCE_TITLES_AR = {
     "audit": "سجل التدقيق",
     "legal": "المستندات القانونية",
     "marketing": "التسويق والموافقات",
+    # FIXED 2026-09-12, a real gap a QA audit found: "acceptance" is a real source
+    # (contract_breach/suspended_tos scenarios both cite it) but had no label, so it rendered as
+    # the raw English word inside an otherwise-Arabic legal document.
+    "acceptance": "إثبات موافقة العميل على الشروط",
 }
 
 

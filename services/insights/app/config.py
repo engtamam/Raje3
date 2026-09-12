@@ -485,6 +485,40 @@ class Settings(BaseSettings):
         if self.PEERS_DRIVER == "http" and missing:
             raise ValueError(f"PEERS_DRIVER=http but {', '.join(missing)} empty.")
 
+    def assert_token_config_ok(self) -> None:
+        """Boot guard. FIXED 2026-09-12, a real gap a QA audit found: TOKEN_VERIFIER_DRIVER
+        defaults to 'null' (deny-by-default) precisely so an unconfigured verifier fails closed
+        instead of forging trust — but nothing refused to START production with that default left
+        in place. A deny-all verifier still passes every health check and serves traffic; every
+        authenticated call simply 401s, indistinguishably from the service being fine and the
+        caller being wrong, which is exactly the kind of misconfiguration that must not survive
+        past boot.
+        """
+        if not self.is_production:
+            return
+        if self.TOKEN_VERIFIER_DRIVER == "null":
+            raise ValueError(
+                "TOKEN_VERIFIER_DRIVER=null in production: every authenticated request would be "
+                "denied, which looks identical to the service being healthy and the caller being "
+                "wrong. Set it to 'hs256' (with TOKEN_HS256_SECRET), 'rs256' (with "
+                "TOKEN_PUBLIC_KEY), or 'jwks' (with TOKEN_JWKS_URL)."
+            )
+        if self.TOKEN_VERIFIER_DRIVER == "hs256" and not self.TOKEN_HS256_SECRET:
+            raise ValueError(
+                "TOKEN_VERIFIER_DRIVER=hs256 but TOKEN_HS256_SECRET is empty: every token would "
+                "fail verification and every authenticated request would be denied."
+            )
+        if self.TOKEN_VERIFIER_DRIVER == "rs256" and not self.TOKEN_PUBLIC_KEY:
+            raise ValueError(
+                "TOKEN_VERIFIER_DRIVER=rs256 but TOKEN_PUBLIC_KEY is empty: every token would "
+                "fail verification and every authenticated request would be denied."
+            )
+        if self.TOKEN_VERIFIER_DRIVER == "jwks" and not self.TOKEN_JWKS_URL:
+            raise ValueError(
+                "TOKEN_VERIFIER_DRIVER=jwks but TOKEN_JWKS_URL is empty: every token would fail "
+                "verification and every authenticated request would be denied."
+            )
+
     def assert_consent_config_ok(self) -> None:
         """Boot guard. A service that gates processing on consent must be able to ask.
 

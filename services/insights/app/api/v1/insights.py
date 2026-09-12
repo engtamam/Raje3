@@ -498,7 +498,9 @@ async def platform_summary(request: Request, principal: Principal = Depends(_PLA
 
 class DisputeReportIn(BaseModel):
     phone: str = Field(min_length=1, max_length=32)
-    scenario: str
+    # FIXED 2026-09-12, a real gap a QA audit found: this field lacked the max_length its siblings
+    # both carry, so an unbounded string could reach the scenario lookup below.
+    scenario: str = Field(min_length=1, max_length=64)
     file_format: str = Field(default="docx", pattern="^(docx|pdf)$")
 
 

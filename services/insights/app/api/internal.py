@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hmac
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
@@ -61,8 +61,11 @@ async def internal_manifest(
 
 
 class EraseIn(BaseModel):
-    tenant: str
-    subject: str
+    # FIXED 2026-09-12, a real gap a QA audit found: an unbounded string here reaches straight into
+    # a pseudonym key and a store lookup — matching the max_length=128 convention already used for
+    # tenant/subject fields elsewhere in this service (see api/v1/insights.py, api/v1/operator.py).
+    tenant: str = Field(..., max_length=128)
+    subject: str = Field(..., max_length=128)
 
 
 @router.post("/privacy/erase", dependencies=[Depends(require_internal_token)])
@@ -150,9 +153,13 @@ async def backup_verify(request: Request, body: BackupVerifyIn,
     import secrets
     _, unseal = _sealer(settings)
     try:
+        # FIXED 2026-09-12, a real gap a QA audit found: this call never passed `declaration`, so
+        # any collection with a composite key template (backup_manifest's own docstring anticipates
+        # one — a ledger's "{tenant}:{seq}") would verify-restore under the wrong key. Passing the
+        # same BACKUP manifest export used is what keeps the key template identical end to end.
         return await _backup.verify_restore(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, token=secrets.token_hex(8))
+            unseal=unseal, token=secrets.token_hex(8), declaration=BACKUP)
     except _backup.BackupError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -163,9 +170,12 @@ async def backup_import(request: Request, body: BackupImportIn,
     """Restore an archive this service produced. Idempotent; leaves newer rows alone by default."""
     _, unseal = _sealer(settings)
     try:
+        # FIXED 2026-09-12, a real gap a QA audit found: same missing `declaration` as verify above
+        # — without it, a composite-keyed collection would restore under the row's raw id instead
+        # of the template backup_manifest declares, silently diverging from what export wrote.
         return await _backup.import_archive(
             request.app.state.container.datastore, body.archive,
-            unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant)
+            unseal=unseal, overwrite=body.overwrite, into_tenant=body.into_tenant, declaration=BACKUP)
     except _backup.BackupError as exc:
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
@@ -178,8 +188,12 @@ class TickIn(BaseModel):
     # eighteen hours of "أحسب الآن" that taught us the difference.
     # Empty = every tenant the data knows about. A value scopes the pass, which is what a support
     # engineer wants when investigating one shop without recomputing the product.
-    tenant: str = ""
-    since: int = 0
+    # FIXED 2026-09-12, a real gap a QA audit found: unbounded fields on an internal-tier body
+    # still cost a request's worth of validation/lookup work before any handler code runs.
+    # max_length matches the tenant/subject convention elsewhere in this service; since is a unix
+    # timestamp and can never be negative.
+    tenant: str = Field(default="", max_length=128)
+    since: int = Field(default=0, ge=0)
 
 
 @router.post("/insights/tick", dependencies=[Depends(require_internal_token)])

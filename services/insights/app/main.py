@@ -47,6 +47,15 @@ def create_app() -> FastAPI:
     settings.assert_cors_config_ok()
     # A dashboard computed from nothing renders zeros and reads as a dead shop.
     settings.assert_peers_config_ok()
+    # FIXED 2026-09-12, a real gap a QA audit found: a deny-all token verifier still passes every
+    # health check and serves traffic, 401ing every real request indistinguishably from a healthy
+    # service facing a wrong caller.
+    settings.assert_token_config_ok()
+    # FIXED 2026-09-12, a real gap a QA audit found: this guard existed (same fail-fast shape as
+    # the guards above) but was never actually called from here — the exact silent-misconfiguration
+    # class its own docstring warns about was reachable the day CONSENT_GATED is ever set here with
+    # no real gate wired.
+    settings.assert_consent_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
 
