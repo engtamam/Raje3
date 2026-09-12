@@ -5,6 +5,7 @@ services replace this with their own schema/repository behind the same port.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -70,6 +71,13 @@ class PostgresDataStore:
         self._asyncpg = load("asyncpg", "postgres")
         self._dsn = dsn
         self._pool: Any = None
+        # Guards `_ensure`'s own lazy create — added 2026-09-12, a real gap a QA audit found: two
+        # concurrent first-requests (an app that boots serving traffic immediately, or a burst of
+        # requests all arriving before the very first one finishes `create_pool`) could each see
+        # `self._pool is None`, each start a pool, and the loser's `self._pool = ...` would then
+        # silently discard whichever pool the winner already opened — leaking its connections for
+        # the life of the process, since nothing holds a reference to it any more to `close()` it.
+        self._pool_lock = asyncio.Lock()
         # Pool sizing (see config). min is LAZY and small (1): asyncpg's default is min_size=10, an
         # EAGER floor a pool climbs to on first use and then HOLDS for the process lifetime — so 24
         # services silently consume 240 backend connections against a single postgres whose stock
@@ -88,23 +96,31 @@ class PostgresDataStore:
         self._statement_cache_size = max(0, int(statement_cache_size))
 
     async def _ensure(self) -> Any:
-        if self._pool is None:
-            self._pool = await self._asyncpg.create_pool(
-                self._dsn,
-                min_size=self._pool_min,
-                max_size=self._pool_max,
-                timeout=self._pool_timeout,                        # wait this long for a slot, then fail cleanly
-                max_inactive_connection_lifetime=self._pool_max_inactive,  # return idle connections to the server
-                statement_cache_size=self._statement_cache_size,   # 0 => PgBouncer transaction-mode safe
-            )
-            async with self._pool.acquire() as con:
-                await con.execute(
-                    f"CREATE TABLE IF NOT EXISTS {_TABLE} ("
-                    "collection text NOT NULL, key text NOT NULL, "
-                    "value jsonb NOT NULL, PRIMARY KEY (collection, key))"
+        if self._pool is not None:
+            return self._pool
+        # THE LOCK, BEFORE THE `is None` CHECK RUNS AGAIN — the first check above is a fast path
+        # for the (overwhelmingly common) already-initialised case, never re-taken here: two
+        # coroutines can both pass it before either awaits, and it is what this second check,
+        # taken under the lock, exists to catch.
+        async with self._pool_lock:
+            if self._pool is None:
+                pool = await self._asyncpg.create_pool(
+                    self._dsn,
+                    min_size=self._pool_min,
+                    max_size=self._pool_max,
+                    timeout=self._pool_timeout,                        # wait this long for a slot, then fail cleanly
+                    max_inactive_connection_lifetime=self._pool_max_inactive,  # return idle connections to the server
+                    statement_cache_size=self._statement_cache_size,   # 0 => PgBouncer transaction-mode safe
                 )
-                for statement in _INDEXES:
-                    await con.execute(statement)
+                async with pool.acquire() as con:
+                    await con.execute(
+                        f"CREATE TABLE IF NOT EXISTS {_TABLE} ("
+                        "collection text NOT NULL, key text NOT NULL, "
+                        "value jsonb NOT NULL, PRIMARY KEY (collection, key))"
+                    )
+                    for statement in _INDEXES:
+                        await con.execute(statement)
+                self._pool = pool
         return self._pool
 
     async def get(self, collection: str, key: str) -> dict[str, Any] | None:

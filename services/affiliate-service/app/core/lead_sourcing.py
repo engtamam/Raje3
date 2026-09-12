@@ -46,6 +46,18 @@ from app.core.places_grid import generate_grid, matches_indicators, split_offset
 
 _MAX_PAGE_RESULTS = 60   # Google's own 3-page × 20 cap — a full point means "there may be more"
 
+# Serialises step() per job — added 2026-09-12, a real gap a QA audit found: the same
+# read-then-write cursor race `_REFERRAL_LOCKS`/`_SYNC_LOCKS`/`_PAYOUT_LOCKS` elsewhere in this
+# service each exist to close. `step()` is a k3s CronJob's own tick, called repeatedly for a job
+# it does not own exclusively — nothing stopped two overlapping tick invocations (a slow tick still
+# running when the next scheduled one fires, or two worker pods both ticking the same job) from
+# both reading the SAME `job.cursor`, both fetching the SAME (point, keyword) unit twice (a
+# duplicate `_search_one_unit`, only wasteful) and then racing the FINAL `put()` — whichever
+# finished last would silently overwrite the other's cursor advance, so the loser's own unit of
+# work (a found lead, a duplicate count) could be dropped from the persisted cursor entirely.
+_STEP_LOCKS = "affiliate_lead_step_locks"
+_STEP_LOCK_TTL_SECONDS = 60
+
 
 class LeadError(Exception):
     def __init__(self, message: str, reason: str = "") -> None:
@@ -124,6 +136,22 @@ class LeadSourcingService:
 
     # ── one bounded unit of work — see the module docstring on why this is a cursor, not a loop ─
     async def step(self, job_id: str) -> dict[str, Any]:
+        """LOCKED PER JOB, so two overlapping calls for the SAME job (see `_STEP_LOCKS`'s own
+        comment) never read-then-write the same cursor concurrently. The loser is not queued
+        behind the winner — it simply reports `step_in_progress` and the caller (a CronJob tick,
+        already built to run again) picks the job up on its own next pass."""
+        now0 = int(time.time())
+        took = await self._s.claim(
+            _STEP_LOCKS, job_id, {"job_id": job_id, "at": now0},
+            ttl_seconds=_STEP_LOCK_TTL_SECONDS, now=now0)
+        if not took:
+            return {"done": False, "status": JOB_RUNNING, "reason": "step_in_progress"}
+        try:
+            return await self._step_locked(job_id)
+        finally:
+            await self._s.delete(_STEP_LOCKS, job_id)
+
+    async def _step_locked(self, job_id: str) -> dict[str, Any]:
         job = await self.get_job(job_id)
         if job is None:
             raise LeadError("المهمة غير موجودة.", reason="not_found")

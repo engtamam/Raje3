@@ -12,6 +12,8 @@ collection this service holds.
 """
 from __future__ import annotations
 
+import asyncio
+
 from app.adapters.lazy import load
 
 _VIEW = "affiliate_phone_search_v"
@@ -26,12 +28,19 @@ class PhoneSearchReadOnly:
         self._pool_min = max(0, int(pool_min))
         self._pool_max = max(self._pool_min, int(pool_max), 1)
         self._pool_timeout = float(pool_timeout)
+        # Guards the lazy create below — see postgres.py's own `_pool_lock` for the exact race
+        # this closes: an unguarded first-request race here could leak a whole extra pool of
+        # connections under this role's own deliberately small cap, unnoticed until it is full.
+        self._pool_lock = asyncio.Lock()
 
     async def _get_pool(self):
-        if self._pool is None:
-            self._pool = await self._asyncpg.create_pool(
-                self._dsn, min_size=self._pool_min, max_size=self._pool_max,
-                statement_cache_size=0)
+        if self._pool is not None:
+            return self._pool
+        async with self._pool_lock:
+            if self._pool is None:
+                self._pool = await self._asyncpg.create_pool(
+                    self._dsn, min_size=self._pool_min, max_size=self._pool_max,
+                    statement_cache_size=0)
         return self._pool
 
     async def find_application_key_by_phone(self, phone: str) -> str | None:

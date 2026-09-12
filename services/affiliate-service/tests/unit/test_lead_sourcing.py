@@ -552,3 +552,44 @@ async def test_get_lead_refuses_an_unknown_id():
     svc = build(MemoryDataStore())
     with pytest.raises(LeadError):
         await svc.get_lead("nope", affiliate_id="pro-1")
+
+
+@pytest.mark.anyio
+async def test_step_refuses_a_second_concurrent_call_on_the_same_job():
+    """THE BUG: two overlapping step() calls for the SAME job used to both read the same cursor
+    and race the final put() — whichever finished last silently overwrote the other's cursor
+    advance, dropping the loser's unit of work. Locked per job now, same claim()/finally shape as
+    ReferralRegistry.stamp()/CommissionEngine.sync() — the second caller is told `step_in_progress`
+    rather than racing the first."""
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    FakePlacesClient.search_results = [_place("place-1")]
+    FakePlacesClient.details_by_id = {"place-1": {"name": "صالون الرياض",
+                                                  "formatted_phone_number": "+966501112222"}}
+    svc = build(store)
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1",
+                              keywords=["صالون"], radius_km=5, cities=[RIYADH])
+
+    # Simulate a still-running first call by claiming the job's own lock directly, exactly as
+    # step() itself would while mid-flight.
+    import time as _time
+    from app.core.lead_sourcing import _STEP_LOCKS, _STEP_LOCK_TTL_SECONDS
+    now0 = int(_time.time())
+    took = await store.claim(_STEP_LOCKS, job["id"], {"job_id": job["id"]},
+                             ttl_seconds=_STEP_LOCK_TTL_SECONDS, now=now0)
+    assert took is True
+
+    out = await svc.step(job["id"])
+    assert out == {"done": False, "status": JOB_RUNNING, "reason": "step_in_progress"}
+
+    # The cursor was NEVER read nor advanced by the refused call — no unit of work was silently
+    # dropped or double-counted.
+    fresh = await svc.get_job(job["id"])
+    assert fresh.cursor == {"city": 0, "point": 0, "keyword": 0}
+    assert fresh.found_count == 0
+
+    # Released (as the real first caller's own `finally` would), the next call proceeds normally.
+    await store.delete(_STEP_LOCKS, job["id"])
+    out2 = await svc.step(job["id"])
+    assert out2["done"] is False
+    assert out2.get("reason") != "step_in_progress"

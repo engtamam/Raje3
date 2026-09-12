@@ -25,6 +25,16 @@ from app.adapters.lazy import load
 from app.ports.errors import ConfigError
 from app.ports.queue import Job
 
+# A page, not a prediction — same discipline as app/adapters/datastore/drain.py's own PAGE
+# constant, adapted for Redis's own `LRANGE`. Added 2026-09-12, a real gap a QA audit found:
+# `reclaim()` used to `LRANGE ... 0 -1`, pulling the WHOLE inflight list into memory on every
+# sweep tick regardless of size — a queue with a large backlog of in-flight jobs (a slow
+# downstream, or a burst of work all leased at once) meant a routine sweep loaded every one of
+# them at once, tick after tick. Paged here in bounded windows instead; each window is looked at,
+# acted on, and dropped before the next is fetched, so memory use never scales with the inflight
+# list's size.
+_RECLAIM_PAGE = 500
+
 
 class RedisQueue:
     driver = "redis"
@@ -90,18 +100,34 @@ class RedisQueue:
         return await self._release(job, requeue=True)
 
     async def reclaim(self, queue: str) -> int:
+        """Walks the WHOLE inflight list, but in bounded `_RECLAIM_PAGE`-sized windows — never
+        one `LRANGE 0 -1` pulling all of it into memory at once. `start` only advances past an
+        entry this tick KEEPS: reclaiming one removes it from `inflight` via `LREM`, which shifts
+        every later entry one slot left, so re-reading the same `start` next iteration is what
+        lands on the entry that shift just moved there — advancing past it too would skip it."""
         now = time.time()
         reclaimed = 0
-        for raw in await self._client.lrange(self._inflight(queue), 0, -1):
-            held = await self._client.hget(self._leases(queue), raw)
-            # A missing lease means the process died between the LMOVE and the HSET. Treated as
-            # expired: an entry we cannot measure is not one to leave in flight forever.
-            if held is not None and json.loads(held).get("expires", 0) > now:
-                continue
-            if await self._client.lrem(self._inflight(queue), 1, raw):
-                await self._client.hdel(self._leases(queue), raw)
-                await self._client.rpush(self._k(queue), raw)
-                reclaimed += 1
+        start = 0
+        while True:
+            window = await self._client.lrange(
+                self._inflight(queue), start, start + _RECLAIM_PAGE - 1)
+            if not window:
+                break
+            for raw in window:
+                held = await self._client.hget(self._leases(queue), raw)
+                # A missing lease means the process died between the LMOVE and the HSET. Treated
+                # as expired: an entry we cannot measure is not one to leave in flight forever.
+                if held is not None and json.loads(held).get("expires", 0) > now:
+                    start += 1
+                    continue
+                if await self._client.lrem(self._inflight(queue), 1, raw):
+                    await self._client.hdel(self._leases(queue), raw)
+                    await self._client.rpush(self._k(queue), raw)
+                    reclaimed += 1
+                else:
+                    start += 1
+            if len(window) < _RECLAIM_PAGE:
+                break
         return reclaimed
 
     async def health(self) -> bool:
