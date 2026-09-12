@@ -38,6 +38,8 @@ import type { Session } from '../session';
 import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { western } from '../digits';
 import { MessagePreview } from './MessagePreview';
+import { useOperatorI18n, tf, translate } from '../operator-i18n';
+import './launch-i18n';
 
 /**
  * `campaigns-service` (app/core/goals.py) sends a NAME, never an emoji — "return", "gift",
@@ -113,9 +115,11 @@ export function hasBlank(picked: { blanks?: string[]; goal?: string }, kind: str
   return (picked.blanks ?? []).includes(kind);
 }
 
-/** What to call the free blank, named by what it fills rather than by where it lands. */
-export function freeBlankLabel(goal: string): string {
-  return goal === 'announce' ? 'ما الجديد؟' : 'نصّ الرسالة';
+/** What to call the free blank, named by what it fills rather than by where it lands.
+ *  `t` defaults to the Arabic catalog — same optional-t pattern operator-i18n.tsx's own
+ *  `translate` export exists for, so a pure-function test can call this without a provider. */
+export function freeBlankLabel(goal: string, t: (key: string) => string = (k) => translate('ar', k)): string {
+  return goal === 'announce' ? t('launch.freeBlank.announce') : t('launch.freeBlank.default');
 }
 
 interface Branch { id: string; name: string; active?: boolean }
@@ -126,6 +130,7 @@ interface Package { id: string; name: string; active?: boolean }
 
 export function Launch({ session, catalog, onDone, initialGoalId }:
     { session: Session; catalog: Catalog; onDone: () => void; initialGoalId?: string }) {
+  const { t } = useOperatorI18n();
   const [goals, setGoals] = useState<Loading<Goal[]>>(undefined);
   // `null` MEANS «STILL READING» HERE — the screen shows a Waiting on it — so the failure needs a
   // field of its own. Sharing one would make a dead peer indistinguishable from a slow one, and
@@ -323,7 +328,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
       // THE SERVER'S SENTENCE, RENDERED AS IT CAME. «لا يوجد قالب مفعّل لهذا الهدف» is actionable;
       // «تعذّر» is not, and inventing our own explanation for somebody else's refusal is how
       // support ends up answering for a rule that does not exist.
-      setError(e instanceof Error ? e.message : 'تعذّرت المعاينة.');
+      setError(e instanceof Error ? e.message : t('launch.previewFailed'));
     } finally {
       setBusy(false);
     }
@@ -332,14 +337,14 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). The guard read `=== null` and the failure
   // handler set `null`, so a failed read rendered this for ever and the sentence written
   // for the failure was unreachable. `undefined` waits; `null` says so.
-  if (isLoading(goals)) return <Waiting what="نقرأ أهداف الحملات" />;
+  if (isLoading(goals)) return <Waiting what={t('launch.waitingGoals')} />;
 
   if (sent) {
     return (
       <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 text-center shadow-sm">
-        <p className="font-medium">أُطلقت الحملة ✓</p>
+        <p className="font-medium">{t('launch.sentTitle')}</p>
         <p className="text-sm text-text-secondary">{sent}</p>
-        <div><Button onClick={onDone}>تمام</Button></div>
+        <div><Button onClick={onDone}>{t('launch.done')}</Button></div>
       </section>
     );
   }
@@ -356,7 +361,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium">{picked.title}</span>
           <Button variant="ghost" onClick={() => { setPicked(null); setPreview(null); setError(''); }}>
-            تغيير الهدف
+            {t('launch.changeGoal')}
           </Button>
         </div>
         {picked.behaviour ? (
@@ -370,7 +375,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         {linkedReason ? (
           <button type="button" onClick={() => setPreviewingReason(true)}
                  className="w-fit text-sm text-text-secondary underline underline-offset-2 hover:text-text-primary">
-            اعرض نص هذه الرسالة، أو عدّله
+            {t('launch.viewOrEditMessage')}
           </button>
         ) : null}
         {previewingReason && linkedReason ? (
@@ -402,13 +407,13 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             called fine. Sixty is the template's room. */}
         {hasBlank(picked, 'owner') ? (
           <label className="flex flex-col gap-1">
-            <span className="text-sm">{freeBlankLabel(picked.goal)}</span>
+            <span className="text-sm">{freeBlankLabel(picked.goal, t)}</span>
             <textarea
               value={ownerText}
               maxLength={60}
               rows={2}
               onChange={(e) => { setOwnerText(e.target.value); setPreview(null); }}
-              placeholder="مثال: افتتحنا فرعاً في حي الياسمين"
+              placeholder={t('launch.ownerText.placeholder')}
               className="rounded-lg bg-surface-2 p-3 text-sm"
             />
             <span className="text-xs text-text-secondary tabular-nums">
@@ -423,7 +428,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             and the send refuses it after he has already decided he is done. */}
         {hasBlank(picked, 'amount') ? (
           <div className="flex flex-col gap-1">
-            <span className="text-sm">قيمة الخصم</span>
+            <span className="text-sm">{t('launch.discountLabel')}</span>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -439,24 +444,26 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
                   // Arabic keyboard's digits were deleted here as he typed the discount — the
                   // box stayed empty on the screen that launches a campaign.
                   const n = western(e.target.value).replace(/[^0-9.]/g, '');
-                  setOfferValue(n ? (offerValue.includes('ريال') ? `${n} ريال` : `${n}%`) : '');
+                  const sar = t('launch.discountKind.sar');
+                  setOfferValue(n ? (offerValue.includes(sar) ? `${n} ${sar}` : `${n}%`) : '');
                   setPreview(null);
                 }}
                 className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-center text-sm tabular-nums"
               />
               <Segmented
-                ariaLabel="نوع الخصم"
-                value={offerValue.includes('ريال') ? 'sar' : 'pct'}
+                ariaLabel={t('launch.discountKindAria')}
+                value={offerValue.includes(t('launch.discountKind.sar')) ? 'sar' : 'pct'}
                 onChange={(kind) => {
                   const n = western(offerValue).replace(/[^0-9.]/g, '');
-                  setOfferValue(n ? (kind === 'sar' ? `${n} ريال` : `${n}%`) : '');
+                  const sar = t('launch.discountKind.sar');
+                  setOfferValue(n ? (kind === 'sar' ? `${n} ${sar}` : `${n}%`) : '');
                   setPreview(null);
                 }}
-                options={[{ value: 'pct', label: '%' }, { value: 'sar', label: 'ريال' }]}
+                options={[{ value: 'pct', label: t('launch.discountKind.pct') }, { value: 'sar', label: t('launch.discountKind.sar') }]}
               />
             </div>
             <span className="text-xs text-text-secondary">
-              يظهر في الرسالة كما هو — {offerValue || '20%'}.
+              {tf(t, 'launch.discountPreviewNote', { value: offerValue || '20%' })}
             </span>
           </div>
         ) : null}
@@ -467,7 +474,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             an offer. */}
         {hasBlank(picked, 'date') ? (
           <label className="flex flex-col gap-1">
-            <span className="text-sm">العرض ساري حتى</span>
+            <span className="text-sm">{t('launch.offerEndsLabel')}</span>
             <input
               type="date"
               value={endsOn}
@@ -477,7 +484,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             />
             <span className="text-xs text-text-secondary">
-              يظهر لعميلك في الرسالة وفي صفحته، ويسقط بعده تلقائياً.
+              {t('launch.offerEndsNote')}
             </span>
           </label>
         ) : null}
@@ -493,7 +500,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             afternoon is doing something ordinary; the defect was never having the choice. */}
         {picked.goal === 'occasion' ? (
           <label className="flex flex-col gap-1">
-            <span className="text-sm">يوم المناسبة</span>
+            <span className="text-sm">{t('launch.occasionDateLabel')}</span>
             <input
               type="date"
               value={occasionOn}
@@ -503,7 +510,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             />
             <span className="text-xs text-text-secondary">
-              تخرج صباح ذلك اليوم. اتركه فارغاً لترسل الآن.
+              {t('launch.occasionDateNote')}
             </span>
           </label>
         ) : null}
@@ -516,19 +523,19 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             back on), so this is purely which package the message names. */}
         {hasBlank(picked, 'catalogue') && picked.goal === 'package_offer' ? (
           <label className="flex flex-col gap-1">
-            <span className="text-sm">على أي باقة؟</span>
+            <span className="text-sm">{t('launch.packagePickLabel')}</span>
             <select
               value={packageId}
               onChange={(e) => { setPackageId(e.target.value); setPreview(null); }}
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             >
-              <option value="">اختر باقة</option>
+              <option value="">{t('launch.packagePickPlaceholder')}</option>
               {(packages ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </label>
         ) : hasBlank(picked, 'catalogue') ? (
           <label className="flex flex-col gap-1">
-            <span className="text-sm">على أي خدمة؟</span>
+            <span className="text-sm">{t('launch.servicePickLabel')}</span>
             {/* ORDERED LEAST-TAKEN FIRST, SILENTLY — «عرض على خدمة» exists for exactly this: an
                 owner looking for the service that needs a push, not the one that already sells
                 itself. `serviceDemand`'s own comment is why this is chain-wide, never one
@@ -540,7 +547,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
               onChange={(e) => { setServiceId(e.target.value); setPreview(null); }}
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             >
-              <option value="">اختر خدمة</option>
+              <option value="">{t('launch.servicePickPlaceholder')}</option>
               {(services ?? [])
                 .slice()
                 .sort((a, b) => (serviceDemand[a.id] ?? 0) - (serviceDemand[b.id] ?? 0))
@@ -554,17 +561,17 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             under a branch's name is the exact kind of wrong that nobody notices. */}
         {(branches ?? []).length > 1 ? (
           <label className="flex flex-col gap-1">
-            <span className="text-sm">لأي فرع؟</span>
+            <span className="text-sm">{t('launch.branchPickLabel')}</span>
             <select
               value={branchId}
               onChange={(e) => { setBranchId(e.target.value); setPreview(null); }}
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             >
-              <option value="">كل الفروع</option>
+              <option value="">{t('launch.allBranches')}</option>
               {(branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <span className="text-xs text-text-secondary">
-              يصل من زار هذا الفرع آخر مرة — والعميل ينتقل مع فرعه بأول زيارة.
+              {t('launch.branchPickNote')}
             </span>
           </label>
         ) : null}
@@ -574,18 +581,18 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             {/* THE MESSAGE AS IT WILL ARRIVE — rendered, not described. */}
             <p className="whitespace-pre-wrap text-sm">{preview.message}</p>
             <p className="text-sm">
-              تصل <b className="tabular-nums">{preview.reaches ?? 0}</b> عميلاً
+              {t('launch.reaches.prefix')} <b className="tabular-nums">{preview.reaches ?? 0}</b> {t('launch.reaches.suffix')}
             </p>
             {/* SHOWN ONLY WHEN NON-ZERO. A permanent «0 مستثنى» is noise, and noise is what teaches
                 a person to stop reading the area where the real number appears. */}
             {preview.excluded ? (
               <p className="text-xs text-text-secondary">
-                {preview.excluded} لم يوافقوا على التسويق أو تجاوزوا حدّهم اليوم.
+                {tf(t, 'launch.excludedNote', { n: preview.excluded })}
               </p>
             ) : null}
             {preview.too_recent ? (
               <p className="text-xs text-text-secondary">
-                {preview.too_recent} أخذوا هذه الخدمة قريباً — لا نعرض عليهم ما اشتروه للتوّ.
+                {tf(t, 'launch.tooRecentNote', { n: preview.too_recent })}
               </p>
             ) : null}
             {/* THE REFUSAL LOOKS LIKE A REFUSAL. Same sentence, and the colour is the whole
@@ -619,7 +626,7 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             <Button disabled={busy
                               || (hasBlank(picked, 'amount') && !offerValue)
                               || (hasBlank(picked, 'date') && !endsOn)}
-                    onClick={() => void ask(picked)}>اعرض ما سيصل</Button>
+                    onClick={() => void ask(picked)}>{t('launch.previewButton')}</Button>
           ) : (
             <Button
               // A PLAN THE SERVER WILL REFUSE IS NOT A PLAN TO PRESS. The refusal names two
@@ -643,18 +650,18 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
                   // WHAT HAPPENED, NOT WHAT WAS PLANNED. This used to print `spread_says` as the
                   // confirmation — so a campaign the server refused announced its own refusal in
                   // the voice of a success, and the owner walked away believing it had gone.
-                  setSent(`تصل ${preview.reaches ?? 0} عميلاً.`);
+                  setSent(tf(t, 'launch.sentSummary', { n: preview.reaches ?? 0 }));
                 } catch (e) {
-                  setError(e instanceof Error ? e.message : 'تعذّر الإطلاق.');
+                  setError(e instanceof Error ? e.message : t('launch.launchFailed'));
                 } finally {
                   setBusy(false);
                 }
               }}
             >
-              أطلق الحملة
+              {t('launch.launchButton')}
             </Button>
           )}
-          <Button variant="ghost" onClick={onDone}>إلغاء</Button>
+          <Button variant="ghost" onClick={onDone}>{t('launch.cancel')}</Button>
         </div>
       </section>
     );
@@ -663,21 +670,21 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   // ── step 1: what does he want to achieve ─────────────────────────────────────────────────────
   return (
     <section className="flex flex-col gap-2">
-      <p className="text-sm text-text-secondary">ماذا تريد أن تحقّق؟</p>
+      <p className="text-sm text-text-secondary">{t('launch.step1.prompt')}</p>
       {goalsFailed ? (
         <p className="text-sm text-text-secondary">
-          تعذّرت قراءة الأهداف الآن، والخلل عندنا. أعد المحاولة بعد قليل.
+          {t('launch.goalsReadFailed')}
         </p>
       ) : isDenied(goals) ? (
-        <p className="text-sm text-text-secondary">لا يشمل دورك إطلاق الحملات.</p>
+        <p className="text-sm text-text-secondary">{t('launch.goalsDenied')}</p>
       ) : hasFailed(goals) ? (
         // «لا أهداف متاحة» IS A CLAIM ABOUT HIS ENABLED APPS. Said after a failed read it sends him to
         // the pricing page for something he already owns.
         <p className="text-sm text-text-secondary">
-          تعذّرت قراءة الأهداف الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+          {t('launch.goalsReadFailed')}
         </p>
       ) : goals.length === 0 ? (
-        <p className="text-sm text-text-secondary">لا أهداف متاحة الآن.</p>
+        <p className="text-sm text-text-secondary">{t('launch.noGoalsAvailable')}</p>
       ) : null}
       {(isReady(goals) ? goals : []).map((g) => (
         <button

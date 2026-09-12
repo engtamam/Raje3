@@ -32,6 +32,8 @@ import { createPortal } from 'react-dom';
 import { Mark, Wordmark } from '../brand/Mark';
 import { Button } from '../rj-ui/Button';
 import { Sparkles } from 'lucide-react';
+import { translate, tf } from '../operator-i18n';
+import './welcome-trial-i18n';
 
 const CARD: React.CSSProperties = {
   background:
@@ -40,13 +42,18 @@ const CARD: React.CSSProperties = {
     + 'linear-gradient(160deg, #101828, #151d33)',
 };
 
-const WEEKDAYS_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const MONTHS_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-                   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+// FIXED ARABIC, NOT `useOperatorI18n()` — this dialog can render before
+// `OperatorI18nProvider` mounts (App.tsx shows it in its very first branches, right after a
+// fresh signup, before the catalog and its provider exist), so calling that hook here would
+// throw the moment a brand-new shop lands. `translate` is the same dictionary this screen's
+// strings live in, just read with a fixed locale rather than through context.
+const t = (key: string) => translate('ar', key);
 
 function humanDate(epochSeconds: number): string {
   const d = new Date(epochSeconds * 1000);
-  return `${WEEKDAYS_AR[d.getDay()]} ${d.getDate()} ${MONTHS_AR[d.getMonth()]} ${d.getFullYear()}`;
+  const weekday = t(`welcomeTrial.day.${d.getDay()}`);
+  const month = t(`welcomeTrial.month.${d.getMonth()}`);
+  return `${weekday} ${d.getDate()} ${month} ${d.getFullYear()}`;
 }
 
 export function WelcomeTrial({ trialEnd, onDone }: { trialEnd: number; onDone: () => void }) {
@@ -65,7 +72,7 @@ export function WelcomeTrial({ trialEnd, onDone }: { trialEnd: number; onDone: (
   }, [onDone]);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="أهلاً بك في راجِع">
+    <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label={t('welcomeTrial.dialogLabel')}>
       {/* NO CLICK-OUTSIDE-TO-CLOSE — unlike the generic modal, dismissing this by accident loses
           the one place the trial's real end date is stated; «لنبدأ» is the one deliberate way out. */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
@@ -87,15 +94,15 @@ export function WelcomeTrial({ trialEnd, onDone }: { trialEnd: number; onDone: (
 
         <div>
           <h1 className="text-2xl leading-tight tracking-tight text-[#f4efe2]">
-            أهلاً بك في راجِع
+            {t('welcomeTrial.title')}
           </h1>
           <p className="mt-2.5 text-[14px] leading-relaxed text-[#c9c2b3]">
-            محلّك جاهز، وتجربتك المجانية بدأت الآن — كل شيء مفتوح أمامك بلا أي إعداد.
+            {t('welcomeTrial.subtitle')}
           </p>
           {trialEnd > 0 ? (
             <p className="mt-3.5 rounded-card px-3.5 py-2 text-[13px] text-[#e3b957]"
               style={{ background: 'rgba(184,134,43,0.12)', border: '1px solid rgba(184,134,43,0.3)' }}>
-              تجربتك سارية حتى {humanDate(trialEnd)}
+              {tf(t, 'welcomeTrial.trialUntil', { date: humanDate(trialEnd) })}
             </p>
           ) : null}
         </div>
@@ -104,10 +111,10 @@ export function WelcomeTrial({ trialEnd, onDone }: { trialEnd: number; onDone: (
           onClick={onDone}
           className="w-full bg-[#e3b957] text-[#151d33] hover:bg-[#d4a944]"
         >
-          لنبدأ
+          {t('welcomeTrial.start')}
         </Button>
 
-        <p className="text-xs text-[#8d8778]">راجِع · السعودية</p>
+        <p className="text-xs text-[#8d8778]">{t('welcomeTrial.footer')}</p>
       </div>
     </div>,
     document.body,

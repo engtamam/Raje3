@@ -21,6 +21,8 @@ import { Button } from '../rj-ui/Button';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { scopeQuery } from '../branch-scope';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './ratings-tab-i18n';
 
 interface RatingRow {
   id: string; customer_id: string; rating: number; feedback_text: string; rated_at: number;
@@ -28,34 +30,39 @@ interface RatingRow {
 }
 
 // WESTERN DIGITS, ALWAYS — check_deploy_wiring.py enforces 0-9 even inside Arabic text.
-const STAR_OPTIONS = [
-  { value: '', label: 'كل التقييمات' },
-  { value: '5', label: '5 نجوم' },
-  { value: '4', label: '4 نجوم' },
-  { value: '3', label: '3 نجوم' },
-  { value: '2', label: 'نجمتان' },
-  { value: '1', label: 'نجمة واحدة' },
-];
+function starOptions(t: (key: string) => string): { value: string; label: string }[] {
+  return [
+    { value: '', label: t('ratings.filter.allStars') },
+    { value: '5', label: t('ratings.filter.star5') },
+    { value: '4', label: t('ratings.filter.star4') },
+    { value: '3', label: t('ratings.filter.star3') },
+    { value: '2', label: t('ratings.filter.star2') },
+    { value: '1', label: t('ratings.filter.star1') },
+  ];
+}
 
-const HANDLED_OPTIONS = [
-  { value: 'false', label: 'غير معالَجة' },
-  { value: '', label: 'الكل' },
-  { value: 'true', label: 'معالَجة' },
-];
+function handledOptions(t: (key: string) => string): { value: string; label: string }[] {
+  return [
+    { value: 'false', label: t('ratings.filter.unhandled') },
+    { value: '', label: t('ratings.filter.all') },
+    { value: 'true', label: t('ratings.filter.handled') },
+  ];
+}
 
 /** How long ago, in the words an owner uses — same convention as Customers.tsx's own `ago()`. */
-function ago(at: number): string {
+function ago(at: number, t: (key: string) => string): string {
   const days = Math.floor((Date.now() / 1000 - at) / 86_400);
-  if (days <= 0) return 'اليوم';
-  if (days === 1) return 'أمس';
-  if (days === 2) return 'قبل يومين';
-  return `قبل ${days} أيام`;
+  if (days <= 0) return t('ratings.ago.today');
+  if (days === 1) return t('ratings.ago.yesterday');
+  if (days === 2) return t('ratings.ago.twoDaysAgo');
+  return tf(t, 'ratings.ago.daysAgo', { n: days });
 }
 
 export function RatingsTab(
   { session, catalog, branch }: { session: Session; catalog: Catalog; branch: string },
 ) {
   const navigate = useNavigate();
+  const { t } = useOperatorI18n();
   const [stars, setStars] = useState('');
   const [handled, setHandled] = useState('false');
   const [rows, setRows] = useState<RatingRow[] | null | undefined>(undefined);
@@ -106,7 +113,7 @@ export function RatingsTab(
           wrong shape wearing the right component. Same pill styling as PackagesTab.tsx's own
           recurrence picker. */}
       <div className="flex flex-wrap gap-1">
-        {STAR_OPTIONS.map((o) => (
+        {starOptions(t).map((o) => (
           <button key={o.value} type="button" onClick={() => setStars(o.value)}
                  className={
                    'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
@@ -118,7 +125,7 @@ export function RatingsTab(
         ))}
       </div>
       <div className="flex flex-wrap gap-1">
-        {HANDLED_OPTIONS.map((o) => (
+        {handledOptions(t).map((o) => (
           <button key={o.value} type="button" onClick={() => setHandled(o.value)}
                  className={
                    'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
@@ -133,15 +140,15 @@ export function RatingsTab(
       {rows === undefined ? (
         <Skeleton height={200} />
       ) : rows === null ? (
-        <EmptyState title="تعذّرت القراءة"
-                   description="لم نستطع جلب التقييمات الآن — والخلل عندنا لا في محلك. أعد المحاولة بعد قليل." />
+        <EmptyState title={t('ratings.readFailedTitle')}
+                   description={t('ratings.readFailedDesc')} />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Star size={22} />}
-          title={handled === 'false' ? 'لا تقييمات بانتظار المعالجة' : 'لا تقييمات بعد'}
+          title={handled === 'false' ? t('ratings.emptyUnhandledTitle') : t('ratings.emptyTitle')}
           description={handled === 'false'
-            ? 'كل تقييم وصل تمت معالجته — أو لم يصل تقييم جديد بعد.'
-            : 'التقييمات تصل تلقائياً بعد الزيارة، عبر تطبيق التقييم.'}
+            ? t('ratings.emptyUnhandledDesc')
+            : t('ratings.emptyDesc')}
         />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -162,8 +169,9 @@ export function RatingsTab(
                     <ChevronLeft size={14} className="text-text-muted" aria-hidden />
                   </button>
                   <span className="flex items-center gap-2">
-                    {isHandled ? <Badge tone="neutral">معالَجة</Badge> : <Badge tone="warning">بانتظار المعالجة</Badge>}
-                    <span className="text-xs text-text-muted">{ago(r.rated_at)}</span>
+                    {isHandled ? <Badge tone="neutral">{t('ratings.handledBadge')}</Badge>
+                               : <Badge tone="warning">{t('ratings.unhandledBadge')}</Badge>}
+                    <span className="text-xs text-text-muted">{ago(r.rated_at, t)}</span>
                   </span>
                 </div>
                 {r.feedback_text ? (
@@ -171,20 +179,22 @@ export function RatingsTab(
                 ) : null}
                 {isHandled ? (
                   r.rating_handled_note ? (
-                    <p className="text-xs text-text-muted">ملاحظتك: {r.rating_handled_note}</p>
+                    <p className="text-xs text-text-muted">
+                      {tf(t, 'ratings.noteLabel', { note: r.rating_handled_note })}
+                    </p>
                   ) : null
                 ) : handleAction ? (
                   <div className="flex items-center gap-2">
                     <input
                       value={noteDraft[r.id] ?? ''}
                       onChange={(e) => setNoteDraft((m) => ({ ...m, [r.id]: e.target.value }))}
-                      placeholder="ملاحظة (اختياري) — مثال: تواصلنا معه واعتذرنا"
+                      placeholder={t('ratings.notePlaceholder')}
                       maxLength={500}
                       className="h-9 flex-1 rounded-lg bg-surface-2 px-2 text-sm"
                     />
                     <Button variant="outline" size="sm" disabled={busyId === r.id}
                            onClick={() => markHandled(r.id)}>
-                      تمت المعالجة
+                      {t('ratings.markHandled')}
                     </Button>
                   </div>
                 ) : null}

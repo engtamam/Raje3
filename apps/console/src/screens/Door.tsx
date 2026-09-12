@@ -47,6 +47,8 @@ import { sentenceFor } from '../api';
 import { legalUrl } from '../legal/url';
 import type { Session } from '../session';
 import { western } from '../digits';
+import { useOperatorI18n } from '../operator-i18n';
+import './door-i18n';
 
 /**
  * A password field with a real show/hide toggle — reported directly: neither pane offered any
@@ -62,6 +64,7 @@ function PasswordInput({ id, name, value, onChange, onBlur, autoComplete }: {
   onBlur?: () => void;
   autoComplete: string;
 }) {
+  const { t } = useOperatorI18n();
   const [shown, setShown] = useState(false);
   return (
     <div className="relative">
@@ -73,7 +76,7 @@ function PasswordInput({ id, name, value, onChange, onBlur, autoComplete }: {
       <button
         type="button"
         onClick={() => setShown((v) => !v)}
-        aria-label={shown ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+        aria-label={shown ? t('door.password.hide') : t('door.password.show')}
         className="absolute inset-y-0 end-0 grid w-10 place-items-center text-text-secondary"
       >
         {shown ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
@@ -93,6 +96,7 @@ export function Door({ onSignedIn, onWelcome }: {
   // right after signup, a full page of it after F5.
   onWelcome?: (end: number) => void;
 }) {
+  const { t } = useOperatorI18n();
   const [mode, setMode] = useState<'in' | 'new'>('in');
 
   return (
@@ -105,8 +109,8 @@ export function Door({ onSignedIn, onWelcome }: {
           // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
-            { value: 'in', label: 'تسجيل الدخول' },
-            { value: 'new', label: 'تسجيل جديد' },
+            { value: 'in', label: t('door.tab.signIn') },
+            { value: 'new', label: t('door.tab.signUp') },
           ]}
           value={mode}
           onChange={setMode}
@@ -129,12 +133,12 @@ type Proving = { phone: string; password: string; problem: string };
  * field anywhere on it. The account exists, his number is spoken for, and there is no way forward
  * from that screen — while the pane beside it has handled exactly this correctly all along.
  */
-async function proveStep(phone: string, password: string): Promise<Proving> {
+async function proveStep(t: (key: string) => string, phone: string, password: string): Promise<Proving> {
   let problem = '';
   try {
     await requestCode(phone);
   } catch (sendErr) {
-    problem = sentenceFor(sendErr, 'تعذّر إرسال الرمز.');
+    problem = sentenceFor(sendErr, t('door.otp.sendFailed'));
   }
   return { phone, password, problem };
 }
@@ -160,6 +164,7 @@ function ProveNumber(
   { proving, setProving, onSignedIn }:
   { proving: Proving; setProving: (p: Proving) => void; onSignedIn: (s: Session) => void },
 ) {
+  const { t } = useOperatorI18n();
   return (
     <>
       {proving.problem ? (
@@ -168,7 +173,7 @@ function ProveNumber(
         </p>
       ) : null}
       <OtpVerify
-        title="أكّد رقمك"
+        title={t('door.otp.title')}
         sentTo={proving.phone}
         onVerify={async (code) => {
           await verifyCode(proving.phone, code);
@@ -182,7 +187,7 @@ function ProveNumber(
           setProving({ ...proving, problem: '' });
           await requestCode(proving.phone);
         }}
-        mapError={otpError}
+        mapError={(e) => otpError(t, e)}
       />
     </>
   );
@@ -208,6 +213,7 @@ function ProveNewShop(
   { opening: OpeningShop; setOpening: (o: OpeningShop) => void;
     onOpened: (opened: Awaited<ReturnType<typeof openShop>>) => void },
 ) {
+  const { t } = useOperatorI18n();
   return (
     <>
       {opening.problem ? (
@@ -216,7 +222,7 @@ function ProveNewShop(
         </p>
       ) : null}
       <OtpVerify
-        title="أكّد رقمك"
+        title={t('door.otp.title')}
         sentTo={opening.phone}
         onVerify={async (code) => {
           onOpened(await openShop({
@@ -228,13 +234,14 @@ function ProveNewShop(
           setOpening({ ...opening, problem: '' });
           await requestCode(opening.phone);
         }}
-        mapError={otpError}
+        mapError={(e) => otpError(t, e)}
       />
     </>
   );
 }
 
 function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
+  const { t } = useOperatorI18n();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -272,7 +279,7 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
     const typedPhone = String(data.get('phone') ?? '').trim() || phone;
     const typedPassword = String(data.get('password') ?? '') || password;
     if (!typedPhone || !typedPassword) {
-      setError('أدخل رقم الجوال وكلمة المرور.');
+      setError(t('door.signIn.missingFields'));
       return;
     }
     setBusy(true);
@@ -284,10 +291,10 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // back. Sending a fresh code and showing it to him is the whole remedy — leaving him on a
       // login form holding a sentence about a code nobody sent is not.
       if (needsProof(err)) {
-        setProving(await proveStep(typedPhone, typedPassword));
+        setProving(await proveStep(t, typedPhone, typedPassword));
         return;
       }
-      setError(sentenceFor(err, 'تعذّر تسجيل الدخول.'));
+      setError(sentenceFor(err, t('door.signIn.failed')));
     } finally {
       setBusy(false);
     }
@@ -300,11 +307,11 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
       <div>
-        <h2 className="text-3xl leading-tight tracking-tight">أهلاً بك</h2>
-        <p className="mt-2 text-sm text-text-secondary">رقم جوالك وكلمة المرور.</p>
+        <h2 className="text-3xl leading-tight tracking-tight">{t('door.signIn.title')}</h2>
+        <p className="mt-2 text-sm text-text-secondary">{t('door.signIn.subtitle')}</p>
       </div>
 
-      <Field label="رقم الجوال" required htmlFor="in-phone">
+      <Field label={t('door.field.phone')} required htmlFor="in-phone">
         <Input
           id="in-phone" name="phone" value={phone}
           onChange={(e) => { setPhone(western(e.target.value)); setError(''); }}
@@ -312,7 +319,7 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         />
       </Field>
 
-      <Field label="كلمة المرور" required htmlFor="in-password">
+      <Field label={t('door.field.password')} required htmlFor="in-password">
         <PasswordInput
           id="in-password" name="password" value={password}
           onChange={(e) => { setPassword(e.target.value); setError(''); }}
@@ -333,7 +340,7 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         disabled={busy}
         className={phone && password ? undefined : 'opacity-50'}
       >
-        {busy ? 'جارٍ الدخول…' : 'تسجيل الدخول'}
+        {busy ? t('door.signIn.busy') : t('door.signIn.submit')}
       </Button>
     </form>
   );
@@ -350,10 +357,10 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
  * The server writes a sentence for every refusal it makes (the cooldown says to wait), so the
  * honest thing is to show what it said and keep a default only for the case where nothing spoke.
  */
-function otpError(e: unknown): string {
+function otpError(t: (key: string) => string, e: unknown): string {
   return e instanceof Error && e.message
     ? e.message
-    : 'تعذّر إكمال الطلب. حاول مرة أخرى.';
+    : t('door.otp.genericFailed');
 }
 
 // ── the rules, mirrored from the server ────────────────────────────────────────────────────────
@@ -379,21 +386,23 @@ function normalizePhone(raw: string): string | null {
  * the deployment raised it above the platform's default — so the form must not offer a shorter one
  * and then be refused.
  */
-const PW_RULES: { label: string; ok: (v: string) => boolean }[] = [
-  { label: '12 حرفاً على الأقل', ok: (v) => v.length >= 12 },
-  { label: 'حرف كبير', ok: (v) => /[A-Z]/.test(v) },
-  { label: 'رقم', ok: (v) => /\d/.test(v) },
-  { label: 'رمز', ok: (v) => /[^A-Za-z0-9]/.test(v) },
-];
+function pwRules(t: (key: string) => string): { label: string; ok: (v: string) => boolean }[] {
+  return [
+    { label: t('door.pwRule.minLength'), ok: (v) => v.length >= 12 },
+    { label: t('door.pwRule.upper'), ok: (v) => /[A-Z]/.test(v) },
+    { label: t('door.pwRule.digit'), ok: (v) => /\d/.test(v) },
+    { label: t('door.pwRule.symbol'), ok: (v) => /[^A-Za-z0-9]/.test(v) },
+  ];
+}
 
-function errorFor(f: FieldName, v: string): string {
+function errorFor(t: (key: string) => string, f: FieldName, v: string): string {
   switch (f) {
     case 'phone':
-      return normalizePhone(v) ? '' : 'أدخل رقم جوال سعودي — مثل 0501234567';
+      return normalizePhone(v) ? '' : t('door.error.phone');
     case 'password':
-      return PW_RULES.every((r) => r.ok(v)) ? '' : 'كلمة المرور لا تحقق الشروط أدناه';
+      return pwRules(t).every((r) => r.ok(v)) ? '' : t('door.error.password');
     case 'shopName':
-      return v.trim().length >= 2 ? '' : 'أدخل اسم المحل';
+      return v.trim().length >= 2 ? '' : t('door.error.shopName');
   }
 }
 
@@ -401,6 +410,8 @@ function NewShopPane({ onSignedIn, onWelcome }: {
   onSignedIn: (s: Session) => void;
   onWelcome?: (end: number) => void;
 }) {
+  const { t } = useOperatorI18n();
+  const PW_RULES = pwRules(t);
   const [proving, setProving] = useState<Proving | null>(null);
   // A CODE REQUESTED BEFORE THE SHOP EXISTS — see `needsSignupCode`/`ProveNewShop`. Distinct from
   // `proving` above: that one is for an account that already exists and only sign-in refused.
@@ -436,10 +447,10 @@ function NewShopPane({ onSignedIn, onWelcome }: {
   }
 
   const errs = useMemo(() => ({
-    phone: errorFor('phone', v.phone),
-    password: errorFor('password', v.password),
-    shopName: errorFor('shopName', v.shopName),
-  }), [v]);
+    phone: errorFor(t, 'phone', v.phone),
+    password: errorFor(t, 'password', v.password),
+    shopName: errorFor(t, 'shopName', v.shopName),
+  }), [v, t]);
 
   /** What the state can see. Never a gate — only the button's appearance; see the button. */
   /**
@@ -486,9 +497,9 @@ function NewShopPane({ onSignedIn, onWelcome }: {
         || filled.shopName !== v.shopName) {
       setV(filled);
     }
-    const bad = (Object.keys(filled) as FieldName[]).find((k) => errorFor(k, filled[k]));
+    const bad = (Object.keys(filled) as FieldName[]).find((k) => errorFor(t, k, filled[k]));
     if (bad) return;
-    if (!agree) { setError('وافق على الشروط وسياسة الخصوصية للمتابعة.'); return; }
+    if (!agree) { setError(t('door.error.mustAgree')); return; }
     setBusy(true);
     setError('');
     try {
@@ -516,7 +527,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
         try {
           await requestCode(filled.phone);
         } catch (sendErr) {
-          problem = sentenceFor(sendErr, 'تعذّر إرسال الرمز.');
+          problem = sentenceFor(sendErr, t('door.otp.sendFailed'));
         }
         setOpening({
           phone: filled.phone, password: filled.password, shopName: filled.shopName,
@@ -530,10 +541,10 @@ function NewShopPane({ onSignedIn, onWelcome }: {
       // always meant on the sign-in pane.
       if (needsProof(err)) {
         setTrialEnd(Number((err as { trialEnd?: number }).trialEnd) || 0);
-        setProving(await proveStep(filled.phone, filled.password));
+        setProving(await proveStep(t, filled.phone, filled.password));
         return;
       }
-      setError(sentenceFor(err, 'تعذّر إنشاء الحساب.'));
+      setError(sentenceFor(err, t('door.newShop.createFailed')));
     } finally {
       setBusy(false);
     }
@@ -551,16 +562,16 @@ function NewShopPane({ onSignedIn, onWelcome }: {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-      <h2 className="text-xl">افتح محلك</h2>
+      <h2 className="text-xl">{t('door.newShop.title')}</h2>
 
-      <Field label="رقم الجوال" required htmlFor="phone" error={shown('phone')}>
+      <Field label={t('door.field.phone')} required htmlFor="phone" error={shown('phone')}>
         <Input
           id="phone" name="phone" value={v.phone} onChange={set('phone')} onBlur={blur('phone')}
           type="tel" inputMode="tel" dir="ltr" autoComplete="tel" placeholder="05XXXXXXXX"
         />
       </Field>
 
-      <Field label="كلمة المرور" required htmlFor="password" error={shown('password')}>
+      <Field label={t('door.field.password')} required htmlFor="password" error={shown('password')}>
         <PasswordInput
           id="password" name="password" value={v.password} onChange={set('password')}
           onBlur={blur('password')}
@@ -584,7 +595,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
         </ul>
       ) : null}
 
-      <Field label="اسم المحل" required htmlFor="shop" error={shown('shopName')}>
+      <Field label={t('door.newShop.shopNameLabel')} required htmlFor="shop" error={shown('shopName')}>
         {/* `organization` IS THE FIX FOR A REAL ACCIDENT. With no autocomplete hint a password
             manager sees a bare text input sitting after a new-password field and fills it with
             the password it just generated — the owner in the screenshot found «Cacad$453453»
@@ -594,7 +605,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
                autoComplete="organization" onBlur={blur('shopName')} />
         {nameIsPassword ? (
           <p className="text-sm text-danger">
-            هذا اسم محلّك كما يراه عملاؤك — ويبدو أنه كلمة مرورك. اكتب اسم المحل.
+            {t('door.newShop.nameIsPasswordError')}
           </p>
         ) : null}
       </Field>
@@ -619,7 +630,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
           the kit's own dimming (`disabled:opacity-50` on solid), which is what "not yet" looks
           like everywhere else in the product. */}
       <Button type="submit" disabled={busy || !looksComplete}>
-        {busy ? 'جارٍ الإنشاء…' : 'ابدأ'}
+        {busy ? t('door.newShop.busy') : t('door.newShop.submit')}
       </Button>
     </form>
   );
@@ -639,6 +650,7 @@ function NewShopPane({ onSignedIn, onWelcome }: {
  * real published YAML with no session required — the same fix as the pre-session reader needed.
  */
 function Terms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => void }) {
+  const { t } = useOperatorI18n();
   return (
     <label className="flex items-start gap-2 text-sm text-text-secondary">
       <input
@@ -646,13 +658,13 @@ function Terms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => 
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>
-        أوافق على{' '}
+        {t('door.terms.agreePrefix')}{' '}
         <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="text-text-secondary underline">
-          شروط الاستخدام
+          {t('door.terms.termsLink')}
         </a>{' '}
-        و{' '}
+        {t('door.terms.and')}{' '}
         <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="text-text-secondary underline">
-          سياسة الخصوصية
+          {t('door.terms.privacyLink')}
         </a>
         .
       </span>

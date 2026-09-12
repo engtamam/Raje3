@@ -22,6 +22,8 @@ import { Building2, Plus } from 'lucide-react';
 import { canSwitch, type ScopeBranch } from './branch-scope';
 import { hasFailed, isDenied, isLoading, isReady, type Loading } from './loading';
 import { action, type Catalog } from './catalog';
+import { useOperatorI18n, tf } from './operator-i18n';
+import './branch-switch-i18n';
 
 export function BranchSwitch({
   branches, branch, outside, onChange, catalog, onAdd,
@@ -45,6 +47,7 @@ export function BranchSwitch({
   /** Opens the shop's own «add a branch» flow. Absent where there is nowhere to open it. */
   onAdd?: () => void;
 }) {
+  const { t } = useOperatorI18n();
   // NOTHING WHILE IT IS STILL COMING. A control that flickers into existence a beat after the rail
   // draws is one an eye follows instead of the nav.
   if (isLoading(branches)) return null;
@@ -55,7 +58,7 @@ export function BranchSwitch({
     return (
       <p className="flex items-center gap-1.5 text-xs text-text-secondary">
         <Building2 size={12} aria-hidden />
-        تعذّرت قراءة فروعك — الأرقام تعرض المحل كاملاً.
+        {t('branchSwitch.readFailed')}
       </p>
     );
   }
@@ -96,7 +99,7 @@ export function BranchSwitch({
                           group-hover:scale-105">
           <Plus size={12} aria-hidden />
         </span>
-        أضف فرعاً
+        {t('branchSwitch.addBranch')}
       </button>
     ) : null;
   }
@@ -105,7 +108,7 @@ export function BranchSwitch({
     <div className="flex flex-col gap-1.5">
       <label className="flex items-center gap-1.5 text-xs text-text-secondary">
         <Building2 size={12} aria-hidden />
-        الفرع المعروض
+        {t('branchSwitch.shownBranch')}
       </label>
       {/* A SELECT RATHER THAN THE PILL ROW «محلّي» USED. The rail is narrow and a chain may have
           a dozen branches: pills wrapped to four lines would push the nav itself off the screen,
@@ -113,14 +116,14 @@ export function BranchSwitch({
       <select
         value={branch}
         onChange={(e) => onChange(e.target.value)}
-        aria-label="الفرع المعروض"
+        aria-label={t('branchSwitch.shownBranch')}
         className="w-full rounded-card border border-border-subtle bg-surface-1 px-2 py-1.5 text-sm"
       >
         {/* EMPTY IS EVERYTHING, the same convention the server uses — so «كل الفروع» is not a
             special case anywhere between this control and the query. */}
-        <option value="">كل الفروع</option>
+        <option value="">{t('branchSwitch.allBranches')}</option>
         {list.map((b) => (
-          <option key={b.id} value={b.id}>{b.name || 'فرع بلا اسم'}</option>
+          <option key={b.id} value={b.id}>{b.name || t('branchSwitch.unnamedBranch')}</option>
         ))}
       </select>
       {/* NOT AN OPTION INSIDE THE SELECT. «+ فرع جديد» as a row in the list would be an item that
@@ -138,12 +141,12 @@ export function BranchSwitch({
                             ring-1 ring-accent/20 transition-transform duration-150 group-hover:scale-105">
             <Plus size={12} aria-hidden />
           </span>
-          أضف فرعاً
+          {t('branchSwitch.addBranch')}
         </button>
       ) : null}
       {branch && outside ? (
         <p className="text-xs text-text-secondary">
-          {outside} زيارة خارج هذا العرض — في فروعٍ أخرى أو بلا فرع محدَّد.
+          {tf(t, 'branchSwitch.outsideView', { outside })}
         </p>
       ) : null}
     </div>

@@ -30,16 +30,27 @@ import { ApiError, sentenceFor } from '../api';
 import { action, call, type Catalog } from '../catalog';
 import { riyalsLabel } from '../money';
 import type { Session } from '../session';
+import { translate, useOperatorI18n, tf } from '../operator-i18n';
+import './wallet-i18n';
+
+type Translator = (key: string) => string;
 
 /** «وحدات الذكاء» — halalas × units_per_halala, the SAME fixed display scale
  *  services/whatsapp-assistant/app/core/ai_unit_pricing.py's own docstring defines: 1 halala is
  *  always worth this many units, whatever model is actually running. `null` unitsPerHalala (the
  *  read failed, or the shop has no AI-pricing capability) falls back to riyals rather than
- *  guessing a rate — the same ABSENT-MEANS-ABSENT posture the rest of this file already keeps. */
-export function unitsLabel(minorHalalas: number, unitsPerHalala: number | null): string {
+ *  guessing a rate — the same ABSENT-MEANS-ABSENT posture the rest of this file already keeps.
+ *
+ *  `t` defaults to an ar-only translator (same pattern as Plans.tsx's own `planLines`) because
+ *  Plans.tsx itself imports this function and calls it single-arg — a real render site always
+ *  gets its own `t` from context; this default only covers that one cross-screen caller and
+ *  this file's own tests. */
+export function unitsLabel(
+  minorHalalas: number, unitsPerHalala: number | null, t: Translator = (k) => translate('ar', k),
+): string {
   if (unitsPerHalala === null) return riyalsLabel(minorHalalas);
   const units = Math.round(minorHalalas * unitsPerHalala);
-  return `${units.toLocaleString('en-US')} وحدة`;
+  return `${units.toLocaleString('en-US')} ${t('wallet.unit')}`;
 }
 
 interface WalletBalance {
@@ -54,6 +65,7 @@ interface WalletBalance {
 interface SubscriptionLite { payment_gateway?: string; status?: string }
 
 export function WalletPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [wallet, setWallet] = useState<WalletBalance | null | undefined>(undefined);
   const [walletFundEnabled, setWalletFundEnabled] = useState(false);
 
@@ -108,8 +120,8 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
     return (
       <EmptyState
         icon={<WalletIcon size={22} />}
-        title="تعذّرت قراءة محفظتك"
-        description="لم نستطع جلب رصيدك الآن — والخلل عندنا لا فيك. أعد المحاولة بعد قليل."
+        title={t('wallet.failedTitle')}
+        description={t('wallet.failedDesc')}
       />
     );
   }
@@ -134,13 +146,13 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
              className="pointer-events-none absolute -bottom-10 -start-4 size-32 rounded-full bg-white/10" />
         <div className="relative flex flex-col gap-1">
           <span className="flex items-center gap-2 text-sm font-medium text-accent-contrast/85">
-            <WalletIcon size={16} aria-hidden /> إجمالي رصيدك
+            <WalletIcon size={16} aria-hidden /> {t('wallet.hero.total')}
           </span>
           <span className="text-4xl font-bold tabular-nums tracking-tight">
             {riyalsLabel(wallet.available_total ?? wallet.balance)}
           </span>
           <span className="text-sm text-accent-contrast/85">
-            رصيدك مقسّم حسب الغرض — بالتفصيل تحت، كل غرض له بطاقته الخاصة.
+            {t('wallet.hero.desc')}
           </span>
         </div>
       </section>
@@ -153,20 +165,20 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
         <KpiCard
           icon={<Bot size={20} aria-hidden />}
           tone="info"
-          label="وحدات الذكاء"
-          value={unitsLabel(aiTotal, unitsPerHalala)}
+          label={t('wallet.aiUnits.label')}
+          value={unitsLabel(aiTotal, unitsPerHalala, t)}
           hint={
             <span className="flex flex-col gap-0.5">
-              <span>{unitsLabel(aiCredit, unitsPerHalala)} مضمّن من باقتك — يتجدد تلقائياً كل شهر</span>
+              <span>{tf(t, 'wallet.aiUnits.includedHint', { units: unitsLabel(aiCredit, unitsPerHalala, t) })}</span>
               {topup > 0 ? (
-                <span>+ {unitsLabel(topup, unitsPerHalala)} شحنته يدوياً — يُستخدم فقط بعد ما ينتهي المضمّن</span>
+                <span>{tf(t, 'wallet.aiUnits.topupHint', { units: unitsLabel(topup, unitsPerHalala, t) })}</span>
               ) : (
-                <span>الشحن اليدوي يبقيه شغّالاً لو انتهى المضمّن قبل نهاية الشهر</span>
+                <span>{t('wallet.aiUnits.noTopupHint')}</span>
               )}
               {topupCheckoutAction ? (
                 <Button type="button" size="sm" variant="outline" className="mt-1 self-start"
                        onClick={() => setTopupOpen(true)}>
-                  شحن رصيدي يدوياً
+                  {t('wallet.aiUnits.topupButton')}
                 </Button>
               ) : null}
             </span>
@@ -177,11 +189,11 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
           <KpiCard
             icon={<RefreshCw size={20} aria-hidden />}
             tone={renewal > 0 ? 'neutral' : 'warning'}
-            label="رصيد تجديد الاشتراك"
+            label={t('wallet.renewal.label')}
             value={riyalsLabel(renewal)}
             hint={renewal > 0
-              ? 'يُخصم منه تلقائياً عند كل تجديد — لا يلمس وحدات الذكاء أبداً'
-              : 'رصيدك لا يكفي التجديد القادم — اشحنه قبل موعده حتى لا يتوقف اشتراكك'}
+              ? t('wallet.renewal.hintOk')
+              : t('wallet.renewal.hintLow')}
           />
         ) : null}
 
@@ -189,9 +201,9 @@ export function WalletPane({ session, catalog }: { session: Session; catalog: Ca
           <KpiCard
             icon={<Banknote size={20} aria-hidden />}
             tone="success"
-            label="عمولتك كشريك"
+            label={t('wallet.commission.label')}
             value={riyalsLabel(commission)}
-            hint="قابلة للسحب — من شاشة الشراكة"
+            hint={t('wallet.commission.hint')}
           />
         ) : null}
       </div>
@@ -224,7 +236,8 @@ function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, on
   session: Session; action: import('../catalog').Action; open: boolean;
   unitsPerHalala: number | null; onClose: () => void; onCharged: () => void;
 }) {
-  const [amountSar, setAmountSar] = useState(TOPUP_STEP_SAR * 5);   // 50 ريال — بداية معقولة
+  const { t } = useOperatorI18n();
+  const [amountSar, setAmountSar] = useState(TOPUP_STEP_SAR * 5);   // 50 SAR — a reasonable start
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -241,7 +254,7 @@ function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, on
   }
 
   async function submit() {
-    if (!ready) { setError('أدخل مبلغاً صحيحاً أولاً.'); return; }
+    if (!ready) { setError(t('wallet.topup.invalidAmount')); return; }
     setBusy(true);
     setError('');
     try {
@@ -254,9 +267,9 @@ function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, on
         window.location.href = result.checkout.redirect_url;
         return;
       }
-      setError('تعذّر فتح صفحة الدفع — حاول مرة أخرى بعد قليل.');
+      setError(t('wallet.topup.checkoutFailed'));
     } catch (err) {
-      setError(topupErrorSentence(err));
+      setError(topupErrorSentence(err, t));
     } finally {
       setBusy(false);
     }
@@ -264,27 +277,31 @@ function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, on
 
   return (
     <ConfirmDialog open={open} onClose={onClose} onConfirm={submit} busy={busy} danger={false}
-                  confirmLabel="الدفع الآن" title="شحن رصيدك"
-                  body="سيحوّلك هذا لصفحة الدفع الآمنة. المبلغ يُضاف لرصيدك فور إتمام الدفع، ولا يُسترجع بعد الشحن.">
+                  confirmLabel={t('wallet.topup.confirmLabel')} title={t('wallet.topup.title')}
+                  body={t('wallet.topup.body')}>
       <div className="flex flex-col gap-1.5">
-        <span className="text-label font-medium text-text-secondary">المبلغ (مضاعفات {TOPUP_STEP_SAR} ريال)</span>
-        <div className="flex items-center gap-2" role="group" aria-label="المبلغ">
-          <Button type="button" variant="outline" size="sm" aria-label={`إنقاص ${TOPUP_STEP_SAR} ريال`}
+        <span className="text-label font-medium text-text-secondary">
+          {tf(t, 'wallet.topup.amountLabel', { step: TOPUP_STEP_SAR })}
+        </span>
+        <div className="flex items-center gap-2" role="group" aria-label={t('wallet.topup.amountAriaLabel')}>
+          <Button type="button" variant="outline" size="sm"
+                 aria-label={tf(t, 'wallet.topup.decreaseAriaLabel', { step: TOPUP_STEP_SAR })}
                  disabled={busy || amountSar <= TOPUP_MIN_SAR}
                  onClick={() => setClamped(amountSar - TOPUP_STEP_SAR)}>
             <Minus size={14} />
           </Button>
           <span className="min-w-[5rem] text-center text-lg font-semibold tabular-nums" dir="ltr">
-            {amountSar} ريال
+            {riyalsLabel(amountSar * 100)}
           </span>
-          <Button type="button" variant="outline" size="sm" aria-label={`زيادة ${TOPUP_STEP_SAR} ريال`}
+          <Button type="button" variant="outline" size="sm"
+                 aria-label={tf(t, 'wallet.topup.increaseAriaLabel', { step: TOPUP_STEP_SAR })}
                  disabled={busy || amountSar >= TOPUP_MAX_SAR}
                  onClick={() => setClamped(amountSar + TOPUP_STEP_SAR)}>
             <Plus size={14} />
           </Button>
         </div>
         <p className="text-label text-text-secondary">
-          = {unitsLabel(amountMinor, unitsPerHalala)}
+          = {unitsLabel(amountMinor, unitsPerHalala, t)}
         </p>
       </div>
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
@@ -295,15 +312,15 @@ function TopUpDialog({ session, action: checkoutAction, open, unitsPerHalala, on
 /** The backend's own words are English codes written for a client, not a person — «AMOUNT_EXCEEDS_
  *  MAX» is meaningless to a shop owner staring at a failed payment. Map the ones this screen can
  *  actually trigger; anything else falls to sentenceFor's own generic handling. */
-function topupErrorSentence(err: unknown): string {
+function topupErrorSentence(err: unknown, t: Translator): string {
   if (err instanceof ApiError) {
     const detail = String((err.body as { detail?: string } | null)?.detail ?? '');
-    if (detail === 'AMOUNT_EXCEEDS_MAX') return 'هذا المبلغ أكبر من الحد المسموح للشحن اليدوي.';
-    if (detail === 'AMOUNT_MUST_BE_POSITIVE' || detail === 'FUND_REQUIRED') return 'مبلغ غير صالح — جرّب رقماً آخر.';
+    if (detail === 'AMOUNT_EXCEEDS_MAX') return t('wallet.topup.amountExceedsMax');
+    if (detail === 'AMOUNT_MUST_BE_POSITIVE' || detail === 'FUND_REQUIRED') return t('wallet.topup.invalidAmountRetry');
     if (detail === 'CHECKOUT_UNSUPPORTED' || detail === 'CHECKOUT_FAILED') {
-      return 'تعذّر فتح صفحة الدفع الآن. حاول بعد قليل.';
+      return t('wallet.topup.checkoutUnsupported');
     }
-    if (err.status === 503) return 'بوابة الدفع لا تستجيب الآن. حاول بعد قليل.';
+    if (err.status === 503) return t('wallet.topup.gatewayDown');
   }
-  return sentenceFor(err, 'تعذّر بدء عملية الشحن.');
+  return sentenceFor(err, t('wallet.topup.startFailed'));
 }

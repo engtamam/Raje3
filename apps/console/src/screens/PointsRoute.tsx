@@ -8,9 +8,9 @@ import type { Catalog } from '../catalog';
 import type { Session } from '../session';
 
 /**
- * THE WHOLE SECTION IS THE APP HERE, unlike «رسائلي» where only one tab is.
+ * THE WHOLE SECTION IS THE APP HERE, unlike "My Messages" where only one tab is.
  *
- * «نقاطي» is the programme itself — the rewards he sells and the rules that earn them — so a shop
+ * "My Points" is the programme itself — the rewards he sells and the rules that earn them — so a shop
  * without the app has nothing on this screen but the offer to buy it.
  *
  * AND IT HIDES NOTHING HE EARNED. Customer balances are not here; they are on the customer's page

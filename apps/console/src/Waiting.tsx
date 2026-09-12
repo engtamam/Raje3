@@ -24,16 +24,19 @@
  */
 import { useEffect, useState } from 'react';
 import { Mark } from './brand/Mark';
+import { useOperatorI18n } from './operator-i18n';
+import './waiting-i18n';
 
 /** Below this, a wait is not a wait — it is a repaint, and announcing it makes it look worse. */
 const APPEAR_AFTER_MS = 300;
 
 export function Waiting({ what = '', delayMs = APPEAR_AFTER_MS }: { what?: string; delayMs?: number }) {
+  const { t } = useOperatorI18n();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), delayMs);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShow(true), delayMs);
+    return () => clearTimeout(timer);
   }, [delayMs]);
 
   if (!show) return null;
@@ -51,7 +54,7 @@ export function Waiting({ what = '', delayMs = APPEAR_AFTER_MS }: { what?: strin
       </span>
       {/* WHAT WE ARE FETCHING, when the caller knows. «جاري التحميل» is what every product says
           and tells him nothing; «نجمع عملاءك» tells him which screen he is waiting on. */}
-      <span className="text-sm text-text-secondary">{what || 'لحظة…'}</span>
+      <span className="text-sm text-text-secondary">{what || t('waiting.default')}</span>
     </div>
   );
 }

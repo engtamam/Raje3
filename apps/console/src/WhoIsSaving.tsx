@@ -22,6 +22,8 @@ import { listOperators, verifyPin, type FieldOperator } from './api';
 import { lastSeen, remember } from './operator';
 import type { Session } from './session';
 import { digitsOnly } from './digits';
+import { useOperatorI18n } from './operator-i18n';
+import './who-is-saving-i18n';
 
 export function WhoIsSaving({
   session, open, onProved, onSkip,
@@ -32,6 +34,7 @@ export function WhoIsSaving({
   /** He chose to save without an operator, or there is nobody who could prove one. */
   onSkip: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const [people, setPeople] = useState<FieldOperator[] | null | undefined>(undefined);
   const [picked, setPicked] = useState(lastSeen()?.id ?? '');
   const [pin, setPin] = useState('');
@@ -71,7 +74,7 @@ export function WhoIsSaving({
       // ONE SENTENCE FOR EVERY REFUSAL, because the server gives one on purpose: «wrong PIN»,
       // «no such operator» and «deactivated» are deliberately indistinguishable there, and
       // inventing three here would undo that.
-      setError('الرمز غير صحيح.');
+      setError(t('whoIsSaving.wrongPin'));
       setPin('');
     } finally {
       setBusy(false);
@@ -79,11 +82,11 @@ export function WhoIsSaving({
   };
 
   return (
-    <Modal open onClose={onSkip} size="md" title="من يحفظ هذه الزيارة؟"
-           subtitle="رمزك من أربعة أرقام — ليُسجَّل العمل باسمك وفرعك.">
+    <Modal open onClose={onSkip} size="md" title={t('whoIsSaving.title')}
+           subtitle={t('whoIsSaving.subtitle')}>
       <div className="flex flex-col gap-4">
         {people === null ? (
-          <p className="text-sm text-text-secondary">تعذّرت قراءة أسماء الفريق الآن.</p>
+          <p className="text-sm text-text-secondary">{t('whoIsSaving.readFailed')}</p>
         ) : people === undefined ? (
           <p className="text-sm text-text-secondary">…</p>
         ) : (
@@ -113,7 +116,7 @@ export function WhoIsSaving({
           inputMode="numeric"
           autoComplete="off"
           type="password"
-          aria-label="رمز العامل"
+          aria-label={t('whoIsSaving.pinAriaLabel')}
           dir="ltr"
           className="rounded-card border border-border-subtle bg-surface-1 p-3 text-center text-2xl tracking-[0.5em]"
         />
@@ -122,8 +125,8 @@ export function WhoIsSaving({
 
         <div className="flex items-center justify-between gap-3">
           {/* NEVER A DEAD END. He is standing in front of a customer. */}
-          <Button variant="ghost" onClick={onSkip}>تخطّي</Button>
-          <Button onClick={submit} disabled={busy || pin.length !== 4 || !picked}>تأكيد وحفظ</Button>
+          <Button variant="ghost" onClick={onSkip}>{t('whoIsSaving.skip')}</Button>
+          <Button onClick={submit} disabled={busy || pin.length !== 4 || !picked}>{t('whoIsSaving.confirm')}</Button>
         </div>
       </div>
     </Modal>

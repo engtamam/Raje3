@@ -26,6 +26,8 @@ import { hasFailed, isReady, type Loading } from '../loading';
 import { STORE_PATH } from '../nav';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import type { Session } from '../session';
+import { useOperatorI18n } from '../operator-i18n';
+import './locked-i18n';
 
 /**
  * NO BLUR, NO DIMMING — the full real feature list, exactly as `شرائي`'s own card shows it. The
@@ -38,6 +40,7 @@ import type { Session } from '../session';
 export function LockedCard({ appId, session, catalog, owned }: {
   appId: string; session: Session; catalog: Catalog; owned?: Loading<Owned>;
 }) {
+  const { t } = useOperatorI18n();
   const row = APP_ROWS.find((a) => a.id === appId);
   if (!row) return null;
   const Icon = appIcon(row.icon);
@@ -63,7 +66,7 @@ export function LockedCard({ appId, session, catalog, owned }: {
         actionId={row.featuresAction}
         fetcher={(actionId) => {
           const a = action(catalog, actionId);
-          if (!a) return Promise.reject(new Error('لا صلاحية لقراءة مميزات هذا التطبيق'));
+          if (!a) return Promise.reject(new Error(t('locked.featuresReadDenied')));
           return call(session, a);
         }}
         // SAME COLLAPSE EVERY OTHER CARD NOW HAS (owner's own instruction, 2026-09-11) — an
@@ -80,7 +83,7 @@ export function LockedCard({ appId, session, catalog, owned }: {
         to={STORE_PATH}
         className="rounded-control bg-accent px-3 py-2 text-center text-sm font-medium text-accent-contrast shadow-glow"
       >
-        أضِفه من متجر التطبيقات
+        {t('locked.addFromStore')}
       </Link>
     </section>
   );
@@ -97,6 +100,7 @@ export function AppGate(
   { appId, owned, session, catalog, children }:
   { appId: string; owned: Loading<Owned>; session: Session; catalog: Catalog; children: React.ReactNode },
 ) {
+  const { t } = useOperatorI18n();
   const row = APP_ROWS.find((a) => a.id === appId);
   const has = owns(owned, row ? row.key : null);
   if (has === null) {
@@ -106,11 +110,11 @@ export function AppGate(
     // rectangle for ever — no programme, no lock, and no sentence (م · قاطع). `owns` now answers
     // «not yours to ask» with «show him the surface»; what is left here is the honest pair.
     if (isReady(owned) && !owned.checked) {
-      return <EmptyState title="تعذّر التحقق من اشتراكك" description={owned.message} />;
+      return <EmptyState title={t('locked.checkFailedTitle')} description={owned.message} />;
     }
     if (hasFailed(owned)) {
-      return <EmptyState title="تعذّر التحقق من اشتراكك"
-                         description="والخلل عندنا. أعد المحاولة بعد قليل." />;
+      return <EmptyState title={t('locked.checkFailedTitle')}
+                         description={t('locked.checkFailedDescOurFault')} />;
     }
     return <Skeleton height={160} />;
   }

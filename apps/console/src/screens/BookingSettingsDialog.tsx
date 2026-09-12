@@ -17,13 +17,15 @@ import {
   type AssignmentSettings, type FieldOperator, type WeeklyHours,
 } from '../api';
 import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './booking-settings-dialog-i18n';
 
-// نفس ترتيب العرض وتسمية الأيام اللي كانت في WorkingHoursDialog.tsx — الأحد أولاً، ونفس ترقيم
-// weekday() المخزَّن فعلياً بلا أي ترجمة.
+// Same display order and day naming used in WorkingHoursDialog.tsx's predecessor — Sunday first,
+// same weekday() numbering actually stored, with no translation applied to it.
 const DISPLAY_ORDER = [6, 0, 1, 2, 3, 4, 5];
-const DAY_LABEL: Record<number, string> = {
-  6: 'الأحد', 0: 'الاثنين', 1: 'الثلاثاء', 2: 'الأربعاء', 3: 'الخميس', 4: 'الجمعة', 5: 'السبت',
-};
+function dayLabel(t: (key: string) => string, day: number): string {
+  return t(`bookingSettings.day.${day}`);
+}
 function minutesToTime(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
@@ -32,14 +34,16 @@ function timeToMinutes(t: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
-const ALGORITHMS: { value: AssignmentSettings['algorithm']; label: string; hint: string }[] = [
-  { value: 'nearest', label: 'أقرب موعد',
-   hint: 'أول موظف مؤهَّل عنده موعد فاضٍ — بلا أي إعداد إضافي، نفس سلوك اليوم بالضبط.' },
-  { value: 'least_loaded', label: 'الأقل حِمل',
-   hint: 'يوزّع بالتساوي — الموظف اللي عنده حجوزات أقل بنفس الفترة يُفضَّل.' },
-  { value: 'manual_order', label: 'ترتيب يدوي',
-   hint: 'أنت ترتّب الموظفين مرة، والأول بالترتيب يُفضَّل دائماً عند التعادل.' },
-];
+function algorithms(t: (key: string) => string): { value: AssignmentSettings['algorithm']; label: string; hint: string }[] {
+  return [
+    { value: 'nearest', label: t('bookingSettings.algo.nearest.label'),
+     hint: t('bookingSettings.algo.nearest.hint') },
+    { value: 'least_loaded', label: t('bookingSettings.algo.leastLoaded.label'),
+     hint: t('bookingSettings.algo.leastLoaded.hint') },
+    { value: 'manual_order', label: t('bookingSettings.algo.manualOrder.label'),
+     hint: t('bookingSettings.algo.manualOrder.hint') },
+  ];
+}
 
 export function BookingSettingsDialog({ session, weekly, assignment, staff, onClose, onHoursSaved, onAssignmentSaved }: {
   session: Session;
@@ -51,6 +55,8 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
   onHoursSaved: (w: WeeklyHours) => void;
   onAssignmentSaved: (s: AssignmentSettings) => void;
 }) {
+  const { t } = useOperatorI18n();
+  const ALGORITHMS = algorithms(t);
   const [tab, setTab] = useState<'hours' | 'assignment'>('hours');
 
   // ── أوقات الدوام ──────────────────────────────────────────────────────────────────────────
@@ -73,7 +79,7 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
       onHoursSaved(saved.weekly);
       onClose();
     } catch (e) {
-      setHoursError(sentenceFor(e, 'تعذّر حفظ أوقات الدوام.'));
+      setHoursError(sentenceFor(e, t('bookingSettings.hours.saveFailed')));
     } finally {
       setHoursSaving(false);
     }
@@ -105,54 +111,54 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
       onAssignmentSaved(saved);
       onClose();
     } catch (e) {
-      setAssignError(sentenceFor(e, 'تعذّر حفظ طريقة التوزيع.'));
+      setAssignError(sentenceFor(e, t('bookingSettings.assignment.saveFailed')));
     } finally {
       setAssignSaving(false);
     }
   };
 
   return (
-    <Modal open onClose={onClose} size="lg" title="إعدادات الحجوزات">
+    <Modal open onClose={onClose} size="lg" title={t('bookingSettings.title')}>
       <div className="flex flex-col gap-4">
         <Segmented
-          ariaLabel="تبويب الإعدادات"
+          ariaLabel={t('bookingSettings.tabsAriaLabel')}
           value={tab}
           onChange={(v) => setTab(v as 'hours' | 'assignment')}
           options={[
-            { value: 'hours', label: 'أوقات الدوام' },
-            { value: 'assignment', label: 'طريقة التوزيع' },
+            { value: 'hours', label: t('bookingSettings.tab.hours') },
+            { value: 'assignment', label: t('bookingSettings.tab.assignment') },
           ]}
         />
 
         {tab === 'hours' ? (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary">سياسة واحدة لكل الفروع — تُضبط هنا مرة، وتُعدَّل وقتما تحتاج</p>
+            <p className="text-sm text-text-secondary">{t('bookingSettings.hours.policyHint')}</p>
             <div className="flex flex-col gap-2">
               {DISPLAY_ORDER.map((day) => {
                 const d = hoursDraft[day] ?? { closed: false, start_minute: 480, end_minute: 1320 };
                 return (
                   // A ROW THAT WRAPS INSTEAD OF SPILLING — see this dialog's own predecessor's
-                  // history: a phone at 430px needs the day label, «مفتوح», and two time inputs
+                  // history: a phone at 430px needs the day label, "Open", and two time inputs
                   // on their own line when they cannot all fit on one.
                   <div key={day} className="flex flex-wrap items-center gap-3 rounded-xl bg-surface-1 px-3 py-2">
-                    <span className="w-16 shrink-0 text-sm font-semibold">{DAY_LABEL[day]}</span>
+                    <span className="w-16 shrink-0 text-sm font-semibold">{dayLabel(t, day)}</span>
                     <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-secondary">
                       <input type="checkbox" checked={!d.closed}
                             onChange={(e) => setDay(day, { closed: !e.target.checked })} />
-                      مفتوح
+                      {t('bookingSettings.hours.open')}
                     </label>
                     {!d.closed ? (
                       <div className="flex min-w-[220px] flex-1 items-center gap-2">
                         <input type="time" value={minutesToTime(d.start_minute)}
                               onChange={(e) => setDay(day, { start_minute: timeToMinutes(e.target.value) })}
                               className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />
-                        <span className="text-text-secondary">إلى</span>
+                        <span className="text-text-secondary">{t('bookingSettings.hours.to')}</span>
                         <input type="time" value={minutesToTime(d.end_minute)}
                               onChange={(e) => setDay(day, { end_minute: timeToMinutes(e.target.value) })}
                               className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />
                       </div>
                     ) : (
-                      <span className="flex-1 text-sm text-text-muted">مغلق</span>
+                      <span className="flex-1 text-sm text-text-muted">{t('bookingSettings.hours.closed')}</span>
                     )}
                   </div>
                 );
@@ -160,16 +166,16 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
             </div>
             {hoursError ? <p className="text-sm text-danger">{hoursError}</p> : null}
             <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
-              <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-              <Button disabled={hoursSaving} onClick={saveHours}>{hoursSaving ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
+              <Button variant="ghost" onClick={onClose}>{t('bookingSettings.cancel')}</Button>
+              <Button disabled={hoursSaving} onClick={saveHours}>{hoursSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-text-secondary">لخدمات «تلقائي» فقط — تحدد مين يفوز بالموعد إذا كان أكثر من موظف مؤهَّل حراً بنفس الوقت</p>
+            <p className="text-sm text-text-secondary">{t('bookingSettings.assignment.hint')}</p>
             <Segmented
               size="sm"
-              ariaLabel="خوارزمية التوزيع"
+              ariaLabel={t('bookingSettings.assignment.algoAriaLabel')}
               value={assignDraft.algorithm}
               onChange={(v) => setAssignDraft((cur) => ({ ...cur, algorithm: v as AssignmentSettings['algorithm'] }))}
               options={ALGORITHMS}
@@ -180,7 +186,7 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
 
             {assignDraft.algorithm === 'manual_order' ? (
               staff.length === 0 ? (
-                <p className="text-sm text-text-muted">لا يوجد موظفون ميدانيون نشطون بعد.</p>
+                <p className="text-sm text-text-muted">{t('bookingSettings.assignment.noStaff')}</p>
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {ordered.map((s, i) => (
@@ -189,12 +195,12 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
                       <GripVertical size={14} aria-hidden className="shrink-0 text-text-muted" />
                       <span className="min-w-0 flex-1 truncate">{s.name}</span>
                       <button type="button" disabled={i === 0} onClick={() => move(s.id, -1)}
-                             aria-label={`رفّع ${s.name}`}
+                             aria-label={tf(t, 'bookingSettings.assignment.moveUp', { name: s.name })}
                              className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary disabled:opacity-30">
                         ↑
                       </button>
                       <button type="button" disabled={i === ordered.length - 1} onClick={() => move(s.id, 1)}
-                             aria-label={`نزّل ${s.name}`}
+                             aria-label={tf(t, 'bookingSettings.assignment.moveDown', { name: s.name })}
                              className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary disabled:opacity-30">
                         ↓
                       </button>
@@ -206,8 +212,8 @@ export function BookingSettingsDialog({ session, weekly, assignment, staff, onCl
 
             {assignError ? <p className="text-sm text-danger">{assignError}</p> : null}
             <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
-              <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-              <Button disabled={assignSaving} onClick={saveAssignment}>{assignSaving ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
+              <Button variant="ghost" onClick={onClose}>{t('bookingSettings.cancel')}</Button>
+              <Button disabled={assignSaving} onClick={saveAssignment}>{assignSaving ? t('bookingSettings.saving') : t('bookingSettings.save')}</Button>
             </div>
           </div>
         )}

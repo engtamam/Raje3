@@ -13,6 +13,8 @@ import { Field, Input } from '../rj-ui/Field';
 import { digitsOnly } from '../digits';
 import { tokenizeCard } from '../payment';
 import { remember, type PendingPayment } from '../pendingPayment';
+import { useOperatorI18n } from '../operator-i18n';
+import './card-form-i18n';
 
 /** Groups of 4, the way he reads it off the card itself — display only; `number` sent to Moyasar
  *  is stripped back to plain digits first. */
@@ -28,6 +30,7 @@ export function CardForm({ pending, onToken, onCancel }: {
   onToken: (token: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const [name, setName] = useState('');
   const [number, setNumber] = useState('');
   const [month, setMonth] = useState('');
@@ -42,15 +45,15 @@ export function CardForm({ pending, onToken, onCancel }: {
     e.preventDefault();
     setError('');
     const digits = digitsOnly(number);
-    if (digits.length < 12) { setError('رقم البطاقة غير مكتمل.'); return; }
+    if (digits.length < 12) { setError(t('cardForm.invalidNumber')); return; }
     const m = digitsOnly(month).padStart(2, '0');
     const y = digitsOnly(year);
     const yyyy = y.length === 2 ? `20${y}` : y;
-    if (!m || Number(m) < 1 || Number(m) > 12) { setError('شهر الانتهاء غير صحيح.'); return; }
-    if (!yyyy || Number(yyyy) < thisYear) { setError('سنة الانتهاء غير صحيحة.'); return; }
+    if (!m || Number(m) < 1 || Number(m) > 12) { setError(t('cardForm.invalidMonth')); return; }
+    if (!yyyy || Number(yyyy) < thisYear) { setError(t('cardForm.invalidYear')); return; }
     const c = digitsOnly(cvc);
-    if (c.length < 3) { setError('رمز الأمان (CVC) غير مكتمل.'); return; }
-    if (!name.trim()) { setError('اكتب الاسم كما هو مطبوع على البطاقة.'); return; }
+    if (c.length < 3) { setError(t('cardForm.invalidCvc')); return; }
+    if (!name.trim()) { setError(t('cardForm.nameRequired')); return; }
 
     setBusy(true);
     try {
@@ -75,39 +78,38 @@ export function CardForm({ pending, onToken, onCancel }: {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
-      <Field label="الاسم كما على البطاقة" htmlFor="cf-name">
+      <Field label={t('cardForm.name')} htmlFor="cf-name">
         <Input id="cf-name" value={name} onChange={(e) => setName(e.target.value)}
                autoComplete="cc-name" required />
       </Field>
-      <Field label="رقم البطاقة" htmlFor="cf-number">
+      <Field label={t('cardForm.number')} htmlFor="cf-number">
         <Input id="cf-number" inputMode="numeric" dir="ltr" autoComplete="cc-number"
                value={formatCardNumber(number)}
                onChange={(e) => setNumber(digitsOnly(e.target.value))} required />
       </Field>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="الشهر" htmlFor="cf-month">
+        <Field label={t('cardForm.month')} htmlFor="cf-month">
           <Input id="cf-month" inputMode="numeric" dir="ltr" placeholder="MM" maxLength={2}
                  autoComplete="cc-exp-month" value={month}
                  onChange={(e) => setMonth(digitsOnly(e.target.value))} required />
         </Field>
-        <Field label="السنة" htmlFor="cf-year">
+        <Field label={t('cardForm.year')} htmlFor="cf-year">
           <Input id="cf-year" inputMode="numeric" dir="ltr" placeholder="YYYY" maxLength={4}
                  autoComplete="cc-exp-year" value={year}
                  onChange={(e) => setYear(digitsOnly(e.target.value))} required />
         </Field>
-        <Field label="CVC" htmlFor="cf-cvc">
+        <Field label={t('cardForm.cvc')} htmlFor="cf-cvc">
           <Input id="cf-cvc" inputMode="numeric" dir="ltr" maxLength={4} autoComplete="cc-csc"
                  value={cvc} onChange={(e) => setCvc(digitsOnly(e.target.value))} required />
         </Field>
       </div>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <p className="text-xs text-text-secondary">
-        بياناتك تُرسَل مباشرة لبوابة الدفع ولا تمر على خوادمنا إطلاقاً — قد يُطلب منك تأكيد العملية
-        من تطبيق بنكك.
+        {t('cardForm.disclosure')}
       </p>
       <div className="flex gap-2">
-        <Button type="submit" disabled={busy}>{busy ? 'يتحقق…' : 'تأكيد البطاقة'}</Button>
-        <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>إلغاء</Button>
+        <Button type="submit" disabled={busy}>{busy ? t('cardForm.verifying') : t('cardForm.confirm')}</Button>
+        <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>{t('cardForm.cancel')}</Button>
       </div>
     </form>
   );

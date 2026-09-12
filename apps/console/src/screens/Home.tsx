@@ -17,8 +17,11 @@ import { Visit } from './Visit';
 import { visibleSections } from '../nav';
 import type { Catalog } from '../catalog';
 import type { Session } from '../session';
+import { useOperatorI18n } from '../operator-i18n';
+import './home-i18n';
 
 export function Home() {
+  const { t } = useOperatorI18n();
   const { catalog } = useOutletContext<ShellContext>();
   const sections = visibleSections(catalog);
   // NEVER LAND HIM ON A SECTION THAT CANNOT ANSWER. The rail still shows it — he must know it
@@ -32,8 +35,8 @@ export function Home() {
   return (
     <div className="p-6">
       <EmptyState
-        title="لا توجد أقسام متاحة لحسابك"
-        description="تواصل مع مالك الحساب لضبط صلاحياتك."
+        title={t('home.noSections.title')}
+        description={t('home.noSections.description')}
       />
     </div>
   );

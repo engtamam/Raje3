@@ -19,11 +19,18 @@ import { Link } from 'react-router-dom';
 import { baseState, daysLeft, relevantSubscription, type Owned } from './apps';
 import type { Loading } from './loading';
 import { STORE_PATH } from './nav';
+import { useOperatorI18n, tf } from './operator-i18n';
+import './subscription-bar-i18n';
 
 /** Below this the trial is a countdown worth showing; above it, it is just «مشترك». */
 const SOON_DAYS = 7;
 
+function dayCount(t: (key: string) => string, n: number): string {
+  return n === 1 ? t('subscriptionBar.day.one') : tf(t, 'subscriptionBar.day.other', { n });
+}
+
 export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: number }) {
+  const { t } = useOperatorI18n();
   const state = baseState(owned);
   const left = daysLeft(owned, now);
 
@@ -46,8 +53,8 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
     return (
       <div role="status"
            className="flex flex-wrap items-center justify-between gap-2 rounded-card px-4 py-2 text-sm bg-surface-2 text-text-secondary">
-        <span>{`اشتراكك في ${sub.name} يتجدّد بعد ${appLeft} ${appLeft === 1 ? 'يوم' : 'أيام'}.`}</span>
-        <Link to={STORE_PATH} className="font-medium underline underline-offset-4">متجر التطبيقات</Link>
+        <span>{tf(t, 'subscriptionBar.appRenewsIn', { name: sub.name, days: dayCount(t, appLeft) })}</span>
+        <Link to={STORE_PATH} className="font-medium underline underline-offset-4">{t('subscriptionBar.storeLink')}</Link>
       </div>
     );
   }
@@ -57,13 +64,13 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
   // NAMED FROM THE DATA, NOT SPELLED HERE — `relevantSubscription` answers الأساس's own name
   // whenever `owned.base` exists, which it does in every branch reached below; a renamed or
   // second base tier tomorrow needs no edit to this file.
-  const subName = relevantSubscription(owned)?.name ?? 'الأساس';
+  const subName = relevantSubscription(owned)?.name ?? t('subscriptionBar.baseDefaultName');
   const lapsed = state === 'lapsed';
   const text = lapsed
-    ? 'انتهى اشتراكك — بياناتك محفوظة وتقدر تتصفّحها، وتسجيل الزيارات يرجع فور التجديد.'
+    ? t('subscriptionBar.lapsed')
     : state === 'trial'
-      ? `تجربتك المجانية تنتهي بعد ${left} ${left === 1 ? 'يوم' : 'أيام'} — فعّل ${subName} ويكمل شغلك بلا انقطاع.`
-      : `اشتراكك يتجدّد بعد ${left} ${left === 1 ? 'يوم' : 'أيام'}.`;
+      ? tf(t, 'subscriptionBar.trialEnding', { days: dayCount(t, left ?? 0), name: subName })
+      : tf(t, 'subscriptionBar.renewsIn', { days: dayCount(t, left ?? 0) });
 
   return (
     <div
@@ -81,7 +88,7 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
           and four screens pointing at «متجر التطبيقات», one of which existed. A literal here
           would be the third. */}
       <Link to={STORE_PATH} className="font-medium underline underline-offset-4">
-        {lapsed ? 'جدّد الآن' : 'متجر التطبيقات'}
+        {lapsed ? t('subscriptionBar.renewNow') : t('subscriptionBar.storeLink')}
       </Link>
     </div>
   );

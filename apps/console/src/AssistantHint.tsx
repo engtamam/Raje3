@@ -22,6 +22,8 @@
 import { useState } from 'react';
 import { fetchAssistantHelp, sentenceFor, type AssistantHelpEntry } from './api';
 import type { Session } from './session';
+import { useOperatorI18n } from './operator-i18n';
+import './assistant-hint-i18n';
 
 type State =
   | { kind: 'idle' }
@@ -30,8 +32,9 @@ type State =
   | { kind: 'empty' }
   | { kind: 'error'; message: string };
 
-export function AssistantHint({ session, anchor, label = 'شرح' }:
+export function AssistantHint({ session, anchor, label }:
     { session: Session; anchor: string; label?: string }) {
+  const { t } = useOperatorI18n();
   const [state, setState] = useState<State>({ kind: 'idle' });
   const open = state.kind !== 'idle';
 
@@ -46,7 +49,7 @@ export function AssistantHint({ session, anchor, label = 'شرح' }:
       const entry = await fetchAssistantHelp(session, anchor);
       setState(entry ? { kind: 'found', entry } : { kind: 'empty' });
     } catch (e) {
-      setState({ kind: 'error', message: sentenceFor(e, 'تعذّر جلب الشرح.') });
+      setState({ kind: 'error', message: sentenceFor(e, t('assistantHint.fetchFailed')) });
     }
   }
 
@@ -54,7 +57,7 @@ export function AssistantHint({ session, anchor, label = 'شرح' }:
     <>
       <button
         type="button"
-        aria-label={label}
+        aria-label={label ?? t('assistantHint.label')}
         aria-expanded={open}
         onClick={toggle}
         // SAME 44px/24px SPLIT AS Hint.tsx — see its own comment on why the touch target and the
@@ -62,7 +65,7 @@ export function AssistantHint({ session, anchor, label = 'شرح' }:
         className="grid size-11 shrink-0 place-items-center rounded-full"
       >
         <span aria-hidden className="grid size-6 place-items-center rounded-full bg-surface-2 text-xs text-text-secondary">
-          ؟
+          {t('assistantHint.questionMark')}
         </span>
       </button>
       {state.kind === 'loading' ? (
@@ -72,7 +75,7 @@ export function AssistantHint({ session, anchor, label = 'شرح' }:
         <p className="basis-full text-xs leading-relaxed text-text-secondary">{state.entry.body}</p>
       ) : null}
       {state.kind === 'empty' ? (
-        <p className="basis-full text-xs leading-relaxed text-text-secondary">ما فيه شرح لهذا بعد.</p>
+        <p className="basis-full text-xs leading-relaxed text-text-secondary">{t('assistantHint.noEntry')}</p>
       ) : null}
       {state.kind === 'error' ? (
         <p className="basis-full text-xs leading-relaxed text-red-600">{state.message}</p>

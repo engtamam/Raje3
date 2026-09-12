@@ -14,15 +14,18 @@
  * workshop tablet, and a title attribute is unreadable to a thumb.
  */
 import { useState, type ReactNode } from 'react';
+import { useOperatorI18n } from './operator-i18n';
+import './hint-i18n';
 
-export function Hint({ children, label = 'شرح', wide = false }:
+export function Hint({ children, label, wide = false }:
     { children: ReactNode; label?: string; wide?: boolean }) {
+  const { t } = useOperatorI18n();
   const [open, setOpen] = useState(false);
   return (
     <>
       <button
         type="button"
-        aria-label={label}
+        aria-label={label ?? t('hint.label')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         // 44px OF TOUCH, 24px OF INK. The comment above this line claimed the floor and the class
@@ -34,7 +37,7 @@ export function Hint({ children, label = 'شرح', wide = false }:
         className="grid size-11 shrink-0 place-items-center rounded-full"
       >
         <span aria-hidden className="grid size-6 place-items-center rounded-full bg-surface-2 text-xs text-text-secondary">
-          ؟
+          {t('hint.questionMark')}
         </span>
       </button>
       {open ? (

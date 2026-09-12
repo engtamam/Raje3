@@ -31,6 +31,8 @@ import { Boxes, ImageOff, Plus, Upload } from 'lucide-react';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
 import { halalas, riyalsLabel } from '../money';
 import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './packages-tab-i18n';
 
 interface ServiceLite { id: string; name: string; active?: boolean }
 interface PackageRow {
@@ -57,18 +59,25 @@ interface PackageRow {
 /** Saturday-first, matching how a Saudi week is actually read — but the VALUE stored is always
  *  Python's `date.weekday()` convention (Monday=0..Sunday=6), the same one operations' own
  *  core/scheduling.py compares against, so the label order here is purely cosmetic. */
-const WEEKDAYS: { value: number; label: string }[] = [
-  { value: 5, label: 'السبت' }, { value: 6, label: 'الأحد' }, { value: 0, label: 'الاثنين' },
-  { value: 1, label: 'الثلاثاء' }, { value: 2, label: 'الأربعاء' }, { value: 3, label: 'الخميس' },
-  { value: 4, label: 'الجمعة' },
-];
+function weekdays(t: (key: string) => string): { value: number; label: string }[] {
+  return [
+    { value: 5, label: t('packages.weekday.5') }, { value: 6, label: t('packages.weekday.6') },
+    { value: 0, label: t('packages.weekday.0') },
+    { value: 1, label: t('packages.weekday.1') }, { value: 2, label: t('packages.weekday.2') },
+    { value: 3, label: t('packages.weekday.3') },
+    { value: 4, label: t('packages.weekday.4') },
+  ];
+}
 
-const RECURRENCE_OPTIONS: { value: 'none' | 'weekly' | 'monthly' | 'yearly'; label: string }[] = [
-  { value: 'none', label: 'بلا جدولة' },
-  { value: 'weekly', label: 'أسبوعياً' },
-  { value: 'monthly', label: 'شهرياً' },
-  { value: 'yearly', label: 'سنوياً' },
-];
+function recurrenceOptions(t: (key: string) => string):
+  { value: 'none' | 'weekly' | 'monthly' | 'yearly'; label: string }[] {
+  return [
+    { value: 'none', label: t('packages.recurrence.none') },
+    { value: 'weekly', label: t('packages.recurrence.weekly') },
+    { value: 'monthly', label: t('packages.recurrence.monthly') },
+    { value: 'yearly', label: t('packages.recurrence.yearly') },
+  ];
+}
 
 /** unix seconds -> "YYYY-MM-DD" for a date input, in Riyadh — "" for 0 (no bound). */
 function dateInputValue(ts: number | undefined): string {
@@ -106,18 +115,22 @@ interface EarnSettings {
 
 /** One short line under the package's name — "" when there is nothing worth saying (no schedule
  *  restriction and no absolute bound at all, i.e. a fully open-ended package). */
-function scheduleSummary(p: PackageRow): string {
+function scheduleSummary(p: PackageRow, t: (key: string) => string): string {
   const parts: string[] = [];
+  const sep = t('packages.listSeparator');
+  const days = weekdays(t);
   if (p.recurrence === 'weekly' && p.recurrence_weekdays?.length) {
-    parts.push('كل ' + p.recurrence_weekdays.map(
-      (w) => WEEKDAYS.find((x) => x.value === w)?.label ?? '').join('، '));
+    parts.push(tf(t, 'packages.schedule.every', {
+      days: p.recurrence_weekdays.map((w) => days.find((x) => x.value === w)?.label ?? '').join(sep),
+    }));
   } else if (p.recurrence === 'monthly' && p.recurrence_days_of_month?.length) {
-    parts.push('أيام ' + p.recurrence_days_of_month.join('، ') + ' من كل شهر');
+    parts.push(tf(t, 'packages.schedule.monthlyDays', { days: p.recurrence_days_of_month.join(sep) }));
   } else if (p.recurrence === 'yearly' && p.recurrence_yearly_from && p.recurrence_yearly_to) {
-    parts.push(`من ${p.recurrence_yearly_from} إلى ${p.recurrence_yearly_to} كل سنة`);
+    parts.push(tf(t, 'packages.schedule.yearlyRange',
+      { from: p.recurrence_yearly_from, to: p.recurrence_yearly_to }));
   }
-  if (p.starts_at) parts.push('من ' + dateInputValue(p.starts_at));
-  if (p.ends_at) parts.push('حتى ' + dateInputValue(p.ends_at));
+  if (p.starts_at) parts.push(tf(t, 'packages.schedule.from', { date: dateInputValue(p.starts_at) }));
+  if (p.ends_at) parts.push(tf(t, 'packages.schedule.until', { date: dateInputValue(p.ends_at) }));
   return parts.join(' — ');
 }
 
@@ -135,6 +148,7 @@ function pointsSumFor(ids: string[], earn: EarnSettings | null | undefined): num
 }
 
 export function PackagesTab({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [params, setParams] = useSearchParams();
   const [packages, setPackages] = useState<PackageRow[] | null | undefined>(undefined);
   const [services, setServices] = useState<ServiceLite[] | null | undefined>(undefined);
@@ -290,7 +304,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
       setImages((m) => { const n = { ...m }; delete n[id]; return n; });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر رفع الصورة الآن — حاول مجدداً.');
+      setError(e instanceof Error ? e.message : t('packages.uploadFailed'));
     } finally {
       setSaving(false);
     }
@@ -320,7 +334,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
       let id = draft.id;
       if (id === null) {
         const create = action(catalog, 'operations.create_package');
-        if (!create) throw new Error('لا تملك صلاحية إنشاء باقة');
+        if (!create) throw new Error(t('packages.noPermCreate'));
         const created = await call<{ id: string }>(session, create, {
           name: draft.name.trim(), service_ids: draft.serviceIds, price_minor: priceMinor,
           source: draft.source, source_service_ids: draft.sourceServiceIds,
@@ -329,7 +343,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
         id = created.id;
       } else {
         const patch = action(catalog, 'operations.update_package');
-        if (!patch) throw new Error('لا تملك صلاحية تعديل باقة');
+        if (!patch) throw new Error(t('packages.noPermEdit'));
         await call(session, patch, {
           id, name: draft.name.trim(), service_ids: draft.serviceIds, price_minor: priceMinor,
           description: draft.description.trim(), ...schedule,
@@ -343,7 +357,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
       setDraft(null);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر حفظ الباقة الآن — حاول مجدداً.');
+      setError(e instanceof Error ? e.message : t('packages.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -357,7 +371,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
       await call(session, patch, { id: p.id, active: !p.active });
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر الحفظ الآن.');
+      setError(e instanceof Error ? e.message : t('packages.toggleFailed'));
     } finally {
       setSaving(false);
     }
@@ -391,18 +405,18 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
           باقات بعد» to a shop whose read simply failed. Told apart here so the sentence he gets
           matches what actually happened. */}
       {packages === null || services === null ? (
-        <p role="alert" className="text-sm text-danger">تعذّرت قراءة الباقات أو الخدمات — حاول مجدداً.</p>
+        <p role="alert" className="text-sm text-danger">{t('packages.readFailed')}</p>
       ) : (packages ?? []).length === 0 ? (
         <EmptyState
           icon={<Boxes size={22} />}
-          title="لا توجد باقات بعد"
-          description="اجمع خدمتين أو أكثر بسعر واحد ونقاط واحدة — تُحجز وتُسجَّل كأنها خدمة مستقلة بذاتها."
-          action={canManage ? <Button onClick={openCreate}><Plus size={16} /> أنشئ باقتك الأولى</Button> : undefined}
+          title={t('packages.emptyTitle')}
+          description={t('packages.emptyDesc')}
+          action={canManage ? <Button onClick={openCreate}><Plus size={16} /> {t('packages.createFirst')}</Button> : undefined}
         />
       ) : (
         <>
           {canManage ? (
-            <Button className="self-start" onClick={openCreate}><Plus size={16} /> باقة جديدة</Button>
+            <Button className="self-start" onClick={openCreate}><Plus size={16} /> {t('packages.newPackage')}</Button>
           ) : null}
           {/* REDESIGNED CARD (this session): the flat bordered box read as an afterthought next
               to the rest of the console's own premium chip/gradient language (see AppShell's own
@@ -452,19 +466,19 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                     <span className="font-semibold">{p.name}</span>
                     <span className="text-sm text-text-secondary">
                       {riyalsLabel(p.price_minor)}
-                      {(p.person_count ?? 1) > 1 ? ` · لِـ${p.person_count} أشخاص` : ''}
+                      {(p.person_count ?? 1) > 1 ? tf(t, 'packages.personCount', { n: p.person_count ?? 1 }) : ''}
                     </span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {p.source === 'suggested' ? (
                       <span className="flex items-center gap-1">
-                        <Badge tone="info">من اقتراح محلّي</Badge>
+                        <Badge tone="info">{t('packages.suggestedBadge')}</Badge>
                         <AssistantHint session={session} anchor="services.packageSuggested" />
                       </span>
                     ) : null}
                     {p.active && p.offerable_now === false ? (
                       <span className="flex items-center gap-1">
-                        <Badge tone="warning">غير مفعّلة اليوم</Badge>
+                        <Badge tone="warning">{t('packages.notOfferableBadge')}</Badge>
                         <AssistantHint session={session} anchor="services.packageNotOfferable" />
                       </span>
                     ) : null}
@@ -473,8 +487,8 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 {p.description ? (
                   <p className="relative line-clamp-2 ps-2 text-xs text-text-secondary">{p.description}</p>
                 ) : null}
-                {scheduleSummary(p) ? (
-                  <span className="relative ps-2 text-xs text-text-muted">{scheduleSummary(p)}</span>
+                {scheduleSummary(p, t) ? (
+                  <span className="relative ps-2 text-xs text-text-muted">{scheduleSummary(p, t)}</span>
                 ) : null}
                 <div className="relative flex flex-wrap gap-1 ps-2">
                   {p.service_ids.map((sid) => (
@@ -483,11 +497,11 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 </div>
                 <div className="relative mt-1 flex items-center justify-between gap-2 ps-2">
                   {canManage ? (
-                    <Button variant="outline" size="sm" onClick={() => openEdit(p)}>تعديل</Button>
+                    <Button variant="outline" size="sm" onClick={() => openEdit(p)}>{t('packages.edit')}</Button>
                   ) : <span />}
                   {canManage ? (
                     <Toggle checked={p.active} onChange={() => toggleActive(p)}
-                           ariaLabel={p.active ? 'إيقاف الباقة' : 'تفعيل الباقة'} />
+                           ariaLabel={p.active ? t('packages.pause') : t('packages.resume')} />
                   ) : null}
                 </div>
               </div>
@@ -498,27 +512,27 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
       )}
 
       <Modal open={!!draft} onClose={() => setDraft(null)}
-            title={draft?.id ? 'تعديل الباقة' : 'باقة جديدة'}
-            subtitle="السعر والنقاط دائماً من عندك — لا نحسبهما من مجموع الخدمات.">
+            title={draft?.id ? t('packages.modal.titleEdit') : t('packages.modal.titleNew')}
+            subtitle={t('packages.modal.subtitle')}>
         {draft ? (
           <div className="flex flex-col gap-4">
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium">اسم الباقة</span>
+              <span className="text-sm font-medium">{t('packages.form.name')}</span>
               <input
                 autoFocus
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                placeholder="مثال: باقة الصيانة الشاملة"
+                placeholder={t('packages.form.namePlaceholder')}
                 className="h-10 rounded-lg bg-surface-2 px-3"
               />
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium">وصف قصير (اختياري)</span>
+              <span className="text-sm font-medium">{t('packages.form.description')}</span>
               <input
                 value={draft.description}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                placeholder="وصف قصير يستخدمه الذكاء الاصطناعي بالواتساب"
+                placeholder={t('packages.form.descriptionPlaceholder')}
                 maxLength={300}
                 className="h-10 rounded-lg bg-surface-2 px-3"
               />
@@ -526,7 +540,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
             {draft.id && action(catalog, 'operations.upload_package_image') ? (
               <div className="flex flex-col gap-1">
-                <span className="text-sm font-medium">صورة الباقة (اختياري)</span>
+                <span className="text-sm font-medium">{t('packages.form.image')}</span>
                 <div className="flex items-center gap-3">
                   <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-2 text-text-muted">
                     {images[draft.id] ? (
@@ -538,7 +552,8 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                       action that empties `image_key` on purpose. */}
                   <label className="flex cursor-pointer items-center gap-1 text-sm text-text-secondary">
                     <Upload size={14} aria-hidden />
-                    {packages?.find((x) => x.id === draft.id)?.has_image ? 'استبدال الصورة' : 'رفع صورة'}
+                    {packages?.find((x) => x.id === draft.id)?.has_image
+                      ? t('packages.form.replaceImage') : t('packages.form.uploadImage')}
                     <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                           onChange={(e) => {
                             const f = e.target.files?.[0];
@@ -551,7 +566,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium">
-                الخدمات ({draft.serviceIds.length} مُختارة — خدمتان على الأقل)
+                {tf(t, 'packages.form.services', { n: draft.serviceIds.length })}
               </span>
               <div className="grid max-h-52 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-border-subtle p-2">
                 {(services ?? []).map((s) => {
@@ -579,7 +594,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
             <div className="grid grid-cols-2 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium">السعر (ريال)</span>
+                <span className="text-sm font-medium">{t('packages.form.price')}</span>
                 <input
                   value={draft.priceText} inputMode="decimal"
                   onChange={(e) => setDraft({ ...draft, priceText: e.target.value })}
@@ -588,7 +603,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium">النقاط</span>
+                <span className="text-sm font-medium">{t('packages.form.points')}</span>
                 <input
                   value={draft.pointsText} inputMode="numeric"
                   onChange={(e) => setDraft({ ...draft, pointsText: e.target.value })}
@@ -597,7 +612,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
                 {draft.serviceIds.length >= 2 && Number(draft.pointsText) !== suggestedPoints ? (
                   <button type="button" className="text-start text-xs text-text-secondary underline"
                          onClick={() => setDraft({ ...draft, pointsText: String(suggestedPoints) })}>
-                    استخدم مجموع نقاط الخدمات ({suggestedPoints})
+                    {tf(t, 'packages.form.useSuggestedPoints', { n: suggestedPoints })}
                   </button>
                 ) : null}
               </label>
@@ -605,7 +620,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
             <label className="flex flex-col gap-1">
               <span className="flex items-center gap-1 text-sm font-medium">
-                لعدد أشخاص (اختياري — وصفي فقط)
+                {t('packages.form.personCount')}
                 <AssistantHint session={session} anchor="services.packagePersonCount" />
               </span>
               <input
@@ -617,19 +632,19 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
             <div className="flex flex-col gap-2 rounded-lg border border-border-subtle p-3">
               <span className="flex items-center gap-1 text-sm font-medium">
-                جدولة الباقة
+                {t('packages.form.scheduleTitle')}
                 <AssistantHint session={session} anchor="services.packageSchedule" />
               </span>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs text-text-secondary">تبدأ من (اختياري)</span>
+                  <span className="text-xs text-text-secondary">{t('packages.form.startsAt')}</span>
                   <input type="date" value={draft.startsAt}
                         onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })}
                         className="h-10 rounded-lg bg-surface-2 px-3" />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs text-text-secondary">حتى (اختياري)</span>
+                  <span className="text-xs text-text-secondary">{t('packages.form.endsAt')}</span>
                   <input type="date" value={draft.endsAt}
                         onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })}
                         className="h-10 rounded-lg bg-surface-2 px-3" />
@@ -637,7 +652,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
               </div>
 
               <div className="flex flex-wrap gap-1">
-                {RECURRENCE_OPTIONS.map((r) => (
+                {recurrenceOptions(t).map((r) => (
                   <button key={r.value} type="button"
                          onClick={() => setDraft({ ...draft, recurrence: r.value })}
                          className={
@@ -653,7 +668,7 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
 
               {draft.recurrence === 'weekly' ? (
                 <div className="flex flex-wrap gap-1">
-                  {WEEKDAYS.map((w) => {
+                  {weekdays(t).map((w) => {
                     const checked = draft.weekdays.includes(w.value);
                     return (
                       <button key={w.value} type="button"
@@ -700,13 +715,13 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
               {draft.recurrence === 'yearly' ? (
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs text-text-secondary">من (يوم وشهر)</span>
+                    <span className="text-xs text-text-secondary">{t('packages.form.yearlyFrom')}</span>
                     <input type="date" value={draft.yearlyFrom}
                           onChange={(e) => setDraft({ ...draft, yearlyFrom: e.target.value })}
                           className="h-10 rounded-lg bg-surface-2 px-3" />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs text-text-secondary">إلى (يوم وشهر)</span>
+                    <span className="text-xs text-text-secondary">{t('packages.form.yearlyTo')}</span>
                     <input type="date" value={draft.yearlyTo}
                           onChange={(e) => setDraft({ ...draft, yearlyTo: e.target.value })}
                           className="h-10 rounded-lg bg-surface-2 px-3" />
@@ -715,13 +730,13 @@ export function PackagesTab({ session, catalog }: { session: Session; catalog: C
               ) : null}
 
               {!scheduleValid ? (
-                <span className="text-xs text-danger">أكمل تفاصيل الجدولة، أو اخترها «بلا جدولة».</span>
+                <span className="text-xs text-danger">{t('packages.form.scheduleIncomplete')}</span>
               ) : null}
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setDraft(null)}>إلغاء</Button>
-              <Button disabled={!canSave || saving} onClick={save}>حفظ</Button>
+              <Button variant="ghost" onClick={() => setDraft(null)}>{t('packages.form.cancel')}</Button>
+              <Button disabled={!canSave || saving} onClick={save}>{t('packages.form.save')}</Button>
             </div>
           </div>
         ) : null}

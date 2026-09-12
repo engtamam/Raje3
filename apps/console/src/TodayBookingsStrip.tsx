@@ -20,6 +20,8 @@ import {
   sentenceFor, type FieldOperator,
 } from './api';
 import type { Session } from './session';
+import { useOperatorI18n } from './operator-i18n';
+import './today-bookings-strip-i18n';
 
 export interface TodayBookingsStripProps {
   session: Session;
@@ -31,14 +33,15 @@ function todayLocal(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
-function timeOf(epoch: number): string {
+function timeOf(epoch: number, t: (key: string) => string): string {
   const d = new Date(epoch * 1000);
   const h = d.getHours();
   const h12 = h % 12 || 12;
-  return `${h12}:${String(d.getMinutes()).padStart(2, '0')} ${h >= 12 ? 'م' : 'ص'}`;
+  return `${h12}:${String(d.getMinutes()).padStart(2, '0')} ${h >= 12 ? t('todayBookings.pm') : t('todayBookings.am')}`;
 }
 
 export function TodayBookingsStrip({ session, branchId, services }: TodayBookingsStripProps) {
+  const { t } = useOperatorI18n();
   // undefined = «not loaded yet» (nothing rendered); null = «the read failed» — distinct from an
   // ordinary empty day, because an empty strip on a failed read reads as «nobody is coming», and
   // an operator told that stops chasing the people who actually are.
@@ -61,8 +64,8 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
   }, [staff]);
   const serviceNameOf = useMemo(() => {
     const m = new Map(services.map((s) => [s.id, s.name]));
-    return (ids: string[]) => ids.map((id) => m.get(id) || id).join('، ');
-  }, [services]);
+    return (ids: string[]) => ids.map((id) => m.get(id) || id).join(t('todayBookings.listSeparator'));
+  }, [services, t]);
 
   const sorted = useMemo(
     () => (rows ?? []).slice().sort((a, b) => a.starts_at - b.starts_at),
@@ -74,10 +77,10 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
     try {
       await attendBooking(session, b.id);
       setRows((cur) => (cur ?? []).filter((x) => x.id !== b.id));
-      setNote('فُتحت الزيارة ✓');
+      setNote(t('todayBookings.attended'));
       window.setTimeout(() => setNote(''), 2500);
     } catch (e) {
-      setNote(sentenceFor(e, 'تعذّر فتح الزيارة.'));
+      setNote(sentenceFor(e, t('todayBookings.attendFailed')));
       window.setTimeout(() => setNote(''), 4000);
     } finally {
       setBusy('');
@@ -89,7 +92,7 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
   // fine and genuinely has no bookings still renders nothing (see below).
   if (rows === null) {
     return (
-      <p className="mb-3 text-sm text-danger">تعذّرت قراءة حجوزات اليوم.</p>
+      <p className="mb-3 text-sm text-danger">{t('todayBookings.readFailed')}</p>
     );
   }
 
@@ -106,7 +109,7 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
           <div key={b.id}
               className="flex shrink-0 items-center gap-2 rounded-2xl bg-surface-1 px-3 py-2 shadow-sm">
             <div className="flex flex-col leading-tight">
-              <span className="text-xs font-semibold tabular-nums">{timeOf(b.starts_at)}</span>
+              <span className="text-xs font-semibold tabular-nums">{timeOf(b.starts_at, t)}</span>
               <span className="text-xs text-text-secondary">
                 {nameOf(b.operator_id)} · {serviceNameOf(b.service_ids) || '—'}
               </span>
@@ -115,7 +118,7 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
               type="button"
               disabled={busy === b.id}
               onClick={() => attend(b)}
-              aria-label="حضر"
+              aria-label={t('todayBookings.attend')}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft disabled:opacity-50"
             >
               <Check size={16} aria-hidden />

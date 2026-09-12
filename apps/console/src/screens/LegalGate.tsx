@@ -24,6 +24,8 @@ import { AGREED_KEY } from '../auth';
 import { action, call, type Catalog } from '../catalog';
 import { announceExpiry } from '../expired';
 import type { Session } from '../session';
+import { useOperatorI18n } from '../operator-i18n';
+import './legal-gate-i18n';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
 
@@ -34,6 +36,7 @@ export function LegalGate({
   catalog: Catalog;
   children: ReactNode;
 }) {
+  const { t } = useOperatorI18n();
   const [outstanding, setOutstanding] = useState<OutstandingDoc[] | null | undefined>(undefined);
 
   const load = useCallback(async () => {
@@ -128,8 +131,8 @@ export function LegalGate({
         // through a gate that is still shut.
         onDone={() => { load().then(setOutstanding).catch(() => setOutstanding(null)); }}
         mapError={(e) => (e instanceof Error && e.message !== 'accept'
-          ? 'تعذّر حفظ الموافقة. حاول مرة أخرى.'
-          : 'الموافقة غير متاحة لحسابك — تواصل مع مالك الحساب.')}
+          ? t('legalGate.error.saveFailed')
+          : t('legalGate.error.notAvailable'))}
       />
     </div>
   );

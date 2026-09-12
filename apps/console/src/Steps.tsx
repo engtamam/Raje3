@@ -26,6 +26,8 @@
  * «تسجيل زيارة», which reports «لا عروض ولا نقاط» rather than silently skipping.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useOperatorI18n } from './operator-i18n';
+import './steps-i18n';
 
 export interface Step {
   id: string;
@@ -84,6 +86,7 @@ function useFittedHeight() {
 }
 
 export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
+  const { t } = useOperatorI18n();
   const live = steps.filter((s) => s.when !== false);
   const [at, setAt] = useState(0);
   const start = useRef<number | null>(null);
@@ -176,7 +179,7 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           type="button"
           onClick={() => go(-1)}
           disabled={at === 0}
-          aria-label="السابق"
+          aria-label={t('steps.previous')}
           className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-2 text-lg transition-transform duration-100 active:scale-90 disabled:opacity-30 disabled:active:scale-100"
         >
           ▸
@@ -188,7 +191,7 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           type="button"
           onClick={() => go(1)}
           disabled={last}
-          aria-label="التالي"
+          aria-label={t('steps.next')}
           className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent text-lg text-white transition-transform duration-100 active:scale-90 disabled:opacity-30 disabled:active:scale-100"
         >
           ◂

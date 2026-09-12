@@ -24,6 +24,8 @@ import { AssistantChat } from '../AssistantChat';
 import { isLoading, isReady, type Loading } from '../loading';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { useOperatorI18n } from '../operator-i18n';
+import './support-i18n';
 
 const CHAT_ENABLED = () => import.meta.env.VITE_ASSISTANT_CHAT_ENABLED === 'true';
 
@@ -38,6 +40,7 @@ const STATUS_TONE: Record<string, 'danger' | 'warning' | 'info' | 'neutral'> = {
 };
 
 export function SupportScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [tickets, setTickets] = useState<Loading<Ticket[]>>();
   const [error, setError] = useState('');
   // «خدمة العملاء» IS THE DEFAULT WHEN IT EXISTS — self-serve first, the same ordering the product
@@ -52,23 +55,23 @@ export function SupportScreen({ session, catalog }: { session: Session; catalog:
     if (!mineAction) return;
     call<{ tickets: Ticket[] }>(session, mineAction)
       .then((r) => setTickets(r.tickets))
-      .catch(() => setError('تعذّرت قراءة تذاكرك السابقة.'));
+      .catch(() => setError(t('support.loadFailed')));
   };
   useEffect(load, [session, catalog]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader icon={LifeBuoy} title="الدعم الفني" />
+      <PageHeader icon={LifeBuoy} title={t('support.title')} />
 
       {CHAT_ENABLED() ? (
         <Segmented
           className="grid w-full grid-cols-2 gap-1 [&>button]:w-full [&>button]:truncate"
-          ariaLabel="أقسام الدعم"
+          ariaLabel={t('support.tabsAriaLabel')}
           value={tab}
           onChange={(v) => setTab(v as typeof tab)}
           options={[
-            { value: 'chat', label: 'خدمة العملاء' },
-            { value: 'tickets', label: 'الدعم الفني' },
+            { value: 'chat', label: t('support.tab.chat') },
+            { value: 'tickets', label: t('support.tab.tickets') },
           ]}
         />
       ) : null}
@@ -82,22 +85,22 @@ export function SupportScreen({ session, catalog }: { session: Session; catalog:
           {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
 
           {isLoading(tickets) ? (
-            <Waiting what="تذاكرك" />
+            <Waiting what={t('support.waitingTickets')} />
           ) : isReady(tickets) ? (
             tickets.length === 0 ? (
-              <EmptyState title="لا تذاكر بعد" description="أي مشكلة تواجهها تظهر هنا فور رفعها." />
+              <EmptyState title={t('support.emptyTitle')} description={t('support.emptyDesc')} />
             ) : (
               <ul className="flex flex-col gap-2">
-                {tickets.map((t, i) => (
-                  <li key={t.id ?? i}
+                {tickets.map((tk, i) => (
+                  <li key={tk.id ?? i}
                      className="flex items-center justify-between gap-3 rounded-card bg-surface-1 px-4 py-3 shadow-sm">
                     <div className="flex min-w-0 flex-col">
-                      <span className="truncate font-medium">{t.subject || t.type || 'تذكرة'}</span>
-                      {t.body ? <span className="truncate text-sm text-text-secondary">{t.body}</span> : null}
+                      <span className="truncate font-medium">{tk.subject || tk.type || t('support.defaultTicketTitle')}</span>
+                      {tk.body ? <span className="truncate text-sm text-text-secondary">{tk.body}</span> : null}
                     </div>
-                    {t.status ? (
+                    {tk.status ? (
                       <span className="flex items-center gap-1">
-                        <Badge tone={STATUS_TONE[t.status.toLowerCase()] ?? 'neutral'}>{t.status}</Badge>
+                        <Badge tone={STATUS_TONE[tk.status.toLowerCase()] ?? 'neutral'}>{tk.status}</Badge>
                         <AssistantHint anchor="support.ticket_status" session={session} />
                       </span>
                     ) : null}
@@ -115,6 +118,7 @@ export function SupportScreen({ session, catalog }: { session: Session; catalog:
 function NewTicketForm({ session, openAction, onSent }: {
   session: Session; openAction: NonNullable<ReturnType<typeof action>>; onSent: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const [type, setType] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -125,7 +129,7 @@ function NewTicketForm({ session, openAction, onSent }: {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!type.trim() || !subject.trim()) {
-      setError('اكتب نوع المشكلة وعنوانها على الأقل.');
+      setError(t('support.form.validation'));
       return;
     }
     setBusy(true); setError('');
@@ -135,7 +139,7 @@ function NewTicketForm({ session, openAction, onSent }: {
       onSent();
       setTimeout(() => setSent(false), 3000);
     } catch {
-      setError('تعذّر رفع التذكرة. حاول مرة أخرى.');
+      setError(t('support.form.submitFailed'));
     } finally {
       setBusy(false);
     }
@@ -143,30 +147,30 @@ function NewTicketForm({ session, openAction, onSent }: {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 rounded-card bg-surface-1 p-5 shadow-sm">
-      <h2 className="text-lg">تذكرة جديدة</h2>
+      <h2 className="text-lg">{t('support.form.title')}</h2>
 
-      <Field label="نوع المشكلة" required htmlFor="sup-type">
+      <Field label={t('support.form.typeLabel')} required htmlFor="sup-type">
         <Input id="sup-type" value={type} onChange={(e) => { setType(e.target.value); setError(''); }}
-              placeholder="مثال: مشكلة بالفوترة، خلل تقني" />
+              placeholder={t('support.form.typePlaceholder')} />
       </Field>
 
-      <Field label="العنوان" required htmlFor="sup-subject">
+      <Field label={t('support.form.subjectLabel')} required htmlFor="sup-subject">
         <Input id="sup-subject" value={subject}
               onChange={(e) => { setSubject(e.target.value); setError(''); }}
-              placeholder="عنوان قصير للمشكلة" />
+              placeholder={t('support.form.subjectPlaceholder')} />
       </Field>
 
-      <Field label="التفاصيل" htmlFor="sup-body">
+      <Field label={t('support.form.bodyLabel')} htmlFor="sup-body">
         <Textarea id="sup-body" rows={4} value={body} onChange={(e) => setBody(e.target.value)}
-                 placeholder="اشرح المشكلة بالتفصيل — اختياري" />
+                 placeholder={t('support.form.bodyPlaceholder')} />
       </Field>
 
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-      {sent ? <p className="text-sm text-success">رُفعت التذكرة — فريق الدعم سيتواصل معك.</p> : null}
+      {sent ? <p className="text-sm text-success">{t('support.form.sent')}</p> : null}
 
       <Button type="submit" disabled={busy || !type.trim() || !subject.trim()}
              className="flex items-center justify-center gap-2">
-        <Send size={16} aria-hidden /> {busy ? 'جارٍ الرفع…' : 'رفع التذكرة'}
+        <Send size={16} aria-hidden /> {busy ? t('support.form.sending') : t('support.form.submit')}
       </Button>
     </form>
   );

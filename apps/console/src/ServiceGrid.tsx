@@ -15,6 +15,8 @@
  * ومنتجاتي» screen displays by), never recomputed here.
  */
 import type { CatalogueService } from './api';
+import { useOperatorI18n } from './operator-i18n';
+import './service-grid-i18n';
 
 export interface ServiceGridProps {
   services: CatalogueService[];
@@ -41,6 +43,7 @@ export interface ServiceGridProps {
 export function ServiceGrid({
   services, selected, onToggle, offered, redeemable, points = {},
 }: ServiceGridProps) {
+  const { t } = useOperatorI18n();
   return (
     /* THREE ACROSS ON A PHONE AT 64px, NOT 96. Sixteen tiles at h-24 filled a phone screen
        entirely — the operator could not see the customer field at all without scrolling past
@@ -71,8 +74,8 @@ export function ServiceGrid({
                 second, deliberate tap — «الصمت لا يصرف». */}
             {(offered?.has(s.id) || redeemable?.has(s.id)) ? (
               <span className="absolute end-1 top-1 flex gap-0.5 text-xs leading-none">
-                {offered?.has(s.id) ? <span title="عليه عرض">🏷</span> : null}
-                {redeemable?.has(s.id) ? <span title="يمكن استبداله بنقاطه">⭐</span> : null}
+                {offered?.has(s.id) ? <span title={t('serviceGrid.offered')}>🏷</span> : null}
+                {redeemable?.has(s.id) ? <span title={t('serviceGrid.redeemable')}>⭐</span> : null}
               </span>
             ) : null}
             {s.icon ? <span className="text-base leading-none">{s.icon}</span> : null}

@@ -18,6 +18,8 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { DocBlocksView, type DocBlock } from '@base-ui/components/DocBlockRenderer';
 import docs from 'virtual:legal-docs';
+import { translate } from '../operator-i18n';
+import './legal-i18n';
 
 type Locale = 'ar' | 'en';
 
@@ -38,12 +40,16 @@ export function Legal() {
   const { slug } = useParams<{ slug: string }>();
   const [locale, setLocale] = useState<Locale>('ar');
   const doc = docs.find((d) => d.slug === slug);
+  // NO SESSION HERE (a signed-out visitor, or a shop's own customer) — `useOperatorI18n()` requires
+  // `<OperatorI18nProvider>`, which this route sits outside of. `translate()` is the same
+  // dictionary lookup, keyed directly by this screen's own `locale` state.
+  const t = (key: string) => translate(locale, key);
 
   return (
     <main dir="rtl" className="mx-auto max-w-3xl px-6 py-10 bg-surface-0 min-h-dvh">
       <div className="flex items-center justify-between">
         <Link to="../.." relative="path" className="text-sm text-text-secondary underline">
-          رجوع
+          {t('legal.back')}
         </Link>
         {doc && (
           <button
@@ -51,15 +57,15 @@ export function Legal() {
             className="text-sm text-text-secondary underline"
             onClick={() => setLocale((l) => (l === 'ar' ? 'en' : 'ar'))}
           >
-            {locale === 'ar' ? 'English' : 'العربية'}
+            {locale === 'ar' ? t('legal.switchToEnglish') : t('legal.switchToArabic')}
           </button>
         )}
       </div>
       {!doc ? (
         <div className="mt-8">
-          <h1 className="text-xl font-semibold">الوثيقة غير موجودة</h1>
+          <h1 className="text-xl font-semibold">{t('legal.notFoundTitle')}</h1>
           <p className="mt-2 text-text-secondary">
-            الوثائق المتاحة:{' '}
+            {t('legal.availableDocs')}{' '}
             {docs.map((d) => (
               <Link key={d.slug} to={`../${d.slug}`} relative="path" className="underline mx-1">
                 {d.title.ar}
@@ -77,7 +83,7 @@ export function Legal() {
               blocks={doc.blocks as DocBlock[]}
               locale={locale}
               resolve={resolverFor(doc.values, locale)}
-              unfilledLabel="لم تُستكمل بعد"
+              unfilledLabel={t('legal.unfilled')}
             />
           </div>
         </article>

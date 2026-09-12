@@ -33,6 +33,8 @@ import { Button } from '../rj-ui/Button';
 import { Lock, Plus } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './text-editor-i18n';
 
 export interface Slot { id: string; label: string; sample?: string }
 
@@ -141,6 +143,7 @@ export function TextEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useOperatorI18n();
   const box = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState<Draft>({ html: toHtml(withoutTail(body ?? '', mandatory), slots) });
   const [saving, setSaving] = useState(false);
@@ -191,7 +194,7 @@ export function TextEditor({
     const a = action(catalog, 'reminders.write_template');
     if (!el || !a) return;
     const { body, fills } = readBack(el);
-    if (!body.trim()) { setError('اكتب نصّ الرسالة أولاً.'); return; }
+    if (!body.trim()) { setError(t('textEditor.error.emptyBody')); return; }
     setSaving(true); setError('');
     try {
       const out = await call<{ ok?: boolean; error?: string }>(
@@ -203,7 +206,7 @@ export function TextEditor({
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+      setError(e instanceof Error ? e.message : t('textEditor.error.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -211,12 +214,12 @@ export function TextEditor({
 
   return (
     <Modal open onClose={onClose} size="lg"
-           title={`نصّك لرسالة «${label}»`}
-           subtitle="اكتب كما تحب، وأضف الفراغات بنقرة — نحن نرقّمها.">
+           title={tf(t, 'textEditor.title', { label })}
+           subtitle={t('textEditor.subtitle')}>
       <div className="flex flex-col gap-4">
         {/* ── the palette: only what THIS message can fill ─────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-text-secondary">أضف:</span>
+          <span className="text-xs text-text-secondary">{t('textEditor.addLabel')}</span>
           {slots.map((s) => (
             <button
               key={s.id}
@@ -235,7 +238,7 @@ export function TextEditor({
           contentEditable
           role="textbox"
           aria-multiline="true"
-          aria-label="نصّ الرسالة"
+          aria-label={t('textEditor.bodyAriaLabel')}
           dir="rtl"
           onInput={refresh}
           onBlur={refresh}
@@ -250,8 +253,8 @@ export function TextEditor({
             mid-sentence, which the save then refuses. */}
         {mandatory ? (
           <div className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border-subtle bg-surface-2 px-3 py-2">
-            <span className="text-xs text-text-secondary">وفي آخر الرسالة دائماً:</span>
-            <span className={CHIP} aria-label={`${mandatory.label} — مقفل`}>{mandatory.label}</span>
+            <span className="text-xs text-text-secondary">{t('textEditor.mandatoryLine')}</span>
+            <span className={CHIP} aria-label={tf(t, 'textEditor.mandatoryAriaLabel', { label: mandatory.label })}>{mandatory.label}</span>
             <Lock size={12} aria-hidden className="text-text-secondary" />
             <span className="text-xs text-text-secondary">{mandatory.note}</span>
           </div>
@@ -259,7 +262,7 @@ export function TextEditor({
 
         {/* ── what the customer reads ──────────────────────────────────────────────────── */}
         <section className="flex flex-col gap-2">
-          <h3 className="text-xs text-text-secondary">كما تصل عميلك</h3>
+          <h3 className="text-xs text-text-secondary">{t('textEditor.previewTitle')}</h3>
           {/* WHATSAPP'S OWN SENT-BUBBLE GREEN, FIXED — same literal colours as MessagePreview.tsx's
               own `Bubble` and rj-ui/WhatsAppPreview.tsx's phone mockup, never the theme's
               `bg-surface-2` (owner's own instruction: "خلي المثال ثابت في رسالة خضراء مثل
@@ -275,11 +278,11 @@ export function TextEditor({
           {/* SAID BEFORE HE PRESSES, not after. The wait is Meta's and it is a day; an owner who
               learns that afterwards concludes we are slow. */}
           <span className="text-xs text-text-secondary">
-            يُحفظ عندك أولاً — ولا يصل عميلك حتى يعتمده واتساب.
+            {t('textEditor.approvalNote')}
           </span>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-            <Button onClick={save} disabled={saving}>حفظ</Button>
+            <Button variant="ghost" onClick={onClose}>{t('textEditor.cancel')}</Button>
+            <Button onClick={save} disabled={saving}>{t('textEditor.save')}</Button>
           </div>
         </div>
       </div>

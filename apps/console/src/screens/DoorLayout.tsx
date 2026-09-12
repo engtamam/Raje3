@@ -31,6 +31,8 @@
 import type { ReactNode } from 'react';
 import { Mark, Wordmark } from '../brand/Mark';
 import { legalUrl } from '../legal/url';
+import { useOperatorI18n } from '../operator-i18n';
+import './door-layout-i18n';
 
 /**
  * Depth from LIGHT, not from boxes. Two soft pools of the brand gold over deep navy — the near one
@@ -53,6 +55,7 @@ export function DoorLayout({ children, title, subtitle }: {
   title?: ReactNode;
   subtitle?: ReactNode;
 }) {
+  const { t } = useOperatorI18n();
   // `min-h-dvh` MOVED ONTO THE SPLIT ITSELF, not the outer column. With it on the outer wrapper
   // and `flex-1` on the split, the split only ever grew to WHATEVER ROOM WAS LEFT after the
   // footer — on any screen where the form's own content is shorter than the viewport, that meant
@@ -74,7 +77,7 @@ export function DoorLayout({ children, title, subtitle }: {
               there is no page behind it. So the mark leaves, which is where every site on earth
               puts that door. It is a plain <a> to '/' and not a router link: the landing page is
               served outside this bundle. */}
-          <a href="/" className="flex items-center gap-3 text-[#f4efe2]" aria-label="العودة إلى الصفحة الرئيسية">
+          <a href="/" className="flex items-center gap-3 text-[#f4efe2]" aria-label={t('doorLayout.backHome')}>
             <Mark size={40} />
             <Wordmark className="text-lg" />
           </a>
@@ -83,17 +86,14 @@ export function DoorLayout({ children, title, subtitle }: {
             {/* ONE SENTENCE, AND IT IS THE PRODUCT. Not a feature list — a person deciding whether
                 to sign up is deciding whether the idea is worth ten minutes, not comparing specs. */}
             <h1 className="text-4xl leading-tight tracking-tight text-[#f4efe2]">
-              {title ?? 'عملاؤك يرجعون، من نفسهم.'}
+              {title ?? t('doorLayout.heroTitle')}
             </h1>
             <p className="mt-4 text-[15px] leading-relaxed text-[#c9c2b3]">
-              {subtitle ?? (
-                'راجِع يتذكّر متى يحتاج كل عميل خدمته القادمة، ويذكّره على واتساب باسم محلك — بلا '
-                + 'أن تفتح التطبيق.'
-              )}
+              {subtitle ?? t('doorLayout.heroSubtitle')}
             </p>
           </div>
 
-          <p className="text-xs text-[#8d8778]">راجِع · السعودية</p>
+          <p className="text-xs text-[#8d8778]">{t('doorLayout.heroTag')}</p>
         </aside>
 
         <main className="flex items-center justify-center bg-surface-0 p-6">
@@ -103,7 +103,7 @@ export function DoorLayout({ children, title, subtitle }: {
             {/* And on the phone, where the hero panel does not exist, this is the ONLY mark on the
                 screen — so it carries the whole burden of saying both what this is and how to
                 leave. A dead logo on a page with no other exit is a page people abandon. */}
-            <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label="العودة إلى الصفحة الرئيسية">
+            <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label={t('doorLayout.backHome')}>
               <Mark size={32} />
               <Wordmark className="text-base" />
             </a>
@@ -120,13 +120,13 @@ export function DoorLayout({ children, title, subtitle }: {
           above) — the legal links must be reachable from here on their own. */}
       <footer className="border-t border-border-subtle bg-surface-0 px-6 py-9">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 text-sm text-text-muted">
-          <span>© راجِع — جميع الحقوق محفوظة</span>
+          <span>{t('doorLayout.copyright')}</span>
           <div className="flex flex-wrap items-center gap-4">
             <a href={legalUrl('terms')} target="_blank" rel="noreferrer" className="hover:text-text-primary">
-              الشروط
+              {t('doorLayout.terms')}
             </a>
             <a href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer" className="hover:text-text-primary">
-              الخصوصية
+              {t('doorLayout.privacy')}
             </a>
             {/* TODO: badge/link للسجل التجاري — بانتظار الرابط/الرقم الحقيقي، لا تُخترع قيمة هنا */}
           </div>

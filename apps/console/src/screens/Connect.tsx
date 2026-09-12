@@ -25,6 +25,8 @@ import { action, call, type Catalog } from '../catalog';
 import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type MetaConfig, type SdkState } from '../meta';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
+import { useOperatorI18n, tf } from '../operator-i18n';
+import './connect-i18n';
 
 /**
  * THE WHATSAPP GLYPH, INLINED — this card used to say «غير مربوط» / «اربط واتساب» with no mark
@@ -113,6 +115,7 @@ export function Connect({
   const [pin, setPin] = useState('');
   const [registering, setRegistering] = useState(false);
   const [registerNote, setRegisterNote] = useState('');
+  const { t } = useOperatorI18n();
 
   useEffect(() => {
     // FETCHED WHEN THE PANE OPENS, so the popup can be opened by the press itself — same timing
@@ -186,7 +189,7 @@ export function Connect({
         });
         onChange(answer);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'تعذّر إكمال الربط.');
+        setError(e instanceof Error ? e.message : t('connect.linkFailed'));
       } finally {
         setBusy(false);
       }
@@ -213,9 +216,9 @@ export function Connect({
       <div className="flex items-center gap-3">
         <WhatsAppMark />
         <span className="flex flex-col">
-          <span className="font-medium">{branchLabel ? `واتساب ${branchLabel}` : 'واتساب أعمالك'}</span>
+          <span className="font-medium">{branchLabel ? tf(t, 'connect.title.branch', { branch: branchLabel }) : t('connect.title.shop')}</span>
           <span className="text-xs text-text-secondary">
-            {branchLabel ? 'رقم هذا الفرع وحده — عملاؤه يراسلونه مباشرة' : 'قناة التذكيرات والحملات لعملائك'}
+            {branchLabel ? t('connect.subtitle.branch') : t('connect.subtitle.shop')}
           </span>
         </span>
         {/* ONE STATUS VOCABULARY, NOT TWO — this used to say the same fact the top summary card
@@ -225,7 +228,7 @@ export function Connect({
             rather than two different systems that happen to agree. */}
         {!isLoading(state) && !hasFailed(state) ? (
           <Badge tone={waiting ? 'warning' : connected ? 'success' : 'neutral'} className="ms-auto">
-            {waiting ? 'بانتظارنا' : connected ? 'يعمل' : 'غير مربوط'}
+            {waiting ? t('connect.status.waiting') : connected ? t('connect.status.connected') : t('connect.status.disconnected')}
           </Badge>
         ) : null}
       </div>
@@ -238,10 +241,10 @@ export function Connect({
             badge asking him to connect: so he ran the whole Embedded Signup journey again for a
             connection that was already working. */}
         {isLoading(state)
-          ? 'نقرأ حالة الربط…'
+          ? t('connect.message.loading')
           : hasFailed(state)
-            ? 'تعذّرت قراءة حالة الربط الآن — لم يتغيّر شيء في حسابك. أعد المحاولة بعد قليل.'
-            : state?.message || 'لم تبدأ الربط بعد.'}
+            ? t('connect.message.failed')
+            : state?.message || t('connect.message.notStarted')}
       </p>
 
       {error ? <p className="text-danger">{error}</p> : null}
@@ -283,14 +286,14 @@ export function Connect({
               // THE SERVER'S SENTENCE, NOT OURS. «الرمز غير صحيح» and «لا تعِد المحاولة قبل 72
               // ساعة» are different instructions, and collapsing them into one «تعذّر» is what
               // makes an owner burn his remaining attempts on a problem no attempt can fix.
-              setError(err instanceof Error ? err.message : 'تعذّر تفعيل الإرسال.');
+              setError(err instanceof Error ? err.message : t('connect.register.activateFailed'));
             } finally {
               setRegistering(false);
             }
           }}
         >
           <label className="flex flex-col gap-1 text-sm" htmlFor="wa-pin">
-            <span>رمز التحقق بخطوتين لحساب أعمالك على واتساب — 6 أرقام</span>
+            <span>{t('connect.register.pinLabel')}</span>
             <input
               id="wa-pin"
               className="rounded-input border border-border bg-surface-2 p-2 text-center tracking-widest"
@@ -304,11 +307,10 @@ export function Connect({
             />
           </label>
           <p className="text-xs text-text-secondary">
-            هذا رمزٌ تختاره أنت في إعدادات حساب أعمالك، ولا نملكه ولا نحفظه. وواتساب يسمح بعشر
-            محاولات كل 72 ساعة.
+            {t('connect.register.pinHint')}
           </p>
           <Button type="submit" disabled={registering || pin.length !== 6}>
-            {registering ? 'جارٍ التفعيل…' : 'فعّل الإرسال'}
+            {registering ? t('connect.register.activating') : t('connect.register.activate')}
           </Button>
           {registerNote ? <p className="text-sm text-text-secondary">{registerNote}</p> : null}
         </form>
@@ -324,8 +326,8 @@ export function Connect({
               const fb = metaSdk();
               if (!fb) {
                 setError(sdk === 'unconfigured'
-                  ? 'ربط واتساب غير مُفعَّل بعد — عُطلٌ لدينا لا في حسابك. تواصل معنا ونكمل معك.'
-                  : 'تعذّر فتح نافذة واتساب. تأكد من اتصالك وحاول مرة أخرى.');
+                  ? t('connect.popup.unconfigured')
+                  : t('connect.popup.openFailed'));
                 return;
               }
               // CLAIMED, BEFORE THE POPUP EVEN OPENS — see `pendingConnectBranch`'s own note. This
@@ -340,10 +342,10 @@ export function Connect({
               });
             }}
           >
-            {busy ? 'جارٍ الربط…'
-              : sdk === 'loading' ? 'نُحضّر نافذة واتساب…'
-              : sdk === 'unconfigured' ? 'تعذّر فتح الربط الآن'
-              : 'اربط واتساب'}
+            {busy ? t('connect.button.linking')
+              : sdk === 'loading' ? t('connect.button.preparing')
+              : sdk === 'unconfigured' ? t('connect.button.unconfigured')
+              : t('connect.button.link')}
           </Button>
           {/* THE REASON, NOT JUST THE REFUSAL — a disabled button can never be clicked to reach
               the sentence that used to live only inside `onClick`. «الربط غير مُفعَّل بعد» told
@@ -351,11 +353,11 @@ export function Connect({
               is the exact sentence that was stranded there, said where he can actually read it. */}
           {sdk === 'unconfigured' ? (
             <p className="text-sm text-danger">
-              عُطلٌ من عندنا، لا في حسابك — تواصل معنا ونكمل معك الربط.
+              {t('connect.unconfiguredNote')}
             </p>
           ) : (
             <p className="text-sm text-text-secondary">
-              دقائق، ولا يشترط توثيق نشاطك التجاري للبدء.
+              {t('connect.startHint')}
             </p>
           )}
         </div>
@@ -373,6 +375,7 @@ export function Connect({
  *  (`Team.tsx`'s own `ModeCard`) had a mode with nowhere to act on it.
  */
 export function ConnectByBranch({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
   const [mode, setMode] = useState<{ mode: string; available?: boolean } | null | undefined>(undefined);
   const [branches, setBranches] = useState<Loading<{ id: string; name?: string }[]>>(undefined);
   // ONE INDEPENDENT STATUS PER BRANCH — a Map, not one shared `ConnectState`, because a chain's
@@ -426,21 +429,21 @@ export function ConnectByBranch({ session, catalog }: { session: Session; catalo
   if (isDenied(branches)) {
     return (
       <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
-        لا يشمل دورك هذا القسم
+        {t('connect.byBranch.noAccess')}
       </p>
     );
   }
   if (hasFailed(branches)) {
     return (
       <p role="alert" className="rounded-card bg-surface-1 p-4 text-sm text-danger shadow-sm">
-        تعذّرت قراءة فروعك
+        {t('connect.byBranch.readFailed')}
       </p>
     );
   }
   if (!branches.length) {
     return (
       <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
-        محلّك بلا فروع بعد — أضِف فرعاً من «منشأتي» لتربط رقم واتساب له.
+        {t('connect.byBranch.noBranches')}
       </p>
     );
   }
