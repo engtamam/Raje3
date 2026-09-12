@@ -459,7 +459,11 @@ async def create(request: Request, body: CampaignIn,
         # again: the same defect pointed the other way.
         row = as_row(campaign)
         row["last_evaluated"] = now
-        until = lock_after_send(body.goal, now=now, sent=out.run.sent)
+        # SAME SETTING TICK.PY'S OWN CONTAINER WIRING READS — fixed 2026-09-12, a real gap a QA
+        # audit found: this route used to hardcode 30 days directly, agreeing with the standing
+        # path only because the setting's own default also happens to be 30.
+        until = lock_after_send(body.goal, now=now, sent=out.run.sent,
+                                lock_days=c.settings.AWARENESS_LOCK_DAYS)
         if until:
             row["locked_until"] = until
             row["state"] = "done"

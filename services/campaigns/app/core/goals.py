@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
+from app.core.tick import DEFAULT_AWARENESS_LOCK_DAYS
 
 DAY = 86400
 
@@ -209,15 +210,24 @@ def _behaviour(goal: str) -> str:
     return "تُرسَل مرة واحدة"
 
 
-def lock_after_send(goal: str, *, now: int, sent: int) -> int:
+def lock_after_send(goal: str, *, now: int, sent: int,
+                    lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS) -> int:
     """When this goal becomes available again, or 0 for no lock.
 
     ONLY IF SOMETHING WENT OUT. Locking after a run that reached nobody costs the owner a month
     for a send that never happened — and they would have no way to tell the difference.
+
+    `lock_days` DEFAULTS TO THE SAME CONSTANT THE STANDING/TICK PATH USES — fixed 2026-09-12, a
+    real gap a QA audit found: this manual-create path hardcoded `30 * DAY` directly, while
+    `tick.py`'s own standing-campaign path already reads the configurable `AWARENESS_LOCK_DAYS`
+    setting. Both agreed only by coincidence (the setting's own default is also 30) — the day an
+    operator changed AWARENESS_LOCK_DAYS, the two paths would have silently disagreed about when
+    the SAME lock reopens. The caller (the manual-create route) now passes the same setting
+    tick.py's own container wiring already reads.
     """
     if goal != "awareness" or sent <= 0:
         return 0
-    return now + 30 * DAY
+    return now + int(lock_days) * DAY
 
 
 def resolve_goal(goal: str) -> dict[str, Any]:
