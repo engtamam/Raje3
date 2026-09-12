@@ -1,5 +1,5 @@
 /**
- * «رسائلي»'s log tab used to put its top-level strip (the "أقسام الرسائل" Segmented) and its own
+ * «الحملات»'s log tab used to put its top-level strip (the "أقسام الرسائل" Segmented) and its own
  * delivery-status filter (another Segmented) directly next to each other with nothing rendered
  * between them — two radiogroups in a row, which is exactly the "شريطين تحت بعض" shape the owner
  * ruled out entirely (see ci/check_no_two_tab_strips_stack_in_one_view.py's own docstring). Every
@@ -33,7 +33,7 @@ afterEach(() => cleanup());
 const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
 
-describe('«رسائلي»\'s log tab never stacks its filter directly under the top strip', () => {
+describe('«الحملات»\'s log tab never stacks its filter directly under the top strip', () => {
   it('renders real content (the explanatory sentence) between the two radiogroups', async () => {
     render(
       <OperatorI18nProvider session={session}>
@@ -42,7 +42,7 @@ describe('«رسائلي»\'s log tab never stacks its filter directly under the
         </MemoryRouter>
       </OperatorI18nProvider>,
     );
-    fireEvent.click(screen.getByRole('radio', { name: 'السجل' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'ماذا حدث؟' }));
 
     // THE SENTENCE THAT NOW SITS BETWEEN THE TWO STRIPS — it must appear in the DOM, and it must
     // appear BEFORE the log filter's own radiogroup, not after it (a reorder that put it back

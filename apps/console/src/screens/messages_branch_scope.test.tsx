@@ -1,5 +1,5 @@
 /**
- * «رسائلي»'s delivery log must default to the rail's own «الفرع المعروض» — an owner who already
+ * «الحملات»'s delivery log must default to the rail's own «الفرع المعروض» — an owner who already
  * narrowed the whole console to one branch must not land here reading every branch's log by
  * default (BranchSwitch.tsx's own «comparing two different shops» warning), and switching the
  * rail's branch while already on this screen must re-narrow the log the same way, live.
@@ -50,11 +50,11 @@ function openLogTab(branch?: string) {
   );
   // `?tab=log` is never read on mount (only `?tab=campaigns` is special-cased) — a real click on
   // the tab itself is what actually opens it, same as an owner would.
-  fireEvent.click(screen.getByRole('radio', { name: 'السجل' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'ماذا حدث؟' }));
   return result;
 }
 
-describe('«رسائلي»\'s log tab respects the rail\'s own branch scope', () => {
+describe('«الحملات»\'s log tab respects the rail\'s own branch scope', () => {
   it('defaults the log filter to the rail\'s narrowed branch, not "كل الفروع"', async () => {
     openLogTab('b1');
     await screen.findByText('لم تخرج');   // the tab has rendered and its own effect has run

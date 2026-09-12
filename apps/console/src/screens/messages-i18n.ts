@@ -13,7 +13,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
-    'messages.title': 'رسائلي',
+    'messages.title': 'الحملات',
 
     'messages.goal.win_back': 'رجّع اللي غابوا',
     'messages.goal.reward_loyal': 'كافئ المخلصين',
@@ -117,10 +117,10 @@ registerOperatorStrings({
     'messages.switchSaveError': 'تعذّر الحفظ.',
 
     'messages.tabsAriaLabel': 'أقسام الرسائل',
-    'messages.tab.reasons': 'القوالب',
-    'messages.tab.auto': 'بانتظار الخروج',
-    'messages.tab.campaigns': 'حملاتي',
-    'messages.tab.log': 'السجل',
+    'messages.tab.reasons': 'الرسائل التلقائية',
+    'messages.tab.auto': 'قيد الإرسال',
+    'messages.tab.campaigns': 'لوحة الحملات',
+    'messages.tab.log': 'ماذا حدث؟',
 
     'messages.filter.label': 'فلترة:',
     'messages.filter.autoOnly': 'مؤتمتة فقط',
@@ -184,7 +184,7 @@ registerOperatorStrings({
     'messages.runs.summary': '{sent} وصلت · {suppressed} امتنعت',
   },
   en: {
-    'messages.title': 'My Messages',
+    'messages.title': 'Campaigns',
 
     'messages.goal.win_back': 'Bring back who left',
     'messages.goal.reward_loyal': 'Reward loyal customers',
@@ -288,10 +288,10 @@ registerOperatorStrings({
     'messages.switchSaveError': "Couldn't save.",
 
     'messages.tabsAriaLabel': 'Message sections',
-    'messages.tab.reasons': 'Templates',
-    'messages.tab.auto': 'Waiting to send',
-    'messages.tab.campaigns': 'My Campaigns',
-    'messages.tab.log': 'Log',
+    'messages.tab.reasons': 'Automatic messages',
+    'messages.tab.auto': 'In progress',
+    'messages.tab.campaigns': 'Campaign dashboard',
+    'messages.tab.log': 'What happened?',
 
     'messages.filter.label': 'Filter:',
     'messages.filter.autoOnly': 'Automated only',
@@ -355,7 +355,7 @@ registerOperatorStrings({
     'messages.runs.summary': '{sent} delivered · {suppressed} withheld',
   },
   ur: {
-    'messages.title': 'میرے پیغامات',
+    'messages.title': 'مہمات',
 
     'messages.goal.win_back': 'چلے گئے گاہک واپس لائیں',
     'messages.goal.reward_loyal': 'وفادار گاہکوں کو انعام دیں',
@@ -459,10 +459,10 @@ registerOperatorStrings({
     'messages.switchSaveError': 'محفوظ نہیں ہو سکا۔',
 
     'messages.tabsAriaLabel': 'پیغامات کے حصے',
-    'messages.tab.reasons': 'ٹیمپلیٹس',
-    'messages.tab.auto': 'بھیجنے کے منتظر',
-    'messages.tab.campaigns': 'میری مہمات',
-    'messages.tab.log': 'لاگ',
+    'messages.tab.reasons': 'خودکار پیغامات',
+    'messages.tab.auto': 'ارسال جاری',
+    'messages.tab.campaigns': 'مہم ڈیش بورڈ',
+    'messages.tab.log': 'کیا ہوا؟',
 
     'messages.filter.label': 'فلٹر:',
     'messages.filter.autoOnly': 'صرف خودکار',
@@ -526,7 +526,7 @@ registerOperatorStrings({
     'messages.runs.summary': '{sent} پہنچیں · {suppressed} روکی گئیں',
   },
   ha: {
-    'messages.title': 'Saƙonnina',
+    'messages.title': 'Kamfen',
 
     'messages.goal.win_back': 'Dawo da waɗanda suka tafi',
     'messages.goal.reward_loyal': 'Bayar da lada ga amintattun abokan ciniki',
@@ -630,10 +630,10 @@ registerOperatorStrings({
     'messages.switchSaveError': 'Ba a iya ajiyewa ba.',
 
     'messages.tabsAriaLabel': 'Sassan saƙonni',
-    'messages.tab.reasons': 'Samfura',
-    'messages.tab.auto': 'Suna jiran aikawa',
-    'messages.tab.campaigns': 'Kamfen Nawa',
-    'messages.tab.log': 'Rijista',
+    'messages.tab.reasons': 'Sakonnin atomatik',
+    'messages.tab.auto': 'Ana aikawa',
+    'messages.tab.campaigns': 'Allon kamfen',
+    'messages.tab.log': 'Me ya faru?',
 
     'messages.filter.label': 'Tacewa:',
     'messages.filter.autoOnly': 'Ta atomatik kawai',
@@ -697,7 +697,7 @@ registerOperatorStrings({
     'messages.runs.summary': '{sent} sun isa · {suppressed} an hana',
   },
   fil: {
-    'messages.title': 'Aking Mga Mensahe',
+    'messages.title': 'Mga Campaign',
 
     'messages.goal.win_back': 'Bawiin ang umalis',
     'messages.goal.reward_loyal': 'Bigyan ng reward ang loyal na customer',
@@ -801,10 +801,10 @@ registerOperatorStrings({
     'messages.switchSaveError': 'Hindi ma-save.',
 
     'messages.tabsAriaLabel': 'Mga seksyon ng mensahe',
-    'messages.tab.reasons': 'Mga Template',
-    'messages.tab.auto': 'Naghihintay ipadala',
-    'messages.tab.campaigns': 'Aking Campaign',
-    'messages.tab.log': 'Log',
+    'messages.tab.reasons': 'Awtomatikong mensahe',
+    'messages.tab.auto': 'Isinasagawa',
+    'messages.tab.campaigns': 'Campaign dashboard',
+    'messages.tab.log': 'Ano ang nangyari?',
 
     'messages.filter.label': 'Filter:',
     'messages.filter.autoOnly': 'Awtomatiko lang',

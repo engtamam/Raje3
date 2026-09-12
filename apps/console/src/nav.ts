@@ -121,7 +121,7 @@ export const SECTIONS: Section[] = [
   // apparently is not for them and does not open it again. The rail pays two extra words for a
   // trade that would otherwise think the product was not built for it.
   { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', icon: Wrench, requires: ['operations.update_service'] },
-  { service: 'reminders', id: 'messages', path: '/messages', label: 'رسائلي', icon: MessageSquare, requires: ['reminders.get_settings'] },
+  { service: 'reminders', id: 'messages', path: '/messages', label: 'الحملات', icon: MessageSquare, requires: ['reminders.get_settings'] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
   // would put a settings section in the nav of a man whose screen is one screen. The section

@@ -13,7 +13,7 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
-    'plans.section.messages': 'رسائلي', 'plans.section.points': 'نقاطي', 'plans.section.bookings': 'الحجوزات',
+    'plans.section.messages': 'الحملات', 'plans.section.points': 'نقاطي', 'plans.section.bookings': 'الحجوزات',
     'plans.section.team': 'فريقي', 'plans.section.account': 'حسابي', 'plans.section.shop': 'محلّي',
 
     'plans.limit.staffSeats.label': 'مقاعد للموظفين', 'plans.limit.staffSeats.unit': 'مقعد',
@@ -130,7 +130,7 @@ registerOperatorStrings({
     'plans.app.cancelLabel': 'إيقاف تجديد هذا التطبيق',
   },
   en: {
-    'plans.section.messages': 'My Messages', 'plans.section.points': 'My Points', 'plans.section.bookings': 'Bookings',
+    'plans.section.messages': 'Campaigns', 'plans.section.points': 'My Points', 'plans.section.bookings': 'Bookings',
     'plans.section.team': 'My Team', 'plans.section.account': 'My Account', 'plans.section.shop': 'My Shop',
 
     'plans.limit.staffSeats.label': 'Staff seats', 'plans.limit.staffSeats.unit': 'seat',
@@ -247,7 +247,7 @@ registerOperatorStrings({
     'plans.app.cancelLabel': "Cancel this app's renewal",
   },
   ur: {
-    'plans.section.messages': 'میرے پیغامات', 'plans.section.points': 'میرے پوائنٹس', 'plans.section.bookings': 'بکنگز',
+    'plans.section.messages': 'مہمات', 'plans.section.points': 'میرے پوائنٹس', 'plans.section.bookings': 'بکنگز',
     'plans.section.team': 'میری ٹیم', 'plans.section.account': 'میرا اکاؤنٹ', 'plans.section.shop': 'میری دکان',
 
     'plans.limit.staffSeats.label': 'عملے کی نشستیں', 'plans.limit.staffSeats.unit': 'نشست',
@@ -364,7 +364,7 @@ registerOperatorStrings({
     'plans.app.cancelLabel': 'اس ایپ کی تجدید روکیں',
   },
   ha: {
-    'plans.section.messages': 'Saƙonnina', 'plans.section.points': 'Makina', 'plans.section.bookings': 'Ajiya',
+    'plans.section.messages': 'Kamfen', 'plans.section.points': 'Makina', 'plans.section.bookings': 'Ajiya',
     'plans.section.team': 'Ƙungiyata', 'plans.section.account': 'Asusuna', 'plans.section.shop': 'Shagona',
 
     'plans.limit.staffSeats.label': "Wuraren ma'aikata", 'plans.limit.staffSeats.unit': 'wuri',
@@ -481,7 +481,7 @@ registerOperatorStrings({
     'plans.app.cancelLabel': "Soke sabuntawar wannan app",
   },
   fil: {
-    'plans.section.messages': 'Aking Mga Mensahe', 'plans.section.points': 'Aking Points', 'plans.section.bookings': 'Mga Booking',
+    'plans.section.messages': 'Mga Campaign', 'plans.section.points': 'Aking Points', 'plans.section.bookings': 'Mga Booking',
     'plans.section.team': 'Aking Team', 'plans.section.account': 'Aking Account', 'plans.section.shop': 'Aking Tindahan',
 
     'plans.limit.staffSeats.label': 'Mga upuan ng staff', 'plans.limit.staffSeats.unit': 'upuan',

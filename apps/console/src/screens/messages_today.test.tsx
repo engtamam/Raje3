@@ -63,7 +63,7 @@ function open() {
   );
 }
 
-describe('«رسائلي» — the status card', () => {
+describe('«الحملات» — the status card', () => {
   it('shows the three counts and the ceiling when sending is not blocked', async () => {
     todayResponse = TODAY_OK;
     open();
