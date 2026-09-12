@@ -137,7 +137,10 @@ describe('the template-status badge on the goal picker', () => {
 describe('the cross-link to «متى نرسل»', () => {
   it('offers to view/retext the message when the picked goal shares a reason', async () => {
     render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="win_back" />);
-    await waitFor(() => expect(screen.getByText('رجّع اللي غابوا')).toBeTruthy());
+    // THE TITLE NOW APPEARS TWICE (the always-visible rail's own row, AND the builder's header) —
+    // the rail no longer disappears once a goal is picked (approved mockup's persistent 3-lane
+    // layout, 2026-09-13), so this only asserts it rendered at all rather than exactly once.
+    await waitFor(() => expect(screen.getAllByText('رجّع اللي غابوا').length).toBeGreaterThan(0));
     await waitFor(() => expect(screen.getByText('عرض نص هذه الرسالة أو تعديله')).toBeTruthy());
   });
 

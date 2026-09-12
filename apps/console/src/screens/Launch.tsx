@@ -432,15 +432,220 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     );
   }
 
-  // ── step 2 and 3: what will happen, and the one press ────────────────────────────────────────
-  if (picked) {
+  // ── THE RAIL — ALWAYS VISIBLE, exactly the approved mockup's own shape: a slim goal picker
+  // beside the canvas, not a full-width step the builder replaces. Picking a different goal never
+  // leaves this screen; it just changes what the centre panel holds, the same way the campaigns
+  // tab's own management screen never rebuilds its rail when a row is opened. */
+  const visibleGoals = (isReady(goals) ? goals : [])
+    .filter((g) => (!activeCategory || g.category === activeCategory)
+      && (!search.trim() || g.title.includes(search.trim()) || g.line.includes(search.trim())));
+  const rail = (
+    <div className="flex flex-col gap-2 lg:sticky lg:top-4 lg:w-72 lg:shrink-0">
+      {goalsFailed ? (
+        <p className="text-sm text-text-secondary">{t('launch.goalsReadFailed')}</p>
+      ) : isDenied(goals) ? (
+        <p className="text-sm text-text-secondary">{t('launch.goalsDenied')}</p>
+      ) : hasFailed(goals) ? (
+        // «لا أهداف متاحة» IS A CLAIM ABOUT HIS ENABLED APPS. Said after a failed read it sends
+        // him to the pricing page for something he already owns.
+        <p className="text-sm text-text-secondary">{t('launch.goalsReadFailed')}</p>
+      ) : goals.length === 0 ? (
+        <p className="text-sm text-text-secondary">{t('launch.noGoalsAvailable')}</p>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-3 shadow-sm">
+          <label className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2">
+            <Search size={14} className="shrink-0 text-text-secondary" aria-hidden />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('launch.search.placeholder')}
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </label>
+          {categories.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.category.all')}>
+              <button type="button" onClick={() => setActiveCategory('')}
+                     className={['rounded-full px-3 py-1 text-xs font-medium',
+                                 activeCategory === '' ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                {t('launch.category.all')}
+              </button>
+              {categories.map((cat) => (
+                <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
+                       className={['rounded-full px-3 py-1 text-xs font-medium',
+                                   activeCategory === cat ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1">
+            {visibleGoals.map((g) => {
+              const Icon = g.icon ? (GOAL_ICONS[g.icon] ?? Tag) : Tag;
+              const active = picked?.goal === g.goal;
+              return (
+                <button
+                  key={g.goal}
+                  type="button"
+                  onClick={() => setPicked(g)}
+                  className={['flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors',
+                             active ? 'bg-accent-soft ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-2'].join(' ')}
+                >
+                  <span className={['flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                                    active ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                    <Icon size={15} aria-hidden />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-medium">{g.title}</span>
+                      {g.template_status && g.template_status !== 'unknown' ? (
+                        <Badge tone={TEMPLATE_STATUS_META[g.template_status].tone}>
+                          {TEMPLATE_STATUS_META[g.template_status].label}
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <span className="truncate text-xs text-text-secondary">{g.line}</span>
+                    {/* SHOWN ONLY WHEN THIS GOAL HAS EVER BEEN USED — a permanent "استُخدمت 0
+                        مرة" on every never-launched goal is noise on the one screen meant to help
+                        him pick one. */}
+                    {g.uses ? (
+                      <span className="flex items-center gap-2 text-xs text-text-muted tabular-nums">
+                        {tf(t, 'launch.goalStats.uses', { n: g.uses })}
+                        {g.reach ? <>· {tf(t, 'launch.goalStats.reach', { n: g.reach })}</> : null}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── NOTHING PICKED YET — the rail is the whole story; the canvas says so rather than sitting
+  // empty, which would read as broken rather than as "waiting for a choice". */
+  if (!picked) {
+    return (
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {rail}
+        <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-border-subtle p-10 text-center text-sm text-text-secondary">
+          {t('launch.step1.prompt')}
+        </div>
+      </div>
+    );
+  }
+
+  // ── THE BUILDER + THE PHONE — what will happen, and the one press ────────────────────────────
+  {
     // THE MATCHING REASON, IF ONE EXISTS AND HAS ACTUALLY LOADED — absent for the goals with no
     // automatic counterpart yet (announce, service_offer/package_offer, awareness), and absent
     // while `reasons` is still `null` (loading or denied).
     const linkedReasonId = GOAL_REASON_ID[picked.goal];
     const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;
+    const carouselShaped = CAROUSEL_ELIGIBLE_GOALS.has(picked.goal);
+    const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
+    // ── THE PHONE LANE — the mockup's third column, ALWAYS beside the builder rather than
+    // gated behind a preview call: the same rendering engine every other preview in the product
+    // uses, fed whatever this form currently holds. Numbers (reach/excluded/the launch button)
+    // arrive only once `preview` has actually answered — a phone showing a plan is honest even
+    // before the count behind it is known, a phone showing a count it never asked for is not.
+    const phone = (
+      <div className="flex flex-col gap-3 lg:sticky lg:top-4 lg:w-72 lg:shrink-0">
+        <WhatsAppTemplatePreview
+          data={(() => {
+            const data: WaTemplateData = { body: preview?.message ?? '' };
+            if (carouselShaped && hasBookings) {
+              data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
+            }
+            return data;
+          })()}
+          fetchFlowJson={!carouselShaped || !hasBookings ? undefined : (flowName: string) => {
+            const a = action(catalog, 'operations.whatsapp_flow_json');
+            if (!a) return Promise.reject(new Error(t('launch.previewFailed')));
+            return call<FlowJson>(session, a, { name: flowName });
+          }}
+        />
+        {carouselShaped && !hasBookings ? (
+          <p className="text-xs text-text-secondary">{t('launch.preview.carouselNote')}</p>
+        ) : null}
+
+        <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          {preview ? (
+            <>
+              {preview.when ? (
+                <p className="text-sm font-medium text-text-secondary">{preview.when}</p>
+              ) : null}
+              <p className="text-sm">
+                {t('launch.reaches.prefix')} <b className="tabular-nums">{preview.reaches ?? 0}</b> {t('launch.reaches.suffix')}
+              </p>
+              {preview.excluded ? (
+                <p className="text-xs text-text-secondary">{tf(t, 'launch.excludedNote', { n: preview.excluded })}</p>
+              ) : null}
+              {preview.too_recent ? (
+                <p className="text-xs text-text-secondary">{tf(t, 'launch.tooRecentNote', { n: preview.too_recent })}</p>
+              ) : null}
+              {preview.spread?.refused ? (
+                <p className="text-sm text-danger">{preview.spread.refused}</p>
+              ) : preview.spread_says ? (
+                <p className="text-sm text-success">{preview.spread_says}</p>
+              ) : null}
+              {(preview.why ?? []).map((line) => (
+                <p key={line} className="text-xs text-text-secondary">{line}</p>
+              ))}
+            </>
+          ) : (
+            <p className="text-sm text-text-secondary">{t('launch.previewPending')}</p>
+          )}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            {!preview ? (
+              <Button disabled={busy
+                                || (hasBlank(picked, 'amount') && !offerValue)
+                                || (hasBlank(picked, 'date') && !endsOn)}
+                      onClick={() => void ask(picked)}>{t('launch.previewButton')}</Button>
+            ) : (
+              <Button
+                disabled={busy || !createAction || Boolean(preview.spread?.refused)}
+                onClick={async () => {
+                  if (!createAction || preview.spread?.refused) return;
+                  setBusy(true); setError('');
+                  try {
+                    await call(session, createAction, {
+                      goal: picked.goal, owner_text: ownerText, service_id: serviceId,
+                      package_id: packageId,
+                      branch_id: branchId,
+                      offer_value: offerValue,
+                      service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
+                      package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
+                      expires_at: expiresAt,
+                      fire_at: combinedFireAt,
+                      window_start_hour: windowOn ? windowStartHour : 0,
+                      window_end_hour: windowOn ? windowEndHour : 24,
+                      window_weekdays: windowOn ? windowWeekdays : [],
+                    });
+                    setSent(tf(t, 'launch.sentSummary', { n: preview.reaches ?? 0 }));
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : t('launch.launchFailed'));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {t('launch.launchButton')}
+              </Button>
+            )}
+            <Button variant="ghost" onClick={onDone}>{t('launch.cancel')}</Button>
+          </div>
+        </div>
+      </div>
+    );
     return (
-      <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {rail}
+      <section className="flex flex-1 flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium">{picked.title}</span>
           <Button variant="ghost" onClick={() => {
@@ -742,247 +947,9 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             </div>
           ) : null}
         </div>
-
-        {preview ? (
-          <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
-            {/* THE MESSAGE AS IT WILL ARRIVE — the SAME phone-mockup engine every other preview
-                in the product uses (see MessagePreview.tsx/Messages.tsx's own BotToolPreviewModal),
-                fed the REAL rendered text — never a plain paragraph pretending to be one, and
-                never a second rendering path an owner could be shown two different things by. */}
-            <WhatsAppTemplatePreview
-              data={(() => {
-                const data: WaTemplateData = { body: preview.message ?? '' };
-                const carouselShaped = CAROUSEL_ELIGIBLE_GOALS.has(picked.goal);
-                const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
-                // A SHOP THAT OWNS THE BOOK gets the real Flow button (core/shape.py::for_send) —
-                // never guessed here, read from the same entitlement the console already carries.
-                if (carouselShaped && hasBookings) {
-                  data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
-                }
-                return data;
-              })()}
-              fetchFlowJson={(() => {
-                const carouselShaped = picked && CAROUSEL_ELIGIBLE_GOALS.has(picked.goal);
-                const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
-                if (!carouselShaped || !hasBookings) return undefined;
-                return (flowName: string) => {
-                  const a = action(catalog, 'operations.whatsapp_flow_json');
-                  if (!a) return Promise.reject(new Error(t('launch.previewFailed')));
-                  return call<FlowJson>(session, a, { name: flowName });
-                };
-              })()}
-            />
-            {/* A CAROUSEL-ELIGIBLE GOAL ON A SHOP WITHOUT BOOKINGS — the send itself becomes
-                image cards instead of this one bubble (core/shape.py::for_send), and this note
-                says so rather than fabricating card content the screen has no real photos or
-                prices to fill honestly. */}
-            {CAROUSEL_ELIGIBLE_GOALS.has(picked.goal) && owns(owned ?? null, 'feature.bookings') !== true ? (
-              <p className="text-xs text-text-secondary">{t('launch.preview.carouselNote')}</p>
-            ) : null}
-            {/* WHAT WILL ACTUALLY HAPPEN, IN HIS WORDS — the server's own sentence
-                (preview.py::describe_when), the one place «الآن»/«في الموعد الذي حدّدته» and this
-                campaign's own recurring window (if it has one) are said together, truthfully. */}
-            {preview.when ? (
-              <p className="text-sm font-medium text-text-secondary">{preview.when}</p>
-            ) : null}
-            <p className="text-sm">
-              {t('launch.reaches.prefix')} <b className="tabular-nums">{preview.reaches ?? 0}</b> {t('launch.reaches.suffix')}
-            </p>
-            {/* SHOWN ONLY WHEN NON-ZERO. A permanent «0 مستثنى» is noise, and noise is what teaches
-                a person to stop reading the area where the real number appears. */}
-            {preview.excluded ? (
-              <p className="text-xs text-text-secondary">
-                {tf(t, 'launch.excludedNote', { n: preview.excluded })}
-              </p>
-            ) : null}
-            {preview.too_recent ? (
-              <p className="text-xs text-text-secondary">
-                {tf(t, 'launch.tooRecentNote', { n: preview.too_recent })}
-              </p>
-            ) : null}
-            {/* THE REFUSAL LOOKS LIKE A REFUSAL. Same sentence, and the colour is the whole
-                difference between «here is the plan» and «this cannot run as configured». */}
-            {preview.spread?.refused ? (
-              <p className="text-sm text-danger">{preview.spread.refused}</p>
-            ) : preview.spread_says ? (
-              <p className="text-sm text-success">{preview.spread_says}</p>
-            ) : null}
-            {/* WHY THIS AUDIENCE AND NOT ANOTHER — the server's own reasons, and the screen
-                declared this field for months without ever rendering it. An owner who cannot see
-                why 47 became 47 has no way to trust the number. */}
-            {(preview.why ?? []).map((line) => (
-              <p key={line} className="text-xs text-text-secondary">{line}</p>
-            ))}
-          </div>
-        ) : null}
-
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
-
-        <div className="flex flex-wrap gap-2">
-          {!preview ? (
-            // REFUSED HERE RATHER THAN BY THE SERVER, BUT ONLY FOR A FIELD HE CAN ACTUALLY SEE.
-            // This used to gate on `picked.offers` — a fact about the GOAL, not about what THIS
-            // shop's template currently has room for. A goal whose template is still under Meta's
-            // review (or never seeded) comes back with `blanks: []` — no amount/date box renders
-            // at all (both gated on `hasBlank` below) — yet the button still demanded them,
-            // deadlocking the exact screen the card was just unlocked to let him reach. Gating on
-            // `hasBlank` instead means: if the box is not drawn, nothing here waits on it — press
-            // resolves to the server's own refusal (`ask()`'s catch already renders it as-is).
-            <Button disabled={busy
-                              || (hasBlank(picked, 'amount') && !offerValue)
-                              || (hasBlank(picked, 'date') && !endsOn)}
-                    onClick={() => void ask(picked)}>{t('launch.previewButton')}</Button>
-          ) : (
-            <Button
-              // A PLAN THE SERVER WILL REFUSE IS NOT A PLAN TO PRESS. The refusal names two
-              // remedies — shrink the audience, or extend the date — and both are edits on this
-              // screen: the button that offers neither is the one that should not be live.
-              disabled={busy || !createAction || Boolean(preview.spread?.refused)}
-              onClick={async () => {
-                if (!createAction || preview.spread?.refused) return;
-                setBusy(true); setError('');
-                try {
-                  await call(session, createAction, {
-                    goal: picked.goal, owner_text: ownerText, service_id: serviceId,
-                    package_id: packageId,
-                    branch_id: branchId,
-                    offer_value: offerValue,
-                    service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
-                    package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
-                    expires_at: expiresAt,
-                    fire_at: combinedFireAt,
-                    window_start_hour: windowOn ? windowStartHour : 0,
-                    window_end_hour: windowOn ? windowEndHour : 24,
-                    window_weekdays: windowOn ? windowWeekdays : [],
-                  });
-                  // WHAT HAPPENED, NOT WHAT WAS PLANNED. This used to print `spread_says` as the
-                  // confirmation — so a campaign the server refused announced its own refusal in
-                  // the voice of a success, and the owner walked away believing it had gone.
-                  setSent(tf(t, 'launch.sentSummary', { n: preview.reaches ?? 0 }));
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : t('launch.launchFailed'));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {t('launch.launchButton')}
-            </Button>
-          )}
-          <Button variant="ghost" onClick={onDone}>{t('launch.cancel')}</Button>
-        </div>
       </section>
+        {phone}
+      </div>
     );
   }
-
-  // ── step 1: what does he want to achieve ─────────────────────────────────────────────────────
-  return (
-    <section className="flex flex-col gap-2">
-      <p className="text-sm text-text-secondary">{t('launch.step1.prompt')}</p>
-      {goalsFailed ? (
-        <p className="text-sm text-text-secondary">
-          {t('launch.goalsReadFailed')}
-        </p>
-      ) : isDenied(goals) ? (
-        <p className="text-sm text-text-secondary">{t('launch.goalsDenied')}</p>
-      ) : hasFailed(goals) ? (
-        // «لا أهداف متاحة» IS A CLAIM ABOUT HIS ENABLED APPS. Said after a failed read it sends him to
-        // the pricing page for something he already owns.
-        <p className="text-sm text-text-secondary">
-          {t('launch.goalsReadFailed')}
-        </p>
-      ) : goals.length === 0 ? (
-        <p className="text-sm text-text-secondary">{t('launch.noGoalsAvailable')}</p>
-      ) : null}
-
-      {/* THE RAIL'S OWN FILTER — a search box and the real categories `campaigns.goals` returns
-          (goals.py::GOAL_CATEGORIES), not a screen-invented grouping. Seven goals today read fine
-          as a plain list; this is what keeps a fiftieth goal just as findable, without a redesign
-          the day the library grows past a handful. */}
-      {isReady(goals) && goals.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2">
-            <Search size={14} className="shrink-0 text-text-secondary" aria-hidden />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('launch.search.placeholder')}
-              className="w-full bg-transparent text-sm outline-none"
-            />
-          </label>
-          {categories.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.category.all')}>
-              <button type="button" onClick={() => setActiveCategory('')}
-                     className={['rounded-full px-3 py-1 text-xs font-medium',
-                                 activeCategory === '' ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
-                {t('launch.category.all')}
-              </button>
-              {categories.map((cat) => (
-                <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
-                       className={['rounded-full px-3 py-1 text-xs font-medium',
-                                   activeCategory === cat ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
-                  {cat}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {(isReady(goals) ? goals : [])
-        .filter((g) => (!activeCategory || g.category === activeCategory)
-          && (!search.trim() || g.title.includes(search.trim()) || g.line.includes(search.trim())))
-        .map((g) => (
-        <button
-          key={g.goal}
-          type="button"
-          onClick={() => setPicked(g)}
-          className="flex items-start gap-3 rounded-card bg-surface-1 p-4 text-start shadow-sm"
-        >
-          {g.icon ? (() => {
-            const Icon = GOAL_ICONS[g.icon!] ?? Tag;
-            return <Icon size={20} className="shrink-0" aria-hidden />;
-          })() : null}
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{g.title}</span>
-              {/* THE BADGE, ON THE CARD ITSELF — whether it is locked or not (§ audit): an
-                  available card can still be «pending» for the tone THIS establishment ended
-                  up with, and an owner is entitled to see that without pressing a locked card
-                  to learn why. «unknown» draws nothing — a status this screen could not vouch
-                  for must not be shown as if it were one. */}
-              {g.template_status && g.template_status !== 'unknown' ? (
-                <Badge tone={TEMPLATE_STATUS_META[g.template_status].tone}>
-                  {TEMPLATE_STATUS_META[g.template_status].label}
-                </Badge>
-              ) : null}
-            </span>
-            <span className="text-sm text-text-secondary">{g.line}</span>
-            {/* THE RAIL'S OWN "استُخدمت N مرة" / "N وصلهم" — SHOWN ONLY WHEN THIS GOAL HAS EVER
-                BEEN USED. A permanent "استُخدمت 0 مرة" on every never-launched goal is noise on
-                the very screen meant to help him pick one; the number earns its place on screen
-                the first time it says something. */}
-            {g.uses ? (
-              <span className="flex items-center gap-2 text-xs text-text-secondary tabular-nums">
-                {tf(t, 'launch.goalStats.uses', { n: g.uses })}
-                {g.reach ? <>· {tf(t, 'launch.goalStats.reach', { n: g.reach })}</> : null}
-              </span>
-            ) : null}
-            {/* NOT DISABLED ANY MORE, ON PURPOSE. Found live: an owner asked why he could not
-                even OPEN this and compose his message while a template was under Meta's review —
-                a wait that can run hours, during which the card blocked him from doing anything
-                productive. `ask()`/`create()` already refuse this exact case with the server's
-                own sentence — the same principle the admin panel already uses for an unapproved
-                template: TRY, and let the one place that actually knows say no. A card that looks
-                pressable and then refuses honestly beats one that never lets him find out what
-                he is waiting for. The reason still shows below, informational now, not a lock. */}
-            {g.available === false && g.unavailable_reason ? (
-              <span className="mt-1 text-xs text-text-secondary">{g.unavailable_reason}</span>
-            ) : null}
-          </span>
-        </button>
-      ))}
-    </section>
-  );
 }

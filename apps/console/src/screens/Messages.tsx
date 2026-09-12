@@ -953,7 +953,12 @@ export function MessagesScreen(
   const [campaignsFailed, setCampaignsFailed] = useState(false);
   /** The composer, open only when he asks for it — this tab is a list first. Except arriving with
    *  `?launch=`, where asking for it again would be the second ask this turn already answered. */
-  const [launching, setLaunching] = useState(Boolean(launchGoal));
+  // THE APPROVED MOCKUP'S OWN TWO SCREENS — «لوحة الحملات» is never gated behind a button/empty
+  // state before he can even see the create screen; it is one of two persistent modes, "شاشة
+  // الإنشاء" the default (an owner opening this tab is usually here TO launch something) and
+  // "شاشة الإدارة" the real KPI/table/detail view. Arriving with `?launch=` still opens on
+  // create — it already answers "why" — but that is what create already defaults to regardless.
+  const [campaignScreen, setCampaignScreen] = useState<'create' | 'manage'>('create');
   /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own.
    *  `runsFor` is WHICH campaign it belongs to — without it the panel had one place to render
    *  (under the whole list) rather than under the row that asked for it, so a shop with more than
@@ -1688,19 +1693,25 @@ export function MessagesScreen(
         </section>
       ) : (
         <section className="flex flex-col gap-4">
-          {/* THE BUTTON THAT DID NOT EXIST. The engine — goals with their locks, the audience
-              rules, the spread across days, the reserved share, the per-send log — was complete
-              and unreachable; this tab listed campaigns and explained what a campaign is for,
-              which is a brochure for a feature its owner cannot use. */}
-          {launching ? (
+          {/* THE APPROVED MOCKUP'S OWN TWO SCREENS — never a button gating an empty state before
+              he can even reach the create screen; «شاشة الإنشاء» is the default because an owner
+              opening this tab has usually come to launch something, and «شاشة الإدارة» is one
+              press away, always, never conditional on whether anything has been launched yet. */}
+          <Segmented
+            className="self-start"
+            ariaLabel={t('messages.campaigns.screenAriaLabel')}
+            value={campaignScreen}
+            onChange={setCampaignScreen}
+            options={[
+              { value: 'create', label: t('messages.campaigns.screen.create') },
+              { value: 'manage', label: t('messages.campaigns.screen.manage') },
+            ]}
+          />
+          {campaignScreen === 'create' ? (
             <Launch session={session} catalog={catalog} initialGoalId={launchGoal} owned={owned}
-                    onDone={() => { setLaunching(false); loadCampaigns(); }} />
+                    onDone={() => { setCampaignScreen('manage'); loadCampaigns(); }} />
           ) : (
             <>
-              {action(catalog, 'campaigns.create') ? (
-                <div><Button onClick={() => setLaunching(true)}>{t('messages.campaigns.launch')}</Button></div>
-              ) : null}
-
               {hasFailed(campaigns) ? (
                 // "Haven't launched a campaign yet" IS A FACT ABOUT HIS SHOP. Said after a failed
                 // read it tells an owner mid-campaign that nothing of his is running.

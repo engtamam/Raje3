@@ -95,6 +95,9 @@ describe('«لوحة الحملات» — the detail panel is pinned by name, on
   it('shows the right campaign\'s totals when its row (card) is pressed', async () => {
     todayResponse = TODAY_OK;
     open();
+    // «شاشة الإنشاء» IS THE DEFAULT (2026-09-13, matching the approved mockup) — the management
+    // table lives one press away on «شاشة الإدارة», never gated behind a launch button any more.
+    fireEvent.click(await screen.findByText('شاشة الإدارة'));
     await screen.findAllByText('رجّع اللي غابوا');
     // THE MOBILE CARD LAYOUT — Table.tsx renders both layouts unconditionally; jsdom has no CSS,
     // so `listitem` always finds the phone-card `<li>`s regardless of viewport. Each card is ONE
@@ -116,6 +119,7 @@ describe('«لوحة الحملات» — the detail panel is pinned by name, on
   it('closes on a second press of the same row', async () => {
     todayResponse = TODAY_OK;
     open();
+    fireEvent.click(await screen.findByText('شاشة الإدارة'));
     await screen.findAllByText('رجّع اللي غابوا');
     const rows = screen.getAllByRole('listitem');
     const c1Row = rows.find((r) => within(r).queryByText('رجّع اللي غابوا'))!;
