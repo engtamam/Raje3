@@ -444,6 +444,10 @@ class Scheduler:
         return new, new != current, anomaly
 
     async def _credit(self, tenant: str, subject: str, event: str, *, now: int) -> float:
+        # A plain read-modify-write, but safe: this is the only writer of this row anywhere in the
+        # service, and its one caller runs inside `_on_visit_locked`, which `on_visit` never enters
+        # without first holding the per-(tenant, visit_id) claim on `_VISIT_LOCKS` — a second
+        # concurrent delivery of the same visit is refused before it ever reaches here.
         row = await self._eng.get(tenant, subject) or {
             "id": f"eng_{subject}", "tenant": tenant, "subject_ref": subject,
             "score": 0.0, "scored_at": now, "updated": now}
