@@ -649,6 +649,32 @@ export async function setMyLocale(session: Session, locale: string): Promise<voi
   });
 }
 
+// ── الإشعارات (rating-app-feature.md phase 8) ──────────────────────────────────────────────────
+//
+// notification-service's OWN in-app feed — the read/write side any of our services already write
+// into via POST /internal/notify (channel=inapp), gated `require_user` only, no capability: every
+// signed-in account reads its own feed, same as `/account/me/locale` above. `InAppItem` (the real
+// stored shape) carries only `id`/`title`/`body`/`read`/`ts` — no severity, no icon, no category,
+// no action link. The console's OWN rendering (NotificationBell.tsx) does not invent fields the
+// backend never sends; it presents exactly this, well.
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  read: boolean;
+  ts: string;
+}
+
+export async function listNotifications(session: Session): Promise<NotificationItem[]> {
+  const out = await call<{ items?: NotificationItem[] }>(session, '/api/v1/notifications');
+  return out.items ?? [];
+}
+
+export async function markNotificationRead(session: Session, id: string): Promise<void> {
+  await call(session, `/api/v1/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+}
+
 // ── الحجوزات (docs/خطة-تنفيذ-الحجوزات.md §6) ───────────────────────────────────────────────────
 
 /** A name the booking dialog can offer — active staff, whichever branch they work in.

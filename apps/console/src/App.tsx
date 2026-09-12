@@ -33,6 +33,7 @@ import { isSignedIn, useSession } from './session';
 import { WELCOME_TRIAL_KEY } from './auth';
 import { OperatorI18nProvider } from './operator-i18n';
 import { OperatorLocaleSwitcher } from './OperatorLocaleSwitcher';
+import { NotificationBell } from './NotificationBell';
 
 export function App() {
   const { session, signedIn, signOut } = useSession();
@@ -286,8 +287,10 @@ export function App() {
       // useOperatorI18n(); Bookings, Points, Services and «الاشتراك» all read it now too, so a
       // control duplicated onto each of them (or missing from the rest) was the wrong shape.
       // `railSlot` is the shell's own extension point for exactly this — a widget above the user
-      // block, alongside `projectSwitcher` above.
-      railSlot={<OperatorLocaleSwitcher />}
+      // block, alongside `projectSwitcher` above. The bell sits beside the language switch rather
+      // than replacing it — two independent controls, one slot, same shape the shell already
+      // gives `projectSwitcher` when both a scope and an add-branch action share it.
+      railSlot={<div className="flex items-center gap-2"><NotificationBell session={session} /><OperatorLocaleSwitcher /></div>}
     >
       {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.
           We pass the Outlet explicitly so the screens receive the session and the catalogue we

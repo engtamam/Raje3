@@ -356,3 +356,67 @@ button.bg-transparent.text-text-secondary:hover {
 @media (prefers-reduced-motion: reduce) {
   .rj-gold-badge::before { animation: none; }
 }
+
+/* ── THE NOTIFICATION BELL — the SAME gold this file already speaks (`--accent: #d4af37` above),
+ * a SECOND deliberate use of it, not the reserved full-card treatment. `.rj-gold-card` above is
+ * explicitly one app's own VIP look; this is a control every account sees, in the rail, badge-
+ * scale in spirit like `.rj-gold-badge` — gold marks "this is worth a second look" here too,
+ * scaled to an icon and a temporary floating panel rather than a permanent backdrop.
+ *
+ * THE PANEL IS GLASS ON PURPOSE — it sits OVER the page for as long as it is open and nothing
+ * longer, so a blurred, translucent surface reads as "floating above", never as a fourth
+ * permanent surface tone competing with surface-1/2/3.
+ */
+.notification-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  color: #d4af37;
+  background: radial-gradient(120% 130% at 30% 20%, rgba(212, 175, 55, 0.22), rgba(212, 175, 55, 0.06) 60%);
+  border: 1.5px solid rgba(212, 175, 55, 0.55);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.notification-bell:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -6px rgba(212, 175, 55, 0.55);
+}
+.notification-bell__badge {
+  position: absolute;
+  top: -0.35rem;
+  inset-inline-start: -0.35rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--danger, #d9584a);
+  border: 2px solid var(--surface-1);
+}
+
+.notification-panel {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015) 40%),
+    rgba(20, 14, 7, 0.9);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.08), 0 24px 60px -18px rgba(0, 0, 0, 0.65);
+  color: #f7e7c1;
+}
+.notification-panel__unread::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  width: 3px;
+  border-radius: 3px;
+  background: #d4af37;
+}
