@@ -26,20 +26,46 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  Cake, Gift, Info, Megaphone, RotateCcw, Tag, type LucideIcon,
+  Cake, Gift, Info, Megaphone, RotateCcw, Search, Tag, type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
+import { HourRangePicker } from '../rj-ui/HourRangePicker';
 import { Segmented } from '../rj-ui/Segmented';
+import { Toggle } from '../rj-ui/Toggle';
+import { WeekdayPicker } from '../rj-ui/WeekdayPicker';
+import { WhatsAppTemplatePreview, type FlowJson, type WaTemplateData } from '../rj-ui/WhatsAppPreview';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
+import { owns, type Owned } from '../apps';
 import type { Session } from '../session';
 import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { western } from '../digits';
 import { MessagePreview } from './MessagePreview';
 import { useOperatorI18n, tf, translate } from '../operator-i18n';
 import './launch-i18n';
+
+/**
+ * THE SAME MEMBERSHIP shape.py's OWN `BOOKING_TYPES` HOLDS (mkt_winback/mkt_personal_occasion/
+ * mkt_offer), named by GOAL rather than by template type — a shop that owns bookings gets a real
+ * Flow button under one of these four goals' sends; a shop that does not gets a carousel instead
+ * (core/shape.py::for_send). Every other goal (announce/awareness/reward_loyal) always sends
+ * plain text — neither shape applies. Hand-mirrored, same posture Messages.tsx's own
+ * `GOAL_TEMPLATE_TYPE` already takes: a table this small drifting is a one-line fix, not worth a
+ * network round trip for exactly one screen's preview.
+ */
+const CAROUSEL_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
+
+/** WEEKDAY LABELS, Monday=0..Sunday=6 — `Campaign.window_weekdays`'s own encoding
+ *  (operations/core/scheduling.py::recurrence_weekdays). */
+function weekdayLabels(t: (key: string) => string): string[] {
+  return [
+    t('launch.weekday.mon'), t('launch.weekday.tue'), t('launch.weekday.wed'),
+    t('launch.weekday.thu'), t('launch.weekday.fri'), t('launch.weekday.sat'),
+    t('launch.weekday.sun'),
+  ];
+}
 
 /**
  * `campaigns-service` (app/core/goals.py) sends a NAME, never an emoji — "return", "gift",
@@ -63,6 +89,8 @@ interface Goal {
   title: string;
   line: string;
   icon?: string;
+  /** One of `categories` below (goals.py::GOAL_CATEGORIES) — how the rail groups this card. */
+  category?: string;
   available?: boolean;
   unavailable_reason?: string;
   behaviour?: string;
@@ -82,6 +110,12 @@ interface Goal {
 
 interface Preview {
   message?: string;
+  /** WHAT WILL ACTUALLY HAPPEN, in the owner's own words (preview.py::describe_when) — "تُرسَل
+   *  الآن", "تُرسَل في الموعد الذي حدّدته", or, when this campaign carries its own recurring
+   *  window, that sentence appended ("تُرسَل فقط بين الساعة 14 و16..."). Rendered once, from the
+   *  server that actually enforces it — never reconstructed here from the raw hour/weekday
+   *  fields, which is how a screen and an engine agree today and disagree the day either changes. */
+  when?: string;
   reaches?: number;
   excluded?: number;
   too_recent?: number;
@@ -128,10 +162,18 @@ interface Service { id: string; name: string }
 
 interface Package { id: string; name: string; active?: boolean }
 
-export function Launch({ session, catalog, onDone, initialGoalId }:
-    { session: Session; catalog: Catalog; onDone: () => void; initialGoalId?: string }) {
+export function Launch({ session, catalog, onDone, initialGoalId, owned }:
+    { session: Session; catalog: Catalog; onDone: () => void; initialGoalId?: string;
+      owned?: Loading<Owned> }) {
   const { t } = useOperatorI18n();
   const [goals, setGoals] = useState<Loading<Goal[]>>(undefined);
+  // THE RAIL'S OWN GROUPING — `campaigns.goals` now returns these alongside the cards
+  // themselves (goals.py::GOAL_CATEGORIES, 2026-09-12), in display order. A goal with none
+  // (an older server, or a read that failed before this field existed) simply carries no
+  // `category` and is never filtered out by "الكل".
+  const [categories, setCategories] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState('');
+  const [search, setSearch] = useState('');
   // `null` MEANS «STILL READING» HERE — the screen shows a Waiting on it — so the failure needs a
   // field of its own. Sharing one would make a dead peer indistinguishable from a slow one, and
   // «لا أهداف متاحة الآن» is a claim about the product rather than about the read.
@@ -186,6 +228,27 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
   const [serviceDemand, setServiceDemand] = useState<Record<string, number>>({});
 
   /**
+   * THE OWNER'S OWN RECURRING WINDOW (`Campaign.window_*`, every goal may set one since
+   * 2026-09-12) — collapsed by default, exactly the mockup's own posture: most campaigns need no
+   * window at all, and a form that opens with every optional field expanded is a form that reads
+   * as more decisions than it is.
+   */
+  const [windowOn, setWindowOn] = useState(false);
+  const [windowStartHour, setWindowStartHour] = useState(9);
+  const [windowEndHour, setWindowEndHour] = useState(21);
+  const [windowWeekdays, setWindowWeekdays] = useState<number[]>([]);
+
+  /**
+   * WHEN IT LAUNCHES — for EVERY goal, not only «هنّئ في مناسبة» (job-service-backed, 2026-09-12):
+   * a future `fire_at` is handed to the platform's own scheduler for a prompt, exact launch
+   * instead of waiting on the next 15-minute tick. Defaults to "الآن", same posture as the window
+   * above — a date field nobody asked for is a date field nobody should see.
+   */
+  const [launchLater, setLaunchLater] = useState(false);
+  const [launchDate, setLaunchDate] = useState('');
+  const [launchHour, setLaunchHour] = useState('08:00');
+
+  /**
    * THE DAY «هنّئ في مناسبة» IS ABOUT, AND THE GOAL HAD NO WAY TO NAME IT.
    *
    * `occasion` is one of the six goals this screen offers; its card reads «رسالة في يوم يخصّه»
@@ -214,6 +277,16 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
     return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
   })();
 
+  /** THE GENERAL "متى تُطلق" ANSWER, for every goal OTHER than `occasion` (which already has its
+   *  own day, above — a moment that IS the message, not a scheduling choice layered on top of
+   *  one). `combinedFireAt` below is what actually goes on the wire. */
+  const generalFireAt = (() => {
+    if (!launchLater || !launchDate) return 0;
+    const at = Date.parse(`${launchDate}T${launchHour || '08:00'}:00+03:00`);
+    return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
+  })();
+  const combinedFireAt = picked?.goal === 'occasion' ? fireAt : generalFireAt;
+
   /** The chosen day, at its last minute in Riyadh — an offer «حتى الخميس» is good all Thursday. */
   const expiresAt = (() => {
     if (!endsOn) return 0;
@@ -227,10 +300,11 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
 
   useEffect(() => {
     if (!goalsAction) { setGoals(DENIED); return; }
-    call<{ goals: Goal[] }>(session, goalsAction)
+    call<{ goals: Goal[]; categories?: string[] }>(session, goalsAction)
       .then((r) => {
         const list = r.goals ?? [];
         setGoals(list);
+        setCategories(r.categories ?? []);
         // ARRIVING WITH A GOAL ALREADY DECIDED — a card sent us here ("أرسل رسالة رجوع") having
         // already answered "why", so asking him to pick it again from six tiles is a second
         // decision he already made once. Only pre-selects if the goal is actually AVAILABLE —
@@ -322,7 +396,12 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
         expires_at: expiresAt,
         // AND THE DAY, for the same reason: a greeting scheduled for next month spreads over a
         // different window than one going out now, and he should see that count before pressing.
-        fire_at: fireAt,
+        fire_at: combinedFireAt,
+        // THE RECURRING WINDOW — sent only while he has actually turned it on; off is exactly
+        // today's defaults (0, 24, []), which the server reads as "no window at all".
+        window_start_hour: windowOn ? windowStartHour : 0,
+        window_end_hour: windowOn ? windowEndHour : 24,
+        window_weekdays: windowOn ? windowWeekdays : [],
       }));
     } catch (e) {
       // THE SERVER'S SENTENCE, RENDERED AS IT CAME. «لا يوجد قالب مفعّل لهذا الهدف» is actionable;
@@ -360,7 +439,11 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
       <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium">{picked.title}</span>
-          <Button variant="ghost" onClick={() => { setPicked(null); setPreview(null); setError(''); }}>
+          <Button variant="ghost" onClick={() => {
+            setPicked(null); setPreview(null); setError('');
+            setWindowOn(false); setWindowStartHour(9); setWindowEndHour(21); setWindowWeekdays([]);
+            setLaunchLater(false); setLaunchDate(''); setLaunchHour('08:00');
+          }}>
             {t('launch.changeGoal')}
           </Button>
         </div>
@@ -389,6 +472,51 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
             onClose={() => setPreviewingReason(false)}
             onChosen={() => {}}
           />
+        ) : null}
+
+        {/* متى تُطلق؟ — EVERY GOAL BUT `occasion`, which already answers this with its own day
+            field below (a moment that IS the message, not a schedule layered on it). A future
+            date is handed to the platform's own job scheduler for a prompt, exact launch —
+            core/tick.py's ordinary 15-minute scan is the fallback if that peer is ever
+            unreachable, never the only path. */}
+        {picked.goal !== 'occasion' ? (
+          <div className="flex flex-col gap-2 rounded-card border border-border-subtle p-3">
+            <span className="text-sm font-medium">{t('launch.when.title')}</span>
+            <Segmented
+              ariaLabel={t('launch.when.title')}
+              value={launchLater ? 'later' : 'now'}
+              onChange={(v) => setLaunchLater(v === 'later')}
+              options={[
+                { value: 'now', label: t('launch.when.now') },
+                { value: 'later', label: t('launch.when.later') },
+              ]}
+            />
+            {launchLater ? (
+              <div className="flex flex-wrap gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-text-secondary">{t('launch.when.dateLabel')}</span>
+                  <input
+                    type="date"
+                    value={launchDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => { setLaunchDate(e.target.value); setPreview(null); }}
+                    dir="ltr"
+                    className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-text-secondary">{t('launch.when.hourLabel')}</span>
+                  <input
+                    type="text"
+                    value={launchHour}
+                    onChange={(e) => { setLaunchHour(e.target.value); setPreview(null); }}
+                    dir="ltr"
+                    className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-sm"
+                  />
+                </label>
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
         {/* THE FREE BLANK — DRAWN ONLY WHERE THE MESSAGE HAS ONE (ط-4).
@@ -576,10 +704,83 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
           </label>
         ) : null}
 
+        {/* ساعات وأيام إرسال متكررة (اختياري) — EVERY GOAL MAY SET ONE (2026-09-12 correction),
+            collapsed by default. Not a second gate on TOP of «متى تُطلق» above: that decides the
+            one moment this campaign starts existing; this decides which hours/days it is ever
+            allowed to actually SEND on, for as long as it runs. */}
+        <div className="flex flex-col gap-2 rounded-card border border-dashed border-border-subtle p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">{t('launch.window.title')}</span>
+            <Toggle checked={windowOn}
+                   ariaLabel={t('launch.window.title')}
+                   onChange={(v) => { setWindowOn(v); setPreview(null); }} />
+          </div>
+          {windowOn ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-text-secondary">{t('launch.window.hint')}</p>
+              <HourRangePicker
+                startHour={windowStartHour}
+                endHour={windowEndHour}
+                fromLabel={t('launch.window.fromLabel')}
+                toLabel={t('launch.window.toLabel')}
+                ariaLabel={t('launch.window.hoursLabel')}
+                onChange={(s, e) => { setWindowStartHour(s); setWindowEndHour(e); setPreview(null); }}
+              />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-text-secondary">{t('launch.window.daysLabel')}</span>
+                <WeekdayPicker
+                  ariaLabel={t('launch.window.daysLabel')}
+                  options={[5, 6, 0, 1, 2, 3, 4].map((value) => ({ value, label: weekdayLabels(t)[value] }))}
+                  selected={windowWeekdays}
+                  onChange={(v) => { setWindowWeekdays(v); setPreview(null); }}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         {preview ? (
           <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
-            {/* THE MESSAGE AS IT WILL ARRIVE — rendered, not described. */}
-            <p className="whitespace-pre-wrap text-sm">{preview.message}</p>
+            {/* THE MESSAGE AS IT WILL ARRIVE — the SAME phone-mockup engine every other preview
+                in the product uses (see MessagePreview.tsx/Messages.tsx's own BotToolPreviewModal),
+                fed the REAL rendered text — never a plain paragraph pretending to be one, and
+                never a second rendering path an owner could be shown two different things by. */}
+            <WhatsAppTemplatePreview
+              data={(() => {
+                const data: WaTemplateData = { body: preview.message ?? '' };
+                const carouselShaped = CAROUSEL_ELIGIBLE_GOALS.has(picked.goal);
+                const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
+                // A SHOP THAT OWNS THE BOOK gets the real Flow button (core/shape.py::for_send) —
+                // never guessed here, read from the same entitlement the console already carries.
+                if (carouselShaped && hasBookings) {
+                  data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
+                }
+                return data;
+              })()}
+              fetchFlowJson={(() => {
+                const carouselShaped = picked && CAROUSEL_ELIGIBLE_GOALS.has(picked.goal);
+                const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
+                if (!carouselShaped || !hasBookings) return undefined;
+                return (flowName: string) => {
+                  const a = action(catalog, 'operations.whatsapp_flow_json');
+                  if (!a) return Promise.reject(new Error(t('launch.previewFailed')));
+                  return call<FlowJson>(session, a, { name: flowName });
+                };
+              })()}
+            />
+            {/* A CAROUSEL-ELIGIBLE GOAL ON A SHOP WITHOUT BOOKINGS — the send itself becomes
+                image cards instead of this one bubble (core/shape.py::for_send), and this note
+                says so rather than fabricating card content the screen has no real photos or
+                prices to fill honestly. */}
+            {CAROUSEL_ELIGIBLE_GOALS.has(picked.goal) && owns(owned ?? null, 'feature.bookings') !== true ? (
+              <p className="text-xs text-text-secondary">{t('launch.preview.carouselNote')}</p>
+            ) : null}
+            {/* WHAT WILL ACTUALLY HAPPEN, IN HIS WORDS — the server's own sentence
+                (preview.py::describe_when), the one place «الآن»/«في الموعد الذي حدّدته» and this
+                campaign's own recurring window (if it has one) are said together, truthfully. */}
+            {preview.when ? (
+              <p className="text-sm font-medium text-text-secondary">{preview.when}</p>
+            ) : null}
             <p className="text-sm">
               {t('launch.reaches.prefix')} <b className="tabular-nums">{preview.reaches ?? 0}</b> {t('launch.reaches.suffix')}
             </p>
@@ -645,7 +846,10 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
                     service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
                     package_name: (packages ?? []).find((x) => x.id === packageId)?.name ?? '',
                     expires_at: expiresAt,
-                    fire_at: fireAt,
+                    fire_at: combinedFireAt,
+                    window_start_hour: windowOn ? windowStartHour : 0,
+                    window_end_hour: windowOn ? windowEndHour : 24,
+                    window_weekdays: windowOn ? windowWeekdays : [],
                   });
                   // WHAT HAPPENED, NOT WHAT WAS PLANNED. This used to print `spread_says` as the
                   // confirmation — so a campaign the server refused announced its own refusal in
@@ -686,7 +890,46 @@ export function Launch({ session, catalog, onDone, initialGoalId }:
       ) : goals.length === 0 ? (
         <p className="text-sm text-text-secondary">{t('launch.noGoalsAvailable')}</p>
       ) : null}
-      {(isReady(goals) ? goals : []).map((g) => (
+
+      {/* THE RAIL'S OWN FILTER — a search box and the real categories `campaigns.goals` returns
+          (goals.py::GOAL_CATEGORIES), not a screen-invented grouping. Seven goals today read fine
+          as a plain list; this is what keeps a fiftieth goal just as findable, without a redesign
+          the day the library grows past a handful. */}
+      {isReady(goals) && goals.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2">
+            <Search size={14} className="shrink-0 text-text-secondary" aria-hidden />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('launch.search.placeholder')}
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </label>
+          {categories.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.category.all')}>
+              <button type="button" onClick={() => setActiveCategory('')}
+                     className={['rounded-full px-3 py-1 text-xs font-medium',
+                                 activeCategory === '' ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                {t('launch.category.all')}
+              </button>
+              {categories.map((cat) => (
+                <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
+                       className={['rounded-full px-3 py-1 text-xs font-medium',
+                                   activeCategory === cat ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {(isReady(goals) ? goals : [])
+        .filter((g) => (!activeCategory || g.category === activeCategory)
+          && (!search.trim() || g.title.includes(search.trim()) || g.line.includes(search.trim())))
+        .map((g) => (
         <button
           key={g.goal}
           type="button"

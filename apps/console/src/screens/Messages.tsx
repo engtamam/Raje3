@@ -1464,7 +1464,7 @@ export function MessagesScreen(
               and unreachable; this tab listed campaigns and explained what a campaign is for,
               which is a brochure for a feature its owner cannot use. */}
           {launching ? (
-            <Launch session={session} catalog={catalog} initialGoalId={launchGoal}
+            <Launch session={session} catalog={catalog} initialGoalId={launchGoal} owned={owned}
                     onDone={() => { setLaunching(false); loadCampaigns(); }} />
           ) : action(catalog, 'campaigns.create') ? (
             <div><Button onClick={() => setLaunching(true)}>{t('messages.campaigns.launch')}</Button></div>
