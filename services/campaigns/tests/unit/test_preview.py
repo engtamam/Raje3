@@ -92,6 +92,24 @@ def test_the_refusal_happens_on_the_screen_not_at_send_time():
     assert "رابط" in str(exc.value)
 
 
+# ── the catalogue fill, closed to the same channel ──────────────────────────────────────────────
+@pytest.mark.parametrize("bad", [
+    "احجز على www.example.com", "اتصل 0501234567",
+])
+def test_a_catalogue_name_cannot_smuggle_a_link_or_number_either(bad):
+    """campaigns-002 (QA audit, 2026-09-12): `service_name`/`package_name` fill the identical
+    "catalogue" template variable `owner_text` fills, reach reminders verbatim as `service_names`,
+    and are rendered straight into the previewed message — the same injection channel `owner_text`'s
+    filter exists to close, previously left open on this sibling field."""
+    with pytest.raises(PreviewError):
+        preview(template=NO_OWNER_FIELD, owner_text="", service_text=bad)
+
+
+def test_an_ordinary_catalogue_name_still_renders():
+    p = preview(template=NO_OWNER_FIELD, owner_text="", service_text="قص شعر")
+    assert "قص شعر" in p.message
+
+
 def test_an_empty_text_is_refused_only_when_the_template_needs_one():
     with pytest.raises(PreviewError):
         preview(owner_text="")

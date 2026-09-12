@@ -394,3 +394,17 @@ def test_one_campaigns_crash_does_not_lose_the_others_results(st):
     assert res.fired == 3
     assert res.sent == 6
     assert any("خطأ في حملة" in k for k in res.reasons)
+
+
+def test_a_tenant_with_more_than_the_old_page_size_still_gets_every_campaign_ticked(st):
+    """campaigns-001 (QA audit, 2026-09-12): `Tick.run` used to read at most 200 active campaigns,
+    sorted oldest-first, and silently drop the returned cursor — so any campaign past the 200th
+    oldest never ticked again, forever, with nothing logging the omission. 260 rows here proves the
+    read is now drained rather than page-one-and-discard."""
+    for i in range(260):
+        save(st, Campaign(tenant="t1", goal="win_back", id=f"c{i}", state="active"))
+    d = Dispatcher()
+    res = tick(st, d, at(9))
+    assert res.fired == 260
+    assert len(d.fired) == 260
+    assert {cid for cid, _ in d.fired} == {f"c{i}" for i in range(260)}

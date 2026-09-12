@@ -58,3 +58,42 @@ def test_an_empty_goal_or_zero_until_writes_nothing():
     run(record_lock(st, "t1", "", 1_000))
     run(record_lock(st, "t1", "awareness", 0))
     assert run(read_locks(st, "t1")) == {}
+
+
+class _SlowStore:
+    """Wraps a real store but stalls between `get` and `put`, widening the race window so a
+    non-atomic read-modify-write is caught deterministically instead of needing luck."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    async def get(self, collection, key):
+        row = await self._inner.get(collection, key)
+        await asyncio.sleep(0.01)
+        return row
+
+    async def put(self, collection, key, value):
+        return await self._inner.put(collection, key, value)
+
+    async def delete(self, collection, key):
+        return await self._inner.delete(collection, key)
+
+    async def claim(self, collection, key, value, *, ttl_seconds, now):
+        return await self._inner.claim(collection, key, value, ttl_seconds=ttl_seconds, now=now)
+
+
+def test_two_genuinely_concurrent_writers_never_lose_the_higher_until():
+    """campaigns-003 (QA audit, 2026-09-12): a tick firing the same moment an owner presses
+    manually — or two pods racing the same tick — used to race a plain get-then-put, so the loser
+    could overwrite the winner's fresher `locked_until` with a stale, lower value. The mutex around
+    the read-modify-write must make one writer wait for the other rather than let them interleave."""
+    st = _SlowStore(MemoryDataStore())
+
+    async def race():
+        await asyncio.gather(
+            record_lock(st, "t1", "awareness", 1_000),
+            record_lock(st, "t1", "awareness", 2_000),
+        )
+
+    run(race())
+    assert run(read_locks(st, "t1")) == {"awareness": 2_000}

@@ -301,6 +301,14 @@ async def create(request: Request, body: CampaignIn,
         from app.core.preview import sanitise_owner_text
         needs = any(f == "owner" for f in (template.get("fills") or []))
         clean = sanitise_owner_text(body.owner_text, required=needs)
+        # SAME FILTER AS `owner_text` — fixed 2026-09-12, a real gap a QA audit found: this fills
+        # the identical "catalogue" template variable and is stored verbatim into
+        # `scope_service_names`, forwarded to reminders as `service_names` and rendered straight
+        # into the customer-facing message at send time. A link or phone number here reached the
+        # customer under the establishment's own approved template, the exact channel this
+        # sanitiser exists to close.
+        clean_service_name = sanitise_owner_text(body.service_name, required=False)
+        clean_package_name = sanitise_owner_text(body.package_name, required=False)
     except PreviewError as exc:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
@@ -407,8 +415,8 @@ async def create(request: Request, body: CampaignIn,
                         package_id=(body.package_id or "").strip(),
                         branch_id=(body.branch_id or "").strip(),
                         offer_value=offer_value,
-                        scope_service_names=([body.service_name] if body.service_name else
-                                             ([body.package_name] if body.package_name else [])),
+                        scope_service_names=([clean_service_name] if clean_service_name else
+                                             ([clean_package_name] if clean_package_name else [])),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
                         # people who are 70% through their cycle for one service; an offer that
                         # arrived because of a service and then did not cover it would be the

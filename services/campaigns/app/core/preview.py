@@ -181,11 +181,19 @@ def build(*, goal: str, template: dict[str, Any], establishment: str, owner_text
     # THE DISCOUNT IS CHECKED WHILE HE IS LOOKING AT IT, not at the launch. «خصم كبير» typed into
     # the value field and discovered a screen later is a screen later than it needed to be.
     value = sanitise_offer_value(offer_value, required=any(f == "amount" for f in fills))
+    # SAME DOOR, SAME LOCK — fixed 2026-09-12, a real gap a QA audit found: `service_name`/
+    # `package_name` fill this exact "catalogue" template variable and reach reminders verbatim as
+    # `service_names`, but only `owner_text` ever passed through the URL/phone/control-character
+    # filter. A caller with `campaigns.manage` could put a link or number in a catalogue name and
+    # have it rendered, under the establishment's own approved-template quota, straight to a
+    # customer. `required=False`: an empty catalogue name is the normal, already-handled "…" case,
+    # not a refusal.
+    clean_service_text = sanitise_owner_text(service_text, required=False)
 
     return Preview(
         message=render_message(template=template, establishment=establishment,
                                owner_text=clean, offer_value=value, ends_at=ends_at,
-                               service_text=service_text),
+                               service_text=clean_service_text),
         reaches=audience.count,
         excluded=getattr(audience, "excluded", 0),
         too_recent=getattr(audience, "too_recent", 0),

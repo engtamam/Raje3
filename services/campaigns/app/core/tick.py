@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core.locks import record_lock
 
 # Saudi Arabia has no daylight saving, so a fixed offset is correct — the same constant as
@@ -110,8 +111,13 @@ class Tick:
             # (§16.4.2).
             res.reasons["الحملات ليست في اشتراكك"] = 1
             return res
-        rows, _ = await self._s.find("campaigns", {"tenant": tenant, "state": "active"},
-                                     limit=200, sort=("created", "asc"))
+        # DRAINED, NOT PAGE-ONE-AND-DISCARD — fixed 2026-09-12, a real gap a QA audit found: a
+        # tenant with more than the old 200-row page's worth of active campaigns had every campaign
+        # past the oldest 200 silently never ticked, forever, with nothing logging the omission.
+        # Same fix already made for the tick's own "which tenants have work" read (see
+        # api/internal.py::_active_tenants).
+        rows = await drain(self._s, "campaigns", {"tenant": tenant, "state": "active"},
+                          sort=("created", "asc"))
 
         # CAMPAIGNS ARE INDEPENDENT, SO THEY RUN CONCURRENTLY — bounded, so a tenant with many
         # active campaigns cannot open unbounded connections to the store/sender at once. Each
