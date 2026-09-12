@@ -15,6 +15,11 @@
  * caller rather than looked up here, so this component stays screen-agnostic. Reusing it (rather
  * than picking a second icon for the same page) is what lets the header read as "this is where
  * that rail row leads," not as a second, disconnected decoration.
+ *
+ * THE TITLE WEARS THE DISPLAY FACE (theme.config.ts's `font.display`, Cairo) — rebranded
+ * 2026-09-12, matching the approved campaigns mockup's own heading treatment. This is the one
+ * shared component nearly every screen's own title already renders through, so the new heading
+ * voice reaches the whole product from here rather than a per-screen change.
  */
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -31,7 +36,8 @@ export function PageHeader({ icon: Icon, title, action }: {
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2">
         <Icon size={22} className="text-text-secondary" aria-hidden />
-        <h1 className="text-2xl leading-tight tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-bold leading-tight tracking-tight"
+            style={{ fontFamily: 'var(--font-display)' }}>{title}</h1>
       </div>
       {action}
     </div>

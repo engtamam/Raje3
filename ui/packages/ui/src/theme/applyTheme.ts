@@ -94,6 +94,7 @@ export function applyTheme(
   root.style.setProperty('--motion-slow', s.motion.slow);
   root.style.setProperty('--motion-ease', s.motion.ease);
   root.style.setProperty('--font-sans', s.font.sans);
+  root.style.setProperty('--font-display', s.font.display);
   root.style.setProperty('--font-mono', s.font.mono);
   root.style.setProperty('--root-font-pct', `${s.rootFontPct}%`);
   // Focus-ring offset — the gap between a control's edge and its focus outline, so the ring reads on

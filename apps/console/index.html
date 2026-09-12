@@ -24,6 +24,15 @@
          v4: the ground behind the mark went from dark ink to white, same day. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4" />
     <meta name="theme-color" content="#151d33" />
+    <!-- THE REBRAND'S OWN TYPEFACES (2026-09-12) — Cairo for headings, Tajawal for body text
+         (theme.config.ts's `font.display`/`font.sans`). Neither was ever actually fetched before
+         this: the theme has declared a webfont family since the violet rebrand, but no app in
+         this repo ever linked one, so the whole product has always rendered in the browser's own
+         default sans-serif regardless of what the token said. `preconnect` first, then the
+         stylesheet — the standard two-step so the font request does not wait behind DNS/TLS. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
     <!-- «الميدان» WAS RIGHT WHEN THIS APP WAS ONLY THE FIELD SCREEN. It is now the whole console —
          the owner, the manager and the operator behind one login — so the tab says the product. -->
     <title>راجِع</title>

@@ -7,6 +7,12 @@
    already-confirmed choice, and no rubber-band scroll on a screen that does not scroll. */
 html, body, #root { height: 100%; overscroll-behavior: none; }
 body { -webkit-tap-highlight-color: transparent; }
+
+/* THE WEBFONT TOKEN, ACTUALLY APPLIED — fixed 2026-09-12, a real gap this rebrand found:
+   `theme.config.ts` has set `--font-sans` on the root element since the previous rebrand, and
+   nothing anywhere read it. The whole product has always rendered in the browser's own default
+   sans-serif regardless of what the token said — this is the one rule that makes the token real. */
+body { font-family: var(--font-sans); }
 button { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 
 /* The 44px touch-target block that lived here is GONE, and that is the whole point of escalating
@@ -70,13 +76,20 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  * `--rj-info*` is NEW here — this scoped mini design-system had no semantic-info token of its own,
  * and the same audit that drove the rebrand found several "اليوم"/active-filter states on this
  * screen wrongly wearing the brand accent instead of an informational colour. `--rj-booked` etc.
- * (real booking-status colours) are UNCHANGED — those were never the brand accent. */
+ * (real booking-status colours) are UNCHANGED — those were never the brand accent.
+ *
+ * RE-HUED A THIRD TIME 2026-09-12 — `--rj-bg`/`--rj-surface`/`--rj-ink`/`--rj-ink-soft`/`--rj-line`
+ * ONLY, matching the paper/violet rebrand below (theme.config.ts). This file's own header says
+ * this screen must diverge in LAYOUT, never in colour language — a cool violet-white ground here
+ * beside the rest of the product's new warm paper would have been exactly that second divergence,
+ * not the one this screen was ever meant to keep. `--rj-accent`/status colours (booked/attended/
+ * noshow/cancelled) are UNCHANGED — real booking-status semantics, not the generic rebrand. */
 .rj-grid {
-  --rj-bg: #f4f5fa;
+  --rj-bg: #f7f3ea;
   --rj-surface: #ffffff;
-  --rj-ink: #131226;
-  --rj-ink-soft: #5a5a78;
-  --rj-line: #e5e6f2;
+  --rj-ink: #1b1712;
+  --rj-ink-soft: #6b6354;
+  --rj-line: #e9e1cc;
   --rj-accent: #5c1b7a;
   --rj-accent-soft: #f1e4f8;
   --rj-accent-deep: #3d0f54;
