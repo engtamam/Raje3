@@ -34,6 +34,7 @@ from app.api.authz import require_capability
 from app.api.deps import get_guard
 from app.api.ratelimit import rate_limit
 from app.adapters.k8s_client import K8sError
+from app.core.audit import AuditUnavailable
 from app.observability.logging import get_logger
 from app.core.secret_registry import (
     BY_KEY,
@@ -245,12 +246,24 @@ async def set_secret(request: Request, key: str, body: SecretIn,
         # running on the previous credential. A second, corrective entry — same append-only
         # discipline as every other write-ahead correction on this platform — says the rollout
         # itself did not complete.
-        await request.app.state.auditor.record(
-            "platform.secret_changed", actor=actor, tenant="",
-            resource=f"secret:{entry.secret}:{entry.key}",
-            ip=request.client.host if request.client else "",
-            metadata={"namespace": entry.namespace, "deployment": entry.deployment,
-                     "outcome": "saved_not_restarted"})
+        try:
+            await request.app.state.auditor.record(
+                "platform.secret_changed", actor=actor, tenant="",
+                resource=f"secret:{entry.secret}:{entry.key}",
+                ip=request.client.host if request.client else "",
+                metadata={"namespace": entry.namespace, "deployment": entry.deployment,
+                         "outcome": "saved_not_restarted"})
+        except AuditUnavailable:
+            # fixed 2026-09-12, a real gap a QA audit found: this corrective entry is itself a
+            # `platform.secret_changed` emission, so it is just as critical as the write-ahead one
+            # and can raise the same way when the sink is down at this exact moment. But the secret
+            # really WAS saved — only the restart failed — and that fact must not be replaced by an
+            # opaque 503 that reads as "nothing happened". The gap is logged here, server-side, so
+            # it is at least visible in the pod's own logs even though the audit chain missed it;
+            # the caller still gets the honest "saved, not restarted" response below.
+            _logger.error("audit_unavailable_for_corrective_entry",
+                          extra={"key": entry.key, "namespace": entry.namespace,
+                                 "deployment": entry.deployment, "outcome": "saved_not_restarted"})
         # SAVED, NOT APPLIED — and the difference is the whole message. Retrying the save would
         # rewrite a value that is already correct; what is needed is a restart.
         return JSONResponse(

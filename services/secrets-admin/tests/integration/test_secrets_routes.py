@@ -55,8 +55,16 @@ class FakeK8s:
 class RecordingAuditor:
     def __init__(self) -> None:
         self.events: list[dict] = []
+        # Lets a test make exactly the Nth `record()` call raise, to reproduce the corrective
+        # audit entry landing on a sink that is down at that specific moment.
+        self.fail_on_call: int | None = None
+        self._calls = 0
 
     async def record(self, action, **kw):
+        self._calls += 1
+        if self.fail_on_call == self._calls:
+            from app.core.audit import AuditUnavailable
+            raise AuditUnavailable("audit sink unavailable for this call")
         self.events.append({"action": action, **kw})
 
 
@@ -294,6 +302,31 @@ def test_a_failed_restart_leaves_a_second_audit_entry_naming_the_incomplete_roll
     changed = [e for e in auditor.events if e["action"] == "platform.secret_changed"]
     assert len(changed) == 2, "the write-ahead record AND the corrective one must both be there"
     assert changed[-1]["metadata"]["outcome"] == "saved_not_restarted"
+
+
+def test_corrective_audit_entry_failing_does_not_turn_a_saved_secret_into_a_503(built):
+    """secrets-admin-r2-003 (QA audit round 2, 2026-09-12): the corrective, second
+    `platform.secret_changed` entry (for a save that succeeded but whose restart failed) is
+    itself a critical action, so it can raise AuditUnavailable if the sink is down for THAT one
+    call. That must not degrade the honest 400 "saved, not restarted" response into an opaque
+    503 — the credential really was rotated, and the caller needs to know that, not lose it
+    behind a generic audit-outage error."""
+    client, k8s, auditor = built
+    k8s.fail_restart = True
+    # First record() call is the write-ahead entry (must succeed); second is the corrective one
+    # for the failed restart — make exactly that one fail.
+    auditor.fail_on_call = 2
+    r = client.post("/api/v1/secrets/ASSISTANT_MODEL_CREDENTIAL", json={"value": LIVE_VALUE},
+                    headers=_auth(CAP))
+    assert r.status_code == 400
+    body = r.json()
+    assert body["restarted"] is False
+    assert body["last4"] == LIVE_VALUE[-4:]
+    assert k8s.patches, "the value WAS saved even though its corrective audit entry was lost"
+    # The write-ahead entry made it through; the corrective one did not — that gap is the cost
+    # of failing open, not a reason to hide the fact the secret was saved.
+    changed = [e for e in auditor.events if e["action"] == "platform.secret_changed"]
+    assert len(changed) == 1
 
 
 def test_k8s_error_detail_never_reaches_the_response_body(built):
