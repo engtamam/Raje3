@@ -850,15 +850,15 @@
       },
       "fills": [
         "establishment",
-        "catalogue"
+        "owner"
       ],
       "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. الزر يفتح نفس التقرير كشاشة تفاعلية منظّمة (rating-app-feature.md phase 6b) — النص يبقى كملخّص سريع، بلا أي اعتماد بينهما: شحن الفلو فشل أو لم يُوفَّر بعد لهذا المحل، والنص وحده يكفي. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} أبرز خدمة بالأسبوع.",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. الزر يفتح نفس التقرير كشاشة تفاعلية منظّمة (rating-app-feature.md phase 6b) — النص يبقى كملخّص سريع، بلا أي اعتماد بينهما: شحن الفلو فشل أو لم يُوفَّر بعد لهذا المحل، والنص وحده يكفي. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} النص المُركَّب فعليًا لهذا الأسبوع (core/digest.py::build) — سطر الزيارات وما بعده، لا اسم خدمة مفردة كما كان مكتوبًا هنا سابقًا؛ ذلك الوصف لم يعد يطابق ما يبنيه digest.py منذ صار تقريرًا متعدد الأسطر.",
       "active": true,
       "deferral": "defer",
       "examples": [
         "مغسلة النخيل",
-        "قص شعر"
+        "زياراتك: 12، عملاء جدد: 3، الأكثر طلبًا: قص شعر"
       ]
     },
     {
@@ -881,15 +881,15 @@
       },
       "fills": [
         "establishment",
-        "catalogue"
+        "owner"
       ],
       "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} أبرز خدمة بالأسبوع.",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} النص المُركَّب فعليًا لهذا الأسبوع (core/digest.py::build)، نفس نسخة warm.",
       "active": true,
       "deferral": "defer",
       "examples": [
         "صالون لمسات",
-        "قص وتشذيب"
+        "زياراتك: 9، عميلات جديدات: 2، الأكثر طلبًا: صبغة"
       ]
     },
     {
@@ -1362,16 +1362,16 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "شوف خدماتنا وعندنا لك خصم عليها:",
-      "variables": [],
+      "body": "هلا {{1}}، عندنا لك من {{2}} خصومات على خدماتنا، سارية حتى {{3}}، شوف التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
+      "variables": [1, 2, 3, 4],
       "header": "",
       "button": "",
-      "fills": [],
+      "fills": ["system", "system", "date", "stop_link"],
       "model": "both",
-      "model_why": "المحلات بلا حجز واتساب مفعَّل (feature.bookings) — مغاسل السيارات مثلاً — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل تلقائياً فقط لمحل غير مؤهَّل للحجز، ومحرك القوالب هنا (rendering.choose_carousel) يتراجع بصمت للنص العادي إن لم يجد قالباً معتمداً — active:false يمنع اختيار هذا الصف في مسار الإرسال العادي وشاشة اختيار الأهداف.",
+      "model_why": "المحلات بلا حجز واتساب مفعَّل (feature.bookings) — مغاسل السيارات مثلاً — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل تلقائياً فقط لمحل غير مؤهَّل للحجز، ومحرك القوالب هنا (rendering.choose_carousel) يتراجع بصمت للنص العادي إن لم يجد قالباً معتمداً — active:false يمنع اختيار هذا الصف في مسار الإرسال العادي وشاشة اختيار الأهداف. المبلغ والخدمة يظهران داخل كل بطاقة على حدة؛ الاسم والمحل والتاريخ ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_offer_warm الأفقي (rendering.py::render يرفض إرسال أي عرض بلا تاريخ انتهاء — نفس الرفض ينطبق هنا).",
       "active": false,
       "deferral": "defer",
-      "examples": [],
+      "examples": ["محمد", "مغسلة النخيل", "12 سبتمبر", "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"],
       "carousel": {
         "cards": [
           {
@@ -1406,16 +1406,16 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "شوفي خدماتنا وعندنا لك خصم عليها:",
-      "variables": [],
+      "body": "هلا {{1}}، عندنا لك من {{2}} خصومات على خدماتنا، سارية حتى {{3}}، شوفي التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
+      "variables": [1, 2, 3, 4],
       "header": "",
       "button": "",
-      "fills": [],
+      "fills": ["system", "system", "date", "stop_link"],
       "model": "both",
       "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
-      "examples": [],
+      "examples": ["سارة", "صالون لمسات", "12 سبتمبر", "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"],
       "carousel": {
         "cards": [
           {
@@ -1450,16 +1450,16 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "وحشتنا! شوف خدماتنا وعندنا لك خصم على زيارتك القادمة:",
-      "variables": [],
+      "body": "هلا {{1}}، وحشتنا — من {{2}} لك خصم في زيارتك القادمة، ساري حتى {{3}}، شوف التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
+      "variables": [1, 2, 3, 4],
       "header": "",
       "button": "",
-      "fills": [],
+      "fills": ["system", "system", "date", "stop_link"],
       "model": "both",
       "model_why": "نفس شكل mkt_offer_carousel، لنص الاستعادة بدل نص العرض العام.",
       "active": false,
       "deferral": "defer",
-      "examples": [],
+      "examples": ["محمد", "مغسلة النخيل", "12 سبتمبر", "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"],
       "carousel": {
         "cards": [
           {
@@ -1494,16 +1494,16 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "وحشتِنا! شوفي خدماتنا وعندنا لك خصم على زيارتك القادمة:",
-      "variables": [],
+      "body": "هلا {{1}}، وحشتِنا — من {{2}} لك خصم في زيارتك القادمة، ساري حتى {{3}}، شوفي التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
+      "variables": [1, 2, 3, 4],
       "header": "",
       "button": "",
-      "fills": [],
+      "fills": ["system", "system", "date", "stop_link"],
       "model": "both",
       "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
-      "examples": [],
+      "examples": ["سارة", "صالون لمسات", "12 سبتمبر", "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"],
       "carousel": {
         "cards": [
           {
@@ -1538,16 +1538,16 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنت بخير 🌿 شوف خدماتنا وعندنا لك خصم:",
-      "variables": [],
+      "body": "كل عام وأنت بخير يا {{1}} 🌿 من {{2}} لك خصم حتى {{3}}، شوف التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
+      "variables": [1, 2, 3, 4],
       "header": "",
       "button": "",
-      "fills": [],
+      "fills": ["system", "system", "date", "stop_link"],
       "model": "both",
       "model_why": "نفس شكل mkt_offer_carousel، لنص المناسبة الشخصية بدل نص العرض العام.",
       "active": false,
       "deferral": "defer",
-      "examples": [],
+      "examples": ["محمد", "مغسلة النخيل", "12 سبتمبر", "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"],
       "carousel": {
         "cards": [
           {
@@ -1582,16 +1582,16 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنتِ بخير 🌿 شوفي خدماتنا وعندنا لك خصم:",
-      "variables": [],
+      "body": "كل عام وأنتِ بخير يا {{1}} 🌿 من {{2}} لك خصم حتى {{3}}، شوفي التفاصيل 👇 لإيقاف العروض: {{4}} ✋",
+      "variables": [1, 2, 3, 4],
       "header": "",
       "button": "",
-      "fills": [],
+      "fills": ["system", "system", "date", "stop_link"],
       "model": "both",
       "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
-      "examples": [],
+      "examples": ["سارة", "صالون لمسات", "12 سبتمبر", "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"],
       "carousel": {
         "cards": [
           {

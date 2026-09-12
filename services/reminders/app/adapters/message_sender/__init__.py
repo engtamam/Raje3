@@ -111,10 +111,11 @@ class NullSender:
     async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
-                            sending_identity: str = "") -> str:
+                            sending_identity: str = "", top_variables: list[str] | None = None) -> str:
         self.sent.append({"tenant": tenant, "sending_identity": sending_identity or tenant,
                           "subject_ref": subject_ref, "type": "carousel",
                           "template_name": template_name, "variables": variables,
+                          "top_variables": list(top_variables or []),
                           "service_ids": list(service_ids),
                           "service_names": dict(service_names),
                           "idempotency_key": idempotency_key})
@@ -379,7 +380,7 @@ class HttpSender:
     async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
-                            sending_identity: str = "") -> str:
+                            sending_identity: str = "", top_variables: list[str] | None = None) -> str:
         """Thin async wrapper — every call inside is stdlib urllib, plain synchronous methods, so
         the whole card-building-and-send sequence runs as ONE unit off the event loop. See
         core/customer_lookup.py::HttpCustomerLookup.resolve for the same offload idiom."""
@@ -387,12 +388,12 @@ class HttpSender:
             self._send_carousel_sync, tenant=tenant, subject_ref=subject_ref,
             template_name=template_name, variables=variables, service_ids=service_ids,
             service_names=service_names, idempotency_key=idempotency_key,
-            sending_identity=sending_identity)
+            sending_identity=sending_identity, top_variables=top_variables)
 
     def _send_carousel_sync(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
-                            sending_identity: str = "") -> str:
+                            sending_identity: str = "", top_variables: list[str] | None = None) -> str:
         """The carousel shape (core/shape.py Phase 2) — one card per covered service. GET the
         photo from operations, POST it to notification-service for a media id, THEN POST the
         assembled cards to `/internal/notify/whatsapp/carousel` — THE SAME TWO-STEP
@@ -443,11 +444,12 @@ class HttpSender:
 
         payload = {
             "recipient": recipient, "tenant": tenant, "template_name": template_name,
-            # THE CAROUSEL ROW'S OWN TOP-LEVEL BODY IS STATIC (no variables) — same shape as
-            # `wa_catalog_carousel`'s own seed row — so nothing here needs the customer's resolved
-            # `name` this call already looked up; `variables` is per-card only (see `body_params`
-            # above), never a top-level component.
-            "language": "ar", "variables": [], "cards": cards,
+            # THE SHARED INTRO'S OWN VARIABLES (name/shop/end-date/stop-link, seeded 2026-09-12) —
+            # rendered by the caller through the same `render()` the flat message uses (tick.py),
+            # never composed here: this adapter sends bytes, it does not decide what a template
+            # means. `wa_catalog_carousel`'s own row still declares none, so `[]` remains correct
+            # for a caller that never resolved one.
+            "language": "ar", "variables": list(top_variables or []), "cards": cards,
             "user_id": subject_ref, "event": "campaigns.marketing",
             "sending_identity": sending_identity or tenant,
             "idempotency_key": idempotency_key, "biz_opaque_callback_data": idempotency_key,

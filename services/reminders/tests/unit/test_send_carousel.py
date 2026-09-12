@@ -46,7 +46,7 @@ class _Resp:
 
 
 def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
-         carousel_response=None, recipient="+966500000000"):
+         carousel_response=None, recipient="+966500000000", top_variables=None):
     """A sender whose image fetch, media upload and carousel POST all succeed by default —
     override any one to prove the graceful-degradation path around it."""
     s = sender()
@@ -75,7 +75,8 @@ def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
         result = run(s.send_carousel(
             tenant="t1", subject_ref="sub_a", template_name="mkt_offer_carousel_warm",
             variables=["20%"], service_ids=list(service_ids),
-            service_names={"oil": "غسيل خارجي", "tyres": "تلميع"}, idempotency_key="cmp:c1:sub_a"))
+            service_names={"oil": "غسيل خارجي", "tyres": "تلميع"}, idempotency_key="cmp:c1:sub_a",
+            top_variables=top_variables))
     return result, calls
 
 
@@ -97,11 +98,17 @@ def test_each_card_carries_its_own_service_name_then_the_shared_variables():
     assert names == [["غسيل خارجي", "20%"], ["تلميع", "20%"]]
 
 
-def test_the_top_level_body_carries_no_variables():
-    """The carousel row's own top-level caption is static — see the seed's `mkt_offer_carousel_*`
-    rows — so nothing here needs a customer-name substitution the flat `send()` performs."""
+def test_the_top_level_body_carries_whatever_the_caller_rendered():
+    """The shared intro (name/shop/end-date/stop-link, seeded 2026-09-12) is rendered by the
+    CALLER (tick.py, through the same `render()` the flat message uses) and handed down as
+    `top_variables` — this adapter only carries it, it does not compose it. A caller that never
+    resolved one (or a template that declares none, like `wa_catalog_carousel`) still gets `[]`."""
     _, calls = _wire()
     assert calls["carousel_body"]["variables"] == []
+
+    _, calls_with_top = _wire(top_variables=["محمد", "مغسلة النخيل", "12 سبتمبر", "https://x/stop"])
+    assert calls_with_top["carousel_body"]["variables"] == [
+        "محمد", "مغسلة النخيل", "12 سبتمبر", "https://x/stop"]
 
 
 def test_idempotency_key_rides_both_the_key_and_the_callback_data():

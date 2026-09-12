@@ -546,6 +546,22 @@ class Tick:
                                              library=library, approved=approved)
             if carousel_row is not None:
                 try:
+                    # THE SHARED INTRO'S OWN VARIABLES (name/shop/end-date/stop-link, seeded
+                    # 2026-09-12) — rendered through the SAME `values`/`render()` the flat message
+                    # above already used, so a discount carousel refuses exactly like a discount
+                    # flat send when `expires_at` is empty (`render`'s own "date" rule), rather than
+                    # a second, easier-to-forget copy of that refusal living here.
+                    top = R.render(template=carousel_row, system=values, catalogue=values,
+                                   owner=values, public_base_url=self._public_base_url,
+                                   reference=LINKS.reference_for(tenant, row.get("subject_ref", "")),
+                                   marketing_consent=consent)
+                except R.RenderError as exc:
+                    await self._log.append(tenant, as_row(SendLog(
+                        tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                        schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                        outcome="suppressed", reason=str(exc))))
+                    return {"sent": False, "reason": str(exc)}
+                try:
                     await self._quota.consume(tenant=tenant, idempotency_key=key)
                 except Q.QuotaError as exc:
                     await self._log.append(tenant, as_row(SendLog(
@@ -558,6 +574,7 @@ class Tick:
                         tenant=tenant, subject_ref=subject,
                         template_name=str(carousel_row.get("name", "")),
                         variables=[str(row.get("offer_value", ""))],
+                        top_variables=top.variables,
                         service_ids=list(row.get("offer_services") or []),
                         service_names=service_names, idempotency_key=key,
                         sending_identity=_sending_identity(tenant, row))

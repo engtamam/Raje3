@@ -39,7 +39,10 @@ SERVICES = ROOT / "services"
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
 FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
-        "rating_cta")
+        "rating_cta",
+        # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
+        # otherwise assumes at slot 1. See rendering.py::campaign_slots' own `establishment` branch.
+        "establishment")
 
 # A blank of this kind may only appear in a template of these classes. `amount` is an offer by its
 # nature: a utility template carrying a discount is marketing by its text whatever it is labelled
@@ -199,6 +202,27 @@ def main() -> int:
         # message that names no last day is honoured for ever.
         if "amount" in fills and "date" not in fills:
             problems.append(f"{name}: promises a discount and names no end date")
+
+        # A CAROUSEL VARIANT MAKES THE SAME PROMISE AS ITS FLAT SIBLING, JUST SPLIT ACROSS CARDS —
+        # the discount itself moves into each card's own body ("{{1}} — خصم {{2}}"), which is why
+        # this row's own top-level `fills` carries no `amount`, and why the `amount`-implies-`date`
+        # rule just above cannot see it at all. It still owes the customer the same end date the
+        # flat wording owes, in the ONE place a carousel send has room for a shared sentence: the
+        # intro body every card sits under. Compared against the flat sibling rather than hardcoded
+        # here, so a FUTURE offer-bearing type gets this check for free the day its own carousel
+        # variant is added — nobody has to remember to extend a list.
+        if r.get("carousel"):
+            flat_siblings = [x for x in by_type[r["type"]] if not x.get("carousel")]
+            if flat_siblings:
+                flat_fills = list(flat_siblings[0].get("fills") or [])
+                if "date" in flat_fills and "date" not in fills:
+                    problems.append(f"{name}: its flat sibling {flat_siblings[0]['name']!r} names "
+                                    f"an end date and this carousel's shared intro does not — the "
+                                    f"per-card discount still promises an end nobody states")
+                if "stop_link" in flat_fills and "stop_link" not in fills:
+                    problems.append(f"{name}: its flat sibling {flat_siblings[0]['name']!r} carries "
+                                    f"the one-tap stop (§8.3) and this carousel's shared intro "
+                                    f"does not")
 
         # THE TONES OF ONE TYPE MUST AGREE ON THEIR BLANKS. The tone is a live switch: a shop that
         # changes it mid-campaign would otherwise leave a blank unfilled, which Meta refuses.
