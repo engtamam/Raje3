@@ -1,0 +1,15 @@
+{
+  "_comment": "THE PLATFORM'S GLOBAL in-app/email/sms templates our OWN services send through — one row per (key, locale), upserted by seed-notification-templates.sh on every install. Placeholders use stdlib string.Template ($name, not {name} — see notification-service's own adapters/renderer/safe.py). category is always 'transactional' here: none of these are marketing, so none need a NOTIFY_CONSENT_PURPOSES mapping.",
+  "templates": [
+    {
+      "key": "operations.staff_rating_dropped",
+      "category": "transactional",
+      "locales": {
+        "ar": {
+          "subject": "انخفاض في تقييم أحد الموظفين",
+          "body": "تراجع متوسط تقييم $name إلى $average من 5 خلال آخر تقييماته. يُنصح بمراجعة أدائه في أقرب وقت."
+        }
+      }
+    }
+  ]
+}

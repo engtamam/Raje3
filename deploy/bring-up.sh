@@ -735,6 +735,11 @@ soft "admin account" bash "$HERE/seed/seed-admin.sh"
 soft "billing service-account for operations" bash "$HERE/hooks/provision-billing-service-account.sh"
 soft "plans" bash "$HERE/seed/seed-plans.sh"
 soft "legal" bash "$HERE/seed/seed-legal.sh"
+# OUR OWN PLATFORM-WIDE in-app/email/sms TEMPLATES (rating-app-feature.md phase 8) — without this,
+# a fresh install's `InAppNotifier.send(template_key=...)` calls (the staff-rating alert first,
+# any future in-app alert after it) fail silently forever, same as any other unconfigured peer.
+# Mints its own token directly (like seed-plans.sh above), so it needs no account seeded first.
+soft "notification templates" bash "$HERE/seed/seed-notification-templates.sh"
 # THE BACKUP TARGETS — runtime data, and nothing was creating it.
 #
 # The fleet came up green with backup-service deployed, a bucket, and BACKUP_KEK shared everywhere,
