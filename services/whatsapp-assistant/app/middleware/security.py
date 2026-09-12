@@ -74,10 +74,27 @@ class BodyLimitMiddleware(BaseHTTPMiddleware):
                 declared = int(content_length)
             except ValueError:
                 return JSONResponse({"error": "BAD_REQUEST"}, status_code=400)
+            # A cheap early refusal when the client is honest about an already-oversized body —
+            # skips reading anything at all.
             if declared > self._max:
                 return JSONResponse(
                     {"error": "PAYLOAD_TOO_LARGE"}, status_code=413
                 )
+
+        # THE ACTUAL BYTES, NOT JUST WHAT THE CLIENT CLAIMED (CWE-400) — a chunked request
+        # (`Transfer-Encoding: chunked`, no `Content-Length` at all) or one that understates its
+        # own header both used to sail straight through the check above untouched (a real gap
+        # confirmed by ci/check_body_limit_drains_the_stream.py, 2026-09-12). Draining the stream
+        # ourselves, capped, closes both: caching the result on `request._body` is the SAME
+        # mechanism Starlette's own `Request.body()` uses, so every downstream reader (`.body()`,
+        # `.json()`, a route's own Pydantic parse) sees the identical bytes exactly once rather
+        # than an already-exhausted stream.
+        body = b""
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > self._max:
+                return JSONResponse({"error": "PAYLOAD_TOO_LARGE"}, status_code=413)
+        request._body = body
         return await call_next(request)
 
 

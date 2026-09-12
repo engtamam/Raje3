@@ -420,6 +420,12 @@ jobs:
       # operations rather than flagging every call to a common builtin.
       - name: no async def does unoffloaded file I/O or a slow KDF
         run: python3 ci/check_no_heavy_sync_work_inside_async_def.py
+      # A body-limit that only checks Content-Length refuses nothing a chunked (or lying) request
+      # sends — found in 7 of 11 services by a second QA pass after the first pass's own
+      # per-service review missed 5 of them entirely. One mechanical check on every copy of the
+      # class closes the gap a reviewer's attention cannot guarantee to catch twice.
+      - name: BodyLimitMiddleware drains the real body, not just Content-Length
+        run: python3 ci/check_body_limit_drains_the_stream.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services
