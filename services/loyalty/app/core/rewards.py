@@ -94,6 +94,15 @@ class Rewards:
             row["active"] = bool(kw["active"])
         if "discount_halalas" in kw:
             row["discount_halalas"] = int(kw["discount_halalas"])
+        # READ-MODIFY-WRITE, NO LOCK — and that is fine here. The two doors that move points
+        # (`redeem`, `earn`, the expiry sweep) hold `SpendLock` because they touch a customer's
+        # BALANCE, where a lost update means a shop gives away or loses real points nobody can
+        # explain. This edits the CATALOGUE ROW instead: an owner (or the till, per the module
+        # docstring) tuning a reward's name/cost/active flag from the console — a low-frequency,
+        # effectively single-writer path with no financial consequence if a rare double-edit drops
+        # one field back to its old value; the owner sees the stale field on the very next screen
+        # and re-saves. Serialising catalogue edits behind a lock would be cost for a race that,
+        # even realised, costs nothing.
         await self.store.put(REWARDS, reward_id, row)
         return _row_to_reward(row)
 

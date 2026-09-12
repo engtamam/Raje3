@@ -190,10 +190,23 @@ class Expiry:
         Written AFTER the send succeeded, by the caller. Stamping before would mean a send that
         failed leaves a customer silently un-warned until the day his points vanish — the exact
         outcome the warning exists to prevent.
+
+        LOCKED — same lane as `Ledger.post` and the expire write above. This reads the whole
+        balance row and writes the whole row back; an `earn`/`redeem` for the SAME subject
+        landing between the read and the write would have its `points`/`last_movement_at` silently
+        reverted to what this method read a moment earlier — a real lost update, not a hypothetical
+        one, since a tick can be mid-loop over hundreds of rows for as long as a customer is
+        standing at a till moving that same balance. `SpendBusy` just means somebody else is
+        moving this balance right now: the stamp is skipped for this pass, same as a failed send —
+        retried on the next cycle, never a crash of the whole tick.
         """
         key = f"{tenant}|{subject_ref}"
-        row = await self.store.get(BALANCES, key)
-        if not row:
-            return
-        row["expiry_warned_at"] = now
-        await self.store.put(BALANCES, key, row)
+        try:
+            async with SpendLock(self.cache, tenant, subject_ref):
+                row = await self.store.get(BALANCES, key)
+                if not row:
+                    return
+                row["expiry_warned_at"] = now
+                await self.store.put(BALANCES, key, row)
+        except SpendBusy:
+            pass
