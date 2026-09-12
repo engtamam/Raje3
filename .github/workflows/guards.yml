@@ -426,6 +426,12 @@ jobs:
       # class closes the gap a reviewer's attention cannot guarantee to catch twice.
       - name: BodyLimitMiddleware drains the real body, not just Content-Length
         run: python3 ci/check_body_limit_drains_the_stream.py
+      # TokenVerifier.verify() may block (a JWKS driver's real network fetch, buried inside a
+      # third-party dependency this codebase's own blocking-call scan cannot see into) — found
+      # unoffloaded in 9 of 11 services by a second QA pass, after only 2 services' own first-pass
+      # review happened to catch it.
+      - name: TokenVerifier.verify() is never called synchronously inside async def
+        run: python3 ci/check_token_verify_is_offloaded.py
 
       # AND A MINTED SECRET IS READ BY WHOEVER IT WAS SEALED FOR. Found on the day this was
       # written: OBJECTSTORE_ACCESS_KEY/SECRET_KEY were minted into all seven OURS services

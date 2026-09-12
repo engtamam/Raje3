@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 
 from fastapi import Depends, HTTPException, Request, Response, status
+from starlette.concurrency import run_in_threadpool
 
 from app.api.auth import Principal, _extract_principal
 from app.config import get_settings
@@ -66,7 +67,14 @@ async def optional_principal(request: Request) -> "Principal | None":
     if scheme.lower() != "bearer" or not token:
         return None
     try:
-        claims = request.app.state.container.token_verifier.verify(token)
+        # OFFLOAD: verify() is synchronous and, on the jwks/rs256 drivers, does blocking work — a
+        # requests-based JWKS fetch on a kid/cache miss and CPU-bound RSA verification. Called inline
+        # it would block this single-worker event loop for its whole duration, starving every other
+        # coroutine — including the one reading the Redis GCRA reply for THIS request's rate limit, so
+        # the limiter's socket read times out and the request spuriously "degrades" to the local
+        # fallback. run_in_threadpool keeps the loop free so a genuinely distinct tenant is not falsely
+        # 429'd by scheduling starvation. (hs256 verify is cheap, but offloading it too costs nothing.)
+        claims = await run_in_threadpool(request.app.state.container.token_verifier.verify, token)
     except Exception:
         # A TOKEN WAS PRESENT AND REJECTED — a different case from no token at all (a genuinely
         # anonymous request against an unauthenticated route), yet both used to collapse into the
