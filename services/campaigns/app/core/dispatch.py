@@ -24,6 +24,7 @@ from typing import Any
 
 from app.adapters.datastore.drain import drain
 from app.core import shape
+from app.core.goal_stats import record_reach
 from app.core.spread import plan as plan_spread
 from app.core.models import Run, as_row, in_window
 
@@ -96,7 +97,7 @@ class Dispatcher:
         if package_id and self._package_offerable is not None:
             if not await self._package_offerable.offerable(tenant, package_id, now):
                 run.reasons["الباقة لم تعد متاحة"] = 0
-                await self._save(run)
+                await self._save(run, goal=str(campaign.get("goal") or ""))
                 return DispatchResult(run=run, finished=True)
 
         # THE OWNER'S OWN WINDOW (`Campaign.window_*`, offer goals only) — re-checked every pass,
@@ -111,7 +112,7 @@ class Dispatcher:
             now=now,
         ):
             run.reasons["خارج نافذة الحملة"] = 0
-            await self._save(run)
+            await self._save(run, goal=str(campaign.get("goal") or ""))
             return DispatchResult(run=run, finished=False)
 
         reached = await self._already_reached(tenant, cid)
@@ -163,7 +164,7 @@ class Dispatcher:
                 # NOTHING IS SENT, and the run says why in the owner's own words. A partial send
                 # would be the outcome the refusal exists to prevent, performed anyway.
                 run.reasons[sp.refused] = audience.count
-                await self._save(run)
+                await self._save(run, goal=str(campaign.get("goal") or ""))
                 return DispatchResult(run=run, finished=True)
 
         # WHAT SHAPE THIS CAMPAIGN'S MESSAGES TAKE — asked ONCE, here, not once per recipient. It
@@ -179,7 +180,7 @@ class Dispatcher:
                 # BOUNDED. The run is saved with what it reached and the next pass continues —
                 # a campaign that re-sends its first four hundred recipients because the pod was
                 # evicted is worse than one that sends nothing.
-                await self._save(run)
+                await self._save(run, goal=str(campaign.get("goal") or ""))
                 return DispatchResult(run=run, finished=False)
 
             # THE KEY IS (campaign, subject) AND IT IS GENERATED BEFORE THE CALL. A timeout is
@@ -254,7 +255,7 @@ class Dispatcher:
                 _count(run.reasons, outcome.get("reason") or "امتنعت بلا سبب مذكور")
             sent_this_pass += 1
 
-        await self._save(run)
+        await self._save(run, goal=str(campaign.get("goal") or ""))
         return DispatchResult(run=run, finished=True)
 
     # ── the dedup ledger ──────────────────────────────────────────────────────────────────────
@@ -298,8 +299,15 @@ class Dispatcher:
         if cached is not None:
             cached.add(subject)
 
-    async def _save(self, run: Run) -> None:
+    async def _save(self, run: Run, *, goal: str = "") -> None:
         await self._s.put("campaign_runs", run.key, as_row(run))
+        # THE RAIL'S OWN "N وصلهم" — a side counter (app.core.goal_stats), updated at the ONE
+        # place every run of every trigger (standing, scheduled, manual) is persisted, so this
+        # cannot go stale by missing a firing path a second, independent counter would have to be
+        # copied into. `goal` is empty only for a campaign row so old it predates the field
+        # entirely — that run's own `sent` is simply never counted under any goal, never guessed.
+        if run.sent:
+            await record_reach(self._s, run.tenant, goal, run.sent)
 
 
 def _count(reasons: dict[str, int], reason: str) -> None:

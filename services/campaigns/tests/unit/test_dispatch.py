@@ -297,3 +297,35 @@ def test_a_campaign_with_no_window_fields_at_all_is_unaffected(st):
     `window_start_hour`/`window_end_hour`/`window_weekdays` keys at all, not even the defaults."""
     res = fire(st, Sender(), resolver("a"))
     assert res.run.sent == 1
+
+
+# ── the rail's own "N وصلهم" (app.core.goal_stats) ──────────────────────────────────────────────
+def test_a_send_is_counted_under_the_campaigns_own_goal(st):
+    from app.core.goal_stats import read_goal_stats
+
+    with_goal = {**CAMPAIGN, "goal": "win_back"}
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a", "b"))
+    res = run(d.fire(with_goal, now=NOW))
+    assert res.run.sent == 2
+    assert run(read_goal_stats(st, "t1")) == {"win_back": {"uses": 0, "reach": 2}}
+
+
+def test_a_run_that_reaches_nobody_counts_nothing(st):
+    from app.core.goal_stats import read_goal_stats
+
+    with_goal = {**CAMPAIGN, "goal": "win_back"}
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver())
+    res = run(d.fire(with_goal, now=NOW))
+    assert res.run.sent == 0
+    assert run(read_goal_stats(st, "t1")) == {}
+
+
+def test_a_campaign_row_with_no_goal_at_all_is_never_counted_under_a_guessed_one(st):
+    """A row this old predates the field entirely — its sends are simply not attributed to any
+    goal, never guessed, rather than silently counted under an empty-string bucket."""
+    from app.core.goal_stats import read_goal_stats
+
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"))
+    res = run(d.fire(CAMPAIGN, now=NOW))
+    assert res.run.sent == 1
+    assert run(read_goal_stats(st, "t1")) == {}

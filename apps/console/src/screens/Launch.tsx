@@ -91,6 +91,10 @@ interface Goal {
   icon?: string;
   /** One of `categories` below (goals.py::GOAL_CATEGORIES) — how the rail groups this card. */
   category?: string;
+  /** How many times this goal has been launched, and how many customers it has actually reached
+   *  — the side counter (campaigns' own core/goal_stats.py, 2026-09-12), never computed here. */
+  uses?: number;
+  reach?: number;
   available?: boolean;
   unavailable_reason?: string;
   behaviour?: string;
@@ -955,6 +959,16 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               ) : null}
             </span>
             <span className="text-sm text-text-secondary">{g.line}</span>
+            {/* THE RAIL'S OWN "استُخدمت N مرة" / "N وصلهم" — SHOWN ONLY WHEN THIS GOAL HAS EVER
+                BEEN USED. A permanent "استُخدمت 0 مرة" on every never-launched goal is noise on
+                the very screen meant to help him pick one; the number earns its place on screen
+                the first time it says something. */}
+            {g.uses ? (
+              <span className="flex items-center gap-2 text-xs text-text-secondary tabular-nums">
+                {tf(t, 'launch.goalStats.uses', { n: g.uses })}
+                {g.reach ? <>· {tf(t, 'launch.goalStats.reach', { n: g.reach })}</> : null}
+              </span>
+            ) : null}
             {/* NOT DISABLED ANY MORE, ON PURPOSE. Found live: an owner asked why he could not
                 even OPEN this and compose his message while a template was under Meta's review —
                 a wait that can run hours, during which the card blocked him from doing anything

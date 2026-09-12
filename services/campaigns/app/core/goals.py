@@ -107,6 +107,12 @@ class Card:
     # invented on a screen: a console that made up its own grouping would drift from this the
     # first time a goal moved buckets or a new one arrived in neither's list.
     category: str = ""
+    # HOW MANY TIMES THIS GOAL HAS BEEN LAUNCHED, and how many customers it has actually reached
+    # — from the side counter (`app.core.goal_stats`), never a screen-invented number. Zero for a
+    # goal never used, which is the honest answer, not an absent field a console would have to
+    # guess a fallback for.
+    uses: int = 0
+    reach: int = 0
     # Whether it can be pressed right now.
     available: bool = True
     # Why not, in the owner's words, ON the card. Never in a tooltip, never in a modal after they
@@ -148,7 +154,8 @@ class Card:
 
 def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks: dict[str, int] | None = None,
           enabled_types: set[str] | None = None, blocked_reasons: dict[str, str] | None = None,
-          statuses: dict[str, str] | None = None) -> list[Card]:
+          statuses: dict[str, str] | None = None,
+          stats: dict[str, dict[str, int]] | None = None) -> list[Card]:
     """The five cards, in the order an owner should see them.
 
     `locks` maps goal → locked_until. `enabled_types` is which template types this tenant can
@@ -164,10 +171,13 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
     """
     locks = locks or {}
     statuses = statuses or {}
+    stats = stats or {}
     out: list[Card] = []
     for goal, meta in CARDS.items():
+        goal_stats = stats.get(goal) or {}
         card = Card(goal=goal, title=meta["title"], line=meta["line"], icon=meta["icon"],
                     category=meta.get("category", ""),
+                    uses=int(goal_stats.get("uses") or 0), reach=int(goal_stats.get("reach") or 0),
                     behaviour=_behaviour(goal), offers=offers_something(goal))
 
         until = int(locks.get(goal) or 0)

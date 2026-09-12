@@ -29,6 +29,7 @@ from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, GOAL_CATEGORIES, cards, lock_after_send, resolve_goal
 from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something, validate_window
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
+from app.core.goal_stats import read_goal_stats, record_use
 from app.core.locks import read_locks, record_lock
 from app.core import press
 from app.core.preview import PreviewError, build as build_preview, describe_when, window_sentence
@@ -147,7 +148,12 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     # independent reads, so there is no reason to wait on one before starting the next.
     tenant = _tenant(principal)
     types = {template_type for template_type, _cls in GOAL_TEMPLATE.values()}
-    rows = await asyncio.gather(*(c.templates.pick(tenant, t) for t in types))
+    # THE RAIL'S OWN "استُخدمت N مرة" / "N وصلهم" — a single-key side read (app.core.goal_stats),
+    # never a scan of this tenant's whole campaign/run history. Read alongside the template
+    # lookups above, not after them: an independent fact, no reason to wait on the other first.
+    stats_row, rows = await asyncio.gather(
+        read_goal_stats(c.datastore, tenant),
+        asyncio.gather(*(c.templates.pick(tenant, t) for t in types)))
     enabled: set[str] = set()
     fills: dict[str, list[str]] = {}
     for template_type, row in zip(types, rows):
@@ -157,7 +163,7 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     return {"goals": [vars(card) for card in
                       cards(now=_now(), fills_by_type=fills, locks=locks,
                             enabled_types=enabled, blocked_reasons=blocked,
-                            statuses=statuses)],
+                            statuses=statuses, stats=stats_row)],
             # THE FILTER CHIPS' OWN ORDER — a rail/filter reads this rather than collecting each
             # card's own `category` and sorting them itself, which would reorder the moment a
             # category's first card changed or a goal moved buckets.
@@ -473,6 +479,11 @@ async def create(request: Request, body: CampaignIn,
     # what a second press must be given back is the CAMPAIGN — a crash during the send must not
     # leave the claim pointing at nothing while the row is on disk.
     await press.settle(c.datastore, _tenant(principal), press_key, campaign.id, now=now)
+    # THE RAIL'S OWN "استُخدمت N مرة" — a side counter, never a scan of this tenant's whole
+    # campaign history (see app.core.goal_stats's own docstring, same move `record_lock` already
+    # made). Counted here, once, on an actual creation — never on a re-press the idempotency claim
+    # above already resolved to the SAME campaign.
+    await record_use(c.datastore, campaign.tenant, campaign.goal)
 
     # A FUTURE `fire_at` — ANY GOAL NOW, not only «مناسبة عميلك» (2026-09-12). Best-effort handed
     # to job-service (platform/services/job-service) so it fires close to the exact moment
