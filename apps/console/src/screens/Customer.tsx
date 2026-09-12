@@ -20,7 +20,7 @@
 import { asLocal } from '../phone';
 import { CustomerBookingHistory } from '../CustomerBookingHistory';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { Drawer } from '../rj-ui/Drawer';
@@ -126,6 +126,12 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const ADJUST_REASONS = adjustReasons(t);
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  // SMART BACK — a caller that sent him here from somewhere more specific than the plain customer
+  // list (e.g. «التقييم»'s own ratings tab, back to the exact tab/filter he had open) hands that
+  // address through `navigate(..., { state: { from } })`; absent, this is exactly the old,
+  // unconditional "/customers" it always was.
+  const location = useLocation();
+  const backTo = (location.state as { from?: string } | null)?.from || '/customers';
   const [record, setRecord] = useState<Record | null | undefined>(undefined);
   const [offers, setOffers] = useState<Loading<Offer[]>>(undefined);
   const [balance, setBalance] = useState<Balance | null | undefined>(undefined);
@@ -210,7 +216,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           title={t('customer.notFoundTitle')}
           description={t('customer.notFoundDesc')}
         />
-        <Button variant="ghost" onClick={() => navigate('/customers')}>{t('customer.backToCustomers')}</Button>
+        <Button variant="ghost" onClick={() => navigate(backTo)}>{t('customer.backToCustomers')}</Button>
       </div>
     );
   }
@@ -268,7 +274,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             {c.name ? asLocal(c.phone) : t('customer.noName')}
           </span>
         </span>
-        <Button variant="ghost" onClick={() => navigate('/customers')}>{t('customer.back')}</Button>
+        <Button variant="ghost" onClick={() => navigate(backTo)}>{t('customer.back')}</Button>
       </header>
 
       {/* HIS THREE NUMBERS, ABOVE EVERYTHING. They are what the owner opened this page to learn,

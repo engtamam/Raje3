@@ -94,9 +94,6 @@ describe('owns', () => {
   });
 });
 
-// «التقييم» — sold, not built yet (SOLD_UNBUILT). It has a row here already, same as
-// `feature.bookings` did while its own ten stages were in progress — the wording is ready the
-// day the plan flips to `listed: true`; nothing about `owns()` needs to change when it does.
 describe('the rating row', () => {
   const rating = APP_ROWS.find((a) => a.id === 'rating');
 
@@ -104,12 +101,12 @@ describe('the rating row', () => {
     expect(rating?.key).toBe('feature.rating');
   });
 
-  it('answers owns() correctly even though nothing sells it yet', () => {
+  it('answers owns() correctly', () => {
     expect(owns(answered(['feature.rating']), 'feature.rating')).toBe(true);
     expect(owns(answered([]), 'feature.rating')).toBe(false);
   });
 
-  it('adds to an existing screen rather than owning a rail section of its own', () => {
-    expect(rating?.section).toBe('');
+  it('owns its own rail section — nav.ts\'s own «التقييم» row', () => {
+    expect(rating?.section).toBe('rating');
   });
 });

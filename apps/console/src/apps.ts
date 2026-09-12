@@ -148,19 +148,21 @@ export const APP_ROWS: AppRow[] = [
     featuresAction: 'insights.features',
   },
   // BUILT AND WIRED — the whole pipeline (per-shop Flow clone, the template's real flow_button,
-  // the send/receive round-trip, RatingsTab.tsx already gated on `operations.ratings`) is live;
-  // see plans.json's own note on this row for the full audit. `listed: false` there is a pure
-  // go-live decision now, not a placeholder — `owns()` already answers correctly the day it
-  // flips, and `Plans.tsx` simply starts offering it for purchase then, no console change needed.
+  // the send/receive round-trip, its own dedicated «التقييم» rail section gated on
+  // `operations.ratings`) is live; see plans.json's own note on this row for the full audit.
+  // `listed: false` there is a pure go-live decision now, not a placeholder — `owns()` already
+  // answers correctly the day it flips, and `Plans.tsx` simply starts offering it for purchase
+  // then, no console change needed.
   {
     id: 'rating',
     key: 'feature.rating',
     name: 'التقييم',
     what: 'يحميك من خسارة عملاء دون علمك — يكشف مشكلة بموظف أو خدمة وتعالجها قبل أن تتفاقم.',
-    // Adds a tab to the EXISTING customer-list screen ("عملائي"), not a rail section of its own —
-    // see the plan's own note on this being a deliberate, small extension of `onCustomer`'s usual
-    // meaning (inside ONE customer's page) rather than a silent assumption.
-    section: '',
+    // ITS OWN RAIL SECTION NOW (nav.ts's own «التقييم» row) — it started as a tab inside «عملائي»
+    // while all it did was list ratings; it now carries a real management tool of its own (the
+    // staff-comparison quadrant, the switchable leaderboard), which earns it a place of its own on
+    // the rail rather than staying a corner of a screen about something else.
+    section: 'rating',
     onCustomer: '',
     icon: 'star', tone: 'warning',
     // NO featuresAction — operations owns this app's row too (core/apps.py's RATING_FEATURES),

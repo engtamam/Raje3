@@ -36,7 +36,6 @@ import type { Session } from '../session';
 import { scopeQuery } from '../branch-scope';
 import { asLocal } from '../phone';
 import { AssistantHint } from '../AssistantHint';
-import { RatingsTab } from './RatingsTab';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import './customers-i18n';
 
@@ -65,7 +64,7 @@ export function CustomersScreen(
   // of "My Shop", this list was ALWAYS the whole chain while the numbers next door might be one
   // branch — and an owner reading both was reading two different shops with nothing saying so.
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'all' | 'overdue' | 'ratings'>('all');
+  const [tab, setTab] = useState<'all' | 'overdue'>('all');
   const [query, setQuery] = useState('');
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [recent, setRecent] = useState<Loading<CustomerHit[]>>(undefined);
@@ -325,11 +324,8 @@ export function CustomersScreen(
         options={[
           { value: 'all', label: t('customers.tab.all') },
           { value: 'overdue', label: t('customers.tab.overdue') },
-          ...(action(catalog, 'operations.ratings') ? [{ value: 'ratings' as const, label: t('customers.tab.ratings') }] : []),
         ]}
       />
-
-      {tab === 'ratings' ? <RatingsTab session={session} catalog={catalog} branch={branch} /> : <>
 
       {tab === 'overdue' ? (
         <div className="flex items-center gap-1 text-sm text-text-secondary">
@@ -480,7 +476,6 @@ export function CustomersScreen(
         </ul>
         </>
       )}
-      </>}
     </div>
   );
 }

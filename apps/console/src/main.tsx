@@ -10,6 +10,7 @@ import { Account } from './screens/AccountRoute';
 import { Services } from './screens/ServicesRoute';
 import { Messages } from './screens/MessagesRoute';
 import { Points } from './screens/PointsRoute';
+import { Rating } from './screens/RatingRoute';
 import { Team } from './screens/TeamRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
@@ -60,6 +61,7 @@ const shopRouter = createBrowserRouter([
       { path: 'services', element: <Services /> },
       { path: 'messages', element: <Messages /> },
       { path: 'points', element: <Points /> },
+      { path: 'rating', element: <Rating /> },
       { path: 'team', element: <Team /> },
       // «محلّي» IS ALSO THE INDEX ROUTE — the page «اليوم» and «محلّي» became. The path stays
       // served because bookmarks, links in messages and the e2e suite all use it; it renders the

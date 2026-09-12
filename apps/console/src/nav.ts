@@ -21,7 +21,8 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarClock, ClipboardPlus, Gift, LifeBuoy, MessageSquare, Store, TrendingUp, Users, Wrench,
+  CalendarClock, ClipboardPlus, Gift, LifeBuoy, MessageSquare, Star, Store, TrendingUp, Users,
+  Wrench,
 } from 'lucide-react';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
@@ -90,6 +91,11 @@ export const SECTIONS: Section[] = [
   // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
   { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'] },
   { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'] },
+  // «التقييم» — WAS A TAB UNDER «عملائي» (رأي عميل هو حقيقة عن زيارته، نفس نطاق «عملائي»)، صار
+  // قسماً قائماً بذاته لأن ما بناه هذا الإصدار (مقارنة الفريق، لوحة الصدارة، مصفوفة الأداء) صار
+  // أداة إدارة قائمة بحد ذاتها، لا مجرد قائمة تقييمات. نفس بوابة `operations.ratings` التي كانت
+  // تُظهر التبويب القديم.
+  { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the

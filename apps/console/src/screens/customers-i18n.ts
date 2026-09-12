@@ -26,7 +26,6 @@ registerOperatorStrings({
     'customers.tabsAriaLabel': 'أقسام العملاء',
     'customers.tab.all': 'عملائي',
     'customers.tab.overdue': 'من تأخّر',
-    'customers.tab.ratings': 'التقييمات',
     'customers.overdueHint': 'من تأخّر عن موعده المعتاد',
 
     'customers.searchPlaceholder': 'ابحث برقم الجوال أو الاسم',
@@ -84,7 +83,6 @@ registerOperatorStrings({
     'customers.tabsAriaLabel': 'Customer sections',
     'customers.tab.all': 'My Customers',
     'customers.tab.overdue': 'Overdue',
-    'customers.tab.ratings': 'Ratings',
     'customers.overdueHint': 'Overdue on their usual cycle',
 
     'customers.searchPlaceholder': 'Search by phone number or name',
@@ -142,7 +140,6 @@ registerOperatorStrings({
     'customers.tabsAriaLabel': 'گاہکوں کے حصے',
     'customers.tab.all': 'میرے گاہک',
     'customers.tab.overdue': 'تاخیر والے',
-    'customers.tab.ratings': 'ریٹنگز',
     'customers.overdueHint': 'اپنے معمول کے چکر سے تاخیر میں',
 
     'customers.searchPlaceholder': 'موبائل نمبر یا نام سے تلاش کریں',
@@ -200,7 +197,6 @@ registerOperatorStrings({
     'customers.tabsAriaLabel': 'Sassan abokan ciniki',
     'customers.tab.all': 'Abokan Cinikina',
     'customers.tab.overdue': 'Waɗanda suka makara',
-    'customers.tab.ratings': 'Kimantawa',
     'customers.overdueHint': 'Ya makara a kan zagayensa na yau da kullum',
 
     'customers.searchPlaceholder': 'Nemi ta lambar waya ko suna',
@@ -258,7 +254,6 @@ registerOperatorStrings({
     'customers.tabsAriaLabel': 'Mga seksyon ng customer',
     'customers.tab.all': 'Aking Mga Customer',
     'customers.tab.overdue': 'Huli',
-    'customers.tab.ratings': 'Mga Rating',
     'customers.overdueHint': 'Huli sa karaniwang cycle nila',
 
     'customers.searchPlaceholder': 'Maghanap gamit ang numero o pangalan',
