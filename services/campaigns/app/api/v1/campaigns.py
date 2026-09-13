@@ -27,7 +27,8 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, GOAL_CATEGORIES, cards, lock_after_send, resolve_goal
-from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something, validate_window
+from app.core.models import (GOAL_TEMPLATE, Campaign, as_row, offers_something,
+                             validate_loyalty_window, validate_window)
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
 from app.core.locks import read_locks, record_lock
@@ -130,6 +131,11 @@ class CampaignIn(BaseModel):
     window_start_hour: int = Field(default=0, ge=0, le=24)
     window_end_hour: int = Field(default=24, ge=0, le=24)
     window_weekdays: list[int] = Field(default_factory=list, max_length=7)
+    # «كافئ المخلصين»'s OWN AUDIENCE THRESHOLDS (2026-09-13) — an interactive live control on the
+    # create screen, never a fixed rule baked into the code. Meaningless for every other goal;
+    # bounds match `models.py::LOYALTY_WINDOW_DAYS_RANGE`/`LOYALTY_MIN_VISITS_RANGE`.
+    loyalty_window_days: int = Field(default=90, ge=7, le=365)
+    loyalty_min_visits: int = Field(default=3, ge=1, le=50)
 
 
 def _combine_ids_and_names(single_id: str, ids: list[str], single_name: str,
@@ -245,6 +251,15 @@ async def preview(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST", "reason": window_error})
 
+    # «كافئ المخلصين»'s OWN THRESHOLDS — same "refused on the screen he is looking at" reasoning
+    # as the window check above. Pydantic's own `ge`/`le` on the field already reject anything
+    # wildly out of range; this is the coherence check same shape as `validate_window`'s own.
+    loyalty_error = validate_loyalty_window(window_days=body.loyalty_window_days,
+                                            min_visits=body.loyalty_min_visits)
+    if loyalty_error:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "reason": loyalty_error})
+
     # THE FULL MULTI-SELECT LIST (2026-09-13) — the owner may now name several services (or
     # several packages) under one offer; every one becomes its own carousel card at send time
     # (core/shape.py's existing carousel path), never a plain paragraph enumerating them.
@@ -264,7 +279,8 @@ async def preview(request: Request, body: CampaignIn,
     audience = await c.audience.resolve_for(
         _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
         already_reached=set(), service_id=body.service_id, service_ids=service_ids_all,
-        branch_id=body.branch_id)
+        branch_id=body.branch_id,
+        window_days=body.loyalty_window_days, min_visits=body.loyalty_min_visits)
 
     try:
         p = build_preview(
@@ -500,6 +516,12 @@ async def create(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST", "reason": window_error})
 
+    loyalty_error = validate_loyalty_window(window_days=body.loyalty_window_days,
+                                            min_visits=body.loyalty_min_visits)
+    if loyalty_error:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "reason": loyalty_error})
+
     # ── one press, one campaign ──────────────────────────────────────────────────────────────
     # See core/press.py for why. In short: everything that stops a customer receiving the same
     # thing twice is keyed on `campaign_id`, and this route minted a new one on every request —
@@ -550,6 +572,12 @@ async def create(request: Request, body: CampaignIn,
                         window_start_hour=body.window_start_hour,
                         window_end_hour=body.window_end_hour,
                         window_weekdays=list(body.window_weekdays or []),
+                        # STORED THE SAME WAY, for the SAME reason — dispatch.fire() re-resolves
+                        # the audience on every pass from the STORED thresholds (container.py
+                        # `_resolver`), never from whatever was true the moment the owner pressed
+                        # preview. Meaningless for every goal but `reward_loyal`.
+                        loyalty_window_days=body.loyalty_window_days,
+                        loyalty_min_visits=body.loyalty_min_visits,
                         # EVERY CHOSEN NAME, empties dropped (a name that sanitised to "" — never
                         # sent in the first place — is not a card). SEVERAL, since 2026-09-13: one
                         # per selected service or package, in the order chosen — the same order

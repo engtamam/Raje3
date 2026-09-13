@@ -6,7 +6,8 @@ import asyncio
 import pytest
 
 from app.core.audience import DAY, DEFAULT_MAX_AUDIENCE, resolve
-from app.core.models import GOAL_TEMPLATE, Campaign, Run, in_window, validate_window
+from app.core.models import (GOAL_TEMPLATE, Campaign, Run, in_window, validate_loyalty_window,
+                             validate_window)
 
 NOW = 1_800_000_000
 # NOW, in Riyadh local time, is Friday (weekday 4) at 11:00 — pinned here once so every window
@@ -178,6 +179,28 @@ def test_validate_window_accepts_a_coherent_window():
 
 def test_a_campaign_with_no_window_is_always_in_window():
     assert in_window(start_hour=0, end_hour=24, weekdays=None, now=NOW)
+
+
+# ── «كافئ المخلصين»'s own audience thresholds (2026-09-13) ──────────────────────────────────────
+def test_validate_loyalty_window_refuses_a_window_outside_7_to_365():
+    assert validate_loyalty_window(window_days=6, min_visits=3)
+    assert validate_loyalty_window(window_days=366, min_visits=3)
+
+
+def test_validate_loyalty_window_refuses_min_visits_outside_1_to_50():
+    assert validate_loyalty_window(window_days=90, min_visits=0)
+    assert validate_loyalty_window(window_days=90, min_visits=51)
+
+
+def test_validate_loyalty_window_accepts_the_defaults_and_the_full_range_edges():
+    assert validate_loyalty_window(window_days=90, min_visits=3) == ""
+    assert validate_loyalty_window(window_days=7, min_visits=1) == ""
+    assert validate_loyalty_window(window_days=365, min_visits=50) == ""
+
+
+def test_a_campaign_never_touching_the_thresholds_gets_todays_defaults():
+    c = Campaign(tenant="t1", goal="reward_loyal")
+    assert c.loyalty_window_days == 90 and c.loyalty_min_visits == 3
 
 
 def test_in_window_checks_the_hour_in_riyadh_local_time():

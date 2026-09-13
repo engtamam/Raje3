@@ -306,7 +306,13 @@ def build_container(settings: Settings) -> Container:
             # campaign's stored `scope_service_ids` (2026-09-13) is now the SAME list the cycle
             # lock reads, not only what the carousel shows.
             service_ids=list(campaign.get("scope_service_ids") or []),
-            branch_id=campaign.get("branch_id", ""))
+            branch_id=campaign.get("branch_id", ""),
+            # «كافئ المخلصين»'s OWN THRESHOLDS, RE-READ FROM THE STORED ROW — never trusted from
+            # whenever the preview ran, same "ask fresh every pass" discipline `package_id`'s own
+            # re-check follows. Meaningless for every other goal, and the stored default (90/3)
+            # is the same one this facade has always used.
+            window_days=int(campaign.get("loyalty_window_days") or 90),
+            min_visits=int(campaign.get("loyalty_min_visits") or 3))
 
     from app.core.licence import build_licence
     from app.core.shape import BOOKINGS_KEY
@@ -388,7 +394,7 @@ class _AudienceFacade:
     async def resolve_for(self, tenant: str, *, goal: str, now: int, cls: str,
                           already_reached=None,
                           service_id: str = "", service_ids: list[str] | None = None,
-                          branch_id: str = ""):
+                          branch_id: str = "", window_days: int = 90, min_visits: int = 3):
         """`cls` HAS NO DEFAULT, AND THAT IS THE FIX (ج-1).
 
         It decides WHICH RULES the audience is resolved under: marketing needs explicit consent and
@@ -433,7 +439,14 @@ class _AudienceFacade:
                                    customers=_customers, gate_check=_gate,
                                    already_reached=already_reached or set(),
                                    max_audience=self._max_audience,
-                                   service_id=service_id, service_ids=service_ids)
+                                   service_id=service_id, service_ids=service_ids,
+                                   # «كافئ المخلصين»'s OWN THRESHOLDS (2026-09-13) — the caller
+                                   # passes the campaign's own stored values (or the same 90/3
+                                   # default this facade has always used) here; every OTHER
+                                   # goal's matcher either ignores these two or (win_back) reads
+                                   # `window_days` for its own unrelated fallback-cycle meaning,
+                                   # which the 90-day default leaves exactly as it always was.
+                                   window_days=window_days, min_visits=min_visits)
 
     async def redeemed(self, tenant: str, reached: list[dict]) -> int:
         """Passthrough to the peer (ط-3) — see `HttpAudience.redeemed` for the join it makes."""

@@ -110,6 +110,28 @@ def validate_window(*, start_hour: int, end_hour: int, weekdays: list[int] | Non
     return ""
 
 
+#: `reward_loyal`'s own audience thresholds, adjustable per campaign (2026-09-13 — the owner's own
+#: correction: "الأكثر زيارة عندك" should never be a fixed 90-day/3-visit rule baked into the
+#: code, it should be a decision he makes per campaign, live). Named the SAME as `audience.resolve`'s
+#: own `window_days`/`min_visits` parameters but campaign-scoped and reward_loyal-specific — win_back's
+#: own use of `window_days` (its fallback cycle length) is a completely different question and must
+#: never read these.
+LOYALTY_WINDOW_DAYS_RANGE = (7, 365)
+LOYALTY_MIN_VISITS_RANGE = (1, 50)
+
+
+def validate_loyalty_window(*, window_days: int, min_visits: int) -> str:
+    """One Arabic sentence naming what is wrong with «كافئ المخلصين»'s own audience thresholds, or
+    "" when both are coherent — same shape as `validate_window` above."""
+    lo, hi = LOYALTY_WINDOW_DAYS_RANGE
+    if not (lo <= window_days <= hi):
+        return f"مدة الزيارة الأخيرة يجب أن تكون بين {lo} و{hi} يوماً"
+    lo, hi = LOYALTY_MIN_VISITS_RANGE
+    if not (lo <= min_visits <= hi):
+        return f"أقل عدد زيارات يجب أن يكون بين {lo} و{hi}"
+    return ""
+
+
 def in_window(*, start_hour: int, end_hour: int, weekdays: list[int] | None, now: int) -> bool:
     """Is `now` (Riyadh local) inside this window right now?
 
@@ -264,6 +286,12 @@ class Campaign:
     # already uses (`date.weekday()`: Monday=0 .. Sunday=6) — a second, disagreeing convention for
     # "which days" is the mistake this campaign is not worth making twice in one product.
     window_weekdays: list[int] = field(default_factory=list)
+    # «كافئ المخلصين»'s OWN AUDIENCE THRESHOLDS (2026-09-13) — meaningless for every other goal,
+    # defaults matching `audience.resolve`'s own pre-existing hardcoded values so a campaign that
+    # never touches these gets exactly today's behaviour. See `validate_loyalty_window`'s own note
+    # on why these are named/scoped separately from `win_back`'s unrelated use of `window_days`.
+    loyalty_window_days: int = 90
+    loyalty_min_visits: int = 3
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 
