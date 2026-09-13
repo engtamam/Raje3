@@ -2,10 +2,11 @@
 
 WHAT THIS CATCHES, AND IT WAS FOUND BY COUNTING RATHER THAN BY READING.
 
-  · SEVEN of the twenty-two wordings in `deploy/seed/templates.json` are named by no line of code
-    anywhere — not a campaign goal, not a trigger, not a path. They are still submitted to Meta the
-    moment a shop connects (#113 uploads the library whole), so each one waits in review and eats
-    the shop's template allowance for a message nobody can ever send.
+  · SEVEN of the twenty-two wordings in the specification (parsed fresh by `gen_templates.parse` —
+    no stored intermediate file since 2026-09-13) are named by no line of code anywhere — not a
+    campaign goal, not a trigger, not a path. They are still submitted to Meta the moment a shop
+    connects (#113 uploads the library whole), so each one waits in review and eats the shop's
+    template allowance for a message nobody can ever send.
 
   · AND ONE OF THE SEVEN IS THE END OF A CHAIN WE BUILT ON PURPOSE. `mkt_coupon` is the only
     wording with a `code` blank. `tick.py` mints a unique coupon per customer, hands it to
@@ -30,12 +31,13 @@ year of review.
 """
 from __future__ import annotations
 
-import json
 import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SEED = ROOT / "deploy" / "seed" / "templates.json"
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from gen_templates import build, parse  # noqa: E402
 
 #: Where a wording could be named by something able to send it: the services' own code and the
 #: console. NOT tests — a test naming a dead template is what «covered» looks like when nothing
@@ -68,11 +70,12 @@ def _sources() -> str:
 
 
 def main() -> int:
-    if not SEED.is_file():
-        print(f"{SEED.relative_to(ROOT)} is missing — this gate cannot answer")
+    types, problems = parse()
+    if problems:
+        print(f"the specification itself has {len(problems)} problem(s) — run "
+              f"`python ci/gen_templates.py` for detail")
         return 1
-
-    seed = json.loads(SEED.read_text(encoding="utf-8"))
+    seed = build(types)
     code = _sources()
 
     dead = [t["name"] for t in seed["types"] if t["name"] not in code]

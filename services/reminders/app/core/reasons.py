@@ -443,7 +443,7 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     # owner reads to judge whether a wording sounds right.
     customer_sample = SAMPLE[CUSTOMER_FEMININE] if template.get("tone") == "feminine" else SAMPLE[CUSTOMER]
     # Slot 3 of the library's own numbering is «الخدمة أو المحتوى», 4 «تفصيل», 5 «الرصيد» — the
-    # positional meanings the texts were written against (deploy/seed/templates.json).
+    # positional meanings the texts were written against (docs/وصف-منصة-راجع.md §8.4.1).
     by_number = {1: customer_sample, 2: establishment, 3: SAMPLE[SERVICE],
                  4: SAMPLE[POINTS], 5: SAMPLE[BALANCE]}
     out: dict[str, str] = {}

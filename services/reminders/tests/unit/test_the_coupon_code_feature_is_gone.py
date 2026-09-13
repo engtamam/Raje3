@@ -18,6 +18,7 @@ piece.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,9 @@ import pytest
 # tests/unit/<this>  ->  reminders  ->  services  ->  the repository root.
 ROOT = Path(__file__).resolve().parents[4]
 CURATED = ROOT / "services" / "operations" / "data" / "templates.seed.json"
-SEEDED = ROOT / "deploy" / "seed" / "templates.json"
+
+sys.path.insert(0, str(ROOT / "ci"))
+from gen_templates import build, parse  # noqa: E402
 
 #: The three that carried it. Named rather than derived: the point is that THESE lost a blank, not
 #: that whatever happens to have no `code` today has none.
@@ -37,7 +40,11 @@ def _curated() -> list[dict]:
 
 
 def _seeded() -> list[dict]:
-    return json.loads(SEEDED.read_text(encoding="utf-8"))["types"]
+    """The spec's own view of the library, PARSED FRESH (2026-09-13) — no stored intermediate
+    file to go stale between an edit to docs/وصف-منصة-راجع.md and this test catching it."""
+    types, problems = parse()
+    assert not problems, problems
+    return build(types)["types"]
 
 
 # ── the library, on both sides of it ──────────────────────────────────────────────────────────

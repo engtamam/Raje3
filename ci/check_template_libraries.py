@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 # =============================================================================
-# check_template_libraries.py — the two copies of the library say the same thing.
+# check_template_libraries.py — the reviewed spec and the curated library say the same thing.
 #
-# THERE ARE TWO FILES, AND BOTH ARE LEGITIMATE:
-#
-#   deploy/seed/templates.json           generated from the spec by gen_templates.py, pushed
-#                                        straight into notification-service by seed-templates.sh
-#   services/operations/data/…seed.json  the CURATED set operations holds and pushes into a
-#                                        tenant's registry when they connect — carrying the fields
-#                                        the spec has no opinion about: the label an operator
-#                                        reads, the button, who fills each variable, the reminder
-#                                        model, and whether it is active
+# ONE FILE ON DISK NOW (2026-09-13) — `services/operations/data/…seed.json`, the CURATED set
+# operations holds and pushes into a tenant's registry when they connect, carrying the fields the
+# spec has no opinion about: the label an operator reads, the button, who fills each variable, the
+# reminder model, and whether it is active. The comparison below is against the SPEC ITSELF
+# (docs/وصف-منصة-راجع.md, parsed fresh by `gen_templates.parse`/`build` — never a second stored
+# file that could go stale between an edit to the spec and this check catching it, which is
+# exactly how it went stale before this rewrite).
 #
 # WHAT WENT WRONG WITHOUT THIS CHECK. They drifted by three whole types. The runtime library —
 # the one that actually reaches Meta for a real establishment — held 23 while the spec defined 26:
-# `per_weekly_digest`, `wrn_safety_notice` and `per_dsar_code` existed in the document, in the
-# generated file, and in the code that sends them, and were never submitted for anybody. Every one
-# of them was a finished feature that could not send a single message, and nothing failed loudly:
-# the send path checks approval and correctly declines a template no account ever had.
+# `per_weekly_digest`, `wrn_safety_notice` and `per_dsar_code` existed in the document and in the
+# code that sends them, and were never submitted for anybody. Every one of them was a finished
+# feature that could not send a single message, and nothing failed loudly: the send path checks
+# approval and correctly declines a template no account ever had.
 #
 # SO THE OVERLAP IS COMPARED, NOT THE WHOLE FILE. Type, tone, class, category and the BODY TEXT
 # must match exactly — those are the spec's to decide, and a body that differs by one word is two
@@ -31,14 +29,23 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GENERATED = ROOT / "deploy" / "seed" / "templates.json"
 CURATED = ROOT / "services" / "operations" / "data" / "templates.seed.json"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gen_templates import build, parse  # noqa: E402
 
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 
 
 def main() -> int:
-    lib = json.loads(GENERATED.read_text(encoding="utf-8"))
+    types, problems = parse()
+    if problems:
+        # The spec itself does not parse cleanly — gen_templates.py's own run already prints why
+        # in detail; this check has nothing to compare against until that is fixed.
+        print(f"{C_R}  ✗ the specification itself has {len(problems)} problem(s) — run "
+              f"`python ci/gen_templates.py` for detail{C_N}")
+        return 1
+    lib = build(types)
     ops = json.loads(CURATED.read_text(encoding="utf-8"))["templates"]
 
     want: dict[str, dict] = {}

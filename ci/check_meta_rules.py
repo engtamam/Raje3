@@ -25,12 +25,16 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SEED = ROOT / "deploy" / "seed" / "templates.json"
-#: THE FILE THAT IS ACTUALLY SUBMITTED. `SEED` above feeds the manual seeder script; the LIVE
-#: path — `library.register`, run the moment a shop connects — reads this one. The gate checked
-#: only the generated file, so it stayed green while all 66 live rows went to Meta with an empty
-#: example list: refused on arrival, «connected» in green, every send «under review» for ever.
+#: THE FILE THAT IS ACTUALLY SUBMITTED — `library.register`, run the moment a shop connects, reads
+#: this one. `SPEC` below (parsed fresh, no stored intermediate file since 2026-09-13) is what the
+#: manual seeder script (`deploy/seed/seed-templates.sh --emit`) builds its own submissions from.
+#: The gate used to check only the generated file, so it stayed green while all 66 live rows went
+#: to Meta with an empty example list: refused on arrival, «connected» in green, every send «under
+#: review» for ever.
 LIVE = ROOT / "services" / "operations" / "data" / "templates.seed.json"
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from gen_templates import build, parse  # noqa: E402
 
 # Lowercase letters, digits and underscores only, up to 512 characters. Anything else is refused at
 # creation — the one class of failure that IS immediate.
@@ -197,10 +201,11 @@ def main() -> int:
     if not LIVE.exists():
         print(f"[31m  x {LIVE} is missing[0m")
         return 1
-    if not SEED.exists():
-        print(f"[31m  x {SEED} is missing - run: python ci/gen_templates.py[0m")
+    types, problems = parse()
+    if problems:
+        print(f"[31m  x the specification itself has {len(problems)} problem(s) - run: python ci/gen_templates.py[0m")
         return 1
-    lib = json.loads(SEED.read_text(encoding="utf-8"))
+    lib = build(types)
     templates = expand(lib)
     if not templates:
         print("[31m  x the seed carries no templates[0m")

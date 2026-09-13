@@ -59,8 +59,12 @@ red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
 
 [ -n "$TENANT" ] || { red "--tenant is required"; exit 2; }
-FILE="$HERE/templates.json"
-[ -f "$FILE" ] || { red "no $FILE — run: python ci/gen_templates.py"; exit 2; }
+# PARSED FRESH FROM THE SPEC, no stored intermediate file (2026-09-13) — this used to read a
+# checked-in deploy/seed/templates.json that could be one edit behind docs/وصف-منصة-راجع.md; a
+# temp file generated on every run cannot go stale between an edit and this script noticing.
+FILE="$(mktemp)"
+trap 'rm -f "$FILE"' EXIT
+python3 "$HERE/../../ci/gen_templates.py" --emit > "$FILE" || { red "the specification failed to parse — see the error above"; exit 2; }
 
 POD=$(kubectl -n "$NS" get pods --no-headers \
       | awk '/^notification-service-/ && $3=="Running" {print $1; exit}')

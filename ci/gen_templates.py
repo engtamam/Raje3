@@ -1,18 +1,30 @@
 #!/usr/bin/env python3
 # =============================================================================
-# gen_templates.py — build deploy/seed/templates.json FROM THE SPECIFICATION.
+# gen_templates.py — parse the WhatsApp library FROM THE SPECIFICATION.
 #
 # The library is not typed here. Every word of it lives in docs/وصف-منصة-راجع.md §8.4.1, and this
 # reads it. A second copy typed by hand drifts from the wording that was reviewed — and the copy
 # that drifts is the one Meta approved, so the message a customer receives stops being the message
 # anybody agreed to.
 #
-# Run it after editing the spec:   python ci/gen_templates.py
-# Check it in CI without writing:  python ci/gen_templates.py --check
+# Run it after editing the spec:      python ci/gen_templates.py
+# Print the parsed library as JSON:   python ci/gen_templates.py --emit
 #
-# THE CHECKS ARE THE POINT, not the generation. Each one is a rejection that would otherwise arrive
-# from Meta hours later, against a template name that is then burned — a name cannot be reused with
-# different content and cannot be changed after approval.
+# NO SECOND FILE ON DISK (2026-09-13, one file to organise around, not two). This used to write
+# `deploy/seed/templates.json` and every reader of "the spec's own view of the library" — the
+# consistency check against the curated seed, the Meta-rules check, the sender/coverage check,
+# the manual `seed-templates.sh` script — read that generated file back. Two files meant two
+# things could each be individually stale (the generated one WAS, silently, for a while — see
+# services/operations/data/templates.seed.json's own commit history), and "unify the two files"
+# turned out to mean "there was only ever one real file — the curated one operations actually
+# submits — and the second was a cache that could drift from the thing it cached." `parse()` and
+# `build()` below are PURE FUNCTIONS now: every consumer that used to `json.loads` the generated
+# file imports this module and calls them directly, so there is nothing to regenerate and nothing
+# that can go stale between "the spec changed" and "the file that says so caught up."
+#
+# THE CHECKS ARE THE POINT, not any file this produces. Each one is a rejection that would
+# otherwise arrive from Meta hours later, against a template name that is then burned — a name
+# cannot be reused with different content and cannot be changed after approval.
 # =============================================================================
 from __future__ import annotations
 
@@ -24,7 +36,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "docs" / "وصف-منصة-راجع.md"
-OUT = ROOT / "deploy" / "seed" / "templates.json"
 
 CLASS = {"svc": "service", "per": "personal", "awr": "awareness",
          "wrn": "warning", "mkt": "marketing"}
@@ -348,7 +359,6 @@ def build(types: list[dict]) -> dict:
 
 
 def main() -> int:
-    check = "--check" in sys.argv
     types, problems = parse()
     problems += check_variables(build([])["variables"])
 
@@ -358,20 +368,16 @@ def main() -> int:
         print(f"\n{C_R}  ✗ {len(problems)} problem(s) in the library{C_N}")
         return 1
 
-    payload = build(types)
-    text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    if "--emit" in sys.argv:
+        # THE ONLY WAY OUT OF THIS PROCESS NOW — a caller that needs the parsed library as JSON
+        # (the manual `seed-templates.sh`) asks for it fresh on every run instead of reading a file
+        # that could be one edit behind the spec.
+        payload = build(types)
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        return 0
 
-    if check:
-        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
-        if current != text:
-            print(f"{C_R}  ✗ {OUT.name} is out of date — run: python ci/gen_templates.py{C_N}")
-            return 1
-    else:
-        # LF, WHOEVER RAN IT. Without `newline`, Python writes CRLF on Windows, so the file this
-        # generator produces differs from the one CI produces in every single line — and the diff
-        # that matters is hidden inside a whole-file rewrite.
-        OUT.write_text(text, encoding="utf-8", newline="\n")
-
+    # `--check` is still accepted (CI's own invocation) — there is nothing left to compare a file
+    # against, so it is now just this same validation pass, run for its exit code.
     counts = Counter(t["cls"] for t in types)
     print(f"{C_G}  ✔ {len(types)} texts x {len(TONES)} tones = {len(types) * len(TONES)} "
           f"templates{C_N}")

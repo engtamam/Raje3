@@ -41,13 +41,14 @@ there is no shape of one that is fine to ship.
 """
 from __future__ import annotations
 
-import json
 import pathlib
 import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SEED = ROOT / "deploy" / "seed" / "templates.json"
+
+sys.path.insert(0, str(ROOT / "ci"))
+from gen_templates import build, parse  # noqa: E402
 
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 
@@ -78,13 +79,14 @@ def _slots(tones: dict) -> list[int]:
 
 def main() -> int:
     bad: list[str] = []
-    try:
-        data = json.loads(SEED.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        # REPORTED, NOT SKIPPED. An unreadable seed is the one state in which this gate would
-        # otherwise print «ok» over a library nobody can fill.
-        print(f"{C_R}cannot read {SEED.relative_to(ROOT).as_posix()}: {exc}{C_N}")
+    parsed_types, problems = parse()
+    if problems:
+        # REPORTED, NOT SKIPPED. A spec that does not parse is the one state in which this gate
+        # would otherwise print «ok» over a library nobody can fill.
+        print(f"{C_R}the specification itself has {len(problems)} problem(s) — run "
+              f"`python ci/gen_templates.py` for detail{C_N}")
         return 1
+    data = build(parsed_types)
 
     types = data.get("types") or []
     if not types:
