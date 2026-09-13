@@ -1546,6 +1546,37 @@ def test_carousel_buttons_false_on_the_row_reaches_the_sender_as_false(st):
     assert sender.carousel_calls[0]["include_buttons"] is False
 
 
+def test_carousel_kind_defaults_to_service_when_the_row_never_set_it(st):
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    row = _carousel_row()
+    assert "carousel_kind" not in row
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    assert sender.carousel_calls[0]["kind"] == "service"
+
+
+def test_carousel_kind_package_on_the_row_reaches_the_sender(st):
+    """package_offer names package ids in this same `offer_services` field — the sender's own
+    photo lookup and button payload both need to know, or a package carousel fetches the wrong
+    catalogue kind and its tap dispatches as a service."""
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    row = _carousel_row(carousel_kind="package")
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    assert sender.carousel_calls[0]["kind"] == "package"
+
+
+def test_carousel_branch_id_rides_the_row_to_the_sender(st):
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    row = _carousel_row(branch_id="br_9")
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    assert sender.carousel_calls[0]["branch_id"] == "br_9"
+
+
 def test_carousel_not_requested_never_touches_the_carousel_sender_even_if_one_exists(st):
     """A booking shop (or any ordinary send) never sets `carousel` on the row — `send_one` must not
     go looking for one on its own."""

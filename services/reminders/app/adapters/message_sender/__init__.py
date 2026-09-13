@@ -112,7 +112,8 @@ class NullSender:
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
                             sending_identity: str = "", top_variables: list[str] | None = None,
-                            include_buttons: bool = True) -> str:
+                            include_buttons: bool = True, kind: str = "service",
+                            branch_id: str = "") -> str:
         self.sent.append({"tenant": tenant, "sending_identity": sending_identity or tenant,
                           "subject_ref": subject_ref, "type": "carousel",
                           "template_name": template_name, "variables": variables,
@@ -120,7 +121,8 @@ class NullSender:
                           "service_ids": list(service_ids),
                           "service_names": dict(service_names),
                           "idempotency_key": idempotency_key,
-                          "include_buttons": include_buttons})
+                          "include_buttons": include_buttons,
+                          "kind": kind, "branch_id": branch_id})
         return f"dlv_{idempotency_key}" if idempotency_key else ""
 
 
@@ -137,7 +139,8 @@ class HttpSender:
                  timeout: int = 8, ceiling_codes: tuple[str, ...] = DEFAULT_CEILING_CODES,
                  interactive_notify_path: str = "",
                  carousel_send_path: str = "", media_upload_id_path: str = "",
-                 catalogue_image_path: str = "") -> None:
+                 catalogue_image_path: str = "",
+                 whatsapp_assistant_url: str = "", carousel_shown_path: str = "") -> None:
         self._ceiling = frozenset(ceiling_codes)
         self._notify = notify_url.rstrip("/") + notify_path
         # OPTIONAL, and empty when omitted — a deployment that has not set
@@ -161,6 +164,10 @@ class HttpSender:
         self._token = token
         self._channel = channel
         self._timeout = timeout
+        # THE CAROUSEL-BUTTON REGISTRATION DOOR (2026-09-13) — see `_send_carousel_sync`'s own use
+        # of it. Optional exactly like `carousel_send_path`/`media_upload_id_path` above.
+        self._carousel_shown = (whatsapp_assistant_url.rstrip("/") + carousel_shown_path
+                                if whatsapp_assistant_url and carousel_shown_path else "")
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
@@ -379,11 +386,34 @@ class HttpSender:
             return ""
         return str(out.get("media_id") or "")
 
+    def _register_carousel_shown(self, *, tenant: str, subject_ref: str, item_ids: list[str],
+                                 branch_id: str) -> None:
+        """Tells whatsapp-assistant's own conversation engine which cards this send actually put
+        in front of the customer (`POST /internal/carousel-shown`) — the one thing
+        `_handle_carousel_pick` checks a tap against, and this send never ran through that
+        engine's own conversation flow the way its catalog carousel does.
+
+        BEST-EFFORT, ALWAYS. Not configured (`_carousel_shown` empty — the ordinary case for any
+        deployment that has not wired `WHATSAPP_ASSISTANT_SERVICE_URL` yet) or a network failure
+        both mean the button, once tapped, answers "لم يعد صالحًا" instead of a real proposal —
+        worse than the button not existing, but never worse than today, and never a reason to
+        fail a carousel send that has already built and would otherwise ship its cards fine.
+        """
+        if not self._carousel_shown:
+            return
+        body = {"tenant": tenant, "subject_ref": subject_ref, "item_ids": item_ids,
+               "branch_id": branch_id}
+        try:
+            internal_http.post_json(self._carousel_shown, body, self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            pass
+
     async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
                             sending_identity: str = "", top_variables: list[str] | None = None,
-                            include_buttons: bool = True) -> str:
+                            include_buttons: bool = True, kind: str = "service",
+                            branch_id: str = "") -> str:
         """Thin async wrapper — every call inside is stdlib urllib, plain synchronous methods, so
         the whole card-building-and-send sequence runs as ONE unit off the event loop. See
         core/customer_lookup.py::HttpCustomerLookup.resolve for the same offload idiom."""
@@ -392,13 +422,14 @@ class HttpSender:
             template_name=template_name, variables=variables, service_ids=service_ids,
             service_names=service_names, idempotency_key=idempotency_key,
             sending_identity=sending_identity, top_variables=top_variables,
-            include_buttons=include_buttons)
+            include_buttons=include_buttons, kind=kind, branch_id=branch_id)
 
     def _send_carousel_sync(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
                             sending_identity: str = "", top_variables: list[str] | None = None,
-                            include_buttons: bool = True) -> str:
+                            include_buttons: bool = True, kind: str = "service",
+                            branch_id: str = "") -> str:
         """The carousel shape (core/shape.py Phase 2) — one card per covered service. GET the
         photo from operations, POST it to notification-service for a media id, THEN POST the
         assembled cards to `/internal/notify/whatsapp/carousel` — THE SAME TWO-STEP
@@ -420,8 +451,9 @@ class HttpSender:
             raise Unsendable(f"no recipient for {subject_ref} — erased or unknown")
 
         cards: list[dict[str, Any]] = []
+        shown_ids: list[str] = []
         for sid in service_ids:
-            fetched = self._fetch_service_image(tenant, "service", sid)
+            fetched = self._fetch_service_image(tenant, kind, sid)
             if fetched is not None:
                 data, ctype = fetched
             else:
@@ -446,13 +478,23 @@ class HttpSender:
             # owner switched the assistant off, gets the exact same card with nothing to tap —
             # true silence, not a broken promise.
             if include_buttons:
+                # "carousel:{kind}:{item_id}" — NOT "mkt_carousel:..." (fixed 2026-09-13, a real
+                # bug: the old prefix did not match what whatsapp-assistant's own
+                # `_handle_button_reply_locked` recognises, so a tap fell through to its generic
+                # proposal-id branch and answered "هذا الطلب لم يعد صالحًا" instead of ever
+                # reaching `_handle_carousel_pick`.
                 card["buttons"] = [
-                    {"sub_type": "quick_reply", "payload": f"mkt_carousel:service:{sid}"}]
+                    {"sub_type": "quick_reply", "payload": f"carousel:{kind}:{sid}"}]
+                shown_ids.append(sid)
             cards.append(card)
             if len(cards) >= 10:
                 break
         if len(cards) < 2:
             raise CarouselUnavailable("fewer than two card media uploads succeeded")
+
+        if include_buttons and shown_ids:
+            self._register_carousel_shown(tenant=tenant, subject_ref=subject_ref,
+                                          item_ids=shown_ids, branch_id=branch_id)
 
         payload = {
             "recipient": recipient, "tenant": tenant, "template_name": template_name,
@@ -567,4 +609,6 @@ def build_sender(settings) -> Any:
         interactive_notify_path=getattr(settings, "NOTIFICATION_INTERACTIVE_SEND_PATH", ""),
         carousel_send_path=getattr(settings, "NOTIFICATION_CAROUSEL_SEND_PATH", ""),
         media_upload_id_path=getattr(settings, "NOTIFICATION_MEDIA_UPLOAD_ID_PATH", ""),
-        catalogue_image_path=getattr(settings, "OPERATIONS_CATALOGUE_IMAGE_PATH", ""))
+        catalogue_image_path=getattr(settings, "OPERATIONS_CATALOGUE_IMAGE_PATH", ""),
+        whatsapp_assistant_url=getattr(settings, "WHATSAPP_ASSISTANT_SERVICE_URL", ""),
+        carousel_shown_path=getattr(settings, "WHATSAPP_ASSISTANT_CAROUSEL_SHOWN_PATH", ""))

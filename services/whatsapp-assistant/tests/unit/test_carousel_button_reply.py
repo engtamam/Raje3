@@ -228,3 +228,81 @@ async def test_a_slotpick_id_for_an_item_this_session_was_never_shown_is_refused
 
     assert plan.kind == "text"
     assert plan.text == "هذا الخيار لم يعد صالحًا."
+
+
+# ── register_carousel_shown (2026-09-13) — the door a campaign's own carousel walks through ─────
+#
+# A campaign's carousel (services/campaigns) is sent OUTSIDE any live conversation this engine
+# ever ran — the customer was never triaged, `_shown` above was never called for them. This is the
+# write that makes the SAME binding check `_handle_carousel_pick` already enforces pass for a card
+# that arrived that way instead.
+async def test_registering_shown_ids_lets_a_cold_customer_tap_the_carousel_button():
+    now = int(time.time())
+    provider = _SingleSlotProvider(slot=Slot(starts_at=now + 3600, duration_minutes=30))
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+
+    # NO PRIOR SESSION AT ALL for this subject — a customer who never texted the bot.
+    await engine.register_carousel_shown(tenant=TENANT, subject_ref="sub1", item_ids=["srv_1"])
+
+    plan = await engine.handle_button_reply(
+        tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:srv_1", auditor=None)
+
+    assert plan.kind == "interactive"
+    assert plan.proposal is not None
+
+
+async def test_an_id_never_registered_still_refuses_even_after_registering_a_different_one():
+    now = int(time.time())
+    provider = _SingleSlotProvider(slot=Slot(starts_at=now + 3600, duration_minutes=30))
+    store = MemoryDataStore()
+    engine = _engine(provider, store=store)
+
+    await engine.register_carousel_shown(tenant=TENANT, subject_ref="sub1",
+                                         item_ids=["some_other_service"])
+
+    plan = await engine.handle_button_reply(
+        tenant=TENANT, subject_ref="sub1", reply_id="carousel:service:srv_1", auditor=None)
+
+    assert plan.kind == "text"
+    assert plan.text == "هذا الخيار لم يعد صالحًا."
+
+
+async def test_registering_merges_onto_ids_the_model_itself_already_showed():
+    """A customer already mid-conversation, shown one carousel by the model, must not lose those
+    cards off the list when a campaign also targets them — only ADDS."""
+    store = MemoryDataStore()
+    await _shown(store, "sub1", "model_shown")
+    provider = _SingleSlotProvider(slot=Slot(starts_at=int(time.time()) + 3600, duration_minutes=30))
+    engine = _engine(provider, store=store)
+
+    await engine.register_carousel_shown(tenant=TENANT, subject_ref="sub1",
+                                         item_ids=["campaign_shown"])
+
+    conv = await engine._get(TENANT, "sub1")           # noqa: SLF001 — reading internal test state
+    assert set(conv.shown_carousel_ids) == {"model_shown", "campaign_shown"}
+
+
+async def test_branch_id_is_stamped_only_on_a_brand_new_row():
+    store = MemoryDataStore()
+    provider = _SingleSlotProvider()
+    engine = _engine(provider, store=store)
+
+    await engine.register_carousel_shown(tenant=TENANT, subject_ref="sub_new",
+                                         item_ids=["srv_1"], branch_id="br_campaign")
+    conv = await engine._get(TENANT, "sub_new")        # noqa: SLF001
+    assert conv.branch_id == "br_campaign"
+
+
+async def test_branch_id_never_overwrites_an_existing_conversations_own_branch():
+    store = MemoryDataStore()
+    conv = ConversationState(tenant=TENANT, subject_ref="sub_old", state="idle",
+                             branch_id="br_from_real_chat")
+    await store.put(CONVERSATIONS, f"{TENANT}|sub_old", as_row(conv))
+    provider = _SingleSlotProvider()
+    engine = _engine(provider, store=store)
+
+    await engine.register_carousel_shown(tenant=TENANT, subject_ref="sub_old",
+                                         item_ids=["srv_1"], branch_id="br_campaign")
+    reloaded = await engine._get(TENANT, "sub_old")    # noqa: SLF001
+    assert reloaded.branch_id == "br_from_real_chat"

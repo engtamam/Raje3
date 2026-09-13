@@ -1601,6 +1601,37 @@ class ConversationEngine:
                                         kind=kind, item_id=item_id, starts_at=int(starts_at_s),
                                         now=now)
 
+    async def register_carousel_shown(self, *, tenant: str, subject_ref: str,
+                                      item_ids: list[str], branch_id: str = "") -> None:
+        """A campaign's own carousel (services/campaigns, 2026-09-13) was just sent OUTSIDE any
+        live conversation this engine ever ran — `_handle_carousel_pick`'s own binding check
+        (`conv.shown_carousel_ids`) would refuse every one of its cards' buttons as "لم يعد
+        صالحًا" for a customer this engine never triaged. This is the door: whoever actually sent
+        the carousel (reminders' HttpSender, on campaigns' behalf) calls this once, right where it
+        decided to include the button at all, so the tap that follows resolves exactly like a
+        card the assistant itself had shown.
+
+        `branch_id` IS SET ONLY ON A FRESH ROW — same rule `_get` already applies for its own
+        caller-supplied default (see that method's own comment): a real conversation that already
+        fixed its branch from the customer's own inbound number must never have it overwritten by
+        a campaign that fires after the fact. A brand-new row (this customer has never texted the
+        bot) has no other way to learn which branch it belongs to, so the caller's own answer —
+        campaigns already resolves the candidate's branch for its own audience targeting — is the
+        only one available.
+
+        MERGED, NOT REPLACED. A customer already mid-conversation, shown one carousel by the model
+        and now also the target of a campaign send, must not lose the model's own cards off the
+        list — only ADDS to what a tap may legally reference.
+        """
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            conv = await self._get(tenant, subject_ref, branch_id=branch_id)
+            merged = list(dict.fromkeys(list(conv.shown_carousel_ids) + list(item_ids)))
+            conv.shown_carousel_ids = merged
+            await self._save(conv)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
     async def handle_button_reply(self, *, tenant: str, subject_ref: str, reply_id: str,
                                   auditor: Any, now: int | None = None
                                   ) -> ReplyPlan:

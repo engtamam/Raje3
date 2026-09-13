@@ -800,6 +800,11 @@ class CampaignSendIn(BaseModel):
     # off, gets the exact same cards with no button, never a broken promise of an action nothing
     # will answer.
     carousel_buttons: bool = Field(default=True)
+    # "service" OR "package" — which kind `offer_services` actually names for THIS campaign
+    # (core/models.py's own note: `package_offer` reuses that same field for package ids). Read
+    # by both the card's own photo lookup and its button's payload prefix
+    # ("carousel:{kind}:{item_id}", whatsapp-assistant's own `_handle_carousel_pick`).
+    carousel_kind: str = Field(default="service", max_length=16)
 
     model_config = {"populate_by_name": True}
 
@@ -851,6 +856,7 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "flow_action_data": dict(body.flow_action_data),
         "carousel": body.carousel,
         "carousel_buttons": body.carousel_buttons,
+        "carousel_kind": body.carousel_kind,
     }
     library = await _library(c, body.tenant)
     # THE APPROVED SET, WHICH THIS PATH NEVER READ. The reminder tick has always preferred a

@@ -199,6 +199,15 @@ class Settings(BaseSettings):
     # `/whatsapp/media/upload-id`.
     NOTIFICATION_MEDIA_UPLOAD_ID_PATH: str = "/internal/whatsapp/media/upload-id"
     NOTIFICATION_CAROUSEL_SEND_PATH: str = "/internal/notify/whatsapp/carousel"
+    # A CAMPAIGN CAROUSEL'S CARD BUTTON NEEDS THE ASSISTANT TO RECOGNISE THE TAP (2026-09-13) —
+    # whatsapp-assistant's own `_handle_carousel_pick` only honours an id it was told this
+    # customer was actually shown (`conv.shown_carousel_ids`); a card built outside any live
+    # conversation this engine ran must register itself there first, or the tap answers "لم يعد
+    # صالحًا" forever. Optional like every other peer route: empty means the registration call is
+    # skipped (best-effort — see `_send_carousel_sync`'s own try/except), never a reason to fail
+    # a send that has already built and would otherwise ship its cards fine.
+    WHATSAPP_ASSISTANT_SERVICE_URL: str = ""
+    WHATSAPP_ASSISTANT_CAROUSEL_SHOWN_PATH: str = "/internal/carousel-shown"
     # DID IT ARRIVE, AND WAS IT READ. The status webhook is at-most-once and lands on the
     # notification peer, which persists each receipt against the delivery it belongs to and serves
     # them from a cursor, oldest first. This service reads that forward and writes the fact onto

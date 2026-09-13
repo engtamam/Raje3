@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import urllib.error
 from unittest.mock import patch
 
 import pytest
@@ -47,11 +48,13 @@ class _Resp:
 
 def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
          carousel_response=None, recipient="+966500000000", top_variables=None,
-         include_buttons=True):
+         include_buttons=True, kind="service", branch_id="", carousel_shown_ok=True,
+         wire_carousel_shown=True):
     """A sender whose image fetch, media upload and carousel POST all succeed by default —
     override any one to prove the graceful-degradation path around it."""
-    s = sender()
-    calls: dict = {"images": [], "uploads": [], "carousel_body": None}
+    s = sender(whatsapp_assistant_url="http://wa-assistant" if wire_carousel_shown else "",
+              carousel_shown_path="/internal/carousel-shown" if wire_carousel_shown else "")
+    calls: dict = {"images": [], "uploads": [], "carousel_body": None, "carousel_shown_body": None}
 
     def _urlopen(req, timeout=0):
         url = req.full_url
@@ -66,6 +69,11 @@ def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
             if not upload_ok:
                 return _Resp({"detail": "upload failed"}, status=400)
             return _Resp({"media_id": f"mid_{len(calls['uploads'])}"})
+        if "/carousel-shown" in url:
+            if not carousel_shown_ok:
+                raise urllib.error.URLError("carousel-shown peer is down")
+            calls["carousel_shown_body"] = json.loads(req.data or b"{}")
+            return _Resp({"ok": True})
         if "/carousel" in url:
             calls["carousel_body"] = json.loads(req.data or b"{}")
             return _Resp(carousel_response or {"status": "sent", "delivery_id": "dlv_c1"})
@@ -77,7 +85,8 @@ def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
             tenant="t1", subject_ref="sub_a", template_name="mkt_offer_carousel_warm",
             variables=["20%"], service_ids=list(service_ids),
             service_names={"oil": "غسيل خارجي", "tyres": "تلميع"}, idempotency_key="cmp:c1:sub_a",
-            top_variables=top_variables, include_buttons=include_buttons))
+            top_variables=top_variables, include_buttons=include_buttons, kind=kind,
+            branch_id=branch_id))
     return result, calls
 
 
@@ -103,8 +112,8 @@ def test_each_card_carries_its_own_service_name_then_the_shared_variables():
 def test_by_default_every_card_carries_its_quick_reply_button():
     _, calls = _wire()
     cards = calls["carousel_body"]["cards"]
-    assert cards[0]["buttons"] == [{"sub_type": "quick_reply", "payload": "mkt_carousel:service:oil"}]
-    assert cards[1]["buttons"] == [{"sub_type": "quick_reply", "payload": "mkt_carousel:service:tyres"}]
+    assert cards[0]["buttons"] == [{"sub_type": "quick_reply", "payload": "carousel:service:oil"}]
+    assert cards[1]["buttons"] == [{"sub_type": "quick_reply", "payload": "carousel:service:tyres"}]
 
 
 def test_include_buttons_false_omits_the_key_entirely_on_every_card():
@@ -121,6 +130,52 @@ def test_include_buttons_does_not_change_which_cards_survive_or_their_media():
     with_buttons, _ = _wire(include_buttons=True)
     without_buttons, _ = _wire(include_buttons=False)
     assert with_buttons == without_buttons
+
+
+# ── `kind` (2026-09-13) — package_offer names PACKAGE ids in the same field ────────────────────
+def test_kind_defaults_to_service_in_both_the_photo_fetch_and_the_button_payload():
+    _, calls = _wire()
+    assert all("/catalogue/service/" in u for u in calls["images"])
+    cards = calls["carousel_body"]["cards"]
+    assert cards[0]["buttons"][0]["payload"] == "carousel:service:oil"
+
+
+def test_kind_package_reaches_both_the_photo_fetch_and_the_button_payload():
+    _, calls = _wire(kind="package", service_ids=("pkg1", "pkg2"))
+    assert all("/catalogue/package/" in u for u in calls["images"])
+    cards = calls["carousel_body"]["cards"]
+    assert cards[0]["buttons"][0]["payload"] == "carousel:package:pkg1"
+    assert cards[1]["buttons"][0]["payload"] == "carousel:package:pkg2"
+
+
+# ── `_register_carousel_shown` (2026-09-13) — tells the bot which cards this send just showed ──
+def test_a_button_bearing_send_registers_every_surviving_card_id():
+    _, calls = _wire(include_buttons=True, branch_id="br_1")
+    assert calls["carousel_shown_body"] == {
+        "tenant": "t1", "subject_ref": "sub_a", "item_ids": ["oil", "tyres"], "branch_id": "br_1"}
+
+
+def test_a_buttonless_send_never_registers_anything():
+    """Nothing to bind a tap against when there is no button to tap — the registration call would
+    be pure noise."""
+    _, calls = _wire(include_buttons=False)
+    assert calls["carousel_shown_body"] is None
+
+
+def test_not_configured_at_all_is_silently_skipped():
+    """No `WHATSAPP_ASSISTANT_SERVICE_URL` wired — the ordinary case for a deployment that has
+    not turned this on yet — costs the send nothing; it still ships exactly as before."""
+    result, calls = _wire(include_buttons=True, wire_carousel_shown=False)
+    assert result == "dlv_c1"
+    assert calls["carousel_shown_body"] is None
+
+
+def test_a_registration_failure_never_fails_the_carousel_send_itself():
+    result, calls = _wire(include_buttons=True, carousel_shown_ok=False)
+    assert result == "dlv_c1"
+    assert len(calls["carousel_body"]["cards"]) == 2
+    for card in calls["carousel_body"]["cards"]:
+        assert "buttons" in card
 
 
 def test_the_top_level_body_carries_whatever_the_caller_rendered():

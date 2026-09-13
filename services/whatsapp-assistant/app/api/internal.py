@@ -61,6 +61,35 @@ async def manifest(request: Request, settings: Settings = Depends(get_settings))
     return build_manifest(settings, ports=container.describe())
 
 
+class CarouselShownIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=1, max_length=256)
+    # THE SAME PSEUDONYM campaigns/reminders already compute (core/pii.py::subject_ref, one
+    # shared PII_SALT across the fleet) — never a phone number crossing this boundary.
+    item_ids: list[str] = Field(min_length=1, max_length=10)
+    # ONLY APPLIED TO A BRAND-NEW CONVERSATION ROW — see register_carousel_shown's own docstring
+    # for why an existing one keeps whatever it already fixed from the customer's own number.
+    branch_id: str = Field(default="", max_length=64)
+
+
+@router.post("/carousel-shown", dependencies=[Depends(require_internal_token)])
+async def carousel_shown(request: Request, body: CarouselShownIn) -> dict:
+    """A campaign's own carousel (services/campaigns, 2026-09-13) was just sent to this customer,
+    outside any live conversation this engine ran — see ConversationEngine.register_carousel_shown
+    for what this actually writes and why. Called by whichever peer decided the card gets a real
+    button at all (campaigns' own Dispatcher._card_button_allowed) — never by an unauthenticated
+    caller, same `X-Internal-Token` gate as every other door in this file.
+
+    `{"ok": True}` always — there is no partial failure to report short of an exception, which
+    the caller (reminders' sender, best-effort) already treats as "no button" on any error.
+    """
+    container = request.app.state.container
+    await container.engine.register_carousel_shown(
+        tenant=body.tenant, subject_ref=body.subject_ref, item_ids=list(body.item_ids),
+        branch_id=body.branch_id)
+    return {"ok": True}
+
+
 async def _active_tenants(c: Any, *, limit: int) -> list[str]:
     """Tenants with a conversation row at all, from OUR OWN datastore — same "derive it from our
     own rows rather than ask a peer" shape as services/reminders' `_active_tenants`. A CronJob

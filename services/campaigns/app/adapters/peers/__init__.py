@@ -394,7 +394,8 @@ class HttpSender:
                    branch_id: str = "",
                    flow_token: str = "",
                    flow_action_data: dict[str, Any] | None = None,
-                   carousel: bool = False) -> dict[str, Any]:
+                   carousel: bool = False, carousel_buttons: bool = True,
+                   carousel_kind: str = "service") -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -431,6 +432,14 @@ class HttpSender:
         # the three booking-eligible marketing types on a shop without the appointment book.
         if carousel:
             body["carousel"] = True
+            # OMITTED ENTIRELY WHEN `carousel` ITSELF IS FALSE — meaningless on an ordinary send,
+            # same rule as the field above. `carousel_buttons` defaults True on reminders' own
+            # side, so this is only sent when the caller actually refused it; `carousel_kind`
+            # only matters when it names "package" (2026-09-13's own default is "service").
+            if not carousel_buttons:
+                body["carousel_buttons"] = False
+            if carousel_kind != "service":
+                body["carousel_kind"] = carousel_kind
         try:
             return await _post(self._url, body, self._token, self._timeout)
         except urllib.error.HTTPError as exc:

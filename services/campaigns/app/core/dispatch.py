@@ -248,7 +248,13 @@ class Dispatcher:
                     # a `False` here (every send today, and every non-carousel-eligible type) costs
                     # this field nothing on the wire — see HttpSender.send below.
                     carousel=send_shape.carousel,
-                    carousel_buttons=card_button)
+                    carousel_buttons=card_button,
+                    # "package_offer" NAMES PACKAGE IDS IN THIS SAME `scope_service_ids` FIELD
+                    # (core/models.py's own note) — reminders' own card photo lookup and its
+                    # button's payload prefix both need telling, or a package carousel's cards
+                    # fetch the wrong catalogue kind and its tap dispatches as a service.
+                    carousel_kind=("package" if campaign.get("goal") == "package_offer"
+                                  else "service"))
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is

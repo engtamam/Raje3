@@ -582,7 +582,14 @@ class Tick:
                         # (core/shape.py, 2026-09-13), carried on the row exactly like `carousel`
                         # itself. Absent (an older campaigns build, or any other caller of this
                         # schedule shape) reads as `True` — today's behaviour, unchanged.
-                        include_buttons=bool(row.get("carousel_buttons", True)))
+                        include_buttons=bool(row.get("carousel_buttons", True)),
+                        # "service" ABSENT — every caller before `package_offer` covered only
+                        # services; that goal names PACKAGE ids in this same `offer_services`
+                        # field (core/models.py's own note on why it shares the slot), so its
+                        # cards' own photos and its button's own dispatch (whatsapp-assistant's
+                        # `_handle_carousel_pick`) both need to be told "package", not "service".
+                        kind=str(row.get("carousel_kind") or "service"),
+                        branch_id=str(row.get("branch_id") or ""))
                 except CarouselUnavailable:
                     # GIVE THE SLOT BACK AND FALL THROUGH — see the block's own docstring above.
                     await self._quota.release(tenant=tenant, idempotency_key=key)
