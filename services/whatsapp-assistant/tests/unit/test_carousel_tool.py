@@ -54,9 +54,18 @@ async def test_items_with_no_photo_are_never_included():
     assert [c.id for c in result.cards] == ["srv_1", "srv_3"]
 
 
-async def test_fewer_than_two_photos_degrades_to_plain_text_never_a_broken_carousel():
+async def test_exactly_one_photo_renders_a_single_card_not_an_apology():
+    """The bug this fixed: `< 2` used to fold "exactly one" into "none at all" and apologised
+    for missing photos it actually had."""
     cards = [CatalogCard(id="srv_1", kind="service", name="a", price_minor=100,
                          image_url="http://x/1.jpg")]
+    result = await _provider_call(catalog_provider=FakeCatalogProvider(cards))
+    assert isinstance(result, T.RenderedSingleCard)
+    assert result.card == cards[0]
+
+
+async def test_zero_photos_still_degrades_to_plain_text():
+    cards = [CatalogCard(id="srv_1", kind="service", name="a", price_minor=100, image_url="")]
     result = await _provider_call(catalog_provider=FakeCatalogProvider(cards))
     assert isinstance(result, str)
     assert "صور" in result

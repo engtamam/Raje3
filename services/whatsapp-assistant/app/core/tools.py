@@ -89,7 +89,7 @@ def is_declinable_promo_result(tool: str, result: Any) -> bool:
     decide whether the CUSTOMER'S NEXT message should even be checked for a soft decline."""
     if tool not in PROMO_TOOLS:
         return False
-    if isinstance(result, RenderedCarousel):
+    if isinstance(result, (RenderedCarousel, RenderedSingleCard)):
         return True
     return isinstance(result, str) and result not in _EMPTY_PROMO_RESULTS
 
@@ -112,6 +112,16 @@ class RenderedCarousel:
     cards: list[CatalogCard]
 
 
+@dataclass(frozen=True)
+class RenderedSingleCard:
+    """One CatalogCard, photo + text + one button — the INVITE/quick-reply shape, not a carousel
+    of one. Meta's carousel component needs 2+ cards; a shop with exactly one photographed
+    service was getting the "not enough photos" apology for having exactly the photo needed.
+    Never a PendingProposal: identical posture to RenderedCarousel — presentational, the
+    state-changing action is still gated behind the button tap, never this tool call."""
+    card: CatalogCard
+
+
 class ToolValidationError(Exception):
     """The model proposed something reality does not support — a slot that is gone, a service that
     does not exist. Never rendered as a button; the caller falls back to plain text."""
@@ -128,7 +138,7 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               catalog_provider: Any = None,
                               rhythm_provider: Any = None,
                               max_carousel_cards: int = 5,
-                              ) -> RenderedProposal | RenderedCarousel | str:
+                              ) -> RenderedProposal | RenderedCarousel | RenderedSingleCard | str:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
     state-changing tool, or a plain str for a read-only one. Raises ToolValidationError if the
     model's proposal does not hold up against real state.
@@ -411,8 +421,14 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
         # one photo at SEND time is the only way the sender's own floor can ever fire, never a
         # model proposing something invalid.
         with_images = [c for c in cards if c.image_url][:max_carousel_cards]
-        if len(with_images) < 2:
+        # THREE-WAY, NOT A FLOOR — zero real candidates is genuinely "nothing to show"; exactly
+        # one is a real, photographed service that deserves its own card, not the apology meant
+        # for zero (Meta's own carousel component needs 2+ cards, but that is a SEND-SHAPE limit,
+        # not a reason to hide the one photo we actually have).
+        if len(with_images) == 0:
             return "ما عندي صور كافية حالياً أعرضها لك — بس أقدر أخبرك عن خدماتنا بالتفصيل."
+        if len(with_images) == 1:
+            return RenderedSingleCard(card=with_images[0])
         return RenderedCarousel(cards=with_images)
 
     if tool == "list_my_bookings":

@@ -496,7 +496,7 @@ _CONV_LOCK_RETRY_DELAY_SECONDS = 0.25
 class ReplyPlan:
     """What core/conversation.py decided to send, for the caller (main.py's tick, or the button-
     reply handler) to actually dispatch through a WhatsAppSender."""
-    kind: str                       # "text" | "interactive" | "list" | "carousel" | "none"
+    kind: str                       # "text" | "interactive" | "list" | "carousel" | "card" | "none"
     text: str = ""
     proposal: T.RenderedProposal | None = None
     # Populated only when kind == "list" — the mandatory triage gate's WhatsApp List Message.
@@ -504,6 +504,11 @@ class ReplyPlan:
     list_rows: list[dict[str, str]] | None = None
     # Populated only when kind == "carousel" — see app/core/tools.py::RenderedCarousel.
     carousel: T.RenderedCarousel | None = None
+    # Populated only when kind == "card" — see app/core/tools.py::RenderedSingleCard. A dedicated
+    # kind rather than a length-1 carousel: an explicit, readable one-to-one match with the
+    # sender's own `send_single_card` vs `send_carousel`, not an implicit "carousel of one" special
+    # case downstream.
+    card: T.RenderedSingleCard | None = None
 
 
 class ConversationEngine:
@@ -1470,6 +1475,18 @@ class ConversationEngine:
                 conv.raw_window.append({"role": "assistant", "text": result.body, "at": now})
                 await self._save(conv)
                 return ReplyPlan(kind="interactive", proposal=result)
+
+            if isinstance(result, T.RenderedSingleCard):
+                # SAME BINDING, A SET OF ONE — see RenderedCarousel's own branch just below;
+                # `_handle_carousel_pick` reads a single (kind, item_id) pair regardless of how
+                # many cards preceded it, so no change is needed there at all.
+                conv.shown_carousel_ids = [result.card.id]
+                conv.raw_window.append({"role": "assistant", "text": "[بطاقة خدمة]", "at": now})
+                conv.state = "idle"
+                conv.session_closed_at = now
+                conv.batch_deadline = 0
+                await self._save(conv)
+                return ReplyPlan(kind="card", card=result)
 
             if isinstance(result, T.RenderedCarousel):
                 # NO PendingProposal — presentational, same posture as any other read-only tool.
