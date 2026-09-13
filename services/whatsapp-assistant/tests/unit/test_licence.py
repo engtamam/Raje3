@@ -11,7 +11,7 @@ import json
 import urllib.error
 from unittest.mock import patch
 
-from app.core.licence import HttpLicence, KEY, NullLicence, build_licence
+from app.core.licence import HttpLicence, KEY, NullLicence, ToggleGatedLicence, build_licence
 
 
 def run(c):
@@ -120,3 +120,50 @@ def test_configured_billing_gives_the_http_client():
 
 def test_null_licence_always_allows():
     assert run(NullLicence().allowed("t1")) is True
+
+
+# ── ToggleGatedLicence — the owner's own kill switch, ANDed with the real entitlement ──────────
+class _ShopIdentity:
+    def __init__(self, ai_enabled: bool) -> None:
+        self.ai_enabled = ai_enabled
+        self.asked: list[str] = []
+
+    async def resolve(self, tenant: str):
+        self.asked.append(tenant)
+        class _Ctx:
+            pass
+        ctx = _Ctx()
+        ctx.ai_enabled = self.ai_enabled
+        return ctx
+
+
+def test_bought_it_and_switch_is_on_is_allowed():
+    gated = ToggleGatedLicence(NullLicence(), shop_identity=_ShopIdentity(True))
+    assert run(gated.allowed("t1")) is True
+
+
+def test_bought_it_but_switched_off_reads_exactly_like_not_bought_at_all():
+    """The one behaviour this whole class exists for — off is not a softer state, it is the SAME
+    False every unsubscribed shop's `.allowed()` already returns."""
+    gated = ToggleGatedLicence(NullLicence(), shop_identity=_ShopIdentity(False))
+    assert run(gated.allowed("t1")) is False
+
+
+class _NeverAllowed:
+    async def allowed(self, tenant: str) -> bool:
+        return False
+
+
+def test_a_shop_that_never_bought_it_never_reaches_the_toggle_check_at_all():
+    """The billing check short-circuits — a shop with no entitlement has nothing to ask
+    operations about, so the extra peer call is skipped on the (much more common) unsubscribed
+    case."""
+    identity = _ShopIdentity(True)
+    gated = ToggleGatedLicence(_NeverAllowed(), shop_identity=identity)
+    assert run(gated.allowed("t1")) is False
+    assert identity.asked == []
+
+
+def test_no_shop_identity_wired_at_all_falls_back_to_the_real_licences_own_answer():
+    gated = ToggleGatedLicence(NullLicence(), shop_identity=None)
+    assert run(gated.allowed("t1")) is True

@@ -223,6 +223,94 @@ async def test_shop_notes_enabled_false_keeps_the_prompt_exactly_as_before_the_f
     assert llm.calls[0]["system_prompt"] == build_system_prompt("صالون A")
 
 
+# ── HttpShopIdentity's own parsing of `ai_enabled` off the peer's real response ────────────────
+def test_http_shop_identity_parses_ai_enabled_true_and_false():
+    import json
+    from unittest.mock import patch
+
+    from app.core.shop_identity import HttpShopIdentity
+
+    class _Resp:
+        def __init__(self, payload):
+            self._p = json.dumps(payload).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        @property
+        def status(self):
+            return 200
+
+        def read(self):
+            return self._p
+
+    client = HttpShopIdentity(url="http://operations", path="/internal/operations/shop-name",
+                              token="t")
+
+    with patch("urllib.request.urlopen",
+              lambda req, timeout=0: _Resp({"name": "صالون A", "ai_enabled": False})):
+        ctx = client._resolve_sync("t1")
+    assert ctx.ai_enabled is False
+
+    with patch("urllib.request.urlopen",
+              lambda req, timeout=0: _Resp({"name": "صالون A", "ai_enabled": True})):
+        ctx = client._resolve_sync("t1")
+    assert ctx.ai_enabled is True
+
+
+def test_http_shop_identity_defaults_ai_enabled_true_when_the_peer_omits_it():
+    """An older operations build that has not shipped the field yet must not silently switch every
+    shop's assistant off — absent reads as on, the same fail-open posture the field's own
+    docstring states."""
+    import json
+    from unittest.mock import patch
+
+    from app.core.shop_identity import HttpShopIdentity
+
+    class _Resp:
+        def __init__(self, payload):
+            self._p = json.dumps(payload).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        @property
+        def status(self):
+            return 200
+
+        def read(self):
+            return self._p
+
+    client = HttpShopIdentity(url="http://operations", path="/internal/operations/shop-name",
+                              token="t")
+    with patch("urllib.request.urlopen", lambda req, timeout=0: _Resp({"name": "صالون A"})):
+        ctx = client._resolve_sync("t1")
+    assert ctx.ai_enabled is True
+
+
+def test_a_failed_peer_call_defaults_ai_enabled_true_too():
+    import urllib.error
+    from unittest.mock import patch
+
+    from app.core.shop_identity import HttpShopIdentity
+
+    client = HttpShopIdentity(url="http://operations", path="/internal/operations/shop-name",
+                              token="t")
+
+    def _boom(req, timeout=0):
+        raise urllib.error.URLError("down")
+
+    with patch("urllib.request.urlopen", _boom):
+        ctx = client._resolve_sync("t1")
+    assert ctx.ai_enabled is True
+
+
 async def test_a_shop_identity_failure_falls_back_to_the_last_known_name_with_no_notes():
     """Never a guess at stale notes — only the name is worth carrying past a failure."""
     store = MemoryDataStore()

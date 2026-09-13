@@ -729,6 +729,12 @@ async def shop_name(request: Request, body: ShopNameQueryIn) -> dict:
     (core/msg_limits.py) is resolved fresh every turn, no local cache, so it belongs on this one
     round trip rather than a third peer call. Reads back `DEFAULT_MSG_WORD_LIMIT` while
     `MSG_WORD_LIMIT_ENABLED` is off, same as the owner's own GET /staff/msg-word-limit.
+
+    `ai_enabled` RIDES THE SAME CALL TOO (2026-09-13) — the owner's own kill switch
+    (core/ai_toggle.py), checked fresh every turn for the same reason the other two are: no local
+    cache on whatsapp-assistant's side, and a fourth peer call for a fourth switch would be the
+    wrong direction. Reads back `True` (on) for a shop that never touched it, same default the
+    owner's own GET /staff/ai-toggle answers.
     """
     c = request.app.state.container
     branch = await BranchStore(c.datastore).get(body.tenant, MAIN_BRANCH_ID)
@@ -741,10 +747,13 @@ async def shop_name(request: Request, body: ShopNameQueryIn) -> dict:
     word_limit = DEFAULT_MSG_WORD_LIMIT
     if getattr(s, "MSG_WORD_LIMIT_ENABLED", True):
         word_limit = await MsgWordLimitStore(c.datastore).get(body.tenant)
+    from app.core.ai_toggle import AiToggleStore
+    ai_enabled = await AiToggleStore(c.datastore).get(body.tenant)
     if branch is None or not (branch.name or "").strip():
-        return {"found": False, "name": "", "ai_notes": notes, "msg_word_limit": word_limit}
+        return {"found": False, "name": "", "ai_notes": notes, "msg_word_limit": word_limit,
+                "ai_enabled": ai_enabled}
     return {"found": True, "name": branch.name.strip(), "ai_notes": notes,
-            "msg_word_limit": word_limit}
+            "msg_word_limit": word_limit, "ai_enabled": ai_enabled}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

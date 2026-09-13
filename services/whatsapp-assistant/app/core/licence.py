@@ -88,3 +88,33 @@ def build_licence(settings: Any) -> Any:
     return HttpLicence(billing_url=url, check_path=path,
                        token=getattr(settings, "INTERNAL_SERVICE_TOKEN", "") or "",
                        timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
+
+
+class ToggleGatedLicence:
+    """`allowed()`, ANDED WITH THE OWNER'S OWN KILL SWITCH (2026-09-13, operations'
+    `core/ai_toggle.py`) — the entitlement and the runtime choice are two different questions, and
+    this is the one place both answer as a single "yes" or "no" so every EXISTING caller of
+    `.allowed()` (conversation.py's door gate AND its second check right before the LLM call,
+    visit_trigger.py) gets the toggle enforced for free, with no call site touching it directly.
+
+    OFF MUST READ EXACTLY LIKE UNSUBSCRIBED, not a softer state — so this wraps the real licence
+    rather than living beside it: a caller holding `container.licence` cannot tell the difference
+    between "never bought it" and "bought it, switched off" from this method alone, which is the
+    whole point (the customer-facing refusal text is `_NOT_SUBSCRIBED_TEXT`, unchanged either way).
+
+    THE BILLING CHECK RUNS FIRST, SHORT-CIRCUITING — a shop that never bought `feature.whatsapp` at
+    all has nothing to ask operations about, and skips the extra peer call on the (much more
+    common) case of a shop that has never touched its own toggle.
+    """
+
+    def __init__(self, inner: Any, *, shop_identity: Any) -> None:
+        self._inner = inner
+        self._shop_identity = shop_identity
+
+    async def allowed(self, tenant: str) -> bool:
+        if not await self._inner.allowed(tenant):
+            return False
+        if self._shop_identity is None:
+            return True
+        ctx = await self._shop_identity.resolve(tenant)
+        return bool(getattr(ctx, "ai_enabled", True))

@@ -47,6 +47,13 @@ class ShopContext:
     #: ever calling the model — this shop's own tightened/loosened ceiling, or the default if he
     #: never touched it, the feature is off, or the peer call failed.
     msg_word_limit: int = DEFAULT_MSG_WORD_LIMIT
+    #: THE OWNER'S OWN KILL SWITCH (operations/core/ai_toggle.py), separate from whether the shop
+    #: has bought `feature.whatsapp` at all — `core/licence.py`'s own `ToggleGatedLicence` is what
+    #: actually enforces it (closing the AI exactly as if unsubscribed), this field only carries
+    #: the value across the same peer round trip `ai_notes`/`msg_word_limit` already ride. `True`
+    #: (on) when he never touched it, the peer call failed, or the row is unreadable — same
+    #: fail-open posture as every other field on this same call.
+    ai_enabled: bool = True
 
 
 class NullShopIdentity:
@@ -90,8 +97,9 @@ class HttpShopIdentity:
             word_limit = int(data.get("msg_word_limit"))
         except (TypeError, ValueError):
             word_limit = DEFAULT_MSG_WORD_LIMIT
+        ai_enabled = bool(data.get("ai_enabled", True))
         return ShopContext(name=name or GENERIC_SHOP_LABEL, ai_notes=notes,
-                           msg_word_limit=word_limit)
+                           msg_word_limit=word_limit, ai_enabled=ai_enabled)
 
 
 def build(settings: Any) -> Any:

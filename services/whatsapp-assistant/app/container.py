@@ -226,7 +226,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import rhythm_provider as RP
     from app.core import related_services as RS
     from app.core import wallet_balance as WB
-    from app.core.licence import build_licence
+    from app.core.licence import ToggleGatedLicence, build_licence
     from app.core.conversation import ConversationEngine
     from app.core.secret_store import SecretStore
 
@@ -326,7 +326,8 @@ def build_container(settings: Settings) -> Container:
         raise ValueError(f"unknown RHYTHM_PROVIDER_DRIVER {settings.RHYTHM_PROVIDER_DRIVER!r}")
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
-    container.licence = build_licence(settings)
+    container.licence = ToggleGatedLicence(build_licence(settings),
+                                           shop_identity=container.shop_identity)
     from app.core.base_entitlement import build_base_entitlement
 
     container.base_entitlement = build_base_entitlement(settings)

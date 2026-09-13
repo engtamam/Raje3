@@ -56,6 +56,19 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يُستخدم مباشرة لتوجيه الذكاء الاصطناعي — لا تكتب هنا بيانات شخصية لعملائك.",
     },
     {
+        "id": "operations.ai_toggle", "label": "تشغيل المساعد الذكي", "method": "GET",
+        "path": "/api/v1/staff/ai-toggle", "capability": "operations.read", "group": "منشأتي",
+        "help": "هل المساعد الذكي عبر واتساب يرد الآن — منفصل تمامًا عن اشتراكك بالتطبيق.",
+    },
+    {
+        "id": "operations.set_ai_toggle", "label": "تشغيل/إيقاف المساعد الذكي", "method": "PUT",
+        "path": "/api/v1/staff/ai-toggle", "capability": "operations.manage", "group": "منشأتي",
+        "params": [{"name": "enabled", "in": "body", "type": "boolean", "required": True}],
+        "confirm": True,
+        "help": "إيقافه يقفل المساعد الذكي تمامًا وكأنك غير مشترك فيه — دون إلغاء الاشتراك "
+               "نفسه، وترجعه متى شئت.",
+    },
+    {
         "id": "operations.msg_word_limit", "label": "حد كلمات رسالة العميل", "method": "GET",
         "path": "/api/v1/staff/msg-word-limit", "capability": "operations.manage", "group": "منشأتي",
         # Absent from the catalog entirely while MSG_WORD_LIMIT_ENABLED is off — same reasoning as

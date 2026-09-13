@@ -312,6 +312,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "shop_ai_notes",
     },
     {
+        # The owner's own kill switch for the WhatsApp AI assistant — separate from the
+        # subscription. Not critical: it never widens access (off is strictly narrower than on),
+        # and refusing the switch because the log is down would leave an owner unable to silence
+        # an assistant he explicitly wants quiet right now.
+        "action": "shop.ai_toggle_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "shop_ai_toggle",
+    },
+    {
         # The ceiling on a customer's single WhatsApp message before the assistant refuses it
         # without ever calling the model. Not critical for the same reason as ai_notes_changed —
         # a routine setting, not an access grant.

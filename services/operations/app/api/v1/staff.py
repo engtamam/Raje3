@@ -43,6 +43,7 @@ from app.core.models import ASSIGNMENT_MODES, Branch, Operator, Package, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
 from app.core import ai_notes as AN
+from app.core import ai_toggle as AT
 from app.core import msg_limits as ML
 from app.core import scheduling as SCHED
 from app.core import seats as S
@@ -957,6 +958,36 @@ async def set_ai_notes(request: Request, body: AiNotesIn,
     # `redacted` response field, so the owner learns a phone number was stripped without either of
     # us ever handling it a second time to tell him which one.
     return {"text": cleaned.text, "redacted": list(cleaned.hits)}
+
+
+# ── the AI assistant's own kill switch ───────────────────────────────────────────────────────
+@router.get("/ai-toggle", dependencies=[Depends(rate_limit)])
+async def read_ai_toggle(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Is the WhatsApp AI assistant switched ON for this establishment right now — separate from
+    whether the shop has bought `feature.whatsapp` at all (core/ai_toggle.py's own docstring: this
+    is the owner's own runtime choice, never the entitlement). Absent means on, which is today's
+    behaviour for every shop that has never touched this."""
+    enabled = await AT.AiToggleStore(request.app.state.container.datastore).get(_tenant(principal))
+    return {"enabled": enabled}
+
+
+class AiToggleIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/ai-toggle", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_ai_toggle(request: Request, body: AiToggleIn,
+                        principal: Principal = Depends(_MANAGE)) -> dict:
+    """Turn the WhatsApp AI assistant on or off for this establishment — `_MANAGE`, not `_READ`:
+    this is the owner's own trust decision, never a plain operator's to flip. OFF closes it
+    exactly as if `feature.whatsapp` had never been bought (whatsapp-assistant's own licence check
+    reads this same row) — not a softer "paused" state, and reversible either direction."""
+    tenant = _tenant(principal)
+    row = await AT.AiToggleStore(request.app.state.container.datastore).set(tenant, body.enabled)
+    await request.app.state.auditor.record(
+        "shop.ai_toggle_changed", actor=principal.subject, tenant=tenant,
+        resource="shop_ai_toggle", ip=request.client.host if request.client else "")
+    return row
 
 
 # ── the customer-message word limit ──────────────────────────────────────────────────────────

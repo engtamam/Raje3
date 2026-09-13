@@ -72,6 +72,9 @@ BACKUP: dict[str, Any] = {
         # WHAT THE OWNER TOLD THE AI ASSISTANT about his own shop — losing it silently degrades
         # the WhatsApp bot back to generic answers, with no error anywhere to say why.
         {"name": "shop_ai_notes", "tenant_scoped": True},
+        # THE OWNER'S OWN KILL SWITCH for the WhatsApp AI assistant — losing it silently turns the
+        # assistant back on for a shop that switched it off, with no error anywhere to say why.
+        {"name": "shop_ai_toggle", "tenant_scoped": True},
         # THE CUSTOMER-MESSAGE WORD LIMIT — losing it silently resets a shop's own tightened/
         # loosened ceiling back to the default, with no error anywhere to say why.
         {"name": "shop_msg_word_limits", "tenant_scoped": True},
