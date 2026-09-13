@@ -51,4 +51,5 @@ async def test_with_nothing_to_join_it_still_tells_him_what_he_spent():
         reward_name="غسلة مجانية", cost=100, remaining=37)
 
     assert len(sender.sent) == 1
-    assert "غسلة مجانية" in sender.sent[0]["owner_text"]
+    # No reward name (2026-09-13) — cost and remaining are the only facts that add anything.
+    assert "100" in sender.sent[0]["owner_text"] and "37" in sender.sent[0]["owner_text"]

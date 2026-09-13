@@ -172,9 +172,12 @@ def test_the_till_and_the_field_produce_the_same_entry_but_for_the_channel():
 
 
 # ── what the customer is told ──────────────────────────────────────────────────────────────────
-def test_the_receipt_carries_three_facts_in_western_digits():
+def test_the_receipt_carries_two_facts_in_western_digits():
+    """No reward name (2026-09-13, the owner's own instruction) — cost and remaining are the only
+    facts that add anything a customer standing at the counter does not already know."""
     text = receipt_text(reward_name="غسلة", cost=200, remaining=40)
-    assert "200" in text and "40" in text and "غسلة" in text
+    assert "200" in text and "40" in text
+    assert "غسلة" not in text
     # Built from code points rather than written out: the digits guard is literal, and it is
     # right to be — a file containing them is a file somebody copies a line from.
     assert not any(0x0660 <= ord(ch) <= 0x0669 for ch in text)

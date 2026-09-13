@@ -50,8 +50,8 @@ SHOP = "shop"
 SERVICE = "service"          # what he came for, or what is due
 REWARD = "reward"            # what he redeemed
 POINTS = "points"            # how many
-BALANCE = "balance"          # what is left after
-ACTION = "action"            # what just happened to his account, in our words
+BALANCE = "balance"          # what is left after — carries the whole "spent X, left with Y"
+                             # sentence now (2026-09-13), never the reward's own name
 DIGEST = "digest"            # the week in one line, composed by us
 OFFER_VALUE = "offer_value"  # «20%» or «50 ريال» — typed, never a sentence
 ENDS_AT = "ends_at"          # the last day, phrased by us
@@ -123,7 +123,6 @@ SLOT_LABEL = {
     REWARD: "المكافأة",
     POINTS: "النقاط",
     BALANCE: "الرصيد",
-    ACTION: "ما تمّ",
     DIGEST: "ملخّص الأسبوع",
     OFFER_VALUE: "قيمة الخصم",
     ENDS_AT: "ينتهي في",
@@ -244,7 +243,7 @@ REASONS: tuple[Reason, ...] = (
         label="تغيّر رصيده بلا زيارة",
         when="حين يستبدل نقاطه ولا تكون له زيارة مسجّلة تحمل الخبر",
         cls="personal", template_type="per_account_notice",
-        slots=(ACTION, BALANCE), source="loyalty",
+        slots=(BALANCE,), source="loyalty",
     ),
     Reason(
         id="points_expiring",
@@ -382,7 +381,6 @@ SAMPLE = {
     REWARD: "غسيل مجاني",
     POINTS: "40",
     BALANCE: "60",
-    ACTION: "استبدال نقاطك",
     DIGEST: "3 زيارات هذا الأسبوع",
     OFFER_VALUE: "20%",
     ENDS_AT: "21 أغسطس",

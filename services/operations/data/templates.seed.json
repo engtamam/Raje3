@@ -480,21 +480,19 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "تمام {{1}}، {{3}} تمّ، ورصيدك في {{2}} صار {{4}} نقطة. {{5}} 🎁",
+      "body": "تمام {{1}}، {{3}} في {{2}}. {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "system",
-        "system",
+        "owner",
         "invite"
       ],
       "model": "both",
@@ -504,10 +502,10 @@
       "examples": [
         "محمد",
         "مغسلة النخيل",
-        "غسيل خارجي",
-        "1234",
+        "استبدلت 80 نقطة، وباقي لك 40 نقطة",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "per_account_notice_feminine",
@@ -517,21 +515,19 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "تمام {{1}}، {{3}} تمّ، ورصيدك في {{2}} صار {{4}} نقطة. {{5}} 🎁",
+      "body": "تمام {{1}}، {{3}} في {{2}}. {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "system",
-        "system",
+        "owner",
         "invite"
       ],
       "model": "both",
@@ -541,10 +537,10 @@
       "examples": [
         "سارة",
         "صالون لمسات",
-        "قص وتشذيب",
-        "1234",
+        "استبدلت 80 نقطة، وباقي لك 40 نقطة",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "per_points_expiring_masculine",

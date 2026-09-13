@@ -33,13 +33,17 @@ WARNING = "per_points_expiring"     # personal: his own balance, not a sale
 def receipt_text(*, reward_name: str, cost: int, remaining: int) -> str:
     """The body of the redemption receipt.
 
-    THREE FACTS AND NOTHING ELSE: what he got, what it cost, what is left. The third is what makes
-    it auditable — a receipt without the remaining balance tells him a spend happened but not
-    whether the arithmetic was right.
+    TWO FACTS, NOT THREE (2026-09-13, the owner's own instruction): what it cost and what is left.
+    The reward's own name USED to ride here too, but it made the sentence longer for no real
+    fraud-detection benefit — the customer just redeemed it at the counter and already knows what
+    he got; the balance is the only new information, and it is what makes this auditable at all
+    (a receipt without it tells him a spend happened but not whether the arithmetic was right).
+    `reward_name` stays a parameter (unused in the sentence itself) so a caller that still wants
+    to log or reason about which reward this was does not need a second signature to call.
 
     Western digits throughout, like everywhere else in this product.
     """
-    return f"تم استبدال {cost} نقطة مقابل {reward_name}. رصيدك المتبقي: {remaining} نقطة."
+    return f"استبدلت {cost} نقطة، وباقي لك {remaining} نقطة"
 
 
 def warning_text(*, points: int, days: int) -> str:
