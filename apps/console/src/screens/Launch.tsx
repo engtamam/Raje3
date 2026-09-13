@@ -182,9 +182,16 @@ export function hasBlank(picked: { blanks?: string[]; goal?: string }, kind: str
 
 /** What to call the free blank, named by what it fills rather than by where it lands.
  *  `t` defaults to the Arabic catalog — same optional-t pattern operator-i18n.tsx's own
- *  `translate` export exists for, so a pure-function test can call this without a provider. */
-export function freeBlankLabel(goal: string, t: (key: string) => string = (k) => translate('ar', k)): string {
-  return goal === 'announce' ? t('launch.freeBlank.announce') : t('launch.freeBlank.default');
+ *  `translate` export exists for, so a pure-function test can call this without a provider.
+ *
+ *  `announce` USED TO NAME ITS OWN LABEL HERE ("ما الجديد؟") — dead since 2026-09-13: its
+ *  template no longer declares an "owner" blank at all (Meta forbids free-typed promotional
+ *  content in an approved template's variable — the real bug this fixed), so `hasBlank(picked,
+ *  'owner')` can never be true for it any more and this branch could never run. `goal` is kept
+ *  as a parameter rather than dropped: the day a future goal legitimately needs its own free-blank
+ *  wording, this is where that one line goes, not a reason to keep an unreachable one today. */
+export function freeBlankLabel(_goal: string, t: (key: string) => string = (k) => translate('ar', k)): string {
+  return t('launch.freeBlank.default');
 }
 
 interface Branch { id: string; name: string; active?: boolean }

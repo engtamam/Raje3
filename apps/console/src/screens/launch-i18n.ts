@@ -13,7 +13,6 @@ import { registerOperatorStrings } from '../operator-i18n';
 
 registerOperatorStrings({
   ar: {
-    'launch.freeBlank.announce': 'ما الجديد؟',
     'launch.freeBlank.default': 'نص الرسالة',
     'launch.previewFailed': 'تعذّرت معاينة الحملة.',
     'launch.waitingGoals': 'جارٍ تحميل أهداف الحملات…',
@@ -77,7 +76,6 @@ registerOperatorStrings({
     'launch.weekday.sun': 'الأحد',
   },
   en: {
-    'launch.freeBlank.announce': "What's new?",
     'launch.freeBlank.default': 'Message text',
     'launch.previewFailed': "Couldn't preview the campaign.",
     'launch.waitingGoals': 'Loading campaign goals…',
@@ -141,7 +139,6 @@ registerOperatorStrings({
     'launch.weekday.sun': 'Sunday',
   },
   ur: {
-    'launch.freeBlank.announce': 'کیا نیا ہے؟',
     'launch.freeBlank.default': 'پیغام کا متن',
     'launch.previewFailed': 'مہم کا پیش منظر نہیں دکھا سکے۔',
     'launch.waitingGoals': 'مہم کے اہداف لوڈ ہو رہے ہیں…',
@@ -205,7 +202,6 @@ registerOperatorStrings({
     'launch.weekday.sun': 'اتوار',
   },
   ha: {
-    'launch.freeBlank.announce': 'Me sabo?',
     'launch.freeBlank.default': "Rubutun saƙo",
     'launch.previewFailed': "Ba a iya duba kamfen ba.",
     'launch.waitingGoals': "Ana loda manufofin kamfen…",
@@ -269,7 +265,6 @@ registerOperatorStrings({
     'launch.weekday.sun': 'Lahadi',
   },
   fil: {
-    'launch.freeBlank.announce': 'Ano ang bago?',
     'launch.freeBlank.default': 'Teksto ng mensahe',
     'launch.previewFailed': "Hindi ma-preview ang campaign.",
     'launch.waitingGoals': 'Nilo-load ang mga layunin ng campaign…',
@@ -333,7 +328,6 @@ registerOperatorStrings({
     'launch.weekday.sun': 'Linggo',
   },
   bn: {
-    'launch.freeBlank.announce': 'নতুন কী?',
     'launch.freeBlank.default': 'বার্তার লেখা',
     'launch.previewFailed': 'ক্যাম্পেইন প্রিভিউ করা যায়নি।',
     'launch.waitingGoals': 'ক্যাম্পেইনের লক্ষ্য লোড হচ্ছে…',

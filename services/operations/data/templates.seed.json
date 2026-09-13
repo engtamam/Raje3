@@ -782,7 +782,7 @@
       "fills": [
         "system",
         "system",
-        "owner",
+        "catalogue",
         "invite"
       ],
       "model": "cycle",
@@ -816,7 +816,7 @@
       "fills": [
         "system",
         "system",
-        "owner",
+        "catalogue",
         "invite"
       ],
       "model": "cycle",
@@ -829,6 +829,160 @@
         "افتتحنا فرعنا الجديد في حي الياسمين",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
       ]
+    },
+    {
+      "name": "awr_care_tip_carousel_warm",
+      "type": "awr_care_tip",
+      "tone": "warm",
+      "label": "وعِّ عملاءك — كاروسيل",
+      "class": "awareness",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا معلومات تفيدك عن هذي من {{2}} 👇 {{3}}",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "نفس منطق mkt_announcement_carousel — النصيحة تخصّ خدمة/باقة يملكها، فتُسمّى باختيار متعدد بدل نص حر، وكل واحدة ببطاقتها.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "احجز موعدك القادم من هنا 👇"
+      ],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "غسيل خارجي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "تفاصيل أكثر"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تلميع"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "تفاصيل أكثر"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تعقيم داخلي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "تفاصيل أكثر"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "awr_care_tip_carousel_feminine",
+      "type": "awr_care_tip",
+      "tone": "feminine",
+      "label": "وعِّ عملاءك — كاروسيل",
+      "class": "awareness",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا معلومات تفيدك عن هذي من {{2}} 👇 {{3}}",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "نفس منطق النسخة الأخرى (warm) — انظر شرحها.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "مغسلة النخيل",
+        "احجزي موعدك القادم من هنا 👇"
+      ],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "غسيل خارجي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "تفاصيل أكثر"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تلميع"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "تفاصيل أكثر"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تعقيم داخلي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "تفاصيل أكثر"
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "per_weekly_digest_warm",
@@ -1380,7 +1534,7 @@
       "fills": [
         "system",
         "system",
-        "owner",
+        "catalogue",
         "stop_link"
       ],
       "model": "both",
@@ -1414,7 +1568,7 @@
       "fills": [
         "system",
         "system",
-        "owner",
+        "catalogue",
         "stop_link"
       ],
       "model": "both",
@@ -1427,6 +1581,160 @@
         "افتتحنا فرعنا الجديد في حي الياسمين",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ]
+    },
+    {
+      "name": "mkt_announcement_carousel_warm",
+      "type": "mkt_announcement",
+      "tone": "warm",
+      "label": "أعلن جديدك — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا جديد يستاهل نظرة من {{2}} 👇 لإيقاف العروض: {{3}} ✋",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "2026-09-13: «الجديد» دائماً خدمة أو باقة، فيسمّيها هو باختيار متعدد بدل نص حر — النص الحر بمتغيّر معتمد من ميتا يغيّر معنى القالب المعتمد عن نيّته، وهذا ما كشفه صف mkt_announcement الأفقي (fills: owner). كل خدمة/باقة تظهر ببطاقتها الخاصة؛ الاسم والمحل ورابط الإيقاف تُقال مرة واحدة بالمقدمة المشتركة.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "غسيل خارجي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تلميع"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تعقيم داخلي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلب الآن"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "mkt_announcement_carousel_feminine",
+      "type": "mkt_announcement",
+      "tone": "feminine",
+      "label": "أعلن جديدك — كاروسيل",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا جديد يستاهل نظرة من {{2}} 👇 لإيقاف العروض: {{3}} ✋",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "نفس منطق النسخة الأخرى (warm) — انظر شرحها.",
+      "active": false,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "مغسلة النخيل",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "carousel": {
+        "cards": [
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "غسيل خارجي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تلميع"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
+          },
+          {
+            "header_format": "IMAGE",
+            "header_example_handle": "",
+            "body": "{{1}}",
+            "body_examples": [
+              "تعقيم داخلي"
+            ],
+            "buttons": [
+              {
+                "type": "QUICK_REPLY",
+                "text": "اطلبي الآن"
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "mkt_personal_occasion_warm",

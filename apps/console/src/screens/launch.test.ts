@@ -23,10 +23,14 @@ describe('a blank is drawn only where the message has one', () => {
     expect(hasBlank(offer, 'owner')).toBe(false);
   });
 
-  it('draws the free blank for the one goal whose content IS that blank', () => {
-    const announce = { goal: 'announce', blanks: ['owner'] };
-    expect(hasBlank(announce, 'owner')).toBe(true);
-    // And nothing else: an announcement has no discount, no service and no end date.
+  it('draws the multi-select catalogue picker for announce now, never a free box', () => {
+    // 2026-09-13: `announce`'s own "owner" free blank was a real bug, not a style choice — Meta
+    // forbids free-typed promotional content inside an approved template's own variable, and
+    // "what's new" is always one of his own services or packages anyway. Its template now
+    // declares `catalogue` instead, same as every other marketing goal's multi-select.
+    const announce = { goal: 'announce', blanks: ['catalogue'] };
+    expect(hasBlank(announce, 'catalogue')).toBe(true);
+    expect(hasBlank(announce, 'owner')).toBe(false);
     expect(hasBlank(announce, 'amount')).toBe(false);
     expect(hasBlank(announce, 'date')).toBe(false);
   });
@@ -34,14 +38,13 @@ describe('a blank is drawn only where the message has one', () => {
   it('asks for nothing when the server declared nothing', () => {
     // A template we could not resolve — never seeded, still in review, switched off. Drawing a
     // box on that silence is how the wrong one appeared for four goals in the first place.
-    expect(hasBlank({ goal: 'announce' }, 'owner')).toBe(false);
+    expect(hasBlank({ goal: 'announce' }, 'catalogue')).toBe(false);
     expect(hasBlank({ goal: 'service_offer', blanks: [] }, 'amount')).toBe(false);
   });
 
-  it('names the free blank by what it fills, never by where it lands', () => {
-    // «سطرك في الرسالة» was a claim about placement, and it was false wherever there was no
-    // `owner` slot. The label now names the CONTENT, which is true wherever the box is drawn.
-    expect(freeBlankLabel('announce')).toBe('ما الجديد؟');
-    expect(freeBlankLabel('announce')).not.toContain('سطرك');
+  it('names the free blank by what it fills, never by where it lands, for whichever goal still has one', () => {
+    // No REACHABLE goal declares an "owner" blank any more (2026-09-13) — the label still exists,
+    // generically, for the day one legitimately does.
+    expect(freeBlankLabel('announce')).toBe('نص الرسالة');
   });
 });

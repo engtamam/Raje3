@@ -226,17 +226,27 @@ def test_a_bookings_shop_with_too_few_items_still_gets_the_flow_not_the_carousel
     assert call["flow_token"] != "" and call["carousel"] is False
 
 
-def test_a_type_outside_the_carousel_set_never_requests_one_either():
-    """`mkt_announcement` asks for nothing — no booking screen and no carousel belongs under it,
-    whatever the shop's own entitlement or how many items are attached."""
+def test_announce_now_also_requests_a_carousel_with_several_items():
+    """2026-09-13: `mkt_announcement`'s own free "owner" blank was a real bug (Meta forbids
+    free-typed promotional content inside an approved template's variable) — switched to the same
+    "catalogue" multi-select every other marketing goal uses, so it is carousel-eligible now too."""
     call = fire("mkt_announcement", licence=Licence(False), service_ids=("svc_1", "svc_2")).calls[0]
+    assert call["carousel"] is True
+
+
+def test_a_type_outside_the_carousel_set_never_requests_one_either():
+    """A service-class type (never marketing, never carousel-shaped) — no booking screen and no
+    carousel belongs under it, whatever the shop's own entitlement or how many items are attached."""
+    call = fire("svc_visit_confirmation", licence=Licence(False),
+               service_ids=("svc_1", "svc_2")).calls[0]
     assert call["carousel"] is False
 
 
 def test_for_send_never_sets_both_fields_at_once():
     both_true = shape.for_send(opens_booking=True, idempotency_key="k", template_type="mkt_offer")
     assert both_true.carousel is False
-    neither = shape.for_send(opens_booking=False, idempotency_key="k", template_type="mkt_announcement")
+    neither = shape.for_send(opens_booking=False, idempotency_key="k",
+                             template_type="svc_visit_confirmation")
     assert neither is shape.PLAIN
 
 

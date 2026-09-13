@@ -49,14 +49,18 @@ BOOKING_TYPES = frozenset({"mkt_winback", "mkt_personal_occasion", "mkt_offer"})
 #: EVERY MARKETING TEXT THAT MAY SHOW A CAROUSEL, once the owner has actually attached more than
 #: one service or package to feature (2026-09-13 — the owner's own instruction that a multi-select
 #: offer should render as cards, "professionally", never a plain paragraph naming them all).
-#: `mkt_loyalty_activation` JOINS THE THREE BOOKING TYPES here on purpose, even though it never
-#: opens a booking (a reward is not an appointment) — its own "catalogue" blank already lets an
-#: owner name what a loyal customer can redeem, exactly the same shape a carousel card needs.
-#: `mkt_announcement` stays OUT for now: it has no "catalogue" blank at all (its whole content is
-#: the owner's one free line), so there is nothing today's screen collects that a card could show —
-#: giving it one is a real product decision (what does an announcement's card even show?) still
-#: to be made, not a plumbing gap.
-CAROUSEL_TYPES = BOOKING_TYPES | frozenset({"mkt_loyalty_activation"})
+#: `mkt_loyalty_activation`/`mkt_announcement`/`awr_care_tip` JOIN THE THREE BOOKING TYPES here —
+#: none of them ever opens a booking (a reward, an announcement, a tip are not appointments), but
+#: each carries the SAME "catalogue" blank a carousel card needs.
+#:
+#: `mkt_announcement`/`awr_care_tip` USED TO CARRY A FREE "owner" BLANK INSTEAD — a real bug, not
+#: a style choice: Meta refuses free-typed promotional content inside an approved marketing
+#: template's own variable (a variable is a value the template's own reviewed wording expects, not
+#: a place to write new copy after approval), and "what's new" or "what this tip is about" is
+#: always one of his own services or packages anyway. Both were switched to the same "catalogue"
+#: multi-select every other marketing goal already uses (2026-09-13).
+CAROUSEL_TYPES = BOOKING_TYPES | frozenset(
+    {"mkt_loyalty_activation", "mkt_announcement", "awr_care_tip"})
 
 #: The Flow's own seed key, as whatsapp-assistant's FlowBookingBackend reads it. Declared empty
 #: and filled with the resolved recipient inside reminders' sender — see the module docstring.
