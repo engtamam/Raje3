@@ -263,6 +263,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
    */
   // arabic-indic-digits: intentional — «٢٠٪» appears in the note above as the shape we refuse.
   const [offerValue, setOfferValue] = useState('');
+  // WHICH KIND THE %/ريال SEGMENTED IS ON — BUG FIXED HERE (2026-09-14, the owner's own report):
+  // this used to be read straight off `offerValue.includes('ريال')`, so with the amount box still
+  // empty (nothing typed yet) `offerValue` was always '' either way and the control could never
+  // even LOOK switched — a tap on «ريال» composed nothing (there was no number to compose it
+  // with) and the segmented stayed stuck on «نسبة» until he typed a digit first. Tracked as its
+  // OWN state now, independent of whether a number exists yet.
+  const [discountKind, setDiscountKind] = useState<'pct' | 'sar'>('pct');
   /**
    * WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `occasion` ONLY, for now (the pilot;
    * `win_back`/`service_offer`/`package_offer` still only ever give the discount they always
@@ -573,7 +580,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         <p className="text-sm text-text-secondary">{t('launch.noGoalsAvailable')}</p>
       ) : (
         <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-3 shadow-sm">
-          <label className="flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2">
+          <label className="flex items-center gap-2 rounded-lg bg-surface-1 border border-border-subtle px-3 py-2">
             <Search size={14} className="shrink-0 text-text-secondary" aria-hidden />
             <input
               type="text"
@@ -587,13 +594,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.category.all')}>
               <button type="button" onClick={() => setActiveCategory('')}
                      className={['rounded-full px-3 py-1 text-xs font-medium',
-                                 activeCategory === '' ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                                 activeCategory === '' ? 'bg-accent text-accent-contrast' : 'bg-surface-1 border border-border-subtle text-text-secondary'].join(' ')}>
                 {t('launch.category.all')}
               </button>
               {categories.map((cat) => (
                 <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
                        className={['rounded-full px-3 py-1 text-xs font-medium',
-                                   activeCategory === cat ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                                   activeCategory === cat ? 'bg-accent text-accent-contrast' : 'bg-surface-1 border border-border-subtle text-text-secondary'].join(' ')}>
                   {cat}
                 </button>
               ))}
@@ -919,7 +926,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                     min={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => { setLaunchDate(e.target.value); setPreview(null); }}
                     dir="ltr"
-                    className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+                    className="h-11 rounded-lg bg-surface-1 border border-border-subtle px-3 text-sm"
                   />
                 </label>
                 <label className="flex flex-col gap-1">
@@ -929,7 +936,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                     value={launchHour}
                     onChange={(e) => { setLaunchHour(e.target.value); setPreview(null); }}
                     dir="ltr"
-                    className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-sm"
+                    className="h-11 w-24 rounded-lg bg-surface-1 border border-border-subtle px-3 text-sm"
                   />
                 </label>
               </div>
@@ -960,7 +967,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               rows={2}
               onChange={(e) => { setOwnerText(e.target.value); setPreview(null); }}
               placeholder={t('launch.ownerText.placeholder')}
-              className="rounded-lg bg-surface-2 p-3 text-sm"
+              className="rounded-lg bg-surface-1 border border-border-subtle p-3 text-sm"
             />
             <span className="text-xs text-text-secondary tabular-nums">
               {ownerText.length} / 60
@@ -988,123 +995,6 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           </div>
         ) : null}
 
-        {/* عدد النقاط — REWARD_ENABLED_GOALS + `points` ONLY. Hides the discount value and the
-            service picker: a points reward names no service and no percentage, only the credit
-            itself. */}
-        {rewardEnabled && rewardType === 'points' ? (
-          <label className="flex flex-col gap-1">
-            <span className="text-sm">{t('launch.reward.pointsLabel')}</span>
-            <input
-              type="number"
-              min={1}
-              dir="ltr"
-              value={western(rewardPoints).replace(/[^0-9]/g, '')}
-              onChange={(e) => {
-                setRewardPoints(western(e.target.value).replace(/[^0-9]/g, ''));
-                setPreview(null);
-              }}
-              className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-center text-sm tabular-nums"
-            />
-          </label>
-        ) : null}
-
-        {/* ── how much ────────────────────────────────────────────────────────────────────
-            TWO BUTTONS AND A NUMBER, not a free field. He taps «نسبة» or «مبلغ» and types the
-            number; we build «20%» or «50 ريال». A field that accepts anything accepts «خصم كبير»,
-            and the send refuses it after he has already decided he is done.
-            A REWARD-ENABLED GOAL READS ITS OWN `rewardType` HERE RATHER THAN
-            `hasBlank(picked, 'amount')` — its template's own blank is now "reward", not
-            "amount" (no new Meta template exists for this — see the module's own note), so the
-            server no longer lists "amount" among such a goal's blanks at all. */}
-        {(rewardEnabled ? rewardType === 'discount' : hasBlank(picked, 'amount')) ? (
-          <div className="flex flex-col gap-1">
-            <span className="text-sm">{t('launch.discountLabel')}</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                // 99, WHICH IS WHAT THE SEND ACCEPTS. It said 90 while `_OFFER` in campaigns and
-                // `_AMOUNT` in reminders both accept 1-99 — a third number for one rule, and the
-                // only one a person ever reads.
-                max={99}
-                dir="ltr"
-                value={western(offerValue).replace(/[^0-9.]/g, '')}
-                onChange={(e) => {
-                  // FOLD, THEN DROP THE PUNCTUATION. `[^0-9.]` is exactly 0-9 plus a dot, so an
-                  // Arabic keyboard's digits were deleted here as he typed the discount — the
-                  // box stayed empty on the screen that launches a campaign.
-                  const n = western(e.target.value).replace(/[^0-9.]/g, '');
-                  const sar = t('launch.discountKind.sar');
-                  setOfferValue(n ? (offerValue.includes(sar) ? `${n} ${sar}` : `${n}%`) : '');
-                  setPreview(null);
-                }}
-                className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-center text-sm tabular-nums"
-              />
-              <Segmented
-                ariaLabel={t('launch.discountKindAria')}
-                value={offerValue.includes(t('launch.discountKind.sar')) ? 'sar' : 'pct'}
-                onChange={(kind) => {
-                  const n = western(offerValue).replace(/[^0-9.]/g, '');
-                  const sar = t('launch.discountKind.sar');
-                  setOfferValue(n ? (kind === 'sar' ? `${n} ${sar}` : `${n}%`) : '');
-                  setPreview(null);
-                }}
-                options={[{ value: 'pct', label: t('launch.discountKind.pct') }, { value: 'sar', label: t('launch.discountKind.sar') }]}
-              />
-            </div>
-            <span className="text-xs text-text-secondary">
-              {tf(t, 'launch.discountPreviewNote', { value: offerValue || '20%' })}
-            </span>
-          </div>
-        ) : null}
-
-        {/* ── when it stops ────────────────────────────────────────────────────────────────
-            NO DEFAULT, DELIBERATELY (§10.9.1). A date we picked is a date he honours at the till
-            without having agreed to it — and «إلى متى؟» is the one question a customer asks about
-            an offer. */}
-        {hasBlank(picked, 'date') ? (
-          <label className="flex flex-col gap-1">
-            <span className="text-sm">{t('launch.offerEndsLabel')}</span>
-            <input
-              type="date"
-              value={endsOn}
-              min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
-              onChange={(e) => { setEndsOn(e.target.value); setPreview(null); }}
-              dir="ltr"
-              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
-            />
-            <span className="text-xs text-text-secondary">
-              {t('launch.offerEndsNote')}
-            </span>
-          </label>
-        ) : null}
-
-        {/* ── the day it is about ──────────────────────────────────────────────────────────
-            ON THE GOAL, NOT ON A BLANK. Every other control here is drawn from `blanks` — what
-            the approved message has room for him to fill. This one is not about the words at all:
-            `fire_at` decides WHEN the campaign leaves, and `occasion` is the one goal whose whole
-            premise is a day («رسالة في يوم يخصّه»). Reading it off a blank would tie the schedule
-            to whichever template Meta happened to approve.
-
-            AND IT MAY BE LEFT EMPTY, which means today. A shop congratulating a customer this
-            afternoon is doing something ordinary; the defect was never having the choice. */}
-        {picked.goal === 'occasion' ? (
-          <label className="flex flex-col gap-1">
-            <span className="text-sm">{t('launch.occasionDateLabel')}</span>
-            <input
-              type="date"
-              value={occasionOn}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => { setOccasionOn(e.target.value); setPreview(null); }}
-              dir="ltr"
-              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
-            />
-            <span className="text-xs text-text-secondary">
-              {t('launch.occasionDateNote')}
-            </span>
-          </label>
-        ) : null}
-
         {/* WHICH SERVICE(S), when the goal is about them — MORE THAN ONE, now (2026-09-13): every
             selected service is named together in the same merged message (reminders' own
             `merged_service_text`), never a free paragraph he'd have to write himself. The cycle
@@ -1117,7 +1007,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             is purely which packages the message names. Reads `rewardEnabled` alongside
             `hasBlank(picked, 'catalogue')` for the same reason the service picker below does:
             `mkt_offer` no longer declares a "catalogue" blank of its own now that its slot is
-            "reward" — see that picker's own note. */}
+            "reward" — see that picker's own note.
+            MOVED HERE, RIGHT AFTER THE REWARD-TYPE PICKER (2026-09-14, the owner's own report):
+            this used to render after the amount/points input AND the end-date field, so ITS OWN
+            vertical position shifted depending on which reward was picked — gift renders neither
+            of those two fields, so «على أي خدمة؟» jumped straight up under the reward picker for
+            gift alone, while discount/points still had a field between them. One fixed slot now,
+            whatever the reward. */}
         {(hasBlank(picked, 'catalogue') || rewardEnabled) && picked.goal === 'package_offer' ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-sm">{t('launch.packagePickLabel')}</span>
@@ -1136,7 +1032,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       setPreview(null);
                     }}
                     className={['rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                               active ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
+                               active ? 'bg-accent text-accent-contrast' : 'bg-surface-1 border border-border-subtle text-text-secondary hover:bg-surface-3'].join(' ')}
                   >
                     {p.name}
                   </button>
@@ -1172,7 +1068,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                         setPreview(null);
                       }}
                       className={['rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                                 active ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
+                                 active ? 'bg-accent text-accent-contrast' : 'bg-surface-1 border border-border-subtle text-text-secondary hover:bg-surface-3'].join(' ')}
                     >
                       {s.name}
                     </button>
@@ -1180,6 +1076,124 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                 })}
             </div>
           </div>
+        ) : null}
+
+        {/* عدد النقاط — REWARD_ENABLED_GOALS + `points` ONLY. Hides the discount value and the
+            service picker: a points reward names no service and no percentage, only the credit
+            itself. */}
+        {rewardEnabled && rewardType === 'points' ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">{t('launch.reward.pointsLabel')}</span>
+            <input
+              type="number"
+              min={1}
+              dir="ltr"
+              value={western(rewardPoints).replace(/[^0-9]/g, '')}
+              onChange={(e) => {
+                setRewardPoints(western(e.target.value).replace(/[^0-9]/g, ''));
+                setPreview(null);
+              }}
+              className="h-11 w-24 rounded-lg bg-surface-1 border border-border-subtle px-3 text-center text-sm tabular-nums"
+            />
+          </label>
+        ) : null}
+
+        {/* ── how much ────────────────────────────────────────────────────────────────────
+            TWO BUTTONS AND A NUMBER, not a free field. He taps «نسبة» or «مبلغ» and types the
+            number; we build «20%» or «50 ريال». A field that accepts anything accepts «خصم كبير»,
+            and the send refuses it after he has already decided he is done.
+            A REWARD-ENABLED GOAL READS ITS OWN `rewardType` HERE RATHER THAN
+            `hasBlank(picked, 'amount')` — its template's own blank is now "reward", not
+            "amount" (no new Meta template exists for this — see the module's own note), so the
+            server no longer lists "amount" among such a goal's blanks at all. */}
+        {(rewardEnabled ? rewardType === 'discount' : hasBlank(picked, 'amount')) ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-sm">{t('launch.discountLabel')}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                // 99, WHICH IS WHAT THE SEND ACCEPTS. It said 90 while `_OFFER` in campaigns and
+                // `_AMOUNT` in reminders both accept 1-99 — a third number for one rule, and the
+                // only one a person ever reads.
+                max={99}
+                dir="ltr"
+                value={western(offerValue).replace(/[^0-9.]/g, '')}
+                onChange={(e) => {
+                  // FOLD, THEN DROP THE PUNCTUATION. `[^0-9.]` is exactly 0-9 plus a dot, so an
+                  // Arabic keyboard's digits were deleted here as he typed the discount — the
+                  // box stayed empty on the screen that launches a campaign.
+                  const n = western(e.target.value).replace(/[^0-9.]/g, '');
+                  const sar = t('launch.discountKind.sar');
+                  setOfferValue(n ? (discountKind === 'sar' ? `${n} ${sar}` : `${n}%`) : '');
+                  setPreview(null);
+                }}
+                className="h-11 w-24 rounded-lg bg-surface-1 border border-border-subtle px-3 text-center text-sm tabular-nums"
+              />
+              <Segmented
+                ariaLabel={t('launch.discountKindAria')}
+                value={discountKind}
+                onChange={(kind) => {
+                  setDiscountKind(kind as 'pct' | 'sar');
+                  const n = western(offerValue).replace(/[^0-9.]/g, '');
+                  const sar = t('launch.discountKind.sar');
+                  setOfferValue(n ? (kind === 'sar' ? `${n} ${sar}` : `${n}%`) : '');
+                  setPreview(null);
+                }}
+                options={[{ value: 'pct', label: t('launch.discountKind.pct') }, { value: 'sar', label: t('launch.discountKind.sar') }]}
+              />
+            </div>
+            <span className="text-xs text-text-secondary">
+              {tf(t, 'launch.discountPreviewNote', { value: offerValue || '20%' })}
+            </span>
+          </div>
+        ) : null}
+
+        {/* ── when it stops ────────────────────────────────────────────────────────────────
+            NO DEFAULT, DELIBERATELY (§10.9.1). A date we picked is a date he honours at the till
+            without having agreed to it — and «إلى متى؟» is the one question a customer asks about
+            an offer. */}
+        {hasBlank(picked, 'date') ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">{t('launch.offerEndsLabel')}</span>
+            <input
+              type="date"
+              value={endsOn}
+              min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+              onChange={(e) => { setEndsOn(e.target.value); setPreview(null); }}
+              dir="ltr"
+              className="h-11 rounded-lg bg-surface-1 border border-border-subtle px-3 text-sm"
+            />
+            <span className="text-xs text-text-secondary">
+              {t('launch.offerEndsNote')}
+            </span>
+          </label>
+        ) : null}
+
+        {/* ── the day it is about ──────────────────────────────────────────────────────────
+            ON THE GOAL, NOT ON A BLANK. Every other control here is drawn from `blanks` — what
+            the approved message has room for him to fill. This one is not about the words at all:
+            `fire_at` decides WHEN the campaign leaves, and `occasion` is the one goal whose whole
+            premise is a day («رسالة في يوم يخصّه»). Reading it off a blank would tie the schedule
+            to whichever template Meta happened to approve.
+
+            AND IT MAY BE LEFT EMPTY, which means today. A shop congratulating a customer this
+            afternoon is doing something ordinary; the defect was never having the choice. */}
+        {picked.goal === 'occasion' ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">{t('launch.occasionDateLabel')}</span>
+            <input
+              type="date"
+              value={occasionOn}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => { setOccasionOn(e.target.value); setPreview(null); }}
+              dir="ltr"
+              className="h-11 rounded-lg bg-surface-1 border border-border-subtle px-3 text-sm"
+            />
+            <span className="text-xs text-text-secondary">
+              {t('launch.occasionDateNote')}
+            </span>
+          </label>
         ) : null}
 
         {/* WHICH BRANCH — only for a shop that has more than one, and «كل الفروع» stays the
@@ -1191,7 +1205,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             <select
               value={branchId}
               onChange={(e) => { setBranchId(e.target.value); setPreview(null); }}
-              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+              className="h-11 rounded-lg bg-surface-1 border border-border-subtle px-3 text-sm"
             >
               <option value="">{t('launch.allBranches')}</option>
               {(branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}

@@ -39,7 +39,11 @@ export function Segmented<T extends string>({
       aria-disabled={disabled || undefined}
       data-testid={testId}
       className={cn(
-        'inline-flex flex-wrap gap-1 rounded-lg border border-border-subtle bg-surface-2 p-1',
+        // HOLLOW, NOT FILLED (2026-09-14, the owner's own instruction — "لو الاطار ممكن هو
+        // البيج الوحيد ولكن الامتلاء يكون لون ابيض"): the track is a bordered white surface, the
+        // same convention every card on the screen already uses, rather than one more solid tan
+        // block sitting on the page's own tan.
+        'inline-flex flex-wrap gap-1 rounded-lg border border-border-subtle bg-surface-1 p-1',
         disabled && 'opacity-60',
         className,
       )}

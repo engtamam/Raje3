@@ -5,7 +5,7 @@
  * of service_id/service_name.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { OperatorI18nProvider } from '../operator-i18n';
 
@@ -249,6 +249,37 @@ describe('the live audience-size sliders on «كافئ المخلصين»', () =
     fireEvent.change(slider, { target: { value: '10' } });
     await new Promise((r) => setTimeout(r, 350));
     expect(previewCalls.length).toBe(0);
+  });
+});
+
+// ── the %/ريال toggle stuck on % until a number existed (2026-09-14 fix) ────────────────────────
+describe('the discount-kind toggle switches even with an empty amount box', () => {
+  it('switching to «ريال» with nothing typed yet is reflected immediately, not stuck on «%»', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="service_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+
+    const group = screen.getByRole('radiogroup', { name: 'نوع الخصم' });
+    fireEvent.click(within(group).getByRole('radio', { name: 'ريال' }));
+    expect(within(group).getByRole('radio', { name: 'ريال' }).getAttribute('aria-checked')).toBe('true');
+    expect(within(group).getByRole('radio', { name: '%' }).getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('a number typed after switching to «ريال» composes with ريال, not %', async () => {
+    previewCalls.length = 0;
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="service_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    const group = screen.getByRole('radiogroup', { name: 'نوع الخصم' });
+    fireEvent.click(within(group).getByRole('radio', { name: 'ريال' }));
+    const amountBox = document.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.change(amountBox, { target: { value: '50' } });
+    const dateBox = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateBox, { target: { value: '2030-01-01' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(previewCalls.length).toBe(1));
+    expect((previewCalls[0] as { offer_value: string }).offer_value).toBe('50 ريال');
   });
 });
 
