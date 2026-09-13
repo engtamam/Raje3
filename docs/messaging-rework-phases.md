@@ -45,10 +45,11 @@
       الإرسال — فكل تركيبة (نص فقط / نص+صورة / نص+صورة+زر) تحتاج **صف قالب منفصل مسجّل لحاله**
       عند ميتا، بنفس نمط صفوف الكاروسيل الحالية (نفس `type`، اسم مختلف). يشمل القوالب الستة اللي
       يدعم شكل الحجم الواحد: mkt_offer, mkt_winback, mkt_personal_occasion, mkt_announcement,
-      mkt_loyalty_activation، وربما awr_care_tip (محذوف حاليًا، غير معني). **طلب تنسيق أُرسل
-      لفريق `base-services-72` (2026-09-13)**: إضافة مكوّن HEADER مسطّح + BUTTONS مسطّح
-      (`_carousel_component`'s own pattern، بلا غلاف `cards`) لـ`meta.py`/`WaTemplateInternalIn`.
-      بانتظار ردهم — بعدها نوصّل استدعاء التسجيل من جهتنا (services/operations).
+      mkt_loyalty_activation، وربما awr_care_tip (محذوف حاليًا، غير معني). **آلية التسجيل نفسها
+      صارت جاهزة عند فريق `base-services-72` (v0.22.8)** — HEADER مسطّح + BUTTONS مسطّح على
+      `meta.py`/`WaTemplateInternalIn`، مطابق للطلب المُرسَل بالضبط. **باقي علينا فقط**: تحديث
+      `templates.seed.json` (header/button fields للقوالب الستة) وربط استدعاء التسجيل الفعلي من
+      جهتنا (services/operations) — لم يُنفَّذ بعد.
 - [x] 4. تفعيل الفلو للرسالة المفردة بالحملات (عرض/استعادة/مناسبة) — شغّال أصلاً
       (`shape.py::opens_booking_for`/`for_send`، مربوط بـ`feature.bookings`). أُضيف له اليوم
       (2026-09-13) زرع الخدمة الوحيدة المحدَّدة داخل الفلو نفسه (`SERVICE_SEED`)، بالتعاون مع
