@@ -59,6 +59,15 @@ BUTTON_TYPES = BOOKING_TYPES | frozenset({"mkt_loyalty_activation", "mkt_announc
 #: and filled with the resolved recipient inside reminders' sender — see the module docstring.
 CUSTOMER_SEED = "customer"
 
+#: THE FLOW'S FIRST-STEP PRE-SEED (2026-09-13), shipped by base-services-72 in booking_flow.py
+#: v0.22.7: INIT now accepts a value under the dimension name of the Flow's OWN first
+#: selection step and skips straight past it. Every one of our booking definitions puts "service"
+#: first, so this is the one dimension we can ever pre-fill from a campaign — a message that
+#: promised "your haircut" no longer makes the customer re-pick it before choosing staff/day/time.
+#: Empty (omitted from `flow_action_data` entirely) when the campaign names more than one service —
+#: nothing SINGLE to preselect, and the customer picks among them exactly as before.
+SERVICE_SEED = "service"
+
 
 @dataclass(frozen=True)
 class Shape:
@@ -127,9 +136,18 @@ def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = 
     Flow) WAS DELETED 2026-09-13 — every carousel template row was `active: false`, so this
     branch never actually fired; reminders' `merged_service_text` fallback already carried every
     multi-item campaign in production.
+
+    THE SERVICE PRE-SEED (2026-09-13, see `SERVICE_SEED`): only when `card_count == 1`, `item_id`
+    is a real service (not a package — `kind == "service"`), and the Flow actually has one to open
+    on (a package_offer's own `item_id` is a package id, meaningless to the booking Flow's own
+    "service" dimension). A package campaign or a multi-service one still opens the Flow with only
+    `customer` seeded, exactly as before.
     """
     if opens_booking and idempotency_key:
-        return Shape(flow_token=idempotency_key, flow_action_data={CUSTOMER_SEED: ""})
+        data = {CUSTOMER_SEED: ""}
+        if card_count == 1 and item_id and kind == "service":
+            data[SERVICE_SEED] = item_id
+        return Shape(flow_token=idempotency_key, flow_action_data=data)
     if template_type in BUTTON_TYPES and card_count == 1 and item_id and card_button_allowed:
         return Shape(button_item_id=item_id, button_kind=kind)
     return PLAIN

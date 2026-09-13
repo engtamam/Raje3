@@ -208,6 +208,32 @@ def test_plain_is_empty_on_both_fields_and_says_so_about_itself():
     assert shape.PLAIN.opens_booking is False
 
 
+# ── the Flow's own service pre-seed (2026-09-13) ──────────────────────────────────────────────
+def test_for_send_seeds_the_single_scoped_service_into_the_flow():
+    result = shape.for_send(opens_booking=True, idempotency_key="k1", card_count=1,
+                            item_id="svc_1", kind="service")
+    assert result.flow_action_data == {shape.CUSTOMER_SEED: "", shape.SERVICE_SEED: "svc_1"}
+
+
+def test_for_send_leaves_the_service_unseeded_with_more_than_one_scoped():
+    result = shape.for_send(opens_booking=True, idempotency_key="k1", card_count=2, item_id="",
+                            kind="service")
+    assert result.flow_action_data == {shape.CUSTOMER_SEED: ""}
+
+
+def test_for_send_leaves_the_service_unseeded_for_a_package_offer():
+    """A package_offer's own `item_id` is a package id — meaningless to the booking Flow's
+    "service" dimension."""
+    result = shape.for_send(opens_booking=True, idempotency_key="k1", card_count=1,
+                            item_id="pkg_1", kind="package")
+    assert result.flow_action_data == {shape.CUSTOMER_SEED: ""}
+
+
+def test_for_send_leaves_the_service_unseeded_with_none_scoped_at_all():
+    result = shape.for_send(opens_booking=True, idempotency_key="k1")
+    assert result.flow_action_data == {shape.CUSTOMER_SEED: ""}
+
+
 # ── (c) the coupon code, dropped — this service's own half of it ──────────────────────────────
 def test_the_owner_is_never_asked_to_fill_a_code_blank_again():
     """`MANUAL_BLANKS` is what the goal cards turn into questions on the campaign screen. A `code`
