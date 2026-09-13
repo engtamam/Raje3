@@ -2,7 +2,7 @@
  * One message, as the customer will read it — and the wordings he may choose between.
  *
  * WHY A PREVIEW AND NOT A LIST OF NAMES. «تأكيد الزيارة» is a name; «يا هلا محمد، نوّرتنا اليوم في
- * مغسلة النخيل» is the thing he is deciding about. An owner asked to pick between "warm" and
+ * مغسلة النخيل» is the thing he is deciding about. An owner asked to pick between "masculine" and
  * "feminine" is being asked to imagine two messages; an owner shown two bubbles is reading.
  *
  * THE TEXT COMES RENDERED FROM THE ENGINE, never assembled here. It goes through the same
@@ -110,12 +110,12 @@ const STATUS: Record<string, string> = {
  * which gender they address the customer as (reasons.py's own note: the feminine tone conjugates
  * every verb — «نوّرتِنا», «أخذتِ»), so the labels now say exactly that: مذكر/مؤنث.
  *
- * THE CODE VALUES STAY `warm`/`feminine` — reminders' own `tone` field, already the shape stored
- * per subscriber and read throughout core/reasons.py; renaming the wire value is a data migration,
- * not a label fix, and every subscriber's real choice keeps working unchanged either way. Only
- * what an owner reads on this screen changes. */
+ * THE CODE VALUE IS NOW `masculine`/`feminine` (2026-09-13, matching the label instead of fighting
+ * it — the previous `warm` wire value was the same style/grammar mismatch this comment already
+ * named for the LABEL, just left unfixed in the data). reminders' own `tone` field, stored per
+ * subscriber and read throughout core/reasons.py, was migrated alongside every reader of it. */
 function toneLabel(t: (key: string) => string, tone: string): string {
-  return tone === 'warm' ? t('messagePreview.tone.warm') : tone === 'feminine' ? t('messagePreview.tone.feminine') : tone;
+  return tone === 'masculine' ? t('messagePreview.tone.masculine') : tone === 'feminine' ? t('messagePreview.tone.feminine') : tone;
 }
 
 export function MessagePreview({
@@ -155,7 +155,7 @@ export function MessagePreview({
   /** Bumped after a save, so both reads run again — the new draft appears without a reopen. */
   const [reload, setReload] = useState(0);
   /** The shop's tone — what it sends today when it has chosen no text of its own. */
-  const [tone, setTone] = useState('warm');
+  const [tone, setTone] = useState('masculine');
   /** His own approved text, when he pointed this reason at one. Empty means ours. */
   const [chosen, setChosen] = useState('');
   const [saving, setSaving] = useState('');
@@ -199,7 +199,7 @@ export function MessagePreview({
         setOptions(x.options ?? []);
         setEmptyBecause(x.empty_because ?? '');
         setChosen(x.chosen ?? '');
-        setTone(x.tone ?? 'warm');
+        setTone(x.tone ?? 'masculine');
         setSlots(x.reason?.slots ?? []);
         setMandatory(x.reason?.mandatory);
       })

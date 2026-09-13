@@ -19,9 +19,9 @@ def test_a_blank_name_is_not_usable():
 
 
 def test_everything_except_the_name_degrades():
-    """A missing tone falls back to warm; a missing colour is only a page's problem."""
+    """A missing tone falls back to masculine; a missing colour is only a page's problem."""
     e = Establishment(tenant="t1", name="ورشة النخبة")
-    assert e.usable and e.tone == "warm" and e.branding == {}
+    assert e.usable and e.tone == "masculine" and e.branding == {}
 
 
 def test_the_null_driver_is_honest_about_answering_nothing():
@@ -49,6 +49,6 @@ def test_the_shop_has_exactly_one_name():
     here ranks two candidates, because there is only ever one."""
     ident = HttpIdentity(url="http://x", path="/p/{id}", token="x")
     ident._fetch = lambda tenant, now: Establishment(
-        tenant=tenant, name="ورشة النخبة", tone="warm", fetched_at=now)
+        tenant=tenant, name="ورشة النخبة", tone="masculine", fetched_at=now)
     got = run(ident.get("t1"))
-    assert got.name == "ورشة النخبة" and got.tone == "warm"
+    assert got.name == "ورشة النخبة" and got.tone == "masculine"

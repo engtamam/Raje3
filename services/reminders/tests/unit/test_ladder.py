@@ -31,7 +31,7 @@ def test_without_consent_it_is_two_rungs_and_never_an_offer():
 
 
 def test_every_rung_keeps_the_shops_own_tone():
-    """The library carries two tones now, split by grammatical gender (warm/feminine) rather than
+    """The library carries two tones now, split by grammatical gender (masculine/feminine) rather than
     by formality — so a rung must never hop to the other one: that would address the same
     customer as a woman for one message and switch back. Every rung stays on `tone_index=1`, the
     shop's own chosen tone; the OFFER rung is still what varies the middle message (its `kind`)."""

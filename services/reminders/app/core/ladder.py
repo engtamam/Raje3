@@ -16,9 +16,9 @@ VARIATION, NOT ESCALATION — and this is the decision the whole file turns on.
 THE WORDING NO LONGER CHANGES BY SWITCHING TONE. The library used to carry three formality TONES
 for every type (brief, warm, formal) and a rung could ask for a different one — safe, because all
 three addressed the same customer the same grammatical way. The library now carries two tones
-(warm, feminine), and they are not a formality ladder: they differ in WHO is grammatically
+(masculine, feminine), and they are not a formality ladder: they differ in WHO is grammatically
 addressed — masculine vs. feminine — so hopping to the other one mid-ladder would mean a shop that
-picked «warm» suddenly addressing its own customer as a woman on the second message. That is worse
+picked «masculine» suddenly addressing its own customer as a woman on the second message. That is worse
 than repetition. So every rung now stays on the shop's OWN chosen tone (`tone_index=1`); a repeated
 sentence costs nothing this file was built to prevent, but a misgendered one costs the customer's
 trust.

@@ -214,7 +214,7 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
     # hardcoded to three tones or to any tone name. What changed is who calls it with an index
     # other than 1: `core/ladder.py` used to hop to a second tone for variety, safe when every
     # tone addressed the customer the same grammatical way (spec's old brief/warm/formal). Now the
-    # library carries two tones split by grammatical gender (warm/feminine), so `ladder.py` no
+    # library carries two tones split by grammatical gender (masculine/feminine), so `ladder.py` no
     # longer asks for anything but index 1 — see its own docstring for why. Index 1 is the shop's
     # chosen tone and everything that is not a rung, so nothing outside the ladder changes.
     ordered = [t for t in active if t.get("tone") == tone] +               [t for t in active if t.get("tone") != tone]
@@ -747,7 +747,7 @@ class ApprovedTemplates:
 #: THE ONE OWNER OF "WHAT DOES THIS SHOP-FACING ROW SAY ABOUT ITSELF" — a single status word per
 #: TYPE (svc_visit_confirmation, mkt_winback, ...), not per registered NAME. A type has one row
 #: per tone (see PlatformLibrary), each its own Meta registration that can be approved on its own
-#: schedule — a shop must not be told "still under review" about a type whose warm tone Meta
+#: schedule — a shop must not be told "still under review" about a type whose masculine tone Meta
 #: already approved just because its feminine tone has not caught up. Priority, best answer first:
 #: approved (something usable exists) > pending (still with Meta, resolves on its own) > paused
 #: (Meta held it for quality — ours to look at) > disabled (Meta removed it — ours to fix) >

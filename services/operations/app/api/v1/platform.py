@@ -64,7 +64,7 @@ def _refuse(reason: str) -> JSONResponse:
 class TemplateIn(BaseModel):
     name: str = Field(min_length=3, max_length=512, pattern=r"^[a-z][a-z0-9_]*$")
     type: str = Field(default="", max_length=128)
-    tone: str = Field(default="", pattern="^(warm|feminine|)$")
+    tone: str = Field(default="", pattern="^(masculine|feminine|)$")
     label: str = Field(default="", max_length=200)
     # The five regulatory classes (spec §8.4.1). Validated, not accepted: the class decides the
     # rules, so a template filed under the wrong one carries the wrong constraints.

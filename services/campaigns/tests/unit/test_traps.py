@@ -382,8 +382,8 @@ def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
     asked: list[str] = []
     library = {
         "t-quiet": {"templates": {"mkt_winback": {"name": "wb_calm", "tone": "calm"}}},
-        "t-loud": {"templates": {"mkt_winback": {"name": "wb_warm", "tone": "warm"},
-                                 "mkt_offer": {"name": "of_warm", "tone": "warm"}}},
+        "t-loud": {"templates": {"mkt_winback": {"name": "wb_masculine", "tone": "masculine"},
+                                 "mkt_offer": {"name": "of_masculine", "tone": "masculine"}}},
         # Connected this morning: the whole library is still under review, so NOTHING is sendable.
         "t-new": {"templates": {}, "blocked": {"mkt_winback": "قيد مراجعة واتساب"}},
     }
@@ -399,7 +399,7 @@ def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
                             token="t" * 40)
         quiet = asyncio.run(c.pick("t-quiet", "mkt_winback"))
         loud = asyncio.run(c.pick("t-loud", "mkt_winback"))
-        assert quiet["name"] == "wb_calm" and loud["name"] == "wb_warm", (
+        assert quiet["name"] == "wb_calm" and loud["name"] == "wb_masculine", (
             "one shop's tone was served to another")
 
         assert asyncio.run(c.enabled_types("t-loud")) == {"mkt_winback", "mkt_offer"}

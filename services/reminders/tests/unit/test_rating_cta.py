@@ -5,8 +5,8 @@ from __future__ import annotations
 from app.core import rating_cta as RC
 from app.core import rendering as R
 
-TEMPLATE = {"name": "svc_visit_confirmation_rating_warm", "type": "svc_visit_confirmation_rating",
-           "tone": "warm", "active": True, "class": "service",
+TEMPLATE = {"name": "svc_visit_confirmation_rating_masculine", "type": "svc_visit_confirmation_rating",
+           "tone": "masculine", "active": True, "class": "service",
            "variables": [1, 2, 3, 4], "fills": ["system", "system", "rating_cta", "invite"]}
 
 

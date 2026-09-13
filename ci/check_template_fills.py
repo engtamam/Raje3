@@ -240,7 +240,7 @@ def main() -> int:
         # EXCEPT A CAROUSEL VARIANT AGAINST A FLAT ONE — they are two different SHAPES of the same
         # goal (see the `active` exemption just above), never two tones of the same message, so
         # comparing their blanks is comparing two different templates by construction. Two
-        # carousel rows of the same type (warm vs feminine) still must agree with EACH OTHER —
+        # carousel rows of the same type (masculine vs feminine) still must agree with EACH OTHER —
         # compared against the first carousel row of this type, not the first row overall.
         siblings = [x for x in by_type[r["type"]] if bool(x.get("carousel")) == bool(r.get("carousel"))]
         if fills != list(siblings[0].get("fills") or []):

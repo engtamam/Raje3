@@ -19,7 +19,7 @@ from app.core.rendering import RenderError, choose
 
 LIBRARY = [
     {"name": "svc_visit_confirm_brief", "type": "svc_visit_confirmation", "tone": "brief"},
-    {"name": "svc_visit_confirm_warm", "type": "svc_visit_confirmation", "tone": "warm"},
+    {"name": "svc_visit_confirm_masculine", "type": "svc_visit_confirmation", "tone": "masculine"},
 ]
 HIS = "salon_alnoor_visit_confirmation_1"
 # THE STORED ROW HIS OWN NAME NEEDS (ح-6). `choose()` refuses rather than invent a numbering when
@@ -46,9 +46,9 @@ def test_a_rejected_text_falls_back_to_ours_rather_than_stopping_the_shop():
 def test_a_text_still_under_review_also_falls_back():
     """Pending is not approved, and a day of silence while a human at Meta reads a sentence is a
     day of customers not reminded."""
-    t = choose(template_type="svc_visit_confirmation", tone="warm",
-               library=LIBRARY, approved={"svc_visit_confirm_warm"}, own=HIS)
-    assert t["name"] == "svc_visit_confirm_warm"
+    t = choose(template_type="svc_visit_confirmation", tone="masculine",
+               library=LIBRARY, approved={"svc_visit_confirm_masculine"}, own=HIS)
+    assert t["name"] == "svc_visit_confirm_masculine"
 
 
 def test_with_no_choice_of_his_own_ours_is_chosen_exactly_as_before():

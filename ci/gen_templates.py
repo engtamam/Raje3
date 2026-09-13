@@ -32,7 +32,7 @@ CLASS = {"svc": "service", "per": "personal", "awr": "awareness",
 # re-categorise and bill at the marketing rate (spec §8.5).
 CATEGORY = {"service": "UTILITY", "personal": "UTILITY", "awareness": "UTILITY",
             "warning": "UTILITY", "marketing": "MARKETING"}
-TONES = ("warm", "feminine")
+TONES = ("masculine", "feminine")
 
 # WHO FILLS EACH BLANK, IN ORDER (§8.4). Meta approves the WORDS, so the numbered blanks are the
 # only thing a shop decides, and every one of them belongs to somebody: to us at send time
@@ -164,7 +164,7 @@ def parse() -> tuple[list[dict], list[str]]:
             # Written, struck through in the 8.4.3 table on purpose (see deferral_map's doc) —
             # skipped silently, not a problem: the spec is stating an intent, not a mistake.
             continue
-        tones = dict(re.findall(r"\|\s*`_(warm|feminine)`\s*\|\s*(.+?)\s*\|", body))
+        tones = dict(re.findall(r"\|\s*`_(masculine|feminine)`\s*\|\s*(.+?)\s*\|", body))
         if len(tones) != 2:
             problems.append(f"{name}: has {sorted(tones)} — every text needs both tones, "
                             f"because the tone is a live switch and a missing one is a message "

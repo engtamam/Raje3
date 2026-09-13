@@ -33,9 +33,9 @@
   ],
   "templates": [
     {
-      "name": "svc_visit_confirmation_warm",
+      "name": "svc_visit_confirmation_masculine",
       "type": "svc_visit_confirmation",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تأكيد الزيارة، بعد 10 دقائق",
       "class": "service",
       "category": "UTILITY",
@@ -109,9 +109,9 @@
         "RATING_FLOW_NAME = \"rating_flow\") — not by flow_id, which differs per shop and only",
         "exists after that shop's clone is provisioned."
       ],
-      "name": "svc_visit_confirmation_rating_warm",
+      "name": "svc_visit_confirmation_rating_masculine",
       "type": "svc_visit_confirmation_rating",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تأكيد الزيارة مع طلب تقييم",
       "class": "service",
       "category": "UTILITY",
@@ -183,9 +183,9 @@
       ]
     },
     {
-      "name": "svc_visit_redeemed_warm",
+      "name": "svc_visit_redeemed_masculine",
       "type": "svc_visit_redeemed",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تأكيد الزيارة ومعه الاستبدال",
       "class": "service",
       "category": "UTILITY",
@@ -263,9 +263,9 @@
       ]
     },
     {
-      "name": "svc_booking_confirmation_warm",
+      "name": "svc_booking_confirmation_masculine",
       "type": "svc_booking_confirmation",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تأكيد الحجز",
       "class": "service",
       "category": "UTILITY",
@@ -331,9 +331,9 @@
       ]
     },
     {
-      "name": "svc_follow_up_warm",
+      "name": "svc_follow_up_masculine",
       "type": "svc_follow_up",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "اطمئنان بعد الخدمة",
       "class": "service",
       "category": "UTILITY",
@@ -399,9 +399,9 @@
       ]
     },
     {
-      "name": "svc_service_reminder_warm",
+      "name": "svc_service_reminder_masculine",
       "type": "svc_service_reminder",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "حلول الدورة الخدمية",
       "class": "service",
       "category": "UTILITY",
@@ -467,9 +467,9 @@
       ]
     },
     {
-      "name": "svc_receipt_warm",
+      "name": "svc_receipt_masculine",
       "type": "svc_receipt",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "إيصال بمبلغ",
       "class": "service",
       "category": "UTILITY",
@@ -541,9 +541,9 @@
       ]
     },
     {
-      "name": "per_account_notice_warm",
+      "name": "per_account_notice_masculine",
       "type": "per_account_notice",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "إشعار حساب (لا يُوقَف)",
       "class": "personal",
       "category": "UTILITY",
@@ -615,9 +615,9 @@
       ]
     },
     {
-      "name": "per_points_expiring_warm",
+      "name": "per_points_expiring_masculine",
       "type": "per_points_expiring",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "رصيد يوشك أن ينتهي (لا يُوقَف)",
       "class": "personal",
       "category": "UTILITY",
@@ -689,9 +689,9 @@
       ]
     },
     {
-      "name": "per_dsar_code_warm",
+      "name": "per_dsar_code_masculine",
       "type": "per_dsar_code",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "رمز تأكيد طلب البيانات (لا يُوقَف)",
       "class": "personal",
       "category": "UTILITY",
@@ -763,9 +763,9 @@
       ]
     },
     {
-      "name": "awr_care_tip_warm",
+      "name": "awr_care_tip_masculine",
       "type": "awr_care_tip",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "إرشاد يخصّ ما يملكه",
       "class": "awareness",
       "category": "UTILITY",
@@ -831,9 +831,9 @@
       ]
     },
     {
-      "name": "awr_care_tip_carousel_warm",
+      "name": "awr_care_tip_carousel_masculine",
       "type": "awr_care_tip",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "وعِّ عملاءك — كاروسيل",
       "class": "awareness",
       "category": "MARKETING",
@@ -929,7 +929,7 @@
         "invite"
       ],
       "model": "both",
-      "model_why": "نفس منطق النسخة الأخرى (warm) — انظر شرحها.",
+      "model_why": "نفس منطق النسخة الأخرى (masculine) — انظر شرحها.",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -985,9 +985,9 @@
       }
     },
     {
-      "name": "per_weekly_digest_warm",
+      "name": "per_weekly_digest_masculine",
       "type": "per_weekly_digest",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تقرير الأسبوع للمالك",
       "class": "personal",
       "category": "UTILITY",
@@ -1038,7 +1038,7 @@
         "owner"
       ],
       "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} النص المُركَّب فعليًا لهذا الأسبوع (core/digest.py::build)، نفس نسخة warm.",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} النص المُركَّب فعليًا لهذا الأسبوع (core/digest.py::build)، نفس نسخة masculine.",
       "active": true,
       "deferral": "defer",
       "examples": [
@@ -1047,9 +1047,9 @@
       ]
     },
     {
-      "name": "wrn_safety_notice_warm",
+      "name": "wrn_safety_notice_masculine",
       "type": "wrn_safety_notice",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تحذير سلامة",
       "class": "warning",
       "category": "UTILITY",
@@ -1121,9 +1121,9 @@
       ]
     },
     {
-      "name": "mkt_offer_warm",
+      "name": "mkt_offer_masculine",
       "type": "mkt_offer",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "عرض أو خصم",
       "class": "marketing",
       "category": "MARKETING",
@@ -1207,9 +1207,9 @@
       }
     },
     {
-      "name": "mkt_winback_warm",
+      "name": "mkt_winback_masculine",
       "type": "mkt_winback",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "استعادة غائب",
       "class": "marketing",
       "category": "MARKETING",
@@ -1287,9 +1287,9 @@
       }
     },
     {
-      "name": "mkt_loyalty_activation_warm",
+      "name": "mkt_loyalty_activation_masculine",
       "type": "mkt_loyalty_activation",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "رصيد اقترب من الاستبدال",
       "class": "marketing",
       "category": "MARKETING",
@@ -1361,9 +1361,9 @@
       ]
     },
     {
-      "name": "mkt_loyalty_activation_carousel_warm",
+      "name": "mkt_loyalty_activation_carousel_masculine",
       "type": "mkt_loyalty_activation",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "تفعيل نقاط الولاء — كاروسيل",
       "class": "marketing",
       "category": "MARKETING",
@@ -1382,7 +1382,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "مغسلة السيارات ومن دون حجز واتساب — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل عندما يرفق المالك أكثر من خدمة أو باقة واحدة للاستبدال (2026-09-13) — عدد النقاط والمكافأة نفسها يظهران داخل كل بطاقة على حدة؛ الاسم والمحل ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_loyalty_activation_warm الأفقي. بلا تاريخ انتهاء — القالب الأفقي نفسه لا يحمل واحداً (مكافأة نقاط، لا خصماً بتاريخ صلاحية).",
+      "model_why": "مغسلة السيارات ومن دون حجز واتساب — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل عندما يرفق المالك أكثر من خدمة أو باقة واحدة للاستبدال (2026-09-13) — عدد النقاط والمكافأة نفسها يظهران داخل كل بطاقة على حدة؛ الاسم والمحل ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_loyalty_activation_masculine الأفقي. بلا تاريخ انتهاء — القالب الأفقي نفسه لا يحمل واحداً (مكافأة نقاط، لا خصماً بتاريخ صلاحية).",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -1459,7 +1459,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "نفس منطق النسخة الأخرى (warm) بصيغة المؤنث — انظر شرحها.",
+      "model_why": "نفس منطق النسخة الأخرى (masculine) بصيغة المؤنث — انظر شرحها.",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -1515,9 +1515,9 @@
       }
     },
     {
-      "name": "mkt_announcement_warm",
+      "name": "mkt_announcement_masculine",
       "type": "mkt_announcement",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "جديد",
       "class": "marketing",
       "category": "MARKETING",
@@ -1583,9 +1583,9 @@
       ]
     },
     {
-      "name": "mkt_announcement_carousel_warm",
+      "name": "mkt_announcement_carousel_masculine",
       "type": "mkt_announcement",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "أعلن جديدك — كاروسيل",
       "class": "marketing",
       "category": "MARKETING",
@@ -1681,7 +1681,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "نفس منطق النسخة الأخرى (warm) — انظر شرحها.",
+      "model_why": "نفس منطق النسخة الأخرى (masculine) — انظر شرحها.",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -1737,9 +1737,9 @@
       }
     },
     {
-      "name": "mkt_personal_occasion_warm",
+      "name": "mkt_personal_occasion_masculine",
       "type": "mkt_personal_occasion",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "مناسبة شخصية",
       "class": "marketing",
       "category": "MARKETING",
@@ -1817,9 +1817,9 @@
       }
     },
     {
-      "name": "mkt_offer_carousel_warm",
+      "name": "mkt_offer_carousel_masculine",
       "type": "mkt_offer",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "عرض أو خصم — كاروسيل",
       "class": "marketing",
       "category": "MARKETING",
@@ -1840,7 +1840,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "المحلات بلا حجز واتساب مفعَّل (feature.bookings) — مغاسل السيارات مثلاً — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل تلقائياً فقط لمحل غير مؤهَّل للحجز، ومحرك القوالب هنا (rendering.choose_carousel) يتراجع بصمت للنص العادي إن لم يجد قالباً معتمداً — active:false يمنع اختيار هذا الصف في مسار الإرسال العادي وشاشة اختيار الأهداف. المبلغ والخدمة يظهران داخل كل بطاقة على حدة؛ الاسم والمحل والتاريخ ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_offer_warm الأفقي (rendering.py::render يرفض إرسال أي عرض بلا تاريخ انتهاء — نفس الرفض ينطبق هنا).",
+      "model_why": "المحلات بلا حجز واتساب مفعَّل (feature.bookings) — مغاسل السيارات مثلاً — كاروسيل بطاقات صور بدل زر يفتح حجزاً غير موجود. campaigns/app/core/shape.py يطلب هذا الشكل تلقائياً فقط لمحل غير مؤهَّل للحجز، ومحرك القوالب هنا (rendering.choose_carousel) يتراجع بصمت للنص العادي إن لم يجد قالباً معتمداً — active:false يمنع اختيار هذا الصف في مسار الإرسال العادي وشاشة اختيار الأهداف. المبلغ والخدمة يظهران داخل كل بطاقة على حدة؛ الاسم والمحل والتاريخ ورابط الإيقاف تُقال مرة واحدة في مقدمة الرسالة المشتركة، بنفس منطق mkt_offer_masculine الأفقي (rendering.py::render يرفض إرسال أي عرض بلا تاريخ انتهاء — نفس الرفض ينطبق هنا).",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -1923,7 +1923,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
+      "model_why": "نفس نسخة masculine، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -1983,9 +1983,9 @@
       }
     },
     {
-      "name": "mkt_winback_carousel_warm",
+      "name": "mkt_winback_carousel_masculine",
       "type": "mkt_winback",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "استعادة غائب — كاروسيل",
       "class": "marketing",
       "category": "MARKETING",
@@ -2089,7 +2089,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
+      "model_why": "نفس نسخة masculine، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
       "examples": [
@@ -2149,9 +2149,9 @@
       }
     },
     {
-      "name": "mkt_personal_occasion_carousel_warm",
+      "name": "mkt_personal_occasion_carousel_masculine",
       "type": "mkt_personal_occasion",
-      "tone": "warm",
+      "tone": "masculine",
       "label": "مناسبة شخصية — كاروسيل",
       "class": "marketing",
       "category": "MARKETING",
@@ -2255,7 +2255,7 @@
         "stop_link"
       ],
       "model": "both",
-      "model_why": "نفس نسخة warm، بصيغة المخاطَبة المؤنثة فقط.",
+      "model_why": "نفس نسخة masculine، بصيغة المخاطَبة المؤنثة فقط.",
       "active": false,
       "deferral": "defer",
       "examples": [

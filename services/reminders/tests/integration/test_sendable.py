@@ -14,7 +14,7 @@ HEAD = {"X-Internal-Token": INTERNAL_TOKEN}
 
 LIBRARY = [
     {"name": "wb_calm", "type": "mkt_winback", "tone": "calm", "active": True},
-    {"name": "wb_warm", "type": "mkt_winback", "tone": "warm", "active": True},
+    {"name": "wb_masculine", "type": "mkt_winback", "tone": "masculine", "active": True},
     {"name": "of_calm", "type": "mkt_offer", "tone": "calm", "active": True},
 ]
 
@@ -53,9 +53,9 @@ def _wire(client, *, tone, approved):
 
 
 def test_the_shop_s_own_tone_is_what_it_gets(client):
-    _wire(client, tone="warm", approved={"wb_calm", "wb_warm", "of_calm"})
+    _wire(client, tone="masculine", approved={"wb_calm", "wb_masculine", "of_calm"})
     body = client.get("/internal/reminders/sendable?tenant=t-1", headers=HEAD).json()
-    assert body["templates"]["mkt_winback"]["name"] == "wb_warm"
+    assert body["templates"]["mkt_winback"]["name"] == "wb_masculine"
     assert set(body["types"]) == {"mkt_winback", "mkt_offer"}
 
 
@@ -85,10 +85,10 @@ def test_nothing_approved_is_an_empty_answer_not_a_full_one(client):
 
 def test_statuses_carries_one_word_per_type_for_campaigns_own_goal_cards(client):
     """The badge campaigns' own goal cards show — a status per TYPE, not per registered name, so
-    a type with one tone approved (`wb_warm`) and the other never even registered (`wb_calm`
+    a type with one tone approved (`wb_masculine`) and the other never even registered (`wb_calm`
     absent from this fake's own approved set) still reads as usable overall — the same "best
     tone wins" reasoning `choose()` itself already applies to picking which one to send."""
-    _wire(client, tone="warm", approved={"wb_warm"})
+    _wire(client, tone="masculine", approved={"wb_masculine"})
     body = client.get("/internal/reminders/sendable?tenant=t-1", headers=HEAD).json()
     assert body["statuses"]["mkt_winback"] == "approved"
     # `of_calm` (mkt_offer's only registered name here) is not in the approved set at all —

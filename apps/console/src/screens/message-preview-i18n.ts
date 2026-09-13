@@ -19,7 +19,7 @@ registerOperatorStrings({
     'messagePreview.status.ready': 'جاهزة للإرسال',
     'messagePreview.status.awaitingApproval': 'بانتظار اعتماد واتساب',
 
-    'messagePreview.tone.warm': 'مذكر',
+    'messagePreview.tone.masculine': 'مذكر',
     'messagePreview.tone.feminine': 'مؤنث',
 
     'messagePreview.toneSaveError': 'تعذّر حفظ النبرة.',
@@ -68,7 +68,7 @@ registerOperatorStrings({
     'messagePreview.status.ready': 'Ready to send',
     'messagePreview.status.awaitingApproval': 'Awaiting WhatsApp approval',
 
-    'messagePreview.tone.warm': 'Masculine',
+    'messagePreview.tone.masculine': 'Masculine',
     'messagePreview.tone.feminine': 'Feminine',
 
     'messagePreview.toneSaveError': "Couldn't save the tone.",
@@ -117,7 +117,7 @@ registerOperatorStrings({
     'messagePreview.status.ready': 'بھیجنے کے لیے تیار',
     'messagePreview.status.awaitingApproval': 'واٹس ایپ کی منظوری کا منتظر',
 
-    'messagePreview.tone.warm': 'مذکر',
+    'messagePreview.tone.masculine': 'مذکر',
     'messagePreview.tone.feminine': 'مؤنث',
 
     'messagePreview.toneSaveError': 'لہجہ محفوظ نہیں ہو سکا۔',
@@ -166,7 +166,7 @@ registerOperatorStrings({
     'messagePreview.status.ready': 'Shirye don aikawa',
     'messagePreview.status.awaitingApproval': 'Ana jiran amincewar WhatsApp',
 
-    'messagePreview.tone.warm': 'Namiji',
+    'messagePreview.tone.masculine': 'Namiji',
     'messagePreview.tone.feminine': 'Mace',
 
     'messagePreview.toneSaveError': 'Ba a iya ajiye sautin ba.',
@@ -215,7 +215,7 @@ registerOperatorStrings({
     'messagePreview.status.ready': 'Handa nang ipadala',
     'messagePreview.status.awaitingApproval': 'Hinihintay ang pag-apruba ng WhatsApp',
 
-    'messagePreview.tone.warm': 'Panlalaki',
+    'messagePreview.tone.masculine': 'Panlalaki',
     'messagePreview.tone.feminine': 'Pambabae',
 
     'messagePreview.toneSaveError': 'Hindi ma-save ang tono.',
@@ -264,7 +264,7 @@ registerOperatorStrings({
     'messagePreview.status.ready': 'পাঠানোর জন্য প্রস্তুত',
     'messagePreview.status.awaitingApproval': 'হোয়াটসঅ্যাপের অনুমোদনের অপেক্ষায়',
 
-    'messagePreview.tone.warm': 'পুরুষবাচক',
+    'messagePreview.tone.masculine': 'পুরুষবাচক',
     'messagePreview.tone.feminine': 'স্ত্রীবাচক',
 
     'messagePreview.toneSaveError': 'টোন সংরক্ষণ করা যায়নি।',

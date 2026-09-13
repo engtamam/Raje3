@@ -51,14 +51,14 @@ def client(env_guard) -> TestClient:
             return {"ok": True, "templates": [
                 # THE RATING TEMPLATE — a real flow_button, same shape as
                 # operations/data/templates.seed.json's own svc_visit_confirmation_rating row.
-                {"name": "svc_visit_confirmation_rating_warm",
-                 "type": "svc_visit_confirmation_rating", "tone": "warm", "active": True,
+                {"name": "svc_visit_confirmation_rating_masculine",
+                 "type": "svc_visit_confirmation_rating", "tone": "masculine", "active": True,
                  "body": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}.",
                  "variables": [1, 2], "fills": ["system", "system"],
                  "button": "قيّم زيارتك", "flow_button": {"flow_name": "rating_flow"}},
                 # AN ORDINARY TEMPLATE — no button at all, the vast majority.
-                {"name": "svc_visit_confirmation_warm", "type": "svc_visit_confirmation",
-                 "tone": "warm", "active": True, "body": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}.",
+                {"name": "svc_visit_confirmation_masculine", "type": "svc_visit_confirmation",
+                 "tone": "masculine", "active": True, "body": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}.",
                  "variables": [1, 2], "fills": ["system", "system"], "button": ""},
             ]}
 
@@ -88,7 +88,7 @@ def test_a_flow_carrying_template_surfaces_its_button(client):
     r = client.get("/api/v1/reminders/reasons/rating_requested/preview", headers=_auth())
     assert r.status_code == 200, r.text
     options = r.json()["options"]
-    row = next(o for o in options if o["name"] == "svc_visit_confirmation_rating_warm")
+    row = next(o for o in options if o["name"] == "svc_visit_confirmation_rating_masculine")
     assert row["buttons"] == [{"label": "قيّم زيارتك", "kind": "flow", "flow_name": "rating_flow"}]
 
 
@@ -96,5 +96,5 @@ def test_an_ordinary_template_carries_no_buttons_key_at_all(client):
     r = client.get("/api/v1/reminders/reasons/visit_recorded/preview", headers=_auth())
     assert r.status_code == 200, r.text
     options = r.json()["options"]
-    row = next(o for o in options if o["name"] == "svc_visit_confirmation_warm")
+    row = next(o for o in options if o["name"] == "svc_visit_confirmation_masculine")
     assert "buttons" not in row

@@ -39,7 +39,7 @@ class Establishment:
     name: str = ""
     # Which of the two wordings its templates use. OURS, not the platform's — it lives inside
     # their free-form branding dict under a key we own rather than in a table we invent.
-    tone: str = "warm"
+    tone: str = "masculine"
     branding: dict[str, Any] = field(default_factory=dict)
     fetched_at: int = 0
 
@@ -48,7 +48,7 @@ class Establishment:
         """Whether a message may be rendered from this.
 
         A blank name is the one thing that must stop a send. Everything else degrades: a missing
-        tone falls back to `warm`, a missing colour is only a page's problem.
+        tone falls back to `masculine`, a missing colour is only a page's problem.
         """
         return bool(self.name.strip())
 
@@ -100,7 +100,7 @@ class HttpIdentity:
             # THE SHOP'S NAME, and there is only one. The owner changes it from «حسابي»; the
             # registry is the single record of it.
             name=str(data.get("name") or "").strip(),
-            tone=str(branding.get("tone") or "warm"),
+            tone=str(branding.get("tone") or "masculine"),
             branding=branding,
             fetched_at=now)
 

@@ -19,9 +19,9 @@ vi.mock('../catalog', async (importOriginal) => {
       calls.push({ id: a.id, params });
       if (a.id === 'reminders.preview_by_type') {
         return {
-          options: [{ name: 'mkt_announcement_warm', tone: 'warm',
+          options: [{ name: 'mkt_announcement_masculine', tone: 'masculine',
                      text: 'خبر جديد من محلّك: كذا', mine: false }],
-          chosen: '', empty_because: '', tone: 'warm',
+          chosen: '', empty_because: '', tone: 'masculine',
         };
       }
       if (a.id === 'reminders.my_template_help') return { requests: [] };

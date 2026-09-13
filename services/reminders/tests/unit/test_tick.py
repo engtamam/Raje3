@@ -1129,8 +1129,8 @@ def test_a_defer_template_caught_by_quiet_hours_is_still_held_until_morning(st):
 
 # --- د-7 · the rung's voice reaches the sender ---------------------------------------------------
 
-_TWO_TONES = LIB + [{"name": "svc_service_reminder_warm", "type": "svc_service_reminder",
-                     "tone": "warm", "class": "service", "variables": [1, 2, 3],
+_TWO_TONES = LIB + [{"name": "svc_service_reminder_masculine", "type": "svc_service_reminder",
+                     "tone": "masculine", "class": "service", "variables": [1, 2, 3],
                      "fills": ["system", "system", "catalogue"], "active": True}]
 
 

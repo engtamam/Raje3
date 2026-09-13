@@ -39,8 +39,8 @@ class FakeSender:
         return "dlv_1"
 
 
-LIB = [{"name": "svc_visit_confirmation_rating_warm", "type": "svc_visit_confirmation_rating",
-       "tone": "warm", "class": "service", "variables": [1, 2, 3, 4],
+LIB = [{"name": "svc_visit_confirmation_rating_masculine", "type": "svc_visit_confirmation_rating",
+       "tone": "masculine", "class": "service", "variables": [1, 2, 3, 4],
        "fills": ["system", "system", "rating_cta", "invite"], "active": True, "deferral": "drop"}]
 
 
@@ -101,8 +101,8 @@ def test_rating_cta_is_the_neutral_sentence_when_no_points_configured():
 
 def test_an_ordinary_kind_never_gets_a_flow_token_or_touches_rating_request_store():
     st = MemoryDataStore()
-    lib = [{"name": "svc_visit_confirmation_warm", "type": "svc_visit_confirmation",
-           "tone": "warm", "class": "service", "variables": [1, 2, 3],
+    lib = [{"name": "svc_visit_confirmation_masculine", "type": "svc_visit_confirmation",
+           "tone": "masculine", "class": "service", "variables": [1, 2, 3],
            "fills": ["system", "system", "invite"], "active": True, "deferral": "drop"}]
     row = Schedule(tenant="t1", subject_ref="sub_a", service_id="", kind="visit_confirmation",
                   due_at=at(9), cls="service", template_type="svc_visit_confirmation",

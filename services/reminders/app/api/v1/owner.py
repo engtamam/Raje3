@@ -508,7 +508,7 @@ async def preview_by_type(request: Request, template_type: str,
         read_ok = bool(shelf.get("ok"))
         empty_because = "unread" if not read_ok else "none"
     return {"options": options, "chosen": "", "empty_because": empty_because,
-            "tone": getattr(shop, "tone", "") or "warm"}
+            "tone": getattr(shop, "tone", "") or "masculine"}
 
 
 @router.get("/reasons/{reason_id}/preview", dependencies=[Depends(rate_limit)])
@@ -579,7 +579,7 @@ async def preview_reason(request: Request, reason_id: str,
         empty_because = "unread" if not read_ok else ("pending" if waiting else "none")
     return {"reason": TR.public(reason), "options": options, "chosen": chosen,
             "empty_because": empty_because,
-            "tone": getattr(shop, "tone", "") or "warm"}
+            "tone": getattr(shop, "tone", "") or "masculine"}
 
 
 def _with_named_blanks(row: dict) -> str:

@@ -10,7 +10,7 @@ LIB = [
     {"name": "svc_service_reminder_brief", "type": "svc_service_reminder", "tone": "brief",
      "class": "service", "variables": [1, 2, 3], "fills": ["system", "system", "catalogue"],
      "active": True},
-    {"name": "svc_service_reminder_warm", "type": "svc_service_reminder", "tone": "warm",
+    {"name": "svc_service_reminder_masculine", "type": "svc_service_reminder", "tone": "masculine",
      "class": "service", "variables": [1, 2, 3], "fills": ["system", "system", "catalogue"],
      "active": True},
     {"name": "mkt_offer_brief", "type": "mkt_offer", "tone": "brief", "class": "marketing",
@@ -66,8 +66,8 @@ def test_a_catalogue_value_is_sanitised_too():
 
 # ── choosing ───────────────────────────────────────────────────────────────────────────────────
 def test_the_tenants_tone_is_honoured():
-    assert choose(template_type="svc_service_reminder", tone="warm",
-                  library=LIB)["name"].endswith("_warm")
+    assert choose(template_type="svc_service_reminder", tone="masculine",
+                  library=LIB)["name"].endswith("_masculine")
 
 
 def test_a_retired_tone_falls_back_instead_of_stopping_the_tenant():
@@ -159,7 +159,7 @@ def test_seven_services_are_summarised_not_listed():
 # ── approval, restored now that something can supply it ────────────────────────────────────────
 LIB_A = [
     {"name": "svc_x_brief", "type": "svc_x", "tone": "brief", "active": True},
-    {"name": "svc_x_warm", "type": "svc_x", "tone": "warm", "active": True},
+    {"name": "svc_x_masculine", "type": "svc_x", "tone": "masculine", "active": True},
     {"name": "svc_x_formal", "type": "svc_x", "tone": "formal", "active": True},
 ]
 
@@ -172,16 +172,16 @@ def test_none_means_not_known_and_skips_the_filter():
 
 
 def test_an_approved_template_is_preferred_in_the_chosen_tone():
-    t = choose(template_type="svc_x", tone="warm", library=LIB_A,
-                 approved={"svc_x_brief", "svc_x_warm"})
-    assert t["name"] == "svc_x_warm"
+    t = choose(template_type="svc_x", tone="masculine", library=LIB_A,
+                 approved={"svc_x_brief", "svc_x_masculine"})
+    assert t["name"] == "svc_x_masculine"
 
 
 def test_the_tone_is_given_up_before_the_send_is():
     """A shop whose chosen tone is still in review and whose other two are approved sends in a
     different voice. A message in the wrong register reaches the customer; one held for the right
     register does not."""
-    t = choose(template_type="svc_x", tone="warm", library=LIB_A, approved={"svc_x_formal"})
+    t = choose(template_type="svc_x", tone="masculine", library=LIB_A, approved={"svc_x_formal"})
     assert t["name"] == "svc_x_formal"
 
 
@@ -388,7 +388,7 @@ def test_the_customer_name_still_falls_back_when_the_shop_never_took_one():
 
 _TONES = [{"name": "svc_service_reminder_brief", "type": "svc_service_reminder", "tone": "brief",
            "class": "service", "active": True},
-          {"name": "svc_service_reminder_warm", "type": "svc_service_reminder", "tone": "warm",
+          {"name": "svc_service_reminder_masculine", "type": "svc_service_reminder", "tone": "masculine",
            "class": "service", "active": True},
           {"name": "svc_service_reminder_formal", "type": "svc_service_reminder", "tone": "formal",
            "class": "service", "active": True}]
@@ -414,9 +414,9 @@ def test_everything_that_is_not_a_rung_still_gets_the_shops_own_tone():
     """The default must not move. Every confirmation, follow-up and campaign in the product calls
     this function without an index, and a shop that chose «brief» chose it for all of them."""
     for index in (0, 1, None):
-        got = choose(template_type="svc_service_reminder", tone="warm", library=_TONES,
+        got = choose(template_type="svc_service_reminder", tone="masculine", library=_TONES,
                        **({} if index is None else {"tone_index": index}))
-        assert got["tone"] == "warm"
+        assert got["tone"] == "masculine"
 
 
 def test_a_shop_with_one_template_still_sends_the_second_rung():
@@ -442,7 +442,7 @@ def test_the_line_the_screen_approved_is_the_line_this_will_carry():
 from app.core.rendering import type_status  # noqa: E402
 
 _STATUS_LIBRARY = [
-    {"name": "mkt_winback_warm", "type": "mkt_winback", "tone": "warm", "active": True},
+    {"name": "mkt_winback_masculine", "type": "mkt_winback", "tone": "masculine", "active": True},
     {"name": "mkt_winback_feminine", "type": "mkt_winback", "tone": "feminine", "active": True},
 ]
 
@@ -462,25 +462,25 @@ def test_a_seeded_type_never_registered_for_this_tenant():
 
 
 def test_approved_wins_even_if_the_other_tone_is_still_pending():
-    statuses = {"mkt_winback_warm": "approved", "mkt_winback_feminine": "pending"}
+    statuses = {"mkt_winback_masculine": "approved", "mkt_winback_feminine": "pending"}
     assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "approved"
 
 
 def test_pending_beats_paused_and_disabled():
-    statuses = {"mkt_winback_warm": "paused", "mkt_winback_feminine": "pending"}
+    statuses = {"mkt_winback_masculine": "paused", "mkt_winback_feminine": "pending"}
     assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "pending"
 
 
 def test_rejected_only_when_nothing_better_is_true_of_any_tone():
-    statuses = {"mkt_winback_warm": "rejected", "mkt_winback_feminine": "rejected"}
+    statuses = {"mkt_winback_masculine": "rejected", "mkt_winback_feminine": "rejected"}
     assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "rejected"
 
 
 # ── choose_carousel — Phase 2's own picker, never seen by `choose()` above ────────────────────
 _CAROUSEL_LIB = [
-    {"name": "mkt_offer_warm", "type": "mkt_offer", "tone": "warm", "active": True,
+    {"name": "mkt_offer_masculine", "type": "mkt_offer", "tone": "masculine", "active": True,
      "variables": [1, 2, 3, 4, 5, 6], "fills": ["system"] * 6},
-    {"name": "mkt_offer_carousel_warm", "type": "mkt_offer", "tone": "warm", "active": False,
+    {"name": "mkt_offer_carousel_masculine", "type": "mkt_offer", "tone": "masculine", "active": False,
      "carousel": {"cards": [{"header_format": "IMAGE"}]}},
     {"name": "mkt_offer_carousel_feminine", "type": "mkt_offer", "tone": "feminine",
      "active": False, "carousel": {"cards": [{"header_format": "IMAGE"}]}},
@@ -488,36 +488,36 @@ _CAROUSEL_LIB = [
 
 
 def test_choose_carousel_finds_the_tenants_own_tone():
-    row = choose_carousel(template_type="mkt_offer", tone="warm", library=_CAROUSEL_LIB)
-    assert row is not None and row["name"] == "mkt_offer_carousel_warm"
+    row = choose_carousel(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB)
+    assert row is not None and row["name"] == "mkt_offer_carousel_masculine"
 
 
 def test_choose_carousel_falls_back_to_the_other_tone_rather_than_refusing():
     row = choose_carousel(template_type="mkt_offer", tone="brief", library=_CAROUSEL_LIB)
-    assert row is not None and row["name"] in ("mkt_offer_carousel_warm", "mkt_offer_carousel_feminine")
+    assert row is not None and row["name"] in ("mkt_offer_carousel_masculine", "mkt_offer_carousel_feminine")
 
 
 def test_choose_carousel_returns_none_not_an_exception_when_nothing_qualifies():
     """UNLIKE `choose()`, which raises — a carousel is an upgrade never a requirement, and the
     caller (tick.send_one) falls back to the flat template `choose()` already picked."""
-    assert choose_carousel(template_type="mkt_winback", tone="warm", library=_CAROUSEL_LIB) is None
+    assert choose_carousel(template_type="mkt_winback", tone="masculine", library=_CAROUSEL_LIB) is None
 
 
 def test_choose_carousel_never_picks_a_row_choose_would_also_pick():
     """The flat row shares the SAME type with the carousel rows, and `choose()` must never see the
     carousel ones — `active: False` on them is what keeps the two pickers from disagreeing."""
-    flat = choose(template_type="mkt_offer", tone="warm", library=_CAROUSEL_LIB)
-    assert flat["name"] == "mkt_offer_warm"
+    flat = choose(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB)
+    assert flat["name"] == "mkt_offer_masculine"
     assert not flat.get("carousel")
 
 
 def test_choose_carousel_respects_approval_same_as_choose():
     approved = {"mkt_offer_carousel_feminine"}
-    row = choose_carousel(template_type="mkt_offer", tone="warm", library=_CAROUSEL_LIB,
+    row = choose_carousel(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB,
                           approved=approved)
     assert row is not None and row["name"] == "mkt_offer_carousel_feminine"
 
 
 def test_choose_carousel_with_approval_and_nothing_approved_answers_none():
-    assert choose_carousel(template_type="mkt_offer", tone="warm", library=_CAROUSEL_LIB,
+    assert choose_carousel(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB,
                            approved=set()) is None

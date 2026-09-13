@@ -50,7 +50,7 @@ def client(env_guard) -> TestClient:
     class Library:
         async def read(self):
             return {"ok": True, "templates": [
-                {"name": "mkt_announcement_warm", "type": "mkt_announcement", "tone": "warm",
+                {"name": "mkt_announcement_masculine", "type": "mkt_announcement", "tone": "masculine",
                  "active": True, "body": "خبر جديد من {{2}}: {{3}}. {{4}}",
                  "variables": [1, 2, 3, 4],
                  "fills": ["system", "system", "owner", "stop_link"]},
@@ -82,7 +82,7 @@ def test_a_goal_with_a_seeded_template_previews_by_type(client):
     r = client.get("/api/v1/reminders/templates/by-type/mkt_announcement/preview", headers=_auth())
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["options"][0]["name"] == "mkt_announcement_warm"
+    assert body["options"][0]["name"] == "mkt_announcement_masculine"
     # NO REASON ROW ATTACHED — this route answers for a goal, not a reason.
     assert "reason" not in body
     assert body["chosen"] == ""

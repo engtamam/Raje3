@@ -48,12 +48,12 @@ def client(env_guard) -> TestClient:
         async def all(self):
             # `svc_visit_confirmation` is `visit_recorded`'s own type (core/reasons.py); one
             # tone registered and approved, so the reason should read "approved" overall.
-            return [{"name": "svc_visit_confirmation_warm", "type": "svc_visit_confirmation",
-                     "tone": "warm", "active": True}]
+            return [{"name": "svc_visit_confirmation_masculine", "type": "svc_visit_confirmation",
+                     "tone": "masculine", "active": True}]
 
     class Approved:
         async def statuses(self, tenant):
-            return {"svc_visit_confirmation_warm": "approved"}
+            return {"svc_visit_confirmation_masculine": "approved"}
 
     c.app.state.container.library = Library()
     c.app.state.container.approved_templates = Approved()
