@@ -223,10 +223,21 @@ const dark: Palette = {
 };
 
 const scale: Scale = {
-  // 100% (=16px). 112.5% read oversized — the whole UI at ~90% browser zoom was the comfortable size,
-  // i.e. 112.5%×0.9≈101%. Sizing the root here means every rem-based token shrinks together, so the
-  // sidebar fits without a scroll and reading is easier, with no per-component change.
-  rootFontPct: 100,
+  // 80% (=12.8px), LOWERED AGAIN 2026-09-14 — the owner's own direct, repeatable test: the whole
+  // product at 100% browser zoom (rootFontPct's own PREVIOUS value) read oversized/"ضخم", and at
+  // 80% browser zoom it read right. Since browser zoom and this token both scale the same
+  // rem-based sizing, setting the token itself to 80% reproduces that comfortable size AT 100%
+  // zoom, rather than asking every owner to zoom their own browser out by hand on every visit —
+  // the same reasoning the 112.5%→100% pass already used once before, one step short.
+  //
+  // WHAT THIS DOES NOT REACH, AND WHY THINGS MAY STILL LOOK SLIGHTLY LARGE IN ONE SPOT: an icon
+  // drawn via `<Icon size={16} />` (lucide-react's own `size` prop) renders a literal PIXEL
+  // width/height, not a rem value — real browser zoom shrinks it like everything else on the
+  // page, but this token cannot, since nothing here touches how a component calls that prop. If a
+  // particular icon still reads oversized after this change, that call site's own `size={N}` is
+  // the thing to lower, not this token — it is a real, separate, per-component number, the same
+  // way `radius`/`shadow` below are real per-token numbers rather than one dial.
+  rootFontPct: 80,
   // A touch more generous — a larger card radius reads as premium, not utilitarian.
   radius: { sm: '0.5rem', md: '0.625rem', lg: '0.875rem', card: '1.25rem', pill: '9999px' },
   // Layered elevation, SOFTENED. A tight contact shadow plus a large diffuse one at low opacity, so a
