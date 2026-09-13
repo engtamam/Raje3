@@ -83,6 +83,134 @@ def test_an_inactive_template_is_not_chosen():
         choose(template_type="svc_service_reminder", tone="brief", library=lib)
 
 
+# ── the photo+button shape (2026-09-13) ───────────────────────────────────────────────────────
+_PLAIN_M = {"name": "mkt_offer_masculine", "type": "mkt_offer", "tone": "masculine",
+           "class": "marketing", "variables": [1, 2], "fills": ["system", "system"],
+           "active": True, "shape": "plain"}
+_PLAIN_F = {"name": "mkt_offer_feminine", "type": "mkt_offer", "tone": "feminine",
+           "class": "marketing", "variables": [1, 2], "fills": ["system", "system"],
+           "active": True, "shape": "plain"}
+_PB_M = {"name": "mkt_offer_masculine_photo_button", "type": "mkt_offer", "tone": "masculine",
+        "class": "marketing", "variables": [1, 2], "fills": ["system", "system"],
+        "active": True, "shape": "photo_button"}
+_PB_F = {"name": "mkt_offer_feminine_photo_button", "type": "mkt_offer", "tone": "feminine",
+        "class": "marketing", "variables": [1, 2], "fills": ["system", "system"],
+        "active": True, "shape": "photo_button"}
+_SHAPE_LIB = [_PLAIN_M, _PLAIN_F, _PB_M, _PB_F]
+
+
+def test_the_default_want_shape_picks_the_plain_row():
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB)
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_want_shape_photo_button_picks_the_photo_button_row_when_its_active():
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB,
+                 want_shape="photo_button")
+    assert got["name"] == "mkt_offer_masculine_photo_button"
+
+
+def test_want_shape_photo_button_honours_the_tone_too():
+    got = choose(template_type="mkt_offer", tone="feminine", library=_SHAPE_LIB,
+                 want_shape="photo_button")
+    assert got["name"] == "mkt_offer_feminine_photo_button"
+
+
+def test_want_shape_photo_button_falls_back_to_plain_when_the_variant_is_inactive():
+    """A shop whose photo-button variant is still under Meta review must keep sending the plain
+    wording — never refuse the whole message over a shape that has not cleared review."""
+    lib = [_PLAIN_M, _PLAIN_F, dict(_PB_M, active=False), dict(_PB_F, active=False)]
+    got = choose(template_type="mkt_offer", tone="masculine", library=lib,
+                 want_shape="photo_button")
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_want_shape_photo_button_falls_back_to_plain_when_not_yet_approved():
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB,
+                 want_shape="photo_button", approved={"mkt_offer_masculine"})
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_want_shape_photo_button_falls_back_to_plain_when_no_such_row_exists_at_all():
+    got = choose(template_type="mkt_offer", tone="masculine", library=[_PLAIN_M, _PLAIN_F],
+                 want_shape="photo_button")
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_a_row_with_no_shape_field_at_all_defaults_to_plain():
+    """Every row this feature predates (the whole rest of the library) must keep behaving
+    exactly as before — absent `shape` reads as "plain", not as some unmatched fourth value."""
+    old_style = {k: v for k, v in _PLAIN_M.items() if k != "shape"}
+    got = choose(template_type="mkt_offer", tone="masculine", library=[old_style])
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_want_shape_plain_is_never_overridden_by_an_active_approved_variant():
+    """The caller decides the shape; an active photo_button row sitting in the library must never
+    be picked just because it happens to be there."""
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB,
+                 want_shape="plain")
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_the_own_template_bypasses_shape_filtering_entirely():
+    """A shop's own submitted text has no variant family — `want_shape` must not touch this
+    branch at all."""
+    own_row = {"variables": [1], "fills": ["system"]}
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB,
+                 want_shape="photo_button", own="his_own_template", own_row=own_row)
+    assert got["name"] == "his_own_template" and got["own"] is True
+
+
+def test_want_shape_photo_button_still_falls_back_across_a_retired_tone():
+    """Tone fallback and shape filtering compose: a retired tone still finds SOME photo_button
+    row rather than raising, exactly like the plain-shape fallback already does."""
+    got = choose(template_type="mkt_offer", tone="ceremonial", library=_SHAPE_LIB,
+                 want_shape="photo_button")
+    assert got["type"] == "mkt_offer" and got.get("shape") == "photo_button"
+
+
+def test_a_photo_button_only_library_with_no_plain_row_still_serves_the_variant():
+    got = choose(template_type="mkt_offer", tone="masculine", library=[_PB_M, _PB_F],
+                 want_shape="photo_button")
+    assert got["name"] == "mkt_offer_masculine_photo_button"
+
+
+def test_neither_shape_present_refuses_rather_than_guessing():
+    """Asking for a variant of a type this library never seeded any active row of at all — not
+    even a plain one — must raise the same way an entirely unknown type already does."""
+    with pytest.raises(RenderError):
+        choose(template_type="mkt_offer", tone="masculine",
+              library=[dict(_PLAIN_M, active=False), dict(_PLAIN_F, active=False)],
+              want_shape="photo_button")
+
+
+def test_want_shape_photo_button_ignores_the_approval_filter_when_approval_is_unknown():
+    """`approved=None` means "not known", and skips the filter entirely — the shape filter must
+    still run on top of that, same composition as the tone/ladder logic below it."""
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB,
+                 want_shape="photo_button", approved=None)
+    assert got["name"] == "mkt_offer_masculine_photo_button"
+
+
+def test_an_unrecognised_want_shape_value_falls_back_to_plain():
+    """A typo or a future value nothing seeds yet must never raise nor pick something
+    unexpected — it behaves exactly like asking for a variant that does not exist."""
+    got = choose(template_type="mkt_offer", tone="masculine", library=_SHAPE_LIB,
+                 want_shape="banana")
+    assert got["name"] == "mkt_offer_masculine"
+
+
+def test_the_ladder_still_varies_the_rung_within_the_chosen_shape():
+    """`tone_index` must operate on the SHAPE-FILTERED set, not the whole library — a second rung
+    of a photo_button send must not silently hop back to the plain shape."""
+    second_masc_pb = dict(_PB_M, name="mkt_offer_masculine_photo_button_2")
+    lib = [_PLAIN_M, _PLAIN_F, _PB_M, second_masc_pb, _PB_F]
+    got = choose(template_type="mkt_offer", tone="masculine", library=lib,
+                 want_shape="photo_button", tone_index=2)
+    assert got["name"] == "mkt_offer_masculine_photo_button_2"
+
+
 # ── filling ────────────────────────────────────────────────────────────────────────────────────
 def test_every_slot_is_filled_from_its_declared_source():
     r = render(template=t("mkt_offer_brief"),

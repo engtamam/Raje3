@@ -63,6 +63,12 @@ FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link"
 # coffee"; a workshop customer returns in months and the cycle is the entire product.
 MODELS = ("cycle", "loyalty", "both")
 
+# WHICH META COMPONENT SHAPE ONE ROW REGISTERS AS (2026-09-13). "plain" is every template that
+# predates this field and every one that never needs a photo; "photo_button" is the single-item
+# quick-reply-button variant (core/shape.py's own BUTTON_TYPES) — a media HEADER plus a flat
+# BUTTON, registered under its own name because Meta fixes a template's components at approval.
+SHAPES = ("plain", "photo_button")
+
 
 class TemplateError(Exception):
     """A refusal a console user can act on."""
@@ -189,6 +195,14 @@ class TemplateLibrary:
         if model not in MODELS:
             raise TemplateError(f"model must be one of {list(MODELS)}, got {model!r}")
 
+        shape = t.get("shape", "plain")
+        if shape not in SHAPES:
+            raise TemplateError(f"shape must be one of {list(SHAPES)}, got {shape!r}")
+        if shape == "photo_button" and not t.get("media_header"):
+            raise TemplateError(
+                f"{name}: shape 'photo_button' needs a media_header — Meta refuses a HEADER "
+                f"component with no example to review")
+
         row = {
             "id": name, "tenant": PLATFORM, "name": name,
             "model": model, "model_why": t.get("model_why", ""),
@@ -202,6 +216,18 @@ class TemplateLibrary:
             # body has somewhere to ask, without the body claiming a precision (a start date, a
             # send window) that not every campaign actually has.
             "footer": t.get("footer", ""),
+            # FORWARDED VERBATIM TO REGISTRATION (library.py::register reads these exact keys) —
+            # BUG FIXED HERE (2026-09-13, found while wiring the photo+button variant): this row
+            # dict never carried `flow_button`/`carousel` at all, so every template the seed
+            # declares one for (the booking Flow's own button, the carousel cards) registered with
+            # Meta MISSING that component — `register()` skips a falsy `{}` silently, so nothing
+            # ever raised. `media_header`/`flat_button`/`shape` are the new flat photo+button
+            # variant's own fields, same "absent means none" posture.
+            "flow_button": dict(t.get("flow_button") or {}),
+            "carousel": dict(t.get("carousel") or {}),
+            "shape": t.get("shape", "plain"),
+            "media_header": dict(t.get("media_header") or {}),
+            "flat_button": dict(t.get("flat_button") or {}),
             "variables": variables, "fills": fills,
             # WHAT TO DO WHEN IT CANNOT GO OUT NOW — quiet hours, or the day's ceiling.
             #

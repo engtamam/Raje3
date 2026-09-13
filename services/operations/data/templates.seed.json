@@ -1093,6 +1093,462 @@
           }
         ]
       }
+    },
+    {
+      "name": "mkt_offer_masculine_photo_button",
+      "type": "mkt_offer",
+      "tone": "masculine",
+      "label": "عرض أو خصم",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا لك من {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "اطلب موعدك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "خصم 20% على غسيل خارجي",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجز الآن"
+      }
+    },
+    {
+      "name": "mkt_offer_feminine_photo_button",
+      "type": "mkt_offer",
+      "tone": "feminine",
+      "label": "عرض أو خصم",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا لك من {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "اطلبي موعدك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "خصم 20% على قص وتشذيب",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجزي الآن"
+      }
+    },
+    {
+      "name": "mkt_winback_masculine_photo_button",
+      "type": "mkt_winback",
+      "tone": "masculine",
+      "label": "استعادة غائب",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، وحشتنا في {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "اطلب موعدك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "لك خصم 20% على غسيل خارجي",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجز الآن"
+      }
+    },
+    {
+      "name": "mkt_winback_feminine_photo_button",
+      "type": "mkt_winback",
+      "tone": "feminine",
+      "label": "استعادة غائب",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، وحشتِنا في {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "اطلبي موعدك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "لك خصم 20% على قص وتشذيب",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجزي الآن"
+      }
+    },
+    {
+      "name": "mkt_loyalty_activation_masculine_photo_button",
+      "type": "mkt_loyalty_activation",
+      "tone": "masculine",
+      "label": "رصيد اقترب من الاستبدال",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}، جمّعت {{3}} نقطة في {{2}}، وتقدر تستبدلها بـ{{4}} في زيارتك الجاية. لإيقاف العروض: {{5}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "catalogue",
+        "stop_link"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "80",
+        "غسيل خارجي",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجز الآن"
+      }
+    },
+    {
+      "name": "mkt_loyalty_activation_feminine_photo_button",
+      "type": "mkt_loyalty_activation",
+      "tone": "feminine",
+      "label": "رصيد اقترب من الاستبدال",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}، جمّعتِ {{3}} نقطة في {{2}}، وتقدرين تستبدلينها بـ{{4}} في زيارتك الجاية. لإيقاف العروض: {{5}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "catalogue",
+        "stop_link"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "60",
+        "قص وتشذيب",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجزي الآن"
+      }
+    },
+    {
+      "name": "mkt_announcement_masculine_photo_button",
+      "type": "mkt_announcement",
+      "tone": "masculine",
+      "label": "جديد",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا جديد في {{2}} — {{3}}. عساه يعجبك. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "تلميع كامل",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجز الآن"
+      }
+    },
+    {
+      "name": "mkt_announcement_feminine_photo_button",
+      "type": "mkt_announcement",
+      "tone": "feminine",
+      "label": "جديد",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا جديد في {{2}} — {{3}}. عساه يعجبك. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "قص وتشذيب",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجزي الآن"
+      }
+    },
+    {
+      "name": "mkt_personal_occasion_masculine_photo_button",
+      "type": "mkt_personal_occasion",
+      "tone": "masculine",
+      "label": "مناسبة شخصية",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنت بخير يا {{1}} 🌿 مرّت سنة على انضمامك لعائلة عملاء {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "اطلب موعدك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "لك خصم 20% على غسيل خارجي",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجز الآن"
+      }
+    },
+    {
+      "name": "mkt_personal_occasion_feminine_photo_button",
+      "type": "mkt_personal_occasion",
+      "tone": "feminine",
+      "label": "مناسبة شخصية",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنتِ بخير يا {{1}} 🌿 مرّت سنة على انضمامك لعائلة عملاء {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "اطلبي موعدك الآن",
+      "fills": [
+        "system",
+        "system",
+        "reward",
+        "stop_link"
+      ],
+      "model": "both",
+      "model_why": "خصم/عرض بلا أي علاقة بنظام نقاط — يصلح لأي محل بغض النظر عن نموذجه.",
+      "active": true,
+      "deferral": "defer",
+      "examples": [
+        "سارة",
+        "صالون لمسات",
+        "لك خصم 20% على قص وتشذيب",
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE",
+      "shape": "photo_button",
+      "media_header": {
+        "format": "IMAGE",
+        "example_handle": ""
+      },
+      "flat_button": {
+        "type": "QUICK_REPLY",
+        "text": "احجزي الآن"
+      }
     }
   ]
 }

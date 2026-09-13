@@ -133,6 +133,132 @@ def test_a_template_with_no_footer_sends_none():
 
 
 # ── carousel templates: a fresh placeholder handle per registration ─────────────────────────────
+# ── the flat photo+button variant (2026-09-13, platform v0.22.8) ────────────────────────────────
+_PHOTO_BUTTON_TEMPLATE = {
+    "name": "mkt_offer_masculine_photo_button", "language": "ar", "category": "MARKETING",
+    "body": "هلا {{1}}، عندنا لك من {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
+    "variables": [1, 2, 3, 4], "examples": ["محمد", "ورشة", "خصم 20%", "https://x/stop"],
+    "media_header": {"format": "IMAGE", "example_handle": ""},
+    "flat_button": {"type": "QUICK_REPLY", "text": "احجز الآن"},
+}
+
+
+def test_a_flat_media_header_uploads_a_placeholder_handle_then_registers_with_it():
+    calls = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        if req.full_url.endswith("upload-handle"):
+            return _Resp({"ok": True, "handle": "hnd_flat_1"})
+        return _Resp({"name": "mkt_offer_masculine_photo_button"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(c.register("t1", _PHOTO_BUTTON_TEMPLATE)) is True
+    assert calls[0].endswith("upload-handle")
+    assert calls[1].endswith("/internal/whatsapp/templates")
+
+
+def test_the_flat_headers_resolved_handle_and_the_flat_button_reach_the_registry():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        if req.full_url.endswith("upload-handle"):
+            return _Resp({"ok": True, "handle": "hnd_flat_2"})
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "mkt_offer_masculine_photo_button"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", _PHOTO_BUTTON_TEMPLATE))
+
+    assert seen["body"]["header"] == {"format": "IMAGE", "example_handle": "hnd_flat_2"}
+    assert seen["body"]["button"] == {"type": "QUICK_REPLY", "text": "احجز الآن"}
+
+
+def test_a_flat_header_with_no_upload_path_configured_fails_that_one_registration():
+    c = client()   # media_upload_handle_path left at its default (empty)
+    assert run(c.register("t1", _PHOTO_BUTTON_TEMPLATE)) is False
+
+
+def test_a_flat_header_that_already_carries_a_real_handle_skips_the_upload():
+    already_real = {**_PHOTO_BUTTON_TEMPLATE,
+                    "media_header": {"format": "IMAGE", "example_handle": "hnd_real"}}
+    calls = []
+
+    def _urlopen(req, timeout=0):
+        calls.append(req.full_url)
+        return _Resp({"name": "mkt_offer_masculine_photo_button"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", already_real))
+
+    assert len(calls) == 1
+    assert calls[0].endswith("/internal/whatsapp/templates")
+
+
+def test_a_media_header_with_no_flat_button_registers_the_header_alone():
+    """Photo without a button is a real, separate shape (a plain photo variant) — the two fields
+    travel independently, neither implying the other."""
+    photo_only = {k: v for k, v in _PHOTO_BUTTON_TEMPLATE.items() if k != "flat_button"}
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        if req.full_url.endswith("upload-handle"):
+            return _Resp({"ok": True, "handle": "hnd_photo_only"})
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "mkt_offer_masculine_photo"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", photo_only))
+    assert "header" in seen["body"] and "button" not in seen["body"]
+
+
+def test_a_flat_button_with_no_media_header_registers_the_button_alone():
+    button_only = {k: v for k, v in _PHOTO_BUTTON_TEMPLATE.items() if k != "media_header"}
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "mkt_offer_masculine_button"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(client().register("t1", button_only))
+    assert "button" in seen["body"] and "header" not in seen["body"]
+
+
+def test_a_template_carrying_both_carousel_and_media_header_forwards_both_naively():
+    """The registry (platform side) is the one place that enforces mutual exclusivity — this
+    layer only ever forwards what the seed row declares, never guesses which shape wins."""
+    both = {**_CAROUSEL_TEMPLATE, "media_header": {"format": "IMAGE", "example_handle": ""}}
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        if req.full_url.endswith("upload-handle"):
+            return _Resp({"ok": True, "handle": "hnd_both"})
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "wa_catalog_carousel"})
+
+    c = client(media_upload_handle_path="/internal/whatsapp/media/upload-handle")
+    with patch("urllib.request.urlopen", _urlopen):
+        run(c.register("t1", both))
+    assert "carousel" in seen["body"] and "header" in seen["body"]
+
+
+def test_a_template_with_no_media_header_or_flat_button_sends_neither():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "svc_visit_confirm"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        run(client().register("t1", TEMPLATE))
+    assert "header" not in seen["body"] and "button" not in seen["body"]
+
+
 def test_a_carousel_template_uploads_a_placeholder_handle_then_registers_with_it():
     calls = []
 
@@ -390,7 +516,11 @@ def test_the_three_book_back_offers_carry_the_booking_flow_button_in_the_real_se
             # rows exist for the shop the flow_button branch below is not written for — one that
             # does NOT own the appointment book. `active: false` keeps `choose()` (and this flow-
             # button contract) from ever seeing them; only `rendering.choose_carousel` does.
-            if row.get("carousel"):
+            if row.get("carousel") or row.get("shape") == "photo_button":
+                # THE PHOTO+BUTTON VARIANT (2026-09-13) IS THE SAME EXEMPTION FOR THE SAME REASON
+                # — a flat single-item quick-reply button (core/shape.py's own BUTTON_TYPES path,
+                # used when bookings is NOT owned) and a Flow button are two different shapes of
+                # one send; a template cannot carry both.
                 assert not row.get("flow_button"), f"{row['name']} must not carry both shapes"
                 continue
             seen_types.add(row["type"])

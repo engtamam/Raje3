@@ -103,8 +103,19 @@ def sanitise_owner_text(value: str) -> str:
 
 def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
            approved: set[str] | None = None, own: str = "",
-           own_row: dict[str, Any] | None = None, tone_index: int = 1) -> dict[str, Any]:
+           own_row: dict[str, Any] | None = None, tone_index: int = 1,
+           want_shape: str = "plain") -> dict[str, Any]:
     """Pick the template for this type in this tenant's tone, preferring one Meta has approved.
+
+    `want_shape` (2026-09-13, the single-item quick-reply button's own media variant —
+    docs/bot-single-item-tool-design-2026-09-13.md's sibling on the CAMPAIGN side, registered per
+    services/operations/app/core/library.py's `header`/`button` forwarding) picks among rows that
+    share one `type` but declare a different `shape` ("plain" | "photo_button" — see
+    templates.seed.json's own new fields). FALLS BACK TO "plain" WHEN THE WANTED SHAPE IS NOT
+    ACTIVE/APPROVED YET — a shop whose photo-button variant is still under Meta review must keep
+    sending the plain wording, never refuse the whole message over a shape that has not cleared
+    review. `own` (the shop's own submitted text) is never shape-filtered — a custom template has
+    no variant family to begin with.
 
     FALLS BACK TO ANY ACTIVE TONE rather than failing. A tenant whose tone was set to one we later
     retired would otherwise stop sending entirely — a configuration mismatch becoming a silent
@@ -201,6 +212,16 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
             raise RenderError(
                 f"قوالب {template_type} ما زالت قيد مراجعة واتساب — سترسل تلقائياً عند اعتمادها.")
         active = usable
+
+    # ── THE SHAPE (2026-09-13) ────────────────────────────────────────────────────────────
+    # Narrow to the wanted shape if a row of it survived the approval filter above; otherwise
+    # fall back to "plain" EXPLICITLY, never to "whatever is left" — a shop whose photo-button
+    # variant is still pending review keeps sending the plain wording it always has, and a future
+    # third shape can never be picked by accident just because it happened to be active.
+    wanted = [t for t in active if t.get("shape", "plain") == want_shape]
+    active = wanted if wanted else [t for t in active if t.get("shape", "plain") == "plain"]
+    if not active:
+        raise RenderError(f"لا يوجد قالب فعّال من نوع {template_type}.")
 
     # ── THE RUNG'S VOICE (د-7) ──────────────────────────────────────────────────────────────
     #

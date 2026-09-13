@@ -27,12 +27,18 @@ def at(hour, day=15):
 class FakeSender:
     def __init__(self, fail=False):
         self.calls = []
+        self.media_calls = []
         self.fail = fail
 
     async def send(self, **kw):
         if self.fail:
             raise RuntimeError("notification-service unavailable")
         self.calls.append(kw)
+
+    async def send_media(self, **kw):
+        if self.fail:
+            raise RuntimeError("notification-service unavailable")
+        self.media_calls.append(kw)
 
 
 LIB = [{"name": "svc_service_reminder_brief", "type": "svc_service_reminder", "tone": "brief",
@@ -1085,37 +1091,135 @@ def test_send_one_with_no_flow_fields_on_the_row_passes_them_through_empty(st):
 
 
 # ── the unified single-item quick-reply button (core/shape.py, 2026-09-13) ─────────────────────
-def test_send_one_passes_the_button_fields_to_the_sender(st):
-    """core/shape.py's own single-item quick-reply button for the three non-booking types —
-    carried on the row exactly like the Flow token above, since `send_one` has no campaign of
-    its own to derive it from."""
+# BUG FIXED THE SAME DAY THIS SUITE GREW (see tick.py's own comment at the send-branch): a
+# `button_item_id` on the row used to reach `send()`'s `button_payload` regardless of whether the
+# CHOSEN template actually declared a button component — Meta either drops or refuses a payload
+# on a template with no BUTTONS component. Now the button (and the item's own photo) only ever
+# reaches the wire when `choose()` actually picked the "photo_button"-shaped variant; otherwise
+# the send is the plain one, with no button at all.
+_PB_ROW_BASE = {"type": "mkt_offer", "tone": "brief", "class": "marketing",
+               "variables": [1, 2, 3], "fills": ["system", "system", "catalogue"], "active": True}
+LIB_WITH_PHOTO_BUTTON = LIB + [
+    dict(_PB_ROW_BASE, name="mkt_offer_brief_photo_button", shape="photo_button"),
+]
+
+
+def _button_row(**over):
+    d = dict(tenant="t1", subject_ref="sub_a", cls="marketing",
+             template_type="mkt_offer", service_id="_campaign", kind="campaign",
+             owner_text="خصم 20%", idempotency_key="idem_button", id="idem_button",
+             offer_text="خصم 20%", offer_expires_at=at(10, day=20),
+             offer_services=["oil"], button_item_id="oil", button_kind="package",
+             branch_id="br_1")
+    d.update(over)
+    return d
+
+
+def _grant(st, subject_ref="sub_a"):
     from app.core.consent import Consent
 
-    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
-    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+    run(EngagementStore(st).put("t1", subject_ref, {"score": 100.0, "scored_at": at(9)}))
+    run(Consent(st).record("t1", subject_ref, state="granted", source="customer_page",
                            shop="ورشة النخبة"))
-    sender = FakeSender()
-    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
-          "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
-          "owner_text": "خصم 20%", "idempotency_key": "idem_button", "id": "idem_button",
-          "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
-          "offer_services": ["oil"], "button_item_id": "oil", "button_kind": "package",
-          "branch_id": "br_1"}
 
+
+def test_send_one_with_no_photo_button_variant_in_the_library_sends_plain_with_no_button(st):
+    """The exact regression this fix closes: `LIB` (no photo_button row for mkt_offer at all)
+    must fall back to the plain send, and the button must not reach it."""
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row()
     out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
                                         service_names=NAMES, establishment="ورشة النخبة"))
     assert out["sent"] is True, out
-    assert sender.calls[0]["button_item_id"] == "oil"
-    assert sender.calls[0]["button_kind"] == "package"
-    assert sender.calls[0]["branch_id"] == "br_1"
+    assert sender.media_calls == []
+    assert len(sender.calls) == 1
+    assert "button_item_id" not in sender.calls[0]
+    assert "button_kind" not in sender.calls[0]
+
+
+def test_send_one_with_an_active_photo_button_variant_calls_send_media(st):
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row()
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.calls == []
+    assert len(sender.media_calls) == 1
+    call = sender.media_calls[0]
+    assert call["header_item_id"] == "oil" and call["header_kind"] == "package"
+    assert call["button_item_id"] == "oil" and call["button_kind"] == "package"
+    assert call["branch_id"] == "br_1"
+    assert call["template_name"] == "mkt_offer_brief_photo_button"
+
+
+def test_send_one_with_no_button_item_id_never_calls_send_media_even_with_the_variant_present(st):
+    """The variant existing in the library is not enough on its own — nothing WANTS it unless a
+    single item was actually scoped to this send."""
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row(button_item_id="", button_kind="service", idempotency_key="idem_nobutton",
+                      id="idem_nobutton")
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.media_calls == []
+    assert len(sender.calls) == 1
+    assert "button_item_id" not in sender.calls[0]
+
+
+def test_send_one_falls_back_to_plain_when_the_variant_is_inactive(st):
+    _grant(st)
+    sender = FakeSender()
+    inactive_lib = LIB + [dict(_PB_ROW_BASE, name="mkt_offer_brief_photo_button",
+                              shape="photo_button", active=False)]
+    row = _button_row()
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=inactive_lib,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.media_calls == []
+    assert len(sender.calls) == 1
+    assert "button_item_id" not in sender.calls[0]
+
+
+def test_send_one_falls_back_to_plain_when_the_variant_is_not_yet_approved(st):
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row()
+    out = run(tick(st, sender).send_one(
+        "t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON, service_names=NAMES,
+        establishment="ورشة النخبة", approved={"mkt_offer_brief"}))
+    assert out["sent"] is True, out
+    assert sender.media_calls == []
+    assert len(sender.calls) == 1
+
+
+def test_send_one_photo_button_variant_carries_the_service_item_and_kind(st):
+    """A `service` kind (not `package`) still reaches `send_media` correctly — the button/header
+    kind is whatever the row carries, not hardcoded to one value."""
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row(button_item_id="oil", button_kind="service")
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    assert sender.media_calls[0]["header_kind"] == "service"
+    assert sender.media_calls[0]["button_kind"] == "service"
+
+
+def test_send_one_photo_button_path_still_uses_the_right_sending_identity(st):
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row(branch_id="br_9")
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    # sending_identity resolves off the row's own branch (`_sending_identity`) exactly like the
+    # plain path — never hardcoded once a second send method exists.
+    assert sender.media_calls[0]["branch_id"] == "br_9"
 
 
 def test_send_one_with_no_button_fields_on_the_row_passes_them_through_empty(st):
-    from app.core.consent import Consent
-
-    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
-    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
-                           shop="ورشة النخبة"))
+    _grant(st)
     sender = FakeSender()
     row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
           "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
@@ -1125,8 +1229,67 @@ def test_send_one_with_no_button_fields_on_the_row_passes_them_through_empty(st)
     out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
                                         service_names=NAMES, establishment="ورشة النخبة"))
     assert out["sent"] is True, out
-    assert sender.calls[0]["button_item_id"] == ""
-    assert sender.calls[0]["button_kind"] == "service"
+    assert sender.media_calls == []
+    assert "button_item_id" not in sender.calls[0]
+    assert "button_kind" not in sender.calls[0]
+
+
+def test_send_one_photo_button_defaults_button_kind_to_service_when_absent(st):
+    _grant(st)
+    sender = FakeSender()
+    row = _button_row()
+    del row["button_kind"]
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.media_calls[0]["header_kind"] == "service"
+    assert sender.media_calls[0]["button_kind"] == "service"
+
+
+def test_send_one_photo_button_variant_of_a_different_template_type_is_never_cross_picked(st):
+    """A photo_button row registered under a DIFFERENT template_type must never be picked for
+    this send — `choose()` filters by `type` before it ever looks at `shape`."""
+    _grant(st)
+    sender = FakeSender()
+    other_type_pb = dict(_PB_ROW_BASE, name="mkt_winback_brief_photo_button",
+                         type="mkt_winback", shape="photo_button")
+    row = _button_row()
+    out = run(tick(st, sender).send_one("t1", row, now=at(10),
+                                        library=LIB + [other_type_pb],
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.media_calls == []
+    assert len(sender.calls) == 1
+
+
+def test_send_one_photo_button_path_raising_unsendable_is_handled_like_the_plain_path(st):
+    class ErasedMediaSender(FakeSender):
+        async def send_media(self, **kw):
+            raise Unsendable("no recipient for sub_a — erased or unknown")
+
+    _grant(st)
+    sender = ErasedMediaSender()
+    row = _button_row()
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is False
+    assert "لا يوجد مستقبِل" in out["reason"]
+
+
+def test_send_one_photo_button_path_ceiling_reached_is_handled_like_the_plain_path(st):
+    from app.adapters.message_sender import CeilingReached
+
+    class CeilingMediaSender(FakeSender):
+        async def send_media(self, **kw):
+            raise CeilingReached("131064", "131064: messaging limit reached")
+
+    _grant(st)
+    sender = CeilingMediaSender()
+    row = _button_row()
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB_WITH_PHOTO_BUTTON,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is False
+    assert "131064" in out["reason"]
 
 
 def test_a_structured_offer_with_no_free_line_is_still_an_entitlement(st):

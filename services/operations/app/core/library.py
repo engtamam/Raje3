@@ -201,6 +201,20 @@ class HttpLibrary:
                 card["header_example_handle"] = handle
         return out
 
+    def _resolve_media_header(self, tenant: str, header: dict[str, Any]) -> dict[str, Any] | None:
+        """The FLAT (non-carousel) media header's own `example_handle` — same placeholder-upload
+        trick as `_resolve_carousel`'s cards, just one handle instead of one per card. `None` means
+        resolution failed, same posture as the carousel path: `register()` fails THIS template
+        alone rather than submitting a header with no example Meta can review."""
+        if header.get("example_handle"):
+            return header
+        handle = self._upload_placeholder_handle(tenant)
+        if not handle:
+            return None
+        out = dict(header)
+        out["example_handle"] = handle
+        return out
+
     async def register(self, tenant: str, template: dict[str, Any]) -> bool:
         """Upsert ONE template into this shop's registry. No Meta call, so no cap applies.
 
@@ -232,6 +246,20 @@ class HttpLibrary:
             if resolved is None:
                 return False
             body["carousel"] = resolved
+        # THE FLAT MEDIA HEADER + SINGLE BUTTON (2026-09-13, platform v0.22.8) — the photo+button
+        # variant of a single-item send (core/shape.py's own BUTTON_TYPES), registered as its own
+        # template row (`shape: "photo_button"` in the seed) rather than bolted onto the plain
+        # one: Meta fixes a template's components at approval, so a row that sometimes has a photo
+        # and sometimes does not cannot be one name.
+        media_header = template.get("media_header")
+        if media_header:
+            resolved_header = await asyncio.to_thread(self._resolve_media_header, tenant, media_header)
+            if resolved_header is None:
+                return False
+            body["header"] = resolved_header
+        flat_button = template.get("flat_button")
+        if flat_button:
+            body["button"] = flat_button
         status, _ = await asyncio.to_thread(self._post, self._register, body)
         return status < 400
 

@@ -105,6 +105,140 @@ def test_an_empty_path_does_nothing(tmp_path):
     assert store.rows[f"{PLATFORM}|svc_a_brief"]["active"] is True
 
 
+# ── the fields register() forwards must survive the seed -> row -> list() round trip ────────────
+# BUG FIXED HERE (2026-09-13, found while wiring the photo+button variant): `upsert()`'s row dict
+# never carried `flow_button`/`carousel` at all, so every template the seed declared one for
+# registered with Meta MISSING that component — silently, because `library.py::register()` skips
+# a falsy `{}` without complaint. `media_header`/`flat_button`/`shape` are the new photo+button
+# variant's own fields and must not repeat the same defect.
+def _upsert(tmp_path, extra):
+    store = Store()
+    lib = TemplateLibrary(store)
+    row = {"name": "mkt_x_brief", "type": "mkt_x", "class": "marketing", "category": "MARKETING",
+          "label": "x", "tone": "brief", "body": "هلا {{1}}", "model": "both"}
+    row.update(extra)
+    run(lib.upsert(row))
+    return store.rows[f"{PLATFORM}|mkt_x_brief"]
+
+
+def test_upsert_forwards_flow_button(tmp_path):
+    got = _upsert(tmp_path, {"flow_button": {"flow_name": "booking_flow"}})
+    assert got["flow_button"] == {"flow_name": "booking_flow"}
+
+
+def test_upsert_with_no_flow_button_stores_an_empty_dict_not_a_missing_key(tmp_path):
+    got = _upsert(tmp_path, {})
+    assert got["flow_button"] == {}
+
+
+def test_upsert_forwards_carousel(tmp_path):
+    carousel = {"cards": [{"header_format": "IMAGE", "header_example_handle": ""}]}
+    got = _upsert(tmp_path, {"carousel": carousel})
+    assert got["carousel"] == carousel
+
+
+def test_upsert_with_no_carousel_stores_an_empty_dict(tmp_path):
+    got = _upsert(tmp_path, {})
+    assert got["carousel"] == {}
+
+
+def test_upsert_defaults_shape_to_plain(tmp_path):
+    got = _upsert(tmp_path, {})
+    assert got["shape"] == "plain"
+
+
+def test_upsert_forwards_an_explicit_shape(tmp_path):
+    got = _upsert(tmp_path, {"shape": "photo_button",
+                            "media_header": {"format": "IMAGE", "example_handle": ""}})
+    assert got["shape"] == "photo_button"
+
+
+def test_upsert_refuses_an_unknown_shape(tmp_path):
+    from app.core.templates import TemplateError
+    with pytest.raises(TemplateError):
+        _upsert(tmp_path, {"shape": "carousel_of_one"})
+
+
+def test_upsert_refuses_a_photo_button_shape_with_no_media_header(tmp_path):
+    """Meta refuses a HEADER component with no example to review — catching this here is a row
+    that fails one seed reconcile, not a name burned three days later against a 400."""
+    from app.core.templates import TemplateError
+    with pytest.raises(TemplateError):
+        _upsert(tmp_path, {"shape": "photo_button"})
+
+
+def test_upsert_forwards_media_header(tmp_path):
+    got = _upsert(tmp_path, {"media_header": {"format": "IMAGE", "example_handle": ""}})
+    assert got["media_header"] == {"format": "IMAGE", "example_handle": ""}
+
+
+def test_upsert_with_no_media_header_stores_an_empty_dict(tmp_path):
+    got = _upsert(tmp_path, {})
+    assert got["media_header"] == {}
+
+
+def test_upsert_forwards_flat_button(tmp_path):
+    got = _upsert(tmp_path, {"flat_button": {"type": "QUICK_REPLY", "text": "احجز الآن"}})
+    assert got["flat_button"] == {"type": "QUICK_REPLY", "text": "احجز الآن"}
+
+
+def test_upsert_with_no_flat_button_stores_an_empty_dict(tmp_path):
+    got = _upsert(tmp_path, {})
+    assert got["flat_button"] == {}
+
+
+def test_upsert_forwards_all_five_new_fields_together(tmp_path):
+    got = _upsert(tmp_path, {
+        "flow_button": {"flow_name": "booking_flow"},
+        "shape": "photo_button",
+        "media_header": {"format": "IMAGE", "example_handle": "hnd_1"},
+        "flat_button": {"type": "QUICK_REPLY", "text": "اطلب الآن"},
+    })
+    assert got["flow_button"] == {"flow_name": "booking_flow"}
+    assert got["shape"] == "photo_button"
+    assert got["media_header"]["example_handle"] == "hnd_1"
+    assert got["flat_button"]["text"] == "اطلب الآن"
+
+
+def test_a_reconciled_library_read_back_via_list_still_carries_the_photo_button_fields(tmp_path):
+    body = {"templates": [
+        {"name": "mkt_x_brief_photo_button", "type": "mkt_x", "class": "marketing",
+         "category": "MARKETING", "label": "x", "tone": "brief", "body": "هلا {{1}}",
+         "model": "both", "shape": "photo_button",
+         "media_header": {"format": "IMAGE", "example_handle": ""},
+         "flat_button": {"type": "QUICK_REPLY", "text": "احجز الآن"}},
+    ]}
+    p = tmp_path / "templates.seed.json"
+    p.write_text(json.dumps(body, ensure_ascii=False), encoding="utf-8")
+
+    store = Store()
+    lib = TemplateLibrary(store)
+    run(lib.seed_from_file(str(p)))
+    rows = run(lib.list())
+    assert rows[0]["shape"] == "photo_button"
+    assert rows[0]["media_header"]["format"] == "IMAGE"
+    assert rows[0]["flat_button"]["text"] == "احجز الآن"
+
+
+def test_a_reconciled_library_read_back_via_list_still_carries_flow_button(tmp_path):
+    """The end-to-end path `publish()` actually walks: seed file -> seed_from_file -> list() ->
+    register(). A regression here is invisible to a unit test that constructs `register()`'s
+    input dict by hand, which is exactly how the original defect went unnoticed."""
+    body = {"templates": [
+        {"name": "mkt_x_brief", "type": "mkt_x", "class": "marketing", "category": "MARKETING",
+         "label": "x", "tone": "brief", "body": "هلا {{1}}", "model": "both",
+         "flow_button": {"flow_name": "booking_flow"}},
+    ]}
+    p = tmp_path / "templates.seed.json"
+    p.write_text(json.dumps(body, ensure_ascii=False), encoding="utf-8")
+
+    store = Store()
+    lib = TemplateLibrary(store)
+    run(lib.seed_from_file(str(p)))
+    rows = run(lib.list())
+    assert rows[0]["flow_button"] == {"flow_name": "booking_flow"}
+
+
 # ── every submitted template carries an example per placeholder (ح-2) ──────────────────────────
 
 

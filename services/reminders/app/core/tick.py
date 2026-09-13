@@ -497,7 +497,12 @@ class Tick:
                                 # THE RUNG'S OWN VOICE (د-7). Stamped by `_ladder` and, until now,
                                 # read by nothing — so the second rung repeated the first verbatim.
                                 tone_index=int(row.get("tone_index") or 1),
-                                own=own_name, own_row=own_row)
+                                own=own_name, own_row=own_row,
+                                # THE PHOTO+BUTTON VARIANT (2026-09-13) — wanted only when THIS
+                                # campaign actually scoped a single real item; `choose` falls back
+                                # to "plain" on its own if that variant is not active/approved yet.
+                                want_shape=("photo_button" if row.get("button_item_id")
+                                           else "plain"))
             # SLOT BY SLOT, FROM THE TEMPLATE'S OWN DECLARATION. The previous version put the
             # owner's single sentence into slots 3 AND 4 through all three source dicts, so a
             # four-variable template said the same thing twice; and it passed slot 1 empty, which
@@ -552,31 +557,46 @@ class Tick:
             return {"sent": False, "reason": str(exc)}
 
         try:
-            delivery_id = await self._sender.send(
-                tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
-                variables=rendered.variables, cls=cls, idempotency_key=key,
-                # WHICH NUMBER IT LEAVES FROM. The schedule already carries the branch the visit
-                # happened at; this is the one line that turns it into the credentials the message
-                # is actually sent with. `""` — every shop in the default mode — resolves to the
-                # establishment inside the sender, exactly as before.
-                sending_identity=_sending_identity(tenant, row),
-                # THE SAME OPTIONAL FLOW-BUTTON FIELDS THE SCHEDULED RATING SEND USES BELOW
-                # (`flow_token=f"rate:{visit_id}"`), read off THIS row instead of computed here —
-                # `send_one` serves every caller of `/internal/reminders/send` (campaigns AND
-                # insights' weekly digest), so it has no visit of its own to derive a token from;
-                # the caller (campaign_send) is the one that knows whether this particular send
-                # opens a Flow, and passes both fields straight through the schedule dict it
-                # already builds. Empty on every existing caller, so this is a no-op for them —
-                # `HttpSender.send` already omits `flow_token` from the wire body entirely when
-                # it is "".
-                flow_token=str(row.get("flow_token") or ""),
-                flow_action_data=row.get("flow_action_data") or None,
-                # THE UNIFIED SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13) — same "the caller
-                # already knows, this just carries it" posture as flow_token above. Empty for
-                # every existing caller, so this is a no-op for them.
-                button_item_id=str(row.get("button_item_id") or ""),
-                button_kind=str(row.get("button_kind") or "service"),
-                branch_id=str(row.get("branch_id") or ""))
+            button_item_id = str(row.get("button_item_id") or "")
+            button_kind = str(row.get("button_kind") or "service")
+            if button_item_id and template.get("shape", "plain") == "photo_button":
+                # THE CHOSEN TEMPLATE ACTUALLY DECLARES THE PHOTO+BUTTON COMPONENTS — send the
+                # item's own real photo as the header (falls back to a placeholder card image on
+                # its own if none exists, never a refusal) alongside the same button.
+                delivery_id = await self._sender.send_media(
+                    tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
+                    variables=rendered.variables, cls=cls, idempotency_key=key,
+                    header_item_id=button_item_id, header_kind=button_kind,
+                    sending_identity=_sending_identity(tenant, row),
+                    button_item_id=button_item_id, button_kind=button_kind,
+                    branch_id=str(row.get("branch_id") or ""))
+            else:
+                # NO BUTTON FORWARDED HERE, EVEN WHEN THE CALLER ASKED FOR ONE (2026-09-13 fix): the
+                # template `choose()` actually picked has no button component unless its own
+                # `shape` says so (it fell back to "plain" — the variant is not active/approved
+                # yet, or button_item_id was never set). Attaching `button_payload` to a template
+                # Meta approved with no BUTTONS component is not a smaller version of the feature —
+                # it is a payload Meta silently drops or refuses, on a template burned either way.
+                delivery_id = await self._sender.send(
+                    tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
+                    variables=rendered.variables, cls=cls, idempotency_key=key,
+                    # WHICH NUMBER IT LEAVES FROM. The schedule already carries the branch the visit
+                    # happened at; this is the one line that turns it into the credentials the
+                    # message is actually sent with. `""` — every shop in the default mode —
+                    # resolves to the establishment inside the sender, exactly as before.
+                    sending_identity=_sending_identity(tenant, row),
+                    # THE SAME OPTIONAL FLOW-BUTTON FIELDS THE SCHEDULED RATING SEND USES BELOW
+                    # (`flow_token=f"rate:{visit_id}"`), read off THIS row instead of computed here
+                    # — `send_one` serves every caller of `/internal/reminders/send` (campaigns AND
+                    # insights' weekly digest), so it has no visit of its own to derive a token
+                    # from; the caller (campaign_send) is the one that knows whether this particular
+                    # send opens a Flow, and passes both fields straight through the schedule dict
+                    # it already builds. Empty on every existing caller, so this is a no-op for
+                    # them — `HttpSender.send` already omits `flow_token` from the wire body
+                    # entirely when it is "".
+                    flow_token=str(row.get("flow_token") or ""),
+                    flow_action_data=row.get("flow_action_data") or None,
+                    branch_id=str(row.get("branch_id") or ""))
         except Unsendable as exc:
             # GIVE THE UNIT BACK. The consume had to come first to be atomic, so a send that did
             # not happen leaves a unit spent — and an erased recipient is not something the shop
