@@ -329,3 +329,74 @@ def test_a_campaign_row_with_no_goal_at_all_is_never_counted_under_a_guessed_one
     res = run(d.fire(CAMPAIGN, now=NOW))
     assert res.run.sent == 1
     assert run(read_goal_stats(st, "t1")) == {}
+
+
+# ── the "points" reward's own credit (occasion pilot, 2026-09-13) ──────────────────────────────
+class Loyalty:
+    """Stands in for loyalty's own `/internal/loyalty/award` — never raises, same as the real
+    HTTP client, and reports whatever the test asks it to."""
+
+    def __init__(self, *, earned=1):
+        self.calls = []
+        self._earned = earned
+
+    async def award(self, **kw):
+        self.calls.append(kw)
+        return {"earned": self._earned}
+
+
+def test_points_reward_awards_once_per_recipient_on_the_sends_own_key(st):
+    campaign = {**CAMPAIGN, "reward_type": "points", "reward_points": 50}
+    loyalty = Loyalty()
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a", "b"),
+                   loyalty=loyalty)
+    res = run(d.fire(campaign, now=NOW))
+    assert res.run.sent == 2
+    assert len(loyalty.calls) == 2
+    subjects = {c["subject_ref"] for c in loyalty.calls}
+    assert subjects == {"a", "b"}
+    for call in loyalty.calls:
+        assert call["points"] == 50
+        # THE SAME KEY THE SEND ITSELF IS IDEMPOTENT ON — a retried pass must not credit twice.
+        assert call["idempotency_key"] == f"cmp:{campaign['id']}:{call['subject_ref']}"
+
+
+def test_a_discount_or_gift_campaign_never_calls_award_at_all(st):
+    loyalty = Loyalty()
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"),
+                   loyalty=loyalty)
+    run(d.fire({**CAMPAIGN, "reward_type": "discount"}, now=NOW))
+    run(d.fire({**CAMPAIGN, "id": "cmp_2", "reward_type": "gift"}, now=NOW))
+    assert loyalty.calls == []
+
+
+def test_a_lapsed_or_unreachable_award_never_cancels_the_send(st):
+    """loyalty's own route sends nothing itself — this caller does — so a courtesy credit that
+    could not be made (`earned: 0`) must not silently withhold a message the audience resolver
+    already counted and the owner already paid for."""
+    campaign = {**CAMPAIGN, "reward_type": "points", "reward_points": 50}
+    sender = Sender()
+    loyalty = Loyalty(earned=0)
+    d = Dispatcher(store=st, sender=sender, audience_resolver=resolver("a"), loyalty=loyalty)
+    res = run(d.fire(campaign, now=NOW))
+    assert res.run.sent == 1
+    assert len(sender.calls) == 1
+    assert len(loyalty.calls) == 1
+
+
+def test_points_reward_with_no_loyalty_peer_wired_still_sends(st):
+    """OPTIONAL, like every other peer here — a deployment that never wired one must not refuse
+    every points campaign for a capability nothing has asked it to provide yet."""
+    campaign = {**CAMPAIGN, "reward_type": "points", "reward_points": 50}
+    d = Dispatcher(store=st, sender=Sender(), audience_resolver=resolver("a"))
+    res = run(d.fire(campaign, now=NOW))
+    assert res.run.sent == 1
+
+
+def test_the_sender_receives_the_rewards_own_fields(st):
+    sender = Sender()
+    campaign = {**CAMPAIGN, "reward_type": "gift", "reward_points": 0}
+    d = Dispatcher(store=st, sender=sender, audience_resolver=resolver("a"))
+    run(d.fire(campaign, now=NOW))
+    assert sender.calls[0]["reward_type"] == "gift"
+    assert sender.calls[0]["reward_points"] == 0

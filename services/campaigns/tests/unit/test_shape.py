@@ -169,6 +169,35 @@ def test_the_peer_client_omits_the_flow_keys_entirely_on_an_ordinary_send():
         peers._post = real
 
 
+def test_the_peer_client_carries_the_reward_fields_on_every_send():
+    """Unlike `flow_token`/`button_item_id`, these two are ALWAYS on the wire — "discount"/0 is a
+    real, meaningful default (today's whole behaviour), not an absent field to omit."""
+    from app.adapters import peers
+
+    seen: dict = {}
+
+    async def _fake_post(url, body, token, timeout):
+        seen.update(body)
+        return {"sent": True}
+
+    real = peers._post
+    peers._post = _fake_post
+    try:
+        sender = peers.HttpSender(url="http://reminders.invalid", path="/internal/reminders/send",
+                                  token="t" * 40)
+        run(sender.send(tenant="t1", subject_ref="sub_a", template_type="mkt_personal_occasion",
+                        cls="marketing", owner_text="", idempotency_key="cmp:c1:sub_a"))
+        assert seen["reward_type"] == "discount" and seen["reward_points"] == 0
+
+        seen.clear()
+        run(sender.send(tenant="t1", subject_ref="sub_a", template_type="mkt_personal_occasion",
+                        cls="marketing", owner_text="", idempotency_key="cmp:c1:sub_a",
+                        reward_type="points", reward_points=50))
+        assert seen["reward_type"] == "points" and seen["reward_points"] == 50
+    finally:
+        peers._post = real
+
+
 # ── the resolver itself, without a dispatcher around it ───────────────────────────────────────
 def test_for_send_with_no_key_answers_plain_rather_than_minting_an_empty_token():
     assert shape.for_send(opens_booking=True, idempotency_key="") is shape.PLAIN

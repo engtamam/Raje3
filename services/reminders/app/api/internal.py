@@ -794,6 +794,12 @@ class CampaignSendIn(BaseModel):
     # "omitted when meaningless" posture as `flow_token`.
     button_item_id: str = Field(default="", max_length=64)
     button_kind: str = Field(default="service", max_length=16)
+    # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES (occasion pilot, 2026-09-13) — "discount" is the
+    # default so every existing caller that has never heard of this field keeps sending exactly
+    # what it always sent. See rendering.campaign_slots's own "reward" branch for what each value
+    # composes.
+    reward_type: str = Field(default="discount", max_length=16)
+    reward_points: int = Field(default=0, ge=0)
 
     model_config = {"populate_by_name": True}
 
@@ -841,6 +847,8 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_expires_at": body.offer_expires_at,
         "offer_services": list(body.offer_services),
         "offer_value": body.offer_value,
+        "reward_type": body.reward_type,
+        "reward_points": body.reward_points,
         "flow_token": body.flow_token,
         "flow_action_data": dict(body.flow_action_data),
         "button_item_id": body.button_item_id,

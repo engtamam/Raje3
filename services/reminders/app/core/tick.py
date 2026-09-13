@@ -504,12 +504,16 @@ class Tick:
                 service_text=R.merged_service_text(
                     [service_names.get(s, s) for s in (row.get("offer_services") or [])]),
                 offer_value=str(row.get("offer_value", "")),
-                expires_at=int(row.get("offer_expires_at") or 0))
-            # ONE DICT, PASSED AS ALL THREE. `campaign_slots` has already answered per source, so
-            # handing the renderer three different maps would be deciding the same thing twice and
-            # inviting them to disagree.
+                expires_at=int(row.get("offer_expires_at") or 0),
+                reward_type=str(row.get("reward_type") or "discount"),
+                reward_points=int(row.get("reward_points") or 0))
+            # ONE DICT, PASSED AS ALL FOUR. `campaign_slots` has already answered per source, so
+            # handing the renderer several different maps would be deciding the same thing twice
+            # and inviting them to disagree. `by_meaning=values` is what lets the "reward" fill
+            # reach the render — see `campaign_slots`'s own docstring on why that one fill is read
+            # by meaning rather than by position.
             rendered = R.render(template=template, system=values, catalogue=values,
-                                owner=values,
+                                owner=values, by_meaning=values,
                                 public_base_url=self._public_base_url,
                                 # THE REFERENCE PORTAL READS, NOT THE BARE SUBJECT. It mints
                                 # `{tenant}.{subject}` and splits on the dot; a link built from

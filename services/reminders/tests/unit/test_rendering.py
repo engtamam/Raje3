@@ -315,6 +315,71 @@ def test_an_offer_with_no_end_refuses_too():
         render(template=OFFER, system=slots, catalogue=slots, owner=slots)
 
 
+# ── the campaign's own composed reward (occasion pilot, 2026-09-13) ────────────────────────────
+OCCASION = {"name": "mkt_personal_occasion_masculine", "type": "mkt_personal_occasion",
+           "class": "marketing", "variables": [1, 2, 3, 4],
+           "fills": ["system", "system", "reward", "stop_link"], "active": True}
+
+
+def test_reward_discount_composes_the_same_sentence_the_body_used_to_hardcode():
+    slots = campaign_slots(OCCASION, establishment="مغسلة النخيل", owner_text="",
+                           service_text="غسيل خارجي", offer_value="20%")
+    assert slots["3"] == "لك خصم 20% على غسيل خارجي"
+
+
+def test_reward_discount_with_no_scope_names_nothing():
+    """An unscoped discount just says the number — no dangling «على »."""
+    slots = campaign_slots(OCCASION, establishment="مغسلة النخيل", owner_text="",
+                           service_text="", offer_value="20%")
+    assert slots["3"] == "لك خصم 20%"
+
+
+def test_reward_gift_names_the_service():
+    slots = campaign_slots(OCCASION, establishment="مغسلة النخيل", owner_text="",
+                           service_text="تنظيف كامل", reward_type="gift")
+    assert slots["3"] == "هديتك: تنظيف كامل"
+
+
+def test_reward_gift_with_no_service_refuses_rather_than_sending_a_hole():
+    with pytest.raises(RenderError):
+        campaign_slots(OCCASION, establishment="م", owner_text="", service_text="",
+                       reward_type="gift")
+
+
+def test_reward_points_composes_the_credit_sentence():
+    slots = campaign_slots(OCCASION, establishment="مغسلة النخيل", owner_text="",
+                           reward_type="points", reward_points=50)
+    assert slots["3"] == "منحناك 50 نقطة هدية"
+
+
+def test_reward_points_with_no_count_refuses_rather_than_sending_a_hole():
+    with pytest.raises(RenderError):
+        campaign_slots(OCCASION, establishment="م", owner_text="",
+                       reward_type="points", reward_points=0)
+
+
+def test_reward_discount_with_no_value_refuses_rather_than_sending_a_hole():
+    with pytest.raises(RenderError):
+        campaign_slots(OCCASION, establishment="م", owner_text="", offer_value="")
+
+
+REWARD_ONLY = {"name": "mkt_personal_occasion_masculine", "type": "mkt_personal_occasion",
+               "class": "marketing", "variables": [1, 2, 3],
+               "fills": ["system", "system", "reward"], "active": True}
+
+
+def test_reward_is_answered_by_meaning_too_since_render_dispatches_it_there():
+    """`render` routes a "reward" fill through `OWNER_SLOTS`/`by_meaning` — the same name already
+    used elsewhere for an unrelated sentence — so `campaign_slots` must answer under that key too,
+    not only under the slot's own number."""
+    slots = campaign_slots(REWARD_ONLY, establishment="مغسلة النخيل", owner_text="",
+                           service_text="غسيل خارجي", offer_value="20%")
+    assert slots["reward"] == slots["3"]
+    out = render(template=REWARD_ONLY, system=slots, catalogue=slots, owner=slots,
+                by_meaning=slots)
+    assert out.variables[2] == "لك خصم 20% على غسيل خارجي"
+
+
 def test_a_plain_announcement_still_carries_the_owners_one_sentence():
     slots = campaign_slots(ANNOUNCE, establishment="مغسلة النخيل", owner_text="افتتحنا فرعاً")
     out = render(template=ANNOUNCE, system=slots, catalogue=slots, owner=slots)

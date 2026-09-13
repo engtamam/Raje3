@@ -359,6 +359,7 @@ def build_container(settings: Settings) -> Container:
                                       bookings_licence=container.bookings_licence,
                                       assistant_licence=container.assistant_licence,
                                       ai_toggle=container.ai_toggle,
+                                      loyalty=container.loyalty,
                                       telemetry=container.telemetry)
     container.licence = build_licence(settings)
     async def _share_for(tenant: str) -> int:

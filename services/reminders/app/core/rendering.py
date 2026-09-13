@@ -406,7 +406,8 @@ def arabic_appointment(epoch: int) -> str:
 
 def campaign_slots(template: dict[str, Any], *, establishment: str, owner_text: str,
                    service_text: str = "", offer_value: str = "",
-                   expires_at: int = 0) -> dict[str, str]:
+                   expires_at: int = 0, reward_type: str = "discount",
+                   reward_points: int = 0) -> dict[str, str]:
     """What goes in each numbered slot of a CAMPAIGN message, decided by the slot's own source.
 
     THE OLD ANSWER WAS TO PUT THE SAME STRING IN EVERYTHING. The campaign path filled slots 3 and
@@ -421,6 +422,18 @@ def campaign_slots(template: dict[str, Any], *, establishment: str, owner_text: 
 
     SLOT 1 IS LEFT EMPTY ON PURPOSE. The customer's name is personal data this service does not
     hold; it is filled at the very last moment, beside the phone number, in the sender.
+
+    "reward" (occasion pilot, 2026-09-13) IS ONE SENTENCE FOR THREE DIFFERENT REWARDS, so the
+    body Meta approved never names a discount specifically. A campaign now picks ONE of
+    discount/gift/points, and this composes the whole clause rather than filling a typed blank —
+    the same reasoning that put `amount`/`date` here instead of leaving them as owner free text,
+    one level up: an owner cannot phrase «هديتك: تنظيف كامل» wrong if this writes it for them.
+
+    IT ALSO ANSWERS UNDER THE KEY "reward" ITSELF, not only under the slot's own number. `render`
+    dispatches this fill through `OWNER_SLOTS` (it was already a name in that vocabulary, for an
+    unrelated «what he redeemed» sentence elsewhere) — which reads `by_meaning`, not the positional
+    `system`/`catalogue`/`owner` dicts this function otherwise fills. The caller passes this same
+    dict as `by_meaning` too, so the one value answers both without a second thing to keep in sync.
     """
     fills = list(template.get("fills") or [])
     variables = list(template.get("variables") or [])
@@ -436,6 +449,32 @@ def campaign_slots(template: dict[str, Any], *, establishment: str, owner_text: 
             # The services the offer covers, named. Empty when it covers the whole shop — and the
             # renderer then refuses, because «خصم على » is not a sentence.
             out[key] = service_text
+        elif source == "reward":
+            # ONE OF THREE SHAPES, CHOSEN AT CREATION AND NEVER GUESSED HERE — settled wording,
+            # not a starting point: `render` refuses the send rather than let a hole through, the
+            # same discipline `amount`/`date` already apply above.
+            if reward_type == "gift":
+                if not service_text:
+                    raise RenderError(
+                        "الهدية بلا خدمة محدَّدة — لا تُرسَل رسالة تعِد بهديةٍ غامضة.")
+                text = f"هديتك: {service_text}"
+            elif reward_type == "points":
+                if reward_points <= 0:
+                    raise RenderError(
+                        "منح النقاط بلا عدد — لا تُرسَل رسالة تعِد بنقاطٍ لا تُحصى.")
+                text = f"منحناك {reward_points} نقطة هدية"
+            else:
+                # discount, and the default for every campaign that predates this feature.
+                if not offer_value:
+                    raise RenderError(
+                        "العرض بلا قيمة خصم — لا تُرسَل رسالة تعِد بخصمٍ غير محدَّد.")
+                text = f"لك خصم {offer_value}"
+                if service_text:
+                    text += f" على {service_text}"
+            out[key] = text
+            # SEE THIS FUNCTION'S OWN DOCSTRING — `render` reads this fill by MEANING, not by the
+            # slot's number, so it is stashed under its own name too.
+            out["reward"] = text
         elif source == "establishment":
             # AN OWNER-ONLY TEMPLATE'S OWN NAME SLOT (per_weekly_digest) — never the number==1
             # customer assumption below, which is exactly the defect the seed's own comment

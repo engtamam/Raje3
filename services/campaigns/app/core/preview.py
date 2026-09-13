@@ -131,9 +131,34 @@ def sanitise_owner_text(value: str, *, required: bool) -> str:
     return v
 
 
+def compose_reward(*, reward_type: str, offer_value: str, service_text: str,
+                   reward_points: int) -> str:
+    """The one composed sentence a `reward` fill resolves to — settled wording, matched exactly to
+    reminders' own `rendering.campaign_slots` (the real send composes the identical three shapes;
+    this is the screen showing the owner the same sentence before he presses launch).
+
+    RAISES, LIKE `sanitise_offer_value` ABOVE, rather than showing a placeholder for a reward that
+    cannot compose — a preview promising a sentence the send will refuse is worse than a refusal
+    now, while he is still looking at the screen.
+    """
+    if reward_type == "gift":
+        if not service_text:
+            raise PreviewError("الهدية تحتاج خدمة محدَّدة من كتالوجك — اختر واحدة على الأقل.")
+        return f"هديتك: {service_text}"
+    if reward_type == "points":
+        if reward_points <= 0:
+            raise PreviewError("عدد نقاط الهدية يجب أن يكون أكبر من صفر.")
+        return f"منحناك {reward_points} نقطة هدية"
+    value = sanitise_offer_value(offer_value, required=True)
+    text = f"لك خصم {value}"
+    if service_text:
+        text += f" على {service_text}"
+    return text
+
+
 def render_message(*, template: dict[str, Any], establishment: str, owner_text: str,
                    sample_name: str = "", offer_value: str = "", ends_at: str = "",
-                   service_text: str = "") -> str:
+                   service_text: str = "", reward_text: str = "") -> str:
     """The template filled, as one line of text.
 
     Rendered with a REAL customer's name when we have one and the fallback when we do not — the
@@ -159,6 +184,8 @@ def render_message(*, template: dict[str, Any], establishment: str, owner_text: 
             values[number] = ends_at
         elif source == "catalogue" and service_text:
             values[number] = service_text
+        elif source == "reward" and reward_text:
+            values[number] = reward_text
         else:
             # A system value we cannot know at preview time — a date, an amount, a service name.
             # Rendered as a readable placeholder rather than left as {{4}}: the owner is judging
@@ -173,13 +200,19 @@ def render_message(*, template: dict[str, Any], establishment: str, owner_text: 
 
 def build(*, goal: str, template: dict[str, Any], establishment: str, owner_text: str,
           audience, when: str, offer_value: str = "", ends_at: str = "",
-          service_text: str = "") -> Preview:
+          service_text: str = "", reward_type: str = "discount",
+          reward_points: int = 0) -> Preview:
     """The whole screen. Raises PreviewError on anything the owner must fix first."""
     fills = list(template.get("fills") or [])
     needs_text = any(f == "owner" for f in fills)
     clean = sanitise_owner_text(owner_text, required=needs_text)
+    needs_reward = any(f == "reward" for f in fills)
     # THE DISCOUNT IS CHECKED WHILE HE IS LOOKING AT IT, not at the launch. «خصم كبير» typed into
     # the value field and discovered a screen later is a screen later than it needed to be.
+    #
+    # NOT REQUIRED WHEN THE TEMPLATE'S OWN SLOT IS "reward" RATHER THAN "amount" — a gift or a
+    # points reward carries no discount value at all, and `compose_reward` below does its own
+    # checking of whatever field THAT reward actually needs.
     value = sanitise_offer_value(offer_value, required=any(f == "amount" for f in fills))
     # SAME DOOR, SAME LOCK — fixed 2026-09-12, a real gap a QA audit found: `service_name`/
     # `package_name` fill this exact "catalogue" template variable and reach reminders verbatim as
@@ -189,11 +222,14 @@ def build(*, goal: str, template: dict[str, Any], establishment: str, owner_text
     # customer. `required=False`: an empty catalogue name is the normal, already-handled "…" case,
     # not a refusal.
     clean_service_text = sanitise_owner_text(service_text, required=False)
+    reward_text = (compose_reward(reward_type=reward_type, offer_value=value,
+                                  service_text=clean_service_text, reward_points=reward_points)
+                  if needs_reward else "")
 
     return Preview(
         message=render_message(template=template, establishment=establishment,
                                owner_text=clean, offer_value=value, ends_at=ends_at,
-                               service_text=clean_service_text),
+                               service_text=clean_service_text, reward_text=reward_text),
         reaches=audience.count,
         excluded=getattr(audience, "excluded", 0),
         too_recent=getattr(audience, "too_recent", 0),

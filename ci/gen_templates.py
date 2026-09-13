@@ -56,6 +56,11 @@ FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link"
          # never a template-level condition. Same discipline as «invite»: WhatsApp refuses an
          # empty variable, so this is always a full sentence, never blank.
          "rating_cta",
+         # A CAMPAIGN'S OWN COMPOSED REWARD (occasion pilot, 2026-09-13) — one of three sentences
+         # (a discount, a named gift, a points credit), composed server-side the same way
+         # «rating_cta» is, never a template-level condition either. See
+         # rendering.py::campaign_slots' own "reward" branch.
+         "reward",
          # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
          # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
          "establishment")

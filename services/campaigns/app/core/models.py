@@ -131,6 +131,31 @@ def validate_loyalty_window(*, window_days: int, min_visits: int) -> str:
     return ""
 
 
+#: What an `occasion` campaign may give (2026-09-13, the `occasion`-goal pilot). `discount` keeps
+#: today's behaviour exactly, which is why it is every campaign's default; `gift` and `points` are
+#: the two new doors, each requiring the one field it cannot compose a sentence without.
+REWARD_TYPES = ("discount", "gift", "points")
+
+
+def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,
+                    offer_value: str) -> str:
+    """One Arabic sentence naming what is wrong with a campaign's own reward, or "" when it is
+    coherent — same shape and calling convention as `validate_window`/`validate_loyalty_window`
+    above. Checked at write time, for the same reason those two are: a reward with a missing field
+    must be refused before it is ever stored, never discovered the first time a send tries to
+    compose a sentence around a hole.
+    """
+    if reward_type not in REWARD_TYPES:
+        return f"نوع المكافأة غير معروف — اختر واحداً من {REWARD_TYPES}"
+    if reward_type == "gift" and not scope_service_ids:
+        return "الهدية تحتاج خدمة محدَّدة من كتالوجك — اختر واحدة على الأقل"
+    if reward_type == "points" and reward_points <= 0:
+        return "عدد نقاط الهدية يجب أن يكون أكبر من صفر"
+    if reward_type == "discount" and not offer_value:
+        return "حدّد قيمة الخصم — نسبة مثل 20% أو مبلغاً مثل 50 ريال"
+    return ""
+
+
 def in_window(*, start_hour: int, end_hour: int, weekdays: list[int] | None, now: int) -> bool:
     """Is `now` (Riyadh local) inside this window right now?
 
@@ -254,6 +279,15 @@ class Campaign:
     # template slot declared `amount`, and could not phrase it the same way twice. A shop wrote
     # «خصم كبير» and the customer read a promise nobody could be held to.
     offer_value: str = ""
+    # ── which of three rewards this campaign gives (`occasion` pilot, 2026-09-13) ─────────────
+    # "discount" is every campaign's default, and it is the ONLY one that ever existed before this
+    # — a campaign created before this field did, or a goal this feature has not reached yet, reads
+    # exactly as it always has. See `validate_reward` above for what each of the other two requires
+    # and `rendering.campaign_slots`'s own "reward" branch for the composed sentence each produces.
+    reward_type: str = "discount"
+    # THE POINTS A "points" REWARD CREDITS — meaningless for the other two, same "0 is not yet
+    # decided" convention as every other optional numeric field on this dataclass.
+    reward_points: int = 0
     # The same services as `scope_service_ids`, by name — carried so the send can say «خصم على
     # غسيل خارجي» instead of an id. Names live in operations; this is the copy the message needs
     # at the moment it is written, and it is deliberately a snapshot: renaming a service later

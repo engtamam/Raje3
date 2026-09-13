@@ -395,7 +395,9 @@ class HttpSender:
                    flow_token: str = "",
                    flow_action_data: dict[str, Any] | None = None,
                    button_item_id: str = "",
-                   button_kind: str = "service") -> dict[str, Any]:
+                   button_kind: str = "service",
+                   reward_type: str = "discount",
+                   reward_points: int = 0) -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -418,6 +420,11 @@ class HttpSender:
             # travel as WORDS because reminders holds ids and cannot name anything.
             "offer_value": offer_value,
             "service_names": list(service_names or []),
+            # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES (occasion pilot, 2026-09-13) — "discount"
+            # on every send that never chose otherwise, so this field is never a surprise to a
+            # template that has no idea it exists.
+            "reward_type": reward_type,
+            "reward_points": reward_points,
         }
         # THE BOOKING FLOW'S OWN FIELDS (core/shape.py) — omitted from the body entirely when this
         # send opens nothing, which is every send from a shop without the appointment book. Same

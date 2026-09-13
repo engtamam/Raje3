@@ -38,11 +38,16 @@ class DispatchResult:
 class Dispatcher:
     def __init__(self, *, store, sender, audience_resolver, batch: int = 200,
                  telemetry=None, daily_share: int = 0, package_offerable=None,
-                 bookings_licence=None, assistant_licence=None, ai_toggle=None) -> None:
+                 bookings_licence=None, assistant_licence=None, ai_toggle=None,
+                 loyalty=None) -> None:
         self._s = store
         self._sender = sender
         self._resolve = audience_resolver
         self._batch = batch
+        # THE "points" REWARD'S OWN CREDIT (occasion pilot, 2026-09-13) — OPTIONAL like every other
+        # peer here: a deployment with none wired never calls `award()`, which only ever happens
+        # for a campaign whose owner chose `reward_type="points"` in the first place.
+        self._loyalty = loyalty
         self._t = telemetry
         # OPTIONAL — a deployment with none wired (tests, a driver not yet configured) simply never
         # runs this check; package_offer campaigns are a newer feature than this constructor.
@@ -210,6 +215,24 @@ class Dispatcher:
             # ONE CAMPAIGN REACHES ONE PERSON ONCE — which is also what `_already_reached` says in
             # the other direction, so the two now agree instead of one quietly undoing the other.
             key = f"cmp:{cid}:{candidate.subject_ref}"
+            reward_type = str(campaign.get("reward_type") or "discount")
+            reward_points = int(campaign.get("reward_points") or 0)
+            # THE "points" REWARD'S OWN CREDIT — fired ONCE per (campaign, recipient), on the SAME
+            # key the send below is idempotent on, so a retried pass never double-credits.
+            #
+            # BEFORE THE SEND, AND ITS OWN FAILURE MUST NOT CANCEL THE SEND. loyalty's own route
+            # docstring says plainly "no send happens here" — that is exactly why this caller is
+            # what actually has to fire it, and a lapsed licence or an unreachable peer answering
+            # `earned: 0` is loyalty's own true answer, not a reason to withhold a message the
+            # audience resolver already counted and the owner already paid for. The message's own
+            # composed sentence describes what the campaign INTENDED to give; the ledger there is
+            # what actually happened, and the two are allowed to disagree the way any courtesy
+            # credit can fail quietly without cancelling the news it rode in on.
+            if reward_type == "points" and reward_points > 0 and self._loyalty is not None:
+                await self._loyalty.award(
+                    tenant=tenant, subject_ref=candidate.subject_ref, points=reward_points,
+                    idempotency_key=key, reason="occasion", actor="campaigns",
+                    branch_id=str(campaign.get("branch_id") or ""))
             # THE SAME KEY AGAIN, AS THIS SEND'S FLOW TOKEN — see core/shape.py on why it is not
             # minted separately. PLAIN (both fields empty) for every send that opens nothing, which
             # reminders' sender omits from the wire body entirely.
@@ -240,6 +263,10 @@ class Dispatcher:
                     # rather than sending «خصم » with a hole where the number belongs.
                     offer_value=str(campaign.get("offer_value") or ""),
                     service_names=list(campaign.get("scope_service_names") or []),
+                    # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — see rendering.campaign_slots'
+                    # own "reward" branch for the composed sentence each produces.
+                    reward_type=reward_type,
+                    reward_points=reward_points,
                     # THE CAMPAIGN'S OWN BRANCH. It already narrows the audience; it must also
                     # decide the number the message leaves from, or a branch campaign speaks in the
                     # head office's voice and the reply lands on a team that cannot answer it.

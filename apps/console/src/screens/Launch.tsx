@@ -244,6 +244,16 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
    */
   // arabic-indic-digits: intentional — «٢٠٪» appears in the note above as the shape we refuse.
   const [offerValue, setOfferValue] = useState('');
+  /**
+   * WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `occasion` ONLY, for now (the pilot;
+   * `win_back`/`service_offer`/`package_offer` still only ever give the discount they always
+   * have). "discount" reproduces exactly today's screen; `gift` and `points` are the two new
+   * doors (`services/campaigns/app/core/models.py::validate_reward`).
+   */
+  const [rewardType, setRewardType] = useState<'discount' | 'gift' | 'points'>('discount');
+  // THE "points" REWARD'S OWN AMOUNT — a plain string while he types, same reasoning as
+  // `offerValue`'s own digit-folding above applies at the point it is read, not while it is held.
+  const [rewardPoints, setRewardPoints] = useState('');
   const [services, setServices] = useState<Service[] | null>([]);
   // `package_offer`'s OWN answer for the "catalogue" blank — a package, never a service (packages
   // feature). Fetched the same way `services` is: this service holds no catalogue of its own.
@@ -347,6 +357,22 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
   })();
   const combinedFireAt = picked?.goal === 'occasion' ? fireAt : generalFireAt;
+
+  // WHICH OF THREE REWARDS THE WIRE ACTUALLY CARRIES — "discount"/0 for every goal but the
+  // `occasion` pilot, so a goal that has never heard of this field sends exactly what it always
+  // sent (the server's own default matches, but sending it explicitly here keeps both sides
+  // reading the same value rather than trusting two defaults to agree forever).
+  const wireRewardType = picked?.goal === 'occasion' ? rewardType : 'discount';
+  const wireRewardPoints = picked?.goal === 'occasion' && rewardType === 'points'
+    ? Number(western(rewardPoints).replace(/[^0-9]/g, '')) || 0 : 0;
+  // WHAT STILL NEEDS FILLING BEFORE THE PREVIEW CAN EVEN BE ASKED FOR — mirrors
+  // `validate_reward`'s own three checks, so the button greys out before he pastes it as a
+  // refusal from the server instead.
+  const occasionRewardIncomplete = picked?.goal === 'occasion' && (
+    (rewardType === 'discount' && !offerValue)
+    || (rewardType === 'gift' && serviceIds.length === 0)
+    || (rewardType === 'points' && wireRewardPoints <= 0)
+  );
 
   /** The chosen day, at its last minute in Riyadh — an offer «حتى الخميس» is good all Thursday. */
   const expiresAt = (() => {
@@ -474,6 +500,9 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         window_start_hour: windowOn ? windowStartHour : 0,
         window_end_hour: windowOn ? windowEndHour : 24,
         window_weekdays: windowOn ? windowWeekdays : [],
+        // WHICH OF THREE REWARDS — `occasion` ONLY; see `wireRewardType`'s own comment above.
+        reward_type: wireRewardType,
+        reward_points: wireRewardPoints,
       }));
     } catch (e) {
       // THE SERVER'S SENTENCE, RENDERED AS IT CAME. «لا يوجد قالب مفعّل لهذا الهدف» is actionable;
@@ -559,6 +588,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                   onClick={() => {
                     setPicked(g); setServiceIds([]); setPackageIds([]);
                     setLoyaltyWindowDays(90); setLoyaltyMinVisits(3);
+                    setRewardType('discount'); setRewardPoints('');
                   }}
                   className={['flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors',
                              active ? 'bg-accent-soft ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-2'].join(' ')}
@@ -692,7 +722,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             {!preview ? (
               <Button disabled={busy
                                 || (hasBlank(picked, 'amount') && !offerValue)
-                                || (hasBlank(picked, 'date') && !endsOn)}
+                                || (hasBlank(picked, 'date') && !endsOn)
+                                || Boolean(occasionRewardIncomplete)}
                       onClick={() => void ask(picked)}>{t('launch.previewButton')}</Button>
             ) : (
               <Button
@@ -718,6 +749,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       window_start_hour: windowOn ? windowStartHour : 0,
                       window_end_hour: windowOn ? windowEndHour : 24,
                       window_weekdays: windowOn ? windowWeekdays : [],
+                      reward_type: wireRewardType,
+                      reward_points: wireRewardPoints,
                     });
                     setSent(tf(t, 'launch.sentSummary', { n: preview.reaches ?? 0 }));
                   } catch (e) {
@@ -899,11 +932,54 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           </label>
         ) : null}
 
+        {/* ── which of three rewards, `occasion` pilot only ─────────────────────────────────
+            THE OWNER PICKS ONE, AND THE MESSAGE IS COMPOSED AROUND IT SERVER-SIDE — no new Meta
+            template exists for this: the body stays reward-agnostic and one slot carries the
+            whole composed sentence (`rendering.campaign_slots`'s own "reward" branch). */}
+        {picked.goal === 'occasion' ? (
+          <div className="flex flex-col gap-2 rounded-card border border-border-subtle p-3">
+            <span className="text-sm font-medium">{t('launch.reward.title')}</span>
+            <Segmented
+              ariaLabel={t('launch.reward.title')}
+              value={rewardType}
+              onChange={(v) => { setRewardType(v as 'discount' | 'gift' | 'points'); setPreview(null); }}
+              options={[
+                { value: 'discount', label: t('launch.reward.discount') },
+                { value: 'gift', label: t('launch.reward.gift') },
+                { value: 'points', label: t('launch.reward.points') },
+              ]}
+            />
+          </div>
+        ) : null}
+
+        {/* عدد النقاط — `occasion` + `points` ONLY. Hides the discount value and the service
+            picker: a points reward names no service and no percentage, only the credit itself. */}
+        {picked.goal === 'occasion' && rewardType === 'points' ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">{t('launch.reward.pointsLabel')}</span>
+            <input
+              type="number"
+              min={1}
+              dir="ltr"
+              value={western(rewardPoints).replace(/[^0-9]/g, '')}
+              onChange={(e) => {
+                setRewardPoints(western(e.target.value).replace(/[^0-9]/g, ''));
+                setPreview(null);
+              }}
+              className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-center text-sm tabular-nums"
+            />
+          </label>
+        ) : null}
+
         {/* ── how much ────────────────────────────────────────────────────────────────────
             TWO BUTTONS AND A NUMBER, not a free field. He taps «نسبة» or «مبلغ» and types the
             number; we build «20%» or «50 ريال». A field that accepts anything accepts «خصم كبير»,
-            and the send refuses it after he has already decided he is done. */}
-        {hasBlank(picked, 'amount') ? (
+            and the send refuses it after he has already decided he is done.
+            `occasion` READS ITS OWN `rewardType` HERE RATHER THAN `hasBlank(picked, 'amount')` —
+            the template's own blank is now "reward", not "amount" (no new Meta template exists
+            for this pilot — see the module's own note), so the server no longer lists "amount"
+            among this goal's blanks at all. */}
+        {(picked.goal === 'occasion' ? rewardType === 'discount' : hasBlank(picked, 'amount')) ? (
           <div className="flex flex-col gap-1">
             <span className="text-sm">{t('launch.discountLabel')}</span>
             <div className="flex items-center gap-2">
@@ -1028,7 +1104,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               })}
             </div>
           </div>
-        ) : hasBlank(picked, 'catalogue') ? (
+        ) : hasBlank(picked, 'catalogue')
+            || (picked.goal === 'occasion' && rewardType !== 'points') ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-sm">{t('launch.servicePickLabel')}</span>
             {/* ORDERED LEAST-TAKEN FIRST, SILENTLY — «عرض على خدمة» exists for exactly this: an

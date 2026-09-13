@@ -7,7 +7,7 @@ import pytest
 
 from app.core.audience import DAY, DEFAULT_MAX_AUDIENCE, resolve
 from app.core.models import (GOAL_TEMPLATE, Campaign, Run, in_window, validate_loyalty_window,
-                             validate_window)
+                             validate_reward, validate_window)
 
 NOW = 1_800_000_000
 # NOW, in Riyadh local time, is Friday (weekday 4) at 11:00 — pinned here once so every window
@@ -196,6 +196,34 @@ def test_validate_loyalty_window_accepts_the_defaults_and_the_full_range_edges()
 def test_a_campaign_never_touching_the_thresholds_gets_todays_defaults():
     c = Campaign(tenant="t1", goal="reward_loyal")
     assert c.loyalty_window_days == 90 and c.loyalty_min_visits == 3
+
+
+def test_validate_reward_refuses_an_unknown_type():
+    assert validate_reward(reward_type="loyalty_stamp", reward_points=0,
+                           scope_service_ids=[], offer_value="20%")
+
+
+def test_validate_reward_a_gift_needs_a_named_service():
+    assert validate_reward(reward_type="gift", reward_points=0,
+                           scope_service_ids=[], offer_value="")
+    assert validate_reward(reward_type="gift", reward_points=0,
+                           scope_service_ids=["svc_1"], offer_value="") == ""
+
+
+def test_validate_reward_points_needs_a_positive_count():
+    assert validate_reward(reward_type="points", reward_points=0,
+                           scope_service_ids=[], offer_value="")
+    assert validate_reward(reward_type="points", reward_points=-1,
+                           scope_service_ids=[], offer_value="")
+    assert validate_reward(reward_type="points", reward_points=50,
+                           scope_service_ids=[], offer_value="") == ""
+
+
+def test_validate_reward_discount_needs_a_value_same_as_before_this_feature():
+    assert validate_reward(reward_type="discount", reward_points=0,
+                           scope_service_ids=[], offer_value="")
+    assert validate_reward(reward_type="discount", reward_points=0,
+                           scope_service_ids=[], offer_value="20%") == ""
 
 
 def test_in_window_checks_the_hour_in_riyadh_local_time():

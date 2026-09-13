@@ -41,6 +41,9 @@ SERVICES = ROOT / "services"
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
 FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
         "rating_cta",
+        # A CAMPAIGN'S OWN COMPOSED REWARD (occasion pilot, 2026-09-13) — see gen_templates.py's
+        # own note on this same name.
+        "reward",
         # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
         # otherwise assumes at slot 1. See rendering.py::campaign_slots' own `establishment` branch.
         "establishment")
@@ -48,7 +51,7 @@ FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link"
 # A blank of this kind may only appear in a template of these classes. `amount` is an offer by its
 # nature: a utility template carrying a discount is marketing by its text whatever it is labelled
 # (§8.4.1), and Meta re-categorises it and bills accordingly.
-CLASS_OF_FILL = {"amount": {"marketing"}}
+CLASS_OF_FILL = {"amount": {"marketing"}, "reward": {"marketing"}}
 
 C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 
