@@ -261,6 +261,7 @@ export function App() {
         to: s.path,
         label: s.unavailable ? `${s.label} · متعذّر الآن` : s.label,
         icon: s.icon,
+        accent: s.accent,
       }))}
       user={{ name: session.operatorName || session.operator }}
       labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج',

@@ -4,7 +4,7 @@
 // future shell change edits THIS file only. Everything channel-specific — the nav items, brand,
 // authenticated user, sign-out/account/theme/language handlers, an optional command-palette slot — is
 // supplied by props. Page content renders through <Outlet/>; the collapse state persists per-browser.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   Command,
@@ -41,6 +41,12 @@ export interface AppShellNavItem {
   icon?: LucideIcon;
   /** Optional group id (matches an AppShellNavGroup). Ungrouped items render before any heading. */
   group?: string;
+  /** THIS ITEM'S OWN ACTIVE-STATE COLOUR (2026-09-13, the owner's own instruction: "كل أيقونة
+   *  لازم لون يميّزها"). A hex string from a categorical set (theme/navAccents.ts) — one hue per
+   *  section, never cycled, so a rail with more sections than colours gets a real new hue added
+   *  there rather than a repeat. Falls back to the rail's own default amber when absent, so an app
+   *  that has not adopted per-item colour yet (admin, affiliate) renders exactly as before. */
+  accent?: string;
 }
 
 /** A heading that groups nav items (admin's Customers / Revenue / Catalog / System). Client passes none
@@ -133,19 +139,24 @@ function renderNavItem(
   // on the label being visible.
   // ACTIVE'S OWN COLOUR IS DELIBERATELY NOT THE BRAND ACCENT — a nav rail that paints "you are
   // here" in the same purple as every primary button/link in the product reads as one more
-  // instance of the brand colour, not as its own distinct signal. A warm amber ("اصفر شاذ شوية")
-  // stands apart from the accent family on purpose, so the active row is legible at a glance
-  // without adding to the accent's own footprint (see the 60-30-10 audit this session).
+  // instance of the brand colour, not as its own distinct signal. AND, PER SECTION NOW
+  // (2026-09-13, the owner's own instruction: "كل أيقونة لازم لون يميّزها") — a single flat amber
+  // for every item read as no different from one plain colour everywhere, which was the whole
+  // complaint. `item.accent` (theme/navAccents.ts's categorical set, one hue per section, never
+  // cycled) rides in as a CSS custom property so the SAME Tailwind arbitrary-value classes work
+  // for every item — no per-hex class ever needs to exist at build time. Falls back to the
+  // original amber for an app that has not adopted per-item colour yet.
   // COLLAPSED DROPS THE ROW'S OWN `bg-surface-2` ENTIRELY — kept, it was a gray rounded-lg pill
-  // sitting behind the icon chip's own (smaller, amber, `rounded-md`) fill, and the two shapes'
-  // corners never lined up: a visible seam of grey peeking around the orange circle, reading as
-  // two composited layers rather than one native shape. Expanded, the row's own fill is real
-  // (it is what makes the WHOLE row read as active, not just the icon); collapsed, the icon chip
-  // alone already fills the visible space, so the row needs no fill of its own to repeat it.
+  // sitting behind the icon chip's own (smaller, tinted, `rounded-md`) fill, and the two shapes'
+  // corners never lined up: a visible seam of grey peeking around the chip, reading as two
+  // composited layers rather than one native shape. Expanded, the row's own fill is real (it is
+  // what makes the WHOLE row read as active, not just the icon); collapsed, the icon chip alone
+  // already fills the visible space, so the row needs no fill of its own to repeat it.
+  const NAV_STYLE = (accent?: string) => ({ '--nav-item-accent': accent || '#f0a020' } as CSSProperties);
   const active = (isCollapsed: boolean) => cn(
     'text-text-primary font-semibold',
     !isCollapsed && 'bg-surface-2',
-    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[#f0a020] before:content-['']",
+    "before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-[var(--nav-item-accent)] before:content-['']",
   );
   // A TRUE NEUTRAL HOVER, NOT `surface-2` — `surface-2` carries a faint lavender cast (it is a
   // step off the accent hue, by design, elsewhere in the theme), so a plain "you're hovering
@@ -156,13 +167,13 @@ function renderNavItem(
   // afterthought next to the active row's filled square, so the list looked "half-finished" rather
   // than one consistent design. AT REST the chip is a tinted surface with a hairline ring (depth
   // without weight); ON HOVER it darkens neutrally instead of tinting toward the accent, same
-  // reasoning as `inactive` above; ACTIVE is the same warm amber as the leading bar, not the
-  // brand accent — still fully legible, just its own colour rather than a purple repeat.
+  // reasoning as `inactive` above; ACTIVE is this item's OWN colour (see NAV_STYLE above), not the
+  // brand accent — still fully legible, and now distinct section to section.
   const iconWrap = (isActive: boolean) => cn(
     'grid size-7 shrink-0 place-items-center rounded-md transition-all duration-150',
     'group-hover:scale-105',
     isActive
-      ? 'bg-gradient-to-br from-[#f0a020] to-[#f0a020]/85 text-white shadow-sm ring-1 ring-[#f0a020]/40'
+      ? "bg-gradient-to-br from-[var(--nav-item-accent)] to-[color-mix(in_oklab,var(--nav-item-accent)_85%,transparent)] text-white shadow-sm ring-1 ring-[color-mix(in_oklab,var(--nav-item-accent)_40%,transparent)]"
       : 'bg-surface-2 text-text-muted ring-1 ring-border-subtle/60 group-hover:bg-black/[0.06] group-hover:text-text-primary group-hover:ring-border-strong/40 dark:group-hover:bg-white/10',
   );
   // COLLAPSED ACCESSIBLE NAME WAS `title=` ALONE — a hover tooltip, invisible to a screen reader that
@@ -179,6 +190,7 @@ function renderNavItem(
         title={collapsed ? item.label : undefined}
         aria-label={collapsed ? item.label : undefined}
         aria-current={isActive ? 'page' : undefined}
+        style={NAV_STYLE(item.accent)}
         className={cn(base, layout, 'w-full text-start', isActive ? active(collapsed) : inactive)}
       >
         {Icon && <span className={iconWrap(isActive)} aria-hidden><Icon size={16} /></span>}
@@ -193,6 +205,7 @@ function renderNavItem(
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
       aria-label={collapsed ? item.label : undefined}
+      style={NAV_STYLE(item.accent)}
       className={({ isActive }) => cn(base, layout, isActive ? active(collapsed) : inactive)}
     >
       {({ isActive }) => (

@@ -125,13 +125,21 @@ const light: Palette = {
   // and an informational note no longer share one hue by accident).
   'surface-0': '#f7f3ea',
   'surface-1': '#ffffff',
-  'surface-2': '#efe7d4',
-  'surface-3': '#e6dcc2',
+  // WIDENED 2026-09-13 (the owner's own instruction — every filter chip, toggle track and
+  // unselected segment read as "the exact same colour as the page", and it measured out true:
+  // the old surface-2 (#efe7d4) sat only ~9% darker than surface-0 in mean RGB, and surface-3
+  // only ~5% past that — both far under what a "this is a distinct, sunken surface" read needs.
+  // These now step down ~14 and ~12 points respectively, keeping the same warm-cream hue family
+  // (nothing rebranded, just separated) so a chip's OFF state, a toggle's OFF track, and an
+  // unselected tab are all visibly a different surface from the page under them, not merely a
+  // different DOM node painted the same colour.
+  'surface-2': '#e5dbc0',
+  'surface-3': '#d7c8a5',
   'text-primary': '#1b1712',
   'text-secondary': '#6b6354',
   'text-muted': '#8a806c',
-  'border-subtle': '#e9e1cc',
-  'border-strong': '#ddd0ae',
+  'border-subtle': '#d9cba8',
+  'border-strong': '#c2b284',
   accent: ACCENT_LIGHT.base,
   'accent-hover': ACCENT_LIGHT.hover,
   // Violet is dark enough at this saturation that WHITE ink reads clearly on a filled button —
@@ -253,6 +261,32 @@ const scale: Scale = {
     mono: "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
   },
 };
+
+/**
+ * NAV_ACCENTS — one hue per sidebar section (2026-09-13, the owner's own instruction: "كل أيقونة
+ * لازم لون يميّزها", every icon needs its own distinguishing colour — a single flat amber for
+ * every active item read as "everything is one colour", exactly the complaint). A CATEGORICAL
+ * SET, never cycled: consumed positionally by apps/console/src/nav.ts's own SECTIONS, one entry
+ * per section, in the SAME fixed order every time — a future 11th section gets its own new hue
+ * appended here, never a repeat of an earlier one. Deliberately clear of the four semantic
+ * colours (danger/warning/success/gift) and the brand accent above, so a nav icon's colour is
+ * never mistaken for a status or for "act on this" — these mean nothing but "this is where you
+ * are", the same role the single amber used to carry alone. Same ten hexes in both appearances:
+ * picked at a lightness/saturation that reads clearly on both the light cream ground and the
+ * dark plum one, so one set serves both rather than needing a second table to keep in sync.
+ */
+export const NAV_ACCENTS = [
+  '#1971C2', // 0 — blue
+  '#2F9E44', // 1 — green
+  '#F08C00', // 2 — orange
+  '#E64980', // 3 — pink
+  '#862E9C', // 4 — purple
+  '#0C8599', // 5 — dark cyan
+  '#5C7CFA', // 6 — indigo
+  '#099268', // 7 — teal
+  '#495057', // 8 — slate
+  '#C2255C', // 9 — rose
+] as const;
 
 export const themeConfig = {
   defaultAppearance: 'light' as Appearance,

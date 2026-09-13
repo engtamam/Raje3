@@ -24,6 +24,7 @@ import {
   CalendarClock, ClipboardPlus, Gift, LifeBuoy, MessageSquare, Star, Store, TrendingUp, Users,
   Wrench,
 } from 'lucide-react';
+import { NAV_ACCENTS } from '@base-ui/theme';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
 
@@ -49,6 +50,10 @@ export interface Section {
    *  capability filter below finds nothing, and the row simply vanishes — which the owner reads
    *  as «my subscription changed» or «I lost a permission», and he calls support about neither. */
   service?: string;
+  /** THIS SECTION'S OWN ACTIVE-STATE COLOUR (2026-09-13) — one entry from `NAV_ACCENTS`, assigned
+   *  by POSITION below so the whole rail reads as ten distinct sections rather than one flat
+   *  amber for all of them (the owner's own instruction). */
+  accent?: string;
 }
 
 /** A section as the shell must draw it: present, and possibly not usable right now. */
@@ -84,18 +89,21 @@ export const SECTIONS: Section[] = [
   // and that costs nobody anything: the four office roles hold `reminders.read` and
   // `insights.read` together, and the two who hold neither (operator, partner) never saw either
   // half of this page.
-  { service: 'insights', id: 'shop', path: '/', label: 'محلّي', icon: TrendingUp, requires: ['reminders.today', 'insights.dashboard'] },
+  {
+    service: 'insights', id: 'shop', path: '/', label: 'محلّي', icon: TrendingUp,
+    requires: ['reminders.today', 'insights.dashboard'], accent: NAV_ACCENTS[0],
+  },
   // The field screen: one action, and it is the one every operator has.
-  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'] },
+  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'], accent: NAV_ACCENTS[1] },
   // الحجوزات: نفس الباب الذي يفتح الزيارة (docs/وصف-تطبيق-الحجوزات.md §2.5) — من يحجز لعميلةٍ
   // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
-  { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'] },
-  { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'] },
+  { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'], accent: NAV_ACCENTS[2] },
+  { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'], accent: NAV_ACCENTS[3] },
   // «التقييم» — WAS A TAB UNDER «عملائي» (رأي عميل هو حقيقة عن زيارته، نفس نطاق «عملائي»)، صار
   // قسماً قائماً بذاته لأن ما بناه هذا الإصدار (مقارنة الفريق، لوحة الصدارة، مصفوفة الأداء) صار
   // أداة إدارة قائمة بحد ذاتها، لا مجرد قائمة تقييمات. نفس بوابة `operations.ratings` التي كانت
   // تُظهر التبويب القديم.
-  { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'] },
+  { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'], accent: NAV_ACCENTS[4] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
@@ -120,13 +128,13 @@ export const SECTIONS: Section[] = [
   // the market — a coffee shop or a spare-parts counter opening «خدماتي» reads a section that
   // apparently is not for them and does not open it again. The rail pays two extra words for a
   // trade that would otherwise think the product was not built for it.
-  { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', icon: Wrench, requires: ['operations.update_service'] },
-  { service: 'reminders', id: 'messages', path: '/messages', label: 'الحملات', icon: MessageSquare, requires: ['reminders.get_settings'] },
+  { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', icon: Wrench, requires: ['operations.update_service'], accent: NAV_ACCENTS[5] },
+  { service: 'reminders', id: 'messages', path: '/messages', label: 'الحملات', icon: MessageSquare, requires: ['reminders.get_settings'], accent: NAV_ACCENTS[6] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
-  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', icon: Gift, requires: ['loyalty.rewards.update'] },
+  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', icon: Gift, requires: ['loyalty.rewards.update'], accent: NAV_ACCENTS[7] },
   // THE STORE IS A PLACE NOW, BECAUSE FOUR SCREENS ALREADY SENT PEOPLE TO IT.
   //
   // «رقِّ باقتك من «متجر التطبيقات»» — «أضِفه إلى اشتراكي» — every locked card and the branch
@@ -136,7 +144,7 @@ export const SECTIONS: Section[] = [
   //
   // ONE NAME, IN THE RAIL, WHERE A SHOP GOES TO BUY. Not a ninth errand: it is the only row
   // that takes money, and a product that hides its own till is a product that does not sell.
-  { service: 'billing', id: 'store', path: '/store', label: 'متجر التطبيقات', icon: Store, requires: ['billing.plans'] },
+  { service: 'billing', id: 'store', path: '/store', label: 'متجر التطبيقات', icon: Store, requires: ['billing.plans'], accent: NAV_ACCENTS[8] },
   // «الدعم الفني» — the shop's own half of the support loop, the affiliate portal's
   // TicketCarousel being the other. `tickets.open` is ticket-service's own user action
   // (platform/services/ticket-service/app/user_actions.py) — `tickets.self`, granted to owner and
@@ -149,7 +157,7 @@ export const SECTIONS: Section[] = [
   // asking, not about the shop's own work the rest of the rail lists. The entry stays HERE,
   // unfiltered, so `tickets.open`'s gating and `check_roles.py`'s reachability check are both
   // still driven by one row, not two definitions of what "can this person reach support" means.
-  { service: 'ticket-service', id: 'support', path: '/support', label: 'الدعم الفني', icon: LifeBuoy, requires: ['tickets.open'] },
+  { service: 'ticket-service', id: 'support', path: '/support', label: 'الدعم الفني', icon: LifeBuoy, requires: ['tickets.open'], accent: NAV_ACCENTS[9] },
   // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
   // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
   // once rather than a place to stand. The rail keeps the eight rows that are about the work.
