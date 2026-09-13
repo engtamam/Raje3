@@ -68,8 +68,9 @@ C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 # A note explaining why something is broken is not a fix; #387 acted on the notes.
 #
 # WHAT CHANGED:
-#   · `wrn_safety_notice` is no longer asleep — «نبّه عن خطر» is a manual goal now, which is what
-#     §8.4.1 asked for all along: reviewed case by case, launched by a human, never automatic.
+#   · `wrn_safety_notice` was deleted outright (2026-09-13) rather than woken — it sat with no
+#     sender for as long as this list has tracked it, and a wording nobody could send cost a
+#     template slot and a review the same as any other dead type would.
 #   · `mkt_coupon` was MERGED rather than woken: its code blank now lives in the three offer
 #     wordings that can actually be selected, so a separate template would be two wordings for one
 #     intention.
@@ -82,11 +83,6 @@ SLEEPING = {
     # `reason_types()`/`campaign_types()` never scan — they read only reminders' reasons.py and
     # campaigns' models.py. A checker gap, not a dead template.
     "wa_catalog_carousel": "يُطلَق مباشرة من whatsapp-assistant (CarouselSender)، خارج ما يفحصه هذا الملف",
-    # REMOVED FROM `goals.py`/`GOAL_TEMPLATE` at the owner's own instruction (see
-    # apps/console/src/screens/Messages.tsx's own note on the removal) — the wording stays
-    # written and Meta-approved per spec (§ تحذير السلامة يمرّ بأعيننا حالةً حالة), pending a
-    # decision on how a human reviews and launches one case at a time, not an automatic goal.
-    "wrn_safety_notice": "أُزيل هدفها اليدوي من الحملات بقرار المالك، بانتظار آلية مراجعة يدوية قبل إعادته",
 }
 
 
