@@ -89,13 +89,13 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
 async def service_due_settings(request: Request, tenant: str = "") -> dict:
     """What reminders needs, at send time, for every «حان وقت الخدمة» / «لم يستجب» send.
 
-    THE DEFAULTS ARE THE WHOLE POINT: a shop that never opened this settings screen gets
-    `active=True, reward_type="discount", reward_points=0` — exactly today's plain reminder,
-    unchanged, forever (`SDS.DEFAULTS`). Called by reminders' own peer client
-    (`HttpServiceDueSettings`/`NullServiceDueSettings`), never by the console directly — the owner's
-    OWN read/write of these three fields is the public `/campaigns/service-due-settings` route
-    above, guarded by a user token; this one is guarded by the internal token, the same pattern
-    every other service-to-service read in this file already follows.
+    THE DEFAULT IS THE WHOLE POINT: a shop that never opened this settings screen gets
+    `active=True` — exactly today's plain reminder, unchanged, forever (`SDS.DEFAULTS`). Called by
+    reminders' own peer client (`HttpServiceDueSettings`/`NullServiceDueSettings`), never by the
+    console directly — the owner's OWN read/write of this one field is the public
+    `/campaigns/service-due-settings` route above, guarded by a user token; this one is guarded by
+    the internal token, the same pattern every other service-to-service read in this file already
+    follows.
     """
     settings = await SDS.load(request.app.state.container.datastore, tenant)
     return settings.as_dict()

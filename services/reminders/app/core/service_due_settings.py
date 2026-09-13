@@ -3,17 +3,16 @@
 
 THE COMPUTATION STAYS HERE, THE SETTINGS DO NOT. `scheduling.py` still decides exactly when this
 message is due, per service, per customer — untouched by this file. What moved to campaigns is only
-the owner's own on/off switch and reward choice for the goal, because that is a SETTING an owner
-picks once and forgets, the same shape `win_back`/`reward_loyal` already are there — not a
-computation this service owns.
+the owner's own on/off switch for the goal — no reward choice (owner's own call, 2026-09-13: keep
+this the old mechanism, an on/off switch and nothing else).
 
 SAME `Null*`/`Http*` SHAPE AS EVERY OTHER PEER IN THIS PRODUCT (mirroring campaigns' own
 `HttpLoyalty`/`NullLoyalty` in `adapters/peers/__init__.py`): a `Null*` that answers the SAFE
-DEFAULT — `active=True`, no reward — so a deployment that never wired `CAMPAIGNS_SERVICE_URL` keeps
-sending exactly the reminder it always has, and an `Http*` that asks campaigns for real, failing
-back to that same safe default on any trouble. FAILS OPEN, DELIBERATELY: an unreachable campaigns
-service must not silence a reminder every shop already relies on — the one thing it must never do
-is fail CLOSED into suppressing today's working behaviour.
+DEFAULT — `active=True` — so a deployment that never wired `CAMPAIGNS_SERVICE_URL` keeps sending
+exactly the reminder it always has, and an `Http*` that asks campaigns for real, failing back to
+that same safe default on any trouble. FAILS OPEN, DELIBERATELY: an unreachable campaigns service
+must not silence a reminder every shop already relies on — the one thing it must never do is fail
+CLOSED into suppressing today's working behaviour.
 """
 from __future__ import annotations
 
@@ -27,17 +26,13 @@ from app.adapters import internal_http
 
 _get = internal_http.get_json
 
-#: The untouched, byte-for-byte-unchanged-today defaults — see this module's own docstring.
+#: The untouched, byte-for-byte-unchanged-today default — see this module's own docstring.
 DEFAULT_ACTIVE = True
-DEFAULT_REWARD_TYPE = "discount"
-DEFAULT_REWARD_POINTS = 0
 
 
 @dataclass(frozen=True)
 class ServiceDueSettings:
     active: bool = DEFAULT_ACTIVE
-    reward_type: str = DEFAULT_REWARD_TYPE
-    reward_points: int = DEFAULT_REWARD_POINTS
 
 
 class NullServiceDueSettings:
@@ -77,9 +72,6 @@ class HttpServiceDueSettings:
             # FAILS OPEN — see this module's own docstring. Not cached: a transient outage must not
             # freeze the safe default in place for the whole TTL once the peer recovers.
             return ServiceDueSettings()
-        settings = ServiceDueSettings(
-            active=bool(data.get("active", DEFAULT_ACTIVE)),
-            reward_type=str(data.get("reward_type") or DEFAULT_REWARD_TYPE),
-            reward_points=int(data.get("reward_points") or 0))
+        settings = ServiceDueSettings(active=bool(data.get("active", DEFAULT_ACTIVE)))
         self._cache[tenant] = (now, settings)
         return settings

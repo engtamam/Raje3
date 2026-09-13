@@ -1,7 +1,7 @@
-"""«حان وقت الخدمة»'s own settings record (2026-09-13) — on/off and reward choice, never a
-launched campaign. Proves: the public route upserts one row per tenant, the internal route
-reminders will call answers the right defaults and the right custom values, and a `gift` reward
-(disallowed for this goal — see service_due_settings.py's own note) is refused.
+"""«حان وقت الخدمة»'s own settings record (2026-09-13) — on/off only, never a launched campaign and
+never a reward choice (owner's own explicit call: keep this the old mechanism, nothing else).
+Proves: the public route upserts one row per tenant, and the internal route reminders will call
+answers the right defaults and the right custom value.
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def test_a_tenant_that_never_touched_it_reads_todays_untouched_default(client):
     _app, http = client
     r = http.get("/api/v1/campaigns/service-due-settings", headers=_auth("tnt_fresh"))
     assert r.status_code == 200, r.text
-    assert r.json() == {"active": True, "reward_type": "discount", "reward_points": 0}
+    assert r.json() == {"active": True}
 
 
 def test_the_internal_route_matches_the_owner_facing_default_for_an_untouched_tenant(client):
@@ -60,7 +60,7 @@ def test_the_internal_route_matches_the_owner_facing_default_for_an_untouched_te
                 params={"tenant": "tnt_fresh_2"},
                 headers={"X-Internal-Token": INTERNAL_TOKEN})
     assert r.status_code == 200, r.text
-    assert r.json() == {"active": True, "reward_type": "discount", "reward_points": 0}
+    assert r.json() == {"active": True}
 
 
 def test_turning_it_off_is_read_back_by_the_owner_and_by_the_internal_route(client):
@@ -76,41 +76,7 @@ def test_turning_it_off_is_read_back_by_the_owner_and_by_the_internal_route(clie
 
     internal = http.get("/internal/campaigns/service-due-settings", params={"tenant": tenant},
                         headers={"X-Internal-Token": INTERNAL_TOKEN})
-    assert internal.json() == {"active": False, "reward_type": "discount", "reward_points": 0}
-
-
-def test_a_points_reward_is_stored_and_read_back(client):
-    _app, http = client
-    tenant = "tnt_points"
-    r = http.put("/api/v1/campaigns/service-due-settings",
-                json={"active": True, "reward_type": "points", "reward_points": 15},
-                headers=_auth(tenant))
-    assert r.status_code == 200, r.text
-    assert r.json() == {"active": True, "reward_type": "points", "reward_points": 15}
-
-    internal = http.get("/internal/campaigns/service-due-settings", params={"tenant": tenant},
-                        headers={"X-Internal-Token": INTERNAL_TOKEN})
-    assert internal.json() == {"active": True, "reward_type": "points", "reward_points": 15}
-
-
-def test_a_points_reward_with_no_points_is_refused(client):
-    _app, http = client
-    r = http.put("/api/v1/campaigns/service-due-settings",
-                json={"active": True, "reward_type": "points", "reward_points": 0},
-                headers=_auth("tnt_bad_points"))
-    assert r.status_code == 400
-    assert r.json()["error"] == "BAD_REQUEST"
-
-
-def test_a_gift_reward_is_refused_for_this_goal(client):
-    """`gift` is not in `service_due_settings.REWARD_TYPES` — see its own docstring on why a
-    reminder about one specific service does not also gift that same service."""
-    _app, http = client
-    r = http.put("/api/v1/campaigns/service-due-settings",
-                json={"active": True, "reward_type": "gift"},
-                headers=_auth("tnt_gift"))
-    assert r.status_code == 400
-    assert r.json()["error"] == "BAD_REQUEST"
+    assert internal.json() == {"active": False}
 
 
 def test_a_second_save_upserts_the_same_row_rather_than_creating_a_second_one(client):
@@ -118,13 +84,12 @@ def test_a_second_save_upserts_the_same_row_rather_than_creating_a_second_one(cl
     tenant = "tnt_upsert"
     http.put("/api/v1/campaigns/service-due-settings", json={"active": False},
             headers=_auth(tenant))
-    http.put("/api/v1/campaigns/service-due-settings",
-            json={"active": True, "reward_type": "points", "reward_points": 5},
+    http.put("/api/v1/campaigns/service-due-settings", json={"active": True},
             headers=_auth(tenant))
     listed = http.get("/api/v1/campaigns", headers=_auth(tenant))
     rows = [c for c in listed.json()["campaigns"] if c["goal"] == "service_due"]
     assert len(rows) == 1
-    assert rows[0]["reward_points"] == 5
+    assert rows[0]["state"] == "active"
 
 
 def test_the_internal_route_without_a_token_is_refused(client):

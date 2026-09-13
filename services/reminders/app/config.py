@@ -313,10 +313,10 @@ class Settings(BaseSettings):
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── «حان وقت الخدمة» / «لم يستجب»'s OWN campaigns-side settings (2026-09-13) ─────────────────
-    # On/off and reward choice for `svc_service_reminder` now live in campaigns as a standing
-    # settings record (services/campaigns/app/core/service_due_settings.py), read here at every
-    # send of this template. Unset (the default) answers the safe default —
-    # `active=True, reward_type="discount", reward_points=0`, today's plain reminder, unchanged.
+    # On/off for `svc_service_reminder` now lives in campaigns as a standing settings record
+    # (services/campaigns/app/core/service_due_settings.py), read here at every send of this
+    # template. Unset (the default) answers the safe default — `active=True`, today's plain
+    # reminder, unchanged.
     CAMPAIGNS_SERVICE_URL: str = ""          # e.g. http://campaigns-service:8000
     CAMPAIGNS_SERVICE_DUE_SETTINGS_PATH: str = "/internal/campaigns/service-due-settings"
     SERVICE_DUE_SETTINGS_CACHE_TTL_SECONDS: int = 300

@@ -879,15 +879,14 @@ def test_a_reason_the_shop_switched_off_sends_nothing_and_does_not_come_back(st)
     assert res2.scanned == 0
 
 
-# ── campaigns' own on/off + reward settings for this same goal (2026-09-13) ───────────────────
+# ── campaigns' own on/off settings for this same goal (2026-09-13) ─────────────────────────────
 class _FakeServiceDueSettings:
     """A stand-in for `core.service_due_settings.HttpServiceDueSettings`, same shape as the
     fakes used elsewhere in this suite for a peer this test wants full control over."""
 
-    def __init__(self, *, active=True, reward_type="discount", reward_points=0):
+    def __init__(self, *, active=True):
         from app.core.service_due_settings import ServiceDueSettings
-        self._answer = ServiceDueSettings(active=active, reward_type=reward_type,
-                                          reward_points=reward_points)
+        self._answer = ServiceDueSettings(active=active)
 
     async def load(self, tenant):
         return self._answer
@@ -904,23 +903,10 @@ def test_campaigns_turning_it_off_suppresses_the_send_with_its_own_reason(st):
 
 
 def test_campaigns_leaving_it_on_with_the_untouched_default_sends_exactly_as_before(st):
-    """`active=True, reward_type="discount", reward_points=0` — the untouched default — must
-    reproduce today's send byte for byte: no reward sentence, no different variables."""
+    """`active=True` — the untouched default — must reproduce today's send byte for byte."""
     sched(st)
     s = FakeSender()
     res = go(st, s, service_due_settings=_FakeServiceDueSettings())
-    assert res.sent == 1
-    assert s.calls[0]["variables"] == ["أحمد", "ورشة النخبة", "قص شعر"]
-
-
-def test_campaigns_a_configured_points_reward_still_sends_the_unchanged_message_today(st):
-    """See this session's own report: `svc_service_reminder`'s approved body has no spare slot for
-    a reward sentence yet, so a configured reward is stored on the row (ready for a future
-    template variant) but does not change what goes out today."""
-    sched(st)
-    s = FakeSender()
-    res = go(st, s, service_due_settings=_FakeServiceDueSettings(
-        reward_type="points", reward_points=20))
     assert res.sent == 1
     assert s.calls[0]["variables"] == ["أحمد", "ورشة النخبة", "قص شعر"]
 

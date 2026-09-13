@@ -336,7 +336,7 @@ def build_container(settings: Settings) -> Container:
         token=settings.INTERNAL_SERVICE_TOKEN,
         timeout=settings.PEER_TIMEOUT_SECONDS)
 
-    # «حان وقت الخدمة»'s OWN on/off + reward settings, now campaigns' — absent when
+    # «حان وقت الخدمة»'s OWN on/off settings, now campaigns' — absent when
     # `CAMPAIGNS_SERVICE_URL` is unset, same "safe default, never a boot-time refusal" posture as
     # `loyalty`'s own optional peer in campaigns' own container.
     from app.core.service_due_settings import HttpServiceDueSettings, NullServiceDueSettings

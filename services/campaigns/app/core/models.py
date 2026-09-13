@@ -153,21 +153,15 @@ REWARD_TYPES = ("discount", "gift", "points")
 #: both goals at once). `reward_loyal` and `announce` stay out: `reward_loyal` is already built
 #: around redeeming an EXISTING points balance for a catalogue item, a different mechanic than
 #: choosing a reward at creation; `announce` offers nothing today and has no `offer_value`/
-#: `scope_service_ids` for a reward to be built from in the first place.
+#: `scope_service_ids` for a reward to be built from in the first place. `service_due` stays out
+#: too, by the owner's own explicit call (2026-09-13): that goal is an on/off switch only, never a
+#: reward choice — see `service_due_settings.py`'s own docstring.
 #:
 #: A SET LITERAL, DELIBERATELY, NOT A TUPLE — `ci/check_template_fills.py::campaign_types()`
 #: regexes this whole file, unscoped, for a two-quoted-string pair inside parentheses to find
 #: `GOAL_TEMPLATE`'s own goal-to-class entries; a tuple of two strings here reads as a second,
 #: bogus entry of that same shape and corrupts that check. Curly braces do not match it.
-#: `service_due` JOINS THIS SET TOO (2026-09-13), but it is NOT validated through
-#: `validate_reward` below — its own settings route (`service_due_settings.py`) validates it with a
-#: narrower rule of its own. See that module's docstring for why: this goal never carries
-#: `scope_service_ids`/`offer_value` at all (it is a standing settings record, not a launched
-#: campaign), so `gift`'s scope requirement and `discount`'s amount requirement do not apply to it
-#: the way they do to every other member of this set — a `gift` reward for a reminder already ABOUT
-#: one specific service is a strange promise, and this set exists so `campaign_slots()`'s own
-#: "reward" branch and every OTHER goal's validation keep working exactly as they do today.
-REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer", "service_due"}
+REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer"}
 
 
 def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,

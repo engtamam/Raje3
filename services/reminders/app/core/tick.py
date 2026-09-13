@@ -683,13 +683,14 @@ class Tick:
         # ── 0b. «حان وقت الخدمة»'s OWN campaigns-side settings ────────────────────────────────
         # A SEPARATE GATE FROM STEP 0 ABOVE, DELIBERATELY (2026-09-13). Step 0 is reminders' own
         # per-reason switch (`choices.enabled`) — an owner customising his own wordings screen.
-        # This is campaigns' new standing settings record for the goal (on/off + reward), read
-        # once this session's own review reclassified the goal `marketing` and gave it a reward
-        # choice like every other marketing goal. Two switches, not one folded into the other: the
-        # existing per-reason toggle stays exactly the customer-facing "reminders/no_response"
-        # switch it always was, and this is an ADDITIONAL, independent gate — both must allow the
-        # send. SAME SHAPE AS STEP 0's OWN REFUSAL (closed, logged, counted) so an owner reading
-        # «رسائلي» sees one consistent vocabulary regardless of which switch stopped a message.
+        # This is campaigns' new standing settings record for the goal — ON/OFF ONLY, by the
+        # owner's own explicit call: no reward choice for this goal, same old mechanism as before,
+        # just moved to live in campaigns instead of reminders' own settings tree. Two switches,
+        # not one folded into the other: the existing per-reason toggle stays exactly the
+        # customer-facing "reminders/no_response" switch it always was, and this is an ADDITIONAL,
+        # independent gate — both must allow the send. SAME SHAPE AS STEP 0's OWN REFUSAL (closed,
+        # logged, counted) so an owner reading «رسائلي» sees one consistent vocabulary regardless
+        # of which switch stopped a message.
         if reason in ("service_due", "no_response"):
             due_settings = await self._service_due_settings.load(tenant)
             if not due_settings.active:
@@ -702,14 +703,6 @@ class Tick:
                 res.suppressed += 1
                 res.note(off)
                 return
-            # REWARD_TYPE/REWARD_POINTS ARE READ AND CARRIED, NOT YET RENDERED INTO THE MESSAGE.
-            # `svc_service_reminder`'s approved body has four fixed variables — customer, shop,
-            # service, stop-link — and no spare slot a reward sentence could occupy without a new
-            # template variant and fresh Meta approval (a separate task; see this session's own
-            # report). Stashed on the row so that work, once it lands, has the value ready rather
-            # than a second read to add.
-            row["reward_type"] = due_settings.reward_type
-            row["reward_points"] = due_settings.reward_points
 
         # ── 1. claim ──────────────────────────────────────────────────────────────────────────
         # Two replicas run this cron. Without the claim they both read `pending` and both send.
