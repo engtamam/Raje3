@@ -237,3 +237,77 @@ def test_verify_fails_when_a_row_does_not_round_trip():
     verdict = _verify(_TamperingStore(), archive)
     assert verdict["verified"] is False
     assert verdict["mismatches"], "a row that restored differently was reported as verified"
+
+
+# ── authoritative undo (backup-r2-01/02/04) ──────────────────────────────────────────────────────
+def test_prune_deletes_rows_the_archive_never_had():
+    """Overwrite alone puts back changed rows but leaves whatever a bad restore INSERTED — prune is
+    what makes `undo` a true rollback rather than a partial one."""
+    src = _seed(MemoryDataStore())
+    archive = _export(src)
+    _, unseal = B.make_sealer("backup-key")
+
+    dst = MemoryDataStore()
+    run(B.import_archive(dst, archive, unseal=unseal))
+    # A row the archive never described — exactly what a wrong restore since the backup would leave.
+    run(dst.put("widgets", "w_acme_ROGUE", {"id": "w_acme_ROGUE", "tenant": "acme", "n": 99}))
+
+    report = run(B.import_archive(dst, archive, unseal=unseal, overwrite=True,
+                                  prune=True, scan_cap=1000))
+    assert report["pruned"] == 1
+    assert run(dst.get("widgets", "w_acme_ROGUE")) is None
+    assert run(dst.get("widgets", "w_acme_1")) is not None   # the archive's own rows survive
+
+
+def test_prune_refuses_without_a_positive_scan_cap():
+    src = _seed(MemoryDataStore())
+    archive = _export(src)
+    _, unseal = B.make_sealer("backup-key")
+    with pytest.raises(B.BackupError, match="scan_cap"):
+        run(B.import_archive(MemoryDataStore(), archive, unseal=unseal, prune=True))
+
+
+def test_prune_refuses_alongside_into_tenant():
+    """A clone is additive; it must never delete the destination tenant's own rows."""
+    src = _seed(MemoryDataStore())
+    archive = _export(src)
+    _, unseal = B.make_sealer("backup-key")
+    with pytest.raises(B.BackupError, match="into_tenant"):
+        run(B.import_archive(MemoryDataStore(), archive, unseal=unseal,
+                             prune=True, scan_cap=1000, into_tenant="acme2"))
+
+
+def test_a_tenant_scoped_export_past_scan_cap_fails_loud_not_truncated():
+    src = _seed(MemoryDataStore())
+    seal, _ = B.make_sealer("backup-key")
+    with pytest.raises(B.BackupError, match="scan_cap"):
+        run(B.export(src, DECL, service="thing-service", version="1.0.0",
+                     taken_at="2026-07-22T00:00:00Z", seal=seal, tenant="acme", scan_cap=2))
+
+
+def test_a_global_sweep_past_scan_cap_fails_loud_not_truncated():
+    src = _seed(MemoryDataStore())
+    seal, _ = B.make_sealer("backup-key")
+    with pytest.raises(B.BackupError, match="scan_cap"):
+        run(B.export(src, DECL, service="thing-service", version="1.0.0",
+                     taken_at="2026-07-22T00:00:00Z", seal=seal, scan_cap=1))   # catalog has 1 row
+
+
+def test_into_tenant_refuses_an_archive_spanning_multiple_source_tenants():
+    st = MemoryDataStore()
+    _seed(st, tenant="acme")
+    _seed(st, tenant="globex")
+    archive = _export(st)   # whole-service archive — TWO tenants inside
+    _, unseal = B.make_sealer("backup-key")
+    with pytest.raises(B.BackupError, match="multiple source tenants"):
+        run(B.import_archive(MemoryDataStore(), archive, unseal=unseal, into_tenant="acme3"))
+
+
+def test_into_tenant_still_clones_a_single_tenant_archive():
+    src = _seed(MemoryDataStore(), tenant="acme")
+    archive = _export(src, tenant="acme")
+    _, unseal = B.make_sealer("backup-key")
+    dst = MemoryDataStore()
+    report = run(B.import_archive(dst, archive, unseal=unseal, into_tenant="acme-clone"))
+    assert report["remapped"] == 3
+    assert run(dst.get("widgets", "w_acme_1"))["tenant"] == "acme-clone"

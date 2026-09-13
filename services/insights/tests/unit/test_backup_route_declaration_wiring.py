@@ -22,7 +22,7 @@ def _fake_request():
 
 
 def _fake_settings():
-    return SimpleNamespace(BACKUP_KEK="k" * 32)
+    return SimpleNamespace(BACKUP_KEK="k" * 32, BACKUP_MAX_ROWS_PER_COLLECTION=5_000_000)
 
 
 def test_backup_verify_route_passes_the_same_manifest_export_uses():
