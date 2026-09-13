@@ -194,29 +194,6 @@ def test_a_paused_campaign_is_not_touched(st):
     assert d.fired == []
 
 
-# ── the awareness lock ─────────────────────────────────────────────────────────────────────────
-def test_awareness_locks_for_thirty_days_after_it_sends(st):
-    c = save(st, Campaign(tenant="t1", goal="awareness", state="active", trigger="standing"))
-    tick(st, Dispatcher(sent=3), at(10, day=1))
-    row = run(st.get("campaigns", c.key))
-    assert row["locked_until"] >= at(10, day=1) + 29 * DAY
-
-
-def test_a_locked_campaign_does_not_fire(st):
-    save(st, Campaign(tenant="t1", goal="awareness", state="active", trigger="standing",
-                      locked_until=at(10, day=20)))
-    d = Dispatcher()
-    tick(st, d, at(10, day=10))
-    assert d.fired == []
-
-
-def test_a_run_that_reached_nobody_does_not_cost_the_owner_a_month(st):
-    """Locking after a send that never happened takes thirty days for nothing."""
-    c = save(st, Campaign(tenant="t1", goal="awareness", state="active", trigger="standing"))
-    tick(st, Dispatcher(sent=0), at(10))
-    assert int(run(st.get("campaigns", c.key)).get("locked_until") or 0) == 0
-
-
 # ── failure isolation ──────────────────────────────────────────────────────────────────────────
 def test_one_broken_campaign_does_not_freeze_the_others(st):
     """The symptom would be 'nothing sends' rather than 'one campaign is broken'."""

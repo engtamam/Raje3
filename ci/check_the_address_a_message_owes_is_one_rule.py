@@ -39,7 +39,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 #: Every class a message can have. Not read from either side — written here on purpose, so that a
 #: class DELETED from one reader is a failure rather than a silently smaller agreement.
-CLASSES = ("service", "personal", "awareness", "warning", "marketing")
+CLASSES = ("service", "personal", "warning", "marketing")
 
 
 def _load(path: pathlib.Path, name: str):

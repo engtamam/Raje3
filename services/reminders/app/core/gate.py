@@ -58,14 +58,10 @@ WINDOW_EXEMPT_TYPES = frozenset({
     # made), exactly like `svc_visit_confirmation` beside it.
     "svc_visit_confirmation", "svc_booking_confirmation",
     "per_account_notice", "per_points_expiring",
-    # A CODE THE SUBJECT IS WAITING ON, and a legal clock that does not stop at night. He asked
-    # for his data minutes ago; holding the proof of identity until morning delays a PDPL deadline
-    # to spare him a notification he is actively expecting.
-    "per_dsar_code",
 })
 
 # The priority ladder (spec 8.4.2 section 4). Lower number wins when two messages compete.
-PRIORITY = {"warning": 0, "personal": 1, "service": 2, "awareness": 3, "marketing": 4}
+PRIORITY = {"warning": 0, "personal": 1, "service": 2, "marketing": 4}
 
 # ── the CITC-mandated marketing window, SEPARATE from Limits.window_start/end_hour above ────────
 #
@@ -74,7 +70,7 @@ PRIORITY = {"warning": 0, "personal": 1, "service": 2, "awareness": 3, "marketin
 # found live: the general window let marketing out at 07:00-09:00, two hours the regulation bans
 # outright (advertising is banned 22:00-09:00, not 22:00-07:00). Kept as separate constants rather
 # than tightening `Limits.window_start_hour` for everyone, because the general window also gates
-# service/personal/awareness sends this rule does not reach.
+# service/personal sends this rule does not reach.
 #
 # AND DURING RAMADAN THE WINDOW ITSELF CHANGES — not later, not shorter, a DIFFERENT window: banned
 # 01:00-12:00 rather than 22:00-09:00. A fixed constant here would be correct eleven months a year
@@ -117,7 +113,6 @@ class Limits:
     window_end_hour: int = 22
     daily_service_cap: int = 1
     monthly_marketing_cap: int = 4
-    monthly_awareness_cap: int = 1
     marketing_cooldown_hours: int = 72
     # Absolute ceiling across every class except personal. Four separate caps can each be satisfied
     # while their sum is five messages in a day — the cap that catches what the others let through.
@@ -169,7 +164,7 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
     # and asking them is reasonable; `withdrawn` is somebody who said no, and asking again is not.
     # A single "no consent" would have merged them and invited exactly that.
     #
-    # Marketing alone. Service, personal, awareness and warning keep the absent-means-allowed rule
+    # Marketing alone. Service, personal and warning keep the absent-means-allowed rule
     # (§8.4.2), because a shop that cannot confirm a visit to a new customer has no product.
     if cls == "marketing" and marketing_consent != "granted":
         if marketing_consent == "withdrawn":
@@ -187,9 +182,9 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
     # regulation and Meta's own policy for the marketing category.
     #
     # THE REFUSAL IS HERE RATHER THAN IN A RUNBOOK because a rule kept in somebody's memory is a
-    # rule that survives exactly as long as that person is in the room. Service, personal,
-    # awareness and warning are unaffected: none of them is direct marketing, and none of them
-    # requires a one-tap stop. Turn the route back on and this clears itself.
+    # rule that survives exactly as long as that person is in the room. Service, personal and
+    # warning are unaffected: none of them is direct marketing, and none of them requires a
+    # one-tap stop. Turn the route back on and this clears itself.
     if cls == "marketing" and not withdrawal_reachable:
         return Decision(False, "رابط الإيقاف غير متاح — لا يخرج تسويقٌ بلا وسيلة إيقاف بنقرة.")
 
@@ -262,9 +257,8 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
                                 f"بلغ الحد اليومي للرسائل الخدمية ({limits.daily_service_cap}).",
                                 retry_at=_tomorrow_open(now, limits), tier=tier)
 
-        if cls in ("marketing", "awareness"):
-            base = (limits.monthly_marketing_cap if cls == "marketing"
-                    else limits.monthly_awareness_cap)
+        if cls == "marketing":
+            base = limits.monthly_marketing_cap
             cap = E.monthly_cap(cls, tier, base)
             n = len([s for s in recent_sends
                      if s.get("outcome") == "sent" and s.get("cls") == cls
@@ -327,7 +321,7 @@ def _tomorrow_open(now: int, limits: Limits) -> int:
 
 
 def _ar(cls: str) -> str:
-    return {"service": "خدمية", "personal": "شخصية", "awareness": "توعوية",
+    return {"service": "خدمية", "personal": "شخصية",
             "warning": "تحذيرية", "marketing": "دعائية"}.get(cls, cls)
 
 

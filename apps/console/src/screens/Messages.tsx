@@ -30,7 +30,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle, Award, BarChart3, Cake, CalendarClock, ClipboardCheck, Clock, Clock3, Compass,
-  FileBarChart, FileText, Gauge, Gift, Heart, Hourglass, Lightbulb, Lock, Mail, MessageSquare,
+  FileBarChart, FileText, Gauge, Gift, Heart, Hourglass, Lock, Mail, MessageSquare,
   Megaphone, Pause, RotateCcw, ShieldAlert, ShieldCheck, Star, Tag, Users, Wallet, X, Zap,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
@@ -86,7 +86,6 @@ const GOAL_KEY: Record<string, string> = {
   reward_loyal: 'messages.goal.reward_loyal',
   announce: 'messages.goal.announce',
   occasion: 'messages.goal.occasion',
-  awareness: 'messages.goal.awareness',
   service_offer: 'messages.goal.service_offer',
   // KEPT DELIBERATELY — `safety` was removed from `CARDS`/`GOAL_TEMPLATE` (goals.py) whole, so
   // no NEW campaign can ever carry this goal again, but a shop that already launched one before
@@ -183,7 +182,7 @@ interface ReasonRow {
  *  not derived, because a shared `template_type` alone is not enough: `mkt_loyalty_activation`
  *  backs TWO reasons (`reward_within_reach` and `loyal_customer`) and only one of them is the
  *  same occasion «حملاتي»'s own `reward_loyal` goal describes. The remaining goals have no
- *  automatic counterpart at all yet (`announce`, `service_offer`/`package_offer`, `awareness`) —
+ *  automatic counterpart at all yet (`announce`, `service_offer`/`package_offer`) —
  *  absent here on purpose, not an oversight. */
 const REASON_GOAL: Record<string, { goal: string; title: string }> = {
   gone_missing: { goal: 'win_back', title: 'رجّع اللي غابوا' },
@@ -206,20 +205,19 @@ const REASON_GOAL: Record<string, { goal: string; title: string }> = {
 const CLASS_TONE: Record<string, 'neutral' | 'success' | 'info' | 'warning' | 'danger'> = {
   service: 'info',
   personal: 'success',
-  awareness: 'neutral',
   warning: 'warning',
   marketing: 'warning',
 };
 
 /** THE APPROVED MOCKUP'S OWN CARD LANGUAGE — every class/section gets its own colour, carried on
  *  BOTH the icon circle and a left stripe on the card itself (`border-inline-start`, RTL-safe,
- *  same technique the queue/log rows already use), not just a badge. `tips`/`offers`/`bot` are
- *  SECTION_ORDER's own three extra buckets (goal-only cards, no `CLASS_TONE` entry of their own)
+ *  same technique the queue/log rows already use), not just a badge. `offers`/`bot` are
+ *  SECTION_ORDER's own two extra buckets (goal-only cards, no `CLASS_TONE` entry of their own)
  *  — mapped here too, so every section this screen can ever show has a real colour, never falling
  *  back to plain grey. */
 const SECTION_TONE: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'neutral'> = {
-  service: 'info', personal: 'success', marketing: 'warning', awareness: 'neutral',
-  tips: 'accent', offers: 'danger', bot: 'neutral', warning: 'warning',
+  service: 'info', personal: 'success', marketing: 'warning',
+  offers: 'danger', bot: 'neutral', warning: 'warning',
 };
 const TONE_VAR: Record<string, string> = {
   info: 'var(--info)', success: 'var(--success)', warning: 'var(--warning)',
@@ -250,7 +248,7 @@ const CARD_ICON: Record<string, LucideIcon> = {
   gone_missing: Compass, loyal_customer: Award, personal_occasion: Cake, weekly_digest: FileBarChart,
   privacy_code: ShieldCheck,
   win_back: Compass, reward_loyal: Award, announce: Megaphone, occasion: Cake,
-  awareness: Lightbulb, service_offer: Tag, package_offer: Tag, safety: ShieldAlert,
+  service_offer: Tag, package_offer: Tag, safety: ShieldAlert,
 };
 function cardIcon(card: TemplateCard): LucideIcon {
   const key = card.reason?.id ?? card.goal ?? card.key.replace(/^bot:/, '');
@@ -284,25 +282,23 @@ interface GoalRow {
  */
 const GOAL_TEMPLATE_TYPE: Record<string, string> = {
   announce: 'mkt_announcement',
-  awareness: 'awr_care_tip',
   service_offer: 'mkt_offer',
   package_offer: 'mkt_offer',
 };
 
-/** THE FIVE SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the three `cls` values the reasons
- *  registry already uses, then the two that exist only for campaign goals with no automatic
+/** THE FOUR SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the three `cls` values the reasons
+ *  registry already uses, then the one that exists only for campaign goals with no automatic
  *  counterpart at all. */
 // «bot» LAST ON PURPOSE — every section before it is a message this shop's own settings shaped
 // (scheduled or launched by hand); the bot's own live tool replies are a different kind of thing
 // entirely (composed fresh per conversation, never stored or edited here), so they read as an
 // appendix, not mixed in among the shop's own configured messages.
-const SECTION_ORDER = ['service', 'personal', 'marketing', 'tips', 'offers', 'bot'] as const;
+const SECTION_ORDER = ['service', 'personal', 'marketing', 'offers', 'bot'] as const;
 
 const SECTION_KEY: Record<string, string> = {
   service: 'messages.section.service',
   personal: 'messages.section.personal',
   marketing: 'messages.section.marketing',
-  tips: 'messages.section.tips',
   offers: 'messages.section.offers',
   bot: 'messages.section.bot',
 };
@@ -315,7 +311,6 @@ function sectionLabel(t: (key: string) => string, section: string): string {
  *  is exactly as promotional as they are, just never automatic. */
 const GOAL_SECTION: Record<string, string> = {
   announce: 'marketing',
-  awareness: 'tips',
   service_offer: 'offers',
   package_offer: 'offers',
 };
@@ -349,7 +344,6 @@ const REASON_TEMPLATE_TYPE: Record<string, string> = {
   loyal_customer: 'mkt_loyalty_activation',
   personal_occasion: 'mkt_personal_occasion',
   weekly_digest: 'per_weekly_digest',
-  privacy_code: 'per_dsar_code',
 };
 
 /** تفاعلي = يفتح شاشات حقيقية داخل واتساب (فلو)، لا مجرد نص يُقرأ. مأخوذة يدوياً من

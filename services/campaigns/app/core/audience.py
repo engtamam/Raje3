@@ -13,7 +13,6 @@ THE RULES:
   reward_loyal  the most visits in a window.
   announce      everyone who accepts marketing.
   occasion      a date the owner supplied.
-  awareness     everyone who accepts awareness — locked to one send a month per shop.
 
 TWO PROPERTIES THAT MATTER MORE THAN THE RULES:
 
@@ -238,13 +237,11 @@ def _match_occasion(row: dict[str, Any], **_: Any) -> tuple[bool, str]:
 
 
 # ONE FUNCTION PER GOAL, LOOKED UP BY NAME instead of an if/elif chain walked sequentially on
-# every candidate row — the biggest loop in this file. `announce` and `awareness` share a rule
-# object rather than a duplicated line, same as the chain they replace.
+# every candidate row — the biggest loop in this file.
 _MATCHERS: dict[str, Any] = {
     "win_back": _match_win_back,
     "reward_loyal": _match_reward_loyal,
     "announce": _match_broadcast,
-    "awareness": _match_broadcast,
     "service_offer": _match_service_offer,
     # A PACKAGE OFFER SHARES `_match_broadcast`, NOT A MATCHER OF ITS OWN — this was missing
     # entirely until 2026-09-12, and every package_offer campaign matched nobody as a result

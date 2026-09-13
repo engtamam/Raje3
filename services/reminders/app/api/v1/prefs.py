@@ -47,7 +47,6 @@ router = APIRouter(prefix="/prefs", tags=["prefs"])
 LABELS = {
     "service": "رسائل الخدمة — تأكيد الزيارة والتذكير بموعد صيانتك",
     "personal": "رسائل تخصّك — رصيد نقاطك وإشعارات حسابك",
-    "awareness": "نصائح ومعلومات",
     "warning": "تنبيهات السلامة",
     "marketing": "العروض والخصومات",
 }

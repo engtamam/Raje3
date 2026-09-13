@@ -1,26 +1,16 @@
-"""The five cards an owner sees, and the state each one carries (spec §10.9).
+"""The cards an owner sees, and the state each one carries (spec §10.9).
 
 THE OWNER PICKS A GOAL AND NEVER A TYPE. "Standing campaign" is our word; theirs is "bring back the
 ones who stopped coming". So this file is the translation layer between what they press and what
 the system does — and every field on a card is there because a screen needs it, not because a model
 has it.
 
-THE AWARENESS CARD IS THE ONE WITH A STORY. The original plan had the system send advice
-automatically, matched to what a customer had taken and the season. It failed for an operational
-reason that settles it: a thousand kinds of shop means a thousand pieces of advice we write and refresh
-seasonally, and nobody can run that. The owner knows their trade — a barber knows what to say about
-hair in summer, and we do not.
-
-So awareness is a goal they press, with a lock after it. And the lock is DISPLAYED, not hidden:
-
-    "متاح بعد 23 يوم"
-
-grey, visible, with its reason on it. A card that disappears reads as a fault and generates a
-support ticket; a card that explains itself reads as a rule and generates nothing.
-
-THE LOCK IS PER ESTABLISHMENT, not per customer. One awareness campaign a month for the whole shop
-satisfies the per-customer monthly cap in §8.4.2 automatically — no per-customer arithmetic, no
-per-trade model, and one number an owner can hold in their head.
+THE AWARENESS CARD WAS REMOVED (2026-09-13, the owner's own decision, mid-review — its message
+never actually carried a real tip, only a bare service name, once a real one couldn't be typed
+freely without stepping on Meta's marketing-policy rules). It carried a lock mechanism unique to
+it — `app.core.locks`, `Campaign.locked_until`, `tick.py`'s own lock-check/lock-write branch, this
+file's own `lock_after_send` — nothing else in this product used any of it, so all of it left with
+the card rather than sitting here unreachable.
 """
 from __future__ import annotations
 
@@ -28,9 +18,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
-from app.core.tick import DEFAULT_AWARENESS_LOCK_DAYS
-
-DAY = 86400
 
 # THE KINDS HE FILLS HIMSELF. `system` is ours — his name, the shop, a balance — and never a
 # question. `catalogue` is a tap on his own service list rather than typing; the two typed ones
@@ -70,12 +57,6 @@ CARDS = {
         "line": "رسالة في يوم يخصّه",
         "icon": "cake",
         "category": "مناسبات",
-    },
-    "awareness": {
-        "title": "وعِّ عملاءك",
-        "line": "نصيحة تخصّ ما أخذوه",
-        "icon": "info",
-        "category": "إعلانات وتوعية",
     },
     "service_offer": {
         "title": "عرض على خدمة",
@@ -152,24 +133,22 @@ class Card:
     template_status: str = "unknown"
 
 
-def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks: dict[str, int] | None = None,
+def cards(*, fills_by_type: dict[str, list[str]] | None = None,
           enabled_types: set[str] | None = None, blocked_reasons: dict[str, str] | None = None,
           statuses: dict[str, str] | None = None,
           stats: dict[str, dict[str, int]] | None = None) -> list[Card]:
-    """The five cards, in the order an owner should see them.
+    """The cards, in the order an owner should see them.
 
-    `locks` maps goal → locked_until. `enabled_types` is which template types this tenant can
-    actually send right now (spec §10.8); a goal whose type is not in it is shown, never hidden —
-    hiding it means an owner who wants it cannot find out it exists — but locked, WITH THE REAL
-    REASON reminders computed (`blocked_reasons`, keyed by template type): under review at Meta, or
-    never seeded. Guessing a reason here would be a second, possibly wrong, version of a fact one
-    call away.
+    `enabled_types` is which template types this tenant can actually send right now (spec §10.8);
+    a goal whose type is not in it is shown, never hidden — hiding it means an owner who wants it
+    cannot find out it exists — but locked, WITH THE REAL REASON reminders computed
+    (`blocked_reasons`, keyed by template type): under review at Meta, or never seeded. Guessing a
+    reason here would be a second, possibly wrong, version of a fact one call away.
 
     `statuses` is the badge itself — one word per template type (`rendering.type_status`), shown
     on every card whether it is available or not, so an owner can see "pending" without having to
     press a locked card to learn why.
     """
-    locks = locks or {}
     statuses = statuses or {}
     stats = stats or {}
     out: list[Card] = []
@@ -179,14 +158,6 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
                     category=meta.get("category", ""),
                     uses=int(goal_stats.get("uses") or 0), reach=int(goal_stats.get("reach") or 0),
                     behaviour=_behaviour(goal), offers=offers_something(goal))
-
-        until = int(locks.get(goal) or 0)
-        if until > now:
-            days = max(1, (until - now + DAY - 1) // DAY)
-            card.available = False
-            # A NUMBER, not a date. "Available in 23 days" is arithmetic an owner does not have to
-            # do; a date is arithmetic they do.
-            card.unavailable_reason = f"متاح بعد {days} يوم"
 
         tmpl_type = GOAL_TEMPLATE.get(goal, ("", ""))[0]
         card.template_status = statuses.get(tmpl_type, "unknown")
@@ -224,29 +195,7 @@ def _behaviour(goal: str) -> str:
         return "تعمل تلقائياً كل يوم"
     if trigger == "scheduled":
         return "تُرسَل في موعد تحدّده"
-    if goal == "awareness":
-        return "مرة واحدة، ثم تُقفَل شهراً"
     return "تُرسَل مرة واحدة"
-
-
-def lock_after_send(goal: str, *, now: int, sent: int,
-                    lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS) -> int:
-    """When this goal becomes available again, or 0 for no lock.
-
-    ONLY IF SOMETHING WENT OUT. Locking after a run that reached nobody costs the owner a month
-    for a send that never happened — and they would have no way to tell the difference.
-
-    `lock_days` DEFAULTS TO THE SAME CONSTANT THE STANDING/TICK PATH USES — fixed 2026-09-12, a
-    real gap a QA audit found: this manual-create path hardcoded `30 * DAY` directly, while
-    `tick.py`'s own standing-campaign path already reads the configurable `AWARENESS_LOCK_DAYS`
-    setting. Both agreed only by coincidence (the setting's own default is also 30) — the day an
-    operator changed AWARENESS_LOCK_DAYS, the two paths would have silently disagreed about when
-    the SAME lock reopens. The caller (the manual-create route) now passes the same setting
-    tick.py's own container wiring already reads.
-    """
-    if goal != "awareness" or sent <= 0:
-        return 0
-    return now + int(lock_days) * DAY
 
 
 def resolve_goal(goal: str) -> dict[str, Any]:

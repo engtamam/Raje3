@@ -370,7 +370,6 @@ def build_container(settings: Settings) -> Container:
 
     container.tick = Tick(store=container.datastore, dispatcher=container.dispatcher,
                           licence=container.licence,
-                          awareness_lock_days=settings.AWARENESS_LOCK_DAYS,
                           share_reader=_share_for,
                           telemetry=container.telemetry)
     return container
@@ -398,11 +397,11 @@ class _AudienceFacade:
         """`cls` HAS NO DEFAULT, AND THAT IS THE FIX (ج-1).
 
         It decides WHICH RULES the audience is resolved under: marketing needs explicit consent and
-        is capped at four messages a month; awareness needs none and is capped at one. The send has
-        always passed the campaign's real class. The preview did not — so it silently took
-        `"marketing"`, and every awareness campaign was previewed under one rulebook and executed
-        under another. The screen said 12 and the run reached 180, and both numbers came out of
-        this same function, which is why nobody looked at the argument list.
+        is capped at four messages a month. Back when a second class ("awareness") existed with
+        looser rules, the send always passed the campaign's real class while the preview did not —
+        so it silently took `"marketing"`, and an awareness campaign was previewed under one
+        rulebook and executed under another. The screen said 12 and the run reached 180, and both
+        numbers came out of this same function, which is why nobody looked at the argument list.
 
         A default here is a policy chosen by whoever forgets to pass one. Removing it is worth more
         than any check that could have caught the omission: a caller that does not say now cannot

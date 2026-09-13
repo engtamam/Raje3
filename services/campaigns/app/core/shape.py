@@ -49,18 +49,19 @@ BOOKING_TYPES = frozenset({"mkt_winback", "mkt_personal_occasion", "mkt_offer"})
 #: EVERY MARKETING TEXT THAT MAY SHOW A CAROUSEL, once the owner has actually attached more than
 #: one service or package to feature (2026-09-13 — the owner's own instruction that a multi-select
 #: offer should render as cards, "professionally", never a plain paragraph naming them all).
-#: `mkt_loyalty_activation`/`mkt_announcement`/`awr_care_tip` JOIN THE THREE BOOKING TYPES here —
-#: none of them ever opens a booking (a reward, an announcement, a tip are not appointments), but
-#: each carries the SAME "catalogue" blank a carousel card needs.
+#: `mkt_loyalty_activation`/`mkt_announcement` JOIN THE THREE BOOKING TYPES here — neither ever
+#: opens a booking (a reward, an announcement are not appointments), but each carries the SAME
+#: "catalogue" blank a carousel card needs.
 #:
-#: `mkt_announcement`/`awr_care_tip` USED TO CARRY A FREE "owner" BLANK INSTEAD — a real bug, not
-#: a style choice: Meta refuses free-typed promotional content inside an approved marketing
-#: template's own variable (a variable is a value the template's own reviewed wording expects, not
-#: a place to write new copy after approval), and "what's new" or "what this tip is about" is
-#: always one of his own services or packages anyway. Both were switched to the same "catalogue"
-#: multi-select every other marketing goal already uses (2026-09-13).
-CAROUSEL_TYPES = BOOKING_TYPES | frozenset(
-    {"mkt_loyalty_activation", "mkt_announcement", "awr_care_tip"})
+#: `mkt_announcement` USED TO CARRY A FREE "owner" BLANK INSTEAD — a real bug, not a style choice:
+#: Meta refuses free-typed promotional content inside an approved marketing template's own variable
+#: (a variable is a value the template's own reviewed wording expects, not a place to write new
+#: copy after approval), and "what's new" is always one of his own services or packages anyway. It
+#: was switched to the same "catalogue" multi-select every other marketing goal already uses
+#: (2026-09-13). `awr_care_tip` had the same fix applied and joined this set for the same reason —
+#: then the goal itself was deleted (2026-09-13, the owner's own decision: its "tip" never carried
+#: an actual tip, only a bare catalogue name, once free text was no longer an option).
+CAROUSEL_TYPES = BOOKING_TYPES | frozenset({"mkt_loyalty_activation", "mkt_announcement"})
 
 #: The Flow's own seed key, as whatsapp-assistant's FlowBookingBackend reads it. Declared empty
 #: and filled with the resolved recipient inside reminders' sender — see the module docstring.
@@ -81,8 +82,8 @@ class Shape:
     # campaigns re-learning a fact reminders already owns, the exact duplication core/shape.py's
     # own module docstring warns against for the booking Flow.
     carousel: bool = False
-    # THE UNIFIED QUICK-REPLY BUTTON (2026-09-13) — for a single-item send on one of the three
-    # NON-booking types (mkt_loyalty_activation, mkt_announcement, awr_care_tip): the owner attached
+    # THE UNIFIED QUICK-REPLY BUTTON (2026-09-13) — for a single-item send on one of the two
+    # NON-booking types (mkt_loyalty_activation, mkt_announcement): the owner attached
     # exactly one service or package, and a shop that can act on a tap gets the same
     # "carousel:{kind}:{id}" button its own carousel card would carry for the same item. See
     # `for_send`'s own docstring for why this is not a Flow (that mechanism stays reserved for the
@@ -141,8 +142,8 @@ def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = 
     of the three "come back" types, a shop that owns the book).
 
     THE SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13, the owner's own instruction): a campaign of one
-    of the three NON-booking types (`mkt_loyalty_activation`/`mkt_announcement`/`awr_care_tip`) that
-    names exactly one service or package is not "asking for nothing" any more — the owner attached
+    of the two NON-booking types (`mkt_loyalty_activation`/`mkt_announcement`) that names exactly
+    one service or package is not "asking for nothing" any more — the owner attached
     something bookable to it, and a shop that can act on a tap should get the same button its own
     carousel card would carry for the same item. Checked ONLY once the Flow and carousel branches
     above have both said no — a `BOOKING_TYPES` campaign with bookings owned keeps opening the

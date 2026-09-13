@@ -376,7 +376,7 @@ def test_the_same_case_reaches_mkt_loyalty_activation_too():
 def test_a_single_item_with_no_button_capability_gets_no_button_and_no_carousel():
     """A shop without bookings+assistant+AI-on gets the exact same message it always has — no
     button, never a broken promise."""
-    s = fire("awr_care_tip", licence=None, service_ids=("svc_1",))
+    s = fire("mkt_announcement", licence=None, service_ids=("svc_1",))
     call = s.calls[0]
     assert call["button_item_id"] == "" and "carousel" not in call or call["carousel"] is False
 

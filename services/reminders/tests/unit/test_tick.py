@@ -1421,7 +1421,7 @@ def test_the_invitation_steps_back_rather_than_taking_the_message_with_it(st):
     it is not worse than SILENCE, which is what this used to cost.
 
     THE CORRECTION, FROM COUNTING THE LIBRARY. Thirty-six wordings carry the `invite` fill and they
-    are service, personal, awareness and warning; not one service wording has ever carried a stop
+    are service, personal and warning; not one service wording has ever carried a stop
     link. So refusing to render without a base was killing the shop's ordinary traffic — every
     visit confirmation, every reminder — to protect the perfection of a marketing opt-in offer.
 

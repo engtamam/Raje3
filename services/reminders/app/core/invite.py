@@ -30,8 +30,8 @@ AND THE INVITATION IS DELIBERATELY QUIET. Everything in it wants to shout — th
 reason anybody says yes. But this line rides inside a UTILITY template, and a utility text that
 sells is re-categorised by Meta as MARKETING: a higher price on every message the shop sends, and
 a service confirmation that suddenly needs the very consent it was trying to collect. `SELLING_WORDS`
-in ci/gen_templates.py already refuses that for the awareness class, and this obeys the same rule
-by carrying no price, no discount, no offer and no number.
+in ci/gen_templates.py already refuses that kind of content in a UTILITY template, and this obeys
+the same rule by carrying no price, no discount, no offer and no number.
 
 ALL OF THE PERSUASION LIVES ONE TAP AWAY, on portal's `/allow` screen — our own page, which Meta
 does not review and where nothing is held back.

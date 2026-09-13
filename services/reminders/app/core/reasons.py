@@ -56,8 +56,6 @@ DIGEST = "digest"            # the week in one line, composed by us
 OFFER_VALUE = "offer_value"  # «20%» or «50 ريال» — typed, never a sentence
 ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
-CODE = "code"                # a one-time code the customer is waiting for
-MINUTES = "minutes"          # how long that code lives
 APPT_TIME = "appt_time"      # a booking's day and hour, phrased by us — never the raw epoch
 # THE TWO THAT ARE ADDRESSES, NOT WORDS. Every slot above is text we hold or a number we computed;
 # these two are places a thumb has to reach, so core/links.py composes them from the fleet's public
@@ -127,8 +125,6 @@ SLOT_LABEL = {
     OFFER_VALUE: "قيمة الخصم",
     ENDS_AT: "ينتهي في",
     FREE_TEXT: "نصّك",
-    CODE: "الرمز",
-    MINUTES: "المدة",
     APPT_TIME: "موعد الحجز",
     LINK: "رابط صفحته",
     STOP_LINK: "رابط الإيقاف",
@@ -143,7 +139,6 @@ SLOT_LABEL = {
 CLASS_LABEL = {
     "service": "خدمية",
     "personal": "شخصية",
-    "awareness": "توعوية",
     "warning": "تحذيرية",
     "marketing": "تسويقية",
 }
@@ -287,16 +282,6 @@ REASONS: tuple[Reason, ...] = (
         cls="personal", template_type="per_weekly_digest",
         slots=(DIGEST,), source="insights",
     ),
-    Reason(
-        id="privacy_code",
-        label="رمز طلب البيانات",
-        when="حين يطلب عميلك نسخة من بياناته أو حذفها",
-        cls="personal", template_type="per_dsar_code",
-        slots=(CODE, MINUTES), source="portal",
-        # A STATUTORY RIGHT WITH A CLOCK RUNNING (§14). Switching it off would be switching off
-        # somebody else's right, and rewording it would reword a legal notice.
-        owner_can_switch=False, owner_can_retext=False,
-    ),
 )
 
 BY_ID = {t.id: t for t in REASONS}
@@ -385,8 +370,6 @@ SAMPLE = {
     OFFER_VALUE: "20%",
     ENDS_AT: "21 أغسطس",
     FREE_TEXT: "افتتحنا فرعاً جديداً",
-    CODE: "4821",
-    MINUTES: "15",
     APPT_TIME: "الأحد 9:00 مساءً",
     # THE TWO ADDRESSES, AND THEY NEEDED SAMPLES AS MUCH AS ANY WORD.
     #

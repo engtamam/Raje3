@@ -74,7 +74,7 @@ def page(ident=None, ops=None, rem=None, deadline=3.0):
 def test_a_whole_page_renders_when_everything_is_up():
     p = page(ops=Ops([{"id": "v1"}]))
     assert p.has_identity and p.visits.available and p.prefs.available
-    assert len(p.prefs.data) == 5
+    assert len(p.prefs.data) == 4
 
 
 def test_operations_being_down_does_not_empty_the_page():
@@ -130,20 +130,20 @@ def test_the_switches_come_back_in_the_customers_order_whatever_the_peer_sent():
 def test_a_peer_that_grows_a_sixth_class_does_not_put_an_unlabelled_toggle_on_the_page():
     p = page(rem=Rem({"preferences": [{"class": "marketing", "enabled": False},
                                       {"class": "telepathy", "enabled": True}]}))
-    assert len(p.prefs.data) == 5
+    assert len(p.prefs.data) == 4
     assert all(s["label"] and s["hint"] for s in p.prefs.data)
 
 
 def test_a_peer_that_drops_a_class_does_not_make_a_switch_vanish():
     """A switch disappearing from under someone about to press it is worse than one that is on."""
     p = page(rem=Rem({"preferences": [{"class": "service", "enabled": True}]}))
-    assert len(p.prefs.data) == 5
+    assert len(p.prefs.data) == 4
 
 
 # ── the one switch that is not an opt-out (هـ-6) ───────────────────────────────────────────────
 def test_a_class_the_peer_did_not_mention_stays_on_because_it_is_an_opt_out():
-    """Service, personal, awareness and warning run until the customer stops them (§8.4.2). A
-    dropped class must not read as a refusal he never made."""
+    """Service, personal and warning run until the customer stops them (§8.4.2). A dropped class
+    must not read as a refusal he never made."""
     p = page(rem=Rem({"preferences": [{"class": "marketing", "enabled": True}]}))
     on = {s["class"]: s["enabled"] for s in p.prefs.data}
     assert on["service"] is True and on["warning"] is True
@@ -160,10 +160,10 @@ def test_marketing_is_off_when_the_peer_did_not_say_he_agreed():
 
 def test_the_alternate_response_shape_is_understood_too():
     """reminders returns {'preferences': [...]}; a future version might return the list bare."""
-    a = page(rem=Rem({"preferences": [{"class": "awareness", "enabled": False}]}))
-    b = page(rem=Rem([{"class": "awareness", "enabled": False}]))
+    a = page(rem=Rem({"preferences": [{"class": "warning", "enabled": False}]}))
+    b = page(rem=Rem([{"class": "warning", "enabled": False}]))
     for p in (a, b):
-        assert {s["class"]: s["enabled"] for s in p.prefs.data}["awareness"] is False
+        assert {s["class"]: s["enabled"] for s in p.prefs.data}["warning"] is False
 
 
 # ── his offers, as a section like any other ────────────────────────────────────────────────────

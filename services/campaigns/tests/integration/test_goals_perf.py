@@ -1,6 +1,5 @@
-"""list_goals dedupes its template lookups and runs them concurrently, and lock reads no longer
-scan campaigns — this proves both without pinning to internal call counts that would make the
-test as brittle as the code it is checking.
+"""list_goals dedupes its template lookups and runs them concurrently — this proves it without
+pinning to internal call counts that would make the test as brittle as the code it is checking.
 """
 from __future__ import annotations
 
@@ -96,28 +95,3 @@ def test_the_goals_screen_still_carries_every_type_the_active_templates_covered(
     assert len(goals) == len(GOAL_TEMPLATE)
 
 
-def test_a_lock_written_at_creation_is_read_back_without_a_campaign_scan(client, monkeypatch):
-    """The lock now lives in a side record — this proves the round trip end to end: create an
-    awareness campaign that reaches somebody (forcing the lock), then confirm /goals reports it
-    locked. The dispatcher is stubbed to report a send so the test does not have to also build a
-    real audience through the store just to prove the lock plumbing works."""
-    from app.core.dispatch import DispatchResult
-    from app.core.models import Run
-
-    async def fake_fire(campaign, *, now, fired_by="system", daily_share=None):
-        run = Run(tenant=campaign["tenant"], campaign_id=campaign["id"], at=now,
-                  fired_by=fired_by, sent=1)
-        return DispatchResult(run=run, finished=True)
-
-    monkeypatch.setattr(client.app.state.container.dispatcher, "fire", fake_fire)
-
-    body = {"goal": "awareness", "owner_text": "منتج جديد وصل"}
-    r = client.post("/api/v1/campaigns", json=body, headers=_auth(CAPS))
-    assert r.status_code in (200, 201), r.text
-
-    goals = client.get("/api/v1/campaigns/goals", headers=_auth(CAPS)).json()["goals"]
-    awareness = next(g for g in goals if g["goal"] == "awareness")
-    # The lock reached the card as unavailability with a reason — the round trip from
-    # `record_lock` (write) through `read_locks` (read) to `cards()` actually happened.
-    assert awareness["available"] is False
-    assert awareness["unavailable_reason"]

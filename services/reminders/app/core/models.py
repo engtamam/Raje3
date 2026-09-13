@@ -29,9 +29,9 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-# The five regulatory classes (spec 8.4.1). Held here as well as in operations' template library
+# The four regulatory classes (spec 8.4.1). Held here as well as in operations' template library
 # because the GATE reasons about them and must not need a peer call to know what it is holding.
-CLASSES = ("service", "personal", "awareness", "warning", "marketing")
+CLASSES = ("service", "personal", "warning", "marketing")
 
 # What a schedule is FOR. Not the same axis as the class: a reminder and a follow-up are both
 # service-class messages, and they behave differently — a visit cancels the follow-up and advances

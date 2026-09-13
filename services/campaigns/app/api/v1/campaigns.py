@@ -1,6 +1,6 @@
 """The owner's three screens, as three routes (spec §10.9).
 
-  GET  /campaigns/goals        the five cards, with their locks and their reasons
+  GET  /campaigns/goals        the cards, with their reasons
   POST /campaigns/preview      the message and the count, computed but not saved
   POST /campaigns              create and fire, or create and schedule
 
@@ -26,12 +26,11 @@ from app.adapters.datastore.drain import drain
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
-from app.core.goals import CARDS, GOAL_CATEGORIES, cards, lock_after_send, resolve_goal
+from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
 from app.core.models import (GOAL_TEMPLATE, Campaign, as_row, offers_something,
                              validate_loyalty_window, validate_window)
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
-from app.core.locks import read_locks, record_lock
 from app.core import press
 from app.core.preview import PreviewError, build as build_preview, describe_when, window_sentence
 from app.core.share import compute as compute_share
@@ -168,7 +167,6 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     fact `preview` itself would refuse a breath later.
     """
     c = request.app.state.container
-    locks = await _locks(c, _tenant(principal))
     # reminders' OWN reason a type is not sendable — «قيد مراجعة واتساب» is patience, «لا يوجد
     # قالب فعّال» is ours to fix — never guessed here, and never the one hardcoded sentence that
     # used to stand in for both.
@@ -212,9 +210,8 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
                 enabled.add(template_type)
             fills[template_type] = list(row.get("fills") or [])
     return {"goals": [vars(card) for card in
-                      cards(now=_now(), fills_by_type=fills, locks=locks,
-                            enabled_types=enabled, blocked_reasons=blocked,
-                            statuses=statuses, stats=stats_row)],
+                      cards(fills_by_type=fills, enabled_types=enabled,
+                            blocked_reasons=blocked, statuses=statuses, stats=stats_row)],
             # THE FILTER CHIPS' OWN ORDER — a rail/filter reads this rather than collecting each
             # card's own `category` and sorting them itself, which would reorder the moment a
             # category's first card changed or a goal moved buckets.
@@ -403,12 +400,6 @@ async def create(request: Request, body: CampaignIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
                                      "reason": str(exc)})
-
-    locks = await _locks(c, _tenant(principal))
-    if int(locks.get(body.goal) or 0) > now:
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
-                            content={"error": "CONFLICT",
-                                     "reason": "هذا الهدف مقفل مؤقتاً — انظر البطاقة."})
 
     # Validated BEFORE the campaign exists. Creating it and then refusing the text would leave a
     # draft the owner did not ask for, in a list they now have to clean.
@@ -657,18 +648,6 @@ async def create(request: Request, body: CampaignIn,
         if out.finished:
             row = as_row(campaign)
             row["last_evaluated"] = now
-            # SAME SETTING TICK.PY'S OWN CONTAINER WIRING READS — fixed 2026-09-12, a real gap a QA
-            # audit found: this route used to hardcode 30 days directly, agreeing with the standing
-            # path only because the setting's own default also happens to be 30.
-            until = lock_after_send(body.goal, now=now, sent=out.run.sent,
-                                    lock_days=c.settings.AWARENESS_LOCK_DAYS)
-            if until:
-                row["locked_until"] = until
-                row["state"] = "done"
-                # SAME SIDE RECORD AS THE TICK PATH — see app.core.locks. Both places a campaign's
-                # `locked_until` gets written keep this one row current, so `_locks()` never has to
-                # scan campaigns to answer "what is locked right now".
-                await record_lock(c.datastore, campaign.tenant, body.goal, until)
             await c.datastore.put("campaigns", campaign.key, row)
 
     return {"campaign": as_row(campaign), "run": fired,
@@ -743,13 +722,6 @@ async def pause(request: Request, campaign_id: str,
     row["state"] = "paused"
     await c.datastore.put("campaigns", f"{_tenant(principal)}|{campaign_id}", row)
     return {"campaign_id": campaign_id, "state": "paused"}
-
-
-async def _locks(c, tenant: str) -> dict[str, int]:
-    """goal -> locked_until, from the side record — see app.core.locks for why this is not a
-    campaign scan any more."""
-    locks = await read_locks(c.datastore, tenant)
-    return {g: u for g, u in locks.items() if g in CARDS}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",

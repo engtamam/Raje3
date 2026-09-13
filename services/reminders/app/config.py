@@ -362,7 +362,6 @@ class Settings(BaseSettings):
     DAILY_SERVICE_CAP: int = 1
     DAILY_TOTAL_CAP: int = 2
     MONTHLY_MARKETING_CAP: int = 4
-    MONTHLY_AWARENESS_CAP: int = 1
     MARKETING_COOLDOWN_HOURS: int = 72
     # Bounded per tenant per tick. An unbounded sweep is how a slow query becomes a missed batch
     # becomes a day of reminders that never went out.

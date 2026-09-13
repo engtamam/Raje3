@@ -242,7 +242,6 @@ env:
   # is five messages in one day, which is the arithmetic nobody notices until a customer blocks.
   DAILY_TOTAL_CAP: "2"
   MONTHLY_MARKETING_CAP: "4"
-  MONTHLY_AWARENESS_CAP: "1"
   MARKETING_COOLDOWN_HOURS: "72"
 
   # ── the engines ───────────────────────────────────────────────────────────────────────────

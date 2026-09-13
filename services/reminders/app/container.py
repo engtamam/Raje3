@@ -247,7 +247,6 @@ def build_container(settings: Settings) -> Container:
         window_end_hour=settings.SEND_WINDOW_END_HOUR,
         daily_service_cap=settings.DAILY_SERVICE_CAP,
         monthly_marketing_cap=settings.MONTHLY_MARKETING_CAP,
-        monthly_awareness_cap=settings.MONTHLY_AWARENESS_CAP,
         marketing_cooldown_hours=settings.MARKETING_COOLDOWN_HOURS,
         daily_total_cap=settings.DAILY_TOTAL_CAP)
 

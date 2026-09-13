@@ -54,7 +54,7 @@ BASE = re.compile(r'^\s+PUBLIC_BASE_URL:\s*"([^"]*)"', re.M)
 #:
 #: The measurement that forced it: of the sixty-six shipped wordings, THIRTY carry `stop_link`
 #: and every one of those is MARKETING; the thirty-six that were failing carry `invite`, and
-#: they are service, personal, awareness and warning. No service wording has ever carried a
+#: they are service, personal and warning. No service wording has ever carried a
 #: stop link. What was killing the fleet's ordinary traffic was the marketing OPT-IN
 #: INVITATION riding in the last line of a utility text.
 #:

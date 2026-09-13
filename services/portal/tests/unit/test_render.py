@@ -72,7 +72,7 @@ def test_every_switch_is_a_real_checkbox_that_submits_without_javascript():
     """A div pretending to be a switch is not focusable, not announced by a screen reader, and
     does not submit when the script fails."""
     html = render_page(page(), THEME)
-    assert html.count("type='checkbox'") == 5
+    assert html.count("type='checkbox'") == 4
     assert "<form method='post'" in html
     assert "type='submit'" in html
 

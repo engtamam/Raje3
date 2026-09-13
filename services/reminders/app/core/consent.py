@@ -47,7 +47,7 @@ WITHDRAWAL IS AS EASY AS GRANTING, and that is a requirement rather than a court
 one tap at `/p/{ref}/stop`, and that tap must write a withdrawal ROW rather than only flipping the
 send gate — otherwise the gate stops the message and the evidence still says they agreed.
 
-AND MARKETING ALONE NEEDS THIS. Service, personal, awareness and warning messages keep the existing
+AND MARKETING ALONE NEEDS THIS. Service, personal and warning messages keep the existing
 rule, because they are not direct marketing and stopping a shop from confirming a visit to a new
 customer would be a product with no purpose. Only `marketing` requires an explicit grant.
 """

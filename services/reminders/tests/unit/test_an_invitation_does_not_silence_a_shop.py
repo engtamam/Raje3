@@ -4,7 +4,7 @@ WHAT WAS ACTUALLY WRONG, AFTER COUNTING RATHER THAN ASSUMING. Everyone — inclu
 author — described the outage as «the mandatory stop link points at a portal that is off». The
 library says otherwise: all thirty `stop_link` wordings are MARKETING, and the thirty-six that
 failed to render carry `invite` — the marketing opt-in invitation riding in the last line of
-service, personal, awareness and warning texts.
+service, personal and warning texts.
 
 So the shop's entire ordinary traffic was being killed to protect the perfection of an invitation.
 

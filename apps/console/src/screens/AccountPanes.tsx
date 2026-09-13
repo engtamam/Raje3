@@ -884,31 +884,20 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
     if (!canAsk) return;
     setBusy(type); setError(''); setSaid('');
     try {
-      const opened = await call<{ id?: string; dsar_id?: string }>(session, canAsk, { type });
+      await call<{ id?: string; dsar_id?: string }>(session, canAsk, { type });
 
-      // AND THE CODE THAT PROVES IT IS HIS, sent now rather than promised. compliance mints it at
-      // creation and holds no channel — so until this call existed the request was recorded, the
-      // 30-day clock started, and nothing could ever verify it. PDPL Article 4 is the whole point:
-      // nothing personal is released before the subject proves the channel is his.
-      const deliver = action(catalog, 'reminders.send_dsar_code');
-      const id = opened?.id ?? opened?.dsar_id ?? '';
-      let codeSent = false;
-      if (deliver && id) {
-        // NOT FATAL. The request IS recorded; a code that failed to go is retried, and telling
-        // him his request vanished because a message did would be a worse lie than the delay.
-        codeSent = await call<{ sent?: boolean }>(session, deliver, { dsar_id: id })
-          .then((r) => Boolean(r?.sent))
-          .catch(() => false);
-      }
-      // WHAT IT ACTUALLY DID, and no more. The request is recorded — that part is real and the
+      // NO CODE DELIVERY TODAY (2026-09-13) — `reminders.send_dsar_code` was deleted along with
+      // the customer-facing WhatsApp code flow it shared a template with, since that flow let a
+      // SHOP'S CUSTOMER reach Raje3 directly, which the product must never do. The owner's own
+      // DSAR against Raje3 (this pane) is unaffected in what it records, only in how identity is
+      // later confirmed — a replacement delivery channel is a separate, smaller piece of work.
+      //
+      // WHAT IT ACTUALLY DOES, and no more. The request is recorded — that part is real and the
       // 30-day clock in the regulation starts from it. What it does NOT do yet is hand him a file:
-      // access and export stay `verified: false` until identity is confirmed (the service refuses
-      // to release personal data before that, correctly), and no service is registered as a data
-      // target on this cluster, so a dispatch would find nobody to ask. Saying «نردّ خلال 30
-      // يوماً» was a promise nothing behind it could keep.
-      setSaid(codeSent
-        ? tf(t, 'accountPanes.dsar.recordedWithCode', { label })
-        : tf(t, 'accountPanes.dsar.recordedNoCode', { label }));
+      // access and export stay `verified: false` until identity is confirmed by some channel, and
+      // no service is registered as a data target on this cluster, so a dispatch would find
+      // nobody to ask. Saying «نردّ خلال 30 يوماً» was a promise nothing behind it could keep.
+      setSaid(tf(t, 'accountPanes.dsar.recordedNoCode', { label }));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('accountPanes.dsar.requestFailed'));
     } finally {

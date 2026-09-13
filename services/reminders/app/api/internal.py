@@ -686,7 +686,6 @@ async def eligibility(request: Request, body: EligibilityIn) -> dict:
                         window_end_hour=s.SEND_WINDOW_END_HOUR,
                         daily_service_cap=s.DAILY_SERVICE_CAP,
                         monthly_marketing_cap=s.MONTHLY_MARKETING_CAP,
-                        monthly_awareness_cap=s.MONTHLY_AWARENESS_CAP,
                         marketing_cooldown_hours=s.MARKETING_COOLDOWN_HOURS,
                         daily_total_cap=s.DAILY_TOTAL_CAP),
         prefs_stopped=prefs.get("stopped") or {},
@@ -880,85 +879,6 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
                                 approved=approved,
                                 choices=await ChoiceStore(c.datastore).load(body.tenant))
     return res
-
-
-class DsarCodeIn(BaseModel):
-    tenant: str = Field(min_length=1, max_length=128)
-    dsar_id: str = Field(min_length=1, max_length=128)
-    subject_ref: str = Field(min_length=8, max_length=128)
-    shop_name: str = Field(default="", max_length=120)
-
-
-@router.post("/reminders/dsar-code", dependencies=[Depends(require_internal_token)])
-async def send_dsar_code(request: Request, body: DsarCodeIn) -> dict:
-    """Deliver a DSAR verification code to the person who asked (PDPL Article 4).
-
-    THE HALF THAT WAS MISSING. compliance-service mints the code at DSAR creation to prove the
-    requester controls the channel — and holds no channel to send it on, so it reached nobody and
-    the verify step could never be completed. We own the channel; this is the delivery.
-
-    WE FETCH IT, WE NEVER MINT IT. The code stays compliance's secret and its clock stays
-    compliance's clock; a second issuer would be a second truth about who proved what, and the
-    first disagreement between them is the one a regulator reads.
-
-    A SPENT CODE IS NOT RE-SENT. The upstream route returns an empty code once the DSAR is
-    verified, and an empty code sends nothing — re-delivering a used one would tell a person to
-    prove something he has already proved.
-
-    AND IT CARRIES NOTHING OF HIS. The code, the minutes, the shop's name. This message asks for
-    proof of identity; putting his data in it would disclose before the proof it is asking for.
-    """
-    from app.adapters import internal_http
-    from app.config import get_settings
-
-    cfg = get_settings()
-    if not cfg.COMPLIANCE_SERVICE_URL:
-        return {"sent": False, "reason": "no compliance url configured"}
-
-    try:
-        # Built in adapters/internal_http.py, the one place this service attaches the token —
-        # this route is a CALLER as well as a callee, which is exactly how it came to hand-roll
-        # its own request in a file otherwise about verifying other people's.
-        payload = internal_http.get_json(
-            f"{cfg.COMPLIANCE_SERVICE_URL.rstrip('/')}"
-            f"/internal/compliance/dsar/{body.dsar_id}/verification-code",
-            cfg.INTERNAL_SERVICE_TOKEN, 6)
-    except Exception as exc:                                                # noqa: BLE001
-        # REPORTED, NEVER SWALLOWED. A code that failed to reach him is a legal deadline running
-        # with nobody watching it, so the caller has to be able to retry knowing it did not go.
-        return {"sent": False, "reason": f"could not read the code: {str(exc)[:120]}"}
-
-    code = str(payload.get("code") or "")
-    if not code:
-        return {"sent": False, "reason": "already verified — nothing to send"}
-
-    minutes = max(1, int((int(payload.get("expires_at") or 0) - int(time.time())) // 60))
-
-    await request.app.state.container.sender.send(
-        tenant=body.tenant, subject_ref=body.subject_ref,
-        template_name="per_dsar_code",
-        # FROM THE ESTABLISHMENT, DELIBERATELY — not from a branch, and said rather than defaulted.
-        # A privacy request is made against the establishment, which is the controller under PDPL;
-        # the person may have visited three of its branches and there is no branch on this request
-        # to name. Every other send passes the branch its schedule carries, so an omission here
-        # would read as one more site that forgot — and the check that found this cannot tell a
-        # decision from an oversight unless the decision is written down.
-        sending_identity=body.tenant,
-        # THE LIBRARY NUMBERS ITS SLOTS ONCE, FOR EVERY TEMPLATE: {{1}} is the name (or its
-        # substitute), {{2}} is the establishment, and the rest is the message. This call filled
-        # them in its own order, so the code would have arrived where a name belongs and the shop
-        # name where a deadline belongs — a rendered message nobody could act on, under a template
-        # Meta had approved. Positional variables have no field names to catch that.
-        #
-        # AND THE NAME IS THE SUBSTITUTE HERE, always: this service holds a pseudonym and no name,
-        # by design (see the message-sender port). Meta refuses an empty variable, so the library's
-        # own fallback fills it rather than a blank.
-        variables=[R.FALLBACK_NAME, body.shop_name or "", code, str(minutes)],
-        cls="personal",
-        # ONE PER DSAR, ATTEMPT AND ALL. A retried delivery must not become two messages carrying
-        # the same code — the second reads as a second request the subject did not make.
-        idempotency_key=f"dsar-code-{body.dsar_id}")
-    return {"sent": True, "expires_in_minutes": minutes}
 
 
 class ChooseOfferIn(BaseModel):

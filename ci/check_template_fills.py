@@ -19,7 +19,7 @@
 #
 #   · a class that two files disagree about. The send carries the CALLER'S word for what class a
 #     message is — and that word decides consent, the quiet window and the monthly cap. A goal
-#     filing a marketing text as `awareness` sends advertising under an exemption, and nothing
+#     filing a marketing text as `personal` sends advertising under an exemption, and nothing
 #     downstream can tell.
 #
 # Run:  python ci/check_template_fills.py
@@ -103,7 +103,7 @@ def campaign_types() -> dict[str, str]:
     """And the goals, which fire without a reason row of their own — type → the class they claim.
 
     THE CLASS TRAVELS WITH THE SEND, and it decides consent, the quiet window and the monthly cap.
-    A goal that files a marketing template as `awareness` would send advertising under an
+    A goal that files a marketing template as `personal` would send advertising under an
     exemption; the library is the authority, and this is the only place the two are compared.
     """
     src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
@@ -255,7 +255,7 @@ def main() -> int:
 
     # ── the class a caller CLAIMS must be the class the text IS ──────────────────────────────
     # It decides consent, the quiet window and the monthly cap. A goal filing a marketing text as
-    # `awareness` would send advertising under an exemption, and nothing downstream would notice:
+    # `personal` would send advertising under an exemption, and nothing downstream would notice:
     # the send carries the caller's word for it. The library is the authority, and this is the
     # only place the two are ever compared.
     for type_name, claimed in sorted(claims.items()):

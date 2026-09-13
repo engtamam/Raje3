@@ -25,18 +25,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.adapters.datastore.drain import drain
-from app.core.locks import record_lock
 
 # Saudi Arabia has no daylight saving, so a fixed offset is correct — the same constant as
 # reminders' gate, and the same reason it is named rather than inlined.
 from app.core.riyadh import RIYADH
-
-# How long an awareness campaign locks its audience out of another one. A DEFAULT: it is a
-# judgement about how often a shop may educate the same customer, and the right answer differs
-# between a workshop and a clinic. DEFAULT_AWARENESS_LOCK_DAYS overrides it.
-DAY = 86400
-
-DEFAULT_AWARENESS_LOCK_DAYS = 30
 
 
 @dataclass
@@ -63,7 +55,6 @@ def same_day(a: int, b: int) -> bool:
 
 class Tick:
     def __init__(self, *, store, dispatcher, telemetry=None, licence=None,
-                 awareness_lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS,
                  share_reader=None) -> None:
         self._s = store
         self._d = dispatcher
@@ -74,9 +65,6 @@ class Tick:
         # المخلصين» run every day by themselves, so a subscription that lapses would otherwise
         # keep sending marketing for ever — the create route is not on that path at all.
         self._licence = licence
-        # How often a shop may educate the same customer. A judgement, and a workshop is not a
-        # clinic — so it comes from the deployment rather than from this file.
-        self._lock_days = int(awareness_lock_days)
         # TODAY'S SHARE FOR ONE SHOP, as a callable rather than as three peer clients: this file
         # must not learn which service holds the ceiling, which holds the reserve, or which counts
         # what has gone. `None` means unknown, and unknown falls back to the pass batch — the
@@ -227,11 +215,6 @@ class Tick:
 
     async def _fire(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> bool:
         """Fire one pass. Returns whether the campaign is FINISHED — see the caller."""
-        if int(campaign.get("locked_until") or 0) > now:
-            # The awareness lock (spec §10.9). Skipped rather than refused: the cron is not the
-            # place an owner learns about a lock — the card in their screen is.
-            res.skipped += 1
-            return True
         # THE SHARE ON THE CRON PATH TOO, read the same way the screen reads it. `_share_for` is
         # the tick's own resolver: a campaign fired by the clock spends from the same ceiling as
         # one fired by a press, and honouring the reserve on only one of the two paths is the same
@@ -244,15 +227,6 @@ class Tick:
         for k, v in out.run.reasons.items():
             res.reasons[k] = res.reasons.get(k, 0) + v
 
-        if campaign.get("cls") == "awareness" and out.run.sent:
-            # LOCKED ONLY IF SOMETHING WENT OUT. Locking after a run that reached nobody would
-            # cost the owner a month for a send that never happened.
-            campaign["locked_until"] = now + self._lock_days * DAY
-            await self._save(campaign, now)
-            # THE SIDE RECORD `_locks()` READS, kept current at the one place this path writes a
-            # lock. See app.core.locks for why the read side no longer scans campaigns.
-            await record_lock(self._s, campaign.get("tenant", ""),
-                              campaign.get("goal", ""), campaign["locked_until"])
         return out.finished
 
     async def _save(self, campaign: dict[str, Any], now: int) -> None:

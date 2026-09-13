@@ -1,8 +1,7 @@
 """`_matches` — the goal-matching dispatch table, checked directly against every goal.
 
 Written when the if/elif chain became a dict of matcher functions, to pin the exact same
-per-goal behaviour the chain had (an unknown goal still matches nobody, `announce` and
-`awareness` still share one rule, etc).
+per-goal behaviour the chain had (an unknown goal still matches nobody, etc).
 """
 from __future__ import annotations
 
@@ -41,10 +40,9 @@ def test_reward_loyal_does_not_match_too_few_visits():
     assert not ok
 
 
-def test_announce_and_awareness_match_everyone():
-    for goal in ("announce", "awareness"):
-        ok, why = _matches(goal, {}, now=NOW, window_days=14, min_visits=2)
-        assert ok and why == "كل العملاء"
+def test_announce_matches_everyone():
+    ok, why = _matches("announce", {}, now=NOW, window_days=14, min_visits=2)
+    assert ok and why == "كل العملاء"
 
 
 def test_package_offer_matches_everyone_same_as_broadcast():
@@ -52,7 +50,7 @@ def test_package_offer_matches_everyone_same_as_broadcast():
     # package_offer campaign matched zero candidates (`_matches` falls back to `(False, "")` for
     # any goal not in the dict). It shares `_match_broadcast`, deliberately: no cycle lock (the
     # cycle lock only ever engages when `service_id` is set, which a package_offer campaign
-    # never carries), same as `announce`/`awareness`.
+    # never carries), same as `announce`.
     ok, why = _matches("package_offer", {}, now=NOW, window_days=14, min_visits=2)
     assert ok and why == "كل العملاء"
 

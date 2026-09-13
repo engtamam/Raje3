@@ -37,11 +37,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "docs" / "وصف-منصة-راجع.md"
 
-CLASS = {"svc": "service", "per": "personal", "awr": "awareness",
+CLASS = {"svc": "service", "per": "personal",
          "wrn": "warning", "mkt": "marketing"}
 # Meta's category decides the PRICE and the odds of acceptance. Getting it wrong means they
 # re-categorise and bill at the marketing rate (spec §8.5).
-CATEGORY = {"service": "UTILITY", "personal": "UTILITY", "awareness": "UTILITY",
+CATEGORY = {"service": "UTILITY", "personal": "UTILITY",
             "warning": "UTILITY", "marketing": "MARKETING"}
 TONES = ("masculine", "feminine")
 
@@ -83,13 +83,13 @@ FREE = "owner"
 #
 # AND THE INVITE STAYS QUIET ON PURPOSE. A utility template whose text sells is re-categorised by
 # Meta as MARKETING — a higher price per message and a service message that suddenly needs consent
-# to send. That is what SELLING_WORDS below already guards for the awareness class; the invitation
+# to send. That is what SELLING_WORDS below already guards for the warning class; the invitation
 # obeys the same rule by carrying no price, no discount and no offer. All of the persuasion lives
 # on the screen the link opens, which is ours and which Meta does not review.
 LAST_FILL = {"marketing": "stop_link"}
 LAST_FILL_DEFAULT = "invite"
 
-# An awareness or warning template carrying any of these is not awareness — it is marketing by its
+# A warning template carrying any of these is not a warning — it is marketing by its
 # text, whatever it is labelled (spec §8.4.1). Meta re-categorises it and bills accordingly, and
 # the establishment is then sending promotion under a utility consent.
 SELLING_WORDS = ("خصم", "عرض", "ريال", "مجاناً", "مجانا", "اشترِ", "اشتري", "احجز", "زُرنا",
@@ -201,11 +201,11 @@ def parse() -> tuple[list[dict], list[str]]:
                             f"Meta refuses an empty variable")
 
         # ── the category that has to be true rather than declared ──────────────────────────────
-        if cls in ("awareness", "warning"):
+        if cls == "warning":
             for tone, text in tones.items():
                 hit = [w for w in SELLING_WORDS if w in text]
                 if hit:
-                    problems.append(f"{name}_{tone}: contains {hit} — an awareness template with "
+                    problems.append(f"{name}_{tone}: contains {hit} — a warning template with "
                                     f"a price or an invitation is MARKETING by its text (§8.4.1), "
                                     f"and Meta will re-categorise and bill it as such")
 

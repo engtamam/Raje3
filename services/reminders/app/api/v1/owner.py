@@ -428,9 +428,9 @@ async def _template_options(c, template_type: str, establishment: str, *, tenant
             # owner, stop_link, ...), but `render()` reads catalogue/owner/link fills from their
             # OWN separate arguments, never from `system` — so every one of those slots raised and
             # the whole option silently vanished. Found live: every marketing template (mandatory
-            # `stop_link` tail) and both awareness/warning templates (`owner`/`catalogue` fills)
-            # disappeared from every reason's preview, for a mismatch that had nothing to do with
-            # Meta review or the template's own text.
+            # `stop_link` tail) and the warning template (`owner`/`catalogue` fills) disappeared
+            # from every reason's preview, for a mismatch that had nothing to do with Meta review
+            # or the template's own text.
             system = TR.sample_slots(row, establishment=establishment)
             rendered = R.render(template=row, system=system, catalogue=system, owner=system,
                                 public_base_url=TR._SAMPLE_BASE, reference=TR._SAMPLE_REF)
@@ -488,8 +488,8 @@ async def preview_by_type(request: Request, template_type: str,
 
     THE ASYMMETRY THIS FIXES. Only three of «حملاتي»'s seven goals share a reason id
     (`win_back`/`occasion`/`reward_loyal`, via Launch.tsx's own `GOAL_REASON_ID`), and only those
-    three ever got «اعرض نص هذه الرسالة، أو عدّله». The other four — announce, awareness,
-    service_offer, package_offer — have no reason to preview by, so they never got the modal at
+    three ever got «اعرض نص هذه الرسالة، أو عدّله». The other goals — announce, service_offer,
+    package_offer — have no reason to preview by, so they never got the modal at
     all. This route asks by template TYPE instead, which every goal already carries
     (campaigns/app/core/models.py's own `GOAL_TEMPLATE`).
 
@@ -891,32 +891,6 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
                       # the key, so the set was empty on every visit: the «طبّق العرض» control was
                       # never rendered once, and no service ever carried its badge.
                       "service_ids": list(row.get("offer_services") or [])}}
-
-
-class DsarCodeOut(BaseModel):
-    dsar_id: str = Field(min_length=1, max_length=128)
-
-
-@router.post("/dsar-code", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def send_my_dsar_code(request: Request, body: DsarCodeOut,
-                            principal: Principal = Depends(_READ)) -> dict:
-    """Send ME the code that proves this request is mine (PDPL Article 4).
-
-    THE SUBJECT ASKS FOR HIS OWN. `_READ` and not `manage`: the person pressing this is the person
-    whose data it is, and the code goes to the number on his own session — never to one supplied
-    in the request, which would turn a verification into a way to send codes to strangers.
-
-    THE DELIVERY ITSELF IS THE INTERNAL ROUTE, unchanged: it fetches the code from compliance, and
-    a spent code sends nothing. This is only the door a screen may knock on.
-    """
-    from app.api.internal import DsarCodeIn, send_dsar_code
-
-    return await send_dsar_code(request, DsarCodeIn(
-        tenant=_tenant(principal),
-        dsar_id=body.dsar_id,
-        # HIS OWN PSEUDONYM, off the token. The one identifier a caller cannot choose.
-        subject_ref=getattr(principal, "subject", "") or "",
-        shop_name=""))
 
 
 @router.get("/offers", dependencies=[Depends(rate_limit)])

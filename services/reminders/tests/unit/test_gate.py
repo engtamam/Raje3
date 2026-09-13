@@ -55,10 +55,9 @@ def test_a_granted_customer_passes_the_consent_check():
               marketing_consent="granted").allowed is True
 
 
-def test_the_other_four_classes_never_need_a_grant():
+def test_the_other_classes_never_need_a_grant():
     """A shop that cannot confirm a visit to a new customer has no product (§8.4.2)."""
-    for cls, tt in (("service", "svc_service_reminder"), ("personal", "per_account_notice"),
-                    ("awareness", "awr_care_tip")):
+    for cls, tt in (("service", "svc_service_reminder"), ("personal", "per_account_notice")):
         assert ev(cls=cls, template_type=tt, marketing_consent="never_asked").allowed is True
 
 
@@ -66,7 +65,7 @@ def test_the_other_four_classes_never_need_a_grant():
 def test_an_explicit_stop_outranks_everything_including_personal():
     """Someone who switched everything off has said what they want, and keeping a channel open
     over their objection is not a service to them (spec 8.4.2 section 5)."""
-    for cls in ("service", "personal", "marketing", "awareness"):
+    for cls in ("service", "personal", "marketing"):
         d = ev(cls=cls, template_type="per_account_notice", prefs_stopped={cls: True})
         assert not d.allowed and "أوقف" in d.reason
 
@@ -145,7 +144,7 @@ def test_marketing_at_nine_fifty_nine_pm_is_allowed_at_ten_pm_is_not():
 
 
 def test_the_general_window_is_unaffected_by_the_marketing_specific_one():
-    """service/personal/awareness keep the existing 7am-10pm window untouched — only marketing
+    """service/personal keep the existing 7am-10pm window untouched — only marketing
     gets the stricter, legally-mandated bounds."""
     assert ev(cls="service", now=at(8)).allowed
     assert not ev(cls="service", now=at(6)).allowed
@@ -184,8 +183,8 @@ def test_a_suppressed_row_does_not_consume_the_cap():
 
 
 def test_the_absolute_daily_ceiling_catches_what_the_per_class_caps_let_through():
-    """Four separate caps can each be satisfied while their sum is five messages in a day."""
-    d = ev(cls="awareness", template_type="awr_care_tip",
+    """Separate per-class caps can each be satisfied while their sum exceeds the daily total."""
+    d = ev(cls="marketing", template_type="mkt_offer",
            recent_sends=[sent("service", at(9)), sent("marketing", at(8))])
     assert not d.allowed and "الحد اليومي" in d.reason
 
@@ -231,8 +230,8 @@ def test_marketing_after_the_cooldown_goes_out():
 
 # ── the ladder ─────────────────────────────────────────────────────────────────────────────────
 def test_the_priority_ladder_is_the_one_in_the_spec():
-    assert [G.priority(c) for c in ("warning", "personal", "service", "awareness", "marketing")] \
-        == [0, 1, 2, 3, 4]
+    assert [G.priority(c) for c in ("warning", "personal", "service", "marketing")] \
+        == [0, 1, 2, 4]
 
 
 def test_every_refusal_carries_a_reason():

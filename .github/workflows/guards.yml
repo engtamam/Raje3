@@ -1090,7 +1090,7 @@ jobs:
       # The template library is GENERATED from the specification, so this catches two things at
       # once: a spec edit that was never regenerated, and a hand-edit of the seed that drifted from
       # the wording actually reviewed. It also runs the four content checks — a numbering gap, a
-      # missing tone, tones disagreeing on variables, and a price inside an awareness template.
+      # missing tone, tones disagreeing on variables, and a price inside a warning template.
       # Every one of them is a Meta rejection that would otherwise arrive hours later against a
       # template name that cannot be reused or renamed.
       - name: the WhatsApp library matches the specification

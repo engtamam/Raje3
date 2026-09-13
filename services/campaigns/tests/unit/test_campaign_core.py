@@ -37,7 +37,7 @@ def audience(goal, *items, **kw):
 
 # ── the record ─────────────────────────────────────────────────────────────────────────────────
 def test_the_goal_decides_the_template_and_the_class_not_the_owner():
-    """Every campaign is promotional except awareness, and the owner never sees a class."""
+    """Every campaign is promotional, and the owner never sees a class."""
     for goal, (tmpl, cls) in GOAL_TEMPLATE.items():
         c = Campaign(tenant="t1", goal=goal)
         assert c.template_type == tmpl and c.cls == cls
@@ -66,12 +66,6 @@ def test_two_runs_at_the_same_second_do_not_overwrite_each_other():
     a = Run(tenant="t1", campaign_id="cmp_1", at=NOW)
     b = Run(tenant="t1", campaign_id="cmp_1", at=NOW)
     assert a.key != b.key
-
-
-def test_awareness_carries_a_lock_and_the_others_do_not():
-    c = Campaign(tenant="t1", goal="awareness", locked_until=NOW + 30 * DAY)
-    assert c.locked(NOW) and not c.locked(NOW + 31 * DAY)
-    assert not Campaign(tenant="t1", goal="announce").locked(NOW)
 
 
 # ── win-back: the customer's own rhythm, not a fixed number ────────────────────────────────────

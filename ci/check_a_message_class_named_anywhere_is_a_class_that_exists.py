@@ -8,7 +8,7 @@ and everyone else is evidence rather than our opinion — decides what to withho
 
     WITHHELD_CLASSES = frozenset({"marketing", "reminder"})
 
-There is no class called `reminder`. The vocabulary is `service · personal · awareness · warning
+There is no class called `reminder`. The vocabulary is `service · personal · warning
 · marketing`, declared in `reminders/app/core/models.py` and used by the gate, the templates and
 every scheduler. Every reminder in the product is scheduled as `service`; so is every rung of the
 follow-up ladder.

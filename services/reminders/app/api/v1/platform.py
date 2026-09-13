@@ -42,7 +42,6 @@ class LimitsIn(BaseModel):
     daily_service_cap: int = Field(ge=1, le=3)
     daily_total_cap: int = Field(ge=1, le=5)
     monthly_marketing_cap: int = Field(ge=1, le=12)
-    monthly_awareness_cap: int = Field(ge=0, le=4)
     marketing_cooldown_hours: int = Field(ge=12, le=720)
     # NOT SETTABLE HERE: the sending window. It is regulatory, not commercial — 10pm to 7am is
     # decided by the CST and not by us or by a customer paying more (spec 8.6). Exposing it as a
@@ -70,7 +69,6 @@ async def get_limits(request: Request, tenant: str = "",
             "daily_service_cap": s.DAILY_SERVICE_CAP,
             "daily_total_cap": s.DAILY_TOTAL_CAP,
             "monthly_marketing_cap": s.MONTHLY_MARKETING_CAP,
-            "monthly_awareness_cap": s.MONTHLY_AWARENESS_CAP,
             "marketing_cooldown_hours": s.MARKETING_COOLDOWN_HOURS,
         },
         "window": {"start_hour": s.SEND_WINDOW_START_HOUR, "end_hour": s.SEND_WINDOW_END_HOUR,

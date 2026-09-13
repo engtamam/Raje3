@@ -2,7 +2,7 @@
 
 THE DEFECT. `POST /campaigns` built `Campaign(...)` with a fresh id on every request and fired it
 inline. Every protection against sending a person the same thing twice is keyed on `campaign_id` —
-`campaign_reached`, the send idempotency key, the awareness lock — so two presses produced two
+`campaign_reached` and the send idempotency key — so two presses produced two
 campaigns that could not see each other, and three hundred customers received the same offer twice
 while the shop paid twice against its cap.
 

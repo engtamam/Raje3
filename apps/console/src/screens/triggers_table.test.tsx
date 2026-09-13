@@ -35,7 +35,6 @@ const REASONS = [
 const GOALS = [
   { goal: 'win_back', title: 'رجّع اللي غابوا', line: 'من تأخّر عن موعده' },
   { goal: 'announce', title: 'أعلن جديدك', line: 'خبر أو عرض للجميع' },
-  { goal: 'awareness', title: 'وعِّ عملاءك', line: 'نصيحة تخصّ ما أخذوه' },
 ];
 
 vi.mock('../catalog', async (importOriginal) => {
@@ -82,8 +81,6 @@ describe('«القوالب» — every template, once, grouped and tagged', () =
     expect(rows('خدمية')).toBeGreaterThan(0);
     expect(rows('شخصية')).toBeGreaterThan(0);
     expect(rows('تسويقية')).toBeGreaterThan(0);
-    // THE TWO NEW SECTIONS, for goals with no automatic counterpart at all.
-    expect(rows('وعي ونصائح')).toBeGreaterThan(0);
   });
 
   it('tags an automatic-only reason «تلقائي»', async () => {
@@ -95,7 +92,7 @@ describe('«القوالب» — every template, once, grouped and tagged', () =
   it('tags a manual-only goal «أنت ترسلها»', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    // `announce` has no reason at all — awareness/announce are goal-only cards.
+    // `announce` has no reason at all — it is a goal-only card.
     await screen.findByText('أعلن جديدك');
     expect(rows('أنت ترسلها')).toBeGreaterThan(0);
   });
@@ -129,7 +126,7 @@ describe('«القوالب» — every template, once, grouped and tagged', () =
     await screen.findAllByText('سُجّلت زيارة');
     expect(screen.getByText('أطلقها من «رجّع اللي غابوا»')).toBeTruthy();
     // A card with no matching goal at all (points_expiring here) offers no link — but a bare
-    // goal card (announce, awareness — «أنت ترسلها») links too, the same way the shared ones do.
+    // goal card (announce — «أنت ترسلها») links too, the same way the shared ones do.
     expect(screen.getAllByText(/أطلقها من/).length).toBeGreaterThan(0);
   });
 });

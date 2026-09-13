@@ -66,9 +66,9 @@ class TemplateIn(BaseModel):
     type: str = Field(default="", max_length=128)
     tone: str = Field(default="", pattern="^(masculine|feminine|)$")
     label: str = Field(default="", max_length=200)
-    # The five regulatory classes (spec §8.4.1). Validated, not accepted: the class decides the
+    # The four regulatory classes (spec §8.4.1). Validated, not accepted: the class decides the
     # rules, so a template filed under the wrong one carries the wrong constraints.
-    cls: str = Field(alias="class", pattern="^(service|personal|awareness|warning|marketing)$")
+    cls: str = Field(alias="class", pattern="^(service|personal|warning|marketing)$")
     # Which kind of business this template is FOR (spec 16.6.5). Declared on the model, not only in
     # the core: pydantic drops an undeclared key silently and with a 200, which is exactly how the
     # `fills` rule was enforced in the core and bypassed at the door an hour after it was written.

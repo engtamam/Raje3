@@ -32,7 +32,7 @@ def test_every_field_the_core_validates_is_declared_on_the_api_model():
     declared = set(mod.LimitsIn.model_fields)
     # Every knob the gate reasons about must be settable, or the console silently drops it.
     for field in ("daily_service_cap", "daily_total_cap", "monthly_marketing_cap",
-                  "monthly_awareness_cap", "marketing_cooldown_hours"):
+                  "marketing_cooldown_hours"):
         assert field in declared, f"{field} is enforced but the API model would drop it"
 
 
@@ -121,7 +121,7 @@ def test_no_peer_url_relies_on_being_in_the_same_namespace():
 def test_a_stopped_class_is_refused_under_every_priority():
     """The customer's own instruction outranks the ladder, the caps, and every exemption."""
     now = 1_800_000_000
-    for cls in ("service", "personal", "awareness", "marketing"):
+    for cls in ("service", "personal", "marketing"):
         d = G.evaluate(cls=cls, template_type="svc_visit_confirmation", now=now,
                        limits=G.Limits(), prefs_stopped={cls: True}, engagement_score=100.0,
                        engagement_at=now, recent_sends=[],

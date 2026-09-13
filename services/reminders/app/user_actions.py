@@ -67,15 +67,6 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "العرض الذي يحمله هذا العميل الآن. المنتهي لا يُعاد إطلاقاً.",
     },
     {
-        # THE HALF PDPL WAS MISSING. compliance mints a verification code and holds no channel to
-        # deliver it, so it reached nobody and no request could ever be verified. We own the
-        # channel; this asks for the delivery.
-        "id": "reminders.send_dsar_code", "label": "أرسل رمز تأكيد طلبي", "method": "POST",
-        "path": "/api/v1/reminders/dsar-code", "capability": "reminders.read",
-        "group": "بياناتي",
-        "help": "يصلك على واتساب رقمك، وصالحٌ دقائق معدودة.",
-    },
-    {
         "id": "reminders.customer_offers", "label": "عروض العميل", "method": "GET",
         "path": "/api/v1/reminders/offers", "capability": "reminders.read", "group": "العروض",
         "params": [{"name": "subject_ref", "in": "query", "type": "string", "required": True},

@@ -30,7 +30,7 @@ SERVICES = ROOT / "services"
 # a class added there and forgotten here would be a default this gate waves through.
 REGISTRY = (SERVICES / "reminders" / "app" / "core" / "reasons.py").read_text(encoding="utf-8")
 CLASSES = set(re.findall(r'^([A-Z]+) = "([a-z]+)"$', REGISTRY, re.M))
-KNOWN = {v for _, v in CLASSES} or {"service", "marketing", "personal", "awareness", "warning"}
+KNOWN = {v for _, v in CLASSES} or {"service", "marketing", "personal", "warning"}
 
 # A pydantic field named `cls` with a string default — the shape that decides by omission.
 DEFAULTED = re.compile(r'^\s*cls:\s*str\s*=\s*Field\([^)]*default="([a-z]+)"', re.M)

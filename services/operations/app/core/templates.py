@@ -12,9 +12,9 @@ when the table is empty. Re-applying it on every boot would silently undo an ope
 
 PLATFORM-SCOPED. One library for the whole product, under the reserved `_platform` tenant. An
 establishment does not get to rewrite "خدمة أخرى" for everybody else — and more importantly, the
-text being OURS is the entire reason the five-class taxonomy is honest (spec §8.4.1). If a shop
-could write its own awareness template, the first one to notice would reclassify its advertising as
-advice, and we would have built the loophole ourselves.
+text being OURS is the entire reason the four-class taxonomy is honest (spec §8.4.1). If a shop
+could write its own template under a low-friction class, the first one to notice would reclassify
+its advertising as something else, and we would have built the loophole ourselves.
 
 WHAT THIS IS NOT. It is not the per-tenant WhatsApp registry — notification-service owns that,
 including submission to Meta and the approval sweep. This is the CURATED SET we push into a
@@ -31,10 +31,10 @@ from typing import Any
 TEMPLATES = "templates"
 PLATFORM = "_platform"
 
-# The five regulatory classes (spec §8.4.1). The class decides the rules, so it is validated
+# The four regulatory classes (spec §8.4.1). The class decides the rules, so it is validated
 # rather than accepted: a template in the wrong class carries the wrong constraints, and an
 # account notice filed as "service" looks stoppable and countable when it is neither.
-CLASSES = ("service", "personal", "awareness", "warning", "marketing")
+CLASSES = ("service", "personal", "warning", "marketing")
 TONES = ("masculine", "feminine")
 # Meta's categories. Ours map onto these, and getting it wrong means Meta re-categorises and
 # bills at the marketing rate.
@@ -142,13 +142,13 @@ class TemplateLibrary:
                 f"variables must be numbered from 1 with no gap — {name} uses {variables}. "
                 f"Meta refuses this at submission and blames the wording.")
 
-        # THE LINE THAT MAKES THE CLASS HONEST (spec §8.4.1). An awareness or warning template
-        # carrying a price, a discount or an invitation to visit is an advertisement by its text
-        # whatever we label it — and we can guarantee it because we author it, not because we
-        # police it. Policing fails at volume; authoring does not.
-        if cls in ("awareness", "warning") and cat != "UTILITY":
+        # THE LINE THAT MAKES THE CLASS HONEST (spec §8.4.1). A warning template carrying a
+        # price, a discount or an invitation to visit is an advertisement by its text whatever we
+        # label it — and we can guarantee it because we author it, not because we police it.
+        # Policing fails at volume; authoring does not.
+        if cls == "warning" and cat != "UTILITY":
             raise TemplateError(f"{cls} must be UTILITY — if it needs MARKETING it is not {cls}")
-        if cls in ("awareness", "warning") and _looks_promotional(body):
+        if cls == "warning" and _looks_promotional(body):
             raise TemplateError(
                 f"this {cls} template reads as promotional (a price, a discount, or an invitation "
                 f"to visit). That makes it advertising by its text, not by its label — file it as "
@@ -281,7 +281,7 @@ def _variables(body: str) -> list[int]:
 
 # Words that turn advice into advertising. Deliberately a small, blunt list rather than a clever
 # one: it is a second pair of eyes on text WE write, not a filter on text a stranger submits. Its
-# job is to catch the moment somebody edits an awareness template in the console and slips an
+# job is to catch the moment somebody edits a warning template in the console and slips an
 # offer into it — the exact way this taxonomy would rot.
 _PROMO_MARKERS = ("خصم", "عرض", "مجان", "ريال", "%", "احجز", "اطلب", "وفّر", "وفر")
 

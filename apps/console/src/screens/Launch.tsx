@@ -51,7 +51,7 @@ import './launch-i18n';
  * THE SAME MEMBERSHIP shape.py's OWN `BOOKING_TYPES` HOLDS (mkt_winback/mkt_personal_occasion/
  * mkt_offer), named by GOAL rather than by template type — a shop that owns bookings gets a real
  * Flow button under one of these four goals' sends; a shop that does not gets a carousel instead
- * (core/shape.py::for_send). Every other goal (announce/awareness/reward_loyal) always sends
+ * (core/shape.py::for_send). Every other goal (announce/reward_loyal) always sends
  * plain text — neither shape applies. Hand-mirrored, same posture Messages.tsx's own
  * `GOAL_TEMPLATE_TYPE` already takes: a table this small drifting is a one-line fix, not worth a
  * network round trip for exactly one screen's preview.
@@ -69,7 +69,7 @@ const CAROUSEL_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer'
  */
 const GOAL_TONE: Record<string, 'accent' | 'warning' | 'danger' | 'info'> = {
   service_offer: 'accent', package_offer: 'warning', win_back: 'danger',
-  reward_loyal: 'accent', occasion: 'info', announce: 'info', awareness: 'info',
+  reward_loyal: 'accent', occasion: 'info', announce: 'info',
 };
 const GOAL_TONE_ICON_BG: Record<string, string> = {
   accent: 'bg-accent-soft text-accent-on-soft', warning: 'bg-warning-soft text-warning-on-soft',
@@ -608,7 +608,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   // ── THE BUILDER + THE PHONE — what will happen, and the one press ────────────────────────────
   {
     // THE MATCHING REASON, IF ONE EXISTS AND HAS ACTUALLY LOADED — absent for the goals with no
-    // automatic counterpart yet (announce, service_offer/package_offer, awareness), and absent
+    // automatic counterpart yet (announce, service_offer/package_offer), and absent
     // while `reasons` is still `null` (loading or denied).
     const linkedReasonId = GOAL_REASON_ID[picked.goal];
     const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;

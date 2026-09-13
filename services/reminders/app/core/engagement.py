@@ -105,10 +105,9 @@ def allows(cls: str, current_tier: str) -> tuple[bool, str]:
     something the customer just did; withholding it because they have not read our marketing would
     be absurd, and would break the product for the exact customer who is standing in the shop.
 
-    Awareness is treated as marketing here even though it is UTILITY at Meta. The regulator's
-    category governs what we may send at 11pm; this governs whether an inattentive customer needs
-    to hear from us at all, and unsolicited advice to someone who has ignored us for four months is
-    advertising in everything but name.
+    MARKETING ALONE IS GATED HERE. The regulator's category governs what we may send at 11pm;
+    this governs whether an inattentive customer needs to hear from us at all, and unsolicited
+    advertising to someone who has ignored us for four months serves nobody.
     """
     if cls in ("service", "personal", "warning"):
         return True, ""

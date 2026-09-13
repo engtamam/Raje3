@@ -29,14 +29,13 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
-# The five classes, in the order a customer should see them: what they are most likely to want
+# The four classes, in the order a customer should see them: what they are most likely to want
 # kept, first. Not the regulatory order — that one is ours, and this list is theirs.
-CLASS_ORDER = ("service", "personal", "awareness", "warning", "marketing")
+CLASS_ORDER = ("service", "personal", "warning", "marketing")
 
 LABELS = {
     "service": "رسائل الخدمة",
     "personal": "رسائل تخصّك",
-    "awareness": "نصائح ومعلومات",
     "warning": "تنبيهات السلامة",
     "marketing": "العروض والخصومات",
 }
@@ -44,7 +43,6 @@ LABELS = {
 HINTS = {
     "service": "تأكيد زيارتك، والتذكير بموعد صيانتك القادم.",
     "personal": "رصيد نقاطك وإشعارات حسابك.",
-    "awareness": "نصيحة تخصّ ما تستخدمه، مرة في الشهر على الأكثر.",
     "warning": "تنبيه يخصّ سلامتك أو ما تملكه. نادر.",
     "marketing": "العروض الجديدة. أربع رسائل شهرياً على الأكثر.",
 }
@@ -222,7 +220,7 @@ def _normalise_offers(raw: Any) -> list[dict[str, Any]]:
 
 
 def _normalise_prefs(raw: Any) -> list[dict[str, Any]]:
-    """The five switches in the customer's order, from what reminders said about each one.
+    """The four switches in the customer's order, from what reminders said about each one.
 
     Defensive about the SHAPE because this is rendered without a schema check on the other side: a
     peer that grows a sixth class must not put an unlabelled toggle on a customer's page, and one
@@ -230,8 +228,8 @@ def _normalise_prefs(raw: Any) -> list[dict[str, Any]]:
     it. What it is not defensive about is the VALUE — see below.
 
     ── EACH CLASS'S DEFAULT IS ITS OWN RULE (هـ-6) ──────────────────────────────────────────────
-    Four of the five are opt-OUT: service, personal, awareness and warning run until the customer
-    stops them, so a class the peer did not name renders ON and that is right (§8.4.2).
+    Three of the four are opt-OUT: service, personal and warning run until the customer stops
+    them, so a class the peer did not name renders ON and that is right (§8.4.2).
 
     MARKETING IS OPT-IN. §8.5 and the PDPL's prior-consent rule, and the sending gate enforces it:
     `never_asked` is refused there exactly as `withdrawn` is. This page derived every switch from

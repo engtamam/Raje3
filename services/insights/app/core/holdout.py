@@ -53,7 +53,7 @@ DEFAULT_SHARE = 10
 # WHAT THE ENGINE INITIATES — which is what the subscription is being judged on.
 #
 # THIS USED TO READ `{"marketing", "reminder"}` AND «reminder» IS NOT A CLASS. The vocabulary is
-# `service · personal · awareness · warning · marketing`; every reminder in the product is
+# `service · personal · warning · marketing`; every reminder in the product is
 # scheduled as `service`, and so is every rung of the follow-up ladder. So the moment the holdout
 # was switched on, MARKETING ALONE would be withheld — while `insights` published «أثر الرسائل،
 # مقيساً» as the difference between two groups that both received every reminder and every
@@ -70,7 +70,7 @@ DEFAULT_SHARE = 10
 # HE DID. The same distinction, in the same words, that `WINDOW_EXEMPT_TYPES` in gate.py already
 # had to make — «reminders and follow-ups are service-class too, and neither is a reply to
 # anything».
-WITHHELD_CLASSES = frozenset({"marketing", "awareness"})
+WITHHELD_CLASSES = frozenset({"marketing"})
 
 # The two proactive templates that live under a class we otherwise deliver in full. Named rather
 # than prefixed because there are exactly two and each one is a decision: `svc_service_reminder`

@@ -38,10 +38,10 @@ def test_the_branch_narrows_the_audience_and_an_empty_branch_is_the_whole_shop()
 
     facade = _AudienceFacade(NullAudience(rows), resolve, max_audience=5000)
 
-    assert run(facade.resolve_for("t1", goal="announce", now=1, cls="awareness", branch_id="brn-jed")).count == 2
+    assert run(facade.resolve_for("t1", goal="announce", now=1, cls="marketing", branch_id="brn-jed")).count == 2
     # AND NOT NARROWED BY DEFAULT. Every shop that never opened a second branch must keep
     # reaching everybody — a targeting feature that quietly targets is worse than none.
-    assert run(facade.resolve_for("t1", goal="announce", now=1, cls="awareness")).count == 3
+    assert run(facade.resolve_for("t1", goal="announce", now=1, cls="marketing")).count == 3
 
 
 def test_the_branch_is_sent_to_operations_rather_than_applied_on_this_side():

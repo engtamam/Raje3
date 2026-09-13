@@ -62,13 +62,6 @@ def test_the_two_universal_blanks_are_never_repeated_in_a_reason():
         assert not set(t.slots) & set(T.ALWAYS), t.id
 
 
-def test_the_privacy_code_is_not_the_owners_to_switch_off_or_reword():
-    """A statutory right with a clock running (§14). Switching it off switches off somebody
-    else's right; rewording it rewords a legal notice."""
-    t = T.get("privacy_code")
-    assert t.owner_can_switch is False and t.owner_can_retext is False
-
-
 def test_the_template_name_is_ours_and_stays_ours():
     """`template_type` is an identifier at Meta. It names nothing an owner has a word for, and a
     screen showing it would be asking him to reason about our filing system (§10.8.1.2)."""

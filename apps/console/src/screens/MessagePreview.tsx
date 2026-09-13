@@ -126,7 +126,7 @@ export function MessagePreview({
   /** Either this OR `templateType` — never neither. */
   reasonId?: string;
   /**
-   * A CAMPAIGN GOAL WITH NO REASON OF ITS OWN — announce, awareness,
+   * A CAMPAIGN GOAL WITH NO REASON OF ITS OWN — announce,
    * service_offer, package_offer (see Launch.tsx's own GOAL_REASON_ID). Reads
    * `reminders.preview_by_type` instead of `reminders.preview_reason`, and drops everything
    * that only makes sense attached to a reason row: his own texts, the switch, retexting.

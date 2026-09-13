@@ -245,9 +245,6 @@ class Settings(BaseSettings):
     # truncation would be worse than a refusal, and the right number changes with the size of the
     # shops we serve.
     CAMPAIGN_MAX_AUDIENCE: int = 5000
-    # How long an awareness campaign locks its audience out of another. How often a shop may
-    # educate the same customer is a judgement, and a workshop is not a clinic.
-    AWARENESS_LOCK_DAYS: int = 30
 
     # ── the window, for the preview's sentence only ───────────────────────────
     # NOT a second gate: reminders decides whether a message goes. This decides which sentence the

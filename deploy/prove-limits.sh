@@ -90,7 +90,6 @@ async def main() -> int:
                       window_end_hour=s.SEND_WINDOW_END_HOUR,
                       daily_service_cap=s.DAILY_SERVICE_CAP,
                       monthly_marketing_cap=s.MONTHLY_MARKETING_CAP,
-                      monthly_awareness_cap=s.MONTHLY_AWARENESS_CAP,
                       marketing_cooldown_hours=s.MARKETING_COOLDOWN_HOURS,
                       daily_total_cap=s.DAILY_TOTAL_CAP)
     eng_cfg = E.EngagementConfig(half_life_days=s.ENGAGEMENT_HALF_LIFE_DAYS,

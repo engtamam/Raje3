@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/campaigns
-  digest: "sha256:cbffbe1d197104fd5eaabcdda7ddb9112dd0203b3456e264f9e8a079a33e18e2"   # 7322df53, published by publish-images.sh
+  digest: "sha256:d9f56a70c74ae07bb903006024774560e8e38ab937da0054133d673b3d649e2c"   # bc39035a, published by publish-images.sh
 
 replicas: 1
 
@@ -179,9 +179,6 @@ env:
   # How large an audience may be before one send deserves a human look. A silent truncation is
   # worse than a refusal, and the right number changes with the size of the shops we serve.
   CAMPAIGN_MAX_AUDIENCE: "5000"
-  # How long an awareness campaign locks its audience out of another one. How often a shop may
-  # educate the same customer is a judgement, and a workshop is not a clinic.
-  AWARENESS_LOCK_DAYS: "30"
 
 # THE HEARTBEAT. Without it, campaigns exist and never fire: scheduled ones sit past their time and
 # standing rules are never evaluated, with every probe green and no symptom until an owner asks why

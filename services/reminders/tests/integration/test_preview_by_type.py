@@ -1,8 +1,8 @@
 """GET /api/v1/reminders/templates/by-type/{template_type}/preview — the same wording engine as
-`/reasons/{id}/preview`, reached by TEMPLATE TYPE for the four campaign goals with no
-reasons-registry counterpart at all (announce, awareness, service_offer, package_offer — see
+`/reasons/{id}/preview`, reached by TEMPLATE TYPE for the campaign goals with no
+reasons-registry counterpart at all (announce, service_offer, package_offer — see
 Launch.tsx's own GOAL_REASON_ID and campaigns/app/core/models.py's GOAL_TEMPLATE). Without this
-route those four goals had no preview/edit modal at all — only the three that share a reason id
+route those goals had no preview/edit modal at all — only the three that share a reason id
 ever got it.
 """
 from __future__ import annotations

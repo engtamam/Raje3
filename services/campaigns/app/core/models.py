@@ -33,18 +33,17 @@ from app.core.riyadh import local as riyadh_local
 CAMPAIGNS = "campaigns"
 RUNS = "campaign_runs"
 
-# What the owner picks. Not a taxonomy they learn — five cards with two words each (spec §10.9).
-GOALS = ("win_back", "reward_loyal", "announce", "occasion", "awareness", "service_offer",
+# What the owner picks. Not a taxonomy they learn — four cards with two words each (spec §10.9).
+GOALS = ("win_back", "reward_loyal", "announce", "occasion", "service_offer",
         "package_offer")
 
 # Which template type each goal sends, and its regulatory class. The class is NOT the owner's
-# choice: every campaign is promotional except awareness, and awareness is the one with a lock.
+# choice: every campaign here is promotional (marketing).
 GOAL_TEMPLATE = {
     "win_back": ("mkt_winback", "marketing"),
     "reward_loyal": ("mkt_loyalty_activation", "marketing"),
     "announce": ("mkt_announcement", "marketing"),
     "occasion": ("mkt_personal_occasion", "marketing"),
-    "awareness": ("awr_care_tip", "awareness"),
     # AN OFFER ON ONE SERVICE — and it sends the OFFER template, not the announcement.
     #
     # It borrowed «جديد في {{2}}: {{3}}» for as long as it existed, so a discount reached the
@@ -167,7 +166,6 @@ GOAL_TRIGGER = {
     "package_offer": "manual",     # same reasoning: a package offer is this week's decision
     "announce": "manual",          # news is not recurring
     "occasion": "scheduled",
-    "awareness": "manual",         # pressed by the owner, then locked for a month (spec §10.9)
 }
 
 # draft → active → paused → done. A STANDING campaign is never done: it has no end, only a pause.
@@ -265,8 +263,6 @@ class Campaign:
     # cron evaluating a daily rule twelve times an hour — see core/tick.py. On the campaign rather
     # than in a side table, because a flag somewhere else is the flag that gets lost.
     last_evaluated: int = 0
-    # Set when awareness fires. The card shows "available in N days" until it passes (spec §10.9).
-    locked_until: int = 0
     # ── THE OWNER'S OWN WINDOW, FOR AN OFFER CAMPAIGN ONLY (2026-09-12) ───────────────────────────
     #
     # EVERY GOAL MAY SET ONE, NOT ONLY `OFFER_GOALS` (revised 2026-09-12 — the owner's own
@@ -309,9 +305,6 @@ class Campaign:
     @property
     def is_standing(self) -> bool:
         return self.trigger == "standing"
-
-    def locked(self, now: int) -> bool:
-        return self.locked_until > now
 
 
 @dataclass

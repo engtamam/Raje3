@@ -6,7 +6,7 @@ The fleet could send nothing, and both of us described the cause as «the mandat
 at a portal that is switched off». It does not. Counted from the shipped library:
 
     stop_link   30 wordings — every one of them MARKETING
-    invite      36 wordings — service, personal, awareness, warning
+    invite      36 wordings — service, personal, warning
 
 No service wording has ever carried a stop link. The thirty-six that fail to render are the
 MARKETING OPT-IN INVITATION riding in the last line of a utility text — and it needs an address

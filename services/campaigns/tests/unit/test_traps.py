@@ -109,7 +109,7 @@ def test_the_owners_text_is_bounded_at_the_model_as_well_as_in_the_core():
 
 
 def test_the_class_is_never_something_the_owner_can_send():
-    """Every campaign is promotional except awareness, and the class comes from the goal. A model
+    """Every campaign is promotional, and the class comes from the goal. A model
     that accepted a class would let a marketing message be filed as service."""
     from app.api.v1.campaigns import CampaignIn
     assert "cls" not in CampaignIn.model_fields
@@ -162,11 +162,11 @@ def test_no_peer_url_assumes_a_namespace_it_was_not_given():
 # ── and the promise the whole service rests on ─────────────────────────────────────────────────
 def test_a_campaign_can_never_choose_its_own_regulatory_class():
     from app.core.models import GOAL_TEMPLATE
-    # PINNED AS A PROPERTY, NOT AS A LIST. It read `== {"marketing", "awareness"}` and broke the
-    # day a third class was needed — which is a test asserting the size of the product rather than
-    # the promise. The promise is that the class travels with the GOAL and nothing in a request
-    # can move it: a shop cannot post a promotional campaign wearing a warning's exemptions.
-    allowed = {"marketing", "awareness"}
+    # PINNED AS A PROPERTY, NOT AS A LIST. It read `== {"marketing"}` and would break the day a
+    # second class is needed — which is a test asserting the size of the product rather than the
+    # promise. The promise is that the class travels with the GOAL and nothing in a request can
+    # move it: a shop cannot post a promotional campaign wearing another class's exemptions.
+    allowed = {"marketing"}
     for template_type, cls in GOAL_TEMPLATE.values():
         assert cls in allowed, f"{template_type} carries an unknown regulatory class {cls!r}"
     assert GOAL_TEMPLATE["announce"][1] == "marketing"
@@ -212,9 +212,9 @@ def test_an_offer_must_carry_an_end_date():
     from app.core.models import offers_something
     assert offers_something("service_offer")
     assert offers_something("win_back")
-    # A care tip gives nothing away and expires by being read. Demanding a date for it would be a
-    # field with no meaning that somebody fills in with a guess.
-    assert not offers_something("awareness")
+    # An announcement gives nothing away and expires by being read. Demanding a date for it would
+    # be a field with no meaning that somebody fills in with a guess.
+    assert not offers_something("announce")
 
 
 def test_occasion_is_an_offer_goal(): # ح-7
@@ -229,7 +229,7 @@ def test_occasion_is_an_offer_goal(): # ح-7
     assert offers_something("occasion"), \
         "occasion's own template needs amount+date just like win_back and reward_loyal"
 
-    by_goal = {c.goal: c for c in cards(now=0)}
+    by_goal = {c.goal: c for c in cards()}
     assert by_goal["occasion"].offers is True, \
         "the card the console reads must carry the same answer"
 

@@ -31,7 +31,7 @@ describe('the class of every reason reaches the screen', () => {
   });
 
   it('every one of the five classes has a tone, so none falls through unlabelled', () => {
-    for (const cls of ['service', 'personal', 'awareness', 'warning', 'marketing']) {
+    for (const cls of ['service', 'personal', 'warning', 'marketing']) {
       expect(messagesSrc).toMatch(new RegExp(`${cls}:\\s*'`));
     }
   });
