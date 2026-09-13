@@ -87,6 +87,8 @@ def build_manifest(
             # balances accumulate, every probe passes, and nothing ever expires (trap §4.1).
             {"path": "/internal/loyalty/tick", "tier": "internal", "method": "POST"},
             {"path": "/internal/loyalty/earn", "tier": "internal", "method": "POST"},
+            # A credit for a reason that is NOT a visit — a campaign's own gift (2026-09-13).
+            {"path": "/internal/loyalty/award", "tier": "internal", "method": "POST"},
             {"path": "/internal/loyalty/portal/balance", "tier": "internal", "method": "GET"},
             # The integrated till redeems here (spec §9.8) — the SAME core path as the field.
             {"path": "/internal/loyalty/redeem", "tier": "internal", "method": "POST"},

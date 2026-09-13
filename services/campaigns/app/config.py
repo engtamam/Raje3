@@ -203,6 +203,11 @@ class Settings(BaseSettings):
     # establishment may send them, in which tone, and whether he re-wrote them himself.
     REMINDERS_SENDABLE_PATH: str = "/internal/reminders/sendable"
     REMINDERS_RHYTHMS_PATH: str = "/internal/reminders/rhythms"
+    LOYALTY_SERVICE_URL: str = ""
+    # A points credit with no visit behind it — a campaign's own gift (2026-09-13). Built ahead of
+    # any goal that calls it; empty URL (the default) means `NullLoyalty`, same fail-soft posture
+    # every other optional peer in this file already has.
+    LOYALTY_AWARD_PATH: str = "/internal/loyalty/award"
     INSIGHTS_SERVICE_URL: str = ""           # e.g. http://insights:8000
     INSIGHTS_RESERVE_PATH: str = "/internal/insights/engine-reserve"
 

@@ -461,6 +461,57 @@ async def rating_bonus(request: Request, body: RatingBonusIn) -> dict:
     return {"earned": body.points, "balance": entry.balance_after, "entry_id": entry.id}
 
 
+class AwardIn(BaseModel):
+    tenant: str
+    subject_ref: str
+    points: int = Field(gt=0)
+    # WHY THIS ONE, NOT A VISIT. A campaign (an anniversary, a re-engagement gift, anything a shop
+    # decides to give without a service behind it) has no visit_id to key on — it has whatever the
+    # CALLER already uses to mean "one specific intention, once" (campaigns' own idempotency_key,
+    # built from the campaign id and the recipient). Read, never generated here, for the same
+    # reason `earn`/`rating_bonus` key on the caller's own id rather than minting one: the caller
+    # is the one place that knows a retry from a genuinely new grant.
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    reason: str = Field(default="", max_length=120)
+    actor: str = ""
+    branch_id: str = ""
+
+
+@router.post("/loyalty/award", dependencies=[Depends(require_internal_token)])
+async def award(request: Request, body: AwardIn) -> dict:
+    """Credit points for a reason that is NOT a visit — a campaign's own gift. Idempotent on the
+    caller's own key, same shape as `earn`/`rating_bonus` above.
+
+    NO SEND HAPPENS HERE. This only moves the ledger; whoever calls it is responsible for its own
+    message (a campaign that wants the customer told still composes and sends that separately —
+    crediting a balance silently and telling him about it are two different promises, and this
+    route keeps only the first one).
+    """
+    c = request.app.state.container
+
+    # SAME GATE AS `earn`/`rating_bonus`. A lapsed licence must not grow a debt further.
+    licence = getattr(c, "licence", None)
+    if licence is not None and not await licence.allowed(body.tenant):
+        return {"earned": 0, "balance": 0, "reason": LICENCE_NOT_INCLUDED}
+
+    # SAME LANE `earn`/`rating_bonus` ALREADY HOLD — a retry of the same campaign send racing
+    # itself (or an ordinary earn/redeem for the same subject) must not interleave past the
+    # idempotency read and post twice.
+    async with SpendLock(c.cache, body.tenant, body.subject_ref):
+        entry = await c.ledger.post(
+            tenant=body.tenant, subject_ref=body.subject_ref, delta=body.points, reason="earn",
+            source=f"award:{body.idempotency_key}", actor=body.actor, rule_level="award",
+            branch_id=body.branch_id)
+    if entry is None:
+        return {"earned": 0, "duplicate": True, "reason": "already credited for this key"}
+
+    await request.app.state.auditor.record(
+        "loyalty.award_credited", actor=body.actor or "campaigns", tenant=body.tenant,
+        resource=f"award:{body.idempotency_key}", ip=request.client.host if request.client else "",
+        metadata={"points": body.points, "reason": body.reason})
+    return {"earned": body.points, "balance": entry.balance_after, "entry_id": entry.id}
+
+
 # ── the customer's own page ────────────────────────────────────────────────────────────────────
 @router.get("/loyalty/portal/balance", dependencies=[Depends(require_internal_token)])
 async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dict:

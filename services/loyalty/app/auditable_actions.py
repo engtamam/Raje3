@@ -197,4 +197,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "genuine rating's credit because the audit log is briefly down would punish the "
                "customer for an outage that is ours, not his",
     },
+    {
+        "action": "loyalty.award_credited",
+        "source": "internal",
+        "critical": False,
+        "resource": "balance",
+        "why": "a credit with no visit and no rating behind it — a campaign's own gift (2026-09-13,"
+               " built ahead of any template that uses it). Not critical for the same reason "
+               "rating_bonus_credited is not: refusing a genuine award because the audit log is "
+               "briefly down would punish the customer, not the outage.",
+    },
 ]

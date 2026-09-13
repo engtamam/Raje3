@@ -187,6 +187,9 @@ class Container:
     templates: Any = None
     audience: Any = None
     sender: Any = None
+    # A points credit with no visit behind it (2026-09-13) — built ahead of any goal that calls
+    # it; see adapters/peers' own NullLoyalty/HttpLoyalty.
+    loyalty: Any = None
     identity: Any = None
     package_offerable: Any = None
     gate: Any = None
@@ -280,6 +283,7 @@ def build_container(settings: Settings) -> Container:
 
     peers = build_peers(settings)
     container.templates = peers["templates"]
+    container.loyalty = peers["loyalty"]
     container.audience = _AudienceFacade(peers["audience"], resolve_audience,
                                          max_audience=settings.CAMPAIGN_MAX_AUDIENCE)
     container.sender = peers["sender"]

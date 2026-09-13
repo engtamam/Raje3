@@ -278,12 +278,15 @@ def test_the_peer_builder_answers_every_key_the_container_reads():
         SEND_WINDOW_START_HOUR = 9
         SEND_WINDOW_END_HOUR = 21
         TEMPLATES_CACHE_TTL_SECONDS = 15
+        LOYALTY_SERVICE_URL = ""
+        LOYALTY_AWARD_PATH = "/internal/loyalty/award"
 
     built = set(build_peers(S()))
     src = Path(__file__).resolve().parents[2].joinpath("app", "container.py").read_text(
         encoding="utf-8")
     wanted = set(re.findall(r'peers\[?\.?get?\(?["\']([a-z_]+)["\']\)?\]?', src))
-    wanted &= {"templates", "audience", "sender", "identity", "window", "ceiling", "engine"}
+    wanted &= {"templates", "audience", "sender", "identity", "window", "ceiling", "engine",
+              "loyalty"}
     missing = wanted - built
     assert not missing, f"container reads peers the builder never returns: {sorted(missing)}"
 
@@ -447,6 +450,8 @@ def test_the_template_cache_ttl_is_configured_not_a_fixed_five_minutes():
         SEND_WINDOW_START_HOUR = 9
         SEND_WINDOW_END_HOUR = 21
         TEMPLATES_CACHE_TTL_SECONDS = 42
+        LOYALTY_SERVICE_URL = ""
+        LOYALTY_AWARD_PATH = "/internal/loyalty/award"
 
     templates = build_peers(S())["templates"]
     assert isinstance(templates, HttpTemplates)

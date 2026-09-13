@@ -561,11 +561,55 @@ class Window:
         return self._start <= datetime.fromtimestamp(now, RIYADH).hour < self._end
 
 
+class NullLoyalty:
+    """No points move. `award()` reports a shape identical to a real refusal (`earned: 0`) rather
+    than raising, so a caller that has not been taught about a driver still gets an answer it can
+    read the same way it reads a genuine "already credited" or "licence not included"."""
+
+    driver = "null"
+
+    async def award(self, *, tenant: str, subject_ref: str, points: int, idempotency_key: str,
+                    reason: str = "", actor: str = "campaigns",
+                    branch_id: str = "") -> dict[str, Any]:
+        return {"earned": 0, "reason": "NOT_CONFIGURED"}
+
+
+class HttpLoyalty:
+    """A points credit with no visit behind it — a campaign's own gift (2026-09-13). No goal calls
+    this yet; built so the capability exists once one does, rather than a template design waiting
+    on a backend that does not.
+
+    RAISES NOTHING. loyalty's own `/internal/loyalty/award` already answers "not credited" as data
+    (a lapsed licence, a duplicate key) rather than an error — an unreachable peer answers the same
+    shape rather than a caller having to tell three failure modes apart.
+    """
+
+    driver = "http"
+
+    def __init__(self, *, loyalty_url: str, award_path: str, token: str, timeout: int = 8) -> None:
+        self._award = loyalty_url.rstrip("/") + award_path
+        self._token = token
+        self._timeout = timeout
+
+    async def award(self, *, tenant: str, subject_ref: str, points: int, idempotency_key: str,
+                    reason: str = "", actor: str = "campaigns",
+                    branch_id: str = "") -> dict[str, Any]:
+        try:
+            return await _post(
+                self._award,
+                {"tenant": tenant, "subject_ref": subject_ref, "points": points,
+                 "idempotency_key": idempotency_key, "reason": reason, "actor": actor,
+                 "branch_id": branch_id},
+                self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError) as exc:
+            return {"earned": 0, "reason": f"UNREACHABLE: {exc}"}
+
+
 def build_peers(settings) -> dict[str, Any]:
     if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
         return {"templates": NullTemplates(), "audience": NullAudience(),
                 "sender": NullSender(), "identity": NullIdentity(),
-                "package_offerable": NullPackageOfferable(),
+                "package_offerable": NullPackageOfferable(), "loyalty": NullLoyalty(),
                 "window": Window(start_hour=settings.SEND_WINDOW_START_HOUR,
                                  end_hour=settings.SEND_WINDOW_END_HOUR)}
     t = settings.PEER_TIMEOUT_SECONDS
@@ -605,4 +649,11 @@ def build_peers(settings) -> dict[str, Any]:
             token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "window": Window(start_hour=settings.SEND_WINDOW_START_HOUR,
                          end_hour=settings.SEND_WINDOW_END_HOUR),
+        # OPTIONAL, LIKE `INSIGHTS_SERVICE_URL` ABOVE — a deployment that never set
+        # `LOYALTY_SERVICE_URL` gets the null answer rather than a boot-time refusal, because
+        # nothing calls `award()` yet either.
+        "loyalty": (HttpLoyalty(loyalty_url=settings.LOYALTY_SERVICE_URL,
+                                award_path=settings.LOYALTY_AWARD_PATH,
+                                token=settings.INTERNAL_SERVICE_TOKEN, timeout=t)
+                    if settings.LOYALTY_SERVICE_URL else NullLoyalty()),
     }
