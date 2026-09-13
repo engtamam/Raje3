@@ -787,7 +787,8 @@
       "flow_button": {
         "flow_name": "booking_flow"
       },
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     },
     {
       "name": "mkt_offer_feminine",
@@ -828,7 +829,8 @@
       "flow_button": {
         "flow_name": "booking_flow"
       },
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     },
     {
       "name": "mkt_winback_masculine",
@@ -866,7 +868,8 @@
       "flow_button": {
         "flow_name": "booking_flow"
       },
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     },
     {
       "name": "mkt_winback_feminine",
@@ -904,7 +907,8 @@
       "flow_button": {
         "flow_name": "booking_flow"
       },
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     },
     {
       "name": "mkt_loyalty_activation_masculine",
@@ -942,7 +946,8 @@
         "غسيل خارجي",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE"
     },
     {
       "name": "mkt_loyalty_activation_feminine",
@@ -980,7 +985,8 @@
         "قص وتشذيب",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE"
     },
     {
       "name": "mkt_loyalty_activation_carousel_masculine",
@@ -1169,7 +1175,8 @@
         "تلميع كامل",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE"
     },
     {
       "name": "mkt_announcement_feminine",
@@ -1204,7 +1211,8 @@
         "تلميع كامل",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "NOTICE"
     },
     {
       "name": "mkt_announcement_carousel_masculine",
