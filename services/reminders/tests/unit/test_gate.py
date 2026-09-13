@@ -104,7 +104,6 @@ def test_a_visit_confirmation_at_eleven_at_night_goes_out_now():
     """A reply to something the customer just did. After eight hours of silence it stops being a
     confirmation and becomes a message from a shop that is closed (spec 8.4.2 section 1)."""
     assert ev(now=at(23), template_type="svc_visit_confirmation").allowed
-    assert ev(now=at(23), template_type="svc_receipt").allowed
 
 
 def test_a_reminder_is_not_exempt_just_because_it_is_service_class():

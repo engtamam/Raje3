@@ -74,8 +74,8 @@ WITHHELD_CLASSES = frozenset({"marketing", "awareness"})
 
 # The two proactive templates that live under a class we otherwise deliver in full. Named rather
 # than prefixed because there are exactly two and each one is a decision: `svc_service_reminder`
-# is the reminder itself, `svc_follow_up` is the ladder. `svc_visit_confirmation`, `svc_receipt`
-# and `svc_visit_redeemed` acknowledge something that just happened and are never withheld.
+# is the reminder itself, `svc_follow_up` is the ladder. `svc_visit_confirmation` and
+# `svc_visit_redeemed` acknowledge something that just happened and are never withheld.
 WITHHELD_TYPES = frozenset({"svc_service_reminder", "svc_follow_up"})
 
 

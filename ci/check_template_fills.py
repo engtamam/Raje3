@@ -75,11 +75,6 @@ C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 #   · the other four LEFT the library (#389) instead of sleeping in it. A wording nobody can send
 #     still costs the shop a template slot and a review — sleeping in the seed was never free.
 SLEEPING = {
-    # The receipt needs a total and a transaction reference. A VISIT DOES NOT CARRY EITHER: the
-    # price lives on the service in the catalogue, and nothing records what was actually charged
-    # — a visit is «من جاء وماذا أخذ», not an invoice. Wiring it would mean recording money at the
-    # counter, which is a decision about what this product is, not a missing call.
-    "svc_receipt": "ينتظر مبلغاً: الزيارة تسجّل مَن جاء وماذا أخذ، ولا تسجّل ما دُفع",
     # NOT ACTUALLY ASLEEP — fired directly by whatsapp-assistant's own CarouselSender
     # (services/whatsapp-assistant/app/api/internal.py, template name from
     # app/config.py::WHATSAPP_CATALOG_CAROUSEL_TEMPLATE_NAME), a service this checker's

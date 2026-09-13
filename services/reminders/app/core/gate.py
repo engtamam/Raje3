@@ -56,7 +56,7 @@ WINDOW_EXEMPT_TYPES = frozenset({
     # `svc_booking_confirmation` NO LONGER BELONGS ON THAT LIST — a booking system exists now
     # (docs/خطة-تنفيذ-الحجوزات.md), and its confirmation is a reply to an act just taken (booking
     # made), exactly like `svc_visit_confirmation` beside it.
-    "svc_visit_confirmation", "svc_booking_confirmation", "svc_receipt",
+    "svc_visit_confirmation", "svc_booking_confirmation",
     "per_account_notice", "per_points_expiring",
     # A CODE THE SUBJECT IS WAITING ON, and a legal clock that does not stop at night. He asked
     # for his data minutes ago; holding the proof of identity until morning delays a PDPL deadline
