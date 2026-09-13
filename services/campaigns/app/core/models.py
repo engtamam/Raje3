@@ -140,14 +140,18 @@ REWARD_TYPES = ("discount", "gift", "points")
 #: WHICH GOALS THIS CHOICE APPLIES TO. Every other goal's `reward_type`/`reward_points` are a
 #: no-op — accepted, never rejected (a console sending the spare default must not fail a campaign
 #: over it), but ignored, same posture `fire_at`'s own comment states for `occasion`-only fields.
-#: `service_offer`/`package_offer`/`reward_loyal`/`announce` follow later, once this second goal
-#: also proves out — not because they are harder, only because they have not been reached yet.
+#: Started with `occasion` alone, then `win_back` once that proved out, then `service_offer`/
+#: `package_offer` (both fire `mkt_offer` — see `GOAL_TEMPLATE` — so one template rewrite reaches
+#: both goals at once). `reward_loyal` and `announce` stay out: `reward_loyal` is already built
+#: around redeeming an EXISTING points balance for a catalogue item, a different mechanic than
+#: choosing a reward at creation; `announce` offers nothing today and has no `offer_value`/
+#: `scope_service_ids` for a reward to be built from in the first place.
 #:
 #: A SET LITERAL, DELIBERATELY, NOT A TUPLE — `ci/check_template_fills.py::campaign_types()`
 #: regexes this whole file, unscoped, for a two-quoted-string pair inside parentheses to find
 #: `GOAL_TEMPLATE`'s own goal-to-class entries; a tuple of two strings here reads as a second,
 #: bogus entry of that same shape and corrupts that check. Curly braces do not match it.
-REWARD_ENABLED_GOALS = {"occasion", "win_back"}
+REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer"}
 
 
 def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,

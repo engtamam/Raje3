@@ -512,7 +512,12 @@ async def create(request: Request, body: CampaignIn,
     if body.goal in REWARD_ENABLED_GOALS:
         reward_error = validate_reward(
             reward_type=body.reward_type, reward_points=body.reward_points,
-            scope_service_ids=service_ids_all, offer_value=offer_value)
+            # `package_offer` NAMES PACKAGES, NOT SERVICES — `service_ids_all` is empty for it, so
+            # a "gift" reward would refuse even a properly-chosen package without this. Same split
+            # the send itself already makes a few hundred lines down.
+            scope_service_ids=(service_ids_all if body.goal != "package_offer"
+                              else package_ids_all),
+            offer_value=offer_value)
         if reward_error:
             return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                                 content={"error": "BAD_REQUEST", "reason": reward_error})

@@ -373,10 +373,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     ? Number(western(rewardPoints).replace(/[^0-9]/g, '')) || 0 : 0;
   // WHAT STILL NEEDS FILLING BEFORE THE PREVIEW CAN EVEN BE ASKED FOR — mirrors
   // `validate_reward`'s own three checks, so the button greys out before he pastes it as a
-  // refusal from the server instead.
+  // refusal from the server instead. `package_offer` names PACKAGES, not services, for its
+  // "gift" — `packageIds` is the array that goal's own catalogue picker fills (see the picker's
+  // own note on why `mkt_offer` shares one blank kind between the two).
   const occasionRewardIncomplete = rewardEnabled && (
     (rewardType === 'discount' && !offerValue)
-    || (rewardType === 'gift' && serviceIds.length === 0)
+    || (rewardType === 'gift'
+        && (picked?.goal === 'package_offer' ? packageIds.length === 0 : serviceIds.length === 0))
     || (rewardType === 'points' && wireRewardPoints <= 0)
   );
 
@@ -1081,11 +1084,14 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             lock (§10.9.1) holds back whoever took EVERY selected one too recently — ready for even
             one is ready for the offer, since the message names all the chosen items together
             regardless of which one applies to him.
-            `package_offer` shares this SAME "catalogue" blank kind (one template, `mkt_offer`,
-            approved once for both — see core/models.py's own note) but fills it with PACKAGES
-            instead: no cycle lock applies to them (a package has no single rhythm to hold anyone
-            back on), so this is purely which packages the message names. */}
-        {hasBlank(picked, 'catalogue') && picked.goal === 'package_offer' ? (
+            `package_offer` shares this SAME blank kind (one template, `mkt_offer`, approved once
+            for both — see core/models.py's own note) but fills it with PACKAGES instead: no cycle
+            lock applies to them (a package has no single rhythm to hold anyone back on), so this
+            is purely which packages the message names. Reads `rewardEnabled` alongside
+            `hasBlank(picked, 'catalogue')` for the same reason the service picker below does:
+            `mkt_offer` no longer declares a "catalogue" blank of its own now that its slot is
+            "reward" — see that picker's own note. */}
+        {(hasBlank(picked, 'catalogue') || rewardEnabled) && picked.goal === 'package_offer' ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-sm">{t('launch.packagePickLabel')}</span>
             <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.packagePickLabel')}>

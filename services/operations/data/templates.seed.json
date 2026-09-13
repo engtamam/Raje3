@@ -682,21 +682,19 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "هلا {{1}}، عندنا لك من {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "اطلب موعدك الآن",
       "fills": [
         "system",
         "system",
-        "amount",
-        "catalogue",
+        "reward",
         "stop_link"
       ],
       "model": "both",
@@ -706,8 +704,7 @@
       "examples": [
         "محمد",
         "مغسلة النخيل",
-        "20%",
-        "غسيل خارجي",
+        "خصم 20% على غسيل خارجي",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -724,21 +721,19 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "هلا {{1}}، عندنا لك من {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "اطلبي موعدك الآن",
       "fills": [
         "system",
         "system",
-        "amount",
-        "catalogue",
+        "reward",
         "stop_link"
       ],
       "model": "both",
@@ -748,8 +743,7 @@
       "examples": [
         "سارة",
         "صالون لمسات",
-        "20%",
-        "قص وتشذيب",
+        "خصم 20% على قص وتشذيب",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
       "flow_button": {
