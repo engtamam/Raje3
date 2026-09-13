@@ -83,7 +83,9 @@ class NullSender:
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
                    sending_identity: str = "", flow_token: str = "",
-                   flow_action_data: dict[str, Any] | None = None) -> None:
+                   flow_action_data: dict[str, Any] | None = None,
+                   button_item_id: str = "", button_kind: str = "service",
+                   branch_id: str = "") -> None:
         self.sent.append({"tenant": tenant,
                           # RECORDED BY THE FAKE TOO, so a test that targets a branch can assert
                           # which number it would have gone out from.
@@ -91,10 +93,26 @@ class NullSender:
                           "subject_ref": subject_ref,
                           "template_name": template_name, "variables": variables,
                           "cls": cls, "idempotency_key": idempotency_key,
-                          "flow_token": flow_token, "flow_action_data": dict(flow_action_data or {})})
+                          "flow_token": flow_token, "flow_action_data": dict(flow_action_data or {}),
+                          "button_item_id": button_item_id, "button_kind": button_kind,
+                          "branch_id": branch_id})
         # THE FAKE RETURNS A HANDLE TOO, derived from the key so it is stable across a retry —
         # exactly as the peer's own delivery id is. A fake that returned "" would let the receipt
         # reconciler's tests pass against a shape the real sender never produces.
+        return f"dlv_{idempotency_key}" if idempotency_key else ""
+
+    async def send_media(self, *, tenant: str, subject_ref: str, template_name: str,
+                         variables: list[str], cls: str, idempotency_key: str,
+                         header_item_id: str, header_kind: str = "service",
+                         sending_identity: str = "", button_item_id: str = "",
+                         button_kind: str = "service", branch_id: str = "") -> str:
+        self.sent.append({"tenant": tenant, "sending_identity": sending_identity or tenant,
+                          "subject_ref": subject_ref, "type": "media",
+                          "template_name": template_name, "variables": variables,
+                          "cls": cls, "idempotency_key": idempotency_key,
+                          "header_item_id": header_item_id, "header_kind": header_kind,
+                          "button_item_id": button_item_id, "button_kind": button_kind,
+                          "branch_id": branch_id})
         return f"dlv_{idempotency_key}" if idempotency_key else ""
 
     async def send_flow(self, *, tenant: str, subject_ref: str, body: str, flow_token: str,
@@ -172,12 +190,23 @@ class HttpSender:
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str,
                    sending_identity: str = "", flow_token: str = "",
-                   flow_action_data: dict[str, Any] | None = None) -> None:
+                   flow_action_data: dict[str, Any] | None = None,
+                   button_item_id: str = "", button_kind: str = "service",
+                   branch_id: str = "") -> None:
         """`flow_token`/`flow_action_data` — the rating app's own Flow-button-in-a-template send
         (notification-service v0.18.24): when the approved template carries a Flow button, these
         supply the per-send action; empty otherwise, and notification-service ignores them for an
         ordinary template. `flow_action_data` is omitted from the wire body entirely when empty —
-        Meta rejects an empty data object, same rule build_flow's own docstring states."""
+        Meta rejects an empty data object, same rule build_flow's own docstring states.
+
+        `button_item_id`/`button_kind` — THE UNIFIED REAL-BOOKING BUTTON (2026-09-13), the same
+        `"carousel:{kind}:{id}"` quick-reply payload a carousel card's own button carries
+        (`_send_carousel_sync`), now available to a plain (non-carousel) send too. Empty for every
+        send that carries no such button — a plain reminder/confirmation must not grow a
+        `button_payload` key with no meaning, forever. When set, this call also registers the id
+        with whatsapp-assistant's own conversation engine (`_register_carousel_shown`) so a tap on
+        it is honoured exactly like a carousel card's tap — one booking mechanism for every shape,
+        not two."""
         # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve.
         recipient, name = await asyncio.to_thread(self._recipient, tenant, subject_ref)
         if not recipient:
@@ -257,6 +286,10 @@ class HttpSender:
                 if "customer" in action_data and not str(action_data["customer"] or ""):
                     action_data["customer"] = recipient
                 payload["flow_action_data"] = action_data
+        # THE UNIFIED BOOKING BUTTON — same payload shape a carousel card's own button carries,
+        # now on a plain send too. Declared only when used, same discipline as flow_token above.
+        if button_item_id:
+            payload["button_payload"] = f"carousel:{button_kind}:{button_item_id}"
         body = json.dumps(payload).encode()
         # Built in adapters/internal_http.py, the one place this service attaches the token.
         # OFF THE EVENT LOOP — fixed 2026-09-12, a real gap a QA audit found: the recipient lookup
@@ -295,11 +328,99 @@ class HttpSender:
                 raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
             raise SendFailed(f"{status}: {result.get('error') or 'no reason given'}")
 
+        # THE SAME REGISTRATION A CAROUSEL CARD'S BUTTON GETS (`_register_carousel_shown`) — a
+        # plain send's button is honoured by the exact same tap handler, so it needs the exact
+        # same "this id was actually shown to this customer" stamp. Only after a real delivery,
+        # never for a send that raised above.
+        if button_item_id:
+            # OFF THE EVENT LOOP — `_register_carousel_shown` is plain blocking urllib, same as
+            # every other peer call in this class; `send()` itself is async and must not block on it.
+            await asyncio.to_thread(self._register_carousel_shown, tenant=tenant,
+                                    subject_ref=subject_ref, item_ids=[button_item_id],
+                                    branch_id=branch_id)
+
         # AND THE PEER'S HANDLE COMES BACK, so the send log can be matched to a receipt later.
         #
         # Empty is a real answer: the console driver has no delivery row and a peer we did not
         # reach raised long before this line. An empty handle means «this send will never be
         # matched», which the reconciler must be able to tell apart from «not delivered yet».
+        return str(result.get("delivery_id") or "")
+
+    async def send_media(self, *, tenant: str, subject_ref: str, template_name: str,
+                         variables: list[str], cls: str, idempotency_key: str,
+                         header_item_id: str, header_kind: str = "service",
+                         sending_identity: str = "", button_item_id: str = "",
+                         button_kind: str = "service", branch_id: str = "") -> str:
+        """A SINGLE item, shown with its own real photo as the template's header — the "one item,
+        no carousel" shape (2026-09-13, core/shape.py's own note on why a single-item send can
+        never be a carousel: Meta's own carousel minimum is two cards). Thin async wrapper, same
+        reason `send_carousel` is one: every call inside is stdlib urllib, so the whole
+        fetch-photo → upload → send sequence runs as ONE unit off the event loop.
+        """
+        return await asyncio.to_thread(
+            self._send_media_sync, tenant=tenant, subject_ref=subject_ref,
+            template_name=template_name, variables=variables, cls=cls,
+            idempotency_key=idempotency_key, header_item_id=header_item_id,
+            header_kind=header_kind, sending_identity=sending_identity,
+            button_item_id=button_item_id, button_kind=button_kind, branch_id=branch_id)
+
+    def _send_media_sync(self, *, tenant: str, subject_ref: str, template_name: str,
+                         variables: list[str], cls: str, idempotency_key: str,
+                         header_item_id: str, header_kind: str, sending_identity: str,
+                         button_item_id: str, button_kind: str, branch_id: str) -> str:
+        """GET the photo from operations, POST it to notification-service for a media id, THEN POST
+        the template send with `header_media_id` set — the same two-step `_send_carousel_sync`
+        performs per card, here for the message's own single header. No photo uploaded for this
+        item is not a reason to refuse the send: `_PLACEHOLDER_CARD_IMAGE` stands in, exactly as
+        it does for a carousel card with none.
+        """
+        recipient, name = self._recipient(tenant, subject_ref)
+        if not recipient:
+            raise Unsendable(f"no recipient for {subject_ref} — erased or unknown")
+
+        fetched = self._fetch_service_image(tenant, header_kind, header_item_id)
+        if fetched is not None:
+            data, ctype = fetched
+        else:
+            data, ctype = _PLACEHOLDER_CARD_IMAGE, _PLACEHOLDER_CARD_CONTENT_TYPE
+        media_id = self._upload_media_id(tenant=tenant, data=data, content_type=ctype)
+        if not media_id:
+            raise SendFailed(f"media upload failed for {header_kind}:{header_item_id}")
+
+        variables = list(variables)
+        if name and variables and variables[0] in ("", FALLBACK_NAME):
+            variables[0] = name
+
+        payload: dict[str, Any] = {
+            "recipient": recipient, "channel": self._channel, "template_key": template_name,
+            "tenant": tenant, "sending_identity": sending_identity or tenant,
+            "variables": {str(i + 1): v for i, v in enumerate(variables)},
+            "idempotency_key": idempotency_key, "event": f"reminders.{cls}",
+            "biz_opaque_callback_data": idempotency_key,
+            # THE SINGLE ITEM'S OWN PHOTO — see notification-service's own NotifyIn.header_media_id
+            # (base-services-72, 2026-09-13). Always set here: this method exists precisely because
+            # the send has a header, unlike `send()`'s own plain path.
+            "header_media_id": media_id,
+        }
+        if button_item_id:
+            payload["button_payload"] = f"carousel:{button_kind}:{button_item_id}"
+        body = json.dumps(payload).encode()
+        status, raw = internal_http.send(
+            self._notify, timeout=self._timeout, method="POST", body=body,
+            content_type=internal_http.JSON, token=self._token)
+        if not 200 <= status < 300:
+            raise SendFailed(f"notification-service returned {status}")
+        result = json.loads(raw or b"{}")
+        result_status = str(result.get("status") or "")
+        if result_status and result_status not in _DELIVERED:
+            code = str(result.get("error_code") or result.get("code") or "")
+            if code in self._ceiling:
+                raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
+            raise SendFailed(f"{result_status}: {result.get('error') or 'no reason given'}")
+
+        if button_item_id:
+            self._register_carousel_shown(tenant=tenant, subject_ref=subject_ref,
+                                          item_ids=[button_item_id], branch_id=branch_id)
         return str(result.get("delivery_id") or "")
 
     async def send_flow(self, *, tenant: str, subject_ref: str, body: str, flow_token: str,
