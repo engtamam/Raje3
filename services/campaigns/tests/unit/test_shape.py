@@ -345,5 +345,70 @@ def test_the_peer_client_omits_the_carousel_key_entirely_on_an_ordinary_send():
                         cls="marketing", owner_text="خصم", idempotency_key="cmp:c1:sub_a",
                         carousel=True))
         assert seen["carousel"] is True
+
+        seen.clear()
+        run(sender.send(tenant="t1", subject_ref="sub_a", template_type="mkt_announcement",
+                        cls="marketing", owner_text="", idempotency_key="cmp:c1:sub_a",
+                        button_item_id="svc_1", button_kind="package"))
+        assert seen["button_item_id"] == "svc_1"
+        assert seen["button_kind"] == "package"
     finally:
         peers._post = real
+
+
+# ── the single-item quick-reply button on the three NON-booking types (2026-09-13) ─────────────
+def test_a_single_item_on_a_non_booking_type_gets_the_unified_button():
+    s = fire("mkt_announcement", licence=Licence(True), service_ids=("svc_1",),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True))
+    call = s.calls[0]
+    assert call["button_item_id"] == "svc_1"
+    assert call["button_kind"] == "service"
+    assert call["flow_token"] == "" and call["carousel"] is False
+
+
+def test_the_same_case_reaches_mkt_loyalty_activation_too():
+    s = fire("mkt_loyalty_activation", licence=Licence(True), service_ids=("pkg_1",),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True))
+    call = s.calls[0]
+    assert call["button_item_id"] == "pkg_1"
+
+
+def test_a_single_item_with_no_button_capability_gets_no_button_and_no_carousel():
+    """A shop without bookings+assistant+AI-on gets the exact same message it always has — no
+    button, never a broken promise."""
+    s = fire("awr_care_tip", licence=None, service_ids=("svc_1",))
+    call = s.calls[0]
+    assert call["button_item_id"] == "" and "carousel" not in call or call["carousel"] is False
+
+
+def test_zero_items_on_a_non_booking_type_still_gets_no_button():
+    """Card-button capability alone is not enough — there must be exactly one item attached."""
+    s = fire("mkt_announcement", licence=Licence(True), service_ids=(),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True))
+    call = s.calls[0]
+    assert call["button_item_id"] == ""
+
+
+def test_a_booking_type_with_bookings_owned_keeps_opening_the_flow_not_the_button():
+    """The owner's own instruction: Flow stays the richer, preferred experience for the three
+    "come back" types — the quick-reply button is for the OTHER three, never a replacement here."""
+    s = fire("mkt_offer", licence=Licence(True), service_ids=("svc_1",),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True))
+    call = s.calls[0]
+    assert call["flow_token"] != ""
+    assert call["button_item_id"] == ""
+
+
+def test_for_send_directly_returns_the_button_shape():
+    result = shape.for_send(opens_booking=False, idempotency_key="k1",
+                            template_type="mkt_announcement", card_count=1,
+                            item_id="svc_9", kind="package", card_button_allowed=True)
+    assert result.button_item_id == "svc_9" and result.button_kind == "package"
+    assert result.flow_token == "" and result.carousel is False
+
+
+def test_for_send_refuses_the_button_without_card_button_allowed():
+    result = shape.for_send(opens_booking=False, idempotency_key="k1",
+                            template_type="mkt_announcement", card_count=1,
+                            item_id="svc_9", card_button_allowed=False)
+    assert result.button_item_id == ""

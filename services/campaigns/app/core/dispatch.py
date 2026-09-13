@@ -213,9 +213,14 @@ class Dispatcher:
             # THE SAME KEY AGAIN, AS THIS SEND'S FLOW TOKEN — see core/shape.py on why it is not
             # minted separately. PLAIN (both fields empty) for every send that opens nothing, which
             # reminders' sender omits from the wire body entirely.
-            send_shape = shape.for_send(opens_booking=opens_booking, idempotency_key=key,
-                                        template_type=str(campaign.get("template_type") or ""),
-                                        card_count=len(campaign.get("scope_service_ids") or []))
+            scope_ids = list(campaign.get("scope_service_ids") or [])
+            campaign_kind = "package" if campaign.get("goal") == "package_offer" else "service"
+            send_shape = shape.for_send(
+                opens_booking=opens_booking, idempotency_key=key,
+                template_type=str(campaign.get("template_type") or ""),
+                card_count=len(scope_ids),
+                item_id=scope_ids[0] if len(scope_ids) == 1 else "",
+                kind=campaign_kind, card_button_allowed=card_button)
             try:
                 outcome = await self._sender.send(
                     tenant=tenant,
@@ -253,8 +258,12 @@ class Dispatcher:
                     # (core/models.py's own note) — reminders' own card photo lookup and its
                     # button's payload prefix both need telling, or a package carousel's cards
                     # fetch the wrong catalogue kind and its tap dispatches as a service.
-                    carousel_kind=("package" if campaign.get("goal") == "package_offer"
-                                  else "service"))
+                    carousel_kind=campaign_kind,
+                    # THE SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13) — see core/shape.py's own
+                    # docstring on `for_send`. Empty on every send that isn't this exact case; an
+                    # empty `button_item_id` never reaches the wire (`HttpSender.send` below).
+                    button_item_id=send_shape.button_item_id,
+                    button_kind=send_shape.button_kind)
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is

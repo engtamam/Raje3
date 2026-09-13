@@ -395,7 +395,8 @@ class HttpSender:
                    flow_token: str = "",
                    flow_action_data: dict[str, Any] | None = None,
                    carousel: bool = False, carousel_buttons: bool = True,
-                   carousel_kind: str = "service") -> dict[str, Any]:
+                   carousel_kind: str = "service", button_item_id: str = "",
+                   button_kind: str = "service") -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -440,6 +441,12 @@ class HttpSender:
                 body["carousel_buttons"] = False
             if carousel_kind != "service":
                 body["carousel_kind"] = carousel_kind
+        # THE SINGLE-ITEM QUICK-REPLY BUTTON (core/shape.py, 2026-09-13) — same "omitted when
+        # meaningless" rule as every other optional field above.
+        if button_item_id:
+            body["button_item_id"] = button_item_id
+            if button_kind != "service":
+                body["button_kind"] = button_kind
         try:
             return await _post(self._url, body, self._token, self._timeout)
         except urllib.error.HTTPError as exc:

@@ -659,7 +659,13 @@ class Tick:
                 # `HttpSender.send` already omits `flow_token` from the wire body entirely when
                 # it is "".
                 flow_token=str(row.get("flow_token") or ""),
-                flow_action_data=row.get("flow_action_data") or None)
+                flow_action_data=row.get("flow_action_data") or None,
+                # THE UNIFIED SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13) — same "the caller
+                # already knows, this just carries it" posture as flow_token above. Empty for
+                # every existing caller, so this is a no-op for them.
+                button_item_id=str(row.get("button_item_id") or ""),
+                button_kind=str(row.get("button_kind") or "service"),
+                branch_id=str(row.get("branch_id") or ""))
         except Unsendable as exc:
             # GIVE THE UNIT BACK. The consume had to come first to be atomic, so a send that did
             # not happen leaves a unit spent — and an erased recipient is not something the shop

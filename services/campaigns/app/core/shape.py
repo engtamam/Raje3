@@ -81,6 +81,15 @@ class Shape:
     # campaigns re-learning a fact reminders already owns, the exact duplication core/shape.py's
     # own module docstring warns against for the booking Flow.
     carousel: bool = False
+    # THE UNIFIED QUICK-REPLY BUTTON (2026-09-13) — for a single-item send on one of the three
+    # NON-booking types (mkt_loyalty_activation, mkt_announcement, awr_care_tip): the owner attached
+    # exactly one service or package, and a shop that can act on a tap gets the same
+    # "carousel:{kind}:{id}" button its own carousel card would carry for the same item. See
+    # `for_send`'s own docstring for why this is not a Flow (that mechanism stays reserved for the
+    # three "come back" types) and not a carousel (Meta's own 2-card minimum forbids it for one
+    # item). Empty means no button — the wire never grows a `button_payload` key for it.
+    button_item_id: str = ""
+    button_kind: str = "service"
 
     @property
     def opens_booking(self) -> bool:
@@ -108,10 +117,14 @@ async def opens_booking_for(tenant: str, template_type: str, *, licence: Any) ->
 
 
 def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = "",
-            card_count: int = 0) -> Shape:
+            card_count: int = 0, item_id: str = "", kind: str = "service",
+            card_button_allowed: bool = False) -> Shape:
     """The shape of ONE send. `opens_booking` is `opens_booking_for`'s answer, asked once above;
     `card_count` is how many services/packages THIS campaign actually has attached (its own
-    `scope_service_ids`), also asked once — neither varies per recipient.
+    `scope_service_ids`), also asked once — neither varies per recipient. `item_id`/`kind` are that
+    single service/package's own id when `card_count == 1` (empty otherwise); `card_button_allowed`
+    is `Dispatcher._card_button_allowed`'s own answer, asked once per pass exactly like
+    `opens_booking`.
 
     NO KEY, NO FLOW. An empty idempotency key would mint an empty token, which `HttpSender.send`
     treats as «no Flow» anyway — answering PLAIN here says so out loud instead of relying on a
@@ -126,9 +139,19 @@ def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = 
     `HttpSender._send_carousel_sync`) on an eligible type is shown as a carousel regardless of
     booking ownership; the Flow remains the answer for the ordinary case (0-1 items attached, one
     of the three "come back" types, a shop that owns the book).
+
+    THE SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13, the owner's own instruction): a campaign of one
+    of the three NON-booking types (`mkt_loyalty_activation`/`mkt_announcement`/`awr_care_tip`) that
+    names exactly one service or package is not "asking for nothing" any more — the owner attached
+    something bookable to it, and a shop that can act on a tap should get the same button its own
+    carousel card would carry for the same item. Checked ONLY once the Flow and carousel branches
+    above have both said no — a `BOOKING_TYPES` campaign with bookings owned keeps opening the
+    Flow (the richer, owner-preferred experience), never this quick-reply instead.
     """
     if template_type in CAROUSEL_TYPES and card_count >= 2:
         return Shape(carousel=True)
     if opens_booking and idempotency_key:
         return Shape(flow_token=idempotency_key, flow_action_data={CUSTOMER_SEED: ""})
+    if template_type in CAROUSEL_TYPES and card_count == 1 and item_id and card_button_allowed:
+        return Shape(button_item_id=item_id, button_kind=kind)
     return PLAIN

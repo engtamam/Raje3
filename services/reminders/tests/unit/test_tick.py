@@ -1006,6 +1006,51 @@ def test_send_one_with_no_flow_fields_on_the_row_passes_them_through_empty(st):
     assert sender.calls[0]["flow_action_data"] is None
 
 
+# ── the unified single-item quick-reply button (core/shape.py, 2026-09-13) ─────────────────────
+def test_send_one_passes_the_button_fields_to_the_sender(st):
+    """core/shape.py's own single-item quick-reply button for the three non-booking types —
+    carried on the row exactly like the Flow token above, since `send_one` has no campaign of
+    its own to derive it from."""
+    from app.core.consent import Consent
+
+    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    sender = FakeSender()
+    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
+          "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
+          "owner_text": "خصم 20%", "idempotency_key": "idem_button", "id": "idem_button",
+          "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
+          "offer_services": ["oil"], "button_item_id": "oil", "button_kind": "package",
+          "branch_id": "br_1"}
+
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.calls[0]["button_item_id"] == "oil"
+    assert sender.calls[0]["button_kind"] == "package"
+    assert sender.calls[0]["branch_id"] == "br_1"
+
+
+def test_send_one_with_no_button_fields_on_the_row_passes_them_through_empty(st):
+    from app.core.consent import Consent
+
+    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    sender = FakeSender()
+    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
+          "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
+          "owner_text": "خصم 20%", "idempotency_key": "idem_nobutton", "id": "idem_nobutton",
+          "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20), "offer_services": ["oil"]}
+
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+    assert sender.calls[0]["button_item_id"] == ""
+    assert sender.calls[0]["button_kind"] == "service"
+
+
 def test_a_structured_offer_with_no_free_line_is_still_an_entitlement(st):
     """أ-6 · END OF THE CHAIN. The campaign route composes the entitlement now, so a send whose
     template has no `owner` fill still leaves something the till and his page can find. The row is
