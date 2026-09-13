@@ -34,7 +34,16 @@ export function WeekdayPicker({ options, selected, onChange, ariaLabel }: {
             )}
             className={
               'rounded-full px-3 py-1 text-xs font-medium transition-colors ' +
-              (checked ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary hover:bg-surface-3')
+              // HOLLOW WHEN UNCHECKED (2026-09-14, the owner's own report): this filled every
+              // unselected day with surface-2, and the day it stopped being a barely-there tint
+              // (the same colour redesign that widened surface-2 for real contrast elsewhere) it
+              // read as a solid tan block — the exact "everything is one colour" complaint, just
+              // in a component this pass never found because it lives outside Launch.tsx. Checked
+              // stays the SAME ink inversion rj-ui/Segmented.tsx already settled on deliberately
+              // (2026-09-07: purple reserved for the one real "press this" action, never for
+              // "this is selected") — only the unchecked fill changes, to a bordered white chip.
+              (checked ? 'bg-text-primary text-surface-1'
+                       : 'bg-surface-1 border border-border-subtle text-text-secondary hover:bg-surface-3')
             }
           >
             {w.label}
