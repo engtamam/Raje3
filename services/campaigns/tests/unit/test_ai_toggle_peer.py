@@ -1,7 +1,7 @@
 """HttpAiToggle/NullAiToggle — asks operations' `/internal/operations/shop-name` (the SAME route
 whatsapp-assistant's own shop_identity.py already calls) for one field: `ai_enabled`. Used by
-Dispatcher._card_button_allowed to decide whether a carousel card's own button promises an action
-something will actually answer (2026-09-13).
+Dispatcher._card_button_allowed to decide whether the single-item quick-reply button promises an
+action something will actually answer (2026-09-13).
 """
 from __future__ import annotations
 

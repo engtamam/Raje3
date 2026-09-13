@@ -192,20 +192,21 @@ class Settings(BaseSettings):
     # whatsapp-assistant already uses for button/list messages. Genuinely unused today — see
     # send_flow's own docstring — kept configured so a future caller has somewhere to post.
     NOTIFICATION_INTERACTIVE_SEND_PATH: str = "/internal/notify/whatsapp/interactive"
-    # PHASE 2 (carousel, core/shape.py) — the SAME two routes whatsapp-assistant's own
-    # CarouselSender already calls for its catalog carousel: one to turn a fetched photo into a
-    # Meta media id, one to send the assembled carousel template. Nothing new on notification-
-    # service's side — see platform's app/api/internal.py `internal_notify_carousel` and
-    # `/whatsapp/media/upload-id`.
+    # THE SAME ROUTE whatsapp-assistant's own PlatformCatalogProvider already streams a
+    # service/package photo from: one to turn a fetched photo into a Meta media id, for
+    # `send_media`'s single-item header. Nothing new on notification-service's side — see
+    # platform's app/api/internal.py `/whatsapp/media/upload-id`. (This used to also serve a
+    # multi-card carousel send, deleted 2026-09-13 along with the whole carousel mechanism; the
+    # route and this setting stay because `send_media` needs the same upload.)
     NOTIFICATION_MEDIA_UPLOAD_ID_PATH: str = "/internal/whatsapp/media/upload-id"
-    NOTIFICATION_CAROUSEL_SEND_PATH: str = "/internal/notify/whatsapp/carousel"
-    # A CAMPAIGN CAROUSEL'S CARD BUTTON NEEDS THE ASSISTANT TO RECOGNISE THE TAP (2026-09-13) —
-    # whatsapp-assistant's own `_handle_carousel_pick` only honours an id it was told this
-    # customer was actually shown (`conv.shown_carousel_ids`); a card built outside any live
-    # conversation this engine ran must register itself there first, or the tap answers "لم يعد
-    # صالحًا" forever. Optional like every other peer route: empty means the registration call is
-    # skipped (best-effort — see `_send_carousel_sync`'s own try/except), never a reason to fail
-    # a send that has already built and would otherwise ship its cards fine.
+    # A CARD OR BUTTON-BEARING SEND NEEDS THE ASSISTANT TO RECOGNISE THE TAP — whatsapp-assistant's
+    # own tap handler only honours a `carousel:{kind}:{id}` payload it was told this customer was
+    # actually shown; a send built outside any live conversation this engine ran must register
+    # itself there first, or the tap answers "لم يعد صالحًا" forever. Optional like every other
+    # peer route: empty means the registration call is skipped (best-effort — see
+    # `_register_carousel_shown`'s own try/except), never a reason to fail a send that has already
+    # gone out. The path still says "carousel" — see that function's own docstring for why the
+    # name outlived the multi-card send it was coined for.
     WHATSAPP_ASSISTANT_SERVICE_URL: str = ""
     WHATSAPP_ASSISTANT_CAROUSEL_SHOWN_PATH: str = "/internal/carousel-shown"
     # DID IT ARRIVE, AND WAS IT READ. The status webhook is at-most-once and lands on the
@@ -284,9 +285,10 @@ class Settings(BaseSettings):
     # «خدماتي», which the owner writes himself. Unread until today, so every shop that never
     # edited a service had every reminder scheduled on the 90-day default.
     OPERATIONS_CATALOGUE_PATH: str = "/internal/operations/catalogue"
-    # PHASE 2 (carousel) — the SAME route whatsapp-assistant's own PlatformCatalogProvider already
-    # streams a service/package photo from, under the internal token. `{}` twice: kind, then id —
-    # filled per card at send time, never cached (see operations/app/core/catalogue_image.py).
+    # THE SAME ROUTE whatsapp-assistant's own PlatformCatalogProvider already streams a
+    # service/package photo from, under the internal token — `send_media`'s single-item header.
+    # `{}` twice: kind, then id — filled per send, never cached (operations/app/core/
+    # catalogue_image.py).
     OPERATIONS_CATALOGUE_IMAGE_PATH: str = "/internal/operations/catalogue/{}/{}/image"
     # Per tenant, per tick at most. A catalogue changes when its owner edits it; a minute of
     # staleness costs a reminder scheduled a day early at worst.

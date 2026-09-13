@@ -99,10 +99,10 @@ class CampaignIn(BaseModel):
     # it, never instead of it.
     service_id: str = Field(default="", max_length=64)
     # SEVERAL SERVICES, ONE CAMPAIGN (2026-09-13) — the owner picks more than one on the create
-    # screen and every one becomes its own carousel card (core/shape.py's existing carousel path,
-    # never a plain paragraph naming them). Reached if ready for even one (`audience.resolve`'s
-    # own note on why): a shop selling three services under one offer should not hold a customer
-    # back because he took ONE of them yesterday.
+    # screen and every one is named in the same merged message (rendering.merged_service_text).
+    # Reached if ready for even one (`audience.resolve`'s own note on why): a shop selling three
+    # services under one offer should not hold a customer back because he took ONE of them
+    # yesterday.
     service_ids: list[str] = Field(default_factory=list, max_length=20)
     # THE CHOSEN SERVICES' NAMES, in the SAME order as `service_ids` — the screen has the
     # catalogue, this service does not. Each is sanitised the same way `owner_text` is.
@@ -118,7 +118,7 @@ class CampaignIn(BaseModel):
     package_name: str = Field(default="", max_length=120)
     # SEVERAL PACKAGES, ONE CAMPAIGN — same reasoning as `service_ids`. A package has no cycle
     # lock of its own (no single rhythm to hold anyone back on — `_MATCHERS["package_offer"]`'s
-    # own note), so this only ever widens the carousel, never the audience rule.
+    # own note), so this only ever widens the merged message, never the audience rule.
     package_ids: list[str] = Field(default_factory=list, max_length=20)
     package_names: list[str] = Field(default_factory=list, max_length=20)
     # WHICH BRANCH THIS CAMPAIGN IS FOR — empty is the whole establishment, and is the default for
@@ -141,8 +141,8 @@ def _combine_ids_and_names(single_id: str, ids: list[str], single_name: str,
                            names: list[str]) -> tuple[list[str], list[str]]:
     """The full multi-select list (2026-09-13), backward-compatible with a console that still
     sends only the singular field. `ids`/`names` (the plural, authoritative fields) come first so
-    their own order is what the carousel cards render in; the singular is appended only if it is
-    not already there, never duplicated.
+    their own order is what the merged message names first; the singular is appended only if it
+    is not already there, never duplicated.
     """
     all_ids = list(dict.fromkeys(ids + ([single_id] if single_id else [])))
     all_names = list(dict.fromkeys(names + ([single_name] if single_name else [])))
@@ -258,9 +258,9 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST", "reason": loyalty_error})
 
     # THE FULL MULTI-SELECT LIST (2026-09-13) — the owner may now name several services (or
-    # several packages) under one offer; every one becomes its own carousel card at send time
-    # (core/shape.py's existing carousel path), never a plain paragraph enumerating them.
-    # `scope_service_ids` (the older, more general field) is folded into whichever list applies.
+    # several packages) under one offer; every one is joined into the same merged message at send
+    # time (rendering.merged_service_text). `scope_service_ids` (the older, more general field) is
+    # folded into whichever list applies.
     service_ids_all, service_names_all = _combine_ids_and_names(
         body.service_id, list(dict.fromkeys(body.service_ids + (
             body.scope_service_ids if body.goal != "package_offer" else []))),
@@ -290,9 +290,8 @@ async def preview(request: Request, body: CampaignIn,
             # the catalogue belongs to operations. «خصم على svc_9f2» is not a message, and an empty
             # name makes the renderer refuse rather than send a hole in a sentence. `package_name`
             # takes over the SAME "catalogue" fill for `package_offer` — one blank kind, two doors.
-            # SEVERAL NAMES JOIN WITH «، » — this is the flat (non-carousel) fallback text ONLY;
-            # a shop that gets the carousel shows each one on its own card instead, never this
-            # joined sentence.
+            # SEVERAL NAMES JOIN WITH «، » — the preview's own merged sentence, the same shape
+            # `rendering.merged_service_text` produces for the real send.
             service_text="، ".join(package_names_all or service_names_all),
             when=describe_when(trigger=spec["trigger"],
                                inside_window=c.gate.inside_window(_now()),
@@ -432,7 +431,7 @@ async def create(request: Request, body: CampaignIn,
         # into the customer-facing message at send time. A link or phone number here reached the
         # customer under the establishment's own approved template, the exact channel this
         # sanitiser exists to close. APPLIED TO EVERY NAME NOW, not only a single one — a
-        # multi-select offer (2026-09-13) carries several, each its own carousel card's title.
+        # multi-select offer (2026-09-13) carries several, each named in the merged message.
         clean_service_names = [sanitise_owner_text(n, required=False) for n in service_names_raw]
         clean_package_names = [sanitise_owner_text(n, required=False) for n in package_names_raw]
     except PreviewError as exc:
@@ -570,9 +569,9 @@ async def create(request: Request, body: CampaignIn,
                         loyalty_window_days=body.loyalty_window_days,
                         loyalty_min_visits=body.loyalty_min_visits,
                         # EVERY CHOSEN NAME, empties dropped (a name that sanitised to "" — never
-                        # sent in the first place — is not a card). SEVERAL, since 2026-09-13: one
+                        # sent in the first place — is not named). SEVERAL, since 2026-09-13: one
                         # per selected service or package, in the order chosen — the same order
-                        # the carousel renders its cards in.
+                        # the merged message names them in.
                         scope_service_names=([n for n in clean_service_names if n] or
                                              [n for n in clean_package_names if n]),
                         # THE TARGETED SERVICES/PACKAGES ARE ALWAYS IN THEIR OWN SCOPE (2026-09-13:

@@ -126,7 +126,7 @@ def test_the_message_names_the_package_not_a_service(client):
 
 
 def test_several_packages_all_land_in_the_stored_scope(client):
-    """Multi-select packages (2026-09-13) — every chosen one becomes its own carousel card at
+    """Multi-select packages (2026-09-13) — every chosen one is named in the merged message at
     send time, carried on the campaign row exactly as `dispatch.py` reads it for that purpose."""
     app, http = client
     app.state.container.package_offerable = _FixedOfferable(offerable=True)

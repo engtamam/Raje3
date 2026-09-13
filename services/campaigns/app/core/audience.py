@@ -158,9 +158,9 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
         # is a sale sold cheaper, not a customer won.
         #
         # SEVERAL SERVICES ON ONE CAMPAIGN (2026-09-13): held back only if too early for EVERY
-        # one of them — ready for even one is ready for the campaign, since the carousel this
-        # goal now sends shows all the selected cards together and he may well want the one he
-        # has not just taken.
+        # one of them — ready for even one is ready for the campaign, since the merged message
+        # this goal now sends names all the selected services together and he may well want the
+        # one he has not just taken.
         if ids:
             if all(_too_early(row, now=now, service_id=sid,
                               threshold=cycle_threshold, window_days=window_days)[0]

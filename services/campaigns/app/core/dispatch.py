@@ -53,7 +53,7 @@ class Dispatcher:
         # configured) resolves every send to PLAIN, which is the behaviour that existed before this
         # parameter did.
         self._bookings_licence = bookings_licence
-        # THE OTHER TWO INPUTS A CAROUSEL CARD'S OWN BUTTON NEEDS (core/shape.py, 2026-09-13):
+        # THE OTHER TWO INPUTS THE SINGLE-ITEM QUICK-REPLY BUTTON NEEDS (core/shape.py, 2026-09-13):
         # has this shop bought the smart AI assistant app at all, and did the owner switch it off
         # himself. Both OPTIONAL for the same "resolves to today's behaviour" reason as
         # `bookings_licence` — see `_card_button_allowed`'s own docstring for what "unwired"
@@ -180,12 +180,12 @@ class Dispatcher:
         # same pass. A thousand-recipient run must not become a thousand billing calls.
         opens_booking = await shape.opens_booking_for(
             tenant, str(campaign.get("template_type") or ""), licence=self._bookings_licence)
-        # WHETHER A CAROUSEL CARD MAY CARRY A BUTTON AT ALL (2026-09-13) — asked once per pass,
-        # same reasoning as `opens_booking` above. Deliberately NOT gated on `template_type in
-        # BOOKING_TYPES` the way `opens_booking_for` is: a card's own button is a shop-wide
-        # capability question ("can ANYTHING answer a tap"), not "does this particular text end in
-        # come back" — a loyalty-activation or announcement carousel card should offer the same
-        # button a win-back one does, once the shop can actually act on it.
+        # WHETHER THE SINGLE-ITEM QUICK-REPLY BUTTON MAY SHOW AT ALL (2026-09-13) — asked once per
+        # pass, same reasoning as `opens_booking` above. Deliberately NOT gated on `template_type
+        # in BOOKING_TYPES` the way `opens_booking_for` is: the button is a shop-wide capability
+        # question ("can ANYTHING answer a tap"), not "does this particular text end in come back"
+        # — a loyalty-activation or announcement send should offer the same button a win-back one
+        # does, once the shop can actually act on it.
         card_button = await self._card_button_allowed(tenant)
 
         sent_this_pass = 0
@@ -248,17 +248,6 @@ class Dispatcher:
                     # book. Empty on every other send, and an empty token never reaches the wire.
                     flow_token=send_shape.flow_token,
                     flow_action_data=dict(send_shape.flow_action_data),
-                    # PHASE 2's REQUEST FOR THE CAROUSEL SHAPE — see core/shape.py. Reminders is
-                    # the one that knows whether a carousel template actually exists for this type;
-                    # a `False` here (every send today, and every non-carousel-eligible type) costs
-                    # this field nothing on the wire — see HttpSender.send below.
-                    carousel=send_shape.carousel,
-                    carousel_buttons=card_button,
-                    # "package_offer" NAMES PACKAGE IDS IN THIS SAME `scope_service_ids` FIELD
-                    # (core/models.py's own note) — reminders' own card photo lookup and its
-                    # button's payload prefix both need telling, or a package carousel's cards
-                    # fetch the wrong catalogue kind and its tap dispatches as a service.
-                    carousel_kind=campaign_kind,
                     # THE SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13) — see core/shape.py's own
                     # docstring on `for_send`. Empty on every send that isn't this exact case; an
                     # empty `button_item_id` never reaches the wire (`HttpSender.send` below).
@@ -291,7 +280,7 @@ class Dispatcher:
 
     # ── the dedup ledger ──────────────────────────────────────────────────────────────────────
     async def _card_button_allowed(self, tenant: str) -> bool:
-        """A carousel card's own button (2026-09-13) promises an action — SOMETHING has to be
+        """The single-item quick-reply button (2026-09-13) promises an action — SOMETHING has to be
         alive to receive the tap. That means the shop owns BOTH the appointment book (the same
         entitlement `opens_booking_for` checks) AND a live smart AI assistant app: bought
         (the assistant app's own entitlement) and not switched off by its own owner (`ai_toggle`).

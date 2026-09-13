@@ -49,7 +49,7 @@ vi.mock('../catalog', async (importOriginal) => {
             { goal: 'service_offer', title: 'عرض على خدمة', line: 'يوصل فقط لمن قارب موعد',
              icon: 'tag', available: true, offers: true,
              blanks: ['amount', 'catalogue', 'date'] },
-            // ITS OWN "catalogue" BLANK (2026-09-13's own carousel expansion) — reward_loyal now
+            // ITS OWN "catalogue" BLANK (2026-09-13's own multi-select expansion) — reward_loyal now
             // gets the SAME multi-select service/package picker `hasBlank(picked, 'catalogue')`
             // already draws for the other two, purely because its real template declares one.
             { goal: 'reward_loyal', title: 'كافئ المخلصين', line: 'الأكثر زيارة عندك',

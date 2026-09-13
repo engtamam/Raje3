@@ -223,36 +223,6 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
     return ordered[(max(1, int(tone_index or 1)) - 1) % len(ordered)]
 
 
-def choose_carousel(*, template_type: str, tone: str, library: list[dict[str, Any]],
-                    approved: set[str] | None = None) -> dict[str, Any] | None:
-    """The carousel-shaped counterpart of `choose()` — for a shop WITHOUT the appointment book
-    (core/shape.py's `carousel` request, Phase 2). Returns the template row, or `None`.
-
-    NEVER RAISES, UNLIKE `choose()`. A carousel is an upgrade over the plain text every shop already
-    gets, never a reason to refuse a send — no carousel template of this type, none in this tone,
-    none Meta has approved for this tenant yet: every one of those is `None`, and the caller falls
-    back to the ordinary flat template exactly as it would if the request had never been made.
-
-    `choose()` ITSELF NEVER SEES THESE ROWS. A carousel row carries `active: false` in the seed
-    (operations/data/templates.seed.json) precisely so the flat send path and the `sendable` goal-
-    card endpoint — both of which filter on `t.get("active", True)` — skip it entirely; this is the
-    only function that reads it, by looking for `t.get("carousel")` instead of `active`. Sharing the
-    campaign goal's own `type` (mkt_offer/mkt_winback/mkt_personal_occasion) with the flat rows,
-    rather than inventing a separate type, keeps the carousel out of the goal picker as a selectable
-    campaign type in its own right — it is a SHAPE the existing three goals may take, not a fourth
-    goal.
-    """
-    candidates = [t for t in library if t.get("type") == template_type and t.get("carousel")]
-    if not candidates:
-        return None
-    if approved is not None:
-        candidates = [t for t in candidates if t.get("name") in approved]
-        if not candidates:
-            return None
-    ordered = [t for t in candidates if t.get("tone") == tone]
-    return ordered[0] if ordered else candidates[0]
-
-
 #: The owner's own vocabulary — every name `custom_templates.check()` accepts on a `fills` list,
 #: which is `reasons.slots_for()`. This module used to know none of them.
 #:

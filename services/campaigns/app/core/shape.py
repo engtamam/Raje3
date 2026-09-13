@@ -46,22 +46,14 @@ BOOKINGS_KEY = "feature.bookings"
 #: screen under an announcement would be advertising an action the message never asked for.
 BOOKING_TYPES = frozenset({"mkt_winback", "mkt_personal_occasion", "mkt_offer"})
 
-#: EVERY MARKETING TEXT THAT MAY SHOW A CAROUSEL, once the owner has actually attached more than
-#: one service or package to feature (2026-09-13 — the owner's own instruction that a multi-select
-#: offer should render as cards, "professionally", never a plain paragraph naming them all).
-#: `mkt_loyalty_activation`/`mkt_announcement` JOIN THE THREE BOOKING TYPES here — neither ever
-#: opens a booking (a reward, an announcement are not appointments), but each carries the SAME
-#: "catalogue" blank a carousel card needs.
-#:
-#: `mkt_announcement` USED TO CARRY A FREE "owner" BLANK INSTEAD — a real bug, not a style choice:
-#: Meta refuses free-typed promotional content inside an approved marketing template's own variable
-#: (a variable is a value the template's own reviewed wording expects, not a place to write new
-#: copy after approval), and "what's new" is always one of his own services or packages anyway. It
-#: was switched to the same "catalogue" multi-select every other marketing goal already uses
-#: (2026-09-13). `awr_care_tip` had the same fix applied and joined this set for the same reason —
-#: then the goal itself was deleted (2026-09-13, the owner's own decision: its "tip" never carried
-#: an actual tip, only a bare catalogue name, once free text was no longer an option).
-CAROUSEL_TYPES = BOOKING_TYPES | frozenset({"mkt_loyalty_activation", "mkt_announcement"})
+#: EVERY MARKETING TEXT WHOSE "attached item" MAY CARRY THE SINGLE-ITEM QUICK-REPLY BUTTON
+#: (`for_send`'s third branch). The multi-item carousel counterpart that used to share this set
+#: (Meta card rows, `card_count >= 2`) was deleted 2026-09-13 — every campaign carousel template
+#: row sat `active: false` and reminders' fallback to `merged_service_text` already fired on
+#: every send; this set now exists only for the button. `mkt_loyalty_activation`/`mkt_announcement`
+#: JOIN THE THREE BOOKING TYPES here — neither ever opens a booking (a reward, an announcement are
+#: not appointments), but each carries the SAME "catalogue" blank the button's item comes from.
+BUTTON_TYPES = BOOKING_TYPES | frozenset({"mkt_loyalty_activation", "mkt_announcement"})
 
 #: The Flow's own seed key, as whatsapp-assistant's FlowBookingBackend reads it. Declared empty
 #: and filled with the resolved recipient inside reminders' sender — see the module docstring.
@@ -74,21 +66,13 @@ class Shape:
 
     flow_token: str = ""
     flow_action_data: dict[str, Any] = field(default_factory=dict)
-    # PHASE 2 — the carousel counterpart of the booking Flow, for a shop that does NOT own the
-    # appointment book. A REQUEST, not a guarantee: reminders is the one place that knows whether a
-    # carousel template actually exists (registered, approved, one of the three tones) for this
-    # campaign type, and it falls back to plain text on its own if none does — see
-    # rendering.choose_carousel. Threading the availability check through here would mean
-    # campaigns re-learning a fact reminders already owns, the exact duplication core/shape.py's
-    # own module docstring warns against for the booking Flow.
-    carousel: bool = False
     # THE UNIFIED QUICK-REPLY BUTTON (2026-09-13) — for a single-item send on one of the two
     # NON-booking types (mkt_loyalty_activation, mkt_announcement): the owner attached
-    # exactly one service or package, and a shop that can act on a tap gets the same
-    # "carousel:{kind}:{id}" button its own carousel card would carry for the same item. See
-    # `for_send`'s own docstring for why this is not a Flow (that mechanism stays reserved for the
-    # three "come back" types) and not a carousel (Meta's own 2-card minimum forbids it for one
-    # item). Empty means no button — the wire never grows a `button_payload` key for it.
+    # exactly one service or package, and a shop that can act on a tap gets a
+    # "carousel:{kind}:{id}" button (the payload prefix whatsapp-assistant's own tap handler
+    # already expects — see `for_send`'s own docstring for why this is not a Flow, that mechanism
+    # stays reserved for the three "come back" types). Empty means no button — the wire never
+    # grows a `button_payload` key for it.
     button_item_id: str = ""
     button_kind: str = "service"
 
@@ -131,28 +115,21 @@ def for_send(*, opens_booking: bool, idempotency_key: str, template_type: str = 
     treats as «no Flow» anyway — answering PLAIN here says so out loud instead of relying on a
     falsy value three services away.
 
-    THE CAROUSEL TAKES PRIORITY OVER THE BOOKING FLOW (2026-09-13), where it used to be the
-    opposite — a shop that owns the book got the Flow and one that did not got the carousel,
-    mutually exclusive by construction. That rule answered a different question ("can this shop
-    take a booking at all") than the one that now matters more: the OWNER explicitly attached
-    several services or packages to this specific offer, which is a stronger, per-campaign signal
-    than a shop-wide entitlement. Two or more cards (Meta's own carousel minimum — see
-    `HttpSender._send_carousel_sync`) on an eligible type is shown as a carousel regardless of
-    booking ownership; the Flow remains the answer for the ordinary case (0-1 items attached, one
-    of the three "come back" types, a shop that owns the book).
-
     THE SINGLE-ITEM QUICK-REPLY BUTTON (2026-09-13, the owner's own instruction): a campaign of one
     of the two NON-booking types (`mkt_loyalty_activation`/`mkt_announcement`) that names exactly
     one service or package is not "asking for nothing" any more — the owner attached
-    something bookable to it, and a shop that can act on a tap should get the same button its own
-    carousel card would carry for the same item. Checked ONLY once the Flow and carousel branches
-    above have both said no — a `BOOKING_TYPES` campaign with bookings owned keeps opening the
-    Flow (the richer, owner-preferred experience), never this quick-reply instead.
+    something bookable to it, and a shop that can act on a tap should get a button for it. Checked
+    ONLY once the Flow branch above has said no — a `BOOKING_TYPES` campaign with bookings owned
+    keeps opening the Flow (the richer, owner-preferred experience), never this quick-reply
+    instead.
+
+    THE MULTI-ITEM CAROUSEL THAT USED TO SIT HERE (`card_count >= 2`, taking priority over the
+    Flow) WAS DELETED 2026-09-13 — every carousel template row was `active: false`, so this
+    branch never actually fired; reminders' `merged_service_text` fallback already carried every
+    multi-item campaign in production.
     """
-    if template_type in CAROUSEL_TYPES and card_count >= 2:
-        return Shape(carousel=True)
     if opens_booking and idempotency_key:
         return Shape(flow_token=idempotency_key, flow_action_data={CUSTOMER_SEED: ""})
-    if template_type in CAROUSEL_TYPES and card_count == 1 and item_id and card_button_allowed:
+    if template_type in BUTTON_TYPES and card_count == 1 and item_id and card_button_allowed:
         return Shape(button_item_id=item_id, button_kind=kind)
     return PLAIN

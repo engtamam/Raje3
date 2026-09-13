@@ -50,13 +50,16 @@ import './launch-i18n';
 /**
  * THE SAME MEMBERSHIP shape.py's OWN `BOOKING_TYPES` HOLDS (mkt_winback/mkt_personal_occasion/
  * mkt_offer), named by GOAL rather than by template type — a shop that owns bookings gets a real
- * Flow button under one of these four goals' sends; a shop that does not gets a carousel instead
- * (core/shape.py::for_send). Every other goal (announce/reward_loyal) always sends
- * plain text — neither shape applies. Hand-mirrored, same posture Messages.tsx's own
- * `GOAL_TEMPLATE_TYPE` already takes: a table this small drifting is a one-line fix, not worth a
- * network round trip for exactly one screen's preview.
+ * Flow button under one of these four goals' sends; one that does not just gets the plain text
+ * (`core/shape.py::for_send` — the multi-item carousel that used to sit here as the non-booking
+ * fallback was deleted 2026-09-13, and its own reasoning explains why: every carousel template row
+ * was `active: false`, so reminders' `merged_service_text` plain-text fallback already carried
+ * every such send in production). Every other goal (announce/reward_loyal) always sends plain
+ * text — no Flow applies. Hand-mirrored, same posture Messages.tsx's own `GOAL_TEMPLATE_TYPE`
+ * already takes: a table this small drifting is a one-line fix, not worth a network round trip for
+ * exactly one screen's preview.
  */
-const CAROUSEL_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
+const FLOW_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
 
 /**
  * EACH GOAL'S OWN COLOUR, hand-mirrored from the approved mockup's own per-goal assignment —
@@ -219,9 +222,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   const [goalsFailed, setGoalsFailed] = useState(false);
   const [picked, setPicked] = useState<Goal | null | undefined>(undefined);
   const [ownerText, setOwnerText] = useState('');
-  // SEVERAL SERVICES, ONE OFFER (2026-09-13) — each becomes its own carousel card at send time
-  // (core/shape.py's existing carousel path); `serviceIds` is the whole selection, in the order
-  // he picked them, which is also the order the cards render in.
+  // SEVERAL SERVICES, ONE OFFER (2026-09-13) — every one selected is named together in the same
+  // merged message (reminders' own `merged_service_text`, never a per-item carousel card — that
+  // path was deleted 2026-09-13); `serviceIds` is the whole selection, in the order he picked
+  // them, which is also the order the names are listed in.
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   /**
    * WHEN THE OFFER STOPS. «لا افتراض له» (§10.9.1) — we do not pick a date for him, because a
@@ -612,7 +616,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     // while `reasons` is still `null` (loading or denied).
     const linkedReasonId = GOAL_REASON_ID[picked.goal];
     const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;
-    const carouselShaped = CAROUSEL_ELIGIBLE_GOALS.has(picked.goal);
+    const flowEligible = FLOW_ELIGIBLE_GOALS.has(picked.goal);
     const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
     // ── THE PHONE LANE — the mockup's third column, ALWAYS beside the builder rather than
     // gated behind a preview call: the same rendering engine every other preview in the product
@@ -631,12 +635,12 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           <WhatsAppTemplatePreview
             data={(() => {
               const data: WaTemplateData = { body: preview.message ?? '' };
-              if (carouselShaped && hasBookings) {
+              if (flowEligible && hasBookings) {
                 data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
               }
               return data;
             })()}
-            fetchFlowJson={!carouselShaped || !hasBookings ? undefined : (flowName: string) => {
+            fetchFlowJson={!flowEligible || !hasBookings ? undefined : (flowName: string) => {
               const a = action(catalog, 'operations.whatsapp_flow_json');
               if (!a) return Promise.reject(new Error(t('launch.previewFailed')));
               return call<FlowJson>(session, a, { name: flowName });
@@ -647,9 +651,6 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             <p className="text-sm text-text-secondary">{t('launch.previewPending')}</p>
           </div>
         )}
-        {preview?.message && carouselShaped && !hasBookings ? (
-          <p className="text-xs text-text-secondary">{t('launch.preview.carouselNote')}</p>
-        ) : null}
 
         <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
           {preview ? (
@@ -991,16 +992,16 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
           </label>
         ) : null}
 
-        {/* WHICH SERVICE(S), when the goal is about them — MORE THAN ONE, now (2026-09-13): each
-            selected service becomes its own carousel card at send time (core/shape.py's existing
-            carousel path), never a plain paragraph naming all of them. The cycle lock (§10.9.1)
-            holds back whoever took EVERY selected one too recently — ready for even one is ready
-            for the offer, since the carousel shows all the chosen cards together regardless of
-            which one applies to him.
+        {/* WHICH SERVICE(S), when the goal is about them — MORE THAN ONE, now (2026-09-13): every
+            selected service is named together in the same merged message (reminders' own
+            `merged_service_text`), never a free paragraph he'd have to write himself. The cycle
+            lock (§10.9.1) holds back whoever took EVERY selected one too recently — ready for even
+            one is ready for the offer, since the message names all the chosen items together
+            regardless of which one applies to him.
             `package_offer` shares this SAME "catalogue" blank kind (one template, `mkt_offer`,
             approved once for both — see core/models.py's own note) but fills it with PACKAGES
             instead: no cycle lock applies to them (a package has no single rhythm to hold anyone
-            back on), so this is purely which packages the carousel names. */}
+            back on), so this is purely which packages the message names. */}
         {hasBlank(picked, 'catalogue') && picked.goal === 'package_offer' ? (
           <div className="flex flex-col gap-1.5">
             <span className="text-sm">{t('launch.packagePickLabel')}</span>

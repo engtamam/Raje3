@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.rendering import (FALLBACK_NAME, RenderError, choose, choose_carousel,
+from app.core.rendering import (FALLBACK_NAME, RenderError, choose,
                                 merged_service_text, render, sanitise_owner_text)
 
 LIB = [
@@ -474,50 +474,3 @@ def test_pending_beats_paused_and_disabled():
 def test_rejected_only_when_nothing_better_is_true_of_any_tone():
     statuses = {"mkt_winback_masculine": "rejected", "mkt_winback_feminine": "rejected"}
     assert type_status("mkt_winback", library=_STATUS_LIBRARY, statuses=statuses) == "rejected"
-
-
-# ── choose_carousel — Phase 2's own picker, never seen by `choose()` above ────────────────────
-_CAROUSEL_LIB = [
-    {"name": "mkt_offer_masculine", "type": "mkt_offer", "tone": "masculine", "active": True,
-     "variables": [1, 2, 3, 4, 5, 6], "fills": ["system"] * 6},
-    {"name": "mkt_offer_carousel_masculine", "type": "mkt_offer", "tone": "masculine", "active": False,
-     "carousel": {"cards": [{"header_format": "IMAGE"}]}},
-    {"name": "mkt_offer_carousel_feminine", "type": "mkt_offer", "tone": "feminine",
-     "active": False, "carousel": {"cards": [{"header_format": "IMAGE"}]}},
-]
-
-
-def test_choose_carousel_finds_the_tenants_own_tone():
-    row = choose_carousel(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB)
-    assert row is not None and row["name"] == "mkt_offer_carousel_masculine"
-
-
-def test_choose_carousel_falls_back_to_the_other_tone_rather_than_refusing():
-    row = choose_carousel(template_type="mkt_offer", tone="brief", library=_CAROUSEL_LIB)
-    assert row is not None and row["name"] in ("mkt_offer_carousel_masculine", "mkt_offer_carousel_feminine")
-
-
-def test_choose_carousel_returns_none_not_an_exception_when_nothing_qualifies():
-    """UNLIKE `choose()`, which raises — a carousel is an upgrade never a requirement, and the
-    caller (tick.send_one) falls back to the flat template `choose()` already picked."""
-    assert choose_carousel(template_type="mkt_winback", tone="masculine", library=_CAROUSEL_LIB) is None
-
-
-def test_choose_carousel_never_picks_a_row_choose_would_also_pick():
-    """The flat row shares the SAME type with the carousel rows, and `choose()` must never see the
-    carousel ones — `active: False` on them is what keeps the two pickers from disagreeing."""
-    flat = choose(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB)
-    assert flat["name"] == "mkt_offer_masculine"
-    assert not flat.get("carousel")
-
-
-def test_choose_carousel_respects_approval_same_as_choose():
-    approved = {"mkt_offer_carousel_feminine"}
-    row = choose_carousel(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB,
-                          approved=approved)
-    assert row is not None and row["name"] == "mkt_offer_carousel_feminine"
-
-
-def test_choose_carousel_with_approval_and_nothing_approved_answers_none():
-    assert choose_carousel(template_type="mkt_offer", tone="masculine", library=_CAROUSEL_LIB,
-                           approved=set()) is None

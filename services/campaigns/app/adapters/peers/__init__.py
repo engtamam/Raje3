@@ -394,8 +394,7 @@ class HttpSender:
                    branch_id: str = "",
                    flow_token: str = "",
                    flow_action_data: dict[str, Any] | None = None,
-                   carousel: bool = False, carousel_buttons: bool = True,
-                   carousel_kind: str = "service", button_item_id: str = "",
+                   button_item_id: str = "",
                    button_kind: str = "service") -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
@@ -428,19 +427,6 @@ class HttpSender:
             body["flow_token"] = flow_token
             if flow_action_data:
                 body["flow_action_data"] = dict(flow_action_data)
-        # THE CAROUSEL REQUEST (core/shape.py, Phase 2) — same "no meaningless field on an ordinary
-        # send" rule as flow_token above. `False` is every send this product has ever made outside
-        # the three booking-eligible marketing types on a shop without the appointment book.
-        if carousel:
-            body["carousel"] = True
-            # OMITTED ENTIRELY WHEN `carousel` ITSELF IS FALSE — meaningless on an ordinary send,
-            # same rule as the field above. `carousel_buttons` defaults True on reminders' own
-            # side, so this is only sent when the caller actually refused it; `carousel_kind`
-            # only matters when it names "package" (2026-09-13's own default is "service").
-            if not carousel_buttons:
-                body["carousel_buttons"] = False
-            if carousel_kind != "service":
-                body["carousel_kind"] = carousel_kind
         # THE SINGLE-ITEM QUICK-REPLY BUTTON (core/shape.py, 2026-09-13) — same "omitted when
         # meaningless" rule as every other optional field above.
         if button_item_id:
@@ -503,8 +489,8 @@ class HttpAiToggle:
     `shop_identity.py` already calls — for the one field this service needs: `ai_enabled`. Never a
     second endpoint for a second switch.
 
-    FAILS OPEN (True) on any read trouble — an outage must not silently strip every carousel card's
-    button for a shop that never touched this setting, which is every shop today.
+    FAILS OPEN (True) on any read trouble — an outage must not silently strip every single-item
+    quick-reply button for a shop that never touched this setting, which is every shop today.
     """
 
     driver = "http"

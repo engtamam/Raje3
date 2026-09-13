@@ -114,8 +114,9 @@ async def test_the_lock_applies_to_no_other_goal():
 @pytest.mark.anyio
 async def test_several_services_ready_for_even_one_is_reached():
     """A customer too early for "oil" but due for "tires" is exactly who a multi-service offer
-    (2026-09-13) should reach — the carousel shows both cards regardless of which one applies to
-    him, so held-back-for-every-selected-service is the right bar, not held-back-for-any-one."""
+    (2026-09-13) should reach — the merged message names both services regardless of which one
+    applies to him, so held-back-for-every-selected-service is the right bar, not
+    held-back-for-any-one."""
     row = {"subject_ref": "mixed", "last_visit": NOW - 5 * DAY, "visit_count": 4,
           "services": {"oil": {"last_visit": NOW - 1 * DAY, "interval_days": 90},
                        "tires": {"last_visit": NOW - 63 * DAY, "interval_days": 90}}}

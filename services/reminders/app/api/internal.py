@@ -785,29 +785,13 @@ class CampaignSendIn(BaseModel):
     # the SAME request already accepted under a different name.
     flow_token: str = Field(default="", max_length=256)
     flow_action_data: dict[str, Any] = Field(default_factory=dict)
-    # PHASE 2 — campaigns' REQUEST for a carousel instead of plain text (core/shape.py), for a shop
-    # without the appointment book. A request, not a guarantee: `send_one` below looks for a
-    # carousel template of this type/tone via rendering.choose_carousel and falls back to the
-    # ordinary flat template — silently — when none is registered/approved, exactly as an unset
-    # `flow_token` falls back to plain text today.
-    carousel: bool = Field(default=False)
-    # WHETHER A CAROUSEL CARD MAY CARRY A BUTTON AT ALL (2026-09-13) — a card's own "اطلب الآن"
-    # only means anything for a shop that owns BOTH the appointment book AND a live WhatsApp AI
-    # assistant to actually receive the tap (campaigns/core/dispatch.py computes this once per
-    # pass, the same way it already computes `carousel` itself). `True` is every send this
-    # product has ever made — a shop with neither app, or one whose owner switched the assistant
-    # off, gets the exact same cards with no button, never a broken promise of an action nothing
-    # will answer.
-    carousel_buttons: bool = Field(default=True)
-    # "service" OR "package" — which kind `offer_services` actually names for THIS campaign
-    # (core/models.py's own note: `package_offer` reuses that same field for package ids). Read
-    # by both the card's own photo lookup and its button's payload prefix
-    # ("carousel:{kind}:{item_id}", whatsapp-assistant's own `_handle_carousel_pick`).
-    carousel_kind: str = Field(default="service", max_length=16)
     # THE UNIFIED SINGLE-ITEM QUICK-REPLY BUTTON (core/shape.py, 2026-09-13) — for a campaign of
-    # one of the three non-booking types that names exactly one service/package: the same
-    # "carousel:{kind}:{id}" button a carousel card would carry for that item, on an otherwise flat
-    # send. Empty means no button, same "omitted when meaningless" posture as `flow_token`.
+    # one of the three non-booking types that names exactly one service/package: a
+    # "carousel:{kind}:{id}" quick-reply button on an otherwise flat send (the payload prefix
+    # whatsapp-assistant's own tap handler recognises — coined for the multi-card carousel send
+    # this service used to also offer, deleted 2026-09-13, and kept here because this button
+    # mechanism shares the exact same prefix and handler). Empty means no button, same
+    # "omitted when meaningless" posture as `flow_token`.
     button_item_id: str = Field(default="", max_length=64)
     button_kind: str = Field(default="service", max_length=16)
 
@@ -859,9 +843,6 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_value": body.offer_value,
         "flow_token": body.flow_token,
         "flow_action_data": dict(body.flow_action_data),
-        "carousel": body.carousel,
-        "carousel_buttons": body.carousel_buttons,
-        "carousel_kind": body.carousel_kind,
         "button_item_id": body.button_item_id,
         "button_kind": body.button_kind,
     }

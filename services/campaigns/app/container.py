@@ -194,8 +194,8 @@ class Container:
     # attribute rather than a field on `licence`, because it is a different key and a different
     # question (see build's own note).
     bookings_licence: Any = None
-    # Has this shop bought the WhatsApp AI assistant at all — the second input a carousel card's
-    # own button needs, alongside `bookings_licence` above and `ai_toggle` below.
+    # Has this shop bought the WhatsApp AI assistant at all — the second input the single-item
+    # quick-reply button needs, alongside `bookings_licence` above and `ai_toggle` below.
     assistant_licence: Any = None
     # The owner's own runtime on/off switch for that same assistant (operations' `ai_toggle.py`) —
     # a different question from whether he bought it, same split `bookings_licence` documents.
@@ -304,7 +304,7 @@ def build_container(settings: Settings) -> Container:
             service_id=campaign.get("service_id", ""),
             # THE FULL SELECTION, NOT JUST THE ONE THAT USED TO BE FORCED INTO IT — a multi-service
             # campaign's stored `scope_service_ids` (2026-09-13) is now the SAME list the cycle
-            # lock reads, not only what the carousel shows.
+            # lock reads, not only what the message names.
             service_ids=list(campaign.get("scope_service_ids") or []),
             branch_id=campaign.get("branch_id", ""),
             # «كافئ المخلصين»'s OWN THRESHOLDS, RE-READ FROM THE STORED ROW — never trusted from
@@ -325,8 +325,9 @@ def build_container(settings: Settings) -> Container:
 
     # A THIRD LICENCE — has this shop bought the WhatsApp AI assistant at all
     # (`feature.whatsapp`, whatsapp-assistant's own `core/licence.py::KEY`)? Together with
-    # `bookings_licence` above and `ai_toggle` below, this decides whether a carousel card's own
-    # button (core/shape.py, 2026-09-13) promises an action something will actually answer.
+    # `bookings_licence` above and `ai_toggle` below, this decides whether the single-item
+    # quick-reply button (core/shape.py, 2026-09-13) promises an action something will actually
+    # answer.
     container.assistant_licence = build_licence(settings, "feature.whatsapp")
 
     from app.adapters.peers import HttpAiToggle, NullAiToggle
