@@ -100,9 +100,9 @@ export function applyTheme(
   // index.css ever read `--root-font-pct` into an actual `font-size`, so the token was inert
   // however it was set. Every `rem` unit on the page (every Tailwind spacing/type class this whole
   // kit is built on) is computed from the ROOT ELEMENT'S OWN font-size, which only this line
-  // actually sets — the owner's own repeatable report ("100% still looks the same as it did
-  // before, if not bigger") was neither a placebo nor a caching issue: the number in
-  // theme.config.ts had never once reached the page.
+  // actually sets. Confirmed good everywhere the owner checked EXCEPT «الحملات», which has its
+  // own separate layout bug (a scrollbar detaching from its content) — fixed at that page, not by
+  // reverting this for the whole product; see Launch.tsx/Messages.tsx's own fix for it.
   root.style.setProperty('--root-font-pct', `${s.rootFontPct}%`);
   root.style.fontSize = `${s.rootFontPct}%`;
   // Focus-ring offset — the gap between a control's edge and its focus outline, so the ring reads on

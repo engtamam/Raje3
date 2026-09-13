@@ -5,7 +5,20 @@
 /* THE FIELD IS NOT A DESKTOP. Three rules that only matter on a tablet on a workbench: no text
    selection when a big button is held a moment too long, no tap highlight flashing over an
    already-confirmed choice, and no rubber-band scroll on a screen that does not scroll. */
-html, body, #root { height: 100%; overscroll-behavior: none; }
+/* `overflow: hidden` ADDED HERE 2026-09-14 — BUG FIXED: `AppShell.tsx`'s own shell is
+   `h-screen overflow-hidden` and hands ALL scrolling to its own `<main overflow-y-auto>`; the
+   document itself was never meant to scroll on its own. But `height: 100%` alone does not
+   GUARANTEE that — a sub-pixel rounding mismatch in the height:100% chain (html → body → #root),
+   invisible on an ordinary page, became a real, scrollable few pixels of DOCUMENT-level overflow
+   the moment the root font-size stopped being the browser default (rootFontPct, applyTheme.ts) —
+   and only crossed the one-pixel threshold a browser actually shows a scrollbar for on the
+   TALLEST page in the product (شاشة إنشاء الحملة, by far the longest conditional form here), which
+   is exactly the one screen the owner reported it on. A second, independent scrollbar appeared
+   over the sidebar (hovering it scrolls the whole DOCUMENT, not the app's own internal region) —
+   confirmed live, not guessed. `overflow: hidden` here removes the possibility outright, on any
+   page, regardless of root font-size: the shell's own internal scroll stays the only one that
+   can ever exist. */
+html, body, #root { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body { -webkit-tap-highlight-color: transparent; }
 
 /* THE WEBFONT TOKEN, ACTUALLY APPLIED — fixed 2026-09-12, a real gap this rebrand found:
