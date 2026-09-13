@@ -22,10 +22,11 @@ describe('راجِع theme', () => {
   it('forces the light appearance — the field screen must never render dark', () => {
     applyRaje3();
     const surface0 = getComputedStyle(document.documentElement).getPropertyValue('--surface-0').trim();
-    // The dark theme's ground is a near-black plum; light's is a warm paper cream (rebranded
-    // 2026-09-12, from the approved campaigns mockup). Cheap, reliable signal without importing
-    // the palette module directly into a test that should watch the DOM.
-    expect(surface0.toLowerCase()).toBe('#f7f3ea');
+    // The dark theme's ground is a near-black plum; light's is a clean near-white grey (rebranded
+    // 2026-09-14, the owner's own instruction: white ground + violet accent, retiring the warm
+    // paper cream from 2026-09-12). Cheap, reliable signal without importing the palette module
+    // directly into a test that should watch the DOM.
+    expect(surface0.toLowerCase()).toBe('#f7f8fa');
   });
 
   it('sets Arabic as the document direction', () => {

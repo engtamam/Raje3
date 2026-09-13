@@ -115,31 +115,27 @@ const ACCENT_DARK = {
 };
 
 const light: Palette = {
-  // REBRANDED AGAIN 2026-09-12, FROM THE APPROVED CAMPAIGNS-REDESIGN MOCKUP, NOT INVENTED HERE —
-  // the owner's own words on seeing it: reuse this look for the whole product, root and
-  // component, not just the one screen it was built for. The cool violet-white ground the
-  // previous rebrand used is replaced by the mockup's own warm paper: a cream page, white cards,
-  // the SAME violet accent (unchanged — it was already this exact hue), emerald/amber/coral for
-  // success/warning/danger (also close to what was already here), and a real distinct info blue
-  // (teal used to double as both "gift" and "info" — now only "gift" keeps it, so a gift standard
-  // and an informational note no longer share one hue by accident).
-  'surface-0': '#f7f3ea',
+  // REBRANDED AGAIN 2026-09-14, THE OWNER'S OWN DIRECT INSTRUCTION: "أبغى أغيّر لون البراند
+  // للأبيض... كله بيجي يصير أبيض وبنفسجي" — the warm cream/paper identity (2026-09-12) is
+  // retired in favour of a clean neutral white/grey ground, SAME violet accent (unchanged —
+  // never was part of the complaint), same semantic colours (success/warning/danger/info/gift
+  // were never tied to the cream hue family either). The page itself is a hair off pure white
+  // (`surface-0`) so a white CARD (`surface-1`) still visibly lifts off it — true page-white AND
+  // card-white at once would erase that lift entirely, the one thing a "white" redesign must not
+  // also flatten.
+  'surface-0': '#f7f8fa',
   'surface-1': '#ffffff',
-  // WIDENED 2026-09-13 (the owner's own instruction — every filter chip, toggle track and
-  // unselected segment read as "the exact same colour as the page", and it measured out true:
-  // the old surface-2 (#efe7d4) sat only ~9% darker than surface-0 in mean RGB, and surface-3
-  // only ~5% past that — both far under what a "this is a distinct, sunken surface" read needs.
-  // These now step down ~14 and ~12 points respectively, keeping the same warm-cream hue family
-  // (nothing rebranded, just separated) so a chip's OFF state, a toggle's OFF track, and an
-  // unselected tab are all visibly a different surface from the page under them, not merely a
-  // different DOM node painted the same colour.
-  'surface-2': '#e5dbc0',
-  'surface-3': '#d7c8a5',
-  'text-primary': '#1b1712',
-  'text-secondary': '#6b6354',
-  'text-muted': '#8a806c',
-  'border-subtle': '#d9cba8',
-  'border-strong': '#c2b284',
+  // THE SAME "REAL STEP, NOT A HAIRLINE" SEPARATION THE 2026-09-13 WIDENING ESTABLISHED — carried
+  // over verbatim in spirit, just re-based on a neutral grey family instead of warm cream: a
+  // chip's OFF state, a toggle's OFF track, an unselected tab must all still read as a visibly
+  // different surface from the page under them.
+  'surface-2': '#e7e9ee',
+  'surface-3': '#d7dae2',
+  'text-primary': '#14161c',
+  'text-secondary': '#5b6270',
+  'text-muted': '#868c99',
+  'border-subtle': '#dde0e7',
+  'border-strong': '#c5cad4',
   accent: ACCENT_LIGHT.base,
   'accent-hover': ACCENT_LIGHT.hover,
   // Violet is dark enough at this saturation that WHITE ink reads clearly on a filled button —
@@ -172,7 +168,7 @@ const light: Palette = {
   'gift-on-soft': '#086e5c',
   'gift-contrast': '#ffffff',
   'focus-ring': ACCENT_LIGHT.base,
-  overlay: 'rgb(27 23 18 / 0.45)',
+  overlay: 'rgb(20 22 28 / 0.45)',
 };
 
 const dark: Palette = {
@@ -223,12 +219,10 @@ const dark: Palette = {
 };
 
 const scale: Scale = {
-  // 80% (=12.8px), LOWERED AGAIN 2026-09-14 — the owner's own direct, repeatable test: the whole
-  // product at 100% browser zoom (rootFontPct's own PREVIOUS value) read oversized/"ضخم", and at
-  // 80% browser zoom it read right. Since browser zoom and this token both scale the same
-  // rem-based sizing, setting the token itself to 80% reproduces that comfortable size AT 100%
-  // zoom, rather than asking every owner to zoom their own browser out by hand on every visit —
-  // the same reasoning the 112.5%→100% pass already used once before, one step short.
+  // 70% (=11.2px), LOWERED AGAIN 2026-09-14 — the owner's own direct request, one step past the
+  // 80% pass just before it (which was itself one step past 100%): smaller again, tested and
+  // asked for directly rather than guessed. Since browser zoom and this token scale the exact
+  // same rem-based sizing, this reproduces "browser zoomed to 70%" at the page's own 100% zoom.
   //
   // WHAT THIS DOES NOT REACH, AND WHY THINGS MAY STILL LOOK SLIGHTLY LARGE IN ONE SPOT: an icon
   // drawn via `<Icon size={16} />` (lucide-react's own `size` prop) renders a literal PIXEL
@@ -237,7 +231,7 @@ const scale: Scale = {
   // particular icon still reads oversized after this change, that call site's own `size={N}` is
   // the thing to lower, not this token — it is a real, separate, per-component number, the same
   // way `radius`/`shadow` below are real per-token numbers rather than one dial.
-  rootFontPct: 80,
+  rootFontPct: 70,
   // A touch more generous — a larger card radius reads as premium, not utilitarian.
   radius: { sm: '0.5rem', md: '0.625rem', lg: '0.875rem', card: '1.25rem', pill: '9999px' },
   // Layered elevation, SOFTENED. A tight contact shadow plus a large diffuse one at low opacity, so a
@@ -249,10 +243,10 @@ const scale: Scale = {
   // paper/violet identity existed; white cards now lift off the warm cream canvas with a soft
   // premium halo that actually matches the ground they sit on.
   shadow: {
-    sm: '0 1px 2px -1px rgb(27 23 18 / 0.10), 0 1px 1px rgb(27 23 18 / 0.05)',
-    md: '0 2px 8px -3px rgb(27 23 18 / 0.12), 0 10px 26px -8px rgb(27 23 18 / 0.14)',
-    lg: '0 8px 18px -8px rgb(27 23 18 / 0.14), 0 24px 52px -16px rgb(27 23 18 / 0.20)',
-    pop: '0 12px 26px -12px rgb(27 23 18 / 0.18), 0 34px 72px -20px rgb(27 23 18 / 0.28)',
+    sm: '0 1px 2px -1px rgb(20 22 28 / 0.10), 0 1px 1px rgb(20 22 28 / 0.05)',
+    md: '0 2px 8px -3px rgb(20 22 28 / 0.12), 0 10px 26px -8px rgb(20 22 28 / 0.14)',
+    lg: '0 8px 18px -8px rgb(20 22 28 / 0.14), 0 24px 52px -16px rgb(20 22 28 / 0.20)',
+    pop: '0 12px 26px -12px rgb(20 22 28 / 0.18), 0 34px 72px -20px rgb(20 22 28 / 0.28)',
     glow: '0 10px 34px -8px color-mix(in srgb, var(--accent) 42%, transparent)',
   },
   motion: { fast: '120ms', base: '200ms', slow: '360ms', ease: 'cubic-bezier(0.22, 1, 0.36, 1)' },
