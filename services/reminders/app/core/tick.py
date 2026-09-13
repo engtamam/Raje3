@@ -927,29 +927,36 @@ class Tick:
                  [row.get("service_id", "")] + list(row.get("also_services") or [])])
             # THE REDEMPTION, IF ONE JOINED THIS MESSAGE (§9.6). A confirmation waits ten minutes on
             # purpose, and that is exactly the window in which a redemption happens at the counter —
-            # so it rides along instead of becoming a second message. Slots 3, 4 and 5 of
-            # `svc_visit_redeemed`: what he took, what it cost, what is left.
+            # so it rides along instead of becoming a second message. Slots 3 and 4 of
+            # `svc_visit_redeemed`: what it cost, what is left.
             #
-            # 3 AND 4 ARE SHARED SLOTS. On every other template they hold the service text; on this
-            # one the reward's name and its cost. Same numbering, different template — which is the
-            # whole reason this is a template VARIANT rather than an optional sentence: WhatsApp has
-            # no optional part, and a visit without a redemption has nothing true to put in them.
+            # THE REWARD'S OWN NAME IS DELIBERATELY NOT ONE OF THEM (2026-09-13, the owner's own
+            # instruction) — naming it made the sentence longer for no real benefit (the customer
+            # just redeemed it at the counter; the balance is the only new information the message
+            # carries), and a wording that names a specific service breaks the moment a visit ever
+            # covers more than one, which a fixed slot cannot express — the balance-only sentence
+            # has no such ceiling.
+            #
+            # 3 IS A SHARED SLOT. On every other template it holds the service text; on this one the
+            # reward's own cost. Same numbering, different template — which is the whole reason this
+            # is a template VARIANT rather than an optional sentence: WhatsApp has no optional part,
+            # and a visit without a redemption has nothing true to put in it.
             redeemed = row.get("redeemed_name", "")
             # A BOOKING CONFIRMATION IS NOT A VISIT'S SHAPE. Slot 3 on `svc_visit_confirmation`'s
-            # kin is the service or the redemption; on `svc_booking_confirmation` it is the
+            # kin is the service or the redemption's cost; on `svc_booking_confirmation` it is the
             # appointment's own day and hour (Schedule.appt_time, phrased once at scheduling time
             # by rendering.arabic_appointment — never re-derived here). Falling through to
             # `service_text` for this kind would put `service_id`'s raw value on the row — which
             # for a booking schedule IS THE BOOKING ID (see Scheduler.on_booking) — into a
             # customer-facing message.
             is_booking = row.get("kind") == "booking_confirmation"
-            slot_3 = row.get("appt_time", "") if is_booking else (redeemed or service_text)
+            slot_3 = row.get("appt_time", "") if is_booking else (
+                str(row.get("redeemed_cost", "")) if redeemed else service_text)
             rendered = R.render(
                 template=template,
                 system={"1": customer_name, "2": establishment,
                         "3": slot_3,
-                        "4": str(row.get("redeemed_cost", "")) if redeemed else service_text,
-                        "5": str(row.get("redeemed_remaining", ""))},
+                        "4": str(row.get("redeemed_remaining", "")) if redeemed else service_text},
                 catalogue={"3": service_text, "4": service_text},
                 owner={"3": row.get("owner_text", ""), "4": row.get("owner_text", "")},
                 # THE SAME VALUES, KEYED BY WHAT THEY MEAN (ح-1). A template the OWNER wrote declares

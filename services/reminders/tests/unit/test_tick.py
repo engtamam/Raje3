@@ -913,6 +913,33 @@ def test_a_suppression_carries_it_too(st):
     assert rows and all(r["branch_id"] == "brn-jeddah" for r in rows)
 
 
+# ── svc_visit_redeemed no longer names the reward (2026-09-13, the owner's own instruction) ─────
+_REDEEMED_LIB = [{"name": "svc_visit_redeemed_masculine", "type": "svc_visit_redeemed",
+                 "tone": "masculine", "class": "service",
+                 "variables": [1, 2, 3, 4, 5],
+                 "fills": ["system", "system", "system", "system", "invite"],
+                 "body": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}. استبدلت {{3}} نقطة، وباقي لك "
+                         "{{4}} نقطة. {{5}} 🎁",
+                 "active": True}]
+
+
+def test_a_redemption_riding_a_visit_confirmation_never_names_the_reward(st):
+    s = sched(st, template_type="svc_visit_redeemed", kind="visit_confirmation")
+    row = run(ScheduleStore(st).get(s.key))
+    row["redeemed_name"] = "قهوة مجانية"
+    row["redeemed_cost"] = 80
+    row["redeemed_remaining"] = 40
+    run(ScheduleStore(st).upsert("t1", s.key, row))
+    sender = FakeSender()
+    res = go(st, sender, library=_REDEEMED_LIB)
+    assert res.sent == 1, res
+    variables = sender.calls[0]["variables"]
+    assert "قهوة مجانية" not in variables, (
+        "the reward's own name must not ride the message any more — a fixed slot cannot express "
+        "a visit covering more than one reward, and the balance is the only new information")
+    assert variables[2] == "80" and variables[3] == "40"
+
+
 def test_a_message_with_no_branch_behind_it_stays_empty(st):
     """EMPTY IS A REAL VALUE. A shop that labels nothing, and a campaign with no visit behind it,
     are «غير محدَّد» — inventing a branch for them would put numbers under a place nobody claimed."""
