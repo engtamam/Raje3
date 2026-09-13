@@ -286,20 +286,24 @@ const GOAL_TEMPLATE_TYPE: Record<string, string> = {
   package_offer: 'mkt_offer',
 };
 
-/** THE FOUR SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the three `cls` values the reasons
- *  registry already uses, then the one that exists only for campaign goals with no automatic
- *  counterpart at all. */
+/** THE THREE SECTIONS, IN THE ORDER AN OWNER SHOULD READ THEM — the `cls` values the reasons
+ *  registry already uses. `offers` USED TO BE A FOURTH, SEPARATE ONE (2026-09-13, merged away): it
+ *  held exactly the same regulatory class as `marketing` — the split was never about the class,
+ *  only about whether the owner has to press «أطلق» each time (`service_offer`/`package_offer`,
+ *  both `trigger: "manual"`) or the send is standing/scheduled on its own — and `announce` was
+ *  ALSO manual yet already lived under `marketing`, so the split did not even track that
+ *  consistently. The per-card badge already says «آلي»/«يدوي» (see `templateCards`'s own `tags`);
+ *  a whole extra section duplicated a distinction the badge already carries. */
 // «bot» LAST ON PURPOSE — every section before it is a message this shop's own settings shaped
 // (scheduled or launched by hand); the bot's own live tool replies are a different kind of thing
 // entirely (composed fresh per conversation, never stored or edited here), so they read as an
 // appendix, not mixed in among the shop's own configured messages.
-const SECTION_ORDER = ['service', 'personal', 'marketing', 'offers', 'bot'] as const;
+const SECTION_ORDER = ['service', 'personal', 'marketing', 'bot'] as const;
 
 const SECTION_KEY: Record<string, string> = {
   service: 'messages.section.service',
   personal: 'messages.section.personal',
   marketing: 'messages.section.marketing',
-  offers: 'messages.section.offers',
   bot: 'messages.section.bot',
 };
 function sectionLabel(t: (key: string) => string, section: string): string {

@@ -47,7 +47,12 @@ def receipt_text(*, reward_name: str, cost: int, remaining: int) -> str:
 
 
 def warning_text(*, points: int, days: int) -> str:
-    return f"رصيدك {points} نقطة سينتهي خلال {days} يوم. زُرنا لتستفيد منه."
+    # A FACT, NOT AN INVITATION (2026-09-13) — used to end "زُرنا لتستفيد منه.", an explicit call
+    # to visit. CST's own definition of a promotional message covers "reminding" of a service, not
+    # only an outright offer; a balance the customer already owns is HIS to report on, but urging
+    # him back through the door for it is not. The class stays `personal` only as long as the
+    # wording states what is true and asks for nothing.
+    return f"رصيدك {points} نقطة سينتهي خلال {days} يوم."
 
 
 def earn_variables(*, points: int, balance: int, to_next: int = 0) -> dict[str, Any]:

@@ -407,10 +407,10 @@
       "type": "svc_service_reminder",
       "tone": "masculine",
       "label": "حلول الدورة الخدمية",
-      "class": "service",
-      "category": "UTILITY",
+      "class": "marketing",
+      "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، قرّب وقت {{3}} عندنا في {{2}}، تعال بالوقت اللي يناسبك. {{4}} 🎁",
+      "body": "هلا {{1}}، قرّب وقت {{3}} عندنا في {{2}}، تعال بالوقت اللي يناسبك. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
@@ -423,7 +423,7 @@
         "system",
         "system",
         "system",
-        "invite"
+        "stop_link"
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
@@ -433,7 +433,7 @@
         "محمد",
         "مغسلة النخيل",
         "غسيل خارجي",
-        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
       "shape_category": "NOTICE"
     },
@@ -442,10 +442,10 @@
       "type": "svc_service_reminder",
       "tone": "feminine",
       "label": "حلول الدورة الخدمية",
-      "class": "service",
-      "category": "UTILITY",
+      "class": "marketing",
+      "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، قرّب وقت {{3}} عندنا في {{2}}، تعالي بالوقت اللي يناسبك. {{4}} 🎁",
+      "body": "هلا {{1}}، قرّب وقت {{3}} عندنا في {{2}}، تعالي بالوقت اللي يناسبك. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
@@ -458,7 +458,7 @@
         "system",
         "system",
         "system",
-        "invite"
+        "stop_link"
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
@@ -468,7 +468,7 @@
         "سارة",
         "صالون لمسات",
         "قص وتشذيب",
-        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
+        "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
       "shape_category": "NOTICE"
     },
@@ -550,7 +550,7 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، لا تفوّتها في {{2}} — {{3}} {{4}} 🎁",
+      "body": "هلا {{1}}، للعلم من {{2}} — {{3}} {{4}} 🎁",
       "variables": [
         1,
         2,
@@ -572,7 +572,7 @@
       "examples": [
         "محمد",
         "مغسلة النخيل",
-        "رصيدك 40 نقطة سينتهي خلال 15 يوم. زُرنا لتستفيد منه.",
+        "رصيدك 40 نقطة سينتهي خلال 15 يوم.",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
       ],
       "shape_category": "NOTICE"
@@ -585,7 +585,7 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، لا تفوّتيها في {{2}} — {{3}} {{4}} 🎁",
+      "body": "هلا {{1}}، للعلم من {{2}} — {{3}} {{4}} 🎁",
       "variables": [
         1,
         2,
@@ -607,7 +607,7 @@
       "examples": [
         "سارة",
         "صالون لمسات",
-        "رصيدك 40 نقطة سينتهي خلال 15 يوم. زُرنا لتستفيد منه.",
+        "رصيدك 40 نقطة سينتهي خلال 15 يوم.",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
       ],
       "shape_category": "NOTICE"

@@ -216,7 +216,13 @@ REASONS: tuple[Reason, ...] = (
         id="service_due",
         label="حان وقت الخدمة",
         when="حين تحين دورة العميل نفسه لهذه الخدمة — دورةٌ يتعلّمها النظام منه",
-        cls="service", template_type="svc_service_reminder",
+        # MARKETING, NOT SERVICE (2026-09-13) — CST's own definition of a promotional message
+        # names "reminding" of a product or service as one of its own categories ("أو التذكير
+        # بها"), separately from an outright offer. This is a reminder to come back and buy the
+        # service again, not a reply to anything the customer just did or a confirmation of
+        # something already committed — the line every other `service`-class template here can
+        # draw and this one cannot.
+        cls="marketing", template_type="svc_service_reminder",
         slots=(SERVICE,),
     ),
     Reason(
@@ -230,7 +236,7 @@ REASONS: tuple[Reason, ...] = (
         id="no_response",
         label="لم يردّ على التذكير",
         when="رسالة أو رسالتان بعد التذكير الأول، بنبرة أخرى — ثم تتوقف",
-        cls="service", template_type="svc_service_reminder",
+        cls="marketing", template_type="svc_service_reminder",  # see service_due's own note
         slots=(SERVICE,),
     ),
     Reason(
@@ -424,7 +430,8 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     # owner reads to judge whether a wording sounds right.
     customer_sample = SAMPLE[CUSTOMER_FEMININE] if template.get("tone") == "feminine" else SAMPLE[CUSTOMER]
     # Slot 3 of the library's own numbering is «الخدمة أو المحتوى», 4 «تفصيل», 5 «الرصيد» — the
-    # positional meanings the texts were written against (docs/وصف-منصة-راجع.md §8.4.1).
+    # positional meanings the texts were written against (ci/gen_templates.py's own `build()`
+    # table, resolved for an address slot by the fill it carries rather than its position).
     by_number = {1: customer_sample, 2: establishment, 3: SAMPLE[SERVICE],
                  4: SAMPLE[POINTS], 5: SAMPLE[BALANCE]}
     out: dict[str, str] = {}

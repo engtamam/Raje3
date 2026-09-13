@@ -163,18 +163,27 @@ def test_a_service_text_gets_the_invitation_rather_than_the_stop_link(store):
     A utility text that carried a stop link would be offering to stop something the customer never
     started — and it would leave the shop with no door to consent at all, so no campaign it ever
     runs can be lawful. Which one is owed follows from the class alone (`reasons.mandatory_tail`).
+    `after_visit` stays `service` class — `service_due` moved to `marketing` (2026-09-13, CST's own
+    "reminding of a service" clause) and owes the stop link now, covered separately below.
     """
-    row = run(store.draft("t1", reason_id="service_due",
+    row = run(store.draft("t1", reason_id="after_visit",
                           body="{{1}}، حان وقت {{2}}", fills=["customer", "service"]))
     assert row.fills == ["customer", "service", "invite"]
+
+
+def test_a_marketing_text_gets_the_stop_link_rather_than_the_invitation(store):
+    """`service_due` (svc_service_reminder) is `marketing` now — the mirror of the test above."""
+    row = run(store.draft("t1", reason_id="service_due",
+                          body="{{1}}، حان وقت {{2}}", fills=["customer", "service"]))
+    assert row.fills == ["customer", "service", "stop_link"]
 
 
 def test_a_text_that_already_ends_with_it_is_not_given_a_second_one(store):
     """Re-saving a draft must not accumulate a link per visit to the editor — the owner would end
     up submitting a text with four identical addresses and Meta would refuse the lot."""
     once = run(store.draft("t1", reason_id="service_due",
-                           body="{{1}} {{2}}", fills=["customer", "invite"]))
-    assert once.fills == ["customer", "invite"]
+                           body="{{1}} {{2}}", fills=["customer", "stop_link"]))
+    assert once.fills == ["customer", "stop_link"]
     assert once.body == "{{1}} {{2}}", "an untouched body must come back untouched"
 
 
