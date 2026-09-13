@@ -792,6 +792,14 @@ class CampaignSendIn(BaseModel):
     # ordinary flat template — silently — when none is registered/approved, exactly as an unset
     # `flow_token` falls back to plain text today.
     carousel: bool = Field(default=False)
+    # WHETHER A CAROUSEL CARD MAY CARRY A BUTTON AT ALL (2026-09-13) — a card's own "اطلب الآن"
+    # only means anything for a shop that owns BOTH the appointment book AND a live WhatsApp AI
+    # assistant to actually receive the tap (campaigns/core/dispatch.py computes this once per
+    # pass, the same way it already computes `carousel` itself). `True` is every send this
+    # product has ever made — a shop with neither app, or one whose owner switched the assistant
+    # off, gets the exact same cards with no button, never a broken promise of an action nothing
+    # will answer.
+    carousel_buttons: bool = Field(default=True)
 
     model_config = {"populate_by_name": True}
 
@@ -842,6 +850,7 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "flow_token": body.flow_token,
         "flow_action_data": dict(body.flow_action_data),
         "carousel": body.carousel,
+        "carousel_buttons": body.carousel_buttons,
     }
     library = await _library(c, body.tenant)
     # THE APPROVED SET, WHICH THIS PATH NEVER READ. The reminder tick has always preferred a

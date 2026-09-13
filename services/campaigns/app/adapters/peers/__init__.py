@@ -474,6 +474,40 @@ class HttpPackageOfferable:
         return bool(out.get("offerable"))
 
 
+# ── the WhatsApp AI assistant's own kill switch (2026-09-13) ────────────────────────────────────
+class NullAiToggle:
+    driver = "null"
+
+    async def enabled(self, tenant: str) -> bool:
+        return True
+
+
+class HttpAiToggle:
+    """Asks operations' `/internal/operations/shop-name` — THE SAME ROUTE whatsapp-assistant's own
+    `shop_identity.py` already calls — for the one field this service needs: `ai_enabled`. Never a
+    second endpoint for a second switch.
+
+    FAILS OPEN (True) on any read trouble — an outage must not silently strip every carousel card's
+    button for a shop that never touched this setting, which is every shop today.
+    """
+
+    driver = "http"
+
+    def __init__(self, *, operations_url: str, path: str, token: str, timeout: int = 5) -> None:
+        self._url = operations_url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+
+    async def enabled(self, tenant: str) -> bool:
+        if not tenant:
+            return True
+        try:
+            data = await _post(self._url, {"tenant": tenant}, self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return True
+        return bool(data.get("ai_enabled", True))
+
+
 class NullIdentity:
     driver = "null"
 

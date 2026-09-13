@@ -1523,6 +1523,29 @@ def test_no_carousel_template_in_the_library_falls_back_silently(st):
     assert not sender.carousel_calls and len(sender.calls) == 1
 
 
+def test_carousel_buttons_defaults_true_when_the_row_never_set_it(st):
+    """An older campaigns build (or any other caller of this schedule shape) that never sets
+    `carousel_buttons` at all must not silently lose every card's button."""
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    row = _carousel_row()
+    assert "carousel_buttons" not in row
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    assert sender.carousel_calls[0]["include_buttons"] is True
+
+
+def test_carousel_buttons_false_on_the_row_reaches_the_sender_as_false(st):
+    """campaigns' own decision (core/shape.py, 2026-09-13) — a shop with neither the booking app
+    nor a live WhatsApp assistant gets the same cards with no button, threaded straight through."""
+    _consented(st)
+    sender = CarouselCapableSender(carousel_ok=True)
+    row = _carousel_row(carousel_buttons=False)
+    run(tick(st, sender).send_one("t1", row, now=at(10), library=CAROUSEL_LIB,
+                                  service_names=NAMES, establishment="ورشة النخبة"))
+    assert sender.carousel_calls[0]["include_buttons"] is False
+
+
 def test_carousel_not_requested_never_touches_the_carousel_sender_even_if_one_exists(st):
     """A booking shop (or any ordinary send) never sets `carousel` on the row — `send_one` must not
     go looking for one on its own."""

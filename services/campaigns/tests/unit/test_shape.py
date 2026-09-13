@@ -59,15 +59,29 @@ def campaign(template_type: str = "mkt_winback") -> dict:
             "cls": "marketing", "owner_text": "خصم 20%"}
 
 
-def fire(template_type="mkt_winback", *, licence=None, subjects=("sub_a",), service_ids=()):
+def fire(template_type="mkt_winback", *, licence=None, subjects=("sub_a",), service_ids=(),
+        assistant_licence=None, ai_toggle=None):
     s = Sender()
     d = Dispatcher(store=MemoryDataStore(), sender=s, audience_resolver=resolver(*subjects),
-                   bookings_licence=licence)
+                   bookings_licence=licence, assistant_licence=assistant_licence,
+                   ai_toggle=ai_toggle)
     c = campaign(template_type)
     if service_ids:
         c["scope_service_ids"] = list(service_ids)
     run(d.fire(c, now=NOW))
     return s
+
+
+class Toggle:
+    """operations' own ai_toggle.py, as this service sees it."""
+
+    def __init__(self, answer: bool) -> None:
+        self.answer = answer
+        self.asked: list[str] = []
+
+    async def enabled(self, tenant: str) -> bool:
+        self.asked.append(tenant)
+        return self.answer
 
 
 # ── (a) a shop that owns the appointment book ─────────────────────────────────────────────────
@@ -252,6 +266,60 @@ def test_for_send_never_sets_both_fields_at_once():
 
 def test_plain_carries_no_carousel_request_either():
     assert shape.PLAIN.carousel is False
+
+
+# ── `_card_button_allowed` (2026-09-13) — a button only where something would answer it ────────
+def test_a_shop_with_neither_bookings_nor_the_assistant_gets_no_button():
+    s = fire("mkt_offer", licence=Licence(False), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(False))
+    assert s.calls[0]["carousel_buttons"] is False
+
+
+def test_bookings_alone_is_not_enough_for_the_button():
+    s = fire("mkt_offer", licence=Licence(True), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(False))
+    assert s.calls[0]["carousel_buttons"] is False
+
+
+def test_the_assistant_alone_is_not_enough_for_the_button():
+    s = fire("mkt_offer", licence=Licence(False), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True))
+    assert s.calls[0]["carousel_buttons"] is False
+
+
+def test_bought_the_assistant_but_switched_it_off_still_gets_no_button():
+    s = fire("mkt_offer", licence=Licence(True), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(True), ai_toggle=Toggle(False))
+    assert s.calls[0]["carousel_buttons"] is False
+
+
+def test_bookings_and_a_live_assistant_together_get_the_button():
+    s = fire("mkt_offer", licence=Licence(True), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True))
+    assert s.calls[0]["carousel_buttons"] is True
+
+
+def test_no_ai_toggle_wired_defaults_to_on_once_both_licences_answer_yes():
+    """A deployment that has not wired the toggle peer at all (operations unreachable/unconfigured)
+    resolves to today's behaviour for a shop that owns both apps — never a silent button removal
+    for a switch nobody could have touched yet."""
+    s = fire("mkt_offer", licence=Licence(True), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(True), ai_toggle=None)
+    assert s.calls[0]["carousel_buttons"] is True
+
+
+def test_neither_licence_wired_at_all_defaults_to_no_button():
+    """Same "unwired resolves to the safe answer" rule `bookings_licence=None` already takes for
+    `opens_booking_for` — a button this service cannot verify is safe must not be offered."""
+    s = fire("mkt_offer", licence=None, service_ids=("svc_1", "svc_2"), assistant_licence=None)
+    assert s.calls[0]["carousel_buttons"] is False
+
+
+def test_the_button_decision_is_asked_once_per_pass_not_once_per_recipient():
+    s = fire("mkt_offer", licence=Licence(True), service_ids=("svc_1", "svc_2"),
+            assistant_licence=Licence(True), ai_toggle=Toggle(True), subjects=("a", "b", "c"))
+    assert len(s.calls) == 3
+    assert all(c["carousel_buttons"] is True for c in s.calls)
 
 
 def test_the_peer_client_omits_the_carousel_key_entirely_on_an_ordinary_send():

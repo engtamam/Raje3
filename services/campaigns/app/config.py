@@ -179,6 +179,13 @@ class Settings(BaseSettings):
     # package_offer goal — is the referenced package still active/in-schedule, asked fresh at both
     # campaign creation and at every fire() pass (never trusted from the moment it was created).
     PACKAGE_OFFERABLE_PATH: str = "/internal/operations/package-offerable"
+    # THE OWNER'S OWN KILL SWITCH FOR THE WHATSAPP AI ASSISTANT (operations' `core/ai_toggle.py`)
+    # — asked fresh per dispatch pass, same "never trusted from the moment it was created" reason
+    # as `PACKAGE_OFFERABLE_PATH` above: a carousel card's own button (core/shape.py's
+    # `card_count`-gated request) must not promise an answer a shop switched off five minutes ago
+    # still gives. SAME ROUTE whatsapp-assistant's own `shop_identity.py` already calls — this
+    # service asks only for the one field it needs (`ai_enabled`), never a second endpoint.
+    OPERATIONS_SHOP_NAME_PATH: str = "/internal/operations/shop-name"
     # THEIRS (ط-3). Given who a campaign reached and when, how many of them came back and spent
     # an offer since — the question the campaign's own send log can name and had nowhere to ask.
     OFFERS_REDEEMED_PATH: str = "/internal/operations/offers-redeemed"

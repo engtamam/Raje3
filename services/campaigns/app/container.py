@@ -194,6 +194,12 @@ class Container:
     # attribute rather than a field on `licence`, because it is a different key and a different
     # question (see build's own note).
     bookings_licence: Any = None
+    # Has this shop bought the WhatsApp AI assistant at all — the second input a carousel card's
+    # own button needs, alongside `bookings_licence` above and `ai_toggle` below.
+    assistant_licence: Any = None
+    # The owner's own runtime on/off switch for that same assistant (operations' `ai_toggle.py`) —
+    # a different question from whether he bought it, same split `bookings_licence` documents.
+    ai_toggle: Any = None
     dispatcher: Any = None
     tick: Any = None
     # The platform's own durable scheduler — `NullJobService` when `JOB_SERVICE_URL` is unset (see
@@ -311,6 +317,24 @@ def build_container(settings: Settings) -> Container:
     # core/licence.py's own note on why the key is a parameter rather than a copied file.
     container.bookings_licence = build_licence(settings, BOOKINGS_KEY)
 
+    # A THIRD LICENCE — has this shop bought the WhatsApp AI assistant at all
+    # (`feature.whatsapp`, whatsapp-assistant's own `core/licence.py::KEY`)? Together with
+    # `bookings_licence` above and `ai_toggle` below, this decides whether a carousel card's own
+    # button (core/shape.py, 2026-09-13) promises an action something will actually answer.
+    container.assistant_licence = build_licence(settings, "feature.whatsapp")
+
+    from app.adapters.peers import HttpAiToggle, NullAiToggle
+
+    # THE OWNER'S OWN RUNTIME CHOICE, separate from the entitlement above — operations'
+    # `core/ai_toggle.py`. Optional like every other peer: empty `OPERATIONS_SERVICE_URL` (already
+    # required in production by this container's own boot guard for the audience/customers peer)
+    # degrades to "on", never a silent card-button removal for a deployment that never wired it.
+    container.ai_toggle = (
+        HttpAiToggle(operations_url=settings.OPERATIONS_SERVICE_URL,
+                    path=settings.OPERATIONS_SHOP_NAME_PATH,
+                    token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+        if settings.OPERATIONS_SERVICE_URL else NullAiToggle())
+
     from app.adapters.job_service import HttpJobService, NullJobService
     # OPTIONAL, LIKE EVERY OTHER PEER — see config.py's own note on JOB_SERVICE_URL.
     container.jobs = (
@@ -322,6 +346,8 @@ def build_container(settings: Settings) -> Container:
                                       package_offerable=container.package_offerable,
                                       batch=settings.DISPATCH_BATCH_SIZE,
                                       bookings_licence=container.bookings_licence,
+                                      assistant_licence=container.assistant_licence,
+                                      ai_toggle=container.ai_toggle,
                                       telemetry=container.telemetry)
     container.licence = build_licence(settings)
     async def _share_for(tenant: str) -> int:

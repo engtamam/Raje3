@@ -38,7 +38,7 @@ class DispatchResult:
 class Dispatcher:
     def __init__(self, *, store, sender, audience_resolver, batch: int = 200,
                  telemetry=None, daily_share: int = 0, package_offerable=None,
-                 bookings_licence=None) -> None:
+                 bookings_licence=None, assistant_licence=None, ai_toggle=None) -> None:
         self._s = store
         self._sender = sender
         self._resolve = audience_resolver
@@ -53,6 +53,13 @@ class Dispatcher:
         # configured) resolves every send to PLAIN, which is the behaviour that existed before this
         # parameter did.
         self._bookings_licence = bookings_licence
+        # THE OTHER TWO INPUTS A CAROUSEL CARD'S OWN BUTTON NEEDS (core/shape.py, 2026-09-13):
+        # has this shop bought the smart AI assistant app at all, and did the owner switch it off
+        # himself. Both OPTIONAL for the same "resolves to today's behaviour" reason as
+        # `bookings_licence` — see `_card_button_allowed`'s own docstring for what "unwired"
+        # degrades to.
+        self._assistant_licence = assistant_licence
+        self._ai_toggle = ai_toggle
         # THE CAMPAIGN'S SHARE OF TODAY'S PROVIDER CEILING — the ceiling minus what the automatic
         # engine reserved (spec §8.4.3). Deliberately a NUMBER rather than a channel: this module
         # must not learn which provider imposes it, and a test enforces that by reading this
@@ -173,6 +180,13 @@ class Dispatcher:
         # same pass. A thousand-recipient run must not become a thousand billing calls.
         opens_booking = await shape.opens_booking_for(
             tenant, str(campaign.get("template_type") or ""), licence=self._bookings_licence)
+        # WHETHER A CAROUSEL CARD MAY CARRY A BUTTON AT ALL (2026-09-13) — asked once per pass,
+        # same reasoning as `opens_booking` above. Deliberately NOT gated on `template_type in
+        # BOOKING_TYPES` the way `opens_booking_for` is: a card's own button is a shop-wide
+        # capability question ("can ANYTHING answer a tap"), not "does this particular text end in
+        # come back" — a loyalty-activation or announcement carousel card should offer the same
+        # button a win-back one does, once the shop can actually act on it.
+        card_button = await self._card_button_allowed(tenant)
 
         sent_this_pass = 0
         for candidate in audience.candidates:
@@ -233,7 +247,8 @@ class Dispatcher:
                     # the one that knows whether a carousel template actually exists for this type;
                     # a `False` here (every send today, and every non-carousel-eligible type) costs
                     # this field nothing on the wire — see HttpSender.send below.
-                    carousel=send_shape.carousel)
+                    carousel=send_shape.carousel,
+                    carousel_buttons=card_button)
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is
@@ -260,6 +275,29 @@ class Dispatcher:
         return DispatchResult(run=run, finished=True)
 
     # ── the dedup ledger ──────────────────────────────────────────────────────────────────────
+    async def _card_button_allowed(self, tenant: str) -> bool:
+        """A carousel card's own button (2026-09-13) promises an action — SOMETHING has to be
+        alive to receive the tap. That means the shop owns BOTH the appointment book (the same
+        entitlement `opens_booking_for` checks) AND a live smart AI assistant app: bought
+        (the assistant app's own entitlement) and not switched off by its own owner (`ai_toggle`).
+
+        BOTH OPTIONAL, LIKE `bookings_licence` — a deployment with neither wired resolves this to
+        `False` (no button), never `True`: a button this service cannot actually verify is safe
+        must not be offered on the strength of an absent check. `bookings_licence` unwired already
+        made `opens_booking_for` answer `False` for the same reason.
+        """
+        if self._bookings_licence is None or self._assistant_licence is None:
+            return False
+        owns_bookings = await self._bookings_licence.allowed(tenant)
+        if not owns_bookings:
+            return False
+        owns_assistant = await self._assistant_licence.allowed(tenant)
+        if not owns_assistant:
+            return False
+        if self._ai_toggle is None:
+            return True
+        return await self._ai_toggle.enabled(tenant)
+
     # WHO THIS CAMPAIGN HAS ALREADY REACHED, kept per (campaign, subject) rather than as a flag on
     # the customer. A flag would have to be cleared by something, and whatever clears it is the
     # bug — this needs no cleanup and is correct after a restore.

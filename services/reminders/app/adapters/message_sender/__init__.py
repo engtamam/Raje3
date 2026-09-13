@@ -111,14 +111,16 @@ class NullSender:
     async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
-                            sending_identity: str = "", top_variables: list[str] | None = None) -> str:
+                            sending_identity: str = "", top_variables: list[str] | None = None,
+                            include_buttons: bool = True) -> str:
         self.sent.append({"tenant": tenant, "sending_identity": sending_identity or tenant,
                           "subject_ref": subject_ref, "type": "carousel",
                           "template_name": template_name, "variables": variables,
                           "top_variables": list(top_variables or []),
                           "service_ids": list(service_ids),
                           "service_names": dict(service_names),
-                          "idempotency_key": idempotency_key})
+                          "idempotency_key": idempotency_key,
+                          "include_buttons": include_buttons})
         return f"dlv_{idempotency_key}" if idempotency_key else ""
 
 
@@ -380,7 +382,8 @@ class HttpSender:
     async def send_carousel(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
-                            sending_identity: str = "", top_variables: list[str] | None = None) -> str:
+                            sending_identity: str = "", top_variables: list[str] | None = None,
+                            include_buttons: bool = True) -> str:
         """Thin async wrapper — every call inside is stdlib urllib, plain synchronous methods, so
         the whole card-building-and-send sequence runs as ONE unit off the event loop. See
         core/customer_lookup.py::HttpCustomerLookup.resolve for the same offload idiom."""
@@ -388,12 +391,14 @@ class HttpSender:
             self._send_carousel_sync, tenant=tenant, subject_ref=subject_ref,
             template_name=template_name, variables=variables, service_ids=service_ids,
             service_names=service_names, idempotency_key=idempotency_key,
-            sending_identity=sending_identity, top_variables=top_variables)
+            sending_identity=sending_identity, top_variables=top_variables,
+            include_buttons=include_buttons)
 
     def _send_carousel_sync(self, *, tenant: str, subject_ref: str, template_name: str,
                             variables: list[str], service_ids: list[str],
                             service_names: dict[str, str], idempotency_key: str,
-                            sending_identity: str = "", top_variables: list[str] | None = None) -> str:
+                            sending_identity: str = "", top_variables: list[str] | None = None,
+                            include_buttons: bool = True) -> str:
         """The carousel shape (core/shape.py Phase 2) — one card per covered service. GET the
         photo from operations, POST it to notification-service for a media id, THEN POST the
         assembled cards to `/internal/notify/whatsapp/carousel` — THE SAME TWO-STEP
@@ -424,19 +429,26 @@ class HttpSender:
             media_id = self._upload_media_id(tenant=tenant, data=data, content_type=ctype)
             if not media_id:
                 continue
-            cards.append({
+            card: dict[str, Any] = {
                 "media_id": media_id, "media_type": "image",
                 # THE SERVICE'S OWN NAME, THEN THE SHARED VARIABLES (the offer's own value, in
                 # today's only caller) — same order the seed's card body declares them in
                 # (operations/data/templates.seed.json), one card per service, one offer per send.
                 "body_params": [service_names.get(sid, sid), *variables],
-                # INERT TODAY. A quick-reply payload notification-service will happily deliver and
-                # nothing on this path reads back — whatsapp-assistant's own conversation handler
-                # parses ITS carousel's "carousel:{kind}:{id}" payload; a campaign carousel reply
-                # has no handler yet. Kept self-describing rather than blank so a future one is a
-                # parser to add, not a payload shape to invent.
-                "buttons": [{"sub_type": "quick_reply", "payload": f"mkt_carousel:service:{sid}"}],
-            })
+            }
+            # A BUTTON ONLY WHERE SOMETHING WOULD ANSWER IT (2026-09-13) — `include_buttons` is
+            # campaigns' own decision (core/shape.py), true only when the shop owns BOTH the
+            # appointment book AND a live WhatsApp AI assistant. Found live, this was worse than
+            # inert before the fix: whatsapp-assistant's own `handle_button_reply` DOES receive
+            # this payload — its prefix does not match the "carousel:" shape that peer's own
+            # catalog carousel uses, so a customer who tapped it received a confusing "هذا الطلب
+            # لم يعد صالحًا" from the bot instead of silence. A shop with neither app, or one whose
+            # owner switched the assistant off, gets the exact same card with nothing to tap —
+            # true silence, not a broken promise.
+            if include_buttons:
+                card["buttons"] = [
+                    {"sub_type": "quick_reply", "payload": f"mkt_carousel:service:{sid}"}]
+            cards.append(card)
             if len(cards) >= 10:
                 break
         if len(cards) < 2:

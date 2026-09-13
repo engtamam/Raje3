@@ -577,7 +577,12 @@ class Tick:
                         top_variables=top.variables,
                         service_ids=list(row.get("offer_services") or []),
                         service_names=service_names, idempotency_key=key,
-                        sending_identity=_sending_identity(tenant, row))
+                        sending_identity=_sending_identity(tenant, row),
+                        # WHETHER A CARD MAY CARRY A BUTTON AT ALL — campaigns' own decision
+                        # (core/shape.py, 2026-09-13), carried on the row exactly like `carousel`
+                        # itself. Absent (an older campaigns build, or any other caller of this
+                        # schedule shape) reads as `True` — today's behaviour, unchanged.
+                        include_buttons=bool(row.get("carousel_buttons", True)))
                 except CarouselUnavailable:
                     # GIVE THE SLOT BACK AND FALL THROUGH — see the block's own docstring above.
                     await self._quota.release(tenant=tenant, idempotency_key=key)

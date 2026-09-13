@@ -46,7 +46,8 @@ class _Resp:
 
 
 def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
-         carousel_response=None, recipient="+966500000000", top_variables=None):
+         carousel_response=None, recipient="+966500000000", top_variables=None,
+         include_buttons=True):
     """A sender whose image fetch, media upload and carousel POST all succeed by default —
     override any one to prove the graceful-degradation path around it."""
     s = sender()
@@ -76,7 +77,7 @@ def _wire(*, service_ids=("oil", "tyres"), image_ok=True, upload_ok=True,
             tenant="t1", subject_ref="sub_a", template_name="mkt_offer_carousel_warm",
             variables=["20%"], service_ids=list(service_ids),
             service_names={"oil": "غسيل خارجي", "tyres": "تلميع"}, idempotency_key="cmp:c1:sub_a",
-            top_variables=top_variables))
+            top_variables=top_variables, include_buttons=include_buttons))
     return result, calls
 
 
@@ -96,6 +97,30 @@ def test_each_card_carries_its_own_service_name_then_the_shared_variables():
     _, calls = _wire()
     names = [c["body_params"] for c in calls["carousel_body"]["cards"]]
     assert names == [["غسيل خارجي", "20%"], ["تلميع", "20%"]]
+
+
+# ── `include_buttons` (2026-09-13) — a button only where something would answer it ─────────────
+def test_by_default_every_card_carries_its_quick_reply_button():
+    _, calls = _wire()
+    cards = calls["carousel_body"]["cards"]
+    assert cards[0]["buttons"] == [{"sub_type": "quick_reply", "payload": "mkt_carousel:service:oil"}]
+    assert cards[1]["buttons"] == [{"sub_type": "quick_reply", "payload": "mkt_carousel:service:tyres"}]
+
+
+def test_include_buttons_false_omits_the_key_entirely_on_every_card():
+    """Not an empty list — the key itself is absent, same "no meaningless field" rule the rest of
+    this wire body already follows (flow_token, carousel)."""
+    _, calls = _wire(include_buttons=False)
+    for card in calls["carousel_body"]["cards"]:
+        assert "buttons" not in card
+
+
+def test_include_buttons_does_not_change_which_cards_survive_or_their_media():
+    """The switch only ever removes the button — a shop with neither app still gets the exact
+    same photo, name and count of cards, never a degraded carousel."""
+    with_buttons, _ = _wire(include_buttons=True)
+    without_buttons, _ = _wire(include_buttons=False)
+    assert with_buttons == without_buttons
 
 
 def test_the_top_level_body_carries_whatever_the_caller_rendered():
@@ -246,3 +271,4 @@ def test_null_sender_records_the_carousel_call_and_returns_a_stable_handle():
     assert result == "dlv_k1"
     assert s.sent[0]["type"] == "carousel"
     assert s.sent[0]["service_ids"] == ["oil"]
+    assert s.sent[0]["include_buttons"] is True
