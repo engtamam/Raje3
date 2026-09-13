@@ -282,36 +282,6 @@ def test_good_coverage_reports_nothing_blocked(client, owner):
     assert got["not_enabled"] == []
 
 
-# ── the digest subscription ────────────────────────────────────────────────────────────────────
-def test_a_person_subscribes_themselves_without_typing_their_own_id(client, owner):
-    r = client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
-    assert r.status_code == 200 and r.json()["subject"] == "owner-1"
-
-
-def test_the_digest_sends_nothing_for_a_shop_it_could_not_compute(client, owner):
-    client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
-    c = client.app.state.container
-    c.peers._visits = []
-    c.peers.sent.clear()
-    r = client.post("/internal/insights/digest", json={"tenant": "empty-shop"}, headers=INTERNAL)
-    assert r.status_code == 200 and r.json()["sent"] == 0
-
-
-def test_the_digest_goes_through_reminders_gate_as_a_personal_message(client, owner):
-    """ح-4: the class the library actually filed this template under. `per_weekly_digest` is
-    `personal` in operations/data/templates.seed.json and in reasons.py's own claim for it — a
-    report with no price and no invitation is not a service notice, and sending it as `service`
-    quietly spent the wrong daily cap and quiet-hours exemption every week."""
-    _seed(client, visits(30))
-    client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
-    c = client.app.state.container
-    c.peers.sent.clear()
-    r = client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
-    assert r.status_code == 200 and r.json()["sent"] == 1
-    call = c.peers.sent[0]
-    assert call["cls"] == "personal" and call["template_type"] == "per_weekly_digest"
-
-
 # ── the platform surface and erasure ───────────────────────────────────────────────────────────
 def test_recompute_needs_a_platform_capability(client, owner):
     r = client.post("/api/v1/insights/platform/recompute", json={"tenant": TENANT}, headers=owner)
@@ -337,59 +307,6 @@ def test_erasure_removes_the_derived_sequence_and_is_idempotent(client, owner):
 
 def test_the_tick_needs_the_internal_token(client):
     assert client.post("/internal/insights/tick", json={}).status_code in (401, 403)
-
-
-# ── the weekly report's eight lines, through the route ─────────────────────────────────────────
-def test_the_digest_asks_its_peers_and_each_failure_costs_one_line(client, owner):
-    """A digest that does not go out because billing was slow is a report the owner never learns
-    he was owed — while the seven other lines were correct."""
-    # DATED AGAINST THE REAL CLOCK, because the route's tick runs on `time.time()` and the weekly
-    # line is a WINDOW around it (ي-2). The rest of this file uses a fixed `NOW` set in the
-    # future, which no window can contain — visits dated after the moment of computation are not
-    # this week's, and the indicator is right to leave them out.
-    import time as _t
-
-    real = int(_t.time())
-    this_week = [{"tenant": TENANT, "subject_ref": f"d{i}", "visit_id": f"dv{i}-{k}",
-                  "service_ids": ["wash"], "occurred_at": real - (k * 40 * DAY) - DAY}
-                 for i in range(40) for k in range(3)]
-    _seed(client, this_week)
-    client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
-    c = client.app.state.container
-    c.peers.extras = {"shop": "مغسلة النخيل", "messages_sent": 780,
-                      "points_redeemed": 9}
-    c.peers.sent.clear()
-    r = client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
-    assert r.status_code == 200 and r.json()["sent"] == 1
-    text = c.peers.sent[0]["owner_text"]
-    assert "مغسلة النخيل" in text and "رسائل أرسلتها: 780" in text and "نقاط استُبدلت: 9" in text
-
-    # Now every peer read fails. The message still goes, three lines lighter.
-    c.peers.extras = {}
-    c.peers.sent.clear()
-    r = client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
-    assert r.json()["sent"] == 1
-    lean = c.peers.sent[0]["owner_text"]
-    assert "رسائل أرسلتها" not in lean and "نقاط" not in lean
-    # THE PULSE SURVIVES EVERY PEER FAILURE — it comes from the snapshot, not from a peer. And it
-    # names its period: 40 visits in the last seven days, with the fortnight behind it to compare
-    # against (ي-2).
-    assert "زيارات الأسبوع: 40 (+0)" not in lean, "a zero difference prints no difference"
-    assert "زيارات الأسبوع: 40" in lean
-
-
-def test_the_digest_never_names_a_plan_or_a_price(client, owner):
-    """One word about a package and the whole template becomes promotional — and a shop's own
-    operational report sits behind quiet hours and a consent its owner never gave himself."""
-    _seed(client, regulars(40, "n", ["wash"]))
-    client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
-    c = client.app.state.container
-    c.peers.sent.clear()
-    client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
-    call = c.peers.sent[0]
-    assert call["cls"] == "personal"  # ح-4 — see the library, not a guess repeated here
-    for word in ("باقة", "رقّ", "ريال", "اشترك"):
-        assert word not in call["owner_text"], word
 
 
 # ── the audience card, through the route (spec §8.5) ───────────────────────────────────────────

@@ -52,11 +52,11 @@ CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
 # `invite` and `stop_link` carry an ADDRESS rather than a word, and each is the last blank of
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
+# `establishment` USED TO BE A THIRD — `per_weekly_digest`'s own owner-name slot, deleted with the
+# template itself (2026-09-13, the weekly report feature removed entirely). Nothing fills
+# `establishment` any more.
 FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
-        "rating_cta",
-        # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
-        # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
-        "establishment")
+        "rating_cta")
 # WHICH REMINDER MODEL A TEMPLATE SERVES (spec 16.6.5). Not a second taxonomy competing with the
 # five classes: the class says what a message IS to the regulator, the model says which kind of
 # business it is FOR. A cafe customer returns in days and there is no such thing as "time for your

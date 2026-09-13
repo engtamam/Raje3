@@ -180,12 +180,6 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
      # signal that opens the door to coaching — never a silent verdict discovered weeks later,
      # after real customers have already stopped coming back.
      },
-    {"id": "rating.weekly_pulse", "title": "يمنحك نبض رضا عملائك أسبوعياً",
-     "detail": "متوسط تقييمك وعدد الآراء التي تنتظر ردك، بنظرة واحدة كل أسبوع",
-     "icon": "check-circle", "tone": "rose", "shared_with": [], "owned_by": "",
-     # `Operations.ratings_summary` (core/operations.py:470-491) — عدد التقييمات هذا الأسبوع،
-     # المعدل، وكم منها لسه بلا رد — سطر جاهز بالتقرير الأسبوعي، لا حساب يدوي.
-     },
     {"id": "rating.exportable_report_for_the_whole_team", "title": "تقرير أداء جاهز تشاركه مع فريقك",
      "detail": "ملف Word أو PDF بأداء كل موظف، تطبعه لاجتماع الفريق أو ترسله لمن يتخذ القرار",
      "icon": "receipt", "tone": "blue", "shared_with": [], "owned_by": "",

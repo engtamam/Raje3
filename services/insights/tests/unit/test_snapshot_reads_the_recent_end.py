@@ -87,12 +87,10 @@ def _drive(feed: AscendingFeed, limit: int) -> VisitPage:
         driver = peers.HttpPeers(
             operations_url="http://ops.invalid", visits_path="/internal/operations/visits/since",
             catalogue_path="/internal/operations/catalogue",
-            reminders_url="http://rem.invalid", send_path="/internal/reminders/send",
+            reminders_url="http://rem.invalid",
             consent_count_path="/internal/reminders/consent-count",
             billing_url="http://bil.invalid", entitlement_path="/internal/billing/entitlement",
-            usage_path="/internal/billing/usage", loyalty_url="http://loy.invalid",
-            loyalty_report_path="/internal/loyalty/report", tenant_url="http://tnt.invalid",
-            tenant_read_path="/internal/tenants", token="t" * 40)
+            token="t" * 40)
         return asyncio.run(driver.visits("t1", since=0, limit=limit))
     finally:
         peers._post = real_post                                               # noqa: SLF001

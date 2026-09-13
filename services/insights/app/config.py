@@ -255,17 +255,11 @@ class Settings(BaseSettings):
     OPERATIONS_OPERATORS_PATH: str = "/internal/operations/operators"
     # Who may see which branch (§12.4) — the staffing join only operations can make.
     OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
-    # THEIRS. The weekly digest's rating line (rating-app-feature.md phase 6) — count, average and
-    # unhandled count over the reported week. Absent means "no rating app / peer down", and the
-    # line simply drops (see core/digest.py) — same degrade-by-omission as every other extra.
-    OPERATIONS_RATINGS_SUMMARY_PATH: str = "/internal/operations/ratings-summary"
     # The dashboard's own `lead_conversion` value — how many customers each channel (WhatsApp
     # auto-register today, more later) brought in, and how many ever became a real visit. See
     # operations' own CustomerStore.conversion_by_source docstring.
     OPERATIONS_CUSTOMER_CONVERSION_PATH: str = "/internal/operations/customer-conversion"
     REMINDERS_SERVICE_URL: str = ""
-    # THE ONLY WAY THIS SERVICE SENDS ANYTHING — the weekly digest and nothing else.
-    REMINDERS_SEND_PATH: str = "/internal/reminders/send"
     # THEIRS. How many customers explicitly agreed to this shop's offers (spec §8.5) — a count and
     # never a list. It is the truest upgrade motivator in the product precisely because it is his
     # own number, which is why it must count explicit grants and nothing else.
@@ -276,14 +270,6 @@ class Settings(BaseSettings):
     # or withhold. The ENFORCING call (/internal/billing/usage/consume) belongs where a unit is
     # actually spent, which in this product is a message, not a chart.
     BILLING_ENTITLEMENT_PATH: str = "/internal/billing/entitlements/check"
-    # THEIRS. "18 of 3000 messages" — the weekly report's sixth line, and the warning that stops
-    # the return engine going quiet mid-month with nobody told.
-    BILLING_USAGE_PATH: str = "/internal/billing/usage"
-    LOYALTY_SERVICE_URL: str = ""
-    # OURS. Aggregates only: how many points were redeemed, never by whom.
-    LOYALTY_REPORT_PATH: str = "/internal/loyalty/report"
-    TENANT_SERVICE_URL: str = ""
-    TENANT_READ_PATH: str = "/internal/tenants/{id}"
     # THEIRS. The dispute-defense report's own backup-coverage source — "was this establishment's
     # data actually covered and test-restored" (v0.18.8, built for exactly this).
     BACKUP_SERVICE_URL: str = ""
@@ -322,11 +308,6 @@ class Settings(BaseSettings):
     # rather than a share, because "twenty customers" is a thing an owner can picture — and twenty
     # is a picture in a small shop and a rounding error in a large one.
     INSIGHTS_MIN_OPPORTUNITY: int = 20
-    # What each shop's WhatsApp ceiling cost it — from reminders, the only service that knows,
-    # because it is the one whose sends were stopped. It becomes a LINE in the weekly report that
-    # is already going out, so it costs no message: a notice of its own would come out of the very
-    # ceiling it reports on, at the moment there is none left.
-    REMINDERS_CEILING_PRESSURE_PATH: str = "/internal/reminders/ceiling-pressure"
     # What went out and what it cost — the send log, which only reminders holds. Two indicators
     # read it: visits credited to a reminder, and stops per thousand messages.
     REMINDERS_EFFECT_PATH: str = "/internal/reminders/effect"

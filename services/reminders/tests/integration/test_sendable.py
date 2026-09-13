@@ -307,8 +307,8 @@ def test_a_send_with_no_flow_fields_carries_none_through(client):
 
 
 def test_a_report_sends_flow_token_and_flow_action_data_through_to_the_schedule(client):
-    """insights' weekly digest is the one caller that DOES open a Flow — its flow_token and the
-    report screen's data must reach `send_one`'s schedule dict unchanged."""
+    """The rating request is one caller that DOES open a Flow — its flow_token and the rating
+    screen's data must reach `send_one`'s schedule dict unchanged."""
     seen: dict = {}
 
     class Tick:
@@ -323,14 +323,14 @@ def test_a_report_sends_flow_token_and_flow_action_data_through_to_the_schedule(
     c.approved_templates = Approved({"of_calm"})
 
     r = client.post("/internal/reminders/send", headers=HEAD, json={
-        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "per_weekly_digest",
-        "class": "personal", "owner_text": "أسبوعك في مغسلة النخيل",
-        "idempotency_key": "insights:digest:t-1:sub_abcdefgh:2900",
-        "flow_token": "insights:digest:t-1:sub_abcdefgh:2900",
-        "flow_action_data": {"header_text": "أسبوعك في مغسلة النخيل", "show_visits": True,
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "svc_visit_confirmation_rating",
+        "class": "service", "owner_text": "زيارتك في مغسلة النخيل",
+        "idempotency_key": "reminders:rating:t-1:sub_abcdefgh:2900",
+        "flow_token": "reminders:rating:t-1:sub_abcdefgh:2900",
+        "flow_action_data": {"header_text": "زيارتك في مغسلة النخيل", "show_visits": True,
                              "visits_text": "120 (+15)"}})
 
     assert r.status_code == 200, r.text
-    assert seen["flow_token"] == "insights:digest:t-1:sub_abcdefgh:2900"
+    assert seen["flow_token"] == "reminders:rating:t-1:sub_abcdefgh:2900"
     assert seen["flow_action_data"]["show_visits"] is True
     assert seen["flow_action_data"]["visits_text"] == "120 (+15)"

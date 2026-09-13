@@ -82,16 +82,6 @@ INSIGHTS_FEATURES: tuple[Feature, ...] = (
         # tenth of the shop's own customers, and refuses to speak at all ("لم يكتمل القياس") rather
         # than claim a result from too small a sample.
     ),
-    Feature(
-        id="insights.weekly_shop_pulse",
-        title="يمنحك ملخص محلك كل أسبوع",
-        detail="زياراتك، عملاؤك الجدد، من يغادرك، وأهم فرصة ضائعة — برسالة واحدة على واتساب",
-        icon="clock",
-        tone=TONE_BLUE,
-        # `core/digest.py` — most owners never open a dashboard, so this is the highest-leverage
-        # surface the app has: at most eight lines, degrades to complete SILENCE on a week with
-        # nothing real to say (never "0 visits, 0 customers" — a verdict on his week dressed as data).
-    ),
 )
 
 

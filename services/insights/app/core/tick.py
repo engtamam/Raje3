@@ -245,9 +245,8 @@ class Tick:
                 int(eff.get("sent_count") or 0), int(eff.get("opt_outs") or 0),
                 have_log=have_log, partial_log=partial_log),
             "return_cycle_days": indicators.return_cycle_days(visits),
-            # THE WEEK, AND THE WEEK BEFORE IT — what «أسبوعك» is a report about (ي-2). Computed
-            # here rather than in the digest so the report and the panel cannot describe two
-            # different periods with one word.
+            # THE WEEK, AND THE WEEK BEFORE IT (ي-2). Computed once here so every reader —
+            # the dashboard and next_step's own rules — describes the same period.
             "visits_week": indicators.visits_in_window(visits, now=now),
             "churn_rate": indicators.churn_rate(visits, now=now, by_customer=per_customer),
             "active_customers": indicators.active_customers(visits, now=now),

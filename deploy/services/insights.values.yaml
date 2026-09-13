@@ -117,23 +117,12 @@ env:
   # free, because the owner already gave us them so reminders could schedule.
   OPERATIONS_CATALOGUE_PATH: "/internal/operations/catalogue"
   REMINDERS_SERVICE_URL: "http://reminders:8000"
-  # THE ONLY THING THIS SERVICE SENDS — the weekly digest, through the same gate as everything
-  # else. There is no notification client here and no channel configuration.
-  REMINDERS_SEND_PATH: "/internal/reminders/send"
   REMINDERS_CONSENT_COUNT_PATH: "/internal/reminders/consent/count"
   # THE PLAN IS NOT ON THE TOKEN. Every locked surface asks billing per request, and an
   # unreachable billing DENIES — showing a paid feature to somebody who has not bought it cannot
   # be taken back, while a refusal during an outage fixes itself.
   BILLING_SERVICE_URL: "http://billing-service:8000"
   BILLING_ENTITLEMENT_PATH: "/internal/billing/entitlements/check"
-  # The weekly report's own three reads. EACH FAILURE COSTS ONE LINE, never the message — a
-  # digest that does not go out because billing was slow is a report the owner never learns he
-  # was owed, while the seven other lines were correct.
-  BILLING_USAGE_PATH: "/internal/billing/usage"
-  LOYALTY_SERVICE_URL: "http://loyalty:8000"
-  LOYALTY_REPORT_PATH: "/internal/loyalty/report"
-  TENANT_SERVICE_URL: "http://tenant-service:8000"
-  TENANT_READ_PATH: "/internal/tenants/{id}"
   # FOUND MISSING LIVE: the dispute-defense report's `backup_coverage` and `legal`
   # sources have called these two since they were built — every call against them was failing
   # silently the whole time (each source fails independently, per report_render's own design, so
@@ -200,20 +189,12 @@ env:
   # because "twenty customers" is something an owner can picture — and twenty is a picture in a
   # small shop and a rounding error in a large one.
   INSIGHTS_MIN_OPPORTUNITY: "20"
-  # What each shop's WhatsApp ceiling cost it, from reminders — the only service that knows,
-  # because it is the one whose sends were stopped. It becomes a LINE in the weekly report that is
-  # already going out, so it costs no message and no unit. A notice of its own was designed and
-  # dropped: it would come out of the very ceiling it reports on, at the moment there is none left,
-  # and Meta would refuse it every day the condition lasted.
-  REMINDERS_CEILING_PRESSURE_PATH: "/internal/reminders/ceiling-pressure"
 
 # THE HEARTBEAT. Without it every dashboard says "أحسب الآن" for ever while every probe stays
 # green and no error is raised anywhere (trap §4.1).
 #
 # The snapshot runs at 04:00 — AFTER loyalty's expiry sweep at 03:10, so a balance that expired
 # overnight is already expired in the numbers rather than counted twice across two mornings.
-# The digest runs Sunday at 09:00: the start of the working week here, inside the sending window,
-# and the same hour every week so it becomes a habit rather than a surprise.
 cronJobs:
   - name: tick
     # EVERY THREE HOURS, NOT ONCE A DAY — and 04:00 is still one of the passes, so the ordering
@@ -223,9 +204,6 @@ cronJobs:
     # eight times a day costs eight small passes rather than one large one.
     schedule: "0 1,4,7,10,13,16,19,22 * * *"
     path: /internal/insights/tick
-  - name: digest
-    schedule: "0 9 * * 0"
-    path: /internal/insights/digest
   - name: platform-rollup
     # 20 MINUTES AFTER EVERY TICK PASS, not on its own schedule — the rollup only reads snapshots
     # tick already wrote (core/rollup.py), so running it right after a pass means it reads

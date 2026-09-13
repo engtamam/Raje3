@@ -124,7 +124,7 @@ def test_a_template_serving_two_reasons_is_silenced_only_when_both_are_off():
 
 def test_a_peer_send_with_one_owner_is_attributed_exactly():
     assert T.candidates("campaign", "mkt_winback") == ("gone_missing",)
-    assert T.candidates("", "per_weekly_digest") == ("weekly_digest",)
+    assert T.candidates("", "per_points_expiring") == ("points_expiring",)
 
 
 # ── a trigger may only point at a text that is his, for this reason, and approved ──────────────

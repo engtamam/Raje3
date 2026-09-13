@@ -56,7 +56,7 @@ current shape, actionable-and-how.
 | 21 | `mkt_announcement` (carousel, **inactive**) | Same, ≥2 items | campaigns | carousel, quick-reply "احجز الآن" | Yes — chat continuation |
 | 22 | `mkt_personal_occasion` (flat) | Birthday/occasion discount | campaigns, `occasion` goal, scheduled | plain text + Flow button, licensed | Yes |
 | 23 | `mkt_personal_occasion` (carousel, **inactive**) | Same, ≥2 items | campaigns | carousel | Yes — chat continuation |
-| 24 | `per_weekly_digest` | Owner's weekly report | insights (`app/api/internal.py:288-299`, via reminders' `/internal/reminders/send`) | plain text + Flow button (`report_flow`) | Yes — native Flow |
+| 24 | `per_weekly_digest` — **removed 2026-09-13**, the owner decided to delete the feature entirely rather than fix or keep it | ~~Owner's weekly report~~ | ~~insights~~ | ~~plain text + Flow button (`report_flow`)~~ | ~~Yes — native Flow~~ |
 | 25 | `wa_catalog_carousel` | Standalone service catalogue | whatsapp-assistant, AI-tool-triggered (`app/core/tools.py`), its **own** `CarouselSender` — not reminders' `message_sender` | carousel, 5 cards, quick-reply "احجز الآن" | Yes — chat continuation |
 | 26 | AI renewal reminder | Subscription/wallet renewal nudge | whatsapp-assistant `renewal_trigger.py:73-76`, own `TemplateSender` | plain text + Flow token (`renew:{invoice_id}`) | Yes — native Flow |
 | 27 | AI low-balance notice | Wallet balance warning | whatsapp-assistant `wallet_low_balance_trigger.py:60-62` | plain text, template `ai_wallet_low_balance` | Unconfirmed — no flow_token cited at the call site; **flag as edge case #3** below |
@@ -131,7 +131,7 @@ category two independent implementations already exist for and neither talks to 
 | Row | Category |
 |---|---|
 | 1 confirmation, 3 redeemed, 4 booking, 5 follow-up, 6 cycle reminder, 7 receipt, 8 account notice, 9 points expiring, 10 DSAR code, 11 care tip (flat), 13 safety notice, 18 loyalty activation (flat), 20 announcement (flat) | **NOTICE** |
-| 2 visit+rating, 14/16/22 offer/winback/occasion (flat, licensed), 24 weekly digest, 26 AI renewal | **INVITE** |
+| 2 visit+rating, 14/16/22 offer/winback/occasion (flat, licensed), 24 weekly digest (removed 2026-09-13), 26 AI renewal | **INVITE** |
 | 12/15/17/19/21/23 all six carousel variants (currently inactive), 25 `wa_catalog_carousel` (active) | **GALLERY** |
 | 29 `send_flow`, 30 AI interactive button/list | **PROMPT** |
 

@@ -235,7 +235,7 @@ async def platform_rollup(request: Request, body: TickIn | None = None) -> dict:
     RUNS AFTER TICK, NOT INSTEAD OF IT — it only reads snapshots tick already wrote (see
     `core/rollup.py`'s own module note), so scheduling it right after a tick pass means it reads
     freshly-updated numbers rather than racing the sweep. `body.tenant` is accepted for symmetry
-    with `tick`/`digest` but ignored beyond narrowing the tenant list to one — a rollup scoped to
+    with `tick` but ignored beyond narrowing the tenant list to one — a rollup scoped to
     a single tenant is really just a check that ONE tenant's snapshot got picked up.
     """
     body = body or TickIn()
@@ -246,67 +246,6 @@ async def platform_rollup(request: Request, body: TickIn | None = None) -> dict:
     now = int(_time.time())
     tenants = [body.tenant] if body.tenant else await c.peers.tenants(since=body.since)
     return await c.rollup.run(now=now, tenants=tenants)
-
-
-@router.post("/insights/digest", dependencies=[Depends(require_internal_token)])
-async def digest(request: Request, body: TickIn | None = None) -> dict:
-    """The weekly report, through reminders' gate.
-
-    Sends NOTHING for a tenant with no snapshot or no visits: a message reading "0 visits" is our
-    failure wearing the owner's numbers, and it says his shop is dead.
-    """
-    from app.core.digest import build as build_digest
-    from app.core.models import SNAPSHOTS
-
-    # Optional for the same reason as the tick above: the cron posts no body.
-    body = body or TickIn()
-
-    import time as _time
-
-    c = request.app.state.container
-    tenants = [body.tenant] if body.tenant else await c.peers.tenants()
-    # The week this report covers. Passed to the peers so "points redeemed" means THIS WEEK rather
-    # than all time — a lifetime total in a weekly report is a number that never changes visibly.
-    week_ago = int(_time.time()) - 7 * 86400
-    sent = skipped = 0
-    for tenant in tenants:
-        snap = await c.datastore.get(SNAPSHOTS, f"{tenant}|_all")
-        # Each of these may fail on its own and cost exactly one line. See peers.digest_extras.
-        extras = await c.peers.digest_extras(tenant, since=week_ago)
-        # Whether he can already send offers decides which of two lines he gets — the audience he
-        # has, or nothing. Asked once per tenant per week, so the cost is irrelevant.
-        from app.core import plans
-
-        extras["can_campaign"] = await c.peers.entitled(tenant, plans.ENGINE) or             await c.peers.entitled(tenant, "feature.campaigns")
-        msg = build_digest(snapshot=snap or {}, **extras)
-        if not msg:
-            skipped += 1
-            continue
-        for subject in await c.subscriptions.recipients(tenant):
-            idempotency_key = (f"insights:digest:{tenant}:{subject}:"
-                              f"{int(snap.get('computed_at', 0)) // 604800}")
-            res = await c.peers.send(
-                tenant=tenant, subject_ref=subject, template_type=msg["template_type"],
-                cls=msg["cls"], owner_text=msg["text"],
-                # The week, so a retry inside the same week sends once.
-                idempotency_key=idempotency_key,
-                # THE REPORT FLOW'S OWN BUTTON (rating-app-feature.md phase 6b) — reusing the
-                # send's own idempotency key as the Flow token needs no separate mint: it is
-                # already unique per tenant+subject+week, which is all a token that nothing ever
-                # resolves back (the screen is read-only, see report-flow.json's own docstring)
-                # needs to be.
-                flow_token=idempotency_key,
-                flow_action_data=msg.get("flow_action_data"))
-            if res.get("sent"):
-                sent += 1
-            else:
-                # THE REASON WAS BEING THROWN AWAY, and that is why a whole class of shops lost
-                # their weekly report without anyone knowing. `send` returns why it failed; the
-                # route counted the successes and dropped the rest on the floor, so «sent: 0»
-                # meant «nothing to send» and «every send was refused» in the same word.
-                c.telemetry.event("insights_digest_not_sent", tenant=tenant,
-                                  reason=str(res.get("reason") or "")[:200])
-    return {"sent": sent, "skipped": skipped, "tenants": len(tenants)}
 
 
 @router.get("/insights/associated-services", dependencies=[Depends(require_internal_token)])

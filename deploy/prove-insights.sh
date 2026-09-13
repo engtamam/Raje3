@@ -146,13 +146,6 @@ s, d = call("/api/v1/insights/platform/recompute", {"tenant": T}, tok=OPS)
 check("support can", s == 200, str(d))
 
 print()
-print("── the digest ──────────────────────────────────────────")
-s, d = call("/api/v1/insights/digest", {"on": True}, tok=SMART, method="PUT")
-check("a person subscribes themselves", s == 200 and d.get("subject") == "owner-live", str(d))
-s, d = call("/internal/insights/digest", {"tenant": T})
-check("the digest run reports rather than throwing", s == 200, str(d))
-
-print()
 print("── erasure ─────────────────────────────────────────────")
 s, d = call("/internal/privacy/erase", {"tenant": T, "subject": "ref_nobody00000"})
 check("an unknown subject is already absent", s == 200 and d.get("already_absent") is True,

@@ -85,7 +85,6 @@ def build_manifest(
             # THE HEARTBEAT. Without its schedule every dashboard says "أحسب الآن" for ever
             # while every probe stays green (trap §4.1).
             {"path": "/internal/insights/tick", "tier": "internal", "method": "POST"},
-            {"path": "/internal/insights/digest", "tier": "internal", "method": "POST"},
             {"path": "/internal/insights/platform-rollup", "tier": "internal", "method": "POST"},
             # For campaigns: the share of today's ceiling the engine needs kept back, so a campaign
             # is promised against what is actually free rather than the whole allowance.
@@ -112,10 +111,6 @@ def build_manifest(
             {"path": "/api/v1/insights/features", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/dispute-report", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/branches", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/insights/digest", "tier": "user", "method": "PUT"},
-            # AND ITS READ. A switch that cannot report its own position is a button that
-            # argues with the person pressing it.
-            {"path": "/api/v1/insights/digest", "tier": "user", "method": "GET"},
             # OURS: support recomputing a snapshot for a shop that is not theirs.
             {"path": "/api/v1/insights/platform/recompute", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/platform/summary", "tier": "user", "method": "GET"},
