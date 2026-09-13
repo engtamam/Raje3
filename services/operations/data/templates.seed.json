@@ -294,7 +294,8 @@
         "مغسلة النخيل",
         "الأحد 9:00 مساءً",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "svc_booking_confirmation_feminine",
@@ -328,7 +329,8 @@
         "صالون لمسات",
         "الأحد 9:00 مساءً",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "svc_follow_up_masculine",
@@ -362,7 +364,8 @@
         "مغسلة النخيل",
         "غسيل خارجي",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "svc_follow_up_feminine",
@@ -396,7 +399,8 @@
         "صالون لمسات",
         "قص وتشذيب",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "svc_service_reminder_masculine",
@@ -406,7 +410,7 @@
       "class": "service",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، قرّب وقت {{3}}، و{{2}} جاهز لك متى ما ناسبك. {{4}} 🎁",
+      "body": "هلا {{1}}، قرّب وقت {{3}} عندنا في {{2}}، تعال بالوقت اللي يناسبك. {{4}} 🎁",
       "variables": [
         1,
         2,
@@ -430,7 +434,8 @@
         "مغسلة النخيل",
         "غسيل خارجي",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "svc_service_reminder_feminine",
@@ -440,7 +445,7 @@
       "class": "service",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، قرّب وقت {{3}}، و{{2}} جاهز لكِ متى ما ناسبك. {{4}} 🎁",
+      "body": "هلا {{1}}، قرّب وقت {{3}} عندنا في {{2}}، تعالي بالوقت اللي يناسبك. {{4}} 🎁",
       "variables": [
         1,
         2,
@@ -464,7 +469,8 @@
         "صالون لمسات",
         "قص وتشذيب",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "svc_receipt_masculine",
