@@ -198,6 +198,13 @@ def test_a_campaign_never_touching_the_thresholds_gets_todays_defaults():
     assert c.loyalty_window_days == 90 and c.loyalty_min_visits == 3
 
 
+def test_reward_enabled_goals_now_covers_win_back_too():
+    """Started as the `occasion`-only pilot; `win_back` is the second goal this reaches, once
+    that pilot proved out — the other offer goals are still untouched."""
+    from app.core.models import REWARD_ENABLED_GOALS
+    assert REWARD_ENABLED_GOALS == {"occasion", "win_back"}
+
+
 def test_validate_reward_refuses_an_unknown_type():
     assert validate_reward(reward_type="loyalty_stamp", reward_points=0,
                            scope_service_ids=[], offer_value="20%")

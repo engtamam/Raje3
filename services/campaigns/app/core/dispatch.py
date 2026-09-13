@@ -231,7 +231,7 @@ class Dispatcher:
             if reward_type == "points" and reward_points > 0 and self._loyalty is not None:
                 await self._loyalty.award(
                     tenant=tenant, subject_ref=candidate.subject_ref, points=reward_points,
-                    idempotency_key=key, reason="occasion", actor="campaigns",
+                    idempotency_key=key, reason=str(campaign.get("goal") or ""), actor="campaigns",
                     branch_id=str(campaign.get("branch_id") or ""))
             # THE SAME KEY AGAIN, AS THIS SEND'S FLOW TOKEN — see core/shape.py on why it is not
             # minted separately. PLAIN (both fields empty) for every send that opens nothing, which

@@ -766,7 +766,7 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، وحشتنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}. لإيقاف العروض: {{4}} ✋",
+      "body": "هلا {{1}}، وحشتنا في {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
@@ -778,7 +778,7 @@
       "fills": [
         "system",
         "system",
-        "amount",
+        "reward",
         "stop_link"
       ],
       "model": "both",
@@ -788,7 +788,7 @@
       "examples": [
         "محمد",
         "مغسلة النخيل",
-        "20%",
+        "لك خصم 20% على غسيل خارجي",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -805,7 +805,7 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، وحشتِنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}. لإيقاف العروض: {{4}} ✋",
+      "body": "هلا {{1}}، وحشتِنا في {{2}} — {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
@@ -817,7 +817,7 @@
       "fills": [
         "system",
         "system",
-        "amount",
+        "reward",
         "stop_link"
       ],
       "model": "both",
@@ -827,7 +827,7 @@
       "examples": [
         "سارة",
         "صالون لمسات",
-        "20%",
+        "لك خصم 20% على قص وتشذيب",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
       "flow_button": {

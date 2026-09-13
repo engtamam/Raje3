@@ -27,8 +27,9 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
-from app.core.models import (GOAL_TEMPLATE, Campaign, as_row, offers_something,
-                             validate_loyalty_window, validate_reward, validate_window)
+from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, Campaign, as_row,
+                             offers_something, validate_loyalty_window, validate_reward,
+                             validate_window)
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
 from app.core import press
@@ -135,8 +136,10 @@ class CampaignIn(BaseModel):
     # bounds match `models.py::LOYALTY_WINDOW_DAYS_RANGE`/`LOYALTY_MIN_VISITS_RANGE`.
     loyalty_window_days: int = Field(default=90, ge=7, le=365)
     loyalty_min_visits: int = Field(default=3, ge=1, le=50)
-    # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES (`occasion` pilot, 2026-09-13) — "discount" is
-    # every OTHER goal's whole reality today, so this is a no-op for them; see `validate_reward`.
+    # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES (`occasion`/`win_back`, 2026-09-13 — extended
+    # from the `occasion`-only pilot to `win_back` once that pilot proved out) — "discount" is
+    # every OTHER goal's whole reality today, so this is a no-op for them; see `validate_reward`
+    # and `REWARD_ENABLED_GOALS` below.
     reward_type: str = Field(default="discount", max_length=16)
     reward_points: int = Field(default=0, ge=0, le=100000)
 
@@ -297,8 +300,8 @@ async def preview(request: Request, body: CampaignIn,
             # SEVERAL NAMES JOIN WITH «، » — the preview's own merged sentence, the same shape
             # `rendering.merged_service_text` produces for the real send.
             service_text="، ".join(package_names_all or service_names_all),
-            reward_type=body.reward_type if body.goal == "occasion" else "discount",
-            reward_points=body.reward_points if body.goal == "occasion" else 0,
+            reward_type=body.reward_type if body.goal in REWARD_ENABLED_GOALS else "discount",
+            reward_points=body.reward_points if body.goal in REWARD_ENABLED_GOALS else 0,
             when=describe_when(trigger=spec["trigger"],
                                inside_window=c.gate.inside_window(_now()),
                                own_window=window_sentence(
@@ -503,10 +506,10 @@ async def create(request: Request, body: CampaignIn,
                                 content={"error": "BAD_REQUEST",
                                          "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
-    # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `occasion` ONLY, for now (the pilot; every
+    # WHICH OF THREE REWARDS THIS CAMPAIGN GIVES — `REWARD_ENABLED_GOALS` only, for now; every
     # other goal still gives exactly the discount it always has, so this is skipped for them
-    # rather than re-checking `offer_value` a second way).
-    if body.goal == "occasion":
+    # rather than re-checking `offer_value` a second way.
+    if body.goal in REWARD_ENABLED_GOALS:
         reward_error = validate_reward(
             reward_type=body.reward_type, reward_points=body.reward_points,
             scope_service_ids=service_ids_all, offer_value=offer_value)
@@ -576,10 +579,12 @@ async def create(request: Request, body: CampaignIn,
                         package_id=(body.package_id or "").strip(),
                         branch_id=(body.branch_id or "").strip(),
                         offer_value=offer_value,
-                        # `occasion` ONLY, for now — every other goal's default ("discount", 0)
-                        # simply reproduces today's behaviour, unchanged.
-                        reward_type=body.reward_type if body.goal == "occasion" else "discount",
-                        reward_points=body.reward_points if body.goal == "occasion" else 0,
+                        # `REWARD_ENABLED_GOALS` only, for now — every other goal's default
+                        # ("discount", 0) simply reproduces today's behaviour, unchanged.
+                        reward_type=body.reward_type if body.goal in REWARD_ENABLED_GOALS
+                        else "discount",
+                        reward_points=body.reward_points if body.goal in REWARD_ENABLED_GOALS
+                        else 0,
                         window_start_hour=body.window_start_hour,
                         window_end_hour=body.window_end_hour,
                         window_weekdays=list(body.window_weekdays or []),

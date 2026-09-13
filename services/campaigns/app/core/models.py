@@ -131,10 +131,23 @@ def validate_loyalty_window(*, window_days: int, min_visits: int) -> str:
     return ""
 
 
-#: What an `occasion` campaign may give (2026-09-13, the `occasion`-goal pilot). `discount` keeps
-#: today's behaviour exactly, which is why it is every campaign's default; `gift` and `points` are
-#: the two new doors, each requiring the one field it cannot compose a sentence without.
+#: What one of these campaigns may give (2026-09-13, started as the `occasion`-goal pilot,
+#: extended to `win_back` once that pilot proved out). `discount` keeps today's behaviour exactly,
+#: which is why it is every campaign's default; `gift` and `points` are the two new doors, each
+#: requiring the one field it cannot compose a sentence without.
 REWARD_TYPES = ("discount", "gift", "points")
+
+#: WHICH GOALS THIS CHOICE APPLIES TO. Every other goal's `reward_type`/`reward_points` are a
+#: no-op — accepted, never rejected (a console sending the spare default must not fail a campaign
+#: over it), but ignored, same posture `fire_at`'s own comment states for `occasion`-only fields.
+#: `service_offer`/`package_offer`/`reward_loyal`/`announce` follow later, once this second goal
+#: also proves out — not because they are harder, only because they have not been reached yet.
+#:
+#: A SET LITERAL, DELIBERATELY, NOT A TUPLE — `ci/check_template_fills.py::campaign_types()`
+#: regexes this whole file, unscoped, for a two-quoted-string pair inside parentheses to find
+#: `GOAL_TEMPLATE`'s own goal-to-class entries; a tuple of two strings here reads as a second,
+#: bogus entry of that same shape and corrupts that check. Curly braces do not match it.
+REWARD_ENABLED_GOALS = {"occasion", "win_back"}
 
 
 def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,
