@@ -172,6 +172,11 @@ async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int,
                 language=settings.WHATSAPP_CATALOG_CAROUSEL_LANGUAGE,
                 cards=plan.carousel.cards, idempotency_key=f"tick_{tenant}_{subject_ref}_{now}")
             replied += 1
+        elif plan.kind == "card" and plan.card is not None:
+            await c.sender.send_single_card(
+                tenant=tenant, to=to, card=plan.card.card,
+                idempotency_key=f"tick_{tenant}_{subject_ref}_{now}")
+            replied += 1
 
     timed_out = await c.engine.sweep_timed_out(tenant, now=now, batch=batch)
 

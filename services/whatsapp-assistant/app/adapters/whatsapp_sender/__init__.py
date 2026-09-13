@@ -43,6 +43,9 @@ class CompositeSender:
     async def send_carousel(self, **kwargs) -> str:
         return await self._carousel.send_carousel(**kwargs)
 
+    async def send_single_card(self, **kwargs) -> str:
+        return await self._carousel.send_single_card(**kwargs)
+
 
 def build(settings: Any, *, secret_store: Any = None) -> CompositeSender:
     if settings.NOTIFICATION_SERVICE_URL:
@@ -60,6 +63,7 @@ def build(settings: Any, *, secret_store: Any = None) -> CompositeSender:
             notify_url=settings.NOTIFICATION_SERVICE_URL,
             carousel_path=settings.NOTIFICATION_CAROUSEL_SEND_PATH,
             media_upload_path=settings.NOTIFICATION_MEDIA_UPLOAD_ID_PATH,
+            interactive_path=settings.NOTIFICATION_INTERACTIVE_SEND_PATH,
             token=settings.INTERNAL_SERVICE_TOKEN,
             timeout=settings.PEER_TIMEOUT_SECONDS)
     else:

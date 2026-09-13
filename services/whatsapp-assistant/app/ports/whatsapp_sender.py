@@ -47,3 +47,11 @@ class WhatsAppSender(Protocol):
     # never a free-form session message, whatever window the conversation is inside.
     async def send_carousel(self, *, tenant: str, to: str, template_name: str, language: str,
                             cards: list[CatalogCard], idempotency_key: str) -> str: ...
+
+    # ONE card, photo + text + a single quick-reply button — the INVITE shape, not a carousel of
+    # one (Meta's carousel component needs 2+ cards). Session-message posture like send_interactive
+    # (no template, inside the 24h window), with a media header (platform v0.22.9) instead of
+    # send_interactive's text-only header — see carousel.py's own docstring on why it lives beside
+    # send_carousel rather than as a third adapter class.
+    async def send_single_card(self, *, tenant: str, to: str, card: CatalogCard,
+                               idempotency_key: str) -> str: ...
