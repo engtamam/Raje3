@@ -103,10 +103,11 @@ def test_an_announcement_reaches_everyone_the_gate_allows():
 
 
 def test_an_occasion_campaign_reaches_nobody_rather_than_everybody():
-    """A birthday campaign that reaches every customer is worse than one that reaches nobody,
-    because it goes out under the shop's name."""
+    """A campaign that reaches every customer regardless of the date is worse than one that
+    reaches nobody, because it goes out under the shop's name claiming a day that is not theirs."""
     assert audience("occasion", cust("a"), cust("b")).count == 0
-    assert audience("occasion", cust("a", occasion_today=True)).count == 1
+    # NOW is 2027-01-15 11:00 Riyadh (module docstring) — one year earlier, same date.
+    assert audience("occasion", cust("a", created=NOW - 365 * DAY)).count == 1
 
 
 # ── the two properties that matter more than the rules ─────────────────────────────────────────

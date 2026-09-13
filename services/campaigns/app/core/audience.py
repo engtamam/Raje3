@@ -12,7 +12,8 @@ THE RULES:
                 message to whichever is not the average.
   reward_loyal  the most visits in a window.
   announce      everyone who accepts marketing.
-  occasion      a date the owner supplied.
+  occasion      the anniversary of the customer's own record (`created`), one year or more on —
+                never a real birthday, which this product has never asked for.
 
 TWO PROPERTIES THAT MATTER MORE THAN THE RULES:
 
@@ -33,6 +34,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+
+from app.core import riyadh
 
 DAY = 86400
 
@@ -229,11 +232,30 @@ def _match_service_offer(row: dict[str, Any], *, service_id: str = "",
     return True, ("من قارب موعد هذه الخدمة" if len(ids) == 1 else "من قارب موعد إحدى هذه الخدمات")
 
 
-def _match_occasion(row: dict[str, Any], **_: Any) -> tuple[bool, str]:
-    # The owner supplied the date; matching a customer to it is data we do not hold yet.
-    # Returning False rather than everyone: a birthday campaign that reaches every customer is
-    # worse than one that reaches nobody, because it goes out under the shop's name.
-    return bool(row.get("occasion_today")), "مناسبته اليوم"
+def _match_occasion(row: dict[str, Any], *, now: int, **_: Any) -> tuple[bool, str]:
+    """"ذكرى انضمامك" — the anniversary of `Customer.created`, not a birthday we were never given.
+
+    THIS USED TO BE "the owner supplied the date" — a field (`occasion_today`) nothing anywhere
+    ever wrote, so every occasion campaign matched nobody, silently, for as long as the goal has
+    existed. `created` is real, held for every customer, and asking "did the shop have him a year
+    ago today" is a true statement we can make without inventing data we do not have (a real
+    birthday, which the product never asks for and would be lying about if it guessed).
+
+    SAME MONTH-AND-DAY, AT LEAST ONE FULL YEAR LATER. A customer created today is not "celebrating
+    an anniversary" — he has none yet; `years >= 1` is the guard. Riyadh-local, like every other
+    date boundary in this file, so the campaign fires on the day the owner's own customers call
+    "today", not on whatever day the epoch happens to roll over in UTC.
+    """
+    created = int(row.get("created") or 0)
+    if created <= 0:
+        return False, ""
+    joined, today = riyadh.local(created), riyadh.local(now)
+    years = today.year - joined.year
+    if years < 1:
+        return False, ""
+    if (today.month, today.day) != (joined.month, joined.day):
+        return False, ""
+    return True, "ذكرى انضمامه اليوم"
 
 
 # ONE FUNCTION PER GOAL, LOOKED UP BY NAME instead of an if/elif chain walked sequentially on

@@ -1068,7 +1068,7 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنت بخير يا {{1}} 🌿 من {{2}} لك خصم {{3}}. لإيقاف العروض: {{4}} ✋",
+      "body": "كل عام وأنت بخير يا {{1}} 🌿 مرّت سنة على انضمامك لعائلة عملاء {{2}} لك خصم {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
@@ -1096,7 +1096,8 @@
       "flow_button": {
         "flow_name": "booking_flow"
       },
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     },
     {
       "name": "mkt_personal_occasion_feminine",
@@ -1106,7 +1107,7 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنتِ بخير يا {{1}} 🌿 من {{2}} لكِ خصم {{3}}. لإيقاف العروض: {{4}} ✋",
+      "body": "كل عام وأنتِ بخير يا {{1}} 🌿 مرّت سنة على انضمامك لعائلة عملاء {{2}} لكِ خصم {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
@@ -1134,7 +1135,8 @@
       "flow_button": {
         "flow_name": "booking_flow"
       },
-      "footer": "للأوقات والتفاصيل، راسلنا"
+      "footer": "للأوقات والتفاصيل، راسلنا",
+      "shape_category": "INVITE"
     },
     {
       "name": "wa_catalog_carousel",

@@ -63,10 +63,24 @@ def test_service_offer_requires_a_service_id():
     assert ok
 
 
-def test_occasion_matches_only_when_flagged_today():
-    ok, _ = _matches("occasion", {"occasion_today": True}, now=NOW, window_days=14, min_visits=2)
+def test_occasion_matches_the_anniversary_of_the_customers_own_record():
+    """A birthday we were never given, replaced with a date we actually hold: `created`, a year
+    or more back, on the same Riyadh-local month and day."""
+    # NOW is 2027-01-15 11:00 Riyadh — one year earlier, same date.
+    ok, _ = _matches("occasion", {"created": NOW - 365 * DAY}, now=NOW, window_days=14, min_visits=2)
     assert ok
     ok, _ = _matches("occasion", {}, now=NOW, window_days=14, min_visits=2)
+    assert not ok
+
+
+def test_occasion_does_not_match_a_customer_created_today():
+    """No anniversary yet — `years >= 1` is the guard, not "any earlier `created`"."""
+    ok, _ = _matches("occasion", {"created": NOW}, now=NOW, window_days=14, min_visits=2)
+    assert not ok
+
+
+def test_occasion_does_not_match_a_different_day_of_the_year():
+    ok, _ = _matches("occasion", {"created": NOW - 366 * DAY}, now=NOW, window_days=14, min_visits=2)
     assert not ok
 
 

@@ -1372,7 +1372,12 @@ async def internal_customers(request: Request, body: CustomersIn) -> dict:
                            # CARRIED BACK so the caller can say who it is about without a second
                            # read. A campaign report that cannot name the branch it went to is a
                            # report the owner has to take on trust.
-                           "last_branch_id": r.get("last_branch_id", "")}
+                           "last_branch_id": r.get("last_branch_id", ""),
+                           # WHEN THIS RECORD BEGAN — the only date the "occasion" goal can
+                           # honestly act on (a real birthday was never collected, and guessing one
+                           # would be lying under the shop's own name). Stamped once, at creation,
+                           # never overwritten (see `Customer.created`'s own note).
+                           "created": int(r.get("created") or 0)}
                           for r in rows if r.get("subject_ref")],
             "count": len(rows),
             # SAID OUT LOUD. The caller counts a truncation of its OWN candidate list and reports
