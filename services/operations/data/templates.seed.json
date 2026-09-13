@@ -789,7 +789,8 @@
       ],
       "flow_button": {
         "flow_name": "booking_flow"
-      }
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_offer_feminine",
@@ -832,7 +833,8 @@
       ],
       "flow_button": {
         "flow_name": "booking_flow"
-      }
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_winback_masculine",
@@ -872,7 +874,8 @@
       ],
       "flow_button": {
         "flow_name": "booking_flow"
-      }
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_winback_feminine",
@@ -912,7 +915,8 @@
       ],
       "flow_button": {
         "flow_name": "booking_flow"
-      }
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_loyalty_activation_masculine",
@@ -949,7 +953,8 @@
         "غسيل خارجي",
         "غسيل خارجي",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
-      ]
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_loyalty_activation_feminine",
@@ -986,7 +991,8 @@
         "قص وتشذيب",
         "قص وتشذيب",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
-      ]
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_loyalty_activation_carousel_masculine",
@@ -1174,7 +1180,8 @@
         "مغسلة النخيل",
         "تلميع كامل",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
-      ]
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_announcement_feminine",
@@ -1208,7 +1215,8 @@
         "مغسلة النخيل",
         "تلميع كامل",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
-      ]
+      ],
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_announcement_carousel_masculine",
@@ -1402,7 +1410,8 @@
       ],
       "flow_button": {
         "flow_name": "booking_flow"
-      }
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_personal_occasion_feminine",
@@ -1442,7 +1451,8 @@
       ],
       "flow_button": {
         "flow_name": "booking_flow"
-      }
+      },
+      "footer": "للأوقات والتفاصيل، راسلنا"
     },
     {
       "name": "mkt_offer_carousel_masculine",

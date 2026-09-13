@@ -105,6 +105,33 @@ def test_a_template_with_no_flow_button_sends_none():
     assert "flow_button" not in seen["body"]
 
 
+def test_a_footer_on_the_template_is_forwarded_to_the_registry():
+    """A campaign template's footer (a fixed line, no variables — Meta's own FOOTER component)
+    must reach notification-service's register() call, or the approved template ships without it."""
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "mkt_offer_masculine"})
+
+    with_footer = dict(TEMPLATE, footer="للأوقات والتفاصيل، راسلنا")
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(client().register("t1", with_footer)) is True
+    assert seen["body"]["footer"] == "للأوقات والتفاصيل، راسلنا"
+
+
+def test_a_template_with_no_footer_sends_none():
+    seen = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp({"name": "svc_visit_confirm"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        assert run(client().register("t1", TEMPLATE)) is True
+    assert "footer" not in seen["body"]
+
+
 # ── carousel templates: a fresh placeholder handle per registration ─────────────────────────────
 def test_a_carousel_template_uploads_a_placeholder_handle_then_registers_with_it():
     calls = []
@@ -377,3 +404,27 @@ def test_the_three_book_back_offers_carry_the_booking_flow_button_in_the_real_se
             assert fb.get("flow_name") != "booking_flow", \
                 f"{row['name']} carries the booking flow it never promised"
     assert seen_types == booking_types   # all three types actually exist in the seed, none silently absent
+
+
+def test_every_campaign_sent_template_carries_the_same_footer(): # 2026-09-13
+    """Every template a campaign goal can fire (`GOAL_TEMPLATE` in campaigns' own models.py —
+    mkt_offer for both service_offer and package_offer, mkt_winback, mkt_loyalty_activation,
+    mkt_announcement, mkt_personal_occasion) must carry the same footer, both tones, on its flat
+    rows — a fixed line under the body inviting the customer to ask, since a campaign's own
+    schedule (start date, send-time window) is not always set and cannot appear as a template
+    variable in a footer anyway (Meta forbids `{{}}` there). The carousel siblings are skipped:
+    Phase 2 stays paused, and this contract is not extended to it."""
+    import pathlib
+
+    seed = pathlib.Path(__file__).resolve().parents[2] / "data" / "templates.seed.json"
+    rows = __import__("json").loads(seed.read_text(encoding="utf-8"))["templates"]
+
+    campaign_types = {"mkt_offer", "mkt_winback", "mkt_loyalty_activation",
+                      "mkt_announcement", "mkt_personal_occasion"}
+    footer = "للأوقات والتفاصيل، راسلنا"
+    seen_types = set()
+    for row in rows:
+        if row.get("type") in campaign_types and not row.get("carousel"):
+            seen_types.add(row["type"])
+            assert row.get("footer") == footer, row["name"]
+    assert seen_types == campaign_types

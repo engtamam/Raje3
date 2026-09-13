@@ -190,6 +190,12 @@ class TemplateLibrary:
             "tone": t.get("tone", ""), "label": t.get("label", ""),
             "class": cls, "category": cat, "language": t.get("language", "ar"),
             "body": body, "header": t.get("header", ""), "button": t.get("button"),
+            # A FIXED LINE UNDER THE BODY, NO VARIABLES (2026-09-13) — Meta's own FOOTER
+            # component (60 chars, plain text). Added for the five campaign-sent marketing
+            # templates so a customer who wants a real date/time or scope not spelled out in the
+            # body has somewhere to ask, without the body claiming a precision (a start date, a
+            # send window) that not every campaign actually has.
+            "footer": t.get("footer", ""),
             "variables": variables, "fills": fills,
             # WHAT TO DO WHEN IT CANNOT GO OUT NOW — quiet hours, or the day's ceiling.
             #

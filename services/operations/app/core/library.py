@@ -220,6 +220,9 @@ class HttpLibrary:
         flow_button = template.get("flow_button")
         if flow_button:
             body["flow_button"] = flow_button
+        footer = template.get("footer")
+        if footer:
+            body["footer"] = footer
         carousel = template.get("carousel")
         if carousel:
             # OFF THE EVENT LOOP — see core/customer_lookup.py::HttpCustomerLookup.resolve. Its own
