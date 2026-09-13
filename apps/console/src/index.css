@@ -96,13 +96,21 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  * this screen must diverge in LAYOUT, never in colour language — a cool violet-white ground here
  * beside the rest of the product's new warm paper would have been exactly that second divergence,
  * not the one this screen was ever meant to keep. `--rj-accent`/status colours (booked/attended/
- * noshow/cancelled) are UNCHANGED — real booking-status semantics, not the generic rebrand. */
+ * noshow/cancelled) are UNCHANGED — real booking-status semantics, not the generic rebrand.
+ *
+ * RE-HUED A FOURTH TIME 2026-09-14 — the owner retired the warm paper ground itself in favour of
+ * white + violet (theme.config.ts's `light.surface-0`). This file's third re-hue chased the paper
+ * rebrand it was matching at the time; it was never touched again when that rebrand changed under
+ * it, so this screen kept rendering the retired cream ground while the rest of the product had
+ * already moved on — the exact "second divergence" its own header warns against. `--rj-bg`/
+ * `--rj-line` now follow `surface-0`/`border-subtle` directly; `--rj-ink`/`--rj-ink-soft` follow
+ * `text-primary`/`text-secondary`. */
 .rj-grid {
-  --rj-bg: #f7f3ea;
+  --rj-bg: #f7f8fa;
   --rj-surface: #ffffff;
-  --rj-ink: #1b1712;
-  --rj-ink-soft: #6b6354;
-  --rj-line: #e9e1cc;
+  --rj-ink: #14161c;
+  --rj-ink-soft: #5b6270;
+  --rj-line: #dde0e7;
   --rj-accent: #5c1b7a;
   --rj-accent-soft: #f1e4f8;
   --rj-accent-deep: #3d0f54;

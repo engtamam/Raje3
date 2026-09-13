@@ -148,8 +148,14 @@ export function WaPhoneFrame({
       </div>
       {/* chat area — WhatsApp's own doodle-wallpaper tint, done with a tiled gradient rather than
           a shipped image asset, so this component stays a single file with no binary dependency */}
+      {/* `min-h` used to be a fixed 420px regardless of content — a single short bubble still
+          reserved that whole height (`justify-end` then parking it far down, past the fold on
+          the page this preview sits on), so seeing it meant scrolling the PAGE, not the phone
+          mockup. A much smaller floor plus a matching ceiling gives long previews their own
+          internal scroll (`overflow-y-auto` now has a height that can actually overflow)
+          instead of growing the page underneath them. */}
       <div
-        className="relative flex min-h-[420px] flex-col justify-end gap-2 overflow-y-auto p-3"
+        className="relative flex max-h-[420px] min-h-[160px] flex-col justify-end gap-2 overflow-y-auto p-3"
         style={{
           backgroundColor: '#E5DDD5',
           backgroundImage:

@@ -54,6 +54,13 @@ vi.mock('../catalog', async (importOriginal) => {
             // already draws for the other two, purely because its real template declares one.
             { goal: 'reward_loyal', title: 'كافئ المخلصين', line: 'الأكثر زيارة عندك',
              icon: 'gift', available: true, offers: true, blanks: ['catalogue'] },
+            // `mkt_announcement`'s real seeded template names the "جديد" itself via a catalogue
+            // fill (var 3), not a free-typed one (Meta forbids free promotional text inside an
+            // approved template's variable) — so this goal must draw the SAME service/package
+            // picker `hasBlank(picked, 'catalogue')` draws for the others, never the free
+            // textarea `hasBlank(picked, 'owner')` used to wrongly draw for it.
+            { goal: 'announce', title: 'أعلن جديدك', line: 'خبر أو عرض للجميع',
+             icon: 'megaphone', available: true, offers: false, blanks: ['catalogue'] },
           ],
         };
       }
@@ -305,6 +312,14 @@ describe('the reward-type picker now reaches service_offer and package_offer too
     await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
     // reward_loyal redeems an EXISTING balance — a different mechanic, correctly excluded.
     expect(screen.queryByText('ماذا تقدّم؟')).toBeNull();
+  });
+});
+
+describe('announce names its "جديد" from the catalogue, never a free-typed line', () => {
+  it('shows the service/package picker and no free-text box', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="announce" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    expect(document.querySelector('textarea')).toBeFalsy();
   });
 });
 

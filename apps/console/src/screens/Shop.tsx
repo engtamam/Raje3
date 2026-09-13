@@ -43,15 +43,21 @@ export { outsideVisits };
 
 /** This screen's own palette — violet/teal/coral on a cool near-white ground, nothing beige,
  *  nothing borrowed from the platform's gold. Applied once, on the outer wrapper, and read by
- *  every child via `var(--sh-*)` the same way the rest of the console already reads `--rj-*`. */
+ *  every child via `var(--sh-*)` the same way the rest of the console already reads `--rj-*`.
+ *
+ * `--sh-ground`/`--sh-ink`/`--sh-ink-soft`/`--sh-line` matched to `theme.config.ts`'s own
+ * `surface-0`/`text-primary`/`text-secondary`/`border-subtle` (2026-09-14 white/violet rebrand) —
+ * this screen's ground was close but not identical to the rest of the product's, visible as a
+ * seam right at this screen's edge. `--sh-surface-2` stays this screen's own violet-tinted tile,
+ * not the platform's neutral one — chosen deliberately for THIS screen's own accent family. */
 const TOKENS: CSSProperties = {
-  ['--sh-ground' as string]: '#f4f5fa',
+  ['--sh-ground' as string]: '#f7f8fa',
   ['--sh-surface' as string]: '#ffffff',
   ['--sh-surface-2' as string]: '#eceefa',
-  ['--sh-ink' as string]: '#131226',
-  ['--sh-ink-soft' as string]: '#5a5a78',
+  ['--sh-ink' as string]: '#14161c',
+  ['--sh-ink-soft' as string]: '#5b6270',
   ['--sh-ink-faint' as string]: '#9797ad',
-  ['--sh-line' as string]: '#e5e6f2',
+  ['--sh-line' as string]: '#dde0e7',
   ['--sh-violet' as string]: '#6a4cf5',
   ['--sh-violet-deep' as string]: '#4c34c4',
   ['--sh-violet-soft' as string]: '#ece7fe',
