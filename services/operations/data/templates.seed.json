@@ -550,21 +550,19 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، لا تفوّتها — عندك {{3}} نقطة في {{2}} تنتهي بتاريخ {{4}}، وتقدر تستخدمها في زيارتك الجاية. {{5}} 🎁",
+      "body": "هلا {{1}}، لا تفوّتها في {{2}} — {{3}} {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "system",
-        "system",
+        "owner",
         "invite"
       ],
       "model": "both",
@@ -574,10 +572,10 @@
       "examples": [
         "محمد",
         "مغسلة النخيل",
-        "غسيل خارجي",
-        "1234",
+        "رصيدك 40 نقطة سينتهي خلال 15 يوم. زُرنا لتستفيد منه.",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "per_points_expiring_feminine",
@@ -587,21 +585,19 @@
       "class": "personal",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، لا تفوّتيها — عندك {{3}} نقطة في {{2}} تنتهي بتاريخ {{4}}، وتقدرين تستخدمينها في زيارتك الجاية. {{5}} 🎁",
+      "body": "هلا {{1}}، لا تفوّتيها في {{2}} — {{3}} {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "system",
-        "system",
+        "owner",
         "invite"
       ],
       "model": "both",
@@ -611,10 +607,10 @@
       "examples": [
         "سارة",
         "صالون لمسات",
-        "قص وتشذيب",
-        "1234",
+        "رصيدك 40 نقطة سينتهي خلال 15 يوم. زُرنا لتستفيد منه.",
         "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/lamasat.sub_rj7k2m/allow"
-      ]
+      ],
+      "shape_category": "NOTICE"
     },
     {
       "name": "per_dsar_code_masculine",
