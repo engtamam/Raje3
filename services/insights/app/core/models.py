@@ -34,7 +34,6 @@ from typing import Any
 SNAPSHOTS = "insight_snapshots"
 SEQUENCES = "insight_sequences"
 PAIRS = "insight_pairs"
-SUBSCRIPTIONS = "insight_digest_subs"
 # «الخطوة التالية» per-tenant cooldown state — one row, `{rule_id: first_seen_at}` (core/next_step.py).
 NEXT_STEP_STATE = "insight_next_step_state"
 # ONE ROW, fixed id "platform" — the admin panel's cross-tenant rollup (core/rollup.py). Never

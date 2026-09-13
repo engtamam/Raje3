@@ -8,10 +8,6 @@ is bounded, ordered by a watermark that only increases, and safe to call from a 
 exactly what a daily snapshot needs. Subscribing to the visit event instead would give this service
 the at-most-once problem for no benefit: nothing here has to be up to the second.
 
-AND THE ONE THING IT SENDS — the weekly digest — goes through reminders' gate like every other
-message in this product. There is no notification client here and no channel configuration, on
-purpose: a second send path is a second set of rules, and the second one is always the one missing
-a check.
 """
 from __future__ import annotations
 
@@ -83,10 +79,9 @@ class NullPeers:
         # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
         # every check must be correct about.
         self.entitlements: set[str] = set(entitlements or set())
-        # What the three optional digest reads would return. Empty means each of them failed or
-        # is not applicable — which is the state the digest must be correct about.
+        # What a test says a peer read (e.g. `consented`) would return. Empty means it failed or
+        # is not applicable — which is the state each caller must be correct about.
         self.extras: dict[str, Any] = {}
-        self.sent: list[dict] = []
         # WHAT THE SEND LOG SAYS, and whether it could be read at all. The default is a read that
         # SUCCEEDED and found nothing — a shop that has sent no messages — because that is the
         # ordinary state of a test fixture. A test for the unreadable case sets `ok` to False, and
@@ -115,15 +110,8 @@ class NullPeers:
     async def tenants(self, *, since: int = 0) -> list[str]:
         return sorted({v.get("tenant", "") for v in self._visits if v.get("tenant")})
 
-    async def send(self, **kw: Any) -> dict[str, Any]:
-        self.sent.append(kw)
-        return {"sent": True}
-
     async def entitled(self, tenant: str, key: str) -> bool:
         return key in self.entitlements
-
-    async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
-        return dict(self.extras)
 
     async def effect(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
         return dict(self.effect_answer)
@@ -143,15 +131,11 @@ class HttpPeers:
                  branches_path: str = "/internal/operations/branches",
                  operators_path: str = "/internal/operations/operators",
                  scope_path: str = "/internal/operations/branch-scope",
-                 ratings_summary_path: str = "/internal/operations/ratings-summary",
                  customer_conversion_path: str = "/internal/operations/customer-conversion",
                  tenants_path: str = "/internal/operations/tenants-with-visits",
-                 reminders_url: str, send_path: str, consent_count_path: str,
-                 ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
+                 reminders_url: str, consent_count_path: str,
                  effect_path: str = "/internal/reminders/effect",
                  billing_url: str, entitlement_path: str,
-                 usage_path: str, loyalty_url: str, loyalty_report_path: str,
-                 tenant_url: str, tenant_read_path: str,
                  token: str, timeout: int = 8) -> None:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
@@ -159,19 +143,12 @@ class HttpPeers:
         self._branches_url = operations_url.rstrip("/") + branches_path
         self._operators_url = operations_url.rstrip("/") + operators_path
         self._scope_url = operations_url.rstrip("/") + scope_path
-        self._ratings_summary_url = operations_url.rstrip("/") + ratings_summary_path
         self._customer_conversion_url = operations_url.rstrip("/") + customer_conversion_path
         self._tenants_url = operations_url.rstrip("/") + tenants_path
-        self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
         self._consent_url = reminders_url.rstrip("/") + consent_count_path
-        self._usage_url = billing_url.rstrip("/") + usage_path
-        self._pressure_url = reminders_url.rstrip("/") + ceiling_pressure_path
         self._reminders_url = reminders_url.rstrip("/")
         self._effect_path = effect_path
-        self._loyalty_url = loyalty_url.rstrip("/") + loyalty_report_path
-        self._tenant_url = tenant_url.rstrip("/")
-        self._tenant_path = tenant_read_path
         self._token = token
         self._timeout = timeout
 
@@ -311,28 +288,6 @@ class HttpPeers:
         data = await _post(self._tenants_url, {}, self._token, self._timeout)
         return sorted(str(x) for x in (data.get("tenants") or []) if x)
 
-    async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
-                   owner_text: str, idempotency_key: str, flow_token: str = "",
-                   flow_action_data: dict[str, Any] | None = None) -> dict[str, Any]:
-        body: dict[str, Any] = {
-            "tenant": tenant, "subject_ref": subject_ref, "template_type": template_type,
-            "class": cls, "owner_text": owner_text, "idempotency_key": idempotency_key,
-        }
-        # THE WEEKLY REPORT'S OWN FLOW BUTTON (rating-app-feature.md phase 6b) — omitted entirely
-        # when empty, same "no meaningless field on an ordinary send" rule reminders' own
-        # HttpSender.send follows for this exact pair.
-        if flow_token:
-            body["flow_token"] = flow_token
-            if flow_action_data:
-                body["flow_action_data"] = dict(flow_action_data)
-        try:
-            return await _post(self._send_url, body, self._token, self._timeout)
-        except urllib.error.HTTPError as exc:
-            return {"sent": False, "reason": f"رفض الإرسال ({exc.code})"}
-        except (urllib.error.URLError, OSError) as exc:
-            return {"sent": False, "reason": f"تعذّر الوصول لخدمة التذكيرات: {exc}"}
-
-
     async def customer_conversion(self, tenant: str) -> dict[str, Any]:
         """Every channel that ever created a customer, and how many of those became a real visit.
 
@@ -407,88 +362,6 @@ class HttpPeers:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return {"ok": False, "sends": [], "sent_count": 0, "opt_outs": 0}
 
-    async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
-        """The FOUR things the weekly report needs and this service does not hold.
-
-        EACH FAILURE COSTS ONE LINE, NEVER THE MESSAGE. A digest that refuses to go out because
-        billing was slow is a report the owner does not get for a reason he will never learn —
-        and the seven other lines were correct. So every read is its own try, and an absent value
-        simply drops its line (see core/digest.py).
-        """
-        out: dict[str, Any] = {}
-
-        # The shop's own name. A message that opens "أسبوعك في" and stops is the blank-name defect
-        # this product already shipped once, so an empty answer drops the name rather than
-        # printing a gap.
-        try:
-            path = self._tenant_path.replace("{id}", urllib.parse.quote(tenant, safe=""))
-            data = await _get(self._tenant_url + path, self._token, self._timeout)
-            branding = data.get("branding") or {}
-            out["shop"] = str(data.get("name") or "")
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            pass
-
-        # The message quota — the quietest outage this product has: the engine stops mid-month and
-        # nothing tells him until a customer mentions they stopped hearing from him.
-        try:
-            usage = await _get(self._usage_url + "?" + urllib.parse.urlencode({"tenant": tenant}),
-                         self._token, self._timeout)
-            for row in (usage.get("usage") or usage.get("items") or []):
-                if str(row.get("key")) == "messages.monthly":
-                    # The COUNT only. The limit is -1 on every plan — we do not sell messages, so
-                    # there is no allowance to compare it against (spec §16.7).
-                    out["messages_sent"] = int(row.get("current") or 0)
-                    break
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            pass
-
-        # WHAT HIS CEILING COST HIM, from reminders — which is the only service that knows, because
-        # it is the one whose sends were stopped. A LINE in a report that is already going out, so
-        # it costs no message and no unit; a notice of its own would come out of the same ceiling
-        # it is reporting on, at the moment there is none left.
-        try:
-            rows = (await _get(self._pressure_url + "?" + urllib.parse.urlencode({"limit": 1000}),
-                        self._token, self._timeout)).get("establishments") or []
-            for row in rows:
-                if str(row.get("tenant")) == tenant:
-                    out["ceiling_missed"] = int(row.get("missed") or 0)
-                    break
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            pass
-
-        # How many customers currently allow this shop's offers. A COUNT and never a list — the
-        # peer's route has no shape that could return who (spec §8.5).
-        try:
-            out["consented"] = int((await _post(self._consent_url, {"tenant": tenant},
-                                         self._token, self._timeout)).get("granted") or 0)
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            pass
-
-        # Points redeemed this week. AGGREGATES ONLY — the peer's route returns totals and never
-        # who, because a report builder has no business receiving a customer list.
-        try:
-            rep = await _post(self._loyalty_url, {"tenant": tenant, "since": since},
-                        self._token, self._timeout)
-            out["points_redeemed"] = int(rep.get("redeemed_since") or 0)
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            pass
-
-        # The rating app's own week (rating-app-feature.md phase 6). Absent on any failure — a
-        # shop that never bought the rating app gets a count of 0 from the peer itself and this
-        # line simply never appears (see core/digest.py's own zero-drops-the-line rule), same as
-        # a peer that is genuinely down.
-        try:
-            rat = await _post(self._ratings_summary_url, {"tenant": tenant, "since": since},
-                       self._token, self._timeout)
-            out["ratings_count"] = int(rat.get("count") or 0)
-            out["ratings_average"] = float(rat.get("average") or 0.0)
-            out["ratings_unhandled"] = int(rat.get("unhandled") or 0)
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            pass
-
-        return out
-
-
 def build_peers(settings) -> Any:
     if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
         return NullPeers()
@@ -499,19 +372,11 @@ def build_peers(settings) -> Any:
                      branches_path=settings.OPERATIONS_BRANCHES_PATH,
                      operators_path=settings.OPERATIONS_OPERATORS_PATH,
                      scope_path=settings.OPERATIONS_SCOPE_PATH,
-                     ratings_summary_path=settings.OPERATIONS_RATINGS_SUMMARY_PATH,
                      customer_conversion_path=settings.OPERATIONS_CUSTOMER_CONVERSION_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
-                     send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,
-                     ceiling_pressure_path=settings.REMINDERS_CEILING_PRESSURE_PATH,
                      effect_path=settings.REMINDERS_EFFECT_PATH,
                      billing_url=settings.BILLING_SERVICE_URL,
                      entitlement_path=settings.BILLING_ENTITLEMENT_PATH,
-                     usage_path=settings.BILLING_USAGE_PATH,
-                     loyalty_url=settings.LOYALTY_SERVICE_URL,
-                     loyalty_report_path=settings.LOYALTY_REPORT_PATH,
-                     tenant_url=settings.TENANT_SERVICE_URL,
-                     tenant_read_path=settings.TENANT_READ_PATH,
                      token=settings.INTERNAL_SERVICE_TOKEN,
                      timeout=settings.PEER_TIMEOUT_SECONDS)

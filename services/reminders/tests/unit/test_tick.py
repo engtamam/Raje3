@@ -987,7 +987,7 @@ def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
 
 # ── the report Flow's own button (rating-app-feature.md phase 6b) ─────────────────────────────
 def test_send_one_passes_flow_token_and_flow_action_data_to_the_sender(st):
-    """The schedule row is the ONLY place `send_one` (the campaigns/insights path) can read a
+    """The schedule row is the ONLY place `send_one` (the campaigns path) can read a
     Flow button from — it has no visit of its own to derive a token from, unlike the scheduled
     rating-request send. Absent on every existing caller, so this is additive."""
     from app.core.consent import Consent
@@ -1001,14 +1001,14 @@ def test_send_one_passes_flow_token_and_flow_action_data_to_the_sender(st):
           "owner_text": "خصم 20%", "idempotency_key": "idem_flow", "id": "idem_flow",
           "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
           "offer_services": ["oil"],
-          "flow_token": "insights:digest:t1:sub_a:2900",
-          "flow_action_data": {"header_text": "أسبوعك في ورشة النخبة", "show_visits": True,
+          "flow_token": "cmp:idem_flow:sub_a",
+          "flow_action_data": {"header_text": "عرضك في ورشة النخبة", "show_visits": True,
                                "visits_text": "120 (+15)"}}
 
     out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
                                         service_names=NAMES, establishment="ورشة النخبة"))
     assert out["sent"] is True, out
-    assert sender.calls[0]["flow_token"] == "insights:digest:t1:sub_a:2900"
+    assert sender.calls[0]["flow_token"] == "cmp:idem_flow:sub_a"
     assert sender.calls[0]["flow_action_data"]["show_visits"] is True
 
 

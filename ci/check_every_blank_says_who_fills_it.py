@@ -59,10 +59,7 @@ C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
 KINDS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
-        "rating_cta",
-        # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
-        # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
-        "establishment")
+        "rating_cta")
 
 # The blank the shop writes itself. One at most, and the library refuses a second — this gate
 # catches it in the seed instead of at the far end of a deploy.

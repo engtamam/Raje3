@@ -613,68 +613,6 @@
       "shape_category": "NOTICE"
     },
     {
-      "name": "per_weekly_digest_masculine",
-      "type": "per_weekly_digest",
-      "tone": "masculine",
-      "label": "تقرير الأسبوع للمالك",
-      "class": "personal",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "أهلاً، هذا ملخّص أسبوعك في {{1}}: {{2}}.",
-      "variables": [
-        1,
-        2
-      ],
-      "header": "",
-      "button": "اعرض تقريرك",
-      "flow_button": {
-        "flow_name": "report_flow"
-      },
-      "fills": [
-        "establishment",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. الزر يفتح نفس التقرير كشاشة تفاعلية منظّمة (rating-app-feature.md phase 6b) — النص يبقى كملخّص سريع، بلا أي اعتماد بينهما: شحن الفلو فشل أو لم يُوفَّر بعد لهذا المحل، والنص وحده يكفي. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} النص المُركَّب فعليًا لهذا الأسبوع (core/digest.py::build) — سطر الزيارات وما بعده، لا اسم خدمة مفردة كما كان مكتوبًا هنا سابقًا؛ ذلك الوصف لم يعد يطابق ما يبنيه digest.py منذ صار تقريرًا متعدد الأسطر.",
-      "active": true,
-      "deferral": "defer",
-      "examples": [
-        "مغسلة النخيل",
-        "زياراتك: 12، عملاء جدد: 3، الأكثر طلبًا: غسيل خارجي"
-      ]
-    },
-    {
-      "name": "per_weekly_digest_feminine",
-      "type": "per_weekly_digest",
-      "tone": "feminine",
-      "label": "تقرير الأسبوع للمالك",
-      "class": "personal",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "أهلاً، هذا ملخّص أسبوعك في {{1}}: {{2}}.",
-      "variables": [
-        1,
-        2
-      ],
-      "header": "",
-      "button": "اعرض تقريرك",
-      "flow_button": {
-        "flow_name": "report_flow"
-      },
-      "fills": [
-        "establishment",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع. {{1}} هو اسم المحل (لا عميل بهذا القالب إطلاقاً — fixed 2026-09-08: كان يسقط لاسم عميل عشوائي)، و{{2}} النص المُركَّب فعليًا لهذا الأسبوع (core/digest.py::build)، نفس نسخة masculine.",
-      "active": true,
-      "deferral": "defer",
-      "examples": [
-        "صالون لمسات",
-        "زياراتك: 9، عميلات جديدات: 2، الأكثر طلبًا: صبغة"
-      ]
-    },
-    {
       "name": "wrn_safety_notice_masculine",
       "type": "wrn_safety_notice",
       "tone": "masculine",

@@ -30,7 +30,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle, Award, BarChart3, Cake, CalendarClock, ClipboardCheck, Clock, Clock3, Compass,
-  FileBarChart, FileText, Gauge, Gift, Heart, Hourglass, Lock, Mail, MessageSquare,
+  FileText, Gauge, Gift, Heart, Hourglass, Lock, Mail, MessageSquare,
   Megaphone, Pause, RotateCcw, ShieldAlert, ShieldCheck, Star, Tag, Users, Wallet, X, Zap,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
@@ -245,7 +245,7 @@ const CARD_ICON: Record<string, LucideIcon> = {
   visit_recorded: ClipboardCheck, rating_requested: Star, booking_confirmed: CalendarClock,
   visit_redeemed: Gift, service_due: Clock3, after_visit: Heart, no_response: RotateCcw,
   balance_changed: Wallet, points_expiring: Hourglass, reward_within_reach: Gift,
-  gone_missing: Compass, loyal_customer: Award, personal_occasion: Cake, weekly_digest: FileBarChart,
+  gone_missing: Compass, loyal_customer: Award, personal_occasion: Cake,
   privacy_code: ShieldCheck,
   win_back: Compass, reward_loyal: Award, announce: Megaphone, occasion: Cake,
   service_offer: Tag, package_offer: Tag, safety: ShieldAlert,
@@ -347,7 +347,6 @@ const REASON_TEMPLATE_TYPE: Record<string, string> = {
   gone_missing: 'mkt_winback',
   loyal_customer: 'mkt_loyalty_activation',
   personal_occasion: 'mkt_personal_occasion',
-  weekly_digest: 'per_weekly_digest',
 };
 
 /** تفاعلي = يفتح شاشات حقيقية داخل واتساب (فلو)، لا مجرد نص يُقرأ. مأخوذة يدوياً من
@@ -356,7 +355,7 @@ const REASON_TEMPLATE_TYPE: Record<string, string> = {
  *  تتغيّر. القوالب المجدولة فقط — كاروسيل البوت وأدواته الحيّة أضيفت لاحقاً كبطاقات مستقلة
  *  (`BOT_TOOL_CARDS` أدناه)، ولا تعتمد على هذا الجدول أصلاً. */
 const INTERACTIVE_TEMPLATE_TYPES = new Set([
-  'mkt_offer', 'mkt_personal_occasion', 'mkt_winback', 'per_weekly_digest',
+  'mkt_offer', 'mkt_personal_occasion', 'mkt_winback',
   'svc_visit_confirmation_rating',
 ]);
 

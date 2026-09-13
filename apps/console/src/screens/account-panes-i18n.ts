@@ -23,8 +23,6 @@ registerOperatorStrings({
     'accountPanes.fact.calendar': 'التقويم',
     'accountPanes.calendar.hijri': 'هجري',
     'accountPanes.calendar.gregorian': 'ميلادي',
-    'accountPanes.digest.title': 'تقريري الأسبوعي على واتساب',
-    'accountPanes.digest.desc': 'صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.',
 
     'accountPanes.aiNotes.title': 'ملاحظات المساعد الذكي عبر واتساب',
     'accountPanes.aiNotes.desc': 'مثال: مواعيد الدوام، سياسة الدفع، تفاصيل خدمة معيّنة — أي شيء يساعد المساعد يجاوب عملاءك بدقّة أكثر. لا تكتب هنا بيانات شخصية لعملائك (أرقام جوال، حسابات بنكية) — يُستخدم هذا النص مباشرة لتوجيه الذكاء الاصطناعي.',
@@ -141,8 +139,6 @@ registerOperatorStrings({
     'accountPanes.fact.calendar': 'Calendar',
     'accountPanes.calendar.hijri': 'Hijri',
     'accountPanes.calendar.gregorian': 'Gregorian',
-    'accountPanes.digest.title': 'My weekly report on WhatsApp',
-    'accountPanes.digest.desc': "Sunday morning — your week in nine lines, without opening the dashboard. Yours alone: turning it off doesn't turn it off for your colleagues.",
 
     'accountPanes.aiNotes.title': 'AI-assistant notes over WhatsApp',
     'accountPanes.aiNotes.desc': "Example: business hours, payment policy, details of a specific service — anything that helps the assistant answer your customers more accurately. Don't write personal data about your customers here (phone numbers, bank accounts) — this text is used directly to guide the AI.",
@@ -259,8 +255,6 @@ registerOperatorStrings({
     'accountPanes.fact.calendar': 'کیلنڈر',
     'accountPanes.calendar.hijri': 'ہجری',
     'accountPanes.calendar.gregorian': 'عیسوی',
-    'accountPanes.digest.title': 'میری ہفتہ وار رپورٹ واٹس ایپ پر',
-    'accountPanes.digest.desc': 'اتوار کی صبح — آپ کا ہفتہ نو سطروں میں، ڈیش بورڈ کھولے بغیر۔ صرف آپ کے لیے: بند کرنا آپ کے ساتھیوں کے لیے بند نہیں کرتا۔',
 
     'accountPanes.aiNotes.title': 'AI اسسٹنٹ کے نوٹس واٹس ایپ پر',
     'accountPanes.aiNotes.desc': 'مثال: کام کے اوقات، ادائیگی کی پالیسی، کسی مخصوص خدمت کی تفصیلات — کوئی بھی چیز جو اسسٹنٹ کو آپ کے گاہکوں کا زیادہ درست جواب دینے میں مدد دے۔ یہاں اپنے گاہکوں کا ذاتی ڈیٹا (موبائل نمبر، بینک اکاؤنٹس) نہ لکھیں — یہ متن براہ راست AI کی رہنمائی کے لیے استعمال ہوتا ہے۔',
@@ -377,8 +371,6 @@ registerOperatorStrings({
     'accountPanes.fact.calendar': 'Kalanda',
     'accountPanes.calendar.hijri': 'Hijiri',
     'accountPanes.calendar.gregorian': 'Miladi',
-    'accountPanes.digest.title': "Rahoton mako-mako na akan WhatsApp",
-    'accountPanes.digest.desc': "Safiyar Lahadi — makonka a jimlar layuka tara, ba tare da buɗe dashboard ba. Naka kaɗai: kashe shi baya kashe wa abokan aikinka.",
 
     'accountPanes.aiNotes.title': "Bayanan AI-assistant akan WhatsApp",
     'accountPanes.aiNotes.desc': "Misali: lokutan aiki, manufar biya, cikakkun bayanan wani sabis — duk abin da zai taimaka wa assistant ya amsa wa abokan cinikinka daidai. Kada ka rubuta bayanan sirri na abokan cinikinka a nan (lambobin waya, asusun banki) — ana amfani da wannan rubutu kai tsaye don jagorantar AI.",
@@ -495,8 +487,6 @@ registerOperatorStrings({
     'accountPanes.fact.calendar': 'Kalendaryo',
     'accountPanes.calendar.hijri': 'Hijri',
     'accountPanes.calendar.gregorian': 'Gregorian',
-    'accountPanes.digest.title': 'Aking lingguhang ulat sa WhatsApp',
-    'accountPanes.digest.desc': "Umaga ng Linggo — ang linggo mo sa siyam na linya, walang pagbubukas ng dashboard. Sa iyo lang: ang pag-off nito ay hindi nag-o-off para sa mga kasamahan mo.",
 
     'accountPanes.aiNotes.title': 'Mga tala ng AI-assistant sa WhatsApp',
     'accountPanes.aiNotes.desc': "Halimbawa: oras ng negosyo, patakaran sa bayad, detalye ng partikular na serbisyo — anumang makakatulong sa assistant na sumagot sa mga customer mo nang mas tumpak. Huwag isulat dito ang personal na data ng customer mo (numero ng telepono, bank account) — direktang ginagamit ang tekstong ito para gabayan ang AI.",
@@ -613,8 +603,6 @@ registerOperatorStrings({
     'accountPanes.fact.calendar': 'ক্যালেন্ডার',
     'accountPanes.calendar.hijri': 'হিজরি',
     'accountPanes.calendar.gregorian': 'গ্রেগরিয়ান',
-    'accountPanes.digest.title': 'হোয়াটসঅ্যাপে আমার সাপ্তাহিক রিপোর্ট',
-    'accountPanes.digest.desc': 'রবিবার সকাল — আপনার সপ্তাহ নয় লাইনে, ড্যাশবোর্ড না খুলেই। শুধু আপনার জন্য: বন্ধ করলে আপনার সহকর্মীদের জন্য বন্ধ হয় না।',
 
     'accountPanes.aiNotes.title': 'হোয়াটসঅ্যাপে এআই সহকারীর নোট',
     'accountPanes.aiNotes.desc': 'উদাহরণ: কাজের সময়, পেমেন্ট নীতি, নির্দিষ্ট কোনো সেবার বিবরণ — যা কিছু সহকারীকে আপনার গ্রাহকদের আরও নির্ভুল উত্তর দিতে সাহায্য করে। এখানে আপনার গ্রাহকদের ব্যক্তিগত তথ্য (ফোন নম্বর, ব্যাংক হিসাব) লিখবেন না — এই লেখা সরাসরি এআই-কে নির্দেশনা দিতে ব্যবহৃত হয়।',

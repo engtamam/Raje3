@@ -19,10 +19,8 @@ def _peers():
     from app.adapters.peers import HttpPeers
 
     return HttpPeers(operations_url="http://ops", visits_path="/v", catalogue_path="/c",
-                     reminders_url="http://rem", send_path="/s", consent_count_path="/n",
-                     billing_url="http://bil", entitlement_path="/e", usage_path="/u",
-                     loyalty_url="http://loy", loyalty_report_path="/r",
-                     tenant_url="http://ten", tenant_read_path="/t/{id}",
+                     reminders_url="http://rem", consent_count_path="/n",
+                     billing_url="http://bil", entitlement_path="/e",
                      token="k" * 40, timeout=1)
 
 

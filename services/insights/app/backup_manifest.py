@@ -31,9 +31,6 @@ BACKUP: dict[str, Any] = {
         # which is a recovery that looks like an outage.
         {"name": "insight_snapshots", "tenant_scoped": True},
         {"name": "insight_pairs", "tenant_scoped": True},
-        # Who asked for the weekly report. Small, and impossible to reconstruct: nothing else
-        # records that a manager subscribed.
-        {"name": "insight_digest_subs", "tenant_scoped": True},
         # FIXED 2026-09-12, a real gap a QA audit found: three collections the service actually
         # writes (app/api/v1/insights.py, app/core/rollup.py, app/core/runtime_config.py) were
         # declared nowhere — neither backed up nor excluded, the exact silent hole this file's own

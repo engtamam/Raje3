@@ -551,21 +551,6 @@ async def offers_redeemed(request: Request, body: RedeemedIn) -> dict:
     return {"redeemed": redeemed}
 
 
-class RatingsSummaryIn(BaseModel):
-    tenant: str = Field(min_length=1, max_length=128)
-    since: int = Field(ge=0)
-
-
-@router.post("/operations/ratings-summary", dependencies=[Depends(require_internal_token)])
-async def ratings_summary(request: Request, body: RatingsSummaryIn) -> dict:
-    """The weekly digest's rating line (rating-app-feature.md phase 6) — insights' `HttpPeers.
-    digest_extras` calls this once per tenant per week. See `Operations.ratings_summary`'s own
-    docstring for the exact bound/shape.
-    """
-    c = request.app.state.container
-    return await c.operations.ratings_summary(body.tenant, since=body.since)
-
-
 @router.post("/operations/customer-visits", dependencies=[Depends(require_internal_token)])
 async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
     """One customer's own visit history, for their page.

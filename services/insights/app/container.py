@@ -146,7 +146,6 @@ class Container:
     # ── this service's own pieces ─────────────────────────────────────────────
     peers: Any = None
     tick: Any = None
-    subscriptions: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -218,7 +217,6 @@ def build_container(settings: Settings) -> Container:
     # ── this service's own pieces ─────────────────────────────────────────────────────────────
     # Built here so a test constructs the same object graph the process does.
     from app.adapters.peers import build_peers
-    from app.core.digest import Subscriptions
     from app.core.tick import Tick
 
     container.peers = build_peers(settings)
@@ -244,5 +242,4 @@ def build_container(settings: Settings) -> Container:
     # raw visits itself (see rollup.py's own module note on why this is a separate pass).
     container.rollup = PlatformRollup(container.datastore, container.peers,
                                       batch=settings.PLATFORM_ROLLUP_BATCH)
-    container.subscriptions = Subscriptions(container.datastore)
     return container

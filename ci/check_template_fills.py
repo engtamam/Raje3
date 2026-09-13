@@ -40,10 +40,7 @@ SERVICES = ROOT / "services"
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
 FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
-        "rating_cta",
-        # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
-        # otherwise assumes at slot 1. See rendering.py::campaign_slots' own `establishment` branch.
-        "establishment")
+        "rating_cta")
 
 # A blank of this kind may only appear in a template of these classes. `amount` is an offer by its
 # nature: a utility template carrying a discount is marketing by its text whatever it is labelled
@@ -145,28 +142,10 @@ def reason_classes() -> dict[str, str]:
     return out
 
 
-def digest_class() -> dict[str, str]:
-    """The weekly digest's own claim, made a THIRD time in a THIRD service.
-
-    `reasons.py` already says `per_weekly_digest` is `personal` (ح-4) — but the message is actually
-    built and sent from `insights/core/digest.py`, which used to hardcode `"cls": "service"` right
-    next to it and disagreed. Nothing looked at insights at all, so the disagreement shipped and
-    every digest quietly spent the SERVICE class's daily cap and quiet-hours exemption on a report
-    that is not one.
-    """
-    path = SERVICES / "insights" / "app" / "core" / "digest.py"
-    src = path.read_text(encoding="utf-8")
-    template = re.search(r'TEMPLATE = "([a-z_]+)"', src)
-    cls = re.search(r'"cls":\s*"([a-z]+)"', src)
-    if not template or not cls:
-        return {}
-    return {template.group(1): cls.group(1)}
-
-
 def main() -> int:
     rows = json.loads(CURATED.read_text(encoding="utf-8"))["templates"]
     goals = campaign_types()
-    claims = {**goals, **reason_classes(), **digest_class()}
+    claims = {**goals, **reason_classes()}
     fired = reason_types() | set(goals)
     problems: list[str] = []
     warnings: list[str] = []

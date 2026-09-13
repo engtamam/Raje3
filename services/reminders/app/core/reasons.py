@@ -52,7 +52,6 @@ REWARD = "reward"            # what he redeemed
 POINTS = "points"            # how many
 BALANCE = "balance"          # what is left after — carries the whole "spent X, left with Y"
                              # sentence now (2026-09-13), never the reward's own name
-DIGEST = "digest"            # the week in one line, composed by us
 OFFER_VALUE = "offer_value"  # «20%» or «50 ريال» — typed, never a sentence
 ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
@@ -121,7 +120,6 @@ SLOT_LABEL = {
     REWARD: "المكافأة",
     POINTS: "النقاط",
     BALANCE: "الرصيد",
-    DIGEST: "ملخّص الأسبوع",
     OFFER_VALUE: "قيمة الخصم",
     ENDS_AT: "ينتهي في",
     FREE_TEXT: "نصّك",
@@ -281,13 +279,6 @@ REASONS: tuple[Reason, ...] = (
         cls="marketing", template_type="mkt_personal_occasion",
         slots=(OFFER_VALUE, ENDS_AT), source="campaigns",
     ),
-    Reason(
-        id="weekly_digest",
-        label="ملخّصك الأسبوعي",
-        when="مرة كل أسبوع — تقريرك أنت، لا رسالة لعميلك",
-        cls="personal", template_type="per_weekly_digest",
-        slots=(DIGEST,), source="insights",
-    ),
 )
 
 BY_ID = {t.id: t for t in REASONS}
@@ -372,7 +363,6 @@ SAMPLE = {
     REWARD: "غسيل مجاني",
     POINTS: "40",
     BALANCE: "60",
-    DIGEST: "3 زيارات هذا الأسبوع",
     OFFER_VALUE: "20%",
     ENDS_AT: "21 أغسطس",
     FREE_TEXT: "افتتحنا فرعاً جديداً",
@@ -415,15 +405,7 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
                  # BY SOURCE, NEVER BY POSITION. The address lands on slot 3 in a visit
                  # confirmation and on slot 6 in an offer, so the numbered fallback below
                  # would have drawn «قص شعر» where the owner expects to see a link.
-                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK],
-                 # EXPLICIT, FOR AN OWNER-ONLY TEMPLATE WHERE `by_number`'s "slot 1 is a
-                 # customer" convention is simply wrong (found live, 2026-09-08: the weekly
-                 # report's own preview showed a random sample customer name — «محمد» — where
-                 # the shop's own name belongs, because `per_weekly_digest` puts the
-                 # establishment at slot 1, not slot 2 like every customer-facing template does).
-                 # A template with no customer at all must never fall through to `by_number`'s
-                 # customer-shaped guess for ANY of its slots.
-                 "establishment": establishment}
+                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK]}
     # THE NAME AGREES WITH THE ROW'S OWN TONE, NOT A GLOBAL CONSTANT. «feminine» rows conjugate
     # every verb to address a woman («نوّرتِنا», «أخذتِ») — a preview built from SAMPLE[CUSTOMER]
     # regardless of tone put a masculine name in front of feminine verbs on the one screen an

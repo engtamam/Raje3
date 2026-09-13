@@ -74,12 +74,12 @@ def test_a_seed_the_caller_actually_supplied_is_never_overruled(sender):
 
 
 def test_a_flow_that_declares_no_customer_key_is_left_exactly_as_it_arrived(sender):
-    """The weekly owner report's own Flow — a read-only screen with its own data shape. Nothing
-    here may reach into it."""
-    payload = _send(sender, flow_token="insights:digest:t1:sub_a:2900",
-                    flow_action_data={"header_text": "أسبوعك", "show_visits": True})
+    """A Flow with its own data shape and no `customer` key at all — nothing here may reach
+    into it."""
+    payload = _send(sender, flow_token="reminders:rating:t1:sub_a:2900",
+                    flow_action_data={"header_text": "زيارتك", "show_visits": True})
 
-    assert payload["flow_action_data"] == {"header_text": "أسبوعك", "show_visits": True}
+    assert payload["flow_action_data"] == {"header_text": "زيارتك", "show_visits": True}
     assert "customer" not in payload["flow_action_data"]
 
 

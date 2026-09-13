@@ -10,7 +10,7 @@
  * the box implies the product forgot to wire it, the sentence tells him what to do.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Building2, CalendarDays, Clock, MessageCircle } from 'lucide-react';
+import { Building2, CalendarDays, Clock } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { riyalsLabel } from '../money';
 import { Button } from '../rj-ui/Button';
@@ -67,31 +67,6 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
     call<Tenant>(session, canRead).then(setT).catch(() => setT(null));
   };
   useEffect(load, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── THE WEEKLY REPORT, WHICH ARRIVED HERE BY WAY OF THREE OTHER SCREENS ────────────────────
-  //
-  // It began on «محلّي», first thing on the shop's dashboard: a checkbox about ONE PERSON'S
-  // WhatsApp above every number the screen exists to show, pushing his retention rate below the
-  // fold. It moved to «دخولي» (since deleted), then to «بياناتي» beside data-retention settings
-  // it had nothing to do with, and now here — «منشأتي», where he actually looks for it.
-  //
-  // STILL PER PERSON, NOT PER SHOP, EVEN ON THIS PANE (the route says so): a manager may want the
-  // report and the owner may not, and one flag on the establishment makes unsubscribing an act
-  // that silently switches a colleague off. Living on «منشأتي» is about WHERE he finds the
-  // control, not about WHOSE inbox it governs.
-  const [digest, setDigest] = useState(true);
-  const digestAction = action(catalog, 'insights.digest');
-
-  useEffect(() => {
-    // `decided: false` means he has never chosen, and the default (subscribed) is then the honest
-    // thing to show. A FAILED READ CHANGES NOTHING: flipping the switch to «off» because a request
-    // timed out would tell him he had unsubscribed when he had not.
-    const dg = action(catalog, 'insights.digest_state');
-    if (!dg) return;
-    call<{ on?: boolean; decided?: boolean }>(session, dg)
-      .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
-      .catch(() => undefined);
-  }, [session, catalog]);
 
   if (t === undefined) return <Skeleton height={160} />;
   if (!t) return <Quiet>{tr('accountPanes.noReadPermission')}</Quiet>;
@@ -162,38 +137,6 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
           sub-tab now, alongside `ConnectByBranch` — see AiNotesCard/MsgWordLimitCard below, both
           exported for that reason. */}
 
-      {/* A PERSONAL PREFERENCE, LAST — not because it matters less, but because it is not a fact
-          ABOUT the establishment the way everything above it is; it is one person's own inbox
-          setting, and the pane's own comment on it already says so («لك وحدك»). Standardised to
-          the same p-4/rounded-card/size-5 every peer card on this pane now uses. */}
-      {digestAction ? (
-        <div className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-          <span className="flex items-center gap-3">
-            <span aria-hidden
-                 className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft">
-              <MessageCircle size={18} />
-            </span>
-            <span className="flex flex-col">
-              <span className="text-sm">{tr('accountPanes.digest.title')}</span>
-              <span className="text-xs text-text-secondary">
-                {tr('accountPanes.digest.desc')}
-              </span>
-            </span>
-          </span>
-          <Toggle
-            checked={digest}
-            ariaLabel={tr('accountPanes.digest.title')}
-            testId="digest-toggle"
-            onChange={async (on) => {
-              setDigest(on);
-              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
-              // the box ticked teaches him he is subscribed when he is not — and he finds out by
-              // a report that never comes.
-              await call(session, digestAction, { on }).catch(() => setDigest(!on));
-            }}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

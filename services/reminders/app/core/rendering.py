@@ -233,7 +233,7 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
 #: shop name in the library's layout. And the preview fills by MEANING and was right, so the owner
 #: approved one sentence and his customers received another — in his name.
 OWNER_SLOTS = frozenset({
-    "customer", "shop", "service", "reward", "points", "balance", "action", "digest",
+    "customer", "shop", "service", "reward", "points", "balance", "action",
     "offer_value", "ends_at", "free_text", "code", "minutes",
 })
 
@@ -436,19 +436,11 @@ def campaign_slots(template: dict[str, Any], *, establishment: str, owner_text: 
             # The services the offer covers, named. Empty when it covers the whole shop — and the
             # renderer then refuses, because «خصم على » is not a sentence.
             out[key] = service_text
-        elif source == "establishment":
-            # AN OWNER-ONLY TEMPLATE'S OWN NAME SLOT (per_weekly_digest) — never the number==1
-            # customer assumption below, which is exactly the defect the seed's own comment
-            # documents: a template with no customer at all fell through to the customer-shaped
-            # guess for slot 1 and showed FALLBACK_NAME («عميلنا العزيز») where the shop's own name
-            # belongs. `source` decides this now, not the slot's position.
-            out[key] = establishment
         elif source == "system" and number == 1:
             # THE ONE CASE LEFT POSITIONAL, AND DELIBERATELY: an ordinary customer-facing template
             # declares "system" for both its name slots, and only the position tells the two
             # apart (slot 1 the customer, filled at the very last moment beside the phone number —
-            # see this function's own docstring — slot 2 the shop). A template with no customer at
-            # all says so explicitly via `establishment`/`owner`/etc above, never via "system".
+            # see this function's own docstring — slot 2 the shop).
             out[key] = ""
         elif source == "system":
             out[key] = establishment

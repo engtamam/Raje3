@@ -357,9 +357,8 @@ async def dismiss_next_step(request: Request, body: NextStepDismissIn,
                             principal: Principal = Depends(_READ)) -> dict:
     """«ليس الآن» — this one rule stops leading the card for a while, starting now.
 
-    SAME CAPABILITY AS `set_digest` ABOVE, for the same reason: this changes nothing the shop
-    OWNS, only which of several true sentences he is shown first — closer to a per-person
-    preference than to data.
+    Changes nothing the shop OWNS, only which of several true sentences he is shown first —
+    closer to a per-person preference than to data.
     """
     c = request.app.state.container
     tenant = _tenant(principal)
@@ -368,49 +367,6 @@ async def dismiss_next_step(request: Request, body: NextStepDismissIn,
     updated = next_step.dismiss(first_seen, body.id, now=int(time.time()))
     await c.datastore.put(NEXT_STEP_STATE, tenant, {"seen": updated})
     return {"ok": True}
-
-
-class DigestIn(BaseModel):
-    on: bool
-    # Empty = the caller themselves. A manager subscribing himself is the common case, and making
-    # him type his own id would be a form nobody fills.
-    subject: str = Field(default="", max_length=128)
-
-
-@router.get("/digest", dependencies=[Depends(rate_limit)])
-async def get_digest(request: Request, principal: Principal = Depends(_READ)) -> dict:
-    """Is this person subscribed to the weekly report?
-
-    THE READ THAT DID NOT EXIST. The switch was `useState(true)`: hardcoded on, because there was
-    nothing to ask. An owner who turned the report off saw it ON again on his next visit to the
-    screen, and could not tell whether his choice had been saved. The setting was real; only its
-    reflection was missing, which is the harder version to notice — everything works, and the
-    person using it is the only one who knows something is wrong.
-
-    `decided: false` says «he has never chosen», so the screen can show the default (subscribed)
-    without pretending to have read a decision.
-    """
-    c = request.app.state.container
-    subject = str(getattr(principal, "subject", "") or "")
-    if not subject:
-        return {"on": True, "decided": False}
-    state = await c.subscriptions.state_for(_tenant(principal), subject)
-    return {"on": True if state is None else state, "decided": state is not None}
-
-
-@router.put("/digest", dependencies=[Depends(rate_limit)])
-async def set_digest(request: Request, body: DigestIn,
-                     principal: Principal = Depends(_READ)) -> dict:
-    """Subscribe to the weekly report — PER PERSON, not per establishment.
-
-    A manager may want it and the owner may not; one flag on the establishment forces them to
-    agree, and makes unsubscribing an act that silently switches a colleague off.
-    """
-    c = request.app.state.container
-    subject = body.subject or str(getattr(principal, "subject", "") or "")
-    if not subject:
-        return _refuse("لا يمكن تحديد المشترك")
-    return await c.subscriptions.set(_tenant(principal), subject, on=body.on)
 
 
 # HOW OFTEN AN OWNER MAY ASK FOR A FRESH ONE. Long enough that the button cannot be used as a

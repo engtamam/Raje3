@@ -55,10 +55,7 @@ FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link"
          # server-side (points-participation line, or a neutral one when no points are configured),
          # never a template-level condition. Same discipline as «invite»: WhatsApp refuses an
          # empty variable, so this is always a full sentence, never blank.
-         "rating_cta",
-         # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
-         # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
-         "establishment")
+         "rating_cta")
 FREE = "owner"
 
 # THE LAST BLANK OF EVERY TEMPLATE, AND IT IS NOT A STYLE RULE.
@@ -155,14 +152,7 @@ def parse() -> tuple[list[dict], list[str]]:
             if unknown:
                 problems.append(f"{name}: unknown filler {unknown} — the readers branch on these "
                                 f"by name and treat anything else as «system». Use one of {FILLS}")
-            # AN OWNER-ONLY TEMPLATE OWES NO CUSTOMER-FACING ADDRESS. `establishment` fills slot 1
-            # of `per_weekly_digest` alone (reasons.py: "تقريرك أنت، لا رسالة لعميلك" — your own
-            # report, never a message to your customer) — there is no customer on the other end to
-            # invite into marketing consent, so the invite/stop_link rule below does not apply to
-            # it. Named by the fill that marks an owner-only template, not by the template's own
-            # name, so a future owner-only text is exempt for the same reason without a second edit
-            # here.
-            elif fills and "establishment" not in fills:
+            elif fills:
                 # ── the address every message has to carry, and exactly one of them ────────────
                 wanted = LAST_FILL.get(cls, LAST_FILL_DEFAULT)
                 if fills[-1] != wanted:
