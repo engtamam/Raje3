@@ -251,3 +251,91 @@ describe('the live audience-size sliders on «كافئ المخلصين»', () =
     expect(previewCalls.length).toBe(0);
   });
 });
+
+// ── REWARD_ENABLED_GOALS gone stale (2026-09-13 fix) ────────────────────────────────────────────
+// The client's own copy of the backend's REWARD_ENABLED_GOALS had frozen at the
+// occasion/win_back pilot stage — service_offer and package_offer never saw the reward-type
+// picker at all, silently defaulting to a plain discount.
+describe('the reward-type picker now reaches service_offer and package_offer too', () => {
+  it('shows the reward-type picker for service_offer', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="service_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    expect(screen.getByText('ماذا تقدّم؟')).toBeTruthy();
+  });
+
+  it('shows the reward-type picker for package_offer', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="package_offer" />);
+    await waitFor(() => expect(screen.getByText('على أي باقة؟')).toBeTruthy());
+    expect(screen.getByText('ماذا تقدّم؟')).toBeTruthy();
+  });
+
+  it('still does not show it for a goal the backend never enabled (announce has no reward blank)', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    // reward_loyal redeems an EXISTING balance — a different mechanic, correctly excluded.
+    expect(screen.queryByText('ماذا تقدّم؟')).toBeNull();
+  });
+});
+
+// ── the single-item quick-reply button, missing from the phone entirely before this fix ────────
+const BOOKINGS_AND_ASSISTANT = {
+  checked: true, message: '', apps: [],
+  keys: ['feature.bookings', 'feature.whatsapp'],
+} as never;
+
+describe('the phone preview now shows the single-item quick-reply button', () => {
+  it('shows it for a non-booking goal with exactly one item scoped and both entitlements owned', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}}
+                  initialGoalId="reward_loyal" owned={BOOKINGS_AND_ASSISTANT} />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(screen.getByText('معاينة')).toBeTruthy());
+    expect(screen.getByText('احجز الآن')).toBeTruthy();
+  });
+
+  it('never shows it with more than one item scoped', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}}
+                  initialGoalId="reward_loyal" owned={BOOKINGS_AND_ASSISTANT} />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'تلميع كامل' }));
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(screen.getByText('معاينة')).toBeTruthy());
+    expect(screen.queryByText('احجز الآن')).toBeNull();
+  });
+
+  it('never shows it without the AI assistant app, bookings alone is not enough', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal"
+                  owned={{ checked: true, message: '', apps: [], keys: ['feature.bookings'] } as never} />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(screen.getByText('معاينة')).toBeTruthy());
+    expect(screen.queryByText('احجز الآن')).toBeNull();
+  });
+
+  it('never shows it without any entitlement wired at all', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal" />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(screen.getByText('معاينة')).toBeTruthy());
+    expect(screen.queryByText('احجز الآن')).toBeNull();
+  });
+
+  it('shows the booking Flow button instead, never both, for a booking goal with bookings owned', async () => {
+    render(<Launch session={session} catalog={catalog} onDone={() => {}}
+                  initialGoalId="service_offer" owned={BOOKINGS_AND_ASSISTANT} />);
+    await waitFor(() => expect(screen.getByText('على أي خدمة؟')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'غسلة سريعة' }));
+    const amountBox = document.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.change(amountBox, { target: { value: '20' } });
+    const dateBox = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateBox, { target: { value: '2030-01-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(screen.getByText('معاينة')).toBeTruthy());
+    expect(screen.getByText('احجز موعدك الآن')).toBeTruthy();
+    expect(screen.queryByText('احجز الآن')).toBeNull();
+  });
+});

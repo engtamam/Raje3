@@ -96,6 +96,11 @@ export interface WaTemplateData {
   flowButton?: WaFlowButton;
   /** A plain URL button, the template's other possible shape. */
   urlButton?: { text: string; url?: string };
+  /** A flat QUICK_REPLY button — no Flow, no URL, just a tap that comes back as a reply webhook
+   *  (campaigns' own single-item button, core/shape.py). Meta renders it identically to a URL
+   *  button except for the icon; drawn with none here, matching how WhatsApp itself shows a
+   *  quick-reply row (no external-link glyph, since it never leaves the chat). */
+  replyButton?: { text: string };
   /** THE THIRD SHAPE A SEND CAN TAKE — present only for a carousel template
    *  (`wa_catalog_carousel`). Mutually exclusive with `flowButton`/`urlButton` in practice (Meta's
    *  own template types never combine them), rendered as `WaCarousel` instead of a single
@@ -175,7 +180,7 @@ export function WaBubble({
   text, buttons, onPressButton, time = '9:41',
 }: {
   text: string;
-  buttons?: Array<{ label: string; kind: 'flow' | 'url' }>;
+  buttons?: Array<{ label: string; kind: 'flow' | 'url' | 'reply' }>;
   onPressButton?: (index: number) => void;
   time?: string;
 }) {
@@ -198,7 +203,8 @@ export function WaBubble({
                 i > 0 ? 'border-t border-black/5' : '',
               )}
             >
-              {b.kind === 'flow' ? <Sparkles size={14} aria-hidden /> : <ExternalLink size={14} aria-hidden />}
+              {b.kind === 'flow' ? <Sparkles size={14} aria-hidden />
+                : b.kind === 'url' ? <ExternalLink size={14} aria-hidden /> : null}
               <span>{b.label}</span>
             </button>
           ))}
@@ -521,9 +527,10 @@ export function WhatsAppTemplatePreview({
   const [open, setOpen] = useState(false);
 
   const text = fillPlaceholders(data.body, data.examples);
-  const buttons: Array<{ label: string; kind: 'flow' | 'url' }> = [];
+  const buttons: Array<{ label: string; kind: 'flow' | 'url' | 'reply' }> = [];
   if (data.flowButton) buttons.push({ label: data.flowButton.text || 'فتح', kind: 'flow' });
   if (data.urlButton) buttons.push({ label: data.urlButton.text || 'رابط', kind: 'url' });
+  if (data.replyButton) buttons.push({ label: data.replyButton.text || 'رد', kind: 'reply' });
 
   useEffect(() => {
     // Reset the live walkthrough whenever the underlying data changes (a new template selected),

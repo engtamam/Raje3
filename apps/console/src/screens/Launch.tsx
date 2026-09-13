@@ -62,9 +62,23 @@ import './launch-i18n';
 const FLOW_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
 
 // Which of three rewards a campaign gives (services/campaigns/app/core/models.py's own
-// REWARD_ENABLED_GOALS) — started as the `occasion`-only pilot, extended to `win_back` once
-// that proved out. Every other goal keeps giving exactly the discount it always has.
-const REWARD_ENABLED_GOALS = new Set(['occasion', 'win_back']);
+// REWARD_ENABLED_GOALS) — started as the `occasion`-only pilot, then `win_back`, then
+// `service_offer`/`package_offer` once those proved out (both fire `mkt_offer`). BUG FIXED HERE
+// (2026-09-13): this set had gone stale at the `occasion`/`win_back` pilot stage — an owner
+// launching a service_offer or package_offer campaign never saw the reward-type picker at all,
+// silently defaulting to a plain discount with no way to choose a gift or points instead, even
+// though the backend has accepted that choice for those two goals since the day it shipped.
+// `reward_loyal` (redeeming an EXISTING balance, a different mechanic) and `announce` (offers
+// nothing) stay out, matching the backend exactly.
+const REWARD_ENABLED_GOALS = new Set(['occasion', 'win_back', 'service_offer', 'package_offer']);
+
+// THE SINGLE-ITEM QUICK-REPLY BUTTON'S OWN ELIGIBLE GOALS (core/shape.py's BUTTON_TYPES,
+// 2026-09-13) — every goal EXCEPT the ones with no launch card at all. Mirrored by goal name
+// (BUTTON_TYPES is keyed by template_type, which this screen never carries) the same way
+// FLOW_ELIGIBLE_GOALS above already mirrors BOOKING_TYPES.
+const BUTTON_ELIGIBLE_GOALS = new Set([
+  'win_back', 'occasion', 'service_offer', 'package_offer', 'reward_loyal', 'announce',
+]);
 
 /**
  * EACH GOAL'S OWN COLOUR, hand-mirrored from the approved mockup's own per-goal assignment —
@@ -657,6 +671,17 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     const linkedReason = linkedReasonId ? (reasons ?? []).find((r) => r.id === linkedReasonId) : undefined;
     const flowEligible = FLOW_ELIGIBLE_GOALS.has(picked.goal);
     const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
+    // THE SINGLE-ITEM QUICK-REPLY BUTTON (core/shape.py, 2026-09-13) — BUG FIXED HERE: this phone
+    // never showed it at all before, regardless of how many services were scoped, so picking one
+    // service vs. several looked identical even though the real send attaches a real button for
+    // exactly one. Same two entitlements the server's own `_card_button_allowed` requires
+    // (bookings AND the AI assistant app) — and never alongside the Flow button above: shape.py
+    // checks `opens_booking` FIRST, so a booking goal with bookings owned always gets the Flow,
+    // never this button, whatever the item count.
+    const hasAssistant = owns(owned ?? null, 'feature.whatsapp') === true;
+    const scopedItems = picked.goal === 'package_offer' ? packageIds : serviceIds;
+    const singleItemButtonShown = BUTTON_ELIGIBLE_GOALS.has(picked.goal) && hasBookings
+      && hasAssistant && scopedItems.length === 1 && !(flowEligible && hasBookings);
     // ── THE PHONE LANE — the mockup's third column, ALWAYS beside the builder rather than
     // gated behind a preview call: the same rendering engine every other preview in the product
     // uses, fed whatever this form currently holds. Numbers (reach/excluded/the launch button)
@@ -676,6 +701,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
               const data: WaTemplateData = { body: preview.message ?? '' };
               if (flowEligible && hasBookings) {
                 data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
+              } else if (singleItemButtonShown) {
+                data.replyButton = { text: t('launch.preview.singleItemButton') };
               }
               return data;
             })()}

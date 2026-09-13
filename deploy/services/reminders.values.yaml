@@ -190,6 +190,15 @@ env:
   OPERATIONS_TEMPLATES_PATH: "/internal/operations/templates"
   TEMPLATE_LIBRARY_TTL_SECONDS: "300"
 
+  # ── campaigns: «حان وقت الخدمة»'s own on/off switch (2026-09-13) ──────────────────────────
+  # WITHOUT THIS, `HttpServiceDueSettings` never fires — every call falls through to the safe
+  # default it already fails open to (`active=True`, today's plain reminder unchanged), so an
+  # owner who switches this reminder off from the campaigns screen would see nothing happen: the
+  # switch writes fine, but reminders never asks campaigns what it says. Caught by
+  # `ci/check_deploy_wiring.py` before this ever reached a cluster.
+  CAMPAIGNS_SERVICE_URL: "http://campaigns:8000"
+  CAMPAIGNS_SERVICE_DUE_SETTINGS_PATH: "/internal/campaigns/service-due-settings"
+
   # ── compliance: the PDPL verification code, and the send that never happened ─────────────────
   # A customer exercising his rights under the PDPL presses «أرسلوا لي الرمز» and this service
   # fetches it from compliance and sends it on WhatsApp — the ONLY delivery path for that code.
