@@ -54,14 +54,11 @@ Every reference to `per_dsar_code` / `dsar-code` / `DsarCodeIn` / `send_dsar_cod
   and were never submitted for anybody"). This is historical narrative, not an active
   exemption or live check — no functional change needed, but note it now names one template
   that no longer exists; leaving the sentence as history is fine, editing it is optional.
-- `docs/وصف-منصة-راجع.md`:
-  - Line 1377 — the `per_dsar_code` / `priority` row in the exemption table.
-  - Line 3612 — the "25 ← 26" changelog note naming `per_dsar_code`'s addition. This is a
-    dated changelog entry; per this project's own convention old changelog entries are not
-    rewritten (see `commits-in-english.md`'s sibling rule for commit history) — leave it, add
-    a new dated line noting the removal instead of editing history.
-  - Lines 3784-3794 — the full `per_dsar_code` template section (masculine/feminine body
-    table, the "carries nothing of his" paragraph, the night-quiet exemption paragraph).
+- `docs/وصف-منصة-راجع.md` — MOOT: the whole file was deleted 2026-09-13 (unrelated re-architecture
+  that moved the WhatsApp template checks off it entirely), so the line numbers below no longer
+  point at anything. `per_dsar_code` was never in `services/operations/data/templates.seed.json`
+  to begin with — the curated file, the one the send path actually reads, never carried this
+  template — so there is no row left anywhere for this bullet to act on.
     Delete the whole section (it is entirely about the template being deleted).
 - `docs/message-shape-taxonomy-2026-09-13.md:45` — the `per_dsar_code` row in the shape
   table. Delete the row.

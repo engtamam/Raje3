@@ -2,10 +2,10 @@
  * «محلّي» — rebuilt as one file: نصمم بطريقتنا الاحترافية، ملف واحد مخصص
  * بالكامل. Replaces Today.tsx + Local.tsx + this file's own old three-line shell.
  *
- * OUR OWN PRESENTATION, NOT THE SPEC'S TAXONOMY. docs/وصف-منصة-راجع.md groups indicators into five
- * named categories (retention, cross-sell, segmentation, operational efficiency, staff) — that
- * grouping is a content inventory, not a design a phone screen should render as five boxes. What
- * decides layout here is urgency and depth, not which document section a number came from: what
+ * OUR OWN PRESENTATION, NOT A CONTENT INVENTORY'S TAXONOMY. The product's own indicator list groups
+ * into five named categories (retention, cross-sell, segmentation, operational efficiency, staff)
+ * — that grouping is a content inventory, not a design a phone screen should render as five boxes.
+ * What decides layout here is urgency and depth, not which document section a number came from: what
  * stops the shop, then the one number the whole product is about, then what surrounds it, then
  * what he might act on, then everything else — folded, never hidden.
  *

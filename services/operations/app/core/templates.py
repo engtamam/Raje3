@@ -41,16 +41,22 @@ TONES = ("masculine", "feminine")
 CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
 # Where a variable's value comes from. Only `owner` is a blank page — see upsert().
 #
-# AND THREE OF THEM ARE TYPED, DELIBERATELY. `amount`, `code` and `date` were `owner` free text
-# until an offer template made the cost visible: an owner writing «خصم كبير» promises nothing a
-# customer can hold us to, «٢٠٪» arrives in digits half our own screens refuse, and a discount
-# with no end is a discount for ever. A typed slot is validated at send (reminders/rendering.py)
-# and phrased by us, so the sentence reads the same in every shop.
+# AND TWO OF THEM ARE TYPED, DELIBERATELY. `amount` and `date` were `owner` free text until an
+# offer template made the cost visible: an owner writing «خصم كبير» promises nothing a customer can
+# hold us to, «٢٠٪» arrives in digits half our own screens refuse, and a discount with no end is a
+# discount for ever. A typed slot is validated at send (reminders/rendering.py) and phrased by us,
+# so the sentence reads the same in every shop. `code` USED TO BE A THIRD — `per_dsar_code`'s own
+# verification-code slot, deleted with the template itself (2026-09-13): opening that request
+# required a Raje3-internal admin screen, which meant a customer had to contact Raje3 directly, a
+# line this product does not cross. Nothing fills `code` any more.
 # `invite` and `stop_link` carry an ADDRESS rather than a word, and each is the last blank of
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
-FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link",
-        "rating_cta")
+FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
+        "rating_cta",
+        # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
+        # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
+        "establishment")
 # WHICH REMINDER MODEL A TEMPLATE SERVES (spec 16.6.5). Not a second taxonomy competing with the
 # five classes: the class says what a message IS to the regulator, the model says which kind of
 # business it is FOR. A cafe customer returns in days and there is no such thing as "time for your

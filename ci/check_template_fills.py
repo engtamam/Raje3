@@ -2,9 +2,10 @@
 # =============================================================================
 # check_template_fills.py — WHO fills each blank, and does anything send this template at all.
 #
-# The sister check (check_template_libraries.py) compares the two libraries WORD for word. It
-# cannot see any of the following, because all of them live in fields the spec has no opinion
-# about — and every one of them was found by hand, late:
+# The sister check (gen_templates.py --check) validates the wording itself — a numbering gap, a
+# missing tone, a price inside a warning template. It cannot see any of the following, because all
+# of them live in fields a template's WORDS alone say nothing about — and every one of them was
+# found by hand, late:
 #
 #   · a template nobody sends. Eleven of twenty-six types could be fired by nothing: a finished
 #     text, submitted to Meta for every establishment, that no code path can reach. It costs a
@@ -149,9 +150,9 @@ def digest_class() -> dict[str, str]:
 
     `reasons.py` already says `per_weekly_digest` is `personal` (ح-4) — but the message is actually
     built and sent from `insights/core/digest.py`, which used to hardcode `"cls": "service"` right
-    next to it and disagreed. Neither this check nor `check_template_libraries.py` looked at
-    insights at all, so the disagreement shipped and every digest quietly spent the SERVICE
-    class's daily cap and quiet-hours exemption on a report that is not one.
+    next to it and disagreed. Nothing looked at insights at all, so the disagreement shipped and
+    every digest quietly spent the SERVICE class's daily cap and quiet-hours exemption on a report
+    that is not one.
     """
     path = SERVICES / "insights" / "app" / "core" / "digest.py"
     src = path.read_text(encoding="utf-8")

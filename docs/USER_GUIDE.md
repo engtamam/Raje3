@@ -3,13 +3,20 @@
 **Read this before writing any code.** It tells you how to build Raje3 by *standing on*
 `base-services` instead of building everything from scratch.
 
-Three documents, and they do not overlap:
+Two documents, and they do not overlap:
 
 | Document | Answers |
 | --- | --- |
-| `docs/وصف-منصة-راجع.md` | **WHAT** and **WHY** — the product, in the owner's words. It wins on behaviour. |
 | `docs/PLATFORM-PLAYBOOK.md` | **HOW to build any platform** on base-services — the general method, the traps, the per-service loop. Read it once, fully. |
 | this file | **What is true about RAJE3 specifically** — our wave order, our services, our decisions, our open items. |
+
+**WHAT and WHY — the product, in the owner's words** used to live in a third document,
+`docs/وصف-منصة-راجع.md`. It was retired 2026-09-13: its last living consumer was the WhatsApp
+template library's own CI checks, which parsed it for facts (body text, variable count, who fills
+each blank, the deferral policy) that `services/operations/data/templates.seed.json` — the file
+operations actually submits — already carries as structured fields, one edit away from drifting
+from the prose that described it. `ci/gen_templates.py` and its dependent checks now read the seed
+directly.
 
 If you are new here: playbook first, then this.
 

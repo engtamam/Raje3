@@ -52,14 +52,17 @@ from gen_templates import build, parse  # noqa: E402
 
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 
-# The same six the library accepts (operations/core/templates.py FILLS). Named here rather than
+# The same set the library accepts (operations/core/templates.py FILLS). Named here rather than
 # imported: this gate reads a data file and must not need a service's package on the path — but
 # the two lists disagreeing is itself a defect, so the gate says so below.
 # `invite` and `stop_link` carry an ADDRESS rather than a word, and each is the last blank of
 # its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
 # everything else (the only door marketing consent can come through). See ci/gen_templates.py.
-KINDS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link",
-        "rating_cta")
+KINDS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
+        "rating_cta",
+        # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
+        # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
+        "establishment")
 
 # The blank the shop writes itself. One at most, and the library refuses a second — this gate
 # catches it in the seed instead of at the far end of a deploy.
@@ -99,6 +102,11 @@ def main() -> int:
         slots = _slots(entry.get("tones") or {})
         fills = list(entry.get("fills") or [])
 
+        if not slots:
+            # A CAROUSEL-ONLY WORDING CAN HAVE NO POSITIONAL BLANK AT ALL — the content lives in
+            # each card instead (wa_catalog_carousel: "شوف بعض خدماتنا:"). No blanks means nothing
+            # for `fills` to declare; that is not the same defect as a blank nobody named.
+            continue
         if not fills:
             bad.append(f"{name}: declares no fills — every blank in it defaults to «system», "
                        f"so nothing the shop types can reach the message")

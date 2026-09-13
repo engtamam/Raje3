@@ -40,8 +40,11 @@ def _curated() -> list[dict]:
 
 
 def _seeded() -> list[dict]:
-    """The spec's own view of the library, PARSED FRESH (2026-09-13) — no stored intermediate
-    file to go stale between an edit to docs/وصف-منصة-راجع.md and this test catching it."""
+    """`gen_templates.parse()`'s own re-grouping of the curated library, read straight off
+    `templates.seed.json` (2026-09-13, no separate specification file any more) — kept as its own
+    assertion so a rule expressed in `gen_templates.py`'s validation and one expressed here as a
+    direct assertion on the curated rows are cross-checked against each other, not just each
+    against itself."""
     types, problems = parse()
     assert not problems, problems
     return build(types)["types"]

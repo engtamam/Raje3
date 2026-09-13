@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 # =============================================================================
-# gen_templates.py — parse the WhatsApp library FROM THE SPECIFICATION.
+# gen_templates.py — validate the WhatsApp library against ITS OWN CURATED FIELDS.
 #
-# The library is not typed here. Every word of it lives in docs/وصف-منصة-راجع.md §8.4.1, and this
-# reads it. A second copy typed by hand drifts from the wording that was reviewed — and the copy
-# that drifts is the one Meta approved, so the message a customer receives stops being the message
-# anybody agreed to.
+# ONE FILE ON DISK (2026-09-13, deepened): `services/operations/data/templates.seed.json` is not
+# only the file operations actually pushes into a tenant's registry when they connect — it is now
+# also the only place the RULES below read from. There used to be a second source, a markdown
+# specification (`docs/وصف-منصة-راجع.md`) that this module regex-parsed for the wording, the
+# variable count, the «الفراغات» fills row and an 8.4.3 deferral table, and the curated seed
+# carried its own copy of the same facts as structured fields. Two representations of one truth
+# drift: the runtime library once held 23 types while the spec described 26 (three finished
+# features — a weekly digest, a safety notice, a DSAR code — submitted for nobody, silently,
+# because the send path correctly declines a template the account never had). The fix was not a
+# sharper diff between the two — it was noticing there was only ever supposed to be ONE file, and
+# the markdown was prose ABOUT the seed rather than a second copy of it.
 #
-# Run it after editing the spec:      python ci/gen_templates.py
-# Print the parsed library as JSON:   python ci/gen_templates.py --emit
+# So every fact this module used to extract by regex — the body, the variable count, who fills
+# each blank, the class, the header, the deferral policy — is read directly off the seed's own
+# rows now. Nothing here decides the CONTENT of a template any more; it only decides whether the
+# content already written is internally consistent, the same rules Meta would apply hours later
+# against a name that is then burned.
 #
-# NO SECOND FILE ON DISK (2026-09-13, one file to organise around, not two). This used to write
-# `deploy/seed/templates.json` and every reader of "the spec's own view of the library" — the
-# consistency check against the curated seed, the Meta-rules check, the sender/coverage check,
-# the manual `seed-templates.sh` script — read that generated file back. Two files meant two
-# things could each be individually stale (the generated one WAS, silently, for a while — see
-# services/operations/data/templates.seed.json's own commit history), and "unify the two files"
-# turned out to mean "there was only ever one real file — the curated one operations actually
-# submits — and the second was a cache that could drift from the thing it cached." `parse()` and
-# `build()` below are PURE FUNCTIONS now: every consumer that used to `json.loads` the generated
-# file imports this module and calls them directly, so there is nothing to regenerate and nothing
-# that can go stale between "the spec changed" and "the file that says so caught up."
+# Run it after editing the seed:       python ci/gen_templates.py
+# Print the parsed library as JSON:    python ci/gen_templates.py --emit
 #
 # THE CHECKS ARE THE POINT, not any file this produces. Each one is a rejection that would
 # otherwise arrive from Meta hours later, against a template name that is then burned — a name
@@ -35,244 +36,207 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "docs" / "وصف-منصة-راجع.md"
+SEED = ROOT / "services" / "operations" / "data" / "templates.seed.json"
 
-CLASS = {"svc": "service", "per": "personal",
-         "wrn": "warning", "mkt": "marketing"}
 # Meta's category decides the PRICE and the odds of acceptance. Getting it wrong means they
-# re-categorise and bill at the marketing rate (spec §8.5).
+# re-categorise and bill at the marketing rate. Kept here as the EXPECTED mapping so a curated row
+# whose `category` disagrees with its own `class` is caught — the seed carries both fields
+# separately, and nothing before this forced them to agree.
 CATEGORY = {"service": "UTILITY", "personal": "UTILITY",
             "warning": "UTILITY", "marketing": "MARKETING"}
 TONES = ("masculine", "feminine")
 
-# WHO FILLS EACH BLANK, IN ORDER (§8.4). Meta approves the WORDS, so the numbered blanks are the
-# only thing a shop decides, and every one of them belongs to somebody: to us at send time
-# («system»), to a tap on his own service list («catalogue»), to a typed value with a shape
-# («amount», «code», «date»), or to him («owner» — the one free blank, at most one per template).
-#
-# IT IS READ FROM THE DOC, like everything else here. `fills` was once hand-written into the
-# generated JSON, which this generator then overwrote on its next run — the field vanished, every
-# reader fell back to «system», and the owner's discount reached no slot. A value that only one
-# writer can write cannot be lost that way.
+# WHO FILLS EACH BLANK, IN ORDER. Meta approves the WORDS, so the numbered blanks are the only
+# thing a shop decides, and every one of them belongs to somebody: to us at send time («system»),
+# to a tap on his own service list («catalogue»), to a typed value with a shape («amount», «code»,
+# «date»), or to him («owner» — the one free blank, at most one per template).
 FILLS = ("system", "catalogue", "owner", "amount", "date", "invite", "stop_link",
          # THE RATING APP'S OWN CLAUSE (rating-app-feature.md) — a whole sentence computed
          # server-side (points-participation line, or a neutral one when no points are configured),
          # never a template-level condition. Same discipline as «invite»: WhatsApp refuses an
          # empty variable, so this is always a full sentence, never blank.
-         "rating_cta")
+         "rating_cta",
+         # THE ONE OWNER-ONLY NAME SLOT (per_weekly_digest) — never the customer this vocabulary
+         # otherwise assumes at slot 1. See services/reminders' rendering.py::campaign_slots.
+         "establishment")
 FREE = "owner"
 
 # THE LAST BLANK OF EVERY TEMPLATE, AND IT IS NOT A STYLE RULE.
 #
 # Marketing is opt-IN: without a grant no promotional message may lawfully leave. And a grant needs
-# somewhere to be given — a screen the customer can reach from a message he already trusts. There
-# was no such place. The library declared a `button` on sixty of sixty-six templates; nothing
-# submits buttons to Meta (submission.py sends name, language, category, body, variables, examples
-# and nothing else) and notification-service has no notion of one anywhere in its source. So the
-# link existed in our data, reached no template, and no customer was ever able to say yes.
-#
-# The whole marketing engine — built, complete, sold as an app — could therefore never send, and
-# nothing anywhere reported it.
-#
-# So the address moves into the BODY, where we control it end to end:
+# somewhere to be given — a screen the customer can reach from a message he already trusts. So the
+# address lives in the BODY, where we control it end to end:
 #
 #   invite      utility classes. Resolves to the grant screen for somebody who has not agreed,
 #               and to a plain line with no link for somebody who has. Never both.
-#   stop_link   marketing only, and mandatory (§8.3): one tap to stop, in every promotional
-#               message, with no exception any establishment can switch off.
+#   stop_link   marketing only, and mandatory (§8.3 of the retired spec): one tap to stop, in
+#               every promotional message, with no exception any establishment can switch off.
 #
 # AND THE INVITE STAYS QUIET ON PURPOSE. A utility template whose text sells is re-categorised by
 # Meta as MARKETING — a higher price per message and a service message that suddenly needs consent
 # to send. That is what SELLING_WORDS below already guards for the warning class; the invitation
-# obeys the same rule by carrying no price, no discount and no offer. All of the persuasion lives
-# on the screen the link opens, which is ours and which Meta does not review.
+# obeys the same rule by carrying no price, no discount and no offer.
 LAST_FILL = {"marketing": "stop_link"}
 LAST_FILL_DEFAULT = "invite"
 
-# A warning template carrying any of these is not a warning — it is marketing by its
-# text, whatever it is labelled (spec §8.4.1). Meta re-categorises it and bills accordingly, and
-# the establishment is then sending promotion under a utility consent.
+# A warning template carrying any of these is not a warning — it is marketing by its text, whatever
+# it is labelled. Meta re-categorises it and bills accordingly, and the establishment is then
+# sending promotion under a utility consent.
 SELLING_WORDS = ("خصم", "عرض", "ريال", "مجاناً", "مجانا", "اشترِ", "اشتري", "احجز", "زُرنا",
                  "زرنا", "سعر", "تخفيض")
+
+DEFERRALS = ("drop", "defer", "priority")
 
 C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 
 
-def _vars(text: str) -> list[int]:
-    return sorted({int(n) for n in re.findall(r"\{\{(\d+)\}\}", text)})
-
-
-DEFERRALS = ("drop", "defer", "priority")
-
-
-def deferral_map(doc: str) -> tuple[dict[str, str], set[str]]:
-    """The policy per type, read from the table in the specification (§8.4.3) — and separately,
-    the names DELIBERATELY struck through in that same table (`~~name~~`), which is the spec's own
-    way of saying "written, approved in spirit, not yet seeded" (#389).
-
-    WHY IT IS PARSED AND NOT LISTED HERE. A policy in this file is a policy nobody reviewing the
-    product ever sees, and the question it answers — "does this message still make sense tomorrow?"
-    — is about the TEXT, not about the engine. It belongs where the texts are argued over.
-
-    THE ROWS ARE PATTERNS, not only names, because ten marketing templates share one answer and
-    ten identical rows is ten chances to get one wrong.
-
-    THE EXCLUDED SET EXISTS SO A STRIKETHROUGH ROW IS NOT ALSO A BUILD FAILURE. Before this, a
-    name struck through here still had a full `**`name` — title**` block earlier in the doc (the
-    text itself, kept for the day it IS seeded), so `parse()` found it, found no policy for it —
-    correctly, `—` is not a policy — and reported "no deferral policy" as though somebody had
-    simply forgotten to fill in a row. The generator has refused to write `deploy/seed/
-    templates.json` at all since the day that strikethrough was added, and nothing said so beyond
-    a red exit code nobody connected to the row's own deliberate omission a few lines above it in
-    the same table.
-    """
-    out: dict[str, str] = {}
-    excluded: set[str] = set()
-    block = doc.split("## 8.4.3", 1)
-    if len(block) < 2:
-        return out, excluded
-    block = block[1].split("## 8.5", 1)[0]
-    for line in block.splitlines():
-        if not line.startswith("|") or "`" not in line:
-            continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
-        if len(cells) < 2:
-            continue
-        names = re.findall(r"`([a-z_*]+)`", cells[0])
-        policy = cells[1].strip(" `*")
-        if "~~" in cells[0]:
-            excluded.update(names)
-            continue
-        if policy not in DEFERRALS:
-            continue
-        for name in names:
-            out[name] = policy
-    return out, excluded
-
-
-def deferral_for(name: str, policies: dict[str, str]) -> str | None:
-    if name in policies:
-        return policies[name]
-    for pattern, policy in policies.items():
-        if pattern.endswith("*") and name.startswith(pattern[:-1]):
-            return policy
-    return None
+def _rows() -> list[dict]:
+    return json.loads(SEED.read_text(encoding="utf-8")).get("templates") or []
 
 
 def parse() -> tuple[list[dict], list[str]]:
-    doc = SPEC.read_text(encoding="utf-8").replace("\r\n", "\n")
-    blocks = re.findall(
-        r"\*\*`((?:svc|per|awr|wrn|mkt)_[a-z_]+)`\s*—\s*([^*\n]+)\*\*\n(.*?)(?=\n\*\*`|\n---|\n## )",
-        doc, re.S)
+    """Every curated row, checked against itself, then grouped into one entry per template TYPE.
 
-    policies, excluded = deferral_map(doc)
-    types: list[dict] = []
+    THE GROUPING EXISTS FOR `build()`'S CONSUMERS, not for the checks below — those run against
+    every row on its own, carousel variants and sleeping ones included, because Meta applies its
+    rules to whatever is actually submitted, active or not. The grouped `types` list keeps the
+    shape the manual seeder (`deploy/seed/seed-templates.sh --emit`) and `check_meta_rules.py`'s
+    own re-expansion already expect: the FLAT (non-carousel) body per tone, since a carousel
+    variant is a SHAPE a goal may take rather than a second wording to submit through this path.
+    """
+    rows = _rows()
     problems: list[str] = []
-    seen: set[str] = set()
 
-    for name, title, body in blocks:
-        if name in excluded:
-            # Written, struck through in the 8.4.3 table on purpose (see deferral_map's doc) —
-            # skipped silently, not a problem: the spec is stating an intent, not a mistake.
-            continue
-        tones = dict(re.findall(r"\|\s*`_(masculine|feminine)`\s*\|\s*(.+?)\s*\|", body))
-        if len(tones) != 2:
-            problems.append(f"{name}: has {sorted(tones)} — every text needs both tones, "
-                            f"because the tone is a live switch and a missing one is a message "
-                            f"that cannot be sent after he changes it")
-            continue
-        if name in seen:
-            problems.append(f"{name}: defined twice — a name is frozen after approval, so two "
-                            f"definitions is two different messages under one approved name")
-            continue
-        seen.add(name)
-
-        cls = CLASS[name.split("_", 1)[0]]
+    # ── every row, checked against its own fields ───────────────────────────────────────────────
+    for r in rows:
+        name = r.get("name", "?")
+        cls = r.get("class", "")
+        body = r.get("body", "")
+        variables = list(r.get("variables") or [])
+        fills = list(r.get("fills") or [])
 
         # ── the gaps Meta rejects, found here instead of hours later ───────────────────────────
-        per_tone = {t: _vars(v) for t, v in tones.items()}
-        for tone, v in per_tone.items():
-            if v and v != list(range(1, len(v) + 1)):
-                problems.append(f"{name}_{tone}: variables {v} have a gap — Meta numbers them and "
-                                f"rejects the submission, hours later, against a burned name")
-        if len({tuple(v) for v in per_tone.values()}) != 1:
-            problems.append(f"{name}: the tones disagree on variables {per_tone} — the tone is a "
-                            f"live switch, so changing it would leave a variable unfilled and "
-                            f"Meta refuses an empty variable")
+        if variables and variables != list(range(1, len(variables) + 1)):
+            problems.append(f"{name}: variables {variables} have a gap — Meta numbers them and "
+                            f"rejects the submission, hours later, against a burned name")
 
         # ── the category that has to be true rather than declared ──────────────────────────────
+        expected_category = CATEGORY.get(cls)
+        if expected_category and r.get("category") != expected_category:
+            problems.append(f"{name}: class {cls!r} implies category {expected_category!r}, the "
+                            f"row says {r.get('category')!r} — Meta bills and reviews by the "
+                            f"category actually submitted, not by the class we call it")
+
+        # A warning template's header is a bold word above the message that earns its purpose —
+        # that he reads it — without spending a line of the body. Nothing else gets one.
+        expected_header = "تنبيه" if cls == "warning" else ""
+        if r.get("header", "") != expected_header:
+            problems.append(f"{name}: header is {r.get('header')!r}, expected {expected_header!r} "
+                            f"for a {cls!r} template")
+
         if cls == "warning":
-            for tone, text in tones.items():
-                hit = [w for w in SELLING_WORDS if w in text]
-                if hit:
-                    problems.append(f"{name}_{tone}: contains {hit} — a warning template with "
-                                    f"a price or an invitation is MARKETING by its text (§8.4.1), "
-                                    f"and Meta will re-categorise and bill it as such")
+            hit = [w for w in SELLING_WORDS if w in body]
+            if hit:
+                problems.append(f"{name}: contains {hit} — a warning template with a price or an "
+                                f"invitation is MARKETING by its text, and Meta will re-categorise "
+                                f"and bill it as such")
 
-        # NO TEMPLATE WITHOUT A POLICY. When the day's WhatsApp ceiling is exhausted the engine
-        # has to decide whether this message is worth sending tomorrow, and there is no safe
-        # default: deferring a visit confirmation sends something strange, dropping a follow-up
-        # loses a message that cost nothing to delay. So whoever adds a text answers the question.
-        # ── and who fills each of those blanks ─────────────────────────────────────────────────
-        row = re.search(r"\|\s*الفراغات\s*\|\s*(.+?)\s*\|", body)
-        fills = [f.strip() for f in row.group(1).split("·")] if row else []
-        slots = per_tone[TONES[0]]
-        if not fills:
-            problems.append(f"{name}: no «الفراغات» row — every blank defaults to «system» then, "
-                            f"so anything the shop types reaches no slot and the preview draws «…»")
-            continue
-        if len(fills) != len(slots):
-            problems.append(f"{name}: {len(slots)} blanks in the body, {len(fills)} declared — the "
-                            f"list is read BY POSITION, so one missing entry shifts every blank "
-                            f"after it onto the wrong source")
-            continue
-        unknown = [f for f in fills if f not in FILLS]
-        if unknown:
-            problems.append(f"{name}: unknown filler {unknown} — the readers branch on these by "
-                            f"name and treat anything else as «system». Use one of {FILLS}")
-            continue
-        # ── the address every message has to carry, and exactly one of them ────────────────────
-        wanted = LAST_FILL.get(cls, LAST_FILL_DEFAULT)
-        if fills[-1] != wanted:
-            problems.append(
-                f"{name}: last blank is «{fills[-1]}», must be «{wanted}» — a {cls} template ends "
-                f"with the one address it owes its reader. Marketing owes a one-tap stop (§8.3); "
-                f"everything else owes the invitation that is the only way consent can ever be "
-                f"given. Without it the message is a dead end and the campaigns engine can never "
-                f"lawfully send.")
-            continue
-        stray = [f for f in fills[:-1] if f in ("invite", "stop_link")]
-        if stray:
-            problems.append(
-                f"{name}: {stray} appears before the last blank — an address mid-sentence reads as "
-                f"a broken line on a phone, and two of them in one message is two calls to action "
-                f"competing for the same tap")
-            continue
-        if fills.count(FREE) > 1:
-            problems.append(f"{name}: asks the owner to write {fills.count(FREE)} free blanks. One "
-                            f"at most — two is a form he abandons halfway, and the customer never "
-                            f"hears")
-            continue
+        # ── who fills each of those blanks ──────────────────────────────────────────────────────
+        if variables and not fills:
+            problems.append(f"{name}: no fills declared for {len(variables)} blank(s) — every one "
+                            f"defaults to «system» then, so anything the shop types reaches no "
+                            f"slot and the preview draws «…»")
+        elif len(fills) != len(variables):
+            problems.append(f"{name}: {len(variables)} blanks in the body, {len(fills)} fills "
+                            f"declared — the list is read BY POSITION, so one missing entry shifts "
+                            f"every blank after it onto the wrong source")
+        else:
+            unknown = [f for f in fills if f not in FILLS]
+            if unknown:
+                problems.append(f"{name}: unknown filler {unknown} — the readers branch on these "
+                                f"by name and treat anything else as «system». Use one of {FILLS}")
+            # AN OWNER-ONLY TEMPLATE OWES NO CUSTOMER-FACING ADDRESS. `establishment` fills slot 1
+            # of `per_weekly_digest` alone (reasons.py: "تقريرك أنت، لا رسالة لعميلك" — your own
+            # report, never a message to your customer) — there is no customer on the other end to
+            # invite into marketing consent, so the invite/stop_link rule below does not apply to
+            # it. Named by the fill that marks an owner-only template, not by the template's own
+            # name, so a future owner-only text is exempt for the same reason without a second edit
+            # here.
+            elif fills and "establishment" not in fills:
+                # ── the address every message has to carry, and exactly one of them ────────────
+                wanted = LAST_FILL.get(cls, LAST_FILL_DEFAULT)
+                if fills[-1] != wanted:
+                    problems.append(
+                        f"{name}: last blank is «{fills[-1]}», must be «{wanted}» — a {cls} "
+                        f"template ends with the one address it owes its reader. Marketing owes a "
+                        f"one-tap stop; everything else owes the invitation that is the only way "
+                        f"consent can ever be given. Without it the message is a dead end and the "
+                        f"campaigns engine can never lawfully send.")
+                stray = [f for f in fills[:-1] if f in ("invite", "stop_link")]
+                if stray:
+                    problems.append(
+                        f"{name}: {stray} appears before the last blank — an address mid-sentence "
+                        f"reads as a broken line on a phone, and two of them in one message is two "
+                        f"calls to action competing for the same tap")
+            if fills.count(FREE) > 1:
+                problems.append(f"{name}: asks the owner to write {fills.count(FREE)} free blanks. "
+                                f"One at most — two is a form he abandons halfway, and the customer "
+                                f"never hears")
 
-        deferral = deferral_for(name, policies)
-        if deferral is None:
-            problems.append(f"{name}: no deferral policy in the 8.4.3 table — when the ceiling "
-                            f"runs out, is this message still worth sending tomorrow? There is no "
-                            f"default that is right for both a visit confirmation and an offer")
-            continue
+        # NO TEMPLATE WITHOUT A POLICY. When the day's WhatsApp ceiling is exhausted the engine has
+        # to decide whether this message is worth sending tomorrow, and there is no safe default:
+        # deferring a visit confirmation sends something strange, dropping a follow-up loses a
+        # message that cost nothing to delay. So whoever curated the row answers the question — as
+        # a field ON the row now, not a lookup into a separate table that could omit one silently.
+        deferral = r.get("deferral")
+        if deferral not in DEFERRALS:
+            problems.append(f"{name}: deferral is {deferral!r}, must be one of {DEFERRALS} — when "
+                            f"the ceiling runs out, is this message still worth sending tomorrow? "
+                            f"There is no default that is right for both a visit confirmation and "
+                            f"an offer")
 
+    # ── the tones of one template must agree on their blanks (ط-4/ح-1's own rule) ─────────────
+    # Grouped by (type, is-a-carousel-variant): a carousel row is a different SHAPE of the same
+    # goal, not a second tone of the same message, so it is compared only against ITS OWN
+    # carousel siblings — exactly the distinction check_template_fills.py already draws.
+    siblings: dict[tuple[str, bool], list[dict]] = {}
+    for r in rows:
+        siblings.setdefault((r.get("type", ""), bool(r.get("carousel"))), []).append(r)
+    for (type_name, is_carousel), group in siblings.items():
+        var_sets = {tuple(g.get("variables") or []) for g in group}
+        if len(var_sets) > 1:
+            problems.append(f"{type_name}{' (carousel)' if is_carousel else ''}: the tones "
+                            f"disagree on variables {var_sets} — the tone is a live switch, so "
+                            f"changing it would leave a variable unfilled and Meta refuses an "
+                            f"empty variable")
+        fill_sets = {tuple(g.get("fills") or []) for g in group}
+        if len(fill_sets) > 1:
+            problems.append(f"{type_name}{' (carousel)' if is_carousel else ''}: the tones "
+                            f"disagree on who fills each blank {fill_sets} — the tone is a switch "
+                            f"the owner flips, not a different message")
+
+    # ── one entry per type, for build()'s consumers ─────────────────────────────────────────────
+    types: list[dict] = []
+    seen: set[str] = set()
+    for r in rows:
+        type_name = r.get("type", "")
+        if type_name in seen:
+            continue
+        seen.add(type_name)
+        flat = [x for x in rows if x.get("type") == type_name and not x.get("carousel")]
+        source = flat or [x for x in rows if x.get("type") == type_name]
+        first = source[0]
         types.append({
-            "name": name,
-            "deferral": deferral,
-            "title": title.strip(),
-            "cls": cls,
-            "category": CATEGORY[cls],
-            # The warning class is the only one with a header (spec §8.4.1): a bold word above the
-            # message earns its purpose — that he reads it — without spending a line of the body.
-            "header": "تنبيه" if cls == "warning" else "",
-            "tones": {t: tones[t] for t in TONES},
-            "fills": fills,
+            "name": type_name,
+            "deferral": first.get("deferral"),
+            "title": first.get("label", ""),
+            "cls": first.get("class", ""),
+            "category": first.get("category", ""),
+            "header": first.get("header", ""),
+            "tones": {x.get("tone", ""): x.get("body", "") for x in source},
+            "fills": list(first.get("fills") or []),
         })
+
     return types, problems
 
 
@@ -299,21 +263,20 @@ def check_variables(lib_vars: dict) -> list[str]:
         if re.fullmatch(r"[a-z_]+", v["name"]) is None:
             problems.append(f"variable {num}: name {v['name']!r} is not a plain identifier")
 
-
     return problems
 
 
 def build(types: list[dict]) -> dict:
     return {
         "_comment": [
-            "GENERATED by ci/gen_templates.py from docs/وصف-منصة-راجع.md §8.4.1. Do not hand-edit:",
-            "a library retyped by hand drifts from the wording that was reviewed and approved, and",
-            "the drifted copy is the one a customer receives.",
+            "GENERATED by ci/gen_templates.py FROM services/operations/data/templates.seed.json.",
+            "Do not hand-edit: this is a read-only view of the curated file, and a copy retyped",
+            "by hand drifts from the seed that operations actually submits.",
             "",
-            "AUTHORED ONCE, APPROVED PER ESTABLISHMENT (§6.6.1). A template at Meta belongs to one",
-            "WhatsApp Business Account and every shop has its own — which is the whole basis of the",
-            "promise that messages arrive under the shop's name and not ours. So this file is",
-            "submitted in full to every account that connects.",
+            "AUTHORED ONCE, APPROVED PER ESTABLISHMENT (spec §6.6.1, retired). A template at Meta",
+            "belongs to one WhatsApp Business Account and every shop has its own — which is the",
+            "whole basis of the promise that messages arrive under the shop's name and not ours.",
+            "So this file is submitted in full to every account that connects.",
             "",
             "ALL OF THEM, not the half of one tone. The tone is in the NAME and a name",
             "cannot change after approval, so submitting a single tone makes a later change a",
@@ -325,16 +288,15 @@ def build(types: list[dict]) -> dict:
         # position, because Meta fills by position and does not name anything.
         #
         # `example` is an example VALUE, and Meta REQUIRES one for every parameter at creation: a
-        # component whose text contains a placeholder is refused without it. Every text here has at
-        # least one, so without examples not a single template can be created.
+        # component whose text contains a placeholder is refused without it.
         #
         # AND A NAME IS NOT A VALID EXAMPLE. Meta's review rejects placeholder-looking examples, so
         # sending "customer_name" where "محمد" belongs fails review rather than the API — hours
-        # later, against a name that cannot then be reused or renamed. We sent examples in the
-        # name field for a day, which was correct against the older contract and wrong against this
-        # one; the two are separate here so they cannot be confused again.
+        # later, against a name that cannot then be reused or renamed.
         #
-        # `means` is for us. It never leaves this file.
+        # `means` is for us. It never leaves this file. This table is our own convention for the
+        # POSITIONAL blanks (the ones no address slot claims), not a curated field — every row's
+        # own `variable_examples` still overrides these for its actual submission.
         "variables": {
             "1": {"name": "customer_name", "example": "محمد",
                   "means": "the customer's name or its substitute — never empty; Meta rejects an "
@@ -345,11 +307,6 @@ def build(types: list[dict]) -> dict:
                   "means": "the service or the content"},
             "4": {"name": "detail", "example": "1234",
                   "means": "a second detail: a date, an amount, a transaction reference"},
-            # THE FIFTH EXISTS FOR ONE TEXT, and it was missing while that text was live.
-            # `svc_visit_redeemed` numbers five, the library declared four, and a submission whose
-            # placeholder has no example is refused by Meta at creation — hours later, against a
-            # name that cannot then be reused. The generator's own checker crashed on it, which is
-            # how it was found: a KeyError is a better messenger than a rejection email.
             "5": {"name": "balance", "example": "40",
                   "means": "what is LEFT after the act — today the points balance that remains"},
         },
@@ -359,6 +316,9 @@ def build(types: list[dict]) -> dict:
 
 
 def main() -> int:
+    if not SEED.exists():
+        print(f"{C_R}  ✗ {SEED} is missing{C_N}")
+        return 1
     types, problems = parse()
     problems += check_variables(build([])["variables"])
 
@@ -369,15 +329,14 @@ def main() -> int:
         return 1
 
     if "--emit" in sys.argv:
-        # THE ONLY WAY OUT OF THIS PROCESS NOW — a caller that needs the parsed library as JSON
-        # (the manual `seed-templates.sh`) asks for it fresh on every run instead of reading a file
-        # that could be one edit behind the spec.
+        # A caller that needs the library as JSON (the manual `seed-templates.sh`) asks for it
+        # fresh on every run instead of reading a file that could be one edit behind the seed.
         payload = build(types)
         sys.stdout.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
         return 0
 
-    # `--check` is still accepted (CI's own invocation) — there is nothing left to compare a file
-    # against, so it is now just this same validation pass, run for its exit code.
+    # `--check` is still accepted (CI's own invocation) — this same validation pass, run for its
+    # exit code.
     counts = Counter(t["cls"] for t in types)
     print(f"{C_G}  ✔ {len(types)} texts x {len(TONES)} tones = {len(types) * len(TONES)} "
           f"templates{C_N}")

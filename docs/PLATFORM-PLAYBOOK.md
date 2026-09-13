@@ -1147,9 +1147,11 @@ tested and sending, and were submitted for nobody. And it failed silently by des
 checks approval and correctly declines a template the account never had.
 
 **The rule:** when the same content lives in two places for two legitimate reasons, compare the
-overlap in CI — the fields that must agree — and leave the rest alone. `ci/check_template_libraries.py`
-compares type, tone, class, category, header and the body word for word, and ignores the curated
-fields that are one side's own.
+overlap in CI — the fields that must agree — and leave the rest alone. Raje3 later went one step
+further and removed the second place: the specification this was compared against was prose ABOUT
+the seed, not an independent source, so the seed became the only file the CI checks read, and the
+comparison check retired along with it. Where a second copy genuinely cannot be removed, comparing
+the overlap in CI is still the right shape.
 
 ### 4.43 An install that ends with a running cluster and an empty product
 

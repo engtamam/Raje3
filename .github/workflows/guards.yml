@@ -1087,13 +1087,20 @@ jobs:
       - name: an act reached through two doors finishes the same way
         run: python3 ci/check_shared_tail.py
 
-      # The template library is GENERATED from the specification, so this catches two things at
-      # once: a spec edit that was never regenerated, and a hand-edit of the seed that drifted from
-      # the wording actually reviewed. It also runs the four content checks — a numbering gap, a
-      # missing tone, tones disagreeing on variables, and a price inside a warning template.
-      # Every one of them is a Meta rejection that would otherwise arrive hours later against a
-      # template name that cannot be reused or renamed.
-      - name: the WhatsApp library matches the specification
+      # THE TEMPLATE LIBRARY, CHECKED AGAINST ITS OWN CURATED FIELDS (2026-09-13). This used to
+      # regenerate the library from a markdown specification and compare the two — a spec edit
+      # never regenerated, and a hand-edit of the seed that drifted from the wording actually
+      # reviewed, were both real failure modes it caught. The two representations still drifted by
+      # three whole types (a weekly digest, a safety notice, a DSAR code — written, wired and
+      # sending, and never submitted for anybody; the send path correctly declines a template no
+      # account was ever given, so nothing failed loudly). The fix was not a sharper diff — the
+      # curated seed already carries every one of those facts as a structured field, so there was
+      # only ever meant to be ONE file. This now runs the same content checks — a numbering gap, a
+      # missing tone, tones disagreeing on variables, a price inside a warning template, a missing
+      # deferral policy — directly against `services/operations/data/templates.seed.json`. Every
+      # one of them is a Meta rejection that would otherwise arrive hours later against a template
+      # name that cannot be reused or renamed.
+      - name: the WhatsApp library is internally consistent
         run: python3 ci/gen_templates.py --check
 
       # And the library against META's rules, before anything is submitted. A rejection does not
@@ -1103,15 +1110,7 @@ jobs:
       - name: the library passes Meta's documented template rules
         run: python3 ci/check_meta_rules.py
 
-      # AND THE TWO COPIES OF IT AGREE. The generated file is submitted by our seeding script;
-      # operations holds the curated copy that is pushed into a real establishment's registry. They
-      # drifted by three whole types — a weekly digest, a safety notice and a DSAR code that were
-      # written, wired and sending, and were never submitted for anybody. Nothing failed loudly:
-      # the send path correctly declines a template no account was ever given.
-      - name: both template libraries carry the same words
-        run: python3 ci/check_template_libraries.py
-
-      # AND WHO FILLS EACH BLANK, which neither of the two above can see: they compare the words,
+      # AND WHO FILLS EACH BLANK, which the check above cannot see: it checks the words, and the
       # and the words are identical whether a blank is a service name or whatever an owner typed.
       # This gate refuses a discount with no end date, a promotional blank inside a utility
       # template, and — the one that cost us most — a library where every row is `active: false`
