@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:24890dd66911a298c7f6ca9dfd48cb79c43bf3b01f744034f7d95a46035a132b"   # v0.21.0
+  digest: "sha256:b03d0a40dcc72da0ba75debe77c96bd4201993c0c95e833052d6ad52af6d8c5b"   # v0.22.9
 
 replicas: 1
 
