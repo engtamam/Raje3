@@ -203,19 +203,26 @@ def main() -> int:
                                 f"discount makes it MARKETING by its text (§8.4.1), and Meta "
                                 f"re-categorises and bills it as such")
 
-        # A DISCOUNT NEEDS AN END. Not a style rule: the shop honours what the message says, and a
-        # message that names no last day is honoured for ever.
-        if "amount" in fills and "date" not in fills:
-            problems.append(f"{name}: promises a discount and names no end date")
+        # A DISCOUNT NEEDS AN END, BUT NOT NECESSARILY NAMED IN THE MESSAGE (revised 2026-09-13).
+        # This used to require a `date` blank on every `amount`-bearing template — that was about
+        # the customer being told a real day the shop would still hold him to; it never had to be
+        # a rule about the WORDS. `expires_at` is still required at campaign creation for every
+        # OFFER_GOALS goal (models.py) and still enforced at redemption — nothing about honouring
+        # what was promised changed. What changed is the message itself: a fixed footer now invites
+        # the customer to ask for exact timing instead of the body naming one, so `mkt_offer`,
+        # `mkt_winback` and `mkt_personal_occasion` dropped their own `date` blank. A future
+        # amount-bearing template MAY still choose to name a date in its own words — this check no
+        # longer requires it either way.
 
         # A CAROUSEL VARIANT MAKES THE SAME PROMISE AS ITS FLAT SIBLING, JUST SPLIT ACROSS CARDS —
         # the discount itself moves into each card's own body ("{{1}} — خصم {{2}}"), which is why
-        # this row's own top-level `fills` carries no `amount`, and why the `amount`-implies-`date`
-        # rule just above cannot see it at all. It still owes the customer the same end date the
-        # flat wording owes, in the ONE place a carousel send has room for a shared sentence: the
-        # intro body every card sits under. Compared against the flat sibling rather than hardcoded
-        # here, so a FUTURE offer-bearing type gets this check for free the day its own carousel
-        # variant is added — nobody has to remember to extend a list.
+        # this row's own top-level `fills` carries no `amount` at all. Whatever the flat sibling
+        # says about an end date, the carousel's shared intro owes the customer the same — if the
+        # flat wording names one, so must this; if the flat wording dropped it (2026-09-13, in
+        # favour of the fixed footer), there is nothing here to require either. Compared against
+        # the flat sibling rather than hardcoded here, so a FUTURE offer-bearing type gets this
+        # check for free the day its own carousel variant is added — nobody has to remember to
+        # extend a list.
         if r.get("carousel"):
             flat_siblings = [x for x in by_type[r["type"]] if not x.get("carousel")]
             if flat_siblings:

@@ -756,14 +756,13 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}، ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
+      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}. لإيقاف العروض: {{5}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5,
-        6
+        5
       ],
       "header": "",
       "button": "اطلب موعدك الآن",
@@ -772,7 +771,6 @@
         "system",
         "amount",
         "catalogue",
-        "date",
         "stop_link"
       ],
       "model": "both",
@@ -784,7 +782,6 @@
         "مغسلة النخيل",
         "20%",
         "غسيل خارجي",
-        "12 سبتمبر",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -800,14 +797,13 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}، ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
+      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}. لإيقاف العروض: {{5}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5,
-        6
+        5
       ],
       "header": "",
       "button": "اطلبي موعدك الآن",
@@ -816,7 +812,6 @@
         "system",
         "amount",
         "catalogue",
-        "date",
         "stop_link"
       ],
       "model": "both",
@@ -828,7 +823,6 @@
         "صالون لمسات",
         "20%",
         "قص وتشذيب",
-        "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -844,13 +838,12 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، وحشتنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}، ساري حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "هلا {{1}}، وحشتنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "اطلب موعدك الآن",
@@ -858,7 +851,6 @@
         "system",
         "system",
         "amount",
-        "date",
         "stop_link"
       ],
       "model": "both",
@@ -869,7 +861,6 @@
         "محمد",
         "مغسلة النخيل",
         "20%",
-        "12 سبتمبر",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -885,13 +876,12 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، وحشتِنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}، ساري حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "هلا {{1}}، وحشتِنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "اطلبي موعدك الآن",
@@ -899,7 +889,6 @@
         "system",
         "system",
         "amount",
-        "date",
         "stop_link"
       ],
       "model": "both",
@@ -910,7 +899,6 @@
         "سارة",
         "صالون لمسات",
         "20%",
-        "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -1380,13 +1368,12 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنت بخير يا {{1}} 🌿 من {{2}} لك خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "كل عام وأنت بخير يا {{1}} 🌿 من {{2}} لك خصم {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "اطلب موعدك الآن",
@@ -1394,7 +1381,6 @@
         "system",
         "system",
         "amount",
-        "date",
         "stop_link"
       ],
       "model": "both",
@@ -1405,7 +1391,6 @@
         "محمد",
         "مغسلة النخيل",
         "20%",
-        "12 سبتمبر",
         "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
       ],
       "flow_button": {
@@ -1421,13 +1406,12 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنتِ بخير يا {{1}} 🌿 من {{2}} لكِ خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "كل عام وأنتِ بخير يا {{1}} 🌿 من {{2}} لكِ خصم {{3}}. لإيقاف العروض: {{4}} ✋",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "اطلبي موعدك الآن",
@@ -1435,7 +1419,6 @@
         "system",
         "system",
         "amount",
-        "date",
         "stop_link"
       ],
       "model": "both",
@@ -1446,7 +1429,6 @@
         "سارة",
         "صالون لمسات",
         "20%",
-        "12 سبتمبر",
         "https://my.raje3.sa/p/lamasat.sub_rj7k2m/stop"
       ],
       "flow_button": {

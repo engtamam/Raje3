@@ -5,9 +5,10 @@ what the till offers, what `choose_offer` picks, what the customer's page shows 
 text is blank. And that text was taken from ONE place: the owner's free line.
 
 Then the offer templates were built without a free line at all. `mkt_offer`, `mkt_winback` and
-`mkt_personal_occasion` declare `fills: [system, system, amount, catalogue, date]` — no `owner`
-anywhere — because the sentence is composed from the typed parts and the wording is ours. So the
-screen never asks for the text, the owner never writes one, and the log records an empty string.
+`mkt_personal_occasion` declare `fills` built from `system`, `amount` and (for `mkt_offer`)
+`catalogue` — no `owner` anywhere — because the sentence is composed from the typed parts and the
+wording is ours. So the screen never asks for the text, the owner never writes one, and the log
+records an empty string.
 
 The result is a campaign that WORKS at every visible step. Four hundred messages go out, each one
 correct, each one naming a real discount. Then the customer walks in, the operator opens the till,
