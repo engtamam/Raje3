@@ -587,13 +587,13 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('launch.category.all')}>
               <button type="button" onClick={() => setActiveCategory('')}
                      className={['rounded-full px-3 py-1 text-xs font-medium',
-                                 activeCategory === '' ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                                 activeCategory === '' ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary'].join(' ')}>
                 {t('launch.category.all')}
               </button>
               {categories.map((cat) => (
                 <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
                        className={['rounded-full px-3 py-1 text-xs font-medium',
-                                   activeCategory === cat ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary'].join(' ')}>
+                                   activeCategory === cat ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary'].join(' ')}>
                   {cat}
                 </button>
               ))}
@@ -1136,7 +1136,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       setPreview(null);
                     }}
                     className={['rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                               active ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
+                               active ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
                   >
                     {p.name}
                   </button>
@@ -1172,7 +1172,7 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                         setPreview(null);
                       }}
                       className={['rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
-                                 active ? 'bg-text-primary text-surface-1' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
+                                 active ? 'bg-accent text-accent-contrast' : 'bg-surface-2 text-text-secondary hover:bg-surface-3'].join(' ')}
                     >
                       {s.name}
                     </button>
