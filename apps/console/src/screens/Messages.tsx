@@ -47,11 +47,13 @@ import { TEMPLATE_STATUS_META, type TemplateStatus } from './templateStatus';
 import { Toggle } from '../rj-ui/Toggle';
 import { Button } from '../rj-ui/Button';
 import { AssistantHint } from '../AssistantHint';
-import { Launch } from './Launch';
+import { BUTTON_ELIGIBLE_GOALS, FLOW_ELIGIBLE_GOALS, Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
 import { Modal } from '../rj-ui/Modal';
-import { WhatsAppTemplatePreview, type FlowJson, type WaCarouselCard } from '../rj-ui/WhatsAppPreview';
+import {
+  WhatsAppTemplatePreview, type FlowJson, type WaCarouselCard, type WaTemplateData,
+} from '../rj-ui/WhatsAppPreview';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -78,6 +80,23 @@ interface Campaign {
   window_end_hour?: number;
   window_weekdays?: number[];
   created?: number;
+  // THE REST OF THE STORED ROW (2026-09-13) — the list route already returns every field on
+  // the stored Campaign (a plain drain of the collection, services/campaigns/app/api/v1/
+  // campaigns.py::list_campaigns), so these were always ON THE WIRE; only the TYPE never named
+  // them. Needed to re-preview an ALREADY-LAUNCHED campaign's real message on this same screen,
+  // the same way the create screen already can before it launches — see `openPreview` below.
+  owner_text?: string;
+  offer_value?: string;
+  expires_at?: number;
+  scope_service_ids?: string[];
+  scope_service_names?: string[];
+  service_id?: string;
+  package_id?: string;
+  branch_id?: string;
+  loyalty_window_days?: number;
+  loyalty_min_visits?: number;
+  reward_type?: string;
+  reward_points?: number;
 }
 
 /** A goal's own key → translation key, so a row reads a real title rather than `win_back`. */
@@ -966,6 +985,12 @@ export function MessagesScreen(
    *  reconstructed here by summing `runs` (which the route itself may have paginated). Was
    *  fetched and thrown away before this pass; the detail panel's own KPI tiles need it. */
   const [runsTotals, setRunsTotals] = useState<Record<string, number> | null>(null);
+  /** THE ACTUAL MESSAGE THIS CAMPAIGN SENDS, re-rendered from its OWN stored settings — not a
+   *  cached copy from the moment it launched, which would go stale the instant a scoped
+   *  service's own name changed. `undefined` is "not asked yet" (the create screen's own
+   *  convention), `null` is "asked and failed" (a template pulled from under it, say) — never the
+   *  same as "still loading", or a shop reads a permanent server error as a slow network. */
+  const [campaignPreview, setCampaignPreview] = useState<{ message?: string } | null | undefined>(undefined);
   /** Which row's «ماذا حدث»/«أوقفها» is mid-request — so a second tap while the first is still in
    *  flight does nothing rather than firing the same call twice. */
   const [campaignBusy, setCampaignBusy] = useState('');
@@ -1190,11 +1215,15 @@ export function MessagesScreen(
   const openRuns = async (id: string) => {
     // A SECOND TAP CLOSES IT, rather than re-fetching the same answer — the whole point of
     // pinning the panel to a row is that pressing that row's own button again is «hide it».
-    if (runsFor === id) { setRuns(null); setRunsTotals(null); setRunsFor(''); return; }
+    if (runsFor === id) {
+      setRuns(null); setRunsTotals(null); setRunsFor(''); setCampaignPreview(undefined);
+      return;
+    }
     const a = action(catalog, 'campaigns.runs');
     if (!a) return;
     setRunsFor(id);
     setCampaignBusy(`runs:${id}`);
+    setCampaignPreview(undefined);
     // AN EMPTY LIST RATHER THAN A CLOSED PANEL ON FAILURE: he asked a question, and silence is
     // the one answer that sends him to support.
     const out = await call<{ runs: Run[]; totals?: Record<string, number> }>(session, a, { campaign_id: id })
@@ -1203,6 +1232,38 @@ export function MessagesScreen(
     setRuns(out.runs);
     setRunsTotals(out.totals);
     setCampaignBusy('');
+
+    // THE MESSAGE ITSELF — re-rendered from THIS campaign's own stored settings, the same
+    // `campaigns.preview` call the create screen already makes, never a client-composed guess.
+    // Missing on the create screen's own gap this closes: an owner opening an ALREADY-LAUNCHED
+    // campaign here saw numbers and never the words those numbers describe.
+    const previewAction = action(catalog, 'campaigns.preview');
+    const campaign = (campaigns ?? []).find((c) => c.id === id);
+    if (!previewAction || !campaign) { setCampaignPreview(null); return; }
+    const isPackage = campaign.goal === 'package_offer';
+    await call<{ message?: string }>(session, previewAction, {
+      goal: campaign.goal ?? '',
+      owner_text: campaign.owner_text ?? '',
+      offer_value: campaign.offer_value ?? '',
+      fire_at: campaign.fire_at ?? 0,
+      expires_at: campaign.expires_at ?? 0,
+      service_id: isPackage ? '' : (campaign.service_id ?? ''),
+      package_id: isPackage ? (campaign.package_id ?? '') : '',
+      // `scope_service_ids` folds into whichever of service_ids/package_ids the goal actually
+      // uses (the SAME server-side rule the create screen's own request already relies on) —
+      // only the NAMES need to land in the right array by hand, since nothing folds those.
+      scope_service_ids: campaign.scope_service_ids ?? [],
+      service_names: isPackage ? [] : (campaign.scope_service_names ?? []),
+      package_names: isPackage ? (campaign.scope_service_names ?? []) : [],
+      branch_id: campaign.branch_id ?? '',
+      window_start_hour: campaign.window_start_hour ?? 0,
+      window_end_hour: campaign.window_end_hour ?? 24,
+      window_weekdays: campaign.window_weekdays ?? [],
+      loyalty_window_days: campaign.loyalty_window_days ?? 90,
+      loyalty_min_visits: campaign.loyalty_min_visits ?? 3,
+      reward_type: campaign.reward_type ?? 'discount',
+      reward_points: campaign.reward_points ?? 0,
+    }).then(setCampaignPreview).catch(() => setCampaignPreview(null));
   };
 
   /** Re-read the list — after a launch, so the campaign he just started is on screen. */
@@ -1836,11 +1897,51 @@ export function MessagesScreen(
                           })}
                         </h3>
                         <button type="button" aria-label={t('messages.campaigns.closeDetail')}
-                               onClick={() => { setRuns(null); setRunsTotals(null); setRunsFor(''); }}
+                               onClick={() => {
+                                 setRuns(null); setRunsTotals(null); setRunsFor('');
+                                 setCampaignPreview(undefined);
+                               }}
                                className="text-text-secondary hover:text-text-primary">
                           <X size={16} aria-hidden />
                         </button>
                       </div>
+
+                      {/* THE MESSAGE ITSELF — real text from `campaignPreview`, rendered through
+                          the SAME phone-bubble component the create screen uses, never a
+                          second, hand-drawn approximation. `undefined` (still asking) draws a
+                          skeleton; `null` (asked and failed, or nothing to ask) draws nothing —
+                          the numbers above still stand on their own. */}
+                      {campaignPreview === undefined ? (
+                        <Skeleton height={72} />
+                      ) : campaignPreview?.message ? (() => {
+                        const c = campaigns.find((x) => x.id === runsFor);
+                        const flowEligible = c ? FLOW_ELIGIBLE_GOALS.has(c.goal ?? '') : false;
+                        const hasBookings = owns(owned ?? null, 'feature.bookings') === true;
+                        const hasAssistant = owns(owned ?? null, 'feature.whatsapp') === true;
+                        const scopedCount = (c?.scope_service_ids ?? []).length
+                          || (c?.service_id ? 1 : 0) || (c?.package_id ? 1 : 0);
+                        const singleItemButtonShown = c && BUTTON_ELIGIBLE_GOALS.has(c.goal ?? '')
+                          && hasBookings && hasAssistant && scopedCount === 1
+                          && !(flowEligible && hasBookings);
+                        const data: WaTemplateData = { body: campaignPreview.message ?? '' };
+                        if (flowEligible && hasBookings) {
+                          data.flowButton = { flowName: 'booking', text: t('launch.preview.bookingButton') };
+                        } else if (singleItemButtonShown) {
+                          data.replyButton = { text: t('launch.preview.singleItemButton') };
+                        }
+                        return (
+                          <div className="flex justify-center">
+                            <WhatsAppTemplatePreview
+                              data={data}
+                              fetchFlowJson={!flowEligible || !hasBookings ? undefined : (flowName: string) => {
+                                const a2 = action(catalog, 'operations.whatsapp_flow_json');
+                                if (!a2) return Promise.reject(new Error(t('launch.previewFailed')));
+                                return call<FlowJson>(session, a2, { name: flowName });
+                              }}
+                            />
+                          </div>
+                        );
+                      })() : null}
 
                       {runsTotals ? (
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

@@ -59,7 +59,7 @@ import './launch-i18n';
  * already takes: a table this small drifting is a one-line fix, not worth a network round trip for
  * exactly one screen's preview.
  */
-const FLOW_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
+export const FLOW_ELIGIBLE_GOALS = new Set(['win_back', 'occasion', 'service_offer', 'package_offer']);
 
 // Which of three rewards a campaign gives (services/campaigns/app/core/models.py's own
 // REWARD_ENABLED_GOALS) — started as the `occasion`-only pilot, then `win_back`, then
@@ -76,7 +76,7 @@ const REWARD_ENABLED_GOALS = new Set(['occasion', 'win_back', 'service_offer', '
 // 2026-09-13) — every goal EXCEPT the ones with no launch card at all. Mirrored by goal name
 // (BUTTON_TYPES is keyed by template_type, which this screen never carries) the same way
 // FLOW_ELIGIBLE_GOALS above already mirrors BOOKING_TYPES.
-const BUTTON_ELIGIBLE_GOALS = new Set([
+export const BUTTON_ELIGIBLE_GOALS = new Set([
   'win_back', 'occasion', 'service_offer', 'package_offer', 'reward_loyal', 'announce',
 ]);
 
