@@ -51,9 +51,12 @@ s3 = ["aioboto3>=13.0,<15.0"]
 # Dev/test — PERMISSIVE ONLY.
 #   pytest   MIT
 #   httpx    BSD-3-Clause  (drives FastAPI TestClient)
+#   aioboto3 Apache-2.0  (tests/unit/test_s3_delete_toctou.py exercises the real S3 adapter
+#                          directly, not mocked — needs the driver actually importable)
 dev = [
     "pytest>=9.0.3,<10.0",
     "httpx>=0.27,<1.0",
+    "aioboto3>=13.0,<15.0",
 ]
 
 # CI security tools — PERMISSIVE ONLY.
