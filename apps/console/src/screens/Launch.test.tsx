@@ -209,3 +209,45 @@ describe('the redeemable-item picker on «كافئ المخلصين»', () => {
     expect(body.service_ids).toEqual(['svc_popular', 'svc_rare']);
   });
 });
+
+describe('the live audience-size sliders on «كافئ المخلصين»', () => {
+  it('sends today\'s defaults (90 days / 3 visits) when the owner never touches either slider', async () => {
+    previewCalls.length = 0;
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal" />);
+    await waitFor(() => expect(screen.getByText('من هم عملاؤك المخلصون؟')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(previewCalls.length).toBe(1));
+    const body = previewCalls[0] as { loyalty_window_days: number; loyalty_min_visits: number };
+    expect(body.loyalty_window_days).toBe(90);
+    expect(body.loyalty_min_visits).toBe(3);
+  });
+
+  it('dragging a slider after a preview exists re-asks with the new value, debounced', async () => {
+    previewCalls.length = 0;
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal" />);
+    await waitFor(() => expect(screen.getByText('من هم عملاؤك المخلصون؟')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'عرض ما سيصل' }));
+    await waitFor(() => expect(previewCalls.length).toBe(1));
+
+    const slider = screen.getByTestId('loyalty-window-days') as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '30' } });
+    // NOT YET — the 300ms debounce has not elapsed.
+    expect(previewCalls.length).toBe(1);
+
+    await waitFor(() => expect(previewCalls.length).toBe(2), { timeout: 1000 });
+    expect((previewCalls[1] as { loyalty_window_days: number }).loyalty_window_days).toBe(30);
+  });
+
+  it('never asks for a preview before the owner has pressed «عرض ما سيصل» once', async () => {
+    previewCalls.length = 0;
+    render(<Launch session={session} catalog={catalog} onDone={() => {}} initialGoalId="reward_loyal" />);
+    await waitFor(() => expect(screen.getByText('من هم عملاؤك المخلصون؟')).toBeTruthy());
+
+    const slider = screen.getByTestId('loyalty-min-visits') as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '10' } });
+    await new Promise((r) => setTimeout(r, 350));
+    expect(previewCalls.length).toBe(0);
+  });
+});

@@ -24,13 +24,14 @@
  * sentence is the only free field, deliberately (§8.4.1): a template Meta approved cannot be
  * rewritten in a browser, and a form asking him to write a message would be a form he abandons.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Cake, Clock, Gift, Info, Megaphone, RotateCcw, Search, Tag, type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
 import { HourRangePicker } from '../rj-ui/HourRangePicker';
+import { RangeSlider } from '../rj-ui/RangeSlider';
 import { Segmented } from '../rj-ui/Segmented';
 import { Toggle } from '../rj-ui/Toggle';
 import { WeekdayPicker } from '../rj-ui/WeekdayPicker';
@@ -270,6 +271,20 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
   const [serviceDemand, setServiceDemand] = useState<Record<string, number>>({});
 
   /**
+   * «كافئ المخلصين»'s OWN AUDIENCE THRESHOLDS (2026-09-12 backend, 2026-09-13 this control) —
+   * never a fixed 90-day/3-visit rule baked into the code (services/campaigns'
+   * `Campaign.loyalty_window_days`/`loyalty_min_visits` own note). Defaults match what every
+   * campaign got before this control existed, so a shop that never drags either slider sees
+   * exactly today's behaviour.
+   */
+  const [loyaltyWindowDays, setLoyaltyWindowDays] = useState(90);
+  const [loyaltyMinVisits, setLoyaltyMinVisits] = useState(3);
+  // DEBOUNCED — a slider fires many `input` events while it is being dragged, and a live preview
+  // re-fetch on every single one would flood the preview endpoint. 300ms of stillness before the
+  // real ask() call, cleared on every intervening move.
+  const loyaltyDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  /**
    * THE OWNER'S OWN RECURRING WINDOW (`Campaign.window_*`, every goal may set one since
    * 2026-09-12) — collapsed by default, exactly the mockup's own posture: most campaigns need no
    * window at all, and a form that opens with every optional field expanded is a form that reads
@@ -418,7 +433,11 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
     win_back: 'gone_missing', occasion: 'personal_occasion', reward_loyal: 'loyal_customer',
   };
 
-  const ask = async (goal: Goal) => {
+  // `loyaltyOverride` — THE SLIDER'S OWN FRESH VALUE, not the state it just asked for (2026-09-13).
+  // React's state update from the SAME `onChange` that triggers this debounced call has not
+  // necessarily committed yet by the time this closure runs; the event's own local `v` is never
+  // stale, so the live-preview call passes it straight through instead of trusting the state read.
+  const ask = async (goal: Goal, loyaltyOverride?: { windowDays?: number; minVisits?: number }) => {
     if (!previewAction) return;
     setBusy(true); setError(''); setPreview(null);
     try {
@@ -429,6 +448,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
         // MUTUALLY EXCLUSIVE — only `package_offer` ever sets the package fields.
         service_ids: serviceIds,
         package_ids: packageIds,
+        // «كافئ المخلصين»'s OWN THRESHOLDS — meaningless for every other goal, and today's
+        // defaults (90/3) for a goal that never touches the sliders below.
+        loyalty_window_days: loyaltyOverride?.windowDays ?? loyaltyWindowDays,
+        loyalty_min_visits: loyaltyOverride?.minVisits ?? loyaltyMinVisits,
         // THE BRANCH IS IN THE PREVIEW TOO, and that is the whole point of previewing: the count
         // he decides on must be the count that goes out.
         branch_id: branchId,
@@ -529,7 +552,10 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                 <button
                   key={g.goal}
                   type="button"
-                  onClick={() => { setPicked(g); setServiceIds([]); setPackageIds([]); }}
+                  onClick={() => {
+                    setPicked(g); setServiceIds([]); setPackageIds([]);
+                    setLoyaltyWindowDays(90); setLoyaltyMinVisits(3);
+                  }}
                   className={['flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-start transition-colors',
                              active ? 'bg-accent-soft ring-1 ring-inset ring-accent/30' : 'hover:bg-surface-2'].join(' ')}
                 >
@@ -680,6 +706,8 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
                       owner_text: ownerText,
                       service_ids: serviceIds,
                       package_ids: packageIds,
+                      loyalty_window_days: loyaltyWindowDays,
+                      loyalty_min_visits: loyaltyMinVisits,
                       branch_id: branchId,
                       offer_value: offerValue,
                       service_names: serviceIds.map((id) => (services ?? []).find((x) => x.id === id)?.name ?? ''),
@@ -750,6 +778,48 @@ export function Launch({ session, catalog, onDone, initialGoalId, owned }:
             onClose={() => setPreviewingReason(false)}
             onChosen={() => {}}
           />
+        ) : null}
+
+        {/* «من هم عملاؤك المخلصون؟» — reward_loyal ONLY. Two live sliders, never a fixed rule
+            (2026-09-13, the owner's own instruction) — dragging either re-asks the preview so
+            the reach count moves with the slider itself, not after a separate button press. */}
+        {picked.goal === 'reward_loyal' ? (
+          <div className="flex flex-col gap-3 rounded-card border border-border-subtle p-3">
+            <span className="text-sm font-medium">{t('launch.loyalty.title')}</span>
+            <RangeSlider
+              label={t('launch.loyalty.windowLabel')}
+              value={loyaltyWindowDays}
+              min={7}
+              max={365}
+              onChange={(v) => {
+                setLoyaltyWindowDays(v);
+                if (loyaltyDebounce.current) clearTimeout(loyaltyDebounce.current);
+                if (preview) {
+                  loyaltyDebounce.current = setTimeout(
+                    () => void ask(picked, { windowDays: v }), 300);
+                }
+              }}
+              valueLabel={tf(t, 'launch.loyalty.windowValue', { n: loyaltyWindowDays })}
+              testId="loyalty-window-days"
+            />
+            <RangeSlider
+              label={t('launch.loyalty.minVisitsLabel')}
+              value={loyaltyMinVisits}
+              min={1}
+              max={50}
+              onChange={(v) => {
+                setLoyaltyMinVisits(v);
+                if (loyaltyDebounce.current) clearTimeout(loyaltyDebounce.current);
+                if (preview) {
+                  loyaltyDebounce.current = setTimeout(
+                    () => void ask(picked, { minVisits: v }), 300);
+                }
+              }}
+              valueLabel={tf(t, 'launch.loyalty.minVisitsValue', { n: loyaltyMinVisits })}
+              testId="loyalty-min-visits"
+            />
+            <p className="text-xs text-text-secondary">{t('launch.loyalty.hint')}</p>
+          </div>
         ) : null}
 
         {/* متى تُطلق؟ — EVERY GOAL BUT `occasion`, which already answers this with its own day
