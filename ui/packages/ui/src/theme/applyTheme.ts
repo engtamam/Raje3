@@ -96,7 +96,15 @@ export function applyTheme(
   root.style.setProperty('--font-sans', s.font.sans);
   root.style.setProperty('--font-display', s.font.display);
   root.style.setProperty('--font-mono', s.font.mono);
+  // BUG FIXED HERE (2026-09-14): this set the CSS VARIABLE and stopped — no rule anywhere in
+  // index.css ever read `--root-font-pct` into an actual `font-size`, so the token was inert
+  // however it was set. Every `rem` unit on the page (every Tailwind spacing/type class this whole
+  // kit is built on) is computed from the ROOT ELEMENT'S OWN font-size, which only this line
+  // actually sets — the owner's own repeatable report ("100% still looks the same as it did
+  // before, if not bigger") was neither a placebo nor a caching issue: the number in
+  // theme.config.ts had never once reached the page.
   root.style.setProperty('--root-font-pct', `${s.rootFontPct}%`);
+  root.style.fontSize = `${s.rootFontPct}%`;
   // Focus-ring offset — the gap between a control's edge and its focus outline, so the ring reads on
   // any surface. A constant here (not per-appearance) but tokenised so a control on a tight/solid fill
   // can pull it inward via the `.focus-ring-inset` utility instead of hard-coding an offset.
