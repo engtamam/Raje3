@@ -32,7 +32,7 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { ConnectByBranch } from './Connect';
 import { AppGate } from './Locked';
-import { AiNotesCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane,
+import { AiNotesCard, AiToggleCard, DataPane, InvoicesPane, KeysPane, MsgWordLimitCard, ShopPane,
         WhatsAppVisitRegistrationCard, WhatsAppAutoRegisterCard } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { WalletPane } from './Wallet';
@@ -321,6 +321,10 @@ export function AccountScreen(
                   whether the OPERATOR'S ROLE could write, never whether the SHOP had bought the
                   bot. Same shape as every other app's lock (Locked.tsx's own AppGate). */}
               <AppGate appId="whatsapp" owned={owned} session={session} catalog={catalog}>
+                {/* THE MASTER SWITCH, FIRST — separate from the subscription itself (AppGate
+                    above already proved the shop bought the app); this is the owner's own
+                    runtime choice to keep the assistant quiet, reversible either direction. */}
+                <AiToggleCard session={session} catalog={catalog} />
                 <AiNotesCard session={session} catalog={catalog} />
                 <MsgWordLimitCard session={session} catalog={catalog} />
                 {/* ITS OWN, SECOND ownership check inside (feature.visit) — this shop already

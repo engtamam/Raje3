@@ -389,6 +389,79 @@ export function MsgWordLimitCard({ session, catalog }: { session: Session; catal
 }
 
 /**
+ * المفتاح الرئيسي — تشغيل/إيقاف المساعد الذكي بالكامل، منفصل تمامًا عن الاشتراك في تطبيق واتساب
+ * نفسه (services/operations/app/core/ai_toggle.py's own docstring: buying it and wanting it quiet
+ * right now are two different decisions). الإيقاف يقفل المساعد تمامًا — نفس سلوك محل غير مشترك
+ * إطلاقًا (whatsapp-assistant/core/licence.py::ToggleGatedLicence هو من يطبّقه فعليًا)، وليس حالة
+ * "إيقاف مؤقت" أخف — ولذلك يمرّ بنفس خطوة التأكيد الصريحة اللي تمرّ فيها WhatsAppVisitRegistrationCard
+ * جنبه، لا مجرد نقرة.
+ *
+ * ظاهرة فقط داخل بوابة تطبيق واتساب (AppGate بـ Account.tsx) — بلا فحص ملكية ثانٍ من داخلها: هذا
+ * الإعداد يخص التطبيق نفسه، لا ميزة فرعية تحته.
+ */
+export function AiToggleCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const { t } = useOperatorI18n();
+  const read = action(catalog, 'operations.ai_toggle');
+  const write = action(catalog, 'operations.set_ai_toggle');
+  const [enabled, setEnabled] = useState<boolean | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!read) { setEnabled(null); return; }
+    call<{ enabled?: boolean }>(session, read)
+      .then((x) => setEnabled(x.enabled !== false))
+      .catch(() => setEnabled(null));
+  }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!read || enabled === null) return null;
+  if (enabled === undefined) return <Skeleton height={100} />;
+
+  async function flip(next: boolean) {
+    if (!write) return;
+    setBusy(true);
+    setError('');
+    try {
+      const row = await call<{ enabled?: boolean }>(session, write, { enabled: next });
+      setEnabled(row.enabled !== false);
+    } catch (err) {
+      // THE OLD VALUE STAYS ON THE SCREEN — a toggle that moves on a failed write claims a state
+      // that was never actually written.
+      setError(err instanceof Error ? err.message : t('accountPanes.aiToggle.saveFailed'));
+    } finally {
+      setBusy(false);
+      setConfirming(null);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span className="text-sm font-medium">{t('accountPanes.aiToggle.title')}</span>
+          <span className="text-xs text-text-secondary">{t('accountPanes.aiToggle.desc')}</span>
+        </span>
+        <Toggle checked={enabled === true} disabled={busy || !write}
+               onChange={(next) => setConfirming(next)}
+               ariaLabel={t('accountPanes.aiToggle.title')} testId="ai-toggle" />
+      </div>
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      <ConfirmDialog open={confirming !== null} onClose={() => setConfirming(null)}
+                    onConfirm={() => confirming !== null && void flip(confirming)}
+                    busy={busy} danger={confirming === false}
+                    title={confirming
+                      ? t('accountPanes.aiToggle.confirmEnableTitle')
+                      : t('accountPanes.aiToggle.confirmDisableTitle')}
+                    body={confirming
+                      ? t('accountPanes.aiToggle.confirmEnableBody')
+                      : t('accountPanes.aiToggle.confirmDisableBody')} />
+    </section>
+  );
+}
+
+/**
  * تسجيل الزيارة عبر واتساب — يوسّع مين يقدر يسجّل زيارة باسم موظف حقيقي (رقم واتساب الموظف نفسه،
  * بلا كلمة مرور في تلك اللحظة)، فهو قرار ثقة المالك وحده (`operations.manage`، لا `operations.read`
  * — نفس التمييز اللي شاشة تسجيل الزيارة العادية تطلبه). مُسجَّل بسجل التدقيق كـ«حرج» (critical) —
