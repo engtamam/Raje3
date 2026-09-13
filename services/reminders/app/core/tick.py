@@ -206,7 +206,7 @@ class Tick:
                  batch: int = 100, telemetry=None, quota=None, approved=None,
                  reach_window: int = 0, ceiling_defer_seconds: int = 0, ceiling=None,
                  holdout_enabled: bool = False, holdout_share: int = 10,
-                 public_base_url: str = "") -> None:
+                 public_base_url: str = "", service_due_settings=None) -> None:
         self._store = store
         # WHERE A CUSTOMER READS HIS PAGE. Held here rather than read from settings deeper
         # down: the renderer must not know what a Settings object is, and a link composed
@@ -259,6 +259,12 @@ class Tick:
         self._holdout_share = holdout_share
         self._batch = batch
         self._t = telemetry
+        # «حان وقت الخدمة»'s OWN campaigns-side settings (2026-09-13) — see
+        # `core/service_due_settings.py`. `None` falls back to the same module's `NullServiceDueSettings`
+        # so a Tick built the old way (every existing test, and any deployment that has not wired
+        # campaigns' peer yet) keeps sending exactly what it always has.
+        from app.core.service_due_settings import NullServiceDueSettings
+        self._service_due_settings = service_due_settings or NullServiceDueSettings()
 
     async def prune_reach(self, *, now: int) -> int:
         """Drop reach rows that have aged out of the 24h window. GLOBAL, not per-tenant.
@@ -673,6 +679,37 @@ class Tick:
             res.reasons["أوقفتَ هذا النوع من الرسائل"] = (
                 res.reasons.get("أوقفتَ هذا النوع من الرسائل", 0) + 1)
             return
+
+        # ── 0b. «حان وقت الخدمة»'s OWN campaigns-side settings ────────────────────────────────
+        # A SEPARATE GATE FROM STEP 0 ABOVE, DELIBERATELY (2026-09-13). Step 0 is reminders' own
+        # per-reason switch (`choices.enabled`) — an owner customising his own wordings screen.
+        # This is campaigns' new standing settings record for the goal (on/off + reward), read
+        # once this session's own review reclassified the goal `marketing` and gave it a reward
+        # choice like every other marketing goal. Two switches, not one folded into the other: the
+        # existing per-reason toggle stays exactly the customer-facing "reminders/no_response"
+        # switch it always was, and this is an ADDITIONAL, independent gate — both must allow the
+        # send. SAME SHAPE AS STEP 0's OWN REFUSAL (closed, logged, counted) so an owner reading
+        # «رسائلي» sees one consistent vocabulary regardless of which switch stopped a message.
+        if reason in ("service_due", "no_response"):
+            due_settings = await self._service_due_settings.load(tenant)
+            if not due_settings.active:
+                off = "أوقف صاحب المحل هذا التذكير من إعدادات الحملات"
+                await self._log.append(tenant, as_row(SendLog(
+                    tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                    schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                    outcome="suppressed", reason=off)))
+                await self._close(tenant, row, "suppressed", off, now)
+                res.suppressed += 1
+                res.note(off)
+                return
+            # REWARD_TYPE/REWARD_POINTS ARE READ AND CARRIED, NOT YET RENDERED INTO THE MESSAGE.
+            # `svc_service_reminder`'s approved body has four fixed variables — customer, shop,
+            # service, stop-link — and no spare slot a reward sentence could occupy without a new
+            # template variant and fresh Meta approval (a separate task; see this session's own
+            # report). Stashed on the row so that work, once it lands, has the value ready rather
+            # than a second read to add.
+            row["reward_type"] = due_settings.reward_type
+            row["reward_points"] = due_settings.reward_points
 
         # ── 1. claim ──────────────────────────────────────────────────────────────────────────
         # Two replicas run this cron. Without the claim they both read `pending` and both send.

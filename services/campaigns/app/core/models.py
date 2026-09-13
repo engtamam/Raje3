@@ -35,7 +35,7 @@ RUNS = "campaign_runs"
 
 # What the owner picks. Not a taxonomy they learn — four cards with two words each (spec §10.9).
 GOALS = ("win_back", "reward_loyal", "announce", "occasion", "service_offer",
-        "package_offer")
+        "package_offer", "service_due")
 
 # Which template type each goal sends, and its regulatory class. The class is NOT the owner's
 # choice: every campaign here is promotional (marketing).
@@ -63,6 +63,14 @@ GOAL_TEMPLATE = {
     # cross-service cycle for this would be a real, separate design question this feature does not
     # answer by guessing.
     "package_offer": ("mkt_offer", "marketing"),
+    # "حان وقت الخدمة" — reclassified `marketing` this session (CST's own rule: reminding of a
+    # service is a promotional message, not a service one). UNLIKE EVERY OTHER GOAL HERE, this one
+    # sends no message of its own: reminders' `scheduling.py` computes the precise per-service cycle
+    # and schedules the row directly, at visit time, and keeps doing so untouched. What lives here
+    # is SETTINGS ONLY — on/off, and which of two rewards it hands out — read by reminders at send
+    # time (services/reminders' own new peer client) rather than fired by this service's own
+    # tick/dispatch. See the one settings record's own note below (`SERVICE_DUE_SETTINGS_ID`).
+    "service_due": ("svc_service_reminder", "marketing"),
 }
 
 # WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.
@@ -151,7 +159,15 @@ REWARD_TYPES = ("discount", "gift", "points")
 #: regexes this whole file, unscoped, for a two-quoted-string pair inside parentheses to find
 #: `GOAL_TEMPLATE`'s own goal-to-class entries; a tuple of two strings here reads as a second,
 #: bogus entry of that same shape and corrupts that check. Curly braces do not match it.
-REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer"}
+#: `service_due` JOINS THIS SET TOO (2026-09-13), but it is NOT validated through
+#: `validate_reward` below — its own settings route (`service_due_settings.py`) validates it with a
+#: narrower rule of its own. See that module's docstring for why: this goal never carries
+#: `scope_service_ids`/`offer_value` at all (it is a standing settings record, not a launched
+#: campaign), so `gift`'s scope requirement and `discount`'s amount requirement do not apply to it
+#: the way they do to every other member of this set — a `gift` reward for a reminder already ABOUT
+#: one specific service is a strange promise, and this set exists so `campaign_slots()`'s own
+#: "reward" branch and every OTHER goal's validation keep working exactly as they do today.
+REWARD_ENABLED_GOALS = {"occasion", "win_back", "service_offer", "package_offer", "service_due"}
 
 
 def validate_reward(*, reward_type: str, reward_points: int, scope_service_ids: list,
@@ -208,6 +224,15 @@ GOAL_TRIGGER = {
     "package_offer": "manual",     # same reasoning: a package offer is this week's decision
     "announce": "manual",          # news is not recurring
     "occasion": "scheduled",
+    # STANDING, LIKE `win_back`/`reward_loyal` — the same "always on unless paused" shape, since
+    # this goal's one record IS the settings, never a thing that finishes. NOTHING ACTUALLY READS
+    # THIS ENTRY FOR `service_due` TODAY: it has no card in `goals.py::CARDS` (no launch screen, no
+    # audience, no `dispatch.fire()` of its own — reminders' own `scheduling.py` decides the timing
+    # entirely on its own, untouched by this service's tick), so `resolve_goal()`/`_behaviour()`
+    # never look this goal up. Set anyway, deliberately, rather than left absent: the day a screen
+    # or a report DOES ask "how does this goal behave", the honest answer is here rather than a
+    # `KeyError` or a silent `.get(..., "manual")` default that would describe it wrong.
+    "service_due": "standing",
 }
 
 # draft → active → paused → done. A STANDING campaign is never done: it has no end, only a pause.

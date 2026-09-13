@@ -151,6 +151,7 @@ class Container:
     tick: Any = None
     rating_consumer: Any = None
     app_entitlement: Any = None
+    service_due_settings: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -334,6 +335,20 @@ def build_container(settings: Settings) -> Container:
         path=settings.NOTIFICATION_TEMPLATES_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN,
         timeout=settings.PEER_TIMEOUT_SECONDS)
+
+    # «حان وقت الخدمة»'s OWN on/off + reward settings, now campaigns' — absent when
+    # `CAMPAIGNS_SERVICE_URL` is unset, same "safe default, never a boot-time refusal" posture as
+    # `loyalty`'s own optional peer in campaigns' own container.
+    from app.core.service_due_settings import HttpServiceDueSettings, NullServiceDueSettings
+
+    container.service_due_settings = (
+        HttpServiceDueSettings(
+            url=settings.CAMPAIGNS_SERVICE_URL,
+            path=settings.CAMPAIGNS_SERVICE_DUE_SETTINGS_PATH,
+            token=settings.INTERNAL_SERVICE_TOKEN,
+            timeout=settings.PEER_TIMEOUT_SECONDS,
+            ttl_seconds=settings.SERVICE_DUE_SETTINGS_CACHE_TTL_SECONDS)
+        if settings.CAMPAIGNS_SERVICE_URL else NullServiceDueSettings())
     container.identity = build_identity(settings)
     container.scheduler = Scheduler(
         store=container.datastore, cfg=adaptive_cfg, eng_cfg=eng_cfg,
@@ -360,7 +375,8 @@ def build_container(settings: Settings) -> Container:
                           reach_window=settings.REACH_WINDOW_SECONDS,
                           ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS,
                           ceiling=container.ceiling,
-                          public_base_url=settings.PUBLIC_BASE_URL)
+                          public_base_url=settings.PUBLIC_BASE_URL,
+                          service_due_settings=container.service_due_settings)
     # MESSAGING IS A FEATURE OF THE APP THAT RECORDS THE EVENT, not a product of its own
     # (2026-09-10, retiring الأساس) — asked on every owner write here (schedules, rules,
     # templates) as an OR across `feature.visit`/`feature.bookings`: a shop keeps reading its

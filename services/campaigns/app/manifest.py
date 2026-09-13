@@ -88,6 +88,10 @@ def build_manifest(
             # than the tick above, affordable because it claims only what job-service says is
             # actually due, never scanning every campaign this tenant or any other holds.
             {"path": "/internal/campaigns/jobs/run", "tier": "internal", "method": "POST"},
+            # reminders' own peer client reads this at every send of `svc_service_reminder`
+            # (2026-09-13) — see core/service_due_settings.py.
+            {"path": "/internal/campaigns/service-due-settings", "tier": "internal",
+             "method": "GET"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              "erasure_category": "subject"},
             {"path": "/api/v1/campaigns/whoami", "tier": "user", "method": "GET"},
@@ -98,6 +102,10 @@ def build_manifest(
             {"path": "/api/v1/campaigns", "tier": "user", "method": "GET"},
             {"path": "/api/v1/campaigns/{}/runs", "tier": "user", "method": "GET"},
             {"path": "/api/v1/campaigns/{}/pause", "tier": "user", "method": "POST"},
+            # «حان وقت الخدمة»'s own standing settings — never a launch screen (no audience, no
+            # send count of its own): on/off and reward choice, upserted in place (2026-09-13).
+            {"path": "/api/v1/campaigns/service-due-settings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/service-due-settings", "tier": "user", "method": "PUT"},
             # THE APP-STORE CARD'S OWN CONTENT (app/core/features.py) — no `campaigns.*`
             # capability, deliberately: a shop deciding whether to buy this app has to read what
             # it would get.

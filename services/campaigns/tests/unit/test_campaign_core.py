@@ -204,7 +204,17 @@ def test_reward_enabled_goals_now_covers_the_offer_goals_too():
     (already built around redeeming an existing balance) and `announce` (offers nothing at all)
     stay out."""
     from app.core.models import REWARD_ENABLED_GOALS
-    assert REWARD_ENABLED_GOALS == {"occasion", "win_back", "service_offer", "package_offer"}
+    assert REWARD_ENABLED_GOALS == {"occasion", "win_back", "service_offer", "package_offer",
+                                    "service_due"}
+
+
+def test_service_due_is_a_standing_goal_sending_the_service_reminder_template():
+    """No card in goals.py::CARDS — this goal is never launched, only configured — but its own
+    template/class/trigger entries must still be right for `Campaign.__post_init__` to fall back
+    to when a settings row is built directly (service_due_settings.py's own `save()`)."""
+    assert GOAL_TEMPLATE["service_due"] == ("svc_service_reminder", "marketing")
+    from app.core.models import GOAL_TRIGGER
+    assert GOAL_TRIGGER["service_due"] == "standing"
 
 
 def test_validate_reward_refuses_an_unknown_type():

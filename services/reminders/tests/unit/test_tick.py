@@ -879,6 +879,71 @@ def test_a_reason_the_shop_switched_off_sends_nothing_and_does_not_come_back(st)
     assert res2.scanned == 0
 
 
+# ── campaigns' own on/off + reward settings for this same goal (2026-09-13) ───────────────────
+class _FakeServiceDueSettings:
+    """A stand-in for `core.service_due_settings.HttpServiceDueSettings`, same shape as the
+    fakes used elsewhere in this suite for a peer this test wants full control over."""
+
+    def __init__(self, *, active=True, reward_type="discount", reward_points=0):
+        from app.core.service_due_settings import ServiceDueSettings
+        self._answer = ServiceDueSettings(active=active, reward_type=reward_type,
+                                          reward_points=reward_points)
+
+    async def load(self, tenant):
+        return self._answer
+
+
+def test_campaigns_turning_it_off_suppresses_the_send_with_its_own_reason(st):
+    """A SEPARATE GATE FROM THE REASON SWITCH ABOVE — this is campaigns' own standing settings
+    record, not `ChoiceStore`."""
+    sched(st)
+    s = FakeSender()
+    res = go(st, s, service_due_settings=_FakeServiceDueSettings(active=False))
+    assert s.calls == [] and res.sent == 0 and res.suppressed == 1
+    assert "أوقف صاحب المحل" in "".join(res.reasons)
+
+
+def test_campaigns_leaving_it_on_with_the_untouched_default_sends_exactly_as_before(st):
+    """`active=True, reward_type="discount", reward_points=0` — the untouched default — must
+    reproduce today's send byte for byte: no reward sentence, no different variables."""
+    sched(st)
+    s = FakeSender()
+    res = go(st, s, service_due_settings=_FakeServiceDueSettings())
+    assert res.sent == 1
+    assert s.calls[0]["variables"] == ["أحمد", "ورشة النخبة", "قص شعر"]
+
+
+def test_campaigns_a_configured_points_reward_still_sends_the_unchanged_message_today(st):
+    """See this session's own report: `svc_service_reminder`'s approved body has no spare slot for
+    a reward sentence yet, so a configured reward is stored on the row (ready for a future
+    template variant) but does not change what goes out today."""
+    sched(st)
+    s = FakeSender()
+    res = go(st, s, service_due_settings=_FakeServiceDueSettings(
+        reward_type="points", reward_points=20))
+    assert res.sent == 1
+    assert s.calls[0]["variables"] == ["أحمد", "ورشة النخبة", "قص شعر"]
+
+
+def test_campaigns_off_applies_to_the_no_response_ladder_rung_too(st):
+    sched(st, kind="ladder_1", template_type="svc_service_reminder")
+    s = FakeSender()
+    res = go(st, s, service_due_settings=_FakeServiceDueSettings(active=False))
+    assert s.calls == [] and res.suppressed == 1
+
+
+def test_campaigns_setting_never_touches_an_unrelated_template(st):
+    """The gate only looks at `service_due`/`no_response` — an ordinary visit confirmation must
+    never ask campaigns anything, let alone be suppressed by it."""
+    sched(st, kind="visit_confirmation", template_type="svc_visit_confirmation")
+    library = [{"name": "svc_visit_confirmation_brief", "type": "svc_visit_confirmation",
+               "tone": "brief", "class": "service", "variables": [1, 2, 3],
+               "fills": ["system", "system", "catalogue"], "active": True}]
+    s = FakeSender()
+    res = go(st, s, library=library, service_due_settings=_FakeServiceDueSettings(active=False))
+    assert res.sent == 1
+
+
 def test_the_switch_is_read_per_reason_not_per_template(st):
     """The cycle reminder and the ladder rung share a template type. Switching the ladder off must
     not silence the reminder that produces it."""

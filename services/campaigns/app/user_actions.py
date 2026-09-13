@@ -94,4 +94,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "group": "الحملات",
         "help": "توقف القاعدة الدائمة. سجلّها يبقى.",
     },
+    {
+        "id": "campaigns.service_due_settings_read", "label": "إعدادات حان وقت الخدمة",
+        "method": "GET", "path": "/api/v1/campaigns/service-due-settings",
+        "capability": "campaigns.read", "group": "الحملات",
+        "help": "هل التذكير مفعّل، وأي مكافأة يمنحها.",
+    },
+    {
+        "id": "campaigns.service_due_settings_write", "label": "تعديل إعدادات حان وقت الخدمة",
+        "method": "PUT", "path": "/api/v1/campaigns/service-due-settings",
+        "capability": "campaigns.manage", "group": "الحملات",
+        "help": "أوقف التذكير أو شغّله، واختر مكافأته — بلا إطلاق حملة جديدة.",
+    },
 ]

@@ -17,6 +17,7 @@ from app.config import Settings, get_settings
 from app.core.erasure import CampaignsErasure
 from app.core.tick import TickResult
 from app.core import backup as _backup
+from app.core import service_due_settings as SDS
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
 
@@ -82,6 +83,22 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     # the pseudonym operations published.
     eraser = CampaignsErasure(store=c.datastore, max_scan=s.ERASURE_MAX_SCAN)
     return await eraser.erase(body.tenant, body.subject)
+
+
+@router.get("/campaigns/service-due-settings", dependencies=[Depends(require_internal_token)])
+async def service_due_settings(request: Request, tenant: str = "") -> dict:
+    """What reminders needs, at send time, for every «حان وقت الخدمة» / «لم يستجب» send.
+
+    THE DEFAULTS ARE THE WHOLE POINT: a shop that never opened this settings screen gets
+    `active=True, reward_type="discount", reward_points=0` — exactly today's plain reminder,
+    unchanged, forever (`SDS.DEFAULTS`). Called by reminders' own peer client
+    (`HttpServiceDueSettings`/`NullServiceDueSettings`), never by the console directly — the owner's
+    OWN read/write of these three fields is the public `/campaigns/service-due-settings` route
+    above, guarded by a user token; this one is guarded by the internal token, the same pattern
+    every other service-to-service read in this file already follows.
+    """
+    settings = await SDS.load(request.app.state.container.datastore, tenant)
+    return settings.as_dict()
 
 
 class TickIn(BaseModel):

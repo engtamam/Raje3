@@ -92,6 +92,10 @@ def test_the_goals_screen_still_carries_every_type_the_active_templates_covered(
     assert r.status_code == 200, r.text
     goals = r.json()["goals"]
     from app.core.models import GOAL_TEMPLATE
-    assert len(goals) == len(GOAL_TEMPLATE)
+    # `service_due` (2026-09-13) IS DELIBERATELY NOT A CARD — it has no card in `goals.py::CARDS`:
+    # no audience, no send count, nothing to launch, only a standing settings record
+    # (`/campaigns/service-due-settings`). One fewer card than `GOAL_TEMPLATE` entries is therefore
+    # correct now, not a regression of this screen's own completeness check.
+    assert len(goals) == len(GOAL_TEMPLATE) - 1
 
 

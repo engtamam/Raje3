@@ -168,6 +168,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "log is down keeps sending what the owner just asked us to stop",
     },
     {
+        "action": "campaign.service_due_settings_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "campaign",
+        "why": "an owner switching «حان وقت الخدمة» off, or choosing a reward for it, is a decision "
+               "an operator asks about later — «why did nobody get this reminder last week». Not "
+               "critical: refusing the edit because the log is down would leave the shop stuck on "
+               "a setting it just tried to change",
+    },
+    {
         "action": "campaign.audience_cap_changed",
         "source": "admin",
         "critical": True,

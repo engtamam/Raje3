@@ -30,6 +30,7 @@ from app.core.goals import GOAL_CATEGORIES, cards, resolve_goal
 from app.core.models import (GOAL_TEMPLATE, REWARD_ENABLED_GOALS, Campaign, as_row,
                              offers_something, validate_loyalty_window, validate_reward,
                              validate_window)
+from app.core import service_due_settings as SDS
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.goal_stats import read_goal_stats, record_use
 from app.core import press
@@ -752,6 +753,45 @@ async def pause(request: Request, campaign_id: str,
     row["state"] = "paused"
     await c.datastore.put("campaigns", f"{_tenant(principal)}|{campaign_id}", row)
     return {"campaign_id": campaign_id, "state": "paused"}
+
+
+class ServiceDueSettingsIn(BaseModel):
+    active: bool = True
+    reward_type: str = Field(default="discount", max_length=16)
+    reward_points: int = Field(default=0, ge=0, le=100000)
+
+
+@router.get("/service-due-settings", dependencies=[Depends(rate_limit)])
+async def get_service_due_settings(request: Request,
+                                   principal: Principal = Depends(_READ)) -> dict:
+    """The owner's own screen for «حان وقت الخدمة»'s settings — never a launch screen (spec: this
+    goal has no audience, no send count, no card in `goals.py::CARDS`)."""
+    settings = await SDS.load(request.app.state.container.datastore, _tenant(principal))
+    return settings.as_dict()
+
+
+@router.put("/service-due-settings", dependencies=[Depends(rate_limit)])
+async def set_service_due_settings(request: Request, body: ServiceDueSettingsIn,
+                                   principal: Principal = Depends(_MANAGE)) -> dict:
+    """Upsert the ONE settings record this tenant ever has for this goal — never a new campaign.
+
+    NO LICENCE CHECK, NO PRESS-DEDUP, NO WINDOW/AUDIENCE VALIDATION — none of the machinery
+    `POST /campaigns` needs applies here, because nothing is launched or sent from this route: it
+    only ever writes three fields an owner can change at any time, as many times as they like.
+    """
+    error = SDS.validate(reward_type=body.reward_type, reward_points=body.reward_points)
+    if error:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST", "reason": error})
+    tenant = _tenant(principal)
+    await request.app.state.auditor.record(
+        "campaign.service_due_settings_changed", actor=principal.subject, tenant=tenant,
+        resource=f"campaign:{SDS.SETTINGS_ID}", ip=request.client.host if request.client else "")
+    campaign = await SDS.save(request.app.state.container.datastore, tenant,
+                              active=body.active, reward_type=body.reward_type,
+                              reward_points=body.reward_points)
+    return {"active": body.active, "reward_type": campaign.reward_type,
+            "reward_points": campaign.reward_points}
 
 
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
