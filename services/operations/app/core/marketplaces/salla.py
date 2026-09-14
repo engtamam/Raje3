@@ -214,6 +214,36 @@ class SallaService:
         await self._s.put(SALLA_CONNECTIONS, tenant, {"tenant_key": tenant, **asdict(row)})
         return row
 
+    async def update_tokens(self, tenant: str, *, access_token: str, refresh_token: str,
+                            expires_at: int) -> SallaConnection | None:
+        """A refresh's own write — ONLY the three token fields change, everything else (which
+        Salla store, when it was first connected) stays exactly as it was. `None` when the
+        connection was removed between the scan that found it due and this write actually
+        landing (an owner disconnecting mid-sweep) — the caller treats that as nothing left to
+        refresh, not a failure."""
+        existing = await self.connection_for(tenant)
+        if existing is None:
+            return None
+        row = SallaConnection(
+            tenant=tenant, merchant_id=existing.merchant_id, store_name=existing.store_name,
+            access_token=access_token, refresh_token=refresh_token, expires_at=expires_at,
+            scope=existing.scope, connected_at=existing.connected_at,
+            updated_at=int(time.time()))
+        await self._s.put(SALLA_CONNECTIONS, tenant, {"tenant_key": tenant, **asdict(row)})
+        return row
+
+    async def connections_expiring_before(self, cutoff: int, *, limit: int = 500) -> list[SallaConnection]:
+        """Every live connection whose access token goes stale before `cutoff` — read by the
+        daily refresh-scan (see api/internal.py's own `salla_refresh_scan`). A plain
+        `scan_all` + filter, not `find()` (equality-only, cannot express "before"): the expected
+        row count is one per tenant that ever connected Salla, nowhere near a hot-path scale."""
+        rows = await self._s.scan_all(SALLA_CONNECTIONS, limit=limit)
+        out = []
+        for row in rows:
+            if int(row.get("expires_at") or 0) < cutoff:
+                out.append(SallaConnection(**{k: v for k, v in row.items() if k != "tenant_key"}))
+        return out
+
     async def record_event(self, *, merchant_id: str, event: str, tenant: str,
                            verified: bool) -> SallaEvent:
         """A durable, minimal receipt that a webhook arrived — the future business action reads

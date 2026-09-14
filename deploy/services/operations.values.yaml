@@ -333,6 +333,10 @@ env:
   # (bring-up.sh's "public address" step patches any values file declaring this key with the
   # real DOMAIN) — the value here is only what a fresh install starts from before that runs.
   PUBLIC_BASE_URL: "https://kobo-cloud.com"
+  # job-service — the platform's own durable scheduler (adapters/job_service.py), Salla's token
+  # refresh being this service's first use of it. Empty means NullJobService, like every other
+  # optional peer here: the refresh scan simply finds nothing to enqueue.
+  JOB_SERVICE_URL: "http://job-service:8000"
   # Reconciling Meta's verdict: our list of connected shops, notification-service's read.
   NOTIFICATION_TEMPLATE_SYNC_PATH: "/internal/whatsapp/templates/sync"
   # The internal twins base-services v0.16.6 added in answer to our escalation: `register` is a
@@ -476,6 +480,21 @@ cronJobs:
   - name: template-publish
     schedule: "47 * * * *"
     path: /internal/operations/templates/publish
+  # SALLA TOKEN REFRESH — the scan (wide, rare) and the run (narrow, frequent), same split as
+  # campaigns' own tick/jobs-run pair. See app/api/internal.py's own module note for the full
+  # reasoning: an access token dead in two weeks with no scheduled renewal is a silent outage.
+  #
+  # DAILY, AT :14 — the scan reads every Salla connection this fleet holds; a five-day refresh
+  # margin means missing a day costs nothing, so once a day is plenty.
+  - name: salla-refresh-scan
+    schedule: "14 4 * * *"
+    path: /internal/operations/salla/refresh-scan
+  # EVERY FEW MINUTES, AT AN OFFSET — a claim is an indexed read of only what job-service says is
+  # actually due, never a scan of this service's own datastore, so a tight cadence costs nothing
+  # extra the way it would running the scan above that often.
+  - name: salla-jobs-run
+    schedule: "2-59/5 * * * *"
+    path: /internal/operations/salla/jobs/run
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

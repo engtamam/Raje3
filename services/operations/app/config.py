@@ -264,6 +264,10 @@ class Settings(BaseSettings):
     # for the whole app in the Partners Portal's own webhook settings, not per merchant. Verified
     # in core/marketplaces/salla.py::verify_signature.
     SALLA_WEBHOOK_SECRET: str = ""
+    # job-service — the platform's own durable scheduler (adapters/job_service.py). Empty means
+    # NullJobService, same posture as every other optional peer URL in this file: the refresh
+    # scan simply finds nothing to enqueue rather than crashing.
+    JOB_SERVICE_URL: str = ""                # e.g. http://job-service:8000
     # Whether a shop has a WhatsApp account, ASKED of notification-service rather than stored: a
     # copy here is a second answer to the same question, and the first disagreement refuses a
     # subscription from a shop that connected an hour ago.

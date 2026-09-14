@@ -23,6 +23,7 @@ from app.core import scheduling
 from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
 from app.core import wallet_topup_reconcile as wallet_topup_core
+from app.adapters import job_service as job_service_core
 from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
@@ -2372,6 +2373,105 @@ async def wallet_topups_reconcile(request: Request) -> dict:
             "billing.wallet_topups_reconciled", actor="", tenant="", resource="wallet-topups",
             ip=request.client.host if request.client else "")
     return out.to_dict()
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  SALLA TOKEN REFRESH — TWO ROUTES, THE SAME SPLIT campaigns/app/api/internal.py ALREADY USES.
+#
+#  A Salla access token lives two weeks, its refresh token a month, and BOTH die silently with no
+#  way back but a full reinstall if nobody renews them in time. A daily blind sweep that calls
+#  Salla synchronously for every connection has no retry and no visibility when one specific
+#  shop's refresh keeps failing (a revoked app, an owner who removed us from their Salla admin) —
+#  job-service already solves exactly that: durable enqueue, retry with backoff, a dead-letter
+#  queue a person can actually look at instead of a line buried in a cron pod's own log.
+#
+#  SCAN (daily, wide) FINDS WHAT IS DUE; RUN (every few minutes, narrow) DOES THE WORK. Same
+#  reasoning as campaigns' own split: the scan is the only piece that has to read every
+#  connection, so it runs rarely; the actual refresh call is claimed work, bounded per tick,
+#  costing nothing extra to run often.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+#: Refresh five days before the access token actually expires — a daily scan therefore gets at
+#: least four more chances at any one connection before it would actually go stale, and nowhere
+#: near the 30-day refresh-token expiry either.
+_SALLA_REFRESH_MARGIN_SECONDS = 5 * 24 * 3600
+
+
+@router.post("/operations/salla/refresh-scan", dependencies=[Depends(require_internal_token)])
+async def salla_refresh_scan(request: Request) -> dict:
+    """Find every Salla connection whose access token goes stale soon, and enqueue ONE refresh
+    job per connection — driven by a CronJob once a day. `unique_key` is scoped to the
+    connection's CURRENT `expires_at`, not just its tenant: once a refresh actually lands, the
+    row's `expires_at` moves forward, so tomorrow's scan (if this one's job has not run yet, or
+    already ran and pushed the expiry out) mints a genuinely new key rather than colliding with
+    an old one job-service has already claimed or finished.
+    """
+    c = request.app.state.container
+    now = int(time.time())
+    rows = await c.salla.connections_expiring_before(now + _SALLA_REFRESH_MARGIN_SECONDS)
+    enqueued = unavailable = 0
+    for row in rows:
+        try:
+            await c.jobs.enqueue(
+                queue="salla", tenant=row.tenant, type="salla.refresh_token", payload={},
+                unique_key=f"salla-refresh:{row.tenant}:{row.expires_at}")
+            enqueued += 1
+        except job_service_core.JobServiceUnavailable:
+            # job-service is not configured on this deployment — the same connection is simply
+            # found again tomorrow; nothing here is lost, only delayed indefinitely until it is.
+            unavailable += 1
+    return {"scanned": len(rows), "enqueued": enqueued, "unavailable": unavailable}
+
+
+@router.post("/operations/salla/jobs/run", dependencies=[Depends(require_internal_token)])
+async def salla_jobs_run(request: Request) -> dict:
+    """job-service's own claim loop, from this service's side — a CronJob drives THIS every few
+    minutes, much tighter than the scan above, because a claim is an indexed read of only what is
+    actually due, never a scan of every connection. Same shape as campaigns' own
+    `POST /campaigns/jobs/run`. `NullJobService.claim()` always returns `[]`, so this route is a
+    harmless no-op wherever `JOB_SERVICE_URL` is unset.
+    """
+    from starlette.concurrency import run_in_threadpool
+
+    c = request.app.state.container
+    now = int(time.time())
+    claimed = await c.jobs.claim(worker=f"salla-{now}", queue="salla", batch=20)
+    refreshed = skipped = failed = 0
+    for job in claimed:
+        job_id, lease_token = job.get("id", ""), job.get("lease_token", "")
+        tenant = str(job.get("tenant") or "")
+        try:
+            conn = await c.salla.connection_for(tenant)
+            if conn is None:
+                # Disconnected between the scan and this claim — nothing left to refresh, and
+                # not a failure: acked so it never retries a connection that no longer exists.
+                await c.jobs.ack(job_id, lease_token, {"skipped": "not_connected"})
+                skipped += 1
+                continue
+            tokens = await run_in_threadpool(c.salla.client.refresh, conn.refresh_token)
+            if not tokens or not tokens.get("access_token"):
+                await c.jobs.nack(job_id, lease_token, "salla_refresh_failed")
+                failed += 1
+                continue
+            new_expires = now + int(tokens.get("expires") or 0)
+            # SALLA ROTATES THE REFRESH TOKEN ON EVERY CALL (docs.salla.dev/421118m0's own
+            # warning) — the OLD one is invalid the instant this response arrives, so falling
+            # back to `conn.refresh_token` here would silently re-store an already-dead token
+            # rather than fail loud; the response not carrying one is answered as a failure.
+            new_refresh = str(tokens.get("refresh_token") or "")
+            if not new_refresh:
+                await c.jobs.nack(job_id, lease_token, "salla_no_refresh_token_returned")
+                failed += 1
+                continue
+            await c.salla.update_tokens(
+                tenant, access_token=str(tokens.get("access_token")),
+                refresh_token=new_refresh, expires_at=new_expires)
+            await c.jobs.ack(job_id, lease_token, {"refreshed": True})
+            refreshed += 1
+        except Exception as exc:                                     # noqa: BLE001
+            failed += 1
+            await c.jobs.nack(job_id, lease_token, str(exc)[:200])
+    return {"claimed": len(claimed), "refreshed": refreshed, "skipped": skipped, "failed": failed}
 
 
 @router.post("/operations/templates/sync-approvals",

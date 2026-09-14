@@ -146,6 +146,37 @@ def test_connection_for_merchant_is_none_for_an_unknown_merchant():
     assert run(svc.connection_for_merchant("does-not-exist")) is None
 
 
+def test_update_tokens_changes_only_the_tokens():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="متجري",
+                            access_token="at1", refresh_token="rt1", expires_at=100, scope="x"))
+    updated = run(svc.update_tokens(
+        "tnt_1", access_token="at2", refresh_token="rt2", expires_at=200))
+    assert updated is not None
+    assert updated.access_token == "at2" and updated.refresh_token == "rt2"
+    assert updated.expires_at == 200
+    assert updated.merchant_id == "42" and updated.store_name == "متجري"
+
+
+def test_update_tokens_on_an_unknown_tenant_returns_none():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    assert run(svc.update_tokens(
+        "tnt_ghost", access_token="a", refresh_token="r", expires_at=1)) is None
+
+
+def test_connections_expiring_before_finds_only_the_soon_ones():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_soon", merchant_id="1", store_name="أ",
+                            access_token="a", refresh_token="a", expires_at=100, scope=""))
+    run(svc.save_connection(tenant="tnt_later", merchant_id="2", store_name="ب",
+                            access_token="b", refresh_token="b", expires_at=100000, scope=""))
+    due = run(svc.connections_expiring_before(1000))
+    assert [c.tenant for c in due] == ["tnt_soon"]
+
+
 def test_record_event_stores_verified_status_and_tenant():
     svc = SallaService(store=MemoryDataStore(), client=SallaClient(
         client_id="i", client_secret="s", redirect_uri="https://x/cb"))

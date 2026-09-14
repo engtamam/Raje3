@@ -326,6 +326,14 @@ def build_container(settings: Settings) -> Container:
             client_id=settings.SALLA_CLIENT_ID, client_secret=settings.SALLA_CLIENT_SECRET,
             redirect_uri=(f"{settings.PUBLIC_BASE_URL.rstrip('/')}/api/v1/salla/callback"
                          if settings.PUBLIC_BASE_URL else "")))
+
+    # job-service — see adapters/job_service.py's own module docstring. Optional, like every
+    # other peer here: NullJobService when JOB_SERVICE_URL is unset.
+    from app.adapters.job_service import HttpJobService, NullJobService
+
+    container.jobs = (
+        HttpJobService(base_url=settings.JOB_SERVICE_URL, token=settings.INTERNAL_SERVICE_TOKEN)
+        if settings.JOB_SERVICE_URL else NullJobService())
     # What the shop bought, for every lock the console draws. One read, five keys, no enforcement:
     # the gates are in the services that own the acts.
     from app.core.apps import build_apps
