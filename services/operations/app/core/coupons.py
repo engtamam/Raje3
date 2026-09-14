@@ -65,6 +65,7 @@ OVER_CAP = "over_cap"
 NO_ACCOUNT = "no_account"
 NOT_SUBSCRIBED = "not_subscribed"
 BILLING_UNAVAILABLE = "billing_unavailable"
+ALREADY_HAS_BETTER = "already_has_better_coupon"
 
 # base-services v0.23.1's own reason codes on the attach-coupon 400, mapped to a per-app outcome
 # a shop's own history screen can show verbatim — the whole reason this module asked for the
@@ -349,6 +350,10 @@ class CouponService:
         per_app: dict[str, str] = {}
         grant_ids: list[str] = []
         for app_key, plan_id, sub_id in targets:
+            existing_best = await self._best_active_percent(beneficiary_tenant, app_key, now)
+            if existing_best >= int(percent):
+                per_app[app_key] = ALREADY_HAS_BETTER
+                continue
             code = f"x2t_{uuid_hex()}"
             status, _out = await self._plans.create_coupon(
                 code=code, plan_id=plan_id, percent=int(percent), expires_at=float(expires_at),
@@ -381,8 +386,33 @@ class CouponService:
             per_app[app_key] = str(out2.get("status") or "attached")
 
         if not grant_ids:
-            return await _log(BILLING_UNAVAILABLE, per_app=per_app)
+            # THE REAL REASON, NOT A BLANKET FAILURE — if every target was refused for already
+            # carrying an equal-or-better coupon, that IS the outcome, distinct from an actual
+            # billing problem (owner's own requirement: the history screen must say why).
+            overall = (ALREADY_HAS_BETTER if per_app
+                      and all(v == ALREADY_HAS_BETTER for v in per_app.values())
+                      else BILLING_UNAVAILABLE)
+            return await _log(overall, per_app=per_app)
         return await _log(GRANTED, per_app=per_app, grant_ids=grant_ids)
+
+    # ── the live "before you even press grant" check — the grant form's own inline hint ────────
+    async def check(self, *, granter_tenant: str, phone: str) -> dict[str, Any]:
+        """`{"registered": bool, "already_granted_this_month": bool}` — nothing else, ever. The
+        granter already typed this phone himself; this answers only the two facts that change
+        what he is about to do, never confirming or naming the beneficiary beyond that."""
+        beneficiary_tenant = await self._lookup_beneficiary(phone)
+        if not beneficiary_tenant:
+            return {"registered": False, "already_granted_this_month": False}
+        now = _now()
+        rows, _ = await self._s.find(
+            COUPON_GRANTS,
+            {"tenant": PLATFORM, "granter_tenant": granter_tenant,
+             "beneficiary_tenant": beneficiary_tenant},
+            limit=1000)
+        this_month = _month_key(now)
+        granted_this_month = any(_month_key(int(r.get("created") or 0)) == this_month
+                                 for r in rows)
+        return {"registered": True, "already_granted_this_month": granted_this_month}
 
     # ── the granter's own history — «المنح» ────────────────────────────────────────────────────
     async def history(self, granter_tenant: str, limit: int = 100) -> list[CouponAttempt]:
@@ -390,6 +420,25 @@ class CouponService:
             COUPON_ATTEMPTS, {"tenant": PLATFORM, "granter_tenant": granter_tenant},
             limit=limit, sort=("created", "desc"))
         return [CouponAttempt(**{k: v for k, v in r.items() if k != "tenant"}) for r in rows]
+
+    async def _best_active_percent(self, beneficiary_tenant: str, app_key: str,
+                                   now: int) -> int:
+        """The highest percent this beneficiary already carries for this app, among grants not yet
+        expired — from ANY granter, not just this one. A shop granting a NEW coupon must beat this
+        or the grant is refused outright (`ALREADY_HAS_BETTER`), so a lower coupon can never sit on
+        top of a stronger one, and a shop cannot game its own daily activity by handing out coupons
+        nobody can ever actually use.
+
+        `store.find` is equality-only, so `expires_at` cannot be filtered server-side — read every
+        row for this (beneficiary, app) pair (a small, naturally bounded set: at most one live
+        coupon per granter at a time, per this same rule applied on ITS OWN creation) and filter in
+        Python."""
+        rows, _ = await self._s.find(
+            COUPON_GRANTS,
+            {"tenant": PLATFORM, "beneficiary_tenant": beneficiary_tenant, "app_key": app_key},
+            limit=1000)
+        live = [int(r.get("percent") or 0) for r in rows if float(r.get("expires_at") or 0) > now]
+        return max(live) if live else 0
 
     async def grants_for(self, granter_tenant: str, limit: int = 100) -> list[CouponGrant]:
         rows, _ = await self._s.find(

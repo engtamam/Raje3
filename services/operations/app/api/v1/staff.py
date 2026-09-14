@@ -1910,3 +1910,17 @@ async def coupon_history(request: Request, limit: int = 100,
 async def coupon_stats(request: Request, principal: Principal = Depends(_GRANT_COUPON_ANY)):
     tenant = _tenant(principal)
     return await request.app.state.container.coupons.stats(tenant)
+
+
+@router.get("/coupons/check", dependencies=[Depends(rate_limit)])
+async def coupon_check(request: Request, phone: str = "",
+                       principal: Principal = Depends(_GRANT_COUPON_ANY)):
+    """The grant form's own live hint, asked as the operator types — same `_lookup_beneficiary`
+    the real grant uses, same minimal-disclosure answer (`CouponService.check`'s own docstring).
+    Behind `_GRANT_COUPON_ANY` (not `_GRANT_COUPON_DIRECT`) because the visit-linked door needs
+    this hint too, before it ever commits to a grant."""
+    tenant = _tenant(principal)
+    if not phone.strip():
+        return {"registered": False, "already_granted_this_month": False}
+    return await request.app.state.container.coupons.check(
+        granter_tenant=tenant, phone=phone.strip())

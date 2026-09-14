@@ -607,6 +607,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/coupons/stats", "capability": "operations.grant_coupon",
         "group": "كوبونات", "help": "عدد الخصومات هذا الشهر، وسقفك الحالي.",
     },
+    {
+        "id": "operations.coupon_check", "label": "تحقق سريع من رقم قبل المنح", "method": "GET",
+        "path": "/api/v1/staff/coupons/check", "capability": "operations.grant_coupon",
+        "group": "كوبونات",
+        "params": [{"name": "phone", "in": "query", "type": "string", "required": True}],
+        "help": "هل هذا الرقم محل مسجّل عندنا، وهل مُنح كوبوناً منك هذا الشهر بالفعل.",
+    },
 ]
 
 

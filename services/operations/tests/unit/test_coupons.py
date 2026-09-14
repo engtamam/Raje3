@@ -10,9 +10,9 @@ import asyncio
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core.coupons import (BILLING_UNAVAILABLE, COUPONS_KEY, GRANTED, INVALID_PERCENT,
-                              INVALID_SCOPE, NOT_SUBSCRIBED, NO_ACCOUNT, OVER_CAP, CouponError,
-                              CouponService, PLATFORM)
+from app.core.coupons import (ALREADY_HAS_BETTER, BILLING_UNAVAILABLE, COUPONS_KEY, GRANTED,
+                              INVALID_PERCENT, INVALID_SCOPE, NOT_SUBSCRIBED, NO_ACCOUNT,
+                              OVER_CAP, CouponError, CouponService, PLATFORM)
 from app.core.signup import PHONE_INDEX, canonical_phone
 
 CC = "966"
@@ -278,3 +278,123 @@ def test_history_and_stats_reflect_real_grants(svc):
     # month can never raise this month's own cap — see that function's docstring).
     assert stats["grants_this_month"] == 1
     assert stats["ceiling_percent"] >= stats["current_cap_percent"]
+
+
+# ── protection against layering a weaker coupon on top of a stronger one ───────────────────────
+def test_a_weaker_or_equal_coupon_is_refused_when_a_better_one_is_already_active(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    first = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=10,
+                        app_keys=["feature.bookings"]))
+    assert first.outcome == GRANTED
+
+    # A DIFFERENT shop tries to grant the SAME beneficiary a coupon that is no stronger — refused
+    # outright, before billing is ever asked, so nothing is wasted and nothing overwrites the
+    # stronger one already attached.
+    weaker = run(s.grant(granter_tenant="tnt_other", granter_operator_id="op9", phone=PHONE,
+                        percent=5, app_keys=["feature.bookings"]))
+    assert weaker.outcome == ALREADY_HAS_BETTER
+    assert weaker.per_app == {"feature.bookings": ALREADY_HAS_BETTER}
+
+    equal = run(s.grant(granter_tenant="tnt_other", granter_operator_id="op9", phone=PHONE,
+                       percent=10, app_keys=["feature.bookings"]))
+    assert equal.outcome == ALREADY_HAS_BETTER
+
+
+def test_a_genuinely_stronger_coupon_is_allowed_to_replace_the_active_one(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=10,
+               app_keys=["feature.bookings"]))
+
+    run(s.update_settings(ceiling_percent=35, base_percent=10))
+    run(s.set_tenant_override("tnt_other", percent=20))
+    stronger = run(s.grant(granter_tenant="tnt_other", granter_operator_id="op9", phone=PHONE,
+                          percent=15, app_keys=["feature.bookings"]))
+    assert stronger.outcome == GRANTED
+    assert stronger.per_app == {"feature.bookings": "attached"}
+
+
+def test_the_check_is_per_app_and_per_beneficiary_not_global(svc):
+    """A stronger coupon already active for a DIFFERENT app, or a DIFFERENT beneficiary, must
+    never block a fresh grant that has nothing to do with it."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    _hold_one_app(plans, B, key="feature.loyalty", plan_id="plan_loyalty", sub_id="sub_2")
+    run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=10,
+               app_keys=["feature.bookings"]))
+    other_app = run(s.grant(granter_tenant="tnt_other", granter_operator_id="op9", phone=PHONE,
+                           percent=5, app_keys=["feature.loyalty"]))
+    assert other_app.outcome == GRANTED
+
+
+def test_a_general_grant_still_wins_every_app_where_it_is_not_beaten(svc):
+    """The exact case the owner asked about: one shop already gave a STRONGER coupon on ONE
+    specific app; a second shop's WEAKER general grant covers several apps including that one.
+    The weaker app-line is refused (ALREADY_HAS_BETTER, no billing call wasted on it) while every
+    OTHER app it targets still succeeds — a general grant is N independent per-app decisions, never
+    one all-or-nothing unit."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    _hold_one_app(plans, B, key="feature.loyalty", plan_id="plan_loyalty", sub_id="sub_2")
+
+    # Shop A already gave 20% on بooking specifically.
+    run(s.update_settings(ceiling_percent=35, base_percent=10))
+    run(s.set_tenant_override(A, percent=20))
+    strong_one_app = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE,
+                                percent=20, app_keys=["feature.bookings"]))
+    assert strong_one_app.outcome == GRANTED
+
+    # Shop C offers 10% general — weaker than the 20% already on bookings, but loyalty has
+    # nothing yet.
+    general_weaker = run(s.grant(granter_tenant="tnt_other", granter_operator_id="op9",
+                                phone=PHONE, percent=10, general=True))
+    assert general_weaker.outcome == GRANTED             # overall: it DID land somewhere
+    assert general_weaker.per_app == {
+        "feature.bookings": ALREADY_HAS_BETTER,           # refused, real reason — no billing call
+        "feature.loyalty": "attached",                    # succeeded, nothing to beat here
+    }
+
+    # THE EARLIER SUCCESS IS NEVER RETROACTIVELY FLIPPED — a later, better-or-worse offer changes
+    # nothing about a `CouponAttempt` row already written; only the NEW attempt's own outcome
+    # reflects today's comparison.
+    history = run(s.history(A))
+    assert history[0].outcome == GRANTED
+
+
+# ── the live "check before granting" hint ───────────────────────────────────────────────────────
+def test_check_reports_unregistered_when_the_phone_is_unknown(svc):
+    s, _store, _plans = svc
+    out = run(s.check(granter_tenant=A, phone=PHONE))
+    assert out == {"registered": False, "already_granted_this_month": False}
+
+
+def test_check_reports_registered_but_not_yet_granted(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    out = run(s.check(granter_tenant=A, phone=PHONE))
+    assert out == {"registered": True, "already_granted_this_month": False}
+
+
+def test_check_reports_already_granted_this_month_by_the_same_granter(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+               app_keys=["feature.bookings"]))
+    out = run(s.check(granter_tenant=A, phone=PHONE))
+    assert out == {"registered": True, "already_granted_this_month": True}
+
+
+def test_check_never_leaks_a_grant_made_by_a_different_granter(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+               app_keys=["feature.bookings"]))
+    out = run(s.check(granter_tenant="tnt_other", phone=PHONE))
+    assert out == {"registered": True, "already_granted_this_month": False}
