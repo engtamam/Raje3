@@ -177,6 +177,33 @@ def test_connections_expiring_before_finds_only_the_soon_ones():
     assert [c.tenant for c in due] == ["tnt_soon"]
 
 
+def test_disconnect_removes_the_connection_and_returns_true():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="متجري",
+                            access_token="at", refresh_token="rt", expires_at=1, scope=""))
+    assert run(svc.disconnect("tnt_1")) is True
+    assert run(svc.connection_for("tnt_1")) is None
+
+
+def test_disconnect_on_an_already_disconnected_tenant_returns_false_not_an_error():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    assert run(svc.disconnect("tnt_ghost")) is False
+
+
+def test_disconnect_never_touches_a_different_tenants_connection():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_a", merchant_id="1", store_name="أ",
+                            access_token="a", refresh_token="a", expires_at=1, scope=""))
+    run(svc.save_connection(tenant="tnt_b", merchant_id="2", store_name="ب",
+                            access_token="b", refresh_token="b", expires_at=1, scope=""))
+    run(svc.disconnect("tnt_a"))
+    assert run(svc.connection_for("tnt_a")) is None
+    assert run(svc.connection_for("tnt_b")) is not None
+
+
 def test_record_event_stores_verified_status_and_tenant():
     svc = SallaService(store=MemoryDataStore(), client=SallaClient(
         client_id="i", client_secret="s", redirect_uri="https://x/cb"))

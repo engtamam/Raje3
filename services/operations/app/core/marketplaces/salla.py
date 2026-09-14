@@ -190,6 +190,15 @@ class SallaService:
             return None
         return SallaConnection(**{k: v for k, v in row.items() if k != "tenant_key"})
 
+    async def disconnect(self, tenant: str) -> bool:
+        """Remove this tenant's Salla connection entirely — the owner's own undo. `True` when a
+        connection actually existed and was removed, `False` when there was nothing to remove
+        (never an error either way; a second click, or a stale page, is answered the same as the
+        first). NOTHING ELSE IS TOUCHED: past alliance grants this connection ever triggered stay
+        exactly as they are (core/coupons.py's own CouponGrant rows) — disconnecting stops FUTURE
+        orders from doing anything, it does not undo history."""
+        return await self._s.delete(SALLA_CONNECTIONS, tenant)
+
     async def connection_for_merchant(self, merchant_id: str) -> SallaConnection | None:
         """Which of OUR tenants owns this Salla store — asked by the webhook route, which knows
         only the merchant id Salla sent, never our own tenant id."""

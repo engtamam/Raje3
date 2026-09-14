@@ -844,4 +844,12 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "a shop linked its Salla store to its account here — who did it and when, for "
                "support when an owner asks why a store they do not recognise appears connected",
     },
+    {
+        "action": "salla.disconnected",
+        "source": "internal",
+        "critical": False,
+        "resource": "salla_connection",
+        "why": "a shop removed its Salla link — support needs to know this was deliberate when "
+               "an owner later asks why real orders stopped granting alliances automatically",
+    },
 ]

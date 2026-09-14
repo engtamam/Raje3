@@ -632,6 +632,11 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "رابط لصفحة موافقة سلة — نفس صلاحية إدارة الاشتراك، ذاتية الخدمة من صاحب المحل.",
     },
     {
+        "id": "operations.salla_disconnect", "label": "فك ربط متجر سلة", "method": "POST",
+        "path": "/api/v1/staff/salla/disconnect", "capability": "billing.self", "group": "سلة",
+        "help": "يزيل الربط فقط — أي تحالف مُنح سابقاً عبره يبقى كما هو.",
+    },
+    {
         "id": "operations.salla_status", "label": "حالة ربط سلة", "method": "GET",
         "path": "/api/v1/staff/salla/status", "capability": "billing.self", "group": "سلة",
         "help": "هل متجر سلة مربوط بهذا الحساب الآن، وأي متجر.",

@@ -92,6 +92,7 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
   const prefsSetAction = action(catalog, 'operations.coupon_preferences_set');
   const sallaInstallAction = action(catalog, 'operations.salla_install');
   const sallaStatusAction = action(catalog, 'operations.salla_status');
+  const sallaDisconnectAction = action(catalog, 'operations.salla_disconnect');
 
   const [tab, setTab] = useState<'log' | 'stats'>('log');
 
@@ -138,6 +139,7 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
   // ── Salla — the connect popup ────────────────────────────────────────────────────────────
   const [sallaStatus, setSallaStatus] = useState<SallaStatus | null | undefined>(undefined);
   const [sallaConnecting, setSallaConnecting] = useState(false);
+  const [sallaDisconnecting, setSallaDisconnecting] = useState(false);
   const [sallaError, setSallaError] = useState<string | null>(null);
   const sallaPopupRef = useRef<Window | null>(null);
   const sallaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -199,6 +201,23 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
     } catch {
       setSallaError(t('coupons.salla.connectError'));
       setSallaConnecting(false);
+    }
+  }
+
+  async function onDisconnectSalla() {
+    if (!sallaDisconnectAction || sallaDisconnecting) return;
+    // eslint-disable-next-line no-alert -- same window.confirm pattern Services.tsx already uses
+    // for a reversible-but-not-trivial action; a full modal is more weight than this needs.
+    if (!window.confirm(t('coupons.salla.disconnectConfirm'))) return;
+    setSallaDisconnecting(true);
+    setSallaError(null);
+    try {
+      await call(session, sallaDisconnectAction);
+      setSallaStatus({ connected: false });
+    } catch {
+      setSallaError(t('coupons.salla.disconnectError'));
+    } finally {
+      setSallaDisconnecting(false);
     }
   }
 
@@ -269,7 +288,15 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
               </div>
             </div>
             {sallaStatus?.connected ? (
-              <Badge tone="success" data-testid="salla-connected-badge">{t('coupons.salla.connected')}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge tone="success" data-testid="salla-connected-badge">{t('coupons.salla.connected')}</Badge>
+                {sallaDisconnectAction ? (
+                  <Button onClick={onDisconnectSalla} disabled={sallaDisconnecting}
+                         variant="ghost" size="sm" data-testid="salla-disconnect-button">
+                    {sallaDisconnecting ? t('coupons.salla.disconnecting') : t('coupons.salla.disconnect')}
+                  </Button>
+                ) : null}
+              </div>
             ) : (
               <Button onClick={onConnectSalla} disabled={sallaConnecting} variant="outline"
                      data-testid="salla-connect-button">

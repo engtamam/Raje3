@@ -396,6 +396,7 @@ def build_manifest(
             # ── Salla — see api/v1/salla.py's own module docstring for the install/callback split.
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/salla/disconnect", "tier": "user", "method": "POST"},
             # PUBLIC, deliberately, same posture as signup's own pair right below: Salla's browser
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},

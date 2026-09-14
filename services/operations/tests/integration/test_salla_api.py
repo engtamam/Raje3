@@ -127,6 +127,48 @@ def test_status_requires_billing_self_capability(client):
     assert r.status_code == 403
 
 
+# ── disconnect ───────────────────────────────────────────────────────────────────────────────
+def test_disconnect_removes_a_real_connection_and_status_reflects_it(client):
+    import asyncio
+    asyncio.run(client.app.state.container.salla.save_connection(
+        tenant=TENANT, merchant_id="42", store_name="متجري", access_token="at",
+        refresh_token="rt", expires_at=999999999, scope=""))
+
+    r = client.post("/api/v1/staff/salla/disconnect", headers=_auth("billing.self"))
+    assert r.status_code == 200
+    assert r.json() == {"connected": False}
+
+    status = client.get("/api/v1/staff/salla/status", headers=_auth("billing.self"))
+    assert status.json() == {"connected": False}
+
+
+def test_disconnect_with_nothing_connected_still_answers_200(client):
+    r = client.post("/api/v1/staff/salla/disconnect", headers=_auth("billing.self"))
+    assert r.status_code == 200
+    assert r.json() == {"connected": False}
+
+
+def test_disconnect_requires_billing_self_capability(client):
+    r = client.post("/api/v1/staff/salla/disconnect", headers=_auth("operations.record"))
+    assert r.status_code == 403
+
+
+def test_disconnect_never_touches_a_different_tenants_connection(client):
+    import asyncio
+    other = "tnt_salla_other"
+    asyncio.run(client.app.state.container.salla.save_connection(
+        tenant=other, merchant_id="99", store_name="متجر آخر", access_token="at",
+        refresh_token="rt", expires_at=999999999, scope=""))
+    asyncio.run(client.app.state.container.salla.save_connection(
+        tenant=TENANT, merchant_id="42", store_name="متجري", access_token="at",
+        refresh_token="rt", expires_at=999999999, scope=""))
+
+    client.post("/api/v1/staff/salla/disconnect", headers=_auth("billing.self", tenant=TENANT))
+
+    other_status = client.get("/api/v1/staff/salla/status", headers=_auth("billing.self", tenant=other))
+    assert other_status.json()["connected"] is True
+
+
 # ── callback ─────────────────────────────────────────────────────────────────────────────────
 def test_callback_refuses_an_invalid_state(client):
     r = client.get("/api/v1/salla/callback", params={"code": "abc", "state": "garbage"})

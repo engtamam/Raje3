@@ -72,6 +72,23 @@ async def salla_status(request: Request, principal: Principal = Depends(_OWNER))
     return {"connected": True, **conn.public()}
 
 
+@router.post("/staff/salla/disconnect", dependencies=[Depends(rate_limit)])
+async def salla_disconnect(request: Request, principal: Principal = Depends(_OWNER)) -> Any:
+    """The owner's own undo — see `SallaService.disconnect`'s own docstring: removes the
+    connection only, never touches an alliance already granted through it. Answers `{"connected":
+    false}` either way (something really was removed, or there was nothing to remove), the exact
+    same shape `/status` above answers when nothing is connected — a second click, or a stale
+    page's retry, reads as success rather than a confusing 404."""
+    tenant = _tenant(principal)
+    svc = request.app.state.container.salla
+    removed = await svc.disconnect(tenant)
+    if removed:
+        await request.app.state.auditor.record(
+            "salla.disconnected", actor=tenant, tenant=tenant, resource="salla_connection",
+            ip=request.client.host if request.client else "")
+    return {"connected": False}
+
+
 def _callback_page(*, title: str, message: str, ok: bool, store_name: str = "",
                    status_code: int = 200) -> HTMLResponse:
     """The one page every branch below renders — HTML-escaped for what a human reads, AND wired

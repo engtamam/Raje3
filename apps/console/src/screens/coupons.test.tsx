@@ -32,6 +32,7 @@ const HISTORY = {
 let grantCalls: Record<string, unknown>[] = [];
 let prefsCalls: Record<string, unknown>[] = [];
 let sallaInstallCalls = 0;
+let sallaDisconnectCalls = 0;
 let sallaConnected = false;
 
 vi.mock('../catalog', async (importOriginal) => {
@@ -66,6 +67,11 @@ vi.mock('../catalog', async (importOriginal) => {
         sallaInstallCalls += 1;
         return { url: 'https://accounts.salla.sa/oauth2/auth?client_id=x' };
       }
+      if (a.id === 'operations.salla_disconnect') {
+        sallaDisconnectCalls += 1;
+        sallaConnected = false;
+        return { connected: false };
+      }
       return {};
     },
   };
@@ -77,7 +83,10 @@ function render(ui: ReactElement) {
   return rtlRender(<OperatorI18nProvider session={SESSION}>{ui}</OperatorI18nProvider>);
 }
 
-afterEach(() => { cleanup(); grantCalls = []; prefsCalls = []; sallaInstallCalls = 0; sallaConnected = false; });
+afterEach(() => {
+  cleanup(); grantCalls = []; prefsCalls = [];
+  sallaInstallCalls = 0; sallaDisconnectCalls = 0; sallaConnected = false;
+});
 
 describe('«تحالف استراتيجي»', () => {
   it('shows the current cap and the grant form', async () => {
@@ -215,6 +224,36 @@ describe('«تحالف استراتيجي»', () => {
       window.dispatchEvent(new MessageEvent('message', { data: { source: 'some-other-widget' } }));
       // Nothing throws, nothing changes — still shows the disconnected state.
       expect(screen.getByTestId('salla-connect-button')).toBeTruthy();
+    });
+
+    it('shows a disconnect button beside the connected badge, never when disconnected', async () => {
+      sallaConnected = true;
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      await screen.findByTestId('salla-disconnect-button');
+      expect(screen.queryByTestId('salla-connect-button')).toBeNull();
+    });
+
+    it('does not disconnect when the confirmation is declined', async () => {
+      sallaConnected = true;
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      const button = await screen.findByTestId('salla-disconnect-button');
+      fireEvent.click(button);
+      expect(sallaDisconnectCalls).toBe(0);
+      expect(screen.getByTestId('salla-connected-badge')).toBeTruthy();
+      vi.restoreAllMocks();
+    });
+
+    it('disconnects and switches back to the connect button once confirmed', async () => {
+      sallaConnected = true;
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      const button = await screen.findByTestId('salla-disconnect-button');
+      fireEvent.click(button);
+      await waitFor(() => expect(sallaDisconnectCalls).toBe(1));
+      await waitFor(() => expect(screen.getByTestId('salla-connect-button')).toBeTruthy());
+      expect(screen.queryByTestId('salla-connected-badge')).toBeNull();
+      vi.restoreAllMocks();
     });
   });
 });
