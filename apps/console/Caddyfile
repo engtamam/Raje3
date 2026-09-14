@@ -93,6 +93,19 @@
 		file_server
 	}
 
+	# THE DOCS TREE GETS ITS OWN EXPLICIT HANDLER, NOT THE CATCH-ALL'S try_files FALLBACK BELOW.
+	# The catch-all's `try_files {path} /index.html` exists for the LANDING page's own SPA-style
+	# need to answer unknown paths gracefully — but that same fallback silently served the
+	# LANDING PAGE ITSELF for /docs/pos-integration/ instead of the real static file underneath
+	# it: found live (the owner clicking the link stayed on the landing page, no navigation, no
+	# error — because Caddy never actually 404'd, it just quietly answered with index.html). A
+	# real docs page under a real path should 404 on a typo, not paper over it with the landing
+	# page — `file_server` alone here does exactly that, with its own default directory->index.html
+	# resolution and nothing else.
+	handle /docs/* {
+		file_server
+	}
+
 	# THE LANDING-PAGE OFF-SWITCH — "stealth" launch mode, requested so the root domain can be
 	# handed to a private cohort (invited by direct link, never able to reach sign-up on their own)
 	# without deleting the landing page: `LANDING_PAGE_ENABLED=false` on this Deployment (see
