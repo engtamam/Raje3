@@ -99,14 +99,24 @@ case "$TOKEN" in
 esac
 
 echo "seeding plans.json into billing-service"
-# NO BACKTICKS AND NO COMMAND SUBSTITUTION ANYWHERE BELOW THIS LINE, INCLUDING IN COMMENTS.
-# The heredoc is unquoted because it interpolates the file, so the SHELL evaluates any it finds
-# before python ever sees it. This has happened, mid-seed, from a word in a comment.
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$DRY" "$RETIRE" "$SYNC" <<PY
-import json, sys, urllib.error, urllib.request
-token, dry, retire, sync = sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1", sys.argv[4] == "1"
+# THE HEREDOC IS QUOTED (<<'PY'), ON PURPOSE, SO THE SHELL EXPANDS NOTHING INSIDE IT — NOT A
+# BACKTICK, NOT A `$`, NOTHING. This used to be unquoted specifically to interpolate the file via
+# `$(cat "$FILE")`, and that same unquoting made bash re-scan the HEREDOC'S OWN PYTHON SOURCE for
+# backticks too — including the ones in this very script's own comments a few lines below
+# (`credit_percent_of_price`, `credits`, `False`), each evaluated as a command substitution and
+# printing "command not found" to stderr. Usually harmless (a comment losing a word changes
+# nothing Python reads) and occasionally fatal depending on how the surrounding command handles a
+# failed substitution — found live 2026-09-14 retiring a stray plan, where it aborted before
+# python ever ran. The file content now travels a SEPARATE, safe channel — base64 in an argv
+# value the shell never parses as text — so the heredoc can be quoted and this whole class of bug
+# is gone, not just today's instance of it.
+FILE_B64=$(base64 -w0 "$FILE" 2>/dev/null || base64 "$FILE" | tr -d '\n')
+kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$DRY" "$RETIRE" "$SYNC" "$FILE_B64" <<'PY'
+import base64, json, sys, urllib.error, urllib.request
+token, dry, retire, sync, file_b64 = (sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1",
+                                      sys.argv[4] == "1", sys.argv[5])
 H = "http://localhost:8000"
-LIB = json.loads('''$(cat "$FILE")''')
+LIB = json.loads(base64.b64decode(file_b64))
 CURRENCY = LIB["currency"]
 
 def call(path, body=None, method=None):

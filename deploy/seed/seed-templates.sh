@@ -107,15 +107,20 @@ case "$TOKEN" in
 esac
 
 echo "seeding the WhatsApp library into tenant=$TENANT"
-# NO BACKTICKS AND NO COMMAND SUBSTITUTION BELOW THIS LINE, INCLUDING IN COMMENTS. The heredoc is
-# unquoted because it interpolates the library and the flag, so the SHELL evaluates substitution
-# inside it before python sees it — three backticked words in a comment ran as commands during a
-# real seed once (see seed-roles.sh).
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$SUBMIT" "$RATING_FLOW_ID" <<PY
-import json, sys, urllib.error, urllib.request
-token, submit, rating_flow_id = sys.argv[1], sys.argv[2] == "1", sys.argv[3]
+# THE HEREDOC IS QUOTED (<<'PY') SO THE SHELL EXPANDS NOTHING INSIDE IT AT ALL — this used to be
+# unquoted specifically to interpolate the library via `$(cat "$FILE")`, and that same unquoting
+# made bash re-scan the heredoc's OWN PYTHON SOURCE for backticks too. Three backticked words in a
+# comment ran as commands during a real seed once (the note this replaced said so), and
+# deploy/seed/seed-plans.sh hit the identical failure again 2026-09-14 from ITS OWN comments —
+# documented as a danger twice and fixed neither time. Fixed at the root here instead: the file
+# now travels as base64 in an argv value the shell never parses as text, so the heredoc can be
+# quoted and this whole class of bug is gone, not patched around with a warning comment again.
+FILE_B64=$(base64 -w0 "$FILE" 2>/dev/null || base64 "$FILE" | tr -d '\n')
+kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$SUBMIT" "$RATING_FLOW_ID" "$FILE_B64" <<'PY'
+import base64, json, sys, urllib.error, urllib.request
+token, submit, rating_flow_id, file_b64 = sys.argv[1], sys.argv[2] == "1", sys.argv[3], sys.argv[4]
 H = "http://localhost:8000"
-LIB = json.loads('''$(cat "$FILE")''')
+LIB = json.loads(base64.b64decode(file_b64))
 
 # THE TWO BLANKS THAT CARRY AN ADDRESS. Named and exampled by what they ARE rather than by where
 # they sit, because they sit somewhere different in every text. See the substitution below.
