@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input } from '../rj-ui/Field';
+import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
 import type { AdminAction } from './catalog';
 import { req, type AdminSession } from './api';
@@ -209,9 +210,10 @@ function TenantOverrideCard({ session, lookupAction, overrideGetAction, override
     }
   }
 
-  async function save(clear: boolean) {
+  async function save(clear: boolean, forcePercent?: number) {
     if (!overrideSetAction || !tenant) return;
-    const percent = clear || !percentText.trim() ? null : Number(percentText);
+    const percent = forcePercent !== undefined ? forcePercent
+      : clear || !percentText.trim() ? null : Number(percentText);
     if (percent !== null && (!Number.isInteger(percent) || percent < 0 || percent > 100)) {
       setError('النسبة يجب أن تكون بين 0 و100.'); return;
     }
@@ -231,6 +233,11 @@ function TenantOverrideCard({ session, lookupAction, overrideGetAction, override
       setBusy(false);
     }
   }
+
+  // زر واحد يحظر التطبيق على هذا المحل بلا حاجة يكتب رقماً — سقف 0% يعني أي نسبة يطلبها ترفض
+  // «تجاوزت السقف» تلقائياً، بلا أي تعديل ثانٍ بالكود (core/coupons.py::effective_cap/grant).
+  // عكسها زر «رفع الحظر» اللي يمسح الاستثناء كاملاً، بلا حاجة نتذكر أي رقم كان قبل الحظر.
+  const isBlocked = override?.percent === 0;
 
   return (
     <section className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
@@ -259,7 +266,10 @@ function TenantOverrideCard({ session, lookupAction, overrideGetAction, override
 
       {tenant && override ? (
         <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
-          <p className="text-xs text-text-tertiary" dir="ltr">{tenant}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-text-tertiary" dir="ltr">{tenant}</p>
+            {isBlocked ? <Badge tone="danger">محظور من التطبيق</Badge> : null}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="السقف الخاص (%)" htmlFor="override-percent" hint="فارغ = بلا استثناء، يتبع الشرائح">
               <Input id="override-percent" dir="ltr" inputMode="numeric" value={percentText}
@@ -271,11 +281,22 @@ function TenantOverrideCard({ session, lookupAction, overrideGetAction, override
             </Field>
           </div>
           {overrideSetAction ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button type="button" disabled={busy} onClick={() => save(false)}>
                 {busy ? 'جارٍ الحفظ…' : 'حفظ'}
               </Button>
-              {override.percent !== null ? (
+              {isBlocked ? (
+                <Button type="button" variant="outline" disabled={busy}
+                       onClick={() => save(true)}>
+                  رفع الحظر
+                </Button>
+              ) : (
+                <Button type="button" variant="danger" disabled={busy}
+                       onClick={() => save(false, 0)}>
+                  حظر المحل من هذا التطبيق
+                </Button>
+              )}
+              {!isBlocked && override.percent !== null ? (
                 <Button type="button" variant="outline" disabled={busy} onClick={() => save(true)}>
                   مسح الاستثناء
                 </Button>

@@ -95,4 +95,61 @@ describe('ShopCouponSettings', () => {
       '/api/v1/platform/coupons/tenants/tnt_found', 'PATCH',
       { tenant: 'tnt_found', percent: 25, note: 'مكافأة' }, 'tok-1'));
   });
+
+  it('the block button sends percent 0 with one click, no typing required', async () => {
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ ceiling_percent: 35, base_percent: 10, tiers: [] })
+      .mockResolvedValueOnce({ tenant: 'tnt_found' })
+      .mockResolvedValueOnce({ percent: null, note: '' })
+      .mockResolvedValueOnce({ percent: 0, note: '' });
+    render(<ShopCouponSettings session={SESSION} settingsGetAction={GET_SETTINGS}
+                               lookupAction={LOOKUP} overrideGetAction={OVERRIDE_GET}
+                               overrideSetAction={OVERRIDE_SET} />);
+    await waitFor(() => expect(screen.getByPlaceholderText('05xxxxxxxx')).toBeTruthy());
+    fireEvent.change(screen.getByPlaceholderText('05xxxxxxxx'), { target: { value: '0501234567' } });
+    fireEvent.click(screen.getByText('بحث'));
+    await waitFor(() => expect(screen.getByText('tnt_found')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('حظر المحل من هذا التطبيق'));
+    await waitFor(() => expect(reqMock).toHaveBeenLastCalledWith(
+      '/api/v1/platform/coupons/tenants/tnt_found', 'PATCH',
+      { tenant: 'tnt_found', percent: 0, note: '' }, 'tok-1'));
+    await waitFor(() => expect(screen.getByText('محظور من التطبيق')).toBeTruthy());
+  });
+
+  it('a blocked tenant shows the badge and an unblock button instead of the block one', async () => {
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ ceiling_percent: 35, base_percent: 10, tiers: [] })
+      .mockResolvedValueOnce({ tenant: 'tnt_blocked' })
+      .mockResolvedValueOnce({ percent: 0, note: 'محظور مسبقاً' });
+    render(<ShopCouponSettings session={SESSION} settingsGetAction={GET_SETTINGS}
+                               lookupAction={LOOKUP} overrideGetAction={OVERRIDE_GET}
+                               overrideSetAction={OVERRIDE_SET} />);
+    fireEvent.change(await screen.findByPlaceholderText('05xxxxxxxx'), { target: { value: '0501234567' } });
+    fireEvent.click(screen.getByText('بحث'));
+
+    await waitFor(() => expect(screen.getByText('محظور من التطبيق')).toBeTruthy());
+    expect(screen.getByText('رفع الحظر')).toBeTruthy();
+    expect(screen.queryByText('حظر المحل من هذا التطبيق')).toBeNull();
+  });
+
+  it('unblocking clears the override entirely (percent: null), not just to some other number', async () => {
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ ceiling_percent: 35, base_percent: 10, tiers: [] })
+      .mockResolvedValueOnce({ tenant: 'tnt_blocked' })
+      .mockResolvedValueOnce({ percent: 0, note: '' })
+      .mockResolvedValueOnce({ percent: null, note: '' });
+    render(<ShopCouponSettings session={SESSION} settingsGetAction={GET_SETTINGS}
+                               lookupAction={LOOKUP} overrideGetAction={OVERRIDE_GET}
+                               overrideSetAction={OVERRIDE_SET} />);
+    fireEvent.change(await screen.findByPlaceholderText('05xxxxxxxx'), { target: { value: '0501234567' } });
+    fireEvent.click(screen.getByText('بحث'));
+    await screen.findByText('رفع الحظر');
+
+    fireEvent.click(screen.getByText('رفع الحظر'));
+    await waitFor(() => expect(reqMock).toHaveBeenLastCalledWith(
+      '/api/v1/platform/coupons/tenants/tnt_blocked', 'PATCH',
+      { tenant: 'tnt_blocked', percent: null, note: '' }, 'tok-1'));
+    await waitFor(() => expect(screen.queryByText('محظور من التطبيق')).toBeNull());
+  });
 });
