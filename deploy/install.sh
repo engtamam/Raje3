@@ -207,30 +207,56 @@ fi
 # caused this — so a fetch/checkout failure here is `die`, not a warning swallowed and continued
 # past.
 phase "1.5 · مزامنة نسخة المنصة"
+# NO LOCAL SSH KEY, NO WORKSTATION IN THE LOOP — the whole point (owner's own instruction,
+# 2026-09-14: "المفروض تكون ضمن الاسكربت لانه token موجود في MCP ما يحتاج اعطيك هو"). GHCR_TOKEN
+# is ALREADY in this process's own environment by this point (exported at line ~158, required for
+# the ghcr pull-secret above) — a GitHub PAT with `read:packages` almost always also carries
+# `repo` read on a private repository the same account owns, so the identical token authenticates
+# an HTTPS git clone with no second credential to ask for or store.
+#
+# THIS RUNS SERVER-SIDE, EVERY TIME. Never assumes platform/ is a git checkout (the real,
+# recurring layout here is a plain directory dropped by a packaging step) and never assumes the
+# box has network access to anything but github.com/ghcr.io it already needed anyway — no pack.sh,
+# no rsync, no second machine's SSH key.
 PLATFORM_RELEASE_FILE="$ROOT/deploy/platform-release.json"
-if [ -d "$ROOT/platform/.git" ] || [ -f "$ROOT/platform/.git" ]; then
-  if [ -f "$PLATFORM_RELEASE_FILE" ] && command -v jq >/dev/null 2>&1; then
-    PINNED_RELEASE="$(jq -r '.release // empty' "$PLATFORM_RELEASE_FILE")"
-  else
-    PINNED_RELEASE=""
-  fi
-  if [ -n "$PINNED_RELEASE" ]; then
-    CURRENT_RELEASE="$(git -C "$ROOT/platform" describe --tags --exact-match 2>/dev/null || true)"
-    if [ "$CURRENT_RELEASE" = "$PINNED_RELEASE" ]; then
-      ok "قالب المنصة مطابق أصلاً ($PINNED_RELEASE)"
-    else
-      echo "  ${C_D}$PLATFORM_RELEASE_FILE يقول $PINNED_RELEASE، الموجود محلياً: ${CURRENT_RELEASE:-غير معروف}${C_N}"
-      git -C "$ROOT/platform" fetch --tags --force origin \
-        || die "تعذّر جلب إصدارات المنصة — تحقق من الشبكة أو صلاحية الوصول لمستودع platform"
-      git -C "$ROOT/platform" checkout --detach "$PINNED_RELEASE" \
-        || die "تعذّر الانتقال لإصدار المنصة $PINNED_RELEASE — تأكد أن الوسم موجود بالمستودع"
-      ok "قالب المنصة زُومن مع $PINNED_RELEASE"
-    fi
-  else
-    warn "تعذّرت قراءة الإصدار المثبّت من $PLATFORM_RELEASE_FILE — القالب المحلي يُستخدم كما هو"
-  fi
+PLATFORM_REPO_URL="${PLATFORM_REPO_URL:-https://github.com/engtamam/base-services.git}"
+if [ -f "$PLATFORM_RELEASE_FILE" ] && command -v jq >/dev/null 2>&1; then
+  PINNED_RELEASE="$(jq -r '.release // empty' "$PLATFORM_RELEASE_FILE")"
 else
-  warn "platform/ ليس مستودع git هنا — تخطّي مزامنة القالب (نشر من أرشيف مبني مسبقاً؟)"
+  PINNED_RELEASE=""
+fi
+if [ -z "$PINNED_RELEASE" ]; then
+  warn "تعذّرت قراءة الإصدار المثبّت من $PLATFORM_RELEASE_FILE — القالب المحلي يُستخدم كما هو"
+elif [ -z "${GHCR_TOKEN:-}" ]; then
+  warn "بلا رمز ghcr — تعذّرت مزامنة القالب مع $PINNED_RELEASE، يُستخدم المحلي كما هو"
+else
+  CURRENT_RELEASE=""
+  if [ -d "$ROOT/platform/.git" ] || [ -f "$ROOT/platform/.git" ]; then
+    CURRENT_RELEASE="$(git -C "$ROOT/platform" describe --tags --exact-match 2>/dev/null || true)"
+  fi
+  if [ "$CURRENT_RELEASE" = "$PINNED_RELEASE" ]; then
+    ok "قالب المنصة مطابق أصلاً ($PINNED_RELEASE)"
+  else
+    echo "  ${C_D}$PLATFORM_RELEASE_FILE يقول $PINNED_RELEASE، الموجود محلياً: ${CURRENT_RELEASE:-غير معروف}${C_N}"
+    CLONE_DIR="$(mktemp -d)"
+    if git clone --quiet --depth 1 --branch "$PINNED_RELEASE" \
+        "https://x-access-token:${GHCR_TOKEN}@${PLATFORM_REPO_URL#https://}" "$CLONE_DIR"; then
+      # ONLY THE THREE DIRECTORIES THIS INSTALLER READS FROM (bring-up.sh's own CHART/k3s/server
+      # references) — same scope deploy/pack.sh's own header comment holds itself to: never the
+      # upstream repo's application services, docs or tests, which have no business on this box.
+      for d in chart k3s server; do
+        [ -d "$CLONE_DIR/deploy/$d" ] || die "$PINNED_RELEASE لا يحوي platform/deploy/$d — وسم ناقص؟"
+        rm -rf "$ROOT/platform/deploy/$d"
+        mkdir -p "$ROOT/platform/deploy"
+        cp -r "$CLONE_DIR/deploy/$d" "$ROOT/platform/deploy/$d"
+      done
+      rm -rf "$CLONE_DIR"
+      ok "قالب المنصة زُومن مع $PINNED_RELEASE (سُحب مباشرة، بلا وسيط)"
+    else
+      rm -rf "$CLONE_DIR"
+      die "تعذّر جلب $PINNED_RELEASE من مستودع المنصة — تحقق من الشبكة أو صلاحية GHCR_TOKEN (تحتاج قراءة على المستودع الخاص، لا الحزم فقط)"
+    fi
+  fi
 fi
 
 # ── 2 · the platform ──────────────────────────────────────────────────────────────────────────
