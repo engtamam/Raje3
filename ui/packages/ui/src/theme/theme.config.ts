@@ -219,10 +219,9 @@ const dark: Palette = {
 };
 
 const scale: Scale = {
-  // 70% (=11.2px), LOWERED AGAIN 2026-09-14 — the owner's own direct request, one step past the
-  // 80% pass just before it (which was itself one step past 100%): smaller again, tested and
-  // asked for directly rather than guessed. Since browser zoom and this token scale the exact
-  // same rem-based sizing, this reproduces "browser zoomed to 70%" at the page's own 100% zoom.
+  // 80% (=12.8px), RAISED BACK UP A STEP — the owner's own direct request, one step back from the
+  // 70% pass just before it. Since browser zoom and this token scale the exact same rem-based
+  // sizing, this reproduces "browser zoomed to 80%" at the page's own 100% zoom.
   //
   // WHAT THIS DOES NOT REACH, AND WHY THINGS MAY STILL LOOK SLIGHTLY LARGE IN ONE SPOT: an icon
   // drawn via `<Icon size={16} />` (lucide-react's own `size` prop) renders a literal PIXEL
@@ -231,7 +230,7 @@ const scale: Scale = {
   // particular icon still reads oversized after this change, that call site's own `size={N}` is
   // the thing to lower, not this token — it is a real, separate, per-component number, the same
   // way `radius`/`shadow` below are real per-token numbers rather than one dial.
-  rootFontPct: 70,
+  rootFontPct: 80,
   // A touch more generous — a larger card radius reads as premium, not utilitarian.
   radius: { sm: '0.5rem', md: '0.625rem', lg: '0.875rem', card: '1.25rem', pill: '9999px' },
   // Layered elevation, SOFTENED. A tight contact shadow plus a large diffuse one at low opacity, so a
