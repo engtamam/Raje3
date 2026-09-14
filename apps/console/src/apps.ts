@@ -224,7 +224,7 @@ export const APP_ROWS: AppRow[] = [
     key: 'feature.coupons',
     name: 'كوبونات',
     what: 'امنح محلاً آخر مسجّلاً عندنا خصماً حقيقياً على اشتراكه معنا — يُطبَّق تلقائياً عند تجديده القادم، ويقوّي علاقتك التجارية مع من تتعامل معهم.',
-    section: '',
+    section: 'coupons',
     onCustomer: '',
     // NOT `gift`/`warning` — برنامج النقاط already owns that exact pair, and a shelf of cards
     // must read as distinct products (see this file's own `tone` doc-comment above).

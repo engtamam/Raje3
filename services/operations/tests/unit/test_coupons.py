@@ -398,3 +398,16 @@ def test_check_never_leaks_a_grant_made_by_a_different_granter(svc):
                app_keys=["feature.bookings"]))
     out = run(s.check(granter_tenant="tnt_other", phone=PHONE))
     assert out == {"registered": True, "already_granted_this_month": False}
+
+
+def test_stats_history_has_six_months_ending_at_the_current_one(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+               app_keys=["feature.bookings"]))
+    from app.core.coupons import _month_key, _now
+    stats = run(s.stats(A))
+    assert len(stats["history"]) == 6
+    assert stats["history"][-1]["month_key"] == _month_key(_now())
+    assert stats["history"][-1]["grants"] == 1

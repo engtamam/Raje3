@@ -99,6 +99,17 @@ def _prev_month_key(ts: int) -> str:
     return f"{year:04d}-{month:02d}"
 
 
+def _month_key_offset(ts: int, months_back: int) -> str:
+    """The same `_month_key`, `months_back` months earlier — used by `stats()`'s own 6-month
+    trend, never for tiering (which reads `_prev_month_key` exactly, one month back, always)."""
+    t = time.gmtime(ts)
+    year, month = t.tm_year, t.tm_mon - months_back
+    while month <= 0:
+        month += 12
+        year -= 1
+    return f"{year:04d}-{month:02d}"
+
+
 def uuid_hex() -> str:
     return uuid.uuid4().hex
 
@@ -453,6 +464,12 @@ class CouponService:
         settings = await self.settings()
         cap = await self.effective_cap(granter_tenant)
         next_tier = next((t for t in settings.tiers if t.percent > cap), None)
+        # THE 6-MONTH TREND — the console's own stats tab chart, month_key left un-formatted
+        # (locale/month-name rendering is the operator-i18n screen's job, never this service's).
+        history = [{"month_key": _month_key_offset(now, i),
+                   "grants": await self.monthly_grant_count(
+                       granter_tenant, _month_key_offset(now, i))}
+                  for i in range(5, -1, -1)]
         return {
             "grants_this_month": this_month,
             "current_cap_percent": cap,
@@ -460,4 +477,5 @@ class CouponService:
             "next_tier_percent": next_tier.percent if next_tier else None,
             "next_tier_grants_needed": (
                 max(0, next_tier.max_grants - this_month + 1) if next_tier else None),
+            "history": history,
         }
