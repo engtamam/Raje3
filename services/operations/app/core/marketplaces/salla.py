@@ -31,10 +31,24 @@ from typing import Any
 AUTHORIZE_URL = "https://accounts.salla.sa/oauth2/auth"
 TOKEN_URL = "https://accounts.salla.sa/oauth2/token"
 USERINFO_URL = "https://accounts.salla.sa/oauth2/user/info"
+#: The Merchant REST API — a different host from the OAuth ones above (accounts.salla.sa issues
+#: and refreshes tokens; api.salla.dev is where they are actually SPENT). Read live from
+#: docs.salla.dev/5394134e0 for the one endpoint this module calls on it.
+MERCHANT_API_BASE = "https://api.salla.dev/admin/v2"
+WEBHOOK_SUBSCRIBE_URL = f"{MERCHANT_API_BASE}/webhooks/subscribe"
 
 #: `offline_access` is what makes Salla hand back a `refresh_token` at all — without it the
 #: connection dies with the access token in two weeks and the shop owner has to reinstall.
-DEFAULT_SCOPE = "offline_access"
+#: `webhooks.read_write` is what lets THIS app register its own webhook subscription
+#: programmatically (`register_webhook` below) instead of a human configuring it by hand in the
+#: Partners Portal for every merchant that ever installs — required for `webhooks.subscribe`
+#: (docs.salla.dev/5394134e0's own security requirement).
+DEFAULT_SCOPE = "offline_access webhooks.read_write"
+
+#: THE ONE EVENT THIS APP EVER SUBSCRIBES A MERCHANT TO — the single source of truth for it.
+#: `api/v1/salla.py`'s own webhook route imports THIS constant to decide what it acts on, so the
+#: event we register with Salla and the event we actually process can never drift apart.
+WEBHOOK_EVENT = "order.status.updated"
 
 #: `X-Salla-Signature` — see the module docstring's own link. Read case-sensitively-safe by
 #: Starlette's own header lookup (headers are case-insensitive there already).
@@ -62,6 +76,12 @@ class SallaConnection:
     scope: str
     connected_at: int
     updated_at: int
+    #: Salla's own id for the webhook subscription `register_webhook` created — "" when
+    #: registration was never attempted (an old connection, from before this existed) or failed
+    #: (support can tell "connected but never actually listening" apart from a normal connection
+    #: by this being empty). Default "" keeps reading an OLD stored row (written before this field
+    #: existed) working unchanged — the dataclass fills it in rather than the row needing one.
+    webhook_id: str = ""
 
     def public(self) -> dict[str, Any]:
         """NEVER THE TOKENS — same discipline as `CouponAttempt.public()`/secrets-admin's own
@@ -128,6 +148,23 @@ def _get_json(url: str, *, token: str, timeout: float) -> dict[str, Any] | None:
         return None
 
 
+def _post_json_bearer(url: str, body: dict[str, Any], *, token: str,
+                      timeout: float) -> dict[str, Any] | None:
+    """A Merchant-API call — JSON body, `Authorization: Bearer <merchant's own access token>`,
+    distinct from `_post_form` above (the OAuth token endpoint, which is form-encoded and signed
+    with the APP's client_id/secret, never a merchant's own token)."""
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=data, method="POST",
+        headers={"Content-Type": "application/json", "Accept": "application/json",
+                "Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310 - fixed host
+            return json.loads(resp.read() or b"{}")
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+        return None
+
+
 class SallaClient:
     """The OAuth half — thin, synchronous (see `api/v1/salla.py` for the `run_in_threadpool`
     wrapping, same posture as `core/licence.py`'s own outbound call)."""
@@ -171,6 +208,24 @@ class SallaClient:
     def user_info(self, access_token: str) -> dict[str, Any] | None:
         return _get_json(USERINFO_URL, token=access_token, timeout=self._timeout)
 
+    def register_webhook(self, access_token: str, *, event: str, url: str,
+                         name: str = "") -> dict[str, Any] | None:
+        """`POST /webhooks/subscribe` on the Merchant API (docs.salla.dev/5394134e0), under the
+        MERCHANT's own access token — this is why `DEFAULT_SCOPE` carries `webhooks.read_write`.
+        Called once, automatically, right after a fresh connect (`api/v1/salla.py`'s own
+        `salla_callback`) — the whole point of this method existing is that an owner never opens
+        the Partners Portal himself to wire this up.
+
+        `None` on any failure, same posture as every other call in this class — the caller
+        (`salla_callback`) treats a failed registration as "connected, but not yet listening" and
+        logs it rather than failing the whole connect: the OAuth link is real either way, and a
+        registration retry is cheap to add later without re-running the consent screen."""
+        body: dict[str, Any] = {"event": event, "url": url}
+        if name:
+            body["name"] = name
+        return _post_json_bearer(WEBHOOK_SUBSCRIBE_URL, body, token=access_token,
+                                 timeout=self._timeout)
+
 
 class SallaService:
     """Storage for a shop's Salla connection, and the webhook intake log. No business action
@@ -212,24 +267,28 @@ class SallaService:
 
     async def save_connection(self, *, tenant: str, merchant_id: str, store_name: str,
                               access_token: str, refresh_token: str, expires_at: int,
-                              scope: str) -> SallaConnection:
+                              scope: str, webhook_id: str = "") -> SallaConnection:
         now = int(time.time())
         existing = await self.connection_for(tenant)
         row = SallaConnection(
             tenant=tenant, merchant_id=str(merchant_id), store_name=store_name,
             access_token=access_token, refresh_token=refresh_token, expires_at=expires_at,
             scope=scope, connected_at=existing.connected_at if existing else now,
-            updated_at=now)
+            updated_at=now,
+            # A RECONNECT KEEPS THE OLD `webhook_id` IF THE CALLER DID NOT PASS A NEW ONE — the
+            # subscription on Salla's own side almost certainly still exists from before; only a
+            # freshly-registered id (this connect's own `register_webhook` call) overwrites it.
+            webhook_id=webhook_id or (existing.webhook_id if existing else ""))
         await self._s.put(SALLA_CONNECTIONS, tenant, {"tenant_key": tenant, **asdict(row)})
         return row
 
     async def update_tokens(self, tenant: str, *, access_token: str, refresh_token: str,
                             expires_at: int) -> SallaConnection | None:
         """A refresh's own write — ONLY the three token fields change, everything else (which
-        Salla store, when it was first connected) stays exactly as it was. `None` when the
-        connection was removed between the scan that found it due and this write actually
-        landing (an owner disconnecting mid-sweep) — the caller treats that as nothing left to
-        refresh, not a failure."""
+        Salla store, when it was first connected, its webhook subscription id) stays exactly as
+        it was. `None` when the connection was removed between the scan that found it due and
+        this write actually landing (an owner disconnecting mid-sweep) — the caller treats that
+        as nothing left to refresh, not a failure."""
         existing = await self.connection_for(tenant)
         if existing is None:
             return None
@@ -237,7 +296,7 @@ class SallaService:
             tenant=tenant, merchant_id=existing.merchant_id, store_name=existing.store_name,
             access_token=access_token, refresh_token=refresh_token, expires_at=expires_at,
             scope=existing.scope, connected_at=existing.connected_at,
-            updated_at=int(time.time()))
+            updated_at=int(time.time()), webhook_id=existing.webhook_id)
         await self._s.put(SALLA_CONNECTIONS, tenant, {"tenant_key": tenant, **asdict(row)})
         return row
 

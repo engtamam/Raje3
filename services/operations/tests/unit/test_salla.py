@@ -75,6 +75,41 @@ def test_authorize_url_carries_every_required_param():
     assert "redirect_uri=https" in url
 
 
+def test_register_webhook_posts_the_right_body_and_bearer_token(monkeypatch):
+    """No real network — `_post_json_bearer` (the one function that actually calls urlopen) is
+    replaced, so this tests the SHAPE `register_webhook` builds, not connectivity."""
+    import app.core.marketplaces.salla as salla_mod
+
+    calls = []
+
+    def fake_post(url, body, *, token, timeout):
+        calls.append({"url": url, "body": body, "token": token})
+        return {"data": {"id": 777}}
+
+    monkeypatch.setattr(salla_mod, "_post_json_bearer", fake_post)
+    c = SallaClient(client_id="i", client_secret="s", redirect_uri="https://x/cb")
+    out = c.register_webhook("merchant-token", event="order.status.updated",
+                             url="https://raje3.sa/api/v1/salla/webhook", name="Raje3")
+
+    assert out == {"data": {"id": 777}}
+    assert len(calls) == 1
+    assert calls[0]["url"] == salla_mod.WEBHOOK_SUBSCRIBE_URL
+    assert calls[0]["token"] == "merchant-token"
+    assert calls[0]["body"] == {"event": "order.status.updated",
+                                "url": "https://raje3.sa/api/v1/salla/webhook", "name": "Raje3"}
+
+
+def test_register_webhook_omits_name_when_not_given(monkeypatch):
+    import app.core.marketplaces.salla as salla_mod
+
+    calls = []
+    monkeypatch.setattr(salla_mod, "_post_json_bearer",
+                        lambda url, body, *, token, timeout: calls.append(body) or {})
+    c = SallaClient(client_id="i", client_secret="s", redirect_uri="https://x/cb")
+    c.register_webhook("tok", event="order.status.updated", url="https://x/webhook")
+    assert "name" not in calls[0]
+
+
 def test_authorize_url_refuses_when_unconfigured():
     import pytest
     from app.core.marketplaces.salla import SallaConfigError
@@ -127,6 +162,65 @@ def test_reconnecting_the_same_tenant_keeps_the_original_connected_at():
                                      expires_at=200, scope="x"))
     assert second.connected_at == first.connected_at
     assert second.access_token == "at2"
+
+
+def test_save_connection_stores_the_webhook_id_it_was_given():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    row = run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="م",
+                                  access_token="at", refresh_token="rt", expires_at=1,
+                                  scope="", webhook_id="909"))
+    assert row.webhook_id == "909"
+    assert run(svc.connection_for("tnt_1")).webhook_id == "909"
+
+
+def test_reconnecting_without_a_new_webhook_id_keeps_the_old_one():
+    """The subscription on Salla's own side almost certainly still exists from before — a
+    reconnect whose OWN registration call failed must not silently forget it had one."""
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="م", access_token="at1",
+                            refresh_token="rt1", expires_at=100, scope="", webhook_id="909"))
+    second = run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="م",
+                                     access_token="at2", refresh_token="rt2", expires_at=200,
+                                     scope=""))   # no webhook_id this time
+    assert second.webhook_id == "909"
+
+
+def test_reconnecting_with_a_fresh_webhook_id_overwrites_the_old_one():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="م", access_token="at1",
+                            refresh_token="rt1", expires_at=100, scope="", webhook_id="909"))
+    second = run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="م",
+                                     access_token="at2", refresh_token="rt2", expires_at=200,
+                                     scope="", webhook_id="4242"))
+    assert second.webhook_id == "4242"
+
+
+def test_update_tokens_preserves_the_webhook_id():
+    svc = SallaService(store=MemoryDataStore(), client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(svc.save_connection(tenant="tnt_1", merchant_id="42", store_name="م", access_token="at1",
+                            refresh_token="rt1", expires_at=100, scope="", webhook_id="909"))
+    updated = run(svc.update_tokens("tnt_1", access_token="at2", refresh_token="rt2",
+                                    expires_at=200))
+    assert updated.webhook_id == "909"
+
+
+def test_an_old_stored_row_with_no_webhook_id_field_still_loads():
+    """A connection saved before this field existed has no `webhook_id` key in its stored row at
+    all — reading it back must not raise, and must read as the empty default."""
+    store = MemoryDataStore()
+    svc = SallaService(store=store, client=SallaClient(
+        client_id="i", client_secret="s", redirect_uri="https://x/cb"))
+    run(store.put("salla_connections", "tnt_old", {
+        "tenant_key": "tnt_old", "tenant": "tnt_old", "merchant_id": "1", "store_name": "قديم",
+        "access_token": "a", "refresh_token": "r", "expires_at": 1, "scope": "",
+        "connected_at": 1, "updated_at": 1,
+    }))
+    conn = run(svc.connection_for("tnt_old"))
+    assert conn.webhook_id == ""
 
 
 def test_connection_for_merchant_finds_the_right_tenant_by_merchant_id():

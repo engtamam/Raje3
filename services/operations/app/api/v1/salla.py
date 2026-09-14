@@ -22,7 +22,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import oauth_state
-from app.core.marketplaces.salla import verify_signature
+from app.core.marketplaces.salla import WEBHOOK_EVENT, verify_signature
 
 router = APIRouter(tags=["salla"])
 
@@ -168,14 +168,28 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
 
     expires_at = int(time.time()) + int(tokens.get("expires") or 0)
     svc = request.app.state.container.salla
+
+    # REGISTER OUR WEBHOOK, AUTOMATICALLY — the whole point of `webhooks.read_write` in
+    # DEFAULT_SCOPE. Best-effort: a failure here does not fail the connect (the OAuth link is
+    # real either way) — it just means this connection's own `webhook_id` stays "" and this
+    # merchant's real orders never reach `/salla/webhook`, exactly the same silent-until-a-refresh
+    # -fails shape a missing manual Partners Portal subscription used to have, minus the manual
+    # step. See SallaClient.register_webhook's own docstring.
+    webhook_url = f"{s.PUBLIC_BASE_URL.rstrip('/')}/api/v1/salla/webhook"
+    registration = await run_in_threadpool(
+        client.register_webhook, access_token, event=WEBHOOK_EVENT, url=webhook_url,
+        name="Raje3 — تحالف استراتيجي")
+    webhook_id = str(((registration or {}).get("data") or {}).get("id") or "")
+
     await svc.save_connection(
         tenant=tenant, merchant_id=merchant_id, store_name=store_name,
         access_token=access_token, refresh_token=str(tokens.get("refresh_token") or ""),
-        expires_at=expires_at, scope=str(tokens.get("scope") or ""))
+        expires_at=expires_at, scope=str(tokens.get("scope") or ""), webhook_id=webhook_id)
 
     await request.app.state.auditor.record(
         "salla.connected", actor=tenant, tenant=tenant, resource=f"salla_merchant:{merchant_id}",
-        ip=request.client.host if request.client else "")
+        ip=request.client.host if request.client else "",
+        metadata={"webhook_registered": bool(webhook_id)})
 
     return _callback_page(
         ok=True, store_name=store_name, title="تم الربط بنجاح",
@@ -191,27 +205,29 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
 #: often does) mean "under review", not "money changed hands". Granting on that would spend the
 #: platform's own subscription discount on a sale that has not actually happened yet, and might
 #: never. `status.updated` + `completed` is the one combination that means the deal is done.
-_TARGET_EVENT = "order.status.updated"
 _TARGET_STATUS_SLUG = "completed"
 
 
 @router.post("/salla/webhook", dependencies=[Depends(rate_limit)])
 async def salla_webhook(request: Request) -> Any:
-    """Salla's own server call, on every subscribed event this app's Partners Portal settings
-    declare. VERIFIED, NEVER TRUSTED BY ORIGIN — signature checked against the RAW body (see
-    `verify_signature`'s own note on why re-parsed JSON cannot be used here), under the app-wide
-    Webhook Secret from the Partners Portal (secrets-admin, not per merchant).
+    """Salla's own server call, on `WEBHOOK_EVENT` — registered PROGRAMMATICALLY at connect time
+    (`salla_callback`'s own call to `client.register_webhook`, `webhooks.read_write` scope), not
+    configured by hand in the Partners Portal any more. VERIFIED, NEVER TRUSTED BY ORIGIN —
+    signature checked against the RAW body (see `verify_signature`'s own note on why re-parsed
+    JSON cannot be used here), under the app-wide Webhook Secret from the Partners Portal
+    (secrets-admin, not per merchant — that part IS still a one-time portal setting, since the
+    secret itself has nowhere else to come from).
 
     CHEAP FOR EVERY EVENT THAT IS NOT THE ONE THAT MATTERS. Verifying a signature and parsing a
     small JSON body cost nothing; a coupon grant costs a phone lookup AND a round trip to
     billing-service. So every event still gets a durable, minimal log line (`record_event`, one
     store write — the receipt that we heard from this merchant at all, useful on its own for
     "my webhook stopped firing" support questions), but the EXPENSIVE path below only ever runs
-    for `order.status.updated` at `completed` — every other event (order.created included) is
-    acknowledged and dropped right there. The Partners Portal's own webhook subscription should
-    ALSO be scoped to just this one event where Salla's own UI allows it — this filter is the
-    guarantee even if it is not, since a wrongly-scoped subscription must not become a wrongly-
-    triggered grant.
+    for `order.status.updated` at `completed` — every other event is acknowledged and dropped
+    right there. The subscription we register is already scoped to just this one event, but the
+    check here stays anyway as the real guarantee: a subscription record on Salla's own side is
+    not something this route can verify at request time, so it never trusts the registration
+    alone to be the only thing standing between a webhook call and a grant.
     """
     s = request.app.state.container_settings
     raw = await request.body()
@@ -238,7 +254,7 @@ async def salla_webhook(request: Request) -> Any:
         # same "received" every genuine call gets, with nothing acted on behind it.
         return {"received": True}
 
-    if event != _TARGET_EVENT or not tenant:
+    if event != WEBHOOK_EVENT or not tenant:
         # NOT THE TARGET EVENT, OR A MERCHANT WE HAVE NO LINK FOR — either way, nothing more to
         # do. `tenant` is empty both for "this merchant never connected" and "signature verified
         # but merchant id missing from the payload"; both are answered identically.

@@ -65,7 +65,13 @@ def env_guard():
 
 @pytest.fixture
 def client(env_guard) -> TestClient:
-    return _make_app()
+    c = _make_app()
+    # DEFAULT FAKE for every test — without this, a successful callback would make a REAL
+    # outbound call to api.salla.dev (client.register_webhook is real unless overridden), slow
+    # and flaky in CI. Tests that specifically exercise registration override this explicitly.
+    c.app.state.container.salla.client.register_webhook = (
+        lambda access_token, *, event, url, name="": {"data": {"id": 909}})
+    return c
 
 
 def _state_for(client: TestClient, tenant: str = TENANT) -> str:
@@ -203,6 +209,49 @@ def test_callback_exchanges_the_code_and_saves_a_real_connection(client):
     assert status["store_name"] == "متجر الاختبار"
     # NEVER THE TOKENS, even on the status route only the owner himself can reach.
     assert "at_123" not in json.dumps(status)
+    # THE WEBHOOK WAS REGISTERED AUTOMATICALLY — the id the fake client's own default returns.
+    assert status["webhook_id"] == "909"
+
+
+def test_a_successful_connect_registers_the_webhook_with_the_real_arguments(client):
+    salla_client = client.app.state.container.salla.client
+    salla_client.exchange_code = lambda code: {"access_token": "at_x", "refresh_token": "rt_x",
+                                                "expires": 100}
+    salla_client.user_info = lambda token: {"merchant": {"id": 61, "name": "م"}}
+    calls: list[dict] = []
+    salla_client.register_webhook = lambda access_token, *, event, url, name="": (
+        calls.append({"access_token": access_token, "event": event, "url": url, "name": name})
+        or {"data": {"id": 4242}})
+
+    state = _state_for(client)
+    client.get("/api/v1/salla/callback", params={"code": "c", "state": state})
+
+    assert len(calls) == 1
+    assert calls[0]["access_token"] == "at_x"       # the MERCHANT's own token, not the app's
+    assert calls[0]["event"] == "order.status.updated"
+    assert calls[0]["url"] == "https://raje3.sa/api/v1/salla/webhook"
+
+    status = client.get("/api/v1/staff/salla/status", headers=_auth("billing.self")).json()
+    assert status["webhook_id"] == "4242"
+
+
+def test_a_failed_webhook_registration_still_connects_the_store(client):
+    """Best-effort — see SallaClient.register_webhook's own docstring: the OAuth link is real
+    either way, only webhook_id stays empty."""
+    salla_client = client.app.state.container.salla.client
+    salla_client.exchange_code = lambda code: {"access_token": "at", "refresh_token": "rt",
+                                                "expires": 100}
+    salla_client.user_info = lambda token: {"merchant": {"id": 62, "name": "م"}}
+    salla_client.register_webhook = lambda access_token, *, event, url, name="": None
+
+    state = _state_for(client)
+    r = client.get("/api/v1/salla/callback", params={"code": "c", "state": state})
+    assert r.status_code == 200
+    assert "تم الربط بنجاح" in r.text
+
+    status = client.get("/api/v1/staff/salla/status", headers=_auth("billing.self")).json()
+    assert status["connected"] is True
+    assert status["webhook_id"] == ""
 
 
 def test_callback_carries_a_postmessage_payload_for_a_popup_opener(client):
