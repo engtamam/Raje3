@@ -18,11 +18,12 @@ import { Segmented } from '../rj-ui/Segmented';
 import { PlanCards } from './PlanCards';
 import { CouponCards } from './CouponCards';
 import { DiscountRuleCards } from './DiscountRuleCards';
+import { ShopCouponSettings } from './ShopCouponSettings';
 import { allActions, fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import { req, type AdminSession } from './api';
 import { NoActionAvailable } from './NoActionAvailable';
 
-type SubTab = 'plans' | 'coupons' | 'discount_rules';
+type SubTab = 'plans' | 'coupons' | 'discount_rules' | 'shop_coupons';
 
 export function AdminApps({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
@@ -56,6 +57,14 @@ export function AdminApps({ session }: { session: AdminSession }) {
   const createRuleAction = byId('billing.create_discount_rule');
   const updateRuleAction = byId('billing.update_discount_rule');
   const deleteRuleAction = byId('billing.delete_discount_rule');
+  // SHOP-TO-SHOP COUPONS — a different engine entirely from billing's own ad-hoc coupon codes
+  // above (core/coupons.py, operations-service). Kept as its own sub-tab specifically so the two
+  // "كوبون" concepts are never mixed on one screen.
+  const shopCouponSettingsGet = byId('operations.coupon_settings_get');
+  const shopCouponSettingsSet = byId('operations.coupon_settings_set');
+  const shopCouponLookup = byId('operations.coupon_tenant_lookup');
+  const shopCouponOverrideGet = byId('operations.coupon_override_get');
+  const shopCouponOverrideSet = byId('operations.coupon_override_set');
   // SCOPED TO billing-service SPECIFICALLY, not `byId` — `operator.get_config`/`set_config` are
   // declared by EVERY service that carries a runtime-editable setting (see AdminConfig.tsx's own
   // per-service grouping), so the first match across the whole flat catalog could just as easily
@@ -78,6 +87,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
                   { value: 'plans', label: 'التطبيقات والأسعار' },
                   { value: 'coupons', label: 'الخصومات والعروض' },
                   { value: 'discount_rules', label: 'قواعد الخصم المتسلسل' },
+                  { value: 'shop_coupons', label: 'كوبونات محل لمحل' },
                 ]} />
 
       {sub === 'plans' ? (
@@ -102,6 +112,13 @@ export function AdminApps({ session }: { session: AdminSession }) {
                                createAction={createRuleAction} updateAction={updateRuleAction}
                                deleteAction={deleteRuleAction} />
           : <p className="text-sm text-text-secondary">حسابك لا يحمل صلاحية القراءة هنا.</p>
+      ) : null}
+
+      {sub === 'shop_coupons' ? (
+        <ShopCouponSettings session={session}
+                            settingsGetAction={shopCouponSettingsGet} settingsSetAction={shopCouponSettingsSet}
+                            lookupAction={shopCouponLookup} overrideGetAction={shopCouponOverrideGet}
+                            overrideSetAction={shopCouponOverrideSet} />
       ) : null}
     </div>
   );

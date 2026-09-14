@@ -946,6 +946,18 @@ async def update_coupon_settings(request: Request, body: CouponSettingsIn,
                      for t in settings.tiers]}
 
 
+@router.get("/coupons/tenant-lookup", dependencies=[Depends(rate_limit)])
+async def coupon_tenant_lookup(request: Request, phone: str = "",
+                               principal: Principal = Depends(_PLATFORM)):
+    """Which tenant a phone number belongs to — the admin screen's own way of finding WHICH shop
+    to set an override for, without typing a raw tenant id by hand. Same phone the shop itself
+    registered with (signup.py's own PHONE_INDEX) — nothing new stored for this."""
+    if not phone.strip():
+        return {"tenant": ""}
+    tenant = await request.app.state.container.coupons.admin_tenant_by_phone(phone.strip())
+    return {"tenant": tenant}
+
+
 class CouponTenantOverrideIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     percent: int | None = Field(default=None, ge=0, le=100)

@@ -274,3 +274,25 @@ def test_an_owner_can_turn_the_visit_checkbox_off_and_it_reads_back(client):
     r2 = client.get("/api/v1/staff/coupons/preferences",
                     headers=_auth("operations.grant_coupon", tenant=GRANTER))
     assert r2.json()["visit_grant_enabled"] is False
+
+
+# ── admin tenant lookup by phone ────────────────────────────────────────────────────────────────
+def test_admin_tenant_lookup_finds_a_registered_phone(client):
+    _register_beneficiary(client)
+    r = client.get("/api/v1/platform/coupons/tenant-lookup",
+                   headers=_auth("platform.operations", tenant=""), params={"phone": PHONE})
+    assert r.status_code == 200
+    assert r.json()["tenant"] == BENEFICIARY
+
+
+def test_admin_tenant_lookup_reports_empty_for_an_unregistered_phone(client):
+    r = client.get("/api/v1/platform/coupons/tenant-lookup",
+                   headers=_auth("platform.operations", tenant=""), params={"phone": "0509999999"})
+    assert r.json()["tenant"] == ""
+
+
+def test_admin_tenant_lookup_refuses_a_non_platform_caller(client):
+    r = client.get("/api/v1/platform/coupons/tenant-lookup",
+                   headers=_auth("operations.grant_coupon_direct", tenant=GRANTER),
+                   params={"phone": PHONE})
+    assert r.status_code == 403

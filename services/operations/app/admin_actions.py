@@ -352,6 +352,16 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "group": "كوبونات (محل لمحل)",
     },
     {
+        "id": "operations.coupon_tenant_lookup",
+        "label": "دوّر على محل برقم جواله",
+        "method": "GET",
+        "path": "/api/v1/platform/coupons/tenant-lookup",
+        "capability": "platform.operations",
+        "params": [{"name": "phone", "in": "query", "type": "string", "required": True}],
+        "group": "كوبونات (محل لمحل)",
+        "help": "نفس رقم الجوال الذي سجّل به المحل — يعطيك معرّفه لضبط سقفه الخاص.",
+    },
+    {
         "id": "operations.coupon_override_get",
         "label": "سقف خاص لمحل — قراءة",
         "method": "GET",

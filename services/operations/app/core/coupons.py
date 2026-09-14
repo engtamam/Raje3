@@ -312,6 +312,14 @@ class CouponService:
         row = await self._s.get(PHONE_INDEX, canonical_phone(phone, default_cc=self._cc))
         return str((row or {}).get("tenant") or "")
 
+    async def admin_tenant_by_phone(self, phone: str) -> str:
+        """PLATFORM ADMIN ONLY — full disclosure of a tenant id, unlike `check()`/`grant()`'s own
+        minimal-disclosure posture toward an ordinary granting shop. The caller here is our own
+        platform-admin screen finding which shop a support conversation is about, the same trust
+        level `CustomerByPhoneLookup.tsx` already operates at (a raw tenant id is normal to show
+        an admin in this panel)."""
+        return await self._lookup_beneficiary(phone)
+
     async def _target_apps(self, beneficiary_tenant: str, *, general: bool,
                            app_keys: list[str]) -> list[tuple[str, str, str]] | None:
         """`(app_key, plan_id, subscription_id)` for every ELIGIBLE app already held by the
