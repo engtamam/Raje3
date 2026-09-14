@@ -92,7 +92,7 @@ describe('خدماتي — board/cards (phase 3)', () => {
     expect(img.src).toContain('blob:fake-image-url');
   });
 
-  it("clicking a card's edit button opens the edit modal in place, not the table", async () => {
+  it("clicking a card's edit button opens the inspector in place, not the table", async () => {
     open();
     await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
     fireEvent.click(screen.getByLabelText('بطاقات'));
@@ -100,10 +100,11 @@ describe('خدماتي — board/cards (phase 3)', () => {
     // both cards (svc_a, svc_b) carry an edit button — svc_a's is first
     fireEvent.click(screen.getAllByText('تعديل')[0]);
     // STAYS ON THE GRID — a card is a photo first, and the view he chose is not thrown away just
-    // to change a name. The modal opens over it instead, with the same name as a real input.
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    // to change a name. The docked inspector pane opens beside it instead (2026-09-14 workspace
+    // redesign, replacing the old <Modal>), with the same name as a real input.
+    await waitFor(() => expect(screen.getByDisplayValue('غسيل خارجي')).toBeTruthy());
     expect(document.querySelector('table')).toBeFalsy();
-    expect(screen.getByDisplayValue('غسيل خارجي')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeFalsy();
   });
 
   it('editing a row shows the description field, pre-filled, and saves on blur', async () => {

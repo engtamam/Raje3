@@ -29,7 +29,6 @@ import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
 import { FilterMenu } from '../rj-ui/FilterMenu';
-import { Modal } from '../rj-ui/Modal';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
@@ -1345,51 +1344,70 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {shown.flatMap(([, inGroup]) => inGroup).map((svc) => {
             const stopped = svc.active === false;
-            const live = !stopped;
+            const selected = modalSvc === svc.id;
             return (
               <div key={svc.id}
                   className={[
-                    'group relative flex flex-col gap-2 overflow-hidden rounded-2xl border p-3',
-                    'transition-all duration-200 hover:-translate-y-0.5',
-                    live
-                      ? 'border-border-subtle bg-surface-1 shadow-sm hover:shadow-lg hover:shadow-success/5'
-                      : 'border-border-subtle bg-surface-1 opacity-70',
+                    'flex flex-col overflow-hidden rounded-card border bg-surface-1 shadow-sm',
+                    'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-pop',
+                    selected ? 'border-accent' : 'border-border-subtle',
+                    stopped ? 'opacity-60' : '',
                   ].join(' ')}>
-                {live ? (
-                  <span aria-hidden
-                       className="absolute inset-y-3 start-0 w-[3px] rounded-full bg-gradient-to-b from-success to-success/40" />
-                ) : null}
                 {/* A REAL PHOTO, LARGE, OR A NEUTRAL PLACEHOLDER — never a blank box. The absence
                     of a photo is a fact worth seeing at a glance (an owner missing photos across
-                    his catalogue should notice), not something the layout quietly hides. */}
-                <div className="relative -mx-3 -mt-3 mb-1 aspect-[16/9] overflow-hidden bg-surface-2">
+                    his catalogue should notice), not something the layout quietly hides. The
+                    active/stopped state rides on the photo itself as a small pill (2026-09-14
+                    workspace redesign) rather than a badge beside the name below, matching the
+                    approved mockup's own "shape carries state" convention. */}
+                <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-accent-soft to-surface-2">
                   {images[svc.id] ? (
                     <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full place-items-center text-text-muted">
-                      <ImageOff size={22} aria-hidden />
+                    <div className="grid h-full place-items-center text-accent-on-soft opacity-60">
+                      <ImageOff size={28} aria-hidden />
                     </div>
                   )}
-                </div>
-                <div className="relative flex items-start justify-between gap-2 ps-2">
-                  <span className="flex min-w-0 items-center gap-2 font-medium">
-                    <span className="truncate">{svc.name}</span>
-                    {stopped ? <Badge tone="neutral">{t('services.stoppedBadge')}</Badge> : null}
+                  <span className={[
+                    'absolute top-2.5 rounded-full px-2.5 py-1 text-[10px] font-bold',
+                    stopped ? 'end-2.5 bg-danger text-danger-contrast'
+                            : 'start-2.5 bg-text-primary/55 text-white backdrop-blur',
+                  ].join(' ')}>
+                    {stopped ? t('services.stoppedBadge') : t('services.active')}
                   </span>
                 </div>
-                {svc.description ? (
-                  <p className="relative line-clamp-2 ps-2 text-xs text-text-secondary">{svc.description}</p>
-                ) : null}
-                <span className="relative ps-2 text-sm text-text-secondary">
-                  {svc.price_minor ? riyals(svc.price_minor) : '—'}
-                </span>
-                <div className="relative mt-1 flex items-center justify-end ps-2">
-                  {action(catalog, 'operations.update_service') ? (
-                    <Button variant="outline" size="sm" onClick={() => setModalSvc(svc.id)}>
-                      {t('services.edit')}
-                    </Button>
+                <div className="flex flex-1 flex-col gap-2 p-3.5 pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="min-w-0 truncate text-[15px] font-bold">{svc.name}</h3>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-sm font-bold text-accent-on-soft tabular-nums">
+                      {svc.price_minor ? riyals(svc.price_minor) : '—'}
+                    </span>
+                  </div>
+                  <p className="line-clamp-2 min-h-[2.6em] text-xs text-text-secondary">
+                    {svc.description || ' '}
+                  </p>
+                  {svc.duration_minutes ? (
+                    <div className="mt-auto border-t border-border-subtle pt-2 text-[11.5px] text-text-muted">
+                      {tf(t, 'services.duration.cardValue', { n: svc.duration_minutes })}
+                    </div>
                   ) : null}
                 </div>
+                {action(catalog, 'operations.update_service') ? (
+                  <div className="flex border-t border-border-subtle">
+                    <button type="button" onClick={() => setModalSvc(svc.id)}
+                           className="flex flex-1 items-center justify-center gap-1.5 border-e border-border-subtle py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-accent-soft hover:text-accent-on-soft">
+                      <Pencil size={14} aria-hidden /> {t('services.edit')}
+                    </button>
+                    <button type="button" disabled={saving}
+                           onClick={() => patchService(svc.id, { active: stopped })}
+                           className={[
+                             'flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors',
+                             stopped ? 'text-text-secondary hover:bg-surface-2'
+                                     : 'text-danger hover:bg-danger-soft',
+                           ].join(' ')}>
+                      <Power size={14} aria-hidden /> {stopped ? t('services.activate') : t('services.deactivate')}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -1830,39 +1848,52 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       </div>
       {/* closes the min-w-0 flex-1 column beside the sidebar rail */}
       </div>
-      </div>
-        );
-      })()}
 
-      {/* THE GRID VIEW'S OWN EDIT SURFACE — a card is a photo first, and «تعديل» used to throw
-          that away by switching him to the table just to change a name. Same fields, same
-          save-on-blur handlers as the table row (patchService/setService/setServicePoints/
-          uploadServiceImage — nothing here is a second source of truth), laid out for the view
-          he was actually looking at instead. */}
-      {(() => {
+      {/* ── RIGHT: the inspector — docked, always occupying its own pane in grid mode, never a
+          floating modal (2026-09-14 workspace redesign, replacing the old <Modal>). Same fields,
+          same save-on-blur handlers as the table row (patchService/setService/setServicePoints/
+          uploadServiceImage — nothing here is a second source of truth); only the container
+          changed from an overlay to a persistent column beside the grid it edits. The table
+          (list) view keeps its own inline per-cell editing unchanged — this pane exists only
+          for the card grid, which has no row of its own to edit in place. */}
+      {layout === 'grid' ? (() => {
         const svc = (services ?? []).find((s) => s.id === modalSvc);
-        if (!svc) return null;
+        if (!svc) {
+          return (
+            <aside className="hidden w-[22rem] shrink-0 flex-col items-center justify-center gap-2
+                              rounded-card border border-dashed border-border-strong p-6
+                              text-center text-sm text-text-muted lg:flex">
+              <SlidersHorizontal size={22} aria-hidden />
+              <span>{t('services.inspector.empty')}</span>
+            </aside>
+          );
+        }
         const { value, own } = settingFor(svc.id);
         const stopped = svc.active === false;
         return (
-          <Modal open onClose={() => setModalSvc(null)} title={svc.name} size="lg">
-            <div className="flex flex-col gap-4">
-              {/* A REAL, LARGE PHOTO — the whole point of opening this from the grid rather than
-                  the table, where a thumbnail the size of a fingertip was the most this setting
-                  could ever get. */}
-              <div className="relative -mx-1 aspect-[16/9] overflow-hidden rounded-xl bg-surface-2">
+          <aside className="flex w-[22rem] shrink-0 flex-col rounded-card border border-accent
+                            bg-surface-1 shadow-sm">
+            <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
+              <h3 className="truncate text-sm font-bold">{svc.name}</h3>
+              <button type="button" onClick={() => setModalSvc(null)}
+                     aria-label={t('services.finishEditing')}
+                     className="grid size-7 shrink-0 place-items-center rounded-lg text-text-secondary hover:bg-surface-2">
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-col gap-4 overflow-y-auto p-4">
+              <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-surface-2">
                 {images[svc.id] ? (
                   <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <div className="grid h-full place-items-center text-text-muted">
-                    <ImageOff size={32} aria-hidden />
+                    <ImageOff size={28} aria-hidden />
                   </div>
                 )}
-                {/* REPLACE ONLY — see the table-row upload control's own comment. */}
                 {action(catalog, 'operations.upload_service_image') ? (
-                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/60 to-transparent p-3">
-                    <label className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-surface-1/90 px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm backdrop-blur">
-                      <Upload size={13} aria-hidden /> {svc.has_image ? 'استبدال الصورة' : 'صورة'}
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/60 to-transparent p-2.5">
+                    <label className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-surface-1/90 px-2.5 py-1 text-[11px] font-medium text-text-primary shadow-sm backdrop-blur">
+                      <Upload size={12} aria-hidden /> {svc.has_image ? 'استبدال الصورة' : 'صورة'}
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                             onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
                     </label>
@@ -1871,34 +1902,30 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               </div>
 
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-text-secondary">{t('services.name')}</span>
+                <span className="text-xs font-medium text-text-secondary">{t('services.name')}</span>
                 <input
                   defaultValue={svc.name}
                   maxLength={128}
                   onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== svc.name) patchService(svc.id, { name: v }); }}
-                  className="h-11 rounded-lg bg-surface-2 px-3 text-base font-medium"
+                  className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm font-medium"
                 />
               </label>
 
               <label className="flex flex-col gap-1">
-                <span className="text-sm text-text-secondary">وصف قصير (اختياري)</span>
+                <span className="text-xs font-medium text-text-secondary">وصف قصير (اختياري)</span>
                 <textarea
                   defaultValue={svc.description ?? ''}
                   maxLength={300}
                   rows={2}
                   placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
                   onBlur={(e) => { const v = e.target.value.trim(); if (v !== (svc.description ?? '')) patchService(svc.id, { description: v }); }}
-                  className="w-full rounded-lg bg-surface-2 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm"
                 />
               </label>
 
-              {/* THE SAME NUMBERS THE TABLE ROW OFFERS, IN A GRID OF THEIR OWN — a card's edit
-                  surface has the width for four fields side by side that a table column never
-                  did, so this is not a cramped port of the row, it is the layout the row's own
-                  fixed-width cells never had room to be. */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs text-text-secondary">{t('services.duration.label')}</span>
+                  <span className="text-xs font-medium text-text-secondary">{t('services.duration.label')}</span>
                   <input type="number" min={0} max={720} dir="ltr"
                         defaultValue={svc.duration_minutes ? String(svc.duration_minutes) : ''}
                         onBlur={(e) => {
@@ -1907,10 +1934,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                           const n = Number(raw);
                           if (n !== (svc.duration_minutes ?? 0)) patchService(svc.id, { duration_minutes: n });
                         }}
-                        className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                        className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs text-text-secondary">{t('services.price.label')}</span>
+                  <span className="text-xs font-medium text-text-secondary">{t('services.price.label')}</span>
                   <input type="text" inputMode="decimal" dir="ltr" placeholder="—"
                         defaultValue={svc.price_minor ? riyals(svc.price_minor) : ''}
                         onBlur={(e) => {
@@ -1920,12 +1947,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                           if (minor === null) { setError(t('services.error.priceInvalid')); return; }
                           if (minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
                         }}
-                        className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                        className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                 </label>
                 {action(catalog, 'reminders.set_service_settings') ? (
                   <>
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs text-text-secondary">{t('services.reminderCycle.label')}</span>
+                      <span className="text-xs font-medium text-text-secondary">{t('services.reminderCycle.label')}</span>
                       <input type="number" min={0} dir="ltr"
                             defaultValue={value.interval_days ? String(value.interval_days) : ''}
                             placeholder={own ? '0' : String(value.interval_days ?? 0)}
@@ -1935,10 +1962,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                               const n = Number(raw);
                               if (n !== (value.interval_days ?? 0)) setService(svc.id, { interval_days: n });
                             }}
-                            className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                            className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                     </label>
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs text-text-secondary">{t('services.followUp')}</span>
+                      <span className="text-xs font-medium text-text-secondary">{t('services.followUp')}</span>
                       <input type="number" min={0} dir="ltr"
                             defaultValue={value.follow_up_days ? String(value.follow_up_days) : ''}
                             placeholder={own ? '0' : String(value.follow_up_days ?? 0)}
@@ -1948,13 +1975,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                               const n = Number(raw);
                               if (n !== (value.follow_up_days ?? 0)) setService(svc.id, { follow_up_days: n });
                             }}
-                            className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                            className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                     </label>
                   </>
                 ) : null}
                 {earnAction ? (
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs text-text-secondary">{t('services.points')}</span>
+                    <span className="text-xs font-medium text-text-secondary">{t('services.points')}</span>
                     <input type="number" min={0} dir="ltr"
                           defaultValue={earnFor(svc.id).own ? String(earnFor(svc.id).points) : ''}
                           placeholder={String(earnFor(svc.id).points)}
@@ -1964,18 +1991,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                             const n = Number(raw);
                             if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n);
                           }}
-                          className="h-10 rounded-lg bg-surface-2 px-2 text-center tabular-nums" />
+                          className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                   </label>
                 ) : null}
               </div>
 
               {action(catalog, 'reminders.set_group') ? (
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm text-text-secondary">{t('services.group')}</span>
+                  <span className="text-xs font-medium text-text-secondary">{t('services.group')}</span>
                   <select
                     value={settings?.service_group?.[svc.id] ?? ''}
                     onChange={(e) => { const v = e.target.value; if (!v) leaveGroup(svc.id); else joinGroup(svc.id, v); }}
-                    className="h-10 w-full rounded-lg bg-surface-2 px-2 text-sm"
+                    className="h-10 w-full rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm"
                   >
                     <option value="">{t('services.noGroupOption')}</option>
                     {Object.keys(settings?.groups ?? {}).map((g) => (
@@ -1984,23 +2011,26 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   </select>
                 </label>
               ) : null}
-
-              <div className="flex items-center justify-between border-t border-border-subtle pt-3">
-                <span className="text-sm text-text-secondary">
+            </div>
+            {action(catalog, 'operations.update_service') ? (
+              <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3">
+                <span className="text-xs text-text-secondary">
                   {stopped ? t('services.stoppedBadge') : t('services.active')}
                 </span>
-                {action(catalog, 'operations.update_service') ? (
-                  <Button variant={stopped ? 'solid' : 'outline'} size="sm"
-                         onClick={() => patchService(svc.id, { active: stopped })}>
-                    <Power size={14} aria-hidden />
-                    {stopped ? t('services.activate') : t('services.deactivate')}
-                  </Button>
-                ) : null}
+                <Button variant={stopped ? 'solid' : 'outline'} size="sm"
+                       onClick={() => patchService(svc.id, { active: stopped })}>
+                  <Power size={14} aria-hidden />
+                  {stopped ? t('services.activate') : t('services.deactivate')}
+                </Button>
               </div>
-            </div>
-          </Modal>
+            ) : null}
+          </aside>
+        );
+      })() : null}
+      </div>
         );
       })()}
+
     </div>
   );
 }
