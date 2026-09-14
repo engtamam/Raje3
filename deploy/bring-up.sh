@@ -718,6 +718,17 @@ soft "affiliate-service's phone-search role" bash "$HERE/hooks/provision-affilia
 # account. seed-templates.sh takes --tenant for that reason.
 step "seed"
 soft "roles" bash "$HERE/seed/seed-roles.sh"
+# assistant-service's OWN HAND-AUTHORED KB (Phase 4) — a ConfigMap this repo's own
+# deploy/kb/sync-shop-kb.sh builds from deploy/kb/shop/*.json, mounted via the chart's
+# extraVolumes hook. NEVER PART OF A FRESH-CLUSTER CHAIN UNTIL TODAY — a WIPE=1 install deletes
+# this ConfigMap along with everything else in the namespace, and nothing here ever recreated
+# it, so assistant-service sat in ContainerCreating forever (FailedMount: configmap
+# "assistant-kb-shop" not found) on the FIRST from-scratch install this KB feature ever saw.
+# Every ordinary (non-wipe) deploy never noticed, because the ConfigMap from whenever it was
+# last synced by hand was still sitting there. `soft`, matching every other seeder here — a
+# missing/invalid KB file must not fail the whole install; ci/check_shop_kb_is_valid.py is the
+# gate that actually enforces the content is correct, on every commit.
+soft "assistant KB" bash "$HERE/kb/sync-shop-kb.sh"
 # THE ADMINISTRATION ACCOUNT THE INSTALLER ASKED FOR (ل-2). install.sh collects an email and a
 # password, enforces a floor on the password, generates one when it is left blank, and prints it
 # under «تُعرض مرة واحدة فقط» — and nothing here read either value, so no account was ever created.
