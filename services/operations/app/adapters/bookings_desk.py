@@ -46,6 +46,35 @@ class BookingsDesk:
         except Exception:                                                       # noqa: BLE001
             return None
 
+    def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any] | None:
+        """Unlike `_get`, an error STATUS still comes back as a dict (tagged `_status`) rather than
+        `None` — a till calling `attend()` needs to tell "this booking is already cancelled" (a
+        real, meaningful 400 `bookings` raised on purpose) apart from "the peer is unreachable
+        right now" (a `None`, meaning try again later), and collapsing both to `None` would answer
+        a customer standing at the counter with the same unhelpful "try again" for both."""
+        req = urllib.request.Request(
+            f"{self._base}{path}", method="POST", data=json.dumps(body).encode(),
+            headers={"X-Internal-Token": self._token, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
+                payload = json.loads(resp.read() or b"{}")
+                return {"_status": resp.status, **(payload if isinstance(payload, dict) else {})}
+        except urllib.error.HTTPError as exc:
+            # `bookings`' own error handler (app/api/errors.py) answers every HTTPException with a
+            # STABLE GENERIC CODE ("NOT_FOUND", "BAD_REQUEST", ...), never the exception's own
+            # message text — deliberate, cross-service defense in depth against leaking internal
+            # detail, even under the internal token. The caller here (till.py) is what turns that
+            # code into the Arabic sentence a cashier reads to a customer, the same way it already
+            # does for loyalty's own `_status`/`_reason` refusal shape.
+            try:
+                payload = json.loads(exc.read() or b"{}")
+            except Exception:                                                   # noqa: BLE001
+                payload = {}
+            code = payload.get("error") if isinstance(payload, dict) else None
+            return {"_status": exc.code, "error": code if isinstance(code, str) else "ERROR"}
+        except Exception:                                                       # noqa: BLE001
+            return None
+
     async def working_hours(self, tenant: str) -> dict[str, Any] | None:
         """`None` when the peer cannot be reached — the caller must treat that as "cannot verify",
         never as "the shop has no hours", which would let every staff-hours edit through with no
@@ -71,6 +100,39 @@ class BookingsDesk:
         # OFF THE EVENT LOOP, same reason `working_hours` blocks this way.
         out = await run_in_threadpool(self._get, "/internal/no-show-summary", query)
         return (out or {}).get("by_operator") or {}
+
+    async def bookings_for_customer(self, tenant: str, customer_id: str, *,
+                                    branch_id: str = "") -> list[dict[str, Any]] | None:
+        """Every OPEN-enough booking this customer holds — the till's own `GET /till/bookings`
+        reaches this so a counter can offer "confirm this appointment happened" without the
+        cashier having to already know a booking id. `None` means the peer could not be reached
+        (try later); an empty list is the honest "no bookings", never conflated with the two."""
+        if not self.configured:
+            return None
+        out = await run_in_threadpool(
+            self._post, "/internal/bookings/for-customer",
+            {"tenant": tenant, "customer_id": customer_id, "branch_id": branch_id})
+        if out is None or out.get("_status", 200) >= 300:
+            return None
+        return out.get("bookings") or []
+
+    async def attend(self, tenant: str, booking_id: str, *, customer_id: str,
+                     branch_id: str = "", occurred_at: int = 0) -> dict[str, Any] | None:
+        """Mark a booking fulfilled at the moment of till payment — the single largest gap both
+        till-integration audits (2026-09-13, 2026-09-14) named: without this, a shop running both
+        an integrated till and bookings had the booking calendar and the till ledger silently
+        diverge on what actually happened, and a booking's own `intended_reward_id` never fired.
+
+        Returns the raw dict from `bookings` (tagged `_status`) on any answer — success (200,
+        booking fields) or refusal (400/404/409, `error` a generic code) — so `till.py` can turn
+        either into the sentence a cashier reads aloud; `None` only when the peer itself could not
+        be reached at all."""
+        if not self.configured:
+            return None
+        return await run_in_threadpool(
+            self._post, f"/internal/bookings/{booking_id}/attend",
+            {"tenant": tenant, "customer_id": customer_id, "branch_id": branch_id,
+             "occurred_at": occurred_at})
 
 
 def build_bookings_desk(settings) -> BookingsDesk:

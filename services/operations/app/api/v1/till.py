@@ -519,19 +519,31 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
     if desk is None or not desk.configured:
         return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
 
+    # THE BRANCH IS CHECKED HERE AND NOT IN LOYALTY, because the branch list is ours: loyalty
+    # holds no places and would have to read our tables to know one.
+    #
+    # FIXED 2026-09-14 (both till-integration audits, 2026-09-13 and 2026-09-14, flagged this by
+    # hand): this used to call `svc.resolve_branch()` — the PERMISSIVE resolver, which silently
+    # drops an unrecognised id to "" — while `/visits` (above) HARD-REJECTS the exact same field
+    # by name. Both integration guides document «نفس الطريقة على كل الأبواب», so this was a real
+    # doc/code mismatch: a typo'd branch id on a redemption was recorded under "no branch" instead
+    # of refused and named back to the caller, the opposite of what the identical typo does on a
+    # visit. `branch_id` is REQUIRED on `TillRedeemIn` (unlike the old comment here claimed) —
+    # required-but-silently-ignorable is the exact bucketing bug the mandatory field on `/visits`
+    # was added to fix, reached one door later.
+    known = await svc.known_branches(tenant)
+    if body.branch_id.strip() not in known:
+        return {"ok": False, "reason": "REFUSED",
+                "message": f"لا يوجد فرع بهذا الرقم «{body.branch_id.strip()[:64]}» — أرسل أحد "
+                           "فروع هذا المحل."}
+    branch_id = body.branch_id.strip()
+
     # AUDITED BEFORE IT HAPPENS, like every other write a machine makes. A redemption the log
     # could not record must not occur — it is a customer's balance being spent.
     await request.app.state.auditor.record(
         "loyalty.redeemed", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
         resource="redemption", ip=request.client.host if request.client else "")
 
-    # THE BRANCH IS CHECKED HERE AND NOT IN LOYALTY, because the branch list is ours: loyalty
-    # holds no places and would have to read our tables to know one. An id this shop does not have
-    # is dropped rather than stamped onto a ledger entry nobody can ever attribute (§12.2).
-    #
-    # ASKED ONLY WHEN THERE IS SOMETHING TO ASK ABOUT. A till that sends no branch — most of them,
-    # since the field is optional (§12.2) — must not pay for a branch list read on every sale.
-    branch_id = await svc.resolve_branch(tenant, body.branch_id)
     out = await desk.redeem(tenant=tenant, subject_ref=c.subject_ref, reward_id=body.reward_id,
                             idempotency_key=body.idempotency_key, actor=body.actor,
                             approved_by=body.approved_by, branch_id=branch_id)
@@ -615,3 +627,121 @@ async def apply_offer_at_the_counter(request: Request, body: TillOfferIn,
     if applied is None:
         return {"applied": False, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
     return {"applied": True, "offer": applied}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  BOOKINGS — the single largest gap both till-integration audits named (2026-09-13, 2026-09-14).
+#
+#  A shop running both an integrated till and bookings had NO WAY to close the loop between them:
+#  a customer books an appointment, the till records the payment as a bare, disconnected "visit",
+#  and the booking itself is never marked attended — so `intended_reward_id` (a loyalty reward
+#  the booking already promised at scheduling time) never fires, the no-show-risk statistic never
+#  updates, and the shop's two systems silently diverge on what actually happened.
+#
+#  TWO DOORS, matching the report's own recommended shape: list-then-act, because a cashier does
+#  not usually know a booking id by heart — she knows the customer standing in front of her.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+_BOOKING_ERROR_MESSAGE: dict[str, str] = {
+    "NOT_FOUND": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل.",
+    "BAD_REQUEST": "تعذّر تسجيل الحضور — الحجز مغلق مسبقاً (أُلغي أو سُجّل غيابه).",
+    "ERROR": "تعذّر تسجيل حضور الحجز الآن.",
+}
+
+
+@router.get("/bookings", dependencies=[Depends(rate_limit)])
+async def bookings_at_the_counter(request: Request, phone: str = "", plate: str = "",
+                                  principal: Principal = Depends(_TILL)) -> Any:
+    """Which of this customer's bookings a till can offer to mark attended — the natural read
+    pairing with `/bookings/{id}/attend` below, so a cashier is never expected to already know a
+    booking id. Same "found: false, never 404" convention as `/customer` (a customer with no
+    bookings is the ordinary case at a counter, not a fault)."""
+    if not principal.tenant:
+        return {"found": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    try:
+        await count_lookup(request.app.state.container.datastore, tenant, principal.subject)
+    except LookupRefused as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=str(exc)) from exc
+
+    c = None
+    if phone.strip():
+        c = await svc.customer_by_phone(tenant, phone.strip())
+    if c is None and plate.strip():
+        c = await svc.customer_by_plate(tenant, plate.strip())
+    if c is None:
+        return {"found": False}
+
+    desk = getattr(request.app.state.container, "bookings_desk", None)
+    if desk is None or not desk.configured:
+        return {"found": True, "bookings_unavailable": True}
+
+    rows = await desk.bookings_for_customer(tenant, c.id)
+    if rows is None:
+        return {"found": True, "bookings_unavailable": True}
+    # OPEN ONLY — a till offering to "confirm attendance" on an already-cancelled or already-
+    # attended booking would be offering to redo something already settled.
+    open_rows = [r for r in rows if r.get("status") not in ("cancelled", "no_show", "attended")]
+    return {"found": True,
+           "bookings": [{"id": r.get("id"), "starts_at": r.get("starts_at"),
+                         "branch_id": r.get("branch_id"), "service_ids": r.get("service_ids"),
+                         "package_id": r.get("package_id")} for r in open_rows]}
+
+
+class TillAttendIn(BaseModel):
+    """Confirm at the counter that this booking's appointment actually happened."""
+
+    phone: str = Field(default="", max_length=32)
+    plate: str = Field(default="", max_length=32)
+    branch_id: str = Field(default="", max_length=64)
+    occurred_at: int = Field(default=0, ge=0)
+
+
+@router.post("/bookings/{booking_id}/attend",
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def attend_booking_at_the_counter(request: Request, booking_id: str, body: TillAttendIn,
+                                        principal: Principal = Depends(_TILL)) -> Any:
+    """Turn a scheduled booking into a real visit, at the moment the till takes payment for it —
+    the door that did not exist.
+
+    UNGATED BY `feature.api` — same reasoning as `/redeem` and `/offer/apply`: a booking already
+    made is not the shop's programmatic-link invoice, and this is a closing action on something
+    that already exists, never a new write into the visit ledger on its own (the visit itself is
+    created by `bookings`' own `attend()`, which is licence-gated at ITS door already).
+
+    IDENTIFIES THE CUSTOMER THE SAME WAY EVERY OTHER TILL ROUTE DOES — by phone or plate, resolved
+    here, never by a raw customer id a till has no legitimate way to already hold.
+    """
+    if not principal.tenant:
+        return {"ok": False, "reason": "REFUSED", "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    c = None
+    if body.phone.strip():
+        c = await svc.customer_by_phone(tenant, body.phone.strip())
+    if c is None and body.plate.strip():
+        c = await svc.customer_by_plate(tenant, body.plate.strip())
+    if c is None:
+        return {"ok": False, "reason": "NOT_FOUND", "message": "لا يوجد عميل بهذا الرقم."}
+
+    desk = getattr(request.app.state.container, "bookings_desk", None)
+    if desk is None or not desk.configured:
+        return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى نظام الحجوزات."}
+
+    await request.app.state.auditor.record(
+        "booking.attended_via_till", actor=f"till:{principal.subject}", tenant=tenant,
+        resource=f"booking:{booking_id}", ip=request.client.host if request.client else "")
+
+    out = await desk.attend(tenant, booking_id, customer_id=c.id, branch_id=body.branch_id,
+                            occurred_at=body.occurred_at)
+    if out is None:
+        return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى نظام الحجوزات الآن."}
+    if out.get("_status", 200) >= 300:
+        code = out.get("error") or "ERROR"
+        return {"ok": False, "reason": code,
+               "message": _BOOKING_ERROR_MESSAGE.get(code, _BOOKING_ERROR_MESSAGE["ERROR"])}
+    return {"ok": True, "booking_id": out.get("id"), "status": out.get("status")}

@@ -46,12 +46,22 @@ class _Customer:
         self.visit_count = visit_count
 
 
+class _AnyBranch:
+    """A fake "known branches" set that says yes to every id — what most of these tests are
+    about is the redemption itself, not the branch check; a test that cares about the branch
+    check passes a real, explicit `set()` instead."""
+
+    def __contains__(self, item: object) -> bool:
+        return True
+
+
 class _Ops:
     """Only what these routes reach for."""
 
-    def __init__(self, customer=None) -> None:
+    def __init__(self, customer=None, *, branches: set[str] | None = None) -> None:
         self._customer = customer
         self.asked_tenant = ""
+        self._branches = branches if branches is not None else _AnyBranch()
 
     async def customer_by_phone(self, tenant, phone):
         self.asked_tenant = tenant
@@ -65,6 +75,9 @@ class _Ops:
         # The real one drops an id the shop does not have; here every id is taken at its word —
         # what these tests are about is the redemption, not the branch check.
         return branch_id
+
+    async def known_branches(self, tenant):
+        return self._branches
 
 
 class _Desk:
@@ -112,9 +125,10 @@ class _Telemetry:
         self.events.append((name, kw))
 
 
-def _request(ops, desk, *, api_licence=None):
+def _request(ops, desk, *, api_licence=None, bookings_desk=None):
     container = types.SimpleNamespace(operations=ops, loyalty_desk=desk, datastore=_Store(),
-                                      telemetry=_Telemetry(), api_licence=api_licence)
+                                      telemetry=_Telemetry(), api_licence=api_licence,
+                                      bookings_desk=bookings_desk)
     state = types.SimpleNamespace(container=container, auditor=_Auditor())
     return types.SimpleNamespace(app=types.SimpleNamespace(state=state), client=None)
 
@@ -420,3 +434,142 @@ def test_the_counter_shows_how_many_times_he_has_actually_been_here():
         _request(ops, desk), phone="0500000000", principal=_Principal(tenant="t_9")))
 
     assert out["visits"] == 47
+
+
+# ── /redeem's branch check now HARD-REJECTS an unknown id, matching /visits (2026-09-14 fix) ────
+
+def test_redeem_with_an_unknown_branch_is_hard_rejected_not_silently_dropped():
+    """Both till-integration audits (2026-09-13, 2026-09-14) flagged the old behaviour by hand:
+    `/redeem` used to silently drop an unrecognised branch to "" while `/visits` refused it by
+    name — the same field, two different behaviours, and the docs claimed one. Now they agree."""
+    desk = _Desk(redeem={"transaction_ref": "should-never-be-reached"})
+    ops = _Ops(customer=_Customer(), branches={"brn-real"})
+    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1",
+                                    branch_id="brn-typo", idempotency_key="k")
+    out = asyncio.run(till_routes.redeem_at_the_counter(_request(ops, desk), body,
+                                                        principal=_Principal()))
+    assert out["ok"] is False and out["reason"] == "REFUSED"
+    assert "brn-typo" in out["message"]
+    # AND THE LEDGER WAS NEVER TOUCHED — a refused branch must not fall through to a real spend.
+    assert desk.seen == {}
+
+
+def test_redeem_with_a_real_branch_still_succeeds(env_guard=None):
+    desk = _Desk(redeem={"transaction_ref": "rdm_ok"})
+    ops = _Ops(customer=_Customer(), branches={"brn-real"})
+    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1",
+                                    branch_id="brn-real", idempotency_key="k")
+    out = asyncio.run(till_routes.redeem_at_the_counter(_request(ops, desk), body,
+                                                        principal=_Principal()))
+    assert out["ok"] is True
+    assert desk.seen["branch_id"] == "brn-real"
+
+
+# ── bookings-at-the-till (2026-09-14): the single largest gap both audits named ──────────────────
+
+class _BookingsDesk:
+    def __init__(self, *, for_customer=None, attend=None, configured=True) -> None:
+        self._for_customer = for_customer
+        self._attend = attend
+        self.configured = configured
+        self.attend_calls: list[dict] = []
+
+    async def bookings_for_customer(self, tenant, customer_id, *, branch_id=""):
+        return self._for_customer
+
+    async def attend(self, tenant, booking_id, *, customer_id, branch_id="", occurred_at=0):
+        self.attend_calls.append({"tenant": tenant, "booking_id": booking_id,
+                                  "customer_id": customer_id, "branch_id": branch_id,
+                                  "occurred_at": occurred_at})
+        return self._attend
+
+
+def test_bookings_list_answers_found_false_for_no_customer_never_a_404():
+    req = _request(_Ops(customer=None), _Desk(), bookings_desk=_BookingsDesk())
+    out = asyncio.run(till_routes.bookings_at_the_counter(req, phone="0500000000",
+                                                          principal=_Principal()))
+    assert out == {"found": False}
+
+
+def test_bookings_list_filters_out_settled_bookings():
+    rows = [
+        {"id": "bkg_open", "status": "booked", "starts_at": 1},
+        {"id": "bkg_done", "status": "attended", "starts_at": 2},
+        {"id": "bkg_gone", "status": "cancelled", "starts_at": 3},
+        {"id": "bkg_missed", "status": "no_show", "starts_at": 4},
+    ]
+    desk = _BookingsDesk(for_customer=rows)
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    out = asyncio.run(till_routes.bookings_at_the_counter(req, phone="0500000000",
+                                                          principal=_Principal()))
+    assert [b["id"] for b in out["bookings"]] == ["bkg_open"]
+
+
+def test_bookings_list_says_unavailable_not_empty_when_the_peer_cannot_be_reached():
+    """`None` (unreachable) and `[]` (genuinely no bookings) must never read the same to a
+    cashier — one means "try again", the other means "there really are none"."""
+    desk = _BookingsDesk(for_customer=None)
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    out = asyncio.run(till_routes.bookings_at_the_counter(req, phone="0500000000",
+                                                          principal=_Principal()))
+    assert out["bookings_unavailable"] is True
+    assert "bookings" not in out
+
+
+def test_attend_resolves_the_customer_by_phone_then_calls_bookings():
+    desk = _BookingsDesk(attend={"_status": 200, "id": "bkg_1", "status": "attended"})
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    body = till_routes.TillAttendIn(phone="0500000000")
+    out = asyncio.run(till_routes.attend_booking_at_the_counter(
+        req, "bkg_1", body, principal=_Principal(tenant="t_9")))
+    assert out == {"ok": True, "booking_id": "bkg_1", "status": "attended"}
+    assert desk.attend_calls == [{"tenant": "t_9", "booking_id": "bkg_1",
+                                  "customer_id": "cus_1", "branch_id": "", "occurred_at": 0}]
+
+
+def test_attend_translates_a_generic_refusal_code_into_an_arabic_sentence():
+    """`bookings`' own error handler answers with a STABLE GENERIC CODE only, never the real
+    sentence (cross-service defense in depth) — till.py is what turns that code into the words a
+    cashier reads aloud, the same discipline `/redeem` already follows for loyalty's refusals."""
+    desk = _BookingsDesk(attend={"_status": 400, "error": "BAD_REQUEST"})
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    out = asyncio.run(till_routes.attend_booking_at_the_counter(
+        req, "bkg_1", till_routes.TillAttendIn(phone="0500000000"), principal=_Principal()))
+    assert out["ok"] is False and out["reason"] == "BAD_REQUEST"
+    assert out["message"] == till_routes._BOOKING_ERROR_MESSAGE["BAD_REQUEST"]
+
+
+def test_attend_with_no_customer_found_is_refused_without_ever_calling_bookings():
+    desk = _BookingsDesk(attend={"_status": 200, "id": "bkg_1", "status": "attended"})
+    req = _request(_Ops(customer=None), _Desk(), bookings_desk=desk)
+    out = asyncio.run(till_routes.attend_booking_at_the_counter(
+        req, "bkg_1", till_routes.TillAttendIn(phone="0500000000"), principal=_Principal()))
+    assert out == {"ok": False, "reason": "NOT_FOUND", "message": "لا يوجد عميل بهذا الرقم."}
+    assert desk.attend_calls == []
+
+
+def test_attend_when_the_peer_is_unreachable_says_unavailable_not_a_refusal():
+    desk = _BookingsDesk(attend=None)
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    out = asyncio.run(till_routes.attend_booking_at_the_counter(
+        req, "bkg_1", till_routes.TillAttendIn(phone="0500000000"), principal=_Principal()))
+    assert out["ok"] is False and out["reason"] == "UNAVAILABLE"
+
+
+def test_attend_is_audited_before_it_happens():
+    desk = _BookingsDesk(attend={"_status": 200, "id": "bkg_1", "status": "attended"})
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    asyncio.run(till_routes.attend_booking_at_the_counter(
+        req, "bkg_1", till_routes.TillAttendIn(phone="0500000000"), principal=_Principal()))
+    actions = [a for a, _ in req.app.state.auditor.calls]
+    assert "booking.attended_via_till" in actions
+
+
+def test_attend_with_no_tenant_is_refused():
+    desk = _BookingsDesk(attend={"_status": 200, "id": "bkg_1", "status": "attended"})
+    req = _request(_Ops(customer=_Customer()), _Desk(), bookings_desk=desk)
+    out = asyncio.run(till_routes.attend_booking_at_the_counter(
+        req, "bkg_1", till_routes.TillAttendIn(phone="0500000000"),
+        principal=_Principal(tenant="")))
+    assert out["ok"] is False
+    assert desk.attend_calls == []

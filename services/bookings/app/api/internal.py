@@ -645,3 +645,39 @@ async def internal_reschedule_booking(request: Request, booking_id: str,
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return booking.public()
+
+
+class InternalAttendIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    customer_id: str = Field(min_length=1, max_length=64)
+    branch_id: str = Field(default="", max_length=64)
+    occurred_at: int = Field(default=0, ge=0)
+
+
+@router.post("/bookings/{booking_id}/attend", dependencies=[Depends(require_internal_token)])
+async def internal_attend_booking(request: Request, booking_id: str,
+                                  body: InternalAttendIn) -> dict:
+    """THE GAP BOTH TILL-INTEGRATION AUDITS NAMED AS THE SINGLE LARGEST HOLE (2026-09-13 and
+    2026-09-14): a shop running both an integrated till and bookings had no way to tell bookings
+    that a scheduled appointment was actually paid for at the counter, so `intended_reward_id`
+    never fired and the no-show-risk statistic never updated — the till ledger and the booking
+    calendar silently diverged on what actually happened. This is that door.
+
+    SAME OWNERSHIP CHECK AS CANCEL/RESCHEDULE (`_own_booking`) — a till resolves its own customer
+    by phone/plate first (operations' own `customer_by_phone`/`customer_by_plate`, the same lookup
+    `till.py`'s other routes already use), never a raw booking id with no proof it belongs to that
+    person.
+
+    `attend()` ITSELF IS IDEMPOTENT (see its own docstring) — a retried confirm-at-the-counter tap
+    on an already-attended booking returns the same booking rather than erroring, so the till's own
+    retry-on-timeout behaviour cannot double-fire the visit or double-spend the intended reward.
+    """
+    await _own_booking(request, body.tenant, booking_id, body.customer_id, body.branch_id)
+    c = request.app.state.container
+    try:
+        booking = await c.booking_ops.attend(body.tenant, booking_id, body.occurred_at)
+    except ConcurrentEditError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return booking.public()

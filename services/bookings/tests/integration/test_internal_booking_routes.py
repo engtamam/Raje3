@@ -714,3 +714,79 @@ def test_by_actor_returns_empty_never_an_error_for_an_actor_with_no_bookings(env
                     json={"tenant": "t1", "created_by": "never-booked-anything"}, headers=_h())
     assert r.status_code == 200
     assert r.json() == {"bookings": [], "truncated": False}
+
+
+# ── attend (the till-integration gap both 2026-09-13/14 audits named as the largest hole) ───────
+
+def test_attend_refuses_without_the_internal_token(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.post("/internal/bookings/some-id/attend",
+                    json={"tenant": "t1", "customer_id": "c1"})
+    assert r.status_code == 401
+
+
+def test_attend_turns_a_booking_into_a_real_visit(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-attend-1")
+    r = client.post(f"/internal/bookings/{booking['id']}/attend",
+                    json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    assert r.status_code == 200
+    assert r.json()["status"] == "attended"
+
+
+def test_attend_is_idempotent_a_retried_tap_returns_the_same_booking(env_guard):
+    """The till's own retry-on-timeout must not double-fire the visit or double-spend a reward —
+    attend() itself is idempotent (core/operations.py's own note), and this route must not add a
+    second check on top that would break that."""
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-attend-2")
+    first = client.post(f"/internal/bookings/{booking['id']}/attend",
+                        json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    second = client.post(f"/internal/bookings/{booking['id']}/attend",
+                         json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    assert first.status_code == second.status_code == 200
+    assert first.json()["status"] == second.json()["status"] == "attended"
+
+
+def test_attend_from_a_different_branch_is_refused_identically_to_not_found(env_guard):
+    """SAME enumeration-oracle discipline as cancel/reschedule — 'exists, wrong branch' must read
+    exactly like 'does not exist'."""
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, branch_id="branch-a", idempotency_key="k-attend-branch")
+    r = client.post(f"/internal/bookings/{booking['id']}/attend",
+                    json={"tenant": "t1", "customer_id": "c1", "branch_id": "branch-b"},
+                    headers=_h())
+    assert r.status_code == 404
+    ghost = client.post("/internal/bookings/does-not-exist/attend",
+                        json={"tenant": "t1", "customer_id": "c1", "branch_id": "branch-b"},
+                        headers=_h())
+    assert ghost.status_code == 404
+    assert r.json()["error"] == ghost.json()["error"]
+    # AND THE REAL BOOKING IS UNTOUCHED by the refused cross-branch attempt.
+    mine = client.post("/internal/bookings/for-customer", json={"tenant": "t1", "customer_id": "c1"},
+                       headers=_h()).json()["bookings"][0]
+    assert mine["status"] == "booked"
+
+
+def test_attend_refuses_a_different_customers_booking(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, customer_id="c1", idempotency_key="k-attend-other-cust")
+    r = client.post(f"/internal/bookings/{booking['id']}/attend",
+                    json={"tenant": "t1", "customer_id": "c2"}, headers=_h())
+    assert r.status_code == 404
+
+
+def test_attend_on_an_already_cancelled_booking_is_refused(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    booking = _book(client, idempotency_key="k-attend-cancelled")
+    client.post(f"/internal/bookings/{booking['id']}/cancel",
+               json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    r = client.post(f"/internal/bookings/{booking['id']}/attend",
+                    json={"tenant": "t1", "customer_id": "c1"}, headers=_h())
+    assert r.status_code == 400

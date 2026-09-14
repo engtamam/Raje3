@@ -78,6 +78,11 @@ WHY_BY_MODEL: dict[str, dict[str, str]] = {
     "TillOfferIn": {"phone": "رقم العميل صاحب العرض.",
                     "plate": "أو لوحته، إن كان التعريف عندكم باللوحة.",
                     "actor": "حساب الكاشير الذي طبّق العرض."},
+    "TillAttendIn": {"phone": "رقم العميل صاحب الحجز.",
+                     "plate": "أو لوحته، إن كان التعريف عندكم باللوحة.",
+                     "branch_id": "الفرع الذي وقعت فيه العملية، إن أردتم التأكد أن الحجز يخصّ "
+                                  "هذا الفرع بالذات. اختياري.",
+                     "occurred_at": "وقت الحضور الفعلي بساعتكم (ثوانٍ). فارغ يعني الآن."},
 }
 
 # The English counterpart of WHY, above — same field, same reason, said once more for the
@@ -127,6 +132,12 @@ WHY_BY_MODEL_EN: dict[str, dict[str, str]] = {
     "TillOfferIn": {"phone": "The phone number of the customer holding the offer.",
                     "plate": "Or their plate, if that is how you identify customers.",
                     "actor": "The cashier account that applied the offer."},
+    "TillAttendIn": {"phone": "The phone number of the customer who made the booking.",
+                     "plate": "Or their plate, if that is how you identify customers.",
+                     "branch_id": "The branch this happened at, if you want to confirm the "
+                                  "booking belongs to this specific branch. Optional.",
+                     "occurred_at": "When attendance actually happened, by your own clock (unix "
+                                    "seconds). Empty means now."},
 }
 
 
@@ -298,6 +309,42 @@ def render() -> str:
     add("")
     add("**واحدٌ لكل زيارة**: تطبيقٌ ثانٍ على نفس الزيارة يعيد العرض نفسه ولا يصرف شيئاً "
         "إضافياً — نقرةٌ ثانية عند الكاشير نيّةٌ واحدة، لا عرضين.")
+    add("")
+    add("---")
+    add("")
+
+    add("## 5. الحجوزات — `GET /api/v1/till/bookings` و`POST /api/v1/till/bookings/{booking_id}/attend`")
+    add("")
+    add("**محلٌ يستعمل الحجوزات مع كاشيرٍ متكامل معاً** يحتاج طريقة يخبر بها الحجز أن العميل حضر "
+        "فعلاً وقت الدفع — بدونها يبقى تقويم الحجوزات وسجلّ الكاشير كلٌّ في واد.")
+    add("")
+    add("**الأولى تسرد حجوزات العميل المفتوحة** — أرسلوا رقمه أو لوحته، نُرجِع ما لم يُحضَر أو "
+        "يُلغَ أو يُسجَّل غيابه بعد:")
+    add("")
+    add("```json")
+    add('{"found": true, "bookings": [{"id": "bkg_123", "starts_at": 1786860000, '
+        '"branch_id": "brn_1", "service_ids": ["svc_1"], "package_id": ""}]}')
+    add("```")
+    add("")
+    add("**والثانية تسجّل الحضور فعلياً**، وتحوّل الحجز إلى زيارة حقيقية عندنا:")
+    add("")
+    add("| الحقل | النوع | إلزامي | لماذا |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillAttendIn", []):
+        add(_row("TillAttendIn", field, typ, req))
+    add("")
+    add("**ومكرّرةٌ بأمان**: نقرةٌ ثانية على حجزٍ حضر بالفعل تُرجِع نفس الحجز دون أي أثرٍ إضافي — "
+        "إعادة محاولة بعد انقطاع الشبكة لا تضاعف الزيارة ولا تصرف المكافأة مرتين.")
+    add("")
+    add("```json")
+    add('{"ok": true, "booking_id": "bkg_123", "status": "attended"}')
+    add("```")
+    add("")
+    add("**والرفض جملة تُقرأ للعميل**، لا رمزاً:")
+    add("")
+    add("```json")
+    add('{"ok": false, "reason": "NOT_FOUND", "message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}')
+    add("```")
     add("")
     add("---")
     add("")
@@ -590,6 +637,46 @@ def render_en() -> str:
     add("")
     add("```json")
     add('{"applied": false, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 5. Bookings — `GET /api/v1/till/bookings` and "
+        "`POST /api/v1/till/bookings/{booking_id}/attend`")
+    add("")
+    add("**A shop running both bookings and an integrated till** needs a way to tell a booking "
+        "that its customer actually showed up and paid — without this, the booking calendar and "
+        "the till's own sale ledger silently disagree about what happened.")
+    add("")
+    add("**The first route lists a customer's OPEN bookings** — send their phone or plate, get "
+        "back anything not yet attended, cancelled, or marked no-show:")
+    add("")
+    add("```json")
+    add('{"found": true, "bookings": [{"id": "bkg_123", "starts_at": 1786860000, '
+        '"branch_id": "brn_1", "service_ids": ["svc_1"], "package_id": ""}]}')
+    add("```")
+    add("")
+    add("**The second actually confirms attendance**, turning the booking into a real visit:")
+    add("")
+    add("| Field | Type | Required | Why |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillAttendIn", []):
+        add(_row_en("TillAttendIn", field, typ, req))
+    add("")
+    add("**Safe to retry** — a second tap on an already-attended booking returns the SAME booking "
+        "with no further effect: a retry after a dropped connection cannot double the visit or "
+        "spend a reward twice.")
+    add("")
+    add("```json")
+    add('{"ok": true, "booking_id": "bkg_123", "status": "attended"}')
+    add("```")
+    add("")
+    add("**A refusal is a sentence to read aloud, never a bare code:**")
+    add("")
+    add("```json")
+    add('{"ok": false, "reason": "NOT_FOUND", '
+        '"message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}')
     add("```")
     add("")
     add("---")

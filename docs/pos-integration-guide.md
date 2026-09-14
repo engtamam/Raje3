@@ -237,6 +237,39 @@ Query with `phone` or `plate`. Answers whether they are a known customer, their 
 
 ---
 
+## 5. Bookings — `GET /api/v1/till/bookings` and `POST /api/v1/till/bookings/{booking_id}/attend`
+
+**A shop running both bookings and an integrated till** needs a way to tell a booking that its customer actually showed up and paid — without this, the booking calendar and the till's own sale ledger silently disagree about what happened.
+
+**The first route lists a customer's OPEN bookings** — send their phone or plate, get back anything not yet attended, cancelled, or marked no-show:
+
+```json
+{"found": true, "bookings": [{"id": "bkg_123", "starts_at": 1786860000, "branch_id": "brn_1", "service_ids": ["svc_1"], "package_id": ""}]}
+```
+
+**The second actually confirms attendance**, turning the booking into a real visit:
+
+| Field | Type | Required | Why |
+|---|---|---|---|
+| `phone` | str | no | The phone number of the customer who made the booking. |
+| `plate` | str | no | Or their plate, if that is how you identify customers. |
+| `branch_id` | str | no | The branch this happened at, if you want to confirm the booking belongs to this specific branch. Optional. |
+| `occurred_at` | int | no | When attendance actually happened, by your own clock (unix seconds). Empty means now. |
+
+**Safe to retry** — a second tap on an already-attended booking returns the SAME booking with no further effect: a retry after a dropped connection cannot double the visit or spend a reward twice.
+
+```json
+{"ok": true, "booking_id": "bkg_123", "status": "attended"}
+```
+
+**A refusal is a sentence to read aloud, never a bare code:**
+
+```json
+{"ok": false, "reason": "NOT_FOUND", "message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}
+```
+
+---
+
 ## What we never send you
 
 **The customer's pseudonym** (`subject_ref`): our own cross-service join key, which you have no use for — you identify your customer by the phone number you already hold. A durable cross-service identifier sitting in a third party's database with no purpose it serves is a risk with no matching benefit.
