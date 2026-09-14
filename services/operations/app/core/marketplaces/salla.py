@@ -45,10 +45,19 @@ WEBHOOK_SUBSCRIBE_URL = f"{MERCHANT_API_BASE}/webhooks/subscribe"
 #: (docs.salla.dev/5394134e0's own security requirement).
 DEFAULT_SCOPE = "offline_access webhooks.read_write"
 
-#: THE ONE EVENT THIS APP EVER SUBSCRIBES A MERCHANT TO — the single source of truth for it.
-#: `api/v1/salla.py`'s own webhook route imports THIS constant to decide what it acts on, so the
-#: event we register with Salla and the event we actually process can never drift apart.
+#: THE ONE EVENT THIS APP EVER SUBSCRIBES A MERCHANT TO VIA `register_webhook` — the single
+#: source of truth for it. `api/v1/salla.py`'s own webhook route imports THIS constant to decide
+#: what it acts on, so the event we register with Salla and the event we actually process can
+#: never drift apart.
 WEBHOOK_EVENT = "order.status.updated"
+
+#: AN APP-LIFECYCLE EVENT, NOT A PER-MERCHANT SUBSCRIPTION — Salla fires this to the app's own
+#: webhook URL (the Partners Portal's own setting) whenever ANY merchant removes the app, with no
+#: `register_webhook` call needed for it (unlike WEBHOOK_EVENT above, which is registered per
+#: merchant through their own token). Read live from docs.salla.dev/421413m0's own event list —
+#: same envelope shape as an order event (`event`/`merchant`/`data`), so it arrives at the exact
+#: same `/salla/webhook` door with no new route needed.
+APP_UNINSTALLED_EVENT = "app.uninstalled"
 
 #: `X-Salla-Signature` — see the module docstring's own link. Read case-sensitively-safe by
 #: Starlette's own header lookup (headers are case-insensitive there already).

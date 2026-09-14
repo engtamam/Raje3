@@ -536,3 +536,52 @@ def test_other_order_events_never_reach_the_grant_engine(client):
         }).encode()
         _post_webhook(client, body)
     assert fake.create_calls == 0
+
+
+# ── app.uninstalled — disconnect the instant Salla says so, not on the next refresh failure ────
+def test_app_uninstalled_disconnects_the_connection_immediately(client):
+    import asyncio
+    _connect_merchant(client, tenant=TENANT, merchant_id="900")
+
+    body = json.dumps({"event": "app.uninstalled", "merchant": 900,
+                       "data": {"uninstallation_date": "2026-09-15"}}).encode()
+    r = _post_webhook(client, body)
+    assert r.status_code == 200
+    assert r.json() == {"received": True}
+
+    conn = asyncio.run(client.app.state.container.salla.connection_for(TENANT))
+    assert conn is None
+
+
+def test_app_uninstalled_for_an_unknown_merchant_is_a_harmless_noop(client):
+    body = json.dumps({"event": "app.uninstalled", "merchant": 999999,
+                       "data": {}}).encode()
+    r = _post_webhook(client, body)
+    assert r.status_code == 200
+    assert r.json() == {"received": True}
+
+
+def test_app_uninstalled_never_touches_a_different_merchants_connection(client):
+    import asyncio
+    other = "tnt_salla_uninstall_other"
+    _connect_merchant(client, tenant=TENANT, merchant_id="901")
+    _connect_merchant(client, tenant=other, merchant_id="902")
+
+    body = json.dumps({"event": "app.uninstalled", "merchant": 901, "data": {}}).encode()
+    _post_webhook(client, body)
+
+    assert asyncio.run(client.app.state.container.salla.connection_for(TENANT)) is None
+    assert asyncio.run(client.app.state.container.salla.connection_for(other)) is not None
+
+
+def test_an_unverified_app_uninstalled_call_never_disconnects_anything(client):
+    """The same forged-signature refusal every other event gets — a bad actor cannot disconnect
+    a real merchant's alliance just by guessing their merchant id."""
+    import asyncio
+    _connect_merchant(client, tenant=TENANT, merchant_id="903")
+
+    body = json.dumps({"event": "app.uninstalled", "merchant": 903, "data": {}}).encode()
+    r = client.post("/api/v1/salla/webhook", data=body,
+                    headers={"Content-Type": "application/json", "X-Salla-Signature": "0" * 64})
+    assert r.status_code == 200
+    assert asyncio.run(client.app.state.container.salla.connection_for(TENANT)) is not None

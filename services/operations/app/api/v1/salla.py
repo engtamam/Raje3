@@ -22,7 +22,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core import oauth_state
-from app.core.marketplaces.salla import WEBHOOK_EVENT, verify_signature
+from app.core.marketplaces.salla import APP_UNINSTALLED_EVENT, WEBHOOK_EVENT, verify_signature
 
 router = APIRouter(tags=["salla"])
 
@@ -252,6 +252,19 @@ async def salla_webhook(request: Request) -> Any:
         # STILL 200. Answering 4xx to an unverified call teaches an attacker probing this URL
         # which shape of forged signature gets further — the safe, uninformative answer is the
         # same "received" every genuine call gets, with nothing acted on behind it.
+        return {"received": True}
+
+    if event == APP_UNINSTALLED_EVENT:
+        # A MERCHANT REMOVED THE APP FROM SALLA'S OWN SIDE — the connection is dead the moment
+        # this arrives, not merely stale; waiting for the daily refresh scan to eventually
+        # discover a dead refresh token (core/marketplaces/salla.py's own module note on why THAT
+        # sweep exists) would leave a lifeless "مرتبط" badge showing for days. `tenant` empty here
+        # means we never had a connection for this merchant in the first place (nothing to do).
+        if tenant:
+            await svc.disconnect(tenant)
+            await request.app.state.auditor.record(
+                "salla.disconnected", actor=f"salla:{merchant_id}", tenant=tenant,
+                resource="salla_connection", ip=request.client.host if request.client else "")
         return {"received": True}
 
     if event != WEBHOOK_EVENT or not tenant:
