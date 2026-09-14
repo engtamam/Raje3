@@ -497,13 +497,24 @@ class HttpPlans:
 
     async def list_trial_plans(self) -> list[str]:
         """Every LISTED plan carrying a trial — every app alike, whatever the price list says
-        today («كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل»).
+        today («كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل») — WITH ONE NAMED EXCEPTION.
 
-        NOT A SEPARATE "IS THIS AN APP" RULE. `trial_days` is the one fact each row already
-        states about itself; a plan not meant to be tried simply carries 0, and this reads that
-        the same way `trial_days()` above does for a single id — no second table of "which plans
-        get a free month," which would drift from the price list the day a plan is added or its
-        trial changed.
+        NOT A SEPARATE "IS THIS AN APP" RULE, OTHERWISE. `trial_days` is the one fact each row
+        already states about itself; a plan not meant to be tried simply carries 0, and this
+        reads that the same way `trial_days()` above does for a single id — no second table of
+        "which plans get a free month," which would drift from the price list the day a plan is
+        added or its trial changed.
+
+        `feature.coupons` («تحالف استراتيجي») IS EXCLUDED, DELIBERATELY (owner's own correction,
+        2026-09-15: "التطبيق المفروض ما ينعطى اساسا مجانا هو يضغط يفعله"). This is the one real,
+        product-level exception to the rule above, not a precedent for a second one: every other
+        app is something a shop CONSUMES for its own use, and a free trial of it costs nothing
+        but the shop's own attention if it goes unused. This app SPENDS — a trial grant would
+        hand out real discounts on OTHER shops' subscriptions, for free, to every signup, whether
+        the owner ever meant to use it or not. `core/coupons.py`'s own `COUPONS_KEY` constant is
+        not imported here (subscribe.py sits below core/coupons.py in the dependency order — see
+        `granted_keys`'s own sibling use of a bare "feature.contacts" string just below for the
+        identical reason) — the literal string is the same source of truth either way.
 
         `include_hidden` STAYS OFF — a signup must only ever start a trial on something a person
         could actually buy today, never a plan pulled from the storefront or still being drafted.
@@ -512,7 +523,8 @@ class HttpPlans:
         if status >= 400:
             return []
         return [str(p.get("id") or "") for p in (out.get("plans") or [])
-               if int(p.get("trial_days") or 0) > 0 and p.get("id")]
+               if int(p.get("trial_days") or 0) > 0 and p.get("id")
+               and "feature.coupons" not in granted_keys(p.get("limits"))]
 
     async def contacts_plan_id(self) -> str:
         """The one listed, FREE plan that grants `feature.contacts` — «جهات الاتصال»'s own id,

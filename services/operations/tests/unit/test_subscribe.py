@@ -135,5 +135,19 @@ def test_list_trial_plans_is_empty_when_the_catalogue_cannot_be_read():
     assert run(_plans_client({}, status=503).list_trial_plans()) == []
 
 
-def test_list_trial_plans_is_empty_when_the_catalogue_cannot_be_read():
-    assert run(_plans_client({}, status=503).list_trial_plans()) == []
+def test_list_trial_plans_excludes_the_coupons_plan_even_with_a_real_trial():
+    """The one deliberate exception (owner's own correction, 2026-09-15): «تحالف استراتيجي»
+    SPENDS other shops' discounts rather than being consumed by the shop itself, so it must
+    never be auto-trialed at signup like every other app is."""
+    client = _plans_client({"plans": [
+        {"id": "plan_visit", "trial_days": 30},
+        {"id": "plan_coupons", "trial_days": 30, "limits": {"feature.coupons": {"limit": 1}}},
+    ]})
+    assert run(client.list_trial_plans()) == ["plan_visit"]
+
+
+def test_list_trial_plans_still_includes_a_plan_with_no_limits_at_all():
+    """The exclusion must not accidentally swallow a normal plan whose row carries no `limits`
+    key — `granted_keys(None)` must read as an empty set, not as "excluded"."""
+    client = _plans_client({"plans": [{"id": "plan_bare", "trial_days": 14}]})
+    assert run(client.list_trial_plans()) == ["plan_bare"]

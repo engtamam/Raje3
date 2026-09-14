@@ -12,7 +12,7 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.coupons import (ALREADY_HAS_BETTER, BILLING_UNAVAILABLE, COUPONS_KEY, GRANTED,
                               INVALID_PERCENT, INVALID_SCOPE, NOT_SUBSCRIBED, NO_ACCOUNT,
-                              OVER_CAP, CouponError, CouponService, PLATFORM)
+                              OVER_CAP, SELF_GRANT, CouponError, CouponService, PLATFORM)
 from app.core.signup import PHONE_INDEX, canonical_phone
 
 CC = "966"
@@ -88,6 +88,56 @@ def test_a_non_positive_percent_is_refused_before_anything_else(svc):
     att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=0,
                       general=True))
     assert att.outcome == INVALID_PERCENT
+
+
+# ── a shop cannot grant itself a discount (owner's own correction, 2026-09-15) ──────────────────
+def test_a_shop_cannot_grant_itself_a_discount(svc):
+    s, store, plans = svc
+    _register(store, PHONE, A)   # the SAME tenant as the granter
+    _hold_one_app(plans, A, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_a")
+    att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                      app_keys=["feature.bookings"]))
+    assert att.outcome == SELF_GRANT
+
+
+def test_self_grant_is_refused_before_any_billing_call(svc):
+    s, store, plans = svc
+    _register(store, PHONE, A)
+    _hold_one_app(plans, A, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_a")
+    run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+               app_keys=["feature.bookings"]))
+    assert not plans.created, "no coupon must ever be created for a self-grant attempt"
+
+
+def test_a_shop_granting_a_different_tenant_at_the_same_phone_number_family_still_works(svc):
+    """The block is on the RESOLVED TENANT, never on the phone string itself — two different
+    shops must still be able to ally normally."""
+    s, store, plans = svc
+    _register(store, PHONE, B)   # a genuinely different tenant
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_b")
+    att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                      app_keys=["feature.bookings"]))
+    assert att.outcome == GRANTED
+
+
+def test_check_flags_a_shops_own_phone_as_is_self(svc):
+    s, store, _plans = svc
+    _register(store, PHONE, A)
+    out = run(s.check(granter_tenant=A, phone=PHONE))
+    assert out == {"registered": True, "already_granted_this_month": False, "is_self": True}
+
+
+def test_check_reports_is_self_false_for_a_real_other_shop(svc):
+    s, store, _plans = svc
+    _register(store, PHONE, B)
+    out = run(s.check(granter_tenant=A, phone=PHONE))
+    assert out["is_self"] is False
+
+
+def test_check_reports_is_self_false_for_an_unregistered_phone(svc):
+    s, _store, _plans = svc
+    out = run(s.check(granter_tenant=A, phone=PHONE))
+    assert out == {"registered": False, "already_granted_this_month": False, "is_self": False}
 
 
 def test_an_unknown_app_key_is_an_invalid_scope(svc):
@@ -240,6 +290,45 @@ def test_an_override_wins_over_the_automatic_tier(svc):
     assert run(s.effective_cap(A)) == 15
 
 
+# ── a zero override is a real block, not a no-op (owner's own idea, 2026-09-15) ─────────────────
+def test_a_zero_override_is_valid_unlike_a_negative_one(svc):
+    """0 is inside the legal 0..ceiling range and must be ACCEPTED — the whole point is that it
+    is a real, settable value, not a rejected edge case."""
+    s, _store, _plans = svc
+    run(s.set_tenant_override(A, percent=0))
+    assert run(s.effective_cap(A)) == 0
+    with pytest.raises(CouponError):
+        run(s.set_tenant_override(A, percent=-1))
+
+
+def test_a_zero_override_refuses_every_grant_attempt_as_over_cap(svc):
+    """The actual block: with effective_cap()==0, ANY positive percent a caller asks for exceeds
+    it — there is no percent low enough to still succeed short of 0 itself, which grant() already
+    refuses outright as INVALID_PERCENT before the cap is even read."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    run(s.set_tenant_override(A, percent=0))
+    for percent in (1, 5, 35, 100):
+        att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE,
+                          percent=percent, app_keys=["feature.bookings"]))
+        assert att.outcome == OVER_CAP, f"percent={percent} should have been refused"
+    assert not plans.created, "a blocked tenant must never reach billing at all"
+
+
+def test_clearing_the_override_unblocks_immediately(svc):
+    """The reverse of the block is just as immediate — no separate 'unblock' action needed
+    beyond clearing the override back to None (the console button's own 'رفع الحظر')."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    run(s.set_tenant_override(A, percent=0))
+    run(s.set_tenant_override(A, percent=None))
+    att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                      app_keys=["feature.bookings"]))
+    assert att.outcome == GRANTED
+
+
 def test_settings_reject_a_tier_percent_above_the_ceiling(svc):
     s, _store, _plans = svc
     with pytest.raises(CouponError):
@@ -370,14 +459,14 @@ def test_a_general_grant_still_wins_every_app_where_it_is_not_beaten(svc):
 def test_check_reports_unregistered_when_the_phone_is_unknown(svc):
     s, _store, _plans = svc
     out = run(s.check(granter_tenant=A, phone=PHONE))
-    assert out == {"registered": False, "already_granted_this_month": False}
+    assert out == {"registered": False, "already_granted_this_month": False, "is_self": False}
 
 
 def test_check_reports_registered_but_not_yet_granted(svc):
     s, store, plans = svc
     _register(store, PHONE, B)
     out = run(s.check(granter_tenant=A, phone=PHONE))
-    assert out == {"registered": True, "already_granted_this_month": False}
+    assert out == {"registered": True, "is_self": False, "already_granted_this_month": False}
 
 
 def test_check_reports_already_granted_this_month_by_the_same_granter(svc):
@@ -387,7 +476,7 @@ def test_check_reports_already_granted_this_month_by_the_same_granter(svc):
     run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
                app_keys=["feature.bookings"]))
     out = run(s.check(granter_tenant=A, phone=PHONE))
-    assert out == {"registered": True, "already_granted_this_month": True}
+    assert out == {"registered": True, "is_self": False, "already_granted_this_month": True}
 
 
 def test_check_never_leaks_a_grant_made_by_a_different_granter(svc):
@@ -397,7 +486,7 @@ def test_check_never_leaks_a_grant_made_by_a_different_granter(svc):
     run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
                app_keys=["feature.bookings"]))
     out = run(s.check(granter_tenant="tnt_other", phone=PHONE))
-    assert out == {"registered": True, "already_granted_this_month": False}
+    assert out == {"registered": True, "is_self": False, "already_granted_this_month": False}
 
 
 def test_stats_history_has_six_months_ending_at_the_current_one(svc):

@@ -78,6 +78,13 @@ NO_ACCOUNT = "no_account"
 NOT_SUBSCRIBED = "not_subscribed"
 BILLING_UNAVAILABLE = "billing_unavailable"
 ALREADY_HAS_BETTER = "already_has_better_coupon"
+# A SHOP GRANTING ITSELF A DISCOUNT ON ITS OWN SUBSCRIPTION (owner's own correction, 2026-09-15:
+# "ما يقدر يعطي نفسه خصم") — the whole product is an alliance BETWEEN two establishments; a
+# granter whose own phone (or any phone that happens to resolve to its own tenant) is the
+# beneficiary is not an alliance with anyone. Checked right after the phone resolves, before any
+# billing call — the cheapest possible refusal, and one no caller can route around by trying a
+# different phone number that happens to be registered under the same account.
+SELF_GRANT = "self_grant"
 
 # base-services v0.23.1's own reason codes on the attach-coupon 400, mapped to a per-app outcome
 # a shop's own history screen can show verbatim — the whole reason this module asked for the
@@ -450,6 +457,8 @@ class CouponService:
         beneficiary_tenant = await self._lookup_beneficiary(phone)
         if not beneficiary_tenant:
             return await _log(NO_ACCOUNT)
+        if beneficiary_tenant == granter_tenant:
+            return await _log(SELF_GRANT)
 
         targets = await self._target_apps(beneficiary_tenant, general=general,
                                           app_keys=app_keys)
@@ -509,12 +518,17 @@ class CouponService:
 
     # ── the live "before you even press grant" check — the grant form's own inline hint ────────
     async def check(self, *, granter_tenant: str, phone: str) -> dict[str, Any]:
-        """`{"registered": bool, "already_granted_this_month": bool}` — nothing else, ever. The
-        granter already typed this phone himself; this answers only the two facts that change
-        what he is about to do, never confirming or naming the beneficiary beyond that."""
+        """`{"registered": bool, "already_granted_this_month": bool, "is_self": bool}` — nothing
+        else, ever. The granter already typed this phone himself; this answers only the facts
+        that change what he is about to do, never confirming or naming the beneficiary beyond
+        that. `is_self` lets the form refuse before he even presses submit — `grant()`'s own
+        `SELF_GRANT` outcome is the real, unavoidable enforcement; this is only the earlier,
+        friendlier warning."""
         beneficiary_tenant = await self._lookup_beneficiary(phone)
         if not beneficiary_tenant:
-            return {"registered": False, "already_granted_this_month": False}
+            return {"registered": False, "already_granted_this_month": False, "is_self": False}
+        if beneficiary_tenant == granter_tenant:
+            return {"registered": True, "already_granted_this_month": False, "is_self": True}
         now = _now()
         rows, _ = await self._s.find(
             COUPON_GRANTS,
@@ -524,7 +538,8 @@ class CouponService:
         this_month = _month_key(now)
         granted_this_month = any(_month_key(int(r.get("created") or 0)) == this_month
                                  for r in rows)
-        return {"registered": True, "already_granted_this_month": granted_this_month}
+        return {"registered": True, "already_granted_this_month": granted_this_month,
+               "is_self": False}
 
     # ── the granter's own history — «المنح» ────────────────────────────────────────────────────
     async def history(self, granter_tenant: str, limit: int = 100) -> list[CouponAttempt]:

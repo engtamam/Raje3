@@ -148,6 +148,26 @@ def test_an_unregistered_phone_is_reported_as_no_account_not_a_500(client):
     assert r.json()["outcome"] == "no_account"
 
 
+def test_a_shop_cannot_grant_itself_a_discount(client):
+    """owner's own correction, 2026-09-15: «ما يقدر يعطي نفسه خصم»."""
+    from app.core.signup import PHONE_INDEX, canonical_phone
+
+    fake = _wire_fake_billing(client)
+    fake.subs[GRANTER] = [{"id": "sub_1", "plan": "plan_bookings", "status": "active"}]
+    fake.limits_by_plan["plan_bookings"] = {"feature.bookings": {"kind": "boolean", "limit": 1}}
+    fake.plan_for_key["feature.bookings"] = "plan_bookings"
+    import asyncio
+    key = canonical_phone(PHONE, default_cc="966")
+    asyncio.run(client.app.state.container.datastore.put(
+        PHONE_INDEX, key, {"id": key, "tenant": GRANTER, "verified": True}))
+
+    r = client.post("/api/v1/staff/coupons/grant",
+                    headers=_auth("operations.grant_coupon_direct", tenant=GRANTER),
+                    json={"phone": PHONE, "percent": 5, "app_keys": ["feature.bookings"]})
+    assert r.status_code == 200
+    assert r.json()["outcome"] == "self_grant"
+
+
 # ── history is visible to either door's holder ──────────────────────────────────────────────────
 def test_history_is_visible_to_the_visit_linked_capability_too(client):
     _wire_fake_billing(client)
