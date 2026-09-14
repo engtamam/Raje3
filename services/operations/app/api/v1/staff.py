@@ -585,7 +585,7 @@ async def list_operators(request: Request, principal: Principal = Depends(_READ_
 # saved here before the switch (see that route's own carry-forward note), and is no longer written
 # by the console. It structurally excludes the owner (see `get_my_operator_row` just above) — which
 # is exactly the gap the new route exists to close: an operator has this row, the owner never will.
-_VALID_OPERATOR_LOCALES = {"ar", "en", "ur", "ha", "fil"}
+_VALID_OPERATOR_LOCALES = {"ar", "en", "ur", "ha", "fil", "bn"}
 
 
 @router.get("/operators/me", dependencies=[Depends(rate_limit)])

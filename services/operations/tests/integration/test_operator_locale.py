@@ -106,6 +106,16 @@ def test_an_operator_sets_his_own_language(client):
     assert again.json()["locale"] == "fil"
 
 
+def test_accepts_bengali(client):
+    # Same regression as test_account_locale.py's own — bn was added as the console's 6th
+    # operator locale and this (superseded but still-reachable) route's own set was never updated.
+    _seed_operator(client, oid="opr_bn", person_id="person_bn")
+    res = client.patch("/api/v1/staff/operators/me/locale", json={"locale": "bn"},
+                       headers=_auth("person_bn", "bookings.write"))
+    assert res.status_code == 200, res.text
+    assert res.json()["locale"] == "bn"
+
+
 def test_an_unknown_locale_code_is_refused_not_silently_stored(client):
     _seed_operator(client, oid="opr_3", person_id="person_qrs")
     res = client.patch("/api/v1/staff/operators/me/locale", json={"locale": "xx"},

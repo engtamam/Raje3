@@ -81,6 +81,16 @@ def test_no_capability_or_operator_row_needed_at_all_owner_included(client):
     assert r.json() == {"locale": "en"}
 
 
+def test_accepts_bengali(client):
+    # REAL REGRESSION, FOUND LIVE 2026-09-14: bn was added as the console's 6th operator locale
+    # (operator-i18n.tsx) and this route's own _VALID_LOCALES was never updated alongside it — an
+    # owner picking «বাংলা» got «تعذّر حفظ اللغة» on every attempt, the one locale of six that
+    # could never actually be saved.
+    r = client.patch("/api/v1/account/me/locale", headers=_auth("owner_bn"), json={"locale": "bn"})
+    assert r.status_code == 200
+    assert r.json() == {"locale": "bn"}
+
+
 def test_refuses_an_unknown_locale(client):
     # The platform's own error handler strips an HTTPException's detail (CWE-209) — same
     # "BAD_REQUEST" shape every other 400 in this service returns, `staff.py`'s identical

@@ -46,7 +46,7 @@ async def whoami(
     return body
 
 
-_VALID_LOCALES = {"ar", "en", "ur", "ha", "fil"}
+_VALID_LOCALES = {"ar", "en", "ur", "ha", "fil", "bn"}
 
 
 class LocaleIn(BaseModel):
