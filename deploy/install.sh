@@ -192,6 +192,47 @@ else
   warn "بلا رمز — تخطّي اعتماد الصور"
 fi
 
+# ── 1.5 · the platform CHECKOUT itself, not just its images ────────────────────────────────────
+#
+# THE BUG THIS CLOSES, HIT LIVE 2026-09-14. A from-scratch reinstall wiped the cluster, then
+# `bring-up.sh` rendered `assistant-service` against a `platform/` checkout that predated
+# extraVolumes/extraVolumeMounts (added upstream in v0.18.33) — helm refused values this exact
+# file has shipped since that release, install died mid-roll, and the box was left half-installed.
+# `deploy/platform-release.json`'s own "release" field (kept current by repin-platform.sh, and the
+# one thing every service's own image digest is already pinned against) had said v0.23.1 the whole
+# time; nothing before this ever made the SUBMODULE agree with it before rendering a chart from it.
+#
+# FAILS THE INSTALL RATHER THAN GUESSING. `git submodule update` alone would silently keep
+# whatever commit is already checked out if the fetch fails — the exact silent-stale state that
+# caused this — so a fetch/checkout failure here is `die`, not a warning swallowed and continued
+# past.
+phase "1.5 · مزامنة نسخة المنصة"
+PLATFORM_RELEASE_FILE="$ROOT/deploy/platform-release.json"
+if [ -d "$ROOT/platform/.git" ] || [ -f "$ROOT/platform/.git" ]; then
+  if [ -f "$PLATFORM_RELEASE_FILE" ] && command -v jq >/dev/null 2>&1; then
+    PINNED_RELEASE="$(jq -r '.release // empty' "$PLATFORM_RELEASE_FILE")"
+  else
+    PINNED_RELEASE=""
+  fi
+  if [ -n "$PINNED_RELEASE" ]; then
+    CURRENT_RELEASE="$(git -C "$ROOT/platform" describe --tags --exact-match 2>/dev/null || true)"
+    if [ "$CURRENT_RELEASE" = "$PINNED_RELEASE" ]; then
+      ok "قالب المنصة مطابق أصلاً ($PINNED_RELEASE)"
+    else
+      echo "  ${C_D}$PLATFORM_RELEASE_FILE يقول $PINNED_RELEASE، الموجود محلياً: ${CURRENT_RELEASE:-غير معروف}${C_N}"
+      git -C "$ROOT/platform" fetch --tags --force origin \
+        || die "تعذّر جلب إصدارات المنصة — تحقق من الشبكة أو صلاحية الوصول لمستودع platform"
+      git -C "$ROOT/platform" checkout --detach "$PINNED_RELEASE" \
+        || die "تعذّر الانتقال لإصدار المنصة $PINNED_RELEASE — تأكد أن الوسم موجود بالمستودع"
+      ok "قالب المنصة زُومن مع $PINNED_RELEASE"
+    fi
+  else
+    warn "تعذّرت قراءة الإصدار المثبّت من $PLATFORM_RELEASE_FILE — القالب المحلي يُستخدم كما هو"
+  fi
+else
+  warn "platform/ ليس مستودع git هنا — تخطّي مزامنة القالب (نشر من أرشيف مبني مسبقاً؟)"
+fi
+
 # ── 2 · the platform ──────────────────────────────────────────────────────────────────────────
 phase "2 · المنصة"
 if [ "${WIPE:-0}" = "1" ]; then
