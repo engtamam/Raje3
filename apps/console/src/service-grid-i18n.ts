@@ -15,25 +15,37 @@ registerOperatorStrings({
   ar: {
     'serviceGrid.offered': 'عليه عرض',
     'serviceGrid.redeemable': 'يمكن استبداله بنقاطه',
+    'serviceGrid.package': 'باقة',
+    'serviceGrid.currency': 'ريال',
   },
   en: {
     'serviceGrid.offered': 'On offer',
     'serviceGrid.redeemable': 'Redeemable with points',
+    'serviceGrid.package': 'Package',
+    'serviceGrid.currency': 'SAR',
   },
   ur: {
     'serviceGrid.offered': 'اس پر آفر ہے',
     'serviceGrid.redeemable': 'پوائنٹس سے حاصل کیا جا سکتا ہے',
+    'serviceGrid.package': 'پیکج',
+    'serviceGrid.currency': 'ریال',
   },
   ha: {
     'serviceGrid.offered': 'Yana da tayi',
     'serviceGrid.redeemable': 'Ana iya samun sa da maki',
+    'serviceGrid.package': 'Kunshin',
+    'serviceGrid.currency': 'riyal',
   },
   fil: {
     'serviceGrid.offered': 'May alok',
     'serviceGrid.redeemable': 'Puwedeng makuha gamit ang puntos',
+    'serviceGrid.package': 'Package',
+    'serviceGrid.currency': 'riyal',
   },
   bn: {
     'serviceGrid.offered': 'অফার আছে',
     'serviceGrid.redeemable': 'পয়েন্ট দিয়ে নেওয়া যায়',
+    'serviceGrid.package': 'প্যাকেজ',
+    'serviceGrid.currency': 'রিয়াল',
   },
 });

@@ -31,6 +31,7 @@ from app.core import operator_ticket as OT
 from app.core import plate as P
 from app.core import vehicles as V
 from app.core.operations import OperationError, Operations
+from app.core.stores import ServiceStore
 from app.api.subscribed import (no_subscription_needed, subscribed_write,
                                 subscribed_write_or_customer_creating_app,
                                 subscribed_write_or_visit)
@@ -63,6 +64,11 @@ def _tenant(p: Principal) -> str:
 class VisitIn(BaseModel):
     phone: str = Field(min_length=3, max_length=32)
     service_ids: list[str] = Field(min_length=1, max_length=20)
+    # SET ONLY WHEN THIS VISIT IS SELLING A PACKAGE — see Visit.package_id's own docstring. The
+    # console sends the package's OWN component service_ids inside `service_ids` above regardless
+    # (so the visit still shows what was actually done); this is purely the attribution loyalty
+    # reads to price the visit by the package's own point value instead of summing components.
+    package_id: str = Field(default="", max_length=64)
     # OPTIONAL, and blank is a real value — a required name produces "عميل" and "." and "ااا",
     # which are worse than blank because an invented name becomes a greeting in a real message.
     name: str = Field(default="", max_length=128)
@@ -158,6 +164,14 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
         # entire value of the answer to the person holding the phone.
         return {"recorded": False, "reason": P.REFUSAL, "field": "plate"}
 
+    # A PACKAGE ID IS CHECKED HERE, NOT TRUSTED FROM THE BODY. Every other id on this route
+    # (service_ids) is likewise resolved against the tenant's own catalogue further down — this is
+    # the same discipline for the one id `record_visit` does not itself validate, since it is
+    # attribution rather than something the write depends on.
+    package_id = body.package_id.strip()
+    if package_id and await _svc(request).package_by_id(tenant, package_id) is None:
+        package_id = ""
+
     # ── A NAME ON THE VISIT MUST BE A NAME SOMEBODY PROVED (و-4) ──────────────────────────────
     # `verify-pin` now issues a short-lived signed ticket for the operator it confirmed, and this
     # is where the two halves finally meet. An unproven name is dropped rather than refused: the
@@ -180,7 +194,8 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
             tenant=tenant, phone=body.phone, service_ids=body.service_ids, name=body.name,
             plate=body.plate, operator_id=operator_id, branch_id=body.branch_id,
             meter=body.meter, note=body.note, custom_service=body.custom_service,
-            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at)
+            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at,
+            package_id=package_id)
     except OperationError as exc:
         # RETURNED, NOT RAISED — the third time this file says it, and the one place it was not
         # done. The plate refusal above and the offer refusal below both return; this raised, and
@@ -807,8 +822,56 @@ async def catalogue(request: Request, principal: Principal = Depends(_READ)) -> 
     # work on cars answers an empty list — honest, and it renders the phone and nothing else,
     # which is always valid.
     return {"services": await _svc(request).catalogue(tenant),
+            # PACKAGES, ALONGSIDE SERVICES — the same grid an operator picks from, and the same
+            # reason services live here rather than behind a manage-only route: recording a visit
+            # is what every operator does all day, and a package IS something he sells at the
+            # counter (§9.4). Already filtered to active-and-offerable-right-now — see
+            # `catalogue_packages`'s own docstring — so nothing scheduled for another day appears.
+            "packages": await _svc(request).catalogue_packages(tenant),
             "tracks_vehicle": await V.VehicleStore(store).tracks_vehicle(tenant),
             "fields": await V.fields_for(store, tenant)}
+
+
+@router.get("/catalogue/services/{service_id}/image", dependencies=[Depends(rate_limit)])
+async def catalogue_service_image(request: Request, service_id: str,
+                                  principal: Principal = Depends(_READ)):
+    """The same photo `/staff/services/{id}/image` streams, gated `operations.read` instead of
+    `operations.manage_services` — an ordinary field operator recording a visit needs to SEE a
+    service's photo, never to change one, and the manage-only route refuses exactly that operator.
+    """
+    tenant = _tenant(principal)
+    s = await ServiceStore(request.app.state.container.datastore).get(tenant, service_id)
+    if s is None or not s.image_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    from starlette.responses import Response
+
+    from app.core.catalogue_image import read_image
+    from app.ports.errors import NotFound
+    try:
+        data, ctype = await read_image(request.app.state.container.object_store, s.image_key)
+    except NotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return Response(content=data, media_type=ctype)
+
+
+@router.get("/catalogue/packages/{package_id}/image", dependencies=[Depends(rate_limit)])
+async def catalogue_package_image(request: Request, package_id: str,
+                                  principal: Principal = Depends(_READ)):
+    """Same read-only mirror as `catalogue_service_image` above, for a package's own photo."""
+    tenant = _tenant(principal)
+    p = await _svc(request).package_by_id(tenant, package_id)
+    if p is None or not p.image_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    from starlette.responses import Response
+
+    from app.core.catalogue_image import read_image
+    from app.ports.errors import NotFound
+    try:
+        data, ctype = await read_image(request.app.state.container.object_store, p.image_key)
+    except NotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return Response(content=data, media_type=ctype)
+
 
 class ApplyOfferIn(BaseModel):
     subject_ref: str = Field(min_length=8, max_length=128)

@@ -220,6 +220,10 @@ def build_manifest(
             {"path": "/api/v1/field/customers/resolve", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/catalogue", "tier": "user", "method": "GET"},
+            # Read-only mirrors of the manage-only image routes below (§9.4) — an operator
+            # recording a visit sees the same photos without carrying manage_services.
+            {"path": "/api/v1/field/catalogue/services/{}/image", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/field/catalogue/packages/{}/image", "tier": "user", "method": "GET"},
             # The console's «التقييمات» tab (rating-app-feature.md phase 5) — every rated visit,
             # and marking one handled.
             {"path": "/api/v1/field/ratings", "tier": "user", "method": "GET"},

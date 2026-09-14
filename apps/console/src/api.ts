@@ -169,6 +169,29 @@ export interface CatalogueService {
    *  operator" for this service at all. See Services.tsx's own Service.assignment_mode docstring
    *  for the full rule; this is the same field, read here rather than written. */
   assignment_mode?: 'named' | 'auto';
+  /** Whether this service has a photo — never the photo itself; see `serviceImageUrl` below for
+   *  why the bytes are a separate, authenticated request rather than a URL in this JSON. */
+  has_image?: boolean;
+}
+
+/**
+ * A named, priced GROUP of the shop's own services — «باقة العناية», not a single service.
+ *
+ * ONLY WHAT THE COUNTER TILE NEEDS. `Package.public()` on the server carries scheduling fields
+ * too (starts_at/recurrence/…), which is why `/field/catalogue` filters to offerable-right-now
+ * BEFORE this ever reaches the console (see `catalogue_packages`'s own docstring) — this screen
+ * never re-derives "is this package on right now", it only ever sees packages that already are.
+ */
+export interface CataloguePackage {
+  id: string;
+  name: string;
+  /** The services this package bundles — tapping the tile selects all of them at once. */
+  service_ids: string[];
+  /** Halalas. Owner-entered, never derived from summing the components (see the server's own
+   *  Package docstring) — this is the number on the tile, not a computed total. */
+  price_minor: number;
+  description?: string;
+  has_image?: boolean;
 }
 
 /** An extra input the visit sheet renders — the full descriptor, so this app never carries its
@@ -193,8 +216,46 @@ export interface VisitField {
  */
 export function fetchCatalogue(
   session: Session,
-): Promise<{ services: CatalogueService[]; tracks_vehicle: boolean; fields: VisitField[] }> {
+): Promise<{
+  services: CatalogueService[];
+  /** Already filtered server-side to active AND offerable right now — see `catalogue_packages`'s
+   *  own docstring. Absent-treated-as-empty by every caller, same as `fields` below, so an older
+   *  cached response or a service that has not deployed this yet still renders correctly. */
+  packages?: CataloguePackage[];
+  tracks_vehicle: boolean;
+  fields: VisitField[];
+}> {
   return call(session, '/api/v1/field/catalogue');
+}
+
+/**
+ * The photo itself, as a blob URL the caller puts straight into an `<img src>` and revokes when
+ * done — same mechanism as `downloadUrl` in catalog.ts, duplicated rather than shared because that
+ * one resolves its path from an `Action` in a manifest this screen (Visit.tsx, no `catalog` prop)
+ * never loads. Read-gated (`operations.read`, not `operations.manage_services`) precisely so an
+ * ordinary field operator — never a manager here — can load it; see field.py's own docstring on
+ * `catalogue_service_image`/`catalogue_package_image` for why these are separate routes from the
+ * manage-only ones Services.tsx/PackagesTab.tsx call.
+ */
+async function catalogueImageUrl(session: Session, path: string): Promise<string> {
+  const bearer = session.token;
+  let res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${bearer}` } });
+  if (res.status === 401) {
+    const token = await renew();
+    if (token) res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  }
+  if (!res.ok) throw new ApiError(res.status, null, `GET ${path} → ${res.status}`);
+  return URL.createObjectURL(await res.blob());
+}
+
+export function serviceImageUrl(session: Session, serviceId: string): Promise<string> {
+  return catalogueImageUrl(
+    session, `/api/v1/field/catalogue/services/${encodeURIComponent(serviceId)}/image`);
+}
+
+export function packageImageUrl(session: Session, packageId: string): Promise<string> {
+  return catalogueImageUrl(
+    session, `/api/v1/field/catalogue/packages/${encodeURIComponent(packageId)}/image`);
 }
 
 /**
@@ -595,6 +656,12 @@ export interface VisitDraft {
    */
   operator_id?: string;
   operator_ticket?: string;
+  /** SET ONLY WHEN HE SOLD A PACKAGE — `service_ids` above still carries its component services
+   *  either way, so the visit itself never depends on this; it is purely the attribution loyalty
+   *  reads to price the visit by the package's own value instead of summing the components
+   *  (services/operations `Visit.package_id`'s own docstring). A forged/unknown id is dropped
+   *  server-side rather than trusted, so sending one is never a way to fake a visit's contents. */
+  package_id?: string;
 }
 
 export interface VisitAck {

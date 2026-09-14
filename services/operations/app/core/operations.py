@@ -32,11 +32,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core import branches as B
+from app.core import scheduling as SCHED
 from app.core.digits import WESTERN, western
 from app.core.models import Asset, Customer, Visit
 from app.core.pii import subject_ref
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore,
-                             PrivacyRequestStore, ServiceStore, VisitStore, new_id)
+                             PackageStore, PrivacyRequestStore, ServiceStore, VisitStore, new_id)
 
 
 class OperationError(Exception):
@@ -78,6 +79,7 @@ class Operations:
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
+        self._packages = PackageStore(store)
         self._visits = VisitStore(store)
         # WHICH PLACES THIS SHOP ACTUALLY HAS — read on the write path so an id nobody recognises
         # cannot invent a branch that then appears in every report (core/branches.py).
@@ -741,6 +743,18 @@ class Operations:
 
     async def catalogue(self, tenant: str) -> list[dict[str, Any]]:
         return [s.public() for s in await self._services.list(tenant)]
+
+    async def catalogue_packages(self, tenant: str) -> list[dict[str, Any]]:
+        """The field screen's own package list — active AND offerable right now, never a package
+        the owner has scheduled for a different day or hour (SCHED.is_offerable, the same test
+        `/staff/packages` uses for its own `offerable_now` flag). A package outside its own window
+        has no business on a counter screen: it cannot be sold this minute, and showing it invites
+        exactly the tap it exists to prevent."""
+        now = _now()
+        return [p.public() for p in await self._packages.list(tenant) if SCHED.is_offerable(p, now)]
+
+    async def package_by_id(self, tenant: str, package_id: str):
+        return await self._packages.get(tenant, package_id)
 
 
 def _labels(visit, names: dict[str, str]) -> str:

@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Gift, Pencil } from 'lucide-react';
 import {
   balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
-  offerFor, pointsByService, type EarnSettings,
+  offerFor, pointsByService, type CataloguePackage, type EarnSettings,
   redeem,
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type VisitField,
@@ -88,6 +88,7 @@ export function Visit() {
   const branchScopeId = outlet?.branch
     || (outlet?.branches?.length === 1 ? outlet.branches[0].id : '');
   const [services, setServices] = useState<CatalogueService[] | null>([]);
+  const [packages, setPackages] = useState<CataloguePackage[]>([]);
   const [fields, setFields] = useState<VisitField[]>([]);
   // NO `recent` HERE. It was fetched on every entry to this screen and never rendered once — the
   // matches come from search-service (see the note below), so this was a request the busiest screen
@@ -125,8 +126,8 @@ export function Visit() {
   useEffect(() => {
     if (!isSignedIn(session)) return;
     fetchCatalogue(session)
-      .then((r) => { setServices(r.services); setFields(r.fields ?? []); })
-      .catch(() => { setServices(null); setFields([]); });
+      .then((r) => { setServices(r.services); setPackages(r.packages ?? []); setFields(r.fields ?? []); })
+      .catch(() => { setServices(null); setPackages([]); setFields([]); });
     // THE EARNING RULES, ONCE. A failure leaves the tiles without numbers rather than with zeros:
     // a shop that has not set points up must not be shown sixteen zeros, and a shop that has must
     // not be shown zeros because one read failed.
@@ -151,6 +152,28 @@ export function Visit() {
   const toggle = useCallback((id: string) => {
     setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   }, []);
+
+  /** WHICH PACKAGE THIS VISIT SELLS — see `VisitDraft.package_id`'s own docstring for why this is
+   *  attribution, not a second source of truth: `chosen` still carries the package's real
+   *  component services either way, exactly as it would if he had tapped each of them by hand. */
+  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const selectPackage = useCallback((pkg: CataloguePackage) => {
+    setChosen((cur) => {
+      if (selectedPackageId === pkg.id) {
+        // TAPPED AGAIN — undo exactly what selecting it added, nothing he chose separately.
+        return cur.filter((id) => !pkg.service_ids.includes(id));
+      }
+      // A PREVIOUSLY SELECTED PACKAGE STEPS ASIDE FIRST. A visit sells one package at a time; a
+      // second tap replaces the first rather than stacking two bundles' worth of services with no
+      // way to tell which is which.
+      const previous = packages.find((p) => p.id === selectedPackageId);
+      const withoutPrevious = previous
+        ? cur.filter((id) => !previous.service_ids.includes(id))
+        : cur;
+      return [...new Set([...withoutPrevious, ...pkg.service_ids])];
+    });
+    setSelectedPackageId((cur) => (cur === pkg.id ? '' : pkg.id));
+  }, [packages, selectedPackageId]);
 
   /**
    * THE MATCHES, FROM SEARCH-SERVICE — not from a filter over `recent`.
@@ -367,6 +390,7 @@ export function Visit() {
       name: name.trim() || undefined,
       plate: showPlate && plate.trim() ? plate.trim() : undefined,
       meter: showMeter && meter ? Number(meter) : undefined,
+      package_id: selectedPackageId || undefined,
       idempotency_key: key,
       // EMPTY IS AN ANSWER. He skipped, or nobody in this shop has a PIN — and a visit filed under
       // nobody is the truth, while a visit filed under whoever the device last remembered is the
@@ -380,13 +404,14 @@ export function Visit() {
     // held still for a round trip would spend its five-second budget on a network the operator
     // cannot see and cannot fix.
     setChosen([]);
+    setSelectedPackageId('');
     setPhone('');
     setName('');
     setPlate('');
     setMeter('');
     setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
-  }, [applying, chosen, meter, name, phone, plate, session, showMeter, showPlate, subject]);
+  }, [applying, chosen, meter, name, phone, plate, selectedPackageId, session, showMeter, showPlate, subject]);
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
@@ -869,7 +894,7 @@ export function Visit() {
           </span>
           <button
             type="button"
-            onClick={() => setChosen([])}
+            onClick={() => { setChosen([]); setSelectedPackageId(''); }}
             className="min-h-[44px] rounded-xl bg-surface-2 px-4 text-sm font-semibold"
           >
             {t('visit.chosen.clear')}
@@ -923,6 +948,7 @@ export function Visit() {
           can afford right now, each of which may BE a service («غسلة مجانية» is the wash, §9.4).
           No new call: the same two answers the page already holds, put where the decision is. */}
       <ServiceGrid
+        session={session}
         // `?? []` AND NOT A LIE: the grid renders nothing when the catalogue could not be read,
         // and the sentence above it — which the screen already shows on an unreadable read — is
         // what tells the worker why. An empty grid with no sentence would read as «this shop sells
@@ -930,6 +956,9 @@ export function Visit() {
         services={services ?? []}
         selected={chosen}
         onToggle={toggle}
+        packages={packages}
+        selectedPackageId={selectedPackageId}
+        onSelectPackage={selectPackage}
         offered={new Set(offer?.service_ids ?? [])}
         redeemable={new Set(
           (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),

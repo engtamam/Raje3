@@ -95,7 +95,21 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.catalogue", "label": "الخدمات", "method": "GET",
         "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "الشاشة",
-        "help": "شبكة الخدمات. تبدأ فارغة، ويكتبها صاحب المحل بنفسه.",
+        "help": "شبكة الخدمات والباقات. تبدأ فارغة، ويكتبها صاحب المحل بنفسه.",
+    },
+    {
+        "id": "operations.get_field_service_image", "label": "صورة خدمة (للتسجيل)", "method": "GET",
+        "path": "/api/v1/field/catalogue/services/{id}/image", "capability": "operations.read",
+        "group": "الشاشة",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "نفس صورة الخدمة، بصلاحية القراءة — لا يحتاجها إلا من يسجّل الزيارة.",
+    },
+    {
+        "id": "operations.get_field_package_image", "label": "صورة باقة (للتسجيل)", "method": "GET",
+        "path": "/api/v1/field/catalogue/packages/{id}/image", "capability": "operations.read",
+        "group": "الشاشة",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "نفس صورة الباقة، بصلاحية القراءة — لا يحتاجها إلا من يسجّل الزيارة.",
     },
     {
         "id": "operations.recent", "label": "آخر العملاء", "method": "GET",

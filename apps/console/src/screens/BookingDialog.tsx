@@ -581,7 +581,7 @@ export function BookingDialog(
               {t('bookingDialog.perksReadError')}
             </p>
           ) : null}
-          <ServiceGrid services={services} selected={chosen}
+          <ServiceGrid session={session} services={services} selected={chosen}
                       onToggle={(id) => setChosen((cur) => (
                         cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))}
                       offered={new Set(offer?.service_ids ?? [])}
