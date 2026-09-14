@@ -163,6 +163,38 @@ def test_callback_exchanges_the_code_and_saves_a_real_connection(client):
     assert "at_123" not in json.dumps(status)
 
 
+def test_callback_carries_a_postmessage_payload_for_a_popup_opener(client):
+    """The console opens /install's url via window.open — this is what closes that popup and
+    hands the result back, per Coupons.tsx's own listener."""
+    salla_client = client.app.state.container.salla.client
+    salla_client.exchange_code = lambda code: {"access_token": "at", "refresh_token": "rt",
+                                                "expires": 100}
+    salla_client.user_info = lambda token: {"merchant": {"id": 42, "name": "متجر البوب أب"}}
+
+    state = _state_for(client)
+    r = client.get("/api/v1/salla/callback", params={"code": "c", "state": state})
+    assert "window.opener" in r.text
+    assert "postMessage" in r.text
+    assert "raje3:salla-connect" in r.text
+    assert '"ok": true' in r.text
+    assert "متجر البوب أب" in r.text
+
+
+def test_callback_postmessage_payload_defangs_a_hostile_store_name(client):
+    """A merchant name is free text ON SALLA'S SIDE — a store somehow named to include a literal
+    </script> must never break out of the payload's own <script> tag."""
+    salla_client = client.app.state.container.salla.client
+    salla_client.exchange_code = lambda code: {"access_token": "at", "refresh_token": "rt",
+                                                "expires": 100}
+    salla_client.user_info = lambda token: {
+        "merchant": {"id": 43, "name": '</script><script>alert(1)</script>'}}
+
+    state = _state_for(client)
+    r = client.get("/api/v1/salla/callback", params={"code": "c", "state": state})
+    assert "<script>alert(1)</script>" not in r.text
+    assert "alert(1)" in r.text   # present, just never as an executable sibling tag
+
+
 def test_callback_never_leaks_a_token_anywhere_in_its_own_html_response(client):
     salla_client = client.app.state.container.salla.client
     salla_client.exchange_code = lambda code: {

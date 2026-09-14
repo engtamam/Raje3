@@ -9,6 +9,7 @@ signup's pair. NOT IN THE ACTION CATALOGUE either, for the identical reason sign
 """
 from __future__ import annotations
 
+import html
 import json
 import time
 from typing import Any
@@ -71,9 +72,36 @@ async def salla_status(request: Request, principal: Principal = Depends(_OWNER))
     return {"connected": True, **conn.public()}
 
 
-_CALLBACK_PAGE = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
-<title>ربط سلة</title></head><body style="font-family:system-ui;text-align:center;padding:48px">
-<h1>{title}</h1><p>{message}</p></body></html>"""
+def _callback_page(*, title: str, message: str, ok: bool, store_name: str = "",
+                   status_code: int = 200) -> HTMLResponse:
+    """The one page every branch below renders — HTML-escaped for what a human reads, AND wired
+    to close itself and hand the result back to the console when it was opened as a POPUP
+    (`window.open`, the console's own connect button — see Coupons.tsx). Falls back to a plain
+    readable page with nothing to click when there is no `window.opener` (the owner opened the
+    link directly, or a browser blocked the popup) — the same content either way, just an extra
+    silent step when a popup opener IS there.
+
+    `store_name` IS FROM SALLA, NOT OURS — a merchant name is free text on their side, so it goes
+    through `html.escape` for the visible page exactly like `title`/`message`, and the payload
+    handed to `postMessage` is defanged against a literal `</script>` breaking out of its own tag
+    (`json.dumps` makes a JS-string-safe value, not an HTML/script-tag-safe one — those are two
+    different escaping problems, and only the second needs the extra replace below).
+    """
+    safe_title = html.escape(title)
+    safe_message = html.escape(message)
+    payload = json.dumps({"source": "raje3:salla-connect", "ok": ok, "message": message,
+                          "store_name": store_name}).replace("</", "<\\/")
+    body = (
+        f'<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">'
+        f'<title>ربط سلة</title></head>'
+        f'<body style="font-family:system-ui;text-align:center;padding:48px">'
+        f'<h1>{safe_title}</h1><p>{safe_message}</p>'
+        f'<script>(function(){{var p={payload};'
+        f'if(window.opener){{try{{window.opener.postMessage(p,"*");}}catch(e){{}}window.close();}}'
+        f'}})();</script>'
+        f'</body></html>'
+    )
+    return HTMLResponse(body, status_code=status_code)
 
 
 @router.get("/salla/callback", dependencies=[Depends(rate_limit)])
@@ -89,23 +117,25 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
     """
     s = request.app.state.container_settings
     if error:
-        return HTMLResponse(_CALLBACK_PAGE.format(
-            title="تعذّر الربط", message="تم إلغاء الربط أو رفضه من سلة. أغلق هذه الصفحة وحاول مرة أخرى."))
+        return _callback_page(
+            ok=False, title="تعذّر الربط",
+            message="تم إلغاء الربط أو رفضه من سلة. أغلق هذه الصفحة وحاول مرة أخرى.")
     tenant = oauth_state.tenant_for(s.PII_SALT, _STATE_PURPOSE, state)
     if not tenant:
-        return HTMLResponse(_CALLBACK_PAGE.format(
-            title="انتهت صلاحية الرابط",
-            message="ابدأ الربط من جديد من لوحة تحكمك — هذا الرابط لم يعد صالحاً."), status_code=400)
+        return _callback_page(
+            ok=False, title="انتهت صلاحية الرابط",
+            message="ابدأ الربط من جديد من لوحة تحكمك — هذا الرابط لم يعد صالحاً.",
+            status_code=400)
     client = request.app.state.container.salla.client
     if not client.configured or not code:
-        return HTMLResponse(_CALLBACK_PAGE.format(
-            title="تعذّر الربط", message="لم يصل رمز صحيح من سلة."), status_code=400)
+        return _callback_page(ok=False, title="تعذّر الربط",
+                              message="لم يصل رمز صحيح من سلة.", status_code=400)
 
     tokens = await run_in_threadpool(client.exchange_code, code)
     if not tokens or not tokens.get("access_token"):
-        return HTMLResponse(_CALLBACK_PAGE.format(
-            title="تعذّر الربط", message="تعذّر إتمام الربط مع سلة. حاول مرة أخرى بعد قليل."),
-            status_code=502)
+        return _callback_page(
+            ok=False, title="تعذّر الربط",
+            message="تعذّر إتمام الربط مع سلة. حاول مرة أخرى بعد قليل.", status_code=502)
 
     access_token = str(tokens.get("access_token") or "")
     info = await run_in_threadpool(client.user_info, access_token) or {}
@@ -116,8 +146,8 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
     merchant_id = str((merchant or {}).get("id") or "")
     store_name = str((merchant or {}).get("name") or "")
     if not merchant_id:
-        return HTMLResponse(_CALLBACK_PAGE.format(
-            title="تعذّر الربط", message="لم نستطع التعرف على متجرك من سلة."), status_code=502)
+        return _callback_page(ok=False, title="تعذّر الربط",
+                              message="لم نستطع التعرف على متجرك من سلة.", status_code=502)
 
     expires_at = int(time.time()) + int(tokens.get("expires") or 0)
     svc = request.app.state.container.salla
@@ -130,9 +160,10 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
         "salla.connected", actor=tenant, tenant=tenant, resource=f"salla_merchant:{merchant_id}",
         ip=request.client.host if request.client else "")
 
-    return HTMLResponse(_CALLBACK_PAGE.format(
-        title="تم الربط بنجاح",
-        message=f"متجرك «{store_name or merchant_id}» أصبح مرتبطاً بحسابك عندنا. أغلق هذه الصفحة وارجع للوحة تحكمك."))
+    return _callback_page(
+        ok=True, store_name=store_name, title="تم الربط بنجاح",
+        message=f"متجرك «{store_name or merchant_id}» أصبح مرتبطاً بحسابك عندنا. "
+                "أغلق هذه الصفحة وارجع للوحة تحكمك.")
 
 
 #: THE ONLY EVENT/STATUS PAIR THAT DOES ANY REAL WORK (owner's own decision, 2026-09-15: "ما

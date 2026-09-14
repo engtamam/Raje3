@@ -3,7 +3,7 @@
  * faked at the `catalog.call` boundary, same discipline as `rating.test.tsx`.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { OperatorI18nProvider } from '../operator-i18n';
 import { CouponsScreen } from './Coupons';
@@ -31,6 +31,8 @@ const HISTORY = {
 
 let grantCalls: Record<string, unknown>[] = [];
 let prefsCalls: Record<string, unknown>[] = [];
+let sallaInstallCalls = 0;
+let sallaConnected = false;
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -55,6 +57,15 @@ vi.mock('../catalog', async (importOriginal) => {
         grantCalls.push(params ?? {});
         return { id: 'att1', outcome: 'granted', per_app: { 'feature.bookings': 'attached' } };
       }
+      if (a.id === 'operations.salla_status') {
+        return sallaConnected
+          ? { connected: true, merchant_id: '42', store_name: 'متجر الاختبار' }
+          : { connected: false };
+      }
+      if (a.id === 'operations.salla_install') {
+        sallaInstallCalls += 1;
+        return { url: 'https://accounts.salla.sa/oauth2/auth?client_id=x' };
+      }
       return {};
     },
   };
@@ -66,7 +77,7 @@ function render(ui: ReactElement) {
   return rtlRender(<OperatorI18nProvider session={SESSION}>{ui}</OperatorI18nProvider>);
 }
 
-afterEach(() => { cleanup(); grantCalls = []; prefsCalls = []; });
+afterEach(() => { cleanup(); grantCalls = []; prefsCalls = []; sallaInstallCalls = 0; sallaConnected = false; });
 
 describe('«تحالف استراتيجي»', () => {
   it('shows the current cap and the grant form', async () => {
@@ -109,5 +120,101 @@ describe('«تحالف استراتيجي»', () => {
     expect(toggle.getAttribute('aria-checked')).toBe('true');
     fireEvent.click(toggle);
     await waitFor(() => expect(prefsCalls).toEqual([{ visit_grant_enabled: false }]));
+  });
+
+  describe('Salla connect', () => {
+    it('shows a connect button when no store is linked', async () => {
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      const button = await screen.findByTestId('salla-connect-button');
+      expect(button.textContent).toBe('اربط متجر سلة');
+      expect(screen.queryByTestId('salla-connected-badge')).toBeNull();
+    });
+
+    it('shows the connected badge and store name when already linked', async () => {
+      sallaConnected = true;
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      await waitFor(() => expect(screen.getByTestId('salla-connected-badge')).toBeTruthy());
+      expect(screen.getByText('مرتبط بمتجر «متجر الاختبار»')).toBeTruthy();
+    });
+
+    it('opens a popup with the real install URL on click', async () => {
+      const openSpy = vi.spyOn(window, 'open').mockReturnValue({ closed: false } as Window);
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      const button = await screen.findByTestId('salla-connect-button');
+      fireEvent.click(button);
+      await waitFor(() => expect(sallaInstallCalls).toBe(1));
+      expect(openSpy).toHaveBeenCalledWith(
+        'https://accounts.salla.sa/oauth2/auth?client_id=x', 'salla-connect',
+        expect.stringContaining('width=520'));
+      openSpy.mockRestore();
+    });
+
+    it('falls back to a full-page redirect when the popup is blocked', async () => {
+      vi.spyOn(window, 'open').mockReturnValue(null);
+      // jsdom's `window.location.href` setter throws on navigation — redefine just that one
+      // accessor for this test rather than replacing the whole Location object (which fights
+      // its own TS type), and restore it unconditionally afterwards.
+      const originalDescriptor = Object.getOwnPropertyDescriptor(window, 'location')!;
+      let hrefSet = '';
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: { ...window.location, set href(v: string) { hrefSet = v; }, get href() { return hrefSet; } },
+      });
+
+      try {
+        render(<CouponsScreen session={SESSION} catalog={catalog} />);
+        const button = await screen.findByTestId('salla-connect-button');
+        fireEvent.click(button);
+        await waitFor(() => expect(hrefSet).toBe(
+          'https://accounts.salla.sa/oauth2/auth?client_id=x'));
+      } finally {
+        Object.defineProperty(window, 'location', originalDescriptor);
+        vi.restoreAllMocks();
+      }
+    });
+
+    it('refreshes to connected when the callback page posts a success message', async () => {
+      vi.spyOn(window, 'open').mockReturnValue({ closed: false } as Window);
+      sallaConnected = false;
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      const button = await screen.findByTestId('salla-connect-button');
+      fireEvent.click(button);
+      await waitFor(() => expect(sallaInstallCalls).toBe(1));
+
+      sallaConnected = true;   // the "backend" now reports connected, once asked again
+      act(() => {
+        window.dispatchEvent(new MessageEvent('message', {
+          data: { source: 'raje3:salla-connect', ok: true, store_name: 'متجر الاختبار' },
+        }));
+      });
+
+      await waitFor(() => expect(screen.getByTestId('salla-connected-badge')).toBeTruthy());
+      vi.restoreAllMocks();
+    });
+
+    it('shows the server-sent refusal message when the callback posts a failure', async () => {
+      vi.spyOn(window, 'open').mockReturnValue({ closed: false } as Window);
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      const button = await screen.findByTestId('salla-connect-button');
+      fireEvent.click(button);
+      await waitFor(() => expect(sallaInstallCalls).toBe(1));
+
+      act(() => {
+        window.dispatchEvent(new MessageEvent('message', {
+          data: { source: 'raje3:salla-connect', ok: false, message: 'تعذّر إتمام الربط' },
+        }));
+      });
+
+      await waitFor(() => expect(screen.getByText('تعذّر إتمام الربط')).toBeTruthy());
+      vi.restoreAllMocks();
+    });
+
+    it('ignores an unrelated postMessage from another script on the page', async () => {
+      render(<CouponsScreen session={SESSION} catalog={catalog} />);
+      await screen.findByTestId('salla-connect-button');
+      window.dispatchEvent(new MessageEvent('message', { data: { source: 'some-other-widget' } }));
+      // Nothing throws, nothing changes — still shows the disconnected state.
+      expect(screen.getByTestId('salla-connect-button')).toBeTruthy();
+    });
   });
 });

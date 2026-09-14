@@ -10,8 +10,8 @@
  * learns the beneficiary's identity: the phone-check hint and the grant result both carry only
  * what the granter needs to decide what to do next.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { Handshake } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Handshake, Store } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { TabBar } from '../rj-ui/TabBar';
@@ -39,6 +39,12 @@ interface CouponAttempt {
   outcome: string;
   created: number;
   per_app: Record<string, string>;
+}
+
+interface SallaStatus {
+  connected: boolean;
+  merchant_id?: string;
+  store_name?: string;
 }
 
 interface CouponStats {
@@ -84,6 +90,8 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
   const statsAction = action(catalog, 'operations.coupon_stats');
   const prefsGetAction = action(catalog, 'operations.coupon_preferences_get');
   const prefsSetAction = action(catalog, 'operations.coupon_preferences_set');
+  const sallaInstallAction = action(catalog, 'operations.salla_install');
+  const sallaStatusAction = action(catalog, 'operations.salla_status');
 
   const [tab, setTab] = useState<'log' | 'stats'>('log');
 
@@ -124,6 +132,73 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
       setVisitGrantEnabled(prev);
     } finally {
       setPrefsSaving(false);
+    }
+  }
+
+  // ── Salla — the connect popup ────────────────────────────────────────────────────────────
+  const [sallaStatus, setSallaStatus] = useState<SallaStatus | null | undefined>(undefined);
+  const [sallaConnecting, setSallaConnecting] = useState(false);
+  const [sallaError, setSallaError] = useState<string | null>(null);
+  const sallaPopupRef = useRef<Window | null>(null);
+  const sallaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const refreshSallaStatus = useCallback(() => {
+    if (!sallaStatusAction) { setSallaStatus(null); return; }
+    call<SallaStatus>(session, sallaStatusAction).then(setSallaStatus).catch(() => setSallaStatus(null));
+  }, [session, sallaStatusAction]);
+
+  useEffect(refreshSallaStatus, [refreshSallaStatus]);
+
+  // THE POPUP HANDS ITS RESULT BACK VIA postMessage (api/v1/salla.py's own callback page) —
+  // never a token, only {ok, message, store_name}: see that route's own docstring on why the
+  // payload is safe to post to '*' (no secret ever leaves the server).
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const data = e.data as { source?: string; ok?: boolean; message?: string } | null;
+      if (!data || data.source !== 'raje3:salla-connect') return;
+      setSallaConnecting(false);
+      if (sallaPollRef.current) { clearInterval(sallaPollRef.current); sallaPollRef.current = null; }
+      if (data.ok) {
+        setSallaError(null);
+        refreshSallaStatus();
+      } else {
+        setSallaError(data.message || t('coupons.salla.connectError'));
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [refreshSallaStatus, t]);
+
+  useEffect(() => () => { if (sallaPollRef.current) clearInterval(sallaPollRef.current); }, []);
+
+  async function onConnectSalla() {
+    if (!sallaInstallAction || sallaConnecting) return;
+    setSallaConnecting(true);
+    setSallaError(null);
+    try {
+      const { url } = await call<{ url: string }>(session, sallaInstallAction);
+      const popup = window.open(url, 'salla-connect',
+        'width=520,height=720,menubar=no,toolbar=no,status=no');
+      if (!popup) {
+        // Blocked by the browser — the full-page fallback the callback page itself already
+        // supports (no window.opener there, so it just shows a plain readable result).
+        window.location.href = url;
+        return;
+      }
+      sallaPopupRef.current = popup;
+      // A CLOSED-WITHOUT-FINISHING POPUP MUST NOT LEAVE THE BUTTON STUCK ON "يفتح…" FOR EVER —
+      // the owner closing the window by hand (changed his mind, or finished and the auto-close
+      // in the callback page raced this check) is the ordinary case, not a fault to report.
+      sallaPollRef.current = setInterval(() => {
+        if (popup.closed) {
+          if (sallaPollRef.current) clearInterval(sallaPollRef.current);
+          sallaPollRef.current = null;
+          setSallaConnecting(false);
+        }
+      }, 500);
+    } catch {
+      setSallaError(t('coupons.salla.connectError'));
+      setSallaConnecting(false);
     }
   }
 
@@ -182,6 +257,38 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
         ) : undefined}
       />
       <p className="-mt-2 text-sm text-text-secondary">{t('coupons.subtitle')}</p>
+
+      {sallaInstallAction ? (
+        <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Store size={18} className="text-text-secondary" />
+              <div>
+                <p className="text-sm font-bold">{t('coupons.salla.title')}</p>
+                <p className="text-xs text-text-secondary">{t('coupons.salla.desc')}</p>
+              </div>
+            </div>
+            {sallaStatus?.connected ? (
+              <Badge tone="success" data-testid="salla-connected-badge">{t('coupons.salla.connected')}</Badge>
+            ) : (
+              <Button onClick={onConnectSalla} disabled={sallaConnecting} variant="outline"
+                     data-testid="salla-connect-button">
+                {sallaConnecting ? t('coupons.salla.connecting') : t('coupons.salla.connect')}
+              </Button>
+            )}
+          </div>
+          {sallaStatus?.connected ? (
+            <p className="text-xs text-text-tertiary">
+              {tf(t, 'coupons.salla.connectedTo', {
+                name: sallaStatus.store_name || sallaStatus.merchant_id || '',
+              })}
+            </p>
+          ) : null}
+          {sallaError ? (
+            <p className="text-xs font-semibold text-danger" role="alert">{sallaError}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {prefsSetAction && visitGrantEnabled !== null ? (
         <div className="flex items-center justify-between gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
