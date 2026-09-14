@@ -247,3 +247,169 @@ def test_a_malformed_json_body_does_not_crash_the_route(client):
                     headers={"Content-Type": "application/json",
                             "X-Salla-Signature": "0" * 64})
     assert r.status_code == 200
+
+
+# ── the actual grant trigger — order.status.updated + completed ONLY ───────────────────────────
+BENEFICIARY = "tnt_salla_beneficiary"
+BENEFICIARY_PHONE = "0501234567"
+
+
+class _FakePlans:
+    driver = "fake"
+
+    def __init__(self) -> None:
+        self.subs: dict[str, list[dict]] = {}
+        self.limits_by_plan: dict[str, dict] = {}
+        self.plan_for_key: dict[str, str] = {}
+        self.create_calls = 0
+
+    async def subscriptions(self, tenant):
+        return self.subs.get(tenant)
+
+    async def limits(self, plan_id):
+        return self.limits_by_plan.get(plan_id)
+
+    async def plan_id_for_key(self, key):
+        return self.plan_for_key.get(key, "")
+
+    async def create_coupon(self, *, code, plan_id, percent, expires_at, note=""):
+        self.create_calls += 1
+        return 201, {"code": code}
+
+    async def attach_coupon(self, *, tenant, sub_id, coupon_code):
+        return 200, {"status": "attached"}
+
+
+def _wire_fake_billing(client: TestClient):
+    from app.core.coupons import CouponService
+
+    fake = _FakePlans()
+    client.app.state.container.coupons = CouponService(
+        store=client.app.state.container.datastore, plans=fake, default_cc="966")
+    return fake
+
+
+def _connect_merchant(client: TestClient, *, tenant: str, merchant_id: str) -> None:
+    import asyncio
+    asyncio.run(client.app.state.container.salla.save_connection(
+        tenant=tenant, merchant_id=merchant_id, store_name="متجري",
+        access_token="at", refresh_token="rt", expires_at=9999999999, scope=""))
+
+
+def _register_beneficiary(client: TestClient) -> None:
+    import asyncio
+
+    from app.core.signup import PHONE_INDEX, canonical_phone
+
+    key = canonical_phone(BENEFICIARY_PHONE, default_cc="966")
+    asyncio.run(client.app.state.container.datastore.put(
+        PHONE_INDEX, key, {"id": key, "tenant": BENEFICIARY, "verified": True}))
+
+
+def _status_updated_body(*, merchant_id: str, order_id: str, status_slug: str,
+                         mobile: str = BENEFICIARY_PHONE) -> bytes:
+    return json.dumps({
+        "event": "order.status.updated", "merchant": int(merchant_id),
+        "data": {"id": int(order_id), "status": {"slug": status_slug},
+                 "customer": {"id": 1, "mobile": mobile}},
+    }).encode()
+
+
+def _post_webhook(client: TestClient, body: bytes):
+    sig = _sign("test_webhook_secret", body)
+    return client.post("/api/v1/salla/webhook", data=body,
+                       headers={"Content-Type": "application/json", "X-Salla-Signature": sig})
+
+
+def test_a_completed_order_grants_an_alliance_to_the_orders_own_customer(client):
+    fake = _wire_fake_billing(client)
+    fake.plan_for_key["feature.bookings"] = "plan_bookings"
+    fake.subs[BENEFICIARY] = [{"id": "sub_1", "plan": "plan_bookings", "status": "active"}]
+    fake.limits_by_plan["plan_bookings"] = {"feature.bookings": {"kind": "boolean", "limit": 1}}
+    _register_beneficiary(client)
+    _connect_merchant(client, tenant=TENANT, merchant_id="777")
+
+    body = _status_updated_body(merchant_id="777", order_id="9001", status_slug="completed")
+    r = _post_webhook(client, body)
+    assert r.status_code == 200
+    assert fake.create_calls == 1, "a completed order for a known customer must grant once"
+
+
+def test_order_created_never_grants_even_for_the_same_data(client):
+    """order.created is EXPLICITLY excluded (owner's own decision) — an order can be created and
+    still be under review, cancelled, never paid."""
+    fake = _wire_fake_billing(client)
+    fake.plan_for_key["feature.bookings"] = "plan_bookings"
+    fake.subs[BENEFICIARY] = [{"id": "sub_1", "plan": "plan_bookings", "status": "active"}]
+    fake.limits_by_plan["plan_bookings"] = {"feature.bookings": {"kind": "boolean", "limit": 1}}
+    _register_beneficiary(client)
+    _connect_merchant(client, tenant=TENANT, merchant_id="778")
+
+    body = json.dumps({
+        "event": "order.created", "merchant": 778,
+        "data": {"id": 1, "status": {"slug": "completed"},
+                 "customer": {"id": 1, "mobile": BENEFICIARY_PHONE}},
+    }).encode()
+    _post_webhook(client, body)
+    assert fake.create_calls == 0
+
+
+def test_a_status_update_to_anything_but_completed_never_grants(client):
+    fake = _wire_fake_billing(client)
+    fake.plan_for_key["feature.bookings"] = "plan_bookings"
+    fake.subs[BENEFICIARY] = [{"id": "sub_1", "plan": "plan_bookings", "status": "active"}]
+    fake.limits_by_plan["plan_bookings"] = {"feature.bookings": {"kind": "boolean", "limit": 1}}
+    _register_beneficiary(client)
+    _connect_merchant(client, tenant=TENANT, merchant_id="779")
+
+    body = _status_updated_body(merchant_id="779", order_id="9002", status_slug="under_review")
+    _post_webhook(client, body)
+    assert fake.create_calls == 0
+
+
+def test_a_completed_order_for_an_unconnected_merchant_never_grants(client):
+    fake = _wire_fake_billing(client)
+    body = _status_updated_body(merchant_id="999999", order_id="1", status_slug="completed")
+    _post_webhook(client, body)
+    assert fake.create_calls == 0
+
+
+def test_a_completed_order_from_a_customer_we_do_not_know_costs_no_billing_call(client):
+    """The customer's mobile is not a registered Raje3 phone — `grant()` itself would answer
+    NO_ACCOUNT, but the point under test is that no coupon gets CREATED for a stranger."""
+    fake = _wire_fake_billing(client)
+    _connect_merchant(client, tenant=TENANT, merchant_id="780")
+
+    body = _status_updated_body(merchant_id="780", order_id="9003", status_slug="completed",
+                                mobile="0500000000")
+    _post_webhook(client, body)
+    assert fake.create_calls == 0
+
+
+def test_a_repeated_status_update_for_the_same_order_grants_only_once(client):
+    """Salla resends webhooks on retry — the same completed order must not double-grant."""
+    fake = _wire_fake_billing(client)
+    fake.plan_for_key["feature.bookings"] = "plan_bookings"
+    fake.subs[BENEFICIARY] = [{"id": "sub_1", "plan": "plan_bookings", "status": "active"}]
+    fake.limits_by_plan["plan_bookings"] = {"feature.bookings": {"kind": "boolean", "limit": 1}}
+    _register_beneficiary(client)
+    _connect_merchant(client, tenant=TENANT, merchant_id="781")
+
+    body = _status_updated_body(merchant_id="781", order_id="9004", status_slug="completed")
+    _post_webhook(client, body)
+    _post_webhook(client, body)
+    assert fake.create_calls == 1
+
+
+def test_other_order_events_never_reach_the_grant_engine(client):
+    fake = _wire_fake_billing(client)
+    _connect_merchant(client, tenant=TENANT, merchant_id="782")
+    for event in ("order.updated", "order.cancelled", "order.refunded", "order.deleted",
+                 "order.payment.updated", "order.coupon.updated", "order.total.price.updated"):
+        body = json.dumps({
+            "event": event, "merchant": 782,
+            "data": {"id": 1, "status": {"slug": "completed"},
+                     "customer": {"id": 1, "mobile": BENEFICIARY_PHONE}},
+        }).encode()
+        _post_webhook(client, body)
+    assert fake.create_calls == 0

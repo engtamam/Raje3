@@ -135,6 +135,18 @@ async def salla_callback(request: Request, code: str = "", state: str = "",
         message=f"متجرك «{store_name or merchant_id}» أصبح مرتبطاً بحسابك عندنا. أغلق هذه الصفحة وارجع للوحة تحكمك."))
 
 
+#: THE ONLY EVENT/STATUS PAIR THAT DOES ANY REAL WORK (owner's own decision, 2026-09-15: "ما
+#: نسمح إلا على order.status.updated وتكون completed عشان نخفف ضغط على السيرفر"). Salla's own
+#: docs (docs.salla.dev/421119m0) list nine order events — created, updated, cancelled, refunded,
+#: deleted, payment.updated, coupon.updated, total.price.updated, status.updated — an order
+#: genuinely fires several of these across its life, and `order.created` in particular can (and
+#: often does) mean "under review", not "money changed hands". Granting on that would spend the
+#: platform's own subscription discount on a sale that has not actually happened yet, and might
+#: never. `status.updated` + `completed` is the one combination that means the deal is done.
+_TARGET_EVENT = "order.status.updated"
+_TARGET_STATUS_SLUG = "completed"
+
+
 @router.post("/salla/webhook", dependencies=[Depends(rate_limit)])
 async def salla_webhook(request: Request) -> Any:
     """Salla's own server call, on every subscribed event this app's Partners Portal settings
@@ -142,10 +154,16 @@ async def salla_webhook(request: Request) -> Any:
     `verify_signature`'s own note on why re-parsed JSON cannot be used here), under the app-wide
     Webhook Secret from the Partners Portal (secrets-admin, not per merchant).
 
-    ACKS FAST. Salla retries a slow or non-2xx response; the actual business action a real order
-    triggers is a deliberately separate, later decision (module docstring) — for now this only
-    verifies and durably logs the event, which is itself the whole point of standing this up before
-    that decision is made: the connection and the intake are both real and tested today.
+    CHEAP FOR EVERY EVENT THAT IS NOT THE ONE THAT MATTERS. Verifying a signature and parsing a
+    small JSON body cost nothing; a coupon grant costs a phone lookup AND a round trip to
+    billing-service. So every event still gets a durable, minimal log line (`record_event`, one
+    store write — the receipt that we heard from this merchant at all, useful on its own for
+    "my webhook stopped firing" support questions), but the EXPENSIVE path below only ever runs
+    for `order.status.updated` at `completed` — every other event (order.created included) is
+    acknowledged and dropped right there. The Partners Portal's own webhook subscription should
+    ALSO be scoped to just this one event where Salla's own UI allows it — this filter is the
+    guarantee even if it is not, since a wrongly-scoped subscription must not become a wrongly-
+    triggered grant.
     """
     s = request.app.state.container_settings
     raw = await request.body()
@@ -171,4 +189,38 @@ async def salla_webhook(request: Request) -> Any:
         # which shape of forged signature gets further — the safe, uninformative answer is the
         # same "received" every genuine call gets, with nothing acted on behind it.
         return {"received": True}
+
+    if event != _TARGET_EVENT or not tenant:
+        # NOT THE TARGET EVENT, OR A MERCHANT WE HAVE NO LINK FOR — either way, nothing more to
+        # do. `tenant` is empty both for "this merchant never connected" and "signature verified
+        # but merchant id missing from the payload"; both are answered identically.
+        return {"received": True}
+
+    order = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    status = order.get("status") if isinstance(order.get("status"), dict) else {}
+    if str(status.get("slug") or "") != _TARGET_STATUS_SLUG:
+        return {"received": True}
+
+    order_id = str(order.get("id") or "")
+    customer = order.get("customer") if isinstance(order.get("customer"), dict) else {}
+    mobile = str(customer.get("mobile") or "").strip()
+    if not order_id or not mobile:
+        return {"received": True}
+
+    # THE GRANT ITSELF — reuses core/coupons.py's engine exactly as the console's own form and
+    # the till's external door do: same tier cap, same duplicate-order protection (`order_id`),
+    # same per-app "already has a better coupon" guard. `general=True` because a real Salla order
+    # names no specific app to discount — the whole point is "my supplier succeeded, give them
+    # whatever they are eligible for right now, automatically, no configuration needed".
+    coupons = request.app.state.container.coupons
+    percent = await coupons.effective_cap(tenant)
+    if percent > 0:
+        att = await coupons.grant(
+            granter_tenant=tenant, granter_operator_id=f"salla:{merchant_id}",
+            phone=mobile, percent=percent, general=True,
+            order_id=f"salla:{merchant_id}:{order_id}")
+        await request.app.state.auditor.record(
+            "coupon.grant_attempt", actor=f"salla:{merchant_id}", tenant=tenant,
+            resource=f"coupon_attempt:{att.id}",
+            ip=request.client.host if request.client else "")
     return {"received": True}
