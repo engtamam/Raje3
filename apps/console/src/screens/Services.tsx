@@ -21,11 +21,12 @@ import { useSearchParams } from 'react-router-dom';
 import { NAV_ACCENTS } from '@base-ui/theme';
 import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
+import { ConfirmDialog } from '../rj-ui/ConfirmDialog';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
-import { CircleHelp, ImageOff, Pencil, Plus, Power, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react';
+import { CircleHelp, ImageOff, Pencil, Plus, Power, PowerOff, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react';
 import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
@@ -228,6 +229,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    *  edit the very thing he was just looking at threw away the view he chose. This is a second,
    *  separate piece of state on purpose — the two edit surfaces are not the same control. */
   const [modalSvc, setModalSvc] = useState<string | null>(null);
+  /** The service pending an «إيقاف» confirmation — never triggered on activate, which is not
+   *  destructive and needs no dialog to stand in its way. */
+  const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
   // WHO EXISTS AT ALL — read only so the eligibility row can be shown/hidden and its checkboxes
   // labelled. A shop with one operator (or none of this screen's role) never reads this at all
   // in any way that shows: the row below is hidden whenever there is one or fewer of them.
@@ -522,6 +526,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     } finally {
       setSaving(false);
     }
+  };
+
+  /** Activating is never destructive and goes straight through; stopping needs a real confirmation
+   *  — the long explanation used to be squeezed onto the button itself, unreadable in a card row,
+   *  when it belongs in the moment he is actually asked to decide. */
+  const requestStop = (svc: { id: string; active?: boolean }) => {
+    if (svc.active === false) { patchService(svc.id, { active: true }); return; }
+    setConfirmStopId(svc.id);
   };
 
   /** A picked file, read as base64 and sent as-is — the server (catalogue_image.py) is the one
@@ -1399,13 +1411,16 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                       <Pencil size={14} aria-hidden /> {t('services.edit')}
                     </button>
                     <button type="button" disabled={saving}
-                           onClick={() => patchService(svc.id, { active: stopped })}
+                           onClick={() => requestStop(svc)}
                            className={[
                              'flex flex-1 items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors',
                              stopped ? 'text-text-secondary hover:bg-surface-2'
                                      : 'text-danger hover:bg-danger-soft',
                            ].join(' ')}>
-                      <Power size={14} aria-hidden /> {stopped ? t('services.activate') : t('services.deactivate')}
+                      {stopped
+                        ? <Power size={14} aria-hidden />
+                        : <PowerOff size={14} aria-hidden />}
+                      {stopped ? t('services.activate') : t('services.deactivateShort')}
                     </button>
                   </div>
                 ) : null}
@@ -1643,9 +1658,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   {stopped ? t('services.stoppedBadge') : t('services.active')}
                 </span>
                 <Button variant={stopped ? 'solid' : 'outline'} size="sm"
-                       onClick={() => patchService(svc.id, { active: stopped })}>
-                  <Power size={14} aria-hidden />
-                  {stopped ? t('services.activate') : t('services.deactivate')}
+                       onClick={() => requestStop(svc)}>
+                  {stopped
+                    ? <Power size={14} aria-hidden />
+                    : <PowerOff size={14} aria-hidden />}
+                  {stopped ? t('services.activate') : t('services.deactivateShort')}
                 </Button>
               </div>
             ) : null}
@@ -1656,6 +1673,23 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         );
       })()}
 
+      {/* THE LONG EXPLANATION MOVED HERE FROM THE BUTTON ITSELF — it used to be squeezed onto a
+          card-row button ("إيقاف — تختفي من شاشة الزيارة وتسكت تذكيراتها"), unreadable at that
+          size and wrapping over the tile's own layout. It belongs in the one moment he is actually
+          deciding, not printed in miniature on every card all the time. */}
+      <ConfirmDialog
+        open={Boolean(confirmStopId)}
+        onClose={() => setConfirmStopId(null)}
+        onConfirm={() => {
+          if (confirmStopId) patchService(confirmStopId, { active: false });
+          setConfirmStopId(null);
+        }}
+        title={tf(t, 'services.deactivateConfirmTitle',
+          { name: (services ?? []).find((s) => s.id === confirmStopId)?.name ?? '' })}
+        body={t('services.deactivate')}
+        confirmLabel={t('services.deactivateShort')}
+        busy={saving}
+      />
     </div>
   );
 }

@@ -7,7 +7,7 @@
  * (test_catalogue_image.py, test_bulk_import_services.py).
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OperatorI18nProvider } from '../operator-i18n';
 
@@ -115,6 +115,25 @@ describe('خدماتي — workspace (phase 3)', () => {
     fireEvent.blur(desc);
     await waitFor(() => expect(patchCalls.length).toBeGreaterThan(0));
     expect(patchCalls[patchCalls.length - 1]).toMatchObject({ description: 'وصف جديد' });
+  });
+
+  it('stopping a service asks first — the long explanation moved into that moment', async () => {
+    open();
+    await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
+    expect(screen.queryByRole('dialog')).toBeFalsy();
+    // Both cards start active, so the first «إيقاف» button belongs to svc_a.
+    const before = patchCalls.length;
+    fireEvent.click(screen.getAllByText('إيقاف')[0]);
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    // NOTHING WAS PATCHED YET — a tap on the card must only ever open the question, never act.
+    expect(patchCalls.length).toBe(before);
+    const dialog = screen.getByRole('dialog');
+    // THE LONG SENTENCE LIVES HERE NOW, not squeezed onto the card's own button.
+    expect(within(dialog).getByText(/تختفي من شاشة الزيارة وتسكت تذكيراتها/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'إيقاف' }));
+    await waitFor(() => expect(patchCalls.length).toBeGreaterThan(before));
+    expect(patchCalls[patchCalls.length - 1]).toMatchObject({ active: false });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeFalsy());
   });
 
   it('«إضافة خدمة أو منتج» opens a real window, not a panel wedged into the grid', async () => {

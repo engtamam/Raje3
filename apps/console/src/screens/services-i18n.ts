@@ -125,6 +125,8 @@ registerOperatorStrings({
     'services.edit': 'تعديل',
     'services.activate': 'تفعيل',
     'services.deactivate': 'إيقاف — تختفي من شاشة الزيارة وتسكت تذكيراتها',
+    'services.deactivateShort': 'إيقاف',
+    'services.deactivateConfirmTitle': 'إيقاف {name}؟',
 
     'services.whoCanDoIt': 'من يقدر يسوّيها',
     'services.assignmentMode.ariaLabel': 'طريقة تعيين الموظف',
@@ -276,6 +278,8 @@ registerOperatorStrings({
     'services.edit': 'Edit',
     'services.activate': 'Activate',
     'services.deactivate': 'Deactivate — disappears from the visit screen and its reminders go silent',
+    'services.deactivateShort': 'Deactivate',
+    'services.deactivateConfirmTitle': 'Deactivate {name}?',
 
     'services.whoCanDoIt': 'Who can do it',
     'services.assignmentMode.ariaLabel': 'Staff assignment mode',
@@ -427,6 +431,8 @@ registerOperatorStrings({
     'services.edit': 'ترمیم کریں',
     'services.activate': 'فعال کریں',
     'services.deactivate': 'بند کریں — وزٹ کی سکرین سے غائب ہو جاتی ہے اور اس کی یاد دہانیاں خاموش ہو جاتی ہیں',
+    'services.deactivateShort': 'بند کریں',
+    'services.deactivateConfirmTitle': '{name} بند کریں؟',
 
     'services.whoCanDoIt': 'کون یہ کر سکتا ہے',
     'services.assignmentMode.ariaLabel': 'عملے کی تفویض کا طریقہ',
@@ -578,6 +584,8 @@ registerOperatorStrings({
     'services.edit': 'Gyara',
     'services.activate': 'Kunna',
     'services.deactivate': 'Dakatar — za ta ɓace daga shafin ziyara kuma tunatarwarta za ta yi shiru',
+    'services.deactivateShort': 'Dakatar',
+    'services.deactivateConfirmTitle': 'Dakatar da {name}?',
 
     'services.whoCanDoIt': 'Wanda zai iya yin ta',
     'services.assignmentMode.ariaLabel': 'Yadda ake ba wa ma\'aikaci aiki',
@@ -729,6 +737,8 @@ registerOperatorStrings({
     'services.edit': 'I-edit',
     'services.activate': 'I-activate',
     'services.deactivate': 'I-deactivate — mawawala sa visit screen at tatahimik ang mga paalala nito',
+    'services.deactivateShort': 'I-deactivate',
+    'services.deactivateConfirmTitle': 'I-deactivate ang {name}?',
 
     'services.whoCanDoIt': 'Sino ang puwedeng gumawa nito',
     'services.assignmentMode.ariaLabel': 'Paraan ng pagtalaga ng staff',
@@ -880,6 +890,8 @@ registerOperatorStrings({
     'services.edit': 'পরিবর্তন করুন',
     'services.activate': 'সক্রিয় করুন',
     'services.deactivate': 'নিষ্ক্রিয় করুন — ভিজিট স্ক্রিন থেকে সরে যাবে এবং এর স্মরণ বার্তাগুলো থেমে যাবে',
+    'services.deactivateShort': 'নিষ্ক্রিয় করুন',
+    'services.deactivateConfirmTitle': '{name} নিষ্ক্রিয় করবেন?',
 
     'services.whoCanDoIt': 'কে এটি করতে পারবে',
     'services.assignmentMode.ariaLabel': 'কর্মী নির্ধারণের পদ্ধতি',
