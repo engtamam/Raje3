@@ -130,6 +130,7 @@ registerOperatorStrings({
 
     'services.groupIntervalSuffix': ' · كل {n} يوماً',
     'services.deleteGroup': 'حذف المجموعة',
+    'services.deleteGroupAriaLabel': 'حذف مجموعة {group}',
 
     'services.nameAriaLabel': 'اسم {name}',
     'services.stoppedBadge': 'موقوفة',
@@ -302,6 +303,7 @@ registerOperatorStrings({
 
     'services.groupIntervalSuffix': ' · every {n} days',
     'services.deleteGroup': 'Delete group',
+    'services.deleteGroupAriaLabel': 'Delete group {group}',
 
     'services.nameAriaLabel': 'Name of {name}',
     'services.stoppedBadge': 'Stopped',
@@ -474,6 +476,7 @@ registerOperatorStrings({
 
     'services.groupIntervalSuffix': ' · ہر {n} دن',
     'services.deleteGroup': 'گروپ حذف کریں',
+    'services.deleteGroupAriaLabel': '{group} گروپ حذف کریں',
 
     'services.nameAriaLabel': '{name} کا نام',
     'services.stoppedBadge': 'بند',
@@ -646,6 +649,7 @@ registerOperatorStrings({
 
     'services.groupIntervalSuffix': ' · kowace kwana {n}',
     'services.deleteGroup': 'Share rukuni',
+    'services.deleteGroupAriaLabel': 'Share rukunin {group}',
 
     'services.nameAriaLabel': 'Sunan {name}',
     'services.stoppedBadge': 'An dakatar',
@@ -818,6 +822,7 @@ registerOperatorStrings({
 
     'services.groupIntervalSuffix': ' · bawat {n} araw',
     'services.deleteGroup': 'Burahin ang grupo',
+    'services.deleteGroupAriaLabel': 'Burahin ang grupong {group}',
 
     'services.nameAriaLabel': 'Pangalan ng {name}',
     'services.stoppedBadge': 'Naitigil',
@@ -990,6 +995,7 @@ registerOperatorStrings({
 
     'services.groupIntervalSuffix': ' · প্রতি {n} দিনে',
     'services.deleteGroup': 'গ্রুপ মুছুন',
+    'services.deleteGroupAriaLabel': '{group} গ্রুপ মুছুন',
 
     'services.nameAriaLabel': '{name}-এর নাম',
     'services.stoppedBadge': 'বন্ধ',

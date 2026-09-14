@@ -24,7 +24,7 @@ import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { PageHeader } from '../rj-ui/PageHeader';
-import { Check, CircleHelp, ImageOff, LayoutGrid, List, Pencil, Plus, Power, RotateCcw, SlidersHorizontal, Upload, Wrench } from 'lucide-react';
+import { CircleHelp, ImageOff, Pencil, Plus, Power, SlidersHorizontal, Trash2, Upload, Wrench } from 'lucide-react';
 import { Hint } from '../Hint';
 import { AssistantHint } from '../AssistantHint';
 import { Toggle } from '../rj-ui/Toggle';
@@ -221,15 +221,6 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // in any way that shows: the row below is hidden whenever there is one or fewer of them.
   const [staff, setStaff] = useState<StaffMember[] | null | undefined>(undefined);
 
-  // ── board/cards view (services-images-board.md phase 3) ────────────────────────────────────
-  // SAME DEFAULT-BY-INPUT-TYPE AS Bookings.tsx's OWN TOGGLE, read once at mount, never tracked
-  // live — a touch device opens on cards, a mouse on the dense table, and rotating a tablet
-  // mid-glance must not yank the layout out from under him.
-  const [layout, setLayout] = useState<'list' | 'grid'>(() => (
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      && window.matchMedia('(pointer: coarse)').matches
-      ? 'grid' : 'list'
-  ));
   // Object URLs, one per service that HAS a photo — fetched lazily (never for a service with no
   // photo at all) and revoked on unmount so a long session does not leak blob handles.
   const [images, setImages] = useState<Record<string, string>>({});
@@ -958,23 +949,39 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           </button>
           <div className="my-1 border-t border-border-subtle" />
           {bins.map(([g, list], i) => (
-            <button
-              key={g || 'ungrouped'}
-              type="button"
-              onClick={() => setOnly(g)}
-              className={[
-                'flex items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors',
-                only === g ? 'bg-accent-soft text-accent-on-soft' : 'text-text-secondary hover:bg-surface-2',
-              ].join(' ')}
-            >
-              <span className="size-2 shrink-0 rounded-full"
-                   style={{ background: g === UNGROUPED ? 'var(--text-muted)' : NAV_ACCENTS[i % NAV_ACCENTS.length] }}
-                   aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
-                {g === UNGROUPED ? t('services.ungroupedHeading') : g}
-              </span>
-              <span className="shrink-0 text-xs tabular-nums text-text-muted">{list.length}</span>
-            </button>
+            <div key={g || 'ungrouped'} className="group/g flex items-center">
+              <button
+                type="button"
+                onClick={() => setOnly(g)}
+                className={[
+                  'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors',
+                  only === g ? 'bg-accent-soft text-accent-on-soft' : 'text-text-secondary hover:bg-surface-2',
+                ].join(' ')}
+              >
+                <span className="size-2 shrink-0 rounded-full"
+                     style={{ background: g === UNGROUPED ? 'var(--text-muted)' : NAV_ACCENTS[i % NAV_ACCENTS.length] }}
+                     aria-hidden />
+                <span className="min-w-0 flex-1 truncate">
+                  {g === UNGROUPED ? t('services.ungroupedHeading') : g}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-text-muted">{list.length}</span>
+              </button>
+              {/* THE GROUP CAN BE UNMADE — restored here (the sidebar rail) after the table (its
+                  only home before) was removed entirely (2026-09-15). Not offered on the
+                  remainder bin: «غير مجمّعة» is not a group, and a delete button on it would
+                  delete nothing. Shown on hover only, so the rail stays calm while browsing. */}
+              {g !== UNGROUPED && action(catalog, 'reminders.delete_group') ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  aria-label={tf(t, 'services.deleteGroupAriaLabel', { group: g })}
+                  onClick={() => deleteGroup(g)}
+                  className="grid size-7 shrink-0 place-items-center rounded-lg text-text-muted opacity-0 transition-opacity hover:bg-danger-soft hover:text-danger-on-soft group-hover/g:opacity-100"
+                >
+                  <Trash2 size={14} aria-hidden />
+                </button>
+              ) : null}
+            </div>
           ))}
         </aside>
       ) : null}
@@ -1018,26 +1025,6 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           />
         ) : null}
 
-        {/* GRID vs LIST — same control Bookings.tsx already carries, same reason: it changes only
-            how the same read is drawn, never what is filtered. Icon-only, each with its own
-            aria-label/title for the first glance an icon alone does not explain. */}
-        <div className="flex items-center gap-1 rounded-full bg-surface-2 p-1">
-          {([
-            { id: 'list' as const, icon: List, label: 'جدول' },
-            { id: 'grid' as const, icon: LayoutGrid, label: 'بطاقات' },
-          ]).map(({ id, icon: Icon, label }) => (
-            <button key={id} type="button" onClick={() => setLayout(id)}
-                   aria-label={label} title={label}
-                   className={[
-                     'grid h-8 w-9 place-items-center rounded-full transition-colors',
-                     layout === id ? 'bg-accent text-accent-contrast shadow-sm'
-                                  : 'text-text-secondary hover:text-text-primary',
-                   ].join(' ')}>
-              <Icon size={15} aria-hidden />
-            </button>
-          ))}
-        </div>
-
         {/* ONE «؟» FOR THE TABLE, NOT ONE PER COLUMN. Four marks across a header sixty-four
             pixels per column wide crowded into each other and spilled onto the neighbouring
             label — «النقاط؟» reading as one word. A legend answers all four at once, in a
@@ -1077,7 +1064,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         ) : null}
 
         {action(catalog, 'operations.create_service') && !adding ? (
-          <Button className="ms-auto" onClick={() => setAdding(true)}>
+          <Button className="ms-auto" onClick={() => { setModalSvc(null); setAdding(true); }}>
             <Plus size={16} aria-hidden />
             {t('services.addServiceOrProduct')}
           </Button>
@@ -1340,8 +1327,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           compare are off-screen — the worst of both shapes. So the phone gets the three columns
           that answer «ما عندي، وكل كم يوماً، وماذا أفعل بها», and the other three appear stacked
           under the row the moment he taps ✎. Nothing is unreachable; it is only unasked. */}
-      {layout === 'grid' ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {shown.flatMap(([, inGroup]) => inGroup).map((svc) => {
             const stopped = svc.active === false;
             const selected = modalSvc === svc.id;
@@ -1412,451 +1398,16 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             );
           })}
         </div>
-      ) : (
-      <div className="rounded-card border border-border-subtle bg-surface-1">
-        {/* THE NAME TAKES THE SLACK, THE NUMBERS STAY NARROW. With every column an equal share the
-            table spread four dashes across a desktop — a metre of white between a service and the
-            one number about it. `w-full` on the first cell and `w-px` on the others is the CSS
-            way to say "one column is the content, the rest are labels". */}
-        {/* FIXED, NOT AUTO — and this is what broke it on a phone. With `table-auto` the browser
-            sizes columns from their content, so seven service names plus five headers asked for
-            more width than the card had and the rows simply ran out past its edges: a list whose
-            right side was cut off by the screen. Fixed widths mean the table can never be wider
-            than its container, and a long name truncates instead of pushing the table off. */}
-        <table className="w-full table-fixed border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
-              <Th className="w-[38%]">{t('services.table.service')}</Th>
-              <Th wide className="w-24">{t('services.table.duration')}</Th>
-              <Th wide className="w-24">{t('services.price.label')}</Th>
-              <Th narrow>{t('services.legend.cycle.term')}</Th>
-              <Th narrow wide>{t('services.followUp')}</Th>
-              {earnAction ? <Th narrow wide>{t('services.points')}</Th> : null}
-              {action(catalog, 'reminders.set_group') ? (
-                // WIDER THAN THE NUMBER COLUMNS, because it holds a name and a dropdown arrow.
-                // At 64px «بلا مجموعة» rendered as «بلا» — a truncation that reads as a value.
-                <Th wide className="w-36">{t('services.group')}</Th>
-              ) : null}
-              <Th narrow className="w-24">{t('services.table.actions')}</Th>
-            </tr>
-          </thead>
-          <tbody>
-      {shown.map(([group, inGroup]) => (
-        <Fragment key={group || 'ungrouped'}>
-          {/* THE HEADING CARRIES THE GROUP'S OWN CYCLE, because that is what the services under it
-              follow — a heading that is only a name leaves the owner reading each service to work
-              out what the group actually does. The remainder bin has no settings and says so by
-              carrying no number. */}
-          {/* A HEADING ROW INSIDE THE TABLE, so the columns never break alignment. Hidden when the
-              whole table is one bin: a single heading over everything is a label for the screen,
-              not a division of it. */}
-          {shown.length > 1 ? (
-            <tr className="border-b border-border-subtle bg-surface-2/30">
-              <td colSpan={11} className="px-3 py-2">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 text-sm font-semibold text-text-secondary">
-                    {group === UNGROUPED ? t('services.ungroupedHeading') : group}
-                    {group !== UNGROUPED && settings?.groups?.[group]?.interval_days
-                      ? tf(t, 'services.groupIntervalSuffix', { n: settings.groups[group].interval_days as number })
-                      : ''}
-                  </span>
-                  {/* THE GROUP CAN BE UNMADE. It could be created and never removed, so an owner
-                      who grouped his services wrongly was stuck with the mistake on every future
-                      screen. Not offered on the remainder bin: «غير مجمّعة» is not a group, it is
-                      what is left over, and a delete button on it would delete nothing. */}
-                  {group !== UNGROUPED && action(catalog, 'reminders.delete_group') ? (
-                    <Button variant="ghost" disabled={saving} onClick={() => deleteGroup(group)}>
-                      {t('services.deleteGroup')}
-                    </Button>
-                  ) : null}
-                </div>
-              </td>
-            </tr>
-          ) : null}
-          {inGroup.map((svc) => {
-        const { value, own } = settingFor(svc.id);
-        const stopped = svc.active === false;
-        const editing = open === svc.id;
-        return (
-          <Fragment key={svc.id}>
-          {/* ONE ROW PER SERVICE, AND THE COLUMNS ARE THE COMPARISON. A stack of cards could only
-              ever answer "what is this service set to"; the owner's real question is "which of my
-              services is set differently", and that is a column read top to bottom. */}
-          <tr className={[
-            'border-b border-border-subtle last:border-0 align-middle',
-            stopped ? 'opacity-55' : '',
-          ].join(' ')}>
-            <td className="px-3 py-2">
-              <div className="flex items-center gap-2">
-                {/* THE THUMBNAIL — present or absent, never a blank gap, so a missing photo reads
-                    as a real fact rather than a layout hiccup. Small here on purpose: the table's
-                    own value is a column scan, and a large photo per row would be the phone-table
-                    mistake this screen's own header comment already argues against, just moved to
-                    a different column. */}
-                <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-2 text-text-muted">
-                  {images[svc.id] ? (
-                    <img src={images[svc.id]} alt="" className="h-full w-full object-cover" />
-                  ) : <ImageOff size={14} aria-hidden />}
-                </span>
-                {editing && action(catalog, 'operations.update_service') ? (
-                  // ONE BOX, NOT A BOX PLUS A LOOSE LINK BELOW IT. `صورة` used to sit outside this
-                  // border as plain text, reading like an unrelated caption under the row rather
-                  // than a third field of the same service — wrapping all three in the same
-                  // rounded border is what actually puts it "في المربع نفسه".
-                  <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border-subtle p-1.5">
-                    <input
-                      defaultValue={svc.name}
-                      autoFocus
-                      aria-label={tf(t, 'services.nameAriaLabel', { name: svc.name })}
-                      maxLength={128}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== svc.name) patchService(svc.id, { name: v });
-                      }}
-                      // NO MINIMUM WIDTH. A `min-w` inside a fixed-width cell does not widen the
-                      // column — it overflows it, which is what put the name box outside its own row
-                      // on a phone. The column is half the table; the input takes exactly that.
-                      className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2"
-                    />
-                    <input
-                      defaultValue={svc.description ?? ''}
-                      placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
-                      maxLength={300}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== (svc.description ?? '')) patchService(svc.id, { description: v });
-                      }}
-                      className="h-8 w-full min-w-0 rounded-lg bg-surface-2 px-2 text-xs"
-                    />
-                    {/* REPLACE ONLY, NO STANDALONE DELETE — picking a file always overwrites the
-                        current photo (server-side, `store_image` writes the new object before
-                        dropping the old one); there is no action that empties `image_key` on
-                        purpose. A service can end up with no photo (never uploaded one yet), but
-                        never BY clearing one it already had — the placeholder icon above is
-                        already the only "empty" state this screen shows. */}
-                    {action(catalog, 'operations.upload_service_image') ? (
-                      <label className="flex cursor-pointer items-center gap-1 text-xs text-text-secondary">
-                        <Upload size={12} aria-hidden /> {svc.has_image ? 'استبدال الصورة' : 'صورة'}
-                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadServiceImage(svc.id, f); }} />
-                      </label>
-                    ) : null}
-                  </div>
-                ) : (
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-medium">{svc.name}</span>
-                    {stopped ? (
-                      <>
-                        <Badge tone="neutral">{t('services.stoppedBadge')}</Badge>
-                        <AssistantHint session={session} anchor="services.stoppedBadge" />
-                      </>
-                    ) : null}
-                  </span>
-                )}
-              </div>
-            </td>
-
-            {/* THE ONE FIELD BOOKINGS ACTUALLY REFUSES WITHOUT (docs/خطة-تنفيذ-الحجوزات.md §6.2):
-                a service with no duration cannot be scheduled at all — this was readable
-                everywhere and writable nowhere in the console until now. `operations.update_service`
-                already accepted it; only the console never asked. */}
-            <td className="hidden px-3 py-2 tabular-nums md:table-cell">
-              {editing && action(catalog, 'operations.update_service') ? (
-                <input
-                  type="number" min={0} max={720} dir="ltr"
-                  defaultValue={svc.duration_minutes ? String(svc.duration_minutes) : ''}
-                  aria-label={tf(t, 'services.durationAriaLabel', { name: svc.name })}
-                  onBlur={(e) => {
-                    const raw = e.target.value.trim();
-                    if (raw === '') return;   // blank saves nothing, same rule as every Num cell
-                    const n = Number(raw);
-                    if (n !== (svc.duration_minutes ?? 0)) patchService(svc.id, { duration_minutes: n });
-                  }}
-                  className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
-                />
-              ) : (
-                <span className={svc.duration_minutes ? '' : 'text-danger'}>
-                  {svc.duration_minutes ? svc.duration_minutes : t('services.notSet')}
-                </span>
-              )}
-            </td>
-
-            {/* THE PRICE IS OPTIONAL — a shop that only wants operations'
-                scheduling and reminders, never invoicing, leaves it at «—» and nothing downstream
-                requires it. Riyals on the screen, halalas on the wire — see money.ts; never a
-                float, never `* 100` at this call site. */}
-            <td className="hidden px-3 py-2 tabular-nums md:table-cell">
-              {editing && action(catalog, 'operations.update_service') ? (
-                <input
-                  type="text" inputMode="decimal" dir="ltr"
-                  defaultValue={svc.price_minor ? riyals(svc.price_minor) : ''}
-                  aria-label={tf(t, 'services.priceAriaLabel', { name: svc.name })}
-                  placeholder="—"
-                  onBlur={(e) => {
-                    const raw = e.target.value.trim();
-                    if (raw === '') return;
-                    const minor = halalas(raw);
-                    // INVALID TEXT USED TO DROP SILENTLY HERE — `halalas` returning null (garbage,
-                    // or a third decimal place) fell through both branches with no write and no
-                    // word said, so the box quietly kept whatever he had actually typed while the
-                    // service kept its old price. `halalas`'s own comment says the caller shows a
-                    // reason; this was the caller, and it never did.
-                    if (minor === null) { setError(t('services.error.priceInvalid')); return; }
-                    if (minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
-                  }}
-                  className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
-                />
-              ) : (
-                <span className={svc.price_minor ? '' : 'text-text-secondary/60'}>
-                  {svc.price_minor ? riyals(svc.price_minor) : '—'}
-                </span>
-              )}
-            </td>
-
-            {/* THE CELL EDITS IN PLACE, AND A BLANK BOX SAVES NOTHING. `Number('')` is 0, which
-                would silently turn "I have not decided" into "this service has no cycle". */}
-            <Num
-              value={value.interval_days}
-              own={own}
-              editable={editing && !!action(catalog, 'reminders.set_service_settings')}
-              label={tf(t, 'services.cycleAriaLabel', { name: svc.name })}
-              onSave={(n) => setService(svc.id, { interval_days: n })}
-            />
-            <Num
-              wide
-              value={value.follow_up_days}
-              own={own}
-              editable={editing && !!action(catalog, 'reminders.set_service_settings')}
-              label={tf(t, 'services.followUpAriaLabel', { name: svc.name })}
-              onSave={(n) => setService(svc.id, { follow_up_days: n })}
-            />
-            {earnAction ? (
-              <Num
-                wide
-                value={earnFor(svc.id).points}
-                own={earnFor(svc.id).own}
-                editable={editing}
-                label={tf(t, 'services.pointsAriaLabel', { name: svc.name })}
-                onSave={(n) => { if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n); }}
-              />
-            ) : null}
-
-            {action(catalog, 'reminders.set_group') ? (
-              <td className="hidden truncate px-3 py-2 md:table-cell">
-                {editing ? (
-                  <select
-                    aria-label={tf(t, 'services.groupAriaLabel', { name: svc.name })}
-                    value={settings?.service_group?.[svc.id] ?? ''}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === '__new__') { setNaming(svc.id); return; }
-                      // «بلا مجموعة» IS AN ACT. It was an option with nothing behind it, so an
-                      // owner who grouped something could never ungroup it.
-                      if (!v) { leaveGroup(svc.id); return; }
-                      joinGroup(svc.id, v);
-                    }}
-                    className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2 text-sm"
-                  >
-                    <option value="">{t('services.noGroupOption')}</option>
-                    {Object.keys(settings?.groups ?? {}).map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                    <option value="__new__">{t('services.newGroupOption')}</option>
-                  </select>
-                ) : (
-                  <span className="text-text-secondary">
-                    {settings?.service_group?.[svc.id] || '—'}
-                  </span>
-                )}
-              </td>
-            ) : null}
-
-            {/* ── the actions column ───────────────────────────────────────────────────────
-                TWO ICONS, AND NEITHER OF THEM DELETES. A service cannot be deleted at all: every
-                visit ever recorded names one, and removing the row would leave last year's
-                history pointing at nothing. «إيقاف» is the whole of what "remove" means here —
-                it leaves the operator's grid and its reminders go silent, and the record stays
-                readable. So the second icon is a power switch rather than a bin, because an icon
-                that promises deletion and performs retirement is a lie told in one glyph. */}
-            <td className="px-3 py-2">
-              <div className="flex items-center justify-end gap-0.5 md:gap-1">
-                {own && action(catalog, 'reminders.follow_general') ? (
-                  <IconButton
-                    title={t('services.returnToGeneral')}
-                    disabled={saving}
-                    onClick={() => followGeneral(svc.id)}
-                  ><RotateCcw size={18} aria-hidden /></IconButton>
-                ) : null}
-                <IconButton
-                  title={editing ? t('services.finishEditing') : t('services.edit')}
-                  onClick={() => setOpen(editing ? null : svc.id)}
-                  active={editing}
-                >{editing ? <Check size={18} aria-hidden /> : <Pencil size={18} aria-hidden />}</IconButton>
-                {action(catalog, 'operations.update_service') ? (
-                  <IconButton
-                    title={stopped ? t('services.activate') : t('services.deactivate')}
-                    disabled={saving}
-                    danger={!stopped}
-                    onClick={() => patchService(svc.id, { active: stopped })}
-                  >
-                    {/* AN SVG, NOT A CHARACTER. «⏻» (U+23FB) is a text glyph most phone fonts do
-                        not carry, so the button rendered as an empty box that pressed and did
-                        something — the worst possible state for the one action that takes a
-                        service off the operator's grid. */}
-                    <Power size={18} aria-hidden />
-                  </IconButton>
-                ) : null}
-              </div>
-            </td>
-          </tr>
-
-          {/* ── the phone's edit row ──────────────────────────────────────────────────────
-              THE THREE COLUMNS THE PHONE DOES NOT SHOW, STACKED, AND ONLY WHILE HE IS EDITING.
-              Hiding a column on a narrow screen is only honest if the field is reachable
-              somewhere; this is that somewhere. It costs nothing until ✎ is tapped, and then it
-              is a short labelled form under the row it belongs to — which is what a phone is
-              good at, and what a six-column grid squeezed into 380px never is. */}
-          {editing ? (
-            <tr className="border-b border-border-subtle bg-surface-2/40 md:hidden">
-              <td colSpan={3} className="px-3 py-3">
-                <div className="flex flex-col gap-2">
-                  {action(catalog, 'reminders.set_service_settings') ? (
-                    <Field label={t('services.followUp')}>
-                      <input
-                        type="number" min={0} dir="ltr"
-                        defaultValue={String(value.follow_up_days ?? 0)}
-                        aria-label={tf(t, 'services.followUpAriaLabel', { name: svc.name })}
-                        onBlur={(e) => {
-                          const raw = e.target.value.trim();
-                          if (raw !== '' && Number(raw) !== (value.follow_up_days ?? 0)) {
-                            setService(svc.id, { follow_up_days: Number(raw) });
-                          }
-                        }}
-                        className="h-10 w-20 rounded-lg bg-surface-1 px-2 text-center tabular-nums"
-                      />
-                    </Field>
-                  ) : null}
-                  {earnAction ? (
-                    <Field label={t('services.points')}>
-                      <input
-                        type="number" min={0} dir="ltr"
-                        defaultValue={String(earnFor(svc.id).points)}
-                        aria-label={tf(t, 'services.pointsAriaLabel', { name: svc.name })}
-                        onBlur={(e) => {
-                          const raw = e.target.value.trim();
-                          if (raw !== '' && Number(raw) !== earnFor(svc.id).points) {
-                            setServicePoints(svc.id, Number(raw));
-                          }
-                        }}
-                        className="h-10 w-20 rounded-lg bg-surface-1 px-2 text-center tabular-nums"
-                      />
-                    </Field>
-                  ) : null}
-                  {action(catalog, 'reminders.set_group') ? (
-                    <Field label={t('services.group')}>
-                      <select
-                        aria-label={tf(t, 'services.groupAriaLabel', { name: svc.name })}
-                        value={settings?.service_group?.[svc.id] ?? ''}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === '__new__') { setNaming(svc.id); return; }
-                          if (!v) { leaveGroup(svc.id); return; }
-                          joinGroup(svc.id, v);
-                        }}
-                        className="h-10 rounded-lg bg-surface-1 px-2 text-sm"
-                      >
-                        <option value="">{t('services.noGroupOption')}</option>
-                        {Object.keys(settings?.groups ?? {}).map((g) => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                        <option value="__new__">{t('services.newGroupOption')}</option>
-                      </select>
-                    </Field>
-                  ) : null}
-                </div>
-              </td>
-            </tr>
-          ) : null}
-
-          {/* «من يقدر يسوّيها» — يظهر فقط حين يوجد أكثر من موظف نشط واحد؛ محل بموظف واحد لا يرى
-              هذا الصف إطلاقاً لأنه لا معنى له (§3 من الخطة: البساطة الافتراضية). نفس منيو
-              الفلترة المستخدمة في كل مكان آخر بالكونسول — زر بعدّاد + منيو بمربعات اختيار. */}
-          {editing && (staff ?? []).filter((s) => s.active !== false).length > 1
-              && action(catalog, 'operations.update_service') ? (
-            <tr className="border-b border-border-subtle bg-surface-2/40">
-              <td colSpan={11} className="flex flex-col gap-2 px-3 py-2">
-                {/* بالاسم/تلقائي — سؤال منفصل تماماً عن «من يقدر يسوّيها» تحته: هذا يقرر هل
-                    نسأل العميل أصلاً، ذاك يقرر من ضمن مين. خدمة auto ما زالت تحتاج قائمة
-                    المؤهَّلين (تُقيّد الاختيار التلقائي)، فالصفّان يبقيان معاً دائماً. */}
-                <Segmented
-                  size="sm"
-                  ariaLabel={t('services.assignmentMode.ariaLabel')}
-                  value={svc.assignment_mode === 'named' ? 'named' : 'auto'}
-                  onChange={(v) => setAssignmentMode(svc, v as 'named' | 'auto')}
-                  options={[
-                    { value: 'auto', label: t('services.assignmentMode.auto'),
-                     hint: t('services.assignmentMode.auto.hint') },
-                    { value: 'named', label: t('services.assignmentMode.named'),
-                     hint: t('services.assignmentMode.named.hint') },
-                  ]}
-                />
-                <p className="text-xs text-text-secondary">
-                  {svc.assignment_mode === 'named'
-                    ? t('services.assignmentMode.named.hint')
-                    : t('services.assignmentMode.auto.hint')}
-                </p>
-                <FilterMenu
-                  label={t('services.whoCanDoIt')}
-                  options={(staff ?? []).filter((s) => s.active !== false)
-                    .map((s) => ({ value: s.id, label: s.name }))}
-                  selected={eligibleIdsFor(svc)}
-                  onChange={(next) => onEligibleChange(svc, next)}
-                />
-              </td>
-            </tr>
-          ) : null}
-
-          {/* THE NEW-GROUP BOX, on its own full-width row so it cannot squeeze a column. */}
-          {naming === svc.id ? (
-            <tr className="border-b border-border-subtle bg-surface-2/40">
-              <td colSpan={11} className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    autoFocus
-                    aria-label={t('services.newGroupNameAriaLabel')}
-                    placeholder={t('services.newGroupPlaceholder')}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') joinGroup(svc.id, e.currentTarget.value);
-                      if (e.key === 'Escape') setNaming(null);
-                    }}
-                    className="h-9 flex-1 rounded-lg bg-surface-1 px-3"
-                  />
-                  <Button variant="ghost" onClick={() => setNaming(null)}>{t('services.cancel')}</Button>
-                </div>
-              </td>
-            </tr>
-          ) : null}
-          </Fragment>
-        );
-          })}
-        </Fragment>
-      ))}
-          </tbody>
-        </table>
-      </div>
-      )}
       </div>
       {/* closes the min-w-0 flex-1 column beside the sidebar rail */}
       </div>
 
-      {/* ── RIGHT: the inspector — docked, always occupying its own pane in grid mode, never a
-          floating modal (2026-09-14 workspace redesign, replacing the old <Modal>). Same fields,
-          same save-on-blur handlers as the table row (patchService/setService/setServicePoints/
-          uploadServiceImage — nothing here is a second source of truth); only the container
-          changed from an overlay to a persistent column beside the grid it edits. The table
-          (list) view keeps its own inline per-cell editing unchanged — this pane exists only
-          for the card grid, which has no row of its own to edit in place. */}
-      {layout === 'grid' ? (() => {
+      {/* ── RIGHT: the inspector — docked, always occupying its own pane, never a floating modal
+          (2026-09-14 workspace redesign, replacing the old <Modal>; 2026-09-15: the table/list
+          layout it once coexisted with is gone entirely — this workspace is the only view now).
+          Same fields, same save-on-blur handlers as before (patchService/setService/
+          setServicePoints/uploadServiceImage — nothing here is a second source of truth). */}
+      {(() => {
         const svc = (services ?? []).find((s) => s.id === modalSvc);
         if (!svc) {
           return (
@@ -2001,15 +1552,74 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   <span className="text-xs font-medium text-text-secondary">{t('services.group')}</span>
                   <select
                     value={settings?.service_group?.[svc.id] ?? ''}
-                    onChange={(e) => { const v = e.target.value; if (!v) leaveGroup(svc.id); else joinGroup(svc.id, v); }}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '__new__') { setNaming(svc.id); return; }
+                      if (!v) { leaveGroup(svc.id); return; }
+                      joinGroup(svc.id, v);
+                    }}
                     className="h-10 w-full rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm"
                   >
                     <option value="">{t('services.noGroupOption')}</option>
                     {Object.keys(settings?.groups ?? {}).map((g) => (
                       <option key={g} value={g}>{g}</option>
                     ))}
+                    <option value="__new__">{t('services.newGroupOption')}</option>
                   </select>
                 </label>
+              ) : null}
+
+              {/* THE NEW-GROUP BOX — same «__new__» affordance the select above just offered,
+                  restored here after the table (its only home before) was removed entirely
+                  (2026-09-15). */}
+              {naming === svc.id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    aria-label={t('services.newGroupNameAriaLabel')}
+                    placeholder={t('services.newGroupPlaceholder')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') joinGroup(svc.id, e.currentTarget.value);
+                      if (e.key === 'Escape') setNaming(null);
+                    }}
+                    className="h-9 flex-1 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm"
+                  />
+                  <Button variant="ghost" size="sm" onClick={() => setNaming(null)}>{t('services.cancel')}</Button>
+                </div>
+              ) : null}
+
+              {/* «من يقدر يسوّيها» — يظهر فقط حين يوجد أكثر من موظف نشط واحد؛ محل بموظف واحد لا
+                  يرى هذا القسم إطلاقاً لأنه لا معنى له. كان يعيش داخل صف التعديل بالجدول قبل
+                  حذفه كاملاً (2026-09-15) — استُعيد هنا، بنفس المعالجات تماماً، لأنه ميزة حقيقية
+                  لا شاشة عرض جانبية. */}
+              {(staff ?? []).filter((s) => s.active !== false).length > 1
+                  && action(catalog, 'operations.update_service') ? (
+                <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+                  <Segmented
+                    size="sm"
+                    ariaLabel={t('services.assignmentMode.ariaLabel')}
+                    value={svc.assignment_mode === 'named' ? 'named' : 'auto'}
+                    onChange={(v) => setAssignmentMode(svc, v as 'named' | 'auto')}
+                    options={[
+                      { value: 'auto', label: t('services.assignmentMode.auto'),
+                       hint: t('services.assignmentMode.auto.hint') },
+                      { value: 'named', label: t('services.assignmentMode.named'),
+                       hint: t('services.assignmentMode.named.hint') },
+                    ]}
+                  />
+                  <p className="text-xs text-text-secondary">
+                    {svc.assignment_mode === 'named'
+                      ? t('services.assignmentMode.named.hint')
+                      : t('services.assignmentMode.auto.hint')}
+                  </p>
+                  <FilterMenu
+                    label={t('services.whoCanDoIt')}
+                    options={(staff ?? []).filter((s) => s.active !== false)
+                      .map((s) => ({ value: s.id, label: s.name }))}
+                    selected={eligibleIdsFor(svc)}
+                    onChange={(next) => onEligibleChange(svc, next)}
+                  />
+                </div>
               ) : null}
             </div>
             {action(catalog, 'operations.update_service') ? (
@@ -2026,7 +1636,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             ) : null}
           </aside>
         );
-      })() : null}
+      })()}
       </div>
         );
       })()}

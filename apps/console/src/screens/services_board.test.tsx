@@ -1,7 +1,9 @@
 /**
- * «خدماتي» — the board/cards view (services-images-board.md phase 3): the list/grid toggle, a
- * photo (or a real placeholder) per service, and the description field in the edit row. Server
- * calls mocked; the request shapes themselves are covered on the backend side
+ * «خدماتي» — the workspace view (services-images-board.md phase 3, 2026-09-14 workspace
+ * redesign): a photo (or a real placeholder) per service, and the docked inspector's own
+ * description field. This is now the ONLY view — the old list/table layout and its toggle were
+ * removed entirely (2026-09-15, owner's own call: "التصميم كويس... تصميم الجدول احذفه كامل").
+ * Server calls mocked; the request shapes themselves are covered on the backend side
  * (test_catalogue_image.py, test_bulk_import_services.py).
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -70,49 +72,44 @@ function open() {
   );
 }
 
-describe('خدماتي — board/cards (phase 3)', () => {
-  it('defaults to the table and switches to the card grid on request', async () => {
+describe('خدماتي — workspace (phase 3)', () => {
+  it('renders the card grid directly — no table, no layout toggle', async () => {
     open();
     await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
-    // the table is the mouse default — a real <table> element is present
-    expect(document.querySelector('table')).toBeTruthy();
-
-    fireEvent.click(screen.getByLabelText('بطاقات'));
-    await waitFor(() => expect(document.querySelector('table')).toBeFalsy());
-    expect(screen.getByText('غسيل خارجي')).toBeTruthy();
+    // there is no other layout to switch away from any more
+    expect(document.querySelector('table')).toBeFalsy();
+    expect(screen.queryByLabelText('بطاقات')).toBeFalsy();
+    expect(screen.queryByLabelText('جدول')).toBeFalsy();
   });
 
   it('a service with a photo shows it in the grid; one without shows the real placeholder', async () => {
     open();
     await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
-    fireEvent.click(screen.getByLabelText('بطاقات'));
     // the card's photo is decorative (alt="") — real ARIA strips its img role, so query the DOM directly
     await waitFor(() => expect(document.querySelectorAll('img').length).toBeGreaterThan(0));
     const img = document.querySelector('img') as HTMLImageElement;
     expect(img.src).toContain('blob:fake-image-url');
   });
 
-  it("clicking a card's edit button opens the inspector in place, not the table", async () => {
+  it("clicking a card's edit button opens the docked inspector, not a dialog", async () => {
     open();
     await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
-    fireEvent.click(screen.getByLabelText('بطاقات'));
     await waitFor(() => expect(screen.getAllByText('تعديل').length).toBeGreaterThan(0));
     // both cards (svc_a, svc_b) carry an edit button — svc_a's is first
     fireEvent.click(screen.getAllByText('تعديل')[0]);
-    // STAYS ON THE GRID — a card is a photo first, and the view he chose is not thrown away just
-    // to change a name. The docked inspector pane opens beside it instead (2026-09-14 workspace
-    // redesign, replacing the old <Modal>), with the same name as a real input.
+    // The docked inspector pane opens beside the grid (2026-09-14 workspace redesign, replacing
+    // the old <Modal>) — the grid itself is never thrown away just to change a name.
     await waitFor(() => expect(screen.getByDisplayValue('غسيل خارجي')).toBeTruthy());
     expect(document.querySelector('table')).toBeFalsy();
     expect(screen.queryByRole('dialog')).toBeFalsy();
   });
 
-  it('editing a row shows the description field, pre-filled, and saves on blur', async () => {
+  it('the inspector shows the description field, pre-filled, and saves on blur', async () => {
     open();
     await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
-    // the table (list layout) is the mouse default — svc_a's own row pencil opens it
-    fireEvent.click(screen.getAllByLabelText('تعديل')[0]);
-    const desc = await screen.findByPlaceholderText('وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)') as HTMLInputElement;
+    await waitFor(() => expect(screen.getAllByText('تعديل').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText('تعديل')[0]);
+    const desc = await screen.findByPlaceholderText('وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)') as HTMLTextAreaElement;
     expect(desc.value).toBe('غسيل كامل بالماء والصابون');
     fireEvent.change(desc, { target: { value: 'وصف جديد' } });
     fireEvent.blur(desc);
