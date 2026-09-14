@@ -18,6 +18,7 @@
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { NAV_ACCENTS } from '@base-ui/theme';
 import { Button } from '../rj-ui/Button';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
@@ -932,23 +933,68 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       {(() => {
         // `stoppedCount`, `view`, `visible`, `bins`, `shown` come from the memoized pipeline above.
         return (
-      <div className="flex flex-col gap-3">
-      {/* ── one toolbar, and nothing beside the table ───────────────────────────────────────
-          THE SIDE RAIL IS GONE. A column of group chips beside a table is a second navigation for
-          a page that already has one — it took 11rem of every desktop screen, stacked into a
-          scrolling strip on a phone, and all it did was filter a list short enough to read. It is
-          a dropdown now: same filter, one line, and no furniture.
+      <div className="flex items-start gap-4">
+      {/* ── THE SIDEBAR RAIL — his own groups, as real navigation, colour-coded ──────────────
+          REPLACES THE OLD DROPDOWN (2026-09-14, the owner's own request: "مساحة عمل احترافية …
+          تمايز لوني عالي"). Same data the dropdown always read (`bins`/`only`/`setOnly` —
+          nothing new is fetched), just shown as a real rail instead of a one-line `<select>`,
+          each group carrying a fixed colour from the SAME categorical palette the sidebar's own
+          nav icons use (`NAV_ACCENTS`, never the brand accent — that stays reserved for "press
+          this button" per the 60-30-10 rule nav.ts's own comment states). The colour is derived
+          from the group's own position in `bins`, so it never depends on group content and never
+          collides with a semantic colour (danger/warning/success). */}
+      {action(catalog, 'reminders.set_group') && bins.length > 1 ? (
+        <aside className="hidden w-48 shrink-0 flex-col gap-1 rounded-card border border-border-subtle
+                          bg-surface-1 p-2 shadow-sm sm:flex">
+          <button
+            type="button"
+            onClick={() => setOnly(null)}
+            className={[
+              'flex items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors',
+              only === null ? 'bg-accent-soft text-accent-on-soft' : 'text-text-secondary hover:bg-surface-2',
+            ].join(' ')}
+          >
+            <span className="size-2 shrink-0 rounded-full bg-text-primary" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">{tf(t, 'services.allGroups', { n: visible.length })}</span>
+          </button>
+          <div className="my-1 border-t border-border-subtle" />
+          {bins.map(([g, list], i) => (
+            <button
+              key={g || 'ungrouped'}
+              type="button"
+              onClick={() => setOnly(g)}
+              className={[
+                'flex items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium transition-colors',
+                only === g ? 'bg-accent-soft text-accent-on-soft' : 'text-text-secondary hover:bg-surface-2',
+              ].join(' ')}
+            >
+              <span className="size-2 shrink-0 rounded-full"
+                   style={{ background: g === UNGROUPED ? 'var(--text-muted)' : NAV_ACCENTS[i % NAV_ACCENTS.length] }}
+                   aria-hidden />
+              <span className="min-w-0 flex-1 truncate">
+                {g === UNGROUPED ? t('services.ungroupedHeading') : g}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-text-muted">{list.length}</span>
+            </button>
+          ))}
+        </aside>
+      ) : null}
 
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+      {/* ── one toolbar, and nothing beside the table ───────────────────────────────────────
           THE GENERAL SETTING IS A LINE, NOT A CARD. As a bordered box with a folded panel it read
           like an input at the top of the screen — the owner's own words were that it looked like a
           field he had to fill. It states what it is and opens only when he asks. */}
       <div className="flex flex-wrap items-center gap-2">
+        {/* THE DROPDOWN FILTER — kept as a small-screen fallback for the same filter, since the
+            rail above hides below `sm` (a column of group buttons does not fit a phone's width
+            beside the table it is meant to filter). */}
         {action(catalog, 'reminders.set_group') && bins.length > 1 ? (
           <select
             aria-label={t('services.filterByGroup')}
             value={only ?? ''}
             onChange={(e) => setOnly(e.target.value === '' ? null : e.target.value)}
-            className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm"
+            className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm sm:hidden"
           >
             <option value="">{tf(t, 'services.allGroups', { n: visible.length })}</option>
             {bins.map(([g, list]) => (
@@ -1781,6 +1827,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         </table>
       </div>
       )}
+      </div>
+      {/* closes the min-w-0 flex-1 column beside the sidebar rail */}
       </div>
       </div>
         );

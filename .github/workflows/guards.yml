@@ -1303,3 +1303,11 @@ jobs:
         run: python3 ci/check_no_base_remnants.py
       - name: every shared feature reads identically everywhere it is granted
         run: python3 ci/check_shared_features_match.py
+
+      # ui/packages/ui/package.json names itself "@base-ui/source" — the exact same name
+      # base-services' own platform/ui/packages/ui/package.json still carries, because ours is a
+      # fork taken from theirs. A future alias pointed at platform/ instead of our own copy would
+      # compile and render fine, silently running THEIR un-rebranded design kit — no test in this
+      # repo would catch it, only a colour that looks slightly off to whoever notices first.
+      - name: "'@base-ui' always resolves to our own copy, never to platform/"
+        run: python3 ci/check_base_ui_alias_never_points_at_platform.py
