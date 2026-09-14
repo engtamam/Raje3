@@ -80,6 +80,11 @@ FROM caddy:2.8-alpine AS runtime
 COPY --from=builder /build/apps/console/dist /srv/app
 COPY marketing/index.html /srv/index.html
 
+# The technical POS/till API reference, served as a real static page at /docs/pos-integration/ —
+# no Caddyfile change needed: the catch-all `handle {}` already does `try_files {path} /index.html;
+# file_server`, and file_server resolves a directory request to its own index.html on its own.
+COPY marketing/docs /srv/docs
+
 # SPA ROUTING IS NOT OPTIONAL HERE. Every screen has a real URL — a customer page
 # arrives as a link inside a WhatsApp message — and a reload of one of those is a
 # request with no file behind it. Without the fallback the owner sees 404 on a

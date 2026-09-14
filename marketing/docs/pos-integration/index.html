@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>توثيق ربط أنظمة الكاشير — راجِع API</title>
+<meta name="description" content="المرجع التقني الكامل لربط نظام كاشير بمنصة راجِع: المصادقة، حدود الطلبات، وكل مسار (endpoint) بحقوله الحقيقية وأمثلته.">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='white'/%3E%3Cpath d='M16 5.2a10.8 10.8 0 1 1-7.9 3.4' stroke='%236a4cf5' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3Cpath d='M6.6 4.9 8.1 9.2 12.4 8.1' stroke='%236a4cf5' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='16' r='3.4' fill='%236a4cf5'/%3E%3C/svg%3E">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════════════════
+   Phase 2 of the landing rebuild (see marketing/index.html's own #pos band, which links here
+   once this ships). DELIBERATELY NOT the marketing page's visual system — this is a plain
+   technical reference for an ENGINEER at a POS company, not a sales pitch: near-black-on-white,
+   monospace for anything a client actually sends, real field tables and real JSON, no gradient,
+   no "gleam", no emoji icons. Content is docs/pos-integration-guide.md, restructured as a real
+   page with a sidebar TOC — nothing here is invented; every field/endpoint/example is copied
+   from that file, which is itself generated from the Pydantic models the routes validate
+   against. The parallel shop-owner document (دليل-ربط-الكاشير.md) stays a separate, simpler
+   page for a different reader — this one assumes the reader is implementing an HTTP client.
+   ══════════════════════════════════════════════════════════════════════════════════════ */
+:root{
+  --ink:#0d0f14; --ink-2:#3a3f4b; --muted:#6b7280;
+  --bg:#ffffff; --bg-2:#f7f8fa; --code-bg:#0d0f14; --code-ink:#e6e8ec;
+  --line:#e4e6eb; --line-2:#d3d6dd;
+  --accent:#6a4cf5; --accent-soft:#f1eefe;
+  --ok:#0f7b4f; --ok-soft:#e3f5ec;
+  --warn:#9a6b00; --warn-soft:#fbf1de;
+  --font:-apple-system,'Segoe UI',Tahoma,Arial,'SF Arabic','Noto Kufi Arabic',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0; background:var(--bg); color:var(--ink-2); font-family:var(--font); font-size:15.5px; line-height:1.75}
+h1,h2,h3{color:var(--ink); line-height:1.35; font-weight:800; margin:0 0 .5em}
+h1{font-size:1.9rem}
+h2{font-size:1.35rem; padding-top:6px}
+h3{font-size:1.05rem}
+p{margin:0 0 1em}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code,kbd{font-family:var(--mono); font-size:.86em; background:var(--bg-2); border:1px solid var(--line); border-radius:5px; padding:.1em .4em}
+pre{background:var(--code-bg); color:var(--code-ink); border-radius:10px; padding:16px 18px; overflow-x:auto; font-family:var(--mono); font-size:.86rem; line-height:1.65; direction:ltr; text-align:left}
+pre code{background:none; border:0; padding:0; color:inherit}
+
+/* ── shell: sidebar + content ────────────────────────────────────────────────────────────── */
+.shell{display:grid; grid-template-columns:1fr; max-width:1180px; margin:0 auto}
+@media(min-width:960px){ .shell{grid-template-columns:250px 1fr; gap:40px} }
+
+/* ── the bar — copied 1:1 from marketing/index.html's own header, so a visitor who followed a
+   link here off the landing page never doubts it is the same site: same sticky blur bar, same
+   brand mark, same button shapes. Only the content BELOW the bar is the distinct technical
+   design — the header is deliberately not "a different page", the content under it is. */
+header{position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:saturate(180%) blur(12px); border-bottom:1px solid var(--line)}
+.topbar{max-width:1180px; margin:0 auto; padding:12px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px}
+.brand{display:flex; align-items:center; gap:10px; font-weight:800; color:var(--ink); text-decoration:none; font-size:1.35rem}
+.mark{width:38px; height:38px; border-radius:11px; background:var(--accent); display:grid; place-items:center; flex:0 0 auto}
+.mark svg{width:22px; height:22px}
+.topbar .tag{display:none; font-family:var(--mono); font-size:.72rem; color:var(--muted); background:var(--bg-2); border:1px solid var(--line); border-radius:6px; padding:3px 8px}
+@media(min-width:640px){ .topbar .tag{display:inline-block} }
+.topbar-links{display:flex; align-items:center; gap:8px}
+.topbar a.home{display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 18px; border-radius:14px; font-weight:700; font-size:.92rem; color:var(--ink); background:var(--bg); border:1px solid var(--line-2); text-decoration:none}
+.topbar a.home:hover{background:var(--bg-2)}
+
+aside{display:none; padding:28px 0}
+@media(min-width:960px){ aside{display:block; border-inline-start:1px solid var(--line); padding-inline-start:24px} }
+aside{position:sticky; top:58px; align-self:start; max-height:calc(100vh - 58px); overflow-y:auto}
+.toc{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px}
+.toc a{display:block; padding:6px 10px; border-radius:7px; font-size:.86rem; color:var(--ink-2); text-decoration:none}
+.toc a:hover{background:var(--bg-2); color:var(--ink)}
+.toc .h{font-family:var(--mono); font-size:.7rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:16px 10px 6px; font-weight:700}
+.toc .h:first-child{margin-top:0}
+
+main{padding:32px 24px 100px; min-width:0}
+.lead{font-size:1.05rem; color:var(--ink-2); max-width:62ch}
+.section{padding-top:44px; border-top:1px solid var(--line); margin-top:44px}
+.section:first-of-type{border-top:0; margin-top:0; padding-top:0}
+.method{display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:.92rem; margin-bottom:10px}
+.method .verb{background:var(--accent); color:#fff; font-weight:800; border-radius:5px; padding:2px 8px; font-size:.78rem}
+.method .verb.get{background:var(--ok)}
+.note{background:var(--bg-2); border:1px solid var(--line); border-inline-start:3px solid var(--accent); border-radius:8px; padding:12px 16px; font-size:.92rem; margin:16px 0}
+.note.warn{border-inline-start-color:var(--warn); background:var(--warn-soft)}
+.note.ok{border-inline-start-color:var(--ok); background:var(--ok-soft)}
+
+table{width:100%; border-collapse:collapse; margin:16px 0; font-size:.88rem}
+th,td{text-align:start; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-family:var(--mono); font-size:.74rem; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); font-weight:700}
+td:first-child code{white-space:nowrap}
+td.req{font-family:var(--mono); font-size:.78rem}
+.tblwrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px}
+.tblwrap table{margin:0; border:0}
+.tblwrap tr:last-child td{border-bottom:0}
+
+.badge{display:inline-flex; align-items:center; gap:6px; font-size:.78rem; font-weight:700; padding:3px 10px; border-radius:999px}
+.badge.yes{background:var(--ok-soft); color:var(--ok)}
+.badge.no{background:var(--bg-2); color:var(--muted)}
+
+.cta{background:var(--bg-2); border:1px solid var(--line); border-radius:14px; padding:26px; text-align:center; margin-top:56px}
+.cta .btn{display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:#fff; font-weight:700; padding:11px 22px; border-radius:11px; text-decoration:none; font-size:.92rem; margin-top:12px}
+
+footer{border-top:1px solid var(--line); padding:24px; text-align:center; font-size:.82rem; color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topbar">
+    <a class="brand" href="/">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" width="22" height="22">
+          <path d="M16 5.2a10.8 10.8 0 1 1-7.9 3.4" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <path d="M6.6 4.9 8.1 9.2 12.4 8.1" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="16" cy="16" r="3.4" fill="#fff"/>
+        </svg>
+      </span>
+      راجِع
+    </a>
+    <span class="tag">API Reference · till/v1</span>
+    <div class="topbar-links">
+      <a class="home" href="/">الصفحة الرئيسية</a>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <aside>
+    <nav class="toc" aria-label="فهرس">
+      <div class="h">البداية</div>
+      <a href="#auth">المصادقة</a>
+      <a href="#rate-limits">حدود الطلبات</a>
+      <div class="h">المسارات</div>
+      <a href="#visits">1. تسجيل الزيارات</a>
+      <a href="#customer">2. البحث عن عميل</a>
+      <a href="#redeem">3. استبدال مكافأة</a>
+      <a href="#offer">4. تطبيق عرض</a>
+      <a href="#bookings">5. الحجوزات</a>
+      <a href="#branches">6. الفروع</a>
+      <a href="#status">7. حالة الاعتماد</a>
+      <a href="#verify-pin">8. تحقّق PIN الموظف</a>
+      <a href="#rating">9. طلب تقييم فوري</a>
+      <div class="h">أخيراً</div>
+      <a href="#never-send">ما لا نرسله لك</a>
+      <a href="#get-access">طلب اعتماد</a>
+    </nav>
+  </aside>
+
+  <main>
+    <h1 id="top">توثيق ربط أنظمة الكاشير</h1>
+    <p class="lead">
+      باب واحد موحّد، تتصل فيه بنفس الطريقة أي شركة كاشير — تسجيل زيارة، استعلام عميل، استبدال
+      نقاط، تطبيق عرض، وحجوزات. هذا الملف مولَّد من الكود نفسه: كل جدول حقول تحته يُقرأ من
+      نماذج Pydantic اللي تتحقق منها المسارات فعلياً، لا موثَّق يدوياً — فما يفوت تحديثه أبداً.
+    </p>
+
+    <!-- ── auth ─────────────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="auth">
+      <h2>المصادقة</h2>
+      <p><strong>بيانات اعتماد آلية واحدة لكل محل</strong>، صادرة كمنحة OAuth2 client-credentials.
+        تُرسل كتوكن Bearer عادي:</p>
+      <pre><code>Authorization: Bearer &lt;your access token&gt;</code></pre>
+      <p>
+        <strong>المحل (tenant) يُقرأ من التوكن نفسه، أبداً لا من جسم الطلب</strong> — ما فيه حقل
+        <code>tenant</code> على أي طلب أدناه، عمداً. بيانات اعتماد صدرت لمحل واحد لا تقدر فيزيائياً
+        تسمّي محلاً آخر — ما فيه حقل أصلاً يضبط ذلك.
+      </p>
+      <p><strong>صلاحية واحدة: <code>operations.record</code>.</strong> تقدر تسجّل زيارة، وتقرأ ما
+        يخص عميل تلك الزيارة، وتسلّم مكافأة. لا شي غير ذلك — لا الفوترة، ولا محلات أخرى، ولا أي
+        واجهة إدارية.</p>
+      <div class="note warn">توكن بلا claim للمحل يُرفض تماماً (لا يُوسَّع ليشمل كل محل) — كل
+        مسار أدناه يجاوب كأنه ما استُقبل شي أصلاً.</div>
+      <div class="note ok"><strong>بيئة تجريبية:</strong> نوفّر محلاً تجريبياً حقيقياً على نفس
+        المسارات بالضبط، نفس القواعد ونفس الرفض — مجاناً، بلا احتساب كعميل حقيقي. ما فيه بيانات
+        اعتماد منفصلة للتجربة: تختبر بنفس البيانات اللي راح تشتغل بها بالإنتاج، فأي شي ينجح
+        بالتجربة مثبت إنه يشتغل فعلياً.</div>
+    </section>
+
+    <!-- ── rate limits ──────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="rate-limits">
+      <h2>حدود الطلبات</h2>
+      <p>
+        <strong>استعلامات العميل (<code>GET /customer</code>) محسوبة كنسبة من الزيارات اللي فعلاً
+        سجّلتها</strong>، لا نافذة ثابتة. كاشير مشغول يسجّل مبيعات فعلية ما يقترب من السقف أبداً؛
+        بيانات اعتماد تستعلم أكثر بكثير مما تسجّل تصطدم به، لأن هذا هو الشكل الوحيد اللي يأخذه
+        استخراج البيانات. تجاوز السقف يرجّع <code>429</code> مع رسالة توضّح السبب — أبداً لا
+        <code>403</code>: بيانات الاعتماد لسا صالحة وما أُلغيت.
+      </p>
+    </section>
+
+    <!-- ── 1. visits ────────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="visits">
+      <h2>1. تسجيل الزيارات</h2>
+      <div class="method"><span class="verb">POST</span> /api/v1/till/visits</div>
+      <p>دفعة حتى 50 زيارة. <strong>الرد يحمل حكماً لكل عنصر</strong> — <code>accepted</code>،
+        <code>duplicate</code>، أو <code>rejected</code> مع سبب — أبداً لا كل شي أو لا شي: عنصر
+        واحد غير صالح دائمياً بدفعة لازم أبداً يوقف الـ49 عنصر الباقين خلفه بنفس الطلب.</p>
+      <p>طابق كل نتيجة برقمها (<code>index</code>) — موقع الزيارة بمصفوفة <code>visits</code> اللي
+        أرسلتها (يبدأ من صفر). النتائج مرتّبة حسبه والقائمة بنفس طول ما أرسلت. لا تطابق على
+        <code>idempotency_key</code>: لو ما أرسلت واحد، نشتقّه من رقم فاتورتك، والقيمة الراجعة ما
+        كانت يوماً بحوزتك.</p>
+
+      <h3>حقول الزيارة</h3>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>phone</code></td><td>str</td><td class="req">لا</td><td>رقم جوال عميل المحل. بدونه ما نقدر ننسب الزيارة أو نراسله.</td></tr>
+          <tr><td><code>name</code></td><td>str</td><td class="req">لا</td><td>اسمه، إن كان متوفر. اختياري.</td></tr>
+          <tr><td><code>plate</code></td><td>str</td><td class="req">لا</td><td>لوحة المركبة — تُستخدم عملياً بمحلات الإطارات وغسيل السيارات والتنجيد.</td></tr>
+          <tr><td><code>branch_id</code></td><td>str</td><td class="req">نعم</td><td>الفرع اللي حصلت فيه. مطلوب، ولازم يكون فرعاً يملكه هذا المحل فعلاً — معرّف ما نعرفه يُرفض ويُسمّى لك بالرد.</td></tr>
+          <tr><td><code>operator_id</code></td><td>str</td><td class="req">لا</td><td>معرّف حساب الكاشير عندك. يُخزَّن كما أُرسل — ما نبني نظام حسابات ثانٍ.</td></tr>
+          <tr><td><code>meter</code></td><td>int</td><td class="req">لا</td><td>قراءة العداد، لقطاع المركبات.</td></tr>
+          <tr><td><code>note</code></td><td>str</td><td class="req">لا</td><td>ملاحظة نصية حرة، تظهر لصاحب المحل.</td></tr>
+          <tr><td><code>lines</code></td><td>list[TillLineIn]</td><td class="req">لا</td><td>بنود الفاتورة. كتالوج المحل يُبنى منها تلقائياً — أرسلها كما هي.</td></tr>
+          <tr><td><code>invoice_id</code></td><td>str</td><td class="req">لا</td><td>رقم فاتورتك أنت. أفضل مفتاح تكرار، لأنه معرّفك الخاص لهذا البيع بالذات.</td></tr>
+          <tr><td><code>idempotency_key</code></td><td>str</td><td class="req">لا</td><td>مفتاح التكرار الخاص فيك، إن وُجد.</td></tr>
+          <tr><td><code>occurred_at</code></td><td>int</td><td class="req">لا</td><td>وقت حدوث البيع بساعتك أنت (ثوانٍ يونكس). يُستخدم كمفتاح تكرار إن ما فيه رقم فاتورة.</td></tr>
+          <tr><td><code>package_id</code></td><td>str</td><td class="req">لا</td><td>—</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>بند الفاتورة</h3>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>product_id</code></td><td>str</td><td class="req">لا</td><td>معرّف المنتج/الصنف عندك.</td></tr>
+          <tr><td><code>name</code></td><td>str</td><td class="req">لا</td><td>اسم المنتج/الخدمة كما بفاتورتك بالضبط — كتالوج المحل يُبنى منه.</td></tr>
+          <tr><td><code>qty</code></td><td>float</td><td class="req">لا</td><td>الكمية.</td></tr>
+          <tr><td><code>amount_minor</code></td><td>int</td><td class="req">لا</td><td>المبلغ بالهللات — أبداً لا ريالات، أبداً لا كسور عشرية.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>إزالة التكرار — القاعدة الوحيدة بلا استثناء</h3>
+      <p><strong>كل زيارة لازم تحمل واحداً على الأقل من:</strong> <code>idempotency_key</code>، أو
+        <code>invoice_id</code>، أو <code>occurred_at</code>. بدون أي من الثلاثة تُرفض الزيارة
+        وتُسمّى الثلاثة بالسبب.</p>
+      <p>السبب: إعادة المحاولة بعد رد ضائع هي الحالة العادية للكاشير، وبلا مفتاح ثابت يصير بيع
+        واحد زيارتين — يضاعف سجل العميل وتذكيراته ونقاطه.</p>
+
+      <h3>مثال طلب</h3>
+      <pre><code>POST /api/v1/till/visits
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+
+{
+  "visits": [
+    {
+      "phone": "0501234567",
+      "branch_id": "brn_main",
+      "invoice_id": "INV-2026-00042",
+      "lines": [
+        {"product_id": "sku_wash_1", "name": "Full wash", "qty": 1, "amount_minor": 5000}
+      ]
+    }
+  ]
+}</code></pre>
+
+      <h3>مثال رد</h3>
+      <pre><code>{
+  "accepted": 1,
+  "total": 1,
+  "results": [
+    {"index": 0, "status": "accepted", "idempotency_key": "inv:&lt;tenant&gt;:INV-2026-00042"}
+  ]
+}</code></pre>
+      <p>عنصر مرفوض يبدو هكذا:</p>
+      <pre><code>{"index": 3, "status": "rejected",
+  "reason": "unknown branch_id «brn-typo» — send one of this shop's own branches"}</code></pre>
+    </section>
+
+    <!-- ── 2. customer ──────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="customer">
+      <h2>2. البحث عن عميل</h2>
+      <div class="method"><span class="verb get">GET</span> /api/v1/till/customer</div>
+      <p>استعلام بـ<code>phone</code> أو <code>plate</code>. يجاوب هل هو عميل معروف، اسمه، عدد
+        زياراته، رصيد نقاطه، وما يقدر يستبدله الآن.</p>
+      <p><strong>عميل جديد يرجّع <code>found: false</code>، أبداً لا 404</strong> — عميل أول مرة
+        هو الحالة العادية عند الكاشير، مو خطأ يُسجَّل ويُعاد.</p>
+      <p><strong>ثلاث حالات لا يجوز خلطها:</strong> ما فيه عميل بهذا الرقم · نقاط غير قابلة للقراءة
+        مؤقتاً (<code>points_unavailable: true</code>) · ما فيه برنامج نقاط بهذا المحل أصلاً (قسم
+        النقاط غائب تماماً). لا يُرسَل <code>0</code> مكان "ما قدرنا نقرأها" — إخبار عميل يملك 300
+        نقطة إنه بلا نقاط يخلق شكوى من لا شي.</p>
+
+      <h3>مثال: عميل معروف، برنامج نقاط فعّال</h3>
+      <pre><code>{
+  "found": true,
+  "name": "Ahmad",
+  "visits": 12,
+  "points": 340,
+  "to_next_reward": 60,
+  "manager_threshold": 500,
+  "rewards": [
+    {"id": "rwd_free_wash", "name": "Free wash", "cost": 300, "needs_approval": false}
+  ]
+}</code></pre>
+      <p><code>needs_approval: true</code> على مكافأة تعني إنها فوق سقف اعتماد المدير بهذا المحل —
+        شوف <code>approved_by</code> بمسار الاستبدال بالأسفل.</p>
+
+      <h3>مثال: عميل جديد كلياً</h3>
+      <pre><code>{"found": false}</code></pre>
+
+      <h3>مثال: عميل معروف، نقاطه غير قابلة للقراءة مؤقتاً</h3>
+      <pre><code>{"found": true, "name": "Ahmad", "visits": 12, "points_unavailable": true}</code></pre>
+    </section>
+
+    <!-- ── 3. redeem ────────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="redeem">
+      <h2>3. استبدال مكافأة</h2>
+      <div class="method"><span class="verb">POST</span> /api/v1/till/redeem</div>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>phone</code></td><td>str</td><td class="req">لا</td><td>رقم جوال العميل المستبدِل.</td></tr>
+          <tr><td><code>plate</code></td><td>str</td><td class="req">لا</td><td>أو لوحته، إن كانت طريقتك بتعريف العملاء.</td></tr>
+          <tr><td><code>reward_id</code></td><td>str</td><td class="req">نعم</td><td>معرّف المكافأة، بالضبط كما رجعت من GET /till/customer.</td></tr>
+          <tr><td><code>idempotency_key</code></td><td>str</td><td class="req">نعم</td><td>مفتاحك لهذي العملية بالذات — مطلوب. بلا مفتاح ثابت، إعادة المحاولة تصرف نقاط العميل مرتين.</td></tr>
+          <tr><td><code>actor</code></td><td>str</td><td class="req">لا</td><td>حساب الكاشير اللي سلّم المكافأة.</td></tr>
+          <tr><td><code>approved_by</code></td><td>str</td><td class="req">لا</td><td>اسم/معرّف المدير المعتمِد — مطلوب فقط لمكافأة فوق سقف اعتماد هذا المحل (تُعلَم لك بـ<code>needs_approval</code> من GET /till/customer). بدونه، تلك المكافآت تُرفض دائماً. <strong>نص حر غير موثَّق</strong> — استخدم <code>approver_operator_id</code>/<code>approver_ticket</code> بالأسفل لهوية حقيقية موثَّقة.</td></tr>
+          <tr><td><code>approver_operator_id</code></td><td>str</td><td class="req">لا</td><td>معرّف الموظف اللي تحقّقنا من PIN حقه للتو عبر POST /till/operators/verify-pin — المسار الموثَّق؛ يتجاوز <code>approved_by</code> عند إرساله.</td></tr>
+          <tr><td><code>approver_ticket</code></td><td>str</td><td class="req">لا</td><td>التذكرة الصادرة من POST /till/operators/verify-pin — صالحة لدقائق قليلة فقط.</td></tr>
+          <tr><td><code>branch_id</code></td><td>str</td><td class="req">نعم</td><td>الفرع اللي حصل فيه — لازم فرعاً يملكه هذا المحل فعلاً.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note warn"><code>idempotency_key</code> مطلوب، بلا قيمة افتراضية نملأها عنك —
+        مفتاح نصنعه نحن راح يكون جديداً بكل إعادة محاولة، واستبدال مكرر يصرف نقاط العميل مرتين.</div>
+      <p><strong>الرفض يرجع كجملة كاملة</strong> — اقرأها للعميل مباشرة. فرّق بين <code>REFUSED</code>
+        (نهائي — مثلاً رصيد غير كافٍ) و<code>UNAVAILABLE</code> (مؤقت — أعد المحاولة).</p>
+
+      <h3>مثال طلب</h3>
+      <pre><code>{
+  "phone": "0501234567",
+  "reward_id": "rwd_free_wash",
+  "idempotency_key": "redeem-2026-00042",
+  "branch_id": "brn_main",
+  "actor": "cashier_3"
+}</code></pre>
+
+      <h3>أمثلة ردود</h3>
+      <pre><code>{
+  "ok": true,
+  "transaction_ref": "rdm_...",
+  "discount_halalas": 5000,
+  "reward_name": "Free wash",
+  "cost": 300,
+  "balance": 40,
+  "duplicate": false
+}</code></pre>
+      <p><code>duplicate: true</code> تعني إن هذا الـ<code>idempotency_key</code> بالذات استُبدل
+        من قبل — نفس الإيصال يُرجَّع، بلا صرف ثانٍ.</p>
+      <pre><code>{"ok": false, "reason": "REFUSED", "message": "رصيده لا يكفي"}</code></pre>
+      <pre><code>{"ok": false, "reason": "NOT_FOUND", "message": "لا يوجد عميل بهذا الرقم."}</code></pre>
+      <p><code>transaction_ref</code> هو ما لازم تطبعه بالإيصال الورقي، عشان يكون له أثر ثانٍ.</p>
+    </section>
+
+    <!-- ── 4. offer ─────────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="offer">
+      <h2>4. تطبيق عرض على زيارة</h2>
+      <div class="method"><span class="verb">POST</span> /api/v1/till/offer/apply</div>
+      <p><strong>العرض اللي يحمله العميل يُطبَّق على الزيارة — أبداً لا يُخمَّن.</strong> لا شي
+        يصرف عرضاً لمجرد وصول زيارة؛ خدمة <code>reminders</code> وحدها تقرر أي عرض ينطبق، لأنها
+        وحدها تعرف ما أُرسل ونطاقه وتاريخ انتهائه.</p>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>visit_id</code></td><td>str</td><td class="req">نعم</td><td>معرّف الزيارة المسجَّلة للتو — العرض يُختَم على هذي، أبداً لا على العرض نفسه.</td></tr>
+          <tr><td><code>phone</code></td><td>str</td><td class="req">لا</td><td>رقم جوال العميل حامل العرض.</td></tr>
+          <tr><td><code>plate</code></td><td>str</td><td class="req">لا</td><td>أو لوحته، إن كانت طريقتك.</td></tr>
+          <tr><td><code>actor</code></td><td>str</td><td class="req">لا</td><td>حساب الكاشير اللي طبّق العرض.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>مرة واحدة لكل زيارة</strong> — تطبيق ثانٍ على نفس الزيارة يرجع نفس العرض بلا صرف
+        إضافي: ضغطة ثانية بالكاشير نية واحدة، لا خصمين.</p>
+
+      <h3>مثال طلب</h3>
+      <pre><code>{"visit_id": "vis_...", "phone": "0501234567", "actor": "cashier_3"}</code></pre>
+
+      <h3>أمثلة ردود</h3>
+      <pre><code>{"applied": true, "offer": {"ref": "off_...", "text": "20% off your next wash",
+  "used_at": 1735689600}}</code></pre>
+      <pre><code>{"applied": false, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}</code></pre>
+    </section>
+
+    <!-- ── 5. bookings ──────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="bookings">
+      <h2>5. الحجوزات</h2>
+      <div class="method"><span class="verb get">GET</span> /api/v1/till/bookings</div>
+      <div class="method"><span class="verb">POST</span> /api/v1/till/bookings/{booking_id}/attend</div>
+      <p><strong>محل يشغّل الحجوزات وكاشيراً مربوطاً معاً</strong> يحتاج طريقة يخبر فيها الحجز إن
+        عميله حضر فعلاً ودفع — بدونها، تقويم الحجوزات وسجل مبيعات الكاشير يختلفان بصمت حول ما حصل.</p>
+      <p><strong>المسار الأول يسرد حجوزات العميل المفتوحة</strong> — أرسل جواله أو لوحته، يرجع لك
+        أي شي لسا ما حضر أو انلغى أو تغيّب عنه:</p>
+      <pre><code>{"found": true, "bookings": [{"id": "bkg_123", "starts_at": 1786860000, "branch_id": "brn_1", "service_ids": ["svc_1"], "package_id": ""}]}</code></pre>
+      <p><strong>المسار الثاني يؤكد الحضور فعلياً</strong>، ويحوّل الحجز إلى زيارة حقيقية:</p>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>phone</code></td><td>str</td><td class="req">لا</td><td>رقم جوال العميل صاحب الحجز.</td></tr>
+          <tr><td><code>plate</code></td><td>str</td><td class="req">لا</td><td>أو لوحته، إن كانت طريقتك.</td></tr>
+          <tr><td><code>branch_id</code></td><td>str</td><td class="req">لا</td><td>الفرع اللي حصل فيه، إن أردت تأكيد إن الحجز يخص هذا الفرع بالذات. اختياري.</td></tr>
+          <tr><td><code>occurred_at</code></td><td>int</td><td class="req">لا</td><td>وقت الحضور الفعلي بساعتك (ثوانٍ يونكس). فارغ يعني الآن.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>آمن لإعادة المحاولة</strong> — ضغطة ثانية على حجز حاضر بالفعل ترجع نفس الحجز بلا
+        أثر إضافي: إعادة محاولة بعد انقطاع اتصال ما تقدر تضاعف الزيارة أو تصرف مكافأة مرتين.</p>
+      <pre><code>{"ok": true, "booking_id": "bkg_123", "status": "attended"}</code></pre>
+      <p><strong>الرفض جملة تُقرأ بصوت عالٍ، أبداً لا كود مجرّد:</strong></p>
+      <pre><code>{"ok": false, "reason": "NOT_FOUND", "message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}</code></pre>
+    </section>
+
+    <!-- ── 6. branches ──────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="branches">
+      <h2>6. الفروع</h2>
+      <div class="method"><span class="verb get">GET</span> /api/v1/till/branches</div>
+      <p>فروع محلك النشطة — تحقّق من <code>branch_id</code> قبل الإرسال، بدل ما تكتشف خطأ إملائي
+        فقط برفض زيارة:</p>
+      <pre><code>{"branches": [{"id": "brn-main", "name": "الفرع الرئيسي"}]}</code></pre>
+    </section>
+
+    <!-- ── 7. status ────────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="status">
+      <h2>7. حالة الاعتماد</h2>
+      <div class="method"><span class="verb get">GET</span> /api/v1/till/status</div>
+      <p>هل ربطك البرمجي فعّال الآن فعلياً، وكم تبقى من سقف الاستعلام اليومي — اسأل هذا قبل إرسال
+        دفعة مبيعات أو استعلام عميل، لا بعد ما تُرفض:</p>
+      <pre><code>{"feature_api": "active", "feature_visit": "active", "lookup_allowance_remaining_today": 187}</code></pre>
+      <p><code>"unknown"</code> تعني ما قدرنا نسأل — لا رفض ولا اعتماد.</p>
+    </section>
+
+    <!-- ── 8. verify-pin ────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="verify-pin">
+      <h2>8. اعتماد موظف موثَّق</h2>
+      <div class="method"><span class="verb">POST</span> /api/v1/till/operators/verify-pin</div>
+      <p><strong>قبل هذا الباب، أي نص بـ<code>approved_by</code> كان يُقبَل بلا أي تحقق.</strong>
+        هذا يتحقق فعلياً من PIN الموظف الحقيقي المكوّن من 4 أرقام، ويصدر تذكرة قصيرة العمر —
+        أرسلها مع <code>approver_operator_id</code> بمسار الاستبدال بدل اسم مكتوب حراً.</p>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>operator_id</code></td><td>str</td><td class="req">نعم</td><td>معرّف الموظف — من قائمة فريق هذا المحل نفسها.</td></tr>
+          <tr><td><code>pin</code></td><td>str</td><td class="req">نعم</td><td>رمز PIN الخاص بالموظف، 4 أرقام.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code>{"ok": true, "operator": {"id": "opr_1", "name": "خالد"}, "ticket": "...", "ticket_ttl": 300}</code></pre>
+    </section>
+
+    <!-- ── 9. rating ────────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="rating">
+      <h2>9. طلب تقييم فوري</h2>
+      <div class="method"><span class="verb">POST</span> /api/v1/till/rating-request</div>
+      <p>ما يبني مسار إرسال جديد — يسحب طلب تقييم مجدولاً أصلاً لهذا العميل ليصير "مستحقاً الآن"،
+        فيصله خلال دقائق بدل تأخير المحل المعتاد. يجاوب برفض واضح، أبداً لا خطأ، لمّا ما فيه شي
+        مجدول (بلا تطبيق تقييم، أو أُرسل مسبقاً):</p>
+      <div class="tblwrap"><table>
+        <thead><tr><th>الحقل</th><th>النوع</th><th>مطلوب</th><th>السبب</th></tr></thead>
+        <tbody>
+          <tr><td><code>phone</code></td><td>str</td><td class="req">لا</td><td>رقم جوال العميل صاحب الزيارة.</td></tr>
+          <tr><td><code>plate</code></td><td>str</td><td class="req">لا</td><td>أو لوحته، إن كانت طريقتك.</td></tr>
+          <tr><td><code>asset_id</code></td><td>str</td><td class="req">لا</td><td>معرّف المركبة، لمحلات قطاع المركبات فقط — إن كان جدول التقييم مرتبطاً بالمركبة لا العميل.</td></tr>
+        </tbody>
+      </table></div>
+      <pre><code>{"ok": true, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}</code></pre>
+    </section>
+
+    <!-- ── never send ───────────────────────────────────────────────────────────────────── -->
+    <section class="section" id="never-send">
+      <h2>ما لا نرسله لك</h2>
+      <p><strong>الاسم المستعار للعميل (<code>subject_ref</code>):</strong> مفتاح ربط داخلي بين
+        خدماتنا نحن، ما لك فيه استخدام — أنت تعرّف عميلك برقم جواله اللي بحوزتك أصلاً. معرّف عابر
+        للخدمات يجلس بقاعدة بيانات طرف ثالث بلا غرض يخدمه هو خطر بلا فائدة مقابلة.</p>
+    </section>
+
+    <div class="cta" id="get-access">
+      <h2 style="margin-bottom:.3em">جاهز تربط نظامك؟</h2>
+      <p style="margin:0">نوفّر محلاً تجريبياً حقيقياً على نفس المسارات، مجاناً وبلا احتساب —
+        راسلنا وناخذك خطوة بخطوة.</p>
+      <a class="btn" href="mailto:mang.raje3@gmail.com?subject=%D8%B1%D8%A8%D8%B7%20%D9%86%D8%B8%D8%A7%D9%85%20%D9%83%D8%A7%D8%B4%D9%8A%D8%B1">تواصل معنا للربط ↗</a>
+    </div>
+  </main>
+</div>
+
+<footer>© راجِع — توثيق تقني، مُولَّد من الكود · <a href="/">الصفحة الرئيسية</a></footer>
+
+</body>
+</html>
