@@ -213,17 +213,17 @@ export const APP_ROWS: AppRow[] = [
     icon: 'message-circle', tone: 'accent',
     featuresAction: 'whatsapp_assistant.features',
   },
-  // «كوبونات» — shop-to-shop: a discount on ANOTHER registered shop's own subscription with us,
-  // applied at its next renewal (deploy/seed/plans.json's own note on this row, and
-  // docs/خطة-كوبونات-محل-لمحل.md for the full design). NO SECTION YET — the rail tab, the
-  // visit-screen checkbox and the admin panel are a later, separate pass; this row exists now so
-  // the app store can already display and sell it, same posture as التقييم once had before its
-  // own tab shipped.
+  // «تحالف استراتيجي» — shop-to-shop: a discount on ANOTHER registered shop's own subscription
+  // with us, applied at its next renewal (deploy/seed/plans.json's own note on this row, and
+  // docs/خطة-كوبونات-محل-لمحل.md for the underlying design — the doc's own filename predates the
+  // rename and is kept as history, never re-read as a live naming source). `id`/`key`/`section`
+  // stay the original `coupons` slug on purpose (stored data, capability names and the plan row
+  // in billing all key off it) — only what the shop OWNER ever reads changed.
   {
     id: 'coupons',
     key: 'feature.coupons',
-    name: 'كوبونات',
-    what: 'امنح محلاً آخر مسجّلاً عندنا خصماً حقيقياً على اشتراكه معنا — يُطبَّق تلقائياً عند تجديده القادم، ويقوّي علاقتك التجارية مع من تتعامل معهم.',
+    name: 'تحالف استراتيجي',
+    what: 'كوّن تحالفاً حقيقياً مع محل آخر مسجّل عندنا — امنحه امتيازاً على اشتراكه معنا يُطبَّق تلقائياً عند تجديده القادم، ويثبّت علاقتك التجارية معه بخطوة ملموسة لا كلام فقط.',
     section: 'coupons',
     onCustomer: '',
     // NOT `gift`/`warning` — برنامج النقاط already owns that exact pair, and a shelf of cards

@@ -87,7 +87,7 @@ export function AdminApps({ session }: { session: AdminSession }) {
                   { value: 'plans', label: 'التطبيقات والأسعار' },
                   { value: 'coupons', label: 'الخصومات والعروض' },
                   { value: 'discount_rules', label: 'قواعد الخصم المتسلسل' },
-                  { value: 'shop_coupons', label: 'كوبونات محل لمحل' },
+                  { value: 'shop_coupons', label: 'تحالف استراتيجي بين المحلات' },
                 ]} />
 
       {sub === 'plans' ? (

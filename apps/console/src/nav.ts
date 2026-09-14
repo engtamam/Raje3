@@ -115,11 +115,12 @@ export const SECTIONS: Section[] = [
   // أداة إدارة قائمة بحد ذاتها، لا مجرد قائمة تقييمات. نفس بوابة `operations.ratings` التي كانت
   // تُظهر التبويب القديم.
   { service: 'operations', id: 'rating', path: '/rating', label: 'التقييم', icon: Star, requires: ['operations.ratings'], accent: NAV_ACCENTS[4] },
-  // «كوبونات» — gated on `operations.grant_coupon_direct` specifically, NOT the broader
-  // `operations.grant_coupon` a plain field operator also holds (visit-linked grants only, from
-  // the visit screen itself — a later, separate pass). This standalone tab's own grant form needs
-  // the direct-grant door, so an operator who cannot use it does not see a tab that would 403.
-  { service: 'operations', id: 'coupons', path: '/coupons', label: 'كوبونات', icon: Handshake,
+  // «تحالف استراتيجي» — id/path stay `coupons` (the stored capability names and the route both
+  // key off it), only the label changed. Gated on `operations.grant_coupon_direct` specifically,
+  // NOT the broader `operations.grant_coupon` a plain field operator also holds (visit-linked
+  // grants only, from the visit screen itself). This standalone tab's own grant form needs the
+  // direct-grant door, so an operator who cannot use it does not see a tab that would 403.
+  { service: 'operations', id: 'coupons', path: '/coupons', label: 'تحالف استراتيجي', icon: Handshake,
    requires: ['operations.grant_coupon_direct'], accent: NAV_ACCENTS[10] },
   // OPEN WHATEVER APPS THE SHOP HAS BOUGHT, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not

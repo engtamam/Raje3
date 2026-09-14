@@ -68,11 +68,11 @@ function render(ui: ReactElement) {
 
 afterEach(() => { cleanup(); grantCalls = []; prefsCalls = []; });
 
-describe('«كوبونات»', () => {
+describe('«تحالف استراتيجي»', () => {
   it('shows the current cap and the grant form', async () => {
     render(<CouponsScreen session={SESSION} catalog={catalog} />);
     await waitFor(() => expect(screen.getByText('20%')).toBeTruthy());
-    expect(screen.getByText('امنح كوبوناً')).toBeTruthy();
+    expect(screen.getByText('كوّن تحالفاً')).toBeTruthy();
   });
 
   it('shows the log tab by default, with a real refusal reason', async () => {
@@ -87,11 +87,11 @@ describe('«كوبونات»', () => {
     expect(screen.getByTestId('coupon-kpi-month').textContent).toContain('3');
   });
 
-  it('the live phone hint warns when the beneficiary already has a coupon this month', async () => {
+  it('the live phone hint warns when there is already an alliance with the beneficiary this month', async () => {
     render(<CouponsScreen session={SESSION} catalog={catalog} />);
     const phoneInput = screen.getByPlaceholderText('05xxxxxxxx');
     fireEvent.change(phoneInput, { target: { value: '0512345699' } });
-    await waitFor(() => expect(screen.getByText('عنده كوبون منك هذا الشهر بالفعل')).toBeTruthy(),
+    await waitFor(() => expect(screen.getByText('عندك تحالف معه هذا الشهر بالفعل')).toBeTruthy(),
       { timeout: 1000 });
   });
 

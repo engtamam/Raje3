@@ -190,13 +190,13 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
 )
 
 COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
-    # THREE, DELIBERATELY NOT MORE — an earlier pass here listed the automatic-redemption
-    # mechanism, the privacy design, and the per-attempt audit trail as "features". Cut (owner's
-    # own correction, 2026-09-14): those are internal guarantees the engine keeps regardless, not
-    # something a shop chooses this app FOR. A feature answers "what does this get me", stated as
-    # a business result — the same bar RATING_FEATURES/VISIT_FEATURES/CONTACTS_FEATURES already
-    # hold above, now also enforced by `ci/check_every_app_has_features.py` (existence only, never
-    # wording — that judgment stays a human's at review time).
+    # An earlier pass here listed the automatic-redemption mechanism, the privacy design, and the
+    # per-attempt audit trail as "features". Cut (owner's own correction, 2026-09-14): those are
+    # internal guarantees the engine keeps regardless, not something a shop chooses this app FOR.
+    # A feature answers "what does this get me", stated as a business result — the same bar
+    # RATING_FEATURES/VISIT_FEATURES/CONTACTS_FEATURES already hold above, now also enforced by
+    # `ci/check_every_app_has_features.py` (existence only, never wording — that judgment stays a
+    # human's at review time).
     {"id": "coupons.grows_your_customer_base", "title": "يوسّع قاعدة عملائك من محلات تثق بها",
      "detail": "محل يشتري منك يصير عميلك أيضاً بمنصتنا — علاقة تجارية جديدة بلا أي تكلفة إعلان",
      "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
@@ -210,7 +210,17 @@ COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
     {"id": "coupons.measures_the_partnership", "title": "يعطيك سجلاً كاملاً لكل محل منحته",
      "detail": "تعرف بالضبط كم خصم منحت، ولمين، ومتى — تقيس أثر تعاونك بأرقام حقيقية",
      "icon": "clock", "tone": "amber", "shared_with": [], "owned_by": "",
-     # `CouponService.history`/`stats` — شاشة «كوبونات» الخاصة بالتطبيق.
+     # `CouponService.history`/`stats` — شاشة «تحالف استراتيجي» الخاصة بالتطبيق.
+     },
+    # ADDED (owner's own idea, 2026-09-15): the loop that makes this app pay for ITSELF, not just
+    # the beneficiary. A shop that grants the discount is very often a SUPPLIER of the beneficiary
+    # (the beneficiary reorders consumable stock from the granter) — a beneficiary that sells
+    # through its own stock faster, because its own subscription just got cheaper and it can
+    # afford to market harder, reorders sooner and more often. The granter's own turnover moves
+    # because of a discount it gave away, not despite it.
+    {"id": "coupons.speeds_up_your_own_turnover", "title": "يسرّع دوران بضاعتك أنت أيضاً",
+     "detail": "الشريك اللي دعمته ينمو ويبيع أسرع، فيطلب منك أكثر — نجاحه يرجع عليك مبيعات حقيقية",
+     "icon": "trending-up", "tone": "violet", "shared_with": [], "owned_by": "",
      },
 )
 
