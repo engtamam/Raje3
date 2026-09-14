@@ -113,12 +113,15 @@ const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
 
 describe('«محلّي» — one page, and the number first', () => {
-  it('the rail offers ONE row for it, and that row is the front door', () => {
+  it('the rail offers ONE row for it, on its own route', () => {
     // TWO ROWS WERE ONE GLANCE'S WORTH OF INFORMATION between them. If «today» ever returns as its
     // own section, this fails — which is the only way a merge stays merged.
     const rows = SECTIONS.filter((s) => s.id === 'shop' || s.id === 'today');
     expect(rows).toHaveLength(1);
-    expect(rows[0].path).toBe('/');
+    // ITS OWN ROUTE, NOT THE INDEX ONE (2026-09-14) — see nav.ts::SHOP_PATH's own note: sharing
+    // `/` with the index route meant reordering SECTIONS silently changed what pressing «محلّي»
+    // itself showed.
+    expect(rows[0].path).toBe('/shop');
     // AND IT IS GATED ON BOTH READS IT IS BUILT OUT OF. Dropping either opens the page for
     // somebody half of it answers 403 to.
     expect(rows[0].requires).toEqual(['reminders.today', 'insights.dashboard']);

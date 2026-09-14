@@ -63,9 +63,9 @@ const shopRouter = createBrowserRouter([
       { path: 'points', element: <Points /> },
       { path: 'rating', element: <Rating /> },
       { path: 'team', element: <Team /> },
-      // «محلّي» IS ALSO THE INDEX ROUTE — the page «اليوم» and «محلّي» became. The path stays
-      // served because bookmarks, links in messages and the e2e suite all use it; it renders the
-      // same page rather than a redirect, which the back button would fight.
+      // «محلّي»'s OWN route (nav.ts::SHOP_PATH's own note explains why it is no longer also the
+      // index route) — the page «اليوم» and «محلّي» became. Bookmarks, links in messages and the
+      // e2e suite all use this path directly.
       { path: 'shop', element: <ShopScreen /> },
       // «متجر التطبيقات» — the name four screens print, given the address it never had. It renders
       // the selling pane of «حسابي» rather than a second copy of it; `/account?tab=billing` still

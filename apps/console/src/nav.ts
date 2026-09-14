@@ -89,12 +89,23 @@ export const SECTIONS: Section[] = [
   // and that costs nobody anything: the four office roles hold `reminders.read` and
   // `insights.read` together, and the two who hold neither (operator, partner) never saw either
   // half of this page.
+  // The field screen: one action, and it is the one every operator has. FIRST IN THE RAIL
+  // (2026-09-14, owner's own call) — «محلّي» moved below it: the counter screen is what most
+  // sign-ins are actually for, and «محلّي» is a real dashboard nobody needs open by reflex.
+  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'], accent: NAV_ACCENTS[1] },
+  // «محلّي» — MOVED DOWN, NOT REDEFINED. Its own path is `/shop` now, deliberately separate from
+  // the INDEX route (`/`, Home.tsx) it used to double as: when both shared `/`, reordering this
+  // array also silently changed what pressing «محلّي» itself showed — the exact bug the owner
+  // caught live (clicking «محلّي» opened «تسجيل زيارة»'s content, because Home.tsx's own "first
+  // available section" logic and this row's own link were answering the SAME route). Two
+  // concerns, two routes now: this list's order is purely what the rail displays and in what
+  // order; Home.tsx alone decides what `/` shows by default, and reads this same order to do it
+  // — so moving a row here still affects the default landing screen, exactly as intended, without
+  // ever breaking the row's own click target.
   {
-    service: 'insights', id: 'shop', path: '/', label: 'محلّي', icon: TrendingUp,
+    service: 'insights', id: 'shop', path: '/shop', label: 'محلّي', icon: TrendingUp,
     requires: ['reminders.today', 'insights.dashboard'], accent: NAV_ACCENTS[0],
   },
-  // The field screen: one action, and it is the one every operator has.
-  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'], accent: NAV_ACCENTS[1] },
   // الحجوزات: نفس الباب الذي يفتح الزيارة (docs/وصف-تطبيق-الحجوزات.md §2.5) — من يحجز لعميلةٍ
   // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
   { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'], accent: NAV_ACCENTS[2] },
@@ -199,10 +210,13 @@ export const SUPPORT_PATH = '/support';
  */
 export const TEAM_PATH = '/team';
 
-/** «محلّي» is the index route now, and `/shop` still answers — a bookmark, a link in a message and
- *  the e2e suite all use it. Named here IN CODE for the same reason TEAM_PATH is: a path the
- *  router serves and this file mentions only in prose is a screen `check_roles.py` cannot ask
- *  about. */
+/** «محلّي»'s OWN route (2026-09-14) — separate from `/`, the index route, on purpose now: the two
+ *  used to be the same path, and reordering SECTIONS silently changed what pressing «محلّي»
+ *  itself showed (see that row's own comment above for the bug this caused). `/` still exists and
+ *  still opens on whichever section Home.tsx picks — normally «تسجيل زيارة» now — which may or
+ *  may not be this one; `/shop` always, unambiguously, opens «محلّي». Named here IN CODE for the
+ *  same reason TEAM_PATH is: a path the router serves and this file mentions only in prose is a
+ *  screen `check_roles.py` cannot ask about. */
 export const SHOP_PATH = '/shop';
 
 /** Where «متجر التطبيقات» lives — named once, so no screen builds the address out of a literal
