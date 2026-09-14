@@ -116,4 +116,17 @@ describe('خدماتي — workspace (phase 3)', () => {
     await waitFor(() => expect(patchCalls.length).toBeGreaterThan(0));
     expect(patchCalls[patchCalls.length - 1]).toMatchObject({ description: 'وصف جديد' });
   });
+
+  it('«إضافة خدمة أو منتج» opens a real window, not a panel wedged into the grid', async () => {
+    open();
+    await waitFor(() => expect(screen.getByText('غسيل خارجي')).toBeTruthy());
+    expect(screen.queryByRole('dialog')).toBeFalsy();
+    fireEvent.click(screen.getByText('إضافة خدمة أو منتج'));
+    // a real dialog (2026-09-15, replacing the old bare form that sat disconnected from the
+    // workspace's own visual language) — the shared <Modal> component, Escape-to-close and all.
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(screen.getByPlaceholderText('وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)')).toBeTruthy();
+    fireEvent.click(screen.getByText('إلغاء'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeFalsy());
+  });
 });

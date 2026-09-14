@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مساحة الخدمات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════════════════
+   إعادة تصميم كاملة لشاشة «خدماتي ومنتجاتي» — كل قيمة لونية/مسافة هنا حرفياً من
+   ui/packages/ui/src/theme/theme.config.ts (نظام التصميم الحقيقي، لا اختراع). المشكلة
+   الحقيقية بالتصميم الحالي: لوحة "إضافة" منفصلة كليًا بصريًا عن لوحة "تعديل"، وشبكة حقول
+   فيها خانة يتيمة (النقاط) تكسر الاصطفاف، وشارة الحالة تتراكب فوق نص الإيقاف. الحل هنا:
+   لوحة واحدة فقط لكلا الحالتين (إضافة/تعديل)، شبكة حقول بست خانات دائماً (لا خانة يتيمة)،
+   وترويسة/تذييل ثابتان بلا تراكب.
+   ══════════════════════════════════════════════════════════════════════════════════════ */
+:root{
+  --surface-0:#f7f8fa; --surface-1:#ffffff; --surface-2:#e7e9ee; --surface-3:#d7dae2;
+  --text-primary:#14161c; --text-secondary:#5b6270; --text-muted:#868c99;
+  --border-subtle:#dde0e7; --border-strong:#c5cad4;
+  --accent:#6a4cf5; --accent-hover:#533bbf; --accent-soft:#edeafe; --accent-on-soft:#533bbf;
+  --success:#1e9e82; --success-soft:#dcf3ec; --success-on-soft:#146b58;
+  --warning:#c99a2c; --warning-soft:#f7ecd2;
+  --danger:#d9584a; --danger-soft:#fbe1dd; --danger-on-soft:#b7412f;
+  --radius-card:1.25rem; --radius-md:0.625rem; --radius-lg:0.875rem; --radius-pill:9999px;
+  --shadow-sm:0 1px 2px -1px rgb(20 22 28 / .10), 0 1px 1px rgb(20 22 28 / .05);
+  --shadow-md:0 2px 8px -3px rgb(20 22 28 / .12), 0 10px 26px -8px rgb(20 22 28 / .14);
+  --shadow-lg:0 8px 18px -8px rgb(20 22 28 / .14), 0 24px 52px -16px rgb(20 22 28 / .20);
+  --sans:'Tajawal','Cairo',ui-sans-serif,system-ui,sans-serif;
+  --display:'Cairo','Tajawal',ui-sans-serif,system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--surface-0); color:var(--text-secondary); font-family:var(--sans); font-size:15px; line-height:1.6}
+h1,h2,h3{font-family:var(--display); color:var(--text-primary); margin:0; font-weight:800}
+.wrap{max-width:1180px; margin:0 auto; padding:24px 20px 60px}
+
+.pagehead{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px}
+.pagehead h1{font-size:1.4rem}
+.tabs{display:inline-flex; background:var(--surface-2); border-radius:var(--radius-pill); padding:3px; gap:2px}
+.tab{padding:8px 20px; border-radius:var(--radius-pill); font-size:.88rem; font-weight:700; color:var(--text-secondary); cursor:pointer}
+.tab.active{background:var(--text-primary); color:#fff}
+
+.toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:16px}
+.btn{display:inline-flex; align-items:center; gap:6px; height:40px; padding:0 16px; border-radius:var(--radius-lg); font-size:.86rem; font-weight:700; border:1px solid transparent; cursor:pointer; white-space:nowrap}
+.btn-primary{background:var(--accent); color:#fff; box-shadow:var(--shadow-sm)}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-outline{background:var(--surface-1); color:var(--text-primary); border-color:var(--border-subtle)}
+.btn-ghost{background:transparent; color:var(--text-secondary)}
+.btn-ghost:hover{background:var(--surface-2)}
+.icon-toggle{display:inline-flex; background:var(--surface-2); border-radius:var(--radius-md); padding:2px; margin-inline-start:auto}
+.icon-toggle button{width:34px; height:34px; border-radius:8px; display:grid; place-items:center; color:var(--text-secondary); border:0; background:transparent; cursor:pointer}
+.icon-toggle button.active{background:var(--surface-1); color:var(--text-primary); box-shadow:var(--shadow-sm)}
+
+.shell{display:grid; grid-template-columns:200px 1fr 22rem; gap:18px; align-items:start}
+@media(max-width:1000px){ .shell{grid-template-columns:1fr} }
+
+/* ── الشريط الجانبي: مجموعات ملوّنة ───────────────────────────────────────────────────── */
+.rail{background:var(--surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-card); padding:8px; display:flex; flex-direction:column; gap:2px; box-shadow:var(--shadow-sm)}
+.rail button{display:flex; align-items:center; gap:10px; width:100%; text-align:start; border:0; background:transparent; padding:10px 12px; border-radius:var(--radius-md); font-size:.88rem; font-weight:600; color:var(--text-secondary); cursor:pointer}
+.rail button.active{background:var(--accent-soft); color:var(--accent-on-soft)}
+.rail .dot{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
+.rail .n{margin-inline-start:auto; font-size:.76rem; color:var(--text-muted); font-family:var(--mono)}
+.rail .add-group{color:var(--accent); font-weight:700; border-top:1px solid var(--border-subtle); margin-top:4px; padding-top:10px}
+.rail .add-group:hover{background:var(--accent-soft)}
+
+/* ── شبكة البطاقات ─────────────────────────────────────────────────────────────────────── */
+.grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px}
+.card{background:var(--surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-card); overflow:hidden; box-shadow:var(--shadow-sm); cursor:pointer; transition:box-shadow .15s, border-color .15s}
+.card:hover{box-shadow:var(--shadow-md)}
+.card.selected{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft), var(--shadow-md)}
+.card .photo{position:relative; aspect-ratio:16/10; background:var(--surface-2); display:grid; place-items:center; color:var(--text-muted)}
+.card .badge{position:absolute; top:8px; inset-inline-end:8px; font-size:.68rem; font-weight:800; padding:3px 9px; border-radius:var(--radius-pill)}
+.badge.stopped{background:var(--danger); color:#fff}
+.card .body{padding:12px}
+.card .row1{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+.card .name{font-weight:700; color:var(--text-primary); font-size:.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.card .price{font-family:var(--mono); font-weight:700; color:var(--text-primary); font-size:.86rem; white-space:nowrap}
+.card .meta{margin-top:4px; font-size:.76rem; color:var(--text-muted)}
+
+/* ── اللوحة الموحَّدة: إضافة = تعديل، نفس الإطار بالضبط ──────────────────────────────────── */
+.panel{background:var(--surface-1); border:1px solid var(--border-subtle); border-radius:var(--radius-card); box-shadow:var(--shadow-md); display:flex; flex-direction:column; position:sticky; top:20px; max-height:calc(100vh - 40px)}
+.panel.creating{border-color:var(--accent)}
+.panel-head{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border-subtle); flex:0 0 auto}
+.panel-head .ttl{font-weight:800; color:var(--text-primary); font-size:.94rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.panel-head .pill{font-size:.68rem; font-weight:800; background:var(--accent-soft); color:var(--accent-on-soft); padding:3px 9px; border-radius:var(--radius-pill)}
+.panel-head button.x{width:28px; height:28px; border-radius:8px; border:0; background:transparent; color:var(--text-secondary); cursor:pointer; display:grid; place-items:center; flex:0 0 auto}
+.panel-head button.x:hover{background:var(--surface-2)}
+.panel-body{padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:14px}
+
+.dropzone{position:relative; aspect-ratio:16/9; border-radius:var(--radius-lg); background:var(--surface-2); border:1.5px dashed var(--border-strong); display:grid; place-items:center; overflow:hidden; color:var(--text-muted)}
+.dropzone.has-photo{border-style:solid; border-color:var(--border-subtle)}
+.dropzone img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+.dropzone .upload-cta{position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:6px; font-size:.78rem; font-weight:600}
+.dropzone .upload-cta svg{opacity:.7}
+.dropzone.has-photo .replace{position:absolute; inset-inline:0; bottom:0; z-index:2; display:flex; justify-content:flex-end; padding:8px; background:linear-gradient(to top, rgba(0,0,0,.55), transparent)}
+.dropzone .replace button{font-size:.72rem; font-weight:700; background:rgba(255,255,255,.94); color:var(--text-primary); border:0; border-radius:var(--radius-md); padding:5px 10px; display:flex; align-items:center; gap:4px; cursor:pointer}
+
+.field{display:flex; flex-direction:column; gap:5px}
+.field label{font-size:.76rem; font-weight:700; color:var(--text-secondary)}
+.field input, .field select, .field textarea{
+  height:40px; border-radius:var(--radius-md); border:1px solid var(--border-subtle);
+  background:var(--surface-0); padding:0 11px; font:inherit; font-size:.86rem; color:var(--text-primary);
+}
+.field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.field textarea{height:auto; padding:9px 11px; resize:vertical; font-family:inherit}
+.field .num{text-align:center; font-family:var(--mono); font-weight:700}
+
+/* ست خانات دائماً، ثلاث صفوف من اثنتين — لا خانة يتيمة تكسر الاصطفاف مهما كانت الصلاحيات
+   المفعّلة، لأن كل خانة غائبة تُستبدل بخانة تالية بدل ما تترك فراغاً غريباً. */
+.field-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+
+.panel-foot{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-top:1px solid var(--border-subtle); flex:0 0 auto}
+.status-chip{display:inline-flex; align-items:center; gap:6px; font-size:.78rem; font-weight:700; padding:5px 11px; border-radius:var(--radius-pill)}
+.status-chip.active{background:var(--success-soft); color:var(--success-on-soft)}
+.status-chip.stopped{background:var(--danger-soft); color:var(--danger-on-soft)}
+.foot-actions{display:flex; gap:8px}
+
+.empty-panel{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:60px 20px; color:var(--text-muted); text-align:center; font-size:.86rem}
+
+/* ── نافذة «إضافة» — نافذة حقيقية (dialog) فوق الشاشة، لا لوحة داخل الشبكة ────────────────
+   نفس محتوى لوحة التعديل بالضبط (نفس الحقول، نفس الأنماط) — الفرق الوحيد هو الإطار الذي
+   يحملها: هنا نافذة مركزية عائمة فوق ستارة معتمة، بدل لوحة ثابتة داخل الشبكة. التعديل
+   يبقى باللوحة الجانبية (تعديل سريع أثناء تصفّح الشبكة)؛ الإضافة تستحق تركيزاً كاملاً
+   بلا تشتّت خلفها، وهذا ما تعطيه نافذة حقيقية ولا تعطيه لوحة جانبية. */
+.overlay{position:fixed; inset:0; background:rgb(20 22 28 / .45); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50}
+.modal{width:100%; max-width:30rem; max-height:min(88vh, 720px); background:var(--surface-1); border-radius:var(--radius-card); box-shadow:var(--shadow-lg); display:flex; flex-direction:column; overflow:hidden}
+.modal .panel-head{background:var(--surface-1)}
+.modal .panel-body{flex:1}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="pagehead">
+    <h1>خدماتي ومنتجاتي</h1>
+    <div class="tabs"><span class="tab active">الخدمات</span><span class="tab">الباقات</span></div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> إضافة خدمة أو منتج</button>
+    <button class="btn btn-outline"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg> استيراد من ملف</button>
+    <button class="btn btn-ghost"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 9h12l-1 11H7L6 9z"/></svg> شرح الأعمدة</button>
+    <div class="icon-toggle">
+      <button class="active"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+      <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    </div>
+  </div>
+
+  <div class="shell">
+    <!-- rail -->
+    <aside class="rail">
+      <button class="active"><span class="dot" style="background:var(--text-primary)"></span>كل الخدمات<span class="n">14</span></button>
+      <div style="border-top:1px solid var(--border-subtle); margin:4px 0"></div>
+      <button><span class="dot" style="background:#6a4cf5"></span>قص وتصفيف<span class="n">6</span></button>
+      <button><span class="dot" style="background:#c99a2c"></span>عناية باللحية<span class="n">4</span></button>
+      <button><span class="dot" style="background:#1e9e82"></span>عروض المناسبات<span class="n">2</span></button>
+      <button><span class="dot" style="background:var(--text-muted)"></span>بلا مجموعة<span class="n">2</span></button>
+      <button class="add-group"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>مجموعة جديدة</button>
+    </aside>
+
+    <!-- grid -->
+    <div class="grid">
+      <div class="card selected">
+        <div class="photo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-5 4 4 3-3 6 6"/></svg></div>
+        <div class="body"><div class="row1"><span class="name">قص شعر</span><span class="price">50 ر.س</span></div><div class="meta">15 دقيقة</div></div>
+      </div>
+      <div class="card">
+        <div class="photo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-5 4 4 3-3 6 6"/></svg></div>
+        <div class="body"><div class="row1"><span class="name">تحديد لحية</span><span class="price">30 ر.س</span></div><div class="meta">10 دقائق</div></div>
+      </div>
+      <div class="card">
+        <div class="photo" style="background:#ece7f8"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-5 4 4 3-3 6 6"/></svg></div>
+        <div class="body"><div class="row1"><span class="name">صبغة وبروتين</span><span class="price">180 ر.س</span></div><div class="meta">90 دقيقة</div></div>
+      </div>
+      <div class="card">
+        <div class="photo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-5 4 4 3-3 6 6"/></svg></div>
+        <div class="body"><div class="row1"><span class="name">غسيل وتنشيف</span><span class="price">20 ر.س</span></div><div class="meta">15 دقيقة</div></div>
+        <div class="badge stopped" style="position:static; margin:0 12px 10px; display:inline-block">متوقفة</div>
+      </div>
+    </div>
+
+    <!-- ── اللوحة الموحّدة — الحالة أ: تعديل خدمة قائمة ───────────────────────────────────── -->
+    <aside class="panel">
+      <div class="panel-head">
+        <span class="ttl">قص شعر</span>
+        <button class="x">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="dropzone has-photo">
+          <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='225'><rect width='400' height='225' fill='%23e7e9ee'/></svg>" alt="">
+          <div class="replace"><button>↺ استبدال الصورة</button></div>
+        </div>
+
+        <div class="field"><label>الاسم</label><input value="قص شعر"></div>
+        <div class="field"><label>وصف قصير (اختياري)</label><textarea rows="2" placeholder="يستخدمه الذكاء الاصطناعي بالواتساب"></textarea></div>
+
+        <div class="field-grid">
+          <div class="field"><label>المدة (دقيقة)</label><input class="num" dir="ltr" value="15"></div>
+          <div class="field"><label>السعر (ر.س)</label><input class="num" dir="ltr" value="50"></div>
+          <div class="field"><label>دورة التذكير (يوم)</label><input class="num" dir="ltr" placeholder="0"></div>
+          <div class="field"><label>الاطمئنان (يوم)</label><input class="num" dir="ltr" placeholder="0"></div>
+          <div class="field"><label>النقاط</label><input class="num" dir="ltr" placeholder="10"></div>
+          <div class="field">
+            <label>المجموعة</label>
+            <select><option>قص وتصفيف</option><option>عناية باللحية</option><option>عروض المناسبات</option><option>بلا مجموعة</option><option style="color:var(--accent); font-weight:700">+ مجموعة جديدة…</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="panel-foot">
+        <span class="status-chip active">● نشطة</span>
+        <div class="foot-actions"><button class="btn btn-outline">⏻ إيقاف</button></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- ── حالة العرض: «إضافة خدمة أو منتج» مضغوطة الآن — نافذة حقيقية، لا لوحة داخل الشبكة ──── -->
+<div class="overlay">
+  <div class="modal">
+    <div class="panel-head">
+      <span class="ttl">إضافة خدمة أو منتج</span>
+      <button class="x">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="dropzone">
+        <div class="upload-cta">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-5 4 4 3-3 6 6"/></svg>
+          <span>صورة الخدمة (اختياري)</span>
+        </div>
+      </div>
+
+      <div class="field"><label>الاسم</label><input placeholder="مثال: تلميع وتشميع، أو كيس قهوة 250 جم" autofocus></div>
+      <div class="field"><label>وصف قصير (اختياري)</label><textarea rows="2" placeholder="يستخدمه الذكاء الاصطناعي بالواتساب"></textarea></div>
+
+      <div class="field-grid">
+        <div class="field"><label>المدة (دقيقة)</label><input class="num" dir="ltr" value="15"></div>
+        <div class="field"><label>السعر (ر.س)</label><input class="num" dir="ltr" placeholder="—"></div>
+        <div class="field"><label>دورة التذكير (يوم)</label><input class="num" dir="ltr" placeholder="0"></div>
+        <div class="field"><label>الاطمئنان (يوم)</label><input class="num" dir="ltr" placeholder="0"></div>
+        <div class="field"><label>النقاط</label><input class="num" dir="ltr" placeholder="0"></div>
+        <div class="field">
+          <label>المجموعة</label>
+          <select><option>بلا مجموعة</option><option>قص وتصفيف</option><option>عناية باللحية</option><option>عروض المناسبات</option><option style="color:var(--accent); font-weight:700">+ مجموعة جديدة…</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="panel-foot" style="justify-content:flex-end">
+      <div class="foot-actions">
+        <button class="btn btn-ghost">إلغاء</button>
+        <button class="btn btn-primary">إضافة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

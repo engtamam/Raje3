@@ -20,6 +20,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { NAV_ACCENTS } from '@base-ui/theme';
 import { Button } from '../rj-ui/Button';
+import { Modal } from '../rj-ui/Modal';
 import { Badge } from '../rj-ui/Badge';
 import { Segmented } from '../rj-ui/Segmented';
 import { EmptyState } from '../rj-ui/EmptyState';
@@ -181,6 +182,17 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    *  "temporary, only real if confirmed" behaviour a server-side draft would give, achieved by
    *  simply not touching the network until the id exists. */
   const [pendingImage, setPendingImage] = useState<File | null>(null);
+  /** A blob: URL for `pendingImage`'s own preview inside the add-service modal's dropzone — kept
+   *  in state (not recomputed with `URL.createObjectURL` on every render) so the browser is only
+   *  ever asked to mint one live object URL per picked file, and the old one is revoked the
+   *  moment it stops being shown rather than leaking for the rest of the tab's lifetime. */
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pendingImage) { setPendingImageUrl(null); return; }
+    const url = URL.createObjectURL(pendingImage);
+    setPendingImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingImage]);
   /** The file-import drawer (ServicesImportDrawer.tsx), same "shown only when asked" idiom. */
   const [importing, setImporting] = useState(false);
   /**
@@ -1154,142 +1166,145 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
       <div className="flex flex-col gap-3">
 
-          {/* THE FORM, WHOSE BUTTON NOW LIVES IN THE TOOLBAR ABOVE. «خدماتي» once listed a
-              catalogue and offered no way to add to it — a shop selling something new had nowhere
-              to say so. */}
-          {action(catalog, 'operations.create_service') && adding ? (
-            (
-              <form
-                className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  const pts = String(f.get('points') || '').trim();
-                  const priceText = String(f.get('price') || '').trim();
-                  // SAME SILENT DROP AS THE TABLE'S OWN PRICE CELL, caught here before the create
-                  // call rather than inside it: `halalas` returning null for typed-but-invalid text
-                  // used to fall into the same branch as an empty box, so «إضافة» created the
-                  // service with no price at all and said nothing about why.
-                  if (priceText !== '' && halalas(priceText) === null) {
-                    setError(t('services.error.priceInvalid'));
-                    return;
-                  }
-                  addService(String(f.get('name') || ''), {
-                    cycleDays: Number(f.get('cycle_days') || 0),
-                    durationMinutes: Number(f.get('duration_minutes') || 0),
-                    priceMinor: priceText === '' ? null : halalas(priceText),
-                    followUpDays: Number(f.get('follow_up_days') || 0),
-                    // AN EMPTY BOX IS NOT A ZERO HERE. Blank means "whatever the shop's general
-                    // rule is"; a typed 0 means "this one earns nothing", and they are different
-                    // instructions with different futures.
-                    points: pts === '' ? null : Number(pts),
-                    group: String(f.get('group') || ''),
-                    description: String(f.get('description') || ''),
-                    image: pendingImage,
-                  });
-                }}
-              >
-                <label className="flex flex-col gap-1">
-                  <span className="text-sm">{t('services.name')}</span>
-                  <input name="name" required autoFocus maxLength={128}
-                         placeholder={t('services.name.placeholder')}
-                         className="h-10 rounded-lg bg-surface-2 px-3" />
+          {/* A REAL WINDOW, NOT A PANEL WEDGED INTO THE GRID (2026-09-15, owner's own call after
+              seeing the shipped result: "خلي اضافة منتج يفتح نافذه", matching the approved
+              mockup). Adding is a focused act with nothing worth seeing behind it — unlike
+              editing, which stays in the docked inspector so the grid he is browsing never
+              disappears. Same shared <Modal> every other screen already reaches for (Escape,
+              scrim, scroll-lock — nothing reimplemented here), same fields as the inspector's
+              own six-cell grid so "add" and "edit" never look like two different products. */}
+          <Modal
+            open={Boolean(action(catalog, 'operations.create_service') && adding)}
+            onClose={() => { setAdding(false); setPendingImage(null); }}
+            title={t('services.addServiceOrProduct')}
+            footer={
+              <div className="flex w-full items-center justify-end gap-2">
+                <Button type="button" variant="ghost"
+                       onClick={() => { setAdding(false); setPendingImage(null); }}>{t('services.cancel')}</Button>
+                <Button type="submit" form="add-service-form" disabled={saving}>{t('services.add')}</Button>
+              </div>
+            }
+          >
+            <form
+              id="add-service-form"
+              className="flex flex-col gap-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                const pts = String(f.get('points') || '').trim();
+                const priceText = String(f.get('price') || '').trim();
+                // SAME SILENT DROP AS THE INSPECTOR'S OWN PRICE CELL, caught here before the
+                // create call rather than inside it: `halalas` returning null for typed-but-
+                // invalid text used to fall into the same branch as an empty box, so «إضافة»
+                // created the service with no price at all and said nothing about why.
+                if (priceText !== '' && halalas(priceText) === null) {
+                  setError(t('services.error.priceInvalid'));
+                  return;
+                }
+                addService(String(f.get('name') || ''), {
+                  cycleDays: Number(f.get('cycle_days') || 0),
+                  durationMinutes: Number(f.get('duration_minutes') || 0),
+                  priceMinor: priceText === '' ? null : halalas(priceText),
+                  followUpDays: Number(f.get('follow_up_days') || 0),
+                  // AN EMPTY BOX IS NOT A ZERO HERE. Blank means "whatever the shop's general
+                  // rule is"; a typed 0 means "this one earns nothing", and they are different
+                  // instructions with different futures.
+                  points: pts === '' ? null : Number(pts),
+                  group: String(f.get('group') || ''),
+                  description: String(f.get('description') || ''),
+                  image: pendingImage,
+                });
+              }}
+            >
+              {/* THE PHOTO STAYS ON THIS SIDE OF THE NETWORK UNTIL «إضافة». There is no
+                  server-side draft for it — nothing to attach a file to before a service id
+                  exists — so the "hold it, only real if confirmed" behaviour is just this: a
+                  File object living in `pendingImage`, never read by anything until submit calls
+                  uploadServiceImage() with the real id, and dropped untouched on cancel (or on a
+                  second pick, which replaces rather than adds to it — one photo per service, same
+                  as the inspector's own edit view). Styled as a real dropzone, not a native
+                  file-picker button, matching the approved mockup. */}
+              {action(catalog, 'operations.upload_service_image') ? (
+                <label className="relative flex aspect-[16/9] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-surface-2 text-text-muted transition-colors hover:border-accent hover:text-accent-on-soft">
+                  {pendingImage ? (
+                    <img src={pendingImageUrl ?? ''} alt=""
+                        className="absolute inset-0 h-full w-full rounded-lg object-cover" />
+                  ) : (
+                    <>
+                      <Upload size={22} aria-hidden />
+                      <span className="text-xs font-medium">صورة الخدمة (اختياري)</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                         onChange={(e) => setPendingImage(e.target.files?.[0] ?? null)} />
                 </label>
+              ) : null}
 
-                {/* SAME BOX, SAME WORDING, AS THE TABLE'S OWN EDIT FIELD — this is the same
-                    `description` the server already accepts on create, not a new one added just
-                    for this form. */}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-text-secondary">{t('services.name')}</span>
+                <input name="name" required autoFocus maxLength={128}
+                       placeholder={t('services.name.placeholder')}
+                       className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm font-medium" />
+              </label>
+
+              {/* SAME BOX, SAME WORDING, AS THE INSPECTOR'S OWN EDIT FIELD — this is the same
+                  `description` the server already accepts on create, not a new one added just
+                  for this form. */}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-text-secondary">وصف قصير (اختياري)</span>
+                <textarea name="description" maxLength={300} rows={2}
+                          placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
+                          className="w-full rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm" />
+              </label>
+
+              {/* SIX CELLS, ALWAYS — the same field-grid shape the inspector uses, so a field
+                  granted or withheld by permission never leaves an orphan cell breaking the
+                  two-column rhythm (the exact defect the owner flagged in the old list form). */}
+              <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm">وصف قصير (اختياري)</span>
-                  <textarea name="description" maxLength={300} rows={2}
-                            placeholder="وصف قصير (يستخدمه الذكاء الاصطناعي بالواتساب)"
-                            className="w-full rounded-lg bg-surface-2 px-3 py-2 text-sm" />
+                  <span className="text-xs font-medium text-text-secondary">{t('services.duration.label')}</span>
+                  <input name="duration_minutes" type="number" min={0} max={720} step={15} defaultValue={15} dir="ltr"
+                         className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                 </label>
-
-                {/* THE PHOTO STAYS ON THIS SIDE OF THE NETWORK UNTIL «إضافة». There is no
-                    server-side draft for it — nothing to attach a file to before a service id
-                    exists — so the "hold it, only real if confirmed" behaviour is just this: a
-                    File object living in `pendingImage`, never read by anything until submit
-                    calls uploadServiceImage() with the real id, and dropped untouched on cancel
-                    (or on a second pick, which replaces rather than adds to it — one photo per
-                    service, same as the row's own edit view). */}
-                {action(catalog, 'operations.upload_service_image') ? (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-text-secondary">{t('services.price.label')}</span>
+                  <input name="price" type="text" inputMode="decimal" dir="ltr" placeholder="—"
+                         className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-text-secondary">{t('services.reminderCycle.label')}</span>
+                  <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
+                         className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
+                </label>
+                {action(catalog, 'reminders.set_service_settings') ? (
                   <label className="flex flex-col gap-1">
-                    <span className="text-sm">صورة الخدمة (اختياري)</span>
-                    <input type="file" accept="image/jpeg,image/png,image/webp"
-                           onChange={(e) => setPendingImage(e.target.files?.[0] ?? null)}
-                           className="text-sm" />
-                    {pendingImage ? (
-                      <span className="text-xs text-text-secondary">
-                        {pendingImage.name} — تُرفع فقط لو ضغطت «{t('services.add')}»
-                      </span>
-                    ) : null}
+                    <span className="text-xs font-medium text-text-secondary">{t('services.followUp')}</span>
+                    <input name="follow_up_days" type="number" min={0} defaultValue={0} dir="ltr"
+                           className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
                   </label>
                 ) : null}
-
-                {/* SHORT LABELS, AND THE QUESTION LIVES IN THE «؟». The full sentences did not
-                    fit the label column on a phone and arrived clipped mid-word — «كل كم يوماً
-                    ي…» is worse than a short name, because a truncated question is unanswerable
-                    while a short one is merely brief. */}
-                <Row label={t('services.reminderCycle.label')}
-                     hint={t('services.reminderCycle.rowHint')}>
-                  <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
-                         className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
-                </Row>
-
-                {/* 15 دقيقة، القيمة المقترحة والخطوة معاً — أصغر وحدة يتحرّك عليها الجدول
-                    أصلاً، وأقرب افتراض واقعي لخدمة سريعة. رقم مقترح يُعدَّل قبل الحفظ، لا قيمة
-                    يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً.
-                    `step` يحرّك أسهم الحقل بوحدات 15 فقط — لا يمنع كتابة رقم آخر يدوياً. */}
-                <Row label={t('services.duration.label')}
-                     hint={t('services.duration.hint')}>
-                  <input name="duration_minutes" type="number" min={0} max={720} step={15} defaultValue={15} dir="ltr"
-                         className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
-                </Row>
-
-                {/* السعر اختياري — فارغ يبقى فارغاً، لا صفر مفروض. */}
-                <Row label={t('services.price.label')} hint={t('services.price.hint')}>
-                  <input name="price" type="text" inputMode="decimal" dir="ltr" placeholder="—"
-                         className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
-                </Row>
-
-                {action(catalog, 'reminders.set_service_settings') ? (
-                  <Row label={t('services.followUp')}
-                       hint={t('services.followUp.rowHint')}>
-                    <input name="follow_up_days" type="number" min={0} defaultValue={0} dir="ltr"
-                           className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
-                  </Row>
-                ) : null}
-
                 {earnAction ? (
-                  <Row label={t('services.points.label')}
-                       hint={t('services.points.hint')}>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-medium text-text-secondary">{t('services.points')}</span>
                     <input name="points" type="number" min={0} dir="ltr"
                            placeholder={String(earn?.general?.points ?? 0)}
-                           className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
-                  </Row>
+                           className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-center font-mono tabular-nums" />
+                  </label>
                 ) : null}
-
                 {action(catalog, 'reminders.set_group') ? (
-                  <Row label={t('services.group')}
-                       hint={t('services.group.hint')}>
-                    <select name="group" className="h-10 w-full rounded-lg bg-surface-2 px-2 text-sm">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-medium text-text-secondary">{t('services.group')}</span>
+                    <select name="group" className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-2 text-sm">
                       <option value="">{t('services.noGroupOption')}</option>
                       {Object.keys(settings?.groups ?? {}).map((g) => (
                         <option key={g} value={g}>{g}</option>
                       ))}
                     </select>
-                  </Row>
+                  </label>
                 ) : null}
-
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={saving}>{t('services.add')}</Button>
-                  <Button type="button" variant="ghost"
-                          onClick={() => { setAdding(false); setPendingImage(null); }}>{t('services.cancel')}</Button>
-                </div>
-              </form>
-            )
-          ) : null}
+              </div>
+            </form>
+          </Modal>
 
       {/* THE LEGEND, AT THE TABLE'S OWN WIDTH. Prose does not fit in a header cell; four
           sentences at the width of the page do. */}
@@ -1641,142 +1656,6 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         );
       })()}
 
-    </div>
-  );
-}
-
-/**
- * A column header, and the «؟» that explains the WHOLE column.
- *
- * THIS IS THE ONE REAL SAVING OF THE TABLE. The same four explanations used to be rendered once
- * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
- * card was opened. Asked once at the top, the question is answered before he reads a single row.
- */
-function Th({ children, wide, narrow, className = '' }: {
-  children: React.ReactNode;
-  /** An explicit width when the default narrow one does not fit. */
-  className?: string;
-  /** Only on a screen wide enough for it — the phone reaches this field from the edit row. */
-  wide?: boolean;
-  /** As wide as its content and no wider; the name column absorbs what is left. */
-  narrow?: boolean;
-}) {
-  return (
-    <th scope="col" className={[
-      'whitespace-nowrap px-3 py-2 text-start text-xs font-medium',
-      narrow ? 'w-16' : '',
-      wide ? 'hidden md:table-cell' : '',
-      className,
-    ].join(' ')}>
-      {children}
-    </th>
-  );
-}
-
-/**
- * A number cell: read as text, edited in place, and PALE WHEN IT IS INHERITED.
- *
- * The paleness is the whole of «إعداد خاص» in a table — a badge per row would be a column of
- * badges, while a number that is dimmer than its neighbours says "this one follows the general
- * rule" without spending a column or a word. And it matters: an owner who cannot tell inherited
- * from own retypes the number he is already following, which freezes it (§9.2 — inherit, never
- * copy) and makes the next general change skip that service in silence.
- */
-function Num({ value, own, editable, label, onSave, wide }: {
-  value?: number;
-  own: boolean;
-  editable: boolean;
-  label: string;
-  onSave: (n: number) => void;
-  wide?: boolean;
-}) {
-  const n = value ?? 0;
-  return (
-    <td className={['px-3 py-2 tabular-nums', wide ? 'hidden md:table-cell' : ''].join(' ')}>
-      {editable ? (
-        <input
-          type="number"
-          min={0}
-          dir="ltr"
-          defaultValue={String(n)}
-          aria-label={label}
-          onBlur={(e) => {
-            const raw = e.target.value.trim();
-            // A BLANK BOX SAVES NOTHING. `Number('')` is 0, and 0 is a real instruction here.
-            if (raw !== '' && Number(raw) !== n) onSave(Number(raw));
-          }}
-          className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
-        />
-      ) : (
-        <span className={own ? '' : 'text-text-secondary/60'}>{n > 0 ? n : '—'}</span>
-      )}
-    </td>
-  );
-}
-
-/** One labelled control in the phone's edit row: the name on the right, the control on the left. */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="text-sm text-text-secondary">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-/** One square action. A title on every one, because a glyph alone is a guess. */
-function IconButton({ children, title, onClick, disabled, danger, active }: {
-  children: React.ReactNode;
-  title: string;
-  onClick: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-  active?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        // 40px, WHICH IS A THUMB. Icon buttons that fit the glyph fit nothing else, and this
-        // screen is used standing at a counter.
-        'grid h-10 w-9 shrink-0 place-items-center rounded-lg text-base transition-colors md:w-10',
-        'disabled:opacity-40',
-        active
-          ? 'bg-surface-2 text-text-primary'
-          : danger
-            ? 'text-danger hover:bg-danger/10'
-            : 'text-text-secondary hover:bg-surface-2',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** One question on the add form: its label, its «؟», and the control that answers it. */
-function Row({ label, hint, children }:
-    { label: string; hint: string; children: React.ReactNode }) {
-  return (
-    // A GRID, NOT A WRAPPING FLEX ROW. As a flex row with `ms-auto` the control dropped onto its
-    // own line the moment a label was one word too long — so the form arrived as a ragged ladder,
-    // some boxes beside their label and some beneath it, each starting at a different edge. Two
-    // columns put every label on the right and every control on the left, at one width, always.
-    // THREE CELLS ON ONE ROW, AND THE EXPLANATION UNDER ALL OF THEM. The «؟» is a direct child
-    // of this grid rather than of the label, which is what lets its sentence span the full width
-    // when it opens; the control is placed explicitly so the sentence cannot push it down a row.
-    <div className="grid grid-cols-[1fr_auto_7.5rem] items-center gap-x-2 gap-y-1">
-      {/* WRAPS RATHER THAN CLIPS. A label cut mid-word reads as a rendering fault; a label on
-          two lines reads as a label. */}
-      {/* THE LABEL COLUMN TAKES THE SLACK (`1fr`), so the «؟» sits at the same x on every row
-          instead of trailing each label wherever it happens to end — four marks scattered across
-          the card read as decoration; four in a line read as one control repeated. */}
-      <span className="min-w-0 text-sm">{label}</span>
-      <Hint wide>{hint}</Hint>
-      <span className="col-start-3 row-start-1">{children}</span>
     </div>
   );
 }
