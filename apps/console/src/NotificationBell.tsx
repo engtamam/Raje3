@@ -43,6 +43,17 @@ export function NotificationBell({ session }: { session: Session }) {
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const wrapRef = useRef<HTMLDivElement>(null);
+  /**
+   * DOWN BY DEFAULT, UP WHEN THERE IS NOWHERE TO DROP TO.
+   *
+   * The bell sits in the shell's own rail, and that rail is a BOTTOM bar on a phone — the shape
+   * every console screen already uses at that width. A panel that always opens downward from
+   * there opens off the bottom of the screen: the owner reported exactly this ("الجرس آخر
+   * الصفحة"). `PANEL_HEIGHT_GUESS` is the panel's own max-height (26rem list + ~3.25rem header,
+   * see the className below) — not measured from a not-yet-rendered node, which would still read
+   * 0 on the very first open.
+   */
+  const [openUpward, setOpenUpward] = useState(false);
 
   const load = () => {
     setStatus('loading');
@@ -68,10 +79,23 @@ export function NotificationBell({ session }: { session: Session }) {
     };
   }, [open]);
 
+  // The panel's own worst case: header (~3.25rem) + the list's max-height (26rem) below, plus a
+  // little breathing room — matched to the className further down, not an arbitrary guess.
+  const PANEL_HEIGHT_GUESS = 470;
+
   function toggle() {
     const next = !open;
+    if (next) {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      // ROOM BELOW THE BELL, NOT ROOM ABOVE THE DRAWER. `railSlot` sits near the very bottom of
+      // the sidebar (AppShell.tsx, right above the theme/language row, right before sign-out) —
+      // on a phone that is genuinely close to the bottom of the screen, and a panel that always
+      // drops downward from there opens off it.
+      const roomBelow = rect ? window.innerHeight - rect.bottom : Infinity;
+      setOpenUpward(roomBelow < PANEL_HEIGHT_GUESS);
+      load();
+    }
     setOpen(next);
-    if (next) load();
   }
 
   async function markOne(id: string) {
@@ -111,7 +135,10 @@ export function NotificationBell({ session }: { session: Session }) {
         <div
           role="dialog"
           aria-label={t('notificationBell.title')}
-          className="notification-panel absolute z-50 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl start-0 sm:start-auto sm:end-0"
+          className={[
+            'notification-panel absolute z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-2xl start-0 sm:start-auto sm:end-0',
+            openUpward ? 'bottom-full mb-2' : 'top-full mt-2',
+          ].join(' ')}
         >
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
             <h2 className="m-0 text-base font-bold">{t('notificationBell.title')}</h2>

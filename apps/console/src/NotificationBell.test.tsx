@@ -97,6 +97,31 @@ describe('NotificationBell', () => {
     expect(screen.queryByText('تعليم الكل كمقروء')).toBeNull();
   });
 
+  it('opens upward when the bell sits near the bottom of the screen', async () => {
+    listImpl = async () => [row()];
+    render(<NotificationBell session={SESSION} />);
+    const bell = screen.getByRole('button', { name: 'الإشعارات' });
+    // Measured off the wrapping <div> (wrapRef), not the button — the bell sits low in AppShell's
+    // own rail (right above the theme/language row), so this pins 100px of room left beneath a
+    // panel whose own worst case is ~470px.
+    vi.spyOn(bell.parentElement as HTMLElement, 'getBoundingClientRect').mockReturnValue(
+      { bottom: window.innerHeight - 100, top: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON() { return {}; } });
+    fireEvent.click(bell);
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(screen.getByRole('dialog').className).toContain('bottom-full');
+  });
+
+  it('opens downward when there is plenty of room below the bell', async () => {
+    listImpl = async () => [row()];
+    render(<NotificationBell session={SESSION} />);
+    const bell = screen.getByRole('button', { name: 'الإشعارات' });
+    vi.spyOn(bell.parentElement as HTMLElement, 'getBoundingClientRect').mockReturnValue(
+      { bottom: 50, top: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON() { return {}; } });
+    fireEvent.click(bell);
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(screen.getByRole('dialog').className).toContain('top-full');
+  });
+
   it('a second click on the bell closes the panel', async () => {
     listImpl = async () => [row()];
     render(<NotificationBell session={SESSION} />);
