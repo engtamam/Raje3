@@ -66,6 +66,9 @@ registerOperatorStrings({
     'visit.error.plateIncomplete': 'اكتب رقم اللوحة — حرفٌ واحد ورقمٌ واحد على الأقل',
     'visit.error.phoneIncomplete': 'الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05',
     'visit.error.redeemFailed': 'تعذّر الاستبدال.',
+    'visit.coupon.checkboxLabel': 'امنح كوبون خصم لهذا المحل',
+    'visit.coupon.phonePlaceholder': 'رقم جوال المحل',
+    'visit.coupon.scopeAll': 'الكل',
   },
   en: {
     'visit.notSignedIn': 'Session not open yet.',
@@ -120,6 +123,9 @@ registerOperatorStrings({
     'visit.error.plateIncomplete': 'Enter the plate number — at least one letter and one digit',
     'visit.error.phoneIncomplete': 'Number incomplete — ten digits starting with 05',
     'visit.error.redeemFailed': 'Could not redeem.',
+    'visit.coupon.checkboxLabel': 'Grant a discount coupon to this shop',
+    'visit.coupon.phonePlaceholder': 'Shop’s phone number',
+    'visit.coupon.scopeAll': 'All',
   },
   ur: {
     'visit.notSignedIn': 'ابھی سیشن نہیں کھلا۔',
@@ -174,6 +180,9 @@ registerOperatorStrings({
     'visit.error.plateIncomplete': 'پلیٹ نمبر لکھیں — کم از کم ایک حرف اور ایک ہندسہ',
     'visit.error.phoneIncomplete': 'نمبر نامکمل — 05 سے شروع ہونے والے دس ہندسے',
     'visit.error.redeemFailed': 'تبدیل نہیں ہو سکا۔',
+    'visit.coupon.checkboxLabel': 'اس دکان کو رعایتی کوپن دیں',
+    'visit.coupon.phonePlaceholder': 'دکان کا فون نمبر',
+    'visit.coupon.scopeAll': 'سب',
   },
   ha: {
     'visit.notSignedIn': 'Ba a buɗe zaman ba tukuna.',
@@ -228,6 +237,9 @@ registerOperatorStrings({
     'visit.error.plateIncomplete': 'Rubuta lambar mota — aƙalla harafi ɗaya da lamba ɗaya',
     'visit.error.phoneIncomplete': 'Lambar bata cika ba — lambobi goma da suka fara da 05',
     'visit.error.redeemFailed': 'An kasa canzawa.',
+    'visit.coupon.checkboxLabel': 'Ba wannan shagon kubfanin rangwame',
+    'visit.coupon.phonePlaceholder': 'Lambar wayar shago',
+    'visit.coupon.scopeAll': 'Duka',
   },
   fil: {
     'visit.notSignedIn': 'Hindi pa bukas ang session.',
@@ -282,6 +294,9 @@ registerOperatorStrings({
     'visit.error.plateIncomplete': 'Ilagay ang numero ng plaka — kahit isang letra at isang numero',
     'visit.error.phoneIncomplete': 'Hindi kumpleto ang numero — sampung digit na nagsisimula sa 05',
     'visit.error.redeemFailed': 'Hindi na-redeem.',
+    'visit.coupon.checkboxLabel': 'Magbigay ng discount coupon sa tindahang ito',
+    'visit.coupon.phonePlaceholder': 'Numero ng telepono ng tindahan',
+    'visit.coupon.scopeAll': 'Lahat',
   },
   bn: {
     'visit.notSignedIn': 'সেশন এখনও খোলা হয়নি।',
@@ -336,5 +351,8 @@ registerOperatorStrings({
     'visit.error.plateIncomplete': 'প্লেট নম্বর লিখুন — অন্তত একটি অক্ষর ও একটি সংখ্যা',
     'visit.error.phoneIncomplete': 'নম্বরটি অসম্পূর্ণ — 05 দিয়ে শুরু দশ সংখ্যা',
     'visit.error.redeemFailed': 'রিডিম করা যায়নি।',
+    'visit.coupon.checkboxLabel': 'এই দোকানকে ছাড়ের কুপন দিন',
+    'visit.coupon.phonePlaceholder': 'দোকানের ফোন নম্বর',
+    'visit.coupon.scopeAll': 'সব',
   },
 });

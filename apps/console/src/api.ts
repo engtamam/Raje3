@@ -662,6 +662,13 @@ export interface VisitDraft {
    *  (services/operations `Visit.package_id`'s own docstring). A forged/unknown id is dropped
    *  server-side rather than trusted, so sending one is never a way to fake a visit's contents. */
   package_id?: string;
+  /** SHOP-TO-SHOP COUPON, RIDING ON THIS VISIT — all four absent/empty means "no grant
+   *  attempted", the ordinary case. See operations' own `field.py::VisitIn` — the grant is
+   *  attempted only after the visit itself is safely recorded, and never blocks or fails it. */
+  coupon_phone?: string;
+  coupon_percent?: number;
+  coupon_general?: boolean;
+  coupon_app_keys?: string[];
 }
 
 export interface VisitAck {

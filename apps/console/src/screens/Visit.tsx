@@ -33,7 +33,15 @@ import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
 import { useOperatorI18n, tf } from '../operator-i18n';
 import { AssistantHint } from '../AssistantHint';
+import { action, call } from '../catalog';
+import { owns, APP_ROWS } from '../apps';
 import './visit-i18n';
+
+/** The coupon checkbox's own scope choices — same source Coupons.tsx builds its own list from,
+ *  «كوبونات» itself excluded so a grant can never target the app that grants it. */
+const COUPON_SCOPE_OPTIONS = APP_ROWS
+  .filter((a) => a.key && a.key !== 'feature.coupons')
+  .map((a) => ({ value: a.key as string, label: a.name }));
 
 /**
  * One box, and the separator appears inside it.
@@ -87,6 +95,13 @@ export function Visit() {
   const outlet = useOutletContext<ShellContext | undefined>();
   const branchScopeId = outlet?.branch
     || (outlet?.branches?.length === 1 ? outlet.branches[0].id : '');
+  // SHOP-TO-SHOP COUPON — a checkbox this screen draws ONLY for a shop that (a) owns the app and
+  // (b) turned it on for this exact screen (Coupons.tsx's own switch). Two gates, both read from
+  // data the shell already fetched once (`outlet.owned`) or one lightweight call made ONLY when
+  // the first gate passes — never on the hot save path, never for the shop that does not have
+  // the app at all (the overwhelming majority, today).
+  const couponAppOwned = outlet ? owns(outlet.owned, 'feature.coupons') === true : false;
+  const couponGrantAction = outlet ? action(outlet.catalog, 'operations.grant_coupon') : undefined;
   const [services, setServices] = useState<CatalogueService[] | null>([]);
   const [packages, setPackages] = useState<CataloguePackage[]>([]);
   const [fields, setFields] = useState<VisitField[]>([]);
@@ -117,6 +132,20 @@ export function Visit() {
   const stuck = queued.filter((r) => r.stuck);
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
 
+  // THE COUPON SECTION'S OWN STATE — collapsed and untouched (`couponOn === false`) is the
+  // ordinary case for every shop that does not have the app at all, and costs nothing: no fetch,
+  // no render beyond a hidden checkbox. `couponScreenEnabled` starts `null` (unknown) so the
+  // checkbox stays hidden until the one preferences read below actually answers, rather than
+  // flashing on then off.
+  const [couponScreenEnabled, setCouponScreenEnabled] = useState<boolean | null>(null);
+  const [couponOn, setCouponOn] = useState(false);
+  const [couponPhone, setCouponPhone] = useState('');
+  const [couponPercent, setCouponPercent] = useState(10);
+  // '' means «الكل» — every app the beneficiary holds; anything else is ONE specific app key.
+  // A single choice, deliberately, not the full multi-select the standalone tab offers — three
+  // small fields is the whole budget this screen has for something that is not the visit itself.
+  const [couponScope, setCouponScope] = useState('');
+
   // THE SERVER SAID SO. Not a rule about trades written into this file — that would be our own data
   // living where our console cannot change it (spec 13.2).
   const has = (n: string) => fields.some((f) => f.name === n);
@@ -133,6 +162,21 @@ export function Visit() {
     // not be shown zeros because one read failed.
     earnSettings(session).then(setEarn).catch(() => setEarn(null));
   }, [session]);
+
+  // THE ONE COUPON-RELATED FETCH THIS SCREEN EVER MAKES, and only when the app is actually owned
+  // — every other shop pays nothing for this feature existing. Not gated on `couponGrantAction`
+  // too: the preference is what decides whether to draw the checkbox at all, and drawing it is
+  // what then makes `couponGrantAction`'s absence (a role with no grant capability at all, a
+  // narrower case than "has no app") hide it regardless — see the checkbox's own render guard.
+  useEffect(() => {
+    if (!outlet || !couponAppOwned) return;
+    const prefsAction = action(outlet.catalog, 'operations.coupon_preferences_get');
+    if (!prefsAction) { setCouponScreenEnabled(false); return; }
+    call<{ visit_grant_enabled: boolean }>(session, prefsAction)
+      .then((r) => setCouponScreenEnabled(r.visit_grant_enabled))
+      .catch(() => setCouponScreenEnabled(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, couponAppOwned]);
 
   // THE QUEUE DRAINS ON EVERY SIGNAL THE BROWSER GIVES US, not on a timer. `online` is the one
   // that matters in a workshop — the tablet knows it reconnected long before a poll would.
@@ -397,8 +441,20 @@ export function Visit() {
       // defect this whole path exists to close.
       operator_id: who?.id,
       operator_ticket: who?.ticket,
+      // EMPTY WHEN THE CHECKBOX WAS NEVER TICKED — the ordinary visit, unaffected. The outcome
+      // (granted, or the real reason it was not) is never awaited here; it lands in «كوبونات»'s
+      // own السجل once the queue actually sends this visit, same as everything else this screen
+      // fires and forgets.
+      coupon_phone: couponOn && couponPhone.trim() ? couponPhone.trim() : undefined,
+      coupon_percent: couponOn ? couponPercent : undefined,
+      coupon_general: couponOn ? couponScope === '' : undefined,
+      coupon_app_keys: couponOn && couponScope ? [couponScope] : undefined,
     }, session, applying ? subject || undefined : undefined);
     setApplying(false);
+    setCouponOn(false);
+    setCouponPhone('');
+    setCouponPercent(10);
+    setCouponScope('');
 
     // CLEARED ON THE QUEUE, NOT ON THE SERVER. The next customer is already waiting; a screen that
     // held still for a round trip would spend its five-second budget on a network the operator
@@ -411,7 +467,8 @@ export function Visit() {
     setMeter('');
     setNote(t('visit.saved'));
     window.setTimeout(() => setNote(null), 1500);
-  }, [applying, chosen, meter, name, phone, plate, selectedPackageId, session, showMeter, showPlate, subject]);
+  }, [applying, chosen, couponOn, couponPercent, couponPhone, couponScope, meter, name, phone,
+     plate, selectedPackageId, session, showMeter, showPlate, subject]);
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
@@ -998,6 +1055,44 @@ export function Visit() {
                   dir="ltr"
                   className="h-14 rounded-xl bg-surface-1 px-4 text-lg tabular-nums shadow-sm placeholder:text-text-secondary"
                 />
+              ) : null}
+
+              {/* SHOP-TO-SHOP COUPON — invisible unless the shop owns the app AND turned this
+                  screen's own switch on (Coupons.tsx). Same idiom as the reward-approval toggle
+                  above: a checkbox reveals a small block directly under it, never a dialog. */}
+              {couponAppOwned && couponScreenEnabled && couponGrantAction ? (
+                <div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={couponOn}
+                          onChange={(e) => setCouponOn(e.target.checked)} />
+                    {t('visit.coupon.checkboxLabel')}
+                  </label>
+                  {couponOn ? (
+                    <div className="mt-2 flex flex-wrap gap-2 rounded-xl bg-accent-soft p-3">
+                      <input
+                        value={couponPhone}
+                        onChange={(e) => setCouponPhone(e.target.value)}
+                        placeholder={t('visit.coupon.phonePlaceholder')}
+                        className="h-11 w-36 rounded-lg bg-surface-1 px-3 text-sm shadow-sm"
+                      />
+                      <input
+                        type="number" min={1} max={100} value={couponPercent}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isNaN(n)) setCouponPercent(Math.max(1, Math.min(100, n)));
+                        }}
+                        className="h-11 w-20 rounded-lg bg-surface-1 px-3 text-sm tabular-nums shadow-sm"
+                      />
+                      <select value={couponScope} onChange={(e) => setCouponScope(e.target.value)}
+                             className="h-11 rounded-lg bg-surface-1 px-2 text-sm shadow-sm">
+                        <option value="">{t('visit.coupon.scopeAll')}</option>
+                        {COUPON_SCOPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </div>
     </div>
