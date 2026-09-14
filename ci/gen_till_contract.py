@@ -96,6 +96,17 @@ WHY_BY_MODEL: dict[str, dict[str, str]] = {
                             "plate": "أو لوحته، إن كان التعريف عندكم باللوحة.",
                             "asset_id": "معرّف المركبة، لقطاع المركبات فقط — إن كان جدول "
                                         "التقييم مبنيًا على المركبة لا العميل."},
+    "TillCouponIn": {"phone": "رقم جوال المحل المستفيد (محل آخر مسجَّل عندنا، وليس عميلكم) — "
+                              "نفس الرقم الذي سجَّل به حسابه معنا.",
+                     "percent": "نسبة الخصم المطلوبة على اشتراك ذلك المحل عندنا. تُقصّ تلقائياً "
+                                "على سقف محلكم إن تجاوزته.",
+                     "general": "خصمٌ على كل تطبيقات المحل المستفيد المؤهَّلة دفعة واحدة، بدل "
+                                "تطبيقٍ واحد بعينه.",
+                     "app_keys": "مفاتيح التطبيقات المحدَّدة إن لم يكن `general`، مثل "
+                                 "`feature.bookings`.",
+                     "order_id": "رقم طلبكم أو فاتورتكم الخاصة — **إلزامي**. **الوحيدة التي تمنع "
+                                 "الازدواج هنا**: إعادة إرسال نفس الرقم تُرجِع نفس النتيجة "
+                                 "الأولى دون منح خصمٍ ثانٍ."},
 }
 
 # The English counterpart of WHY, above — same field, same reason, said once more for the
@@ -165,6 +176,19 @@ WHY_BY_MODEL_EN: dict[str, dict[str, str]] = {
                             "asset_id": "The vehicle id, vehicle-sector shops only — if the "
                                         "rating schedule is keyed by the vehicle, not the "
                                         "customer."},
+    "TillCouponIn": {"phone": "The BENEFICIARY shop's own registration phone number (another "
+                              "shop registered on Raje3 — never your own customer) — the same "
+                              "number that shop signed up with.",
+                     "percent": "The discount percent on that shop's OWN platform subscription "
+                                "with us. Silently clamped to your own shop's current cap if you "
+                                "send more.",
+                     "general": "Discount every eligible app the beneficiary shop holds at once, "
+                                "instead of naming one.",
+                     "app_keys": "Specific app keys to discount when `general` is false, e.g. "
+                                 "`feature.bookings`.",
+                     "order_id": "Your own order/invoice number — **required**. **The only thing "
+                                 "that prevents a duplicate grant**: resending the same value "
+                                 "returns the exact first result again, never a second discount."},
 }
 
 
@@ -435,6 +459,35 @@ def render() -> str:
     add("")
     add("```json")
     add('{"ok": true, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 10. منح كوبون بين المحلات — `POST /api/v1/till/coupons/grant`")
+    add("")
+    add("**لمتاجر ومواقع تبيع اشتراكاً بيننا وبين محلٍ آخر مسجَّل عندنا**: أرسلوا رقم طلبكم "
+        "ورقم جوال المحل المستفيد، ونحن نمنحه الخصم على اشتراكه عندنا مباشرة — **وليس على "
+        "فاتورة عميلكم أنتم**، فلا علاقة لهذا الباب بعملاء محلكم.")
+    add("")
+    add("| الحقل | النوع | إلزامي | لماذا |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillCouponIn", []):
+        add(_row("TillCouponIn", field, typ, req))
+    add("")
+    add("**ومكرّرةٌ بأمان**: إعادة إرسال نفس `order_id` تُرجِع نفس النتيجة الأولى دون منح "
+        "خصمٍ إضافي — إعادة محاولة بعد انقطاع الشبكة لا تكلّف المحل المستفيد شيئاً ثانياً.")
+    add("")
+    add("```json")
+    add('{"ok": true, "reason": "granted", "attempt": {"id": "ctatt_...", "outcome": "granted", ')
+    add('  "percent_requested": 15, "grant_ids": ["ctg_..."]}}')
+    add("```")
+    add("")
+    add("**ورفضٌ لأن هذا المحل لا يملك تطبيق الكوبونات أصلاً:**")
+    add("")
+    add("```json")
+    add('{"ok": false, "reason": "NOT_SUBSCRIBED", ')
+    add('  "message": "اشتراك هذا المحل لا يشمل تطبيق الكوبونات — أضفه من «الباقات» ليعمل هذا المسار."}')
     add("```")
     add("")
     add("---")
@@ -834,6 +887,38 @@ def render_en() -> str:
     add("")
     add("```json")
     add('{"ok": true, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 10. Grant a shop-to-shop coupon — `POST /api/v1/till/coupons/grant`")
+    add("")
+    add("**For stores and sites that broker a subscription between us and another shop already "
+        "registered on Raje3**: send your own order number and the beneficiary shop's phone "
+        "number, and we grant the discount straight onto THAT shop's own subscription with us — "
+        "**never against your own customer's invoice**; this endpoint has nothing to do with "
+        "your customers.")
+    add("")
+    add("| Field | Type | Required | Why |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillCouponIn", []):
+        add(_row_en("TillCouponIn", field, typ, req))
+    add("")
+    add("**Safe to retry**: resending the same `order_id` returns the exact same first result, "
+        "never a second discount — a retry after a dropped connection costs the beneficiary shop "
+        "nothing extra.")
+    add("")
+    add("```json")
+    add('{"ok": true, "reason": "granted", "attempt": {"id": "ctatt_...", "outcome": "granted", ')
+    add('  "percent_requested": 15, "grant_ids": ["ctg_..."]}}')
+    add("```")
+    add("")
+    add("**Refused because your own shop does not hold the coupons app:**")
+    add("")
+    add("```json")
+    add('{"ok": false, "reason": "NOT_SUBSCRIBED", ')
+    add('  "message": "اشتراك هذا المحل لا يشمل تطبيق الكوبونات — أضفه من «الباقات» ليعمل هذا المسار."}')
     add("```")
     add("")
     add("---")

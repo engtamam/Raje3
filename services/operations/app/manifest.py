@@ -392,6 +392,7 @@ def build_manifest(
             {"path": "/api/v1/till/bookings/{}/attend", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/rating-request", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/till/coupons/grant", "tier": "user", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

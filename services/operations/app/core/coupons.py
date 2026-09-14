@@ -206,6 +206,12 @@ class CouponAttempt:
     month_key: str
     per_app: dict[str, str] = field(default_factory=dict)
     grant_ids: list[str] = field(default_factory=list)
+    # "" FOR EVERY DOOR EXCEPT THE EXTERNAL ONE (till.py) — a human granting from the console has
+    # us for the retry problem (the row on screen either shows "granted" already or it does not);
+    # a real store/site integration has no such screen and WILL retry a timed-out call, so it
+    # supplies its own order number and `grant()` returns the FIRST attempt verbatim on a repeat
+    # rather than granting twice. Empty means "no dedup key, an ordinary console/visit grant".
+    order_id: str = ""
 
     def public(self) -> dict[str, Any]:
         return asdict(self)
@@ -320,6 +326,43 @@ class CouponService:
         row = await self._s.get(PHONE_INDEX, canonical_phone(phone, default_cc=self._cc))
         return str((row or {}).get("tenant") or "")
 
+    async def _attempt_for_order(self, granter_tenant: str, order_id: str) -> CouponAttempt | None:
+        """The stored attempt for a (granter, order) pair already seen, else `None`. `order_id` is
+        unique per granter, not globally — two different shops are free to use "1", "2", ... in
+        their own POS numbering without colliding."""
+        rows, _ = await self._s.find(
+            COUPON_ATTEMPTS,
+            {"tenant": PLATFORM, "granter_tenant": granter_tenant, "order_id": order_id},
+            limit=1)
+        if not rows:
+            return None
+        row = rows[0]
+        return CouponAttempt(**{k: v for k, v in row.items() if k != "tenant"})
+
+    async def granter_is_subscribed(self, tenant: str) -> bool | None:
+        """Does THIS tenant (the one about to grant) itself hold `feature.coupons` — asked by the
+        till door only. A human door's capability IS the entitlement check (same posture as every
+        other bundled app's console screen); a till's credential proves only `operations.record`,
+        held by every till regardless of which apps its shop bought, so granting through it needs
+        its own real check rather than inheriting the console's client-side gate.
+
+        THREE ANSWERS: `True`/`False` on a real read, `None` when billing could not be asked — the
+        same "a hiccup must not stop a shop's counter, but a plain no must" split `core/licence.py`
+        documents at length for `feature.api`; the caller here makes the identical call.
+
+        An empty `plan_id_for_key` is read as `False`, not `None` — the SAME ambiguity
+        `_target_apps` above already accepts for the beneficiary side (that call cannot tell "no
+        such plan" from "billing unreachable" either); not a new, weaker guarantee introduced here.
+        """
+        plan_id = await self._plans.plan_id_for_key(COUPONS_KEY)
+        if not plan_id:
+            return False
+        subs = await self._plans.subscriptions(tenant)
+        if subs is None:
+            return None
+        return any(str(s.get("plan") or "") == plan_id
+                  and str(s.get("status") or "") in ("active", "trialing") for s in subs)
+
     async def admin_tenant_by_phone(self, phone: str) -> str:
         """PLATFORM ADMIN ONLY — full disclosure of a tenant id, unlike `check()`/`grant()`'s own
         minimal-disclosure posture toward an ordinary granting shop. The caller here is our own
@@ -361,9 +404,20 @@ class CouponService:
     # ── the act itself ──────────────────────────────────────────────────────────────────────────
     async def grant(self, *, granter_tenant: str, granter_operator_id: str, phone: str,
                     percent: int, general: bool = False,
-                    app_keys: list[str] | None = None) -> CouponAttempt:
+                    app_keys: list[str] | None = None, order_id: str = "") -> CouponAttempt:
         """Every path ends in ONE `CouponAttempt` row, successful or not, with the real reason —
-        same discipline the owner asked for from the very first draft of this feature."""
+        same discipline the owner asked for from the very first draft of this feature.
+
+        `order_id` (till.py only): a repeat call with the SAME (granter_tenant, order_id) returns
+        the FIRST attempt untouched — no new billing call, no new row — rather than granting a
+        second time. Checked before any validation, so a retried invalid request also replays its
+        original refusal instead of possibly landing on a different answer (settings can change
+        between two calls a network retry is seconds apart)."""
+        if order_id:
+            existing = await self._attempt_for_order(granter_tenant, order_id)
+            if existing is not None:
+                return existing
+
         app_keys = list(app_keys or [])
         now = _now()
 
@@ -375,7 +429,7 @@ class CouponService:
                 beneficiary_phone_last4=phone[-4:] if len(phone) >= 4 else phone,
                 percent_requested=int(percent), scope=("all" if general else ",".join(app_keys)),
                 outcome=outcome, created=now, month_key=_month_key(now),
-                per_app=per_app or {}, grant_ids=grant_ids or [])
+                per_app=per_app or {}, grant_ids=grant_ids or [], order_id=order_id)
             await self._s.put(COUPON_ATTEMPTS, f"{PLATFORM}|{att.id}",
                               {"tenant": PLATFORM, **asdict(att)})
             return att

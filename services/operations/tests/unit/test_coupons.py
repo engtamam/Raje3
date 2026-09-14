@@ -462,3 +462,113 @@ def test_targeting_the_free_contacts_app_specifically_is_an_invalid_scope(svc):
     att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
                       app_keys=["feature.contacts"]))
     assert att.outcome == INVALID_SCOPE
+
+
+# ── order_id — the external door's own idempotency (till.py) ───────────────────────────────────
+def test_a_repeated_order_id_returns_the_first_attempt_verbatim_not_a_new_grant(svc):
+    """THE WHOLE SAFETY PROPERTY of the external door: a caller retrying a timed-out HTTP call
+    must never grant twice. Checked by identity of the returned attempt id AND by confirming
+    billing was asked to create a coupon exactly once."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+
+    first = run(s.grant(granter_tenant=A, granter_operator_id="till:dev1", phone=PHONE,
+                        percent=5, app_keys=["feature.bookings"], order_id="ord-1"))
+    assert first.outcome == GRANTED
+    assert len(plans.created) == 1, "billing must be asked to create the coupon exactly once"
+
+    second = run(s.grant(granter_tenant=A, granter_operator_id="till:dev1", phone=PHONE,
+                         percent=5, app_keys=["feature.bookings"], order_id="ord-1"))
+    assert second.id == first.id, "a retry must return the SAME attempt, not mint a new one"
+    assert second.grant_ids == first.grant_ids
+    assert len(plans.created) == 1, "the retry must not call billing a second time"
+
+
+def test_a_retried_order_id_replays_even_a_refusal_verbatim(svc):
+    """The dedup check runs BEFORE any validation — a retried invalid request must reproduce the
+    exact original refusal, not possibly land on a different answer (e.g. settings changed
+    between the two calls, seconds apart, the way a network retry actually happens)."""
+    s, _store, _plans = svc
+    first = run(s.grant(granter_tenant=A, granter_operator_id="till:dev1", phone=PHONE,
+                        percent=0, order_id="ord-2"))
+    assert first.outcome == INVALID_PERCENT
+
+    second = run(s.grant(granter_tenant=A, granter_operator_id="till:dev1", phone=PHONE,
+                         percent=50, order_id="ord-2"))
+    assert second.id == first.id
+    assert second.outcome == INVALID_PERCENT, (
+        "the replay must ignore the new percent entirely and reproduce the first answer")
+
+
+def test_the_same_order_id_from_two_different_granters_never_collides(svc):
+    """`order_id` is unique PER GRANTER, not globally — two unrelated shops numbering their own
+    orders "1", "2", ... must not have one shop's retry return another shop's attempt."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+    other_granter = "tnt_gamma"
+
+    mine = run(s.grant(granter_tenant=A, granter_operator_id="till:dev1", phone=PHONE,
+                       percent=5, app_keys=["feature.bookings"], order_id="same-number"))
+    theirs = run(s.grant(granter_tenant=other_granter, granter_operator_id="till:dev2",
+                         phone=PHONE, percent=7, app_keys=["feature.bookings"],
+                         order_id="same-number"))
+    assert mine.id != theirs.id
+    assert mine.granter_tenant == A and theirs.granter_tenant == other_granter
+
+
+def test_an_ordinary_grant_with_no_order_id_is_never_deduplicated(svc):
+    """The console/visit doors never send `order_id` — two real, separate grants for the same
+    phone in the same month must both go through untouched (this is exactly what
+    `check()`'s own `already_granted_this_month` flag exists to warn a human about, not something
+    `grant()` itself should silently collapse)."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_1")
+
+    first = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                        app_keys=["feature.bookings"]))
+    second = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                         app_keys=["feature.bookings"]))
+    assert first.id != second.id
+
+
+# ── granter_is_subscribed — the till door's own entitlement check ──────────────────────────────
+def test_granter_is_subscribed_is_true_when_the_plan_is_held_active(svc):
+    s, _store, plans = svc
+    plans.plan_for_key[COUPONS_KEY] = "plan_coupons"
+    plans.subs[A] = [{"id": "sub_c", "plan": "plan_coupons", "status": "active"}]
+    assert run(s.granter_is_subscribed(A)) is True
+
+
+def test_granter_is_subscribed_is_true_on_a_trial(svc):
+    s, _store, plans = svc
+    plans.plan_for_key[COUPONS_KEY] = "plan_coupons"
+    plans.subs[A] = [{"id": "sub_c", "plan": "plan_coupons", "status": "trialing"}]
+    assert run(s.granter_is_subscribed(A)) is True
+
+
+def test_granter_is_subscribed_is_false_holding_a_different_app(svc):
+    s, _store, plans = svc
+    plans.plan_for_key[COUPONS_KEY] = "plan_coupons"
+    plans.subs[A] = [{"id": "sub_b", "plan": "plan_bookings", "status": "active"}]
+    assert run(s.granter_is_subscribed(A)) is False
+
+
+def test_granter_is_subscribed_is_false_on_a_cancelled_subscription(svc):
+    s, _store, plans = svc
+    plans.plan_for_key[COUPONS_KEY] = "plan_coupons"
+    plans.subs[A] = [{"id": "sub_c", "plan": "plan_coupons", "status": "cancelled"}]
+    assert run(s.granter_is_subscribed(A)) is False
+
+
+def test_granter_is_subscribed_is_none_when_billing_cannot_be_asked(svc):
+    """`None` on a genuinely unreachable billing — the till door's own caller must fail OPEN
+    on this specific answer and closed only on a definite `False`, same split
+    `core/licence.py` documents for `feature.api`."""
+    s, _store, plans = svc
+    plans.plan_for_key[COUPONS_KEY] = "plan_coupons"
+    # `subs` has no entry for A at all -> FakePlans.subscriptions returns None (see its own
+    # docstring: `.get(tenant)` with no default on a dict miss).
+    assert run(s.granter_is_subscribed(A)) is None

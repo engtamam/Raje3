@@ -690,4 +690,8 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/till/rating-request",
      "why": "the till expediting a rating request at the counter, same machine credential as "
             "every other till.py route"},
+    {"method": "POST", "path": "/api/v1/till/coupons/grant",
+     "why": "an external store/site granting a shop-to-shop coupon from a real order, same "
+            "service-account door as every other till.py route — the console reaches the same "
+            "engine through /staff/coupons/grant instead"},
 ]

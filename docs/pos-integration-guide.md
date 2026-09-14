@@ -326,6 +326,33 @@ Builds no new send path — pulls an already-scheduled rating request for this c
 
 ---
 
+## 10. Grant a shop-to-shop coupon — `POST /api/v1/till/coupons/grant`
+
+**For stores and sites that broker a subscription between us and another shop already registered on Raje3**: send your own order number and the beneficiary shop's phone number, and we grant the discount straight onto THAT shop's own subscription with us — **never against your own customer's invoice**; this endpoint has nothing to do with your customers.
+
+| Field | Type | Required | Why |
+|---|---|---|---|
+| `phone` | str | yes | The BENEFICIARY shop's own registration phone number (another shop registered on Raje3 — never your own customer) — the same number that shop signed up with. |
+| `percent` | int | yes | The discount percent on that shop's OWN platform subscription with us. Silently clamped to your own shop's current cap if you send more. |
+| `app_keys` | list[str] | no | Specific app keys to discount when `general` is false, e.g. `feature.bookings`. |
+| `order_id` | str | yes | Your own order/invoice number — **required**. **The only thing that prevents a duplicate grant**: resending the same value returns the exact first result again, never a second discount. |
+
+**Safe to retry**: resending the same `order_id` returns the exact same first result, never a second discount — a retry after a dropped connection costs the beneficiary shop nothing extra.
+
+```json
+{"ok": true, "reason": "granted", "attempt": {"id": "ctatt_...", "outcome": "granted", 
+  "percent_requested": 15, "grant_ids": ["ctg_..."]}}
+```
+
+**Refused because your own shop does not hold the coupons app:**
+
+```json
+{"ok": false, "reason": "NOT_SUBSCRIBED", 
+  "message": "اشتراك هذا المحل لا يشمل تطبيق الكوبونات — أضفه من «الباقات» ليعمل هذا المسار."}
+```
+
+---
+
 ## What we never send you
 
 **The customer's pseudonym** (`subject_ref`): our own cross-service join key, which you have no use for — you identify your customer by the phone number you already hold. A durable cross-service identifier sitting in a third party's database with no purpose it serves is a risk with no matching benefit.

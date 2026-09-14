@@ -937,3 +937,81 @@ async def rating_request_at_the_counter(request: Request, body: TillRatingReques
     if not out.get("ok"):
         return {"ok": False, "message": out.get("reason") or "لا يوجد طلب تقييم بانتظار الإرسال."}
     return {"ok": True, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  SHOP-TO-SHOP COUPONS, FROM A REAL EXTERNAL ORDER (2026-09-14).
+#
+#  The console's own «كوبونات» tab lets a human grant a discount on another shop's platform
+#  subscription. A store or a booking SITE has the same need but no console to click in — it knows
+#  a sale really happened because it is the one that took it, and this is the door that lets it say
+#  so: "this order is real, give the referred shop its discount."
+#
+#  `order_id` IS THE WHOLE SAFETY PROPERTY. A human retries by looking at a screen that already
+#  says "granted"; an external caller retries a timed-out HTTP call by definition, and a coupon
+#  granted twice is real money spent twice. `grant()`'s own order_id parameter returns the FIRST
+#  attempt verbatim on a repeat, so retrying is always safe — required here, never optional.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+class TillCouponIn(BaseModel):
+    """A coupon granted from a real external order. See `core/coupons.py`'s own module docstring
+    for the full model — the "customer" here is a registered establishment, never an end consumer;
+    this door does not change that, it only adds a new way to arrive at the same `grant()`."""
+
+    phone: str = Field(min_length=3, max_length=32)
+    percent: int = Field(gt=0, le=100)
+    general: bool = False
+    app_keys: list[str] = Field(default_factory=list, max_length=16)
+    # THEIR order/invoice number — the site or store's own, REQUIRED (unlike the optional
+    # `idempotency_key` on `/visits`): a coupon has real monetary value, and a caller retrying a
+    # timed-out request is the ordinary case an integration must survive without granting twice.
+    order_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/coupons/grant", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def grant_coupon_at_the_counter(request: Request, body: TillCouponIn,
+                                      principal: Principal = Depends(_TILL)) -> Any:
+    """Grant a shop-to-shop coupon from a real external order.
+
+    STILL `operations.record` — exactly the posture `/redeem` and `/offer/apply` already document:
+    the till does not gain a capability over the coupon ledger, it asks us, and we ask the coupons
+    engine with our own credential.
+
+    GATED ON `feature.coupons` ITSELF, DELIBERATELY UNLIKE `/redeem` AND `/offer/apply`. Those two
+    are ungated because they never confiscate something a customer was already promised (§9.9); a
+    coupon grant is the opposite shape — it SPENDS the platform's own money on a third tenant's
+    subscription, which is the product being sold, the same reasoning `/visits` already applies to
+    `feature.api`. `operations.record` alone proves nothing about which apps this shop bought — any
+    till can hold it — so this is the one route in the file that asks billing a second, specific
+    question before doing anything.
+    """
+    if not principal.tenant:
+        return {"ok": False, "reason": "REFUSED", "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    coupons = request.app.state.container.coupons
+
+    subscribed = await coupons.granter_is_subscribed(tenant)
+    if subscribed is False:
+        # A DEFINITE NO REFUSES — see `granter_is_subscribed`'s own docstring for why this, unlike
+        # every other check in this file, does NOT let an unreachable billing through: granting
+        # spends real money, and "we could not tell" must not read as "go ahead".
+        return {"ok": False, "reason": "NOT_SUBSCRIBED",
+               "message": "اشتراك هذا المحل لا يشمل تطبيق الكوبونات — أضفه من «الباقات» ليعمل "
+                          "هذا المسار."}
+    # `subscribed is None` (billing unreachable) falls through on purpose — `grant()`'s own
+    # `BILLING_UNAVAILABLE` outcome is still there to catch a genuinely down billing-service further
+    # in, and refusing every till in the country because one health check timed out is exactly the
+    # outage `core/licence.py` was written to prevent for `/visits`.
+
+    await request.app.state.auditor.record(
+        "coupon.grant_attempt", actor=f"till:{principal.subject}", tenant=tenant,
+        resource=f"till_order:{body.order_id[:64]}",
+        ip=request.client.host if request.client else "")
+
+    att = await coupons.grant(
+        granter_tenant=tenant, granter_operator_id=f"till:{principal.subject}",
+        phone=body.phone, percent=body.percent, general=body.general,
+        app_keys=body.app_keys, order_id=body.order_id)
+
+    from app.core.coupons import GRANTED
+    return {"ok": att.outcome == GRANTED, "reason": att.outcome, "attempt": att.public()}
