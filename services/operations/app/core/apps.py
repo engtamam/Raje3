@@ -189,6 +189,31 @@ RATING_FEATURES: tuple[dict[str, Any], ...] = (
      },
 )
 
+COUPONS_FEATURES: tuple[dict[str, Any], ...] = (
+    # THREE, DELIBERATELY NOT MORE — an earlier pass here listed the automatic-redemption
+    # mechanism, the privacy design, and the per-attempt audit trail as "features". Cut (owner's
+    # own correction, 2026-09-14): those are internal guarantees the engine keeps regardless, not
+    # something a shop chooses this app FOR. A feature answers "what does this get me", stated as
+    # a business result — the same bar RATING_FEATURES/VISIT_FEATURES/CONTACTS_FEATURES already
+    # hold above, now also enforced by `ci/check_every_app_has_features.py` (existence only, never
+    # wording — that judgment stays a human's at review time).
+    {"id": "coupons.grows_your_customer_base", "title": "يوسّع قاعدة عملائك من محلات تثق بها",
+     "detail": "محل يشتري منك يصير عميلك أيضاً بمنصتنا — علاقة تجارية جديدة بلا أي تكلفة إعلان",
+     "icon": "user-plus", "tone": "violet", "shared_with": [], "owned_by": "",
+     # `CouponService.grant` (core/coupons.py) — الخصم فعلياً على اشتراك المحل الثاني معنا.
+     },
+    {"id": "coupons.keeps_your_discount_worth_something", "title": "يحافظ على قيمة خصمك دائماً",
+     "detail": "خصم غير متراكم، بمدة محددة — يبقى ذا قيمة حقيقية للمحل الذي منحته إياه",
+     "icon": "check-circle", "tone": "success", "shared_with": [], "owned_by": "",
+     # `Coupon.max_redemptions=1` + `_GRANT_WINDOW_SECONDS` (core/coupons.py) — مرة وحدة، شهر واحد.
+     },
+    {"id": "coupons.measures_the_partnership", "title": "يعطيك سجلاً كاملاً لكل محل منحته",
+     "detail": "تعرف بالضبط كم خصم منحت، ولمين، ومتى — تقيس أثر تعاونك بأرقام حقيقية",
+     "icon": "clock", "tone": "amber", "shared_with": [], "owned_by": "",
+     # `CouponService.history`/`stats` — شاشة «كوبونات» الخاصة بالتطبيق.
+     },
+)
+
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
 #
 # THE KEY IS THE AUTHORITY, NOT THE PLAN NAME (§16.4.1). «الذكية» is a commercial word marketing
@@ -234,6 +259,15 @@ APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.contacts", "name": "جهات الاتصال", "screen": "field",
      "what": "يبني لك قاعدة عملاء حقيقية من أول يوم لافتتاح محلك، تصبح أصلاً تسوّق عليه متى شئت.",
      "features": list(CONTACTS_FEATURES)},
+    # SHOP-TO-SHOP COUPONS — see deploy/seed/plans.json's own note beside «كوبونات», and
+    # docs/خطة-كوبونات-محل-لمحل.md for the full design. `screen: "coupons"` names the console
+    # section a LATER pass builds (nav.ts tab + visit-screen checkbox) — declared here now, backend
+    # first, so `ci/check_listed_apps_are_wired.py` never sees this row missing once the plan is
+    # listed.
+    {"key": "feature.coupons", "name": "كوبونات", "screen": "coupons",
+     "what": "امنح محلاً آخر مسجّلاً عندنا خصماً حقيقياً على اشتراكه معنا — يُطبَّق تلقائياً عند "
+             "تجديده القادم، ويقوّي علاقتك التجارية مع من تتعامل معهم.",
+     "features": list(COUPONS_FEATURES)},
 )
 
 # BOTH ROWS ABOVE WERE MISSING FOR THE SAME REASON, FOUND THE SAME DAY: a plan's

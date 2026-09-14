@@ -309,6 +309,13 @@ def build_container(settings: Settings) -> Container:
 
     container.connections = build_connections(settings)
     container.billing_plans = build_plans(settings)
+    # Shop-to-shop coupons (base-services v0.23.0) — needs `billing_plans` above, so it is built
+    # right after it. See core/coupons.py's own module docstring for the full design.
+    from app.core.coupons import CouponService
+
+    container.coupons = CouponService(
+        store=container.datastore, plans=container.billing_plans,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     # What the shop bought, for every lock the console draws. One read, five keys, no enforcement:
     # the gates are in the services that own the acts.
     from app.core.apps import build_apps

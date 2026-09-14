@@ -1131,6 +1131,12 @@ jobs:
       - name: every listed, sellable app has a display row
         run: python3 ci/check_listed_apps_are_wired.py
 
+      # A display row is not enough on its own — «كوبونات» once shipped one whose "features" were
+      # internal mechanism and security guarantees, not a business result a shop buys it for. This
+      # refuses the shape that regresses silently: no features at all, inline or remote.
+      - name: every displayed app carries real features
+        run: python3 ci/check_every_app_has_features.py
+
       # A comment explains WHY, never WHO asked or WHEN — the reasoning stays true after the
       # person leaves or the date passes; a byline does not. See the gate's own docstring.
       - name: no comment names the owner or carries an authorship-timestamp-shaped date

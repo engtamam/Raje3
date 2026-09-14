@@ -90,6 +90,16 @@ _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "boo
 # branch list used to fail for. `list_operators` already narrows by `branch_scope`/`SCOPE.visible`
 # on its own — the gate was the only thing standing between a field operator and his own team.
 _READ_OPERATORS_FOR_BOOKINGS = require_any_capability("operations.read", "bookings.read", "bookings.write")
+# SHOP-TO-SHOP COUPONS — two doors, deliberately different widths (owner's own requirement):
+# `_GRANT_COUPON` is what the visit-recording flow itself checks (field.py), open to any role
+# that may record a visit — a grant riding on a real, logged act. `_GRANT_COUPON_DIRECT` gates
+# THIS file's own standalone `/coupons/grant` — a grant with no visit behind it at all, so it
+# stays owner/manager/supervisor only (roles.json). `_GRANT_COUPON_ANY` is only for the shared
+# read screens (history/stats) below, where either door's holder may see what was granted.
+_GRANT_COUPON = require_capability("operations.grant_coupon")
+_GRANT_COUPON_DIRECT = require_capability("operations.grant_coupon_direct")
+_GRANT_COUPON_ANY = require_any_capability(
+    "operations.grant_coupon", "operations.grant_coupon_direct")
 # STALE AS OF THE SAME DAY, same conversation, later: the seeded "operator"
 # role above no longer HOLDS `bookings.read`/`bookings.write` at all — two operators sharing one
 # schedule could edit or cancel each other's booking, and the fix was to take booking away from
@@ -1865,3 +1875,38 @@ async def get_package_image(request: Request, package_id: str,
     except NotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     return Response(content=data, media_type=ctype)
+
+
+# ── shop-to-shop coupons — the standalone tab's own grant, no visit involved ────────────────────
+class GrantCouponIn(BaseModel):
+    phone: str = Field(min_length=3, max_length=32)
+    percent: int = Field(gt=0, le=100)
+    general: bool = False
+    app_keys: list[str] = Field(default_factory=list, max_length=16)
+
+
+@router.post("/coupons/grant", dependencies=[Depends(rate_limit)])
+async def grant_coupon(request: Request, body: GrantCouponIn,
+                       principal: Principal = Depends(_GRANT_COUPON_DIRECT)):
+    tenant = _tenant(principal)
+    att = await request.app.state.container.coupons.grant(
+        granter_tenant=tenant, granter_operator_id=principal.subject, phone=body.phone,
+        percent=body.percent, general=body.general, app_keys=body.app_keys)
+    await request.app.state.auditor.record(
+        "coupon.grant_attempt", actor=principal.subject, tenant=tenant,
+        resource=f"coupon_attempt:{att.id}", ip=request.client.host if request.client else "")
+    return att.public()
+
+
+@router.get("/coupons/history", dependencies=[Depends(rate_limit)])
+async def coupon_history(request: Request, limit: int = 100,
+                         principal: Principal = Depends(_GRANT_COUPON_ANY)):
+    tenant = _tenant(principal)
+    rows = await request.app.state.container.coupons.history(tenant, limit=min(limit, 200))
+    return {"attempts": [r.public() for r in rows]}
+
+
+@router.get("/coupons/stats", dependencies=[Depends(rate_limit)])
+async def coupon_stats(request: Request, principal: Principal = Depends(_GRANT_COUPON_ANY)):
+    tenant = _tenant(principal)
+    return await request.app.state.container.coupons.stats(tenant)

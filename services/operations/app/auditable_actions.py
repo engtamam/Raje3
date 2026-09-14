@@ -802,4 +802,30 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "record — the number reconciled and failed is what an owner asking «where's my "
                "top-up?» is actually answered from",
     },
+    {
+        "action": "coupon.grant_attempt",
+        "source": "internal",
+        "critical": False,
+        "resource": "coupon_attempt",
+        "why": "a shop tried to grant another shop a discount on its own subscription — every "
+               "attempt, successful or refused, is money (or a refused act) an owner needs "
+               "explained later",
+    },
+    {
+        "action": "coupon.settings_updated",
+        "source": "internal",
+        "critical": True,
+        "resource": "coupon_settings",
+        "why": "the global ceiling and automatic tiers bound every shop's own grant cap at once — "
+               "a wrong edit here silently raises what every granting shop on the platform may "
+               "give away",
+    },
+    {
+        "action": "coupon.tenant_override_set",
+        "source": "internal",
+        "critical": False,
+        "resource": "coupon_override",
+        "why": "one shop's own cap was raised or cleared by hand — a competitive/reward lever an "
+               "owner reviewing that shop's account needs to see was pulled",
+    },
 ]

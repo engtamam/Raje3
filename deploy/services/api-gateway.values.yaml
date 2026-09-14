@@ -272,6 +272,7 @@ env:
       {"prefix":"/api/v1/platform/sandbox","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/statements","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/wallet-topups","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/platform/coupons","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/template-help","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/silent","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/platform/limits","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},

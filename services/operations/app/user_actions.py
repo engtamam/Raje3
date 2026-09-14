@@ -591,6 +591,22 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "الإغلاق بـ active=false لا بالحذف — الحذف يترك زيارات السنة الماضية بلا اسم فرع.",
     },
+    {
+        "id": "operations.grant_coupon", "label": "امنح كوبون خصم لمحل", "method": "POST",
+        "path": "/api/v1/staff/coupons/grant", "capability": "operations.grant_coupon_direct",
+        "group": "كوبونات",
+        "help": "خصم على اشتراك محل آخر مسجّل عندنا، يُطبَّق تلقائياً عند أول تجديد قادم.",
+    },
+    {
+        "id": "operations.coupon_history", "label": "سجل منح الكوبونات", "method": "GET",
+        "path": "/api/v1/staff/coupons/history", "capability": "operations.grant_coupon",
+        "group": "كوبونات", "help": "كل محاولة منح، ناجحة أو فاشلة، وسببها الحقيقي.",
+    },
+    {
+        "id": "operations.coupon_stats", "label": "إحصائيات الكوبونات", "method": "GET",
+        "path": "/api/v1/staff/coupons/stats", "capability": "operations.grant_coupon",
+        "group": "كوبونات", "help": "عدد الخصومات هذا الشهر، وسقفك الحالي.",
+    },
 ]
 
 
@@ -637,4 +653,22 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/signup/verify",
      "why": "it spends that code; same reason, and the refusal it gives is identical for an unknown "
             "number and a wrong code"},
+    {"method": "GET", "path": "/api/v1/till/status",
+     "why": "the till's own connectivity/heartbeat read, on a service account credential — no "
+            "person presses it, and our own screens have nothing that needs it"},
+    {"method": "GET", "path": "/api/v1/till/branches",
+     "why": "the till's own list of this shop's branches, same service-account door as "
+            "/till/customer above — an owner picks a branch from /staff/branches instead"},
+    {"method": "GET", "path": "/api/v1/till/bookings",
+     "why": "a till reading today's bookings at the counter, same machine credential as every "
+            "other till.py route; the console reads bookings through bookings-service directly"},
+    {"method": "POST", "path": "/api/v1/till/bookings/{}/attend",
+     "why": "the till marking a booking attended at the counter — same service-account door as "
+            "the rest of this file"},
+    {"method": "POST", "path": "/api/v1/till/operators/verify-pin",
+     "why": "the till confirming an operator's PIN at the counter, on a service account "
+            "credential — see staff.py's own module docstring on what a PIN is for"},
+    {"method": "POST", "path": "/api/v1/till/rating-request",
+     "why": "the till expediting a rating request at the counter, same machine credential as "
+            "every other till.py route"},
 ]

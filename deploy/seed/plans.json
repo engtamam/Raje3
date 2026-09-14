@@ -362,6 +362,36 @@
     },
     {
       "_": [
+        "SHOP-TO-SHOP COUPONS — not an end-customer discount (this product has no customer",
+        "invoices at all). A shop grants ANOTHER registered shop a discount on that shop's OWN",
+        "subscription to us, applied automatically at its next renewal. See",
+        "docs/خطة-كوبونات-محل-لمحل.md for the full design and base-services v0.23.0/v0.23.1 for",
+        "the two narrow billing-service primitives this leans on.",
+        "",
+        "`plan.standalone` — same as «تسجيل زيارة»/«جهات الاتصال» above, needs no other app first.",
+        "",
+        "BACKEND ONLY AS OF THIS ROW — the three console surfaces (a rail tab, a checkbox inside",
+        "تسجيل زيارة, and the platform admin's settings/tiers panel) are a later, separate pass;",
+        "`screen: 'coupons'` in core/apps.py is declared now so `ci/check_listed_apps_are_wired.py`",
+        "never sees this row unwired once it ships."
+      ],
+      "name": "كوبونات",
+      "amount": 9900,
+      "trial_days": 30,
+      "listed": true,
+      "limits": {
+        "feature.coupons": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "plan.standalone": {
+          "kind": "boolean",
+          "limit": 1
+        }
+      }
+    },
+    {
+      "_": [
         "CAPACITY, NOT AN APP — and the two rows the ladder used to hide. Seats and branches came",
         "bundled with a tier, so a two-branch shop that wanted nothing else had to buy الذكية to",
         "get a second branch.",

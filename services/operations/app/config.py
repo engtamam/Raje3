@@ -232,6 +232,11 @@ class Settings(BaseSettings):
     # same billable set the entitlement resolver computes over, so the purchase rules and the
     # gates in every service can never disagree about what was bought.
     BILLING_SUBSCRIPTIONS_PATH: str = "/internal/billing/subscriptions"
+    # SHOP-TO-SHOP COUPONS (base-services v0.23.0) — a narrow internal-tier pair, neither of
+    # which touches `platform.billing`: create ONE coupon row (base URL below the "subscriptions"
+    # one, same rstrip pattern as everywhere else) and attach a coupon code to an EXISTING
+    # subscription. See `core/coupons.py`'s own module docstring for the full design.
+    BILLING_COUPON_CREATE_PATH: str = "/internal/billing/coupons"
 
     # ── the payment gateway, as the SCREEN needs to know it ───────────────────────────────────
     #

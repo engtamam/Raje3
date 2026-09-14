@@ -348,6 +348,17 @@ class NullPlans:
     async def contacts_plan_id(self) -> str:
         return ""
 
+    async def plan_id_for_key(self, key: str) -> str:
+        return ""
+
+    async def create_coupon(self, *, code: str, plan_id: str, percent: int,
+                            expires_at: float, note: str = "") -> tuple[int, dict]:
+        return 503, {"error": "BILLING_NOT_CONFIGURED"}
+
+    async def attach_coupon(self, *, tenant: str, sub_id: str,
+                            coupon_code: str) -> tuple[int, dict]:
+        return 503, {"error": "BILLING_NOT_CONFIGURED"}
+
     async def cancel(self, *, tenant: str, sub_id: str, at_period_end: bool = True) -> bool:
         return False
 
@@ -532,6 +543,41 @@ class HttpPlans:
         rows = [p for p in (out.get("plans") or [])
                if "feature.contacts" in granted_keys(p.get("limits")) and _free(p)]
         return str(rows[0].get("id") or "") if len(rows) == 1 else ""
+
+    async def plan_id_for_key(self, key: str) -> str:
+        """The id of the one LISTED, STANDALONE plan that sells `key` — same selection rule as
+        `ci/check_listed_apps_are_wired.py` (exactly one `feature.*` key). Empty on anything but a
+        clean, single answer, same posture as `contacts_plan_id` above."""
+        status, out = self._request(f"{self._plans}?include_hidden=true")
+        if status >= 400:
+            return ""
+        rows = []
+        for plan in (out.get("plans") or []):
+            fkeys = [k for k in (plan.get("limits") or {}) if k.startswith("feature.")]
+            if fkeys == [key]:
+                rows.append(plan)
+        return str(rows[0].get("id") or "") if len(rows) == 1 else ""
+
+    async def create_coupon(self, *, code: str, plan_id: str, percent: int,
+                            expires_at: float, note: str = "") -> tuple[int, dict]:
+        """ONE coupon row, via billing-service's narrow internal-only creator (base-services
+        v0.23.0) — never `platform.billing`'s full admin CRUD. `max_redemptions=1`: this coupon is
+        for exactly one grant, never a reusable code."""
+        base = self._plans.rsplit("/plans", 1)[0]
+        body = {"code": code, "type": "percent", "value": int(percent), "plan_id": plan_id,
+                "expires_at": float(expires_at), "max_redemptions": 1, "note": note[:512]}
+        status, out = self._request(f"{base}/coupons", body)
+        return status, out if isinstance(out, dict) else {"detail": out}
+
+    async def attach_coupon(self, *, tenant: str, sub_id: str,
+                            coupon_code: str) -> tuple[int, dict]:
+        """Attach a coupon code to an EXISTING subscription (base-services v0.23.0) — the one gap
+        `subscribe()` above cannot cover, since a subscription's coupon is otherwise stamped once,
+        at signup only. `tenant` is billing's own IDOR guard, same posture as `cancel()` below: a
+        subscription belonging to a different tenant is reported not found, never touched."""
+        status, out = self._request(f"{self._subscriptions}/{sub_id}/coupon",
+                                    {"tenant": tenant, "coupon_code": coupon_code})
+        return status, out if isinstance(out, dict) else {"detail": out}
 
     async def cancel(self, *, tenant: str, sub_id: str, at_period_end: bool = True) -> bool:
         """Cancel a subscription SERVICE-TO-SERVICE — billing-service's own internal cancel route

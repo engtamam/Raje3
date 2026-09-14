@@ -87,7 +87,11 @@ def build_manifest(
                          # here too until the credential-management routes it gated were removed
                          # (dead SecretStore — see git history: nothing in this service ever
                          # consumed a value written through it).
-                         "platform.config"],
+                         "platform.config",
+                         # SHOP-TO-SHOP COUPONS — the visit-linked door and the standalone-tab
+                         # door, deliberately two capabilities (see staff.py's own comment on
+                         # `_GRANT_COUPON`/`_GRANT_COUPON_DIRECT`).
+                         "operations.grant_coupon", "operations.grant_coupon_direct"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches
@@ -277,6 +281,13 @@ def build_manifest(
             {"path": "/api/v1/staff/packages/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/packages/{}/image", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/packages/{}/image", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/coupons/grant", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/coupons/history", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/coupons/stats", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/coupons/settings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/coupons/settings", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "PATCH"},
             # ── the platform console: OURS, not an establishment's ────────────────────────
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.
@@ -368,6 +379,15 @@ def build_manifest(
             {"path": "/api/v1/till/customer", "tier": "user", "method": "GET"},
             {"path": "/api/v1/till/redeem", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/offer/apply", "tier": "user", "method": "POST"},
+            # FOUND UNDECLARED BY test_manifest_covers_routes.py — six real, served till.py routes
+            # with no manifest row at all, so no gate that reads this list (capability review,
+            # action coverage, the route table) ever looked at them.
+            {"path": "/api/v1/till/status", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/till/branches", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/till/bookings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/till/bookings/{}/attend", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/till/operators/verify-pin", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/till/rating-request", "tier": "user", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

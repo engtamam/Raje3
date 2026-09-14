@@ -150,6 +150,10 @@ export const LIMIT_KEYS: Record<string, { label: string; unit?: string }> = {
   // until that flips, since `Plans.tsx` never offers an unlisted plan for purchase.
   'feature.rating': { label: 'plans.limit.rating.label' },
   'feature.whatsapp': { label: 'plans.limit.whatsapp.label' },
+  // SHOP-TO-SHOP DISCOUNT ON A SUBSCRIPTION — see plans.json's own note on this row and
+  // docs/خطة-كوبونات-محل-لمحل.md. Backend-only as of this row; the console surfaces are a later,
+  // separate pass, same posture as «التقييم» once was.
+  'feature.coupons': { label: 'plans.limit.coupons.label' },
   // THE ONE APP SOLD WITHOUT الأساس UNDERNEATH IT (see plans.json's own note on this plan row) —
   // a real, customer-meaningful fact worth a line on the card, not an internal implementation
   // detail: a shop with no other subscription reads this and knows it can buy this one alone.

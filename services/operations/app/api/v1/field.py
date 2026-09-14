@@ -105,6 +105,14 @@ class VisitIn(BaseModel):
     # The till door has accepted this since it existed; only the field door was missing it, and
     # only the field door has a queue. `_sane_occurred_at` bounds what a device clock may claim.
     occurred_at: int = Field(default=0, ge=0)
+    # SHOP-TO-SHOP COUPONS, RIDING ON A REAL VISIT — the "checkbox during visit recording" surface
+    # (owner's own requirement). Empty `coupon_phone` means «no grant attempted», the ordinary
+    # case; when set, a grant is attempted ONLY after the visit itself is safely recorded, and
+    # never blocks or fails the visit — see the grant attempt below.
+    coupon_phone: str = Field(default="", max_length=32)
+    coupon_percent: int = Field(default=0, ge=0, le=100)
+    coupon_general: bool = False
+    coupon_app_keys: list[str] = Field(default_factory=list, max_length=16)
 
 
 @router.post("/visits", status_code=status.HTTP_201_CREATED, dependencies=[Depends(subscribed_write_or_visit), Depends(rate_limit)])
@@ -231,8 +239,27 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
         seams = request.app.state.container.seams
         background.add_task(seams.after_visit, result)
 
-    return {"visit": result.visit.public(), "customer": result.customer.public(),
-            "created_customer": result.created_customer, "duplicate": result.duplicate}
+    # ── SHOP-TO-SHOP COUPON, ONLY AFTER THE VISIT ITSELF IS SAFELY RECORDED ────────────────────
+    # `operations.grant_coupon` is checked HERE, not as a route-wide dependency — the visit must
+    # never be refused because the operator also ticked a box he does not hold the capability
+    # for; the visit still saves, and the grant attempt is simply logged as refused. Capability
+    # membership matches every other custom check in this file's own style.
+    coupon_result = None
+    if body.coupon_phone and "operations.grant_coupon" in principal.caps:
+        coupon_result = await request.app.state.container.coupons.grant(
+            granter_tenant=tenant, granter_operator_id=principal.subject,
+            phone=body.coupon_phone, percent=body.coupon_percent,
+            general=body.coupon_general, app_keys=body.coupon_app_keys)
+        await request.app.state.auditor.record(
+            "coupon.grant_attempt", actor=principal.subject, tenant=tenant,
+            resource=f"coupon_attempt:{coupon_result.id}",
+            ip=request.client.host if request.client else "")
+
+    out = {"visit": result.visit.public(), "customer": result.customer.public(),
+          "created_customer": result.created_customer, "duplicate": result.duplicate}
+    if coupon_result is not None:
+        out["coupon_attempt"] = coupon_result.public()
+    return out
 
 
 @router.get("/customers/recent", dependencies=[Depends(rate_limit)])

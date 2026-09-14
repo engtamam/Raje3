@@ -904,3 +904,80 @@ async def seed_subscription_renewal_flow(request: Request,
         ip=request.client.host if request.client else "")
     return {"ok": True, "flow_id": out["flow_id"], "already_seeded": False,
             "encryption": enc.get("ok", False)}
+
+
+# ── shop-to-shop coupons — platform admin's own settings/tiers/overrides ────────────────────────
+class CouponTierIn(BaseModel):
+    max_grants: int = Field(ge=0)
+    percent: int = Field(ge=0, le=100)
+
+
+class CouponSettingsIn(BaseModel):
+    ceiling_percent: int = Field(gt=0, le=100)
+    base_percent: int = Field(ge=0, le=100)
+    tiers: list[CouponTierIn] = Field(default_factory=list, max_length=20)
+
+
+@router.get("/coupons/settings", dependencies=[Depends(rate_limit)])
+async def get_coupon_settings(request: Request, principal: Principal = Depends(_PLATFORM)):
+    settings = await request.app.state.container.coupons.settings()
+    return {"ceiling_percent": settings.ceiling_percent, "base_percent": settings.base_percent,
+            "tiers": [{"max_grants": t.max_grants, "percent": t.percent}
+                     for t in settings.tiers]}
+
+
+@router.patch("/coupons/settings", dependencies=[Depends(rate_limit)])
+async def update_coupon_settings(request: Request, body: CouponSettingsIn,
+                                 principal: Principal = Depends(_PLATFORM)):
+    from app.core.coupons import CouponError
+    try:
+        settings = await request.app.state.container.coupons.update_settings(
+            ceiling_percent=body.ceiling_percent, base_percent=body.base_percent,
+            tiers=[t.model_dump() for t in body.tiers])
+    except CouponError as exc:
+        return JSONResponse({"ok": False, "reason": str(exc)},
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    await request.app.state.auditor.record(
+        "coupon.settings_updated", actor=getattr(principal, "subject", "") or "", tenant="",
+        resource="coupon_settings", ip=request.client.host if request.client else "",
+        metadata={"why": "raises or lowers the ceiling every shop's own grant cap is clamped to"})
+    return {"ceiling_percent": settings.ceiling_percent, "base_percent": settings.base_percent,
+            "tiers": [{"max_grants": t.max_grants, "percent": t.percent}
+                     for t in settings.tiers]}
+
+
+class CouponTenantOverrideIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    percent: int | None = Field(default=None, ge=0, le=100)
+    note: str = Field(default="", max_length=512)
+
+
+@router.get("/coupons/tenants/{tenant_id}", dependencies=[Depends(rate_limit)])
+async def get_coupon_tenant_override(request: Request, tenant_id: str,
+                                     principal: Principal = Depends(_PLATFORM)):
+    row = await request.app.state.container.coupons.tenant_override(tenant_id)
+    if row is None:
+        return {"tenant": tenant_id, "percent": None, "note": "", "updated": 0}
+    return {"tenant": row.tenant, "percent": row.percent, "note": row.note,
+            "updated": row.updated}
+
+
+@router.patch("/coupons/tenants/{tenant_id}", dependencies=[Depends(rate_limit)])
+async def set_coupon_tenant_override(request: Request, tenant_id: str,
+                                     body: CouponTenantOverrideIn,
+                                     principal: Principal = Depends(_PLATFORM)):
+    if body.tenant != tenant_id:
+        return JSONResponse({"ok": False, "reason": "tenant mismatch"},
+                            status_code=status.HTTP_400_BAD_REQUEST)
+    from app.core.coupons import CouponError
+    try:
+        row = await request.app.state.container.coupons.set_tenant_override(
+            tenant_id, percent=body.percent, note=body.note)
+    except CouponError as exc:
+        return JSONResponse({"ok": False, "reason": str(exc)},
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    await request.app.state.auditor.record(
+        "coupon.tenant_override_set", actor=getattr(principal, "subject", "") or "", tenant="",
+        resource=f"coupon_override:{tenant_id}", ip=request.client.host if request.client else "")
+    return {"tenant": row.tenant, "percent": row.percent, "note": row.note,
+            "updated": row.updated}
