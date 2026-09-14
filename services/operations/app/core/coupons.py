@@ -56,6 +56,14 @@ PLATFORM = "_platform"
 SETTINGS_ID = "settings"
 
 COUPONS_KEY = "feature.coupons"
+# THE ONE OTHER APP EXCLUDED EVERYWHERE COUPONS_KEY IS — «جهات الاتصال» is free (amount 0,
+# `interval='once'`) and granted automatically to every shop at signup (signup.py's own
+# `_start_contacts_grant`), so it can never be discounted (there is nothing to discount) AND,
+# more importantly, it can never by itself count as "this beneficiary is a real subscriber" — a
+# shop holding nothing but the free app is a registered account, not a paying one, and the whole
+# point of `NOT_SUBSCRIBED` is to refuse exactly that (owner's own correction, 2026-09-14: "لازم
+# يكون عميل يدفع لنا").
+FREE_APP_KEY = "feature.contacts"
 
 # A generous, simple, non-accumulating window — "one month, unused = gone" (owner's own words).
 # Additive rather than calendar-aligned: simpler, and never a day short for a grant made on the
@@ -337,7 +345,7 @@ class CouponService:
                     continue
                 limits = await self._plans.limits(plan_id) or {}
                 fkeys = [k for k in limits if k.startswith("feature.")]
-                if len(fkeys) != 1 or fkeys[0] == COUPONS_KEY:
+                if len(fkeys) != 1 or fkeys[0] in (COUPONS_KEY, FREE_APP_KEY):
                     continue
                 out.append((fkeys[0], plan_id, sub_id))
             return out
@@ -374,7 +382,7 @@ class CouponService:
 
         if percent <= 0:
             return await _log(INVALID_PERCENT)
-        known = set(APP_KEYS) - {COUPONS_KEY}
+        known = set(APP_KEYS) - {COUPONS_KEY, FREE_APP_KEY}
         if general:
             app_keys = []
         else:

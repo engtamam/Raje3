@@ -432,3 +432,33 @@ def test_preferences_are_per_tenant(svc):
     run(s.set_preferences(A, visit_grant_enabled=False))
     other = run(s.preferences("tnt_other"))
     assert other.visit_grant_enabled is True
+
+
+# ── must be a real, paying customer — free contacts alone is not enough ────────────────────────
+def test_a_shop_holding_only_the_free_contacts_app_is_not_subscribed(svc):
+    """Registered ≠ paying. Every shop gets «جهات الاتصال» free at signup — holding only that
+    must read exactly like holding nothing at all."""
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.contacts", plan_id="plan_contacts", sub_id="sub_free")
+    att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                      general=True))
+    assert att.outcome == NOT_SUBSCRIBED
+
+
+def test_a_general_grant_skips_the_free_app_but_still_lands_on_a_real_one(svc):
+    s, store, plans = svc
+    _register(store, PHONE, B)
+    _hold_one_app(plans, B, key="feature.contacts", plan_id="plan_contacts", sub_id="sub_free")
+    _hold_one_app(plans, B, key="feature.bookings", plan_id="plan_bookings", sub_id="sub_paid")
+    att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                      general=True))
+    assert att.outcome == GRANTED
+    assert set(att.per_app) == {"feature.bookings"}   # contacts never even attempted
+
+
+def test_targeting_the_free_contacts_app_specifically_is_an_invalid_scope(svc):
+    s, _store, _plans = svc
+    att = run(s.grant(granter_tenant=A, granter_operator_id="op1", phone=PHONE, percent=5,
+                      app_keys=["feature.contacts"]))
+    assert att.outcome == INVALID_SCOPE
