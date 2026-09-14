@@ -22,7 +22,6 @@ never returned by any read.
 """
 from __future__ import annotations
 
-import hashlib
 import hmac
 import time
 
@@ -107,16 +106,10 @@ def _tenant(p: Principal) -> str:
     return p.tenant
 
 
-def _pin_hash(salt: str, tenant: str, operator_id: str, pin: str) -> str:
-    """Salted and bound to the operator.
-
-    Bound to (tenant, operator_id) so the same four digits produce different hashes for different
-    people — otherwise a leaked table would show at a glance which operators share a PIN, and
-    "1234" would be identifiable across every establishment we host.
-    """
-    return hmac.new(salt.encode("utf-8"),
-                    f"{tenant}|{operator_id}|{pin}".encode("utf-8"),
-                    hashlib.sha256).hexdigest()
+# MOVED to core/operator_ticket.py (2026-09-14) as `pin_hash` — the till's own
+# `POST /till/operators/verify-pin` needed the identical formula, and a second copy here is a
+# second place for the two to drift apart. `OT.pin_hash` is this exact function, unchanged.
+_pin_hash = OT.pin_hash
 
 
 # ── operators ─────────────────────────────────────────────────────────────────────────────────

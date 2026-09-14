@@ -93,3 +93,32 @@ async def test_a_visit_that_touches_nothing_scoped_spends_nothing(store):
     assert await log.choose_offer("t1", "sub_a", service_ids=["tyres"],
                                   used_refs=set(), now=1000) is None
     assert len(await log.live_offers("t1", "sub_a", used_refs=set(), now=1000)) == 1
+
+
+@pytest.mark.asyncio
+async def test_choose_offer_carries_the_campaign_id_through_untouched(store):
+    """2026-09-14 (till-integration audit follow-up): `choose_offer` hands back the whole row, so
+    a `campaign_id` stamped on it by a campaign send must survive to the till's own
+    `POST /till/offer/apply` — the one piece of evidence that lets a shop learn which campaign
+    actually converted a customer."""
+    log = SendLogStore(store)
+    await log.append("t1", {"id": "s1", "tenant": "t1", "subject_ref": "sub_a", "outcome": "sent",
+                            "at": 100, "offer_text": "خصم 20%",
+                            "offer_expires_at": 9_000_000, "offer_services": [],
+                            "campaign_id": "cmp_win_back_1"})
+    row = await log.choose_offer("t1", "sub_a", service_ids=[], used_refs=set(), now=1000)
+    assert row is not None
+    assert row["campaign_id"] == "cmp_win_back_1"
+
+
+@pytest.mark.asyncio
+async def test_choose_offer_with_no_campaign_answers_an_empty_string_not_a_missing_key(store):
+    """An ordinary reminder's offer (no campaign behind it) must still answer a real, present
+    value — a caller reading `row["campaign_id"]` must never KeyError on the common case."""
+    log = SendLogStore(store)
+    await log.append("t1", {"id": "s1", "tenant": "t1", "subject_ref": "sub_a", "outcome": "sent",
+                            "at": 100, "offer_text": "خصم 20%",
+                            "offer_expires_at": 9_000_000, "offer_services": []})
+    row = await log.choose_offer("t1", "sub_a", service_ids=[], used_refs=set(), now=1000)
+    assert row is not None
+    assert row.get("campaign_id", "") == ""

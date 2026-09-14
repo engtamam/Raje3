@@ -97,6 +97,25 @@ async def count_lookup(store: Any, tenant: str, credential: str, *,
     await _bump(store, tenant, credential, "lookups", now=ts)
 
 
+async def remaining_lookups(store: Any, tenant: str, credential: str, *,
+                            now: int | None = None) -> int:
+    """A READ, never a charge — for `GET /till/status`'s own "how much do I have left today"
+    answer (2026-09-14, the audits' own recommended self-service visibility gap). Unlike
+    `count_lookup`, this must NOT fail closed on a store error: refusing every visibility read
+    because the counter briefly could not be read would turn a courtesy number into a second
+    outage on top of whatever caused the first one, so an unreadable counter here just answers
+    "the full floor", the same optimistic default a brand-new credential gets."""
+    ts = int(now if now is not None else time.time())
+    key = f"{tenant}|{credential}|{_day(ts)}"
+    try:
+        row = await store.get(COUNTERS, key)
+    except Exception:                                                       # noqa: BLE001
+        row = None
+    used = int((row or {}).get("lookups") or 0)
+    visits = int((row or {}).get("visits") or 0)
+    return max(0, allowance(visits) - used)
+
+
 async def _bump(store: Any, tenant: str, credential: str, field: str, *,
                 now: int | None = None) -> None:
     ts = int(now if now is not None else time.time())

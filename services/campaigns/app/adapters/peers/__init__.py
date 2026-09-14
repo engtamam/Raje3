@@ -387,6 +387,7 @@ class HttpSender:
 
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
                    owner_text: str, idempotency_key: str,
+                   campaign_id: str = "",
                    offer_expires_at: int = 0,
                    offer_services: list[str] | None = None,
                    offer_value: str = "",
@@ -412,6 +413,7 @@ class HttpSender:
             # field travelled — see reminders' CampaignSendIn.branch_id.
             "branch_id": branch_id,
             "owner_text": owner_text, "idempotency_key": idempotency_key,
+            "campaign_id": campaign_id,
             # Carried so the send log can record the entitlement AND its end. Zero for every
             # message that offers nothing, which is most of them.
             "offer_expires_at": offer_expires_at,

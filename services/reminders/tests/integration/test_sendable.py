@@ -334,3 +334,32 @@ def test_a_report_sends_flow_token_and_flow_action_data_through_to_the_schedule(
     assert seen["flow_token"] == "reminders:rating:t-1:sub_abcdefgh:2900"
     assert seen["flow_action_data"]["show_visits"] is True
     assert seen["flow_action_data"]["visits_text"] == "120 (+15)"
+
+
+def test_campaign_id_reaches_the_schedule_dict_the_send_log_stamps_from(client):
+    """2026-09-14 (till-integration audit follow-up): the send log used to carry an offer's
+    WORDS with no way to say which campaign produced them, so a shop applying an offer at the
+    till could never learn "the win-back campaign worked". The route must forward `campaign_id`
+    into the schedule dict `send_one` builds its log row from."""
+    seen: dict = {}
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen.update(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    r = client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "", "idempotency_key": "cmp:9:sub_abcdefgh",
+        "offer_expires_at": 2_000_000_000, "offer_value": "20%",
+        "offer_services": ["svc_1"], "service_names": ["غسيل خارجي"],
+        "campaign_id": "cmp_win_back_1"})
+
+    assert r.status_code == 200, r.text
+    assert seen["campaign_id"] == "cmp_win_back_1"

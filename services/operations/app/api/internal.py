@@ -151,6 +151,12 @@ class BatchVisitIn(BaseModel):
     # instead of it: reminders schedule from the visit time, so a device running two days fast
     # would otherwise produce a reminder that arrives before it should.
     occurred_at: int = Field(default=0, ge=0)
+    # "" FOR AN ORDINARY SALE WITH NO PACKAGE — set when this sale fulfilled a package the
+    # customer already bought, so the visit (and, downstream, loyalty) knows it. ADDED 2026-09-14:
+    # `record_visit()` itself has always accepted this (the booking-attend path already threads it
+    # through); the till's own batch door simply never forwarded it, so a till selling packages had
+    # no way to say so and every package sale landed indistinguishable from an ordinary one.
+    package_id: str = Field(default="", max_length=64)
 
 
 class BatchIn(BaseModel):
@@ -288,7 +294,7 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 # sent would lose the visit — which loses the customer from the product. On the
                 # field screen the operator picks from the grid, so an unknown id there is a bug
                 # and must fail loudly.
-                allow_unknown_services=True)
+                allow_unknown_services=True, package_id=item.package_id)
         except OperationError as exc:
             # A SECOND, CORRECTIVE ENTRY — fixed 2026-09-12, a real gap a QA audit found: the
             # write-ahead record above claimed "recorded" for every item, including this one,

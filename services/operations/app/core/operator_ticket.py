@@ -92,3 +92,17 @@ def _sign(salt: str, tenant: str, operator_id: str, opened: int, expires: int) -
     return hmac.new(salt.encode("utf-8"),
                     f"ticket|{tenant}|{operator_id}|{opened}|{expires}".encode("utf-8"),
                     hashlib.sha256).hexdigest()
+
+
+def pin_hash(salt: str, tenant: str, operator_id: str, pin: str) -> str:
+    """Salted and bound to the operator — moved here from `api/v1/staff.py` (2026-09-14) so a
+    second caller (the till's own `POST /till/operators/verify-pin`) hashes a PIN exactly the same
+    way instead of growing a second, independently-maintained copy of this formula.
+
+    Bound to (tenant, operator_id) so the same four digits produce different hashes for different
+    people — otherwise a leaked table would show at a glance which operators share a PIN, and
+    "1234" would be identifiable across every establishment we host.
+    """
+    return hmac.new(salt.encode("utf-8"),
+                    f"{tenant}|{operator_id}|{pin}".encode("utf-8"),
+                    hashlib.sha256).hexdigest()

@@ -282,6 +282,12 @@ class SendLog:
     # When the sentence is the owner's own free line it may not restate the amount at all, and the
     # only source left at the counter is the customer's word for it.
     offer_value: str = ""
+    # WHICH CAMPAIGN SENT THIS (2026-09-14, this session's till-integration audit follow-up).
+    # Empty for an ordinary reminder — only campaigns sends carry one. Never tracked before this:
+    # a shop applying an offer at the till (POST /till/offer/apply) had no way to learn "the
+    # win-back campaign worked" from till-recorded evidence — the send log carried the offer's
+    # words but never which campaign produced them.
+    campaign_id: str = ""
 
 
 @dataclass

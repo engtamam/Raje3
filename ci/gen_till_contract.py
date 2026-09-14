@@ -74,7 +74,14 @@ WHY_BY_MODEL: dict[str, dict[str, str]] = {
                      # الطريقة الوحيدة لتزويده من كاشيرٍ متكامل.
                      "approved_by": "اسم أو معرّف المدير الذي وافق — مطلوبٌ فقط لمكافأةٍ فوق حدّ "
                                     "الموافقة بهذا المحل (يظهر لكم بحقل `needs_approval` من "
-                                    "/till/customer). بلا هذا الحقل تُرفض تلك المكافآت دائماً."},
+                                    "/till/customer). بلا هذا الحقل تُرفض تلك المكافآت دائماً. "
+                                    "**نص غير موثَّق** — للتوثيق الحقيقي استعملوا "
+                                    "`approver_operator_id`/`approver_ticket` أدناه بدلاً منه.",
+                     "approver_operator_id": "معرّف الموظف صاحب الرمز المُتحقَّق منه عبر "
+                                             "`POST /till/operators/verify-pin` — الطريقة "
+                                             "الموثَّقة، وتُلغي `approved_by` عند إرسالها.",
+                     "approver_ticket": "الرمز الصادر من `POST /till/operators/verify-pin` — "
+                                        "صالح دقائق معدودة فقط."},
     "TillOfferIn": {"phone": "رقم العميل صاحب العرض.",
                     "plate": "أو لوحته، إن كان التعريف عندكم باللوحة.",
                     "actor": "حساب الكاشير الذي طبّق العرض."},
@@ -83,6 +90,12 @@ WHY_BY_MODEL: dict[str, dict[str, str]] = {
                      "branch_id": "الفرع الذي وقعت فيه العملية، إن أردتم التأكد أن الحجز يخصّ "
                                   "هذا الفرع بالذات. اختياري.",
                      "occurred_at": "وقت الحضور الفعلي بساعتكم (ثوانٍ). فارغ يعني الآن."},
+    "TillPinVerifyIn": {"operator_id": "معرّف الموظف — من قائمة موظفي المحل.",
+                        "pin": "الرمز السري المكوَّن من 4 أرقام الخاص بالموظف."},
+    "TillRatingRequestIn": {"phone": "رقم العميل صاحب الزيارة.",
+                            "plate": "أو لوحته، إن كان التعريف عندكم باللوحة.",
+                            "asset_id": "معرّف المركبة، لقطاع المركبات فقط — إن كان جدول "
+                                        "التقييم مبنيًا على المركبة لا العميل."},
 }
 
 # The English counterpart of WHY, above — same field, same reason, said once more for the
@@ -128,7 +141,14 @@ WHY_BY_MODEL_EN: dict[str, dict[str, str]] = {
                      "approved_by": "Name/id of the manager who approved this — required ONLY "
                                     "for a reward above this shop's approval threshold (flagged "
                                     "to you as `needs_approval` from GET /till/customer). "
-                                    "Without it, those specific rewards are always refused."},
+                                    "Without it, those specific rewards are always refused. "
+                                    "**UNVERIFIED free text** — use `approver_operator_id`/"
+                                    "`approver_ticket` below instead for a real, checked identity.",
+                     "approver_operator_id": "The id of the operator whose PIN was just verified "
+                                            "via POST /till/operators/verify-pin — the VERIFIED "
+                                            "path; overrides `approved_by` when sent.",
+                     "approver_ticket": "The ticket issued by POST /till/operators/verify-pin — "
+                                        "good for a few minutes only."},
     "TillOfferIn": {"phone": "The phone number of the customer holding the offer.",
                     "plate": "Or their plate, if that is how you identify customers.",
                     "actor": "The cashier account that applied the offer."},
@@ -138,6 +158,13 @@ WHY_BY_MODEL_EN: dict[str, dict[str, str]] = {
                                   "booking belongs to this specific branch. Optional.",
                      "occurred_at": "When attendance actually happened, by your own clock (unix "
                                     "seconds). Empty means now."},
+    "TillPinVerifyIn": {"operator_id": "The operator's id — from this shop's own staff list.",
+                       "pin": "The operator's own 4-digit PIN."},
+    "TillRatingRequestIn": {"phone": "The phone number of the customer who made the visit.",
+                            "plate": "Or their plate, if that is how you identify customers.",
+                            "asset_id": "The vehicle id, vehicle-sector shops only — if the "
+                                        "rating schedule is keyed by the vehicle, not the "
+                                        "customer."},
 }
 
 
@@ -344,6 +371,70 @@ def render() -> str:
     add("")
     add("```json")
     add('{"ok": false, "reason": "NOT_FOUND", "message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 6. فروع المحل — `GET /api/v1/till/branches`")
+    add("")
+    add("قائمة فروعكم الفعّالة، للتحقق من `branch_id` قبل إرساله بدل اكتشاف خطأ إملائي فقط "
+        "برفض الزيارة:")
+    add("")
+    add("```json")
+    add('{"branches": [{"id": "brn-main", "name": "الفرع الرئيسي"}]}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 7. حالة الاعتماد — `GET /api/v1/till/status`")
+    add("")
+    add("هل رابطكم البرمجي فعّال الآن، وكم تبقّى من حدّ الاستعلام اليومي — قبل إرسال دفعة "
+        "مبيعات أو استعلام عميل، لا بعد أن تُرفض:")
+    add("")
+    add("```json")
+    add('{"feature_api": "active", "feature_visit": "active", '
+        '"lookup_allowance_remaining_today": 187}')
+    add("```")
+    add("")
+    add('`"unknown"` تعني تعذّر السؤال — وليست رفضًا ولا موافقة.')
+    add("")
+    add("---")
+    add("")
+
+    add("## 8. اعتماد موظف حقيقي — `POST /api/v1/till/operators/verify-pin`")
+    add("")
+    add("**قبل هذا الباب، أي نص بحقل `approved_by` كان يُقبل بلا تحقق.** هذا الباب يتحقق فعليًا "
+        "من رمز الموظف السري (4 أرقام) ويصدر رمزًا (`ticket`) صالحًا دقائق معدودة، تُرسِلونه مع "
+        "`approver_operator_id` في `/till/redeem` بدل الاسم الحر.")
+    add("")
+    add("| الحقل | النوع | إلزامي | لماذا |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillPinVerifyIn", []):
+        add(_row("TillPinVerifyIn", field, typ, req))
+    add("")
+    add("```json")
+    add('{"ok": true, "operator": {"id": "opr_1", "name": "خالد"}, "ticket": "...", '
+        '"ticket_ttl": 300}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 9. طلب تقييم فوري — `POST /api/v1/till/rating-request`")
+    add("")
+    add("لا يبني قناة إرسال جديدة — يقرّب موعد طلب تقييمٍ مجدولٍ أصلاً لهذا العميل إلى الآن، "
+        "فتصله رسالة التقييم خلال دقائق بدل التأخير المعتاد. يجيب برفضٍ واضح، لا خطأ، إن لم "
+        "يكن هناك طلب مجدول (المحل بلا تطبيق التقييم، أو أُرسل بالفعل):")
+    add("")
+    add("| الحقل | النوع | إلزامي | لماذا |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillRatingRequestIn", []):
+        add(_row("TillRatingRequestIn", field, typ, req))
+    add("")
+    add("```json")
+    add('{"ok": true, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}')
     add("```")
     add("")
     add("---")
@@ -677,6 +768,72 @@ def render_en() -> str:
     add("```json")
     add('{"ok": false, "reason": "NOT_FOUND", '
         '"message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 6. Branches — `GET /api/v1/till/branches`")
+    add("")
+    add("Your shop's own active branches — validate `branch_id` before sending it, rather than "
+        "discovering a typo only by having a visit rejected:")
+    add("")
+    add("```json")
+    add('{"branches": [{"id": "brn-main", "name": "الفرع الرئيسي"}]}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 7. Credential status — `GET /api/v1/till/status`")
+    add("")
+    add("Is your programmatic link actually active right now, and how much of today's lookup "
+        "allowance is left — ask this BEFORE sending a batch of sales or a customer lookup, not "
+        "after being refused:")
+    add("")
+    add("```json")
+    add('{"feature_api": "active", "feature_visit": "active", '
+        '"lookup_allowance_remaining_today": 187}')
+    add("```")
+    add("")
+    add('`"unknown"` means we could not ask — neither a refusal nor an approval.')
+    add("")
+    add("---")
+    add("")
+
+    add("## 8. A real, verified approver — `POST /api/v1/till/operators/verify-pin`")
+    add("")
+    add("**Before this door, ANY text in `approved_by` was accepted with no check at all.** "
+        "This actually verifies the operator's real 4-digit PIN and issues a short-lived ticket "
+        "— send it with `approver_operator_id` on `/till/redeem` instead of a free-typed name.")
+    add("")
+    add("| Field | Type | Required | Why |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillPinVerifyIn", []):
+        add(_row_en("TillPinVerifyIn", field, typ, req))
+    add("")
+    add("```json")
+    add('{"ok": true, "operator": {"id": "opr_1", "name": "خالد"}, "ticket": "...", '
+        '"ticket_ttl": 300}')
+    add("```")
+    add("")
+    add("---")
+    add("")
+
+    add("## 9. Rating request, on demand — `POST /api/v1/till/rating-request`")
+    add("")
+    add("Builds no new send path — pulls an already-scheduled rating request for this customer "
+        "forward to \"due now\", so it arrives in minutes instead of the shop's usual delay. "
+        "Answers a clear refusal, never an error, when nothing is scheduled (no rating app, or "
+        "already sent):")
+    add("")
+    add("| Field | Type | Required | Why |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillRatingRequestIn", []):
+        add(_row_en("TillRatingRequestIn", field, typ, req))
+    add("")
+    add("```json")
+    add('{"ok": true, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}')
     add("```")
     add("")
     add("---")

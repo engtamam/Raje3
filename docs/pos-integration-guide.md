@@ -51,6 +51,7 @@ Batch of up to 50 visits. **The response reports a verdict per item** — `accep
 | `invoice_id` | str | no | Your own invoice number. The best idempotency key, because it is your own identifier for this exact sale. |
 | `idempotency_key` | str | no | Your own idempotency key, if you have one. |
 | `occurred_at` | int | no | When the sale happened, by your own clock (unix seconds). Used as the idempotency key when there is no invoice number. |
+| `package_id` | str | no |  |
 
 ### Invoice line
 
@@ -158,7 +159,9 @@ Query with `phone` or `plate`. Answers whether they are a known customer, their 
 | `reward_id` | str | yes | The reward id, exactly as returned by GET /till/customer. |
 | `idempotency_key` | str | yes | Your key for THIS operation — required. Without a stable key, a retry spends the customer's points a second time. |
 | `actor` | str | no | The cashier account that handed the reward over. |
-| `approved_by` | str | no | Name/id of the manager who approved this — required ONLY for a reward above this shop's approval threshold (flagged to you as `needs_approval` from GET /till/customer). Without it, those specific rewards are always refused. |
+| `approved_by` | str | no | Name/id of the manager who approved this — required ONLY for a reward above this shop's approval threshold (flagged to you as `needs_approval` from GET /till/customer). Without it, those specific rewards are always refused. **UNVERIFIED free text** — use `approver_operator_id`/`approver_ticket` below instead for a real, checked identity. |
+| `approver_operator_id` | str | no | The id of the operator whose PIN was just verified via POST /till/operators/verify-pin — the VERIFIED path; overrides `approved_by` when sent. |
+| `approver_ticket` | str | no | The ticket issued by POST /till/operators/verify-pin — good for a few minutes only. |
 | `branch_id` | str | yes | The branch where this happened. Required, and must be a branch this shop actually has — an id we don't recognise is rejected and named back to you. |
 
 **`idempotency_key` is required, with no default we can fill in for you** — a key we mint ourselves would be new on every retry, and a doubled redemption spends the customer's points twice.
@@ -266,6 +269,59 @@ Query with `phone` or `plate`. Answers whether they are a known customer, their 
 
 ```json
 {"ok": false, "reason": "NOT_FOUND", "message": "لا يوجد حجز بهذا الرقم يخصّ هذا العميل."}
+```
+
+---
+
+## 6. Branches — `GET /api/v1/till/branches`
+
+Your shop's own active branches — validate `branch_id` before sending it, rather than discovering a typo only by having a visit rejected:
+
+```json
+{"branches": [{"id": "brn-main", "name": "الفرع الرئيسي"}]}
+```
+
+---
+
+## 7. Credential status — `GET /api/v1/till/status`
+
+Is your programmatic link actually active right now, and how much of today's lookup allowance is left — ask this BEFORE sending a batch of sales or a customer lookup, not after being refused:
+
+```json
+{"feature_api": "active", "feature_visit": "active", "lookup_allowance_remaining_today": 187}
+```
+
+`"unknown"` means we could not ask — neither a refusal nor an approval.
+
+---
+
+## 8. A real, verified approver — `POST /api/v1/till/operators/verify-pin`
+
+**Before this door, ANY text in `approved_by` was accepted with no check at all.** This actually verifies the operator's real 4-digit PIN and issues a short-lived ticket — send it with `approver_operator_id` on `/till/redeem` instead of a free-typed name.
+
+| Field | Type | Required | Why |
+|---|---|---|---|
+| `operator_id` | str | yes | The operator's id — from this shop's own staff list. |
+| `pin` | str | yes | The operator's own 4-digit PIN. |
+
+```json
+{"ok": true, "operator": {"id": "opr_1", "name": "خالد"}, "ticket": "...", "ticket_ttl": 300}
+```
+
+---
+
+## 9. Rating request, on demand — `POST /api/v1/till/rating-request`
+
+Builds no new send path — pulls an already-scheduled rating request for this customer forward to "due now", so it arrives in minutes instead of the shop's usual delay. Answers a clear refusal, never an error, when nothing is scheduled (no rating app, or already sent):
+
+| Field | Type | Required | Why |
+|---|---|---|---|
+| `phone` | str | no | The phone number of the customer who made the visit. |
+| `plate` | str | no | Or their plate, if that is how you identify customers. |
+| `asset_id` | str | no | The vehicle id, vehicle-sector shops only — if the rating schedule is keyed by the vehicle, not the customer. |
+
+```json
+{"ok": true, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}
 ```
 
 ---

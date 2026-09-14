@@ -47,7 +47,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.operations import OperationError
-from app.core.till_budget import LookupRefused, count_lookup, note_visit
+from app.core.till_budget import LookupRefused, count_lookup, note_visit, remaining_lookups
 from app.api.subscribed import no_subscription_needed, subscribed_write, subscribed_write_or_visit
 
 router = APIRouter(prefix="/till", tags=["till"])
@@ -97,6 +97,12 @@ class TillVisitIn(BaseModel):
     # instead of it — reminders schedule from the visit, and a till running two days fast would
     # otherwise produce a reminder that arrives before it should.
     occurred_at: int = Field(default=0, ge=0)
+    # "" FOR AN ORDINARY SALE — set when this sale fulfilled a package the customer already
+    # bought, so loyalty can look up the PACKAGE's own point value instead of summing the
+    # components' (same field `bookings`' own attend() already threads through). ADDED 2026-09-14
+    # (this session's own audit follow-up): `record_visit()` always accepted this; the till's
+    # batch door simply never carried it, so a till selling packages had no way to say so.
+    package_id: str = Field(default="", max_length=64)
 
 
 class TillBatchIn(BaseModel):
@@ -280,7 +286,7 @@ async def record_from_till(request: Request, body: TillBatchIn,
             branch_id=v.branch_id, operator_id=v.operator_id,
             meter=v.meter, note=v.note,
             lines=[line.model_dump() for line in v.lines],
-            invoice_id=v.invoice_id,
+            invoice_id=v.invoice_id, package_id=v.package_id,
             # A batch is by definition a replay, and a replay without a stable key is how one
             # lost reply becomes two visits, two reminders and doubled revenue. `_key_for` picks
             # the most authoritative thing the till gave us, and every one of its answers is the
@@ -461,7 +467,21 @@ class TillRedeemIn(BaseModel):
     # THE MANAGER WHO ALLOWED IT, for a reward above the shop's threshold (spec §9.5). loyalty
     # refuses those without a name, and this door had no field to carry one — so the refusal was
     # unsatisfiable from an integrated till no matter what their system sent.
+    #
+    # UNVERIFIED FREE TEXT, KEPT FOR BACKWARD COMPATIBILITY — any string satisfies loyalty's gate,
+    # so a till could type any name into this field with nothing to check it was actually that
+    # manager (2026-09-13/14 audits, "no real staff attribution"). `approver_operator_id` +
+    # `approver_ticket` below are the SECURE alternative: when both are sent, `approved_by` is
+    # IGNORED and the real operator's own name is used instead. Existing integrations that only
+    # ever sent this field keep working exactly as before.
     approved_by: str = Field(default="", max_length=128)
+    # THE VERIFIED PATH (2026-09-14). `ticket` comes from `POST /till/operators/verify-pin` —
+    # proof that SOMEBODY at this counter typed THIS operator's real PIN in the last few minutes
+    # (`core/operator_ticket.py`). Requires naming which operator the ticket claims, because the
+    # ticket alone (an HMAC over tenant+operator_id+window) proves nothing without knowing which
+    # operator it was issued for.
+    approver_operator_id: str = Field(default="", max_length=64)
+    approver_ticket: str = Field(default="", max_length=300)
     # REQUIRED HERE FOR THE SAME REASON AS THE VISIT, and it must be the same answer: a redemption
     # is where the reward was actually handed over, and «استُبدلت في أيّ فرع» is half of what the
     # branch column is for. Optional on one door and required on the other would leave the two
@@ -538,6 +558,28 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
                            "فروع هذا المحل."}
     branch_id = body.branch_id.strip()
 
+    # THE VERIFIED APPROVER (2026-09-14) — see `TillRedeemIn`'s own note. A ticket names WHICH
+    # operator typed a PIN in the last few minutes; the real approver's own name replaces whatever
+    # free text `approved_by` carried, so a manager-approval gate cannot be satisfied by a string
+    # nobody checked.
+    approved_by = body.approved_by
+    if body.approver_ticket:
+        from app.core import operator_ticket as OT
+        from app.core.stores import OperatorStore
+
+        settings = request.app.state.container_settings
+        if not OT.verifies(settings.PII_SALT, tenant, body.approver_operator_id,
+                           body.approver_ticket):
+            return {"ok": False, "reason": "REFUSED",
+                    "message": "تعذّر التحقق من الموظف المعتمِد — انتهت صلاحية الرمز أو هو غير "
+                              "صحيح. أعد التحقق من رمزه السري."}
+        op = await OperatorStore(request.app.state.container.datastore).get(
+            tenant, body.approver_operator_id)
+        if op is None or not op.active:
+            return {"ok": False, "reason": "REFUSED",
+                    "message": "الموظف المعتمِد غير موجود أو غير نشط بهذا المحل."}
+        approved_by = op.name or op.id
+
     # AUDITED BEFORE IT HAPPENS, like every other write a machine makes. A redemption the log
     # could not record must not occur — it is a customer's balance being spent.
     await request.app.state.auditor.record(
@@ -546,7 +588,7 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
 
     out = await desk.redeem(tenant=tenant, subject_ref=c.subject_ref, reward_id=body.reward_id,
                             idempotency_key=body.idempotency_key, actor=body.actor,
-                            approved_by=body.approved_by, branch_id=branch_id)
+                            approved_by=approved_by, branch_id=branch_id)
     if out is None:
         return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
     if "_status" in out:
@@ -745,3 +787,153 @@ async def attend_booking_at_the_counter(request: Request, booking_id: str, body:
         return {"ok": False, "reason": code,
                "message": _BOOKING_ERROR_MESSAGE.get(code, _BOOKING_ERROR_MESSAGE["ERROR"])}
     return {"ok": True, "booking_id": out.get("id"), "status": out.get("status")}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  SELF-SERVICE VISIBILITY (2026-09-14, both till-integration audits' own recommendation).
+#
+#  A till discovered a wrong branch_id, a lapsed subscription, or an exhausted lookup allowance
+#  only by being refused — there was no door to ask "what are my own branches" or "am I actually
+#  entitled right now" BEFORE trying. These two close that gap.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/branches", dependencies=[Depends(rate_limit)])
+async def branches_at_the_counter(request: Request, principal: Principal = Depends(_TILL)) -> Any:
+    """This shop's own branches, so a till can pre-validate branch_id before sending a sale,
+    rather than discovering a typo only by having the visit rejected.
+
+    ACTIVE ONLY. A retired branch is still a real id `/till/visits` accepts (yesterday's visit
+    happened there), but it must not appear in a picker a till builds from this list — the same
+    "validity vs listing are different questions" split `core/branches.py`'s own docstring names.
+    """
+    if not principal.tenant:
+        return {"branches": []}
+    tenant = principal.tenant
+    from app.core import branches as B
+    from app.core.stores import BranchStore
+
+    store = BranchStore(request.app.state.container.datastore)
+    await B.ensure_main(store, tenant=tenant)
+    rows = await store.list(tenant)
+    return {"branches": [{"id": b.id, "name": b.name} for b in rows if b.active]}
+
+
+@router.get("/status", dependencies=[Depends(rate_limit)])
+async def status_at_the_counter(request: Request, principal: Principal = Depends(_TILL)) -> Any:
+    """Is this credential actually entitled right now, and how much of today's lookup allowance
+    is left, asked BEFORE a batch of sales or a customer lookup, not discovered only by being
+    refused. A peer that could not be asked reads as "unknown", never as a definite yes or no,
+    the same three-state discipline every other licence question in this file already follows.
+    """
+    if not principal.tenant:
+        return {"message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    c = request.app.state.container
+
+    def _tri(v: bool | None) -> str:
+        return "unknown" if v is None else ("active" if v else "inactive")
+
+    api_licence = getattr(c, "api_licence", None)
+    visit_licence = getattr(c, "visit_licence", None)
+    api_state = _tri(await api_licence.allowed(tenant) if api_licence else None)
+    visit_state = _tri(await visit_licence.allowed(tenant) if visit_licence else None)
+
+    remaining = await remaining_lookups(c.datastore, tenant, principal.subject)
+    return {"feature_api": api_state, "feature_visit": visit_state,
+           "lookup_allowance_remaining_today": remaining}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  A REAL APPROVER, NOT A FREE-TYPED NAME (2026-09-14, both audits' own recommendation).
+#
+#  approved_by on /redeem used to be any string a till chose to send — a cashier's own device
+#  could unlock an above-threshold reward by typing a manager's name with nothing to verify it was
+#  actually him. This is the till's own door into the SAME PIN mechanism the field screen already
+#  uses (api/v1/staff.py::verify_pin), under the till's own operations.record capability rather
+#  than a human's, so a till never needs a broader credential just to confirm one PIN.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+class TillPinVerifyIn(BaseModel):
+    operator_id: str = Field(min_length=1, max_length=64)
+    pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
+
+
+@router.post("/operators/verify-pin", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def verify_pin_at_the_counter(request: Request, body: TillPinVerifyIn,
+                                    principal: Principal = Depends(_TILL)) -> Any:
+    """Confirm which real operator is approving a reward at this counter, and issue the ticket
+    /till/redeem's approver_ticket needs. Same hash, same comparison, same one-answer-for-
+    unknown-or-wrong-or-inactive discipline as the field screen's own verify-pin — see
+    core/operator_ticket.pin_hash's own note on why the two share one formula."""
+    if not principal.tenant:
+        return {"ok": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    import hmac
+
+    from app.core import operator_ticket as OT
+    from app.core.stores import OperatorStore
+
+    settings = request.app.state.container_settings
+    op = await OperatorStore(request.app.state.container.datastore).get(tenant, body.operator_id)
+    expected = op.pin_hash if op else ""
+    candidate = OT.pin_hash(settings.PII_SALT, tenant, body.operator_id, body.pin)
+    ok = bool(op) and op.active and hmac.compare_digest(expected, candidate)
+
+    if not ok:
+        await request.app.state.auditor.record(
+            "operator.pin_rejected", actor=f"till:{principal.subject}", tenant=tenant,
+            resource=f"operator:{body.operator_id}",
+            ip=request.client.host if request.client else "")
+        return {"ok": False, "message": "رمز خاطئ أو موظف غير نشط."}
+
+    return {"ok": True, "operator": {"id": op.id, "name": op.name},
+           "ticket": OT.issue(settings.PII_SALT, tenant, body.operator_id),
+           "ticket_ttl": OT.TTL_SECONDS}
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  RATING, ON DEMAND (2026-09-14, both audits' own recommendation).
+#
+#  The same question asked at the counter, right after paying, gets answered far more than it
+#  does arriving as a message hours later. This does not build a second send path — it moves an
+#  ALREADY-SCHEDULED rating request to "due now", so the one real send path (with every gate it
+#  already has: consent, the quiet window, the daily cap) is what actually sends it.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+class TillRatingRequestIn(BaseModel):
+    phone: str = Field(default="", max_length=32)
+    plate: str = Field(default="", max_length=32)
+    asset_id: str = Field(default="", max_length=64)
+
+
+@router.post("/rating-request", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def rating_request_at_the_counter(request: Request, body: TillRatingRequestIn,
+                                        principal: Principal = Depends(_TILL)) -> Any:
+    """Ask for a rating now instead of waiting for the shop's own configured delay — reuses
+    whatever rating request `reminders` already scheduled for this customer's visit, it does not
+    invent one. Answers ok: False, never an error, when there is nothing scheduled — the shop may
+    not have the rating app, or may already have sent it."""
+    if not principal.tenant:
+        return {"ok": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    c = None
+    if body.phone.strip():
+        c = await svc.customer_by_phone(tenant, body.phone.strip())
+    if c is None and body.plate.strip():
+        c = await svc.customer_by_plate(tenant, body.plate.strip())
+    if c is None or not c.subject_ref:
+        return {"ok": False, "message": "لا يوجد عميل بهذا الرقم."}
+
+    desk = getattr(request.app.state.container, "reminders_desk", None)
+    if desk is None or not desk.configured:
+        return {"ok": False, "message": "تعذّر الوصول إلى نظام التذكيرات."}
+
+    out = await desk.expedite_rating_request(tenant, c.subject_ref, asset_id=body.asset_id)
+    if out is None:
+        return {"ok": False, "message": "تعذّر الوصول إلى نظام التذكيرات الآن."}
+    if not out.get("ok"):
+        return {"ok": False, "message": out.get("reason") or "لا يوجد طلب تقييم بانتظار الإرسال."}
+    return {"ok": True, "message": "سيصل طلب التقييم للعميل خلال دقائق قليلة."}

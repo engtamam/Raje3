@@ -126,6 +126,49 @@ def test_a_second_tap_spends_nothing_more(till_headers, client):
     assert first["offer"]["ref"] == second["offer"]["ref"] == "off_2"
 
 
+def test_the_applied_offer_names_which_campaign_sent_it(till_headers, client):
+    """2026-09-14 (till-integration audit follow-up): the till could apply an offer and never
+    learn WHICH campaign sent it — so a shop had no till-recorded evidence that a specific
+    campaign converted anyone. `campaign_id` must reach the till's own response, forwarded
+    unchanged from whatever reminders' chooser answered."""
+    tenant = till_headers["tenant"]
+    visit_id, _ = _seed_visit(client, tenant, "0501110009")
+    client.app.state.container.operations.with_offer_chooser(
+        Chooser({"ref": "off_9", "text": "خصم", "campaign_id": "cmp_win_back_1"}))
+
+    r = client.post(PATH, json={"visit_id": visit_id, "phone": "0501110009"},
+                    headers=till_headers["headers"])
+    assert r.json()["offer"]["campaign_id"] == "cmp_win_back_1"
+
+
+def test_a_second_tap_still_names_the_same_campaign_from_the_stored_visit(till_headers, client):
+    """The second tap never re-asks the chooser (idempotent) — `campaign_id` must survive from
+    what was persisted on the visit the first time, not only from a live chooser answer."""
+    tenant = till_headers["tenant"]
+    visit_id, _ = _seed_visit(client, tenant, "0501110010")
+    client.app.state.container.operations.with_offer_chooser(
+        Chooser({"ref": "off_10", "text": "خصم", "campaign_id": "cmp_occasion_1"}))
+
+    client.post(PATH, json={"visit_id": visit_id, "phone": "0501110010"},
+               headers=till_headers["headers"])
+    second = client.post(PATH, json={"visit_id": visit_id, "phone": "0501110010"},
+                         headers=till_headers["headers"])
+    assert second.json()["offer"]["campaign_id"] == "cmp_occasion_1"
+
+
+def test_an_offer_with_no_campaign_behind_it_answers_an_empty_string(till_headers, client):
+    """An ordinary reminder's offer must not error or omit the field — a caller reading
+    `offer["campaign_id"]` should get a real, present empty string."""
+    tenant = till_headers["tenant"]
+    visit_id, _ = _seed_visit(client, tenant, "0501110011")
+    client.app.state.container.operations.with_offer_chooser(
+        Chooser({"ref": "off_11", "text": "خصم"}))
+
+    r = client.post(PATH, json={"visit_id": visit_id, "phone": "0501110011"},
+                    headers=till_headers["headers"])
+    assert r.json()["offer"]["campaign_id"] == ""
+
+
 def test_an_unreachable_judge_refuses_in_words_the_cashier_can_read(till_headers, client):
     """«لا يوجد عرض» and «تعذّر السؤال» are different sentences for the customer in front of you."""
     from app.adapters.offer_choice import OfferPeerUnavailable

@@ -219,7 +219,8 @@ class Operations:
             # exists to make safe.
             v = await self._visits.get(tenant, v.id) or v
             if v.offer_ref:
-                return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
+                return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
+                       "campaign_id": v.offer_campaign_id}
             if self._choose_offer is None:
                 raise OperationError("تعذّر التحقق من العروض الآن")
 
@@ -239,8 +240,10 @@ class Operations:
             v.offer_ref = str(chosen.get("ref") or "")
             v.offer_text = str(chosen.get("text") or "")
             v.offer_used_at = int(time.time())
+            v.offer_campaign_id = str(chosen.get("campaign_id") or "")
             await self._visits.save(v)
-            return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
+            return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at,
+                   "campaign_id": v.offer_campaign_id}
 
     # ── the write path ────────────────────────────────────────────────────────────────────────
     async def record_visit(self, *, tenant: str, phone: str, service_ids: list[str],

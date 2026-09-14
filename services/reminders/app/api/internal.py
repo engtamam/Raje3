@@ -800,6 +800,11 @@ class CampaignSendIn(BaseModel):
     # composes.
     reward_type: str = Field(default="discount", max_length=16)
     reward_points: int = Field(default=0, ge=0)
+    # THE CAMPAIGN'S OWN ID (2026-09-14) — carried onto the send log so a redeemed offer at the
+    # till can later be attributed back to the campaign that sent it. "" is a real answer (no
+    # campaign — an ordinary reminder never goes through this route in the first place, but a
+    # future caller of this same route might not be one).
+    campaign_id: str = Field(default="", max_length=64)
 
     model_config = {"populate_by_name": True}
 
@@ -853,6 +858,7 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "flow_action_data": dict(body.flow_action_data),
         "button_item_id": body.button_item_id,
         "button_kind": body.button_kind,
+        "campaign_id": body.campaign_id,
     }
     library = await _library(c, body.tenant)
     # THE APPROVED SET, WHICH THIS PATH NEVER READ. The reminder tick has always preferred a
@@ -917,7 +923,11 @@ async def choose_offer(request: Request, body: ChooseOfferIn) -> dict:
                       # sentence — or, when the owner wrote his own line, not at all. An operator
                       # who cannot see the value takes the customer's word for it.
                       "value": row.get("offer_value", ""),
-                      "expires_at": int(row.get("offer_expires_at") or 0)}}
+                      "expires_at": int(row.get("offer_expires_at") or 0),
+                      # WHICH CAMPAIGN SENT IT — "" for an ordinary reminder, real for a campaign
+                      # send (2026-09-14). Lets the till attribute a redemption back to the
+                      # campaign that produced it.
+                      "campaign_id": row.get("campaign_id", "")}}
 
 
 async def _spent_or_empty(tenant: str, subject_ref: str) -> set[str] | None:
@@ -1421,3 +1431,42 @@ async def evidence(request: Request, body: EvidenceIn) -> dict:
             "truncated": len(sends) >= body.limit,
         },
     }
+
+
+class RatingExpediteIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    asset_id: str = Field(default="", max_length=64)
+
+
+@router.post("/reminders/rating-request/expedite", dependencies=[Depends(require_internal_token)])
+async def expedite_rating_request(request: Request, body: RatingExpediteIn) -> dict:
+    """Move an already-scheduled rating request to "due now" — the till's own
+    `POST /till/rating-request` (2026-09-14, this session's till-integration audit follow-up).
+
+    REUSED, NOT REIMPLEMENTED. Building a second send path here — its own gating, its own consent
+    check, its own quiet-hours/ceiling logic — is exactly the mistake this codebase's own comments
+    warn against elsewhere (till.py's visit route: "a second copy here is a second set of rules
+    and the second one is always the one missing a check"). The row this schedules the SAME way
+    `core/scheduling.py` already schedules a rating request at visit time; all this does is pull
+    its `due_at` to now, so the next ordinary tick pass sends it through the one real path, with
+    every gate that path already has — consent, the quiet window, the daily cap, whether this shop
+    even has the rating app.
+
+    NOT INSTANT. The standing tick runs on its own cadence (a few minutes, not a route's response
+    time) — "expedited", never "sent synchronously". `sent: True` here means "moved to the front
+    of the queue", not "delivered".
+    """
+    from app.core.models import schedule_key
+
+    key = schedule_key(tenant=body.tenant, subject_ref=body.subject_ref,
+                       asset_id=body.asset_id, service_id="", kind="rating_request")
+    store = ScheduleStore(request.app.state.container.datastore)
+    row = await store.get(key)
+    if row is None or row.get("state") != "pending":
+        return {"ok": False,
+               "reason": "لا يوجد طلب تقييم بانتظار الإرسال لهذه الزيارة — إما أُرسل بالفعل، أو "
+                         "لا يملك هذا المحل تطبيق التقييم مفعَّلاً."}
+    row["due_at"] = int(time.time())
+    await store.upsert(body.tenant, key, row)
+    return {"ok": True}

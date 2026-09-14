@@ -402,6 +402,13 @@ class Visit:
     offer_ref: str = ""
     offer_text: str = ""
     offer_used_at: int = 0
+    # WHICH CAMPAIGN SENT THE OFFER THIS VISIT SPENT — "" for an offer with no campaign behind it
+    # (reminders' own automatic ones never carry one). ADDED 2026-09-14 (this session's till-
+    # integration audit follow-up): a shop applying an offer at the till had no way to learn "the
+    # win-back campaign worked" from till-recorded evidence at all. Copied here for the same
+    # reason `offer_text` is — reminders' send log may be pruned by retention long before an owner
+    # asks which campaign this visit's discount came from.
+    offer_campaign_id: str = ""
     # SET ONLY WHEN THIS VISIT FULFILLED A PACKAGE BOOKING — "" for an ordinary visit. `service_ids`
     # is STILL populated with the package's own components either way (never left empty), so every
     # existing reader (reminders' per-service cycle, the associations engine, loyalty's default
@@ -432,7 +439,8 @@ class Visit:
                 "free": self.free,
                 "occurred_at": self.occurred_at or self.created,
                 "offer_ref": self.offer_ref, "offer_text": self.offer_text,
-                "offer_used_at": self.offer_used_at, "package_id": self.package_id,
+                "offer_used_at": self.offer_used_at, "offer_campaign_id": self.offer_campaign_id,
+                "package_id": self.package_id,
                 "rating": self.rating, "feedback_text": self.feedback_text,
                 "rated_at": self.rated_at, "rating_handled_at": self.rating_handled_at,
                 "rating_handled_note": self.rating_handled_note}

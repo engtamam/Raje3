@@ -252,6 +252,12 @@ class Dispatcher:
                     cls=campaign.get("cls", "marketing"),
                     owner_text=campaign.get("owner_text", ""),
                     idempotency_key=key,
+                    # THE CAMPAIGN'S OWN ID (2026-09-14, this session's till-integration audit
+                    # follow-up) — carried so the send log, and eventually the till's own
+                    # `/till/offer/apply`, can name WHICH campaign a redeemed offer came from. Never
+                    # tracked before this: a shop applying an offer at the counter had no way to
+                    # learn "the win-back campaign worked" from till-recorded evidence at all.
+                    campaign_id=str(campaign.get("id") or ""),
                     # THE SAME END DATE FOR EVERY RECIPIENT OF THIS CAMPAIGN. A spread run reaches
                     # people over several days, and an expiry counted from each person's send would
                     # give the last recipient longer than the first — the shop would be running two

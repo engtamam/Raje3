@@ -124,3 +124,59 @@ def test_the_lookup_allowance_turns_over_at_the_shops_midnight_not_utcs() -> Non
     assert _day(after) == "2026-09-01", (
         "23:00 and 00:30 Riyadh fall in the same allowance day — the counter is keyed on UTC, so "
         "it turns over at 03:00 local instead of at the shop's midnight")
+
+
+# ── remaining_lookups: a READ for GET /till/status, never a charge (2026-09-14) ──────────────────
+
+def test_remaining_lookups_answers_the_full_floor_for_a_brand_new_credential():
+    from app.core.till_budget import remaining_lookups
+    store = MemoryDataStore()
+    assert run(remaining_lookups(store, T, CRED, now=DAY)) == FLOOR
+
+
+def test_remaining_lookups_never_charges_a_lookup():
+    """A status check must be free — charging one would let a till burn its own budget just by
+    asking how much it has left."""
+    from app.core.till_budget import remaining_lookups
+    store = MemoryDataStore()
+    before = run(remaining_lookups(store, T, CRED, now=DAY))
+    run(remaining_lookups(store, T, CRED, now=DAY))
+    after = run(remaining_lookups(store, T, CRED, now=DAY))
+    assert before == after == FLOOR
+
+
+def test_remaining_lookups_drops_as_the_real_counter_charges_them():
+    from app.core.till_budget import remaining_lookups
+    store = MemoryDataStore()
+    run(count_lookup(store, T, CRED, now=DAY))
+    run(count_lookup(store, T, CRED, now=DAY))
+    assert run(remaining_lookups(store, T, CRED, now=DAY)) == FLOOR - 2
+
+
+def test_remaining_lookups_grows_with_real_work_the_same_ratio_as_allowance():
+    from app.core.till_budget import remaining_lookups
+    store = MemoryDataStore()
+    run(note_visit(store, T, CRED, now=DAY))
+    assert run(remaining_lookups(store, T, CRED, now=DAY)) == FLOOR + FACTOR
+
+
+def test_remaining_lookups_never_goes_negative_once_exhausted():
+    from app.core.till_budget import remaining_lookups
+    store = MemoryDataStore()
+    for _ in range(FLOOR):
+        run(count_lookup(store, T, CRED, now=DAY))
+    with pytest.raises(LookupRefused):
+        run(count_lookup(store, T, CRED, now=DAY))
+    assert run(remaining_lookups(store, T, CRED, now=DAY)) == 0
+
+
+def test_remaining_lookups_answers_the_floor_when_the_store_cannot_be_read():
+    """UNLIKE `count_lookup`, this must NOT fail closed — a visibility read is a courtesy, and
+    refusing it on a store hiccup would turn one outage into two."""
+    from app.core.till_budget import remaining_lookups
+
+    class _Boom:
+        async def get(self, *a, **kw):
+            raise RuntimeError("down")
+
+    assert run(remaining_lookups(_Boom(), T, CRED, now=DAY)) == FLOOR

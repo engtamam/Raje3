@@ -660,7 +660,8 @@ class Tick:
                                  if s in service_names],
             # RECORDED WITH THE OFFER: it is a fact about what was granted, and every reader of
             # this row needs it to say what the discount actually is.
-            offer_value=str(row.get("offer_value", "")))))
+            offer_value=str(row.get("offer_value", "")),
+            campaign_id=str(row.get("campaign_id") or ""))))
         return {"sent": True, "reason": ""}
 
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
