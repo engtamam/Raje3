@@ -46,29 +46,13 @@ kubectl -n "$NS" get statefulset postgres >/dev/null 2>&1 || {
 # TEN MINUTES IS NOT A GUESS: the observed fsync pass was past 80 seconds and still walking the
 # directory when it was killed, on a database this small. A ceiling that only just fits is a
 # ceiling that fails the first time the data grows.
-# SAME PATCH, ONE MORE FIELD FIXED — found live, 2026-09-14, on a from-scratch install: the
-# upstream manifest's readiness AND liveness probes ALSO hardcode `-U postgres`, and no role by
-# that literal name is ever created (`gen-secrets.py` provisions `POSTGRES_USER`, defaulting to
-# `base_services` — the same name the container's own `POSTGRES_USER` env already uses). Every
-# probe tick (5s readiness, 10s liveness) logged `FATAL: role "postgres" does not exist` into
-# postgres's own log, forever, on every install — harmless (`pg_isready` only proves the server
-# accepts a connection; the role lookup failing does not fail the check itself), but a constant,
-# misleading flood in the one log an operator reads first when something looks wrong. `$(VAR)`
-# is expanded from the container's own env by the kubelet exactly like any other exec-probe
-# command arg — no new value to provision, just reading the one already there.
 read -r -d '' PATCH <<'JSON'
 {"spec":{"template":{"spec":{"containers":[{
   "name":"postgres",
   "startupProbe":{
-    "exec":{"command":["pg_isready","-U","$(POSTGRES_USER)"]},
+    "exec":{"command":["pg_isready","-U","postgres"]},
     "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,
-    "failureThreshold":60,"successThreshold":1},
-  "readinessProbe":{
-    "exec":{"command":["pg_isready","-U","$(POSTGRES_USER)"]},
-    "periodSeconds":5},
-  "livenessProbe":{
-    "exec":{"command":["pg_isready","-U","$(POSTGRES_USER)"]},
-    "periodSeconds":10}
+    "failureThreshold":60,"successThreshold":1}
 }]}}}}
 JSON
 
