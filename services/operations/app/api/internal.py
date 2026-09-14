@@ -2335,7 +2335,8 @@ async def retention_sweep(request: Request) -> dict:
     sweeper = retention_core.Sweeper(
         store=c.datastore, eraser=eraser,
         runtime_config=RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY),
-        subscriptions=subs, default=default, scan_cap=s.RETENTION_SCAN_CAP)
+        subscriptions=subs, default=default, scan_cap=s.RETENTION_SCAN_CAP,
+        salla=getattr(c, "salla", None))
     out = await sweeper.sweep()
 
     # RECORDED AFTER, AND ONLY IF IT DID SOMETHING — the opposite of the DSAR route above, on

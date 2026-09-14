@@ -288,7 +288,7 @@ class Sweeper:
 
     def __init__(self, *, store: Any, eraser: Any, runtime_config: Any = None,
                  subscriptions: Any = None, default: Policy = Policy(),
-                 scan_cap: int = 20_000) -> None:
+                 scan_cap: int = 20_000, salla: Any = None) -> None:
         self._store = store
         self._eraser = eraser
         self._config = runtime_config
@@ -296,6 +296,13 @@ class Sweeper:
         self._default = default
         self._cap = scan_cap
         self.lapsed = LapsedStore(store)
+        # OPTIONAL, LIKE EVERY OTHER PEER THIS SWEEP TOUCHES — `None` when the caller has nothing
+        # to pass (every existing test in test_retention.py, and any deployment that never wired
+        # Salla). A tenant going fully lapsed is not a customer-data question — core/erasure.py
+        # owns that — it is simply the same moment operations already knows an establishment is
+        # truly gone, and a live Salla OAuth token sitting unused for a shop that no longer exists
+        # is exactly the kind of stale credential that should not just sit there.
+        self._salla = salla
 
     async def sweep(self, *, now: int | None = None) -> Swept:
         now = _now() if now is None else now
@@ -329,6 +336,13 @@ class Sweeper:
                         await self._erase(tenant, row)
                         out.customers += 1
                 out.establishments_erased += 1
+                # THE SAME TRUTH SALLA ITSELF WOULD EVENTUALLY DISCOVER, told to it now instead
+                # of waited out — a gone establishment's own refresh token would otherwise sit
+                # live for up to five more days (the refresh-scan's own margin) before a refresh
+                # call against it finally failed. `disconnect` is a no-op, harmlessly, for a
+                # tenant that never connected Salla at all.
+                if self._salla is not None:
+                    await self._salla.disconnect(tenant)
                 # THE LAPSE ROW STAYS. It carries the date we first saw him gone, which is the
                 # only remaining answer to "when did this start" once the customers are cleared —
                 # and clearing it here would restart the two years on a shop that no longer has

@@ -211,6 +211,45 @@ def test_a_shop_that_resubscribes_has_no_clock_at_all():
     assert run(sw.lapsed.since("t1")) == 0
 
 
+# ── a gone establishment's own Salla connection ─────────────────────────────────────────────────
+class FakeSalla:
+    def __init__(self) -> None:
+        self.disconnected: list[str] = []
+
+    async def disconnect(self, tenant: str) -> bool:
+        self.disconnected.append(tenant)
+        return True
+
+
+def test_an_establishment_past_its_grace_also_loses_its_salla_connection():
+    from app.core.retention import Sweeper
+
+    salla = FakeSalla()
+    sw, _ = sweeper([row("t1", NOW - DAY)], subs=False)
+    sw._salla = salla
+    run(sw.sweep(now=NOW - 3 * YEAR))              # the night we first saw him gone
+    run(sw.sweep(now=NOW))                          # past the grace horizon
+    assert salla.disconnected == ["t1"]
+
+
+def test_an_establishment_inside_its_grace_keeps_its_salla_connection():
+    salla = FakeSalla()
+    sw, _ = sweeper([row("t1", NOW - DAY)], subs=False)
+    sw._salla = salla
+    run(sw.sweep(now=NOW))                           # only just gone, still inside the grace
+    assert salla.disconnected == []
+
+
+def test_no_salla_service_wired_at_all_is_a_harmless_default():
+    """Every OTHER test in this file constructs a Sweeper with no `salla=` argument at all —
+    this confirms that stays true after the parameter was added, not just for tests written
+    after it (`salla=None` must never be required)."""
+    sw, e = sweeper([row("t1", NOW - DAY)], subs=False)
+    run(sw.sweep(now=NOW - 3 * YEAR))
+    out = run(sw.sweep(now=NOW))
+    assert out.establishments_erased == 1            # the sweep itself still worked
+
+
 def test_one_establishment_leaving_does_not_touch_another():
     from app.core.models import CUSTOMERS
     from app.core.retention import Sweeper
