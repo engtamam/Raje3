@@ -828,4 +828,12 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "one shop's own cap was raised or cleared by hand — a competitive/reward lever an "
                "owner reviewing that shop's account needs to see was pulled",
     },
+    {
+        "action": "coupon.preferences_set",
+        "source": "internal",
+        "critical": False,
+        "resource": "coupon_preferences",
+        "why": "a shop turned the visit-screen coupon checkbox on or off — an owner asking why "
+               "staff stopped seeing it (or started) needs to see this was a deliberate switch",
+    },
 ]

@@ -59,6 +59,8 @@ registerOperatorStrings({
     'coupons.stats.chart.title': 'عدد الخصومات آخر 6 أشهر',
     'coupons.readFailed.title': 'تعذّرت قراءة بياناتك',
     'coupons.readFailed.desc': 'حاول بعد قليل.',
+    'coupons.prefs.title': 'خانة المنح أثناء تسجيل الزيارة',
+    'coupons.prefs.desc': 'تشغيلها يسمح لأي موظف يسجّل زيارة إنه يمنح كوبوناً بنفس اللحظة.',
   },
   en: {
     'coupons.title': 'Coupons',
@@ -118,6 +120,8 @@ registerOperatorStrings({
     'coupons.stats.chart.title': 'Grants over the last 6 months',
     'coupons.readFailed.title': 'Could not read your data',
     'coupons.readFailed.desc': 'Try again shortly.',
+    'coupons.prefs.title': 'Coupon checkbox during visit recording',
+    'coupons.prefs.desc': 'Turning it on lets any staff member recording a visit grant a coupon at the same moment.',
   },
   ur: {
     'coupons.title': 'کوپن',
@@ -177,6 +181,8 @@ registerOperatorStrings({
     'coupons.stats.chart.title': 'پچھلے 6 مہینوں کے عطیات',
     'coupons.readFailed.title': 'آپ کا ڈیٹا پڑھا نہیں جا سکا',
     'coupons.readFailed.desc': 'تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+    'coupons.prefs.title': 'وزٹ ریکارڈ کرتے وقت کوپن کا خانہ',
+    'coupons.prefs.desc': 'اسے آن کرنے سے وزٹ ریکارڈ کرنے والا کوئی بھی عملہ اسی لمحے کوپن دے سکتا ہے۔',
   },
   ha: {
     'coupons.title': 'Kubfani',
@@ -236,6 +242,8 @@ registerOperatorStrings({
     'coupons.stats.chart.title': 'Kubfani a cikin watanni 6 na ƙarshe',
     'coupons.readFailed.title': 'Ba a iya karanta bayanan ka ba',
     'coupons.readFailed.desc': 'Sake gwadawa bayan ɗan lokaci.',
+    'coupons.prefs.title': 'Akwatin bayar da kubfani lokacin rikodin ziyara',
+    'coupons.prefs.desc': 'Kunna shi yana bawa duk wani ma’aikacin da yake rikodin ziyara damar bayar da kubfani a lokaci guda.',
   },
   fil: {
     'coupons.title': 'Mga Kupon',
@@ -295,6 +303,8 @@ registerOperatorStrings({
     'coupons.stats.chart.title': 'Bilang ng kupon sa nakaraang 6 na buwan',
     'coupons.readFailed.title': 'Hindi mabasa ang datos mo',
     'coupons.readFailed.desc': 'Subukan muli sa ibang pagkakataon.',
+    'coupons.prefs.title': 'Checkbox ng kupon habang nagre-record ng bisita',
+    'coupons.prefs.desc': 'Ang pag-on dito ay nagbibigay-daan sa sinumang staff na nagre-record ng bisita na magbigay ng kupon sa parehong sandali.',
   },
   bn: {
     'coupons.title': 'কুপন',
@@ -354,5 +364,7 @@ registerOperatorStrings({
     'coupons.stats.chart.title': 'গত ৬ মাসের কুপনের সংখ্যা',
     'coupons.readFailed.title': 'আপনার তথ্য পড়া যায়নি',
     'coupons.readFailed.desc': 'কিছুক্ষণ পর আবার চেষ্টা করুন।',
+    'coupons.prefs.title': 'ভিজিট রেকর্ড করার সময় কুপনের চেকবক্স',
+    'coupons.prefs.desc': 'এটি চালু করলে ভিজিট রেকর্ডকারী যেকোনো স্টাফ একই মুহূর্তে কুপন দিতে পারবে।',
   },
 });

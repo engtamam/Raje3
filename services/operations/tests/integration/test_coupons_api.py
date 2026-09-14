@@ -247,3 +247,30 @@ def test_a_plain_tenant_token_cannot_reach_the_platform_settings(client):
     r = client.get("/api/v1/platform/coupons/settings",
                    headers=_auth("operations.manage", tenant=GRANTER))
     assert r.status_code == 403
+
+
+# ── the shop's own visit-screen on/off switch ───────────────────────────────────────────────────
+def test_preferences_default_enabled_and_readable_by_any_grant_role(client):
+    r = client.get("/api/v1/staff/coupons/preferences",
+                   headers=_auth("operations.grant_coupon", tenant=GRANTER))
+    assert r.status_code == 200
+    assert r.json()["visit_grant_enabled"] is True
+
+
+def test_only_the_direct_door_can_change_preferences(client):
+    r = client.patch("/api/v1/staff/coupons/preferences",
+                     headers=_auth("operations.grant_coupon", tenant=GRANTER),
+                     json={"visit_grant_enabled": False})
+    assert r.status_code == 403
+
+
+def test_an_owner_can_turn_the_visit_checkbox_off_and_it_reads_back(client):
+    r = client.patch("/api/v1/staff/coupons/preferences",
+                     headers=_auth("operations.grant_coupon_direct", tenant=GRANTER),
+                     json={"visit_grant_enabled": False})
+    assert r.status_code == 200
+    assert r.json()["visit_grant_enabled"] is False
+
+    r2 = client.get("/api/v1/staff/coupons/preferences",
+                    headers=_auth("operations.grant_coupon", tenant=GRANTER))
+    assert r2.json()["visit_grant_enabled"] is False

@@ -285,6 +285,8 @@ def build_manifest(
             {"path": "/api/v1/staff/coupons/history", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/coupons/stats", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/coupons/check", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/coupons/preferences", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/coupons/preferences", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/platform/coupons/settings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/coupons/settings", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/platform/coupons/tenants/{}", "tier": "user", "method": "GET"},

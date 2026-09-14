@@ -1924,3 +1924,30 @@ async def coupon_check(request: Request, phone: str = "",
         return {"registered": False, "already_granted_this_month": False}
     return await request.app.state.container.coupons.check(
         granter_tenant=tenant, phone=phone.strip())
+
+
+@router.get("/coupons/preferences", dependencies=[Depends(rate_limit)])
+async def coupon_preferences(request: Request, principal: Principal = Depends(_GRANT_COUPON_ANY)):
+    """Whether THIS shop turned the visit-screen coupon checkbox on — read by Visit.tsx itself
+    (any visit-recording role) once per screen load, never on the hot save path. `_GRANT_COUPON_ANY`
+    on purpose: a plain operator must be able to read this to know whether to draw the checkbox,
+    even though only `_GRANT_COUPON_DIRECT` may change it."""
+    tenant = _tenant(principal)
+    row = await request.app.state.container.coupons.preferences(tenant)
+    return {"visit_grant_enabled": row.visit_grant_enabled}
+
+
+class CouponPreferencesIn(BaseModel):
+    visit_grant_enabled: bool
+
+
+@router.patch("/coupons/preferences", dependencies=[Depends(rate_limit)])
+async def set_coupon_preferences(request: Request, body: CouponPreferencesIn,
+                                 principal: Principal = Depends(_GRANT_COUPON_DIRECT)):
+    tenant = _tenant(principal)
+    row = await request.app.state.container.coupons.set_preferences(
+        tenant, visit_grant_enabled=body.visit_grant_enabled)
+    await request.app.state.auditor.record(
+        "coupon.preferences_set", actor=principal.subject, tenant=tenant,
+        resource="coupon_preferences", ip=request.client.host if request.client else "")
+    return {"visit_grant_enabled": row.visit_grant_enabled}

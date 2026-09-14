@@ -21,6 +21,7 @@ import { FilterMenu } from '../rj-ui/FilterMenu';
 import { BarCompare } from '../rj-ui/BarCompare';
 import { TierLadder, type TierLadderRung } from '../rj-ui/TierLadder';
 import { RangeSlider } from '../rj-ui/RangeSlider';
+import { Toggle } from '../rj-ui/Toggle';
 import { Field, Input } from '../rj-ui/Field';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -79,6 +80,8 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
   const checkAction = action(catalog, 'operations.coupon_check');
   const historyAction = action(catalog, 'operations.coupon_history');
   const statsAction = action(catalog, 'operations.coupon_stats');
+  const prefsGetAction = action(catalog, 'operations.coupon_preferences_get');
+  const prefsSetAction = action(catalog, 'operations.coupon_preferences_set');
 
   const [tab, setTab] = useState<'log' | 'stats'>('log');
 
@@ -91,12 +94,36 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [stats, setStats] = useState<CouponStats | null | undefined>(undefined);
+  const [visitGrantEnabled, setVisitGrantEnabled] = useState<boolean | null>(null);
+  const [prefsSaving, setPrefsSaving] = useState(false);
 
   useEffect(() => {
     if (!statsAction) { setStats(null); return; }
     call<CouponStats>(session, statsAction).then(setStats).catch(() => setStats(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, catalog, result]);
+
+  useEffect(() => {
+    if (!prefsGetAction) return;
+    call<{ visit_grant_enabled: boolean }>(session, prefsGetAction)
+      .then((x) => setVisitGrantEnabled(x.visit_grant_enabled))
+      .catch(() => setVisitGrantEnabled(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, catalog]);
+
+  async function onTogglePrefs(next: boolean) {
+    if (!prefsSetAction || prefsSaving) return;
+    setPrefsSaving(true);
+    const prev = visitGrantEnabled;
+    setVisitGrantEnabled(next);                       // optimistic — a single boolean, cheap to revert
+    try {
+      await call(session, prefsSetAction, { visit_grant_enabled: next });
+    } catch {
+      setVisitGrantEnabled(prev);
+    } finally {
+      setPrefsSaving(false);
+    }
+  }
 
   // THE LIVE HINT — debounced so every keystroke does not fire a request; a Saudi mobile number
   // is 10 digits, so anything shorter is not worth asking about yet.
@@ -153,6 +180,17 @@ export function CouponsScreen({ session, catalog }: { session: Session; catalog:
         ) : undefined}
       />
       <p className="-mt-2 text-sm text-text-secondary">{t('coupons.subtitle')}</p>
+
+      {prefsSetAction && visitGrantEnabled !== null ? (
+        <div className="flex items-center justify-between gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+          <div>
+            <p className="text-sm font-bold">{t('coupons.prefs.title')}</p>
+            <p className="text-xs text-text-secondary">{t('coupons.prefs.desc')}</p>
+          </div>
+          <Toggle checked={visitGrantEnabled} onChange={onTogglePrefs} disabled={prefsSaving}
+                 ariaLabel={t('coupons.prefs.title')} testId="coupon-prefs-toggle" />
+        </div>
+      ) : null}
 
       {/* ── grant form ──────────────────────────────────────────────────────────────────── */}
       {grantAction ? (

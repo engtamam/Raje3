@@ -614,6 +614,18 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "phone", "in": "query", "type": "string", "required": True}],
         "help": "هل هذا الرقم محل مسجّل عندنا، وهل مُنح كوبوناً منك هذا الشهر بالفعل.",
     },
+    {
+        "id": "operations.coupon_preferences_get", "label": "إعداد خانة الكوبون بتسجيل الزيارة",
+        "method": "GET", "path": "/api/v1/staff/coupons/preferences",
+        "capability": "operations.grant_coupon", "group": "كوبونات",
+        "help": "هل خانة منح الكوبون تظهر أثناء تسجيل الزيارة.",
+    },
+    {
+        "id": "operations.coupon_preferences_set", "label": "تشغيل/إيقاف خانة الكوبون بتسجيل الزيارة",
+        "method": "PATCH", "path": "/api/v1/staff/coupons/preferences",
+        "capability": "operations.grant_coupon_direct", "group": "كوبونات",
+        "help": "تحكّم كامل من صاحب المحل — تشغيل الخانة لا يعني إجباره على استخدامها.",
+    },
 ]
 
 

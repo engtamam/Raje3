@@ -46,6 +46,10 @@ COUPON_SETTINGS = "cross_tenant_coupon_settings"
 COUPON_TENANT_OVERRIDES = "cross_tenant_coupon_overrides"
 COUPON_GRANTS = "cross_tenant_coupon_grants"
 COUPON_ATTEMPTS = "cross_tenant_coupon_attempts"
+# A SHOP'S OWN preference, distinct from `COUPON_TENANT_OVERRIDES` (platform-admin-set, the
+# competitive-cap lever) — this one is self-service, keyed by the shop's own tenant id directly
+# (no `_platform` prefix needed: it is genuinely this tenant's own row, not platform-owned fact).
+COUPON_PREFERENCES = "cross_tenant_coupon_preferences"
 # Same reserved-key registry pattern as `core/partners.py::PLATFORM` — a fact owned by neither
 # tenant, stored under a key no real tenant id can collide with.
 PLATFORM = "_platform"
@@ -133,6 +137,18 @@ class CouponTenantOverride:
     # (if pointless) explicit cap.
     percent: int | None = None
     note: str = ""
+    updated: int = 0
+
+
+@dataclass
+class CouponShopPreferences:
+    tenant: str
+    # WHETHER THE VISIT-RECORDING SCREEN OFFERS A COUPON GRANT AT ALL — the shop's own call, not
+    # ours: holding the app and holding the role only means a grant is POSSIBLE (owner's own
+    # words, 2026-09-14) — this is the third gate Visit.tsx checks before drawing anything,
+    # alongside app ownership. Defaults True so a shop that just bought the app sees it working
+    # immediately, exactly the opt-OUT posture every other bundled feature in this product takes.
+    visit_grant_enabled: bool = True
     updated: int = 0
 
 
@@ -241,6 +257,21 @@ class CouponService:
                                    updated=_now())
         await self._s.put(COUPON_TENANT_OVERRIDES, f"{PLATFORM}|{tenant}",
                           {"tenant_key": PLATFORM, **asdict(row)})
+        return row
+
+    # ── the shop's own on/off switch for the visit-screen integration ─────────────────────────
+    async def preferences(self, tenant: str) -> CouponShopPreferences:
+        row = await self._s.get(COUPON_PREFERENCES, tenant)
+        if not row:
+            return CouponShopPreferences(tenant=tenant)
+        return CouponShopPreferences(tenant=tenant,
+                                     visit_grant_enabled=bool(row.get("visit_grant_enabled", True)),
+                                     updated=int(row.get("updated") or 0))
+
+    async def set_preferences(self, tenant: str, *, visit_grant_enabled: bool) -> CouponShopPreferences:
+        row = CouponShopPreferences(tenant=tenant, visit_grant_enabled=visit_grant_enabled,
+                                    updated=_now())
+        await self._s.put(COUPON_PREFERENCES, tenant, asdict(row))
         return row
 
     # ── the cap a granter may use right now ────────────────────────────────────────────────────

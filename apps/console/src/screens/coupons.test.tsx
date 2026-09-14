@@ -30,6 +30,7 @@ const HISTORY = {
 };
 
 let grantCalls: Record<string, unknown>[] = [];
+let prefsCalls: Record<string, unknown>[] = [];
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -39,6 +40,11 @@ vi.mock('../catalog', async (importOriginal) => {
     call: async (_s: unknown, a: { id: string }, params?: Record<string, unknown>) => {
       if (a.id === 'operations.coupon_stats') return STATS;
       if (a.id === 'operations.coupon_history') return HISTORY;
+      if (a.id === 'operations.coupon_preferences_get') return { visit_grant_enabled: true };
+      if (a.id === 'operations.coupon_preferences_set') {
+        prefsCalls.push(params ?? {});
+        return { visit_grant_enabled: (params?.visit_grant_enabled as boolean) ?? true };
+      }
       if (a.id === 'operations.coupon_check') {
         const phone = String(params?.phone ?? '');
         if (phone.endsWith('99')) return { registered: true, already_granted_this_month: true };
@@ -60,7 +66,7 @@ function render(ui: ReactElement) {
   return rtlRender(<OperatorI18nProvider session={SESSION}>{ui}</OperatorI18nProvider>);
 }
 
-afterEach(() => { cleanup(); grantCalls = []; });
+afterEach(() => { cleanup(); grantCalls = []; prefsCalls = []; });
 
 describe('«كوبونات»', () => {
   it('shows the current cap and the grant form', async () => {
@@ -95,5 +101,13 @@ describe('«كوبونات»', () => {
     fireEvent.change(phoneInput, { target: { value: '0512345600' } });
     await waitFor(() => expect(screen.getByText('هذا الرقم ليس محلاً مسجّلاً عندنا')).toBeTruthy(),
       { timeout: 1000 });
+  });
+
+  it('shows the visit-screen switch and toggles it off with one press', async () => {
+    render(<CouponsScreen session={SESSION} catalog={catalog} />);
+    const toggle = await screen.findByTestId('coupon-prefs-toggle');
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(prefsCalls).toEqual([{ visit_grant_enabled: false }]));
   });
 });

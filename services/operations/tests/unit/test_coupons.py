@@ -411,3 +411,24 @@ def test_stats_history_has_six_months_ending_at_the_current_one(svc):
     assert len(stats["history"]) == 6
     assert stats["history"][-1]["month_key"] == _month_key(_now())
     assert stats["history"][-1]["grants"] == 1
+
+
+# ── the shop's own visit-screen on/off switch ───────────────────────────────────────────────────
+def test_preferences_default_to_enabled(svc):
+    s, _store, _plans = svc
+    row = run(s.preferences(A))
+    assert row.visit_grant_enabled is True
+
+
+def test_preferences_can_be_turned_off_and_read_back(svc):
+    s, _store, _plans = svc
+    run(s.set_preferences(A, visit_grant_enabled=False))
+    row = run(s.preferences(A))
+    assert row.visit_grant_enabled is False
+
+
+def test_preferences_are_per_tenant(svc):
+    s, _store, _plans = svc
+    run(s.set_preferences(A, visit_grant_enabled=False))
+    other = run(s.preferences("tnt_other"))
+    assert other.visit_grant_enabled is True
