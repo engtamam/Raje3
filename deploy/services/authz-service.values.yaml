@@ -11,7 +11,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/authz-service
-  digest: "sha256:32b2cdb327567ec144632bc852bcadf79da2c3e459da561463380323f0e9c918"   # v0.23.1
+  digest: "sha256:32b2cdb327567ec144632bc852bcadf79da2c3e459da561463380323f0e9c918"   # v0.23.2
 
 replicas: 1
 
@@ -129,7 +129,7 @@ env:
   # exactly what it looked like.
   AUTHZ_TENANT_ASSIGNABLE_CAPS: >-
     operations.record,operations.read,operations.manage,operations.manage_services,search.read,
-    operations.grant_coupon,operations.grant_coupon_direct,
+    operations.grant_coupon,operations.grant_coupon_direct,operations.mobile_requests_manage,
     reminders.read,reminders.manage,
     campaigns.read,campaigns.manage,
     loyalty.read,loyalty.redeem,loyalty.manage,

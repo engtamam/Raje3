@@ -852,4 +852,36 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "a shop removed its Salla link — support needs to know this was deliberate when "
                "an owner later asks why real orders stopped granting alliances automatically",
     },
+    {
+        "action": "mobile_request.accepted",
+        "source": "internal",
+        "critical": False,
+        "resource": "mobile_request",
+        "why": "who at the shop accepted a mobile-service request, and when — the moment the "
+               "platform's own involvement ends and coordination moves outside it",
+    },
+    {
+        "action": "mobile_request.rejected",
+        "source": "internal",
+        "critical": False,
+        "resource": "mobile_request",
+        "why": "a customer asking why nobody got back to them needs a real answer — this is the "
+               "record that the shop actually looked at the request and said no",
+    },
+    {
+        "action": "mobile_request.completed",
+        "source": "internal",
+        "critical": False,
+        "resource": "mobile_request",
+        "why": "the request that turned into a real, loyalty-earning visit — traceable back to "
+               "the WhatsApp conversation that started it",
+    },
+    {
+        "action": "mobile_request.no_show",
+        "source": "internal",
+        "critical": False,
+        "resource": "mobile_request",
+        "why": "feeds the next customer's own no-show risk read — an owner disputing that read "
+               "needs to see exactly which past requests it is built from",
+    },
 ]

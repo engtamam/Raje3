@@ -641,6 +641,43 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/salla/status", "capability": "billing.self", "group": "سلة",
         "help": "هل متجر سلة مربوط بهذا الحساب الآن، وأي متجر.",
     },
+    {
+        "id": "operations.mobile_requests_list", "label": "طلبات الخدمة المتنقلة", "method": "GET",
+        "path": "/api/v1/staff/mobile-requests", "capability": "operations.mobile_requests_manage",
+        "group": "خدمات متنقلة",
+        "help": "قائمة الطلبات — معلّقة، مقبولة، أو الكل حسب الفلتر.",
+        "params": [{"name": "status_filter", "in": "query", "type": "string", "required": False}],
+    },
+    {
+        "id": "operations.mobile_request_risk", "label": "خطر عدم حضور الطلب", "method": "GET",
+        "path": "/api/v1/staff/mobile-requests/{request_id}/risk",
+        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
+        "help": "تحذير بسيط قبل القبول — لا يمنع ولا يفرض شيئاً.",
+    },
+    {
+        "id": "operations.mobile_request_accept", "label": "قبول طلب خدمة متنقلة", "method": "POST",
+        "path": "/api/v1/staff/mobile-requests/{request_id}/accept",
+        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
+        "help": "بعدها التواصل والتنسيق يصير مباشرة بين المحل والعميل، خارج المنصة.",
+    },
+    {
+        "id": "operations.mobile_request_reject", "label": "رفض طلب خدمة متنقلة", "method": "POST",
+        "path": "/api/v1/staff/mobile-requests/{request_id}/reject",
+        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
+        "help": "مع سبب اختياري، لو حبيت توثّقه.",
+    },
+    {
+        "id": "operations.mobile_request_complete", "label": "الموعد تم", "method": "POST",
+        "path": "/api/v1/staff/mobile-requests/{request_id}/complete",
+        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
+        "help": "يسجّل زيارة حقيقية فوراً — نقاط الولاء وكل شيء آخر يُحسب تلقائياً.",
+    },
+    {
+        "id": "operations.mobile_request_no_show", "label": "الموعد لم يتم", "method": "POST",
+        "path": "/api/v1/staff/mobile-requests/{request_id}/no-show",
+        "capability": "operations.mobile_requests_manage", "group": "خدمات متنقلة",
+        "help": "لا زيارة تُسجَّل — يُحسب فقط في سجل عدم الحضور.",
+    },
 ]
 
 

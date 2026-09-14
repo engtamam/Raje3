@@ -21,6 +21,7 @@ from app.core import privacy_requests as PR
 from app.core import rating_alerts as RA
 from app.core import scheduling
 from app.core.erasure import OperationsErasure
+from app.core.mobile_requests import MobileRequestError
 from app.core import retention as retention_core
 from app.core import wallet_topup_reconcile as wallet_topup_core
 from app.adapters import job_service as job_service_core
@@ -1249,6 +1250,44 @@ async def internal_visit_from_whatsapp(request: Request, body: VisitFromWhatsApp
         await c.seams.after_visit(recorded)
     return {"recorded": True, "visit_id": recorded.visit.id, "customer_id": recorded.customer.id,
            "duplicate": recorded.duplicate}
+
+
+class MobileServiceRequestIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=3, max_length=32)
+    customer_name: str = Field(default="", max_length=128)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    requested_time_text: str = Field(default="", max_length=300)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+@router.post("/operations/mobile-requests", dependencies=[Depends(require_internal_token)])
+async def internal_create_mobile_request(request: Request, body: MobileServiceRequestIn) -> dict:
+    """whatsapp-assistant's own door for a mobile/on-the-go service request — see
+    core/mobile_requests.py's own module docstring for the full design. Deliberately its OWN
+    route, not folded into `/visits/from-whatsapp` right above: a mobile-service request is not a
+    visit yet and may never become one — it starts PENDING, and only `POST /staff/mobile-
+    requests/{id}/complete` (the shop's own review, api/v1/mobile_requests.py) ever creates a
+    real Visit, once a human at the shop has actually looked at it.
+
+    `tenant` IN THE BODY, same posture `/visits/from-whatsapp` above already documents at length:
+    the caller (whatsapp-assistant) has already resolved which tenant this WhatsApp conversation
+    belongs to, one hop earlier, by a different mechanism than this internal tier's own shared
+    token — there is nothing left for this route itself to re-verify.
+    """
+    c = request.app.state.container
+    try:
+        row = await c.mobile_requests.create(
+            tenant=body.tenant, phone=body.phone, customer_name=body.customer_name,
+            service_ids=body.service_ids, requested_time_text=body.requested_time_text,
+            lat=body.lat, lng=body.lng)
+    except MobileRequestError as exc:
+        # RETURNED, NOT RAISED — same rule the visit routes around it follow: whatsapp-assistant's
+        # own conversation needs a real sentence to relay back to the customer, not a stripped
+        # HTTPException detail.
+        return {"created": False, "reason": str(exc)}
+    return {"created": True, "request_id": row.id}
 
 
 class BookingRewardRedeemIn(BaseModel):

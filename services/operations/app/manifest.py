@@ -91,7 +91,11 @@ def build_manifest(
                          # SHOP-TO-SHOP COUPONS — the visit-linked door and the standalone-tab
                          # door, deliberately two capabilities (see staff.py's own comment on
                          # `_GRANT_COUPON`/`_GRANT_COUPON_DIRECT`).
-                         "operations.grant_coupon", "operations.grant_coupon_direct"],
+                         "operations.grant_coupon", "operations.grant_coupon_direct",
+                         # MOBILE/ON-THE-GO SERVICE REQUESTS — one capability for the whole review
+                         # queue (see api/v1/mobile_requests.py's own module docstring on why it
+                         # is not split the way coupons' two doors are).
+                         "operations.mobile_requests_manage"],
         "endpoints": [
             # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
             # It came from the generated scaffold, survived every review, and the gate that catches
@@ -156,6 +160,9 @@ def build_manifest(
             # proven one hop earlier by a verified WhatsApp sender number — see api/internal.py's
             # own docstring on this route.
             {"path": "/internal/operations/visits/from-whatsapp", "tier": "internal", "method": "POST"},
+            # whatsapp-assistant's own creation door for a mobile/on-the-go service request —
+            # starts PENDING, never a Visit by itself (core/mobile_requests.py's own docstring).
+            {"path": "/internal/operations/mobile-requests", "tier": "internal", "method": "POST"},
             # Read before the Flow ever opens — see core/whatsapp_visit_flag.py's own docstring.
             {"path": "/internal/operations/whatsapp-visit-registration", "tier": "internal",
              "method": "GET"},
@@ -397,6 +404,13 @@ def build_manifest(
             {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/salla/disconnect", "tier": "user", "method": "POST"},
+            # ── mobile/on-the-go service requests — see api/v1/mobile_requests.py's own note.
+            {"path": "/api/v1/staff/mobile-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/mobile-requests/{}/risk", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/mobile-requests/{}/accept", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/mobile-requests/{}/reject", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/mobile-requests/{}/complete", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/mobile-requests/{}/no-show", "tier": "user", "method": "POST"},
             # PUBLIC, deliberately, same posture as signup's own pair right below: Salla's browser
             # redirect and Salla's own server call carry no Bearer token to check.
             {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},
