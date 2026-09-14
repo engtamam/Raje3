@@ -316,6 +316,16 @@ def build_container(settings: Settings) -> Container:
     container.coupons = CouponService(
         store=container.datastore, plans=container.billing_plans,
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+
+    # Salla — infrastructure only, see core/marketplaces/salla.py's own module docstring.
+    from app.core.marketplaces.salla import SallaClient, SallaService
+
+    container.salla = SallaService(
+        store=container.datastore,
+        client=SallaClient(
+            client_id=settings.SALLA_CLIENT_ID, client_secret=settings.SALLA_CLIENT_SECRET,
+            redirect_uri=(f"{settings.PUBLIC_BASE_URL.rstrip('/')}/api/v1/salla/callback"
+                         if settings.PUBLIC_BASE_URL else "")))
     # What the shop bought, for every lock the console draws. One read, five keys, no enforcement:
     # the gates are in the services that own the acts.
     from app.core.apps import build_apps

@@ -201,6 +201,34 @@ SECRETS: tuple[SecretEntry, ...] = (
         deployment="operations",
         label="المفتاح العام لبوابة الدفع (Publishable)",
     ),
+    # ── Salla (the marketplace app — «تحالف استراتيجي» from a real Salla order) ──────────────
+    # ALL THREE INTO `operations-secrets` — the integration lives inside operations-service itself
+    # (core/marketplaces/salla.py, api/v1/salla.py), not a separate microservice: no new Secret
+    # object, no RBAC Role change needed, the same reasoning PAYMENT_PUBLISHABLE_KEY's own entry
+    # above already established for a third credential landing in this same object.
+    SecretEntry(
+        key="SALLA_CLIENT_ID",
+        secret="operations-secrets",
+        namespace="base-services",
+        deployment="operations",
+        label="معرّف تطبيق سلة (Client ID)",
+    ),
+    SecretEntry(
+        key="SALLA_CLIENT_SECRET",
+        secret="operations-secrets",
+        namespace="base-services",
+        deployment="operations",
+        label="سر تطبيق سلة (Client Secret)",
+    ),
+    # HMAC-SHA256 key Salla signs every webhook call with — set ONCE for the whole app in the
+    # Partners Portal's own webhook settings, never per merchant.
+    SecretEntry(
+        key="SALLA_WEBHOOK_SECRET",
+        secret="operations-secrets",
+        namespace="base-services",
+        deployment="operations",
+        label="سر التحقق من إشعارات سلة (Webhook Secret)",
+    ),
 )
 
 #: key -> entry. Built once; the routes look up by key and 404 on anything not here.

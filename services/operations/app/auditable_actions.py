@@ -836,4 +836,12 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "a shop turned the visit-screen coupon checkbox on or off — an owner asking why "
                "staff stopped seeing it (or started) needs to see this was a deliberate switch",
     },
+    {
+        "action": "salla.connected",
+        "source": "internal",
+        "critical": False,
+        "resource": "salla_merchant",
+        "why": "a shop linked its Salla store to its account here — who did it and when, for "
+               "support when an owner asks why a store they do not recognise appears connected",
+    },
 ]

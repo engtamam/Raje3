@@ -626,6 +626,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "capability": "operations.grant_coupon_direct", "group": "كوبونات",
         "help": "تحكّم كامل من صاحب المحل — تشغيل الخانة لا يعني إجباره على استخدامها.",
     },
+    {
+        "id": "operations.salla_install", "label": "اربط متجر سلة", "method": "GET",
+        "path": "/api/v1/staff/salla/install", "capability": "billing.self", "group": "سلة",
+        "help": "رابط لصفحة موافقة سلة — نفس صلاحية إدارة الاشتراك، ذاتية الخدمة من صاحب المحل.",
+    },
+    {
+        "id": "operations.salla_status", "label": "حالة ربط سلة", "method": "GET",
+        "path": "/api/v1/staff/salla/status", "capability": "billing.self", "group": "سلة",
+        "help": "هل متجر سلة مربوط بهذا الحساب الآن، وأي متجر.",
+    },
 ]
 
 
@@ -694,4 +704,11 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
      "why": "an external store/site granting a shop-to-shop coupon from a real order, same "
             "service-account door as every other till.py route — the console reaches the same "
             "engine through /staff/coupons/grant instead"},
+    {"method": "GET", "path": "/api/v1/salla/callback",
+     "why": "Salla's own browser redirect back after the owner approves the consent screen — "
+            "arrives with no Bearer token to check, same reasoning as signup's own unauthenticated "
+            "pair; a signed-in owner starts a NEW install from operations.salla_install instead"},
+    {"method": "POST", "path": "/api/v1/salla/webhook",
+     "why": "Salla's own server calling us on a subscribed event, verified by HMAC signature "
+            "instead of a Bearer token — see api/v1/salla.py's own module docstring"},
 ]

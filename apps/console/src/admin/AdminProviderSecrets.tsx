@@ -22,7 +22,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, CircleHelp, Clock, Copy, CreditCard, Loader2,
-  MessageCircle, PhoneOff, Send, Sparkles, UserX, XCircle,
+  MessageCircle, PhoneOff, Send, Sparkles, Store, UserX, XCircle,
 } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Field, Input, Select } from '../rj-ui/Field';
@@ -85,6 +85,12 @@ const SECRET_HELP: Record<string, string> = {
   // يظهر لمتصفح العميل مباشرة (شاشة الاشتراك) — ليس سرّاً بنفس معنى الاثنين أعلاه، لكنه بلا مكان
   // آمن يُكتب فيه غير هنا حتى الآن.
   PAYMENT_PUBLISHABLE_KEY: 'المفتاح العام (Publishable) لنفس حساب التاجر — من لوحة تحكّم مزوّد بوابة الدفع المفعّل حالياً، وليس سرّياً بذاته لكنه ما زال يحتاج مكاناً واحداً موثوقاً يُكتب فيه.',
+  // تطبيق «تحالف استراتيجي» على سلة — الأداة الثلاثة من لوحة الشركاء (portal.salla.partners) بعد
+  // إنشاء التطبيق: الأول والثاني من إعدادات التطبيق الأساسية، الثالث من تبويب الـwebhooks بنفس
+  // إعدادات التطبيق (يُدخَل مرة واحدة للتطبيق كله، لا لكل تاجر).
+  SALLA_CLIENT_ID: 'من لوحة شركاء سلة (portal.salla.partners) — تطبيقك ← الإعدادات الأساسية ← "Client ID".',
+  SALLA_CLIENT_SECRET: 'من نفس صفحة إعدادات التطبيق — "Client Secret".',
+  SALLA_WEBHOOK_SECRET: 'من نفس لوحة التطبيق — تبويب "Webhooks" ← "Secret". يُستخدم للتحقق من كل إشعار يصل من سلة، ويجب أن يكون نفس القيمة المُدخلة هناك بالضبط.',
 };
 
 // مفاتيح نخترعها نحن، لا يصدرها مزوّد خارجي — زر "توليد" يبني قيمة عشوائية قوية بدل ما يُكتب
@@ -109,6 +115,7 @@ const PROVIDER_OF: Record<string, string> = {
   ASSISTANT_MODEL_PROJECT: 'assistant_ai', ASSISTANT_MODEL_CREDENTIAL: 'assistant_ai',
   PAYMENT_API_KEY: 'payment', PAYMENT_EXTRA_ID: 'payment', PAYMENT_EXTRA_SECRET: 'payment',
   PAYMENT_PUBLISHABLE_KEY: 'payment',
+  SALLA_CLIENT_ID: 'salla', SALLA_CLIENT_SECRET: 'salla', SALLA_WEBHOOK_SECRET: 'salla',
 };
 const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle }> = {
   // الاسم التقني الدقيق كما هو — هذي لوحة إدارة داخلية (لفريق المنصة)، لا شاشة يقرأها صاحب محل،
@@ -119,6 +126,7 @@ const PROVIDER_META: Record<string, { label: string; icon: typeof MessageCircle 
   // واتساب المحلات" مقابل الاسم الثاني) — ليس اليوم، وفيه فئة واحدة بس.
   assistant_ai: { label: 'الذكاء الاصطناعي', icon: Sparkles },
   payment: { label: 'بوابة الدفع', icon: CreditCard },
+  salla: { label: 'سلة', icon: Store },
   other: { label: 'أخرى', icon: CircleHelp },
 };
 

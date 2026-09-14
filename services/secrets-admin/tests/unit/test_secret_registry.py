@@ -44,6 +44,10 @@ def test_the_registry_is_the_ones_we_decided_on():
         # the ONE payment credential a browser is meant to read (operations' own
         # /subscription/status route) — a different service holding a slice of the same answer.
         "PAYMENT_PUBLISHABLE_KEY",
+        # Salla — the marketplace app («تحالف استراتيجي» from a real Salla order), added
+        # 2026-09-15. All three land in operations-secrets: the integration lives inside
+        # operations-service itself, no new Secret object or RBAC change needed.
+        "SALLA_CLIENT_ID", "SALLA_CLIENT_SECRET", "SALLA_WEBHOOK_SECRET",
     }
 
 

@@ -250,6 +250,20 @@ class Settings(BaseSettings):
     # never in the console, and never in a response.
     PAYMENT_PUBLISHABLE_KEY: str = ""
     PAYMENT_PROVIDER: str = "moyasar"
+
+    # ── Salla (marketplace app — shop-to-shop alliances from a real Salla order) ────────────────
+    # SET FROM THE PARTNERS PORTAL, THROUGH secrets-admin — never typed here. A shop owner
+    # registers the app at portal.salla.partners, pastes the three values this app gives him into
+    # the secrets screen (same posture as every other external credential — see
+    # secrets-admin/app/core/secret_registry.py's own module docstring). Empty means the Salla
+    # integration simply answers "not configured" rather than failing — same posture
+    # PAYMENT_PUBLISHABLE_KEY's own comment above documents for an unconfigured gateway.
+    SALLA_CLIENT_ID: str = ""
+    SALLA_CLIENT_SECRET: str = ""
+    # HMAC-SHA256 key Salla signs every webhook call with (`X-Salla-Signature` header) — set ONCE
+    # for the whole app in the Partners Portal's own webhook settings, not per merchant. Verified
+    # in core/marketplaces/salla.py::verify_signature.
+    SALLA_WEBHOOK_SECRET: str = ""
     # Whether a shop has a WhatsApp account, ASKED of notification-service rather than stored: a
     # copy here is a second answer to the same question, and the first disagreement refuses a
     # subscription from a shop that connected an hour ago.

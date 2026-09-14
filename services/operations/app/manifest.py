@@ -393,6 +393,13 @@ def build_manifest(
             {"path": "/api/v1/till/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/rating-request", "tier": "user", "method": "POST"},
             {"path": "/api/v1/till/coupons/grant", "tier": "user", "method": "POST"},
+            # ── Salla — see api/v1/salla.py's own module docstring for the install/callback split.
+            {"path": "/api/v1/staff/salla/install", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/salla/status", "tier": "user", "method": "GET"},
+            # PUBLIC, deliberately, same posture as signup's own pair right below: Salla's browser
+            # redirect and Salla's own server call carry no Bearer token to check.
+            {"path": "/api/v1/salla/callback", "tier": "public", "method": "GET"},
+            {"path": "/api/v1/salla/webhook", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},
