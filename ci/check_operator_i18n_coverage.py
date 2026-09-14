@@ -146,6 +146,27 @@ _EXCLUDE_DIRS = {"rj-ui", "admin", "affiliates"}
 
 
 def part_b() -> tuple[int, int, list[tuple[Path, int]]]:
+    """Unchanged blocking criterion — still `*.tsx` only, still "does the file mention
+    useOperatorI18n/registerOperatorStrings anywhere".
+
+    THAT SUBSTRING TEST IS LOOSER THAN IT SHOULD BE, AND IT IS KNOWN NOW, NOT HYPOTHETICAL — it is
+    exactly what let App.tsx carry real hardcoded Arabic (the rail's own chrome: `labels={{
+    collapse: 'طيّ القائمة', … }}`, the navItems built from `nav.ts`'s literal `label` fields)
+    through every language switch while this gate printed green (found live 2026-09-14; App.tsx
+    never even CALLED `useOperatorI18n()` — the substring matched a comment elsewhere in the file
+    quoting the hook's own name). That specific bug is now fixed at the source (App.tsx/nav.ts/
+    nav-i18n.ts), verified by nav_i18n.test.ts — this function is left AS IT WAS rather than
+    tightened to `arabic_hits == 0`, because tightening it here surfaced 12 OTHER, unrelated,
+    pre-existing screens with their own leftover raw strings (Services.tsx, Messages.tsx,
+    MessagePreview.tsx, Customer.tsx, Team.tsx, Points.tsx, Plans.tsx, Shop.tsx,
+    AccountPanes.tsx, ServicesImportDrawer.tsx, operator-i18n.tsx, OperatorLocaleSwitcher.tsx —
+    38 strings nobody has signed up to migrate today) and turning them into a build-blocking
+    failure for every future ship is not a call this fix gets to make unilaterally. `part_c()`
+    below is the honest middle ground: it runs the STRICTER, gap-free check this docstring
+    describes, widened to plain `.ts` files too (which is what actually would have caught
+    `nav.ts`), but reports it, never blocks on it — visible, not silently dropped, and not a
+    surprise 38-file failure landing on someone else's unrelated ship.
+    """
     covered_files: set[Path] = set()
     for path in SRC.rglob("*.ts*"):
         if ".test." in path.name:
@@ -176,6 +197,34 @@ def part_b() -> tuple[int, int, list[tuple[Path, int]]]:
     return total_screens, len(uncovered), uncovered
 
 
+# ── PART C — INFORMATIONAL ONLY, NEVER BLOCKING ─────────────────────────────────────────────────
+# The STRICT check — every `.ts`/`.tsx` file (not only `*.tsx`), judged purely on `arabic_hits`
+# (not the loose "mentions the hook somewhere" substring Part B still uses) — surfaced instead of
+# hidden, so the class of bug that let `nav.ts` (plain `.ts`, no JSX, invisible to Part B's
+# `*.tsx` glob) carry nine hardcoded section labels through every language switch, AND the class
+# that let App.tsx's OWN real strings hide behind a comment quoting "useOperatorI18n" by
+# coincidence, both have somewhere to be SEEN — without unilaterally blocking every ship in the
+# repo over files nobody has agreed belong to this migration yet.
+_I18N_DICT_SUFFIXES = ("-i18n.ts",)
+_I18N_DICT_NAMES = {"i18n.ts"}
+
+
+def part_c() -> list[tuple[Path, int]]:
+    hits: list[tuple[Path, int]] = []
+    for path in sorted(SRC.rglob("*.ts*")):
+        if ".test." in path.name or path.name.endswith(".d.ts"):
+            continue
+        if path.name.endswith(_I18N_DICT_SUFFIXES) or path.name in _I18N_DICT_NAMES:
+            continue
+        parts = path.relative_to(SRC).parts
+        if any(part in _EXCLUDE_DIRS for part in parts):
+            continue
+        arabic_hits = len(_scan_real_arabic(path))
+        if arabic_hits:
+            hits.append((path.relative_to(ROOT), arabic_hits))
+    return hits
+
+
 def main() -> int:
     a_problems = part_a()
     total, uncovered_count, uncovered = part_b()
@@ -194,7 +243,7 @@ def main() -> int:
         # ALWAYS THE FULL LIST, NEVER TRIMMED — this half now blocks the build, and a failure that
         # only says "87 screens" with no names is not actionable. Heaviest (most Arabic text, the
         # rough cost to migrate) first, so the list itself suggests a sane order to work through it.
-        print(f"    \033[31m✗ {uncovered_count} screen(s) carry Arabic text with no translation hookup at all:\033[0m")
+        print(f"    \033[31m✗ {uncovered_count} screen(s) carry raw Arabic text outside any t() call:\033[0m")
         for rel, hits in sorted(uncovered, key=lambda x: -x[1]):
             print(f"      \033[31m✗\033[0m {hits:>5}  {rel}")
 
@@ -205,6 +254,16 @@ def main() -> int:
         return 1
     print()
     print("\033[32m  ✔ every screen with visible Arabic text routes it through operator-i18n, in every declared locale\033[0m")
+
+    # NEVER AFFECTS THE RETURN CODE — see part_c()'s own header for why this stays informational.
+    other = part_c()
+    if other:
+        print()
+        print("\033[1m  ▸ Part C — plain .ts modules with raw Arabic, informational only\033[0m")
+        for rel, hits in sorted(other, key=lambda x: -x[1])[:10]:
+            print(f"    \033[33m!\033[0m {hits:>5}  {rel}")
+        if len(other) > 10:
+            print(f"    \033[2m… and {len(other) - 10} more\033[0m")
     return 0
 
 
