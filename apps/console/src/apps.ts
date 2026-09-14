@@ -213,6 +213,24 @@ export const APP_ROWS: AppRow[] = [
     icon: 'message-circle', tone: 'accent',
     featuresAction: 'whatsapp_assistant.features',
   },
+  // «كوبونات» — shop-to-shop: a discount on ANOTHER registered shop's own subscription with us,
+  // applied at its next renewal (deploy/seed/plans.json's own note on this row, and
+  // docs/خطة-كوبونات-محل-لمحل.md for the full design). NO SECTION YET — the rail tab, the
+  // visit-screen checkbox and the admin panel are a later, separate pass; this row exists now so
+  // the app store can already display and sell it, same posture as التقييم once had before its
+  // own tab shipped.
+  {
+    id: 'coupons',
+    key: 'feature.coupons',
+    name: 'كوبونات',
+    what: 'امنح محلاً آخر مسجّلاً عندنا خصماً حقيقياً على اشتراكه معنا — يُطبَّق تلقائياً عند تجديده القادم، ويقوّي علاقتك التجارية مع من تتعامل معهم.',
+    section: '',
+    onCustomer: '',
+    // NOT `gift`/`warning` — برنامج النقاط already owns that exact pair, and a shelf of cards
+    // must read as distinct products (see this file's own `tone` doc-comment above).
+    icon: 'users', tone: 'danger',
+    // NO featuresAction — see «التقييم»'s own note above; operations owns this row too.
+  },
 ];
 
 /** The key that locks a nav section, or null when the section belongs to the base. */
