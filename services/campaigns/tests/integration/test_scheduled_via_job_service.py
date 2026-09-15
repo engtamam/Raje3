@@ -13,6 +13,24 @@ from fastapi.testclient import TestClient
 SECRET = "h" * 40
 ISS = "iss"
 AUD = "aud"
+INTERNAL_TOKEN = "t" * 40
+
+
+def push_headers(body: bytes) -> dict[str, str]:
+    """A genuine job-service push signature over `body`, verifiable against
+    INTERNAL_SERVICE_TOKEN (the default `require_push_signature` falls back to) — needed on top
+    of X-Internal-Token for /internal/campaigns/jobs/run since 2026-09-16's push-dispatch
+    migration."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    ts = int(time.time())
+    signed = f"{ts}.".encode("utf-8") + body
+    sig = hmac.new(INTERNAL_TOKEN.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {SIGNATURE_HEADER: sig, TIMESTAMP_HEADER: str(ts)}
 
 
 class FakeJobs:
@@ -132,6 +150,26 @@ def test_creation_still_succeeds_even_if_job_service_enqueue_fails(client):
     assert r.status_code in (200, 201), r.text
 
 
+def test_jobs_run_refuses_without_a_push_signature_even_with_a_valid_internal_token(client):
+    app, http = client
+    r = http.post("/internal/campaigns/jobs/run", headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
+
+
+def test_tick_refuses_without_a_push_signature(client):
+    app, http = client
+    r = http.post("/internal/campaigns/tick", json={},
+                  headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 401
+
+
+def test_tick_with_a_valid_push_signature_succeeds(client):
+    app, http = client
+    r = http.post("/internal/campaigns/tick", json={},
+                  headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"{}")})
+    assert r.status_code == 200, r.text
+
+
 def test_internal_jobs_run_fires_a_claimed_due_campaign(client):
     app, http = client
     r = http.post("/api/v1/campaigns",
@@ -145,7 +183,7 @@ def test_internal_jobs_run_fires_a_claimed_due_campaign(client):
                       "payload": {"campaign_id": cid}}]
 
     run_r = http.post("/internal/campaigns/jobs/run",
-                      headers={"X-Internal-Token": "t" * 40})
+                      headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"")})
     assert run_r.status_code == 200, run_r.text
     assert run_r.json()["claimed"] == 1
     assert len(fake.acked) == 1
@@ -164,7 +202,8 @@ def test_internal_jobs_run_skips_a_campaign_that_was_paused_since_scheduling(cli
     fake = app.state.jobs_fake
     fake.claimable = [{"id": "job_y", "lease_token": "lt_y", "tenant": "tnt_sched",
                       "payload": {"campaign_id": cid}}]
-    run_r = http.post("/internal/campaigns/jobs/run", headers={"X-Internal-Token": "t" * 40})
+    run_r = http.post("/internal/campaigns/jobs/run",
+                      headers={"X-Internal-Token": INTERNAL_TOKEN, **push_headers(b"")})
     assert run_r.status_code == 200, run_r.text
     assert len(fake.acked) == 1
     assert fake.acked[0][2] == {"skipped": "not_active"}

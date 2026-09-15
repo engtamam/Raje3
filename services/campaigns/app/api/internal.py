@@ -45,6 +45,29 @@ async def require_internal_token(
         )
 
 
+async def require_push_signature(
+    request: Request,
+    x_job_signature: str | None = Header(default=None, alias="X-Job-Signature"),
+    x_job_signature_timestamp: str | None = Header(default=None,
+                                                   alias="X-Job-Signature-Timestamp"),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """A door driven ONLY by job-service's own push dispatch (base-services v0.24.0) — see
+    app/core/push_verify.py's own docstring for the scheme. `require_internal_token` alone would
+    accept ANY caller that knows the shared fleet secret; this additionally proves the body is
+    exactly what job-service sent, at the moment it sent it, never a replay."""
+    import time as _time
+
+    from app.core.push_verify import verify as verify_push
+
+    body = await request.body()
+    secret = settings.PUSH_SIGNING_SECRET or settings.INTERNAL_SERVICE_TOKEN
+    ok = verify_push(secret, x_job_signature_timestamp or "", body, x_job_signature or "",
+                     now=_time.time(), max_skew_seconds=settings.PUSH_SIGNATURE_MAX_SKEW_SECONDS)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UNAUTHORIZED")
+
+
 @router.get("/health", dependencies=[Depends(require_internal_token)])
 async def internal_health(settings: Settings = Depends(get_settings)) -> dict[str, str]:
     return {"status": "ok", "service": settings.SERVICE_NAME}
@@ -105,13 +128,17 @@ class TickIn(BaseModel):
     tenant: str = Field(default="", max_length=128)
 
 
-@router.post("/campaigns/tick", dependencies=[Depends(require_internal_token)])
+@router.post("/campaigns/tick",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def tick(request: Request, body: TickIn | None = None) -> dict:
-    """The heartbeat. A CronJob in the values file drives this.
+    """The heartbeat. DRIVEN BY job-service's PUSH DISPATCH, NOT A K8S CronJob (migrated
+    2026-09-16, following whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own
+    header for the full migration plan) — `require_push_signature` on top of the usual internal
+    token means this only ever fires on a genuine, unreplayed push job-service itself sent.
 
-    WITHOUT IT THIS SERVICE IS INERT AND LOOKS HEALTHY: campaigns exist, every probe passes, and
-    nothing ever fires. There is no symptom until an owner asks why the win-back campaign they set
-    up in March has never sent anything.
+    WITHOUT A LIVE SCHEDULE + REGISTERED PUSH TARGET THIS SERVICE IS INERT AND LOOKS HEALTHY:
+    campaigns exist, every probe passes, and nothing ever fires. There is no symptom until an
+    owner asks why the win-back campaign they set up in March has never sent anything.
     """
     # THE CRON POSTS NO BODY AT ALL. The platform's scheduled-job template sends an empty payload
     # with a JSON content type, and a REQUIRED model rejects that as a validation error before a
@@ -143,13 +170,15 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
             "reasons": reasons}
 
 
-@router.post("/campaigns/jobs/run", dependencies=[Depends(require_internal_token)])
+@router.post("/campaigns/jobs/run",
+            dependencies=[Depends(require_internal_token), Depends(require_push_signature)])
 async def run_jobs(request: Request) -> dict:
-    """job-service's own claim loop, from this service's side — a CronJob drives THIS at a much
-    tighter cadence than `/campaigns/tick` above (every minute, not every 15), and it can afford
-    to: it claims only what job-service says is actually due right now (an indexed read, never a
-    scan of every campaign this tenant or any other holds), so a tight cadence costs nothing extra
-    here the way it would scanning this service's own datastore that often.
+    """job-service's own claim loop, from this service's side — driven by job-service's PUSH
+    DISPATCH at a much tighter cadence than `/campaigns/tick` above (every minute, not every 15),
+    and it can afford to: it claims only what job-service says is actually due right now (an
+    indexed read, never a scan of every campaign this tenant or any other holds), so a tight
+    cadence costs nothing extra here the way it would scanning this service's own datastore that
+    often.
 
     ONE JOB TYPE TODAY — `campaigns.fire`, a campaign whose owner gave it a future `fire_at`
     (any goal now, not only «مناسبة عميلك» — 2026-09-12). `NullJobService.claim()` always returns

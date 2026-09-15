@@ -184,23 +184,27 @@ env:
 # standing rules are never evaluated, with every probe green and no symptom until an owner asks why
 # the campaign they set up in March has never sent anything.
 #
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT K8S CronJobs (migrated 2026-09-16, following
+# whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own header for the full
+# migration plan).
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value):
+#   deploy/hooks/job-schedule.sh create campaigns-tick "*/15 * * * *" campaigns-tick campaigns.tick
+#   deploy/hooks/job-dispatch-target.sh register campaigns-tick \
+#       http://campaigns:8000/internal/campaigns/tick
+#   deploy/hooks/job-schedule.sh create campaigns-jobs-run "* * * * *" campaigns-jobs-run \
+#       campaigns.jobs_run
+#   deploy/hooks/job-dispatch-target.sh register campaigns-jobs-run \
+#       http://campaigns:8000/internal/campaigns/jobs/run
+#
 # Every fifteen minutes, not every five. A standing rule evaluates once a CALENDAR DAY (its own
 # guard), and a scheduled campaign fifteen minutes late is invisible to a customer — while a
 # five-minute cron across the fleet is what put this node into a load spiral once already.
-cronJobs:
-  - name: tick
-    schedule: "*/15 * * * *"
-    path: /internal/campaigns/tick
-  # MUCH TIGHTER THAN THE TICK ABOVE, AND CHEAP ANYWAY (2026-09-12) — this claims only what
-  # job-service says is actually due (an indexed read), never scanning this tenant's or any
-  # other's whole campaign table the way `tick` above does, so a 1-minute cadence costs nothing
-  # extra. Jittered the same 0..30s every other every-minute job in this fleet already carries
-  # (job-service's own scheduler-tick, affiliate-service's leads-tick) — see that precedent's own
-  # note on the stampede a shared exact-minute mark once caused on a 2-vCPU node.
-  - name: jobs-run
-    schedule: "* * * * *"
-    path: /internal/campaigns/jobs/run
-    jitterSeconds: 30
+# jobs-run runs MUCH TIGHTER THAN THE TICK ABOVE, AND CHEAP ANYWAY (2026-09-12) — it claims only
+# what job-service says is actually due (an indexed read), never scanning this tenant's or any
+# other's whole campaign table the way `tick` above does, so a 1-minute cadence costs nothing
+# extra. Every push is verified (app/core/push_verify.py) — neither route trusts the shared
+# internal token alone any more.
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door
