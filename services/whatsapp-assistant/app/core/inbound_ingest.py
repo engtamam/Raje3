@@ -164,6 +164,13 @@ async def ingest_inbound_message(
             else:
                 plan = await container.engine.handle_button_reply(
                     tenant=tenant, subject_ref=subject_ref, reply_id=reply_id, auditor=auditor)
+        elif kind == "location":
+            # THE MOBILE-VISIT-REQUEST FLOW'S OTHER HALF (core/tools.py::MobileLocationRequest,
+            # core/conversation.py::handle_location) — deterministic, never the LLM/batching path:
+            # a location message can only ever mean something to a conversation the model itself
+            # already put into `awaiting_mobile_location` (or nothing at all, answered plainly).
+            plan = await container.engine.handle_location(
+                tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text)
         else:
             # THE mandatory triage gate's entry point — never `on_inbound_text` directly. Free
             # text before a triage pick is answered with the same list and never reaches the
@@ -177,12 +184,14 @@ async def ingest_inbound_message(
         # advances the conversation above — only the SEND is held back, for the bounded cooldown,
         # so the customer does not get a human answer immediately followed by a bot one.
         from app.core.owner_presence import is_owner_active
-        owner_active = plan is not None and plan.kind in ("text", "list") and await is_owner_active(
+        owner_active = plan is not None and plan.kind in (
+            "text", "list", "request_location") and await is_owner_active(
             container, tenant=tenant, contact=from_number, now=int(time.time()))
         if owner_active:
             logger.info("whatsapp_owner_active_suppressed",
                        extra={"tenant": tenant, "wamid": wamid})
-        elif plan is not None and plan.kind in ("text", "list") and not await outbound_allowed(
+        elif plan is not None and plan.kind in (
+                "text", "list", "request_location") and not await outbound_allowed(
                 container, settings, tenant, subject_ref=subject_ref, branch_id=branch_id):
             logger.warning("whatsapp_outbound_capped", extra={"tenant": tenant, "wamid": wamid})
             # A CAP TRIPPING IS AN EXPECTED, WORKING SAFETY MECHANISM, NOT A FAILURE — it is logged
@@ -208,6 +217,10 @@ async def ingest_inbound_message(
                 tenant=tenant, to=from_number, body=plan.text,
                 button_text=plan.list_button_text, rows=plan.list_rows,
                 idempotency_key=f"{wamid}:triage")
+        elif plan is not None and plan.kind == "request_location" and plan.text:
+            await container.sender.send_location_request(
+                tenant=tenant, to=from_number, body=plan.text,
+                idempotency_key=f"{wamid}:loc_request")
     except Exception as exc:                                        # noqa: BLE001
         logger.warning("whatsapp_message_handling_failed",
                        extra={"error": str(exc)[:200], "tenant": tenant, "wamid": wamid})

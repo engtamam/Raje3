@@ -55,3 +55,13 @@ class WhatsAppSender(Protocol):
     # send_carousel rather than as a third adapter class.
     async def send_single_card(self, *, tenant: str, to: str, card: CatalogCard,
                                idempotency_key: str) -> str: ...
+
+    # A "share your location" prompt — notification-service's `location_request` interactive type
+    # (platform's build_location_request: body text plus a fixed "Send location" button opening
+    # WhatsApp's own location-sharing screen). There is no reply id to anchor to the way a button
+    # or list has — the customer's shared pin comes back as an ordinary inbound `location` message,
+    # matched to what THIS conversation is waiting for by ConversationState.awaiting_mobile_location
+    # alone (see core/conversation.py::handle_location). Session-message posture like
+    # send_interactive/send_list — inside the 24h window, no template.
+    async def send_location_request(self, *, tenant: str, to: str, body: str,
+                                     idempotency_key: str) -> str: ...

@@ -163,6 +163,9 @@ def build_manifest(
             # whatsapp-assistant's own creation door for a mobile/on-the-go service request —
             # starts PENDING, never a Visit by itself (core/mobile_requests.py's own docstring).
             {"path": "/internal/operations/mobile-requests", "tier": "internal", "method": "POST"},
+            # Read by whatsapp-assistant before it ever proposes request_mobile_visit — the shop's
+            # own real working hours, so the customer is asked for a time that will be accepted.
+            {"path": "/internal/operations/mobile-visit-hours", "tier": "internal", "method": "GET"},
             # Read before the Flow ever opens — see core/whatsapp_visit_flag.py's own docstring.
             {"path": "/internal/operations/whatsapp-visit-registration", "tier": "internal",
              "method": "GET"},

@@ -44,6 +44,12 @@ class NullDirectSender:
     async def send_template(self, **kwargs) -> str:                    # pragma: no cover - unused half
         return ""
 
+    async def send_location_request(self, *, tenant: str, to: str, body: str,
+                                     idempotency_key: str) -> str:
+        self.sent.append({"tenant": tenant, "to": to, "body": body,
+                          "idempotency_key": idempotency_key, "type": "location_request"})
+        return f"dlv_{idempotency_key}" if idempotency_key else ""
+
 
 class InteractiveNotifySender:
     driver = "http"
@@ -125,6 +131,16 @@ class InteractiveNotifySender:
     async def send_template(self, **kwargs) -> str:                    # pragma: no cover - unused half
         raise NotImplementedError("InteractiveNotifySender only sends interactive messages — "
                                   "template sends go through TemplateSender/notification-service")
+
+    async def send_location_request(self, *, tenant: str, to: str, body: str,
+                                     idempotency_key: str) -> str:
+        # No buttons/rows — notification-service's build_location_request takes only body text
+        # (platform's own spec: fixed {"name": "send_location"} action, no header/footer).
+        payload = {
+            "recipient": to, "tenant": tenant, "type": "location_request", "body": body,
+            "idempotency_key": idempotency_key, "biz_opaque_callback_data": idempotency_key,
+        }
+        return await self._post(payload)
 
 
 class SendFailed(Exception):

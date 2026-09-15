@@ -147,6 +147,7 @@ class Container:
     booking_actor_report: Any = None
     catalog_provider: Any = None
     rhythm_provider: Any = None
+    mobile_requests: Any = None
     related_services: Any = None
     wallet_balance: Any = None
     licence: Any = None
@@ -324,6 +325,11 @@ def build_container(settings: Settings) -> Container:
         container.rhythm_provider = RP.build(settings)
     else:
         raise ValueError(f"unknown RHYTHM_PROVIDER_DRIVER {settings.RHYTHM_PROVIDER_DRIVER!r}")
+    # Same "reuses OPERATIONS_SERVICE_URL, degrades to Null" shape as SC/PC above — see
+    # app/ports/mobile_requests.py's own module docstring and settings.llm_tool_allowlist's own
+    # gate on `request_mobile_visit`.
+    from app.adapters import mobile_requests as MR
+    container.mobile_requests = MR.build(settings)
     container.related_services = RS.build(settings)
     container.wallet_balance = WB.build(settings)
     container.licence = ToggleGatedLicence(build_licence(settings),
@@ -388,6 +394,7 @@ def build_container(settings: Settings) -> Container:
         base_entitlement=container.base_entitlement,
         catalog_provider=container.catalog_provider,
         rhythm_provider=container.rhythm_provider,
+        mobile_requests=container.mobile_requests,
         runtime_config=container.runtime_config,
         max_carousel_cards=settings.MAX_CAROUSEL_CARDS, max_reply_tokens=settings.MAX_REPLY_TOKENS,
         wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,

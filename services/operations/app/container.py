@@ -312,7 +312,8 @@ def build_container(settings: Settings) -> Container:
 
     container.mobile_requests = MobileRequestService(
         store=container.datastore, operations=container.operations,
-        seams=container.seams, default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
+        seams=container.seams, working_hours=container.bookings_desk,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC)
     # Seats and branches, reported to billing after every change. Null in a local run; the
     # production values file sets the http driver.
     from app.core.seats import build_gauges

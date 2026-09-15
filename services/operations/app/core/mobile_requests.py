@@ -15,22 +15,33 @@ REUSED, NOT REBUILT:
   * `record_visit()` itself, called DIRECTLY (we are already inside operations — no network hop
     bookings' own `attend()` needs) for the loyalty/insights side effects a completed request
     earns exactly like an ordinary visit;
-  * the shop's weekly working hours — read live from bookings (`BookingsDesk.working_hours()`,
-    the same call staff.py already makes) by the WhatsApp conversation, not duplicated here.
+  * the shop's own weekly working hours — read live via `BookingsDesk.working_hours()` (the same
+    peer `staff.py`'s own staff-hours edit already calls), injected here as `working_hours`, so a
+    requested visit is validated against the shop's REAL open days/hours instead of a guess.
 
 OWNER'S OWN WORDS (2026-09-15) ON WHY REVIEW IS A REAL GATE, NOT AUTO-ACCEPT: "الحجز يتسجل
 ولكن ما يكون مقبول او مرفوض يتم مراجعته واعتماده من المحل نفسه" — and once accepted, "بعد القبول
 او الرفض احنا مالنا دخل اللي يسير تواصل بينهم خارج المنصة": coordinating the actual visit is
 entirely the shop's and the customer's own business from that point on. Our own involvement
 resumes only once — completed or not.
+
+`requested_time` IS A REAL, VALIDATED INSTANT, NOT FREE TEXT (revised 2026-09-15 — the owner's own
+correction: "الوقت ماهو نص حر الوقت من اوقات عمل المنشاه"). There is still no slot-booking/
+concurrency engine behind this (module docstring above) — no capacity concept, "طلبات تترص
+وانتهينا" — but the customer must choose a real moment inside the shop's own real working hours,
+never an unverifiable sentence like the free-text guess this field used to accept.
+`validate_requested_time()` below is that check: the same day/hour shape `bookings` itself already
+exposes, re-used rather than re-invented.
 """
 from __future__ import annotations
 
+import datetime as dt
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from app.core.riyadh import RIYADH
 from app.core.signup import canonical_phone
 
 MOBILE_REQUESTS = "mobile_service_requests"
@@ -62,6 +73,31 @@ def maps_link(lat: float, lng: float) -> str:
     return f"https://www.google.com/maps?q={lat},{lng}"
 
 
+# THE SAME 7-DAY SHAPE `bookings/app/core/operations.py::working_hours()` ALREADY RETURNS —
+# {"0".."6" (Monday..Sunday, date.weekday()'s own numbering): {closed, start_minute, end_minute}}
+# — consumed here as-is, never re-encoded.
+def validate_requested_time(requested_time: int, weekly: dict[str, Any] | None) -> None:
+    """Raises MobileRequestError with a real, sayable reason if `requested_time` falls outside the
+    shop's own real working hours. `weekly is None` (the peer could not be reached, or none is
+    wired — see MobileRequestService's own `working_hours` note) SKIPS the check entirely, same
+    fail-open posture `BookingsDesk`'s own docstring already documents for a read this uncertain —
+    refusing every request because a peer hiccuped would be a worse failure than occasionally
+    letting one through unchecked."""
+    if weekly is None:
+        return
+    when = dt.datetime.fromtimestamp(requested_time, RIYADH)
+    entry = weekly.get(str(when.weekday())) or {}
+    if entry.get("closed"):
+        raise MobileRequestError("المحل مغلق في هذا اليوم — اختر وقتاً آخر ضمن أيام الدوام.")
+    minute_of_day = when.hour * 60 + when.minute
+    start = int(entry.get("start_minute", 0))
+    end = int(entry.get("end_minute", 0))
+    if not (start <= minute_of_day < end):
+        start_txt = f"{start // 60:02d}:{start % 60:02d}"
+        end_txt = f"{end // 60:02d}:{end % 60:02d}"
+        raise MobileRequestError(f"هذا الوقت خارج أوقات دوام المحل ({start_txt}–{end_txt}).")
+
+
 @dataclass
 class MobileServiceRequest:
     id: str
@@ -72,11 +108,11 @@ class MobileServiceRequest:
     phone: str
     customer_name: str
     service_ids: list[str]
-    # THE CUSTOMER'S OWN WORDS, NEVER A PARSED TIMESTAMP — there is no slot-booking system behind
-    # this (module docstring), so "بعد صلاة العصر" or "الخميس الصبح" is a legitimate, honest answer
-    # a shop reviewing the request reads and decides against for itself. A parsed/guessed datetime
-    # here would be a confidence neither we nor the shop actually has.
-    requested_time_text: str
+    # A REAL, VALIDATED INSTANT — see this module's own docstring and `validate_requested_time()`.
+    # Epoch seconds, always inside the shop's own working hours on the day `create()` accepted it
+    # (a later working-hours EDIT is never retroactively enforced on an already-created request —
+    # the shop reviewing it sees the time it was asked for either way).
+    requested_time: int
     lat: float
     lng: float
     status: str
@@ -120,10 +156,16 @@ class MobileRequestService:
     visit-creation ROUTE already shares — see this module's own `complete()`)."""
 
     def __init__(self, *, store: Any, operations: Any, default_cc: str, seams: Any = None,
+                working_hours: Any = None,
                 risk_window: int = 20, risk_threshold_percent: int = 40) -> None:
         self._s = store
         self._ops = operations
         self._cc = default_cc
+        # `BookingsDesk` (or any peer with the same `async working_hours(tenant) -> dict | None`
+        # shape) — see `validate_requested_time()`'s own fail-open note. None-safe: a service
+        # built without one (every pre-existing test constructor) simply never checks the working-
+        # hours boundary, same "optional peer, safe default" shape as every other one here.
+        self._working_hours = working_hours
         # THE RIGHT WAY TO WIRE INTO "loyalty points, insights and reminders all pick it up
         # automatically" — NOT an immediate send. `seams.after_visit()` only publishes the
         # `visit.recorded` FACT (core/seams.py::_emit_visit) — reminders-service is what actually
@@ -146,7 +188,7 @@ class MobileRequestService:
 
     # ── creation — the WhatsApp bot's own door ─────────────────────────────────────────────────
     async def create(self, *, tenant: str, phone: str, customer_name: str,
-                     service_ids: list[str], requested_time_text: str,
+                     service_ids: list[str], requested_time: int,
                      lat: float, lng: float) -> MobileServiceRequest:
         phone = canonical_phone(phone, default_cc=self._cc)
         if not phone:
@@ -155,11 +197,15 @@ class MobileRequestService:
             raise MobileRequestError("اختر خدمة واحدة على الأقل.")
         if not (-90 <= lat <= 90 and -180 <= lng <= 180):
             raise MobileRequestError("الموقع المُرسَل غير صالح.")
+        if requested_time <= 0:
+            raise MobileRequestError("اختر وقتاً حقيقياً ضمن أوقات دوام المحل.")
+        weekly = await self._working_hours.working_hours(tenant) if self._working_hours else None
+        validate_requested_time(requested_time, weekly)
         now = _now()
         row = MobileServiceRequest(
             id=f"mreq_{uuid.uuid4().hex}", tenant=tenant, phone=phone,
             customer_name=customer_name[:128], service_ids=list(service_ids),
-            requested_time_text=requested_time_text[:300], lat=float(lat), lng=float(lng),
+            requested_time=int(requested_time), lat=float(lat), lng=float(lng),
             status=PENDING, created=now)
         await self._s.put(MOBILE_REQUESTS, f"{tenant}|{row.id}",
                           {"tenant_key": tenant, **asdict(row)})

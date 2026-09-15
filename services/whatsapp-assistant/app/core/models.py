@@ -141,6 +141,18 @@ class ConversationState:
     # Cleared the next time either is (re)shown or the session closes, same "one shot" discipline
     # a pending proposal already gets.
     shown_carousel_ids: list[str] = field(default_factory=list)
+    # MOBILE/ON-THE-GO SERVICE REQUESTS (core/tools.py::MobileLocationRequest, core/conversation.py
+    # ::handle_location) — the SAME "one shot, bound to what was actually asked for" discipline as
+    # `shown_carousel_ids` above, for the one tool result an LLM turn cannot itself finish: a
+    # location arrives as a native WhatsApp message, never as text the model reads. Set the moment
+    # `request_mobile_visit` is validated; cleared the moment a location is consumed (or the
+    # session closes) — a location arriving with this False is not a reply to anything this
+    # conversation is waiting on and is answered accordingly, never acted on.
+    awaiting_mobile_location: bool = False
+    mobile_request_service_ids: list[str] = field(default_factory=list)
+    # A REAL, ALREADY-VALIDATED epoch instant (core/tools.py::request_mobile_visit re-checks it
+    # against the shop's own real working hours before this is ever stamped) — never free text.
+    mobile_request_time: int = 0
     updated: int = field(default_factory=lambda: int(time.time()))
 
 

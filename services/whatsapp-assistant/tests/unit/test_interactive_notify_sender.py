@@ -161,6 +161,27 @@ def test_a_2xx_with_status_dead_letter_raises_with_the_real_error():
                                    idempotency_key="k"))
 
 
+def test_send_location_request_carries_no_buttons_or_rows():
+    """notification-service's build_location_request takes only body text — a fixed
+    {"name": "send_location"} action, no header/footer/buttons/rows."""
+    s = sender()
+    seen: dict = {}
+
+    def _urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data or b"{}")
+        return _Resp({"status": "sent", "delivery_id": "dlv_loc1"})
+
+    with patch("urllib.request.urlopen", _urlopen):
+        delivery_id = run(s.send_location_request(
+            tenant="shop1", to="+966500000000", body="شارك موقعك من فضلك",
+            idempotency_key="loc1"))
+
+    assert seen["body"]["type"] == "location_request"
+    assert seen["body"]["body"] == "شارك موقعك من فضلك"
+    assert "buttons" not in seen["body"] and "sections" not in seen["body"]
+    assert delivery_id == "dlv_loc1"
+
+
 def test_a_2xx_with_no_status_at_all_is_refused_not_assumed_successful():
     """The old bug's own worst case: a malformed/empty body reads as `{}`, which used to default
     straight to success."""

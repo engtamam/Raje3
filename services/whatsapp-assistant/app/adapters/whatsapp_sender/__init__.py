@@ -46,6 +46,9 @@ class CompositeSender:
     async def send_single_card(self, **kwargs) -> str:
         return await self._carousel.send_single_card(**kwargs)
 
+    async def send_location_request(self, **kwargs) -> str:
+        return await self._direct.send_location_request(**kwargs)
+
 
 def build(settings: Any, *, secret_store: Any = None) -> CompositeSender:
     if settings.NOTIFICATION_SERVICE_URL:

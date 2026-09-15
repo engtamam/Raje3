@@ -122,6 +122,20 @@ class RenderedSingleCard:
     card: CatalogCard
 
 
+@dataclass(frozen=True)
+class MobileLocationRequest:
+    """What `request_mobile_visit` hands core/conversation.py — NOT a PendingProposal (there is
+    nothing here for a button to confirm yet). `service_ids` are already re-validated against the
+    shop's own real catalogue. core/conversation.py turns this into a `send_location_request`
+    interactive message and stamps ConversationState.awaiting_mobile_location so the customer's
+    NEXT inbound location (never any other free text) is what actually creates the request — see
+    core/conversation.py::handle_location. `requested_time` is already a real, validated epoch
+    instant (see `check_mobile_visit_hours`'s own sibling tool and `_MOBILE_TIME_TOO_FAR` below)
+    — never free text."""
+    service_ids: list[str]
+    requested_time: int
+
+
 class ToolValidationError(Exception):
     """The model proposed something reality does not support — a slot that is gone, a service that
     does not exist. Never rendered as a button; the caller falls back to plain text."""
@@ -137,8 +151,10 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
                               booking_history_visible: bool = True,
                               catalog_provider: Any = None,
                               rhythm_provider: Any = None,
+                              mobile_requests: Any = None,
                               max_carousel_cards: int = 5,
-                              ) -> RenderedProposal | RenderedCarousel | RenderedSingleCard | str:
+                              ) -> (RenderedProposal | RenderedCarousel | RenderedSingleCard
+                                   | MobileLocationRequest | str):
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
     state-changing tool, or a plain str for a read-only one. Raises ToolValidationError if the
     model's proposal does not hold up against real state.
@@ -543,6 +559,52 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
             buttons=[{"id": f"{proposal_id}:confirm", "title": "تأكيد"},
                     {"id": f"{proposal_id}:cancel", "title": "تراجع"}])
 
+    if tool == "check_mobile_visit_hours":
+        # READ-ONLY, same posture as check_availability — grounds the model in the shop's REAL
+        # weekly hours before it ever proposes a time via request_mobile_visit, so the customer is
+        # asked for something that will actually be accepted rather than finding out only after
+        # they already shared a location.
+        if mobile_requests is None:
+            raise ToolValidationError("mobile visit requests are not available on this deployment")
+        weekly = await mobile_requests.hours(tenant)
+        if weekly is None:
+            return "لا أقدر أتأكد من أوقات الدوام الآن — اسأل عن الوقت المناسب وسيراجعه المحل بنفسه."
+        return _format_working_hours(weekly)
+
+    if tool == "request_mobile_visit":
+        raw_ids = args.get("service_ids") or []
+        service_ids = [str(sid) for sid in raw_ids if str(sid).strip()][:20]
+        if not service_ids:
+            raise ToolValidationError("request_mobile_visit requires at least one service_id")
+        # RE-VALIDATED against the shop's REAL catalogue — never trusted from the model's own
+        # args, same discipline as propose_booking's slot check above. A model that half-remembers
+        # a service id from three turns ago (retired since, or never real) must not reach the
+        # customer's next step (sharing a real location) for nothing.
+        if service_catalog is None:
+            raise ToolValidationError("mobile visit requests are not available on this deployment")
+        real_ids = {str(s.get("id")) for s in await service_catalog.list_active(tenant)}
+        unknown = [sid for sid in service_ids if sid not in real_ids]
+        if unknown:
+            raise ToolValidationError(f"unknown service_id(s): {', '.join(unknown)}")
+
+        starts_at = _parse_iso(args.get("starts_at_iso"))
+        if starts_at is None:
+            raise ToolValidationError("request_mobile_visit requires a real starts_at_iso")
+        # RE-VALIDATED against the shop's REAL working hours — never trusted from the model's own
+        # judgement of what "9 to 9" means. Mirrors operations' own `validate_requested_time()`
+        # (services/operations/app/core/mobile_requests.py), the SAME check the request will be
+        # held to again once the customer's location actually creates it — this is a courtesy so
+        # a bad guess is caught here, at the conversation, rather than after a location was
+        # already asked for and shared.
+        if mobile_requests is not None:
+            weekly = await mobile_requests.hours(tenant)
+            if weekly is not None:
+                reason = _working_hours_violation(starts_at, weekly)
+                if reason:
+                    raise ToolValidationError(reason)
+
+        return MobileLocationRequest(service_ids=service_ids, requested_time=starts_at)
+
     raise ToolValidationError(f"tool {tool!r} has no handler")
 
 
@@ -838,6 +900,52 @@ def _riyadh_today_start(now: int) -> int:
     from app.core.riyadh import RIYADH
     d = _dt.datetime.fromtimestamp(now, RIYADH).replace(hour=0, minute=0, second=0, microsecond=0)
     return int(d.timestamp())
+
+
+# Monday..Sunday, date.weekday()'s own numbering — the SAME one the `weekly` dict this tool reads
+# is keyed on (services/operations/app/core/mobile_requests.py::validate_requested_time, and
+# services/bookings/app/core/operations.py::working_hours before that).
+_WEEKDAY_NAMES_AR = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+
+
+def _fmt_hm(minute_of_day: int) -> str:
+    return f"{minute_of_day // 60:02d}:{minute_of_day % 60:02d}"
+
+
+def _format_working_hours(weekly: dict[str, Any]) -> str:
+    """One line per day, in order — deliberately not grouped ("السبت-الخميس 9-9") for a first
+    version: correct and simple beats a nicer phrasing that has to get the grouping right for
+    every possible schedule (a shop closed Tuesdays only, say)."""
+    lines = []
+    for d in range(7):
+        entry = weekly.get(str(d)) or {}
+        name = _WEEKDAY_NAMES_AR[d]
+        if entry.get("closed"):
+            lines.append(f"{name}: إجازة")
+        else:
+            start = int(entry.get("start_minute", 0))
+            end = int(entry.get("end_minute", 0))
+            lines.append(f"{name}: {_fmt_hm(start)}–{_fmt_hm(end)}")
+    return "أوقات الدوام:\n" + "\n".join(lines)
+
+
+def _working_hours_violation(starts_at: int, weekly: dict[str, Any]) -> str | None:
+    """None when `starts_at` is inside the shop's real hours; otherwise a real, sayable reason —
+    the SAME two cases operations' own `validate_requested_time()` checks, kept in sync
+    deliberately (both read the identical `weekly` shape) rather than trusted to agree by luck."""
+    import datetime as _dt
+
+    from app.core.riyadh import RIYADH
+    when = _dt.datetime.fromtimestamp(starts_at, RIYADH)
+    entry = weekly.get(str(when.weekday())) or {}
+    if entry.get("closed"):
+        return "المحل مغلق في هذا اليوم — اختر وقتاً آخر."
+    minute_of_day = when.hour * 60 + when.minute
+    start = int(entry.get("start_minute", 0))
+    end = int(entry.get("end_minute", 0))
+    if not (start <= minute_of_day < end):
+        return f"هذا الوقت خارج أوقات دوام المحل ({_fmt_hm(start)}–{_fmt_hm(end)})."
+    return None
 
 
 def _fmt_booking_row(b: dict[str, Any]) -> str:

@@ -189,6 +189,37 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "just a natural, inviting suggestion naming the service."),
         "parameters": {"type": "object", "properties": {}},
     },
+    "check_mobile_visit_hours": {
+        "name": "check_mobile_visit_hours",
+        "description": (
+            "Read-only: the shop's REAL weekly working hours — call this BEFORE request_mobile_"
+            "visit whenever the customer wants the shop to come to them, so you offer a time that "
+            "will actually be accepted rather than guessing. Never state a working hour you did "
+            "not get from this tool."),
+        "parameters": {"type": "object", "properties": {}},
+    },
+    "request_mobile_visit": {
+        "name": "request_mobile_visit",
+        "description": (
+            "Use when the customer wants the shop to come TO them for a service instead of them "
+            "visiting the shop (e.g. mobile car wash — «تبي تجيك السيارة تغسل عندك؟» style ask), "
+            "for a shop whose services can genuinely travel. service_ids must be real ids from "
+            "the shop's own service catalogue shown to you, never invented. starts_at_iso must be "
+            "a REAL moment inside the shop's own working hours — call check_mobile_visit_hours "
+            "first and only offer/accept a time those hours actually allow; never invent or guess "
+            "a time. This does NOT create the request yet: calling this only starts the process — "
+            "the customer is then asked to share their location, and the request is only actually "
+            "created once they do. Never claim it is booked or confirmed; nothing is confirmed "
+            "until the shop itself reviews and accepts it."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "service_ids": {"type": "array", "items": {"type": "string"}},
+                "starts_at_iso": {"type": "string"},
+            },
+            "required": ["service_ids", "starts_at_iso"],
+        },
+    },
 }
 
 

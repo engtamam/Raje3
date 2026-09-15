@@ -9,17 +9,18 @@
  * the shop actually did the work it marks «تم» (a real visit — loyalty/insights pick it up like
  * any other) or «لم يتم» (never a visit, just a heads-up for next time).
  *
- * "تحتاج قرار" IS A HONEST PROXY, NOT A PARSED APPOINTMENT TIME. `requested_time_text` is the
- * customer's own free words from WhatsApp ("بكرا العصر", "أقرب وقت") — never a real timestamp the
- * backend could compare against "now" (see core/mobile_requests.py's own dataclass: there is no
- * `scheduled_at` field, deliberately, because a WhatsApp-collected time like that cannot be
- * parsed reliably). So "needs a decision" here means what it can honestly mean: accepted a while
- * ago and still sitting with no «تم»/«لم يتم» — `NEEDS_DECISION_AFTER_HOURS` below, not a claim
- * about the appointment's own clock.
+ * "تحتاج قرار" READS THE REAL APPOINTMENT CLOCK — `requested_time` is a real, validated epoch
+ * instant (revised 2026-09-15, the owner's own correction: "الوقت ماهو نص حر الوقت من اوقات عمل
+ * المنشاه" — chosen by the customer from the shop's REAL working hours, never free text; see
+ * core/mobile_requests.py::validate_requested_time). So «تحتاج قرار» means exactly what it says:
+ * an accepted request whose own real moment has passed and still carries no «تم»/«لم يتم» —
+ * `NEEDS_DECISION_GRACE_MINUTES` below is only a small buffer so a request due two minutes ago is
+ * not nagged before the shop even had a chance to act.
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
   Truck, MapPin, Clock, AlertTriangle, CheckCircle2, XCircle, Search, CalendarCheck2,
+  MessageCircle, Copy, Check,
 } from 'lucide-react';
 import { PageHeader } from '../rj-ui/PageHeader';
 import { KpiCard } from '../rj-ui/KpiCard';
@@ -39,7 +40,7 @@ interface MobileServiceRequest {
   phone: string;
   customer_name: string;
   service_ids: string[];
-  requested_time_text: string;
+  requested_time: number;
   lat: number;
   lng: number;
   status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'no_show';
@@ -63,15 +64,14 @@ interface ServiceRow { id: string; name: string }
 
 type Filter = 'all' | 'pending' | 'accepted' | 'needs_decision' | 'completed' | 'closed';
 
-// See this file's own module docstring — an honest proxy for "the appointment has clearly come
-// and gone", not a parsed time. 3 hours: most requested_time_text windows are same-day ("العصر",
-// "بعد الظهر"), so an accepted request still open three hours later is already worth surfacing,
-// without flagging one accepted five minutes ago that simply has not happened yet.
-const NEEDS_DECISION_AFTER_HOURS = 3;
-const NEEDS_DECISION_AFTER_SECONDS = NEEDS_DECISION_AFTER_HOURS * 3600;
+// See this file's own module docstring — `requested_time` is now the real appointment moment, so
+// this reads the real clock. A short grace window (not zero) so a request due two minutes ago is
+// not immediately flagged before the shop had a real chance to act on it.
+const NEEDS_DECISION_GRACE_MINUTES = 30;
+const NEEDS_DECISION_GRACE_SECONDS = NEEDS_DECISION_GRACE_MINUTES * 60;
 
 function isNeedsDecision(r: MobileServiceRequest, nowSeconds: number): boolean {
-  return r.status === 'accepted' && nowSeconds - r.decided_at > NEEDS_DECISION_AFTER_SECONDS;
+  return r.status === 'accepted' && nowSeconds - r.requested_time > NEEDS_DECISION_GRACE_SECONDS;
 }
 
 function relativeTime(ts: number, nowSeconds: number, t: (k: string) => string): string {
@@ -83,6 +83,30 @@ function relativeTime(ts: number, nowSeconds: number, t: (k: string) => string):
   if (hours < 24) return tf(t, 'mobileRequests.time.hoursAgo', { n: hours });
   const days = Math.floor(hours / 24);
   return tf(t, 'mobileRequests.time.daysAgo', { n: days });
+}
+
+// `r.phone` is always canonical_phone's own "+<digits>" shape (services/operations/app/core/
+// signup.py) — wa.me wants the digits alone, no leading "+".
+function whatsappLink(phone: string): string {
+  return `https://wa.me/${phone.replace(/[^\d]/g, '')}`;
+}
+
+/** Same «نسخ بضغطة» pattern as src/affiliates/AffiliateTools.tsx's own CopyButton — a plain icon
+ *  button that flips to a checkmark for two seconds, no separate library. */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button type="button" aria-label={label} title={label}
+           className="rounded-md p-1 text-text-tertiary transition-colors hover:bg-surface-2 hover:text-text-primary"
+           onClick={() => {
+             navigator.clipboard?.writeText(text).then(() => {
+               setCopied(true);
+               setTimeout(() => setCopied(false), 2000);
+             }).catch(() => {});
+           }}>
+      {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+    </button>
+  );
 }
 
 function formatDate(ts: number, locale: string): string {
@@ -350,7 +374,15 @@ function RequestCard({
       <div className="min-w-60 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-2">
           <span className="text-sm font-bold">{r.customer_name || t('mobileRequests.card.unnamed')}</span>
-          <span className="text-xs tabular-nums text-text-tertiary" dir="ltr">{r.phone}</span>
+          <span className="flex items-center gap-1 text-xs tabular-nums text-text-tertiary">
+            <a href={whatsappLink(r.phone)} target="_blank" rel="noreferrer" dir="ltr"
+              title={t('mobileRequests.card.openWhatsapp')}
+              className="flex items-center gap-1 text-info-on-soft hover:underline">
+              <MessageCircle size={12} />
+              {r.phone}
+            </a>
+            <CopyButton text={r.phone} label={t('mobileRequests.card.copyPhone')} />
+          </span>
           {statusBadge(r, needsDecision, t)}
         </div>
 
@@ -365,9 +397,7 @@ function RequestCard({
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-text-secondary">
           <span className="flex items-center gap-1.5">
             <Clock size={13} className="text-text-tertiary" />
-            {r.status === 'pending'
-              ? tf(t, 'mobileRequests.card.requestedTime', { text: r.requested_time_text || t('mobileRequests.card.noTimeGiven') })
-              : formatDate(r.decided_at || r.created, locale)}
+            {tf(t, 'mobileRequests.card.requestedTime', { time: formatDate(r.requested_time, locale) })}
           </span>
           <a href={r.maps_url} target="_blank" rel="noreferrer"
             className="flex items-center gap-1.5 font-semibold text-info-on-soft hover:underline">

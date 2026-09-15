@@ -1257,7 +1257,10 @@ class MobileServiceRequestIn(BaseModel):
     phone: str = Field(min_length=3, max_length=32)
     customer_name: str = Field(default="", max_length=128)
     service_ids: list[str] = Field(min_length=1, max_length=20)
-    requested_time_text: str = Field(default="", max_length=300)
+    # EPOCH SECONDS, VALIDATED against the shop's own real working hours (core/mobile_requests.py
+    # ::validate_requested_time) — never free text. The bot (whatsapp-assistant) resolves this
+    # itself from the shop's own working-hours read before ever calling this door.
+    requested_time: int = Field(gt=0)
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
 
@@ -1280,7 +1283,7 @@ async def internal_create_mobile_request(request: Request, body: MobileServiceRe
     try:
         row = await c.mobile_requests.create(
             tenant=body.tenant, phone=body.phone, customer_name=body.customer_name,
-            service_ids=body.service_ids, requested_time_text=body.requested_time_text,
+            service_ids=body.service_ids, requested_time=body.requested_time,
             lat=body.lat, lng=body.lng)
     except MobileRequestError as exc:
         # RETURNED, NOT RAISED — same rule the visit routes around it follow: whatsapp-assistant's
@@ -1288,6 +1291,24 @@ async def internal_create_mobile_request(request: Request, body: MobileServiceRe
         # HTTPException detail.
         return {"created": False, "reason": str(exc)}
     return {"created": True, "request_id": row.id}
+
+
+@router.get("/operations/mobile-visit-hours", dependencies=[Depends(require_internal_token)])
+async def internal_mobile_visit_hours(request: Request, tenant: str) -> dict:
+    """whatsapp-assistant's own read, before it ever proposes `request_mobile_visit` — the shop's
+    REAL weekly working hours, the same `BookingsDesk.working_hours()` read `core/mobile_
+    requests.py::create()` itself validates against. Telling the model the real hours up front
+    means the customer is asked for a time that will actually be accepted, rather than finding out
+    only after they already shared a location (core/tools.py's own `check_mobile_visit_hours`
+    formats this into the sentence the model reads).
+
+    `weekly: None` — bookings is unreachable or was never configured for this deployment — is a
+    legitimate, honest answer, not an error: the tool built on this degrades to "ask them what
+    time works and let the shop's own review catch it," never fails the turn.
+    """
+    c = request.app.state.container
+    weekly = await c.bookings_desk.working_hours(tenant) if c.bookings_desk is not None else None
+    return {"weekly": weekly}
 
 
 class BookingRewardRedeemIn(BaseModel):

@@ -18,6 +18,10 @@ from app.core.stores import ServiceStore
 CC = "966"
 TENANT = "tnt_mobile_1"
 PHONE = "0501234567"
+# A real epoch instant — working_hours is None in the `svc` fixture (no BookingsDesk wired),
+# so validate_requested_time() skips its check regardless of clock value; this only needs to
+# be > 0 for every test below except the ones that deliberately test that floor.
+REQUESTED_TIME = 1_800_000_000
 
 
 def run(c):
@@ -46,7 +50,7 @@ def test_a_new_request_starts_pending(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد",
-                       service_ids=[sid], requested_time_text="بعد صلاة العصر",
+                       service_ids=[sid], requested_time=REQUESTED_TIME,
                        lat=24.7136, lng=46.6753))
     assert req.status == PENDING
     assert req.public()["maps_url"] == "https://www.google.com/maps?q=24.7136,46.6753"
@@ -57,14 +61,93 @@ def test_creation_refuses_an_invalid_latitude(svc):
     sid = run(_seed_service(store))
     with pytest.raises(MobileRequestError):
         run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                     requested_time_text="غداً", lat=200, lng=46.6753))
+                     requested_time=REQUESTED_TIME, lat=200, lng=46.6753))
 
 
 def test_creation_refuses_with_no_services_chosen(svc):
     s, _store, _ops = svc
     with pytest.raises(MobileRequestError):
         run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[],
-                     requested_time_text="غداً", lat=24.7, lng=46.6))
+                     requested_time=REQUESTED_TIME, lat=24.7, lng=46.6))
+
+
+def test_creation_refuses_a_zero_or_negative_time(svc):
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    with pytest.raises(MobileRequestError):
+        run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                     requested_time=0, lat=24.7, lng=46.6))
+    with pytest.raises(MobileRequestError):
+        run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                     requested_time=-1, lat=24.7, lng=46.6))
+
+
+# ── requested_time validated against the shop's REAL working hours ─────────────────────────────
+class _FakeWorkingHours:
+    """Same shape as BookingsDesk: `async working_hours(tenant) -> dict | None`."""
+
+    def __init__(self, weekly: dict | None) -> None:
+        self._weekly = weekly
+
+    async def working_hours(self, tenant: str) -> dict | None:
+        return self._weekly
+
+
+def _riyadh_epoch(*, weekday: int, hour: int, minute: int = 0) -> int:
+    """A real epoch instant that lands on the given Riyadh weekday/hour — 2026-09-14 is a
+    Monday (weekday 0) in Riyadh time, so `days = weekday` walks forward from there."""
+    import datetime as _dt
+
+    from app.core.riyadh import RIYADH
+    base = _dt.datetime(2026, 9, 14, tzinfo=RIYADH)
+    d = base + _dt.timedelta(days=weekday)
+    return int(d.replace(hour=hour, minute=minute).timestamp())
+
+
+_OPEN_MON_TO_SAT = {
+    str(d): {"closed": False, "start_minute": 9 * 60, "end_minute": 21 * 60} for d in range(6)
+} | {"6": {"closed": True, "start_minute": 0, "end_minute": 0}}   # Sunday closed
+
+
+def test_creation_accepts_a_real_time_inside_working_hours(svc):
+    s, store, _ops = svc
+    s._working_hours = _FakeWorkingHours(_OPEN_MON_TO_SAT)
+    sid = run(_seed_service(store))
+    t = _riyadh_epoch(weekday=0, hour=12)   # Monday, 12:00 — inside 09:00-21:00
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=t, lat=24.7, lng=46.6))
+    assert req.requested_time == t
+
+
+def test_creation_refuses_a_time_outside_working_hours(svc):
+    s, store, _ops = svc
+    s._working_hours = _FakeWorkingHours(_OPEN_MON_TO_SAT)
+    sid = run(_seed_service(store))
+    t = _riyadh_epoch(weekday=0, hour=23)   # Monday, 23:00 — past the 21:00 close
+    with pytest.raises(MobileRequestError):
+        run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                     requested_time=t, lat=24.7, lng=46.6))
+
+
+def test_creation_refuses_a_time_on_a_closed_day(svc):
+    s, store, _ops = svc
+    s._working_hours = _FakeWorkingHours(_OPEN_MON_TO_SAT)
+    sid = run(_seed_service(store))
+    t = _riyadh_epoch(weekday=6, hour=12)   # Sunday, closed
+    with pytest.raises(MobileRequestError):
+        run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                     requested_time=t, lat=24.7, lng=46.6))
+
+
+def test_creation_with_no_working_hours_peer_wired_skips_the_check(svc):
+    """None-safe fail-open, same posture BookingsDesk's own docstring documents for an
+    unreachable/unconfigured peer — the `svc` fixture's own default."""
+    s, store, _ops = svc
+    sid = run(_seed_service(store))
+    t = _riyadh_epoch(weekday=6, hour=3)   # would be refused if a real schedule were checked
+    req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
+                       requested_time=t, lat=24.7, lng=46.6))
+    assert req.requested_time == t
 
 
 def test_the_phone_is_stored_canonically(svc):
@@ -74,9 +157,9 @@ def test_the_phone_is_stored_canonically(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     a = run(s.create(tenant=TENANT, phone="0501234567", customer_name="أ", service_ids=[sid],
-                     requested_time_text="", lat=1, lng=1))
+                     requested_time=REQUESTED_TIME, lat=1, lng=1))
     b = run(s.create(tenant=TENANT, phone="+966501234567", customer_name="ب", service_ids=[sid],
-                     requested_time_text="", lat=1, lng=1))
+                     requested_time=REQUESTED_TIME, lat=1, lng=1))
     assert a.phone == b.phone == "+966501234567"
 
 
@@ -85,7 +168,7 @@ def test_accepting_a_pending_request_works(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     out = run(s.accept(TENANT, req.id, actor="owner1"))
     assert out.status == ACCEPTED
     assert out.decided_by == "owner1"
@@ -96,7 +179,7 @@ def test_rejecting_a_pending_request_records_the_reason(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     out = run(s.reject(TENANT, req.id, actor="owner1", reason="بعيد جداً"))
     assert out.status == REJECTED
     assert out.reject_reason == "بعيد جداً"
@@ -106,7 +189,7 @@ def test_a_request_cannot_be_reviewed_twice(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, req.id, actor="owner1"))
     with pytest.raises(MobileRequestError):
         run(s.reject(TENANT, req.id, actor="owner1"))
@@ -123,7 +206,7 @@ def test_completing_an_accepted_request_creates_a_real_visit(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, req.id, actor="owner1"))
     out = run(s.complete(TENANT, req.id))
     assert out.status == COMPLETED
@@ -155,7 +238,7 @@ def test_completing_runs_the_same_seams_every_other_visit_route_runs(svc):
     s = MobileRequestService(store=store, operations=ops, default_cc=CC, seams=seams)
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, req.id, actor="owner1"))
     out = run(s.complete(TENANT, req.id))
 
@@ -170,7 +253,7 @@ def test_a_request_completed_with_no_seams_peer_wired_still_completes(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, req.id, actor="owner1"))
     out = run(s.complete(TENANT, req.id))
     assert out.status == COMPLETED
@@ -183,7 +266,7 @@ def test_completing_twice_does_not_double_record_the_visit(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, req.id, actor="owner1"))
     first = run(s.complete(TENANT, req.id))
     # completing again should fail — it is no longer ACCEPTED, it is COMPLETED (terminal)
@@ -196,7 +279,7 @@ def test_completing_a_request_that_was_never_accepted_is_refused(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     with pytest.raises(MobileRequestError):
         run(s.complete(TENANT, req.id))
 
@@ -205,7 +288,7 @@ def test_marking_no_show_never_creates_a_visit(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                       requested_time_text="غداً", lat=1, lng=1))
+                       requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, req.id, actor="owner1"))
     out = run(s.no_show(TENANT, req.id))
     assert out.status == NO_SHOW
@@ -225,7 +308,7 @@ def test_a_customer_who_always_shows_up_is_not_risky(svc):
     sid = run(_seed_service(store))
     for _ in range(5):
         req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                           requested_time_text="", lat=1, lng=1))
+                           requested_time=REQUESTED_TIME, lat=1, lng=1))
         run(s.accept(TENANT, req.id, actor="owner1"))
         run(s.complete(TENANT, req.id))
     risk = run(s.no_show_risk(TENANT, PHONE))
@@ -242,7 +325,7 @@ def test_a_customer_who_mostly_no_shows_is_flagged_risky(svc):
     sid = run(_seed_service(store))
     for _ in range(4):
         req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                           requested_time_text="", lat=1, lng=1))
+                           requested_time=REQUESTED_TIME, lat=1, lng=1))
         run(s.accept(TENANT, req.id, actor="owner1"))
         run(s.no_show(TENANT, req.id))
     risk = run(s.no_show_risk(TENANT, PHONE))
@@ -257,7 +340,7 @@ def test_pending_and_rejected_requests_never_count_toward_risk(svc):
     sid = run(_seed_service(store))
     for _ in range(6):
         req = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أحمد", service_ids=[sid],
-                           requested_time_text="", lat=1, lng=1))
+                           requested_time=REQUESTED_TIME, lat=1, lng=1))
         run(s.reject(TENANT, req.id, actor="owner1"))
     risk = run(s.no_show_risk(TENANT, PHONE))
     assert risk.considered == 0
@@ -271,7 +354,7 @@ def test_risk_is_scoped_to_one_tenant_and_one_phone(svc):
     await_ = run
     for _ in range(4):
         req = await_(s.create(tenant=other_tenant, phone=PHONE, customer_name="أحمد",
-                              service_ids=[sid], requested_time_text="", lat=1, lng=1))
+                              service_ids=[sid], requested_time=REQUESTED_TIME, lat=1, lng=1))
         await_(s.accept(other_tenant, req.id, actor="owner2"))
         await_(s.no_show(other_tenant, req.id))
     risk = run(s.no_show_risk(TENANT, PHONE))
@@ -283,9 +366,9 @@ def test_list_filters_by_status(svc):
     s, store, _ops = svc
     sid = run(_seed_service(store))
     p1 = run(s.create(tenant=TENANT, phone=PHONE, customer_name="أ", service_ids=[sid],
-                      requested_time_text="", lat=1, lng=1))
+                      requested_time=REQUESTED_TIME, lat=1, lng=1))
     p2 = run(s.create(tenant=TENANT, phone="0509999999", customer_name="ب", service_ids=[sid],
-                      requested_time_text="", lat=1, lng=1))
+                      requested_time=REQUESTED_TIME, lat=1, lng=1))
     run(s.accept(TENANT, p2.id, actor="owner1"))
 
     pending = run(s.list(TENANT, status=PENDING))

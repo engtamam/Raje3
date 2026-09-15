@@ -496,7 +496,8 @@ _CONV_LOCK_RETRY_DELAY_SECONDS = 0.25
 class ReplyPlan:
     """What core/conversation.py decided to send, for the caller (main.py's tick, or the button-
     reply handler) to actually dispatch through a WhatsAppSender."""
-    kind: str                       # "text" | "interactive" | "list" | "carousel" | "card" | "none"
+    kind: str                       # "text" | "interactive" | "list" | "carousel" | "card" |
+                                    # "request_location" | "none"
     text: str = ""
     proposal: T.RenderedProposal | None = None
     # Populated only when kind == "list" — the mandatory triage gate's WhatsApp List Message.
@@ -533,7 +534,7 @@ class ConversationEngine:
                 base_entitlement: Any = None, catalog_provider: Any = None,
                 rhythm_provider: Any = None,
                 max_carousel_cards: int = 5, runtime_config: Any = None,
-                max_reply_tokens: int = 500) -> None:
+                max_reply_tokens: int = 500, mobile_requests: Any = None) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -648,6 +649,11 @@ class ConversationEngine:
         # app/main.py::create_app. Optional here only so pre-existing test constructors that never
         # exercise escalation keep working unmodified.
         self._auditor = auditor
+        # None-safe, same shape as every other optional peer here (app/ports/mobile_requests.py's
+        # own NullMobileRequests already refuses `.create` outright, so a conversation built
+        # without one — every pre-existing test constructor — simply never gets offered this tool
+        # in the first place, via `settings.llm_tool_allowlist`'s own OPERATIONS_SERVICE_URL gate).
+        self._mobile_requests = mobile_requests
         self._frustration_unconfirmed_threshold = max(1, int(frustration_unconfirmed_proposals_threshold))
         self._frustration_duplicate_threshold = max(1, int(frustration_duplicate_messages_threshold))
         self._soft_decline_threshold = max(1, int(soft_decline_threshold))
@@ -1452,6 +1458,7 @@ class ConversationEngine:
                     booking_history_visible=self._booking_history_visible,
                     catalog_provider=self._catalog_provider,
                     rhythm_provider=self._rhythm_provider,
+                    mobile_requests=self._mobile_requests,
                     max_carousel_cards=max_carousel_cards)
             except T.ToolValidationError as exc:
                 conv.raw_window.append({"role": "assistant",
@@ -1501,6 +1508,25 @@ class ConversationEngine:
                 conv.batch_deadline = 0
                 await self._save(conv)
                 return ReplyPlan(kind="carousel", carousel=result)
+
+            if isinstance(result, T.MobileLocationRequest):
+                # DETERMINISTIC FROM HERE — the model chose to start this (its own real decision,
+                # made with the tools it has), but where the customer's own GPS pin lands is not
+                # something an LLM turn can receive at all (it arrives as a native `location`
+                # message, never as text the model reads). So the ONE thing this branch does is
+                # what code, not the model, must guarantee: remember exactly what was asked for,
+                # and make the very next inbound location (nothing else) the trigger that actually
+                # creates it — see handle_location below.
+                conv.awaiting_mobile_location = True
+                conv.mobile_request_service_ids = result.service_ids
+                conv.mobile_request_time = result.requested_time
+                conv.state = "idle"
+                conv.session_closed_at = now
+                conv.batch_deadline = 0
+                body = "تمام، شارك موقعك من فضلك عشان نقدر نحدد الخدمة عندك."
+                conv.raw_window.append({"role": "assistant", "text": body, "at": now})
+                await self._save(conv)
+                return ReplyPlan(kind="request_location", text=body)
 
             text = _sanitize_reply(str(result))
             conv.raw_window.append({"role": "assistant", "text": text, "at": now})
@@ -1646,6 +1672,67 @@ class ConversationEngine:
             merged = list(dict.fromkeys(list(conv.shown_carousel_ids) + list(item_ids)))
             conv.shown_carousel_ids = merged
             await self._save(conv)
+        finally:
+            await self._release_conv_lock(tenant, subject_ref, held)
+
+    async def handle_location(self, *, tenant: str, subject_ref: str, from_number: str,
+                              text: str, now: int | None = None) -> ReplyPlan:
+        """The other half of the mobile-visit-request flow (core/tools.py::MobileLocationRequest).
+        `text` is inbound_parse.py's own flattened "<lat>,<lng>" for a `location`-kind message —
+        never routed through handle_inbound_text/the LLM at all (see app/core/inbound_ingest.py's
+        own dispatch), same "deterministic, never the model's decision" posture as button replies.
+
+        BOUND TO WHAT THIS CONVERSATION IS ACTUALLY WAITING ON, never accepted on faith —
+        `awaiting_mobile_location` is the SAME one-shot binding `shown_carousel_ids`/
+        `pending_proposal_id` already enforce for every other state-changing surface here. A
+        location arriving with it False (the customer shared a pin unprompted, or a stale/replayed
+        one after the request already went through) is answered plainly, never silently acted on
+        and never silently dropped either."""
+        held = await self._acquire_conv_lock(tenant, subject_ref)
+        try:
+            now = now if now is not None else int(time.time())
+            conv = await self._get(tenant, subject_ref)
+            if not conv.awaiting_mobile_location:
+                return ReplyPlan(kind="text", text="تفضل، كيف أقدر أساعدك؟")
+            try:
+                lat_s, _, lng_s = text.partition(",")
+                lat, lng = float(lat_s), float(lng_s)
+            except ValueError:
+                return ReplyPlan(kind="text", text="تعذّر قراءة الموقع، حاول مشاركته مرة أخرى.")
+
+            service_ids = list(conv.mobile_request_service_ids)
+            requested_time = conv.mobile_request_time
+            # CLEARED BEFORE THE PEER CALL, NOT AFTER — same "one shot" discipline as
+            # `pending_proposal_id` being cleared before its own peer write (handle_button_reply
+            # below): a customer re-sharing their pin a second time (WhatsApp lets them re-tap
+            # "send location" freely) while the first request is already mid-flight must never be
+            # read as a second, duplicate request.
+            conv.awaiting_mobile_location = False
+            conv.mobile_request_service_ids = []
+            conv.mobile_request_time = 0
+            conv.state = "idle"
+            conv.session_closed_at = now
+            await self._save(conv)
+
+            if self._mobile_requests is None:
+                return ReplyPlan(kind="text", text=(
+                    "نعتذر، هذه الخدمة غير متاحة حاليًا. يسعد أحد موظفي المحل مساعدتك مباشرة."))
+            from app.ports.mobile_requests import MobileRequestFailed
+            try:
+                await self._mobile_requests.create(
+                    tenant=tenant, phone=from_number, customer_name="",
+                    service_ids=service_ids, requested_time=requested_time,
+                    lat=lat, lng=lng)
+            except MobileRequestFailed as exc:
+                # operations' own real refusal reason (e.g. the working-hours check catching a
+                # race — the schedule changed between the proposal and now) is worth relaying
+                # verbatim, same "return the real sentence" discipline every other refusal in this
+                # file follows; a bare peer-unreachable failure reads the same way and is still an
+                # honest, actionable answer either way.
+                return ReplyPlan(kind="text", text=(
+                    f"تعذّر تسجيل طلبك: {exc}"[:200]))
+            return ReplyPlan(kind="text", text=(
+                "تم تسجيل طلبك، وبيراجعه المحل ويأكد لك الموعد قريبًا."))
         finally:
             await self._release_conv_lock(tenant, subject_ref, held)
 

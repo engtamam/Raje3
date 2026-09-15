@@ -1,9 +1,9 @@
 /**
  * «خدمات متنقلة» — the review queue: status filters, the pending accept/reject pair, the
- * accepted done/no-show pair, the needs-decision proxy (accepted a while ago, still open — see
- * MobileRequests.tsx's own module docstring on why this is a proxy and not a parsed appointment
- * time), the risk badge, and the map link. Each backend call faked at the `catalog.call` boundary,
- * same discipline as coupons.test.tsx.
+ * accepted done/no-show pair, the needs-decision check (the request's own REAL appointment
+ * moment — `requested_time`, a real validated epoch instant — has passed and it is still open;
+ * see MobileRequests.tsx's own module docstring), the risk badge, and the map link. Each backend
+ * call faked at the `catalog.call` boundary, same discipline as coupons.test.tsx.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
@@ -16,21 +16,21 @@ const NOW = Math.floor(Date.now() / 1000);
 
 const PENDING = {
   id: 'mreq_1', tenant: 't1', phone: '+966501112222', customer_name: 'نورة العنزي',
-  service_ids: ['svc_wash'], requested_time_text: 'بكرا العصر', lat: 24.7, lng: 46.6,
+  service_ids: ['svc_wash'], requested_time: NOW + 3600, lat: 24.7, lng: 46.6,
   status: 'pending', created: NOW - 600, decided_at: 0, decided_by: '', reject_reason: '',
   visit_id: '', note: '', maps_url: 'https://www.google.com/maps?q=24.7,46.6',
 };
 const ACCEPTED_RECENT = {
   ...PENDING, id: 'mreq_2', customer_name: 'خالد المطيري', status: 'accepted',
-  decided_at: NOW - 300,
+  requested_time: NOW - 300, decided_at: NOW - 300,
 };
 const ACCEPTED_OVERDUE = {
   ...PENDING, id: 'mreq_3', customer_name: 'هند العتيبي', status: 'accepted',
-  decided_at: NOW - 4 * 3600,
+  requested_time: NOW - 4 * 3600, decided_at: NOW - 4 * 3600,
 };
 const COMPLETED = {
   ...PENDING, id: 'mreq_4', customer_name: 'عبدالله الشمري', status: 'completed',
-  decided_at: NOW - 86400, created: NOW - 86400, visit_id: 'v1',
+  requested_time: NOW - 86400, decided_at: NOW - 86400, created: NOW - 86400, visit_id: 'v1',
 };
 
 let acceptCalls: Record<string, unknown>[] = [];
@@ -149,5 +149,21 @@ describe('«خدمات متنقلة»', () => {
     render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
     const links = await screen.findAllByText('فتح الموقع بالخرائط');
     expect((links[0].closest('a') as HTMLAnchorElement).href).toBe('https://www.google.com/maps?q=24.7,46.6');
+  });
+
+  it('the phone number opens wa.me with just the digits, no plus sign', async () => {
+    render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+    const link = (await screen.findAllByText('+966501112222'))[0].closest('a') as HTMLAnchorElement;
+    expect(link.href).toBe('https://wa.me/966501112222');
+    expect(link.target).toBe('_blank');
+  });
+
+  it('copying the phone number writes it to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<MobileRequestsScreen session={SESSION} catalog={catalog} />);
+    const copyBtn = (await screen.findAllByTitle('نسخ رقم الجوال'))[0];
+    fireEvent.click(copyBtn);
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('+966501112222'));
   });
 });

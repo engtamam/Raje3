@@ -78,7 +78,7 @@ def _create_request(client: TestClient, *, phone: str = PHONE, service_id: str =
     r = client.post("/internal/operations/mobile-requests",
                     headers={"X-Internal-Token": INTERNAL_TOKEN},
                     json={"tenant": TENANT, "phone": phone, "customer_name": "أحمد",
-                         "service_ids": [sid], "requested_time_text": "غداً صباحاً",
+                         "service_ids": [sid], "requested_time": 1_800_000_000,
                          "lat": 24.7136, "lng": 46.6753})
     assert r.status_code == 200, r.text
     body = r.json()
@@ -98,6 +98,20 @@ def test_internal_create_requires_the_internal_token(client):
 def test_internal_create_returns_a_real_request_id(client):
     request_id = _create_request(client)
     assert request_id.startswith("mreq_")
+
+
+def test_internal_working_hours_read_answers_none_with_no_bookings_desk_wired(client):
+    """The test app never wires BOOKINGS_SERVICE_URL — the honest "cannot verify" answer, not an
+    error, per this route's own docstring."""
+    r = client.get("/internal/operations/mobile-visit-hours",
+                   headers={"X-Internal-Token": INTERNAL_TOKEN}, params={"tenant": TENANT})
+    assert r.status_code == 200
+    assert r.json() == {"weekly": None}
+
+
+def test_internal_working_hours_read_requires_the_internal_token(client):
+    r = client.get("/internal/operations/mobile-visit-hours", params={"tenant": TENANT})
+    assert r.status_code in (401, 403)
 
 
 def test_internal_create_reports_a_refusal_as_200_not_a_crash(client):

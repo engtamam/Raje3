@@ -245,6 +245,16 @@ class Settings(BaseSettings):
     # honestly instead of guessing.
     OPERATIONS_CATALOGUE_WITH_PRICES_PATH: str = "/internal/operations/catalogue-with-prices"
     OPERATIONS_PACKAGES_PATH: str = "/internal/operations/packages"
+    # The mobile/on-the-go service-requests creation door (services/operations/app/api/internal.py)
+    # — the one write core/tools.py's `request_mobile_visit` tool + core/conversation.py's
+    # `handle_location` make together. Reuses OPERATIONS_SERVICE_URL like every other operations
+    # peer call here; withheld from the model entirely (see llm_tool_allowlist below) whenever that
+    # URL is empty, same "withheld, not offered-and-refused" posture as the carousel/rhythm tools.
+    OPERATIONS_MOBILE_REQUESTS_PATH: str = "/internal/operations/mobile-requests"
+    # The read `check_mobile_visit_hours` makes before `request_mobile_visit` is ever proposed —
+    # the shop's own real weekly working hours (services/operations/app/api/internal.py::
+    # internal_mobile_visit_hours, itself a thin proxy over bookings' own working-hours read).
+    OPERATIONS_MOBILE_VISIT_HOURS_PATH: str = "/internal/operations/mobile-visit-hours"
     # The photo behind a CatalogCard (app/ports/catalog_provider.py) — `{}`/`{}` are `kind`/
     # `item_id`, filled in per card by PlatformCatalogProvider, never templated at request time.
     OPERATIONS_CATALOGUE_IMAGE_PATH: str = "/internal/operations/catalogue/{}/{}/image"
@@ -476,7 +486,7 @@ class Settings(BaseSettings):
         "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
         "suggest_related_service,list_my_bookings,propose_cancel_booking,"
         "propose_reschedule_booking,suggest_services_carousel,list_packages,"
-        "list_due_services,list_lapsed_services")
+        "list_due_services,list_lapsed_services,check_mobile_visit_hours,request_mobile_visit")
 
     # The three booking-management tool names — named once here so the kill-switch below and
     # core/tools.py's own dispatch never risk drifting apart on the literal strings.
@@ -528,6 +538,13 @@ class Settings(BaseSettings):
         # always get "لا يوجد شيء هنا الآن." — withheld entirely rather than offered and refused.
         if self.RHYTHM_PROVIDER_DRIVER != "http":
             declared = declared - {"list_due_services", "list_lapsed_services"}
+        # SAME REASONING, FOR THE MOBILE-SERVICE-REQUEST TOOL: with no OPERATIONS_SERVICE_URL
+        # wired, app/adapters/mobile_requests::build returns NullMobileRequests, whose .create
+        # always raises — a model offered this tool anyway would propose it and always fail the
+        # customer at the very last step (after they already shared a location). Withheld
+        # entirely instead, same posture as every other peer-backed tool above.
+        if not self.OPERATIONS_SERVICE_URL:
+            declared = declared - {"request_mobile_visit", "check_mobile_visit_hours"}
         return declared
 
     def assert_llm_config_ok(self) -> None:

@@ -177,6 +177,11 @@ async def _tick_one_tenant(c: Any, settings: Settings, tenant: str, *, now: int,
                 tenant=tenant, to=to, card=plan.card.card,
                 idempotency_key=f"tick_{tenant}_{subject_ref}_{now}")
             replied += 1
+        elif plan.kind == "request_location" and plan.text:
+            await c.sender.send_location_request(
+                tenant=tenant, to=to, body=plan.text,
+                idempotency_key=f"tick_{tenant}_{subject_ref}_{now}")
+            replied += 1
 
     timed_out = await c.engine.sweep_timed_out(tenant, now=now, batch=batch)
 

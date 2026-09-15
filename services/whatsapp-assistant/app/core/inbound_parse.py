@@ -29,4 +29,19 @@ def parse_message(message: dict[str, Any]) -> tuple[str, str, str]:
         if itype == "list_reply":
             reply = interactive.get("list_reply") or {}
             return "list_reply", str(reply.get("title") or ""), str(reply.get("id") or "")
+    if msg_type == "location":
+        # Meta's shape: {location: {latitude, longitude, name?, address?}} — a customer's shared
+        # pin, most often in answer to WhatsAppSender.send_location_request (the mobile-service-
+        # request flow, core/conversation.py::handle_location). `text` carries "<lat>,<lng>" —
+        # the one shared shape both the fast bus path and the catch-up poll parse identically, so
+        # the flattened field this service's own handlers key on is a plain string like every
+        # other kind, never a nested dict a handler would need type-scoped Meta parsing for.
+        loc = message.get("location") or {}
+        try:
+            lat, lng = float(loc.get("latitude")), float(loc.get("longitude"))
+        except (TypeError, ValueError):
+            return "text", "", ""
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+            return "text", "", ""
+        return "location", f"{lat},{lng}", ""
     return "text", "", ""
