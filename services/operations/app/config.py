@@ -207,6 +207,13 @@ class Settings(BaseSettings):
     BILLING_SERVICE_URL: str = ""            # e.g. http://billing-service:8000
     BILLING_USAGE_SET_PATH: str = "/internal/billing/usage/set"
     BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
+    # billing v0.24.1's read-only "who renews soon, across every tenant" scan — see
+    # core/renewal_heads_up.py. Never used for invoicing; that stays exactly where it already is.
+    BILLING_RENEWING_SOON_PATH: str = "/internal/billing/subscriptions/renewing-soon"
+    # 2 days ahead, the owner's own instruction (2026-09-15).
+    RENEWAL_HEADS_UP_WITHIN_SECONDS: int = 2 * 24 * 3600
+    WHATSAPP_ASSISTANT_SERVICE_URL: str = ""  # e.g. http://whatsapp-assistant:8000
+    WHATSAPP_UPCOMING_RENEWAL_TRIGGER_PATH: str = "/internal/whatsapp/upcoming-renewal/trigger"
 
     # ── our own subscribe path (§6.2.1) ───────────────────────────────────────
     # The one product rule billing must never learn: no PAID subscription before WhatsApp is

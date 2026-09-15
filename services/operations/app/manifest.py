@@ -158,6 +158,10 @@ def build_manifest(
             # the owner's own early "جدد الآن" tap on the 2-day-ahead WhatsApp heads-up — forces
             # this ONE subscription's cycle now; the automatic sweep itself is untouched.
             {"path": "/internal/operations/subscriptions/renew-now", "tier": "internal", "method": "POST"},
+            # the daily read-only scan (billing v0.24.1) + the durable claim loop that turns each
+            # renewing-soon row into a real WhatsApp heads-up — see core/renewal_heads_up.py.
+            {"path": "/internal/operations/subscriptions/renewal-heads-up/scan", "tier": "internal", "method": "POST"},
+            {"path": "/internal/operations/subscriptions/renewal-heads-up/jobs/run", "tier": "internal", "method": "POST"},
             # bookings' booking->visit gateway (§4): the ONE way an attended booking becomes a
             # real Visit — record_visit() itself, resolved by customer_id instead of phone.
             {"path": "/internal/operations/visits/from-customer", "tier": "internal", "method": "POST"},

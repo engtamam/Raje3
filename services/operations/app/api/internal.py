@@ -2546,6 +2546,32 @@ async def salla_jobs_run(request: Request) -> dict:
     return {"claimed": len(claimed), "refreshed": refreshed, "skipped": skipped, "failed": failed}
 
 
+@router.post("/operations/subscriptions/renewal-heads-up/scan",
+             dependencies=[Depends(require_internal_token)])
+async def renewal_heads_up_scan(request: Request) -> dict:
+    """Find every subscription renewing within the configured window, across every tenant, and
+    enqueue ONE durable job per row — driven by a daily CronJob. See
+    app/core/renewal_heads_up.py's own docstring; a read-only billing scan, no invoicing, no
+    side effect at all past the durable enqueue."""
+    from app.core.renewal_heads_up import scan as run_scan
+
+    c = request.app.state.container
+    settings = get_settings()
+    return await run_scan(renewing_soon=c.renewing_soon, jobs=c.jobs,
+                          within_seconds=settings.RENEWAL_HEADS_UP_WITHIN_SECONDS)
+
+
+@router.post("/operations/subscriptions/renewal-heads-up/jobs/run",
+             dependencies=[Depends(require_internal_token)])
+async def renewal_heads_up_jobs_run(request: Request) -> dict:
+    """job-service's own claim loop for the queue the scan above fills — a CronJob drives THIS
+    every few minutes, much tighter than the daily scan. Same shape as `salla_jobs_run`."""
+    from app.core.renewal_heads_up import run_claimed_jobs
+
+    c = request.app.state.container
+    return await run_claimed_jobs(jobs=c.jobs, notifier=c.renewal_heads_up_notifier)
+
+
 @router.post("/operations/templates/sync-approvals",
              dependencies=[Depends(require_internal_token)])
 async def sync_template_approvals(request: Request) -> dict:

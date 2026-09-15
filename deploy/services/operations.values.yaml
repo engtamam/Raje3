@@ -166,6 +166,9 @@ env:
   # mistake.
   GAUGE_DRIVER: "http"
   BILLING_SERVICE_URL: "http://billing-service:8000"
+  # the 2-days-ahead renewal heads-up scan/run pair (core/renewal_heads_up.py) calls
+  # whatsapp-assistant's own per-row trigger with this.
+  WHATSAPP_ASSISTANT_SERVICE_URL: "http://whatsapp-assistant:8000"
   # ── the partner statement's one input (§7) ────────────────────────────────────────────────
   #
   # A commission is computed on money that ARRIVED, so the monthly sweep reads settled invoices
@@ -495,6 +498,15 @@ cronJobs:
   - name: salla-jobs-run
     schedule: "2-59/5 * * * *"
     path: /internal/operations/salla/jobs/run
+  # THE 2-DAYS-AHEAD RENEWAL HEADS-UP — same scan/run split as Salla's own pair above. See
+  # app/core/renewal_heads_up.py's own docstring: a daily, read-only billing scan (no invoicing)
+  # enqueues one durable job per row; the run claims and actually calls whatsapp-assistant.
+  - name: renewal-heads-up-scan
+    schedule: "26 4 * * *"
+    path: /internal/operations/subscriptions/renewal-heads-up/scan
+  - name: renewal-heads-up-jobs-run
+    schedule: "4-59/5 * * * *"
+    path: /internal/operations/subscriptions/renewal-heads-up/jobs/run
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

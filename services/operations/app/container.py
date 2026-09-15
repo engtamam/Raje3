@@ -292,6 +292,18 @@ def build_container(settings: Settings) -> Container:
     # gets a provider that refuses every op rather than faking a renewal.
     from app.adapters.renewal_provider import build_renewal_provider
     container.renewal_provider = build_renewal_provider(settings)
+    # THE 2-DAYS-AHEAD SCAN — see core/renewal_heads_up.py's own docstring. `container.jobs` is
+    # ALREADY the durable job-service peer (`c.jobs`, built above for Salla's own refresh scan) —
+    # this reuses it rather than minting a second one.
+    from app.core.renewal_heads_up import RenewingSoonReader, WhatsAppHeadsUpNotifier
+
+    container.renewing_soon = RenewingSoonReader(
+        base_url=settings.BILLING_SERVICE_URL, path=settings.BILLING_RENEWING_SOON_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN)
+    container.renewal_heads_up_notifier = WhatsAppHeadsUpNotifier(
+        base_url=settings.WHATSAPP_ASSISTANT_SERVICE_URL,
+        path=settings.WHATSAPP_UPCOMING_RENEWAL_TRIGGER_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN)
     container.search = build_search(settings)
     # THE VISIT STORE IS HANDED IN so the seams can write down that they finished (ز-7). Without
     # it nothing could tell «the after-work ran» from «the pod died before it did», and the retry
