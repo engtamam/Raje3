@@ -120,6 +120,12 @@ class Settings(BaseSettings):
     # ── Internal service-to-service auth (REQUIRED) ─────────────────────────
     # Shared token for /internal/* endpoints. Must be strong (>= 32 chars).
     INTERNAL_SERVICE_TOKEN: str = Field(min_length=32)
+    # job-service push-dispatch verification (app/core/push_verify.py) — empty means "verify
+    # against INTERNAL_SERVICE_TOKEN instead", the SAME fallback job-service's own dispatcher uses
+    # when ITS OWN PUSH_SIGNING_SECRET is unset, so the two sides agree by default with nothing
+    # extra to configure.
+    PUSH_SIGNING_SECRET: str = ""
+    PUSH_SIGNATURE_MAX_SKEW_SECONDS: int = 300
     # Salts the subject pseudonym on an erasure ack. FROZEN — config/product.identifiers.lock.json.
     PII_SALT: str = ""
     ERASURE_MAX_SCAN: int = 100_000   # a DSAR is rare, but must never be an unbounded read

@@ -190,26 +190,32 @@ env:
   # small shop and a rounding error in a large one.
   INSIGHTS_MIN_OPPORTUNITY: "20"
 
-# THE HEARTBEAT. Without it every dashboard says "أحسب الآن" for ever while every probe stays
-# green and no error is raised anywhere (trap §4.1).
+# THE HEARTBEAT — job-service PUSH DISPATCH, NOT A K8S CronJob (migrated 2026-09-16, following
+# whatsapp-assistant's own tick — see deploy/hooks/job-schedule.sh's own header for the full
+# migration plan). Without a live schedule + registered push target every dashboard says "أحسب
+# الآن" for ever while every probe stays green and no error is raised anywhere (trap §4.1).
+#
+# PROVISIONED ONCE, OUTSIDE THIS CHART (an admin action, not a deploy value):
+#   deploy/hooks/job-schedule.sh create insights-tick "0 1,4,7,10,13,16,19,22 * * *" \
+#       insights-tick insights.tick
+#   deploy/hooks/job-dispatch-target.sh register insights-tick \
+#       http://insights:8000/internal/insights/tick
+#   deploy/hooks/job-schedule.sh create insights-platform-rollup \
+#       "20 1,4,7,10,13,16,19,22 * * *" insights-platform-rollup insights.platform_rollup
+#   deploy/hooks/job-dispatch-target.sh register insights-platform-rollup \
+#       http://insights:8000/internal/insights/platform-rollup
 #
 # The snapshot runs at 04:00 — AFTER loyalty's expiry sweep at 03:10, so a balance that expired
 # overnight is already expired in the numbers rather than counted twice across two mornings.
-cronJobs:
-  - name: tick
-    # EVERY THREE HOURS, NOT ONCE A DAY — and 04:00 is still one of the passes, so the ordering
-    # against loyalty's 03:10 expiry sweep is unchanged. A daily snapshot meant an owner who
-    # recorded ten visits this morning saw yesterday's shop until tomorrow, and read that as the
-    # product not counting his work. The pass is bounded and resumable by design, so running it
-    # eight times a day costs eight small passes rather than one large one.
-    schedule: "0 1,4,7,10,13,16,19,22 * * *"
-    path: /internal/insights/tick
-  - name: platform-rollup
-    # 20 MINUTES AFTER EVERY TICK PASS, not on its own schedule — the rollup only reads snapshots
-    # tick already wrote (core/rollup.py), so running it right after a pass means it reads
-    # freshly-updated numbers instead of racing the sweep.
-    schedule: "20 1,4,7,10,13,16,19,22 * * *"
-    path: /internal/insights/platform-rollup
+# EVERY THREE HOURS, NOT ONCE A DAY — and 04:00 is still one of the passes, so the ordering
+# against loyalty's 03:10 expiry sweep is unchanged. A daily snapshot meant an owner who recorded
+# ten visits this morning saw yesterday's shop until tomorrow, and read that as the product not
+# counting his work. The pass is bounded and resumable by design, so running it eight times a day
+# costs eight small passes rather than one large one. The rollup fires 20 minutes after every tick
+# pass, not on its own schedule — it only reads snapshots tick already wrote (core/rollup.py), so
+# running it right after a pass means it reads freshly-updated numbers instead of racing the
+# sweep. Every push is verified (app/core/push_verify.py) — neither route trusts the shared
+# internal token alone any more.
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:

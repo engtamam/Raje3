@@ -15,6 +15,23 @@ NOW = 1_800_000_000
 DAY = 86400
 
 
+def push_headers(body: bytes) -> dict[str, str]:
+    """A genuine job-service push signature over `body`, verifiable against
+    INTERNAL_SERVICE_TOKEN (the default `require_push_signature` falls back to). Needed on top of
+    `INTERNAL` for any route gated by `require_push_signature` (tick, platform-rollup — migrated
+    2026-09-16, same as whatsapp-assistant's own tick)."""
+    import hashlib
+    import hmac
+    import time
+
+    from app.core.push_verify import SIGNATURE_HEADER, TIMESTAMP_HEADER
+
+    ts = int(time.time())
+    signed = f"{ts}.".encode("utf-8") + body
+    sig = hmac.new(("t" * 40).encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return {SIGNATURE_HEADER: sig, TIMESTAMP_HEADER: str(ts)}
+
+
 def _make_app() -> TestClient:
     from app.config import get_settings
 
@@ -81,7 +98,9 @@ def _seed(client, rows, catalogue=None):
     c.peers._catalogue = catalogue or [{"id": "oil", "name": "قص شعر", "cycle_days": 90},
                                        {"id": "filter", "name": "فلتر", "cycle_days": 0},
                                        {"id": "wash", "name": "غسيل", "cycle_days": 30}]
-    r = client.post("/internal/insights/tick", json={"tenant": TENANT}, headers=INTERNAL)
+    body = f'{{"tenant": "{TENANT}"}}'.encode()
+    r = client.post("/internal/insights/tick", data=body,
+                    headers={**INTERNAL, **push_headers(body), "Content-Type": "application/json"})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -487,7 +506,8 @@ def test_a_tick_then_a_rollup_pass_makes_the_summary_readable(client):
     ops = _auth("insights.read", "platform.insights", tenant="_platform")
     _seed(client, visits(15))   # ticks TENANT, computing its own return_rate
 
-    r = client.post("/internal/insights/platform-rollup", json={}, headers=INTERNAL)
+    r = client.post("/internal/insights/platform-rollup", json={},
+                    headers={**INTERNAL, **push_headers(b"{}")})
     assert r.status_code == 200, r.text
     assert r.json()["tenants_with_snapshot"] >= 1
 
